@@ -1,0 +1,10 @@
+language: rust
+sudo: false
+
+rust:
+  # There's currently a cargo bug on stable which prevents libfontconfig_sys
+  # from building properly.
+  - nightly
+
+script:
+  - cargo test
