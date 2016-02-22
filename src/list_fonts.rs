@@ -69,10 +69,29 @@ pub struct Variant {
     index: usize,
 }
 
+impl Variant {
+    #[inline]
+    pub fn filepath(&self) -> &::std::path::Path {
+        self.file.as_path()
+    }
+}
+
 #[derive(Debug)]
 pub struct Family {
     name: String,
     variants: Vec<Variant>,
+}
+
+impl Family {
+    #[inline]
+    pub fn name(&self) -> &str {
+        &self.name[..]
+    }
+
+    #[inline]
+    pub fn variants(&self) -> &[Variant] {
+        &self.variants[..]
+    }
 }
 
 static FILE: &'static [u8] = b"file\0";

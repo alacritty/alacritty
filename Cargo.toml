@@ -4,6 +4,6 @@ version = "0.1.0"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 
 [dependencies]
-servo-fontconfig = "0.2"
-freetype = { git = "https://github.com/servo/rust-freetype.git" }
+servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig" }
+freetype-rs = "0.5.0"
 libc = "*"
