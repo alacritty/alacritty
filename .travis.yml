@@ -7,4 +7,9 @@ rust:
   - nightly
 
 script:
+  # Install test font
+  - curl -O http://media.nodnod.net/Inconsolata-dz.otf.zip
+  - unzip Inconsolata-dz.otf.zip
+  - mkdir ~/.fonts
+  - mv Inconsolata-dz.otf ~/.fonts/
   - cargo test
