@@ -49,12 +49,12 @@ impl Rasterizer {
 }
 
 #[derive(Debug)]
-struct RasterizedGlyph {
-    width: usize,
-    height: usize,
-    top: usize,
-    left: usize,
-    buf: Vec<u8>,
+pub struct RasterizedGlyph {
+    pub width: usize,
+    pub height: usize,
+    pub top: usize,
+    pub left: usize,
+    pub buf: Vec<u8>,
 }
 
 

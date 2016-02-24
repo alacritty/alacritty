@@ -7,3 +7,6 @@ authors = ["Joe Wilm <joe@jwilm.com>"]
 servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig" }
 freetype-rs = "0.5.0"
 libc = "*"
+glutin = "*"
+gl = "*"
+cgmath = "0.7"
