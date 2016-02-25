@@ -120,24 +120,23 @@ fn render(program: &ShaderProgram, glyph: &RasterizedGlyph, tex: &AlphaTexture, 
     program.activate();
     unsafe {
         // set color
-        gl::Uniform3f(program.color, 1., 1., 0.5);
+        gl::Uniform3f(program.u_color, 1., 1., 0.5);
     }
 
     let rect = get_rect(glyph, 10.0, 10.0);
 
     // top right of character
     let vertices: [[f32; 4]; 4] = [
-        [rect.max_x(), rect.max_y(), 1., 0.],
-        [rect.max_x(), rect.min_y(), 1., 1.],
-        [rect.min_x(), rect.min_y(), 0., 1.],
-        [rect.min_x(), rect.max_y(), 0., 0.],
+        [rect.max_x(), rect.max_y(), 1., 0.], // top-right
+        [rect.max_x(), rect.min_y(), 1., 1.], // bottom-right
+        [rect.min_x(), rect.min_y(), 0., 1.], // bottom-left
+        [rect.min_x(), rect.max_y(), 0., 0.], // top-left
     ];
 
     unsafe {
-        gl::ActiveTexture(gl::TEXTURE0);
+        bind_mask_texture(tex.id);
         gl::BindVertexArray(vao);
 
-        gl::BindTexture(gl::TEXTURE_2D, tex.id);
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
         gl::BufferSubData(
             gl::ARRAY_BUFFER,
@@ -156,12 +155,19 @@ fn render(program: &ShaderProgram, glyph: &RasterizedGlyph, tex: &AlphaTexture, 
     program.deactivate();
 }
 
+fn bind_mask_texture(id: u32) {
+    unsafe {
+        gl::ActiveTexture(gl::TEXTURE0);
+        gl::BindTexture(gl::TEXTURE_2D, id);
+    }
+}
+
 pub struct ShaderProgram {
     id: GLuint,
-    /// uniform location for projection matrix
-    projection: GLint,
-    /// uniform location foyr textColor
-    color: GLint,
+    /// projection matrix uniform
+    u_projection: GLint,
+    /// color uniform
+    u_color: GLint,
 }
 
 impl ShaderProgram {
@@ -205,8 +211,8 @@ impl ShaderProgram {
 
         let shader = ShaderProgram {
             id: program,
-            projection: projection,
-            color: color,
+            u_projection: projection,
+            u_color: color,
         };
 
         // set projection uniform
@@ -217,7 +223,8 @@ impl ShaderProgram {
 
         shader.activate();
         unsafe {
-            gl::UniformMatrix4fv(shader.projection, 1, gl::FALSE, projection.as_ptr() as *const _);
+            gl::UniformMatrix4fv(shader.u_projection,
+                                 1, gl::FALSE, projection.as_ptr() as *const _);
         }
         shader.deactivate();
 
