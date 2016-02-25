@@ -39,55 +39,18 @@ fn main() {
     }
 
     let rasterizer = text::Rasterizer::new();
-    let glyph_j = rasterizer.get_glyph(180., 'J');
-
-    let tex = AlphaTexture::new(
-        glyph_j.width as i32,
-        glyph_j.height as i32,
-        glyph_j.buf.as_ptr() as *const _
-    );
+    let glyph_R = Glyph::new(&rasterizer.get_glyph(180., 'R'));
+    let glyph_u = Glyph::new(&rasterizer.get_glyph(180., 'u'));
+    let glyph_s = Glyph::new(&rasterizer.get_glyph(180., 's'));
+    let glyph_t = Glyph::new(&rasterizer.get_glyph(180., 't'));
 
     unsafe {
         gl::Enable(gl::BLEND);
         gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        gl::Enable(gl::MULTISAMPLE);
     }
 
-    let mut vao: GLuint = 0;
-    let mut vbo: GLuint = 0;
-    let mut ebo: GLuint = 0;
-    unsafe {
-        gl::GenVertexArrays(1, &mut vao);
-        gl::GenBuffers(1, &mut vbo);
-        gl::GenBuffers(1, &mut ebo);
-        gl::BindVertexArray(vao);
-
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            (size_of::<f32>() * 4 * 4) as GLsizeiptr,
-            ptr::null(),
-            gl::DYNAMIC_DRAW
-        );
-
-        let indices: [u32; 6] = [0, 1, 3,
-                                 1, 2, 3];
-
-        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
-        gl::BufferData(gl::ELEMENT_ARRAY_BUFFER,
-                       6 * size_of::<u32>() as isize,
-                       indices.as_ptr() as *const _,
-                       gl::STATIC_DRAW);
-
-        gl::EnableVertexAttribArray(0);
-        gl::VertexAttribPointer(0, 4, gl::FLOAT, gl::FALSE, 4 * size_of::<f32>() as i32,
-                                ptr::null());
-
-        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-        gl::BindVertexArray(0);
-    }
-
-    let program = ShaderProgram::new(width, height);
+    let renderer = QuadRenderer::new(width, height);
 
     for event in window.wait_events() {
         unsafe {
@@ -95,7 +58,10 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        render(&program, &glyph_j, &tex, vbo, vao, ebo);
+        renderer.render(&glyph_R, 10.0, 10.0);
+        renderer.render(&glyph_u, 130.0, 10.0);
+        renderer.render(&glyph_s, 250.0, 10.0);
+        renderer.render(&glyph_t, 370.0, 10.0);
 
         window.swap_buffers();
 
@@ -106,53 +72,107 @@ fn main() {
     }
 }
 
-fn get_rect(glyph: &RasterizedGlyph, x: f32, y: f32) -> Rect<f32> {
+struct QuadRenderer {
+    program: ShaderProgram,
+    vao: GLuint,
+    vbo: GLuint,
+    ebo: GLuint,
+}
+
+impl QuadRenderer {
+    // TODO should probably hand this a transform instead of width/height
+    pub fn new(width: u32, height: u32) -> QuadRenderer {
+        let program = ShaderProgram::new(width, height);
+
+        let mut vao: GLuint = 0;
+        let mut vbo: GLuint = 0;
+        let mut ebo: GLuint = 0;
+
+        unsafe {
+            gl::GenVertexArrays(1, &mut vao);
+            gl::GenBuffers(1, &mut vbo);
+            gl::GenBuffers(1, &mut ebo);
+            gl::BindVertexArray(vao);
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (size_of::<f32>() * 4 * 4) as GLsizeiptr,
+                ptr::null(),
+                gl::DYNAMIC_DRAW
+            );
+
+            let indices: [u32; 6] = [0, 1, 3,
+                                     1, 2, 3];
+
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER,
+                           6 * size_of::<u32>() as isize,
+                           indices.as_ptr() as *const _,
+                           gl::STATIC_DRAW);
+
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribPointer(0, 4, gl::FLOAT, gl::FALSE, 4 * size_of::<f32>() as i32,
+                                    ptr::null());
+
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+        }
+
+        QuadRenderer {
+            program: program,
+            vao: vao,
+            vbo: vbo,
+            ebo: ebo,
+        }
+    }
+
+    pub fn render(&self, glyph: &Glyph, x: f32, y: f32) {
+        self.program.activate();
+        unsafe {
+            // set color
+            gl::Uniform3f(self.program.u_color, 1., 1., 0.5);
+        }
+
+        let rect = get_rect(glyph, x, y);
+
+        // top right of character
+        let vertices: [[f32; 4]; 4] = [
+            [rect.max_x(), rect.max_y(), 1., 0.], // top-right
+            [rect.max_x(), rect.min_y(), 1., 1.], // bottom-right
+            [rect.min_x(), rect.min_y(), 0., 1.], // bottom-left
+            [rect.min_x(), rect.max_y(), 0., 0.], // top-left
+        ];
+
+        unsafe {
+            bind_mask_texture(glyph.tex_id);
+            gl::BindVertexArray(self.vao);
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::BufferSubData(
+                gl::ARRAY_BUFFER,
+                0,
+                (4 * 4 * size_of::<f32>()) as isize,
+                vertices.as_ptr() as *const _
+            );
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
+
+            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
+            gl::BindVertexArray(0);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
+
+        self.program.deactivate();
+    }
+}
+
+fn get_rect(glyph: &Glyph, x: f32, y: f32) -> Rect<f32> {
     Rect::new(
         Point2D::new(x, y),
         Size2D::new(glyph.width as f32, glyph.height as f32)
     )
-}
-
-/// Render a character
-fn render(program: &ShaderProgram, glyph: &RasterizedGlyph, tex: &AlphaTexture, vbo: GLuint,
-          vao: GLuint, ebo: GLuint)
-{
-    program.activate();
-    unsafe {
-        // set color
-        gl::Uniform3f(program.u_color, 1., 1., 0.5);
-    }
-
-    let rect = get_rect(glyph, 10.0, 10.0);
-
-    // top right of character
-    let vertices: [[f32; 4]; 4] = [
-        [rect.max_x(), rect.max_y(), 1., 0.], // top-right
-        [rect.max_x(), rect.min_y(), 1., 1.], // bottom-right
-        [rect.min_x(), rect.min_y(), 0., 1.], // bottom-left
-        [rect.min_x(), rect.max_y(), 0., 0.], // top-left
-    ];
-
-    unsafe {
-        bind_mask_texture(tex.id);
-        gl::BindVertexArray(vao);
-
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-        gl::BufferSubData(
-            gl::ARRAY_BUFFER,
-            0,
-            (4 * 4 * size_of::<f32>()) as isize,
-            vertices.as_ptr() as *const _
-        );
-        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
-
-        gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
-        gl::BindVertexArray(0);
-        gl::BindTexture(gl::TEXTURE_2D, 0);
-    }
-
-    program.deactivate();
 }
 
 fn bind_mask_texture(id: u32) {
@@ -284,14 +304,16 @@ impl ShaderProgram {
     }
 }
 
-struct AlphaTexture {
-    pub id: GLuint,
-    pub width: i32,
-    pub height: i32,
+struct Glyph {
+    tex_id: GLuint,
+    top: i32,
+    left: i32,
+    width: i32,
+    height: i32,
 }
 
-impl AlphaTexture {
-    pub fn new(width: i32, height: i32, bytes: *const ::std::os::raw::c_void) -> AlphaTexture {
+impl Glyph {
+    pub fn new(rasterized: &RasterizedGlyph) -> Glyph {
         let mut id: GLuint = 0;
         unsafe {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
@@ -301,12 +323,12 @@ impl AlphaTexture {
                 gl::TEXTURE_2D,
                 0,
                 gl::RED as i32,
-                width as i32,
-                height as i32,
+                rasterized.width as i32,
+                rasterized.height as i32,
                 0,
                 gl::RED,
                 gl::UNSIGNED_BYTE,
-                bytes
+                rasterized.buf.as_ptr() as *const _
             );
 
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
@@ -317,10 +339,12 @@ impl AlphaTexture {
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
 
-        AlphaTexture {
-            id: id,
-            width: width,
-            height: height,
+        Glyph {
+            tex_id: id,
+            top: rasterized.top as i32,
+            width: rasterized.width as i32,
+            height: rasterized.height as i32,
+            left: rasterized.left as i32,
         }
     }
 }
