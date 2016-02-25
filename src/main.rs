@@ -54,22 +54,36 @@ fn main() {
 
     let mut vao: GLuint = 0;
     let mut vbo: GLuint = 0;
+    let mut ebo: GLuint = 0;
     unsafe {
         gl::GenVertexArrays(1, &mut vao);
         gl::GenBuffers(1, &mut vbo);
+        gl::GenBuffers(1, &mut ebo);
         gl::BindVertexArray(vao);
 
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
         gl::BufferData(
             gl::ARRAY_BUFFER,
-            (size_of::<f32>() * 6 * 4) as GLsizeiptr,
+            (size_of::<f32>() * 4 * 4) as GLsizeiptr,
             ptr::null(),
             gl::DYNAMIC_DRAW
         );
+
+        let indices: [u32; 6] = [0, 1, 3,
+                                 1, 2, 3];
+
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+        gl::BufferData(gl::ELEMENT_ARRAY_BUFFER,
+                       6 * size_of::<u32>() as isize,
+                       indices.as_ptr() as *const _,
+                       gl::STATIC_DRAW);
+
         gl::EnableVertexAttribArray(0);
         gl::VertexAttribPointer(0, 4, gl::FLOAT, gl::FALSE, 4 * size_of::<f32>() as i32,
                                 ptr::null());
+
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
         gl::BindVertexArray(0);
     }
 
@@ -81,7 +95,7 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        render(&program, &glyph_j, &tex, vbo, vao);
+        render(&program, &glyph_j, &tex, vbo, vao, ebo);
 
         window.swap_buffers();
 
@@ -100,10 +114,8 @@ fn get_rect(glyph: &RasterizedGlyph, x: f32, y: f32) -> Rect<f32> {
 }
 
 /// Render a character
-///
-/// TODO use element array to describe quad instead
 fn render(program: &ShaderProgram, glyph: &RasterizedGlyph, tex: &AlphaTexture, vbo: GLuint,
-          vao: GLuint)
+          vao: GLuint, ebo: GLuint)
 {
     program.activate();
     unsafe {
@@ -114,14 +126,11 @@ fn render(program: &ShaderProgram, glyph: &RasterizedGlyph, tex: &AlphaTexture, 
     let rect = get_rect(glyph, 10.0, 10.0);
 
     // top right of character
-    let vertices: [[f32; 4]; 6] = [
-        [rect.min_x(), rect.max_y(), 0., 0.],
-        [rect.min_x(), rect.min_y(), 0., 1.],
-        [rect.max_x(), rect.min_y(), 1., 1.],
-
-        [rect.min_x(), rect.max_y(), 0., 0.],
-        [rect.max_x(), rect.min_y(), 1., 1.],
+    let vertices: [[f32; 4]; 4] = [
         [rect.max_x(), rect.max_y(), 1., 0.],
+        [rect.max_x(), rect.min_y(), 1., 1.],
+        [rect.min_x(), rect.min_y(), 0., 1.],
+        [rect.min_x(), rect.max_y(), 0., 0.],
     ];
 
     unsafe {
@@ -133,13 +142,13 @@ fn render(program: &ShaderProgram, glyph: &RasterizedGlyph, tex: &AlphaTexture, 
         gl::BufferSubData(
             gl::ARRAY_BUFFER,
             0,
-            (4 * 6 * size_of::<f32>()) as isize,
+            (4 * 4 * size_of::<f32>()) as isize,
             vertices.as_ptr() as *const _
         );
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
 
-
-        gl::DrawArrays(gl::TRIANGLES, 0, 6);
+        gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
         gl::BindVertexArray(0);
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }
