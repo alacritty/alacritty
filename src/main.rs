@@ -4,14 +4,16 @@ extern crate libc;
 extern crate glutin;
 extern crate gl;
 extern crate cgmath;
+extern crate euclid;
 
 mod list_fonts;
 mod text;
 
-
 use std::ffi::CString;
 use std::mem::size_of;
 use std::ptr;
+
+use euclid::{Rect, Size2D, Point2D};
 
 use libc::c_void;
 
@@ -90,6 +92,13 @@ fn main() {
     }
 }
 
+fn get_rect(glyph: &RasterizedGlyph, x: f32, y: f32) -> Rect<f32> {
+    Rect::new(
+        Point2D::new(x, y),
+        Size2D::new(glyph.width as f32, glyph.height as f32)
+    )
+}
+
 /// Render a character
 ///
 /// TODO use element array to describe quad instead
@@ -102,21 +111,17 @@ fn render(program: &ShaderProgram, glyph: &RasterizedGlyph, tex: &AlphaTexture, 
         gl::Uniform3f(program.color, 1., 1., 0.5);
     }
 
-    // bottom left of character
-    let left = 10. as f32;
-    let bottom = 10. as f32;
+    let rect = get_rect(glyph, 10.0, 10.0);
 
     // top right of character
-    let top = bottom + glyph.height as f32;
-    let right = left + glyph.width as f32;
     let vertices: [[f32; 4]; 6] = [
-        [left,    top,     0.,   0.],
-        [left,    bottom,  0.,   1.],
-        [right,   bottom,  1.,   1.],
+        [rect.min_x(), rect.max_y(), 0., 0.],
+        [rect.min_x(), rect.min_y(), 0., 1.],
+        [rect.max_x(), rect.min_y(), 1., 1.],
 
-        [left,    top,     0.,   0.],
-        [right,   bottom,  1.,   1.],
-        [right,   top,     1.,   0.],
+        [rect.min_x(), rect.max_y(), 0., 0.],
+        [rect.max_x(), rect.min_y(), 1., 1.],
+        [rect.max_x(), rect.max_y(), 1., 0.],
     ];
 
     unsafe {
