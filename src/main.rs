@@ -17,8 +17,8 @@ fn main() {
     let window = glutin::Window::new().unwrap();
     let (width, height) = window.get_inner_size_pixels().unwrap();
     unsafe {
-        window.make_current()
-    };
+        window.make_current().unwrap();
+    }
 
     unsafe {
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
@@ -27,7 +27,7 @@ fn main() {
 
     let rasterizer = text::Rasterizer::new();
 
-    let glyph_R = Glyph::new(&rasterizer.get_glyph(180., 'R'));
+    let glyph_r = Glyph::new(&rasterizer.get_glyph(180., 'R'));
     let glyph_u = Glyph::new(&rasterizer.get_glyph(180., 'u'));
     let glyph_s = Glyph::new(&rasterizer.get_glyph(180., 's'));
     let glyph_t = Glyph::new(&rasterizer.get_glyph(180., 't'));
@@ -46,12 +46,12 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        renderer.render(&glyph_R, 10.0, 10.0);
+        renderer.render(&glyph_r, 10.0, 10.0);
         renderer.render(&glyph_u, 130.0, 10.0);
         renderer.render(&glyph_s, 250.0, 10.0);
         renderer.render(&glyph_t, 370.0, 10.0);
 
-        window.swap_buffers();
+        window.swap_buffers().unwrap();
 
         match event {
             glutin::Event::Closed => break,

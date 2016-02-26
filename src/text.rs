@@ -7,7 +7,7 @@ use freetype;
 /// Rasterizes glyphs for a single font face.
 pub struct Rasterizer {
     face: Face<'static>,
-    library: Library,
+    _library: Library,
 }
 
 #[inline]
@@ -28,7 +28,7 @@ impl Rasterizer {
 
         Rasterizer {
             face: library.new_face(path, 0).expect("Create font face"),
-            library: library,
+            _library: library,
         }
     }
 
