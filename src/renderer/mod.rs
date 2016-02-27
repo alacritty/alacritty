@@ -102,27 +102,12 @@ impl QuadRenderer {
         let rect = get_rect(glyph, x, y);
 
         // Top right, Bottom right, Bottom left, Top left
-        let packed = [PackedVertex {
-            x: rect.max_x(),
-            y: rect.max_y(),
-            u: 1.0,
-            v: 0.0,
-        }, PackedVertex {
-            x: rect.max_x(),
-            y: rect.min_y(),
-            u: 1.0,
-            v: 1.0,
-        }, PackedVertex {
-            x: rect.min_x(),
-            y: rect.min_y(),
-            u: 0.0,
-            v: 1.0,
-        }, PackedVertex {
-            x: rect.min_x(),
-            y: rect.max_y(),
-            u: 0.0,
-            v: 0.0,
-        }];
+        let packed = [
+            PackedVertex { x: rect.max_x(), y: rect.max_y(), u: 1.0, v: 0.0, },
+            PackedVertex { x: rect.max_x(), y: rect.min_y(), u: 1.0, v: 1.0, },
+            PackedVertex { x: rect.min_x(), y: rect.min_y(), u: 0.0, v: 1.0, },
+            PackedVertex { x: rect.min_x(), y: rect.max_y(), u: 0.0, v: 0.0, },
+        ];
 
         unsafe {
             bind_mask_texture(glyph.tex_id);
