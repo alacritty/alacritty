@@ -11,6 +11,7 @@ mod text;
 mod renderer;
 
 use renderer::{Glyph, QuadRenderer};
+use text::FontDesc;
 
 
 fn main() {
@@ -25,12 +26,13 @@ fn main() {
         gl::Viewport(0, 0, width as i32, height as i32);
     }
 
+    let desc = FontDesc::new("Ubuntu Mono", "Regular");
     let mut rasterizer = text::Rasterizer::new();
 
-    let glyph_r = Glyph::new(&rasterizer.get_glyph(180., 'R'));
-    let glyph_u = Glyph::new(&rasterizer.get_glyph(180., 'u'));
-    let glyph_s = Glyph::new(&rasterizer.get_glyph(180., 's'));
-    let glyph_t = Glyph::new(&rasterizer.get_glyph(180., 't'));
+    let glyph_r = Glyph::new(&rasterizer.get_glyph(&desc, 180., 'R'));
+    let glyph_u = Glyph::new(&rasterizer.get_glyph(&desc, 180., 'u'));
+    let glyph_s = Glyph::new(&rasterizer.get_glyph(&desc, 180., 's'));
+    let glyph_t = Glyph::new(&rasterizer.get_glyph(&desc, 180., 't'));
 
     unsafe {
         gl::Enable(gl::BLEND);

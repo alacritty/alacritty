@@ -18,7 +18,7 @@ fn to_freetype_26_6(f: f32) -> isize {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-struct FontDesc {
+pub struct FontDesc {
     name: String,
     style: String,
 }
@@ -46,7 +46,6 @@ impl Rasterizer {
     }
 
     pub fn get_face(&mut self, desc: &FontDesc) -> Option<Face<'static>> {
-
         if let Some(face) = self.faces.get(desc) {
             return Some(face.clone());
         }
@@ -64,9 +63,8 @@ impl Rasterizer {
         None
     }
 
-    pub fn get_glyph(&mut self, size: f32, c: char) -> RasterizedGlyph {
-        let face = self.get_face(&FontDesc::new("Ubuntu Mono", "Regular"))
-                       .expect("TODO handle get_face error");
+    pub fn get_glyph(&mut self, desc: &FontDesc, size: f32, c: char) -> RasterizedGlyph {
+        let face = self.get_face(desc).expect("TODO handle get_face error");
         // TODO DPI
         face.set_char_size(to_freetype_26_6(size), 0, 96, 0).unwrap();
         face.load_char(c as usize, freetype::face::RENDER).unwrap();
@@ -94,12 +92,17 @@ pub struct RasterizedGlyph {
 
 #[cfg(test)]
 mod tests {
-    use super::Rasterizer;
+    use super::{Rasterizer, FontDesc};
+
+    #[cfg(target_os = "linux")]
+    fn font_desc() -> FontDesc {
+        FontDesc::new("Ubuntu Mono", "Regular")
+    }
 
     #[test]
     fn create_rasterizer_and_render_glyph() {
         let mut rasterizer = Rasterizer::new();
-        let glyph = rasterizer.get_glyph(24., 'U');
+        let glyph = rasterizer.get_glyph(&font_desc(), 24., 'U');
 
         println!("glyph: {:?}", glyph);
 
