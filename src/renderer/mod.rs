@@ -23,6 +23,26 @@ pub struct QuadRenderer {
     ebo: GLuint,
 }
 
+pub struct PackedQuad {
+    pub x_tr: f32,
+    pub y_tr: f32,
+    pub u_tr: f32,
+    pub v_tr: f32,
+    pub x_br: f32,
+    pub y_br: f32,
+    pub u_br: f32,
+    pub v_br: f32,
+    pub x_bl: f32,
+    pub y_bl: f32,
+    pub u_bl: f32,
+    pub v_bl: f32,
+    pub x_tl: f32,
+    pub y_tl: f32,
+    pub u_tl: f32,
+    pub v_tl: f32,
+}
+
+
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
     pub fn new(width: u32, height: u32) -> QuadRenderer {
@@ -81,13 +101,24 @@ impl QuadRenderer {
 
         let rect = get_rect(glyph, x, y);
 
-        // top right of character
-        let vertices: [[f32; 4]; 4] = [
-            [rect.max_x(), rect.max_y(), 1., 0.], // top-right
-            [rect.max_x(), rect.min_y(), 1., 1.], // bottom-right
-            [rect.min_x(), rect.min_y(), 0., 1.], // bottom-left
-            [rect.min_x(), rect.max_y(), 0., 0.], // top-left
-        ];
+        let packed = [PackedQuad {
+            x_tr: rect.max_x(),
+            y_tr: rect.max_y(),
+            u_tr: 1.0,
+            v_tr: 0.0,
+            x_br: rect.max_x(),
+            y_br: rect.min_y(),
+            u_br: 1.0,
+            v_br: 1.0,
+            x_bl: rect.min_x(),
+            y_bl: rect.min_y(),
+            u_bl: 0.0,
+            v_bl: 1.0,
+            x_tl: rect.min_x(),
+            y_tl: rect.max_y(),
+            u_tl: 0.0,
+            v_tl: 0.0,
+        }];
 
         unsafe {
             bind_mask_texture(glyph.tex_id);
@@ -97,8 +128,8 @@ impl QuadRenderer {
             gl::BufferSubData(
                 gl::ARRAY_BUFFER,
                 0,
-                (4 * 4 * size_of::<f32>()) as isize,
-                vertices.as_ptr() as *const _
+                (packed.len() * size_of::<PackedQuad>()) as isize,
+                packed.as_ptr() as *const _
             );
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
