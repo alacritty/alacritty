@@ -23,25 +23,14 @@ pub struct QuadRenderer {
     ebo: GLuint,
 }
 
-pub struct PackedQuad {
-    pub x_tr: f32,
-    pub y_tr: f32,
-    pub u_tr: f32,
-    pub v_tr: f32,
-    pub x_br: f32,
-    pub y_br: f32,
-    pub u_br: f32,
-    pub v_br: f32,
-    pub x_bl: f32,
-    pub y_bl: f32,
-    pub u_bl: f32,
-    pub v_bl: f32,
-    pub x_tl: f32,
-    pub y_tl: f32,
-    pub u_tl: f32,
-    pub v_tl: f32,
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct PackedVertex {
+    x: f32,
+    y: f32,
+    u: f32,
+    v: f32,
 }
-
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
@@ -61,7 +50,7 @@ impl QuadRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (size_of::<f32>() * 4 * 4) as GLsizeiptr,
+                (size_of::<PackedVertex>() * 4) as GLsizeiptr,
                 ptr::null(),
                 gl::DYNAMIC_DRAW
             );
@@ -76,12 +65,23 @@ impl QuadRenderer {
                            gl::STATIC_DRAW);
 
             gl::EnableVertexAttribArray(0);
-            gl::VertexAttribPointer(0, 4, gl::FLOAT, gl::FALSE, 4 * size_of::<f32>() as i32,
+            gl::EnableVertexAttribArray(1);
+
+            // positions
+            gl::VertexAttribPointer(0, 2,
+                                    gl::FLOAT, gl::FALSE,
+                                    size_of::<PackedVertex>() as i32,
                                     ptr::null());
 
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            // uv mapping
+            gl::VertexAttribPointer(1, 2,
+                                    gl::FLOAT, gl::FALSE,
+                                    size_of::<PackedVertex>() as i32,
+                                    (2 * size_of::<f32>()) as *const _);
+
             gl::BindVertexArray(0);
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
         }
 
         QuadRenderer {
@@ -101,23 +101,27 @@ impl QuadRenderer {
 
         let rect = get_rect(glyph, x, y);
 
-        let packed = [PackedQuad {
-            x_tr: rect.max_x(),
-            y_tr: rect.max_y(),
-            u_tr: 1.0,
-            v_tr: 0.0,
-            x_br: rect.max_x(),
-            y_br: rect.min_y(),
-            u_br: 1.0,
-            v_br: 1.0,
-            x_bl: rect.min_x(),
-            y_bl: rect.min_y(),
-            u_bl: 0.0,
-            v_bl: 1.0,
-            x_tl: rect.min_x(),
-            y_tl: rect.max_y(),
-            u_tl: 0.0,
-            v_tl: 0.0,
+        // Top right, Bottom right, Bottom left, Top left
+        let packed = [PackedVertex {
+            x: rect.max_x(),
+            y: rect.max_y(),
+            u: 1.0,
+            v: 0.0,
+        }, PackedVertex {
+            x: rect.max_x(),
+            y: rect.min_y(),
+            u: 1.0,
+            v: 1.0,
+        }, PackedVertex {
+            x: rect.min_x(),
+            y: rect.min_y(),
+            u: 0.0,
+            v: 1.0,
+        }, PackedVertex {
+            x: rect.min_x(),
+            y: rect.max_y(),
+            u: 0.0,
+            v: 0.0,
         }];
 
         unsafe {
@@ -128,7 +132,7 @@ impl QuadRenderer {
             gl::BufferSubData(
                 gl::ARRAY_BUFFER,
                 0,
-                (packed.len() * size_of::<PackedQuad>()) as isize,
+                (packed.len() * size_of::<PackedVertex>()) as isize,
                 packed.as_ptr() as *const _
             );
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
