@@ -92,7 +92,7 @@ pub struct Family {
 impl fmt::Display for Family {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(write!(f, "{}: ", self.name));
-        for (k, v) in &self.variants {
+        for (k, _v) in &self.variants {
             try!(write!(f, "{}, ", k));
         }
 
@@ -101,11 +101,6 @@ impl fmt::Display for Family {
 }
 
 impl Family {
-    #[inline]
-    pub fn name(&self) -> &str {
-        &self.name[..]
-    }
-
     #[inline]
     pub fn variants(&self) -> &HashMap<String, Variant> {
         &self.variants
