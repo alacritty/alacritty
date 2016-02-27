@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use list_fonts::get_font_families;
 
 use freetype::Library;
@@ -6,8 +7,9 @@ use freetype;
 
 /// Rasterizes glyphs for a single font face.
 pub struct Rasterizer {
-    face: Face<'static>,
-    _library: Library,
+    faces: HashMap<FontDesc, Face<'static>>,
+    library: Library,
+    system_fonts: HashMap<String, ::list_fonts::Family>,
 }
 
 #[inline]
@@ -15,28 +17,60 @@ fn to_freetype_26_6(f: f32) -> isize {
     ((1i32 << 6) as f32 * f) as isize
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct FontDesc {
+    name: String,
+    style: String,
+}
+
+impl FontDesc {
+    pub fn new<S>(name: S, style: S) -> FontDesc
+        where S: Into<String>
+    {
+        FontDesc {
+            name: name.into(),
+            style: style.into()
+        }
+    }
+}
+
 impl Rasterizer {
     pub fn new() -> Rasterizer {
         let library = Library::init().unwrap();
 
-        let family = get_font_families().into_iter()
-                                        .filter(|f| f.name() == "Inconsolata-dz")
-                                        .nth(0).unwrap(); // TODO
-
-        let variant = family.variants().first().unwrap();
-        let path = variant.filepath();
-
         Rasterizer {
-            face: library.new_face(path, 0).expect("Create font face"),
-            _library: library,
+            system_fonts: get_font_families(),
+            faces: HashMap::new(),
+            library: library,
         }
     }
 
-    pub fn get_glyph(&self, size: f32, c: char) -> RasterizedGlyph {
+    pub fn get_face(&mut self, desc: &FontDesc) -> Option<Face<'static>> {
+
+        if let Some(face) = self.faces.get(desc) {
+            return Some(face.clone());
+        }
+
+        if let Some(font) = self.system_fonts.get(&desc.name[..]) {
+            if let Some(variant) = font.variants().get(&desc.style[..]) {
+                let face = self.library.new_face(variant.path(), variant.index())
+                                       .expect("TODO handle new_face error");
+
+                self.faces.insert(desc.to_owned(), face);
+                return Some(self.faces.get(desc).unwrap().clone());
+            }
+        }
+
+        None
+    }
+
+    pub fn get_glyph(&mut self, size: f32, c: char) -> RasterizedGlyph {
+        let face = self.get_face(&FontDesc::new("Ubuntu Mono", "Regular"))
+                       .expect("TODO handle get_face error");
         // TODO DPI
-        self.face.set_char_size(to_freetype_26_6(size), 0, 96, 0).unwrap();
-        self.face.load_char(c as usize, freetype::face::RENDER).unwrap();
-        let glyph = self.face.glyph();
+        face.set_char_size(to_freetype_26_6(size), 0, 96, 0).unwrap();
+        face.load_char(c as usize, freetype::face::RENDER).unwrap();
+        let glyph = face.glyph();
 
         RasterizedGlyph {
             top: glyph.bitmap_top() as usize,
@@ -64,7 +98,7 @@ mod tests {
 
     #[test]
     fn create_rasterizer_and_render_glyph() {
-        let rasterizer = Rasterizer::new();
+        let mut rasterizer = Rasterizer::new();
         let glyph = rasterizer.get_glyph(24., 'U');
 
         println!("glyph: {:?}", glyph);

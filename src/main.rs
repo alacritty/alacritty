@@ -25,7 +25,7 @@ fn main() {
         gl::Viewport(0, 0, width as i32, height as i32);
     }
 
-    let rasterizer = text::Rasterizer::new();
+    let mut rasterizer = text::Rasterizer::new();
 
     let glyph_r = Glyph::new(&rasterizer.get_glyph(180., 'R'));
     let glyph_u = Glyph::new(&rasterizer.get_glyph(180., 'u'));

@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::ffi::{CStr, CString};
+use std::fmt;
 use std::path::PathBuf;
 use std::ptr;
 use std::str::from_utf8;
@@ -66,20 +68,36 @@ fn list_families() -> Vec<String> {
 pub struct Variant {
     style: String,
     file: PathBuf,
-    index: usize,
+    index: isize,
 }
 
 impl Variant {
     #[inline]
-    pub fn filepath(&self) -> &::std::path::Path {
+    pub fn path(&self) -> &::std::path::Path {
         self.file.as_path()
+    }
+
+    #[inline]
+    pub fn index(&self) -> isize {
+        self.index
     }
 }
 
 #[derive(Debug)]
 pub struct Family {
     name: String,
-    variants: Vec<Variant>,
+    variants: HashMap<String, Variant>,
+}
+
+impl fmt::Display for Family {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(write!(f, "{}: ", self.name));
+        for (k, v) in &self.variants {
+            try!(write!(f, "{}, ", k));
+        }
+
+        Ok(())
+    }
 }
 
 impl Family {
@@ -89,8 +107,8 @@ impl Family {
     }
 
     #[inline]
-    pub fn variants(&self) -> &[Variant] {
-        &self.variants[..]
+    pub fn variants(&self) -> &HashMap<String, Variant> {
+        &self.variants
     }
 }
 
@@ -142,7 +160,7 @@ pub fn get_family_info(family: String) -> Family {
             members.push(Variant {
                 style: style,
                 file: PathBuf::from(file),
-                index: index as usize,
+                index: index as isize,
             });
         }
 
@@ -153,13 +171,13 @@ pub fn get_family_info(family: String) -> Family {
 
     Family {
         name: family,
-        variants: members
+        variants: members.into_iter().map(|v| (v.style.clone(), v)).collect()
     }
 }
 
-pub fn get_font_families() -> Vec<Family> {
+pub fn get_font_families() -> HashMap<String, Family> {
     list_families().into_iter()
-                   .map(|family| get_family_info(family))
+                   .map(|family| (family.clone(), get_family_info(family)))
                    .collect()
 }
 
