@@ -26,8 +26,11 @@ fn main() {
         gl::Viewport(0, 0, width as i32, height as i32);
     }
 
+    let (dpi_x, dpi_y) = window.get_dpi().unwrap();
+    let dpr = window.hidpi_factor();
+
     let desc = FontDesc::new("Ubuntu Mono", "Regular");
-    let mut rasterizer = text::Rasterizer::new();
+    let mut rasterizer = text::Rasterizer::new(dpi_x, dpi_y, dpr);
 
     let glyph_r = Glyph::new(&rasterizer.get_glyph(&desc, 180., 'R'));
     let glyph_u = Glyph::new(&rasterizer.get_glyph(&desc, 180., 'u'));

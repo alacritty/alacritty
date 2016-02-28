@@ -8,7 +8,12 @@ license = "Apache-2.0"
 servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig" }
 freetype-rs = "0.5.0"
 libc = "*"
-glutin = "*"
 gl = "*"
 cgmath = "0.7"
 euclid = "0.6"
+
+[dependencies.glutin]
+git = "https://github.com/jwilm/glutin"
+rev = "c95e6973ace3cbf321123a64588b27f032675be9"
+# version = "*"
+# path = "../glutin"

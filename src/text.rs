@@ -10,6 +10,9 @@ pub struct Rasterizer {
     faces: HashMap<FontDesc, Face<'static>>,
     library: Library,
     system_fonts: HashMap<String, ::list_fonts::Family>,
+    dpi_x: u32,
+    dpi_y: u32,
+    dpr: f32,
 }
 
 #[inline]
@@ -35,13 +38,16 @@ impl FontDesc {
 }
 
 impl Rasterizer {
-    pub fn new() -> Rasterizer {
+    pub fn new(dpi_x: f32, dpi_y: f32, device_pixel_ratio: f32) -> Rasterizer {
         let library = Library::init().unwrap();
 
         Rasterizer {
             system_fonts: get_font_families(),
             faces: HashMap::new(),
             library: library,
+            dpi_x: dpi_x as u32,
+            dpi_y: dpi_y as u32,
+            dpr: device_pixel_ratio,
         }
     }
 
@@ -66,7 +72,7 @@ impl Rasterizer {
     pub fn get_glyph(&mut self, desc: &FontDesc, size: f32, c: char) -> RasterizedGlyph {
         let face = self.get_face(desc).expect("TODO handle get_face error");
         // TODO DPI
-        face.set_char_size(to_freetype_26_6(size), 0, 96, 0).unwrap();
+        face.set_char_size(to_freetype_26_6(size * self.dpr), 0, self.dpi_x, self.dpi_y).unwrap();
         face.load_char(c as usize, freetype::face::RENDER).unwrap();
         let glyph = face.glyph();
 
