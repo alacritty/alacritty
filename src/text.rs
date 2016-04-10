@@ -51,6 +51,21 @@ impl Rasterizer {
         }
     }
 
+    pub fn box_size_for_font(&mut self, desc: &FontDesc, size: f32) -> (u32, u32) {
+        let face = self.get_face(&desc).unwrap();
+
+        let scale_size = self.dpr * size;
+
+        let em_size = face.em_size() as f32;
+        let w = face.max_advance_width() as f32;
+        let h = face.height() as f32;
+
+        let w_scale = w / em_size;
+        let h_scale = h / em_size;
+
+        ((w_scale * scale_size) as u32, (h_scale * scale_size) as u32)
+    }
+
     pub fn get_face(&mut self, desc: &FontDesc) -> Option<Face<'static>> {
         if let Some(face) = self.faces.get(desc) {
             return Some(face.clone());
@@ -71,7 +86,6 @@ impl Rasterizer {
 
     pub fn get_glyph(&mut self, desc: &FontDesc, size: f32, c: char) -> RasterizedGlyph {
         let face = self.get_face(desc).expect("TODO handle get_face error");
-        // TODO DPI
         face.set_char_size(to_freetype_26_6(size * self.dpr), 0, self.dpi_x, self.dpi_y).unwrap();
         face.load_char(c as usize, freetype::face::RENDER).unwrap();
         let glyph = face.glyph();
