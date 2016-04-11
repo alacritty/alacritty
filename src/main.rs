@@ -20,7 +20,7 @@ use grid::Grid;
 static INIT_LIST: &'static str = "abcdefghijklmnopqrstuvwxyz\
                                   ABCDEFGHIJKLMNOPQRSTUVWXYZ\
                                   01234567890\
-                                  ~`!@#$%^&*()[]{}-_=+\\|\"/?.,<>";
+                                  ~`!@#$%^&*()[]{}-_=+\\|\"/?.,<>;:";
 
 fn main() {
     let window = glutin::Window::new().unwrap();
@@ -37,12 +37,12 @@ fn main() {
     let (dpi_x, dpi_y) = window.get_dpi().unwrap();
     let dpr = window.hidpi_factor();
 
-    let font_size = 12.0;
+    let font_size = 11.0;
 
     let sep_x = 2;
-    let sep_y = 2;
+    let sep_y = 5;
 
-    let desc = FontDesc::new("Ubuntu Mono", "Regular");
+    let desc = FontDesc::new("DejaVu Sans Mono", "Book");
     let mut rasterizer = text::Rasterizer::new(dpi_x, dpi_y, dpr);
 
     let (cell_width, cell_height) = rasterizer.box_size_for_font(&desc, font_size);
@@ -54,10 +54,35 @@ fn main() {
 
     let mut grid = Grid::new(num_rows as usize, num_cols as usize);
 
-    grid[0][0] = grid::Cell::new(Some(String::from("R")));
-    grid[0][1] = grid::Cell::new(Some(String::from("u")));
-    grid[0][2] = grid::Cell::new(Some(String::from("s")));
-    grid[0][3] = grid::Cell::new(Some(String::from("t")));
+    // let contents = [
+    //     "for (row, line) in contents.iter().enumerate() {",
+    //     "    for (i, c) in line.chars().enumerate() {",
+    //     "        grid[row][i] = grid::Cell::new(Some(c.escape_default().collect()));",
+    //     "    }",
+    //     "}"];
+
+    let contents = include_str!("grid.rs");
+    let mut row = 0usize;
+    let mut col = 0;
+
+    for (i, c) in contents.chars().enumerate() {
+        if c == '\n' {
+            row += 1;
+            col = 0;
+            continue;
+        }
+
+        if row >= (num_rows as usize) {
+            break;
+        }
+
+        if col >= grid.cols() {
+            continue;
+        }
+
+        grid[row][col] = grid::Cell::new(Some(c.escape_default().collect()));
+        col += 1;
+    }
 
     let mut glyph_cache = HashMap::new();
     for c in INIT_LIST.chars() {
@@ -67,8 +92,8 @@ fn main() {
     }
 
     unsafe {
-        gl::Enable(gl::BLEND);
-        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        // gl::Enable(gl::BLEND);
+        // gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         gl::Enable(gl::MULTISAMPLE);
     }
 

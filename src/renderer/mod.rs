@@ -97,6 +97,7 @@ impl QuadRenderer {
         unsafe {
             // set color
             gl::Uniform3f(self.program.u_color, 1., 1., 0.5);
+            gl::Uniform3f(self.program.u_bg_color, 0.08, 0.08, 0.08);
         }
 
         let rect = get_rect(glyph, x, y);
@@ -134,7 +135,7 @@ impl QuadRenderer {
 
 fn get_rect(glyph: &Glyph, x: f32, y: f32) -> Rect<f32> {
     Rect::new(
-        Point2D::new(x, y),
+        Point2D::new(x + glyph.left as f32, y - (glyph.height - glyph.top) as f32),
         Size2D::new(glyph.width as f32, glyph.height as f32)
     )
 }
@@ -152,6 +153,8 @@ pub struct ShaderProgram {
     u_projection: GLint,
     /// color uniform
     u_color: GLint,
+    /// background color uniform
+    u_bg_color: GLint,
 }
 
 impl ShaderProgram {
@@ -180,11 +183,13 @@ impl ShaderProgram {
         // get uniform locations
         let projection_str = CString::new("projection").unwrap();
         let color_str = CString::new("textColor").unwrap();
+        let bg_color_str = CString::new("bgColor").unwrap();
 
-        let (projection, color) = unsafe {
+        let (projection, color, bg_color) = unsafe {
             (
                 gl::GetUniformLocation(program, projection_str.as_ptr()),
-                gl::GetUniformLocation(program, color_str.as_ptr())
+                gl::GetUniformLocation(program, color_str.as_ptr()),
+                gl::GetUniformLocation(program, bg_color_str.as_ptr()),
             )
         };
 
@@ -192,11 +197,14 @@ impl ShaderProgram {
         assert!(projection != gl::INVALID_OPERATION as i32);
         assert!(color != gl::INVALID_VALUE as i32);
         assert!(color != gl::INVALID_OPERATION as i32);
+        assert!(bg_color != gl::INVALID_VALUE as i32);
+        assert!(bg_color != gl::INVALID_OPERATION as i32);
 
         let shader = ShaderProgram {
             id: program,
             u_projection: projection,
             u_color: color,
+            u_bg_color: bg_color,
         };
 
         // set projection uniform
@@ -287,11 +295,11 @@ impl Glyph {
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::RED as i32,
+                gl::RGB as i32,
                 rasterized.width as i32,
                 rasterized.height as i32,
                 0,
-                gl::RED,
+                gl::RGB,
                 gl::UNSIGNED_BYTE,
                 rasterized.buf.as_ptr() as *const _
             );

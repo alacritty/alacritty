@@ -87,15 +87,30 @@ impl Rasterizer {
     pub fn get_glyph(&mut self, desc: &FontDesc, size: f32, c: char) -> RasterizedGlyph {
         let face = self.get_face(desc).expect("TODO handle get_face error");
         face.set_char_size(to_freetype_26_6(size * self.dpr), 0, self.dpi_x, self.dpi_y).unwrap();
-        face.load_char(c as usize, freetype::face::RENDER).unwrap();
+        face.load_char(c as usize, freetype::face::TARGET_LIGHT).unwrap();
         let glyph = face.glyph();
+        glyph.render_glyph(freetype::render_mode::RenderMode::Lcd).unwrap();
+
+        // FIXME need LCD filtering to reduce color fringes with subpixel rendering. The freetype
+        // bindings don't currently expose this!
+
+        let bitmap = glyph.bitmap();
+        let buf = bitmap.buffer();
+        let pitch = bitmap.pitch() as usize;
+
+        let mut packed = Vec::with_capacity((bitmap.rows() * bitmap.width()) as usize);
+        for i in 0..bitmap.rows() {
+            let start = (i as usize) * pitch;
+            let stop = start + bitmap.width() as usize;
+            packed.extend_from_slice(&buf[start..stop]);
+        }
 
         RasterizedGlyph {
             top: glyph.bitmap_top() as usize,
             left: glyph.bitmap_left() as usize,
-            width: glyph.bitmap().width() as usize,
+            width: glyph.bitmap().width() as usize / 3,
             height: glyph.bitmap().rows() as usize,
-            buf: glyph.bitmap().buffer().to_vec(),
+            buf: packed,
         }
     }
 }

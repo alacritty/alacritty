@@ -26,7 +26,7 @@ pub struct Grid {
     raw: Vec<Row>,
 
     /// Number of columns
-    _cols: usize,
+    cols: usize,
 
     /// Number of rows.
     ///
@@ -43,13 +43,17 @@ impl Grid {
 
         Grid {
             raw: raw,
-            _cols: cols,
+            cols: cols,
             rows: rows,
         }
     }
 
     pub fn rows(&self) -> usize {
         self.rows
+    }
+
+    pub fn cols(&self) -> usize {
+        self.cols
     }
 }
 
