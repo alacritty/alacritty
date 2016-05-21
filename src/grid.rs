@@ -9,13 +9,15 @@ pub fn num_cells_axis(cell_width: u32, cell_sep: i32, screen_width: u32) -> u32 
 
 #[derive(Clone)]
 pub struct Cell {
-    pub character: Option<String>,
+    pub character: String,
 }
 
 impl Cell {
-    pub fn new(c: Option<String>) -> Cell {
+    pub fn new<S>(c: S) -> Cell
+        where S: Into<String>
+    {
         Cell {
-            character: c,
+            character: c.into(),
         }
     }
 }
@@ -76,7 +78,7 @@ pub struct Row(Vec<Cell>);
 
 impl Row {
     pub fn new(columns: usize) -> Row {
-        Row(vec![Cell::new(None); columns])
+        Row(vec![Cell::new(""); columns])
     }
 
     pub fn cols(&self) -> usize {

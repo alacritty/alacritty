@@ -93,7 +93,7 @@ impl Rasterizer {
 
         unsafe {
             let ft_lib = self.library.raw();
-            freetype::ffi::FT_Library_SetLcdFilter(ft_lib, freetype::ffi::FT_LCD_FILTER_LIGHT);
+            freetype::ffi::FT_Library_SetLcdFilter(ft_lib, freetype::ffi::FT_LCD_FILTER_DEFAULT);
         }
 
         let bitmap = glyph.bitmap();

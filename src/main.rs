@@ -11,6 +11,7 @@ mod list_fonts;
 mod text;
 mod renderer;
 mod grid;
+mod meter;
 
 use renderer::{Glyph, QuadRenderer};
 use text::FontDesc;
@@ -24,6 +25,28 @@ static INIT_LIST: &'static str = "abcdefghijklmnopqrstuvwxyz\
                                   ABCDEFGHIJKLMNOPQRSTUVWXYZ\
                                   01234567890\
                                   ~`!@#$%^&*()[]{}-_=+\\|\"/?.,<>;:";
+
+type GlyphCache = HashMap<String, renderer::Glyph>;
+
+/// Render a string in a predefined location. Used for printing render time for profiling and
+/// optimization.
+fn render_string(s: &str,
+                 renderer: &QuadRenderer,
+                 glyph_cache: &GlyphCache,
+                 cell_width: u32,
+                 color: &renderer::Rgb)
+{
+    let (mut x, mut y) = (200f32, 20f32);
+
+    for c in s.chars() {
+        let s: String = c.escape_default().collect();
+        if let Some(glyph) = glyph_cache.get(&s[..]) {
+            renderer.render(glyph, x, y, color);
+        }
+
+        x += cell_width as f32 + 2f32;
+    }
+}
 
 fn main() {
     let window = glutin::Window::new().unwrap();
@@ -83,7 +106,7 @@ fn main() {
             continue;
         }
 
-        grid[row][col] = grid::Cell::new(Some(c.escape_default().collect()));
+        grid[row][col] = grid::Cell::new(c.escape_default().collect::<String>());
         col += 1;
     }
 
@@ -102,35 +125,49 @@ fn main() {
 
     let renderer = QuadRenderer::new(width, height);
 
-    for event in window.wait_events() {
+    let mut meter = meter::Meter::new();
+    'main_loop: loop {
+        for event in window.poll_events() {
+            match event {
+                glutin::Event::Closed => break 'main_loop,
+                _ => println!("event: {:?}", event)
+            }
+        }
+
         unsafe {
             gl::ClearColor(0.0, 0.0, 0.00, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        for i in 0..grid.rows() {
-            let row = &grid[i];
-            for j in 0..row.cols() {
-                let cell = &row[j];
-                if let Some(ref c) = cell.character {
-                    if let Some(glyph) = glyph_cache.get(&c[..]) {
-                        let y = (cell_height as f32 + sep_y as f32) * (i as f32);
-                        let x = (cell_width as f32 + sep_x as f32) * (j as f32);
+        {
+            let color = renderer::Rgb { r: 0.917, g: 0.917, b: 0.917 };
+            let _sampler = meter.sampler();
 
-                        let y_inverted = (height as f32) - y - (cell_height as f32);
+            for i in 0..grid.rows() {
+                let row = &grid[i];
+                for j in 0..row.cols() {
+                    let cell = &row[j];
+                    if !cell.character.is_empty() {
+                        if let Some(glyph) = glyph_cache.get(&cell.character[..]) {
+                            let y = (cell_height as f32 + sep_y as f32) * (i as f32);
+                            let x = (cell_width as f32 + sep_x as f32) * (j as f32);
 
-                        renderer.render(glyph, x, y_inverted);
+                            let y_inverted = (height as f32) - y - (cell_height as f32);
+
+                            renderer.render(glyph, x, y_inverted, &color);
+                        }
                     }
                 }
             }
         }
 
+        let timing = format!("{:.3} usec", meter.average());
+        let color = renderer::Rgb { r: 0.835, g: 0.306, b: 0.325 };
+        render_string(&timing[..], &renderer, &glyph_cache, cell_width, &color);
+
         window.swap_buffers().unwrap();
 
-        match event {
-            glutin::Event::Closed => break,
-            _ => ()
-        }
+        // ::std::thread::sleep(::std::time::Duration::from_millis(17));
     }
 }
 
