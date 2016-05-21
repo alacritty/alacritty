@@ -96,8 +96,7 @@ impl QuadRenderer {
         self.program.activate();
         unsafe {
             // set color
-            gl::Uniform3f(self.program.u_color, 1., 1., 0.5);
-            gl::Uniform3f(self.program.u_bg_color, 0.08, 0.08, 0.08);
+            gl::Uniform3f(self.program.u_color, 0.917, 0.917, 0.917);
         }
 
         let rect = get_rect(glyph, x, y);
@@ -153,8 +152,6 @@ pub struct ShaderProgram {
     u_projection: GLint,
     /// color uniform
     u_color: GLint,
-    /// background color uniform
-    u_bg_color: GLint,
 }
 
 impl ShaderProgram {
@@ -183,13 +180,11 @@ impl ShaderProgram {
         // get uniform locations
         let projection_str = CString::new("projection").unwrap();
         let color_str = CString::new("textColor").unwrap();
-        let bg_color_str = CString::new("bgColor").unwrap();
 
-        let (projection, color, bg_color) = unsafe {
+        let (projection, color) = unsafe {
             (
                 gl::GetUniformLocation(program, projection_str.as_ptr()),
                 gl::GetUniformLocation(program, color_str.as_ptr()),
-                gl::GetUniformLocation(program, bg_color_str.as_ptr()),
             )
         };
 
@@ -197,14 +192,11 @@ impl ShaderProgram {
         assert!(projection != gl::INVALID_OPERATION as i32);
         assert!(color != gl::INVALID_VALUE as i32);
         assert!(color != gl::INVALID_OPERATION as i32);
-        assert!(bg_color != gl::INVALID_VALUE as i32);
-        assert!(bg_color != gl::INVALID_OPERATION as i32);
 
         let shader = ShaderProgram {
             id: program,
             u_projection: projection,
             u_color: color,
-            u_bg_color: bg_color,
         };
 
         // set projection uniform

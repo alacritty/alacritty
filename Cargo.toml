@@ -4,13 +4,17 @@ version = "0.1.0"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 
+build = "build.rs"
+
 [dependencies]
 servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig" }
 freetype-rs = "0.5.0"
 libc = "*"
-gl = "*"
 cgmath = "0.7"
 euclid = "0.6"
+
+[build-dependencies]
+gl_generator = "0.5"
 
 [dependencies.glutin]
 git = "https://github.com/jwilm/glutin"

@@ -2,7 +2,6 @@ extern crate fontconfig;
 extern crate freetype;
 extern crate libc;
 extern crate glutin;
-extern crate gl;
 extern crate cgmath;
 extern crate euclid;
 
@@ -16,6 +15,10 @@ mod grid;
 use renderer::{Glyph, QuadRenderer};
 use text::FontDesc;
 use grid::Grid;
+
+mod gl {
+    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
+}
 
 static INIT_LIST: &'static str = "abcdefghijklmnopqrstuvwxyz\
                                   ABCDEFGHIJKLMNOPQRSTUVWXYZ\
@@ -37,7 +40,7 @@ fn main() {
     let (dpi_x, dpi_y) = window.get_dpi().unwrap();
     let dpr = window.hidpi_factor();
 
-    let font_size = 11.0;
+    let font_size = 11.;
 
     let sep_x = 2;
     let sep_y = 5;
@@ -92,8 +95,8 @@ fn main() {
     }
 
     unsafe {
-        // gl::Enable(gl::BLEND);
-        // gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        gl::Enable(gl::BLEND);
+        gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
         gl::Enable(gl::MULTISAMPLE);
     }
 
@@ -101,7 +104,7 @@ fn main() {
 
     for event in window.wait_events() {
         unsafe {
-            gl::ClearColor(0.08, 0.08, 0.08, 1.0);
+            gl::ClearColor(0.0, 0.0, 0.00, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 

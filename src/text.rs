@@ -91,8 +91,10 @@ impl Rasterizer {
         let glyph = face.glyph();
         glyph.render_glyph(freetype::render_mode::RenderMode::Lcd).unwrap();
 
-        // FIXME need LCD filtering to reduce color fringes with subpixel rendering. The freetype
-        // bindings don't currently expose this!
+        unsafe {
+            let ft_lib = self.library.raw();
+            freetype::ffi::FT_Library_SetLcdFilter(ft_lib, freetype::ffi::FT_LCD_FILTER_LIGHT);
+        }
 
         let bitmap = glyph.bitmap();
         let buf = bitmap.buffer();
