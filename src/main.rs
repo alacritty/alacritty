@@ -1,3 +1,6 @@
+//! Alacritty - The GPU Enhanced Terminal
+#![feature(question_mark)]
+
 extern crate fontconfig;
 extern crate freetype;
 extern crate libc;
@@ -7,11 +10,14 @@ extern crate euclid;
 
 use std::collections::HashMap;
 
+use std::io::{BufReader, Read, BufRead};
+
 mod list_fonts;
 mod text;
 mod renderer;
 mod grid;
 mod meter;
+mod tty;
 
 use renderer::{Glyph, QuadRenderer};
 use text::FontDesc;
@@ -76,6 +82,14 @@ fn main() {
     let num_cols = grid::num_cells_axis(cell_width, sep_x, width);
     let num_rows = grid::num_cells_axis(cell_height, sep_y, height);
 
+    let mut cmd = tty::new(num_rows as u8, num_cols as u8);
+
+    ::std::thread::spawn(move || {
+        for byte in cmd.bytes() {
+            println!("{:?}", byte);
+        }
+    });
+
     println!("num_cols, num_rows = {}, {}", num_cols, num_rows);
 
     let mut grid = Grid::new(num_rows as usize, num_cols as usize);
@@ -130,7 +144,7 @@ fn main() {
         for event in window.poll_events() {
             match event {
                 glutin::Event::Closed => break 'main_loop,
-                _ => println!("event: {:?}", event)
+                _ => ()
             }
         }
 
