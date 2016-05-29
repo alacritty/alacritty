@@ -1,5 +1,8 @@
 //! Alacritty - The GPU Enhanced Terminal
 #![feature(question_mark)]
+#![feature(range_contains)]
+#![feature(inclusive_range_syntax)]
+#![feature(io)]
 
 extern crate fontconfig;
 extern crate freetype;
@@ -12,12 +15,16 @@ use std::collections::HashMap;
 
 use std::io::{BufReader, Read, BufRead};
 
+#[macro_use]
+mod macros;
+
 mod list_fonts;
 mod text;
 mod renderer;
 mod grid;
 mod meter;
 mod tty;
+mod ansi;
 
 use renderer::{Glyph, QuadRenderer};
 use text::FontDesc;
@@ -86,7 +93,8 @@ fn main() {
 
     ::std::thread::spawn(move || {
         for byte in cmd.bytes() {
-            println!("{:?}", byte);
+            let b = byte.unwrap();
+            println!("{:02x}, {:?}", b, ::std::char::from_u32(b as u32));
         }
     });
 

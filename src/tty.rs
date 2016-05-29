@@ -9,13 +9,6 @@ use std::ptr;
 
 use libc::{self, winsize, c_int, c_char};
 
-macro_rules! die {
-    ($($arg:tt)*) => {
-        println!($($arg)*);
-        ::std::process::exit(1);
-    }
-}
-
 pub enum Error {
     /// TODO
     Unknown,
