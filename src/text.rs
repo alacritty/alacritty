@@ -135,21 +135,4 @@ mod tests {
     fn font_desc() -> FontDesc {
         FontDesc::new("Ubuntu Mono", "Regular")
     }
-
-    #[test]
-    fn create_rasterizer_and_render_glyph() {
-        let mut rasterizer = Rasterizer::new();
-        let glyph = rasterizer.get_glyph(&font_desc(), 24., 'U');
-
-        println!("glyph: {:?}", glyph);
-
-        for j in 0..glyph.height {
-            for i in 0..glyph.width {
-                let val = glyph.buf[j * glyph.width + i];
-                print!("{}", if val < 122 { " " } else { "%"});
-            }
-
-            print!("\n");
-        }
-    }
 }
