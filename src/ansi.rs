@@ -18,6 +18,7 @@
 //! sequences only used by folks trapped in 1988.
 
 use std::io::{Cursor, Read, Write, Chars};
+use ::Rgb;
 
 /// A CSI Escape sequence
 #[derive(Debug, Eq, PartialEq)]
@@ -59,7 +60,7 @@ pub enum Item {
 
 pub const CSI_ATTR_MAX: usize = 16;
 
-pub struct Parser<H> {
+pub struct Parser {
     /// Workspace for building a control sequence
     buf: [char; 1024],
 
@@ -70,11 +71,24 @@ pub struct Parser<H> {
 
     /// Current state
     state: State,
+}
 
-    /// Handler
+/// Terminal modes
+#[derive(Debug, Eq, PartialEq)]
+pub enum Mode {
+    SwapScreenAndSetRestoreCursor = 1049,
+}
+
+impl Mode {
+    /// Create mode from a primitive
     ///
-    /// Receives data from the parser
-    pub handler: H,
+    /// TODO lots of unhandled values..
+    pub fn from_primitive(num: i64) -> Option<Mode> {
+        Some(match num {
+            1049 => Mode::SwapScreenAndSetRestoreCursor,
+            _ => return None
+        })
+    }
 }
 
 /// Mode for clearing line
@@ -152,18 +166,6 @@ pub enum Color {
     BrightWhite,
 }
 
-/// 16-million color specifier
-/// TODO
-#[derive(Debug, Eq, PartialEq)]
-pub struct ColorSpec {
-    /// Red
-    pub r: u8,
-    /// Green
-    pub g: u8,
-    /// blue
-    pub b: u8,
-}
-
 /// Terminal character attributes
 #[derive(Debug, Eq, PartialEq)]
 pub enum Attr {
@@ -204,11 +206,11 @@ pub enum Attr {
     /// Set indexed foreground color
     Foreground(Color),
     /// Set specific foreground color
-    ForegroundSpec(ColorSpec),
+    ForegroundSpec(Rgb),
     /// Set indexed background color
     Background(Color),
     /// Set specific background color
-    BackgroundSpec(ColorSpec),
+    BackgroundSpec(Rgb),
     /// Set default foreground
     DefaultForeground,
     /// Set default background
@@ -336,6 +338,12 @@ pub trait Handler {
 
     /// set a terminal attribute
     fn terminal_attribute(&mut self, attr: Attr) {}
+
+    /// Set mode
+    fn set_mode(&mut self, Mode) {}
+
+    /// Unset mode
+    fn unset_mode(&mut self, Mode) {}
 }
 
 /// An implementation of handler that just prints everything it gets
@@ -378,55 +386,62 @@ impl Handler for DebugHandler {
     fn reset_state(&mut self) { println!("reset_state"); }
     fn reverse_index(&mut self) { println!("reverse_index"); }
     fn terminal_attribute(&mut self, attr: Attr) { println!("terminal_attribute: {:?}", attr); }
+    fn set_mode(&mut self, mode: Mode) { println!("set_mode: {:?}", mode); }
+    fn unset_mode(&mut self, mode: Mode) { println!("unset_mode: {:?}", mode); }
 }
 
-impl<H: Handler> Parser<H> {
-    pub fn new(handler: H) -> Parser<H> {
+impl Parser {
+    pub fn new() -> Parser {
         Parser {
             buf: [0 as char; 1024],
             idx: 0,
             state: Default::default(),
-            handler: handler,
         }
     }
 
     /// Advance the state machine.
     ///
     /// Maybe returns an Item which represents a state change of the terminal
-    pub fn advance(&mut self, c: char) {
+    pub fn advance<H>(&mut self, handler: &mut H, c: char)
+        where H: Handler
+    {
         // println!("state: {:?}; char: {:?}", self.state, c);
         // Control characters get handled immediately
         if is_control(c) {
-            self.control(c);
+            self.control(handler, c);
             return;
         }
 
         match self.state {
             State::Base => {
-                self.advance_base(c);
+                self.advance_base(handler, c);
             },
             State::Escape => {
-                self.escape(c);
+                self.escape(handler, c);
             },
             State::Csi => {
-                self.csi(c);
+                self.csi(handler, c);
             }
         }
     }
 
-    fn advance_base(&mut self, c: char) {
-        self.handler.input(c);
+    fn advance_base<H>(&mut self, handler: &mut H, c: char)
+        where H: Handler
+    {
+        handler.input(c);
     }
 
     /// Handle character following an ESC
     ///
     /// TODO Handle `ST`, `'#'`, `'P'`, `'_'`, `'^'`, `']'`, `'k'`,
     /// 'n', 'o', '(', ')', '*', '+', '=', '>'
-    fn escape(&mut self, c: char) {
+    fn escape<H>(&mut self, handler: &mut H, c: char)
+        where H: Handler
+    {
         // Helper for items which complete a sequence.
         macro_rules! sequence_complete {
             ($fun:ident) => {{
-                self.handler.$fun();
+                handler.$fun();
                 self.state = State::Base;
             }}
         }
@@ -444,30 +459,38 @@ impl<H: Handler> Parser<H> {
             '7' => sequence_complete!(save_cursor_position),
             '8' => sequence_complete!(restore_cursor_position),
             _ => {
+                self.state = State::Base;
                 err_println!("Unknown ESC 0x{:02x} {:?}", c as usize, c);
             }
         }
     }
 
-    fn csi(&mut self, c: char) {
+    fn csi<H>(&mut self, handler: &mut H, c: char)
+        where H: Handler
+    {
         self.buf[self.idx] = c;
         self.idx += 1;
 
         if (self.idx == self.buf.len()) || is_csi_terminator(c) {
-            self.csi_parse();
+            self.csi_parse(handler);
         }
     }
 
     /// Parse current CSI escape buffer
     ///
     /// ESC '[' [[ [<priv>] <arg> [;]] <mode> [<mode>]] */
-    fn csi_parse(&mut self) {
+    fn csi_parse<H>(&mut self, handler: &mut H)
+        where H: Handler
+    {
         let mut idx = 0;
         let mut args = [0i64; CSI_ATTR_MAX];
         let mut args_idx = 0;
 
         // Get a slice which is the used subset of self.buf
         let mut raw = &self.buf[..self.idx];
+        if raw[0] == '?' {
+            raw = &raw[1..];
+        }
 
         // Parse args
         while !raw.is_empty() {
@@ -500,9 +523,23 @@ impl<H: Handler> Parser<H> {
             }}
         }
 
+        macro_rules! unhandled {
+            () => {{
+                err_println!("Recognized, but unhandled CSI: {:?}", &self.buf[..self.idx]);
+                self.state = State::Base;
+                return;
+            }}
+        }
+
         macro_rules! arg_or_default {
             ($arg:expr, $default:expr) => {
                 if $arg == 0 { $default } else { $arg }
+            }
+        }
+
+        macro_rules! debug_csi {
+            () => {
+                err_println!("CSI: {:?}", &self.buf[..self.idx]);
             }
         }
 
@@ -512,14 +549,20 @@ impl<H: Handler> Parser<H> {
         }
 
         match raw[0] {
-            '@' => self.handler.insert_blank(arg_or_default!(args[0], 1)),
-            'A' => self.handler.move_up(arg_or_default!(args[0], 1)),
-            'B' | 'e' => self.handler.move_down(arg_or_default!(args[0], 1)),
-            'c' => self.handler.identify_terminal(),
-            'C' | 'a' => self.handler.move_forward(arg_or_default!(args[0], 1)),
-            'D' => self.handler.move_backward(arg_or_default!(args[0], 1)),
-            'E' => self.handler.move_down_and_cr(arg_or_default!(args[0], 1)),
-            'F' => self.handler.move_up_and_cr(arg_or_default!(args[0], 1)),
+            '@' => handler.insert_blank(arg_or_default!(args[0], 1)),
+            'A' => {
+                debug_csi!();
+                handler.move_up(arg_or_default!(args[0], 1));
+            },
+            'B' | 'e' => handler.move_down(arg_or_default!(args[0], 1)),
+            'c' => handler.identify_terminal(),
+            'C' | 'a' => {
+                debug_csi!();
+                handler.move_forward(arg_or_default!(args[0], 1))
+            },
+            'D' => handler.move_backward(arg_or_default!(args[0], 1)),
+            'E' => handler.move_down_and_cr(arg_or_default!(args[0], 1)),
+            'F' => handler.move_up_and_cr(arg_or_default!(args[0], 1)),
             'g' => {
                 let mode = match args[0] {
                     0 => TabulationClearMode::Current,
@@ -527,15 +570,15 @@ impl<H: Handler> Parser<H> {
                     _ => unknown!(),
                 };
 
-                self.handler.clear_tabs(mode);
+                handler.clear_tabs(mode);
             },
-            'G' | '`' => self.handler.goto_col(arg_or_default!(args[0], 1)),
+            'G' | '`' => handler.goto_col(arg_or_default!(args[0], 1)),
             'H' | 'f' => {
-                let x = arg_or_default!(args[0], 1);
-                let y = arg_or_default!(args[1], 1);
-                self.handler.goto(x, y);
+                let y = arg_or_default!(args[0], 1);
+                let x = arg_or_default!(args[1], 1);
+                handler.goto(x - 1, y - 1);
             },
-            'I' => self.handler.move_forward_tabs(arg_or_default!(args[0], 1)),
+            'I' => handler.move_forward_tabs(arg_or_default!(args[0], 1)),
             'J' => {
                 let mode = match args[0] {
                     0 => ClearMode::Below,
@@ -544,7 +587,7 @@ impl<H: Handler> Parser<H> {
                     _ => unknown!(),
                 };
 
-                self.handler.clear_screen(mode);
+                handler.clear_screen(mode);
             },
             'K' => {
                 let mode = match args[0] {
@@ -554,27 +597,29 @@ impl<H: Handler> Parser<H> {
                     _ => unknown!(),
                 };
 
-                self.handler.clear_line(mode);
+                handler.clear_line(mode);
             },
-            'S' => self.handler.scroll_up(arg_or_default!(args[0], 1)),
-            'T' => self.handler.scroll_down(arg_or_default!(args[0], 1)),
-            'L' => self.handler.insert_blank_lines(arg_or_default!(args[0], 1)),
+            'S' => handler.scroll_up(arg_or_default!(args[0], 1)),
+            'T' => handler.scroll_down(arg_or_default!(args[0], 1)),
+            'L' => handler.insert_blank_lines(arg_or_default!(args[0], 1)),
             'l' => {
-                // TODO ResetMode
-                //
-                // This one seems like a lot of (important) work; going to come back to it.
-                unknown!();
+                let mode = Mode::from_primitive(args[0]);
+                match mode {
+                    Some(mode) => handler.set_mode(mode),
+                    None => unhandled!(),
+                }
             },
-            'M' => self.handler.delete_lines(arg_or_default!(args[0], 1)),
-            'X' => self.handler.erase_chars(arg_or_default!(args[0], 1)),
-            'P' => self.handler.delete_chars(arg_or_default!(args[0], 1)),
-            'Z' => self.handler.move_backward_tabs(arg_or_default!(args[0], 1)),
-            'd' => self.handler.goto_row(arg_or_default!(args[0], 1)),
+            'M' => handler.delete_lines(arg_or_default!(args[0], 1)),
+            'X' => handler.erase_chars(arg_or_default!(args[0], 1)),
+            'P' => handler.delete_chars(arg_or_default!(args[0], 1)),
+            'Z' => handler.move_backward_tabs(arg_or_default!(args[0], 1)),
+            'd' => handler.goto_row(arg_or_default!(args[0], 1)),
             'h' => {
-                // TODO SetMode
-                //
-                // Ditto for 'l'
-                unknown!();
+                let mode = Mode::from_primitive(args[0]);
+                match mode {
+                    Some(mode) => handler.unset_mode(mode),
+                    None => unhandled!(),
+                }
             },
             'm' => {
                 let raw_attrs = &args[..args_idx];
@@ -655,15 +700,15 @@ impl<H: Handler> Parser<H> {
                         _ => unknown!(),
                     };
 
-                    self.handler.terminal_attribute(attr);
+                    handler.terminal_attribute(attr);
 
                     i += 1; // C-for expr
                 }
             }
-            'n' => self.handler.identify_terminal(),
+            'n' => handler.identify_terminal(),
             'r' => unknown!(), // set scrolling region
-            's' => self.handler.save_cursor_position(),
-            'u' => self.handler.restore_cursor_position(),
+            's' => handler.save_cursor_position(),
+            'u' => handler.restore_cursor_position(),
             _ => unknown!(),
         }
 
@@ -674,15 +719,17 @@ impl<H: Handler> Parser<H> {
         self.idx = 0;
     }
 
-    fn control(&mut self, c: char) {
+    fn control<H>(&mut self, handler: &mut H, c: char)
+        where H: Handler
+    {
         match c {
-            C0::HT => self.handler.put_tab(1),
-            C0::BS => self.handler.backspace(1),
-            C0::CR => self.handler.carriage_return(),
+            C0::HT => handler.put_tab(1),
+            C0::BS => handler.backspace(1),
+            C0::CR => handler.carriage_return(),
             C0::LF |
             C0::VT |
-            C0::FF => self.handler.linefeed(),
-            C0::BEL => self.handler.bell(),
+            C0::FF => handler.linefeed(),
+            C0::BEL => handler.bell(),
             C0::ESC => {
                 self.csi_reset();
                 self.state = State::Escape;
@@ -690,7 +737,7 @@ impl<H: Handler> Parser<H> {
             },
             // C0::S0 => Control::SwitchG1,
             // C0::S1 => Control::SwitchG0,
-            C0::SUB => self.handler.substitute(),
+            C0::SUB => handler.substitute(),
             C0::CAN => {
                 self.csi_reset();
                 return;
@@ -707,14 +754,14 @@ impl<H: Handler> Parser<H> {
                 ()
             },
             C1::NEL => {
-                self.handler.newline();
+                handler.newline();
                 ()
             },
             C1::SSA | C1::ESA => {
                 ()
             },
             C1::HTS => {
-                self.handler.set_horizontal_tabstop();
+                handler.set_horizontal_tabstop();
                 ()
             },
             C1::HTJ | C1::VTS | C1::PLD | C1::PLU | C1::RI | C1::SS2 |
@@ -723,7 +770,7 @@ impl<H: Handler> Parser<H> {
                 ()
             },
             C1::DECID => {
-                self.handler.identify_terminal();
+                handler.identify_terminal();
             },
             C1::CSI | C1::ST => {
                 ()
@@ -740,7 +787,7 @@ impl<H: Handler> Parser<H> {
 
 
 /// Parse a color specifier from list of attributes
-fn parse_color(attrs: &[i64], i: &mut usize) -> Option<ColorSpec> {
+fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Rgb> {
     if attrs.len() < 2 {
         return None;
     }
@@ -765,7 +812,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<ColorSpec> {
                 return None;
             }
 
-            Some(ColorSpec {
+            Some(Rgb {
                 r: r as u8,
                 g: g as u8,
                 b: b as u8
@@ -1011,7 +1058,8 @@ impl Default for State {
 #[cfg(test)]
 mod tests {
     use std::io::{Cursor, Read};
-    use super::{Parser, Escape, Handler, Attr, ColorSpec, DebugHandler};
+    use super::{Parser, Escape, Handler, Attr, Rgb, DebugHandler};
+    use ::Rgb;
 
     #[test]
     fn parse_control_attribute() {
@@ -1031,13 +1079,14 @@ mod tests {
         ];
 
         let cursor = Cursor::new(BYTES);
-        let mut parser = Parser::new(TestHandler::default());
+        let mut parser = Parser::new();
+        let mut handler = TestHandler::default();
 
         for c in cursor.chars() {
-            parser.advance(c.unwrap());
+            parser.advance(&mut handler, c.unwrap());
         }
 
-        assert_eq!(parser.handler.attr, Some(Attr::Bold));
+        assert_eq!(handler.attr, Some(Attr::Bold));
     }
 
     #[test]
@@ -1059,19 +1108,20 @@ mod tests {
         ];
 
         let mut cursor = Cursor::new(BYTES);
-        let mut parser = Parser::new(TestHandler::default());
+        let mut parser = Parser::new();
+        let mut handler = TestHandler::default();
 
         for c in cursor.chars() {
-            parser.advance(c.unwrap());
+            parser.advance(&mut handler, c.unwrap());
         }
 
-        let spec = ColorSpec {
+        let spec = Rgb {
             r: 128,
             g: 66,
             b: 255
         };
 
-        assert_eq!(parser.handler.attr, Some(Attr::ForegroundSpec(spec)));
+        assert_eq!(handler.attr, Some(Attr::ForegroundSpec(spec)));
     }
 
     /// No exactly a test; useful for debugging
@@ -1094,10 +1144,11 @@ mod tests {
         ];
 
         let mut cursor = Cursor::new(BYTES);
-        let mut parser = Parser::new(DebugHandler);
+        let mut handler = DebugHandler;
+        let mut parser = Parser::new();
 
         for c in cursor.chars() {
-            parser.advance(c.unwrap());
+            parser.advance(&mut handler, c.unwrap());
         }
     }
 }

@@ -32,12 +32,7 @@ pub struct PackedVertex {
     v: f32,
 }
 
-#[derive(Debug)]
-pub struct Rgb {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
-}
+use super::Rgb;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
@@ -103,7 +98,7 @@ impl QuadRenderer {
         self.program.activate();
         unsafe {
             // set color
-            gl::Uniform3f(self.program.u_color, color.r, color.g, color.b);
+            gl::Uniform3i(self.program.u_color, color.r as i32, color.g as i32, color.b as i32);
         }
 
         let rect = get_rect(glyph, x, y);

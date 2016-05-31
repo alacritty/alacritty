@@ -189,7 +189,7 @@ fn execsh() -> ! {
 }
 
 /// Create a new tty and return a handle to interact with it.
-pub fn new(rows: u8, cols: u8) -> File {
+pub fn new(rows: u8, cols: u8) -> Tty {
     let (master, slave) = openpty(rows, cols);
 
     match fork() {
@@ -221,12 +221,49 @@ pub fn new(rows: u8, cols: u8) -> File {
                 libc::close(slave);
             }
 
-            // XXX should this really return a file?
-            // How should this be done? Could build a File::from_raw_fd, or maybe implement a custom
-            // type that can be used in a mio event loop? For now, just do the file option.
-            unsafe {
-                File::from_raw_fd(master)
-            }
+            Tty { fd: master }
+        }
+    }
+}
+
+pub struct Tty {
+    fd: c_int,
+}
+
+impl Tty {
+    /// Get reader for the TTY
+    ///
+    /// XXX File is a bad abstraction here; it closes the fd on drop
+    pub fn reader(&self) -> File {
+        unsafe {
+            File::from_raw_fd(self.fd)
+        }
+    }
+
+    /// Get writer for the TTY
+    ///
+    /// XXX File is a bad abstraction here; it closes the fd on drop
+    pub fn writer(&self) -> File {
+        unsafe {
+            File::from_raw_fd(self.fd)
+        }
+    }
+
+    pub fn resize(&self, rows: usize, cols: usize, px_x: usize, px_y: usize) {
+
+        let win = winsize {
+            ws_row: rows as libc::c_ushort,
+            ws_col: cols as libc::c_ushort,
+            ws_xpixel: px_x as libc::c_ushort,
+            ws_ypixel: px_y as libc::c_ushort,
+        };
+
+        let res = unsafe {
+            libc::ioctl(self.fd, libc::TIOCSWINSZ, &win as *const _)
+        };
+
+        if res < 0 {
+            die!("ioctl TIOCSWINSZ failed: {}", errno());
         }
     }
 }
