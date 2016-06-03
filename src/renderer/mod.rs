@@ -22,6 +22,8 @@ pub struct QuadRenderer {
     vbo: GLuint,
     ebo: GLuint,
     active_color: Rgb,
+    atlas: Vec<Atlas>,
+    active_tex: GLuint,
 }
 
 #[allow(dead_code)]
@@ -92,6 +94,8 @@ impl QuadRenderer {
             vbo: vbo,
             ebo: ebo,
             active_color: Rgb { r: 0, g: 0, b: 0 },
+            atlas: vec![Atlas::new(1024)],
+            active_tex: 0,
         }
     }
 
@@ -164,16 +168,18 @@ impl QuadRenderer {
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
+            gl::ActiveTexture(gl::TEXTURE0);
         }
     }
 
-    fn finish_render(&self) {
+    fn finish_render(&mut self) {
         unsafe {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
 
             self.program.deactivate();
+            self.active_tex = 0;
         }
     }
 
@@ -190,16 +196,24 @@ impl QuadRenderer {
 
         let rect = get_rect(glyph, x, y);
 
+        let uv = glyph.uv;
+
         // Top right, Bottom right, Bottom left, Top left
         let packed = [
-            PackedVertex { x: rect.max_x(), y: rect.max_y(), u: 1.0, v: 0.0, },
-            PackedVertex { x: rect.max_x(), y: rect.min_y(), u: 1.0, v: 1.0, },
-            PackedVertex { x: rect.min_x(), y: rect.min_y(), u: 0.0, v: 1.0, },
-            PackedVertex { x: rect.min_x(), y: rect.max_y(), u: 0.0, v: 0.0, },
+            PackedVertex { x: rect.max_x(), y: rect.max_y(), u: uv.max_x(), v: uv.min_y(), },
+            PackedVertex { x: rect.max_x(), y: rect.min_y(), u: uv.max_x(), v: uv.max_y(), },
+            PackedVertex { x: rect.min_x(), y: rect.min_y(), u: uv.min_x(), v: uv.max_y(), },
+            PackedVertex { x: rect.min_x(), y: rect.max_y(), u: uv.min_x(), v: uv.min_y(), },
         ];
 
         unsafe {
-            bind_mask_texture(glyph.tex_id);
+            // Bind texture if it changed
+            if glyph.tex_id != self.active_tex {
+                println!("binding tex_id: {}", glyph.tex_id);
+                gl::BindTexture(gl::TEXTURE_2D, glyph.tex_id);
+                self.active_tex = glyph.tex_id;
+            }
+
             gl::BufferSubData(
                 gl::ARRAY_BUFFER,
                 0,
@@ -208,7 +222,19 @@ impl QuadRenderer {
             );
 
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
-            gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
+    }
+
+    /// Load a glyph into a texture atlas
+    ///
+    /// If the current atlas is full, a new one will be created.
+    pub fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
+        match self.atlas.last_mut().unwrap().insert(rasterized) {
+            Ok(glyph) => glyph,
+            Err(_) => {
+                self.atlas.push(Atlas::new(1024));
+                self.load_glyph(rasterized)
+            }
         }
     }
 }
@@ -218,13 +244,6 @@ fn get_rect(glyph: &Glyph, x: f32, y: f32) -> Rect<f32> {
         Point2D::new(x + glyph.left as f32, y - (glyph.height - glyph.top) as f32),
         Size2D::new(glyph.width as f32, glyph.height as f32)
     )
-}
-
-fn bind_mask_texture(id: u32) {
-    unsafe {
-        gl::ActiveTexture(gl::TEXTURE0);
-        gl::BindTexture(gl::TEXTURE_2D, id);
-    }
 }
 
 pub struct ShaderProgram {
@@ -354,17 +373,55 @@ impl ShaderProgram {
     }
 }
 
-#[allow(dead_code)]
-pub struct Glyph {
-    tex_id: GLuint,
-    top: i32,
-    left: i32,
+/// Manages a single texture atlas
+///
+/// The strategy for filling an atlas looks roughly like this:
+///
+///                           (width, height)
+///   ┌─────┬─────┬─────┬─────┬─────┐
+///   │ 10  │     │     │     │     │ <- Empty spaces; can be filled while
+///   │     │     │     │     │     │    glyph_height < height - row_baseline
+///   ├⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┤
+///   │ 5   │ 6   │ 7   │ 8   │ 9   │
+///   │     │     │     │     │     │
+///   ├⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┴⎼⎼⎼⎼⎼┤ <- Row height is tallest glyph in row; this is
+///   │ 1   │ 2   │ 3   │ 4         │    used as the baseline for the following row.
+///   │     │     │     │           │ <- Row considered full when next glyph doesn't
+///   └─────┴─────┴─────┴───────────┘    fit in the row.
+/// (0, 0)  x->
+struct Atlas {
+    /// Texture id for this atlas
+    id: GLuint,
+
+    /// Width of atlas
     width: i32,
+
+    /// Height of atlas
     height: i32,
+
+    /// Left-most free pixel in a row.
+    ///
+    /// This is called the extent because it is the upper bound of used pixels
+    /// in a row.
+    row_extent: i32,
+
+    /// Baseline for glyphs in the current row
+    row_baseline: i32,
+
+    /// Tallest glyph in current row
+    ///
+    /// This is used as the advance when end of row is reached
+    row_tallest: i32,
 }
 
-impl Glyph {
-    pub fn new(rasterized: &RasterizedGlyph) -> Glyph {
+/// Error that can happen when inserting a texture to the Atlas
+enum AtlasInsertError {
+    /// Texture atlas is full
+    Full,
+}
+
+impl Atlas {
+    pub fn new(size: i32) -> Atlas {
         let mut id: GLuint = 0;
         unsafe {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
@@ -374,12 +431,12 @@ impl Glyph {
                 gl::TEXTURE_2D,
                 0,
                 gl::RGB as i32,
-                rasterized.width as i32,
-                rasterized.height as i32,
+                size,
+                size,
                 0,
                 gl::RGB,
                 gl::UNSIGNED_BYTE,
-                rasterized.buf.as_ptr() as *const _
+                ptr::null()
             );
 
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
@@ -390,12 +447,118 @@ impl Glyph {
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
 
-        Glyph {
-            tex_id: id,
-            top: rasterized.top as i32,
-            width: rasterized.width as i32,
-            height: rasterized.height as i32,
-            left: rasterized.left as i32,
+        Atlas {
+            id: id,
+            width: size,
+            height: size,
+            row_extent: 0,
+            row_baseline: 0,
+            row_tallest: 0,
         }
     }
+
+    /// Insert a RasterizedGlyph into the texture atlas
+    pub fn insert(&mut self, glyph: &RasterizedGlyph) -> Result<Glyph, AtlasInsertError> {
+        // If there's not enough room in current row, go onto next one
+        if !self.room_in_row(glyph) {
+            self.advance_row()?;
+        }
+
+        // If there's still not room, there's nothing that can be done here.
+        if !self.room_in_row(glyph) {
+            return Err(AtlasInsertError::Full);
+        }
+
+        // There appears to be room; load the glyph.
+        Ok(self.insert_inner(glyph))
+    }
+
+    /// Insert the glyph without checking for room
+    ///
+    /// Internal function for use once atlas has been checked for space. GL errors could still occur
+    /// at this point if we were checking for them; hence, the Result.
+    fn insert_inner(&mut self, glyph: &RasterizedGlyph) -> Glyph {
+        let offset_y = self.row_baseline;
+        let offset_x = self.row_extent;
+        let height = glyph.height as i32;
+        let width = glyph.width as i32;
+
+        unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, self.id);
+
+            // Load data into OpenGL
+            gl::TexSubImage2D(
+                gl::TEXTURE_2D,
+                0,
+                offset_x,
+                offset_y,
+                width,
+                height,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                glyph.buf.as_ptr() as *const _
+            );
+
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
+
+        // Update Atlas state
+        self.row_extent = offset_x + width;
+        if height > self.row_tallest {
+            self.row_tallest = height;
+        }
+
+        // Generate UV coordinates
+        let uv_bot = offset_y as f32 / self.height as f32;
+        let uv_left = offset_x as f32 / self.width as f32;
+        let uv_height = height as f32 / self.height as f32;
+        let uv_width = width as f32 / self.width as f32;
+
+        let uv = Rect::new(
+            Point2D::new(uv_left, uv_bot),
+            Size2D::new(uv_width, uv_height)
+        );
+
+        // Return the glyph
+        Glyph {
+            tex_id: self.id,
+            top: glyph.top as i32,
+            width: width,
+            height: height,
+            left: glyph.left as i32,
+            uv: uv
+        }
+    }
+
+    /// Check if there's room in the current row for given glyph
+    fn room_in_row(&self, raw: &RasterizedGlyph) -> bool {
+        let next_extent = self.row_extent + raw.width as i32;
+        let enough_width = next_extent <= self.width;
+        let enough_height = (raw.height as i32) < (self.height - self.row_baseline);
+
+        enough_width && enough_height
+    }
+
+    /// Mark current row as finished and prepare to insert into the next row
+    fn advance_row(&mut self) -> Result<(), AtlasInsertError> {
+        let advance_to = self.row_baseline + self.row_tallest;
+        if self.height - advance_to <= 0 {
+            return Err(AtlasInsertError::Full);
+        }
+
+        self.row_baseline = advance_to;
+        self.row_extent = 0;
+        self.row_tallest = 0;
+
+        Ok(())
+    }
+}
+
+pub struct Glyph {
+    tex_id: GLuint,
+    top: i32,
+    left: i32,
+    width: i32,
+    height: i32,
+    uv: Rect<f32>,
 }

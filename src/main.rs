@@ -104,9 +104,11 @@ fn main() {
 
     let mut grid = Grid::new(num_rows as usize, num_cols as usize);
 
+    let mut renderer = QuadRenderer::new(width, height);
+
     let mut glyph_cache = HashMap::new();
     for c in INIT_LIST.chars() {
-        let glyph = Glyph::new(&rasterizer.get_glyph(&desc, font_size, c));
+        let glyph = renderer.load_glyph(&rasterizer.get_glyph(&desc, font_size, c));
         glyph_cache.insert(c, glyph);
     }
 
@@ -124,7 +126,6 @@ fn main() {
         }
     });
 
-    let mut renderer = QuadRenderer::new(width, height);
     let mut terminal = Term::new(tty, grid);
     let mut meter = Meter::new();
 
