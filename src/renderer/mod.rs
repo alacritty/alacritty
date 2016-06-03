@@ -109,7 +109,7 @@ impl QuadRenderer {
     {
         self.prepare_render();
 
-        let (mut x, mut y) = (200f32, 20f32);
+        let (mut x, mut y) = (800f32, 20f32);
 
         for c in s.chars() {
             if let Some(glyph) = glyph_cache.get(&c) {
