@@ -88,15 +88,20 @@ impl QuadRenderer {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
         }
 
-        QuadRenderer {
+        let mut renderer = QuadRenderer {
             program: program,
             vao: vao,
             vbo: vbo,
             ebo: ebo,
             active_color: Rgb { r: 0, g: 0, b: 0 },
-            atlas: vec![Atlas::new(1024)],
+            atlas: Vec::new(),
             active_tex: 0,
-        }
+        };
+
+        let atlas = renderer.create_atlas(1024);
+        renderer.atlas.push(atlas);
+
+        renderer
     }
 
     /// Render a string in a predefined location. Used for printing render time for profiling and
@@ -179,7 +184,6 @@ impl QuadRenderer {
             gl::BindVertexArray(0);
 
             self.program.deactivate();
-            self.active_tex = 0;
         }
     }
 
@@ -208,8 +212,7 @@ impl QuadRenderer {
 
         unsafe {
             // Bind texture if it changed
-            if glyph.tex_id != self.active_tex {
-                println!("binding tex_id: {}", glyph.tex_id);
+            if self.active_tex != glyph.tex_id {
                 gl::BindTexture(gl::TEXTURE_2D, glyph.tex_id);
                 self.active_tex = glyph.tex_id;
             }
@@ -229,12 +232,50 @@ impl QuadRenderer {
     ///
     /// If the current atlas is full, a new one will be created.
     pub fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
-        match self.atlas.last_mut().unwrap().insert(rasterized) {
+        match self.atlas.last_mut().unwrap().insert(rasterized, &mut self.active_tex) {
             Ok(glyph) => glyph,
             Err(_) => {
-                self.atlas.push(Atlas::new(1024));
+                let atlas = self.create_atlas(1024);
+                self.atlas.push(atlas);
                 self.load_glyph(rasterized)
             }
+        }
+    }
+
+    fn create_atlas(&mut self, size: i32) -> Atlas {
+        let mut id: GLuint = 0;
+        unsafe {
+            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+            gl::GenTextures(1, &mut id);
+            gl::BindTexture(gl::TEXTURE_2D, id);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGB as i32,
+                size,
+                size,
+                0,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                ptr::null()
+            );
+
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+            self.active_tex = 0;
+        }
+
+        Atlas {
+            id: id,
+            width: size,
+            height: size,
+            row_extent: 0,
+            row_baseline: 0,
+            row_tallest: 0,
         }
     }
 }
@@ -421,44 +462,13 @@ enum AtlasInsertError {
 }
 
 impl Atlas {
-    pub fn new(size: i32) -> Atlas {
-        let mut id: GLuint = 0;
-        unsafe {
-            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
-            gl::GenTextures(1, &mut id);
-            gl::BindTexture(gl::TEXTURE_2D, id);
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGB as i32,
-                size,
-                size,
-                0,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-                ptr::null()
-            );
-
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-
-            gl::BindTexture(gl::TEXTURE_2D, 0);
-        }
-
-        Atlas {
-            id: id,
-            width: size,
-            height: size,
-            row_extent: 0,
-            row_baseline: 0,
-            row_tallest: 0,
-        }
-    }
 
     /// Insert a RasterizedGlyph into the texture atlas
-    pub fn insert(&mut self, glyph: &RasterizedGlyph) -> Result<Glyph, AtlasInsertError> {
+    pub fn insert(&mut self,
+                  glyph: &RasterizedGlyph,
+                  active_tex: &mut u32)
+                  -> Result<Glyph, AtlasInsertError>
+    {
         // If there's not enough room in current row, go onto next one
         if !self.room_in_row(glyph) {
             self.advance_row()?;
@@ -470,14 +480,18 @@ impl Atlas {
         }
 
         // There appears to be room; load the glyph.
-        Ok(self.insert_inner(glyph))
+        Ok(self.insert_inner(glyph, active_tex))
     }
 
     /// Insert the glyph without checking for room
     ///
     /// Internal function for use once atlas has been checked for space. GL errors could still occur
     /// at this point if we were checking for them; hence, the Result.
-    fn insert_inner(&mut self, glyph: &RasterizedGlyph) -> Glyph {
+    fn insert_inner(&mut self,
+                    glyph: &RasterizedGlyph,
+                    active_tex: &mut u32)
+                    -> Glyph
+    {
         let offset_y = self.row_baseline;
         let offset_x = self.row_extent;
         let height = glyph.height as i32;
@@ -500,6 +514,7 @@ impl Atlas {
             );
 
             gl::BindTexture(gl::TEXTURE_2D, 0);
+            *active_tex = 0;
         }
 
         // Update Atlas state
