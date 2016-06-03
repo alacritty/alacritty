@@ -142,6 +142,11 @@ impl Term {
         self.cursor.y
     }
 
+    #[inline]
+    pub fn cursor(&self) -> Cursor {
+        self.cursor
+    }
+
     /// Set character in current cursor position
     fn set_char(&mut self, c: char) {
         let cell = &mut self.grid[self.cursor];

@@ -55,23 +55,12 @@ static INIT_LIST: &'static str = "abcdefghijklmnopqrstuvwxyz\
 
 type GlyphCache = HashMap<char, renderer::Glyph>;
 
-/// Render a string in a predefined location. Used for printing render time for profiling and
-/// optimization.
-fn render_string(s: &str,
-                 renderer: &QuadRenderer,
-                 glyph_cache: &GlyphCache,
-                 cell_width: u32,
-                 color: &Rgb)
-{
-    let (mut x, mut y) = (200f32, 20f32);
-
-    for c in s.chars() {
-        if let Some(glyph) = glyph_cache.get(&c) {
-            renderer.render(glyph, x, y, color);
-        }
-
-        x += cell_width as f32 + 2f32;
-    }
+struct TermProps {
+    cell_width: f32,
+    sep_x: f32,
+    cell_height: f32,
+    sep_y: f32,
+    height: f32,
 }
 
 fn main() {
@@ -135,7 +124,7 @@ fn main() {
         }
     });
 
-    let renderer = QuadRenderer::new(width, height);
+    let mut renderer = QuadRenderer::new(width, height);
     let mut terminal = Term::new(tty, grid);
     let mut meter = Meter::new();
 
@@ -191,43 +180,27 @@ fn main() {
         {
             let _sampler = meter.sampler();
 
+            let props = TermProps {
+                cell_width: cell_width as f32,
+                sep_x: sep_x as f32,
+                cell_height: cell_height as f32,
+                sep_y: sep_y as f32,
+                height: height as f32,
+            };
+
             // Draw the grid
-            let grid = terminal.grid();
-            for i in 0..grid.rows() {
-                let row = &grid[i];
-                for j in 0..row.cols() {
-                    let cell = &row[j];
-                    if cell.c != ' ' {
-                        if let Some(glyph) = glyph_cache.get(&cell.c) {
-                            let y = (cell_height as f32 + sep_y as f32) * (i as f32);
-                            let x = (cell_width as f32 + sep_x as f32) * (j as f32);
-
-                            let y_inverted = (height as f32) - y - (cell_height as f32);
-
-                            renderer.render(glyph, x, y_inverted, &cell.fg);
-                        }
-                    }
-                }
-            }
+            renderer.render_grid(terminal.grid(), &glyph_cache, &props);
 
             // Also draw the cursor
-            if let Some(glyph) = glyph_cache.get(&term::CURSOR_SHAPE) {
-                let y = (cell_height as f32 + sep_y as f32) * (terminal.cursor_y() as f32);
-                let x = (cell_width as f32 + sep_x as f32) * (terminal.cursor_x() as f32);
-
-                let y_inverted = (height as f32) - y - (cell_height as f32);
-
-                renderer.render(glyph, x, y_inverted, &term::DEFAULT_FG);
-            }
+            renderer.render_cursor(terminal.cursor(), &glyph_cache, &props);
         }
 
+        // Draw render timer
         let timing = format!("{:.3} usec", meter.average());
         let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-        render_string(&timing[..], &renderer, &glyph_cache, cell_width, &color);
+        renderer.render_string(&timing[..], &glyph_cache, cell_width, &color);
 
         window.swap_buffers().unwrap();
-
-        // ::std::thread::sleep(::std::time::Duration::from_millis(17));
     }
 }
 

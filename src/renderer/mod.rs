@@ -2,16 +2,16 @@ use std::ffi::CString;
 use std::mem::size_of;
 use std::ptr;
 
-use gl;
-use cgmath;
-
+use cgmath::{self, Matrix};
 use euclid::{Rect, Size2D, Point2D};
-
 use gl::types::*;
-
-use cgmath::Matrix;
+use gl;
 
 use text::RasterizedGlyph;
+use grid::Grid;
+use term;
+
+use super::{Rgb, TermProps, GlyphCache};
 
 static TEXT_SHADER_V: &'static str = include_str!("../../res/text.v.glsl");
 static TEXT_SHADER_F: &'static str = include_str!("../../res/text.f.glsl");
@@ -21,6 +21,7 @@ pub struct QuadRenderer {
     vao: GLuint,
     vbo: GLuint,
     ebo: GLuint,
+    active_color: Rgb,
 }
 
 #[allow(dead_code)]
@@ -32,7 +33,6 @@ pub struct PackedVertex {
     v: f32,
 }
 
-use super::Rgb;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
@@ -91,14 +91,101 @@ impl QuadRenderer {
             vao: vao,
             vbo: vbo,
             ebo: ebo,
+            active_color: Rgb { r: 0, g: 0, b: 0 },
         }
     }
 
-    pub fn render(&self, glyph: &Glyph, x: f32, y: f32, color: &Rgb) {
-        self.program.activate();
+    /// Render a string in a predefined location. Used for printing render time for profiling and
+    /// optimization.
+    pub fn render_string(&mut self,
+                     s: &str,
+                     glyph_cache: &GlyphCache,
+                     cell_width: u32,
+                     color: &Rgb)
+    {
+        self.prepare_render();
+
+        let (mut x, mut y) = (200f32, 20f32);
+
+        for c in s.chars() {
+            if let Some(glyph) = glyph_cache.get(&c) {
+                self.render(glyph, x, y, color);
+            }
+
+            x += cell_width as f32 + 2f32;
+        }
+
+        self.finish_render();
+    }
+
+    pub fn render_cursor(&mut self,
+                         cursor: term::Cursor,
+                         glyph_cache: &GlyphCache,
+                         props: &TermProps)
+    {
+        self.prepare_render();
+        if let Some(glyph) = glyph_cache.get(&term::CURSOR_SHAPE) {
+            let y = (props.cell_height + props.sep_y) * (cursor.y as f32);
+            let x = (props.cell_width + props.sep_x) * (cursor.x as f32);
+
+            let y_inverted = props.height - y - props.cell_height;
+
+            self.render(glyph, x, y_inverted, &term::DEFAULT_FG);
+        }
+
+        self.finish_render();
+    }
+
+    pub fn render_grid(&mut self, grid: &Grid, glyph_cache: &GlyphCache, props: &TermProps) {
+        self.prepare_render();
+        for i in 0..grid.rows() {
+            let row = &grid[i];
+            for j in 0..row.cols() {
+                let cell = &row[j];
+                if cell.c != ' ' {
+                    if let Some(glyph) = glyph_cache.get(&cell.c) {
+                        let y = (props.cell_height + props.sep_y) * (i as f32);
+                        let x = (props.cell_width + props.sep_x) * (j as f32);
+
+                        let y_inverted = (props.height) - y - (props.cell_height);
+
+                        self.render(glyph, x, y_inverted, &cell.fg);
+                    }
+                }
+            }
+        }
+        self.finish_render();
+    }
+
+    fn prepare_render(&self) {
         unsafe {
-            // set color
-            gl::Uniform3i(self.program.u_color, color.r as i32, color.g as i32, color.b as i32);
+            self.program.activate();
+
+            gl::BindVertexArray(self.vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
+        }
+    }
+
+    fn finish_render(&self) {
+        unsafe {
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+
+            self.program.deactivate();
+        }
+    }
+
+    fn render(&mut self, glyph: &Glyph, x: f32, y: f32, color: &Rgb) {
+        if &self.active_color != color {
+            unsafe {
+                gl::Uniform3i(self.program.u_color,
+                              color.r as i32,
+                              color.g as i32,
+                              color.b as i32);
+            }
+            self.active_color = color.to_owned();
         }
 
         let rect = get_rect(glyph, x, y);
@@ -113,24 +200,16 @@ impl QuadRenderer {
 
         unsafe {
             bind_mask_texture(glyph.tex_id);
-            gl::BindVertexArray(self.vao);
-
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BufferSubData(
                 gl::ARRAY_BUFFER,
                 0,
                 (packed.len() * size_of::<PackedVertex>()) as isize,
                 packed.as_ptr() as *const _
             );
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
 
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
-            gl::BindVertexArray(0);
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
-
-        self.program.deactivate();
     }
 }
 
@@ -194,6 +273,11 @@ impl ShaderProgram {
         assert!(projection != gl::INVALID_OPERATION as i32);
         assert!(color != gl::INVALID_VALUE as i32);
         assert!(color != gl::INVALID_OPERATION as i32);
+
+        // Initialize to known color (black)
+        unsafe {
+            gl::Uniform3i(color, 0, 0, 0);
+        }
 
         let shader = ShaderProgram {
             id: program,
