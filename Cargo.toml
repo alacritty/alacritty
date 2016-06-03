@@ -8,7 +8,7 @@ build = "build.rs"
 
 [dependencies]
 servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig" }
-freetype-rs = "0.5.0"
+freetype-rs = "0.9.0"
 libc = "*"
 cgmath = "0.7"
 euclid = "0.6"
