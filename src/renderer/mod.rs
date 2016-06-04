@@ -1,23 +1,32 @@
 use std::ffi::CString;
+use std::fs::File;
+use std::io::{self, Read};
 use std::mem::size_of;
+use std::path::{PathBuf, Path};
 use std::ptr;
+use std::sync::Arc;
+use std::sync::atomic::{Ordering, AtomicBool};
 
 use cgmath::{self, Matrix};
 use euclid::{Rect, Size2D, Point2D};
 use gl::types::*;
 use gl;
-
+use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 use text::RasterizedGlyph;
 use grid::Grid;
 use term;
 
 use super::{Rgb, TermProps, GlyphCache};
 
-static TEXT_SHADER_V: &'static str = include_str!("../../res/text.v.glsl");
-static TEXT_SHADER_F: &'static str = include_str!("../../res/text.f.glsl");
+// static TEXT_SHADER_V: &'static str = include_str!("../../res/text.v.glsl");
+// static TEXT_SHADER_F: &'static str = include_str!("../../res/text.f.glsl");
+
+static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
+static TEXT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
 
 pub struct QuadRenderer {
     program: ShaderProgram,
+    should_reload: Arc<AtomicBool>,
     vao: GLuint,
     vbo: GLuint,
     ebo: GLuint,
@@ -39,7 +48,7 @@ pub struct PackedVertex {
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
     pub fn new(width: u32, height: u32) -> QuadRenderer {
-        let program = ShaderProgram::new(width, height);
+        let program = ShaderProgram::new(width, height).unwrap();
 
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
@@ -88,8 +97,41 @@ impl QuadRenderer {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
         }
 
+        let should_reload = Arc::new(AtomicBool::new(false));
+        let should_reload2 = should_reload.clone();
+
+        ::std::thread::spawn(move || {
+            let (tx, rx) = ::std::sync::mpsc::channel();
+            let mut watcher = Watcher::new(tx).unwrap();
+            watcher.watch(TEXT_SHADER_F_PATH).expect("watch fragment shader");
+            watcher.watch(TEXT_SHADER_V_PATH).expect("watch vertex shader");
+
+            loop {
+                let event = rx.recv().expect("watcher event");
+                let ::notify::Event { path, op } = event;
+
+                if let Ok(op) = op {
+                    if op.contains(op::RENAME) {
+                        continue;
+                    }
+
+                    if op.contains(op::IGNORED) {
+                        if let Some(path) = path.as_ref() {
+                            if let Err(err) = watcher.watch(path) {
+                                println!("failed to establish watch on {:?}: {:?}", path, err);
+                            }
+                        }
+
+                        // This is last event we see after saving in vim
+                        should_reload2.store(true, Ordering::Relaxed);
+                    }
+                }
+            }
+        });
+
         let mut renderer = QuadRenderer {
             program: program,
+            should_reload: should_reload,
             vao: vao,
             vbo: vbo,
             ebo: ebo,
@@ -109,10 +151,10 @@ impl QuadRenderer {
     pub fn render_string(&mut self,
                      s: &str,
                      glyph_cache: &GlyphCache,
-                     cell_width: u32,
+                     props: &TermProps,
                      color: &Rgb)
     {
-        self.prepare_render();
+        self.prepare_render(props);
 
         let (mut x, mut y) = (800f32, 20f32);
 
@@ -121,7 +163,7 @@ impl QuadRenderer {
                 self.render(glyph, x, y, color);
             }
 
-            x += cell_width as f32 + 2f32;
+            x += props.cell_width as f32 + 2f32;
         }
 
         self.finish_render();
@@ -132,7 +174,7 @@ impl QuadRenderer {
                          glyph_cache: &GlyphCache,
                          props: &TermProps)
     {
-        self.prepare_render();
+        self.prepare_render(props);
         if let Some(glyph) = glyph_cache.get(&term::CURSOR_SHAPE) {
             let y = (props.cell_height + props.sep_y) * (cursor.y as f32);
             let x = (props.cell_width + props.sep_x) * (cursor.x as f32);
@@ -146,7 +188,7 @@ impl QuadRenderer {
     }
 
     pub fn render_grid(&mut self, grid: &Grid, glyph_cache: &GlyphCache, props: &TermProps) {
-        self.prepare_render();
+        self.prepare_render(props);
         for i in 0..grid.rows() {
             let row = &grid[i];
             for j in 0..row.cols() {
@@ -166,7 +208,7 @@ impl QuadRenderer {
         self.finish_render();
     }
 
-    fn prepare_render(&self) {
+    fn prepare_render(&mut self, props: &TermProps) {
         unsafe {
             self.program.activate();
 
@@ -174,6 +216,10 @@ impl QuadRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
             gl::ActiveTexture(gl::TEXTURE0);
+        }
+
+        if self.should_reload.load(Ordering::Relaxed) {
+            self.reload_shaders(props.width as u32, props.height as u32);
         }
     }
 
@@ -185,6 +231,30 @@ impl QuadRenderer {
 
             self.program.deactivate();
         }
+    }
+
+    pub fn reload_shaders(&mut self, width: u32, height: u32) {
+        self.should_reload.store(false, Ordering::Relaxed);
+        let program = match ShaderProgram::new(width, height) {
+            Ok(program) => program,
+            Err(err) => {
+                match err {
+                    ShaderCreationError::Io(err) => {
+                        println!("Error reading shader file: {}", err);
+                    },
+                    ShaderCreationError::Compile(path, log) => {
+                        println!("Error compiling shader at {:?}", path);
+                        io::copy(&mut log.as_bytes(), &mut io::stdout()).unwrap();
+                    }
+                }
+
+                return;
+            }
+        };
+
+        self.active_tex = 0;
+        self.active_color = Rgb { r: 0, g: 0, b: 0 };
+        self.program = program;
     }
 
     fn render(&mut self, glyph: &Glyph, x: f32, y: f32, color: &Rgb) {
@@ -308,9 +378,10 @@ impl ShaderProgram {
         }
     }
 
-    pub fn new(width: u32, height: u32) -> ShaderProgram {
-        let vertex_shader = ShaderProgram::create_vertex_shader();
-        let fragment_shader = ShaderProgram::create_fragment_shader();
+    pub fn new(width: u32, height: u32) -> Result<ShaderProgram, ShaderCreationError> {
+        let vertex_shader = ShaderProgram::create_shader(TEXT_SHADER_V_PATH, gl::VERTEX_SHADER)?;
+        let fragment_shader = ShaderProgram::create_shader(TEXT_SHADER_F_PATH,
+                                                           gl::FRAGMENT_SHADER)?;
         let program = ShaderProgram::create_program(vertex_shader, fragment_shader);
 
         unsafe {
@@ -358,11 +429,10 @@ impl ShaderProgram {
         }
         shader.deactivate();
 
-        shader
+        Ok(shader)
     }
 
     fn create_program(vertex: GLuint, fragment: GLuint) -> GLuint {
-
         unsafe {
             let program = gl::CreateProgram();
             gl::AttachShader(program, vertex);
@@ -379,40 +449,108 @@ impl ShaderProgram {
         }
     }
 
-    fn create_fragment_shader() -> GLuint {
+
+    fn create_shader(path: &str, kind: GLenum) -> Result<GLuint, ShaderCreationError> {
+        let source = CString::new(read_file(path)?).unwrap();
+        let shader = unsafe {
+            let shader = gl::CreateShader(kind);
+            gl::ShaderSource(shader, 1, &source.as_ptr(), ptr::null());
+            gl::CompileShader(shader);
+            shader
+        };
+
+        let mut success: GLint = 0;
         unsafe {
-            let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-            let fragment_source = CString::new(TEXT_SHADER_F).unwrap();
-            gl::ShaderSource(fragment_shader, 1, &fragment_source.as_ptr(), ptr::null());
-            gl::CompileShader(fragment_shader);
-
-            let mut success: GLint = 0;
-            gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
-
-            if success != (gl::TRUE as GLint) {
-                panic!("failed to compiler fragment shader");
-            }
-            fragment_shader
+            gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
         }
-    }
 
-    fn create_vertex_shader() -> GLuint {
-        unsafe {
-            let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-            let vertex_source = CString::new(TEXT_SHADER_V).unwrap();
-            gl::ShaderSource(vertex_shader, 1, &vertex_source.as_ptr(), ptr::null());
-            gl::CompileShader(vertex_shader);
+        if success == (gl::TRUE as GLint) {
+            Ok(shader)
+        } else {
+            // Read log
+            let log = get_shader_info_log(shader);
 
-            let mut success: GLint = 0;
-            gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
+            // Cleanup
+            unsafe { gl::DeleteShader(shader); }
 
-            if success != (gl::TRUE as GLint) {
-                panic!("failed to compiler vertex shader");
-            }
-            vertex_shader
+            Err(ShaderCreationError::Compile(PathBuf::from(path), log))
         }
     }
 }
+
+fn get_shader_info_log(shader: GLuint) -> String {
+    // Get expected log length
+    let mut max_length: GLint = 0;
+    unsafe {
+        gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut max_length);
+    }
+
+    // Read the info log
+    let mut actual_length: GLint = 0;
+    let mut buf: Vec<u8> = Vec::with_capacity(max_length as usize);
+    unsafe {
+        gl::GetShaderInfoLog(shader, max_length, &mut actual_length, buf.as_mut_ptr() as *mut _);
+    }
+
+    // Build a string
+    unsafe {
+        buf.set_len(actual_length as usize);
+    }
+
+    // XXX should we expect opengl to return garbage?
+    String::from_utf8(buf).unwrap()
+}
+
+fn read_file(path: &str) -> Result<String, io::Error> {
+    let mut f = File::open(path)?;
+    let mut buf = String::new();
+    f.read_to_string(&mut buf)?;
+
+    Ok(buf)
+}
+
+#[derive(Debug)]
+pub enum ShaderCreationError {
+    /// Error reading file
+    Io(io::Error),
+
+    /// Error compiling shader
+    Compile(PathBuf, String),
+}
+
+impl ::std::error::Error for ShaderCreationError {
+    fn cause(&self) -> Option<&::std::error::Error> {
+        match *self {
+            ShaderCreationError::Io(ref err) => Some(err),
+            ShaderCreationError::Compile(_, _) => None,
+        }
+    }
+
+    fn description(&self) -> &str {
+        match *self {
+            ShaderCreationError::Io(ref err) => err.description(),
+            ShaderCreationError::Compile(ref _path, ref s) => s.as_str(),
+        }
+    }
+}
+
+impl ::std::fmt::Display for ShaderCreationError {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        match *self {
+            ShaderCreationError::Io(ref err) => write!(f, "Error creating shader: {}", err),
+            ShaderCreationError::Compile(ref _path, ref s) => {
+                write!(f, "Error compiling shader: {}", s)
+            },
+        }
+    }
+}
+
+impl From<io::Error> for ShaderCreationError {
+    fn from(val: io::Error) -> ShaderCreationError {
+        ShaderCreationError::Io(val)
+    }
+}
+
 
 /// Manages a single texture atlas
 ///

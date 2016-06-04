@@ -11,6 +11,7 @@ extern crate libc;
 extern crate glutin;
 extern crate cgmath;
 extern crate euclid;
+extern crate notify;
 
 #[macro_use]
 mod macros;
@@ -61,6 +62,7 @@ struct TermProps {
     cell_height: f32,
     sep_y: f32,
     height: f32,
+    width: f32,
 }
 
 fn main() {
@@ -178,16 +180,17 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
+        let props = TermProps {
+            cell_width: cell_width as f32,
+            sep_x: sep_x as f32,
+            cell_height: cell_height as f32,
+            sep_y: sep_y as f32,
+            height: height as f32,
+            width: width as f32,
+        };
+
         {
             let _sampler = meter.sampler();
-
-            let props = TermProps {
-                cell_width: cell_width as f32,
-                sep_x: sep_x as f32,
-                cell_height: cell_height as f32,
-                sep_y: sep_y as f32,
-                height: height as f32,
-            };
 
             // Draw the grid
             renderer.render_grid(terminal.grid(), &glyph_cache, &props);
@@ -199,7 +202,7 @@ fn main() {
         // Draw render timer
         let timing = format!("{:.3} usec", meter.average());
         let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-        renderer.render_string(&timing[..], &glyph_cache, cell_width, &color);
+        renderer.render_string(&timing[..], &glyph_cache, &props, &color);
 
         window.swap_buffers().unwrap();
     }

@@ -12,6 +12,7 @@ freetype-rs = "0.9.0"
 libc = "*"
 cgmath = "0.7"
 euclid = "0.6"
+notify = { git = "https://github.com/jwilm/rsnotify", branch = "add-ignore-op" }
 
 [build-dependencies]
 gl_generator = "0.5"
