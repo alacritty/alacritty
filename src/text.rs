@@ -108,10 +108,11 @@ impl Rasterizer {
         }
 
         RasterizedGlyph {
-            top: glyph.bitmap_top() as usize,
-            left: glyph.bitmap_left() as usize,
-            width: glyph.bitmap().width() as usize / 3,
-            height: glyph.bitmap().rows() as usize,
+            c: c,
+            top: glyph.bitmap_top(),
+            left: glyph.bitmap_left(),
+            width: glyph.bitmap().width() / 3,
+            height: glyph.bitmap().rows(),
             buf: packed,
         }
     }
@@ -119,10 +120,11 @@ impl Rasterizer {
 
 #[derive(Debug)]
 pub struct RasterizedGlyph {
-    pub width: usize,
-    pub height: usize,
-    pub top: usize,
-    pub left: usize,
+    pub c: char,
+    pub width: i32,
+    pub height: i32,
+    pub top: i32,
+    pub left: i32,
     pub buf: Vec<u8>,
 }
 

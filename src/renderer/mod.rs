@@ -18,9 +18,6 @@ use term;
 
 use super::{Rgb, TermProps, GlyphCache};
 
-// static TEXT_SHADER_V: &'static str = include_str!("../../res/text.v.glsl");
-// static TEXT_SHADER_F: &'static str = include_str!("../../res/text.f.glsl");
-
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
 static TEXT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
 
@@ -40,8 +37,6 @@ pub struct QuadRenderer {
 pub struct PackedVertex {
     x: f32,
     y: f32,
-    u: f32,
-    v: f32,
 }
 
 
@@ -61,11 +56,20 @@ impl QuadRenderer {
             gl::BindVertexArray(vao);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+
+            // Top right, Bottom right, Bottom left, Top left
+            let vertices = [
+                PackedVertex { x: 1.0, y: 1.0 },
+                PackedVertex { x: 1.0, y: 0.0 },
+                PackedVertex { x: 0.0, y: 0.0 },
+                PackedVertex { x: 0.0, y: 1.0 },
+            ];
+
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (size_of::<PackedVertex>() * 4) as GLsizeiptr,
-                ptr::null(),
-                gl::DYNAMIC_DRAW
+                (size_of::<PackedVertex>() * vertices.len()) as GLsizeiptr,
+                vertices.as_ptr() as *const _,
+                gl::STATIC_DRAW
             );
 
             let indices: [u32; 6] = [0, 1, 3,
@@ -78,19 +82,12 @@ impl QuadRenderer {
                            gl::STATIC_DRAW);
 
             gl::EnableVertexAttribArray(0);
-            gl::EnableVertexAttribArray(1);
 
             // positions
             gl::VertexAttribPointer(0, 2,
                                     gl::FLOAT, gl::FALSE,
                                     size_of::<PackedVertex>() as i32,
                                     ptr::null());
-
-            // uv mapping
-            gl::VertexAttribPointer(1, 2,
-                                    gl::FLOAT, gl::FALSE,
-                                    size_of::<PackedVertex>() as i32,
-                                    (2 * size_of::<f32>()) as *const _);
 
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
@@ -156,14 +153,14 @@ impl QuadRenderer {
     {
         self.prepare_render(props);
 
-        let (mut x, mut y) = (800f32, 20f32);
-
+        let row = 40.0;
+        let mut col = 100.0;
         for c in s.chars() {
             if let Some(glyph) = glyph_cache.get(&c) {
-                self.render(glyph, x, y, color);
+                self.render(glyph, row, col, color, c);
             }
 
-            x += props.cell_width as f32 + 2f32;
+            col += 1.0;
         }
 
         self.finish_render();
@@ -176,12 +173,8 @@ impl QuadRenderer {
     {
         self.prepare_render(props);
         if let Some(glyph) = glyph_cache.get(&term::CURSOR_SHAPE) {
-            let y = (props.cell_height + props.sep_y) * (cursor.y as f32);
-            let x = (props.cell_width + props.sep_x) * (cursor.x as f32);
-
-            let y_inverted = props.height - y - props.cell_height;
-
-            self.render(glyph, x, y_inverted, &term::DEFAULT_FG);
+            self.render(glyph, cursor.y as f32, cursor.x as f32,
+                        &term::DEFAULT_FG, term::CURSOR_SHAPE);
         }
 
         self.finish_render();
@@ -195,12 +188,7 @@ impl QuadRenderer {
                 let cell = &row[j];
                 if cell.c != ' ' {
                     if let Some(glyph) = glyph_cache.get(&cell.c) {
-                        let y = (props.cell_height + props.sep_y) * (i as f32);
-                        let x = (props.cell_width + props.sep_x) * (j as f32);
-
-                        let y_inverted = (props.height) - y - (props.cell_height);
-
-                        self.render(glyph, x, y_inverted, &cell.fg);
+                        self.render(glyph, i as f32, j as f32, &cell.fg, cell.c);
                     }
                 }
             }
@@ -211,6 +199,7 @@ impl QuadRenderer {
     fn prepare_render(&mut self, props: &TermProps) {
         unsafe {
             self.program.activate();
+            self.program.set_term_uniforms(props);
 
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
@@ -257,7 +246,7 @@ impl QuadRenderer {
         self.program = program;
     }
 
-    fn render(&mut self, glyph: &Glyph, x: f32, y: f32, color: &Rgb) {
+    fn render(&mut self, glyph: &Glyph, row: f32, col: f32, color: &Rgb, c: char) {
         if &self.active_color != color {
             unsafe {
                 gl::Uniform3i(self.program.u_color,
@@ -268,17 +257,7 @@ impl QuadRenderer {
             self.active_color = color.to_owned();
         }
 
-        let rect = get_rect(glyph, x, y);
-
-        let uv = glyph.uv;
-
-        // Top right, Bottom right, Bottom left, Top left
-        let packed = [
-            PackedVertex { x: rect.max_x(), y: rect.max_y(), u: uv.max_x(), v: uv.min_y(), },
-            PackedVertex { x: rect.max_x(), y: rect.min_y(), u: uv.max_x(), v: uv.max_y(), },
-            PackedVertex { x: rect.min_x(), y: rect.min_y(), u: uv.min_x(), v: uv.max_y(), },
-            PackedVertex { x: rect.min_x(), y: rect.max_y(), u: uv.min_x(), v: uv.min_y(), },
-        ];
+        self.program.set_glyph_uniforms(row, col, glyph);
 
         unsafe {
             // Bind texture if it changed
@@ -286,13 +265,6 @@ impl QuadRenderer {
                 gl::BindTexture(gl::TEXTURE_2D, glyph.tex_id);
                 self.active_tex = glyph.tex_id;
             }
-
-            gl::BufferSubData(
-                gl::ARRAY_BUFFER,
-                0,
-                (packed.len() * size_of::<PackedVertex>()) as isize,
-                packed.as_ptr() as *const _
-            );
 
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
         }
@@ -358,11 +330,38 @@ fn get_rect(glyph: &Glyph, x: f32, y: f32) -> Rect<f32> {
 }
 
 pub struct ShaderProgram {
+    // Program id
     id: GLuint,
+
     /// projection matrix uniform
     u_projection: GLint,
+
     /// color uniform
     u_color: GLint,
+
+    /// Terminal dimensions (pixels)
+    u_term_dim: GLint,
+
+    /// Cell dimensions (pixels)
+    u_cell_dim: GLint,
+
+    /// Cell separation (pixels)
+    u_cell_sep: GLint,
+
+    /// Cell coordinates in grid
+    u_cell_coord: GLint,
+
+    /// Glyph scale
+    u_glyph_scale: GLint,
+
+    /// Glyph offset
+    u_glyph_offest: GLint,
+
+    /// Atlas scale
+    u_uv_scale: GLint,
+
+    /// Atlas offset
+    u_uv_offset: GLint,
 }
 
 impl ShaderProgram {
@@ -387,23 +386,47 @@ impl ShaderProgram {
         unsafe {
             gl::DeleteShader(vertex_shader);
             gl::DeleteShader(fragment_shader);
+            gl::UseProgram(program);
+        }
+
+        macro_rules! cptr {
+            ($thing:expr) => { $thing.as_ptr() as *const _ }
+        }
+
+        macro_rules! assert_uniform_valid {
+            ($uniform:expr) => {
+                assert!($uniform != gl::INVALID_VALUE as i32);
+                assert!($uniform != gl::INVALID_OPERATION as i32);
+            };
+            ( $( $uniform:expr ),* ) => {
+                $( assert_uniform_valid!($uniform) )*
+            };
         }
 
         // get uniform locations
-        let projection_str = CString::new("projection").unwrap();
-        let color_str = CString::new("textColor").unwrap();
-
-        let (projection, color) = unsafe {
+        let (projection, color, term_dim, cell_dim, cell_sep) = unsafe {
             (
-                gl::GetUniformLocation(program, projection_str.as_ptr()),
-                gl::GetUniformLocation(program, color_str.as_ptr()),
+                gl::GetUniformLocation(program, cptr!(b"projection\0")),
+                gl::GetUniformLocation(program, cptr!(b"textColor\0")),
+                gl::GetUniformLocation(program, cptr!(b"termDim\0")),
+                gl::GetUniformLocation(program, cptr!(b"cellDim\0")),
+                gl::GetUniformLocation(program, cptr!(b"cellSep\0")),
             )
         };
 
-        assert!(projection != gl::INVALID_VALUE as i32);
-        assert!(projection != gl::INVALID_OPERATION as i32);
-        assert!(color != gl::INVALID_VALUE as i32);
-        assert!(color != gl::INVALID_OPERATION as i32);
+        assert_uniform_valid!(projection, color, term_dim, cell_dim, cell_sep);
+
+        let (cell_coord, glyph_scale, glyph_offest, uv_scale, uv_offset) = unsafe {
+            (
+                gl::GetUniformLocation(program, cptr!(b"gridCoords\0")),
+                gl::GetUniformLocation(program, cptr!(b"glyphScale\0")),
+                gl::GetUniformLocation(program, cptr!(b"glyphOffset\0")),
+                gl::GetUniformLocation(program, cptr!(b"uvScale\0")),
+                gl::GetUniformLocation(program, cptr!(b"uvOffset\0")),
+            )
+        };
+
+        assert_uniform_valid!(cell_coord, glyph_scale, glyph_offest, uv_scale, uv_offset);
 
         // Initialize to known color (black)
         unsafe {
@@ -414,6 +437,14 @@ impl ShaderProgram {
             id: program,
             u_projection: projection,
             u_color: color,
+            u_term_dim: term_dim,
+            u_cell_dim: cell_dim,
+            u_cell_sep: cell_sep,
+            u_cell_coord: cell_coord,
+            u_glyph_scale: glyph_scale,
+            u_glyph_offest: glyph_offest,
+            u_uv_scale: uv_scale,
+            u_uv_offset: uv_offset,
         };
 
         // set projection uniform
@@ -422,14 +453,32 @@ impl ShaderProgram {
 
         println!("width: {}, height: {}", width, height);
 
-        shader.activate();
         unsafe {
             gl::UniformMatrix4fv(shader.u_projection,
                                  1, gl::FALSE, projection.as_ptr() as *const _);
         }
+
         shader.deactivate();
 
         Ok(shader)
+    }
+
+    fn set_term_uniforms(&self, props: &TermProps) {
+        unsafe {
+            gl::Uniform2f(self.u_term_dim, props.width, props.height);
+            gl::Uniform2f(self.u_cell_dim, props.cell_width, props.cell_height);
+            gl::Uniform2f(self.u_cell_sep, props.sep_x, props.sep_y);
+        }
+    }
+
+    fn set_glyph_uniforms(&self, row: f32, col: f32, glyph: &Glyph) {
+        unsafe {
+            gl::Uniform2f(self.u_cell_coord, col, row); // col = x; row = y
+            gl::Uniform2f(self.u_glyph_scale, glyph.width, glyph.height);
+            gl::Uniform2f(self.u_glyph_offest, glyph.left, glyph.top);
+            gl::Uniform2f(self.u_uv_scale, glyph.uv_width, glyph.uv_height);
+            gl::Uniform2f(self.u_uv_offset, glyph.uv_left, glyph.uv_bot);
+        }
     }
 
     fn create_program(vertex: GLuint, fragment: GLuint) -> GLuint {
@@ -667,20 +716,20 @@ impl Atlas {
         let uv_height = height as f32 / self.height as f32;
         let uv_width = width as f32 / self.width as f32;
 
-        let uv = Rect::new(
-            Point2D::new(uv_left, uv_bot),
-            Size2D::new(uv_width, uv_height)
-        );
+        let g = Glyph {
+            tex_id: self.id,
+            top: glyph.top as f32,
+            width: width as f32,
+            height: height as f32,
+            left: glyph.left as f32,
+            uv_bot: uv_bot,
+            uv_left: uv_left,
+            uv_width: uv_width,
+            uv_height: uv_height,
+        };
 
         // Return the glyph
-        Glyph {
-            tex_id: self.id,
-            top: glyph.top as i32,
-            width: width,
-            height: height,
-            left: glyph.left as i32,
-            uv: uv
-        }
+        g
     }
 
     /// Check if there's room in the current row for given glyph
@@ -707,11 +756,15 @@ impl Atlas {
     }
 }
 
+#[derive(Debug)]
 pub struct Glyph {
     tex_id: GLuint,
-    top: i32,
-    left: i32,
-    width: i32,
-    height: i32,
-    uv: Rect<f32>,
+    top: f32,
+    left: f32,
+    width: f32,
+    height: f32,
+    uv_bot: f32,
+    uv_left: f32,
+    uv_width: f32,
+    uv_height: f32,
 }

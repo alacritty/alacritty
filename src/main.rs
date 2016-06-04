@@ -56,13 +56,14 @@ static INIT_LIST: &'static str = "abcdefghijklmnopqrstuvwxyz\
 
 type GlyphCache = HashMap<char, renderer::Glyph>;
 
+#[derive(Debug)]
 struct TermProps {
-    cell_width: f32,
-    sep_x: f32,
-    cell_height: f32,
-    sep_y: f32,
-    height: f32,
     width: f32,
+    height: f32,
+    cell_width: f32,
+    cell_height: f32,
+    sep_x: f32,
+    sep_y: f32,
 }
 
 fn main() {
@@ -184,6 +185,15 @@ fn main() {
             cell_width: cell_width as f32,
             sep_x: sep_x as f32,
             cell_height: cell_height as f32,
+            sep_y: sep_y as f32,
+            height: height as f32,
+            width: width as f32,
+        };
+
+        let props = TermProps {
+            cell_width: cell_width as f32,
+            cell_height: cell_height as f32,
+            sep_x: sep_x as f32,
             sep_y: sep_y as f32,
             height: height as f32,
             width: width as f32,

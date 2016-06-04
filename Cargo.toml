@@ -3,7 +3,7 @@ name = "alacritty"
 version = "0.1.0"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
-
+exclude = ["res/*"]
 build = "build.rs"
 
 [dependencies]
