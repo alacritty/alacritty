@@ -7,11 +7,13 @@ use std::ptr;
 use std::sync::Arc;
 use std::sync::atomic::{Ordering, AtomicBool};
 
+use arrayvec::ArrayVec;
 use cgmath::{self, Matrix};
 use euclid::{Rect, Size2D, Point2D};
 use gl::types::*;
 use gl;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
+
 use text::RasterizedGlyph;
 use grid::Grid;
 use term;
@@ -20,6 +22,19 @@ use super::{Rgb, TermProps, GlyphCache};
 
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
 static TEXT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
+
+#[derive(Debug)]
+pub struct Glyph {
+    tex_id: GLuint,
+    top: f32,
+    left: f32,
+    width: f32,
+    height: f32,
+    uv_bot: f32,
+    uv_left: f32,
+    uv_width: f32,
+    uv_height: f32,
+}
 
 pub struct QuadRenderer {
     program: ShaderProgram,
@@ -32,13 +47,111 @@ pub struct QuadRenderer {
     active_tex: GLuint,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct PackedVertex {
     x: f32,
     y: f32,
 }
 
+#[derive(Debug)]
+struct ElementIndex {
+    col: u32, // x
+    row: u32, // y
+}
+
+#[derive(Debug)]
+struct Batch {
+    tex: GLuint,
+    coords: ArrayVec<[Point2D<f32>; BATCH_MAX]>,
+    color: ArrayVec<[RgbUpload; BATCH_MAX]>,
+    glyph_scale: ArrayVec<[Point2D<f32>; BATCH_MAX]>,
+    glyph_offset: ArrayVec<[Point2D<f32>; BATCH_MAX]>,
+    uv_scale: ArrayVec<[Point2D<f32>; BATCH_MAX]>,
+    uv_offset: ArrayVec<[Point2D<f32>; BATCH_MAX]>,
+}
+
+#[derive(Debug)]
+struct RgbUpload {
+    r: i32,
+    g: i32,
+    b: i32,
+}
+
+impl From<Rgb> for RgbUpload {
+    #[inline]
+    fn from(color: Rgb) -> RgbUpload {
+        RgbUpload {
+            r: color.r as i32,
+            g: color.g as i32,
+            b: color.b as i32,
+        }
+    }
+}
+
+impl Batch {
+    pub fn new() -> Batch {
+        Batch {
+            tex: 0,
+            coords: ArrayVec::new(),
+            color: ArrayVec::new(),
+            glyph_scale: ArrayVec::new(),
+            glyph_offset: ArrayVec::new(),
+            uv_scale: ArrayVec::new(),
+            uv_offset: ArrayVec::new(),
+        }
+    }
+
+    pub fn add_item(&mut self, row: f32, col: f32, color: Rgb, glyph: &Glyph) {
+        if self.is_empty() {
+            self.tex = glyph.tex_id;
+        }
+
+        self.coords.push(Point2D::new(col, row));
+        self.color.push(RgbUpload::from(color));
+        self.glyph_scale.push(Point2D::new(glyph.width, glyph.height));
+        self.glyph_offset.push(Point2D::new(glyph.left, glyph.top));
+        self.uv_scale.push(Point2D::new(glyph.uv_width, glyph.uv_height));
+        self.uv_offset.push(Point2D::new(glyph.uv_left, glyph.uv_bot));
+    }
+
+    #[inline]
+    pub fn full(&self) -> bool {
+        self.capacity() == self.len()
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.color.len()
+    }
+
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        BATCH_MAX
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn clear(&mut self) {
+        self.tex = 0;
+        self.coords.clear();
+        self.color.clear();
+        self.glyph_scale.clear();
+        self.glyph_offset.clear();
+        self.uv_scale.clear();
+        self.uv_offset.clear();
+    }
+
+    pub fn render(&mut self, renderer: &mut QuadRenderer) {
+        renderer.render_batch(self);
+        self.clear();
+    }
+}
+
+/// Maximum items to be drawn in a batch.
+const BATCH_MAX: usize = 32usize;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
@@ -155,12 +268,24 @@ impl QuadRenderer {
 
         let row = 40.0;
         let mut col = 100.0;
+
+        let mut batch = Batch::new();
+
         for c in s.chars() {
             if let Some(glyph) = glyph_cache.get(&c) {
-                self.render(glyph, row, col, color, c);
+                batch.add_item(row, col, *color, glyph);
             }
 
             col += 1.0;
+
+            // Render batch and clear if it's full
+            if batch.full() {
+                batch.render(self);
+            }
+        }
+
+        if !batch.is_empty() {
+            batch.render(self);
         }
 
         self.finish_render();
@@ -172,9 +297,11 @@ impl QuadRenderer {
                          props: &TermProps)
     {
         self.prepare_render(props);
+
         if let Some(glyph) = glyph_cache.get(&term::CURSOR_SHAPE) {
-            self.render(glyph, cursor.y as f32, cursor.x as f32,
-                        &term::DEFAULT_FG, term::CURSOR_SHAPE);
+            let mut batch = Batch::new();
+            batch.add_item(cursor.y as f32, cursor.x as f32, term::DEFAULT_FG, glyph);
+            batch.render(self);
         }
 
         self.finish_render();
@@ -183,6 +310,9 @@ impl QuadRenderer {
     pub fn render_grid(&mut self, grid: &Grid, glyph_cache: &GlyphCache, props: &TermProps) {
         self.prepare_render(props);
 
+        // All draws are batched
+        let mut batch = Batch::new();
+
         for (i, row) in grid.rows().enumerate() {
             for (j, cell) in row.cells().enumerate() {
                 // Skip empty cells
@@ -190,11 +320,21 @@ impl QuadRenderer {
                     continue;
                 }
 
-                // Render if glyph is loaded
+                // Add cell to batch if the glyph is laoded
                 if let Some(glyph) = glyph_cache.get(&cell.c) {
-                    self.render(glyph, i as f32, j as f32, &cell.fg, cell.c);
+                    batch.add_item(i as f32, j as f32, cell.fg, glyph);
+                }
+
+                // Render batch and clear if it's full
+                if batch.full() {
+                    batch.render(self);
                 }
             }
+        }
+
+        // Could have some data in a batch still; render it.
+        if !batch.is_empty() {
+            batch.render(self);
         }
 
         self.finish_render();
@@ -250,27 +390,20 @@ impl QuadRenderer {
         self.program = program;
     }
 
-    fn render(&mut self, glyph: &Glyph, row: f32, col: f32, color: &Rgb, c: char) {
-        if &self.active_color != color {
+    fn render_batch(&mut self, batch: &Batch) {
+        self.program.set_uniforms(batch);
+
+        // Bind texture if necessary
+        if self.active_tex != batch.tex {
             unsafe {
-                gl::Uniform3i(self.program.u_color,
-                              color.r as i32,
-                              color.g as i32,
-                              color.b as i32);
+                gl::BindTexture(gl::TEXTURE_2D, batch.tex);
             }
-            self.active_color = color.to_owned();
+            self.active_tex = batch.tex;
         }
 
-        self.program.set_glyph_uniforms(row, col, glyph);
-
         unsafe {
-            // Bind texture if it changed
-            if self.active_tex != glyph.tex_id {
-                gl::BindTexture(gl::TEXTURE_2D, glyph.tex_id);
-                self.active_tex = glyph.tex_id;
-            }
-
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
+            let count = batch.len() as GLsizei;
+            gl::DrawElementsInstanced(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null(), count);
         }
     }
 
@@ -359,7 +492,7 @@ pub struct ShaderProgram {
     u_glyph_scale: GLint,
 
     /// Glyph offset
-    u_glyph_offest: GLint,
+    u_glyph_offset: GLint,
 
     /// Atlas scale
     u_uv_scale: GLint,
@@ -420,7 +553,7 @@ impl ShaderProgram {
 
         assert_uniform_valid!(projection, color, term_dim, cell_dim, cell_sep);
 
-        let (cell_coord, glyph_scale, glyph_offest, uv_scale, uv_offset) = unsafe {
+        let (cell_coord, glyph_scale, glyph_offset, uv_scale, uv_offset) = unsafe {
             (
                 gl::GetUniformLocation(program, cptr!(b"gridCoords\0")),
                 gl::GetUniformLocation(program, cptr!(b"glyphScale\0")),
@@ -430,7 +563,7 @@ impl ShaderProgram {
             )
         };
 
-        assert_uniform_valid!(cell_coord, glyph_scale, glyph_offest, uv_scale, uv_offset);
+        assert_uniform_valid!(cell_coord, glyph_scale, glyph_offset, uv_scale, uv_offset);
 
         // Initialize to known color (black)
         unsafe {
@@ -446,7 +579,7 @@ impl ShaderProgram {
             u_cell_sep: cell_sep,
             u_cell_coord: cell_coord,
             u_glyph_scale: glyph_scale,
-            u_glyph_offest: glyph_offest,
+            u_glyph_offset: glyph_offset,
             u_uv_scale: uv_scale,
             u_uv_offset: uv_offset,
         };
@@ -475,13 +608,15 @@ impl ShaderProgram {
         }
     }
 
-    fn set_glyph_uniforms(&self, row: f32, col: f32, glyph: &Glyph) {
+    fn set_uniforms(&self, batch: &Batch) {
+        let len = batch.len();
         unsafe {
-            gl::Uniform2f(self.u_cell_coord, col, row); // col = x; row = y
-            gl::Uniform2f(self.u_glyph_scale, glyph.width, glyph.height);
-            gl::Uniform2f(self.u_glyph_offest, glyph.left, glyph.top);
-            gl::Uniform2f(self.u_uv_scale, glyph.uv_width, glyph.uv_height);
-            gl::Uniform2f(self.u_uv_offset, glyph.uv_left, glyph.uv_bot);
+            gl::Uniform2fv(self.u_cell_coord, len as i32, batch.coords.as_ptr() as *const _);
+            gl::Uniform2fv(self.u_glyph_scale, len as i32, batch.glyph_scale.as_ptr() as *const _);
+            gl::Uniform2fv(self.u_glyph_offset, len as i32, batch.glyph_offset.as_ptr() as *const _);
+            gl::Uniform2fv(self.u_uv_scale, len as i32, batch.uv_scale.as_ptr() as *const _);
+            gl::Uniform2fv(self.u_uv_offset, len as i32, batch.uv_offset.as_ptr() as *const _);
+            gl::Uniform3iv(self.u_color, len as i32, batch.color.as_ptr() as *const _);
         }
     }
 
@@ -496,6 +631,7 @@ impl ShaderProgram {
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
 
             if success != (gl::TRUE as GLint) {
+                println!("{}", get_program_info_log(program));
                 panic!("failed to link shader program");
             }
             program
@@ -529,6 +665,29 @@ impl ShaderProgram {
             Err(ShaderCreationError::Compile(PathBuf::from(path), log))
         }
     }
+}
+
+fn get_program_info_log(program: GLuint) -> String {
+    // Get expected log length
+    let mut max_length: GLint = 0;
+    unsafe {
+        gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut max_length);
+    }
+
+    // Read the info log
+    let mut actual_length: GLint = 0;
+    let mut buf: Vec<u8> = Vec::with_capacity(max_length as usize);
+    unsafe {
+        gl::GetProgramInfoLog(program, max_length, &mut actual_length, buf.as_mut_ptr() as *mut _);
+    }
+
+    // Build a string
+    unsafe {
+        buf.set_len(actual_length as usize);
+    }
+
+    // XXX should we expect opengl to return garbage?
+    String::from_utf8(buf).unwrap()
 }
 
 fn get_shader_info_log(shader: GLuint) -> String {
@@ -758,17 +917,4 @@ impl Atlas {
 
         Ok(())
     }
-}
-
-#[derive(Debug)]
-pub struct Glyph {
-    tex_id: GLuint,
-    top: f32,
-    left: f32,
-    width: f32,
-    height: f32,
-    uv_bot: f32,
-    uv_left: f32,
-    uv_width: f32,
-    uv_height: f32,
 }

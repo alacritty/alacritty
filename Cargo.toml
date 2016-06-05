@@ -13,6 +13,7 @@ libc = "*"
 cgmath = "0.7"
 euclid = "0.6"
 notify = { git = "https://github.com/jwilm/rsnotify", branch = "add-ignore-op" }
+arrayvec = "0.3"
 
 [build-dependencies]
 gl_generator = "0.5"
