@@ -95,7 +95,7 @@ pub struct Term {
 impl Term {
     pub fn new(tty: tty::Tty, grid: Grid) -> Term {
 
-        let mut tabs = (0..grid.cols()).map(|i| i % TAB_SPACES == 0)
+        let mut tabs = (0..grid.num_cols()).map(|i| i % TAB_SPACES == 0)
                                        .collect::<Vec<bool>>();
         tabs[0] = false;
 
@@ -206,10 +206,10 @@ impl ansi::Handler for Term {
         println!("put_tab: {}", count);
 
         let mut x = self.cursor_x();
-        while x < self.grid.cols() as u16 && count != 0 {
+        while x < self.grid.num_cols() as u16 && count != 0 {
             count -= 1;
             loop {
-                if x == self.grid.cols() as u16 || self.tabs[x as usize] {
+                if x == self.grid.num_cols() as u16 || self.tabs[x as usize] {
                     break;
                 }
                 x += 1;
@@ -237,7 +237,7 @@ impl ansi::Handler for Term {
     fn linefeed(&mut self) {
         println!("linefeed");
         // TODO handle scroll? not clear what parts of this the pty handle
-        if self.cursor_y() + 1 == self.grid.rows() as u16 {
+        if self.cursor_y() + 1 == self.grid.num_rows() as u16 {
             self.grid.feed();
             self.clear_line(ansi::LineClearMode::Right);
         } else {
@@ -264,7 +264,7 @@ impl ansi::Handler for Term {
         println!("clear_line: {:?}", mode);
         match mode {
             ansi::LineClearMode::Right => {
-                let cols = self.grid.cols();
+                let cols = self.grid.num_cols();
                 let row = &mut self.grid[self.cursor.y as usize];
                 let start = self.cursor.x as usize;
                 for col in start..cols {
@@ -279,7 +279,7 @@ impl ansi::Handler for Term {
         match mode {
             ansi::ClearMode::Below => {
                 let start = self.cursor_y() as usize;
-                let end = self.grid.rows();
+                let end = self.grid.num_rows();
                 for i in start..end {
                     let row = &mut self.grid[i];
                     for cell in row.iter_mut() {

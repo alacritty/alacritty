@@ -1,8 +1,8 @@
 //! Functions for computing properties of the terminal grid
 
-use std::collections::VecDeque;
-
+use std::collections::{vec_deque, VecDeque};
 use std::ops::{Index, IndexMut, Deref, DerefMut};
+use std::slice::{Iter, IterMut};
 
 use term::Cursor;
 use ::Rgb;
@@ -60,11 +60,19 @@ impl Grid {
         }
     }
 
-    pub fn rows(&self) -> usize {
+    pub fn rows(&self) -> vec_deque::Iter<Row> {
+        self.raw.iter()
+    }
+
+    pub fn rows_mut(&mut self) -> vec_deque::IterMut<Row> {
+        self.raw.iter_mut()
+    }
+
+    pub fn num_rows(&self) -> usize {
         self.rows
     }
 
-    pub fn cols(&self) -> usize {
+    pub fn num_cols(&self) -> usize {
         self.cols
     }
 
@@ -130,8 +138,12 @@ impl Row {
         Row(vec![Cell::new(' '); columns])
     }
 
-    pub fn cols(&self) -> usize {
-        self.0.len()
+    pub fn cells(&self) -> Iter<Cell> {
+        self.0.iter()
+    }
+
+    pub fn cells_mut(&mut self) -> IterMut<Cell> {
+        self.0.iter_mut()
     }
 }
 

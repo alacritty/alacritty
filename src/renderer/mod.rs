@@ -182,17 +182,21 @@ impl QuadRenderer {
 
     pub fn render_grid(&mut self, grid: &Grid, glyph_cache: &GlyphCache, props: &TermProps) {
         self.prepare_render(props);
-        for i in 0..grid.rows() {
-            let row = &grid[i];
-            for j in 0..row.cols() {
-                let cell = &row[j];
-                if cell.c != ' ' {
-                    if let Some(glyph) = glyph_cache.get(&cell.c) {
-                        self.render(glyph, i as f32, j as f32, &cell.fg, cell.c);
-                    }
+
+        for (i, row) in grid.rows().enumerate() {
+            for (j, cell) in row.cells().enumerate() {
+                // Skip empty cells
+                if cell.c == ' ' {
+                    continue;
+                }
+
+                // Render if glyph is loaded
+                if let Some(glyph) = glyph_cache.get(&cell.c) {
+                    self.render(glyph, i as f32, j as f32, &cell.fg, cell.c);
                 }
             }
         }
+
         self.finish_render();
     }
 
