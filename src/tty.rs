@@ -7,7 +7,32 @@ use std::mem;
 use std::os::unix::io::FromRawFd;
 use std::ptr;
 
-use libc::{self, winsize, c_int, c_char};
+use libc::{self, winsize, c_int, c_char, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD};
+
+/// Process ID of child process
+///
+/// Necessary to put this in static storage for `sigchld` to have access
+static mut PID: pid_t = 0;
+
+extern "C" fn sigchld(a: c_int) {
+    let mut status: c_int = 0;
+    unsafe {
+        let p = libc::waitpid(PID, &mut status, WNOHANG);
+        if p < 0 {
+            die!("Waiting for pid {} failed: {}\n", PID, errno());
+        }
+
+        if PID != p {
+            return;
+        }
+
+        if !WIFEXITED(status) || WEXITSTATUS(status) != 0 {
+            die!("child finished with error '{}'\n", status);
+        }
+    }
+
+    ::std::process::exit(0);
+}
 
 pub enum Error {
     /// TODO
@@ -35,7 +60,7 @@ fn errno() -> c_int {
 
 enum Relation {
     Child,
-    Parent
+    Parent(pid_t)
 }
 
 fn fork() -> Relation {
@@ -50,7 +75,7 @@ fn fork() -> Relation {
     if res == 0 {
         Relation::Child
     } else {
-        Relation::Parent
+        Relation::Parent(res)
     }
 }
 
@@ -215,9 +240,15 @@ pub fn new(rows: u8, cols: u8) -> Tty {
             // Exec a shell!
             execsh();
         },
-        Relation::Parent => {
-            // Parent doesn't need slave fd
+        Relation::Parent(pid) => {
             unsafe {
+                // Set PID for SIGCHLD handler
+                PID = pid;
+
+                // Handle SIGCHLD
+                libc::signal(SIGCHLD, sigchld as _);
+
+                // Parent doesn't need slave fd
                 libc::close(slave);
             }
 
@@ -250,7 +281,6 @@ impl Tty {
     }
 
     pub fn resize(&self, rows: usize, cols: usize, px_x: usize, px_y: usize) {
-
         let win = winsize {
             ws_row: rows as libc::c_ushort,
             ws_col: cols as libc::c_ushort,
