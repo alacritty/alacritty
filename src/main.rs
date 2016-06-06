@@ -194,17 +194,21 @@ fn main() {
         {
             let _sampler = meter.sampler();
 
-            // Draw the grid
-            renderer.render_grid(terminal.grid(), &glyph_cache, &props);
+            renderer.with_api(&props, |mut api| {
+                // Draw the grid
+                api.render_grid(terminal.grid(), &glyph_cache);
 
-            // Also draw the cursor
-            renderer.render_cursor(terminal.cursor(), &glyph_cache, &props);
+                // Also draw the cursor
+                api.render_cursor(terminal.cursor(), &glyph_cache);
+            })
         }
 
         // Draw render timer
         let timing = format!("{:.3} usec", meter.average());
         let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-        renderer.render_string(&timing[..], &glyph_cache, &props, &color);
+        renderer.with_api(&props, |mut api| {
+            api.render_string(&timing[..], &glyph_cache, &color);
+        });
 
         window.swap_buffers().unwrap();
     }
