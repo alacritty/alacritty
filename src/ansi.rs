@@ -551,13 +551,11 @@ impl Parser {
         match raw[0] {
             '@' => handler.insert_blank(arg_or_default!(args[0], 1)),
             'A' => {
-                debug_csi!();
                 handler.move_up(arg_or_default!(args[0], 1));
             },
             'B' | 'e' => handler.move_down(arg_or_default!(args[0], 1)),
             'c' => handler.identify_terminal(),
             'C' | 'a' => {
-                debug_csi!();
                 handler.move_forward(arg_or_default!(args[0], 1))
             },
             'D' => handler.move_backward(arg_or_default!(args[0], 1)),
@@ -572,7 +570,7 @@ impl Parser {
 
                 handler.clear_tabs(mode);
             },
-            'G' | '`' => handler.goto_col(arg_or_default!(args[0], 1)),
+            'G' | '`' => handler.goto_col(arg_or_default!(args[0], 1) - 1),
             'H' | 'f' => {
                 let y = arg_or_default!(args[0], 1);
                 let x = arg_or_default!(args[1], 1);
@@ -613,7 +611,7 @@ impl Parser {
             'X' => handler.erase_chars(arg_or_default!(args[0], 1)),
             'P' => handler.delete_chars(arg_or_default!(args[0], 1)),
             'Z' => handler.move_backward_tabs(arg_or_default!(args[0], 1)),
-            'd' => handler.goto_row(arg_or_default!(args[0], 1)),
+            'd' => handler.goto_row(arg_or_default!(args[0], 1) - 1),
             'h' => {
                 let mode = Mode::from_primitive(args[0]);
                 match mode {

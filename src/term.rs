@@ -149,6 +149,11 @@ impl Term {
 
     /// Set character in current cursor position
     fn set_char(&mut self, c: char) {
+        if self.cursor.x == self.grid.num_cols() as u16 {
+            self.cursor.y += 1;
+            self.cursor.x = 0;
+        }
+
         let cell = &mut self.grid[self.cursor];
         cell.c = c;
         cell.fg = self.fg;
@@ -175,8 +180,17 @@ impl ansi::Handler for Term {
         println!("goto: x={}, y={}", x, y);
         self.cursor.goto(x as u16, y as u16);
     }
-    fn goto_row(&mut self, y: i64) { println!("goto_row: {}", y); }
-    fn goto_col(&mut self, x: i64) { println!("goto_col: {}", x); }
+    fn goto_row(&mut self, y: i64) {
+        println!("goto_row: {}", y);
+        let x = self.cursor_x();
+        self.cursor.goto(x, y as u16);
+    }
+    fn goto_col(&mut self, x: i64) {
+        println!("goto_col: {}", x);
+        let y = self.cursor_y();
+        self.cursor.goto(x as u16, y);
+    }
+
     fn insert_blank(&mut self, num: i64) { println!("insert_blank: {}", num); }
 
     fn move_up(&mut self, rows: i64) {
@@ -324,6 +338,12 @@ impl ansi::Handler for Term {
             },
             Attr::Background(named_color) => {
                 self.bg = COLORS[named_color as usize];
+            },
+            Attr::ForegroundSpec(rgb) => {
+                self.fg = rgb;
+            },
+            Attr::BackgroundSpec(rgb) => {
+                self.bg = rgb;
             },
             Attr::Reset => {
                 self.fg = DEFAULT_FG;
