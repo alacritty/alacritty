@@ -2,7 +2,7 @@
 use std::sync::Arc;
 
 use ansi::{self, Attr, DebugHandler};
-use grid::Grid;
+use grid::{self, Grid, CellFlags};
 use tty;
 use ::Rgb;
 
@@ -89,7 +89,10 @@ pub struct Term {
     bg: Rgb,
 
     /// Tabstops
-    tabs: Vec<bool>
+    tabs: Vec<bool>,
+
+    /// Cell attributes
+    attr: grid::CellFlags,
 }
 
 impl Term {
@@ -111,6 +114,7 @@ impl Term {
             bg: DEFAULT_BG,
             tty: tty,
             tabs: tabs,
+            attr: CellFlags::empty(),
         }
     }
 
@@ -158,6 +162,7 @@ impl Term {
         cell.c = c;
         cell.fg = self.fg;
         cell.bg = self.bg;
+        cell.flags = self.attr;
     }
 
     /// Advance to next line
@@ -348,7 +353,14 @@ impl ansi::Handler for Term {
             Attr::Reset => {
                 self.fg = DEFAULT_FG;
                 self.bg = DEFAULT_BG;
-            }
+                self.attr = CellFlags::empty();
+            },
+            Attr::Reverse => {
+                self.attr.insert(grid::INVERSE);
+            },
+            Attr::CancelReverse => {
+                self.attr.remove(grid::INVERSE);
+            },
             _ => {
                 println!("Term got unhandled attr: {:?}", attr);
             }

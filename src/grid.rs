@@ -19,6 +19,13 @@ pub struct Cell {
     pub c: char,
     pub fg: Rgb,
     pub bg: Rgb,
+    pub flags: CellFlags,
+}
+
+bitflags! {
+    pub flags CellFlags: u32 {
+        const INVERSE = 0b00000001,
+    }
 }
 
 impl Cell {
@@ -27,6 +34,7 @@ impl Cell {
             c: c.into(),
             bg: Default::default(),
             fg: Default::default(),
+            flags: CellFlags::empty(),
         }
     }
 }

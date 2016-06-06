@@ -15,7 +15,7 @@ use gl;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 
 use text::{Rasterizer, RasterizedGlyph, FontDesc};
-use grid::Grid;
+use grid::{self, Grid, Cell, CellFlags};
 use term;
 
 use super::{Rgb, TermProps};
@@ -48,6 +48,11 @@ pub struct ShaderProgram {
 
     /// Cell separation (pixels)
     u_cell_sep: GLint,
+
+    /// Background pass flag
+    ///
+    /// Rendering is split into two passes; 1 for backgrounds, and one for text
+    u_background: GLint
 }
 
 
@@ -146,6 +151,10 @@ struct InstanceData {
     r: f32,
     g: f32,
     b: f32,
+    // background color
+    bg_r: f32,
+    bg_g: f32,
+    bg_b: f32,
 }
 
 #[derive(Debug)]
@@ -166,6 +175,7 @@ pub struct RenderApi<'a> {
     active_tex: &'a mut GLuint,
     batch: &'a mut Batch,
     atlas: &'a mut Vec<Atlas>,
+    program: &'a mut ShaderProgram,
 }
 
 #[derive(Debug)]
@@ -195,12 +205,12 @@ impl Batch {
         }
     }
 
-    pub fn add_item(&mut self, row: f32, col: f32, color: Rgb, glyph: &Glyph) {
+    pub fn add_item(&mut self, row: f32, col: f32, cell: &Cell, glyph: &Glyph) {
         if self.is_empty() {
             self.tex = glyph.tex_id;
         }
 
-        self.instances.push(InstanceData {
+        let mut instance = InstanceData {
             col: col,
             row: row,
 
@@ -214,10 +224,26 @@ impl Batch {
             uv_width: glyph.uv_width,
             uv_height: glyph.uv_height,
 
-            r: color.r as f32,
-            g: color.g as f32,
-            b: color.b as f32,
-        });
+            r: cell.fg.r as f32,
+            g: cell.fg.g as f32,
+            b: cell.fg.b as f32,
+
+            bg_r: cell.bg.r as f32,
+            bg_g: cell.bg.g as f32,
+            bg_b: cell.bg.b as f32,
+        };
+
+        if cell.flags.contains(grid::INVERSE) {
+            instance.r = cell.bg.r as f32;
+            instance.g = cell.bg.g as f32;
+            instance.b = cell.bg.b as f32;
+
+            instance.bg_r = cell.fg.r as f32;
+            instance.bg_g = cell.fg.g as f32;
+            instance.bg_b = cell.fg.b as f32;
+        }
+
+        self.instances.push(instance);
     }
 
     #[inline]
@@ -345,6 +371,13 @@ impl QuadRenderer {
                                     (10 * size_of::<f32>()) as *const _);
             gl::EnableVertexAttribArray(4);
             gl::VertexAttribDivisor(4, 1);
+            // color
+            gl::VertexAttribPointer(5, 3,
+                                    gl::FLOAT, gl::FALSE,
+                                    size_of::<InstanceData>() as i32,
+                                    (13 * size_of::<f32>()) as *const _);
+            gl::EnableVertexAttribArray(5);
+            gl::VertexAttribDivisor(5, 1);
 
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
@@ -421,6 +454,7 @@ impl QuadRenderer {
             active_tex: &mut self.active_tex,
             batch: &mut self.batch,
             atlas: &mut self.atlas,
+            program: &mut self.program,
         });
 
         unsafe {
@@ -472,6 +506,12 @@ impl<'a> RenderApi<'a> {
         }
 
         unsafe {
+
+            self.program.set_background_pass(true);
+            gl::DrawElementsInstanced(gl::TRIANGLES,
+                                      6, gl::UNSIGNED_INT, ptr::null(),
+                                      self.batch.len() as GLsizei);
+            self.program.set_background_pass(false);
             gl::DrawElementsInstanced(gl::TRIANGLES,
                                       6, gl::UNSIGNED_INT, ptr::null(),
                                       self.batch.len() as GLsizei);
@@ -491,7 +531,13 @@ impl<'a> RenderApi<'a> {
 
         for c in s.chars() {
             if let Some(glyph) = glyph_cache.get(c, self) {
-                self.add_render_item(row, col, *color, glyph);
+                let cell = Cell {
+                    c: c,
+                    fg: *color,
+                    bg: term::DEFAULT_BG,
+                    flags: grid::INVERSE,
+                };
+                self.add_render_item(row, col, &cell, glyph);
             }
 
             col += 1.0;
@@ -499,7 +545,7 @@ impl<'a> RenderApi<'a> {
     }
 
     #[inline]
-    fn add_render_item(&mut self, row: f32, col: f32, color: Rgb, glyph: &Glyph) {
+    fn add_render_item(&mut self, row: f32, col: f32, cell: &Cell, glyph: &Glyph) {
         // Flush batch if tex changing
         if !self.batch.is_empty() {
             if self.batch.tex != glyph.tex_id {
@@ -507,7 +553,7 @@ impl<'a> RenderApi<'a> {
             }
         }
 
-        self.batch.add_item(row, col, color, glyph);
+        self.batch.add_item(row, col, cell, glyph);
 
         // Render batch and clear if it's full
         if self.batch.full() {
@@ -517,7 +563,14 @@ impl<'a> RenderApi<'a> {
 
     pub fn render_cursor(&mut self, cursor: term::Cursor, glyph_cache: &mut GlyphCache) {
         if let Some(glyph) = glyph_cache.get(term::CURSOR_SHAPE, self) {
-            self.add_render_item(cursor.y as f32, cursor.x as f32, term::DEFAULT_FG, glyph);
+            let cell = Cell {
+                c: term::CURSOR_SHAPE,
+                fg: term::DEFAULT_FG,
+                bg: term::DEFAULT_BG,
+                flags: CellFlags::empty(),
+            };
+
+            self.add_render_item(cursor.y as f32, cursor.x as f32, &cell, glyph);
         }
     }
 
@@ -525,13 +578,13 @@ impl<'a> RenderApi<'a> {
         for (i, row) in grid.rows().enumerate() {
             for (j, cell) in row.cells().enumerate() {
                 // Skip empty cells
-                if cell.c == ' ' {
+                if cell.c == ' ' && cell.bg == term::DEFAULT_BG {
                     continue;
                 }
 
                 // Add cell to batch if the glyph is laoded
                 if let Some(glyph) = glyph_cache.get(cell.c, self) {
-                    self.add_render_item(i as f32, j as f32, cell.fg, glyph);
+                    self.add_render_item(i as f32, j as f32, cell, glyph);
                 }
             }
         }
@@ -610,12 +663,13 @@ impl ShaderProgram {
         }
 
         // get uniform locations
-        let (projection, term_dim, cell_dim, cell_sep) = unsafe {
+        let (projection, term_dim, cell_dim, cell_sep, background) = unsafe {
             (
                 gl::GetUniformLocation(program, cptr!(b"projection\0")),
                 gl::GetUniformLocation(program, cptr!(b"termDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"cellDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"cellSep\0")),
+                gl::GetUniformLocation(program, cptr!(b"backgroundPass\0")),
             )
         };
 
@@ -627,6 +681,7 @@ impl ShaderProgram {
             u_term_dim: term_dim,
             u_cell_dim: cell_dim,
             u_cell_sep: cell_sep,
+            u_background: background,
         };
 
         // set projection uniform
@@ -650,6 +705,18 @@ impl ShaderProgram {
             gl::Uniform2f(self.u_term_dim, props.width, props.height);
             gl::Uniform2f(self.u_cell_dim, props.cell_width, props.cell_height);
             gl::Uniform2f(self.u_cell_sep, props.sep_x, props.sep_y);
+        }
+    }
+
+    fn set_background_pass(&self, background_pass: bool) {
+        let value = if background_pass {
+            1
+        } else {
+            0
+        };
+
+        unsafe {
+            gl::Uniform1i(self.u_background, value);
         }
     }
 

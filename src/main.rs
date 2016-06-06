@@ -15,6 +15,9 @@ extern crate notify;
 extern crate arrayvec;
 
 #[macro_use]
+extern crate bitflags;
+
+#[macro_use]
 mod macros;
 
 mod list_fonts;
