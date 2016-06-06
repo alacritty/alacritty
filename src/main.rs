@@ -33,7 +33,7 @@ use std::fs::File;
 
 use std::os::unix::io::{FromRawFd, AsRawFd};
 
-use renderer::{Glyph, QuadRenderer};
+use renderer::{QuadRenderer, GlyphCache, LoadGlyph};
 use text::FontDesc;
 use grid::Grid;
 use term::Term;
@@ -49,13 +49,6 @@ pub struct Rgb {
 mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
-
-static INIT_LIST: &'static str = "abcdefghijklmnopqrstuvwxyz\
-                                  ABCDEFGHIJKLMNOPQRSTUVWXYZ\
-                                  01234567890\
-                                  ~`!@#$%^&*()[]{}-_=+\\|\"'/?.,<>;:█└│├─➜";
-
-type GlyphCache = HashMap<char, renderer::Glyph>;
 
 #[derive(Debug)]
 struct TermProps {
@@ -108,13 +101,21 @@ fn main() {
 
     let mut grid = Grid::new(num_rows as usize, num_cols as usize);
 
+    let props = TermProps {
+        cell_width: cell_width as f32,
+        sep_x: sep_x as f32,
+        cell_height: cell_height as f32,
+        sep_y: sep_y as f32,
+        height: height as f32,
+        width: width as f32,
+    };
+
     let mut renderer = QuadRenderer::new(width, height);
 
-    let mut glyph_cache = HashMap::new();
-    for c in INIT_LIST.chars() {
-        let glyph = renderer.load_glyph(&rasterizer.get_glyph(&desc, font_size, c));
-        glyph_cache.insert(c, glyph);
-    }
+    let mut glyph_cache = GlyphCache::new(rasterizer, desc, font_size);
+    renderer.with_api(&props, |mut api| {
+        glyph_cache.init(&mut api);
+    });
 
     unsafe {
         gl::Enable(gl::BLEND);
@@ -182,24 +183,15 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        let props = TermProps {
-            cell_width: cell_width as f32,
-            sep_x: sep_x as f32,
-            cell_height: cell_height as f32,
-            sep_y: sep_y as f32,
-            height: height as f32,
-            width: width as f32,
-        };
-
         {
             let _sampler = meter.sampler();
 
             renderer.with_api(&props, |mut api| {
                 // Draw the grid
-                api.render_grid(terminal.grid(), &glyph_cache);
+                api.render_grid(terminal.grid(), &mut glyph_cache);
 
                 // Also draw the cursor
-                api.render_cursor(terminal.cursor(), &glyph_cache);
+                api.render_cursor(terminal.cursor(), &mut glyph_cache);
             })
         }
 
@@ -207,7 +199,7 @@ fn main() {
         let timing = format!("{:.3} usec", meter.average());
         let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
         renderer.with_api(&props, |mut api| {
-            api.render_string(&timing[..], &glyph_cache, &color);
+            api.render_string(&timing[..], &mut glyph_cache, &color);
         });
 
         window.swap_buffers().unwrap();

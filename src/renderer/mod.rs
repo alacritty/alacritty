@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::CString;
 use std::fs::File;
 use std::io::{self, Read};
@@ -13,14 +14,20 @@ use gl::types::*;
 use gl;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 
-use text::RasterizedGlyph;
+use text::{Rasterizer, RasterizedGlyph, FontDesc};
 use grid::Grid;
 use term;
 
-use super::{Rgb, TermProps, GlyphCache};
+use super::{Rgb, TermProps};
 
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
 static TEXT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
+
+/// LoadGlyph allows for copying a rasterized glyph into graphics memory
+pub trait LoadGlyph {
+    /// Load the rasterized glyph into GPU memory
+    fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph;
+}
 
 /// Text drawing program
 ///
@@ -55,6 +62,67 @@ pub struct Glyph {
     uv_left: f32,
     uv_width: f32,
     uv_height: f32,
+}
+
+/// Naïve glyph cache
+///
+/// Currently only keyed by `char`, and thus not possible to hold different representations of the
+/// same code point.
+pub struct GlyphCache {
+    /// Cache of buffered glyphs
+    cache: HashMap<char, Glyph>,
+
+    /// Rasterizer for loading new glyphs
+    rasterizer: Rasterizer,
+
+    /// Font description
+    desc: FontDesc,
+
+    /// Font Size
+    size: f32,
+}
+
+impl GlyphCache {
+    pub fn new(rasterizer: Rasterizer, desc: FontDesc, font_size: f32) -> GlyphCache {
+        GlyphCache {
+            cache: HashMap::new(),
+            rasterizer: rasterizer,
+            desc: desc,
+            size: font_size,
+        }
+    }
+
+    pub fn init<L>(&mut self, loader: &mut L)
+        where L: LoadGlyph
+    {
+        for i in 32u8...128u8 {
+            self.load_and_cache_glyph(i as char, loader);
+        }
+    }
+
+    fn load_and_cache_glyph<L>(&mut self, c: char, loader: &mut L)
+        where L: LoadGlyph
+    {
+        let rasterized = self.rasterizer.get_glyph(&self.desc, self.size, c);
+        let glyph = loader.load_glyph(&rasterized);
+        self.cache.insert(c, glyph);
+    }
+
+    pub fn get<L>(&mut self, c: char, loader: &mut L) -> Option<&Glyph>
+        where L: LoadGlyph
+    {
+        // Return glyph if it's already loaded
+        // hi borrowck
+        {
+            if self.cache.contains_key(&c) {
+                return self.cache.get(&c);
+            }
+        }
+
+        // Rasterize and load the glyph
+        self.load_and_cache_glyph(c, loader);
+        self.cache.get(&c)
+    }
 }
 
 #[derive(Debug)]
@@ -97,6 +165,7 @@ pub struct QuadRenderer {
 pub struct RenderApi<'a> {
     active_tex: &'a mut GLuint,
     batch: &'a mut Batch,
+    atlas: &'a mut Vec<Atlas>,
 }
 
 #[derive(Debug)]
@@ -325,7 +394,7 @@ impl QuadRenderer {
             batch: Batch::new(),
         };
 
-        let atlas = renderer.create_atlas(ATLAS_SIZE);
+        let atlas = Atlas::new(ATLAS_SIZE);
         renderer.atlas.push(atlas);
 
         renderer
@@ -351,6 +420,7 @@ impl QuadRenderer {
         func(RenderApi {
             active_tex: &mut self.active_tex,
             batch: &mut self.batch,
+            atlas: &mut self.atlas,
         });
 
         unsafe {
@@ -384,57 +454,6 @@ impl QuadRenderer {
         self.active_tex = 0;
         self.program = program;
     }
-
-    /// Load a glyph into a texture atlas
-    ///
-    /// If the current atlas is full, a new one will be created.
-    pub fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
-        match self.atlas.last_mut().unwrap().insert(rasterized, &mut self.active_tex) {
-            Ok(glyph) => glyph,
-            Err(_) => {
-                let atlas = self.create_atlas(ATLAS_SIZE);
-                self.atlas.push(atlas);
-                self.load_glyph(rasterized)
-            }
-        }
-    }
-
-    fn create_atlas(&mut self, size: i32) -> Atlas {
-        let mut id: GLuint = 0;
-        unsafe {
-            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
-            gl::GenTextures(1, &mut id);
-            gl::BindTexture(gl::TEXTURE_2D, id);
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGB as i32,
-                size,
-                size,
-                0,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-                ptr::null()
-            );
-
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-
-            gl::BindTexture(gl::TEXTURE_2D, 0);
-            self.active_tex = 0;
-        }
-
-        Atlas {
-            id: id,
-            width: size,
-            height: size,
-            row_extent: 0,
-            row_baseline: 0,
-            row_tallest: 0,
-        }
-    }
 }
 
 impl<'a> RenderApi<'a> {
@@ -464,14 +483,14 @@ impl<'a> RenderApi<'a> {
     /// optimization.
     pub fn render_string(&mut self,
                      s: &str,
-                     glyph_cache: &GlyphCache,
+                     glyph_cache: &mut GlyphCache,
                      color: &Rgb)
     {
         let row = 40.0;
         let mut col = 100.0;
 
         for c in s.chars() {
-            if let Some(glyph) = glyph_cache.get(&c) {
+            if let Some(glyph) = glyph_cache.get(c, self) {
                 self.add_render_item(row, col, *color, glyph);
             }
 
@@ -496,13 +515,13 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_cursor(&mut self, cursor: term::Cursor, glyph_cache: &GlyphCache) {
-        if let Some(glyph) = glyph_cache.get(&term::CURSOR_SHAPE) {
+    pub fn render_cursor(&mut self, cursor: term::Cursor, glyph_cache: &mut GlyphCache) {
+        if let Some(glyph) = glyph_cache.get(term::CURSOR_SHAPE, self) {
             self.add_render_item(cursor.y as f32, cursor.x as f32, term::DEFAULT_FG, glyph);
         }
     }
 
-    pub fn render_grid(&mut self, grid: &Grid, glyph_cache: &GlyphCache) {
+    pub fn render_grid(&mut self, grid: &Grid, glyph_cache: &mut GlyphCache) {
         for (i, row) in grid.rows().enumerate() {
             for (j, cell) in row.cells().enumerate() {
                 // Skip empty cells
@@ -511,9 +530,26 @@ impl<'a> RenderApi<'a> {
                 }
 
                 // Add cell to batch if the glyph is laoded
-                if let Some(glyph) = glyph_cache.get(&cell.c) {
+                if let Some(glyph) = glyph_cache.get(cell.c, self) {
                     self.add_render_item(i as f32, j as f32, cell.fg, glyph);
                 }
+            }
+        }
+    }
+}
+
+impl<'a> LoadGlyph for RenderApi<'a> {
+    /// Load a glyph into a texture atlas
+    ///
+    /// If the current atlas is full, a new one will be created.
+    fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
+        match self.atlas.last_mut().unwrap().insert(rasterized, &mut self.active_tex) {
+            Ok(glyph) => glyph,
+            Err(_) => {
+                let atlas = Atlas::new(ATLAS_SIZE);
+                *self.active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
+                self.atlas.push(atlas);
+                self.load_glyph(rasterized)
             }
         }
     }
@@ -818,6 +854,41 @@ enum AtlasInsertError {
 }
 
 impl Atlas {
+    fn new(size: i32) -> Atlas {
+        let mut id: GLuint = 0;
+        unsafe {
+            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+            gl::GenTextures(1, &mut id);
+            gl::BindTexture(gl::TEXTURE_2D, id);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGB as i32,
+                size,
+                size,
+                0,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                ptr::null()
+            );
+
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
+
+        Atlas {
+            id: id,
+            width: size,
+            height: size,
+            row_extent: 0,
+            row_baseline: 0,
+            row_tallest: 0,
+        }
+    }
 
     /// Insert a RasterizedGlyph into the texture atlas
     pub fn insert(&mut self,
