@@ -184,7 +184,7 @@ impl Batch {
 
 /// Maximum items to be drawn in a batch.
 const BATCH_MAX: usize = 4096;
-const ATLAS_SIZE: i32 = 512;
+const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
@@ -481,6 +481,13 @@ impl<'a> RenderApi<'a> {
 
     #[inline]
     fn add_render_item(&mut self, row: f32, col: f32, color: Rgb, glyph: &Glyph) {
+        // Flush batch if tex changing
+        if !self.batch.is_empty() {
+            if self.batch.tex != glyph.tex_id {
+                self.render_batch();
+            }
+        }
+
         self.batch.add_item(row, col, color, glyph);
 
         // Render batch and clear if it's full
