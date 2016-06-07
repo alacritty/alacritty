@@ -421,6 +421,9 @@ impl Parser {
             },
             State::Csi => {
                 self.csi(handler, c);
+            },
+            State::EscapeOther => {
+                self.other(handler, c);
             }
         }
     }
@@ -429,6 +432,18 @@ impl Parser {
         where H: Handler
     {
         handler.input(c);
+    }
+
+    fn other<H>(&mut self, handler: &mut H, c: char)
+        where H: Handler
+    {
+        if c == 0x07 as char || c == 0x18 as char || c == 0x1a as char ||
+            c == 0x1b as char || is_control_c1(c)
+        {
+            self.state = State::Base;
+        }
+
+        // TODO actually use these bytes. For now, we just throw them away.
     }
 
     /// Handle character following an ESC
@@ -458,6 +473,9 @@ impl Parser {
             'c' => sequence_complete!(reset_state),
             '7' => sequence_complete!(save_cursor_position),
             '8' => sequence_complete!(restore_cursor_position),
+            'P' | '_' | '^' | ']' | 'k' | '(' => {
+                self.state = State::EscapeOther;
+            },
             _ => {
                 self.state = State::Base;
                 err_println!("Unknown ESC 0x{:02x} {:?}", c as usize, c);
@@ -1042,6 +1060,9 @@ enum State {
 
     /// Parsing a CSI escape,
     Csi,
+
+    /// Parsing non csi escape
+    EscapeOther,
 }
 
 impl Default for State {
