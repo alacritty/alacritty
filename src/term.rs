@@ -158,6 +158,10 @@ impl Term {
             self.cursor.x = 0;
         }
 
+        if self.cursor.y == self.grid.num_rows() as u16 {
+            panic!("cursor fell off grid");
+        }
+
         let cell = &mut self.grid[self.cursor];
         cell.c = c;
         cell.fg = self.fg;
