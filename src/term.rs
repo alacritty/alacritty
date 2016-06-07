@@ -355,12 +355,14 @@ impl ansi::Handler for Term {
                 self.bg = DEFAULT_BG;
                 self.attr = CellFlags::empty();
             },
-            Attr::Reverse => {
-                self.attr.insert(grid::INVERSE);
-            },
-            Attr::CancelReverse => {
-                self.attr.remove(grid::INVERSE);
-            },
+            Attr::Reverse => self.attr.insert(grid::INVERSE),
+            Attr::CancelReverse => self.attr.remove(grid::INVERSE),
+            Attr::Bold => self.attr.insert(grid::BOLD),
+            Attr::CancelBoldDim => self.attr.remove(grid::BOLD),
+            Attr::Italic => self.attr.insert(grid::ITALIC),
+            Attr::CancelItalic => self.attr.remove(grid::ITALIC),
+            Attr::Underscore => self.attr.insert(grid::UNDERLINE),
+            Attr::CancelUnderline => self.attr.remove(grid::UNDERLINE),
             _ => {
                 println!("Term got unhandled attr: {:?}", attr);
             }
