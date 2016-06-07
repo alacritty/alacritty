@@ -60,7 +60,7 @@ pub struct Grid {
 impl Grid {
     pub fn new(rows: usize, cols: usize) -> Grid {
         let mut raw = VecDeque::with_capacity(rows);
-        for _ in 0..raw.capacity() {
+        for _ in 0..rows {
             raw.push_back(Row::new(cols));
         }
 
