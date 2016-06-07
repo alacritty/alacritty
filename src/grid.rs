@@ -71,20 +71,24 @@ impl Grid {
         }
     }
 
+    #[inline]
     pub fn rows(&self) -> vec_deque::Iter<Row> {
         self.raw.iter()
     }
 
+    #[inline]
     pub fn rows_mut(&mut self) -> vec_deque::IterMut<Row> {
         self.raw.iter_mut()
     }
 
+    #[inline]
     pub fn num_rows(&self) -> usize {
-        self.rows
+        self.raw.len()
     }
 
+    #[inline]
     pub fn num_cols(&self) -> usize {
-        self.cols
+        self.raw[0].len()
     }
 
     pub fn feed(&mut self) {
