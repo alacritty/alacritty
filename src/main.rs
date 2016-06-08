@@ -28,6 +28,7 @@ mod meter;
 mod tty;
 mod ansi;
 mod term;
+mod util;
 
 use std::sync::mpsc::TryRecvError;
 use std::collections::HashMap;
@@ -42,6 +43,7 @@ use text::FontDesc;
 use grid::Grid;
 use term::Term;
 use meter::Meter;
+use util::thread;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Default)]
 pub struct Rgb {
@@ -128,7 +130,7 @@ fn main() {
     }
 
     let (chars_tx, chars_rx) = ::std::sync::mpsc::channel();
-    ::std::thread::spawn(move || {
+    thread::spawn_named("TTY Reader", move || {
         for c in reader.chars() {
             let c = c.unwrap();
             chars_tx.send(c).unwrap();
