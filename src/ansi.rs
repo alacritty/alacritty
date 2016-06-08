@@ -76,6 +76,13 @@ pub struct Parser {
 /// Terminal modes
 #[derive(Debug, Eq, PartialEq)]
 pub enum Mode {
+    /// ?1
+    CursorKeys = 1,
+    /// ?25
+    TextCursor = 25,
+    /// ?12
+    BlinkingCursor = 12,
+    /// ?1049
     SwapScreenAndSetRestoreCursor = 1049,
 }
 
@@ -83,11 +90,19 @@ impl Mode {
     /// Create mode from a primitive
     ///
     /// TODO lots of unhandled values..
-    pub fn from_primitive(num: i64) -> Option<Mode> {
-        Some(match num {
-            1049 => Mode::SwapScreenAndSetRestoreCursor,
-            _ => return None
-        })
+    pub fn from_primitive(private: bool, num: i64) -> Option<Mode> {
+        if private {
+            Some(match num {
+                1 => Mode::CursorKeys,
+                12 => Mode::BlinkingCursor,
+                25 => Mode::TextCursor,
+                1049 => Mode::SwapScreenAndSetRestoreCursor,
+                _ => return None
+            })
+        } else {
+            // TODO
+            None
+        }
     }
 }
 
@@ -506,7 +521,9 @@ impl Parser {
 
         // Get a slice which is the used subset of self.buf
         let mut raw = &self.buf[..self.idx];
+        let mut private = false;
         if raw[0] == '?' {
+            private = true;
             raw = &raw[1..];
         }
 
@@ -619,7 +636,7 @@ impl Parser {
             'T' => handler.scroll_down(arg_or_default!(args[0], 1)),
             'L' => handler.insert_blank_lines(arg_or_default!(args[0], 1)),
             'l' => {
-                let mode = Mode::from_primitive(args[0]);
+                let mode = Mode::from_primitive(private, args[0]);
                 match mode {
                     Some(mode) => handler.set_mode(mode),
                     None => unhandled!(),
@@ -631,7 +648,7 @@ impl Parser {
             'Z' => handler.move_backward_tabs(arg_or_default!(args[0], 1)),
             'd' => handler.goto_row(arg_or_default!(args[0], 1) - 1),
             'h' => {
-                let mode = Mode::from_primitive(args[0]);
+                let mode = Mode::from_primitive(private, args[0]);
                 match mode {
                     Some(mode) => handler.unset_mode(mode),
                     None => unhandled!(),
