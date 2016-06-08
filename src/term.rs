@@ -1,5 +1,6 @@
 /// Exports the `Term` type which is a high-level API for the Grid
 use std::sync::Arc;
+use std::ops::Range;
 
 use ansi::{self, Attr, DebugHandler};
 use grid::{self, Grid, CellFlags};
@@ -109,6 +110,9 @@ pub struct Term {
 
     /// Mode flags
     mode: TermMode,
+
+    /// Scroll region
+    scroll_region: Range<usize>,
 }
 
 impl Term {
@@ -119,6 +123,7 @@ impl Term {
         tabs[0] = false;
 
         let alt = grid.clone();
+        let scroll_region = 0..grid.num_rows();
 
         Term {
             grid: grid,
@@ -133,6 +138,7 @@ impl Term {
             attr: CellFlags::empty(),
             dirty: false,
             mode: TermMode::empty(),
+            scroll_region: scroll_region,
         }
     }
 
@@ -207,6 +213,33 @@ impl Term {
         // TODO handle scroll
         self.cursor.x = 0;
         self.cursor.y += 1;
+    }
+
+    /// Convenience function for scrolling
+    fn scroll(&mut self, count: isize) {
+        println!("[TERM] scrolling {} lines", count);
+        self.grid.scroll(self.scroll_region.clone(), count);
+        if count > 0 {
+            // Scrolled down, so need to clear from bottom
+            let start = self.scroll_region.end - (count as usize);
+            self.grid.clear_region(start..self.scroll_region.end);
+        } else {
+            // Scrolled up, clear from top
+            let end = self.scroll_region.start + ((-count) as usize);
+            self.grid.clear_region(self.scroll_region.start..end);
+        }
+    }
+}
+
+impl ansi::TermInfo for Term {
+    #[inline]
+    fn rows(&self) -> usize {
+        self.grid.num_rows()
+    }
+
+    #[inline]
+    fn cols(&self) -> usize {
+        self.grid.num_cols()
     }
 }
 
@@ -306,8 +339,8 @@ impl ansi::Handler for Term {
         self.dirty = true;
         println!("linefeed");
         // TODO handle scroll? not clear what parts of this the pty handle
-        if self.cursor_y() + 1 == self.grid.num_rows() as u16 {
-            self.grid.feed();
+        if self.cursor_y() + 1 >= self.scroll_region.end as u16 {
+            self.scroll(1);
             self.clear_line(ansi::LineClearMode::Right);
         } else {
             self.cursor.y += 1;
@@ -319,10 +352,25 @@ impl ansi::Handler for Term {
     fn substitute(&mut self) { println!("substitute"); }
     fn newline(&mut self) { println!("newline"); }
     fn set_horizontal_tabstop(&mut self) { println!("set_horizontal_tabstop"); }
-    fn scroll_up(&mut self, rows: i64) { println!("scroll_up: {}", rows); }
-    fn scroll_down(&mut self, rows: i64) { println!("scroll_down: {}", rows); }
-    fn insert_blank_lines(&mut self, count: i64) { println!("insert_blank_lines: {}", count); }
-    fn delete_lines(&mut self, count: i64) { println!("delete_lines: {}", count); }
+    fn scroll_up(&mut self, rows: i64) {
+        println!("scroll_up: {}", rows);
+        self.scroll(-rows as isize);
+    }
+    fn scroll_down(&mut self, rows: i64) {
+        println!("scroll_down: {}", rows);
+        self.scroll(rows as isize);
+    }
+    fn insert_blank_lines(&mut self, count: i64) {
+        println!("insert_blank_lines: {}", count);
+        if self.scroll_region.contains(self.cursor_y() as usize) {
+            self.scroll(-count as isize);
+        }
+    }
+    fn delete_lines(&mut self, count: i64) {
+        if self.scroll_region.contains(self.cursor_y() as usize) {
+            self.scroll(count as isize);
+        }
+    }
     fn erase_chars(&mut self, count: i64) { println!("erase_chars: {}", count); }
     fn delete_chars(&mut self, count: i64) { println!("delete_chars: {}", count); }
     fn move_backward_tabs(&mut self, count: i64) { println!("move_backward_tabs: {}", count); }
@@ -337,8 +385,8 @@ impl ansi::Handler for Term {
                 let cols = self.grid.num_cols();
                 let row = &mut self.grid[self.cursor.y as usize];
                 let start = self.cursor.x as usize;
-                for col in start..cols {
-                    row[col].c = ' ';
+                for cell in row[start..].iter_mut() {
+                    cell.reset();
                 }
             },
             _ => (),
@@ -373,7 +421,7 @@ impl ansi::Handler for Term {
         println!("reverse_index");
         // if cursor is at the top
         if self.cursor.y == 0 {
-            self.grid.unfeed();
+            self.scroll(-1);
         } else {
             // can't wait for nonlexical lifetimes.. omg borrowck
             let x = self.cursor.x;
@@ -442,5 +490,11 @@ impl ansi::Handler for Term {
                 println!(".. ignoring unset_mode");
             }
         }
+    }
+
+    fn set_scrolling_region(&mut self, top: i64, bot: i64) {
+        println!("set scroll region: {:?} - {:?}", top, bot);
+        // 1 is added to bottom for inclusive range
+        self.scroll_region = (top as usize)..((bot as usize) + 1);
     }
 }

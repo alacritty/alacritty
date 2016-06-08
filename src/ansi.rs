@@ -26,6 +26,12 @@ pub enum Escape {
     DisplayAttr(u8),
 }
 
+/// Trait that provides properties of terminal
+pub trait TermInfo {
+    fn rows(&self) -> usize;
+    fn cols(&self) -> usize;
+}
+
 /// Control requiring action
 #[derive(Debug, Eq, PartialEq)]
 pub enum Control {
@@ -359,6 +365,9 @@ pub trait Handler {
 
     /// Unset mode
     fn unset_mode(&mut self, Mode) {}
+
+    /// DECSTBM - Set the terminal scrolling region
+    fn set_scrolling_region(&mut self, top: i64, bot: i64) {}
 }
 
 /// An implementation of handler that just prints everything it gets
@@ -403,6 +412,19 @@ impl Handler for DebugHandler {
     fn terminal_attribute(&mut self, attr: Attr) { println!("terminal_attribute: {:?}", attr); }
     fn set_mode(&mut self, mode: Mode) { println!("set_mode: {:?}", mode); }
     fn unset_mode(&mut self, mode: Mode) { println!("unset_mode: {:?}", mode); }
+    fn set_scrolling_region(&mut self, top: i64, bot: i64) {
+        println!("set scroll region: {:?} - {:?}", top, bot);
+    }
+}
+
+impl TermInfo for DebugHandler {
+    fn rows(&self) -> usize {
+        24
+    }
+
+    fn cols(&self) -> usize {
+        80
+    }
 }
 
 impl Parser {
@@ -418,7 +440,7 @@ impl Parser {
     ///
     /// Maybe returns an Item which represents a state change of the terminal
     pub fn advance<H>(&mut self, handler: &mut H, c: char)
-        where H: Handler
+        where H: Handler + TermInfo
     {
         // println!("state: {:?}; char: {:?}", self.state, c);
         // Control characters get handled immediately
@@ -444,13 +466,13 @@ impl Parser {
     }
 
     fn advance_base<H>(&mut self, handler: &mut H, c: char)
-        where H: Handler
+        where H: Handler + TermInfo
     {
         handler.input(c);
     }
 
     fn other<H>(&mut self, handler: &mut H, c: char)
-        where H: Handler
+        where H: Handler + TermInfo
     {
         if c == 0x07 as char || c == 0x18 as char || c == 0x1a as char ||
             c == 0x1b as char || is_control_c1(c)
@@ -466,7 +488,7 @@ impl Parser {
     /// TODO Handle `ST`, `'#'`, `'P'`, `'_'`, `'^'`, `']'`, `'k'`,
     /// 'n', 'o', '(', ')', '*', '+', '=', '>'
     fn escape<H>(&mut self, handler: &mut H, c: char)
-        where H: Handler
+        where H: Handler + TermInfo
     {
         // Helper for items which complete a sequence.
         macro_rules! sequence_complete {
@@ -499,7 +521,7 @@ impl Parser {
     }
 
     fn csi<H>(&mut self, handler: &mut H, c: char)
-        where H: Handler
+        where H: Handler + TermInfo
     {
         self.buf[self.idx] = c;
         self.idx += 1;
@@ -513,7 +535,7 @@ impl Parser {
     ///
     /// ESC '[' [[ [<priv>] <arg> [;]] <mode> [<mode>]] */
     fn csi_parse<H>(&mut self, handler: &mut H)
-        where H: Handler
+        where H: Handler + TermInfo
     {
         let mut idx = 0;
         let mut args = [0i64; CSI_ATTR_MAX];
@@ -739,7 +761,15 @@ impl Parser {
                 }
             }
             'n' => handler.identify_terminal(),
-            'r' => unknown!(), // set scrolling region
+            'r' => {
+                if private {
+                    unknown!();
+                }
+                let top = arg_or_default!(args[0], 1);
+                let bottom = arg_or_default!(args[1], handler.rows() as i64);
+
+                handler.set_scrolling_region(top - 1, bottom - 1);
+            },
             's' => handler.save_cursor_position(),
             'u' => handler.restore_cursor_position(),
             _ => unknown!(),
@@ -753,7 +783,7 @@ impl Parser {
     }
 
     fn control<H>(&mut self, handler: &mut H, c: char)
-        where H: Handler
+        where H: Handler + TermInfo
     {
         match c {
             C0::HT => handler.put_tab(1),
@@ -1094,29 +1124,39 @@ impl Default for State {
 #[cfg(test)]
 mod tests {
     use std::io::{Cursor, Read};
-    use super::{Parser, Escape, Handler, Attr, Rgb, DebugHandler};
+    use super::{Parser, Escape, Handler, Attr, DebugHandler, TermInfo};
     use ::Rgb;
+
+    #[derive(Default)]
+    struct AttrHandler {
+        attr: Option<Attr>,
+    }
+
+    impl Handler for AttrHandler {
+        fn terminal_attribute(&mut self, attr: Attr) {
+            self.attr = Some(attr);
+        }
+    }
+
+    impl TermInfo for AttrHandler {
+        fn rows(&self) -> usize {
+            24
+        }
+
+        fn cols(&self) -> usize {
+            80
+        }
+    }
 
     #[test]
     fn parse_control_attribute() {
-        #[derive(Default)]
-        struct TestHandler {
-            attr: Option<Attr>,
-        }
-
-        impl Handler for TestHandler {
-            fn terminal_attribute(&mut self, attr: Attr) {
-                self.attr = Some(attr);
-            }
-        }
-
         static BYTES: &'static [u8] = &[
             0x1b, 0x5b, 0x31, 0x6d
         ];
 
         let cursor = Cursor::new(BYTES);
         let mut parser = Parser::new();
-        let mut handler = TestHandler::default();
+        let mut handler = AttrHandler::default();
 
         for c in cursor.chars() {
             parser.advance(&mut handler, c.unwrap());
@@ -1127,17 +1167,6 @@ mod tests {
 
     #[test]
     fn parse_truecolor_attr() {
-        #[derive(Default)]
-        struct TestHandler {
-            attr: Option<Attr>,
-        }
-
-        impl Handler for TestHandler {
-            fn terminal_attribute(&mut self, attr: Attr) {
-                self.attr = Some(attr);
-            }
-        }
-
         static BYTES: &'static [u8] = &[
             0x1b, 0x5b, 0x33, 0x38, 0x3b, 0x32, 0x3b, 0x31, 0x32,
             0x38, 0x3b, 0x36, 0x36, 0x3b, 0x32, 0x35, 0x35, 0x6d
@@ -1145,7 +1174,7 @@ mod tests {
 
         let mut cursor = Cursor::new(BYTES);
         let mut parser = Parser::new();
-        let mut handler = TestHandler::default();
+        let mut handler = AttrHandler::default();
 
         for c in cursor.chars() {
             parser.advance(&mut handler, c.unwrap());

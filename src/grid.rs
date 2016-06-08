@@ -1,10 +1,11 @@
 //! Functions for computing properties of the terminal grid
 
-use std::collections::{vec_deque, VecDeque};
-use std::ops::{Index, IndexMut, Deref, DerefMut};
+use std::ops::{Index, IndexMut, Deref, DerefMut, Range, RangeTo, RangeFrom};
 use std::slice::{Iter, IterMut};
 
-use term::Cursor;
+use util::Rotate;
+
+use term::{Cursor, DEFAULT_FG, DEFAULT_BG};
 use ::Rgb;
 
 /// Calculate the number of cells for an axis
@@ -40,13 +41,22 @@ impl Cell {
             flags: CellFlags::empty(),
         }
     }
+
+    pub fn reset(&mut self) {
+        self.c = ' ';
+        self.flags = CellFlags::empty();
+
+        // FIXME shouldn't know about term
+        self.bg = DEFAULT_BG;
+        self.fg = DEFAULT_FG;
+    }
 }
 
 /// Represents the terminal display contents
 #[derive(Clone)]
 pub struct Grid {
     /// Rows in the grid. Each row holds a list of cells corresponding to the columns in that row.
-    raw: VecDeque<Row>,
+    raw: Vec<Row>,
 
     /// Number of columns
     cols: usize,
@@ -59,9 +69,9 @@ pub struct Grid {
 
 impl Grid {
     pub fn new(rows: usize, cols: usize) -> Grid {
-        let mut raw = VecDeque::with_capacity(rows);
+        let mut raw = Vec::with_capacity(rows);
         for _ in 0..rows {
-            raw.push_back(Row::new(cols));
+            raw.push(Row::new(cols));
         }
 
         Grid {
@@ -72,12 +82,12 @@ impl Grid {
     }
 
     #[inline]
-    pub fn rows(&self) -> vec_deque::Iter<Row> {
+    pub fn rows(&self) -> Iter<Row> {
         self.raw.iter()
     }
 
     #[inline]
-    pub fn rows_mut(&mut self) -> vec_deque::IterMut<Row> {
+    pub fn rows_mut(&mut self) -> IterMut<Row> {
         self.raw.iter_mut()
     }
 
@@ -91,22 +101,20 @@ impl Grid {
         self.raw[0].len()
     }
 
-    pub fn feed(&mut self) {
-        // do the borrowck dance
-        let row = self.raw.pop_front().unwrap();
-        self.raw.push_back(row);
+    pub fn scroll(&mut self, region: Range<usize>, positions: isize) {
+        self.raw[region].rotate(positions)
     }
 
-    pub fn unfeed(&mut self) {
-        // do the borrowck dance
-        let row = self.raw.pop_back().unwrap();
-        self.raw.push_front(row);
-    }
-
+    #[inline]
     pub fn clear(&mut self) {
-        for row in self.raw.iter_mut() {
+        let region = 0..self.num_rows();
+        self.clear_region(region);
+    }
+
+    pub fn clear_region(&mut self, region: Range<usize>) {
+        for row in self.raw[region].iter_mut() {
             for cell in row.iter_mut() {
-                cell.c = ' ';
+                cell.reset();
             }
         }
     }
@@ -187,6 +195,36 @@ impl Index<usize> for Row {
 impl IndexMut<usize> for Row {
     #[inline]
     fn index_mut<'a>(&'a mut self, index: usize) -> &'a mut Cell {
+        &mut self.0[index]
+    }
+}
+
+impl Index<RangeFrom<usize>> for Row {
+    type Output = [Cell];
+    #[inline]
+    fn index<'a>(&'a self, index: RangeFrom<usize>) -> &'a [Cell] {
+        &self.0[index]
+    }
+}
+
+impl IndexMut<RangeFrom<usize>> for Row {
+    #[inline]
+    fn index_mut<'a>(&'a mut self, index: RangeFrom<usize>) -> &'a mut [Cell] {
+        &mut self.0[index]
+    }
+}
+
+impl Index<RangeTo<usize>> for Row {
+    type Output = [Cell];
+    #[inline]
+    fn index<'a>(&'a self, index: RangeTo<usize>) -> &'a [Cell] {
+        &self.0[index]
+    }
+}
+
+impl IndexMut<RangeTo<usize>> for Row {
+    #[inline]
+    fn index_mut<'a>(&'a mut self, index: RangeTo<usize>) -> &'a mut [Cell] {
         &mut self.0[index]
     }
 }
