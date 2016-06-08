@@ -29,6 +29,7 @@ mod tty;
 mod ansi;
 mod term;
 
+use std::sync::mpsc::TryRecvError;
 use std::collections::HashMap;
 use std::io::{BufReader, Read, BufRead, Write, BufWriter};
 use std::sync::Arc;
@@ -130,7 +131,7 @@ fn main() {
     ::std::thread::spawn(move || {
         for c in reader.chars() {
             let c = c.unwrap();
-            chars_tx.send(c);
+            chars_tx.send(c).unwrap();
         }
     });
 
@@ -148,23 +149,23 @@ fn main() {
                     glutin::Event::Closed => break 'main_loop,
                     glutin::Event::ReceivedCharacter(c) => {
                         let encoded = c.encode_utf8();
-                        writer.write(encoded.as_slice());
+                        writer.write(encoded.as_slice()).unwrap();
                     },
                     glutin::Event::KeyboardInput(state, _code, key) => {
                         match state {
                             glutin::ElementState::Pressed => {
                                 match key {
                                     Some(glutin::VirtualKeyCode::Up) => {
-                                        writer.write("\x1b[A".as_bytes());
+                                        writer.write("\x1b[A".as_bytes()).unwrap();
                                     },
                                     Some(glutin::VirtualKeyCode::Down) => {
-                                        writer.write("\x1b[B".as_bytes());
+                                        writer.write("\x1b[B".as_bytes()).unwrap();
                                     },
                                     Some(glutin::VirtualKeyCode::Left) => {
-                                        writer.write("\x1b[D".as_bytes());
+                                        writer.write("\x1b[D".as_bytes()).unwrap();
                                     },
                                     Some(glutin::VirtualKeyCode::Right) => {
-                                        writer.write("\x1b[C".as_bytes());
+                                        writer.write("\x1b[C".as_bytes()).unwrap();
                                     },
                                     _ => (),
                                 }
