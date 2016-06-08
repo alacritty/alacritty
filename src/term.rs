@@ -28,6 +28,16 @@ pub static COLORS: &'static [Rgb] = &[
     Rgb {r: 0x2a, g: 0x2a, b: 0x2a}, // Bright white
 ];
 
+pub mod mode {
+    bitflags! {
+        pub flags TermMode: u32 {
+            const TEXT_CURSOR = 0b00000001,
+        }
+    }
+}
+
+pub use self::mode::TermMode;
+
 pub const CURSOR_SHAPE: char = '█';
 
 pub const DEFAULT_FG: Rgb = Rgb { r: 0xea, g: 0xea, b: 0xea};
@@ -96,6 +106,9 @@ pub struct Term {
 
     /// Whether state has changed and needs to be updated.
     dirty: bool,
+
+    /// Mode flags
+    mode: TermMode,
 }
 
 impl Term {
@@ -119,6 +132,7 @@ impl Term {
             tabs: tabs,
             attr: CellFlags::empty(),
             dirty: false,
+            mode: TermMode::empty(),
         }
     }
 
@@ -132,6 +146,11 @@ impl Term {
 
     pub fn grid(&self) -> &Grid {
         &self.grid
+    }
+
+    #[inline]
+    pub fn mode(&self) -> &TermMode {
+        &self.mode
     }
 
     pub fn swap_alt(&mut self) {
@@ -167,6 +186,7 @@ impl Term {
     fn set_char(&mut self, c: char) {
         self.dirty = true;
         if self.cursor.x == self.grid.num_cols() as u16 {
+            println!("wrapping");
             self.cursor.y += 1;
             self.cursor.x = 0;
         }
@@ -405,17 +425,21 @@ impl ansi::Handler for Term {
     fn set_mode(&mut self, mode: ansi::Mode) {
         println!("set_mode: {:?}", mode);
         match mode {
-            ansi::Mode::SwapScreenAndSetRestoreCursor => {
-                self.swap_alt();
+            ansi::Mode::SwapScreenAndSetRestoreCursor => self.swap_alt(),
+            ansi::Mode::TextCursor => self.mode.insert(mode::TEXT_CURSOR),
+            _ => {
+                println!(".. ignoring set_mode");
             }
         }
     }
 
-    fn unset_mode(&mut self, mode: ansi::Mode) {
+    fn unset_mode(&mut self,mode: ansi::Mode) {
         println!("unset_mode: {:?}", mode);
         match mode {
-            ansi::Mode::SwapScreenAndSetRestoreCursor => {
-                self.swap_alt();
+            ansi::Mode::SwapScreenAndSetRestoreCursor => self.swap_alt(),
+            ansi::Mode::TextCursor => self.mode.remove(mode::TEXT_CURSOR),
+            _ => {
+                println!(".. ignoring unset_mode");
             }
         }
     }
