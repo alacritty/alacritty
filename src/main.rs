@@ -193,26 +193,30 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        {
-            let _sampler = meter.sampler();
+        if terminal.dirty() {
+            {
+                let _sampler = meter.sampler();
 
+                renderer.with_api(&props, |mut api| {
+                    // Draw the grid
+                    api.render_grid(terminal.grid(), &mut glyph_cache);
+
+                    // Also draw the cursor
+                    api.render_cursor(terminal.cursor(), &mut glyph_cache);
+                })
+            }
+
+            // Draw render timer
+            let timing = format!("{:.3} usec", meter.average());
+            let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
             renderer.with_api(&props, |mut api| {
-                // Draw the grid
-                api.render_grid(terminal.grid(), &mut glyph_cache);
+                api.render_string(&timing[..], &mut glyph_cache, &color);
+            });
 
-                // Also draw the cursor
-                api.render_cursor(terminal.cursor(), &mut glyph_cache);
-            })
+            terminal.clear_dirty();
+
+            window.swap_buffers().unwrap();
         }
-
-        // Draw render timer
-        let timing = format!("{:.3} usec", meter.average());
-        let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-        renderer.with_api(&props, |mut api| {
-            api.render_string(&timing[..], &mut glyph_cache, &color);
-        });
-
-        window.swap_buffers().unwrap();
     }
 
     // TODO handle child cleanup
