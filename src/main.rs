@@ -180,8 +180,12 @@ fn main() {
             }
         }
 
-        while let Ok(c) = chars_rx.try_recv() {
-            pty_parser.advance(&mut terminal, c);
+        loop {
+            match chars_rx.try_recv() {
+                Ok(c) => pty_parser.advance(&mut terminal, c),
+                Err(TryRecvError::Disconnected) => break 'main_loop,
+                Err(TryRecvError::Empty) => break,
+            }
         }
 
         unsafe {
@@ -210,5 +214,7 @@ fn main() {
 
         window.swap_buffers().unwrap();
     }
+
+    // TODO handle child cleanup
 }
 
