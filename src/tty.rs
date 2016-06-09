@@ -14,6 +14,13 @@ use libc::{self, winsize, c_int, c_char, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS,
 /// Necessary to put this in static storage for `sigchld` to have access
 static mut PID: pid_t = 0;
 
+/// Exit flag
+///
+/// Calling exit() in the SIGCHLD handler sometimes causes opengl to deadlock,
+/// and the process hangs. Instead, this flag is set, and its status can be
+/// cheked via `process_should_exit`.
+static mut SHOULD_EXIT: bool = false;
+
 extern "C" fn sigchld(a: c_int) {
     let mut status: c_int = 0;
     unsafe {
@@ -29,9 +36,13 @@ extern "C" fn sigchld(a: c_int) {
         if !WIFEXITED(status) || WEXITSTATUS(status) != 0 {
             die!("child finished with error '{}'\n", status);
         }
-    }
 
-    ::std::process::exit(0);
+        SHOULD_EXIT = true;
+    }
+}
+
+pub fn process_should_exit() -> bool {
+    unsafe { SHOULD_EXIT }
 }
 
 pub enum Error {

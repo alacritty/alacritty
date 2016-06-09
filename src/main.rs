@@ -44,6 +44,7 @@ use grid::Grid;
 use term::Term;
 use meter::Meter;
 use util::thread;
+use tty::process_should_exit;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Default)]
 pub struct Rgb {
@@ -130,7 +131,7 @@ fn main() {
     }
 
     let (chars_tx, chars_rx) = ::std::sync::mpsc::channel();
-    thread::spawn_named("TTY Reader", move || {
+    let reader_thread = thread::spawn_named("TTY Reader", move || {
         for c in reader.chars() {
             let c = c.unwrap();
             chars_tx.send(c).unwrap();
@@ -219,8 +220,13 @@ fn main() {
 
             window.swap_buffers().unwrap();
         }
+
+        if process_should_exit() {
+            break;
+        }
     }
 
-    // TODO handle child cleanup
+    reader_thread.join();
+    println!("Goodbye");
 }
 
