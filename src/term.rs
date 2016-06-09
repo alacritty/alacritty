@@ -281,11 +281,9 @@ impl ansi::Handler for Term {
 
     /// Backspace `count` characters
     #[inline]
-    fn backspace(&mut self, count: i64) {
+    fn backspace(&mut self) {
         println!("backspace");
-        // TODO this is incorrect; count unused
         self.cursor.x -= 1;
-        self.set_char(' ');
     }
 
     /// Carriage return

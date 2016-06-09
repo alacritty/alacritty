@@ -251,7 +251,7 @@ pub trait Handler {
     fn put_tab(&mut self, _count: i64) {}
 
     /// Backspace `count` characters
-    fn backspace(&mut self, _count: i64) {}
+    fn backspace(&mut self) {}
 
     /// Carriage return
     fn carriage_return(&mut self) {}
@@ -355,7 +355,7 @@ impl Handler for DebugHandler {
     fn move_down_and_cr(&mut self, rows: i64) { println!("move_down_and_cr: {}", rows); }
     fn move_up_and_cr(&mut self, rows: i64) { println!("move_up_and_cr: {}", rows); }
     fn put_tab(&mut self, count: i64) { println!("put_tab: {}", count); }
-    fn backspace(&mut self, count: i64) { println!("backspace: {}", count); }
+    fn backspace(&mut self) { println!("backspace"); }
     fn carriage_return(&mut self) { println!("carriage_return"); }
     fn linefeed(&mut self) { println!("linefeed"); }
     fn bell(&mut self) { println!("bell"); }
@@ -754,7 +754,7 @@ impl Parser {
     {
         match c {
             C0::HT => handler.put_tab(1),
-            C0::BS => handler.backspace(1),
+            C0::BS => handler.backspace(),
             C0::CR => handler.carriage_return(),
             C0::LF |
             C0::VT |
