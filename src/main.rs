@@ -30,7 +30,7 @@ mod ansi;
 mod term;
 mod util;
 
-use std::sync::mpsc::TryRecvError;
+use std::sync::mpsc;
 use std::collections::HashMap;
 use std::io::{BufReader, Read, BufRead, Write, BufWriter};
 use std::sync::Arc;
@@ -45,6 +45,64 @@ use term::Term;
 use meter::Meter;
 use util::thread;
 use tty::process_should_exit;
+
+/// Things that the render/update thread needs to respond to
+#[derive(Debug)]
+enum Event {
+    PtyChar(char),
+    Glutin(glutin::Event),
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum ShouldExit {
+    Yes,
+    No
+}
+
+fn handle_event<W>(event: Event,
+                   writer: &mut W,
+                   terminal: &mut Term,
+                   pty_parser: &mut ansi::Parser) -> ShouldExit
+    where W: Write
+{
+    match event {
+        // Handle char from pty
+        Event::PtyChar(c) => pty_parser.advance(terminal, c),
+        // Handle keyboard/mouse input and other window events
+        Event::Glutin(gevent) => match gevent {
+            glutin::Event::Closed => return ShouldExit::Yes,
+            glutin::Event::ReceivedCharacter(c) => {
+                let encoded = c.encode_utf8();
+                writer.write(encoded.as_slice()).unwrap();
+            },
+            glutin::Event::KeyboardInput(state, _code, key) => {
+                match state {
+                    glutin::ElementState::Pressed => {
+                        match key {
+                            Some(glutin::VirtualKeyCode::Up) => {
+                                writer.write("\x1b[A".as_bytes()).unwrap();
+                            },
+                            Some(glutin::VirtualKeyCode::Down) => {
+                                writer.write("\x1b[B".as_bytes()).unwrap();
+                            },
+                            Some(glutin::VirtualKeyCode::Left) => {
+                                writer.write("\x1b[D".as_bytes()).unwrap();
+                            },
+                            Some(glutin::VirtualKeyCode::Right) => {
+                                writer.write("\x1b[C".as_bytes()).unwrap();
+                            },
+                            _ => (),
+                        }
+                    },
+                    _ => (),
+                }
+            },
+            _ => ()
+        }
+    }
+
+    ShouldExit::No
+}
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Default)]
 pub struct Rgb {
@@ -130,11 +188,12 @@ fn main() {
         gl::Enable(gl::MULTISAMPLE);
     }
 
-    let (chars_tx, chars_rx) = ::std::sync::mpsc::channel();
+    let (tx, rx) = mpsc::channel();
+    let reader_tx = tx.clone();
     let reader_thread = thread::spawn_named("TTY Reader", move || {
         for c in reader.chars() {
             let c = c.unwrap();
-            chars_tx.send(c).unwrap();
+            reader_tx.send(Event::PtyChar(c)).unwrap();
         }
     });
 
@@ -143,50 +202,45 @@ fn main() {
 
     let mut pty_parser = ansi::Parser::new();
 
-    'main_loop: loop {
-        // Handle keyboard/mouse input and other window events
-        {
-            let mut writer = BufWriter::new(&writer);
-            for event in window.poll_events() {
-                match event {
-                    glutin::Event::Closed => break 'main_loop,
-                    glutin::Event::ReceivedCharacter(c) => {
-                        let encoded = c.encode_utf8();
-                        writer.write(encoded.as_slice()).unwrap();
-                    },
-                    glutin::Event::KeyboardInput(state, _code, key) => {
-                        match state {
-                            glutin::ElementState::Pressed => {
-                                match key {
-                                    Some(glutin::VirtualKeyCode::Up) => {
-                                        writer.write("\x1b[A".as_bytes()).unwrap();
-                                    },
-                                    Some(glutin::VirtualKeyCode::Down) => {
-                                        writer.write("\x1b[B".as_bytes()).unwrap();
-                                    },
-                                    Some(glutin::VirtualKeyCode::Left) => {
-                                        writer.write("\x1b[D".as_bytes()).unwrap();
-                                    },
-                                    Some(glutin::VirtualKeyCode::Right) => {
-                                        writer.write("\x1b[C".as_bytes()).unwrap();
-                                    },
-                                    _ => (),
-                                }
-                            },
-                            _ => (),
-                        }
-                    },
-                    _ => ()
-                }
+    let window = Arc::new(window);
+    let window_ref = window.clone();
+    let input_thread = thread::spawn_named("Input Thread", move || {
+        for event in window_ref.wait_events() {
+            tx.send(Event::Glutin(event));
+            if process_should_exit() {
+                break;
             }
         }
 
+    });
+
+    'main_loop: loop {
+        // Block waiting for next event
+        match rx.recv() {
+            Ok(e) => {
+                let res = handle_event(e, &mut writer, &mut terminal, &mut pty_parser);
+                if res == ShouldExit::Yes {
+                    break;
+                }
+            },
+            Err(mpsc::RecvError) => break,
+        }
+
+        // Handle Any events that have been queued
         loop {
-            match chars_rx.try_recv() {
-                Ok(c) => pty_parser.advance(&mut terminal, c),
-                Err(TryRecvError::Disconnected) => break 'main_loop,
-                Err(TryRecvError::Empty) => break,
+            match rx.try_recv() {
+                Ok(e) => {
+                    let res = handle_event(e, &mut writer, &mut terminal, &mut pty_parser);
+
+                    if res == ShouldExit::Yes {
+                        break;
+                    }
+                },
+                Err(mpsc::TryRecvError::Disconnected) => break 'main_loop,
+                Err(mpsc::TryRecvError::Empty) => break,
             }
+
+            // TODO make sure this doesn't block renders
         }
 
         unsafe {
@@ -194,39 +248,36 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        if terminal.dirty() {
-            {
-                let _sampler = meter.sampler();
+        {
+            let _sampler = meter.sampler();
 
-                renderer.with_api(&props, |mut api| {
-                    // Draw the grid
-                    api.render_grid(terminal.grid(), &mut glyph_cache);
-
-                    // Also draw the cursor
-                    if !terminal.mode().contains(term::mode::TEXT_CURSOR) {
-                        api.render_cursor(terminal.cursor(), &mut glyph_cache);
-                    }
-                })
-            }
-
-            // Draw render timer
-            let timing = format!("{:.3} usec", meter.average());
-            let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
             renderer.with_api(&props, |mut api| {
-                api.render_string(&timing[..], &mut glyph_cache, &color);
-            });
+                // Draw the grid
+                api.render_grid(terminal.grid(), &mut glyph_cache);
 
-            terminal.clear_dirty();
-
-            window.swap_buffers().unwrap();
+                // Also draw the cursor
+                if !terminal.mode().contains(term::mode::TEXT_CURSOR) {
+                    api.render_cursor(terminal.cursor(), &mut glyph_cache);
+                }
+            })
         }
+
+        // Draw render timer
+        let timing = format!("{:.3} usec", meter.average());
+        let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
+        renderer.with_api(&props, |mut api| {
+            api.render_string(&timing[..], &mut glyph_cache, &color);
+        });
+
+        window.swap_buffers().unwrap();
 
         if process_should_exit() {
             break;
         }
     }
 
-    reader_thread.join();
+    reader_thread.join().ok();
+    input_thread.join().ok();
     println!("Goodbye");
 }
 

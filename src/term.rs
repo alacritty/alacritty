@@ -105,9 +105,6 @@ pub struct Term {
     /// Cell attributes
     attr: grid::CellFlags,
 
-    /// Whether state has changed and needs to be updated.
-    dirty: bool,
-
     /// Mode flags
     mode: TermMode,
 
@@ -136,18 +133,9 @@ impl Term {
             tty: tty,
             tabs: tabs,
             attr: CellFlags::empty(),
-            dirty: false,
             mode: TermMode::empty(),
             scroll_region: scroll_region,
         }
-    }
-
-    pub fn dirty(&self) -> bool {
-        self.dirty
-    }
-
-    pub fn clear_dirty(&mut self) {
-        self.dirty = false;
     }
 
     pub fn grid(&self) -> &Grid {
@@ -190,7 +178,6 @@ impl Term {
 
     /// Set character in current cursor position
     fn set_char(&mut self, c: char) {
-        self.dirty = true;
         if self.cursor.x == self.grid.num_cols() as u16 {
             println!("wrapping");
             self.cursor.y += 1;
@@ -253,17 +240,14 @@ impl ansi::Handler for Term {
 
     fn goto(&mut self, x: i64, y: i64) {
         println!("goto: x={}, y={}", x, y);
-        self.dirty = true;
         self.cursor.goto(x as u16, y as u16);
     }
     fn goto_row(&mut self, y: i64) {
-        self.dirty = true;
         println!("goto_row: {}", y);
         let x = self.cursor_x();
         self.cursor.goto(x, y as u16);
     }
     fn goto_col(&mut self, x: i64) {
-        self.dirty = true;
         println!("goto_col: {}", x);
         let y = self.cursor_y();
         self.cursor.goto(x as u16, y);
@@ -272,25 +256,21 @@ impl ansi::Handler for Term {
     fn insert_blank(&mut self, num: i64) { println!("insert_blank: {}", num); }
 
     fn move_up(&mut self, rows: i64) {
-        self.dirty = true;
         println!("move_up: {}", rows);
         self.cursor.advance(-rows, 0);
     }
 
     fn move_down(&mut self, rows: i64) {
-        self.dirty = true;
         println!("move_down: {}", rows);
         self.cursor.advance(rows, 0);
     }
 
     fn move_forward(&mut self, cols: i64) {
-        self.dirty = true;
         println!("move_forward: {}", cols);
         self.cursor.advance(0, cols);
     }
 
     fn move_backward(&mut self, spaces: i64) {
-        self.dirty = true;
         println!("move_backward: {}", spaces);
         self.cursor.advance(0, -spaces);
     }
@@ -299,7 +279,6 @@ impl ansi::Handler for Term {
     fn move_down_and_cr(&mut self, rows: i64) { println!("move_down_and_cr: {}", rows); }
     fn move_up_and_cr(&mut self, rows: i64) { println!("move_up_and_cr: {}", rows); }
     fn put_tab(&mut self, mut count: i64) {
-        self.dirty = true;
         println!("put_tab: {}", count);
 
         let mut x = self.cursor_x();
@@ -320,7 +299,6 @@ impl ansi::Handler for Term {
     #[inline]
     fn backspace(&mut self, count: i64) {
         println!("backspace");
-        self.dirty = true;
         self.cursor.x -= 1;
         self.set_char(' ');
     }
@@ -329,14 +307,12 @@ impl ansi::Handler for Term {
     #[inline]
     fn carriage_return(&mut self) {
         println!("carriage_return");
-        self.dirty = true;
         self.cursor.x = 0;
     }
 
     /// Linefeed
     #[inline]
     fn linefeed(&mut self) {
-        self.dirty = true;
         println!("linefeed");
         // TODO handle scroll? not clear what parts of this the pty handle
         if self.cursor_y() + 1 >= self.scroll_region.end as u16 {
@@ -378,7 +354,6 @@ impl ansi::Handler for Term {
     fn save_cursor_position(&mut self) { println!("save_cursor_position"); }
     fn restore_cursor_position(&mut self) { println!("restore_cursor_position"); }
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
-        self.dirty = true;
         println!("clear_line: {:?}", mode);
         match mode {
             ansi::LineClearMode::Right => {
@@ -393,7 +368,6 @@ impl ansi::Handler for Term {
         }
     }
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
-        self.dirty = true;
         println!("clear_screen: {:?}", mode);
         match mode {
             ansi::ClearMode::Below => {
@@ -417,7 +391,6 @@ impl ansi::Handler for Term {
     fn clear_tabs(&mut self, mode: ansi::TabulationClearMode) { println!("clear_tabs: {:?}", mode); }
     fn reset_state(&mut self) { println!("reset_state"); }
     fn reverse_index(&mut self) {
-        self.dirty = true;
         println!("reverse_index");
         // if cursor is at the top
         if self.cursor.y == 0 {
