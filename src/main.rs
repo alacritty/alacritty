@@ -30,21 +30,21 @@ mod ansi;
 mod term;
 mod util;
 
-use std::sync::mpsc;
 use std::collections::HashMap;
+use std::fs::File;
 use std::io::{BufReader, Read, BufRead, Write, BufWriter};
 use std::sync::Arc;
-use std::fs::File;
+use std::sync::mpsc;
 
 use std::os::unix::io::{FromRawFd, AsRawFd};
 
-use renderer::{QuadRenderer, GlyphCache, LoadGlyph};
-use text::FontDesc;
 use grid::Grid;
-use term::Term;
 use meter::Meter;
-use util::thread;
+use renderer::{QuadRenderer, GlyphCache, LoadGlyph};
+use term::Term;
+use text::FontDesc;
 use tty::process_should_exit;
+use util::thread;
 
 /// Things that the render/update thread needs to respond to
 #[derive(Debug)]
