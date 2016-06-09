@@ -7,7 +7,7 @@ use std::mem;
 use std::os::unix::io::FromRawFd;
 use std::ptr;
 
-use libc::{self, winsize, c_int, c_char, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD};
+use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD};
 
 /// Process ID of child process
 ///
@@ -21,7 +21,7 @@ static mut PID: pid_t = 0;
 /// cheked via `process_should_exit`.
 static mut SHOULD_EXIT: bool = false;
 
-extern "C" fn sigchld(a: c_int) {
+extern "C" fn sigchld(_a: c_int) {
     let mut status: c_int = 0;
     unsafe {
         let p = libc::waitpid(PID, &mut status, WNOHANG);
@@ -44,23 +44,6 @@ extern "C" fn sigchld(a: c_int) {
 pub fn process_should_exit() -> bool {
     unsafe { SHOULD_EXIT }
 }
-
-pub enum Error {
-    /// TODO
-    Unknown,
-}
-
-impl Error {
-    /// Build an Error from the current value of errno.
-    fn from_errno() -> Error {
-        let err = errno();
-        match err {
-            _ => Error::Unknown
-        }
-    }
-}
-
-pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// Get the current value of errno
 fn errno() -> c_int {

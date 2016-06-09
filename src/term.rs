@@ -1,8 +1,7 @@
 /// Exports the `Term` type which is a high-level API for the Grid
-use std::sync::Arc;
 use std::ops::Range;
 
-use ansi::{self, Attr, DebugHandler};
+use ansi::{self, Attr};
 use grid::{self, Grid, CellFlags};
 use tty;
 use ::Rgb;
@@ -70,10 +69,6 @@ impl Cursor {
     }
 }
 
-struct Mover<'a> {
-    cursor: &'a mut Cursor,
-}
-
 pub struct Term {
     /// The grid
     grid: Grid,
@@ -85,7 +80,7 @@ pub struct Term {
     alt: bool,
 
     /// Reference to the underlying tty
-    tty: tty::Tty,
+    _tty: tty::Tty,
 
     /// The cursor
     cursor: Cursor,
@@ -130,7 +125,7 @@ impl Term {
             alt_cursor: Cursor::default(),
             fg: DEFAULT_FG,
             bg: DEFAULT_BG,
-            tty: tty,
+            _tty: tty,
             tabs: tabs,
             attr: CellFlags::empty(),
             mode: TermMode::empty(),
@@ -155,10 +150,6 @@ impl Term {
         if self.alt {
             self.grid.clear();
         }
-    }
-
-    pub fn resize(&mut self) {
-        unimplemented!();
     }
 
     #[inline]
@@ -193,13 +184,6 @@ impl Term {
         cell.fg = self.fg;
         cell.bg = self.bg;
         cell.flags = self.attr;
-    }
-
-    /// Advance to next line
-    fn newline_c(&mut self, count: u16) {
-        // TODO handle scroll
-        self.cursor.x = 0;
-        self.cursor.y += 1;
     }
 
     /// Convenience function for scrolling
@@ -299,6 +283,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn backspace(&mut self, count: i64) {
         println!("backspace");
+        // TODO this is incorrect; count unused
         self.cursor.x -= 1;
         self.set_char(' ');
     }
@@ -357,7 +342,6 @@ impl ansi::Handler for Term {
         println!("clear_line: {:?}", mode);
         match mode {
             ansi::LineClearMode::Right => {
-                let cols = self.grid.num_cols();
                 let row = &mut self.grid[self.cursor.y as usize];
                 let start = self.cursor.x as usize;
                 for cell in row[start..].iter_mut() {

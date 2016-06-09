@@ -17,7 +17,7 @@
 //! should be, feel free to add it. Please try not to become overzealous and adding support for
 //! sequences only used by folks trapped in 1988.
 
-use std::io::{Cursor, Read, Write, Chars};
+use std::io::Write;
 use ::Rgb;
 
 /// A CSI Escape sequence
@@ -31,38 +31,6 @@ pub trait TermInfo {
     fn rows(&self) -> usize;
     fn cols(&self) -> usize;
 }
-
-/// Control requiring action
-#[derive(Debug, Eq, PartialEq)]
-pub enum Control {
-    PutTab(u8),
-    Backspace(u8),
-    CarriageReturn,
-    Newline,
-    Bell,
-    SwitchG0,
-    SwitchG1,
-    Substitute,
-    LineFeed,
-    SetHorizontalTabStop,
-    ReverseIndex,
-    IdentifyTerminal,
-    ResetState,
-}
-
-/// Something parsed from the pty stream
-#[derive(Debug, Eq, PartialEq)]
-pub enum Item {
-    /// CSI escape
-    Escape(Escape),
-
-    /// Control character,
-    Control(Control),
-
-    /// Plain character
-    Char(char),
-}
-
 
 pub const CSI_ATTR_MAX: usize = 16;
 
@@ -244,46 +212,46 @@ pub enum Attr {
 /// writing specific handler impls for tests far easier.
 pub trait Handler {
     /// A character to be displayed
-    fn input(&mut self, c: char) {}
+    fn input(&mut self, _c: char) {}
 
     /// Set cursor to position
-    fn goto(&mut self, x: i64, y: i64) {}
+    fn goto(&mut self, _x: i64, _y: i64) {}
 
     /// Set cursor to specific row
-    fn goto_row(&mut self, y: i64) {}
+    fn goto_row(&mut self, _y: i64) {}
 
     /// Set cursor to specific column
-    fn goto_col(&mut self, x: i64) {}
+    fn goto_col(&mut self, _x: i64) {}
 
     /// Insert blank characters
-    fn insert_blank(&mut self, num: i64) {}
+    fn insert_blank(&mut self, _num: i64) {}
 
     /// Move cursor up `rows`
-    fn move_up(&mut self, rows: i64) {}
+    fn move_up(&mut self, _rows: i64) {}
 
     /// Move cursor down `rows`
-    fn move_down(&mut self, rows: i64) {}
+    fn move_down(&mut self, _rows: i64) {}
 
     /// Identify the terminal (should write back to the pty stream)
     fn identify_terminal(&mut self) {}
 
     /// Move cursor forward `cols`
-    fn move_forward(&mut self, cols: i64) {}
+    fn move_forward(&mut self, _cols: i64) {}
 
     /// Move cursor backward `cols`
-    fn move_backward(&mut self, cols: i64) {}
+    fn move_backward(&mut self, _cols: i64) {}
 
     /// Move cursor down `rows` and set to column 1
-    fn move_down_and_cr(&mut self, rows: i64) {}
+    fn move_down_and_cr(&mut self, _rows: i64) {}
 
     /// Move cursor up `rows` and set to column 1
-    fn move_up_and_cr(&mut self, rows: i64) {}
+    fn move_up_and_cr(&mut self, _rows: i64) {}
 
     /// Put `count` tabs
-    fn put_tab(&mut self, count: i64) {}
+    fn put_tab(&mut self, _count: i64) {}
 
     /// Backspace `count` characters
-    fn backspace(&mut self, count: i64) {}
+    fn backspace(&mut self, _count: i64) {}
 
     /// Carriage return
     fn carriage_return(&mut self) {}
@@ -306,32 +274,32 @@ pub trait Handler {
     fn set_horizontal_tabstop(&mut self) {}
 
     /// Scroll up `rows` rows
-    fn scroll_up(&mut self, rows: i64) {}
+    fn scroll_up(&mut self, _rows: i64) {}
 
     /// Scroll down `rows` rows
-    fn scroll_down(&mut self, rows: i64) {}
+    fn scroll_down(&mut self, _rows: i64) {}
 
     /// Insert `count` blank lines
-    fn insert_blank_lines(&mut self, count: i64) {}
+    fn insert_blank_lines(&mut self, _count: i64) {}
 
     /// Delete `count` lines
-    fn delete_lines(&mut self, count: i64) {}
+    fn delete_lines(&mut self, _count: i64) {}
 
     /// Erase `count` chars
     ///
     /// TODO figure out AND comment what it means to "erase" chars
-    fn erase_chars(&mut self, count: i64) {}
+    fn erase_chars(&mut self, _count: i64) {}
 
     /// Delete `count` chars
     ///
     /// TODO figure out AND comment what it means to "delete" chars
-    fn delete_chars(&mut self, count: i64) {}
+    fn delete_chars(&mut self, _count: i64) {}
 
     /// Move backward `count` tabs
-    fn move_backward_tabs(&mut self, count: i64) {}
+    fn move_backward_tabs(&mut self, _count: i64) {}
 
     /// Move forward `count` tabs
-    fn move_forward_tabs(&mut self, count: i64) {}
+    fn move_forward_tabs(&mut self, _count: i64) {}
 
     /// Save current cursor position
     fn save_cursor_position(&mut self) {}
@@ -340,13 +308,13 @@ pub trait Handler {
     fn restore_cursor_position(&mut self) {}
 
     /// Clear current line
-    fn clear_line(&mut self, mode: LineClearMode) {}
+    fn clear_line(&mut self, _mode: LineClearMode) {}
 
     /// Clear screen
-    fn clear_screen(&mut self, mode: ClearMode) {}
+    fn clear_screen(&mut self, _mode: ClearMode) {}
 
     /// Clear tab stops
-    fn clear_tabs(&mut self, mode: TabulationClearMode) {}
+    fn clear_tabs(&mut self, _mode: TabulationClearMode) {}
 
     /// Reset terminal state
     fn reset_state(&mut self) {}
@@ -358,16 +326,16 @@ pub trait Handler {
     fn reverse_index(&mut self) {}
 
     /// set a terminal attribute
-    fn terminal_attribute(&mut self, attr: Attr) {}
+    fn terminal_attribute(&mut self, _attr: Attr) {}
 
     /// Set mode
-    fn set_mode(&mut self, Mode) {}
+    fn set_mode(&mut self, _mode: Mode) {}
 
     /// Unset mode
     fn unset_mode(&mut self, Mode) {}
 
     /// DECSTBM - Set the terminal scrolling region
-    fn set_scrolling_region(&mut self, top: i64, bot: i64) {}
+    fn set_scrolling_region(&mut self, _top: i64, _bot: i64) {}
 }
 
 /// An implementation of handler that just prints everything it gets
@@ -471,7 +439,7 @@ impl Parser {
         handler.input(c);
     }
 
-    fn other<H>(&mut self, handler: &mut H, c: char)
+    fn other<H>(&mut self, _handler: &mut H, c: char)
         where H: Handler + TermInfo
     {
         if c == 0x07 as char || c == 0x18 as char || c == 0x1a as char ||
@@ -537,7 +505,6 @@ impl Parser {
     fn csi_parse<H>(&mut self, handler: &mut H)
         where H: Handler + TermInfo
     {
-        let mut idx = 0;
         let mut args = [0i64; CSI_ATTR_MAX];
         let mut args_idx = 0;
 
@@ -951,8 +918,8 @@ fn is_control_c1(c: char) -> bool {
 }
 
 /// C0 set of 7-bit control characters (from ANSI X3.4-1977).
-#[allow(dead_code)]
-mod C0 {
+#[allow(non_snake_case)]
+pub mod C0 {
     /// Null filler, terminal should ignore this character
     pub const NUL: char = 0x00 as char;
     /// Start of Header
@@ -1027,8 +994,8 @@ mod C0 {
 /// 0x80 (@), 0x81 (A), 0x82 (B), 0x83 (C) are reserved
 /// 0x98 (X), 0x99 (Y) are reserved
 /// 0x9a (Z) is resezved, but causes DEC terminals to respond with DA codes
-#[allow(dead_code)]
-mod C1 {
+#[allow(non_snake_case)]
+pub mod C1 {
     /// Reserved
     pub const PAD: char = 0x80 as char;
     /// Reserved

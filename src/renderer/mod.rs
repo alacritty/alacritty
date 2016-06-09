@@ -3,13 +3,12 @@ use std::ffi::CString;
 use std::fs::File;
 use std::io::{self, Read};
 use std::mem::size_of;
-use std::path::{PathBuf, Path};
+use std::path::{PathBuf};
 use std::ptr;
 use std::sync::Arc;
 use std::sync::atomic::{Ordering, AtomicBool};
 
-use cgmath::{self, Matrix};
-use euclid::{Rect, Size2D, Point2D};
+use cgmath;
 use gl::types::*;
 use gl;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
@@ -182,12 +181,6 @@ pub struct RenderApi<'a> {
 pub struct PackedVertex {
     x: f32,
     y: f32,
-}
-
-#[derive(Debug)]
-struct ElementIndex {
-    col: u32, // x
-    row: u32, // y
 }
 
 #[derive(Debug)]
@@ -614,13 +607,6 @@ impl<'a> Drop for RenderApi<'a> {
             self.render_batch();
         }
     }
-}
-
-fn get_rect(glyph: &Glyph, x: f32, y: f32) -> Rect<f32> {
-    Rect::new(
-        Point2D::new(x + glyph.left as f32, y - (glyph.height - glyph.top) as f32),
-        Size2D::new(glyph.width as f32, glyph.height as f32)
-    )
 }
 
 impl ShaderProgram {

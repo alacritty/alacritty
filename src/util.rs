@@ -1,5 +1,3 @@
-use std::iter::Iterator;
-
 /// Threading utilities
 pub mod thread {
     /// Like `thread::spawn`, but with a `name` argument

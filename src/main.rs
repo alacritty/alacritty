@@ -10,9 +10,7 @@ extern crate freetype;
 extern crate libc;
 extern crate glutin;
 extern crate cgmath;
-extern crate euclid;
 extern crate notify;
-extern crate arrayvec;
 
 #[macro_use]
 extern crate bitflags;
@@ -23,24 +21,20 @@ mod macros;
 mod list_fonts;
 mod text;
 mod renderer;
-mod grid;
+pub mod grid;
 mod meter;
 mod tty;
-mod ansi;
+pub mod ansi;
 mod term;
 mod util;
 
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufReader, Read, BufRead, Write, BufWriter};
+use std::io::{Read, Write, BufWriter};
 use std::sync::Arc;
 use std::sync::mpsc;
 
-use std::os::unix::io::{FromRawFd, AsRawFd};
-
 use grid::Grid;
 use meter::Meter;
-use renderer::{QuadRenderer, GlyphCache, LoadGlyph};
+use renderer::{QuadRenderer, GlyphCache};
 use term::Term;
 use text::FontDesc;
 use tty::process_should_exit;
@@ -116,7 +110,7 @@ mod gl {
 }
 
 #[derive(Debug)]
-struct TermProps {
+pub struct TermProps {
     width: f32,
     height: f32,
     cell_width: f32,
@@ -159,12 +153,12 @@ fn main() {
 
     let tty = tty::new(num_rows as u8, num_cols as u8);
     tty.resize(num_rows as usize, num_cols as usize, width as usize, height as usize);
-    let mut reader = tty.reader();
-    let mut writer = tty.writer();
+    let reader = tty.reader();
+    let writer = tty.writer();
 
     println!("num_cols, num_rows = {}, {}", num_cols, num_rows);
 
-    let mut grid = Grid::new(num_rows as usize, num_cols as usize);
+    let grid = Grid::new(num_rows as usize, num_cols as usize);
 
     let props = TermProps {
         cell_width: cell_width as f32,
@@ -206,41 +200,44 @@ fn main() {
     let window_ref = window.clone();
     let input_thread = thread::spawn_named("Input Thread", move || {
         for event in window_ref.wait_events() {
-            tx.send(Event::Glutin(event));
+            tx.send(Event::Glutin(event)).unwrap();
             if process_should_exit() {
                 break;
             }
         }
-
     });
 
     'main_loop: loop {
-        // Block waiting for next event
-        match rx.recv() {
-            Ok(e) => {
-                let res = handle_event(e, &mut writer, &mut terminal, &mut pty_parser);
-                if res == ShouldExit::Yes {
-                    break;
-                }
-            },
-            Err(mpsc::RecvError) => break,
-        }
+        {
+            let mut writer = BufWriter::new(&writer);
 
-        // Handle Any events that have been queued
-        loop {
-            match rx.try_recv() {
+            // Block waiting for next event
+            match rx.recv() {
                 Ok(e) => {
                     let res = handle_event(e, &mut writer, &mut terminal, &mut pty_parser);
-
                     if res == ShouldExit::Yes {
                         break;
                     }
                 },
-                Err(mpsc::TryRecvError::Disconnected) => break 'main_loop,
-                Err(mpsc::TryRecvError::Empty) => break,
+                Err(mpsc::RecvError) => break,
             }
 
-            // TODO make sure this doesn't block renders
+            // Handle Any events that have been queued
+            loop {
+                match rx.try_recv() {
+                    Ok(e) => {
+                        let res = handle_event(e, &mut writer, &mut terminal, &mut pty_parser);
+
+                        if res == ShouldExit::Yes {
+                            break;
+                        }
+                    },
+                    Err(mpsc::TryRecvError::Disconnected) => break 'main_loop,
+                    Err(mpsc::TryRecvError::Empty) => break,
+                }
+
+                // TODO make sure this doesn't block renders
+            }
         }
 
         unsafe {
