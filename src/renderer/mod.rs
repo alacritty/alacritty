@@ -13,7 +13,7 @@ use gl::types::*;
 use gl;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 
-use text::{Rasterizer, RasterizedGlyph, FontDesc};
+use font::{Rasterizer, RasterizedGlyph, FontDesc};
 use grid::{self, Grid, Cell, CellFlags};
 use term;
 
@@ -44,9 +44,6 @@ pub struct ShaderProgram {
 
     /// Cell dimensions (pixels)
     u_cell_dim: GLint,
-
-    /// Cell separation (pixels)
-    u_cell_sep: GLint,
 
     /// Background pass flag
     ///
@@ -649,24 +646,22 @@ impl ShaderProgram {
         }
 
         // get uniform locations
-        let (projection, term_dim, cell_dim, cell_sep, background) = unsafe {
+        let (projection, term_dim, cell_dim, background) = unsafe {
             (
                 gl::GetUniformLocation(program, cptr!(b"projection\0")),
                 gl::GetUniformLocation(program, cptr!(b"termDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"cellDim\0")),
-                gl::GetUniformLocation(program, cptr!(b"cellSep\0")),
                 gl::GetUniformLocation(program, cptr!(b"backgroundPass\0")),
             )
         };
 
-        assert_uniform_valid!(projection, term_dim, cell_dim, cell_sep);
+        assert_uniform_valid!(projection, term_dim, cell_dim);
 
         let shader = ShaderProgram {
             id: program,
             u_projection: projection,
             u_term_dim: term_dim,
             u_cell_dim: cell_dim,
-            u_cell_sep: cell_sep,
             u_background: background,
         };
 
@@ -690,7 +685,6 @@ impl ShaderProgram {
         unsafe {
             gl::Uniform2f(self.u_term_dim, props.width, props.height);
             gl::Uniform2f(self.u_cell_dim, props.cell_width, props.cell_height);
-            gl::Uniform2f(self.u_cell_sep, props.sep_x, props.sep_y);
         }
     }
 

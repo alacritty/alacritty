@@ -9,10 +9,8 @@ use term::{Cursor, DEFAULT_FG, DEFAULT_BG};
 use ::Rgb;
 
 /// Calculate the number of cells for an axis
-pub fn num_cells_axis(cell_width: u32, cell_sep: i32, screen_width: u32) -> u32 {
-    println!("num_cells_axis(cell_width: {}, cell_sep: {}, screen_width: {}",
-             cell_width, cell_sep, screen_width);
-    ((screen_width as i32 - cell_sep) as f64 / (cell_width as i32 + cell_sep) as f64) as u32
+pub fn num_cells_axis(cell_width: u32, screen_width: u32) -> u32 {
+    (screen_width as f64 / cell_width as f64) as u32
 }
 
 #[derive(Clone, Debug)]

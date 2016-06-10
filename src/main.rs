@@ -5,12 +5,12 @@
 #![feature(io)]
 #![feature(unicode)]
 
-extern crate fontconfig;
-extern crate freetype;
+extern crate font;
 extern crate libc;
 extern crate glutin;
 extern crate cgmath;
 extern crate notify;
+extern crate errno;
 
 #[macro_use]
 extern crate bitflags;
@@ -18,8 +18,6 @@ extern crate bitflags;
 #[macro_use]
 mod macros;
 
-mod list_fonts;
-mod text;
 mod renderer;
 pub mod grid;
 mod meter;
@@ -36,7 +34,7 @@ use grid::Grid;
 use meter::Meter;
 use renderer::{QuadRenderer, GlyphCache};
 use term::Term;
-use text::FontDesc;
+use font::FontDesc;
 use tty::process_should_exit;
 use util::thread;
 
@@ -115,41 +113,47 @@ pub struct TermProps {
     height: f32,
     cell_width: f32,
     cell_height: f32,
-    sep_x: f32,
-    sep_y: f32,
 }
 
+#[cfg(target_os = "linux")]
+static FONT: &'static str = "DejaVu Sans Mono";
+#[cfg(target_os = "linux")]
+static FONT_STYLE: &'static str = "Book";
+
+#[cfg(target_os = "macos")]
+static FONT: &'static str = "Menlo";
+#[cfg(target_os = "macos")]
+static FONT_STYLE: &'static str = "Regular";
+
+
 fn main() {
-    let window = glutin::WindowBuilder::new()
-                     .with_title("alacritty".into())
-                     .build()
-                     .unwrap();
 
+    let window = glutin::WindowBuilder::new().build().unwrap();
+    window.set_title("Alacritty");
+    // window.set_window_resize_callback(Some(resize_callback as fn(u32, u32)));
+
+    gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
     let (width, height) = window.get_inner_size_pixels().unwrap();
-    unsafe {
-        window.make_current().unwrap();
-    }
-
-    unsafe {
-        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
-        gl::Viewport(0, 0, width as i32, height as i32);
-    }
-
-    let (dpi_x, dpi_y) = window.get_dpi().unwrap();
     let dpr = window.hidpi_factor();
+
+    println!("device_pixel_ratio: {}", dpr);
 
     let font_size = 11.;
 
-    let sep_x = 2;
-    let sep_y = 5;
+    let sep_x = 2.0;
+    let sep_y = -7.0;
 
-    let desc = FontDesc::new("DejaVu Sans Mono", "Book");
-    let mut rasterizer = text::Rasterizer::new(dpi_x, dpi_y, dpr);
+    let desc = FontDesc::new(FONT, FONT_STYLE);
+    let mut rasterizer = font::Rasterizer::new(96., 96., dpr);
 
-    let (cell_width, cell_height) = rasterizer.box_size_for_font(&desc, font_size);
+    let metrics = rasterizer.metrics(&desc, font_size);
+    let cell_width = (metrics.average_advance + sep_x) as u32;
+    let cell_height = (metrics.line_height + sep_y) as u32;
 
-    let num_cols = grid::num_cells_axis(cell_width, sep_x, width);
-    let num_rows = grid::num_cells_axis(cell_height, sep_y, height);
+    println!("Cell Size: ({} x {})", cell_width, cell_height);
+
+    let num_cols = grid::num_cells_axis(cell_width, width);
+    let num_rows = grid::num_cells_axis(cell_height, height);
 
     let tty = tty::new(num_rows as u8, num_cols as u8);
     tty.resize(num_rows as usize, num_cols as usize, width as usize, height as usize);
@@ -162,25 +166,13 @@ fn main() {
 
     let props = TermProps {
         cell_width: cell_width as f32,
-        sep_x: sep_x as f32,
         cell_height: cell_height as f32,
-        sep_y: sep_y as f32,
         height: height as f32,
         width: width as f32,
     };
 
-    let mut renderer = QuadRenderer::new(width, height);
-
     let mut glyph_cache = GlyphCache::new(rasterizer, desc, font_size);
-    renderer.with_api(&props, |mut api| {
-        glyph_cache.init(&mut api);
-    });
 
-    unsafe {
-        gl::Enable(gl::BLEND);
-        gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
-        gl::Enable(gl::MULTISAMPLE);
-    }
 
     let (tx, rx) = mpsc::channel();
     let reader_tx = tx.clone();
@@ -198,83 +190,98 @@ fn main() {
 
     let window = Arc::new(window);
     let window_ref = window.clone();
-    let input_thread = thread::spawn_named("Input Thread", move || {
-        for event in window_ref.wait_events() {
-            tx.send(Event::Glutin(event)).unwrap();
-            if process_should_exit() {
-                break;
-            }
+    let render_thread = thread::spawn_named("Galaxy", move || {
+        let _ = unsafe { window.make_current() };
+        unsafe {
+            gl::Viewport(0, 0, width as i32, height as i32);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
+            gl::Enable(gl::MULTISAMPLE);
         }
-    });
 
-    'main_loop: loop {
-        {
-            let mut writer = BufWriter::new(&writer);
+        let mut renderer = QuadRenderer::new(width, height);
+        renderer.with_api(&props, |mut api| {
+            glyph_cache.init(&mut api);
+        });
 
-            // Block waiting for next event
-            match rx.recv() {
-                Ok(e) => {
-                    let res = handle_event(e, &mut writer, &mut terminal, &mut pty_parser);
-                    if res == ShouldExit::Yes {
-                        break;
-                    }
-                },
-                Err(mpsc::RecvError) => break,
-            }
+        'main_loop: loop {
+            {
+                let mut writer = BufWriter::new(&writer);
 
-            // Handle Any events that have been queued
-            loop {
-                match rx.try_recv() {
+                // Block waiting for next event
+                match rx.recv() {
                     Ok(e) => {
                         let res = handle_event(e, &mut writer, &mut terminal, &mut pty_parser);
-
                         if res == ShouldExit::Yes {
                             break;
                         }
                     },
-                    Err(mpsc::TryRecvError::Disconnected) => break 'main_loop,
-                    Err(mpsc::TryRecvError::Empty) => break,
+                    Err(mpsc::RecvError) => break,
                 }
 
-                // TODO make sure this doesn't block renders
+                // Handle Any events that have been queued
+                loop {
+                    match rx.try_recv() {
+                        Ok(e) => {
+                            let res = handle_event(e, &mut writer, &mut terminal, &mut pty_parser);
+
+                            if res == ShouldExit::Yes {
+                                break;
+                            }
+                        },
+                        Err(mpsc::TryRecvError::Disconnected) => break 'main_loop,
+                        Err(mpsc::TryRecvError::Empty) => break,
+                    }
+
+                    // TODO make sure this doesn't block renders
+                }
+            }
+
+            unsafe {
+                gl::ClearColor(0.0, 0.0, 0.00, 1.0);
+                gl::Clear(gl::COLOR_BUFFER_BIT);
+            }
+
+            {
+                let _sampler = meter.sampler();
+
+                renderer.with_api(&props, |mut api| {
+                    // Draw the grid
+                    api.render_grid(terminal.grid(), &mut glyph_cache);
+
+                    // Also draw the cursor
+                    if !terminal.mode().contains(term::mode::TEXT_CURSOR) {
+                        api.render_cursor(terminal.cursor(), &mut glyph_cache);
+                    }
+                })
+            }
+
+            // Draw render timer
+            let timing = format!("{:.3} usec", meter.average());
+            let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
+            renderer.with_api(&props, |mut api| {
+                api.render_string(&timing[..], &mut glyph_cache, &color);
+            });
+
+            window.swap_buffers().unwrap();
+
+            if process_should_exit() {
+                break 'main_loop;
             }
         }
+    });
 
-        unsafe {
-            gl::ClearColor(0.0, 0.0, 0.00, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
-
-        {
-            let _sampler = meter.sampler();
-
-            renderer.with_api(&props, |mut api| {
-                // Draw the grid
-                api.render_grid(terminal.grid(), &mut glyph_cache);
-
-                // Also draw the cursor
-                if !terminal.mode().contains(term::mode::TEXT_CURSOR) {
-                    api.render_cursor(terminal.cursor(), &mut glyph_cache);
-                }
-            })
-        }
-
-        // Draw render timer
-        let timing = format!("{:.3} usec", meter.average());
-        let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-        renderer.with_api(&props, |mut api| {
-            api.render_string(&timing[..], &mut glyph_cache, &color);
-        });
-
-        window.swap_buffers().unwrap();
-
-        if process_should_exit() {
-            break;
+    'event_processing: loop {
+        for event in window_ref.wait_events() {
+            tx.send(Event::Glutin(event)).unwrap();
+            if process_should_exit() {
+                break 'event_processing;
+            }
         }
     }
 
     reader_thread.join().ok();
-    input_thread.join().ok();
+    render_thread.join().ok();
     println!("Goodbye");
 }
 

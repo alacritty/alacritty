@@ -47,9 +47,7 @@ pub fn process_should_exit() -> bool {
 
 /// Get the current value of errno
 fn errno() -> c_int {
-    unsafe {
-        ptr::read(libc::__errno_location() as *const _)
-    }
+    ::errno::errno().0
 }
 
 enum Relation {
@@ -74,6 +72,7 @@ fn fork() -> Relation {
 }
 
 /// Get raw fds for master/slave ends of a new pty
+#[cfg(target_os = "linux")]
 fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     let mut master: c_int = 0;
     let mut slave: c_int = 0;
@@ -96,10 +95,33 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     (master, slave)
 }
 
+#[cfg(target_os = "macos")]
+fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
+    let mut master: c_int = 0;
+    let mut slave: c_int = 0;
+
+    let mut win = winsize {
+        ws_row: rows as libc::c_ushort,
+        ws_col: cols as libc::c_ushort,
+        ws_xpixel: 0,
+        ws_ypixel: 0,
+    };
+
+    let res = unsafe {
+        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null_mut(), &mut win)
+    };
+
+    if res < 0 {
+        die!("openpty failed");
+    }
+
+    (master, slave)
+}
+
 /// Really only needed on BSD, but should be fine elsewhere
 fn set_controlling_terminal(fd: c_int) {
     let res = unsafe {
-        libc::ioctl(fd, libc::TIOCSCTTY, 0)
+        libc::ioctl(fd, libc::TIOCSCTTY as _, 0)
     };
 
     if res < 0 {
@@ -125,15 +147,7 @@ struct Passwd<'a> {
 /// If `buf` is changed while `Passwd` is alive, bad thing will almost certainly happen.
 fn get_pw_entry<'a>(buf: &'a mut [i8; 1024]) -> Passwd<'a> {
     // Create zeroed passwd struct
-    let mut entry = libc::passwd {
-        pw_name: ptr::null_mut(),
-        pw_passwd: ptr::null_mut(),
-        pw_uid: 0,
-        pw_gid: 0,
-        pw_gecos: ptr::null_mut(),
-        pw_dir: ptr::null_mut(),
-        pw_shell: ptr::null_mut(),
-    };
+    let mut entry: libc::passwd = unsafe { ::std::mem::uninitialized() };
 
     let mut res: *mut libc::passwd = ptr::null_mut();
 

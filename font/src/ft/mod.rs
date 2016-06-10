@@ -1,15 +1,20 @@
+//! Rasterization powered by FreeType and FontConfig
 use std::collections::HashMap;
-use list_fonts::get_font_families;
 
 use freetype::Library;
 use freetype::Face;
 use freetype;
 
+mod list_fonts;
+
+use self::list_fonts::{Family, get_font_families};
+use super::{FontDesc, RasterizedGlyph, Metrics};
+
 /// Rasterizes glyphs for a single font face.
 pub struct Rasterizer {
     faces: HashMap<FontDesc, Face<'static>>,
     library: Library,
-    system_fonts: HashMap<String, ::list_fonts::Family>,
+    system_fonts: HashMap<String, Family>,
     dpi_x: u32,
     dpi_y: u32,
     dpr: f32,
@@ -20,22 +25,10 @@ fn to_freetype_26_6(f: f32) -> isize {
     ((1i32 << 6) as f32 * f) as isize
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct FontDesc {
-    name: String,
-    style: String,
-}
-
-impl FontDesc {
-    pub fn new<S>(name: S, style: S) -> FontDesc
-        where S: Into<String>
-    {
-        FontDesc {
-            name: name.into(),
-            style: style.into()
-        }
-    }
-}
+// #[inline]
+// fn freetype_26_6_to_float(val: i64) -> f64 {
+//     val as f64 / (1i64 << 6) as f64
+// }
 
 impl Rasterizer {
     pub fn new(dpi_x: f32, dpi_y: f32, device_pixel_ratio: f32) -> Rasterizer {
@@ -51,22 +44,25 @@ impl Rasterizer {
         }
     }
 
-    pub fn box_size_for_font(&mut self, desc: &FontDesc, size: f32) -> (u32, u32) {
+    pub fn metrics(&mut self, desc: &FontDesc, size: f32) -> Metrics {
         let face = self.get_face(&desc).unwrap();
 
-        let scale_size = self.dpr * size;
+        let scale_size = self.dpr as f64 * size as f64;
 
-        let em_size = face.em_size() as f32;
-        let w = face.max_advance_width() as f32;
-        let h = face.height() as f32;
+        let em_size = face.em_size() as f64;
+        let w = face.max_advance_width() as f64;
+        let h = (face.ascender() - face.descender() + face.height()) as f64;
 
-        let w_scale = w / em_size;
-        let h_scale = h / em_size;
+        let w_scale = w * scale_size / em_size;
+        let h_scale = h * scale_size / em_size;
 
-        ((w_scale * scale_size) as u32, (h_scale * scale_size) as u32)
+        Metrics {
+            average_advance: w_scale,
+            line_height: h_scale,
+        }
     }
 
-    pub fn get_face(&mut self, desc: &FontDesc) -> Option<Face<'static>> {
+    fn get_face(&mut self, desc: &FontDesc) -> Option<Face<'static>> {
         if let Some(face) = self.faces.get(desc) {
             return Some(face.clone());
         }
@@ -118,22 +114,12 @@ impl Rasterizer {
     }
 }
 
-#[derive(Debug)]
-pub struct RasterizedGlyph {
-    pub c: char,
-    pub width: i32,
-    pub height: i32,
-    pub top: i32,
-    pub left: i32,
-    pub buf: Vec<u8>,
-}
-
+unsafe impl Send for Rasterizer {}
 
 #[cfg(test)]
 mod tests {
-    use super::{Rasterizer, FontDesc};
+    use ::FontDesc;
 
-    #[cfg(target_os = "linux")]
     fn font_desc() -> FontDesc {
         FontDesc::new("Ubuntu Mono", "Regular")
     }

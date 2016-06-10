@@ -22,7 +22,6 @@ out vec3 bg;
 // Terminal properties
 uniform vec2 termDim;
 uniform vec2 cellDim;
-uniform vec2 cellSep;
 
 uniform int backgroundPass;
 
@@ -38,14 +37,14 @@ void main()
     vec2 uvSize = uv.zw;
 
     // Position of cell from top-left
-    vec2 cellPosition = (cellDim + cellSep) * gridCoords;
+    vec2 cellPosition = (cellDim) * gridCoords;
 
     // Invert Y since framebuffer origin is bottom-left
     cellPosition.y = termDim.y - cellPosition.y - cellDim.y;
 
     if (backgroundPass != 0) {
         cellPosition.y = cellPosition.y - 3;
-        vec2 finalPosition = (cellDim + cellSep) * position + cellPosition;
+        vec2 finalPosition = cellDim * position + cellPosition;
         gl_Position = projection * vec4(finalPosition.xy, 0.0, 1.0);
         TexCoords = vec2(0, 0);
     } else {
