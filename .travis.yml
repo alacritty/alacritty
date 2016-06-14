@@ -1,15 +1,14 @@
 language: rust
 sudo: false
 
+os:
+  - linux
+  - osx
+
 rust:
   # There's currently a cargo bug on stable which prevents libfontconfig_sys
-  # from building properly.
+  # from building properly. I certainly wish I wrote down what that was.
   - nightly
 
 script:
-  # Install test font
-  - curl -O http://media.nodnod.net/Inconsolata-dz.otf.zip
-  - unzip Inconsolata-dz.otf.zip
-  - mkdir ~/.fonts
-  - mv Inconsolata-dz.otf ~/.fonts/
   - cargo test
