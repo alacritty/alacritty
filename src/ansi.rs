@@ -1091,7 +1091,7 @@ impl Default for State {
 #[cfg(test)]
 mod tests {
     use std::io::{Cursor, Read};
-    use super::{Parser, Escape, Handler, Attr, DebugHandler, TermInfo};
+    use super::{Parser, Handler, Attr, DebugHandler, TermInfo};
     use ::Rgb;
 
     #[derive(Default)]
@@ -1139,7 +1139,7 @@ mod tests {
             0x38, 0x3b, 0x36, 0x36, 0x3b, 0x32, 0x35, 0x35, 0x6d
         ];
 
-        let mut cursor = Cursor::new(BYTES);
+        let cursor = Cursor::new(BYTES);
         let mut parser = Parser::new();
         let mut handler = AttrHandler::default();
 
@@ -1175,7 +1175,7 @@ mod tests {
             0x6f, 0x64, 0x65
         ];
 
-        let mut cursor = Cursor::new(BYTES);
+        let cursor = Cursor::new(BYTES);
         let mut handler = DebugHandler;
         let mut parser = Parser::new();
 
