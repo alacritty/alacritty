@@ -53,7 +53,7 @@ pub enum Mode {
     /// ?1
     CursorKeys = 1,
     /// ?25
-    TextCursor = 25,
+    ShowCursor = 25,
     /// ?12
     BlinkingCursor = 12,
     /// ?1049
@@ -69,7 +69,7 @@ impl Mode {
             Some(match num {
                 1 => Mode::CursorKeys,
                 12 => Mode::BlinkingCursor,
-                25 => Mode::TextCursor,
+                25 => Mode::ShowCursor,
                 1049 => Mode::SwapScreenAndSetRestoreCursor,
                 _ => return None
             })
@@ -627,7 +627,7 @@ impl Parser {
             'l' => {
                 let mode = Mode::from_primitive(private, args[0]);
                 match mode {
-                    Some(mode) => handler.set_mode(mode),
+                    Some(mode) => handler.unset_mode(mode),
                     None => unhandled!(),
                 }
             },
@@ -639,7 +639,7 @@ impl Parser {
             'h' => {
                 let mode = Mode::from_primitive(private, args[0]);
                 match mode {
-                    Some(mode) => handler.unset_mode(mode),
+                    Some(mode) => handler.set_mode(mode),
                     None => unhandled!(),
                 }
             },

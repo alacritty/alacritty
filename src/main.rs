@@ -250,7 +250,7 @@ fn main() {
                     api.render_grid(terminal.grid(), &mut glyph_cache);
 
                     // Also draw the cursor
-                    if !terminal.mode().contains(term::mode::TEXT_CURSOR) {
+                    if terminal.mode().contains(term::mode::SHOW_CURSOR) {
                         api.render_cursor(terminal.cursor(), &mut glyph_cache);
                     }
                 })

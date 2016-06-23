@@ -30,8 +30,17 @@ pub static COLORS: &'static [Rgb] = &[
 
 pub mod mode {
     bitflags! {
-        pub flags TermMode: u32 {
-            const TEXT_CURSOR = 0b00000001,
+        pub flags TermMode: u8 {
+            const SHOW_CURSOR = 0b00000001,
+            const APP_CURSOR  = 0b00000010,
+            const ANY         = 0b11111111,
+            const NONE        = 0b00000000,
+        }
+    }
+
+    impl Default for TermMode {
+        fn default() -> TermMode {
+            SHOW_CURSOR
         }
     }
 }
@@ -128,7 +137,7 @@ impl Term {
             _tty: tty,
             tabs: tabs,
             attr: CellFlags::empty(),
-            mode: TermMode::empty(),
+            mode: Default::default(),
             scroll_region: scroll_region,
         }
     }
@@ -429,7 +438,7 @@ impl ansi::Handler for Term {
         println!("set_mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => self.swap_alt(),
-            ansi::Mode::TextCursor => self.mode.insert(mode::TEXT_CURSOR),
+            ansi::Mode::ShowCursor => self.mode.insert(mode::SHOW_CURSOR),
             _ => {
                 println!(".. ignoring set_mode");
             }
@@ -440,7 +449,7 @@ impl ansi::Handler for Term {
         println!("unset_mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => self.swap_alt(),
-            ansi::Mode::TextCursor => self.mode.remove(mode::TEXT_CURSOR),
+            ansi::Mode::ShowCursor => self.mode.remove(mode::SHOW_CURSOR),
             _ => {
                 println!(".. ignoring unset_mode");
             }
