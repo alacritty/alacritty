@@ -21,6 +21,7 @@ mod macros;
 mod renderer;
 pub mod grid;
 mod meter;
+mod input;
 mod tty;
 pub mod ansi;
 mod term;
@@ -30,11 +31,11 @@ use std::io::{Read, Write, BufWriter};
 use std::sync::Arc;
 use std::sync::mpsc;
 
+use font::FontDesc;
 use grid::Grid;
 use meter::Meter;
 use renderer::{QuadRenderer, GlyphCache};
 use term::Term;
-use font::FontDesc;
 use tty::process_should_exit;
 use util::thread;
 
@@ -51,10 +52,19 @@ enum ShouldExit {
     No
 }
 
+struct WriteNotifier<'a, W: Write + 'a>(&'a mut W);
+impl<'a, W: Write> input::Notify for WriteNotifier<'a, W> {
+    fn notify(&mut self, message: &str) {
+        println!("writing: {:?} [{} bytes]", message.as_bytes(), message.as_bytes().len());
+        self.0.write(message.as_bytes()).unwrap();
+    }
+}
+
 fn handle_event<W>(event: Event,
                    writer: &mut W,
                    terminal: &mut Term,
-                   pty_parser: &mut ansi::Parser) -> ShouldExit
+                   pty_parser: &mut ansi::Parser,
+                   input_processor: &mut input::Processor) -> ShouldExit
     where W: Write
 {
     match event {
@@ -68,26 +78,7 @@ fn handle_event<W>(event: Event,
                 writer.write(encoded.as_slice()).unwrap();
             },
             glutin::Event::KeyboardInput(state, _code, key) => {
-                match state {
-                    glutin::ElementState::Pressed => {
-                        match key {
-                            Some(glutin::VirtualKeyCode::Up) => {
-                                writer.write("\x1b[A".as_bytes()).unwrap();
-                            },
-                            Some(glutin::VirtualKeyCode::Down) => {
-                                writer.write("\x1b[B".as_bytes()).unwrap();
-                            },
-                            Some(glutin::VirtualKeyCode::Left) => {
-                                writer.write("\x1b[D".as_bytes()).unwrap();
-                            },
-                            Some(glutin::VirtualKeyCode::Right) => {
-                                writer.write("\x1b[C".as_bytes()).unwrap();
-                            },
-                            _ => (),
-                        }
-                    },
-                    _ => (),
-                }
+                input_processor.process(state, key, &mut WriteNotifier(writer), *terminal.mode())
             },
             _ => ()
         }
@@ -204,6 +195,8 @@ fn main() {
             glyph_cache.init(&mut api);
         });
 
+        let mut input_processor = input::Processor::new();
+
         'main_loop: loop {
             {
                 let mut writer = BufWriter::new(&writer);
@@ -211,7 +204,11 @@ fn main() {
                 // Block waiting for next event
                 match rx.recv() {
                     Ok(e) => {
-                        let res = handle_event(e, &mut writer, &mut terminal, &mut pty_parser);
+                        let res = handle_event(e,
+                                               &mut writer,
+                                               &mut terminal,
+                                               &mut pty_parser,
+                                               &mut input_processor);
                         if res == ShouldExit::Yes {
                             break;
                         }
@@ -223,7 +220,11 @@ fn main() {
                 loop {
                     match rx.try_recv() {
                         Ok(e) => {
-                            let res = handle_event(e, &mut writer, &mut terminal, &mut pty_parser);
+                            let res = handle_event(e,
+                                                   &mut writer,
+                                                   &mut terminal,
+                                                   &mut pty_parser,
+                                                   &mut input_processor);
 
                             if res == ShouldExit::Yes {
                                 break;

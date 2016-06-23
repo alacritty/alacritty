@@ -439,6 +439,7 @@ impl ansi::Handler for Term {
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => self.swap_alt(),
             ansi::Mode::ShowCursor => self.mode.insert(mode::SHOW_CURSOR),
+            ansi::Mode::CursorKeys => self.mode.insert(mode::APP_CURSOR),
             _ => {
                 println!(".. ignoring set_mode");
             }
@@ -450,6 +451,7 @@ impl ansi::Handler for Term {
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => self.swap_alt(),
             ansi::Mode::ShowCursor => self.mode.remove(mode::SHOW_CURSOR),
+            ansi::Mode::CursorKeys => self.mode.remove(mode::APP_CURSOR),
             _ => {
                 println!(".. ignoring unset_mode");
             }
