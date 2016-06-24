@@ -145,6 +145,66 @@ static DOWN_BINDINGS: &'static [Binding] = &[
     Binding { mods: modifier::ANY,     send: "\x1bOB",    mode: mode::APP_CURSOR, notmode: mode::NONE },
 ];
 
+/// Bindings for the F1 key
+static F1_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1bOP", mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for the F2 key
+static F2_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1bOQ", mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for the F3 key
+static F3_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1bOR", mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for the F4 key
+static F4_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1bOS", mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for the F5 key
+static F5_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1b[15~", mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for the F6 key
+static F6_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1b[17~", mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for the F7 key
+static F7_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1b[18~", mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for the F8 key
+static F8_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1b[19~", mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for the F9 key
+static F9_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1b[20~", mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for the F10 key
+static F10_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1b[21~", mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for the F11 key
+static F11_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1b[23~", mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for the F11 key
+static F12_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1b[24~", mode: mode::ANY, notmode: mode::NONE },
+];
+
 //   key               mods            escape      appkey appcursor crlf
 //
 // notes: appkey = DECPAM (application keypad mode); not enabled is "normal keypad"
@@ -184,10 +244,24 @@ impl Processor {
             }
 
             let bindings = match key {
+                // Arrows
                 VirtualKeyCode::Left => LEFT_BINDINGS,
                 VirtualKeyCode::Up => UP_BINDINGS,
                 VirtualKeyCode::Down => DOWN_BINDINGS,
                 VirtualKeyCode::Right => RIGHT_BINDINGS,
+                // Function keys
+                VirtualKeyCode::F1 => F1_BINDINGS,
+                VirtualKeyCode::F2 => F2_BINDINGS,
+                VirtualKeyCode::F3 => F3_BINDINGS,
+                VirtualKeyCode::F4 => F4_BINDINGS,
+                VirtualKeyCode::F5 => F5_BINDINGS,
+                VirtualKeyCode::F6 => F6_BINDINGS,
+                VirtualKeyCode::F7 => F7_BINDINGS,
+                VirtualKeyCode::F8 => F8_BINDINGS,
+                VirtualKeyCode::F9 => F9_BINDINGS,
+                VirtualKeyCode::F10 => F10_BINDINGS,
+                VirtualKeyCode::F11 => F11_BINDINGS,
+                VirtualKeyCode::F12 => F12_BINDINGS,
                 // Mode keys ignored now
                 VirtualKeyCode::LAlt | VirtualKeyCode::RAlt | VirtualKeyCode::LShift |
                 VirtualKeyCode::RShift | VirtualKeyCode::LControl | VirtualKeyCode::RControl |
