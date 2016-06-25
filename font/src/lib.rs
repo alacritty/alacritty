@@ -10,8 +10,6 @@
 extern crate fontconfig;
 #[cfg(not(target_os = "macos"))]
 extern crate freetype;
-#[cfg(not(target_os = "macos"))]
-extern crate libc;
 
 #[cfg(target_os = "macos")]
 extern crate core_text;
@@ -23,6 +21,7 @@ extern crate core_foundation_sys;
 extern crate core_graphics;
 
 extern crate euclid;
+extern crate libc;
 
 use std::fmt;
 
