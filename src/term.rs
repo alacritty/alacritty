@@ -89,7 +89,7 @@ pub struct Term {
     alt: bool,
 
     /// Reference to the underlying tty
-    _tty: tty::Tty,
+    tty: tty::Tty,
 
     /// The cursor
     cursor: Cursor,
@@ -114,10 +114,57 @@ pub struct Term {
 
     /// Scroll region
     scroll_region: Range<usize>,
+
+    /// Size
+    size_info: SizeInfo,
+}
+
+/// Terminal size info
+#[derive(Debug)]
+pub struct SizeInfo {
+    /// Terminal window width
+    pub width: f32,
+
+    /// Terminal window height
+    pub height: f32,
+
+    /// Width of individual cell
+    pub cell_width: f32,
+
+    /// Height of individual cell
+    pub cell_height: f32,
+}
+
+impl SizeInfo {
+    #[inline]
+    pub fn rows(&self) -> usize {
+        (self.height / self.cell_height) as usize
+    }
+
+    #[inline]
+    pub fn cols(&self) -> usize {
+        (self.width / self.cell_width) as usize
+    }
 }
 
 impl Term {
-    pub fn new(tty: tty::Tty, grid: Grid) -> Term {
+    pub fn new(width: f32, height: f32, cell_width: f32, cell_height: f32) -> Term {
+        let size = SizeInfo {
+            width: width as f32,
+            height: height as f32,
+            cell_width: cell_width as f32,
+            cell_height: cell_height as f32,
+        };
+
+        let num_cols = size.cols();
+        let num_rows = size.rows();
+
+        println!("num_cols, num_rows = {}, {}", num_cols, num_rows);
+
+        let grid = Grid::new(num_rows, num_cols);
+
+        let tty = tty::new(num_rows as u8, num_cols as u8);
+        tty.resize(num_rows, num_cols, size.width as usize, size.height as usize);
 
         let mut tabs = (0..grid.num_cols()).map(|i| i % TAB_SPACES == 0)
                                        .collect::<Vec<bool>>();
@@ -134,12 +181,23 @@ impl Term {
             alt_cursor: Cursor::default(),
             fg: DEFAULT_FG,
             bg: DEFAULT_BG,
-            _tty: tty,
+            tty: tty,
             tabs: tabs,
             attr: CellFlags::empty(),
             mode: Default::default(),
             scroll_region: scroll_region,
+            size_info: size
         }
+    }
+
+    #[inline]
+    pub fn tty(&self) -> &tty::Tty {
+        &self.tty
+    }
+
+    #[inline]
+    pub fn size_info(&self) -> &SizeInfo {
+        &self.size_info
     }
 
     pub fn grid(&self) -> &Grid {

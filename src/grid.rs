@@ -8,11 +8,6 @@ use util::Rotate;
 use term::{Cursor, DEFAULT_FG, DEFAULT_BG};
 use ::Rgb;
 
-/// Calculate the number of cells for an axis
-pub fn num_cells_axis(cell_width: u32, screen_width: u32) -> u32 {
-    (screen_width as f64 / cell_width as f64) as u32
-}
-
 #[derive(Clone, Debug)]
 pub struct Cell {
     pub c: char,

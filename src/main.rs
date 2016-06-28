@@ -35,7 +35,6 @@ use std::sync::{mpsc, Arc};
 use parking_lot::Mutex;
 
 use font::FontDesc;
-use grid::Grid;
 use meter::Meter;
 use renderer::{QuadRenderer, GlyphCache};
 use term::Term;
@@ -100,14 +99,6 @@ mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
-#[derive(Debug)]
-pub struct TermProps {
-    width: f32,
-    height: f32,
-    cell_width: f32,
-    cell_height: f32,
-}
-
 #[cfg(target_os = "linux")]
 static FONT: &'static str = "DejaVu Sans Mono";
 #[cfg(target_os = "linux")]
@@ -147,24 +138,10 @@ fn main() {
 
     println!("Cell Size: ({} x {})", cell_width, cell_height);
 
-    let num_cols = grid::num_cells_axis(cell_width, width);
-    let num_rows = grid::num_cells_axis(cell_height, height);
+    let terminal = Term::new(width as f32, height as f32, cell_width as f32, cell_height as f32);
 
-    let tty = tty::new(num_rows as u8, num_cols as u8);
-    tty.resize(num_rows as usize, num_cols as usize, width as usize, height as usize);
-    let reader = tty.reader();
-    let writer = tty.writer();
-
-    println!("num_cols, num_rows = {}, {}", num_cols, num_rows);
-
-    let grid = Grid::new(num_rows as usize, num_cols as usize);
-
-    let props = TermProps {
-        cell_width: cell_width as f32,
-        cell_height: cell_height as f32,
-        height: height as f32,
-        width: width as f32,
-    };
+    let reader = terminal.tty().reader();
+    let writer = terminal.tty().writer();
 
     let mut glyph_cache = GlyphCache::new(rasterizer, desc, font_size);
     let needs_render = Arc::new(AtomicBool::new(true));
@@ -179,7 +156,7 @@ fn main() {
         }
     });
 
-    let terminal = Arc::new(Mutex::new(Term::new(tty, grid)));
+    let terminal = Arc::new(Mutex::new(terminal));
     let term_ref = terminal.clone();
     let mut meter = Meter::new();
 
@@ -255,10 +232,16 @@ fn main() {
             gl::Enable(gl::MULTISAMPLE);
         }
 
+        // Create renderer
         let mut renderer = QuadRenderer::new(width, height);
-        renderer.with_api(&props, |mut api| {
-            glyph_cache.init(&mut api);
-        });
+
+        // Initialize glyph cache
+        {
+            let terminal = term_ref.lock();
+            renderer.with_api(terminal.size_info(), |mut api| {
+                glyph_cache.init(&mut api);
+            });
+        }
 
         loop {
             unsafe {
@@ -266,32 +249,37 @@ fn main() {
                 gl::Clear(gl::COLOR_BUFFER_BIT);
             }
 
+            // Need scope so lock is released when swap_buffers is called
             {
                 // Flag that it's time for render
                 needs_render2.store(true, Ordering::Release);
                 // Acquire term lock
-                let mut terminal = term_ref.lock();
+                let terminal = term_ref.lock();
                 // Have the lock, ok to lower flag
                 needs_render2.store(false, Ordering::Relaxed);
-                let _sampler = meter.sampler();
 
-                renderer.with_api(&props, |mut api| {
-                    // Draw the grid
-                    api.render_grid(terminal.grid(), &mut glyph_cache);
+                // Draw grid + cursor
+                {
+                    let _sampler = meter.sampler();
 
-                    // Also draw the cursor
-                    if terminal.mode().contains(term::mode::SHOW_CURSOR) {
-                        api.render_cursor(terminal.cursor(), &mut glyph_cache);
-                    }
-                })
+                    renderer.with_api(terminal.size_info(), |mut api| {
+                        // Draw the grid
+                        api.render_grid(terminal.grid(), &mut glyph_cache);
+
+                        // Also draw the cursor
+                        if terminal.mode().contains(term::mode::SHOW_CURSOR) {
+                            api.render_cursor(terminal.cursor(), &mut glyph_cache);
+                        }
+                    })
+                }
+
+                // Draw render timer
+                let timing = format!("{:.3} usec", meter.average());
+                let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
+                renderer.with_api(terminal.size_info(), |mut api| {
+                    api.render_string(&timing[..], &mut glyph_cache, &color);
+                });
             }
-
-            // Draw render timer
-            let timing = format!("{:.3} usec", meter.average());
-            let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-            renderer.with_api(&props, |mut api| {
-                api.render_string(&timing[..], &mut glyph_cache, &color);
-            });
 
             window.swap_buffers().unwrap();
 

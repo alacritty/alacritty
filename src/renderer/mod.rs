@@ -17,7 +17,7 @@ use font::{Rasterizer, RasterizedGlyph, FontDesc};
 use grid::{self, Grid, Cell, CellFlags};
 use term;
 
-use super::{Rgb, TermProps};
+use super::Rgb;
 
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
 static TEXT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
@@ -423,7 +423,7 @@ impl QuadRenderer {
         renderer
     }
 
-    pub fn with_api<F>(&mut self, props: &TermProps, mut func: F)
+    pub fn with_api<F>(&mut self, props: &term::SizeInfo, mut func: F)
         where F: FnMut(RenderApi)
     {
         if self.should_reload.load(Ordering::Relaxed) {
@@ -681,7 +681,7 @@ impl ShaderProgram {
         Ok(shader)
     }
 
-    fn set_term_uniforms(&self, props: &TermProps) {
+    fn set_term_uniforms(&self, props: &term::SizeInfo) {
         unsafe {
             gl::Uniform2f(self.u_term_dim, props.width, props.height);
             gl::Uniform2f(self.u_cell_dim, props.cell_width, props.cell_height);
