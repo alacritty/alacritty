@@ -13,6 +13,7 @@ notify = { git = "https://github.com/passcod/rsnotify" }
 bitflags = "*"
 font = { path = "./font" }
 errno = "0.1.6"
+parking_lot = "0.2.6"
 
 [build-dependencies]
 gl_generator = "0.5"

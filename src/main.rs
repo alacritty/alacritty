@@ -11,6 +11,7 @@ extern crate glutin;
 extern crate cgmath;
 extern crate notify;
 extern crate errno;
+extern crate parking_lot;
 
 #[macro_use]
 extern crate bitflags;
@@ -28,8 +29,10 @@ mod term;
 mod util;
 
 use std::io::{Read, Write, BufWriter};
-use std::sync::Arc;
-use std::sync::mpsc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
+
+use parking_lot::Mutex;
 
 use font::FontDesc;
 use grid::Grid;
@@ -55,7 +58,6 @@ enum ShouldExit {
 struct WriteNotifier<'a, W: Write + 'a>(&'a mut W);
 impl<'a, W: Write> input::Notify for WriteNotifier<'a, W> {
     fn notify(&mut self, message: &str) {
-        println!("writing: {:?} [{} bytes]", message.as_bytes(), message.as_bytes().len());
         self.0.write(message.as_bytes()).unwrap();
     }
 }
@@ -119,8 +121,10 @@ static FONT_STYLE: &'static str = "Regular";
 
 fn main() {
 
-    let window = glutin::WindowBuilder::new().build().unwrap();
-    window.set_title("Alacritty");
+    let window = glutin::WindowBuilder::new()
+                                       .with_vsync()
+                                       .with_title("Alacritty")
+                                       .build().unwrap();
     // window.set_window_resize_callback(Some(resize_callback as fn(u32, u32)));
 
     gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
@@ -163,7 +167,8 @@ fn main() {
     };
 
     let mut glyph_cache = GlyphCache::new(rasterizer, desc, font_size);
-
+    let needs_render = Arc::new(AtomicBool::new(true));
+    let needs_render2 = needs_render.clone();
 
     let (tx, rx) = mpsc::channel();
     let reader_tx = tx.clone();
@@ -174,14 +179,74 @@ fn main() {
         }
     });
 
-    let mut terminal = Term::new(tty, grid);
+    let terminal = Arc::new(Mutex::new(Term::new(tty, grid)));
+    let term_ref = terminal.clone();
     let mut meter = Meter::new();
 
     let mut pty_parser = ansi::Parser::new();
 
     let window = Arc::new(window);
     let window_ref = window.clone();
-    let render_thread = thread::spawn_named("Galaxy", move || {
+
+    let update_thread = thread::spawn_named("Update", move || {
+        'main_loop: loop {
+            let mut writer = BufWriter::new(&writer);
+            let mut input_processor = input::Processor::new();
+
+            // Handle case where renderer didn't acquire lock yet
+            if needs_render.load(Ordering::Acquire) {
+                ::std::thread::yield_now();
+                continue;
+            }
+
+            if process_should_exit() {
+                break;
+            }
+
+            // Block waiting for next event and handle it
+            let event = match rx.recv() {
+                Ok(e) => e,
+                Err(mpsc::RecvError) => break,
+            };
+
+            // Need mutable terminal for updates; lock it.
+            let mut terminal = terminal.lock();
+            let res = handle_event(event,
+                                   &mut writer,
+                                   &mut *terminal,
+                                   &mut pty_parser,
+                                   &mut input_processor);
+            if res == ShouldExit::Yes {
+                break;
+            }
+
+            // Handle Any events that are in the queue
+            loop {
+                match rx.try_recv() {
+                    Ok(e) => {
+                        let res = handle_event(e,
+                                               &mut writer,
+                                               &mut *terminal,
+                                               &mut pty_parser,
+                                               &mut input_processor);
+
+                        if res == ShouldExit::Yes {
+                            break;
+                        }
+                    },
+                    Err(mpsc::TryRecvError::Disconnected) => break 'main_loop,
+                    Err(mpsc::TryRecvError::Empty) => break,
+                }
+
+                // Release the lock if a render is needed
+                if needs_render.load(Ordering::Acquire) {
+                    break;
+                }
+            }
+        }
+    });
+
+    let render_thread = thread::spawn_named("Render", move || {
         let _ = unsafe { window.make_current() };
         unsafe {
             gl::Viewport(0, 0, width as i32, height as i32);
@@ -195,55 +260,19 @@ fn main() {
             glyph_cache.init(&mut api);
         });
 
-        let mut input_processor = input::Processor::new();
-
-        'main_loop: loop {
-            {
-                let mut writer = BufWriter::new(&writer);
-
-                // Block waiting for next event
-                match rx.recv() {
-                    Ok(e) => {
-                        let res = handle_event(e,
-                                               &mut writer,
-                                               &mut terminal,
-                                               &mut pty_parser,
-                                               &mut input_processor);
-                        if res == ShouldExit::Yes {
-                            break;
-                        }
-                    },
-                    Err(mpsc::RecvError) => break,
-                }
-
-                // Handle Any events that have been queued
-                loop {
-                    match rx.try_recv() {
-                        Ok(e) => {
-                            let res = handle_event(e,
-                                                   &mut writer,
-                                                   &mut terminal,
-                                                   &mut pty_parser,
-                                                   &mut input_processor);
-
-                            if res == ShouldExit::Yes {
-                                break;
-                            }
-                        },
-                        Err(mpsc::TryRecvError::Disconnected) => break 'main_loop,
-                        Err(mpsc::TryRecvError::Empty) => break,
-                    }
-
-                    // TODO make sure this doesn't block renders
-                }
-            }
-
+        loop {
             unsafe {
                 gl::ClearColor(0.0, 0.0, 0.00, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
             }
 
             {
+                // Flag that it's time for render
+                needs_render2.store(true, Ordering::Release);
+                // Acquire term lock
+                let mut terminal = term_ref.lock();
+                // Have the lock, ok to lower flag
+                needs_render2.store(false, Ordering::Relaxed);
                 let _sampler = meter.sampler();
 
                 renderer.with_api(&props, |mut api| {
@@ -267,7 +296,7 @@ fn main() {
             window.swap_buffers().unwrap();
 
             if process_should_exit() {
-                break 'main_loop;
+                break;
             }
         }
     });
@@ -283,6 +312,7 @@ fn main() {
 
     reader_thread.join().ok();
     render_thread.join().ok();
+    update_thread.join().ok();
     println!("Goodbye");
 }
 
