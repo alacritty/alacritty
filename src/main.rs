@@ -65,6 +65,7 @@ fn handle_event<W>(event: Event,
                    writer: &mut W,
                    terminal: &mut Term,
                    pty_parser: &mut ansi::Parser,
+                   render_tx: &mpsc::Sender<(u32, u32)>,
                    input_processor: &mut input::Processor) -> ShouldExit
     where W: Write
 {
@@ -77,6 +78,10 @@ fn handle_event<W>(event: Event,
             glutin::Event::ReceivedCharacter(c) => {
                 let encoded = c.encode_utf8();
                 writer.write(encoded.as_slice()).unwrap();
+            },
+            glutin::Event::Resized(w, h) => {
+                terminal.resize(w as f32, h as f32);
+                render_tx.send((w, h)).expect("render thread active");
             },
             glutin::Event::KeyboardInput(state, _code, key) => {
                 input_processor.process(state, key, &mut WriteNotifier(writer), *terminal.mode())
@@ -165,6 +170,8 @@ fn main() {
     let window = Arc::new(window);
     let window_ref = window.clone();
 
+    let (render_tx, render_rx) = mpsc::channel::<(u32, u32)>();
+
     let update_thread = thread::spawn_named("Update", move || {
         'main_loop: loop {
             let mut writer = BufWriter::new(&writer);
@@ -192,6 +199,7 @@ fn main() {
                                    &mut writer,
                                    &mut *terminal,
                                    &mut pty_parser,
+                                   &render_tx,
                                    &mut input_processor);
             if res == ShouldExit::Yes {
                 break;
@@ -205,6 +213,7 @@ fn main() {
                                                &mut writer,
                                                &mut *terminal,
                                                &mut pty_parser,
+                                               &render_tx,
                                                &mut input_processor);
 
                         if res == ShouldExit::Yes {
@@ -247,6 +256,15 @@ fn main() {
             unsafe {
                 gl::ClearColor(0.0, 0.0, 0.00, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
+            }
+
+            // Receive any resize events; only call gl::Viewport on last available
+            let mut new_size = None;
+            while let Ok(val) = render_rx.try_recv() {
+                new_size = Some(val);
+            }
+            if let Some((w, h)) = new_size.take() {
+                renderer.resize(w as i32, h as i32);
             }
 
             // Need scope so lock is released when swap_buffers is called

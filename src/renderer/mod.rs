@@ -478,6 +478,18 @@ impl QuadRenderer {
         self.active_tex = 0;
         self.program = program;
     }
+
+    pub fn resize(&mut self, width: i32, height: i32) {
+        // viewport
+        unsafe {
+            gl::Viewport(0, 0, width, height);
+        }
+
+        // update projection
+        self.program.activate();
+        self.program.update_projection(width as f32, height as f32);
+        self.program.deactivate();
+    }
 }
 
 impl<'a> RenderApi<'a> {
@@ -665,20 +677,25 @@ impl ShaderProgram {
             u_background: background,
         };
 
+        shader.update_projection(width as f32, height as f32);
+
+        shader.deactivate();
+
+        Ok(shader)
+    }
+
+    fn update_projection(&self, width: f32, height: f32) {
         // set projection uniform
-        let ortho = cgmath::ortho(0., width as f32, 0., height as f32, -1., 1.);
+        let ortho = cgmath::ortho(0., width, 0., height, -1., 1.);
         let projection: [[f32; 4]; 4] = ortho.into();
 
         println!("width: {}, height: {}", width, height);
 
         unsafe {
-            gl::UniformMatrix4fv(shader.u_projection,
+            gl::UniformMatrix4fv(self.u_projection,
                                  1, gl::FALSE, projection.as_ptr() as *const _);
         }
 
-        shader.deactivate();
-
-        Ok(shader)
     }
 
     fn set_term_uniforms(&self, props: &term::SizeInfo) {

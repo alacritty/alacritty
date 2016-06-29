@@ -2,9 +2,20 @@
 use std::ops::Range;
 
 use ansi::{self, Attr};
-use grid::{self, Grid, CellFlags};
+use grid::{self, Grid, CellFlags, ClearRegion};
 use tty;
 use ::Rgb;
+
+/// coerce val to be between min and max
+fn limit<T: PartialOrd>(val: T, min: T, max: T) -> T {
+    if val < min {
+        min
+    } else if val > max {
+        max
+    } else {
+        val
+    }
+}
 
 /// tomorrow night bright
 ///
@@ -188,6 +199,67 @@ impl Term {
             scroll_region: scroll_region,
             size_info: size
         }
+    }
+
+    /// Resize terminal to new dimensions
+    pub fn resize(&mut self, width: f32, height: f32) {
+        let size = SizeInfo {
+            width: width,
+            height: height,
+            cell_width: self.size_info.cell_width,
+            cell_height: self.size_info.cell_height,
+        };
+
+        let old_cols = self.size_info.cols();
+        let old_rows = self.size_info.rows();
+        let num_cols = size.cols();
+        let num_rows = size.rows();
+
+        self.size_info = size;
+
+        if old_cols == num_cols && old_rows == num_rows {
+            return;
+        }
+
+        // Scroll up to keep cursor and as much context as possible in grid. This only runs when the
+        // rows decreases.
+        self.scroll_region = 0..self.grid.num_rows();
+        // XXX why is +1 required?
+        let row_diff = (self.cursor_y() as isize - num_rows as isize) + 1;
+        if row_diff > 0 {
+            self.scroll(row_diff);
+            self.cursor.advance(-row_diff as i64, 0);
+        }
+
+        println!("num_cols, num_rows = {}, {}", num_cols, num_rows);
+
+        // Resize grids to new size
+        self.grid.resize(num_rows, num_cols);
+        self.alt_grid.resize(num_rows, num_cols);
+
+        // Ensure cursor is in-bounds
+        self.cursor.y = limit(self.cursor.y, 0, num_rows as u16);
+        self.cursor.x = limit(self.cursor.x, 0, num_cols as u16);
+
+        // Recreate tabs list
+        self.tabs = (0..self.grid.num_cols()).map(|i| i % TAB_SPACES == 0)
+                                             .collect::<Vec<bool>>();
+
+        // Make sure bottom of terminal is clear
+        if row_diff > 0 {
+            self.grid.clear_region((self.cursor.y as usize)..);
+            self.alt_grid.clear_region((self.cursor.y as usize)..);
+        }
+
+        // Reset scrolling region to new size
+        self.scroll_region = 0..self.grid.num_rows();
+
+        // Inform tty of new dimensions
+        self.tty.resize(num_rows,
+                        num_cols,
+                        self.size_info.width as usize,
+                        self.size_info.height as usize);
+
     }
 
     #[inline]

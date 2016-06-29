@@ -1,6 +1,7 @@
 //! Functions for computing properties of the terminal grid
 
 use std::ops::{Index, IndexMut, Deref, DerefMut, Range, RangeTo, RangeFrom};
+use std::cmp::Ordering;
 use std::slice::{Iter, IterMut};
 
 use util::Rotate;
@@ -104,12 +105,55 @@ impl Grid {
         self.clear_region(region);
     }
 
-    pub fn clear_region(&mut self, region: Range<usize>) {
-        for row in self.raw[region].iter_mut() {
-            for cell in row.iter_mut() {
-                cell.reset();
-            }
+    pub fn resize(&mut self, rows: usize, cols: usize) {
+        // Check that there's actually work to do and return early if not
+        if rows == self.rows && cols == self.cols {
+            return;
         }
+
+        match self.rows.cmp(&rows) {
+            Ordering::Less => self.grow_rows(rows),
+            Ordering::Greater => self.shrink_rows(rows),
+            Ordering::Equal => (),
+        }
+
+        match self.cols.cmp(&cols) {
+            Ordering::Less => self.grow_cols(cols),
+            Ordering::Greater => self.shrink_cols(cols),
+            Ordering::Equal => (),
+        }
+    }
+
+    fn grow_rows(&mut self, rows: usize) {
+        for _ in self.num_rows()..rows {
+            self.raw.push(Row::new(self.cols));
+        }
+
+        self.rows = rows;
+    }
+
+    fn shrink_rows(&mut self, rows: usize) {
+        while self.raw.len() != rows {
+            self.raw.pop();
+        }
+
+        self.rows = rows;
+    }
+
+    fn grow_cols(&mut self, cols: usize) {
+        for row in self.rows_mut() {
+            row.grow(cols);
+        }
+
+        self.cols = cols;
+    }
+
+    fn shrink_cols(&mut self, cols: usize) {
+        for row in self.rows_mut() {
+            row.shrink(cols);
+        }
+
+        self.cols = cols;
     }
 }
 
@@ -152,6 +196,18 @@ pub struct Row(Vec<Cell>);
 impl Row {
     pub fn new(columns: usize) -> Row {
         Row(vec![Cell::new(' '); columns])
+    }
+
+    pub fn grow(&mut self, cols: usize) {
+        while self.len() != cols {
+            self.push(Cell::new(' '));
+        }
+    }
+
+    pub fn shrink(&mut self, cols: usize) {
+        while self.len() != cols {
+            self.pop();
+        }
     }
 
     pub fn cells(&self) -> Iter<Cell> {
@@ -221,3 +277,25 @@ impl IndexMut<RangeTo<usize>> for Row {
         &mut self.0[index]
     }
 }
+
+pub trait ClearRegion<T> {
+    fn clear_region(&mut self, region: T);
+}
+
+macro_rules! clear_region_impl {
+    ($range:ty) => {
+        impl ClearRegion<$range> for Grid {
+            fn clear_region(&mut self, region: $range) {
+                for row in self.raw[region].iter_mut() {
+                    for cell in row.iter_mut() {
+                        cell.reset();
+                    }
+                }
+            }
+        }
+    }
+}
+
+clear_region_impl!(Range<usize>);
+clear_region_impl!(RangeTo<usize>);
+clear_region_impl!(RangeFrom<usize>);
