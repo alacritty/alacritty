@@ -19,14 +19,18 @@
 #![feature(io)]
 #![feature(drop_types_in_const)]
 #![feature(unicode)]
+#![feature(custom_derive, plugin)]
+#![plugin(serde_macros)]
 
-extern crate font;
-extern crate libc;
-extern crate glutin;
 extern crate cgmath;
-extern crate notify;
 extern crate errno;
+extern crate font;
+extern crate glutin;
+extern crate libc;
+extern crate notify;
 extern crate parking_lot;
+extern crate serde;
+extern crate serde_yaml;
 
 #[macro_use]
 extern crate bitflags;
@@ -37,6 +41,7 @@ mod macros;
 mod renderer;
 pub mod grid;
 mod meter;
+pub mod config;
 mod input;
 mod tty;
 pub mod ansi;
@@ -49,6 +54,7 @@ use std::sync::{mpsc, Arc};
 
 use parking_lot::Mutex;
 
+use config::Config;
 use font::FontDesc;
 use meter::Meter;
 use renderer::{QuadRenderer, GlyphCache};
@@ -131,18 +137,21 @@ mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
-#[cfg(target_os = "linux")]
-static FONT: &'static str = "DejaVu Sans Mono";
-#[cfg(target_os = "linux")]
-static FONT_STYLE: &'static str = "Book";
-
-#[cfg(target_os = "macos")]
-static FONT: &'static str = "Menlo";
-#[cfg(target_os = "macos")]
-static FONT_STYLE: &'static str = "Regular";
-
-
 fn main() {
+    // Load configuration
+    let config = match Config::load() {
+        Err(err) => match err {
+            // Use default config when not found
+            config::Error::NotFound => Config::default(),
+            // Exit when there's a problem with it
+            _ => die!("{}", err),
+        },
+        Ok(config) => config,
+    };
+
+    let font = config.font();
+    let dpi = config.dpi();
+    let render_timer = config.render_timer();
 
     let mut window = glutin::WindowBuilder::new()
                                            .with_vsync()
@@ -156,17 +165,12 @@ fn main() {
 
     println!("device_pixel_ratio: {}", dpr);
 
-    let font_size = 11.;
+    let desc = FontDesc::new(font.family(), font.style());
+    let mut rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr);
 
-    let sep_x = 0.0;
-    let sep_y = 0.0;
-
-    let desc = FontDesc::new(FONT, FONT_STYLE);
-    let mut rasterizer = font::Rasterizer::new(96., 96., dpr);
-
-    let metrics = rasterizer.metrics(&desc, font_size);
-    let cell_width = (metrics.average_advance + sep_x) as u32;
-    let cell_height = (metrics.line_height + sep_y) as u32;
+    let metrics = rasterizer.metrics(&desc, font.size());
+    let cell_width = (metrics.average_advance + font.offset().x() as f64) as u32;
+    let cell_height = (metrics.line_height + font.offset().y() as f64) as u32;
 
     println!("Cell Size: ({} x {})", cell_width, cell_height);
 
@@ -175,7 +179,7 @@ fn main() {
     let reader = terminal.tty().reader();
     let writer = terminal.tty().writer();
 
-    let mut glyph_cache = GlyphCache::new(rasterizer, desc, font_size);
+    let mut glyph_cache = GlyphCache::new(rasterizer, desc, font.size());
     let needs_render = Arc::new(AtomicBool::new(true));
     let needs_render2 = needs_render.clone();
 
@@ -322,11 +326,13 @@ fn main() {
                 }
 
                 // Draw render timer
-                let timing = format!("{:.3} usec", meter.average());
-                let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-                renderer.with_api(terminal.size_info(), |mut api| {
-                    api.render_string(&timing[..], &mut glyph_cache, &color);
-                });
+                if render_timer {
+                    let timing = format!("{:.3} usec", meter.average());
+                    let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
+                    renderer.with_api(terminal.size_info(), |mut api| {
+                        api.render_string(&timing[..], &mut glyph_cache, &color);
+                    });
+                }
             }
 
             window.swap_buffers().unwrap();

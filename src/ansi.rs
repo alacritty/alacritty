@@ -31,7 +31,6 @@
 //! should be, feel free to add it. Please try not to become overzealous and adding support for
 //! sequences only used by folks trapped in 1988.
 
-use std::io::Write;
 use ::Rgb;
 
 /// A CSI Escape sequence

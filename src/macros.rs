@@ -14,17 +14,16 @@
 
 #[macro_export]
 macro_rules! die {
-    ($($arg:tt)*) => {
-        println!($($arg)*);
+    ($($arg:tt)*) => {{
+        err_println!($($arg)*);
         ::std::process::exit(1);
-    }
+    }}
 }
 
 #[macro_export]
 macro_rules! err_println {
-    ($($arg:tt)*) => {
-        if let Err(_) = writeln!(&mut ::std::io::stderr(), $($arg)*) {
-            die!("Cannot reach stderr");
-        }
-    }
+    ($($arg:tt)*) => {{
+        use std::io::Write;
+        (writeln!(&mut ::std::io::stderr(), $($arg)*)).expect("stderr");
+    }}
 }

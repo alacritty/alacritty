@@ -1,0 +1,21 @@
+# Configuration for Alacritty, the GPU enhanced terminal emulator
+
+# The FreeType rasterizer needs to know the device DPI for best results
+dpi:
+  x: 96.0
+  y: 96.0
+
+# Font configuration
+font:
+  family: DejaVu Sans Mono
+  style: Book
+  # Point size of the font
+  size: 11.0
+  # Offset is the extra space around each character. offset.y can be thought of
+  # as modifying the linespacing, and offset.x as modifying the letter spacing.
+  offset:
+    x: 2.0
+    y: -7.0
+
+# Should display the render timer
+render_timer: false

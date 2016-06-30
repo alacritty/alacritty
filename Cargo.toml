@@ -14,6 +14,9 @@ bitflags = "*"
 font = { path = "./font" }
 errno = "0.1.6"
 parking_lot = "0.2.6"
+serde = "0.7"
+serde_yaml = "0.2"
+serde_macros = "0.7"
 
 [build-dependencies]
 gl_generator = "0.5"
