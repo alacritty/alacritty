@@ -3,6 +3,7 @@
 #![feature(range_contains)]
 #![feature(inclusive_range_syntax)]
 #![feature(io)]
+#![feature(drop_types_in_const)]
 #![feature(unicode)]
 
 extern crate font;
@@ -58,6 +59,18 @@ struct WriteNotifier<'a, W: Write + 'a>(&'a mut W);
 impl<'a, W: Write> input::Notify for WriteNotifier<'a, W> {
     fn notify(&mut self, message: &str) {
         self.0.write(message.as_bytes()).unwrap();
+    }
+}
+
+/// Channel used by resize handling on mac
+static mut resize_sender: Option<mpsc::Sender<Event>> = None;
+
+/// Resize handling for Mac
+fn window_resize_handler(width: u32, height: u32) {
+    unsafe {
+        if let Some(ref tx) = resize_sender {
+            let _ = tx.send(Event::Glutin(glutin::Event::Resized(width, height)));
+        }
     }
 }
 
@@ -117,11 +130,11 @@ static FONT_STYLE: &'static str = "Regular";
 
 fn main() {
 
-    let window = glutin::WindowBuilder::new()
-                                       .with_vsync()
-                                       .with_title("Alacritty")
-                                       .build().unwrap();
-    // window.set_window_resize_callback(Some(resize_callback as fn(u32, u32)));
+    let mut window = glutin::WindowBuilder::new()
+                                           .with_vsync()
+                                           .with_title("Alacritty")
+                                           .build().unwrap();
+    window.set_window_resize_callback(Some(window_resize_handler as fn(u32, u32)));
 
     gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
     let (width, height) = window.get_inner_size_pixels().unwrap();
@@ -131,8 +144,8 @@ fn main() {
 
     let font_size = 11.;
 
-    let sep_x = 2.0;
-    let sep_y = -7.0;
+    let sep_x = 0.0;
+    let sep_y = 0.0;
 
     let desc = FontDesc::new(FONT, FONT_STYLE);
     let mut rasterizer = font::Rasterizer::new(96., 96., dpr);
@@ -154,6 +167,9 @@ fn main() {
 
     let (tx, rx) = mpsc::channel();
     let reader_tx = tx.clone();
+    unsafe {
+        resize_sender = Some(tx.clone());
+    }
     let reader_thread = thread::spawn_named("TTY Reader", move || {
         for c in reader.chars() {
             let c = c.unwrap();
