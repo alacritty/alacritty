@@ -16,7 +16,6 @@
 #![feature(question_mark)]
 #![feature(range_contains)]
 #![feature(inclusive_range_syntax)]
-#![feature(io)]
 #![feature(drop_types_in_const)]
 #![feature(unicode)]
 #![feature(custom_derive, plugin)]
@@ -47,8 +46,9 @@ mod tty;
 pub mod ansi;
 mod term;
 mod util;
+mod io;
 
-use std::io::{Read, Write, BufWriter};
+use std::io::{Write, BufWriter, BufReader};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 
@@ -61,6 +61,8 @@ use renderer::{QuadRenderer, GlyphCache};
 use term::Term;
 use tty::process_should_exit;
 use util::thread;
+
+use io::Utf8Chars;
 
 /// Things that the render/update thread needs to respond to
 #[derive(Debug)]
@@ -189,7 +191,8 @@ fn main() {
         resize_sender = Some(tx.clone());
     }
     let reader_thread = thread::spawn_named("TTY Reader", move || {
-        for c in reader.chars() {
+        let chars = Utf8Chars::new(BufReader::new(reader));
+        for c in chars {
             let c = c.unwrap();
             reader_tx.send(Event::PtyChar(c)).unwrap();
         }
