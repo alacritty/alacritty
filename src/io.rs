@@ -69,7 +69,7 @@ pub enum Utf8CharsError {
     /// of a byte sequence well-formed in UTF-8, but ends prematurely.
     ///
     /// Contains number of unused bytes
-    IncompleteUtf8(u8),
+    IncompleteUtf8(usize),
 
     /// Variant representing that an I/O error occurred.
     Io(Error),

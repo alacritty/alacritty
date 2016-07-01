@@ -47,12 +47,12 @@ pub mod ansi;
 mod term;
 mod util;
 mod io;
+mod sync;
 
-use std::io::{Write, BufWriter, BufReader};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::io::{Write, BufWriter, Read};
 use std::sync::{mpsc, Arc};
 
-use parking_lot::Mutex;
+use sync::PriorityMutex;
 
 use config::Config;
 use font::FontDesc;
@@ -62,14 +62,7 @@ use term::Term;
 use tty::process_should_exit;
 use util::thread;
 
-use io::Utf8Chars;
-
-/// Things that the render/update thread needs to respond to
-#[derive(Debug)]
-enum Event {
-    PtyChar(char),
-    Glutin(glutin::Event),
-}
+use io::{Utf8Chars, Utf8CharsError};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum ShouldExit {
@@ -85,44 +78,39 @@ impl<'a, W: Write> input::Notify for WriteNotifier<'a, W> {
 }
 
 /// Channel used by resize handling on mac
-static mut resize_sender: Option<mpsc::Sender<Event>> = None;
+static mut resize_sender: Option<mpsc::Sender<glutin::Event>> = None;
 
 /// Resize handling for Mac
 fn window_resize_handler(width: u32, height: u32) {
     unsafe {
         if let Some(ref tx) = resize_sender {
-            let _ = tx.send(Event::Glutin(glutin::Event::Resized(width, height)));
+            let _ = tx.send(glutin::Event::Resized(width, height));
         }
     }
 }
 
-fn handle_event<W>(event: Event,
+fn handle_event<W>(event: glutin::Event,
                    writer: &mut W,
                    terminal: &mut Term,
-                   pty_parser: &mut ansi::Parser,
                    render_tx: &mpsc::Sender<(u32, u32)>,
                    input_processor: &mut input::Processor) -> ShouldExit
     where W: Write
 {
+    // Handle keyboard/mouse input and other window events
     match event {
-        // Handle char from pty
-        Event::PtyChar(c) => pty_parser.advance(terminal, c),
-        // Handle keyboard/mouse input and other window events
-        Event::Glutin(gevent) => match gevent {
-            glutin::Event::Closed => return ShouldExit::Yes,
-            glutin::Event::ReceivedCharacter(c) => {
-                let encoded = c.encode_utf8();
-                writer.write(encoded.as_slice()).unwrap();
-            },
-            glutin::Event::Resized(w, h) => {
-                terminal.resize(w as f32, h as f32);
-                render_tx.send((w, h)).expect("render thread active");
-            },
-            glutin::Event::KeyboardInput(state, _code, key) => {
-                input_processor.process(state, key, &mut WriteNotifier(writer), *terminal.mode())
-            },
-            _ => ()
-        }
+        glutin::Event::Closed => return ShouldExit::Yes,
+        glutin::Event::ReceivedCharacter(c) => {
+            let encoded = c.encode_utf8();
+            writer.write(encoded.as_slice()).unwrap();
+        },
+        glutin::Event::Resized(w, h) => {
+            terminal.resize(w as f32, h as f32);
+            render_tx.send((w, h)).expect("render thread active");
+        },
+        glutin::Event::KeyboardInput(state, _code, key) => {
+            input_processor.process(state, key, &mut WriteNotifier(writer), *terminal.mode())
+        },
+        _ => ()
     }
 
     ShouldExit::No
@@ -178,31 +166,57 @@ fn main() {
 
     let terminal = Term::new(width as f32, height as f32, cell_width as f32, cell_height as f32);
 
-    let reader = terminal.tty().reader();
+    let mut reader = terminal.tty().reader();
     let writer = terminal.tty().writer();
 
     let mut glyph_cache = GlyphCache::new(rasterizer, desc, font.size());
-    let needs_render = Arc::new(AtomicBool::new(true));
-    let needs_render2 = needs_render.clone();
 
     let (tx, rx) = mpsc::channel();
-    let reader_tx = tx.clone();
     unsafe {
         resize_sender = Some(tx.clone());
     }
+
+    let terminal = Arc::new(PriorityMutex::new(terminal));
+    let term_ref = terminal.clone();
+    let term_updater = terminal.clone();
+
+    // Rendering thread
+    //
+    // Holds lock only when updating terminal
     let reader_thread = thread::spawn_named("TTY Reader", move || {
-        let chars = Utf8Chars::new(BufReader::new(reader));
-        for c in chars {
-            let c = c.unwrap();
-            reader_tx.send(Event::PtyChar(c)).unwrap();
+        let mut buf = [0u8; 4096];
+        let mut start = 0;
+        let mut pty_parser = ansi::Parser::new();
+
+        'reader: loop {
+            let got = reader.read(&mut buf[start..]).expect("pty fd active");
+            let mut remain = 0;
+
+            // if `start` is nonzero, then actual bytes in buffer is > `got` by `start` bytes.
+            let end = start + got;
+            let mut terminal = term_updater.lock_low();
+            for c in Utf8Chars::new(&buf[..end]) {
+                match c {
+                    Ok(c) => pty_parser.advance(&mut *terminal, c),
+                    Err(err) => match err {
+                        Utf8CharsError::IncompleteUtf8(unused) => {
+                            remain = unused;
+                            break;
+                        },
+                        _ => panic!("{}", err),
+                    }
+                }
+            }
+
+            // Move any leftover bytes to front of buffer
+            for i in 0..remain {
+                buf[i] = buf[end - (remain - i)];
+            }
+            start = remain;
         }
     });
 
-    let terminal = Arc::new(Mutex::new(terminal));
-    let term_ref = terminal.clone();
     let mut meter = Meter::new();
-
-    let mut pty_parser = ansi::Parser::new();
 
     let window = Arc::new(window);
     let window_ref = window.clone();
@@ -210,15 +224,10 @@ fn main() {
     let (render_tx, render_rx) = mpsc::channel::<(u32, u32)>();
 
     let update_thread = thread::spawn_named("Update", move || {
+        let mut input_processor = input::Processor::new();
+
         'main_loop: loop {
             let mut writer = BufWriter::new(&writer);
-            let mut input_processor = input::Processor::new();
-
-            // Handle case where renderer didn't acquire lock yet
-            if needs_render.load(Ordering::Acquire) {
-                ::std::thread::yield_now();
-                continue;
-            }
 
             if process_should_exit() {
                 break;
@@ -231,11 +240,10 @@ fn main() {
             };
 
             // Need mutable terminal for updates; lock it.
-            let mut terminal = terminal.lock();
+            let mut terminal = terminal.lock_low();
             let res = handle_event(event,
                                    &mut writer,
                                    &mut *terminal,
-                                   &mut pty_parser,
                                    &render_tx,
                                    &mut input_processor);
             if res == ShouldExit::Yes {
@@ -249,7 +257,6 @@ fn main() {
                         let res = handle_event(e,
                                                &mut writer,
                                                &mut *terminal,
-                                               &mut pty_parser,
                                                &render_tx,
                                                &mut input_processor);
 
@@ -259,11 +266,6 @@ fn main() {
                     },
                     Err(mpsc::TryRecvError::Disconnected) => break 'main_loop,
                     Err(mpsc::TryRecvError::Empty) => break,
-                }
-
-                // Release the lock if a render is needed
-                if needs_render.load(Ordering::Acquire) {
-                    break;
                 }
             }
         }
@@ -283,7 +285,7 @@ fn main() {
 
         // Initialize glyph cache
         {
-            let terminal = term_ref.lock();
+            let terminal = term_ref.lock_high();
             renderer.with_api(terminal.size_info(), |mut api| {
                 glyph_cache.init(&mut api);
             });
@@ -306,12 +308,8 @@ fn main() {
 
             // Need scope so lock is released when swap_buffers is called
             {
-                // Flag that it's time for render
-                needs_render2.store(true, Ordering::Release);
                 // Acquire term lock
-                let terminal = term_ref.lock();
-                // Have the lock, ok to lower flag
-                needs_render2.store(false, Ordering::Relaxed);
+                let terminal = term_ref.lock_high();
 
                 // Draw grid + cursor
                 {
@@ -348,7 +346,7 @@ fn main() {
 
     'event_processing: loop {
         for event in window_ref.wait_events() {
-            tx.send(Event::Glutin(event)).unwrap();
+            tx.send(event).unwrap();
             if process_should_exit() {
                 break 'event_processing;
             }
