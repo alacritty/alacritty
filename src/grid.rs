@@ -16,7 +16,8 @@
 
 use std::ops::{Index, IndexMut, Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull};
 use std::cmp::Ordering;
-use std::slice::{Iter, IterMut};
+use std::slice::{self, Iter, IterMut};
+use std::iter::IntoIterator;
 
 use util::Rotate;
 
@@ -233,6 +234,24 @@ impl Row {
     }
 }
 
+impl<'a> IntoIterator for &'a Row {
+    type Item = &'a Cell;
+    type IntoIter = slice::Iter<'a, Cell>;
+
+    fn into_iter(self) -> slice::Iter<'a, Cell> {
+        self.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Row {
+    type Item = &'a mut Cell;
+    type IntoIter = slice::IterMut<'a, Cell>;
+
+    fn into_iter(mut self) -> slice::IterMut<'a, Cell> {
+        self.iter_mut()
+    }
+}
+
 impl Deref for Row {
     type Target = Vec<Cell>;
     fn deref(&self) -> &Self::Target {
@@ -295,7 +314,7 @@ macro_rules! clear_region_impl {
         impl ClearRegion<$range> for Grid {
             fn clear_region(&mut self, region: $range) {
                 for row in self.raw[region].iter_mut() {
-                    for cell in row.iter_mut() {
+                    for cell in row {
                         cell.reset();
                     }
                 }

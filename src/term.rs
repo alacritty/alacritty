@@ -505,7 +505,7 @@ impl ansi::Handler for Term {
             ansi::LineClearMode::Right => {
                 let row = &mut self.grid[self.cursor.y as usize];
                 let start = self.cursor.x as usize;
-                for cell in row[start..].iter_mut() {
+                for cell in &mut row[start..] {
                     cell.reset();
                 }
             },
@@ -520,8 +520,8 @@ impl ansi::Handler for Term {
                 let end = self.grid.num_rows();
                 for i in start..end {
                     let row = &mut self.grid[i];
-                    for cell in row.iter_mut() {
-                        cell.c = ' ';
+                    for cell in row {
+                        cell.reset();
                     }
                 }
             },
