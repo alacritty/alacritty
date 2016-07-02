@@ -23,6 +23,8 @@
 //! APIs
 //!
 //! TODO handling xmodmap would be good
+use std::io::Write;
+
 use glutin::{ElementState, VirtualKeyCode};
 
 use term::mode::{self, TermMode};
@@ -106,6 +108,15 @@ pub struct Processor {
 pub trait Notify {
     /// Notify that an escape sequence should be written to the pty
     fn notify(&mut self, &str);
+}
+
+/// A notifier type that simply writes bytes to the provided `Write` type
+pub struct WriteNotifier<'a, W: Write + 'a>(pub &'a mut W);
+
+impl<'a, W: Write> Notify for WriteNotifier<'a, W> {
+    fn notify(&mut self, message: &str) {
+        self.0.write(message.as_bytes()).unwrap();
+    }
 }
 
 /// Describes a key combination that should emit a control sequence

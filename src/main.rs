@@ -69,14 +69,6 @@ enum ShouldExit {
     Yes,
     No
 }
-
-struct WriteNotifier<'a, W: Write + 'a>(&'a mut W);
-impl<'a, W: Write> input::Notify for WriteNotifier<'a, W> {
-    fn notify(&mut self, message: &str) {
-        self.0.write(message.as_bytes()).unwrap();
-    }
-}
-
 /// Channel used by resize handling on mac
 static mut resize_sender: Option<mpsc::Sender<glutin::Event>> = None;
 
@@ -108,7 +100,7 @@ fn handle_event<W>(event: glutin::Event,
             render_tx.send((w, h)).expect("render thread active");
         },
         glutin::Event::KeyboardInput(state, _code, key) => {
-            input_processor.process(state, key, &mut WriteNotifier(writer), *terminal.mode())
+            input_processor.process(state, key, &mut input::WriteNotifier(writer), *terminal.mode())
         },
         _ => ()
     }
