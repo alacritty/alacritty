@@ -14,7 +14,7 @@
 //
 //! Functions for computing properties of the terminal grid
 
-use std::ops::{Index, IndexMut, Deref, DerefMut, Range, RangeTo, RangeFrom};
+use std::ops::{Index, IndexMut, Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull};
 use std::cmp::Ordering;
 use std::slice::{Iter, IterMut};
 
@@ -262,35 +262,29 @@ impl IndexMut<usize> for Row {
     }
 }
 
-impl Index<RangeFrom<usize>> for Row {
-    type Output = [Cell];
-    #[inline]
-    fn index<'a>(&'a self, index: RangeFrom<usize>) -> &'a [Cell] {
-        &self.0[index]
+macro_rules! row_index_range {
+    ($range:ty) => {
+        impl Index<$range> for Row {
+            type Output = [Cell];
+            #[inline]
+            fn index<'a>(&'a self, index: $range) -> &'a [Cell] {
+                &self.0[index]
+            }
+        }
+
+        impl IndexMut<$range> for Row {
+            #[inline]
+            fn index_mut<'a>(&'a mut self, index: $range) -> &'a mut [Cell] {
+                &mut self.0[index]
+            }
+        }
     }
 }
 
-impl IndexMut<RangeFrom<usize>> for Row {
-    #[inline]
-    fn index_mut<'a>(&'a mut self, index: RangeFrom<usize>) -> &'a mut [Cell] {
-        &mut self.0[index]
-    }
-}
-
-impl Index<RangeTo<usize>> for Row {
-    type Output = [Cell];
-    #[inline]
-    fn index<'a>(&'a self, index: RangeTo<usize>) -> &'a [Cell] {
-        &self.0[index]
-    }
-}
-
-impl IndexMut<RangeTo<usize>> for Row {
-    #[inline]
-    fn index_mut<'a>(&'a mut self, index: RangeTo<usize>) -> &'a mut [Cell] {
-        &mut self.0[index]
-    }
-}
+row_index_range!(Range<usize>);
+row_index_range!(RangeTo<usize>);
+row_index_range!(RangeFrom<usize>);
+row_index_range!(RangeFull);
 
 pub trait ClearRegion<T> {
     fn clear_region(&mut self, region: T);

@@ -483,7 +483,17 @@ impl ansi::Handler for Term {
             self.scroll(count as isize);
         }
     }
-    fn erase_chars(&mut self, count: i64) { println!("erase_chars: {}", count); }
+    fn erase_chars(&mut self, count: i64) {
+        println!("erase_chars: {}", count);
+        let row_index = self.cursor.y as usize;
+        let col_index = self.cursor.x as usize;
+        let count = count as usize;
+
+        let row = &mut self.grid[row_index];
+        for c in &mut row[col_index..(count + col_index)] {
+            c.reset();
+        }
+    }
     fn delete_chars(&mut self, count: i64) { println!("delete_chars: {}", count); }
     fn move_backward_tabs(&mut self, count: i64) { println!("move_backward_tabs: {}", count); }
     fn move_forward_tabs(&mut self, count: i64) { println!("move_forward_tabs: {}", count); }
