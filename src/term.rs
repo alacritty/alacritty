@@ -466,11 +466,11 @@ impl ansi::Handler for Term {
     fn set_horizontal_tabstop(&mut self) { println!("set_horizontal_tabstop"); }
     fn scroll_up(&mut self, rows: i64) {
         println!("scroll_up: {}", rows);
-        self.scroll(-rows as isize);
+        self.scroll(rows as isize);
     }
     fn scroll_down(&mut self, rows: i64) {
         println!("scroll_down: {}", rows);
-        self.scroll(rows as isize);
+        self.scroll(-rows as isize);
     }
     fn insert_blank_lines(&mut self, count: i64) {
         println!("insert_blank_lines: {}", count);
