@@ -566,7 +566,7 @@ impl ansi::Handler for Term {
     fn insert_blank_lines(&mut self, lines: Line) {
         debug_println!("insert_blank_lines: {}", lines);
         if self.scroll_region.contains(self.cursor.line) {
-            self.scroll(lines, ScrollDirection::Down);
+            self.scroll(lines, ScrollDirection::Up);
         }
     }
 
@@ -574,7 +574,7 @@ impl ansi::Handler for Term {
     fn delete_lines(&mut self, lines: Line) {
         debug_println!("delete_lines: {}", lines);
         if self.scroll_region.contains(self.cursor.line) {
-            self.scroll(lines, ScrollDirection::Up);
+            self.scroll(lines, ScrollDirection::Down);
         }
     }
 
