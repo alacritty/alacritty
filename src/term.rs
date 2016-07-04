@@ -13,8 +13,9 @@
 // limitations under the License.
 //
 //! Exports the `Term` type which is a high-level API for the Grid
-use std::ops::Range;
 use std::fmt;
+use std::mem;
+use std::ops::{Deref, Range};
 
 use ansi::{self, Attr};
 use grid::{Grid, ClearRegion};
@@ -28,6 +29,48 @@ macro_rules! debug_println {
         if cfg!(debug_assertions) {
             println!($($t)*);
         }
+    }
+}
+
+/// RAII type which manages grid state for render
+///
+/// This manages the cursor during a render. The cursor location is inverted to
+/// draw it, and reverted after drawing to maintain state.
+pub struct RenderGrid<'a> {
+    inner: &'a mut Grid<Cell>,
+    cursor: &'a Cursor,
+    mode: TermMode,
+}
+
+impl<'a> RenderGrid<'a> {
+    fn new<'b>(grid: &'b mut Grid<Cell>, cursor: &'b Cursor, mode: TermMode) -> RenderGrid<'b> {
+        if mode.contains(mode::SHOW_CURSOR) {
+            let cell = &mut grid[cursor];
+            mem::swap(&mut cell.fg, &mut cell.bg);
+        }
+
+        RenderGrid {
+            inner: grid,
+            cursor: cursor,
+            mode: mode,
+        }
+    }
+}
+
+impl<'a> Drop for RenderGrid<'a> {
+    fn drop(&mut self) {
+        if self.mode.contains(mode::SHOW_CURSOR) {
+            let cell = &mut self.inner[self.cursor];
+            mem::swap(&mut cell.fg, &mut cell.bg);
+        }
+    }
+}
+
+impl<'a> Deref for RenderGrid<'a> {
+    type Target = Grid<Cell>;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner
     }
 }
 
@@ -175,7 +218,7 @@ pub struct Term {
 }
 
 /// Terminal size info
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct SizeInfo {
     /// Terminal window width
     pub width: f32,
@@ -243,6 +286,10 @@ impl Term {
             scroll_region: scroll_region,
             size_info: size
         }
+    }
+
+    pub fn render_grid<'a>(&'a mut self) -> RenderGrid<'a> {
+        RenderGrid::new(&mut self.grid, &self.cursor, self.mode)
     }
 
     /// Resize terminal to new dimensions

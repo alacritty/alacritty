@@ -110,6 +110,7 @@ fn main() {
                                            .with_vsync()
                                            .with_title("Alacritty")
                                            .build().unwrap();
+
     window.set_window_resize_callback(Some(window_resize_handler as fn(u32, u32)));
 
     gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
@@ -271,18 +272,14 @@ fn main() {
             }
 
             {
-                // Draw grid + cursor
+                // Draw grid
                 {
                     let _sampler = meter.sampler();
 
-                    renderer.with_api(terminal.size_info(), |mut api| {
+                    let size_info = terminal.size_info().clone();
+                    renderer.with_api(&size_info, |mut api| {
                         // Draw the grid
-                        api.render_grid(terminal.grid(), &mut glyph_cache);
-
-                        // Also draw the cursor
-                        if terminal.mode().contains(term::mode::SHOW_CURSOR) {
-                            api.render_cursor(terminal.cursor(), &mut glyph_cache);
-                        }
+                        api.render_grid(&terminal.render_grid(), &mut glyph_cache);
                     })
                 }
 

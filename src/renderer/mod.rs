@@ -577,22 +577,6 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_cursor(&mut self, cursor: &index::Cursor, glyph_cache: &mut GlyphCache) {
-        if let Some(glyph) = glyph_cache.get(term::CURSOR_SHAPE, self) {
-            let cell = Cell {
-                c: term::CURSOR_SHAPE,
-                fg: term::DEFAULT_FG,
-                bg: term::DEFAULT_BG,
-                flags: cell::Flags::empty(),
-            };
-
-            let y: usize = *cursor.line;
-            let x: usize = *cursor.col;
-
-            self.add_render_item(y as f32, x as f32, &cell, glyph);
-        }
-    }
-
     pub fn render_grid(&mut self, grid: &Grid<Cell>, glyph_cache: &mut GlyphCache) {
         for (i, line) in grid.lines().enumerate() {
             for (j, cell) in line.cells().enumerate() {
