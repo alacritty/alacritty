@@ -556,7 +556,7 @@ impl Parser {
             'H' | 'f' => {
                 let y = arg_or_default!(args[0] as usize, 1);
                 let x = arg_or_default!(args[1] as usize, 1);
-                handler.goto(Line(x - 1), Column(y - 1));
+                handler.goto(Line(y - 1), Column(x - 1));
             },
             'I' => handler.move_forward_tabs(arg_or_default!(args[0], 1)),
             'J' => {
