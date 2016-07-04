@@ -442,7 +442,9 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn insert_blank(&mut self, num: usize) { println!("insert_blank: {}", num); }
+    fn insert_blank(&mut self, num: usize) {
+        debug_println!("insert_blank: {}", num);
+    }
 
     #[inline]
     fn move_up(&mut self, lines: Line) {
@@ -469,13 +471,19 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn identify_terminal(&mut self) { println!("identify_terminal"); }
+    fn identify_terminal(&mut self) {
+        debug_println!("[unimplemented] identify_terminal");
+    }
 
     #[inline]
-    fn move_down_and_cr(&mut self, lines: Line) { println!("move_down_and_cr: {}", lines); }
+    fn move_down_and_cr(&mut self, lines: Line) {
+        debug_println!("[unimplemented] move_down_and_cr: {}", lines);
+    }
 
     #[inline]
-    fn move_up_and_cr(&mut self, lines: Line) { println!("move_up_and_cr: {}", lines); }
+    fn move_up_and_cr(&mut self, lines: Line) {
+        debug_println!("[unimplemented] move_up_and_cr: {}", lines);
+    }
 
     #[inline]
     fn put_tab(&mut self, mut count: i64) {
@@ -529,17 +537,17 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn substitute(&mut self) {
-        debug_println!("substitute");
+        debug_println!("[unimplemented] substitute");
     }
 
     #[inline]
     fn newline(&mut self) {
-        debug_println!("newline");
+        debug_println!("[unimplemented] newline");
     }
 
     #[inline]
     fn set_horizontal_tabstop(&mut self) {
-        debug_println!("set_horizontal_tabstop");
+        debug_println!("[unimplemented] set_horizontal_tabstop");
     }
 
     #[inline]
@@ -584,27 +592,27 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn delete_chars(&mut self, count: Column) {
-        debug_println!("delete_chars: {}", count);
+        debug_println!("[unimplemented] delete_chars: {}", count);
     }
 
     #[inline]
     fn move_backward_tabs(&mut self, count: i64) {
-        debug_println!("move_backward_tabs: {}", count);
+        debug_println!("[unimplemented] move_backward_tabs: {}", count);
     }
 
     #[inline]
     fn move_forward_tabs(&mut self, count: i64) {
-        debug_println!("move_forward_tabs: {}", count);
+        debug_println!("[unimplemented] move_forward_tabs: {}", count);
     }
 
     #[inline]
     fn save_cursor_position(&mut self) {
-        debug_println!("save_cursor_position");
+        debug_println!("[unimplemented] save_cursor_position");
     }
 
     #[inline]
     fn restore_cursor_position(&mut self) {
-        debug_println!("restore_cursor_position");
+        debug_println!("[unimplemented] restore_cursor_position");
     }
 
     #[inline]
@@ -646,12 +654,12 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn clear_tabs(&mut self, mode: ansi::TabulationClearMode) {
-        debug_println!("clear_tabs: {:?}", mode);
+        debug_println!("[unimplemented] clear_tabs: {:?}", mode);
     }
 
     #[inline]
     fn reset_state(&mut self) {
-        debug_println!("reset_state");
+        debug_println!("[unimplemented] reset_state");
     }
 
     #[inline]
