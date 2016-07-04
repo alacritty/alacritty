@@ -353,6 +353,12 @@ pub trait Handler {
 
     /// DECSTBM - Set the terminal scrolling region
     fn set_scrolling_region(&mut self, Range<Line>) {}
+
+    /// DECKPAM - Set keypad to applications mode (ESCape instead of digits)
+    fn set_keypad_application_mode(&mut self) {}
+
+    /// DECKPNM - Set keypad to numeric mode (digits intead of ESCape seq)
+    fn unset_keypad_application_mode(&mut self) {}
 }
 
 impl Parser {
@@ -438,6 +444,8 @@ impl Parser {
             'c' => sequence_complete!(reset_state),
             '7' => sequence_complete!(save_cursor_position),
             '8' => sequence_complete!(restore_cursor_position),
+            '=' => sequence_complete!(set_keypad_application_mode),
+            '>' => sequence_complete!(unset_keypad_application_mode),
             'P' | '_' | '^' | ']' | 'k' | '(' => {
                 self.state = State::EscapeOther;
             },

@@ -112,6 +112,7 @@ pub mod mode {
         pub flags TermMode: u8 {
             const SHOW_CURSOR = 0b00000001,
             const APP_CURSOR  = 0b00000010,
+            const APP_KEYPAD  = 0b00000100,
             const ANY         = 0b11111111,
             const NONE        = 0b00000000,
         }
@@ -735,5 +736,17 @@ impl ansi::Handler for Term {
     fn set_scrolling_region(&mut self, region: Range<Line>) {
         debug_println!("set scroll region: {:?}", region);
         self.scroll_region = region;
+    }
+
+    #[inline]
+    fn set_keypad_application_mode(&mut self) {
+        debug_println!("set mode::APP_KEYPAD");
+        self.mode.insert(mode::APP_KEYPAD);
+    }
+
+    #[inline]
+    fn unset_keypad_application_mode(&mut self) {
+        debug_println!("unset mode::APP_KEYPAD");
+        self.mode.remove(mode::APP_KEYPAD);
     }
 }
