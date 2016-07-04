@@ -240,7 +240,6 @@ fn main() {
                             }
                         },
                         glutin::Event::Resized(w, h) => {
-                            terminal.resize(w as f32, h as f32);
                             new_size = Some((w, h));
                         },
                         glutin::Event::KeyboardInput(state, _code, key) => {
@@ -267,6 +266,7 @@ fn main() {
             // Receive any resize events; only call gl::Viewport on last
             // available
             if let Some((w, h)) = new_size.take() {
+                terminal.resize(w as f32, h as f32);
                 renderer.resize(w as i32, h as i32);
             }
 
