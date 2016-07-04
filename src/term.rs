@@ -414,59 +414,59 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn goto(&mut self, x: i64, y: i64) {
-        println!("goto: x={}, y={}", x, y);
-        self.cursor.line = Line(y as usize);
-        self.cursor.col = Column(x as usize);
+    fn goto(&mut self, line: Line, col: Column) {
+        println!("goto: line={}, col={}", line, col);
+        self.cursor.line = line;
+        self.cursor.col = col;
     }
 
     #[inline]
-    fn goto_row(&mut self, row: i64) {
-        println!("goto_row: {}", row);
-        self.cursor.line = Line(row as usize);
+    fn goto_line(&mut self, line: Line) {
+        println!("goto_line: {}", line);
+        self.cursor.line = line;
     }
 
     #[inline]
-    fn goto_col(&mut self, col: i64) {
+    fn goto_col(&mut self, col: Column) {
         println!("goto_col: {}", col);
-        self.cursor.col = Column(col as usize);
+        self.cursor.col = col;
     }
 
     #[inline]
-    fn insert_blank(&mut self, num: i64) { println!("insert_blank: {}", num); }
+    fn insert_blank(&mut self, num: usize) { println!("insert_blank: {}", num); }
 
     #[inline]
-    fn move_up(&mut self, rows: i64) {
-        println!("move_up: {}", rows);
-        self.cursor.line -= Line(rows as usize);
+    fn move_up(&mut self, lines: Line) {
+        println!("move_up: {}", lines);
+        self.cursor.line -= lines;
     }
 
     #[inline]
-    fn move_down(&mut self, rows: i64) {
-        println!("move_down: {}", rows);
-        self.cursor.line += Line(rows as usize);
+    fn move_down(&mut self, lines: Line) {
+        println!("move_down: {}", lines);
+        self.cursor.line += lines;
     }
 
     #[inline]
-    fn move_forward(&mut self, cols: i64) {
+    fn move_forward(&mut self, cols: Column) {
         println!("move_forward: {}", cols);
-        self.cursor.col += Column(cols as usize);
+        self.cursor.col += cols;
     }
 
     #[inline]
-    fn move_backward(&mut self, spaces: i64) {
-        println!("move_backward: {}", spaces);
-        self.cursor.col -= Column(spaces as usize);
+    fn move_backward(&mut self, cols: Column) {
+        println!("move_backward: {}", cols);
+        self.cursor.col -= cols;
     }
 
     #[inline]
     fn identify_terminal(&mut self) { println!("identify_terminal"); }
 
     #[inline]
-    fn move_down_and_cr(&mut self, rows: i64) { println!("move_down_and_cr: {}", rows); }
+    fn move_down_and_cr(&mut self, lines: Line) { println!("move_down_and_cr: {}", lines); }
 
     #[inline]
-    fn move_up_and_cr(&mut self, rows: i64) { println!("move_up_and_cr: {}", rows); }
+    fn move_up_and_cr(&mut self, lines: Line) { println!("move_up_and_cr: {}", lines); }
 
     #[inline]
     fn put_tab(&mut self, mut count: i64) {
@@ -526,46 +526,46 @@ impl ansi::Handler for Term {
     fn set_horizontal_tabstop(&mut self) { println!("set_horizontal_tabstop"); }
 
     #[inline]
-    fn scroll_up(&mut self, rows: i64) {
-        println!("scroll_up: {}", rows);
-        self.scroll(Line(rows as usize), ScrollDirection::Up);
+    fn scroll_up(&mut self, lines: Line) {
+        println!("scroll_up: {}", lines);
+        self.scroll(lines, ScrollDirection::Up);
     }
 
     #[inline]
-    fn scroll_down(&mut self, rows: i64) {
-        println!("scroll_down: {}", rows);
-        self.scroll(Line(rows as usize), ScrollDirection::Down);
+    fn scroll_down(&mut self, lines: Line) {
+        println!("scroll_down: {}", lines);
+        self.scroll(lines, ScrollDirection::Down);
     }
 
     #[inline]
-    fn insert_blank_lines(&mut self, count: i64) {
-        println!("insert_blank_lines: {}", count);
+    fn insert_blank_lines(&mut self, lines: Line) {
+        println!("insert_blank_lines: {}", lines);
         if self.scroll_region.contains(self.cursor.line) {
-            self.scroll(Line(count as usize), ScrollDirection::Down);
+            self.scroll(lines, ScrollDirection::Down);
         }
     }
 
     #[inline]
-    fn delete_lines(&mut self, count: i64) {
+    fn delete_lines(&mut self, lines: Line) {
         if self.scroll_region.contains(self.cursor.line) {
-            self.scroll(Line(count as usize), ScrollDirection::Up);
+            self.scroll(lines, ScrollDirection::Up);
         }
     }
 
     #[inline]
-    fn erase_chars(&mut self, count: i64) {
+    fn erase_chars(&mut self, count: Column) {
         println!("erase_chars: {}", count);
-        let col_index = self.cursor.col;
-        let count = count as usize;
+        let start = self.cursor.col;
+        let end = start + count;
 
         let row = &mut self.grid[self.cursor.line];
-        for c in &mut row[self.cursor.col..(col_index + count)] {
+        for c in &mut row[start..end] {
             c.reset();
         }
     }
 
     #[inline]
-    fn delete_chars(&mut self, count: i64) { println!("delete_chars: {}", count); }
+    fn delete_chars(&mut self, count: Column) { println!("delete_chars: {}", count); }
 
     #[inline]
     fn move_backward_tabs(&mut self, count: i64) { println!("move_backward_tabs: {}", count); }
@@ -701,9 +701,8 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn set_scrolling_region(&mut self, top: i64, bot: i64) {
-        println!("set scroll region: {:?} - {:?}", top, bot);
-        // 1 is added to bottom for inclusive range
-        self.scroll_region = Line(top as usize)..Line((bot as usize) + 1);
+    fn set_scrolling_region(&mut self, region: Range<Line>) {
+        println!("set scroll region: {:?}", region);
+        self.scroll_region = region;
     }
 }

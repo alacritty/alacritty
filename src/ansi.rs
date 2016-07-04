@@ -30,6 +30,8 @@
 //! aren't necessary for everyday terminal usage. If you feel like something that's not supported
 //! should be, feel free to add it. Please try not to become overzealous and adding support for
 //! sequences only used by folks trapped in 1988.
+use std::ops::Range;
+
 use index::{Column, Line};
 
 use ::Rgb;
@@ -229,37 +231,37 @@ pub trait Handler {
     fn input(&mut self, _c: char) {}
 
     /// Set cursor to position
-    fn goto(&mut self, _x: i64, _y: i64) {}
+    fn goto(&mut self, Line, Column) {}
 
     /// Set cursor to specific row
-    fn goto_row(&mut self, _y: i64) {}
+    fn goto_line(&mut self, Line) {}
 
     /// Set cursor to specific column
-    fn goto_col(&mut self, _x: i64) {}
+    fn goto_col(&mut self, Column) {}
 
-    /// Insert blank characters
-    fn insert_blank(&mut self, _num: i64) {}
+    /// Insert blank characters in current line starting from cursor
+    fn insert_blank(&mut self, usize) {}
 
     /// Move cursor up `rows`
-    fn move_up(&mut self, _rows: i64) {}
+    fn move_up(&mut self, Line) {}
 
     /// Move cursor down `rows`
-    fn move_down(&mut self, _rows: i64) {}
+    fn move_down(&mut self, Line) {}
 
     /// Identify the terminal (should write back to the pty stream)
     fn identify_terminal(&mut self) {}
 
     /// Move cursor forward `cols`
-    fn move_forward(&mut self, _cols: i64) {}
+    fn move_forward(&mut self, Column) {}
 
     /// Move cursor backward `cols`
-    fn move_backward(&mut self, _cols: i64) {}
+    fn move_backward(&mut self, Column) {}
 
     /// Move cursor down `rows` and set to column 1
-    fn move_down_and_cr(&mut self, _rows: i64) {}
+    fn move_down_and_cr(&mut self, Line) {}
 
     /// Move cursor up `rows` and set to column 1
-    fn move_up_and_cr(&mut self, _rows: i64) {}
+    fn move_up_and_cr(&mut self, Line) {}
 
     /// Put `count` tabs
     fn put_tab(&mut self, _count: i64) {}
@@ -288,26 +290,27 @@ pub trait Handler {
     fn set_horizontal_tabstop(&mut self) {}
 
     /// Scroll up `rows` rows
-    fn scroll_up(&mut self, _rows: i64) {}
+    fn scroll_up(&mut self, Line) {}
 
     /// Scroll down `rows` rows
-    fn scroll_down(&mut self, _rows: i64) {}
+    fn scroll_down(&mut self, Line) {}
 
     /// Insert `count` blank lines
-    fn insert_blank_lines(&mut self, _count: i64) {}
+    fn insert_blank_lines(&mut self, Line) {}
 
     /// Delete `count` lines
-    fn delete_lines(&mut self, _count: i64) {}
+    fn delete_lines(&mut self, Line) {}
 
-    /// Erase `count` chars
+    /// Erase `count` chars in current line following cursor
     ///
-    /// TODO figure out AND comment what it means to "erase" chars
-    fn erase_chars(&mut self, _count: i64) {}
+    /// Erase means resetting to the default state (default colors, no content, no mode flags)
+    fn erase_chars(&mut self, Column) {}
 
     /// Delete `count` chars
     ///
-    /// TODO figure out AND comment what it means to "delete" chars
-    fn delete_chars(&mut self, _count: i64) {}
+    /// Deleting a character is like the delete key on the keyboard - everything to the right of the
+    /// deleted things is shifted left.
+    fn delete_chars(&mut self, Column) {}
 
     /// Move backward `count` tabs
     fn move_backward_tabs(&mut self, _count: i64) {}
@@ -349,7 +352,7 @@ pub trait Handler {
     fn unset_mode(&mut self, Mode) {}
 
     /// DECSTBM - Set the terminal scrolling region
-    fn set_scrolling_region(&mut self, _top: i64, _bot: i64) {}
+    fn set_scrolling_region(&mut self, Range<Line>) {}
 }
 
 impl Parser {
@@ -514,7 +517,7 @@ impl Parser {
 
         macro_rules! arg_or_default {
             ($arg:expr, $default:expr) => {
-                if $arg == 0 { $default } else { $arg }
+                if $arg == ::std::num::Zero::zero() { $default } else { $arg }
             }
         }
 
@@ -530,18 +533,16 @@ impl Parser {
         }
 
         match raw[0] {
-            '@' => handler.insert_blank(arg_or_default!(args[0], 1)),
+            '@' => handler.insert_blank(arg_or_default!(args[0] as usize, 1)),
             'A' => {
-                handler.move_up(arg_or_default!(args[0], 1));
+                handler.move_up(Line(arg_or_default!(args[0] as usize, 1)));
             },
-            'B' | 'e' => handler.move_down(arg_or_default!(args[0], 1)),
+            'B' | 'e' => handler.move_down(Line(arg_or_default!(args[0] as usize, 1))),
             'c' => handler.identify_terminal(),
-            'C' | 'a' => {
-                handler.move_forward(arg_or_default!(args[0], 1))
-            },
-            'D' => handler.move_backward(arg_or_default!(args[0], 1)),
-            'E' => handler.move_down_and_cr(arg_or_default!(args[0], 1)),
-            'F' => handler.move_up_and_cr(arg_or_default!(args[0], 1)),
+            'C' | 'a' => handler.move_forward(Column(arg_or_default!(args[0] as usize, 1))),
+            'D' => handler.move_backward(Column(arg_or_default!(args[0] as usize, 1))),
+            'E' => handler.move_down_and_cr(Line(arg_or_default!(args[0] as usize, 1))),
+            'F' => handler.move_up_and_cr(Line(arg_or_default!(args[0] as usize, 1))),
             'g' => {
                 let mode = match args[0] {
                     0 => TabulationClearMode::Current,
@@ -551,11 +552,11 @@ impl Parser {
 
                 handler.clear_tabs(mode);
             },
-            'G' | '`' => handler.goto_col(arg_or_default!(args[0], 1) - 1),
+            'G' | '`' => handler.goto_col(Column(arg_or_default!(args[0] as usize, 1) - 1)),
             'H' | 'f' => {
-                let y = arg_or_default!(args[0], 1);
-                let x = arg_or_default!(args[1], 1);
-                handler.goto(x - 1, y - 1);
+                let y = arg_or_default!(args[0] as usize, 1);
+                let x = arg_or_default!(args[1] as usize, 1);
+                handler.goto(Line(x - 1), Column(y - 1));
             },
             'I' => handler.move_forward_tabs(arg_or_default!(args[0], 1)),
             'J' => {
@@ -578,9 +579,9 @@ impl Parser {
 
                 handler.clear_line(mode);
             },
-            'S' => handler.scroll_up(arg_or_default!(args[0], 1)),
-            'T' => handler.scroll_down(arg_or_default!(args[0], 1)),
-            'L' => handler.insert_blank_lines(arg_or_default!(args[0], 1)),
+            'S' => handler.scroll_up(Line(arg_or_default!(args[0] as usize, 1))),
+            'T' => handler.scroll_down(Line(arg_or_default!(args[0] as usize, 1))),
+            'L' => handler.insert_blank_lines(Line(arg_or_default!(args[0] as usize, 1))),
             'l' => {
                 let mode = Mode::from_primitive(private, args[0]);
                 match mode {
@@ -588,11 +589,11 @@ impl Parser {
                     None => unhandled!(),
                 }
             },
-            'M' => handler.delete_lines(arg_or_default!(args[0], 1)),
-            'X' => handler.erase_chars(arg_or_default!(args[0], 1)),
-            'P' => handler.delete_chars(arg_or_default!(args[0], 1)),
+            'M' => handler.delete_lines(Line(arg_or_default!(args[0] as usize, 1))),
+            'X' => handler.erase_chars(Column(arg_or_default!(args[0] as usize, 1))),
+            'P' => handler.delete_chars(Column(arg_or_default!(args[0] as usize, 1))),
             'Z' => handler.move_backward_tabs(arg_or_default!(args[0], 1)),
-            'd' => handler.goto_row(arg_or_default!(args[0], 1) - 1),
+            'd' => handler.goto_line(Line(arg_or_default!(args[0] as usize, 1) - 1)),
             'h' => {
                 let mode = Mode::from_primitive(private, args[0]);
                 match mode {
@@ -689,10 +690,14 @@ impl Parser {
                 if private {
                     unknown!();
                 }
-                let top = arg_or_default!(args[0], 1);
-                let bottom = arg_or_default!(args[1], *handler.lines() as i64);
+                let top = arg_or_default!(Line(args[0] as usize), Line(1)) - 1;
+                // Bottom should be included in the range, but range end is not
+                // usually included.  One option would be to use an inclusive
+                // range, but instead we just let the open range end be 1
+                // higher.
+                let bottom = arg_or_default!(Line(args[1] as usize), handler.lines());
 
-                handler.set_scrolling_region(top - 1, bottom - 1);
+                handler.set_scrolling_region(top..bottom);
             },
             's' => handler.save_cursor_position(),
             'u' => handler.restore_cursor_position(),
