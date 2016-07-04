@@ -124,23 +124,6 @@ pub const TAB_SPACES: usize = 8;
 
 use grid::index::{Cursor, Column, Line};
 
-trait CursorExt {
-    fn goto(&mut self, Line, Column);
-    fn advance(&mut self, Line, Column);
-}
-
-impl CursorExt for Cursor {
-    fn goto(&mut self, line: Line, col: Column) {
-        self.col = col;
-        self.line = line;
-    }
-
-    fn advance(&mut self, lines: Line, cols: Column) {
-        self.col = self.col + cols;
-        self.line = self.line + lines;
-    }
-}
-
 pub struct Term {
     /// The grid
     grid: Grid<Cell>,
@@ -433,7 +416,8 @@ impl ansi::Handler for Term {
     #[inline]
     fn goto(&mut self, x: i64, y: i64) {
         println!("goto: x={}, y={}", x, y);
-        self.cursor.goto(Line(y as usize), Column(x as usize));
+        self.cursor.line = Line(y as usize);
+        self.cursor.col = Column(x as usize);
     }
 
     #[inline]
