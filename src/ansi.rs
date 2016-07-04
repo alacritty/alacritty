@@ -412,9 +412,11 @@ impl Parser {
             c == 0x1b as char || is_control_c1(c)
         {
             self.state = State::Base;
+            println!("");
         }
 
         // TODO actually use these bytes. For now, we just throw them away.
+        print!("{:?}", c);
     }
 
     /// Handle character following an ESC
@@ -447,6 +449,8 @@ impl Parser {
             '=' => sequence_complete!(set_keypad_application_mode),
             '>' => sequence_complete!(unset_keypad_application_mode),
             'P' | '_' | '^' | ']' | 'k' | '(' => {
+                println!("Entering EscapeOther");
+                print!("{:?}", c);
                 self.state = State::EscapeOther;
             },
             _ => {
