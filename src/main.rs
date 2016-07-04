@@ -44,6 +44,7 @@ pub mod grid;
 mod meter;
 pub mod config;
 mod input;
+mod index;
 mod tty;
 pub mod ansi;
 mod term;

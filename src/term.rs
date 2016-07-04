@@ -18,7 +18,9 @@ use std::fmt;
 
 use ansi::{self, Attr};
 use grid::{Grid, ClearRegion};
+use index::{Cursor, Column, Line};
 use tty;
+
 use ::Rgb;
 
 /// coerce val to be between min and max
@@ -121,8 +123,6 @@ pub const CURSOR_SHAPE: char = '█';
 pub const DEFAULT_FG: Rgb = Rgb { r: 0xea, g: 0xea, b: 0xea};
 pub const DEFAULT_BG: Rgb = Rgb { r: 0, g: 0, b: 0};
 pub const TAB_SPACES: usize = 8;
-
-use grid::index::{Cursor, Column, Line};
 
 pub struct Term {
     /// The grid

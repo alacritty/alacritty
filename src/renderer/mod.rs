@@ -24,11 +24,12 @@ use std::sync::atomic::{Ordering, AtomicBool};
 use cgmath;
 use gl::types::*;
 use gl;
+use grid::Grid;
+use index;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
+use term::{self, cell, Cell};
 
 use font::{Rasterizer, RasterizedGlyph, FontDesc};
-use grid::{self, Grid};
-use term::{self, cell, Cell};
 
 use super::Rgb;
 
@@ -576,7 +577,7 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_cursor(&mut self, cursor: &grid::index::Cursor, glyph_cache: &mut GlyphCache) {
+    pub fn render_cursor(&mut self, cursor: &index::Cursor, glyph_cache: &mut GlyphCache) {
         if let Some(glyph) = glyph_cache.get(term::CURSOR_SHAPE, self) {
             let cell = Cell {
                 c: term::CURSOR_SHAPE,
