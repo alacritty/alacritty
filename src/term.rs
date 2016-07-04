@@ -170,8 +170,6 @@ pub mod mode {
 
 pub use self::mode::TermMode;
 
-pub const CURSOR_SHAPE: char = '█';
-
 pub const DEFAULT_FG: Rgb = Rgb { r: 0xea, g: 0xea, b: 0xea};
 pub const DEFAULT_BG: Rgb = Rgb { r: 0, g: 0, b: 0};
 pub const TAB_SPACES: usize = 8;
@@ -363,11 +361,6 @@ impl Term {
     }
 
     #[inline]
-    pub fn grid(&self) -> &Grid<Cell> {
-        &self.grid
-    }
-
-    #[inline]
     pub fn mode(&self) -> &TermMode {
         &self.mode
     }
@@ -380,11 +373,6 @@ impl Term {
         if self.alt {
             self.grid.clear(|c| c.reset());
         }
-    }
-
-    #[inline]
-    pub fn cursor(&self) -> &Cursor {
-        &self.cursor
     }
 
     /// Set character in current cursor position

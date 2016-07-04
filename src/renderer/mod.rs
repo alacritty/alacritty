@@ -25,7 +25,6 @@ use cgmath;
 use gl::types::*;
 use gl;
 use grid::Grid;
-use index;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 use term::{self, cell, Cell};
 
