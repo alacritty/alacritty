@@ -30,6 +30,7 @@
 //! aren't necessary for everyday terminal usage. If you feel like something that's not supported
 //! should be, feel free to add it. Please try not to become overzealous and adding support for
 //! sequences only used by folks trapped in 1988.
+use index::{Column, Line};
 
 use ::Rgb;
 
@@ -41,8 +42,8 @@ pub enum Escape {
 
 /// Trait that provides properties of terminal
 pub trait TermInfo {
-    fn rows(&self) -> usize;
-    fn cols(&self) -> usize;
+    fn lines(&self) -> Line;
+    fn cols(&self) -> Column;
 }
 
 pub const CSI_ATTR_MAX: usize = 16;
@@ -399,12 +400,12 @@ impl Handler for DebugHandler {
 }
 
 impl TermInfo for DebugHandler {
-    fn rows(&self) -> usize {
-        24
+    fn lines(&self) -> Line {
+        Line(24)
     }
 
-    fn cols(&self) -> usize {
-        80
+    fn cols(&self) -> Column {
+        Column(80)
     }
 }
 
@@ -746,7 +747,7 @@ impl Parser {
                     unknown!();
                 }
                 let top = arg_or_default!(args[0], 1);
-                let bottom = arg_or_default!(args[1], handler.rows() as i64);
+                let bottom = arg_or_default!(args[1], *handler.lines() as i64);
 
                 handler.set_scrolling_region(top - 1, bottom - 1);
             },
@@ -1104,6 +1105,7 @@ impl Default for State {
 #[cfg(test)]
 mod tests {
     use std::io::{Cursor, Read};
+    use index::{Line, Column};
     use super::{Parser, Handler, Attr, DebugHandler, TermInfo};
     use ::Rgb;
 
@@ -1119,12 +1121,12 @@ mod tests {
     }
 
     impl TermInfo for AttrHandler {
-        fn rows(&self) -> usize {
-            24
+        fn lines(&self) -> Line {
+            Line(24)
         }
 
-        fn cols(&self) -> usize {
-            80
+        fn cols(&self) -> Column {
+            Column(80)
         }
     }
 

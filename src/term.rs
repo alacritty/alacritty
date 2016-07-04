@@ -395,13 +395,13 @@ impl fmt::Display for ScrollDirection {
 
 impl ansi::TermInfo for Term {
     #[inline]
-    fn rows(&self) -> usize {
-        *self.grid.num_lines() as usize
+    fn lines(&self) -> Line {
+        self.grid.num_lines()
     }
 
     #[inline]
-    fn cols(&self) -> usize {
-        *self.grid.num_cols() as usize
+    fn cols(&self) -> Column {
+        self.grid.num_cols()
     }
 }
 
