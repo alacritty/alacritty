@@ -14,9 +14,10 @@
 //
 //! Exports the `Term` type which is a high-level API for the Grid
 use std::ops::Range;
+use std::fmt;
 
 use ansi::{self, Attr};
-use grid::{self, Grid, CellFlags, ClearRegion};
+use grid::{Grid, ClearRegion};
 use tty;
 use ::Rgb;
 
@@ -30,6 +31,49 @@ fn limit<T: PartialOrd>(val: T, min: T, max: T) -> T {
         val
     }
 }
+
+pub mod cell {
+    use super::{DEFAULT_FG, DEFAULT_BG};
+    use ::Rgb;
+
+    bitflags! {
+        pub flags Flags: u32 {
+            const INVERSE   = 0b00000001,
+            const BOLD      = 0b00000010,
+            const ITALIC    = 0b00000100,
+            const UNDERLINE = 0b00001000,
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct Cell {
+        pub c: char,
+        pub fg: Rgb,
+        pub bg: Rgb,
+        pub flags: Flags,
+    }
+
+    impl Cell {
+        pub fn new(c: char) -> Cell {
+            Cell {
+                c: c.into(),
+                bg: Default::default(),
+                fg: Default::default(),
+                flags: Flags::empty(),
+            }
+        }
+
+        pub fn reset(&mut self) {
+            self.c = ' ';
+            self.flags = Flags::empty();
+
+            self.bg = DEFAULT_BG;
+            self.fg = DEFAULT_FG;
+        }
+    }
+}
+
+pub use self::cell::Cell;
 
 /// tomorrow night bright
 ///
@@ -78,37 +122,31 @@ pub const DEFAULT_FG: Rgb = Rgb { r: 0xea, g: 0xea, b: 0xea};
 pub const DEFAULT_BG: Rgb = Rgb { r: 0, g: 0, b: 0};
 pub const TAB_SPACES: usize = 8;
 
-/// State for cursor
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Cursor {
-    pub x: u16,
-    pub y: u16,
+use grid::index::{Cursor, Column, Line};
+
+trait CursorExt {
+    fn goto(&mut self, Line, Column);
+    fn advance(&mut self, Line, Column);
 }
 
-impl Default for Cursor {
-    fn default() -> Cursor {
-        Cursor { x: 0, y: 0 }
-    }
-}
-
-impl Cursor {
-    pub fn goto(&mut self, x: u16, y: u16) {
-        self.x = x;
-        self.y = y;
+impl CursorExt for Cursor {
+    fn goto(&mut self, line: Line, col: Column) {
+        self.col = col;
+        self.line = line;
     }
 
-    pub fn advance(&mut self, rows: i64, cols: i64) {
-        self.x = (self.x as i64 + cols) as u16;
-        self.y = (self.y as i64 + rows) as u16;
+    fn advance(&mut self, lines: Line, cols: Column) {
+        self.col = self.col + cols;
+        self.line = self.line + lines;
     }
 }
 
 pub struct Term {
     /// The grid
-    grid: Grid,
+    grid: Grid<Cell>,
 
     /// Alternate grid
-    alt_grid: Grid,
+    alt_grid: Grid<Cell>,
 
     /// Alt is active
     alt: bool,
@@ -132,13 +170,13 @@ pub struct Term {
     tabs: Vec<bool>,
 
     /// Cell attributes
-    attr: grid::CellFlags,
+    attr: cell::Flags,
 
     /// Mode flags
     mode: TermMode,
 
     /// Scroll region
-    scroll_region: Range<usize>,
+    scroll_region: Range<Line>,
 
     /// Size
     size_info: SizeInfo,
@@ -162,13 +200,13 @@ pub struct SizeInfo {
 
 impl SizeInfo {
     #[inline]
-    pub fn rows(&self) -> usize {
-        (self.height / self.cell_height) as usize
+    pub fn lines(&self) -> Line {
+        Line((self.height / self.cell_height) as usize)
     }
 
     #[inline]
-    pub fn cols(&self) -> usize {
-        (self.width / self.cell_width) as usize
+    pub fn cols(&self) -> Column {
+        Column((self.width / self.cell_width) as usize)
     }
 }
 
@@ -182,21 +220,21 @@ impl Term {
         };
 
         let num_cols = size.cols();
-        let num_rows = size.rows();
+        let num_lines = size.lines();
 
-        println!("num_cols, num_rows = {}, {}", num_cols, num_rows);
+        println!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
-        let grid = Grid::new(num_rows, num_cols);
+        let grid = Grid::new(num_lines, num_cols, &Cell::new(' '));
 
-        let tty = tty::new(num_rows as u8, num_cols as u8);
-        tty.resize(num_rows, num_cols, size.width as usize, size.height as usize);
+        let tty = tty::new(*num_lines as u8, *num_cols as u8);
+        tty.resize(*num_lines as usize, *num_cols as usize, size.width as usize, size.height as usize);
 
-        let mut tabs = (0..grid.num_cols()).map(|i| i % TAB_SPACES == 0)
-                                       .collect::<Vec<bool>>();
+        let mut tabs = (Column(0)..grid.num_cols()).map(|i| (*i as usize) % TAB_SPACES == 0)
+                                                   .collect::<Vec<bool>>();
         tabs[0] = false;
 
         let alt = grid.clone();
-        let scroll_region = 0..grid.num_rows();
+        let scroll_region = Line(0)..grid.num_lines();
 
         Term {
             grid: grid,
@@ -208,7 +246,7 @@ impl Term {
             bg: DEFAULT_BG,
             tty: tty,
             tabs: tabs,
-            attr: CellFlags::empty(),
+            attr: cell::Flags::empty(),
             mode: Default::default(),
             scroll_region: scroll_region,
             size_info: size
@@ -225,52 +263,51 @@ impl Term {
         };
 
         let old_cols = self.size_info.cols();
-        let old_rows = self.size_info.rows();
+        let old_lines = self.size_info.lines();
         let num_cols = size.cols();
-        let num_rows = size.rows();
+        let num_lines = size.lines();
 
         self.size_info = size;
 
-        if old_cols == num_cols && old_rows == num_rows {
+        if old_cols == num_cols && old_lines == num_lines {
             return;
         }
 
         // Scroll up to keep cursor and as much context as possible in grid. This only runs when the
-        // rows decreases.
-        self.scroll_region = 0..self.grid.num_rows();
-        // XXX why is +1 required?
-        let row_diff = (self.cursor_y() as isize - num_rows as isize) + 1;
-        if row_diff > 0 {
-            self.scroll(row_diff);
-            self.cursor.advance(-row_diff as i64, 0);
+        // lines decreases.
+        self.scroll_region = Line(0)..self.grid.num_lines();
+
+        // Scroll up to keep cursor in terminal
+        if self.cursor.line >= num_lines {
+            let lines = self.cursor.line - num_lines + 1;
+            self.scroll(lines, ScrollDirection::Down);
+            self.cursor.line -= lines;
         }
 
-        println!("num_cols, num_rows = {}, {}", num_cols, num_rows);
+        println!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         // Resize grids to new size
-        self.grid.resize(num_rows, num_cols);
-        self.alt_grid.resize(num_rows, num_cols);
+        self.grid.resize(num_lines, num_cols, &Cell::new(' '));
+        self.alt_grid.resize(num_lines, num_cols, &Cell::new(' '));
 
         // Ensure cursor is in-bounds
-        self.cursor.y = limit(self.cursor.y, 0, num_rows as u16);
-        self.cursor.x = limit(self.cursor.x, 0, num_cols as u16);
+        self.cursor.line = limit(self.cursor.line, Line(0), num_lines);
+        self.cursor.col = limit(self.cursor.col, Column(0), num_cols);
 
         // Recreate tabs list
-        self.tabs = (0..self.grid.num_cols()).map(|i| i % TAB_SPACES == 0)
-                                             .collect::<Vec<bool>>();
+        self.tabs = (Column(0)..self.grid.num_cols()).map(|i| (*i as usize) % TAB_SPACES == 0)
+                                                     .collect::<Vec<bool>>();
 
         // Make sure bottom of terminal is clear
-        if row_diff > 0 {
-            self.grid.clear_region((self.cursor.y as usize)..);
-            self.alt_grid.clear_region((self.cursor.y as usize)..);
-        }
+        self.grid.clear_region((self.cursor.line).., |c| c.reset());
+        self.alt_grid.clear_region((self.cursor.line).., |c| c.reset());
 
         // Reset scrolling region to new size
-        self.scroll_region = 0..self.grid.num_rows();
+        self.scroll_region = Line(0)..self.grid.num_lines();
 
         // Inform tty of new dimensions
-        self.tty.resize(num_rows,
-                        num_cols,
+        self.tty.resize(*num_lines as _,
+                        *num_cols as _,
                         self.size_info.width as usize,
                         self.size_info.height as usize);
 
@@ -286,7 +323,8 @@ impl Term {
         &self.size_info
     }
 
-    pub fn grid(&self) -> &Grid {
+    #[inline]
+    pub fn grid(&self) -> &Grid<Cell> {
         &self.grid
     }
 
@@ -301,38 +339,28 @@ impl Term {
         ::std::mem::swap(&mut self.cursor, &mut self.alt_cursor);
 
         if self.alt {
-            self.grid.clear();
+            self.grid.clear(|c| c.reset());
         }
     }
 
     #[inline]
-    pub fn cursor_x(&self) -> u16 {
-        self.cursor.x
-    }
-
-    #[inline]
-    pub fn cursor_y(&self) -> u16 {
-        self.cursor.y
-    }
-
-    #[inline]
-    pub fn cursor(&self) -> Cursor {
-        self.cursor
+    pub fn cursor(&self) -> &Cursor {
+        &self.cursor
     }
 
     /// Set character in current cursor position
     fn set_char(&mut self, c: char) {
-        if self.cursor.x == self.grid.num_cols() as u16 {
+        if self.cursor.col == self.grid.num_cols() {
             println!("wrapping");
-            self.cursor.y += 1;
-            self.cursor.x = 0;
+            self.cursor.line += 1;
+            self.cursor.col = Column(0);
         }
 
-        if self.cursor.y == self.grid.num_rows() as u16 {
+        if self.cursor.line == self.grid.num_lines() {
             panic!("cursor fell off grid");
         }
 
-        let cell = &mut self.grid[self.cursor];
+        let cell = &mut self.grid[&self.cursor];
         cell.c = c;
         cell.fg = self.fg;
         cell.bg = self.bg;
@@ -340,17 +368,44 @@ impl Term {
     }
 
     /// Convenience function for scrolling
-    fn scroll(&mut self, count: isize) {
-        println!("[TERM] scrolling {} lines", count);
-        self.grid.scroll(self.scroll_region.clone(), count);
-        if count > 0 {
-            // Scrolled down, so need to clear from bottom
-            let start = self.scroll_region.end - (count as usize);
-            self.grid.clear_region(start..self.scroll_region.end);
-        } else {
-            // Scrolled up, clear from top
-            let end = self.scroll_region.start + ((-count) as usize);
-            self.grid.clear_region(self.scroll_region.start..end);
+    fn scroll(&mut self, lines: Line, direction: ScrollDirection) {
+        println!("[TERM] scrolling {} {} lines", direction, lines);
+        match direction {
+            ScrollDirection::Down => {
+                // Scrolled down, so need to clear from bottom
+                self.grid.scroll(self.scroll_region.clone(), *lines as isize);
+                let start = self.scroll_region.end - lines;
+                self.grid.clear_region(start..self.scroll_region.end, |c| c.reset());
+            },
+            ScrollDirection::Up => {
+                // Scrolled up, clear from top
+                self.grid.scroll(self.scroll_region.clone(), -(*lines as isize));
+                let end = self.scroll_region.start + lines;
+                self.grid.clear_region(self.scroll_region.start..end, |c| c.reset());
+            }
+        }
+    }
+}
+
+/// Which direction to scroll
+#[derive(Debug)]
+enum ScrollDirection {
+    /// Scroll up
+    ///
+    /// Lines move down
+    Up,
+
+    /// Scroll down
+    ///
+    /// Lines move up
+    Down,
+}
+
+impl fmt::Display for ScrollDirection {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ScrollDirection::Up => write!(f, "up"),
+            ScrollDirection::Down => write!(f, "down"),
         }
     }
 }
@@ -358,12 +413,12 @@ impl Term {
 impl ansi::TermInfo for Term {
     #[inline]
     fn rows(&self) -> usize {
-        self.grid.num_rows()
+        *self.grid.num_lines() as usize
     }
 
     #[inline]
     fn cols(&self) -> usize {
-        self.grid.num_cols()
+        *self.grid.num_cols() as usize
     }
 }
 
@@ -372,90 +427,90 @@ impl ansi::Handler for Term {
     #[inline]
     fn input(&mut self, c: char) {
         self.set_char(c);
-        self.cursor.x += 1;
+        self.cursor.col += 1;
     }
 
+    #[inline]
     fn goto(&mut self, x: i64, y: i64) {
         println!("goto: x={}, y={}", x, y);
-        self.cursor.goto(x as u16, y as u16);
+        self.cursor.goto(Line(y as usize), Column(x as usize));
     }
-    fn goto_row(&mut self, y: i64) {
-        println!("goto_row: {}", y);
-        let x = self.cursor_x();
-        self.cursor.goto(x, y as u16);
+
+    fn goto_row(&mut self, row: i64) {
+        println!("goto_row: {}", row);
+        self.cursor.line = Line(row as usize);
     }
-    fn goto_col(&mut self, x: i64) {
-        println!("goto_col: {}", x);
-        let y = self.cursor_y();
-        self.cursor.goto(x as u16, y);
+    fn goto_col(&mut self, col: i64) {
+        println!("goto_col: {}", col);
+        self.cursor.col = Column(col as usize);
     }
 
     fn insert_blank(&mut self, num: i64) { println!("insert_blank: {}", num); }
 
     fn move_up(&mut self, rows: i64) {
         println!("move_up: {}", rows);
-        self.cursor.advance(-rows, 0);
+        self.cursor.line -= Line(rows as usize);
     }
 
     fn move_down(&mut self, rows: i64) {
         println!("move_down: {}", rows);
-        self.cursor.advance(rows, 0);
+        self.cursor.line += Line(rows as usize);
     }
 
     fn move_forward(&mut self, cols: i64) {
         println!("move_forward: {}", cols);
-        self.cursor.advance(0, cols);
+        self.cursor.col += Column(cols as usize);
     }
 
     fn move_backward(&mut self, spaces: i64) {
         println!("move_backward: {}", spaces);
-        self.cursor.advance(0, -spaces);
+        self.cursor.col -= Column(spaces as usize);
     }
 
     fn identify_terminal(&mut self) { println!("identify_terminal"); }
     fn move_down_and_cr(&mut self, rows: i64) { println!("move_down_and_cr: {}", rows); }
     fn move_up_and_cr(&mut self, rows: i64) { println!("move_up_and_cr: {}", rows); }
+
     fn put_tab(&mut self, mut count: i64) {
         println!("put_tab: {}", count);
 
-        let mut x = self.cursor_x();
-        while x < self.grid.num_cols() as u16 && count != 0 {
+        let mut col = self.cursor.col;
+        while col < self.grid.num_cols() && count != 0 {
             count -= 1;
             loop {
-                if x == self.grid.num_cols() as u16 || self.tabs[x as usize] {
+                if col == self.grid.num_cols() || self.tabs[*col as usize] {
                     break;
                 }
-                x += 1;
+                col += 1;
             }
         }
 
-        self.cursor.x = x;
+        self.cursor.col = col;
     }
 
     /// Backspace `count` characters
     #[inline]
     fn backspace(&mut self) {
         println!("backspace");
-        self.cursor.x -= 1;
+        self.cursor.col -= 1;
     }
 
     /// Carriage return
     #[inline]
     fn carriage_return(&mut self) {
         println!("carriage_return");
-        self.cursor.x = 0;
+        self.cursor.col = Column(0);
     }
 
     /// Linefeed
     #[inline]
     fn linefeed(&mut self) {
         println!("linefeed");
-        // TODO handle scroll? not clear what parts of this the pty handle
-        if self.cursor_y() + 1 >= self.scroll_region.end as u16 {
-            self.scroll(1);
+        if self.cursor.line + 1 >= self.scroll_region.end {
+            self.scroll(Line(1), ScrollDirection::Down);
             self.clear_line(ansi::LineClearMode::Right);
         } else {
-            self.cursor.y += 1;
+            self.cursor.line += 1;
         }
     }
 
@@ -466,31 +521,30 @@ impl ansi::Handler for Term {
     fn set_horizontal_tabstop(&mut self) { println!("set_horizontal_tabstop"); }
     fn scroll_up(&mut self, rows: i64) {
         println!("scroll_up: {}", rows);
-        self.scroll(rows as isize);
+        self.scroll(Line(rows as usize), ScrollDirection::Up);
     }
     fn scroll_down(&mut self, rows: i64) {
         println!("scroll_down: {}", rows);
-        self.scroll(-rows as isize);
+        self.scroll(Line(rows as usize), ScrollDirection::Down);
     }
     fn insert_blank_lines(&mut self, count: i64) {
         println!("insert_blank_lines: {}", count);
-        if self.scroll_region.contains(self.cursor_y() as usize) {
-            self.scroll(-count as isize);
+        if self.scroll_region.contains(self.cursor.line) {
+            self.scroll(Line(count as usize), ScrollDirection::Down);
         }
     }
     fn delete_lines(&mut self, count: i64) {
-        if self.scroll_region.contains(self.cursor_y() as usize) {
-            self.scroll(count as isize);
+        if self.scroll_region.contains(self.cursor.line) {
+            self.scroll(Line(count as usize), ScrollDirection::Up);
         }
     }
     fn erase_chars(&mut self, count: i64) {
         println!("erase_chars: {}", count);
-        let row_index = self.cursor.y as usize;
-        let col_index = self.cursor.x as usize;
+        let col_index = self.cursor.col;
         let count = count as usize;
 
-        let row = &mut self.grid[row_index];
-        for c in &mut row[col_index..(count + col_index)] {
+        let row = &mut self.grid[self.cursor.line];
+        for c in &mut row[self.cursor.col..(col_index + count)] {
             c.reset();
         }
     }
@@ -503,9 +557,8 @@ impl ansi::Handler for Term {
         println!("clear_line: {:?}", mode);
         match mode {
             ansi::LineClearMode::Right => {
-                let row = &mut self.grid[self.cursor.y as usize];
-                let start = self.cursor.x as usize;
-                for cell in &mut row[start..] {
+                let row = &mut self.grid[self.cursor.line];
+                for cell in &mut row[self.cursor.col..] {
                     cell.reset();
                 }
             },
@@ -516,17 +569,17 @@ impl ansi::Handler for Term {
         println!("clear_screen: {:?}", mode);
         match mode {
             ansi::ClearMode::Below => {
-                let start = self.cursor_y() as usize;
-                let end = self.grid.num_rows();
-                for i in start..end {
-                    let row = &mut self.grid[i];
+                let start = self.cursor.line;
+                let end = self.grid.num_lines();
+
+                for row in &mut self.grid[start..end] {
                     for cell in row {
                         cell.reset();
                     }
                 }
             },
             ansi::ClearMode::All => {
-                self.grid.clear();
+                self.grid.clear(|c| c.reset());
             },
             _ => {
                 panic!("ansi::ClearMode::Above not implemented");
@@ -538,13 +591,10 @@ impl ansi::Handler for Term {
     fn reverse_index(&mut self) {
         println!("reverse_index");
         // if cursor is at the top
-        if self.cursor.y == 0 {
-            self.scroll(-1);
+        if self.cursor.col == Column(0) {
+            self.scroll(Line(1), ScrollDirection::Up);
         } else {
-            // can't wait for nonlexical lifetimes.. omg borrowck
-            let x = self.cursor.x;
-            let y = self.cursor.y;
-            self.cursor.goto(x, y - 1);
+            self.cursor.col -= 1;
         }
     }
 
@@ -572,16 +622,16 @@ impl ansi::Handler for Term {
             Attr::Reset => {
                 self.fg = DEFAULT_FG;
                 self.bg = DEFAULT_BG;
-                self.attr = CellFlags::empty();
+                self.attr = cell::Flags::empty();
             },
-            Attr::Reverse => self.attr.insert(grid::INVERSE),
-            Attr::CancelReverse => self.attr.remove(grid::INVERSE),
-            Attr::Bold => self.attr.insert(grid::BOLD),
-            Attr::CancelBoldDim => self.attr.remove(grid::BOLD),
-            Attr::Italic => self.attr.insert(grid::ITALIC),
-            Attr::CancelItalic => self.attr.remove(grid::ITALIC),
-            Attr::Underscore => self.attr.insert(grid::UNDERLINE),
-            Attr::CancelUnderline => self.attr.remove(grid::UNDERLINE),
+            Attr::Reverse => self.attr.insert(cell::INVERSE),
+            Attr::CancelReverse => self.attr.remove(cell::INVERSE),
+            Attr::Bold => self.attr.insert(cell::BOLD),
+            Attr::CancelBoldDim => self.attr.remove(cell::BOLD),
+            Attr::Italic => self.attr.insert(cell::ITALIC),
+            Attr::CancelItalic => self.attr.remove(cell::ITALIC),
+            Attr::Underscore => self.attr.insert(cell::UNDERLINE),
+            Attr::CancelUnderline => self.attr.remove(cell::UNDERLINE),
             _ => {
                 println!("Term got unhandled attr: {:?}", attr);
             }
@@ -615,6 +665,6 @@ impl ansi::Handler for Term {
     fn set_scrolling_region(&mut self, top: i64, bot: i64) {
         println!("set scroll region: {:?} - {:?}", top, bot);
         // 1 is added to bottom for inclusive range
-        self.scroll_region = (top as usize)..((bot as usize) + 1);
+        self.scroll_region = Line(top as usize)..Line((bot as usize) + 1);
     }
 }

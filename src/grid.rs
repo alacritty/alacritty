@@ -11,160 +11,362 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-//! Functions for computing properties of the terminal grid
 
-use std::ops::{Index, IndexMut, Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull};
+//! A generic 2d grid implementation optimized for use in a terminal.
+//!
+//! The current implementation uses a vector of vectors to store cell data.
+//! Reimplementing the store as a single contiguous vector may be desirable in
+//! the future. Rotation and indexing would need to be reconsidered at that
+//! time; rotation currently reorganize Vecs in the lines Vec, and indexing with
+//! ranges is currently supported.
+
+use std::ops::{Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull, Index, IndexMut};
 use std::cmp::Ordering;
 use std::slice::{self, Iter, IterMut};
 use std::iter::IntoIterator;
+use std::borrow::ToOwned;
 
 use util::Rotate;
 
-use term::{Cursor, DEFAULT_FG, DEFAULT_BG};
-use ::Rgb;
+/// Indexing types and implementations for Grid and Line
+pub mod index {
+    use std::fmt;
+    use std::iter::Step;
+    use std::num::{One, Zero};
+    use std::ops::{self, Deref, Add};
 
-#[derive(Clone, Debug)]
-pub struct Cell {
-    pub c: char,
-    pub fg: Rgb,
-    pub bg: Rgb,
-    pub flags: CellFlags,
-}
-
-bitflags! {
-    pub flags CellFlags: u32 {
-        const INVERSE   = 0b00000001,
-        const BOLD      = 0b00000010,
-        const ITALIC    = 0b00000100,
-        const UNDERLINE = 0b00001000,
+    /// Index in the grid using row, column notation
+    #[derive(Debug, Clone, Default, Eq, PartialEq)]
+    pub struct Cursor {
+        pub line: Line,
+        pub col: Column,
     }
-}
 
-impl Cell {
-    pub fn new(c: char) -> Cell {
-        Cell {
-            c: c.into(),
-            bg: Default::default(),
-            fg: Default::default(),
-            flags: CellFlags::empty(),
+    /// A line
+    ///
+    /// Newtype to avoid passing values incorrectly
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+    pub struct Line(pub usize);
+
+    impl fmt::Display for Line {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "Line({})", self.0)
         }
     }
 
-    pub fn reset(&mut self) {
-        self.c = ' ';
-        self.flags = CellFlags::empty();
+    /// A column
+    ///
+    /// Newtype to avoid passing values incorrectly
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+    pub struct Column(pub usize);
 
-        // FIXME shouldn't know about term
-        self.bg = DEFAULT_BG;
-        self.fg = DEFAULT_FG;
+    impl fmt::Display for Column {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "Column({})", self.0)
+        }
     }
+
+    /// Copyright 2015 The Rust Project Developers. See the COPYRIGHT
+    /// file at the top-level directory of this distribution and at
+    /// http://rust-lang.org/COPYRIGHT.
+    ///
+    /// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+    /// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+    /// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+    /// option. This file may not be copied, modified, or distributed
+    /// except according to those terms.
+    ///
+    /// implements binary operators "&T op U", "T op &U", "&T op &U"
+    /// based on "T op U" where T and U are expected to be `Copy`able
+    macro_rules! forward_ref_binop {
+        (impl $imp:ident, $method:ident for $t:ty, $u:ty) => {
+            impl<'a> $imp<$u> for &'a $t {
+                type Output = <$t as $imp<$u>>::Output;
+
+                #[inline]
+                fn $method(self, other: $u) -> <$t as $imp<$u>>::Output {
+                    $imp::$method(*self, other)
+                }
+            }
+
+            impl<'a> $imp<&'a $u> for $t {
+                type Output = <$t as $imp<$u>>::Output;
+
+                #[inline]
+                fn $method(self, other: &'a $u) -> <$t as $imp<$u>>::Output {
+                    $imp::$method(self, *other)
+                }
+            }
+
+            impl<'a, 'b> $imp<&'a $u> for &'b $t {
+                type Output = <$t as $imp<$u>>::Output;
+
+                #[inline]
+                fn $method(self, other: &'a $u) -> <$t as $imp<$u>>::Output {
+                    $imp::$method(*self, *other)
+                }
+            }
+        }
+    }
+
+    /// Macro for deriving deref
+    macro_rules! deref {
+        ($ty:ty, $target:ty) => {
+            impl Deref for $ty {
+                type Target = $target;
+
+                #[inline]
+                fn deref(&self) -> &$target {
+                    &self.0
+                }
+            }
+        }
+    }
+
+    macro_rules! add {
+        ($ty:ty, $construct:expr) => {
+            impl ops::Add<$ty> for $ty {
+                type Output = $ty;
+
+                #[inline]
+                fn add(self, rhs: $ty) -> $ty {
+                    $construct(self.0 + rhs.0)
+                }
+            }
+        }
+    }
+
+    macro_rules! sub {
+        ($ty:ty, $construct:expr) => {
+            impl ops::Sub<$ty> for $ty {
+                type Output = $ty;
+
+                #[inline]
+                fn sub(self, rhs: $ty) -> $ty {
+                    $construct(self.0 - rhs.0)
+                }
+            }
+        }
+    }
+
+    macro_rules! zero_one {
+        ($ty:ty, $construct:expr) => {
+            impl One for $ty {
+                fn one() -> $ty {
+                    $construct(1)
+                }
+            }
+
+            impl Zero for $ty {
+                fn zero() -> $ty {
+                    $construct(0)
+                }
+            }
+        }
+    }
+
+    macro_rules! ops {
+        ($ty:ty, $construct:expr) => {
+            add!($ty, $construct);
+            sub!($ty, $construct);
+            zero_one!($ty, $construct);
+            deref!($ty, usize);
+            forward_ref_binop!(impl Add, add for $ty, $ty);
+
+            impl Step for $ty {
+                fn step(&self, by: &$ty) -> Option<$ty> {
+                    Some(*self + *by)
+                }
+
+                #[inline]
+                #[allow(trivial_numeric_casts)]
+                fn steps_between(start: &$ty, end: &$ty, by: &$ty) -> Option<usize> {
+                    if *by == $construct(0) { return None; }
+                    if *start < *end {
+                        // Note: We assume $t <= usize here
+                        let diff = (*end - *start).0;
+                        let by = by.0;
+                        if diff % by > 0 {
+                            Some(diff / by + 1)
+                        } else {
+                            Some(diff / by)
+                        }
+                    } else {
+                        Some(0)
+                    }
+                }
+            }
+
+            impl ops::AddAssign<$ty> for $ty {
+                #[inline]
+                fn add_assign(&mut self, rhs: $ty) {
+                    self.0 += rhs.0
+                }
+            }
+
+            impl ops::SubAssign<$ty> for $ty {
+                #[inline]
+                fn sub_assign(&mut self, rhs: $ty) {
+                    self.0 -= rhs.0
+                }
+            }
+
+            impl ops::AddAssign<usize> for $ty {
+                #[inline]
+                fn add_assign(&mut self, rhs: usize) {
+                    self.0 += rhs
+                }
+            }
+
+            impl ops::SubAssign<usize> for $ty {
+                #[inline]
+                fn sub_assign(&mut self, rhs: usize) {
+                    self.0 -= rhs
+                }
+            }
+
+            impl From<usize> for $ty {
+                #[inline]
+                fn from(val: usize) -> $ty {
+                    $construct(val)
+                }
+            }
+
+            impl ops::Add<usize> for $ty {
+                type Output = $ty;
+
+                #[inline]
+                fn add(self, rhs: usize) -> $ty {
+                    $construct(self.0 + rhs)
+                }
+            }
+
+            impl ops::Sub<usize> for $ty {
+                type Output = $ty;
+
+                #[inline]
+                fn sub(self, rhs: usize) -> $ty {
+                    $construct(self.0 - rhs)
+                }
+            }
+        }
+    }
+
+    ops!(Line, Line);
+    ops!(Column, Column);
 }
+
+use self::index::Cursor;
 
 /// Represents the terminal display contents
 #[derive(Clone)]
-pub struct Grid {
-    /// Rows in the grid. Each row holds a list of cells corresponding to the columns in that row.
-    raw: Vec<Row>,
+pub struct Grid<T> {
+    /// Lines in the grid. Each row holds a list of cells corresponding to the
+    /// columns in that row.
+    raw: Vec<Row<T>>,
 
     /// Number of columns
-    cols: usize,
+    cols: index::Column,
 
-    /// Number of rows.
+    /// Number of lines.
     ///
-    /// Invariant: rows is equivalent to cells.len()
-    rows: usize,
+    /// Invariant: lines is equivalent to raw.len()
+    lines: index::Line,
 }
 
-impl Grid {
-    pub fn new(rows: usize, cols: usize) -> Grid {
-        let mut raw = Vec::with_capacity(rows);
-        for _ in 0..rows {
-            raw.push(Row::new(cols));
+impl<T: Clone> Grid<T> {
+    pub fn new(lines: index::Line, cols: index::Column, template: &T) -> Grid<T> {
+        let mut raw = Vec::with_capacity(*lines);
+        for _ in index::Line(0)..lines {
+            raw.push(Row::new(cols, template));
         }
 
         Grid {
             raw: raw,
             cols: cols,
-            rows: rows,
+            lines: lines,
         }
     }
 
-    #[inline]
-    pub fn rows(&self) -> Iter<Row> {
-        self.raw.iter()
-    }
-
-    #[inline]
-    pub fn rows_mut(&mut self) -> IterMut<Row> {
-        self.raw.iter_mut()
-    }
-
-    #[inline]
-    pub fn num_rows(&self) -> usize {
-        self.raw.len()
-    }
-
-    #[inline]
-    pub fn num_cols(&self) -> usize {
-        self.raw[0].len()
-    }
-
-    pub fn scroll(&mut self, region: Range<usize>, positions: isize) {
-        self.raw[region].rotate(positions)
-    }
-
-    #[inline]
-    pub fn clear(&mut self) {
-        let region = 0..self.num_rows();
-        self.clear_region(region);
-    }
-
-    pub fn resize(&mut self, rows: usize, cols: usize) {
+    pub fn resize(&mut self, lines: index::Line, cols: index::Column, template: &T) {
         // Check that there's actually work to do and return early if not
-        if rows == self.rows && cols == self.cols {
+        if lines == self.lines && cols == self.cols {
             return;
         }
 
-        match self.rows.cmp(&rows) {
-            Ordering::Less => self.grow_rows(rows),
-            Ordering::Greater => self.shrink_rows(rows),
+        match self.lines.cmp(&lines) {
+            Ordering::Less => self.grow_lines(lines, template),
+            Ordering::Greater => self.shrink_lines(lines),
             Ordering::Equal => (),
         }
 
         match self.cols.cmp(&cols) {
-            Ordering::Less => self.grow_cols(cols),
+            Ordering::Less => self.grow_cols(cols, template),
             Ordering::Greater => self.shrink_cols(cols),
             Ordering::Equal => (),
         }
     }
 
-    fn grow_rows(&mut self, rows: usize) {
-        for _ in self.num_rows()..rows {
-            self.raw.push(Row::new(self.cols));
+    fn grow_lines(&mut self, lines: index::Line, template: &T) {
+        for _ in self.num_lines()..lines {
+            self.raw.push(Row::new(self.cols, template));
         }
 
-        self.rows = rows;
+        self.lines = lines;
     }
 
-    fn shrink_rows(&mut self, rows: usize) {
-        while self.raw.len() != rows {
-            self.raw.pop();
-        }
-
-        self.rows = rows;
-    }
-
-    fn grow_cols(&mut self, cols: usize) {
-        for row in self.rows_mut() {
-            row.grow(cols);
+    fn grow_cols(&mut self, cols: index::Column, template: &T) {
+        for row in self.lines_mut() {
+            row.grow(cols, template);
         }
 
         self.cols = cols;
     }
 
-    fn shrink_cols(&mut self, cols: usize) {
-        for row in self.rows_mut() {
+}
+
+impl<T> Grid<T> {
+    #[inline]
+    pub fn lines(&self) -> Iter<Row<T>> {
+        self.raw.iter()
+    }
+
+    #[inline]
+    pub fn lines_mut(&mut self) -> IterMut<Row<T>> {
+        self.raw.iter_mut()
+    }
+
+    #[inline]
+    pub fn num_lines(&self) -> index::Line {
+        index::Line(self.raw.len())
+    }
+
+    #[inline]
+    pub fn num_cols(&self) -> index::Column {
+        index::Column(self.raw[0].len())
+    }
+
+    #[inline]
+    pub fn scroll(&mut self, region: Range<index::Line>, positions: isize) {
+        self[region].rotate(positions)
+    }
+
+    #[inline]
+    pub fn clear<F: Fn(&mut T)>(&mut self, func: F) {
+        let region = index::Line(0)..self.num_lines();
+        self.clear_region(region, func);
+    }
+
+    fn shrink_lines(&mut self, lines: index::Line) {
+        while index::Line(self.raw.len()) != lines {
+            self.raw.pop();
+        }
+
+        self.lines = lines;
+    }
+
+    fn shrink_cols(&mut self, cols: index::Column) {
+        for row in self.lines_mut() {
             row.shrink(cols);
         }
 
@@ -172,128 +374,138 @@ impl Grid {
     }
 }
 
-impl Index<usize> for Grid {
-    type Output = Row;
+impl<T> Index<index::Line> for Grid<T> {
+    type Output = Row<T>;
 
     #[inline]
-    fn index<'a>(&'a self, index: usize) -> &'a Row {
-        &self.raw[index]
+    fn index<'a>(&'a self, index: index::Line) -> &'a Row<T> {
+        &self.raw[index.0]
     }
 }
 
-impl IndexMut<usize> for Grid {
+impl<T> IndexMut<index::Line> for Grid<T> {
     #[inline]
-    fn index_mut<'a>(&'a mut self, index: usize) -> &'a mut Row {
-        &mut self.raw[index]
+    fn index_mut<'a>(&'a mut self, index: index::Line) -> &'a mut Row<T> {
+        &mut self.raw[index.0]
     }
 }
 
-impl Index<Cursor> for Grid {
-    type Output = Cell;
+impl<'cursor, T> Index<&'cursor Cursor> for Grid<T> {
+    type Output = T;
 
     #[inline]
-    fn index<'a>(&'a self, cursor: Cursor) -> &'a Cell {
-        &self.raw[cursor.y as usize][cursor.x as usize]
+    fn index<'a, 'b>(&'a self, cursor: &'b Cursor) -> &'a T {
+        &self.raw[cursor.line.0][cursor.col]
     }
 }
 
-impl IndexMut<Cursor> for Grid {
+impl<'cursor, T> IndexMut<&'cursor Cursor> for Grid<T> {
     #[inline]
-    fn index_mut<'a>(&'a mut self, cursor: Cursor) -> &'a mut Cell {
-        &mut self.raw[cursor.y as usize][cursor.x as usize]
+    fn index_mut<'a, 'b>(&'a mut self, cursor: &'b Cursor) -> &'a mut T {
+        &mut self.raw[cursor.line.0][cursor.col]
     }
 }
 
 /// A row in the grid
-#[derive(Debug, Clone)]
-pub struct Row(Vec<Cell>);
+#[derive(Clone)]
+pub struct Row<T>(Vec<T>);
 
-impl Row {
-    pub fn new(columns: usize) -> Row {
-        Row(vec![Cell::new(' '); columns])
+impl<T: Clone> Row<T> {
+    pub fn new(columns: index::Column, template: &T) -> Row<T> {
+        Row(vec![template.to_owned(); *columns])
     }
 
-    pub fn grow(&mut self, cols: usize) {
-        while self.len() != cols {
-            self.push(Cell::new(' '));
+    pub fn grow(&mut self, cols: index::Column, template: &T) {
+        while self.len() != *cols {
+            self.push(template.to_owned());
         }
     }
+}
 
-    pub fn shrink(&mut self, cols: usize) {
-        while self.len() != cols {
+impl<T> Row<T> {
+    pub fn shrink(&mut self, cols: index::Column) {
+        while self.len() != *cols {
             self.pop();
         }
     }
 
-    pub fn cells(&self) -> Iter<Cell> {
+    #[inline]
+    pub fn cells(&self) -> Iter<T> {
         self.0.iter()
     }
 
-    pub fn cells_mut(&mut self) -> IterMut<Cell> {
+    #[inline]
+    pub fn cells_mut(&mut self) -> IterMut<T> {
         self.0.iter_mut()
     }
 }
 
-impl<'a> IntoIterator for &'a Row {
-    type Item = &'a Cell;
-    type IntoIter = slice::Iter<'a, Cell>;
+impl<'a, T> IntoIterator for &'a Row<T> {
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
 
-    fn into_iter(self) -> slice::Iter<'a, Cell> {
+    #[inline]
+    fn into_iter(self) -> slice::Iter<'a, T> {
         self.iter()
     }
 }
 
-impl<'a> IntoIterator for &'a mut Row {
-    type Item = &'a mut Cell;
-    type IntoIter = slice::IterMut<'a, Cell>;
+impl<'a, T> IntoIterator for &'a mut Row<T> {
+    type Item = &'a mut T;
+    type IntoIter = slice::IterMut<'a, T>;
 
-    fn into_iter(mut self) -> slice::IterMut<'a, Cell> {
+    #[inline]
+    fn into_iter(mut self) -> slice::IterMut<'a, T> {
         self.iter_mut()
     }
 }
 
-impl Deref for Row {
-    type Target = Vec<Cell>;
+impl<T> Deref for Row<T> {
+    type Target = Vec<T>;
+
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for Row {
+impl<T> DerefMut for Row<T> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl Index<usize> for Row {
-    type Output = Cell;
+impl<T> Index<index::Column> for Row<T> {
+    type Output = T;
 
     #[inline]
-    fn index<'a>(&'a self, index: usize) -> &'a Cell {
-        &self.0[index]
+    fn index<'a>(&'a self, index: index::Column) -> &'a T {
+        &self.0[index.0]
     }
 }
 
-impl IndexMut<usize> for Row {
+impl<T> IndexMut<index::Column> for Row<T> {
     #[inline]
-    fn index_mut<'a>(&'a mut self, index: usize) -> &'a mut Cell {
-        &mut self.0[index]
+    fn index_mut<'a>(&'a mut self, index: index::Column) -> &'a mut T {
+        &mut self.0[index.0]
     }
 }
 
 macro_rules! row_index_range {
     ($range:ty) => {
-        impl Index<$range> for Row {
-            type Output = [Cell];
+        impl<T> Index<$range> for Row<T> {
+            type Output = [T];
+
             #[inline]
-            fn index<'a>(&'a self, index: $range) -> &'a [Cell] {
+            fn index<'a>(&'a self, index: $range) -> &'a [T] {
                 &self.0[index]
             }
         }
 
-        impl IndexMut<$range> for Row {
+        impl<T> IndexMut<$range> for Row<T> {
             #[inline]
-            fn index_mut<'a>(&'a mut self, index: $range) -> &'a mut [Cell] {
+            fn index_mut<'a>(&'a mut self, index: $range) -> &'a mut [T] {
                 &mut self.0[index]
             }
         }
@@ -305,17 +517,121 @@ row_index_range!(RangeTo<usize>);
 row_index_range!(RangeFrom<usize>);
 row_index_range!(RangeFull);
 
-pub trait ClearRegion<T> {
-    fn clear_region(&mut self, region: T);
+// -------------------------------------------------------------------------------------------------
+// Row ranges for Grid
+// -------------------------------------------------------------------------------------------------
+
+impl<T> Index<Range<index::Line>> for Grid<T> {
+    type Output = [Row<T>];
+
+    #[inline]
+    fn index(&self, index: Range<index::Line>) -> &[Row<T>] {
+        &self.raw[(index.start.0)..(index.end.0)]
+    }
+}
+
+impl<T> IndexMut<Range<index::Line>> for Grid<T> {
+    #[inline]
+    fn index_mut(&mut self, index: Range<index::Line>) -> &mut [Row<T>] {
+        &mut self.raw[(index.start.0)..(index.end.0)]
+    }
+}
+
+impl<T> Index<RangeTo<index::Line>> for Grid<T> {
+    type Output = [Row<T>];
+
+    #[inline]
+    fn index(&self, index: RangeTo<index::Line>) -> &[Row<T>] {
+        &self.raw[..(index.end.0)]
+    }
+}
+
+impl<T> IndexMut<RangeTo<index::Line>> for Grid<T> {
+    #[inline]
+    fn index_mut(&mut self, index: RangeTo<index::Line>) -> &mut [Row<T>] {
+        &mut self.raw[..(index.end.0)]
+    }
+}
+
+impl<T> Index<RangeFrom<index::Line>> for Grid<T> {
+    type Output = [Row<T>];
+
+    #[inline]
+    fn index(&self, index: RangeFrom<index::Line>) -> &[Row<T>] {
+        &self.raw[(index.start.0)..]
+    }
+}
+
+impl<T> IndexMut<RangeFrom<index::Line>> for Grid<T> {
+    #[inline]
+    fn index_mut(&mut self, index: RangeFrom<index::Line>) -> &mut [Row<T>] {
+        &mut self.raw[(index.start.0)..]
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+// Column ranges for Row
+// -------------------------------------------------------------------------------------------------
+
+impl<T> Index<Range<index::Column>> for Row<T> {
+    type Output = [T];
+
+    #[inline]
+    fn index(&self, index: Range<index::Column>) -> &[T] {
+        &self.0[(index.start.0)..(index.end.0)]
+    }
+}
+
+impl<T> IndexMut<Range<index::Column>> for Row<T> {
+    #[inline]
+    fn index_mut(&mut self, index: Range<index::Column>) -> &mut [T] {
+        &mut self.0[(index.start.0)..(index.end.0)]
+    }
+}
+
+impl<T> Index<RangeTo<index::Column>> for Row<T> {
+    type Output = [T];
+
+    #[inline]
+    fn index(&self, index: RangeTo<index::Column>) -> &[T] {
+        &self.0[..(index.end.0)]
+    }
+}
+
+impl<T> IndexMut<RangeTo<index::Column>> for Row<T> {
+    #[inline]
+    fn index_mut(&mut self, index: RangeTo<index::Column>) -> &mut [T] {
+        &mut self.0[..(index.end.0)]
+    }
+}
+
+impl<T> Index<RangeFrom<index::Column>> for Row<T> {
+    type Output = [T];
+
+    #[inline]
+    fn index(&self, index: RangeFrom<index::Column>) -> &[T] {
+        &self.0[(index.start.0)..]
+    }
+}
+
+impl<T> IndexMut<RangeFrom<index::Column>> for Row<T> {
+    #[inline]
+    fn index_mut(&mut self, index: RangeFrom<index::Column>) -> &mut [T] {
+        &mut self.0[(index.start.0)..]
+    }
+}
+
+pub trait ClearRegion<R, T> {
+    fn clear_region<F: Fn(&mut T)>(&mut self, region: R, func: F);
 }
 
 macro_rules! clear_region_impl {
     ($range:ty) => {
-        impl ClearRegion<$range> for Grid {
-            fn clear_region(&mut self, region: $range) {
-                for row in self.raw[region].iter_mut() {
+        impl<T> ClearRegion<$range, T> for Grid<T> {
+            fn clear_region<F: Fn(&mut T)>(&mut self, region: $range, func: F) {
+                for row in self[region].iter_mut() {
                     for cell in row {
-                        cell.reset();
+                        func(cell);
                     }
                 }
             }
@@ -323,6 +639,6 @@ macro_rules! clear_region_impl {
     }
 }
 
-clear_region_impl!(Range<usize>);
-clear_region_impl!(RangeTo<usize>);
-clear_region_impl!(RangeFrom<usize>);
+clear_region_impl!(Range<index::Line>);
+clear_region_impl!(RangeTo<index::Line>);
+clear_region_impl!(RangeFrom<index::Line>);

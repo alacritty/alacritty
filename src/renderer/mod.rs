@@ -27,8 +27,8 @@ use gl;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 
 use font::{Rasterizer, RasterizedGlyph, FontDesc};
-use grid::{self, Grid, Cell, CellFlags};
-use term;
+use grid::{self, Grid};
+use term::{self, cell, Cell};
 
 use super::Rgb;
 
@@ -80,8 +80,8 @@ pub struct Glyph {
 
 /// Naïve glyph cache
 ///
-/// Currently only keyed by `char`, and thus not possible to hold different representations of the
-/// same code point.
+/// Currently only keyed by `char`, and thus not possible to hold different
+/// representations of the same code point.
 pub struct GlyphCache {
     /// Cache of buffered glyphs
     cache: HashMap<char, Glyph>,
@@ -236,7 +236,7 @@ impl Batch {
             bg_b: cell.bg.b as f32,
         };
 
-        if cell.flags.contains(grid::INVERSE) {
+        if cell.flags.contains(cell::INVERSE) {
             instance.r = cell.bg.r as f32;
             instance.g = cell.bg.g as f32;
             instance.b = cell.bg.b as f32;
@@ -550,7 +550,7 @@ impl<'a> RenderApi<'a> {
                     c: c,
                     fg: *color,
                     bg: term::DEFAULT_BG,
-                    flags: grid::INVERSE,
+                    flags: cell::INVERSE,
                 };
                 self.add_render_item(row, col, &cell, glyph);
             }
@@ -576,22 +576,25 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_cursor(&mut self, cursor: term::Cursor, glyph_cache: &mut GlyphCache) {
+    pub fn render_cursor(&mut self, cursor: &grid::index::Cursor, glyph_cache: &mut GlyphCache) {
         if let Some(glyph) = glyph_cache.get(term::CURSOR_SHAPE, self) {
             let cell = Cell {
                 c: term::CURSOR_SHAPE,
                 fg: term::DEFAULT_FG,
                 bg: term::DEFAULT_BG,
-                flags: CellFlags::empty(),
+                flags: cell::Flags::empty(),
             };
 
-            self.add_render_item(cursor.y as f32, cursor.x as f32, &cell, glyph);
+            let y: usize = *cursor.line;
+            let x: usize = *cursor.col;
+
+            self.add_render_item(y as f32, x as f32, &cell, glyph);
         }
     }
 
-    pub fn render_grid(&mut self, grid: &Grid, glyph_cache: &mut GlyphCache) {
-        for (i, row) in grid.rows().enumerate() {
-            for (j, cell) in row.cells().enumerate() {
+    pub fn render_grid(&mut self, grid: &Grid<Cell>, glyph_cache: &mut GlyphCache) {
+        for (i, line) in grid.lines().enumerate() {
+            for (j, cell) in line.cells().enumerate() {
                 // Skip empty cells
                 if cell.c == ' ' && cell.bg == term::DEFAULT_BG {
                     continue;

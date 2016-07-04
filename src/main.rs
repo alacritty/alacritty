@@ -18,6 +18,8 @@
 #![feature(inclusive_range_syntax)]
 #![feature(drop_types_in_const)]
 #![feature(unicode)]
+#![feature(zero_one)]
+#![feature(step_trait)]
 #![feature(custom_derive, plugin)]
 #![plugin(serde_macros)]
 
