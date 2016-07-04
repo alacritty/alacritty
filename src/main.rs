@@ -67,48 +67,16 @@ use util::thread;
 
 use io::{Utf8Chars, Utf8CharsError};
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum ShouldExit {
-    Yes,
-    No
-}
 /// Channel used by resize handling on mac
-static mut resize_sender: Option<mpsc::Sender<glutin::Event>> = None;
+static mut resize_sender: Option<mpsc::Sender<(u32, u32)>> = None;
 
 /// Resize handling for Mac
 fn window_resize_handler(width: u32, height: u32) {
     unsafe {
         if let Some(ref tx) = resize_sender {
-            let _ = tx.send(glutin::Event::Resized(width, height));
+            let _ = tx.send((width, height));
         }
     }
-}
-
-fn handle_event<W>(event: glutin::Event,
-                   writer: &mut W,
-                   terminal: &mut Term,
-                   render_tx: &mpsc::Sender<(u32, u32)>,
-                   input_processor: &mut input::Processor) -> ShouldExit
-    where W: Write
-{
-    // Handle keyboard/mouse input and other window events
-    match event {
-        glutin::Event::Closed => return ShouldExit::Yes,
-        glutin::Event::ReceivedCharacter(c) => {
-            let encoded = c.encode_utf8();
-            writer.write(encoded.as_slice()).unwrap();
-        },
-        glutin::Event::Resized(w, h) => {
-            terminal.resize(w as f32, h as f32);
-            render_tx.send((w, h)).expect("render thread active");
-        },
-        glutin::Event::KeyboardInput(state, _code, key) => {
-            input_processor.process(state, key, &mut input::WriteNotifier(writer), *terminal.mode())
-        },
-        _ => ()
-    }
-
-    ShouldExit::No
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Default)]
@@ -149,6 +117,14 @@ fn main() {
     let dpr = window.hidpi_factor();
 
     println!("device_pixel_ratio: {}", dpr);
+
+    let _ = unsafe { window.make_current() };
+    unsafe {
+        gl::Viewport(0, 0, width as i32, height as i32);
+        gl::Enable(gl::BLEND);
+        gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
+        gl::Enable(gl::MULTISAMPLE);
+    }
 
     let desc = FontDesc::new(font.family(), font.style());
     let mut rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr);
@@ -216,96 +192,79 @@ fn main() {
     let window = Arc::new(window);
     let window_ref = window.clone();
 
-    let (render_tx, render_rx) = mpsc::channel::<(u32, u32)>();
+    // Create renderer
+    let mut renderer = QuadRenderer::new(width, height);
 
-    let update_thread = thread::spawn_named("Update", move || {
-        let mut input_processor = input::Processor::new();
+    // Initialize glyph cache
+    {
+        let init_start = ::std::time::Instant::now();
+        println!("Initializing glyph cache");
+        let terminal = term_ref.lock_high();
+        renderer.with_api(terminal.size_info(), |mut api| {
+            glyph_cache.init(&mut api);
+        });
 
-        'main_loop: loop {
-            let mut writer = BufWriter::new(&writer);
+        let stop = init_start.elapsed();
+        let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;
+        println!("Finished initializing glyph cache in {}", stop_f);
+    }
 
-            if process_should_exit() {
-                break;
-            }
+    let mut input_processor = input::Processor::new();
 
-            // Block waiting for next event and handle it
-            let event = match rx.recv() {
-                Ok(e) => e,
-                Err(mpsc::RecvError) => break,
-            };
+    'main_loop: loop {
 
-            // Need mutable terminal for updates; lock it.
-            let mut terminal = terminal.lock_low();
-            let res = handle_event(event,
-                                   &mut writer,
-                                   &mut *terminal,
-                                   &render_tx,
-                                   &mut input_processor);
-            if res == ShouldExit::Yes {
-                break;
-            }
+        // Scope ensures terminal lock isn't held when calling swap_buffers
+        {
+            // Acquire term lock
+            let mut terminal = term_ref.lock_high();
 
-            // Handle Any events that are in the queue
-            loop {
-                match rx.try_recv() {
-                    Ok(e) => {
-                        let res = handle_event(e,
-                                               &mut writer,
-                                               &mut *terminal,
-                                               &render_tx,
-                                               &mut input_processor);
+            // Resize events new_size and are handled outside the poll_events
+            // iterator. This has the effect of coalescing multiple resize
+            // events into one.
+            let mut new_size = None;
 
-                        if res == ShouldExit::Yes {
-                            break;
-                        }
-                    },
-                    Err(mpsc::TryRecvError::Disconnected) => break 'main_loop,
-                    Err(mpsc::TryRecvError::Empty) => break,
+            // Process input events
+            {
+                let mut writer = BufWriter::new(&writer);
+                for event in window_ref.poll_events() {
+                    match event {
+                        glutin::Event::Closed => break 'main_loop,
+                        glutin::Event::ReceivedCharacter(c) => {
+                            let encoded = c.encode_utf8();
+                            writer.write(encoded.as_slice()).unwrap();
+                        },
+                        glutin::Event::Resized(w, h) => {
+                            terminal.resize(w as f32, h as f32);
+                            new_size = Some((w, h));
+                        },
+                        glutin::Event::KeyboardInput(state, _code, key) => {
+                            input_processor.process(state,
+                                                    key,
+                                                    &mut input::WriteNotifier(&mut writer),
+                                                    *terminal.mode())
+                        },
+                        _ => (),
+                    }
                 }
             }
-        }
-    });
 
-    let render_thread = thread::spawn_named("Render", move || {
-        let _ = unsafe { window.make_current() };
-        unsafe {
-            gl::Viewport(0, 0, width as i32, height as i32);
-            gl::Enable(gl::BLEND);
-            gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
-            gl::Enable(gl::MULTISAMPLE);
-        }
-
-        // Create renderer
-        let mut renderer = QuadRenderer::new(width, height);
-
-        // Initialize glyph cache
-        {
-            let terminal = term_ref.lock_high();
-            renderer.with_api(terminal.size_info(), |mut api| {
-                glyph_cache.init(&mut api);
-            });
-        }
-
-        loop {
             unsafe {
                 gl::ClearColor(0.0, 0.0, 0.00, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
             }
 
-            // Receive any resize events; only call gl::Viewport on last available
-            let mut new_size = None;
-            while let Ok(val) = render_rx.try_recv() {
-                new_size = Some(val);
+            // Check for any out-of-band resize events (mac only)
+            while let Ok(sz) = rx.try_recv() {
+                new_size = Some(sz);
             }
+
+            // Receive any resize events; only call gl::Viewport on last
+            // available
             if let Some((w, h)) = new_size.take() {
                 renderer.resize(w as i32, h as i32);
             }
 
-            // Need scope so lock is released when swap_buffers is called
             {
-                // Acquire term lock
-                let terminal = term_ref.lock_high();
-
                 // Draw grid + cursor
                 {
                     let _sampler = meter.sampler();
@@ -330,27 +289,16 @@ fn main() {
                     });
                 }
             }
-
-            window.swap_buffers().unwrap();
-
-            if process_should_exit() {
-                break;
-            }
         }
-    });
 
-    'event_processing: loop {
-        for event in window_ref.wait_events() {
-            tx.send(event).unwrap();
-            if process_should_exit() {
-                break 'event_processing;
-            }
+        window.swap_buffers().unwrap();
+
+        if process_should_exit() {
+            break;
         }
     }
 
     reader_thread.join().ok();
-    render_thread.join().ok();
-    update_thread.join().ok();
     println!("Goodbye");
 }
 
