@@ -230,8 +230,14 @@ fn main() {
                     match event {
                         glutin::Event::Closed => break 'main_loop,
                         glutin::Event::ReceivedCharacter(c) => {
-                            let encoded = c.encode_utf8();
-                            writer.write(encoded.as_slice()).unwrap();
+                            match c {
+                                // Ignore BACKSPACE and DEL. These are handled specially.
+                                '\u{8}' | '\u{7f}' => (),
+                                _ => {
+                                    let encoded = c.encode_utf8();
+                                    writer.write(encoded.as_slice()).unwrap();
+                                }
+                            }
                         },
                         glutin::Event::Resized(w, h) => {
                             terminal.resize(w as f32, h as f32);

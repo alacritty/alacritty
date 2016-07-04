@@ -230,6 +230,17 @@ static F12_BINDINGS: &'static [Binding] = &[
     Binding { mods: modifier::ANY, send: "\x1b[24~", mode: mode::ANY, notmode: mode::NONE },
 ];
 
+/// Bindings for the Backspace key
+static BACKSPACE_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x7f", mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for the Delete key
+static DELETE_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::ANY, send: "\x1b[3~", mode: mode::APP_KEYPAD, notmode: mode::NONE },
+    Binding { mods: modifier::ANY, send: "\x1b[P", mode: mode::ANY, notmode: mode::APP_KEYPAD },
+];
+
 //   key               mods            escape      appkey appcursor crlf
 //
 // notes: appkey = DECPAM (application keypad mode); not enabled is "normal keypad"
@@ -287,6 +298,8 @@ impl Processor {
                 VirtualKeyCode::F10 => F10_BINDINGS,
                 VirtualKeyCode::F11 => F11_BINDINGS,
                 VirtualKeyCode::F12 => F12_BINDINGS,
+                VirtualKeyCode::Back => BACKSPACE_BINDINGS,
+                VirtualKeyCode::Delete => DELETE_BINDINGS,
                 // Mode keys ignored now
                 VirtualKeyCode::LAlt | VirtualKeyCode::RAlt | VirtualKeyCode::LShift |
                 VirtualKeyCode::RShift | VirtualKeyCode::LControl | VirtualKeyCode::RControl |
