@@ -352,63 +352,6 @@ pub trait Handler {
     fn set_scrolling_region(&mut self, _top: i64, _bot: i64) {}
 }
 
-/// An implementation of handler that just prints everything it gets
-pub struct DebugHandler;
-
-impl Handler for DebugHandler {
-    fn input(&mut self, c: char) { println!("input: {:?}", c); }
-    fn goto(&mut self, x: i64, y: i64) { println!("goto: x={}, y={}", x, y); }
-    fn goto_row(&mut self, y: i64) { println!("goto_row: {}", y); }
-    fn goto_col(&mut self, x: i64) { println!("goto_col: {}", x); }
-    fn insert_blank(&mut self, num: i64) { println!("insert_blank: {}", num); }
-    fn move_up(&mut self, rows: i64) { println!("move_up: {}", rows); }
-    fn move_down(&mut self, rows: i64) { println!("move_down: {}", rows); }
-    fn identify_terminal(&mut self) { println!("identify_terminal"); }
-    fn move_forward(&mut self, cols: i64) { println!("move_forward: {}", cols); }
-    fn move_backward(&mut self, cols: i64) { println!("move_backward: {}", cols); }
-    fn move_down_and_cr(&mut self, rows: i64) { println!("move_down_and_cr: {}", rows); }
-    fn move_up_and_cr(&mut self, rows: i64) { println!("move_up_and_cr: {}", rows); }
-    fn put_tab(&mut self, count: i64) { println!("put_tab: {}", count); }
-    fn backspace(&mut self) { println!("backspace"); }
-    fn carriage_return(&mut self) { println!("carriage_return"); }
-    fn linefeed(&mut self) { println!("linefeed"); }
-    fn bell(&mut self) { println!("bell"); }
-    fn substitute(&mut self) { println!("substitute"); }
-    fn newline(&mut self) { println!("newline"); }
-    fn set_horizontal_tabstop(&mut self) { println!("set_horizontal_tabstop"); }
-    fn scroll_up(&mut self, rows: i64) { println!("scroll_up: {}", rows); }
-    fn scroll_down(&mut self, rows: i64) { println!("scroll_down: {}", rows); }
-    fn insert_blank_lines(&mut self, count: i64) { println!("insert_blank_lines: {}", count); }
-    fn delete_lines(&mut self, count: i64) { println!("delete_lines: {}", count); }
-    fn erase_chars(&mut self, count: i64) { println!("erase_chars: {}", count); }
-    fn delete_chars(&mut self, count: i64) { println!("delete_chars: {}", count); }
-    fn move_backward_tabs(&mut self, count: i64) { println!("move_backward_tabs: {}", count); }
-    fn move_forward_tabs(&mut self, count: i64) { println!("move_forward_tabs: {}", count); }
-    fn save_cursor_position(&mut self) { println!("save_cursor_position"); }
-    fn restore_cursor_position(&mut self) { println!("restore_cursor_position"); }
-    fn clear_line(&mut self, mode: LineClearMode) { println!("clear_line: {:?}", mode); }
-    fn clear_screen(&mut self, mode: ClearMode) { println!("clear_screen: {:?}", mode); }
-    fn clear_tabs(&mut self, mode: TabulationClearMode) { println!("clear_tabs: {:?}", mode); }
-    fn reset_state(&mut self) { println!("reset_state"); }
-    fn reverse_index(&mut self) { println!("reverse_index"); }
-    fn terminal_attribute(&mut self, attr: Attr) { println!("terminal_attribute: {:?}", attr); }
-    fn set_mode(&mut self, mode: Mode) { println!("set_mode: {:?}", mode); }
-    fn unset_mode(&mut self, mode: Mode) { println!("unset_mode: {:?}", mode); }
-    fn set_scrolling_region(&mut self, top: i64, bot: i64) {
-        println!("set scroll region: {:?} - {:?}", top, bot);
-    }
-}
-
-impl TermInfo for DebugHandler {
-    fn lines(&self) -> Line {
-        Line(24)
-    }
-
-    fn cols(&self) -> Column {
-        Column(80)
-    }
-}
-
 impl Parser {
     pub fn new() -> Parser {
         Parser {
@@ -1106,7 +1049,7 @@ impl Default for State {
 mod tests {
     use std::io::{Cursor, Read};
     use index::{Line, Column};
-    use super::{Parser, Handler, Attr, DebugHandler, TermInfo};
+    use super::{Parser, Handler, Attr, TermInfo};
     use ::Rgb;
 
     #[derive(Default)]
@@ -1191,7 +1134,7 @@ mod tests {
         ];
 
         let cursor = Cursor::new(BYTES);
-        let mut handler = DebugHandler;
+        let mut handler = AttrHandler::default();
         let mut parser = Parser::new();
 
         for c in cursor.chars() {
