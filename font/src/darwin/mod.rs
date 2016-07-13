@@ -300,7 +300,6 @@ impl Font {
                                  cg_context.clone());
 
         let rasterized_pixels = cg_context.data().to_vec();
-        println!("rasterized_pixels: {:?}", rasterized_pixels);
 
         let buf = extract_rgb(rasterized_pixels);
 
