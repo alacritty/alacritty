@@ -529,7 +529,8 @@ impl Parser {
 
         macro_rules! arg_or_default {
             ($arg:expr, $default:expr) => {
-                if $arg == ::std::num::Zero::zero() { $default } else { $arg }
+                // using Default::default as a generic zero
+                if $arg == Default::default() { $default } else { $arg }
             }
         }
 

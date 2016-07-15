@@ -17,7 +17,7 @@
 /// Indexing types and implementations for Grid and Line
 use std::fmt;
 use std::iter::Step;
-use std::num::{One, Zero};
+use std::mem;
 use std::ops::{self, Deref, Add};
 
 /// Index in the grid using row, column notation
@@ -134,31 +134,15 @@ macro_rules! sub {
     }
 }
 
-macro_rules! zero_one {
-    ($ty:ty, $construct:expr) => {
-        impl One for $ty {
-            fn one() -> $ty {
-                $construct(1)
-            }
-        }
-
-        impl Zero for $ty {
-            fn zero() -> $ty {
-                $construct(0)
-            }
-        }
-    }
-}
-
 macro_rules! ops {
     ($ty:ty, $construct:expr) => {
         add!($ty, $construct);
         sub!($ty, $construct);
-        zero_one!($ty, $construct);
         deref!($ty, usize);
         forward_ref_binop!(impl Add, add for $ty, $ty);
 
         impl Step for $ty {
+            #[inline]
             fn step(&self, by: &$ty) -> Option<$ty> {
                 Some(*self + *by)
             }
@@ -179,6 +163,37 @@ macro_rules! ops {
                 } else {
                     Some(0)
                 }
+            }
+
+            #[inline]
+            fn steps_between_by_one(start: &$ty, end: &$ty) -> Option<usize> {
+                Step::steps_between(start, end, &$construct(1))
+            }
+
+            #[inline]
+            #[allow(unused_comparisons)]
+            fn is_negative(&self) -> bool {
+                self.0 < 0
+            }
+
+            #[inline]
+            fn replace_one(&mut self) -> Self {
+                mem::replace(self, $construct(0))
+            }
+
+            #[inline]
+            fn replace_zero(&mut self) -> Self {
+                mem::replace(self, $construct(1))
+            }
+
+            #[inline]
+            fn add_one(&self) -> Self {
+                *self + 1
+            }
+
+            #[inline]
+            fn sub_one(&self) -> Self {
+                *self - 1
             }
         }
 

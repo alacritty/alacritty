@@ -9,7 +9,7 @@ build = "build.rs"
 [dependencies]
 libc = "*"
 cgmath = "0.7"
-notify = { git = "https://github.com/passcod/rsnotify" }
+notify = "2.6"
 bitflags = "*"
 font = { path = "./font" }
 errno = "0.1.6"
