@@ -558,7 +558,6 @@ impl ansi::Handler for Term {
         debug_println!("linefeed");
         if self.cursor.line + 1 >= self.scroll_region.end {
             self.scroll(Line(1), ScrollDirection::Down);
-            self.clear_line(ansi::LineClearMode::Right);
         } else {
             self.cursor.line += 1;
         }
