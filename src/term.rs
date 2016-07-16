@@ -32,6 +32,14 @@ macro_rules! debug_println {
     }
 }
 
+macro_rules! debug_print {
+    ($($t:tt)*) => {
+        if cfg!(debug_assertions) {
+            print!($($t)*);
+        }
+    }
+}
+
 /// RAII type which manages grid state for render
 ///
 /// This manages the cursor during a render. The cursor location is inverted to
@@ -453,6 +461,7 @@ impl ansi::Handler for Term {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
+        debug_print!("{}", c);
         self.set_char(c);
         self.cursor.col += 1;
     }
@@ -710,6 +719,7 @@ impl ansi::Handler for Term {
     /// set a terminal attribute
     #[inline]
     fn terminal_attribute(&mut self, attr: Attr) {
+        debug_println!("Set Attribute: {:?}", attr);
         match attr {
             Attr::DefaultForeground => {
                 self.fg = DEFAULT_FG;
