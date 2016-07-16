@@ -230,6 +230,15 @@ static F12_BINDINGS: &'static [Binding] = &[
     Binding { mods: modifier::ANY, send: "\x1b[24~", mode: mode::ANY, notmode: mode::NONE },
 ];
 
+/// Bindings for the H key
+///
+/// Control-H sends 0x08 normally, but we capture that in ReceivedCharacter
+/// since DEL and BACKSPACE are inverted. This binding is a work around to that
+/// capture.
+static H_BINDINGS: &'static [Binding] = &[
+    Binding { mods: modifier::CONTROL, send: "\x08", mode: mode::ANY, notmode: mode::NONE },
+];
+
 /// Bindings for the Backspace key
 static BACKSPACE_BINDINGS: &'static [Binding] = &[
     Binding { mods: modifier::ANY, send: "\x7f", mode: mode::ANY, notmode: mode::NONE },
@@ -300,6 +309,7 @@ impl Processor {
                 VirtualKeyCode::F12 => F12_BINDINGS,
                 VirtualKeyCode::Back => BACKSPACE_BINDINGS,
                 VirtualKeyCode::Delete => DELETE_BINDINGS,
+                VirtualKeyCode::H => H_BINDINGS,
                 // Mode keys ignored now
                 VirtualKeyCode::LAlt | VirtualKeyCode::RAlt | VirtualKeyCode::LShift |
                 VirtualKeyCode::RShift | VirtualKeyCode::LControl | VirtualKeyCode::RControl |
@@ -307,7 +317,7 @@ impl Processor {
                 // All of the alphanumeric keys get passed through here as well, but there's no work
                 // to be done for them.
                 VirtualKeyCode::A | VirtualKeyCode::B | VirtualKeyCode::C | VirtualKeyCode::D |
-                VirtualKeyCode::E | VirtualKeyCode::F | VirtualKeyCode::G | VirtualKeyCode::H |
+                VirtualKeyCode::E | VirtualKeyCode::F | VirtualKeyCode::G |
                 VirtualKeyCode::I | VirtualKeyCode::J | VirtualKeyCode::K | VirtualKeyCode::L |
                 VirtualKeyCode::M | VirtualKeyCode::N | VirtualKeyCode::O | VirtualKeyCode::P |
                 VirtualKeyCode::Q | VirtualKeyCode::R | VirtualKeyCode::S | VirtualKeyCode::T |
