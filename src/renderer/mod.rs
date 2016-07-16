@@ -580,7 +580,10 @@ impl<'a> RenderApi<'a> {
         for (i, line) in grid.lines().enumerate() {
             for (j, cell) in line.cells().enumerate() {
                 // Skip empty cells
-                if cell.c == ' ' && cell.bg == term::DEFAULT_BG {
+                if cell.c == ' ' &&
+                   cell.bg == term::DEFAULT_BG &&
+                   !cell.flags.contains(cell::INVERSE)
+                {
                     continue;
                 }
 
