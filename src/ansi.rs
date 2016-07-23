@@ -734,7 +734,14 @@ impl Parser {
             C0::LF |
             C0::VT |
             C0::FF => handler.linefeed(),
-            C0::BEL => handler.bell(),
+            C0::BEL => {
+                // Clear ESC state is in an escape sequence.
+                if let State::EscapeOther = self.state {
+                    self.state = State::Base;
+                }
+
+                handler.bell();
+            },
             C0::ESC => {
                 self.csi_reset();
                 self.state = State::Escape;
