@@ -24,22 +24,6 @@ use tty;
 
 use ::Rgb;
 
-macro_rules! debug_println {
-    ($($t:tt)*) => {
-        if cfg!(debug_assertions) {
-            println!($($t)*);
-        }
-    }
-}
-
-macro_rules! debug_print {
-    ($($t:tt)*) => {
-        if cfg!(debug_assertions) {
-            print!($($t)*);
-        }
-    }
-}
-
 /// RAII type which manages grid state for render
 ///
 /// This manages the cursor during a render. The cursor location is inverted to

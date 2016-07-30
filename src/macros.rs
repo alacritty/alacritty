@@ -27,3 +27,30 @@ macro_rules! err_println {
         (writeln!(&mut ::std::io::stderr(), $($arg)*)).expect("stderr");
     }}
 }
+
+#[macro_export]
+macro_rules! err_println {
+    ($($arg:tt)*) => {{
+        use std::io::Write;
+        (writeln!(&mut ::std::io::stderr(), $($arg)*)).expect("stderr");
+    }}
+}
+
+#[macro_export]
+macro_rules! debug_println {
+    ($($t:tt)*) => {
+        if cfg!(debug_assertions) {
+            println!($($t)*);
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! debug_print {
+    ($($t:tt)*) => {
+        if cfg!(debug_assertions) {
+            print!($($t)*);
+        }
+    }
+}
+
