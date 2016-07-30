@@ -449,8 +449,8 @@ impl Parser {
             '=' => sequence_complete!(set_keypad_application_mode),
             '>' => sequence_complete!(unset_keypad_application_mode),
             'P' | '_' | '^' | ']' | 'k' | '(' => {
-                println!("Entering EscapeOther");
-                print!("{:?}", c);
+                debug_println!("Entering EscapeOther");
+                debug_print!("{:?}", c);
                 self.state = State::EscapeOther;
             },
             _ => {
