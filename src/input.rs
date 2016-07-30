@@ -449,4 +449,12 @@ mod tests {
         mode: mode::NONE,
         mods: modifier::NONE
     }
+
+    test_process_binding! {
+        name: process_binding_appcursormode_appkeypadmode_nomod_require_appcursor,
+        binding: Binding { mods: modifier::ANY, send: "\x1bOD", mode: mode::APP_CURSOR, notmode: mode::NONE },
+        expect: Some(String::from("\x1bOD")),
+        mode: mode::APP_CURSOR | mode::APP_KEYPAD,
+        mods: modifier::NONE
+    }
 }
