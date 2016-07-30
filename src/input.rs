@@ -272,14 +272,14 @@ impl Processor {
 
             // Handle state updates
             match key {
-                VirtualKeyCode::LAlt => self.mods.update(state, modifier::ALT_LEFT),
-                VirtualKeyCode::RAlt => self.mods.update(state, modifier::ALT_RIGHT),
-                VirtualKeyCode::LShift => self.mods.update(state, modifier::SHIFT_LEFT),
-                VirtualKeyCode::RShift => self.mods.update(state, modifier::SHIFT_RIGHT),
-                VirtualKeyCode::LControl => self.mods.update(state, modifier::CONTROL_LEFT),
-                VirtualKeyCode::RControl => self.mods.update(state, modifier::CONTROL_RIGHT),
-                VirtualKeyCode::LWin => self.mods.update(state, modifier::META_LEFT),
-                VirtualKeyCode::RWin => self.mods.update(state, modifier::META_RIGHT),
+                VirtualKeyCode::LAlt => return self.mods.update(state, modifier::ALT_LEFT),
+                VirtualKeyCode::RAlt => return self.mods.update(state, modifier::ALT_RIGHT),
+                VirtualKeyCode::LShift => return self.mods.update(state, modifier::SHIFT_LEFT),
+                VirtualKeyCode::RShift => return self.mods.update(state, modifier::SHIFT_RIGHT),
+                VirtualKeyCode::LControl => return self.mods.update(state, modifier::CONTROL_LEFT),
+                VirtualKeyCode::RControl => return self.mods.update(state, modifier::CONTROL_RIGHT),
+                VirtualKeyCode::LWin => return self.mods.update(state, modifier::META_LEFT),
+                VirtualKeyCode::RWin => return self.mods.update(state, modifier::META_RIGHT),
                 _ => ()
             }
 
