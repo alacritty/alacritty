@@ -110,12 +110,12 @@ impl<T> Grid<T> {
 
     #[inline]
     pub fn num_lines(&self) -> index::Line {
-        index::Line(self.raw.len())
+        self.lines
     }
 
     #[inline]
     pub fn num_cols(&self) -> index::Column {
-        index::Column(self.raw[0].len())
+        self.cols
     }
 
     #[inline]
