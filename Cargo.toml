@@ -22,8 +22,5 @@ serde_macros = "0.7"
 gl_generator = "0.5"
 
 [dependencies.glutin]
-version = "*"
-# git = "https://github.com/jwilm/glutin"
-# rev = "c95e6973ace3cbf321123a64588b27f032675be9"
-# version = "*"
-# path = "../glutin"
+git = "https://github.com/jwilm/glutin"
+rev = "d287fa96e3a8b2568b189067eedd28807c4568d6"

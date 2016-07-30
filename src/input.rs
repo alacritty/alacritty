@@ -26,71 +26,9 @@
 use std::io::Write;
 
 use glutin::{ElementState, VirtualKeyCode};
+use glutin::{Mods, mods};
 
 use term::mode::{self, TermMode};
-
-/// Modifier keys
-///
-/// Contains a bitflags for modifier keys which are now namespaced thanks to
-/// this module wrapper.
-mod modifier {
-    use glutin::ElementState;
-
-    bitflags! {
-        /// Flags indicating active modifier keys
-        pub flags Keys: u8 {
-            /// Left shift
-            const SHIFT_LEFT    = 0b00000001,
-            /// Right shift
-            const SHIFT_RIGHT   = 0b00000010,
-            /// Left meta
-            const META_LEFT     = 0b00000100,
-            /// Right meta
-            const META_RIGHT    = 0b00001000,
-            /// Left control
-            const CONTROL_LEFT  = 0b00010000,
-            /// Right control
-            const CONTROL_RIGHT = 0b00100000,
-            /// Left alt
-            const ALT_LEFT      = 0b01000000,
-            /// Right alt
-            const ALT_RIGHT     = 0b10000000,
-            /// Any shift key
-            const SHIFT         = SHIFT_LEFT.bits
-                                | SHIFT_RIGHT.bits,
-            /// Any control key
-            const CONTROL       = CONTROL_LEFT.bits
-                                | CONTROL_RIGHT.bits,
-            /// Any alt key
-            const ALT           = ALT_LEFT.bits
-                                | ALT_RIGHT.bits,
-            /// Any meta key
-            const META          = META_LEFT.bits
-                                | META_RIGHT.bits,
-            /// Any mod
-            const ANY           = 0b11111111,
-            /// No mod
-            const NONE          = 0b00000000,
-        }
-    }
-
-    impl Default for Keys {
-        fn default() -> Keys {
-            Keys::empty()
-        }
-    }
-
-    impl Keys {
-        /// Take appropriate action given a modifier key and its state
-        #[inline]
-        pub fn update(&mut self, state: ElementState, key: Keys) {
-            match state {
-                ElementState::Pressed => self.insert(key),
-                ElementState::Released => self.remove(key),
-            }
-        }
-    }
-}
 
 /// Processes input from glutin.
 ///
@@ -99,10 +37,7 @@ mod modifier {
 ///
 /// TODO also need terminal state when processing input
 #[derive(Default)]
-pub struct Processor {
-    /// Active modifier keys
-    mods: modifier::Keys,
-}
+pub struct Processor;
 
 /// Types that are notified of escape sequences from the input::Processor.
 pub trait Notify {
@@ -125,7 +60,7 @@ impl<'a, W: Write> Notify for WriteNotifier<'a, W> {
 #[derive(Debug)]
 pub struct Binding {
     /// Modifier keys required to activate binding
-    mods: modifier::Keys,
+    mods: Mods,
     /// String to send to pty if mods and mode match
     send: &'static str,
     /// Terminal mode required to activate binding
@@ -136,98 +71,98 @@ pub struct Binding {
 
 /// Bindings for the LEFT key.
 static LEFT_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::SHIFT,   send: "\x1b[1;2D", mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: modifier::CONTROL, send: "\x1b[1;5D", mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: modifier::ALT,     send: "\x1b[1;3D", mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: modifier::ANY,     send: "\x1b[D",    mode: mode::ANY,        notmode: mode::APP_CURSOR },
-    Binding { mods: modifier::ANY,     send: "\x1bOD",    mode: mode::APP_CURSOR, notmode: mode::NONE },
+    Binding { mods: mods::SHIFT,   send: "\x1b[1;2D", mode: mode::ANY,        notmode: mode::NONE },
+    Binding { mods: mods::CONTROL, send: "\x1b[1;5D", mode: mode::ANY,        notmode: mode::NONE },
+    Binding { mods: mods::ALT,     send: "\x1b[1;3D", mode: mode::ANY,        notmode: mode::NONE },
+    Binding { mods: mods::ANY,     send: "\x1b[D",    mode: mode::ANY,        notmode: mode::APP_CURSOR },
+    Binding { mods: mods::ANY,     send: "\x1bOD",    mode: mode::APP_CURSOR, notmode: mode::NONE },
 ];
 
 /// Bindings for the RIGHT key
 static RIGHT_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::SHIFT,   send: "\x1b[1;2C", mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: modifier::CONTROL, send: "\x1b[1;5C", mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: modifier::ALT,     send: "\x1b[1;3C", mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: modifier::ANY,     send: "\x1b[C",    mode: mode::ANY,        notmode: mode::APP_CURSOR },
-    Binding { mods: modifier::ANY,     send: "\x1bOC",    mode: mode::APP_CURSOR, notmode: mode::NONE },
+    Binding { mods: mods::SHIFT,   send: "\x1b[1;2C", mode: mode::ANY,        notmode: mode::NONE },
+    Binding { mods: mods::CONTROL, send: "\x1b[1;5C", mode: mode::ANY,        notmode: mode::NONE },
+    Binding { mods: mods::ALT,     send: "\x1b[1;3C", mode: mode::ANY,        notmode: mode::NONE },
+    Binding { mods: mods::ANY,     send: "\x1b[C",    mode: mode::ANY,        notmode: mode::APP_CURSOR },
+    Binding { mods: mods::ANY,     send: "\x1bOC",    mode: mode::APP_CURSOR, notmode: mode::NONE },
 ];
 
 /// Bindings for the UP key
 static UP_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::SHIFT,   send: "\x1b[1;2A", mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: modifier::CONTROL, send: "\x1b[1;5A", mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: modifier::ALT,     send: "\x1b[1;3A", mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: modifier::ANY,     send: "\x1b[A",    mode: mode::ANY,        notmode: mode::APP_CURSOR },
-    Binding { mods: modifier::ANY,     send: "\x1bOA",    mode: mode::APP_CURSOR, notmode: mode::NONE },
+    Binding { mods: mods::SHIFT,   send: "\x1b[1;2A", mode: mode::ANY,        notmode: mode::NONE },
+    Binding { mods: mods::CONTROL, send: "\x1b[1;5A", mode: mode::ANY,        notmode: mode::NONE },
+    Binding { mods: mods::ALT,     send: "\x1b[1;3A", mode: mode::ANY,        notmode: mode::NONE },
+    Binding { mods: mods::ANY,     send: "\x1b[A",    mode: mode::ANY,        notmode: mode::APP_CURSOR },
+    Binding { mods: mods::ANY,     send: "\x1bOA",    mode: mode::APP_CURSOR, notmode: mode::NONE },
 ];
 
 /// Bindings for the DOWN key
 static DOWN_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::SHIFT,   send: "\x1b[1;2B", mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: modifier::CONTROL, send: "\x1b[1;5B", mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: modifier::ALT,     send: "\x1b[1;3B", mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: modifier::ANY,     send: "\x1b[B",    mode: mode::ANY,        notmode: mode::APP_CURSOR },
-    Binding { mods: modifier::ANY,     send: "\x1bOB",    mode: mode::APP_CURSOR, notmode: mode::NONE },
+    Binding { mods: mods::SHIFT,   send: "\x1b[1;2B", mode: mode::ANY,        notmode: mode::NONE },
+    Binding { mods: mods::CONTROL, send: "\x1b[1;5B", mode: mode::ANY,        notmode: mode::NONE },
+    Binding { mods: mods::ALT,     send: "\x1b[1;3B", mode: mode::ANY,        notmode: mode::NONE },
+    Binding { mods: mods::ANY,     send: "\x1b[B",    mode: mode::ANY,        notmode: mode::APP_CURSOR },
+    Binding { mods: mods::ANY,     send: "\x1bOB",    mode: mode::APP_CURSOR, notmode: mode::NONE },
 ];
 
 /// Bindings for the F1 key
 static F1_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1bOP", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1bOP", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the F2 key
 static F2_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1bOQ", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1bOQ", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the F3 key
 static F3_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1bOR", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1bOR", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the F4 key
 static F4_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1bOS", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1bOS", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the F5 key
 static F5_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1b[15~", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1b[15~", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the F6 key
 static F6_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1b[17~", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1b[17~", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the F7 key
 static F7_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1b[18~", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1b[18~", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the F8 key
 static F8_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1b[19~", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1b[19~", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the F9 key
 static F9_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1b[20~", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1b[20~", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the F10 key
 static F10_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1b[21~", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1b[21~", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the F11 key
 static F11_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1b[23~", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1b[23~", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the F11 key
 static F12_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1b[24~", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1b[24~", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the H key
@@ -236,18 +171,18 @@ static F12_BINDINGS: &'static [Binding] = &[
 /// since DEL and BACKSPACE are inverted. This binding is a work around to that
 /// capture.
 static H_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::CONTROL, send: "\x08", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::CONTROL, send: "\x08", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the Backspace key
 static BACKSPACE_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x7f", mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x7f", mode: mode::ANY, notmode: mode::NONE },
 ];
 
 /// Bindings for the Delete key
 static DELETE_BINDINGS: &'static [Binding] = &[
-    Binding { mods: modifier::ANY, send: "\x1b[3~", mode: mode::APP_KEYPAD, notmode: mode::NONE },
-    Binding { mods: modifier::ANY, send: "\x1b[P", mode: mode::ANY, notmode: mode::APP_KEYPAD },
+    Binding { mods: mods::ANY, send: "\x1b[3~", mode: mode::APP_KEYPAD, notmode: mode::NONE },
+    Binding { mods: mods::ANY, send: "\x1b[P", mode: mode::ANY, notmode: mode::APP_KEYPAD },
 ];
 
 //   key               mods            escape      appkey appcursor crlf
@@ -264,25 +199,12 @@ impl Processor {
     pub fn process<N>(&mut self,
                       state: ElementState,
                       key: Option<VirtualKeyCode>,
+                      mods: Mods,
                       notifier: &mut N,
                       mode: TermMode)
         where N: Notify
     {
         if let Some(key) = key {
-
-            // Handle state updates
-            match key {
-                VirtualKeyCode::LAlt => return self.mods.update(state, modifier::ALT_LEFT),
-                VirtualKeyCode::RAlt => return self.mods.update(state, modifier::ALT_RIGHT),
-                VirtualKeyCode::LShift => return self.mods.update(state, modifier::SHIFT_LEFT),
-                VirtualKeyCode::RShift => return self.mods.update(state, modifier::SHIFT_RIGHT),
-                VirtualKeyCode::LControl => return self.mods.update(state, modifier::CONTROL_LEFT),
-                VirtualKeyCode::RControl => return self.mods.update(state, modifier::CONTROL_RIGHT),
-                VirtualKeyCode::LWin => return self.mods.update(state, modifier::META_LEFT),
-                VirtualKeyCode::RWin => return self.mods.update(state, modifier::META_RIGHT),
-                _ => ()
-            }
-
             // Ignore release events
             if state == ElementState::Released {
                 return;
@@ -330,16 +252,20 @@ impl Processor {
                 // Log something by default
                 _ => {
                     println!("Unhandled key: {:?}; state: {:?}; mods: {:?}",
-                             key, state, self.mods);
+                             key, state, mods);
                     return;
                 },
             };
 
-            self.process_bindings(bindings, mode, notifier);
+            self.process_bindings(bindings, mode, notifier, mods);
         }
     }
 
-    fn process_bindings<N>(&self, bindings: &[Binding], mode: TermMode, notifier: &mut N)
+    fn process_bindings<N>(&self,
+                           bindings: &[Binding],
+                           mode: TermMode,
+                           notifier: &mut N,
+                           mods: Mods)
         where N: Notify
     {
         // Check each binding
@@ -349,7 +275,7 @@ impl Processor {
                 // TermMode negative
                 if binding.notmode.is_empty() || !mode.intersects(binding.notmode) {
                     // Modifier keys
-                    if binding.mods.is_all() || self.mods.intersects(binding.mods) {
+                    if binding.mods.is_all() || mods.intersects(binding.mods) {
                         // everything matches
                         notifier.notify(binding.send);
                         break;
@@ -363,6 +289,7 @@ impl Processor {
 #[cfg(test)]
 mod tests {
     use term::mode::{self, TermMode};
+    use glutin::mods;
 
     use super::Processor;
     use super::modifier;
@@ -393,10 +320,9 @@ mod tests {
                 let bindings = &[$binding];
 
                 let mut processor = Processor::new();
-                processor.mods.insert($mods);
                 let mut receiver = Receiver::default();
 
-                processor.process_bindings(bindings, $mode, &mut receiver);
+                processor.process_bindings(bindings, $mode, &mut receiver, $mods);
                 assert_eq!(receiver.got, $expect);
             }
         }
@@ -404,57 +330,57 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_nomode_shiftmod_require_shift,
-        binding: Binding { mods: modifier::SHIFT, send: "\x1b[1;2D", mode: mode::ANY, notmode: mode::NONE },
+        binding: Binding { mods: mods::SHIFT, send: "\x1b[1;2D", mode: mode::ANY, notmode: mode::NONE },
         expect: Some(String::from("\x1b[1;2D")),
         mode: mode::NONE,
-        mods: modifier::SHIFT
+        mods: mods::SHIFT
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_shift,
-        binding: Binding { mods: modifier::SHIFT, send: "\x1b[1;2D", mode: mode::ANY, notmode: mode::NONE },
+        binding: Binding { mods: mods::SHIFT, send: "\x1b[1;2D", mode: mode::ANY, notmode: mode::NONE },
         expect: None,
         mode: mode::NONE,
-        mods: modifier::NONE
+        mods: mods::NONE
     }
 
     test_process_binding! {
         name: process_binding_nomode_controlmod,
-        binding: Binding { mods: modifier::CONTROL, send: "\x1b[1;5D", mode: mode::ANY, notmode: mode::NONE },
+        binding: Binding { mods: mods::CONTROL, send: "\x1b[1;5D", mode: mode::ANY, notmode: mode::NONE },
         expect: Some(String::from("\x1b[1;5D")),
         mode: mode::NONE,
-        mods: modifier::CONTROL
+        mods: mods::CONTROL
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_not_appcursor,
-        binding: Binding { mods: modifier::ANY, send: "\x1b[D", mode: mode::ANY, notmode: mode::APP_CURSOR },
+        binding: Binding { mods: mods::ANY, send: "\x1b[D", mode: mode::ANY, notmode: mode::APP_CURSOR },
         expect: Some(String::from("\x1b[D")),
         mode: mode::NONE,
-        mods: modifier::NONE
+        mods: mods::NONE
     }
 
     test_process_binding! {
         name: process_binding_appcursormode_nomod_require_appcursor,
-        binding: Binding { mods: modifier::ANY, send: "\x1bOD", mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: Binding { mods: mods::ANY, send: "\x1bOD", mode: mode::APP_CURSOR, notmode: mode::NONE },
         expect: Some(String::from("\x1bOD")),
         mode: mode::APP_CURSOR,
-        mods: modifier::NONE
+        mods: mods::NONE
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_appcursor,
-        binding: Binding { mods: modifier::ANY, send: "\x1bOD", mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: Binding { mods: mods::ANY, send: "\x1bOD", mode: mode::APP_CURSOR, notmode: mode::NONE },
         expect: None,
         mode: mode::NONE,
-        mods: modifier::NONE
+        mods: mods::NONE
     }
 
     test_process_binding! {
         name: process_binding_appcursormode_appkeypadmode_nomod_require_appcursor,
-        binding: Binding { mods: modifier::ANY, send: "\x1bOD", mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: Binding { mods: mods::ANY, send: "\x1bOD", mode: mode::APP_CURSOR, notmode: mode::NONE },
         expect: Some(String::from("\x1bOD")),
         mode: mode::APP_CURSOR | mode::APP_KEYPAD,
-        mods: modifier::NONE
+        mods: mods::NONE
     }
 }

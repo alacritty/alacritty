@@ -242,9 +242,10 @@ fn main() {
                         glutin::Event::Resized(w, h) => {
                             new_size = Some((w, h));
                         },
-                        glutin::Event::KeyboardInput(state, _code, key) => {
+                        glutin::Event::KeyboardInput(state, _code, key, mods) => {
                             input_processor.process(state,
                                                     key,
+                                                    mods,
                                                     &mut input::WriteNotifier(&mut writer),
                                                     *terminal.mode())
                         },
