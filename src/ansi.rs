@@ -1067,12 +1067,13 @@ impl Default for State {
     }
 }
 
-/// Tests for parsing escape sequences
-///
-/// Byte sequences used in these tests are recording of pty stdout.
+// Tests for parsing escape sequences
+//
+// Byte sequences used in these tests are recording of pty stdout.
 #[cfg(test)]
 mod tests {
-    use std::io::{Cursor, Read};
+    use std::io::{Read};
+    use io::Utf8Chars;
     use index::{Line, Column};
     use super::{Parser, Handler, Attr, TermInfo};
     use ::Rgb;
@@ -1104,11 +1105,10 @@ mod tests {
             0x1b, 0x5b, 0x31, 0x6d
         ];
 
-        let cursor = Cursor::new(BYTES);
         let mut parser = Parser::new();
         let mut handler = AttrHandler::default();
 
-        for c in cursor.chars() {
+        for c in Utf8Chars::new(&BYTES[..]) {
             parser.advance(&mut handler, c.unwrap());
         }
 
@@ -1122,11 +1122,10 @@ mod tests {
             0x38, 0x3b, 0x36, 0x36, 0x3b, 0x32, 0x35, 0x35, 0x6d
         ];
 
-        let cursor = Cursor::new(BYTES);
         let mut parser = Parser::new();
         let mut handler = AttrHandler::default();
 
-        for c in cursor.chars() {
+        for c in Utf8Chars::new(&BYTES[..]) {
             parser.advance(&mut handler, c.unwrap());
         }
 
@@ -1158,11 +1157,10 @@ mod tests {
             0x6f, 0x64, 0x65
         ];
 
-        let cursor = Cursor::new(BYTES);
         let mut handler = AttrHandler::default();
         let mut parser = Parser::new();
 
-        for c in cursor.chars() {
+        for c in Utf8Chars::new(&BYTES[..]) {
             parser.advance(&mut handler, c.unwrap());
         }
     }
