@@ -7,7 +7,7 @@ dependencies = [
  "errno 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "font 0.1.0",
  "gl_generator 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "glutin 0.6.1 (git+https://github.com/jwilm/glutin?rev=d287fa96e3a8b2568b189067eedd28807c4568d6)",
+ "glutin 0.6.1 (git+https://github.com/jwilm/glutin?rev=22cc23997389bedd948a3ddc3833279ed308a673)",
  "libc 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "notify 2.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -285,7 +285,7 @@ dependencies = [
 [[package]]
 name = "glutin"
 version = "0.6.1"
-source = "git+https://github.com/jwilm/glutin?rev=d287fa96e3a8b2568b189067eedd28807c4568d6#d287fa96e3a8b2568b189067eedd28807c4568d6"
+source = "git+https://github.com/jwilm/glutin?rev=22cc23997389bedd948a3ddc3833279ed308a673#22cc23997389bedd948a3ddc3833279ed308a673"
 dependencies = [
  "android_glue 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
