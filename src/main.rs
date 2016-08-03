@@ -233,6 +233,8 @@ fn main() {
                             match c {
                                 // Ignore BACKSPACE and DEL. These are handled specially.
                                 '\u{8}' | '\u{7f}' => (),
+                                // OSX arrow keys send invalid characters; ignore.
+                                '\u{f700}' | '\u{f701}' | '\u{f702}' | '\u{f703}' => (),
                                 _ => {
                                     let encoded = c.encode_utf8();
                                     writer.write(encoded.as_slice()).unwrap();
