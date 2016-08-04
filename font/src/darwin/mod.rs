@@ -37,7 +37,7 @@ use core_text::font_descriptor::kCTFontHorizontalOrientation;
 use core_text::font_descriptor::kCTFontVerticalOrientation;
 use core_text::font_descriptor::{CTFontDescriptor, CTFontDescriptorRef, CTFontOrientation};
 
-use libc::size_t;
+use libc::{size_t, c_int};
 
 use euclid::point::Point2D;
 use euclid::rect::Rect;
@@ -279,6 +279,10 @@ impl Font {
                                                     rasterized_height as f64));
         cg_context.fill_rect(context_rect);
 
+        // Uses thin strokes
+        // TODO make this configurable since it's undesirable on non-retina displays.
+        cg_context.set_font_smoothing_style(16);
+
         cg_context.set_allows_font_smoothing(true);
         cg_context.set_should_smooth_fonts(true);
         cg_context.set_allows_font_subpixel_quantization(true);
@@ -342,6 +346,7 @@ pub trait CGContextExt {
     fn show_glyphs_at_positions(&self, &[CGGlyph], &[CGPoint]);
     fn set_font(&self, &CGFont);
     fn set_font_size(&self, size: f64);
+    fn set_font_smoothing_style(&self, style: i32);
 }
 
 impl CGContextExt for CGContext {
@@ -415,6 +420,12 @@ impl CGContextExt for CGContext {
             CGContextSetFontSize(self.as_concrete_TypeRef(), size as CGFloat);
         }
     }
+
+    fn set_font_smoothing_style(&self, style: i32) {
+        unsafe {
+            CGContextSetFontSmoothingStyle(self.as_concrete_TypeRef(), style as _);
+        }
+    }
 }
 
 #[link(name = "ApplicationServices", kind = "framework")]
@@ -431,6 +442,7 @@ extern {
                                       positions: *const CGPoint, count: size_t);
     fn CGContextSetFont(c: CGContextRef, font: CGFontRef);
     fn CGContextSetFontSize(c: CGContextRef, size: CGFloat);
+    fn CGContextSetFontSmoothingStyle(c: CGContextRef, style: c_int);
 }
 
 #[cfg(test)]
