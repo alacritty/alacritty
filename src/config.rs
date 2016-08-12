@@ -8,7 +8,9 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
+use font::Size;
 use serde_yaml;
+use serde;
 
 /// Top-level config type
 #[derive(Debug, Deserialize, Default)]
@@ -220,6 +222,47 @@ impl FontOffset {
     }
 }
 
+trait DeserializeFromF32 : Sized {
+    fn deserialize_from_f32<D>(&mut D) -> ::std::result::Result<Self, D::Error>
+        where D: serde::de::Deserializer;
+}
+
+impl DeserializeFromF32 for Size {
+    fn deserialize_from_f32<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+        where D: serde::de::Deserializer
+    {
+        use std::marker::PhantomData;
+
+        struct FloatVisitor<__D> {
+            _marker: PhantomData<__D>,
+        }
+
+        impl<__D> ::serde::de::Visitor for FloatVisitor<__D>
+            where __D: ::serde::de::Deserializer
+        {
+            type Value = f32;
+
+            fn visit_f32<E>(&mut self, value: f32) -> ::std::result::Result<Self::Value, E>
+                where E: ::serde::de::Error
+            {
+                Ok(value)
+            }
+
+            fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<Self::Value, E>
+                where E: ::serde::de::Error
+            {
+                // FIXME serde-yaml visits a str for real numbers.
+                //       https://github.com/dtolnay/serde-yaml/issues/24
+                Ok(value.parse::<f32>().expect("size must be float"))
+            }
+        }
+
+        deserializer
+            .deserialize_f32(FloatVisitor::<D>{ _marker: PhantomData })
+            .map(|v| Size::new(v))
+    }
+}
+
 /// Font config
 ///
 /// Defaults are provided at the level of this struct per platform, but not per
@@ -234,8 +277,15 @@ pub struct Font {
     /// Font style
     style: String,
 
-    /// Font size in points
-    size: f32,
+    /// Bold font style
+    bold_style: Option<String>,
+
+    /// Italic font style
+    italic_style: Option<String>,
+
+    // Font size in points
+    #[serde(deserialize_with="DeserializeFromF32::deserialize_from_f32")]
+    size: Size,
 
     /// Extra spacing per character
     offset: FontOffset,
@@ -254,9 +304,25 @@ impl Font {
         &self.style[..]
     }
 
+    /// Get italic font style; assumes same family
+    #[inline]
+    pub fn italic_style(&self) -> Option<&str> {
+        self.italic_style
+            .as_ref()
+            .map(|s| s.as_str())
+    }
+
+    /// Get bold font style; assumes same family
+    #[inline]
+    pub fn bold_style(&self) -> Option<&str> {
+        self.bold_style
+            .as_ref()
+            .map(|s| s.as_str())
+    }
+
     /// Get the font size in points
     #[inline]
-    pub fn size(&self) -> f32 {
+    pub fn size(&self) -> Size {
         self.size
     }
 
@@ -273,7 +339,9 @@ impl Default for Font {
         Font {
             family: String::from("Menlo"),
             style: String::from("Regular"),
-            size: 11.0,
+            size: Size::new(11.0),
+            bold_style: Some(String::from("Bold")),
+            italic_style: Some(String::from("Italic")),
             offset: FontOffset {
                 x: 0.0,
                 y: 0.0
@@ -288,7 +356,9 @@ impl Default for Font {
         Font {
             family: String::from("DejaVu Sans Mono"),
             style: String::from("Book"),
-            size: 11.0,
+            size: Size::new(11.0),
+            bold_style: Some(String::from("Bold")),
+            italic_style: Some(String::from("Italic")),
             offset: FontOffset {
                 // TODO should improve freetype metrics... shouldn't need such
                 // drastic offsets for the default!

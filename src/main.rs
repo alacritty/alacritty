@@ -57,7 +57,6 @@ use std::sync::{mpsc, Arc};
 use sync::PriorityMutex;
 
 use config::Config;
-use font::FontDesc;
 use meter::Meter;
 use renderer::{QuadRenderer, GlyphCache};
 use term::Term;
@@ -126,10 +125,28 @@ fn main() {
         gl::Enable(gl::MULTISAMPLE);
     }
 
-    let desc = FontDesc::new(font.family(), font.style());
-    let mut rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr);
+    let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr);
 
-    let metrics = rasterizer.metrics(&desc, font.size());
+    // Create renderer
+    let mut renderer = QuadRenderer::new(width, height);
+
+    // Initialize glyph cache
+    let mut glyph_cache = {
+        println!("Initializing glyph cache");
+        let init_start = ::std::time::Instant::now();
+
+        let cache = renderer.with_loader(|mut api| {
+            GlyphCache::new(rasterizer, &config, &mut api)
+        });
+
+        let stop = init_start.elapsed();
+        let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;
+        println!("Finished initializing glyph cache in {}", stop_f);
+
+        cache
+    };
+
+    let metrics = glyph_cache.font_metrics();
     let cell_width = (metrics.average_advance + font.offset().x() as f64) as u32;
     let cell_height = (metrics.line_height + font.offset().y() as f64) as u32;
 
@@ -140,7 +157,6 @@ fn main() {
     let mut reader = terminal.tty().reader();
     let writer = terminal.tty().writer();
 
-    let mut glyph_cache = GlyphCache::new(rasterizer, desc, font.size());
 
     let (tx, rx) = mpsc::channel();
     unsafe {
@@ -191,23 +207,6 @@ fn main() {
 
     let window = Arc::new(window);
     let window_ref = window.clone();
-
-    // Create renderer
-    let mut renderer = QuadRenderer::new(width, height);
-
-    // Initialize glyph cache
-    {
-        let init_start = ::std::time::Instant::now();
-        println!("Initializing glyph cache");
-        let terminal = term_ref.lock_high();
-        renderer.with_api(terminal.size_info(), |mut api| {
-            glyph_cache.init(&mut api);
-        });
-
-        let stop = init_start.elapsed();
-        let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;
-        println!("Finished initializing glyph cache in {}", stop_f);
-    }
 
     let mut input_processor = input::Processor::new();
 
@@ -282,7 +281,7 @@ fn main() {
                     renderer.with_api(&size_info, |mut api| {
                         // Draw the grid
                         api.render_grid(&terminal.render_grid(), &mut glyph_cache);
-                    })
+                    });
                 }
 
                 // Draw render timer
