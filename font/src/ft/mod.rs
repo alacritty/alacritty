@@ -22,11 +22,11 @@ use freetype;
 mod list_fonts;
 
 use self::list_fonts::{Family, get_font_families};
-use super::{FontDesc, RasterizedGlyph, Metrics};
+use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey};
 
 /// Rasterizes glyphs for a single font face.
 pub struct Rasterizer {
-    faces: HashMap<FontDesc, Face<'static>>,
+    faces: HashMap<FontKey, Face<'static>>,
     library: Library,
     system_fonts: HashMap<String, Family>,
     dpi_x: u32,
@@ -58,10 +58,10 @@ impl Rasterizer {
         }
     }
 
-    pub fn metrics(&mut self, desc: &FontDesc, size: f32) -> Metrics {
-        let face = self.get_face(&desc).unwrap();
+    pub fn metrics(&self, key: FontKey, size: Size) -> Metrics {
+        let face = self.faces.get(&key).unwrap();
 
-        let scale_size = self.dpr as f64 * size as f64;
+        let scale_size = self.dpr as f64 * size.as_f32_pts() as f64;
 
         let em_size = face.em_size() as f64;
         let w = face.max_advance_width() as f64;
@@ -76,27 +76,34 @@ impl Rasterizer {
         }
     }
 
-    fn get_face(&mut self, desc: &FontDesc) -> Option<Face<'static>> {
-        if let Some(face) = self.faces.get(desc) {
-            return Some(face.clone());
-        }
-
-        if let Some(font) = self.system_fonts.get(&desc.name[..]) {
-            if let Some(variant) = font.variants().get(&desc.style[..]) {
-                let face = self.library.new_face(variant.path(), variant.index())
-                                       .expect("TODO handle new_face error");
-
-                self.faces.insert(desc.to_owned(), face);
-                return Some(self.faces.get(desc).unwrap().clone());
-            }
-        }
-
-        None
+    pub fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Option<FontKey> {
+        self.get_face(desc)
+            .map(|face| {
+                let key = FontKey::next();
+                self.faces.insert(key, face);
+                key
+            })
     }
 
-    pub fn get_glyph(&mut self, desc: &FontDesc, size: f32, c: char) -> RasterizedGlyph {
-        let face = self.get_face(desc).expect("TODO handle get_face error");
-        face.set_char_size(to_freetype_26_6(size * self.dpr), 0, self.dpi_x, self.dpi_y).unwrap();
+    fn get_face(&mut self, desc: &FontDesc) -> Option<Face<'static>> {
+        self.system_fonts
+            .get(&desc.name[..])
+            .and_then(|font| font.variants().get(&desc.style[..]))
+            .map(|variant| {
+                self.library.new_face(variant.path(), variant.index())
+                            .expect("TODO handle new_face error")
+            })
+    }
+
+    pub fn get_glyph(&mut self, glyph_key: &GlyphKey) -> RasterizedGlyph {
+        let face = self.faces
+            .get(&glyph_key.font_key)
+            .expect("TODO handle get_face error");
+
+        let size = glyph_key.size.as_f32_pts() * self.dpr;
+        let c = glyph_key.c;
+
+        face.set_char_size(to_freetype_26_6(size), 0, self.dpi_x, self.dpi_y).unwrap();
         face.load_char(c as usize, freetype::face::TARGET_LIGHT).unwrap();
         let glyph = face.glyph();
         glyph.render_glyph(freetype::render_mode::RenderMode::Lcd).unwrap();
