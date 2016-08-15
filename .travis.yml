@@ -8,9 +8,8 @@ os:
   - osx
 
 rust:
-  # There's currently a cargo bug on stable which prevents libfontconfig_sys
-  # from building properly. I certainly wish I wrote down what that was.
-  - nightly
+  # Whole bunch of stuff needs nightly for now
+  - nightly-2016-07-11
 
 script:
   - cargo test
