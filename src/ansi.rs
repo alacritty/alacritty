@@ -1072,7 +1072,6 @@ impl Default for State {
 // Byte sequences used in these tests are recording of pty stdout.
 #[cfg(test)]
 mod tests {
-    use std::io::{Read};
     use io::Utf8Chars;
     use index::{Line, Column};
     use super::{Parser, Handler, Attr, TermInfo};

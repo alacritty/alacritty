@@ -292,7 +292,6 @@ mod tests {
     use glutin::mods;
 
     use super::Processor;
-    use super::modifier;
     use super::Binding;
 
     /// Receiver that keeps a copy of any strings it is notified with
@@ -319,7 +318,7 @@ mod tests {
             fn $name() {
                 let bindings = &[$binding];
 
-                let mut processor = Processor::new();
+                let processor = Processor::new();
                 let mut receiver = Receiver::default();
 
                 processor.process_bindings(bindings, $mode, &mut receiver, $mods);
