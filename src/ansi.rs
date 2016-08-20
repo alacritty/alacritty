@@ -68,10 +68,12 @@ pub struct Parser {
 pub enum Mode {
     /// ?1
     CursorKeys = 1,
-    /// ?25
-    ShowCursor = 25,
+    /// ?6
+    Origin = 6,
     /// ?12
     BlinkingCursor = 12,
+    /// ?25
+    ShowCursor = 25,
     /// ?1049
     SwapScreenAndSetRestoreCursor = 1049,
 }
@@ -84,6 +86,7 @@ impl Mode {
         if private {
             Some(match num {
                 1 => Mode::CursorKeys,
+                6 => Mode::Origin,
                 12 => Mode::BlinkingCursor,
                 25 => Mode::ShowCursor,
                 1049 => Mode::SwapScreenAndSetRestoreCursor,
