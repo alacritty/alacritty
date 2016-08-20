@@ -323,7 +323,7 @@ impl Term {
         // Scroll up to keep cursor in terminal
         if self.cursor.line >= num_lines {
             let lines = self.cursor.line - num_lines + 1;
-            self.scroll_down(lines);
+            self.scroll_up(lines);
             self.cursor.line -= lines;
         }
 
@@ -525,7 +525,7 @@ impl ansi::Handler for Term {
     fn linefeed(&mut self) {
         debug_println!("linefeed");
         if self.cursor.line + 1 >= self.scroll_region.end {
-            self.scroll_down(Line(1));
+            self.scroll_up(Line(1));
         } else {
             self.cursor.line += 1;
         }
@@ -553,8 +553,8 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn scroll_up(&mut self, lines: Line) {
-        debug_println!("scroll_up: {}", lines);
+    fn scroll_down(&mut self, lines: Line) {
+        debug_println!("scroll_down: {}", lines);
 
         // Scrolled up, clear from top
         self.grid.scroll(self.scroll_region.clone(), -(*lines as isize));
@@ -564,9 +564,9 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn scroll_down(&mut self, lines: Line) {
-        debug_println!("scroll_down: {}", lines);
-        // Scrolled down, so need to clear from bottom
+    fn scroll_up(&mut self, lines: Line) {
+        debug_println!("scroll_up: {}", lines);
+        // Scrolled up, so need to clear from bottom
         self.grid.scroll(self.scroll_region.clone(), *lines as isize);
         let start = self.scroll_region.end - lines;
         let template = self.template_cell.clone();
@@ -576,16 +576,18 @@ impl ansi::Handler for Term {
     #[inline]
     fn insert_blank_lines(&mut self, lines: Line) {
         debug_println!("insert_blank_lines: {}", lines);
-        if self.scroll_region.contains(self.cursor.line) {
-            self.scroll_up(lines);
+        if self.scroll_region.start <= self.cursor.line &&
+            self.cursor.line <= self.scroll_region.end {
+            self.scroll_down(lines);
         }
     }
 
     #[inline]
     fn delete_lines(&mut self, lines: Line) {
         debug_println!("delete_lines: {}", lines);
-        if self.scroll_region.contains(self.cursor.line) {
-            self.scroll_down(lines);
+        if self.scroll_region.start <= self.cursor.line &&
+            self.cursor.line <= self.scroll_region.end {
+            self.scroll_up(lines);
         }
     }
 
@@ -680,10 +682,10 @@ impl ansi::Handler for Term {
     fn reverse_index(&mut self) {
         debug_println!("reverse_index");
         // if cursor is at the top
-        if self.cursor.col == Column(0) {
-            self.scroll_up(Line(1));
+        if self.cursor.line == Line(0) {
+            self.scroll_down(Line(1));
         } else {
-            self.cursor.col -= 1;
+            self.cursor.line -= 1;
         }
     }
 
