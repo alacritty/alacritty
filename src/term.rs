@@ -405,7 +405,7 @@ impl ansi::Handler for Term {
         debug_print!("{}", c);
         if self.cursor.col == self.grid.num_cols() {
             debug_println!("wrapping");
-            if (self.cursor.line + 1) == self.grid.num_lines() {
+            if (self.cursor.line + 1) >= self.scroll_region.end {
                 self.linefeed();
             } else {
                 self.cursor.line += 1;
