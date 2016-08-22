@@ -20,18 +20,16 @@
 //! time; rotation currently reorganize Vecs in the lines Vec, and indexing with
 //! ranges is currently supported.
 
-use std::ops::{Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull, Index, IndexMut};
-use std::cmp::Ordering;
-use std::slice::{self, Iter, IterMut};
-use std::iter::IntoIterator;
 use std::borrow::ToOwned;
-
-use util::Rotate;
+use std::cmp::Ordering;
+use std::iter::IntoIterator;
+use std::ops::{Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull, Index, IndexMut};
+use std::slice::{self, Iter, IterMut};
 
 use index::{self, Cursor};
 
 /// Represents the terminal display contents
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Grid<T> {
     /// Lines in the grid. Each row holds a list of cells corresponding to the
     /// columns in that row.
@@ -119,8 +117,45 @@ impl<T> Grid<T> {
     }
 
     #[inline]
-    pub fn scroll(&mut self, region: Range<index::Line>, positions: isize) {
-        self[region].rotate(positions)
+    pub fn scroll_down(&mut self, region: Range<index::Line>, positions: index::Line) {
+        for line in region.rev() {
+            let src = line;
+            let dst = line - positions;
+            self.swap_lines(src, dst);
+        }
+    }
+
+    #[inline]
+    pub fn scroll_up(&mut self, region: Range<index::Line>, positions: index::Line) {
+        for line in region {
+            let src = line;
+            let dst = line + positions;
+            self.swap_lines(src, dst);
+        }
+    }
+
+    /// Swap two lines in the grid
+    ///
+    /// This could have used slice::swap internally, but we are able to have
+    /// better error messages by doing the bounds checking ourselves.
+    #[inline]
+    pub fn swap_lines(&mut self, src: index::Line, dst: index::Line) {
+        // check that src/dst are in bounds. Since index::Line newtypes usize,
+        // we can assume values are positive.
+        if src >= self.lines {
+            panic!("swap_lines src out of bounds; len={}, src={}", self.raw.len(), src);
+        }
+
+        if dst >= self.lines {
+            panic!("swap_lines dst out of bounds; len={}, dst={}", self.raw.len(), dst);
+        }
+
+        unsafe {
+            let src: *mut _ = self.raw.get_unchecked_mut(src.0);
+            let dst: *mut _ = self.raw.get_unchecked_mut(dst.0);
+
+            ::std::ptr::swap(src, dst);
+        }
     }
 
     #[inline]
@@ -179,7 +214,7 @@ impl<'cursor, T> IndexMut<&'cursor Cursor> for Grid<T> {
 }
 
 /// A row in the grid
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Row<T>(Vec<T>);
 
 impl<T: Clone> Row<T> {
@@ -414,3 +449,131 @@ macro_rules! clear_region_impl {
 clear_region_impl!(Range<index::Line>);
 clear_region_impl!(RangeTo<index::Line>);
 clear_region_impl!(RangeFrom<index::Line>);
+
+#[cfg(test)]
+mod tests {
+    use super::Grid;
+    use index::{Line, Column};
+    #[test]
+    fn grid_swap_lines_ok() {
+        let mut grid = Grid::new(Line(10), Column(1), &0);
+        println!("");
+
+        // swap test ends
+        grid[Line(0)][Column(0)] = 1;
+        grid[Line(9)][Column(0)] = 2;
+
+        assert_eq!(grid[Line(0)][Column(0)], 1);
+        assert_eq!(grid[Line(9)][Column(0)], 2);
+
+        grid.swap_lines(Line(0), Line(9));
+
+        assert_eq!(grid[Line(0)][Column(0)], 2);
+        assert_eq!(grid[Line(9)][Column(0)], 1);
+
+        // swap test mid
+        grid[Line(4)][Column(0)] = 1;
+        grid[Line(5)][Column(0)] = 2;
+
+        println!("grid: {:?}", grid);
+
+        assert_eq!(grid[Line(4)][Column(0)], 1);
+        assert_eq!(grid[Line(5)][Column(0)], 2);
+
+        grid.swap_lines(Line(4), Line(5));
+
+        println!("grid: {:?}", grid);
+
+        assert_eq!(grid[Line(4)][Column(0)], 2);
+        assert_eq!(grid[Line(5)][Column(0)], 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn grid_swap_lines_oob1() {
+        let mut grid = Grid::new(Line(10), Column(1), &0);
+        grid.swap_lines(Line(0), Line(10));
+    }
+
+    #[test]
+    #[should_panic]
+    fn grid_swap_lines_oob2() {
+        let mut grid = Grid::new(Line(10), Column(1), &0);
+        grid.swap_lines(Line(10), Line(0));
+    }
+
+    #[test]
+    #[should_panic]
+    fn grid_swap_lines_oob3() {
+        let mut grid = Grid::new(Line(10), Column(1), &0);
+        grid.swap_lines(Line(10), Line(10));
+    }
+
+    // Scroll up moves lines upwards
+    #[test]
+    fn scroll_up() {
+        println!("");
+
+        let mut grid = Grid::new(Line(10), Column(1), &0);
+        for i in 0..10 {
+            grid[Line(i)][Column(0)] = i;
+        }
+
+        println!("grid: {:?}", grid);
+
+        grid.scroll_up(Line(0)..Line(8), Line(2));
+
+        println!("grid: {:?}", grid);
+
+        let mut other = Grid::new(Line(10), Column(1), &9);
+
+        other[Line(0)][Column(0)] = 2;
+        other[Line(1)][Column(0)] = 3;
+        other[Line(2)][Column(0)] = 4;
+        other[Line(3)][Column(0)] = 5;
+        other[Line(4)][Column(0)] = 6;
+        other[Line(5)][Column(0)] = 7;
+        other[Line(6)][Column(0)] = 8;
+        other[Line(7)][Column(0)] = 9;
+        other[Line(8)][Column(0)] = 0;
+        other[Line(9)][Column(0)] = 1;
+
+        for i in 0..10 {
+            assert_eq!(grid[Line(i)][Column(0)], other[Line(i)][Column(0)]);
+        }
+    }
+
+    // Scroll down moves lines downwards
+    #[test]
+    fn scroll_down() {
+        println!("");
+
+        let mut grid = Grid::new(Line(10), Column(1), &0);
+        for i in 0..10 {
+            grid[Line(i)][Column(0)] = i;
+        }
+
+        println!("grid: {:?}", grid);
+
+        grid.scroll_down(Line(2)..Line(10), Line(2));
+
+        println!("grid: {:?}", grid);
+
+        let mut other = Grid::new(Line(10), Column(1), &9);
+
+        other[Line(0)][Column(0)] = 8;
+        other[Line(1)][Column(0)] = 9;
+        other[Line(2)][Column(0)] = 0;
+        other[Line(3)][Column(0)] = 1;
+        other[Line(4)][Column(0)] = 2;
+        other[Line(5)][Column(0)] = 3;
+        other[Line(6)][Column(0)] = 4;
+        other[Line(7)][Column(0)] = 5;
+        other[Line(8)][Column(0)] = 6;
+        other[Line(9)][Column(0)] = 7;
+
+        for i in 0..10 {
+            assert_eq!(grid[Line(i)][Column(0)], other[Line(i)][Column(0)]);
+        }
+    }
+}

@@ -384,6 +384,57 @@ impl Term {
             self.grid.clear(|c| c.reset(&template));
         }
     }
+
+    /// Scroll screen down
+    ///
+    /// Text moves down; clear at bottom
+    #[inline]
+    fn scroll_down_relative(&mut self, origin: Line, lines: Line) {
+        debug_println!("scroll_down: {}", lines);
+
+        // Copy of cell template; can't have it borrowed when calling clear/scroll
+        let template = self.template_cell.clone();
+
+        // Clear `lines` lines at bottom of area
+        {
+            let end = self.scroll_region.end;
+            let start = end - lines;
+            self.grid.clear_region(start..end, |c| c.reset(&template));
+        }
+
+        // Scroll between origin and bottom
+        {
+            let end = self.scroll_region.end;
+            println!("origin={}, lines={}", origin, lines);
+            let start = origin + lines;
+            self.grid.scroll_down(start..end, lines);
+        }
+    }
+
+    /// Scroll screen up
+    ///
+    /// Text moves up; clear at top
+    #[inline]
+    fn scroll_up_relative(&mut self, origin: Line, lines: Line) {
+        debug_println!("scroll_up: {}", lines);
+
+        // Copy of cell template; can't have it borrowed when calling clear/scroll
+        let template = self.template_cell.clone();
+
+        // Clear `lines` lines starting from origin to origin + lines
+        {
+            let start = origin;
+            let end = start + lines;
+            self.grid.clear_region(start..end, |c| c.reset(&template));
+        }
+
+        // Scroll from origin to bottom less number of lines
+        {
+            let start = origin;
+            let end = self.scroll_region.end - lines;
+            self.grid.scroll_up(start..end, lines);
+        }
+    }
 }
 
 impl ansi::TermInfo for Term {
@@ -553,41 +604,32 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn scroll_down(&mut self, lines: Line) {
-        debug_println!("scroll_down: {}", lines);
-
-        // Scrolled up, clear from top
-        self.grid.scroll(self.scroll_region.clone(), -(*lines as isize));
-        let end = self.scroll_region.start + lines;
-        let template = self.template_cell.clone();
-        self.grid.clear_region(self.scroll_region.start..end, |c| c.reset(&template));
+    fn scroll_up(&mut self, lines: Line) {
+        let origin = self.scroll_region.start;
+        self.scroll_up_relative(origin, lines);
     }
 
     #[inline]
-    fn scroll_up(&mut self, lines: Line) {
-        debug_println!("scroll_up: {}", lines);
-        // Scrolled up, so need to clear from bottom
-        self.grid.scroll(self.scroll_region.clone(), *lines as isize);
-        let start = self.scroll_region.end - lines;
-        let template = self.template_cell.clone();
-        self.grid.clear_region(start..self.scroll_region.end, |c| c.reset(&template));
+    fn scroll_down(&mut self, lines: Line) {
+        let origin = self.scroll_region.start;
+        self.scroll_down_relative(origin, lines);
     }
 
     #[inline]
     fn insert_blank_lines(&mut self, lines: Line) {
         debug_println!("insert_blank_lines: {}", lines);
-        if self.scroll_region.start <= self.cursor.line &&
-            self.cursor.line <= self.scroll_region.end {
-            self.scroll_down(lines);
+        if self.scroll_region.contains(self.cursor.line) {
+            let origin = self.cursor.line;
+            self.scroll_down_relative(origin, lines);
         }
     }
 
     #[inline]
     fn delete_lines(&mut self, lines: Line) {
         debug_println!("delete_lines: {}", lines);
-        if self.scroll_region.start <= self.cursor.line &&
-            self.cursor.line <= self.scroll_region.end {
-            self.scroll_up(lines);
+        if self.scroll_region.contains(self.cursor.line) {
+            let origin = self.cursor.line;
+            self.scroll_up_relative(origin, lines);
         }
     }
 
@@ -661,10 +703,7 @@ impl ansi::Handler for Term {
         let template = self.template_cell.clone();
         match mode {
             ansi::ClearMode::Below => {
-                let start = self.cursor.line;
-                let end = self.grid.num_lines();
-
-                for row in &mut self.grid[start..end] {
+                for row in &mut self.grid[self.cursor.line..] {
                     for cell in row {
                         cell.reset(&template);
                     }
@@ -693,7 +732,7 @@ impl ansi::Handler for Term {
     fn reverse_index(&mut self) {
         debug_println!("reverse_index");
         // if cursor is at the top
-        if self.cursor.line == Line(0) {
+        if self.cursor.line == self.scroll_region.start {
             self.scroll_down(Line(1));
         } else {
             self.cursor.line -= 1;
@@ -772,6 +811,7 @@ impl ansi::Handler for Term {
     fn set_scrolling_region(&mut self, region: Range<Line>) {
         debug_println!("set scroll region: {:?}", region);
         self.scroll_region = region;
+        self.goto(Line(0), Column(0));
     }
 
     #[inline]

@@ -131,6 +131,33 @@ macro_rules! sub {
                 $construct(self.0 - rhs.0)
             }
         }
+
+        impl<'a> ops::Sub<$ty> for &'a $ty {
+            type Output = $ty;
+
+            #[inline]
+            fn sub(self, rhs: $ty) -> $ty {
+                $construct(self.0 - rhs.0)
+            }
+        }
+
+        impl<'a> ops::Sub<&'a $ty> for $ty {
+            type Output = $ty;
+
+            #[inline]
+            fn sub(self, rhs: &'a $ty) -> $ty {
+                $construct(self.0 - rhs.0)
+            }
+        }
+
+        impl<'a, 'b> ops::Sub<&'a $ty> for &'b $ty {
+            type Output = $ty;
+
+            #[inline]
+            fn sub(self, rhs: &'a $ty) -> $ty {
+                $construct(self.0 - rhs.0)
+            }
+        }
     }
 }
 
