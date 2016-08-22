@@ -640,7 +640,18 @@ impl ansi::Handler for Term {
                     cell.reset(&template);
                 }
             },
-            _ => (),
+            ansi::LineClearMode::Left => {
+                let row = &mut self.grid[self.cursor.line];
+                for cell in &mut row[..(self.cursor.col + 1)] {
+                    cell.reset(&template);
+                }
+            },
+            ansi::LineClearMode::All => {
+                let row = &mut self.grid[self.cursor.line];
+                for cell in &mut row[..] {
+                    cell.reset(&template);
+                }
+            },
         }
     }
 
