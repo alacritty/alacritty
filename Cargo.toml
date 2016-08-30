@@ -13,7 +13,7 @@ notify = "2.6"
 bitflags = "*"
 font = { path = "./font" }
 errno = "0.1.6"
-parking_lot = "0.2.6"
+parking_lot = "0.3.1"
 serde = "0.7"
 serde_yaml = "0.2"
 serde_macros = "0.7"
@@ -23,4 +23,4 @@ gl_generator = "0.5"
 
 [dependencies.glutin]
 git = "https://github.com/jwilm/glutin"
-rev = "22cc23997389bedd948a3ddc3833279ed308a673"
+rev = "45092a8e2f6706a7b2c613ff212341754e346c9c"

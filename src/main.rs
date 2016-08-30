@@ -51,7 +51,6 @@ mod util;
 mod io;
 mod sync;
 
-use std::io::{Write, BufWriter, Read};
 use std::sync::{mpsc, Arc};
 
 use sync::PriorityMutex;
@@ -131,7 +130,7 @@ fn main() {
     let mut renderer = QuadRenderer::new(width, height);
 
     // Initialize glyph cache
-    let mut glyph_cache = {
+    let glyph_cache = {
         println!("Initializing glyph cache");
         let init_start = ::std::time::Instant::now();
 
@@ -154,9 +153,8 @@ fn main() {
 
     let terminal = Term::new(width as f32, height as f32, cell_width as f32, cell_height as f32);
 
-    let mut reader = terminal.tty().reader();
-    let writer = terminal.tty().writer();
-
+    let reader = terminal.tty().reader();
+    let mut writer = terminal.tty().writer();
 
     let (tx, rx) = mpsc::channel();
     unsafe {
@@ -164,24 +162,83 @@ fn main() {
     }
 
     let terminal = Arc::new(PriorityMutex::new(terminal));
-    let term_ref = terminal.clone();
-    let term_updater = terminal.clone();
 
-    // Rendering thread
-    //
-    // Holds lock only when updating terminal
-    let reader_thread = thread::spawn_named("TTY Reader", move || {
+    let pty_reader_thread = spawn_pty_reader(terminal.clone(), reader);
+
+    let window = Arc::new(window);
+
+    let _ = window.clear_current();
+    let render_thread = spawn_renderer(window.clone(),
+                                       terminal.clone(),
+                                       renderer,
+                                       glyph_cache,
+                                       render_timer,
+                                       rx);
+
+    handle_window_events(&mut writer, terminal, window);
+
+    pty_reader_thread.join().ok();
+    render_thread.join().ok();
+    println!("Goodbye");
+}
+
+/// Handle window events until the application should close
+fn handle_window_events<W>(writer: &mut W,
+                           terminal: Arc<PriorityMutex<Term>>,
+                           window: Arc<glutin::Window>)
+    where W: std::io::Write,
+{
+    let mut input_processor = input::Processor::new();
+    let resize_tx = unsafe { resize_sender.as_ref().cloned().unwrap() };
+
+    for event in window.wait_events() {
+        match event {
+            glutin::Event::Closed => break,
+            glutin::Event::ReceivedCharacter(c) => {
+                match c {
+                    // Ignore BACKSPACE and DEL. These are handled specially.
+                    '\u{8}' | '\u{7f}' => (),
+                    // OSX arrow keys send invalid characters; ignore.
+                    '\u{f700}' | '\u{f701}' | '\u{f702}' | '\u{f703}' => (),
+                    _ => {
+                        let encoded = c.encode_utf8();
+                        writer.write(encoded.as_slice()).unwrap();
+                    }
+                }
+            },
+            glutin::Event::Resized(w, h) => {
+                resize_tx.send((w, h)).expect("send new size");
+            },
+            glutin::Event::KeyboardInput(state, _code, key, mods) => {
+                // Acquire term lock
+                let terminal = terminal.lock_high();
+
+                input_processor.process(state,
+                                        key,
+                                        mods,
+                                        &mut input::WriteNotifier(writer),
+                                        *terminal.mode())
+            },
+            _ => (),
+        }
+    }
+}
+
+fn spawn_pty_reader<R>(terminal: Arc<PriorityMutex<Term>>, mut pty: R) -> std::thread::JoinHandle<()>
+    where R: std::io::Read + Send + 'static,
+{
+    thread::spawn_named("pty reader", move || {
         let mut buf = [0u8; 4096];
         let mut start = 0;
         let mut pty_parser = ansi::Parser::new();
 
-        'reader: loop {
-            let got = reader.read(&mut buf[start..]).expect("pty fd active");
+        loop {
+            let got = pty.read(&mut buf[start..]).expect("pty fd active");
             let mut remain = 0;
 
             // if `start` is nonzero, then actual bytes in buffer is > `got` by `start` bytes.
             let end = start + got;
-            let mut terminal = term_updater.lock_low();
+            let mut terminal = terminal.lock_low();
             for c in Utf8Chars::new(&buf[..end]) {
                 match c {
                     Ok(c) => pty_parser.advance(&mut *terminal, c),
@@ -201,108 +258,77 @@ fn main() {
             }
             start = remain;
         }
-    });
+    })
+}
 
-    let mut meter = Meter::new();
+fn spawn_renderer(window: Arc<glutin::Window>,
+                  terminal: Arc<PriorityMutex<Term>>,
+                  mut renderer: QuadRenderer,
+                  mut glyph_cache: GlyphCache,
+                  render_timer: bool,
+                  rx: mpsc::Receiver<(u32, u32)>) -> std::thread::JoinHandle<()> {
+    thread::spawn_named("render", move || {
+        unsafe {
+            let _ = window.make_current();
+        }
+        let mut meter = Meter::new();
 
-    let window = Arc::new(window);
-    let window_ref = window.clone();
-
-    let mut input_processor = input::Processor::new();
-
-    'main_loop: loop {
-
-        // Scope ensures terminal lock isn't held when calling swap_buffers
-        {
-            // Acquire term lock
-            let mut terminal = term_ref.lock_high();
-
-            // Resize events new_size and are handled outside the poll_events
-            // iterator. This has the effect of coalescing multiple resize
-            // events into one.
-            let mut new_size = None;
-
-            // Process input events
+        'render_loop: loop {
+            // Scope ensures terminal lock isn't held when calling swap_buffers
             {
-                let mut writer = BufWriter::new(&writer);
-                for event in window_ref.poll_events() {
-                    match event {
-                        glutin::Event::Closed => break 'main_loop,
-                        glutin::Event::ReceivedCharacter(c) => {
-                            match c {
-                                // Ignore BACKSPACE and DEL. These are handled specially.
-                                '\u{8}' | '\u{7f}' => (),
-                                // OSX arrow keys send invalid characters; ignore.
-                                '\u{f700}' | '\u{f701}' | '\u{f702}' | '\u{f703}' => (),
-                                _ => {
-                                    let encoded = c.encode_utf8();
-                                    writer.write(encoded.as_slice()).unwrap();
-                                }
-                            }
-                        },
-                        glutin::Event::Resized(w, h) => {
-                            new_size = Some((w, h));
-                        },
-                        glutin::Event::KeyboardInput(state, _code, key, mods) => {
-                            input_processor.process(state,
-                                                    key,
-                                                    mods,
-                                                    &mut input::WriteNotifier(&mut writer),
-                                                    *terminal.mode())
-                        },
-                        _ => (),
+                // Acquire term lock
+                let mut terminal = terminal.lock_high();
+
+                // Resize events new_size and are handled outside the poll_events
+                // iterator. This has the effect of coalescing multiple resize
+                // events into one.
+                let mut new_size = None;
+
+                unsafe {
+                    gl::ClearColor(0.0, 0.0, 0.00, 1.0);
+                    gl::Clear(gl::COLOR_BUFFER_BIT);
+                }
+
+                // Check for any out-of-band resize events (mac only)
+                while let Ok(sz) = rx.try_recv() {
+                    new_size = Some(sz);
+                }
+
+                // Receive any resize events; only call gl::Viewport on last
+                // available
+                if let Some((w, h)) = new_size.take() {
+                    terminal.resize(w as f32, h as f32);
+                    renderer.resize(w as i32, h as i32);
+                }
+
+                {
+                    // Draw grid
+                    {
+                        let _sampler = meter.sampler();
+
+                        let size_info = terminal.size_info().clone();
+                        renderer.with_api(&size_info, |mut api| {
+                            // Draw the grid
+                            api.render_grid(&terminal.render_grid(), &mut glyph_cache);
+                        });
+                    }
+
+                    // Draw render timer
+                    if render_timer {
+                        let timing = format!("{:.3} usec", meter.average());
+                        let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
+                        renderer.with_api(terminal.size_info(), |mut api| {
+                            api.render_string(&timing[..], &mut glyph_cache, &color);
+                        });
                     }
                 }
             }
 
-            unsafe {
-                gl::ClearColor(0.0, 0.0, 0.00, 1.0);
-                gl::Clear(gl::COLOR_BUFFER_BIT);
-            }
+            window.swap_buffers().unwrap();
 
-            // Check for any out-of-band resize events (mac only)
-            while let Ok(sz) = rx.try_recv() {
-                new_size = Some(sz);
-            }
-
-            // Receive any resize events; only call gl::Viewport on last
-            // available
-            if let Some((w, h)) = new_size.take() {
-                terminal.resize(w as f32, h as f32);
-                renderer.resize(w as i32, h as i32);
-            }
-
-            {
-                // Draw grid
-                {
-                    let _sampler = meter.sampler();
-
-                    let size_info = terminal.size_info().clone();
-                    renderer.with_api(&size_info, |mut api| {
-                        // Draw the grid
-                        api.render_grid(&terminal.render_grid(), &mut glyph_cache);
-                    });
-                }
-
-                // Draw render timer
-                if render_timer {
-                    let timing = format!("{:.3} usec", meter.average());
-                    let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-                    renderer.with_api(terminal.size_info(), |mut api| {
-                        api.render_string(&timing[..], &mut glyph_cache, &color);
-                    });
-                }
+            if process_should_exit() {
+                break;
             }
         }
-
-        window.swap_buffers().unwrap();
-
-        if process_should_exit() {
-            break;
-        }
-    }
-
-    reader_thread.join().ok();
-    println!("Goodbye");
+    })
 }
-

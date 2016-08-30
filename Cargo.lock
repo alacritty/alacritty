@@ -10,7 +10,7 @@ dependencies = [
  "glutin 0.6.1 (git+https://github.com/jwilm/glutin?rev=22cc23997389bedd948a3ddc3833279ed308a673)",
  "libc 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "notify 2.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "parking_lot 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parking_lot 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 0.7.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_macros 0.7.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_yaml 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -562,11 +562,20 @@ dependencies = [
 
 [[package]]
 name = "parking_lot"
-version = "0.2.6"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "parking_lot_core 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "parking_lot_core"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
