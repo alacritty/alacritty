@@ -14,13 +14,13 @@ bitflags = "*"
 font = { path = "./font" }
 errno = "0.1.6"
 parking_lot = "0.3.1"
-serde = "0.7"
-serde_yaml = "0.2"
-serde_macros = "0.7"
+serde = "0.8"
+serde_yaml = "0.4"
+serde_macros = "0.8"
 
 [build-dependencies]
 gl_generator = "0.5"
 
 [dependencies.glutin]
 git = "https://github.com/jwilm/glutin"
-rev = "45092a8e2f6706a7b2c613ff212341754e346c9c"
+rev = "16ed800f68022a37203434bd3b542ff5400c1403"
