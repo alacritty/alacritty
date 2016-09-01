@@ -13,7 +13,7 @@ notify = "2.6"
 bitflags = "*"
 font = { path = "./font" }
 errno = "0.1.6"
-parking_lot = "0.3.1"
+parking_lot = { version = "0.3.1", features = ["nightly"] }
 serde = "0.8"
 serde_yaml = "0.4"
 serde_macros = "0.8"

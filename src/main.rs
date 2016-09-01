@@ -52,20 +52,44 @@ mod io;
 mod sync;
 
 use std::sync::{mpsc, Arc};
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use sync::PriorityMutex;
+use parking_lot::{Condvar, Mutex};
 
 use config::Config;
+use io::{Utf8Chars, Utf8CharsError};
 use meter::Meter;
 use renderer::{QuadRenderer, GlyphCache};
+use sync::PriorityMutex;
 use term::Term;
 use tty::process_should_exit;
 use util::thread;
 
-use io::{Utf8Chars, Utf8CharsError};
-
 /// Channel used by resize handling on mac
 static mut resize_sender: Option<mpsc::Sender<(u32, u32)>> = None;
+
+struct Waiter {
+    mutex: Mutex<bool>,
+    cond: Condvar,
+}
+
+impl Waiter {
+    pub fn new() -> Waiter {
+        Waiter {
+            mutex: Mutex::new(false),
+            cond: Condvar::new(),
+        }
+    }
+
+    pub fn notify(&self) {
+        self.cond.notify_one();
+    }
+
+    pub fn wait(&self) {
+        let mut guard = self.mutex.lock();
+        self.cond.wait(&mut guard);
+    }
+}
 
 /// Resize handling for Mac
 fn window_resize_handler(width: u32, height: u32) {
@@ -126,6 +150,9 @@ fn main() {
 
     let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr);
 
+    let waiter = Arc::new(Waiter::new());
+    let dirty = Arc::new(AtomicBool::new(false));
+
     // Create renderer
     let mut renderer = QuadRenderer::new(width, height);
 
@@ -163,7 +190,11 @@ fn main() {
 
     let terminal = Arc::new(PriorityMutex::new(terminal));
 
-    let pty_reader_thread = spawn_pty_reader(terminal.clone(), reader);
+    let pty_reader_thread = spawn_pty_reader(terminal.clone(),
+                                             reader,
+                                             waiter.clone(),
+                                             dirty.clone(),
+                                             window.create_window_proxy());
 
     let window = Arc::new(window);
 
@@ -173,11 +204,15 @@ fn main() {
                                        renderer,
                                        glyph_cache,
                                        render_timer,
-                                       rx);
+                                       rx,
+                                       waiter.clone(),
+                                       dirty);
 
     handle_window_events(&mut writer, terminal, window);
 
     pty_reader_thread.join().ok();
+
+    waiter.notify();
     render_thread.join().ok();
     println!("Goodbye");
 }
@@ -219,12 +254,23 @@ fn handle_window_events<W>(writer: &mut W,
                                         &mut input::WriteNotifier(writer),
                                         *terminal.mode())
             },
+            glutin::Event::Awakened => {
+                if process_should_exit() {
+                    println!("input thread exitting");
+                    break;
+                }
+            }
             _ => (),
         }
+
     }
 }
 
-fn spawn_pty_reader<R>(terminal: Arc<PriorityMutex<Term>>, mut pty: R) -> std::thread::JoinHandle<()>
+fn spawn_pty_reader<R>(terminal: Arc<PriorityMutex<Term>>,
+                       mut pty: R,
+                       waiter: Arc<Waiter>,
+                       dirty: Arc<AtomicBool>,
+                       proxy: ::glutin::WindowProxy) -> std::thread::JoinHandle<()>
     where R: std::io::Read + Send + 'static,
 {
     thread::spawn_named("pty reader", move || {
@@ -233,40 +279,51 @@ fn spawn_pty_reader<R>(terminal: Arc<PriorityMutex<Term>>, mut pty: R) -> std::t
         let mut pty_parser = ansi::Parser::new();
 
         loop {
-            let got = pty.read(&mut buf[start..]).expect("pty fd active");
-            let mut remain = 0;
+            if let Ok(got) = pty.read(&mut buf[start..]) {
+                let mut remain = 0;
 
-            // if `start` is nonzero, then actual bytes in buffer is > `got` by `start` bytes.
-            let end = start + got;
-            let mut terminal = terminal.lock_low();
-            for c in Utf8Chars::new(&buf[..end]) {
-                match c {
-                    Ok(c) => pty_parser.advance(&mut *terminal, c),
-                    Err(err) => match err {
-                        Utf8CharsError::IncompleteUtf8(unused) => {
-                            remain = unused;
-                            break;
-                        },
-                        _ => panic!("{}", err),
+                // if `start` is nonzero, then actual bytes in buffer is > `got` by `start` bytes.
+                let end = start + got;
+                {
+                    let mut terminal = terminal.lock_low();
+                    for c in Utf8Chars::new(&buf[..end]) {
+                        match c {
+                            Ok(c) => pty_parser.advance(&mut *terminal, c),
+                            Err(err) => match err {
+                                Utf8CharsError::IncompleteUtf8(unused) => {
+                                    remain = unused;
+                                    break;
+                                },
+                                _ => panic!("{}", err),
+                            }
+                        }
                     }
                 }
-            }
 
-            // Move any leftover bytes to front of buffer
-            for i in 0..remain {
-                buf[i] = buf[end - (remain - i)];
+                dirty.store(true, Ordering::Release);
+                waiter.notify();
+
+                // Move any leftover bytes to front of buffer
+                for i in 0..remain {
+                    buf[i] = buf[end - (remain - i)];
+                }
+                start = remain;
+            } else {
+                proxy.wakeup_event_loop();
+                break;
             }
-            start = remain;
         }
     })
 }
 
 fn spawn_renderer(window: Arc<glutin::Window>,
-                  terminal: Arc<PriorityMutex<Term>>,
+                  terminal_mutex: Arc<PriorityMutex<Term>>,
                   mut renderer: QuadRenderer,
                   mut glyph_cache: GlyphCache,
                   render_timer: bool,
-                  rx: mpsc::Receiver<(u32, u32)>) -> std::thread::JoinHandle<()> {
+                  rx: mpsc::Receiver<(u32, u32)>,
+                  waiter: Arc<Waiter>,
+                  dirty: Arc<AtomicBool>) -> std::thread::JoinHandle<()> {
     thread::spawn_named("render", move || {
         unsafe {
             let _ = window.make_current();
@@ -277,7 +334,15 @@ fn spawn_renderer(window: Arc<glutin::Window>,
             // Scope ensures terminal lock isn't held when calling swap_buffers
             {
                 // Acquire term lock
-                let mut terminal = terminal.lock_high();
+                let mut terminal = terminal_mutex.lock_high();
+
+                if !dirty.load(Ordering::Acquire) {
+                    drop(terminal);
+                    waiter.wait();
+                    terminal = terminal_mutex.lock_high();
+                }
+
+                dirty.store(false, Ordering::Release);
 
                 // Resize events new_size and are handled outside the poll_events
                 // iterator. This has the effect of coalescing multiple resize
@@ -328,6 +393,7 @@ fn spawn_renderer(window: Arc<glutin::Window>,
 
             if process_should_exit() {
                 break;
+            } else {
             }
         }
     })
