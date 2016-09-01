@@ -44,6 +44,7 @@ mod meter;
 pub mod config;
 mod input;
 mod index;
+mod event;
 mod tty;
 pub mod ansi;
 mod term;
@@ -54,7 +55,7 @@ mod sync;
 use std::sync::{mpsc, Arc};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use parking_lot::{Condvar, Mutex};
+use parking_lot::{Condvar, Mutex, MutexGuard};
 
 use config::Config;
 use io::{Utf8Chars, Utf8CharsError};
@@ -67,29 +68,6 @@ use util::thread;
 
 /// Channel used by resize handling on mac
 static mut resize_sender: Option<mpsc::Sender<(u32, u32)>> = None;
-
-struct Waiter {
-    mutex: Mutex<bool>,
-    cond: Condvar,
-}
-
-impl Waiter {
-    pub fn new() -> Waiter {
-        Waiter {
-            mutex: Mutex::new(false),
-            cond: Condvar::new(),
-        }
-    }
-
-    pub fn notify(&self) {
-        self.cond.notify_one();
-    }
-
-    pub fn wait(&self) {
-        let mut guard = self.mutex.lock();
-        self.cond.wait(&mut guard);
-    }
-}
 
 /// Resize handling for Mac
 fn window_resize_handler(width: u32, height: u32) {
@@ -140,6 +118,12 @@ fn main() {
 
     println!("device_pixel_ratio: {}", dpr);
 
+    for event in window.wait_events() {
+        if let glutin::Event::Refresh = event {
+            break;
+        }
+    }
+
     let _ = unsafe { window.make_current() };
     unsafe {
         gl::Viewport(0, 0, width as i32, height as i32);
@@ -149,9 +133,6 @@ fn main() {
     }
 
     let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr);
-
-    let waiter = Arc::new(Waiter::new());
-    let dirty = Arc::new(AtomicBool::new(false));
 
     // Create renderer
     let mut renderer = QuadRenderer::new(width, height);
@@ -189,212 +170,185 @@ fn main() {
     }
 
     let terminal = Arc::new(PriorityMutex::new(terminal));
-
-    let pty_reader_thread = spawn_pty_reader(terminal.clone(),
-                                             reader,
-                                             waiter.clone(),
-                                             dirty.clone(),
-                                             window.create_window_proxy());
-
     let window = Arc::new(window);
 
-    let _ = window.clear_current();
-    let render_thread = spawn_renderer(window.clone(),
-                                       terminal.clone(),
-                                       renderer,
-                                       glyph_cache,
-                                       render_timer,
-                                       rx,
-                                       waiter.clone(),
-                                       dirty);
+    let pty_reader = PtyReader::spawn(terminal.clone(), reader, window.create_window_proxy());
 
-    handle_window_events(&mut writer, terminal, window);
+    // Wraps a renderer and gives simple draw() api.
+    let mut display = Display::new(window.clone(),
+                                   terminal.clone(),
+                                   renderer,
+                                   glyph_cache,
+                                   render_timer,
+                                   rx);
 
-    pty_reader_thread.join().ok();
+    // Event processor
+    let mut processor = event::Processor::new(&mut writer, terminal.clone(), tx);
 
-    waiter.notify();
-    render_thread.join().ok();
+    // Main loop
+    loop {
+        // Wait for something to happen
+        processor.process_events(&window);
+
+        // Maybe draw the terminal
+        let terminal = terminal.lock_high();
+        if terminal.dirty {
+            println!("dirty!");
+            display.draw(terminal);
+        }
+
+        if process_should_exit() {
+            break;
+        }
+    }
+
+    // shutdown
+    pty_reader.join().ok();
     println!("Goodbye");
 }
 
-/// Handle window events until the application should close
-fn handle_window_events<W>(writer: &mut W,
-                           terminal: Arc<PriorityMutex<Term>>,
-                           window: Arc<glutin::Window>)
-    where W: std::io::Write,
-{
-    let mut input_processor = input::Processor::new();
-    let resize_tx = unsafe { resize_sender.as_ref().cloned().unwrap() };
+struct PtyReader;
 
-    for event in window.wait_events() {
-        match event {
-            glutin::Event::Closed => break,
-            glutin::Event::ReceivedCharacter(c) => {
-                match c {
-                    // Ignore BACKSPACE and DEL. These are handled specially.
-                    '\u{8}' | '\u{7f}' => (),
-                    // OSX arrow keys send invalid characters; ignore.
-                    '\u{f700}' | '\u{f701}' | '\u{f702}' | '\u{f703}' => (),
-                    _ => {
-                        let encoded = c.encode_utf8();
-                        writer.write(encoded.as_slice()).unwrap();
-                    }
-                }
-            },
-            glutin::Event::Resized(w, h) => {
-                resize_tx.send((w, h)).expect("send new size");
-            },
-            glutin::Event::KeyboardInput(state, _code, key, mods) => {
-                // Acquire term lock
-                let terminal = terminal.lock_high();
+impl PtyReader {
+    pub fn spawn<R>(terminal: Arc<PriorityMutex<Term>>,
+                    mut pty: R,
+                    proxy: ::glutin::WindowProxy)
+                    -> std::thread::JoinHandle<()>
+        where R: std::io::Read + Send + 'static
+    {
+        thread::spawn_named("pty reader", move || {
+            let mut buf = [0u8; 4096];
+            let mut start = 0;
+            let mut pty_parser = ansi::Parser::new();
 
-                input_processor.process(state,
-                                        key,
-                                        mods,
-                                        &mut input::WriteNotifier(writer),
-                                        *terminal.mode())
-            },
-            glutin::Event::Awakened => {
-                if process_should_exit() {
-                    println!("input thread exitting");
-                    break;
-                }
-            }
-            _ => (),
-        }
+            loop {
+                if let Ok(got) = pty.read(&mut buf[start..]) {
+                    let mut remain = 0;
 
-    }
-}
-
-fn spawn_pty_reader<R>(terminal: Arc<PriorityMutex<Term>>,
-                       mut pty: R,
-                       waiter: Arc<Waiter>,
-                       dirty: Arc<AtomicBool>,
-                       proxy: ::glutin::WindowProxy) -> std::thread::JoinHandle<()>
-    where R: std::io::Read + Send + 'static,
-{
-    thread::spawn_named("pty reader", move || {
-        let mut buf = [0u8; 4096];
-        let mut start = 0;
-        let mut pty_parser = ansi::Parser::new();
-
-        loop {
-            if let Ok(got) = pty.read(&mut buf[start..]) {
-                let mut remain = 0;
-
-                // if `start` is nonzero, then actual bytes in buffer is > `got` by `start` bytes.
-                let end = start + got;
-                {
-                    let mut terminal = terminal.lock_low();
-                    for c in Utf8Chars::new(&buf[..end]) {
-                        match c {
-                            Ok(c) => pty_parser.advance(&mut *terminal, c),
-                            Err(err) => match err {
-                                Utf8CharsError::IncompleteUtf8(unused) => {
-                                    remain = unused;
-                                    break;
-                                },
-                                _ => panic!("{}", err),
+                    // if `start` is nonzero, then actual bytes in buffer is > `got` by `start` bytes.
+                    let end = start + got;
+                    {
+                        let mut terminal = terminal.lock_low();
+                        terminal.dirty = true;
+                        for c in Utf8Chars::new(&buf[..end]) {
+                            match c {
+                                Ok(c) => pty_parser.advance(&mut *terminal, c),
+                                Err(err) => match err {
+                                    Utf8CharsError::IncompleteUtf8(unused) => {
+                                        remain = unused;
+                                        break;
+                                    },
+                                    _ => panic!("{}", err),
+                                }
                             }
                         }
                     }
-                }
 
-                dirty.store(true, Ordering::Release);
-                waiter.notify();
+                    println!("updated terminal");
+                    proxy.wakeup_event_loop();
 
-                // Move any leftover bytes to front of buffer
-                for i in 0..remain {
-                    buf[i] = buf[end - (remain - i)];
+                    // Move any leftover bytes to front of buffer
+                    for i in 0..remain {
+                        buf[i] = buf[end - (remain - i)];
+                    }
+                    start = remain;
+                } else {
+                    break;
                 }
-                start = remain;
-            } else {
-                proxy.wakeup_event_loop();
-                break;
             }
-        }
-    })
+
+            println!("pty reader stopped");
+        })
+    }
 }
 
-fn spawn_renderer(window: Arc<glutin::Window>,
-                  terminal_mutex: Arc<PriorityMutex<Term>>,
-                  mut renderer: QuadRenderer,
-                  mut glyph_cache: GlyphCache,
-                  render_timer: bool,
-                  rx: mpsc::Receiver<(u32, u32)>,
-                  waiter: Arc<Waiter>,
-                  dirty: Arc<AtomicBool>) -> std::thread::JoinHandle<()> {
-    thread::spawn_named("render", move || {
+struct Display {
+    window: Arc<glutin::Window>,
+    terminal_mutex: Arc<PriorityMutex<Term>>,
+    renderer: QuadRenderer,
+    glyph_cache: GlyphCache,
+    render_timer: bool,
+    rx: mpsc::Receiver<(u32, u32)>,
+    meter: Meter,
+}
+
+impl Display {
+    pub fn new(window: Arc<glutin::Window>,
+               terminal_mutex: Arc<PriorityMutex<Term>>,
+               renderer: QuadRenderer,
+               glyph_cache: GlyphCache,
+               render_timer: bool,
+               rx: mpsc::Receiver<(u32, u32)>)
+               -> Display
+    {
+        Display {
+            window: window,
+            terminal_mutex: terminal_mutex,
+            renderer: renderer,
+            glyph_cache: glyph_cache,
+            render_timer: render_timer,
+            rx: rx,
+            meter: Meter::new(),
+        }
+    }
+
+    /// Draw the screen
+    ///
+    /// A reference to Term whose state is being drawn must be provided.
+    ///
+    /// This call may block if vsync is enabled
+    pub fn draw(&mut self, mut terminal: MutexGuard<Term>) {
+        terminal.dirty = false;
+
+        // Resize events new_size and are handled outside the poll_events
+        // iterator. This has the effect of coalescing multiple resize
+        // events into one.
+        let mut new_size = None;
+
+        // TODO should be built into renderer
         unsafe {
-            let _ = window.make_current();
+            gl::ClearColor(0.0, 0.0, 0.00, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
         }
-        let mut meter = Meter::new();
 
-        'render_loop: loop {
-            // Scope ensures terminal lock isn't held when calling swap_buffers
+        // Check for any out-of-band resize events (mac only)
+        while let Ok(sz) = self.rx.try_recv() {
+            new_size = Some(sz);
+        }
+
+        // Receive any resize events; only call gl::Viewport on last
+        // available
+        if let Some((w, h)) = new_size.take() {
+            terminal.resize(w as f32, h as f32);
+            self.renderer.resize(w as i32, h as i32);
+        }
+
+        {
+            let glyph_cache = &mut self.glyph_cache;
+            // Draw grid
             {
-                // Acquire term lock
-                let mut terminal = terminal_mutex.lock_high();
+                let _sampler = self.meter.sampler();
 
-                if !dirty.load(Ordering::Acquire) {
-                    drop(terminal);
-                    waiter.wait();
-                    terminal = terminal_mutex.lock_high();
-                }
-
-                dirty.store(false, Ordering::Release);
-
-                // Resize events new_size and are handled outside the poll_events
-                // iterator. This has the effect of coalescing multiple resize
-                // events into one.
-                let mut new_size = None;
-
-                unsafe {
-                    gl::ClearColor(0.0, 0.0, 0.00, 1.0);
-                    gl::Clear(gl::COLOR_BUFFER_BIT);
-                }
-
-                // Check for any out-of-band resize events (mac only)
-                while let Ok(sz) = rx.try_recv() {
-                    new_size = Some(sz);
-                }
-
-                // Receive any resize events; only call gl::Viewport on last
-                // available
-                if let Some((w, h)) = new_size.take() {
-                    terminal.resize(w as f32, h as f32);
-                    renderer.resize(w as i32, h as i32);
-                }
-
-                {
-                    // Draw grid
-                    {
-                        let _sampler = meter.sampler();
-
-                        let size_info = terminal.size_info().clone();
-                        renderer.with_api(&size_info, |mut api| {
-                            // Draw the grid
-                            api.render_grid(&terminal.render_grid(), &mut glyph_cache);
-                        });
-                    }
-
-                    // Draw render timer
-                    if render_timer {
-                        let timing = format!("{:.3} usec", meter.average());
-                        let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-                        renderer.with_api(terminal.size_info(), |mut api| {
-                            api.render_string(&timing[..], &mut glyph_cache, &color);
-                        });
-                    }
-                }
+                let size_info = terminal.size_info().clone();
+                self.renderer.with_api(&size_info, |mut api| {
+                    // Draw the grid
+                    api.render_grid(&terminal.render_grid(), glyph_cache);
+                });
             }
 
-            window.swap_buffers().unwrap();
-
-            if process_should_exit() {
-                break;
-            } else {
+            // Draw render timer
+            if self.render_timer {
+                let timing = format!("{:.3} usec", self.meter.average());
+                let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
+                self.renderer.with_api(terminal.size_info(), |mut api| {
+                    api.render_string(&timing[..], glyph_cache, &color);
+                });
             }
         }
-    })
+
+        // Unlock the terminal mutex
+        drop(terminal);
+        println!("swap buffers");
+        self.window.swap_buffers().unwrap();
+    }
 }

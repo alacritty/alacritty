@@ -209,7 +209,9 @@ pub struct Term {
     size_info: SizeInfo,
 
     /// Template cell
-    template_cell: Cell
+    template_cell: Cell,
+
+    pub dirty: bool,
 }
 
 /// Terminal size info
@@ -275,6 +277,7 @@ impl Term {
         let scroll_region = Line(0)..grid.num_lines();
 
         Term {
+            dirty: true,
             grid: grid,
             alt_grid: alt,
             alt: false,
