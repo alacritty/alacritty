@@ -193,7 +193,6 @@ fn main() {
         // Maybe draw the terminal
         let terminal = terminal.lock_high();
         if terminal.dirty {
-            println!("dirty!");
             display.draw(terminal);
         }
 
@@ -244,7 +243,6 @@ impl PtyReader {
                         }
                     }
 
-                    println!("updated terminal");
                     proxy.wakeup_event_loop();
 
                     // Move any leftover bytes to front of buffer
@@ -348,7 +346,6 @@ impl Display {
 
         // Unlock the terminal mutex
         drop(terminal);
-        println!("swap buffers");
         self.window.swap_buffers().unwrap();
     }
 }
