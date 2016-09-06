@@ -54,6 +54,9 @@ impl<'a, W> Processor<'a, W>
             },
             glutin::Event::Resized(w, h) => {
                 self.resize_tx.send((w, h)).expect("send new size");
+                // Acquire term lock
+                let mut terminal = self.terminal.lock_high();
+                terminal.dirty = true;
             },
             glutin::Event::KeyboardInput(state, _code, key, mods) => {
                 // Acquire term lock
