@@ -15,6 +15,7 @@
 //! Exports the `Term` type which is a high-level API for the Grid
 use std::mem;
 use std::ops::{Deref, Range};
+use std::ptr;
 
 use ansi::{self, Attr, Handler};
 use grid::{Grid, ClearRegion};
@@ -651,7 +652,29 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn delete_chars(&mut self, count: Column) {
-        err_println!("[unimplemented] delete_chars: {}", count);
+        // Ensure deleting within terminal bounds
+        let count = ::std::cmp::min(count, self.size_info.cols());
+
+        let start = self.cursor.col;
+        let end = self.cursor.col + count;
+        let n = (self.size_info.cols() - end).0;
+
+        let line = self.cursor.line; // borrowck
+        let line = &mut self.grid[line];
+
+        unsafe {
+            let src = line[end..].as_ptr();
+            let dst = line[start..].as_mut_ptr();
+
+            ptr::copy(src, dst, n);
+        }
+
+        // Clear last `count` cells in line. If deleting 1 char, need to delete 1 cell.
+        let template = self.template_cell.clone();
+        let end = self.size_info.cols() - count;
+        for c in &mut line[end..] {
+            c.reset(&template);
+        }
     }
 
     #[inline]
