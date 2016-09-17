@@ -36,7 +36,7 @@ pub struct RenderGrid<'a> {
 
 impl<'a> RenderGrid<'a> {
     fn new<'b>(grid: &'b mut Grid<Cell>, cursor: &'b Cursor, mode: TermMode) -> RenderGrid<'b> {
-        if mode.contains(mode::SHOW_CURSOR) {
+        if mode.contains(mode::SHOW_CURSOR) && grid.contains(cursor) {
             let cell = &mut grid[cursor];
             mem::swap(&mut cell.fg, &mut cell.bg);
         }
@@ -51,7 +51,7 @@ impl<'a> RenderGrid<'a> {
 
 impl<'a> Drop for RenderGrid<'a> {
     fn drop(&mut self) {
-        if self.mode.contains(mode::SHOW_CURSOR) {
+        if self.mode.contains(mode::SHOW_CURSOR) && self.inner.contains(self.cursor) {
             let cell = &mut self.inner[self.cursor];
             mem::swap(&mut cell.fg, &mut cell.bg);
         }

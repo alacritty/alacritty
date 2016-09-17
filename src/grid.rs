@@ -134,6 +134,10 @@ impl<T> Grid<T> {
         }
     }
 
+    pub fn contains(&self, cursor: &Cursor) -> bool {
+        self.lines > cursor.line && self.cols > cursor.col
+    }
+
     /// Swap two lines in the grid
     ///
     /// This could have used slice::swap internally, but we are able to have
