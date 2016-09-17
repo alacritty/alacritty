@@ -118,12 +118,6 @@ fn main() {
 
     println!("device_pixel_ratio: {}", dpr);
 
-    for event in window.wait_events() {
-        if let glutin::Event::Refresh = event {
-            break;
-        }
-    }
-
     let _ = unsafe { window.make_current() };
     unsafe {
         gl::Viewport(0, 0, width as i32, height as i32);
