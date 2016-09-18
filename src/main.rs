@@ -31,6 +31,7 @@ extern crate notify;
 extern crate parking_lot;
 extern crate serde;
 extern crate serde_yaml;
+extern crate vte;
 
 #[macro_use]
 extern crate bitflags;
@@ -49,7 +50,6 @@ mod tty;
 pub mod ansi;
 mod term;
 mod util;
-mod io;
 mod sync;
 
 use std::sync::{mpsc, Arc};
@@ -58,7 +58,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use parking_lot::{Condvar, Mutex, MutexGuard};
 
 use config::Config;
-use io::{Utf8Chars, Utf8CharsError};
 use meter::Meter;
 use renderer::{QuadRenderer, GlyphCache};
 use sync::PriorityMutex;
@@ -68,6 +67,24 @@ use util::thread;
 
 /// Channel used by resize handling on mac
 static mut resize_sender: Option<mpsc::Sender<(u32, u32)>> = None;
+
+#[derive(Clone)]
+struct Flag(Arc<AtomicBool>);
+impl Flag {
+    pub fn new(initial_value: bool) -> Flag {
+        Flag(Arc::new(AtomicBool::new(initial_value)))
+    }
+
+    #[inline]
+    pub fn get(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+
+    #[inline]
+    pub fn set(&self, value: bool) {
+        self.0.store(value, Ordering::Release)
+    }
+}
 
 /// Resize handling for Mac
 fn window_resize_handler(width: u32, height: u32) {
@@ -163,18 +180,27 @@ fn main() {
         resize_sender = Some(tx.clone());
     }
 
+    let signal_flag = Flag::new(false);
+
     let terminal = Arc::new(PriorityMutex::new(terminal));
     let window = Arc::new(window);
 
-    let pty_reader = PtyReader::spawn(terminal.clone(), reader, window.create_window_proxy());
+    let pty_reader = PtyReader::spawn(
+        terminal.clone(),
+        reader,
+        window.create_window_proxy(),
+        signal_flag.clone()
+    );
 
     // Wraps a renderer and gives simple draw() api.
-    let mut display = Display::new(window.clone(),
-                                   terminal.clone(),
-                                   renderer,
-                                   glyph_cache,
-                                   render_timer,
-                                   rx);
+    let mut display = Display::new(
+        window.clone(),
+        terminal.clone(),
+        renderer,
+        glyph_cache,
+        render_timer,
+        rx
+    );
 
     // Event processor
     let mut processor = event::Processor::new(&mut writer, terminal.clone(), tx);
@@ -184,6 +210,8 @@ fn main() {
         // Wait for something to happen
         processor.process_events(&window);
 
+        signal_flag.set(false);
+ 
         // Maybe draw the terminal
         let terminal = terminal.lock_high();
         if terminal.dirty {
@@ -205,45 +233,32 @@ struct PtyReader;
 impl PtyReader {
     pub fn spawn<R>(terminal: Arc<PriorityMutex<Term>>,
                     mut pty: R,
-                    proxy: ::glutin::WindowProxy)
+                    proxy: ::glutin::WindowProxy,
+                    signal_flag: Flag)
                     -> std::thread::JoinHandle<()>
         where R: std::io::Read + Send + 'static
     {
         thread::spawn_named("pty reader", move || {
             let mut buf = [0u8; 4096];
-            let mut start = 0;
-            let mut pty_parser = ansi::Parser::new();
+            let mut pty_parser = ansi::Processor::new();
 
             loop {
-                if let Ok(got) = pty.read(&mut buf[start..]) {
-                    let mut remain = 0;
+                if let Ok(got) = pty.read(&mut buf[..]) {
+                    let mut terminal = terminal.lock_high();
 
-                    // if `start` is nonzero, then actual bytes in buffer is > `got` by `start` bytes.
-                    let end = start + got;
-                    {
-                        let mut terminal = terminal.lock_low();
-                        terminal.dirty = true;
-                        for c in Utf8Chars::new(&buf[..end]) {
-                            match c {
-                                Ok(c) => pty_parser.advance(&mut *terminal, c),
-                                Err(err) => match err {
-                                    Utf8CharsError::IncompleteUtf8(unused) => {
-                                        remain = unused;
-                                        break;
-                                    },
-                                    _ => panic!("{}", err),
-                                }
-                            }
-                        }
+                    for byte in &buf[..got] {
+                        pty_parser.advance(&mut *terminal, *byte);
                     }
 
-                    proxy.wakeup_event_loop();
+                    terminal.dirty = true;
 
-                    // Move any leftover bytes to front of buffer
-                    for i in 0..remain {
-                        buf[i] = buf[end - (remain - i)];
+                    // Only wake up the event loop if it hasn't already been signaled. This is a
+                    // really important optimization because waking up the event loop redundantly
+                    // burns *a lot* of cycles.
+                    if !signal_flag.get() {
+                        proxy.wakeup_event_loop();
+                        signal_flag.set(true);
                     }
-                    start = remain;
                 } else {
                     break;
                 }

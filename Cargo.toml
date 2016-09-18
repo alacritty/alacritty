@@ -17,6 +17,7 @@ parking_lot = { version = "0.3.1", features = ["nightly"] }
 serde = "0.8"
 serde_yaml = "0.4"
 serde_macros = "0.8"
+vte = "0.1.1"
 
 [build-dependencies]
 gl_generator = "0.5"
