@@ -467,8 +467,10 @@ impl ansi::Handler for Term {
             self.cursor.col = Column(0);
         }
 
-        if self.cursor.line == self.grid.num_lines() {
-            panic!("cursor fell off grid");
+        unsafe {
+            if ::std::intrinsics::unlikely(self.cursor.line == self.grid.num_lines()) {
+                panic!("cursor fell off grid");
+            }
         }
 
         let cell = &mut self.grid[&self.cursor];

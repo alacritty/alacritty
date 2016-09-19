@@ -145,17 +145,19 @@ impl<T> Grid<T> {
     /// better error messages by doing the bounds checking ourselves.
     #[inline]
     pub fn swap_lines(&mut self, src: index::Line, dst: index::Line) {
-        // check that src/dst are in bounds. Since index::Line newtypes usize,
-        // we can assume values are positive.
-        if src >= self.lines {
-            panic!("swap_lines src out of bounds; len={}, src={}", self.raw.len(), src);
-        }
-
-        if dst >= self.lines {
-            panic!("swap_lines dst out of bounds; len={}, dst={}", self.raw.len(), dst);
-        }
+        use std::intrinsics::unlikely;
 
         unsafe {
+            // check that src/dst are in bounds. Since index::Line newtypes usize,
+            // we can assume values are positive.
+            if unlikely(src >= self.lines) {
+                panic!("swap_lines src out of bounds; len={}, src={}", self.raw.len(), src);
+            }
+
+            if unlikely(dst >= self.lines) {
+                panic!("swap_lines dst out of bounds; len={}, dst={}", self.raw.len(), dst);
+            }
+
             let src: *mut _ = self.raw.get_unchecked_mut(src.0);
             let dst: *mut _ = self.raw.get_unchecked_mut(dst.0);
 

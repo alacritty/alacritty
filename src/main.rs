@@ -21,6 +21,7 @@
 #![feature(step_trait)]
 #![feature(custom_derive, plugin)]
 #![plugin(serde_macros)]
+#![feature(core_intrinsics)]
 
 extern crate cgmath;
 extern crate errno;
