@@ -212,7 +212,7 @@ fn main() {
         processor.process_events(&window);
 
         signal_flag.set(false);
- 
+
         // Maybe draw the terminal
         let terminal = terminal.lock_high();
         if terminal.dirty {
