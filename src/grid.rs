@@ -134,6 +134,7 @@ impl<T> Grid<T> {
         }
     }
 
+    #[inline]
     pub fn contains(&self, cursor: &Cursor) -> bool {
         self.lines > cursor.line && self.cols > cursor.col
     }

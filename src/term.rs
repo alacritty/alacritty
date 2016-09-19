@@ -409,7 +409,6 @@ impl Term {
         // Scroll between origin and bottom
         {
             let end = self.scroll_region.end;
-            println!("origin={}, lines={}", origin, lines);
             let start = origin + lines;
             self.grid.scroll_down(start..end, lines);
         }
