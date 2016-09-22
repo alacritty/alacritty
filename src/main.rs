@@ -33,6 +33,8 @@ extern crate parking_lot;
 extern crate serde;
 extern crate serde_yaml;
 extern crate vte;
+extern crate crossbeam;
+extern crate pc_buffer;
 
 #[macro_use]
 extern crate bitflags;
@@ -239,30 +241,44 @@ impl PtyReader {
         where R: std::io::Read + Send + 'static
     {
         thread::spawn_named("pty reader", move || {
-            let mut buf = [0u8; 4096];
-            let mut pty_parser = ansi::Processor::new();
+            let mut buf: [u8; 65_536] = unsafe { ::std::mem::uninitialized() };
+            let (mut producer, mut consumer) = pc_buffer::pair(&mut buf);
 
-            loop {
-                if let Ok(got) = pty.read(&mut buf[..]) {
-                    let mut terminal = terminal.lock_high();
+            crossbeam::scope(|scope| {
+                let _handle = scope.spawn(move || {
+                    let mut pty_parser = ansi::Processor::new();
+                    while let Some(chunk) = consumer.next() {
+                        let mut terminal = terminal.lock_high();
+                        for byte in &chunk[..] {
+                            pty_parser.advance(&mut *terminal, *byte);
+                        }
 
-                    for byte in &buf[..got] {
-                        pty_parser.advance(&mut *terminal, *byte);
+                        terminal.dirty = true;
+
+                        // Only wake up the event loop if it hasn't already been
+                        // signaled. This is a really important optimization
+                        // because waking up the event loop redundantly burns *a
+                        // lot* of cycles.
+                        if !signal_flag.get() {
+                            proxy.wakeup_event_loop();
+                            signal_flag.set(true);
+                        }
                     }
+                });
 
-                    terminal.dirty = true;
-
-                    // Only wake up the event loop if it hasn't already been signaled. This is a
-                    // really important optimization because waking up the event loop redundantly
-                    // burns *a lot* of cycles.
-                    if !signal_flag.get() {
-                        proxy.wakeup_event_loop();
-                        signal_flag.set(true);
+                loop {
+                    match producer.produce(|buf| pty.read(buf)) {
+                        Ok(0) => break,
+                        Ok(_) => (),
+                        Err(err) => {
+                            println!("error! {:?}", err);
+                            break;
+                        }
                     }
-                } else {
-                    break;
                 }
-            }
+
+                drop(producer);
+            });
 
             println!("pty reader stopped");
         })
