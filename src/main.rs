@@ -211,10 +211,9 @@ fn main() {
         // Wait for something to happen
         processor.process_events(&window);
 
-        signal_flag.set(false);
-
         // Maybe draw the terminal
         let terminal = terminal.lock_high();
+        signal_flag.set(false);
         if terminal.dirty {
             display.draw(terminal);
         }
