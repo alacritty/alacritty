@@ -5,15 +5,14 @@ use std;
 use glutin;
 
 use input;
-use sync::PriorityMutex;
+use sync::FairMutex;
 use term::Term;
-use tty::process_should_exit;
 
 /// The event processor
 pub struct Processor<'a, W: 'a> {
     writer: &'a mut W,
     input_processor: input::Processor,
-    terminal: Arc<PriorityMutex<Term>>,
+    terminal: Arc<FairMutex<Term>>,
     resize_tx: mpsc::Sender<(u32, u32)>,
 }
 
@@ -25,7 +24,7 @@ impl<'a, W> Processor<'a, W>
     /// Takes a writer which is expected to be hooked up to the write end of a
     /// pty.
     pub fn new(writer: &mut W,
-               terminal: Arc<PriorityMutex<Term>>,
+               terminal: Arc<FairMutex<Term>>,
                resize_tx: mpsc::Sender<(u32, u32)>)
                -> Processor<W>
     {
@@ -55,12 +54,12 @@ impl<'a, W> Processor<'a, W>
             glutin::Event::Resized(w, h) => {
                 self.resize_tx.send((w, h)).expect("send new size");
                 // Acquire term lock
-                let mut terminal = self.terminal.lock_high();
+                let mut terminal = self.terminal.lock();
                 terminal.dirty = true;
             },
             glutin::Event::KeyboardInput(state, _code, key, mods) => {
                 // Acquire term lock
-                let terminal = self.terminal.lock_high();
+                let terminal = self.terminal.lock();
 
                 self.input_processor.process(state, key, mods,
                                              &mut input::WriteNotifier(self.writer),

@@ -25,3 +25,6 @@ gl_generator = "0.5"
 [dependencies.glutin]
 git = "https://github.com/jwilm/glutin"
 rev = "16ed800f68022a37203434bd3b542ff5400c1403"
+
+[profile.release]
+debug = true

@@ -52,7 +52,7 @@ struct ProcessorState;
 /// Processor creates a Performer when running advance and passes the Performer
 /// to vte::Parser.
 struct Performer<'a, H: Handler + TermInfo + 'a> {
-    state: &'a mut ProcessorState,
+    _state: &'a mut ProcessorState,
     handler: &'a mut H
 }
 
@@ -61,7 +61,7 @@ impl<'a, H: Handler + TermInfo + 'a> Performer<'a, H> {
     #[inline]
     pub fn new<'b>(state: &'b mut ProcessorState, handler: &'b mut H) -> Performer<'b, H> {
         Performer {
-            state: state,
+            _state: state,
             handler: handler
         }
     }
@@ -648,9 +648,7 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
     }
 
     #[inline]
-    fn esc_dispatch(&mut self, params: &[i64], intermediates: &[u8], ignore: bool, byte: u8) {
-        let private = intermediates.get(0).map(|b| *b == b'?').unwrap_or(false);
-
+    fn esc_dispatch(&mut self, params: &[i64], intermediates: &[u8], _ignore: bool, byte: u8) {
         match byte {
             b'D' => self.handler.linefeed(),
             b'E' => self.handler.newline(),

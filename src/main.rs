@@ -56,12 +56,12 @@ mod sync;
 use std::sync::{mpsc, Arc};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use parking_lot::{Condvar, Mutex, MutexGuard};
+use parking_lot::{MutexGuard};
 
 use config::Config;
 use meter::Meter;
 use renderer::{QuadRenderer, GlyphCache};
-use sync::PriorityMutex;
+use sync::FairMutex;
 use term::Term;
 use tty::process_should_exit;
 use util::thread;
@@ -183,7 +183,7 @@ fn main() {
 
     let signal_flag = Flag::new(false);
 
-    let terminal = Arc::new(PriorityMutex::new(terminal));
+    let terminal = Arc::new(FairMutex::new(terminal));
     let window = Arc::new(window);
 
     let pty_reader = PtyReader::spawn(
@@ -196,7 +196,6 @@ fn main() {
     // Wraps a renderer and gives simple draw() api.
     let mut display = Display::new(
         window.clone(),
-        terminal.clone(),
         renderer,
         glyph_cache,
         render_timer,
@@ -212,7 +211,7 @@ fn main() {
         processor.process_events(&window);
 
         // Maybe draw the terminal
-        let terminal = terminal.lock_high();
+        let terminal = terminal.lock();
         signal_flag.set(false);
         if terminal.dirty {
             display.draw(terminal);
@@ -231,7 +230,7 @@ fn main() {
 struct PtyReader;
 
 impl PtyReader {
-    pub fn spawn<R>(terminal: Arc<PriorityMutex<Term>>,
+    pub fn spawn<R>(terminal: Arc<FairMutex<Term>>,
                     mut pty: R,
                     proxy: ::glutin::WindowProxy,
                     signal_flag: Flag)
@@ -244,7 +243,7 @@ impl PtyReader {
 
             loop {
                 if let Ok(got) = pty.read(&mut buf[..]) {
-                    let mut terminal = terminal.lock_high();
+                    let mut terminal = terminal.lock();
 
                     for byte in &buf[..got] {
                         pty_parser.advance(&mut *terminal, *byte);
@@ -271,7 +270,6 @@ impl PtyReader {
 
 struct Display {
     window: Arc<glutin::Window>,
-    terminal_mutex: Arc<PriorityMutex<Term>>,
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
@@ -281,7 +279,6 @@ struct Display {
 
 impl Display {
     pub fn new(window: Arc<glutin::Window>,
-               terminal_mutex: Arc<PriorityMutex<Term>>,
                renderer: QuadRenderer,
                glyph_cache: GlyphCache,
                render_timer: bool,
@@ -290,7 +287,6 @@ impl Display {
     {
         Display {
             window: window,
-            terminal_mutex: terminal_mutex,
             renderer: renderer,
             glyph_cache: glyph_cache,
             render_timer: render_timer,

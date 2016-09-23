@@ -456,7 +456,6 @@ impl ansi::Handler for Term {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
-        debug_print!("{}; attrs = {:?}", c, self.attr);
         if self.cursor.col == self.grid.num_cols() {
             debug_println!("wrapping");
             if (self.cursor.line + 1) >= self.scroll_region.end {
