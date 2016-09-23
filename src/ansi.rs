@@ -408,7 +408,7 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
             C1::NEL => self.handler.newline(),
             C1::HTS => self.handler.set_horizontal_tabstop(),
             C1::DECID => self.handler.identify_terminal(),
-            _ => (),
+            _ => err_println!("[unhandled] execute byte={:02x}", byte)
         }
     }
 
