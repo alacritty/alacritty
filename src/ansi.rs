@@ -662,7 +662,8 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
             b'8' => self.handler.restore_cursor_position(),
             b'=' => self.handler.set_keypad_application_mode(),
             b'>' => self.handler.unset_keypad_application_mode(),
-            _ => err_println!("[unhandled] execute {:?}", byte as char),
+            _ => err_println!("[unhandled] esc_dispatch params={:?}, ints={:?}, byte={:?} ({:02x})",
+                              params, intermediates, byte as char, byte),
         }
     }
 }
