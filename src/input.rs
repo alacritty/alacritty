@@ -23,6 +23,7 @@
 //! APIs
 //!
 //! TODO handling xmodmap would be good
+use std::borrow::Cow;
 use std::io::Write;
 
 use glutin::{ElementState, VirtualKeyCode};
@@ -42,15 +43,34 @@ pub struct Processor;
 /// Types that are notified of escape sequences from the input::Processor.
 pub trait Notify {
     /// Notify that an escape sequence should be written to the pty
-    fn notify(&mut self, &str);
+    ///
+    /// TODO this needs to be able to error somehow
+    fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, B);
 }
 
 /// A notifier type that simply writes bytes to the provided `Write` type
 pub struct WriteNotifier<'a, W: Write + 'a>(pub &'a mut W);
 
 impl<'a, W: Write> Notify for WriteNotifier<'a, W> {
-    fn notify(&mut self, message: &str) {
-        self.0.write_all(message.as_bytes()).unwrap();
+    fn notify<B>(&mut self, bytes: B)
+        where B: Into<Cow<'static, [u8]>>
+    {
+        let message = bytes.into();
+        self.0.write_all(&message[..]).unwrap();
+    }
+}
+
+pub struct LoopNotifier(pub ::mio::channel::Sender<::EventLoopMessage>);
+
+impl Notify for LoopNotifier {
+    fn notify<B>(&mut self, bytes: B)
+        where B: Into<Cow<'static, [u8]>>
+    {
+        let bytes = bytes.into();
+        match self.0.send(::EventLoopMessage::Input(bytes)) {
+            Ok(_) => (),
+            Err(_) => panic!("expected send event loop msg"),
+        }
     }
 }
 
@@ -277,7 +297,7 @@ impl Processor {
                     // Modifier keys
                     if binding.mods.is_all() || mods.intersects(binding.mods) {
                         // everything matches
-                        notifier.notify(binding.send);
+                        notifier.notify(binding.send.as_bytes());
                         break;
                     }
                 }

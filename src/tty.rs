@@ -274,6 +274,12 @@ pub fn new(rows: u8, cols: u8) -> Tty {
                 libc::close(slave);
             }
 
+            unsafe {
+                // Maybe this should be done outside of this function so nonblocking
+                // isn't forced upon consumers. Although maybe it should be?
+                set_nonblocking(master);
+            }
+
             Tty { fd: master }
         }
     }
@@ -318,6 +324,13 @@ impl Tty {
             die!("ioctl TIOCSWINSZ failed: {}", errno());
         }
     }
+}
+
+unsafe fn set_nonblocking(fd: c_int) {
+    use libc::{fcntl, F_SETFL, F_GETFL, O_NONBLOCK};
+
+    let res = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+    assert_eq!(res, 0);
 }
 
 #[test]

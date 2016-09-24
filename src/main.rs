@@ -28,6 +28,7 @@ extern crate errno;
 extern crate font;
 extern crate glutin;
 extern crate libc;
+extern crate mio;
 extern crate notify;
 extern crate parking_lot;
 extern crate serde;
@@ -54,6 +55,7 @@ mod util;
 mod sync;
 
 use std::sync::{mpsc, Arc};
+use std::fs::File;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use parking_lot::{MutexGuard};
@@ -172,9 +174,7 @@ fn main() {
     println!("Cell Size: ({} x {})", cell_width, cell_height);
 
     let terminal = Term::new(width as f32, height as f32, cell_width as f32, cell_height as f32);
-
-    let reader = terminal.tty().reader();
-    let mut writer = terminal.tty().writer();
+    let pty_io = terminal.tty().reader();
 
     let (tx, rx) = mpsc::channel();
     unsafe {
@@ -183,15 +183,19 @@ fn main() {
 
     let signal_flag = Flag::new(false);
 
+
     let terminal = Arc::new(FairMutex::new(terminal));
     let window = Arc::new(window);
 
-    let pty_reader = PtyReader::spawn(
+    let event_loop = EventLoop::new(
         terminal.clone(),
-        reader,
         window.create_window_proxy(),
-        signal_flag.clone()
+        signal_flag.clone(),
+        pty_io,
     );
+
+    let loop_tx = event_loop.channel();
+    let event_loop_handle = event_loop.spawn();
 
     // Wraps a renderer and gives simple draw() api.
     let mut display = Display::new(
@@ -203,7 +207,11 @@ fn main() {
     );
 
     // Event processor
-    let mut processor = event::Processor::new(&mut writer, terminal.clone(), tx);
+    let mut processor = event::Processor::new(
+        input::LoopNotifier(loop_tx),
+        terminal.clone(),
+        tx
+    );
 
     // Main loop
     loop {
@@ -223,43 +231,221 @@ fn main() {
     }
 
     // shutdown
-    pty_reader.join().ok();
+    event_loop_handle.join().ok();
     println!("Goodbye");
 }
 
-struct PtyReader;
+struct EventLoop {
+    poll: mio::Poll,
+    pty: File,
+    rx: mio::channel::Receiver<EventLoopMessage>,
+    tx: mio::channel::Sender<EventLoopMessage>,
+    terminal: Arc<FairMutex<Term>>,
+    proxy: ::glutin::WindowProxy,
+    signal_flag: Flag,
+}
 
-impl PtyReader {
-    pub fn spawn<R>(terminal: Arc<FairMutex<Term>>,
-                    mut pty: R,
-                    proxy: ::glutin::WindowProxy,
-                    signal_flag: Flag)
-                    -> std::thread::JoinHandle<()>
-        where R: std::io::Read + Send + 'static
-    {
+const CHANNEL: mio::Token = mio::Token(0);
+const PTY: mio::Token = mio::Token(1);
+
+#[derive(Debug)]
+pub enum EventLoopMessage {
+    Input(::std::borrow::Cow<'static, [u8]>),
+}
+
+impl EventLoop {
+    pub fn new(
+        terminal: Arc<FairMutex<Term>>,
+        proxy: ::glutin::WindowProxy,
+        signal_flag: Flag,
+        pty: File,
+    ) -> EventLoop {
+        let (tx, rx) = ::mio::channel::channel();
+        EventLoop {
+            poll: mio::Poll::new().expect("create mio Poll"),
+            pty: pty,
+            tx: tx,
+            rx: rx,
+            terminal: terminal,
+            proxy: proxy,
+            signal_flag: signal_flag
+        }
+    }
+
+    pub fn channel(&self) -> mio::channel::Sender<EventLoopMessage> {
+        self.tx.clone()
+    }
+
+    pub fn spawn(mut self) -> std::thread::JoinHandle<()> {
+        use mio::{Events, PollOpt, Ready};
+        use mio::unix::EventedFd;
+        use std::borrow::Cow;
+        use std::os::unix::io::AsRawFd;
+        use std::io::{Read, Write, ErrorKind};
+
+        struct Writing {
+            source: Cow<'static, [u8]>,
+            written: usize,
+        }
+
+        impl Writing {
+            #[inline]
+            fn new(c: Cow<'static, [u8]>) -> Writing {
+                Writing { source: c, written: 0 }
+            }
+
+            #[inline]
+            fn advance(&mut self, n: usize) {
+                self.written += n;
+            }
+
+            #[inline]
+            fn remaining_bytes(&self) -> &[u8] {
+                &self.source[self.written..]
+            }
+
+            #[inline]
+            fn finished(&self) -> bool {
+                self.written >= self.source.len()
+            }
+        }
+
         thread::spawn_named("pty reader", move || {
+
+            let EventLoop { mut poll, mut pty, rx, terminal, proxy, signal_flag, .. } = self;
+
+
             let mut buf = [0u8; 4096];
             let mut pty_parser = ansi::Processor::new();
+            let fd = pty.as_raw_fd();
+            let fd = EventedFd(&fd);
 
-            loop {
-                if let Ok(got) = pty.read(&mut buf[..]) {
-                    let mut terminal = terminal.lock();
+            poll.register(&rx, CHANNEL, Ready::readable(), PollOpt::edge() | PollOpt::oneshot())
+                .unwrap();
+            poll.register(&fd, PTY, Ready::readable(), PollOpt::edge() | PollOpt::oneshot())
+                .unwrap();
 
-                    for byte in &buf[..got] {
-                        pty_parser.advance(&mut *terminal, *byte);
+            let mut events = Events::with_capacity(1024);
+            let mut write_list = ::std::collections::VecDeque::new();
+            let mut writing = None;
+
+            'event_loop: loop {
+                poll.poll(&mut events, None).expect("poll ok");
+
+                for event in events.iter() {
+                    match event.token() {
+                        CHANNEL => {
+                            while let Ok(msg) = rx.try_recv() {
+                                match msg {
+                                    EventLoopMessage::Input(input) => {
+                                        write_list.push_back(input);
+                                    }
+                                }
+                            }
+
+                            poll.reregister(
+                                &rx, CHANNEL,
+                                Ready::readable(),
+                                PollOpt::edge() | PollOpt::oneshot()
+                            ).expect("reregister channel");
+
+                            if writing.is_some() || !write_list.is_empty() {
+                                poll.reregister(
+                                    &fd,
+                                    PTY,
+                                    Ready::readable() | Ready::writable(),
+                                    PollOpt::edge() | PollOpt::oneshot()
+                                ).expect("reregister fd after channel recv");
+                            }
+                        },
+                        PTY => {
+                            let kind = event.kind();
+
+                            if kind.is_readable() {
+                                loop {
+                                    match pty.read(&mut buf[..]) {
+                                        Ok(0) => break,
+                                        Ok(got) => {
+                                            let mut terminal = terminal.lock();
+                                            for byte in &buf[..got] {
+                                                pty_parser.advance(&mut *terminal, *byte);
+                                            }
+
+                                            terminal.dirty = true;
+
+                                            // Only wake up the event loop if it hasn't already been
+                                            // signaled. This is a really important optimization
+                                            // because waking up the event loop redundantly burns *a
+                                            // lot* of cycles.
+                                            if !signal_flag.get() {
+                                                proxy.wakeup_event_loop();
+                                                signal_flag.set(true);
+                                            }
+                                        },
+                                        Err(err) => {
+                                            match err.kind() {
+                                                ErrorKind::WouldBlock => break,
+                                                _ => panic!("unexpected read err: {:?}", err),
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if kind.is_writable() {
+                                if writing.is_none() {
+                                    writing = write_list
+                                        .pop_front()
+                                        .map(|c| Writing::new(c));
+                                }
+
+                                'write_list_loop: while let Some(mut write_now) = writing.take() {
+                                    loop {
+                                        let start = write_now.written;
+                                        match pty.write(write_now.remaining_bytes()) {
+                                            Ok(0) => {
+                                                writing = Some(write_now);
+                                                break 'write_list_loop;
+                                            },
+                                            Ok(n) => {
+                                                write_now.advance(n);
+                                                if write_now.finished() {
+                                                    writing = write_list
+                                                        .pop_front()
+                                                        .map(|next| Writing::new(next));
+
+                                                    break;
+                                                } else {
+                                                }
+                                            },
+                                            Err(err) => {
+                                                writing = Some(write_now);
+                                                match err.kind() {
+                                                    ErrorKind::WouldBlock => break 'write_list_loop,
+                                                    // TODO
+                                                    _ => panic!("unexpected err: {:?}", err),
+                                                }
+                                            }
+                                        }
+
+                                    }
+                                }
+                            }
+
+                            if kind.is_hup() {
+                                break 'event_loop;
+                            }
+
+                            let mut interest = Ready::readable();
+                            if writing.is_some() || !write_list.is_empty() {
+                                interest.insert(Ready::writable());
+                            }
+
+                            poll.reregister(&fd, PTY, interest, PollOpt::edge() | PollOpt::oneshot())
+                                .expect("register fd after read/write");
+                        },
+                        _ => (),
                     }
-
-                    terminal.dirty = true;
-
-                    // Only wake up the event loop if it hasn't already been signaled. This is a
-                    // really important optimization because waking up the event loop redundantly
-                    // burns *a lot* of cycles.
-                    if !signal_flag.get() {
-                        proxy.wakeup_event_loop();
-                        signal_flag.set(true);
-                    }
-                } else {
-                    break;
                 }
             }
 
