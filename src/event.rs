@@ -1,7 +1,5 @@
 //! Process window events
-use std::io;
 use std::sync::{Arc, mpsc};
-use std;
 
 use glutin;
 

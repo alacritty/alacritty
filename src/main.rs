@@ -276,7 +276,7 @@ impl EventLoop {
         self.tx.clone()
     }
 
-    pub fn spawn(mut self) -> std::thread::JoinHandle<()> {
+    pub fn spawn(self) -> std::thread::JoinHandle<()> {
         use mio::{Events, PollOpt, Ready};
         use mio::unix::EventedFd;
         use std::borrow::Cow;
@@ -312,7 +312,7 @@ impl EventLoop {
 
         thread::spawn_named("pty reader", move || {
 
-            let EventLoop { mut poll, mut pty, rx, terminal, proxy, signal_flag, .. } = self;
+            let EventLoop { poll, mut pty, rx, terminal, proxy, signal_flag, .. } = self;
 
 
             let mut buf = [0u8; 4096];
@@ -401,7 +401,6 @@ impl EventLoop {
 
                                 'write_list_loop: while let Some(mut write_now) = writing.take() {
                                     loop {
-                                        let start = write_now.written;
                                         match pty.write(write_now.remaining_bytes()) {
                                             Ok(0) => {
                                                 writing = Some(write_now);

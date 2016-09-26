@@ -24,7 +24,6 @@
 //!
 //! TODO handling xmodmap would be good
 use std::borrow::Cow;
-use std::io::Write;
 
 use glutin::{ElementState, VirtualKeyCode};
 use glutin::{Mods, mods};
@@ -46,18 +45,6 @@ pub trait Notify {
     ///
     /// TODO this needs to be able to error somehow
     fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, B);
-}
-
-/// A notifier type that simply writes bytes to the provided `Write` type
-pub struct WriteNotifier<'a, W: Write + 'a>(pub &'a mut W);
-
-impl<'a, W: Write> Notify for WriteNotifier<'a, W> {
-    fn notify<B>(&mut self, bytes: B)
-        where B: Into<Cow<'static, [u8]>>
-    {
-        let message = bytes.into();
-        self.0.write_all(&message[..]).unwrap();
-    }
 }
 
 pub struct LoopNotifier(pub ::mio::channel::Sender<::EventLoopMessage>);

@@ -299,15 +299,6 @@ impl Tty {
         }
     }
 
-    /// Get writer for the TTY
-    ///
-    /// XXX File is a bad abstraction here; it closes the fd on drop
-    pub fn writer(&self) -> File {
-        unsafe {
-            File::from_raw_fd(self.fd)
-        }
-    }
-
     pub fn resize(&self, rows: usize, cols: usize, px_x: usize, px_y: usize) {
         let win = winsize {
             ws_row: rows as libc::c_ushort,
