@@ -29,6 +29,7 @@ use glutin::{ElementState, VirtualKeyCode};
 use glutin::{Mods, mods};
 
 use term::mode::{self, TermMode};
+use event_loop;
 
 /// Processes input from glutin.
 ///
@@ -47,14 +48,14 @@ pub trait Notify {
     fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, B);
 }
 
-pub struct LoopNotifier(pub ::mio::channel::Sender<::EventLoopMessage>);
+pub struct LoopNotifier(pub ::mio::channel::Sender<event_loop::Msg>);
 
 impl Notify for LoopNotifier {
     fn notify<B>(&mut self, bytes: B)
         where B: Into<Cow<'static, [u8]>>
     {
         let bytes = bytes.into();
-        match self.0.send(::EventLoopMessage::Input(bytes)) {
+        match self.0.send(event_loop::Msg::Input(bytes)) {
             Ok(_) => (),
             Err(_) => panic!("expected send event loop msg"),
         }
