@@ -196,7 +196,7 @@ fn main() {
     );
 
     let loop_tx = event_loop.channel();
-    let event_loop_handle = event_loop.spawn();
+    let event_loop_handle = event_loop.spawn(None);
 
     // Wraps a renderer and gives simple draw() api.
     let mut display = Display::new(
