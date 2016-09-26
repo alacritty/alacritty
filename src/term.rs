@@ -579,7 +579,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn linefeed(&mut self) {
         debug_println!("linefeed");
-        if self.cursor.line + 1 >= self.scroll_region.end {
+        if self.cursor.line + 1 == self.scroll_region.end {
             self.scroll_up(Line(1));
         } else {
             self.cursor.line += 1;
