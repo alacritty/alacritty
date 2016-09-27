@@ -85,6 +85,9 @@ pub enum Action {
 
     /// Paste contents of system clipboard
     Paste,
+
+    /// Send a char to pty
+    Char(char)
 }
 
 /// Bindings for the LEFT key.
@@ -198,10 +201,13 @@ static H_BINDINGS: &'static [Binding] = &[
 #[cfg(target_os="macos")]
 static V_BINDINGS: &'static [Binding] = &[
     Binding { mods: mods::SUPER, action: Action::Paste, mode: mode::ANY, notmode: mode::NONE },
+    Binding { mods: mods::NONE, action: Action::Char('v'), mode: mode::ANY, notmode: mode::NONE },
 ];
 
 #[cfg(not(target_os="macos"))]
-static V_BINDINGS: &'static [Binding] = &[];
+static V_BINDINGS: &'static [Binding] = &[
+    Binding { mods: mods::NONE, action: Action::Char('v'), mode: mode::ANY, notmode: mode::NONE },
+];
 
 #[cfg(target_os="linux")]
 static MOUSE_MIDDLE_BINDINGS: &'static [Binding] = &[
@@ -337,17 +343,31 @@ impl Processor {
                 // TermMode negative
                 if binding.notmode.is_empty() || !mode.intersects(binding.notmode) {
                     // Modifier keys
-                    if binding.mods.is_all() || mods.intersects(binding.mods) {
+                    if binding.mods.is_all() || mods == binding.mods {
                         // everything matches; run the binding action
                         match binding.action {
                             Action::Esc(s) => notifier.notify(s.as_bytes()),
                             Action::Paste => {
+                                println!("paste request");
                                 let clip = ClipboardContext::new().expect("get clipboard");
                                 clip.get_contents()
-                                    .map(|contents| notifier.notify(contents.into_bytes()))
+                                    .map(|contents| {
+                                        println!("got contents");
+                                        notifier.notify(contents.into_bytes())
+                                    })
                                     .unwrap_or_else(|err| {
                                         err_println!("Error getting clipboard contents: {}", err);
                                     });
+
+                                println!("ok");
+                            },
+                            Action::Char(c) => {
+                                // TODO encode_utf8 returns an iterator with "as_slice"
+                                //      https://github.com/rust-lang/rust/issues/27784 has some
+                                //      discussion about this API changing to `write_utf8` which
+                                //      requires passing a &mut [u8] to be written into.
+                                let encoded = c.encode_utf8();
+                                notifier.notify(encoded.as_slice().to_vec());
                             }
                         }
 
@@ -361,9 +381,13 @@ impl Processor {
 
 #[cfg(test)]
 mod tests {
-    use term::mode::{self, TermMode};
+    use std::borrow::Cow;
+
     use glutin::mods;
 
+    use term::mode;
+
+    use super::Action;
     use super::Processor;
     use super::Binding;
 
@@ -374,8 +398,8 @@ mod tests {
     }
 
     impl super::Notify for Receiver {
-        fn notify(&mut self, s: &str) {
-            self.got = Some(String::from(s));
+        fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, item: B) {
+            self.got = Some(String::from_utf8(item.into().to_vec()).unwrap());
         }
     }
 
@@ -454,5 +478,13 @@ mod tests {
         expect: Some(String::from("\x1bOD")),
         mode: mode::APP_CURSOR | mode::APP_KEYPAD,
         mods: mods::NONE
+    }
+
+    test_process_binding! {
+        name: process_binding_fail_with_extra_mods,
+        binding: Binding { mods: mods::SUPER, action: Action::Esc("arst"), mode: mode::ANY, notmode: mode::NONE },
+        expect: None,
+        mode: mode::NONE,
+        mods: mods::SUPER | mods::ALT
     }
 }

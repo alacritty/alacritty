@@ -42,6 +42,8 @@ impl<N: input::Notify> Processor<N> {
                     '\u{8}' | '\u{7f}' => (),
                     // OSX arrow keys send invalid characters; ignore.
                     '\u{f700}' | '\u{f701}' | '\u{f702}' | '\u{f703}' => (),
+                    // These letters are handled in the bindings system
+                    'v' => (),
                     _ => {
                         let encoded = c.encode_utf8();
                         self.notifier.notify(encoded.as_slice().to_vec());
