@@ -19,6 +19,7 @@ serde_yaml = "0.4"
 serde_macros = "0.8"
 vte = "0.1.2"
 mio = "0.6"
+clipboard = "0.1.2"
 
 [build-dependencies]
 gl_generator = "0.5"

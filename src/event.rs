@@ -60,7 +60,14 @@ impl<N: input::Notify> Processor<N> {
                 let processor = &mut self.input_processor;
                 let notifier = &mut self.notifier;
 
-                processor.process(state, key, mods, notifier, *terminal.mode());
+                processor.process_key(state, key, mods, notifier, *terminal.mode());
+            },
+            glutin::Event::MouseInput(state, button) => {
+                let terminal = self.terminal.lock();
+                let processor = &mut self.input_processor;
+                let notifier = &mut self.notifier;
+
+                processor.mouse_input(state, button, notifier, *terminal.mode());
             },
             _ => (),
         }
