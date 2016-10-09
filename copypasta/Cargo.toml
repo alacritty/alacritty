@@ -1,0 +1,9 @@
+[package]
+name = "copypasta"
+version = "0.0.1"
+authors = ["Joe Wilm <joe@jwilm.com>"]
+license = "Apache-2.0"
+description = "Forthcoming clipboard library"
+keywords = ["clipboard", "copy", "paste"]
+
+[dependencies]

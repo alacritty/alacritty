@@ -24,7 +24,7 @@
 #![feature(core_intrinsics)]
 
 extern crate cgmath;
-extern crate clipboard;
+extern crate copypasta;
 extern crate errno;
 extern crate font;
 extern crate glutin;

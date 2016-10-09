@@ -25,7 +25,7 @@
 //! TODO handling xmodmap would be good
 use std::borrow::Cow;
 
-use clipboard::ClipboardContext;
+use copypasta::{Clipboard, Load};
 use glutin::{ElementState, VirtualKeyCode, MouseButton};
 use glutin::{Mods, mods};
 
@@ -349,8 +349,8 @@ impl Processor {
                             Action::Esc(s) => notifier.notify(s.as_bytes()),
                             Action::Paste => {
                                 println!("paste request");
-                                let clip = ClipboardContext::new().expect("get clipboard");
-                                clip.get_contents()
+                                let clip = Clipboard::new().expect("get clipboard");
+                                clip.load_selection()
                                     .map(|contents| {
                                         println!("got contents");
                                         notifier.notify(contents.into_bytes())
