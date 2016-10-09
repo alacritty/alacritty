@@ -1,5 +1,9 @@
 //! A cross-platform clipboard library
 
+// This has to be here due to macro_use
+#[cfg(target_os = "macos")]
+#[macro_use] extern crate objc;
+
 /// Types that can get the system clipboard contents
 pub trait Load : Sized {
     /// Errors encountered when working with a clipboard. Each implementation is
