@@ -107,7 +107,7 @@ pub trait Handler {
     fn goto_col(&mut self, Column) {}
 
     /// Insert blank characters in current line starting from cursor
-    fn insert_blank(&mut self, usize) {}
+    fn insert_blank(&mut self, Column) {}
 
     /// Move cursor up `rows`
     fn move_up(&mut self, Line) {}
@@ -470,7 +470,7 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
         }
 
         match action {
-            '@' => handler.insert_blank(arg_or_default!(idx: 0, default: 1) as usize),
+            '@' => handler.insert_blank(Column(arg_or_default!(idx: 0, default: 1) as usize)),
             'A' => {
                 handler.move_up(Line(arg_or_default!(idx: 0, default: 1) as usize));
             },

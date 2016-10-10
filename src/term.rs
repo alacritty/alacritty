@@ -500,8 +500,30 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn insert_blank(&mut self, num: usize) {
-        err_println!("[unimplemented] insert_blank: {}", num);
+    fn insert_blank(&mut self, count: Column) {
+        // Ensure inserting within terminal bounds
+        let count = ::std::cmp::min(count, self.size_info.cols() - self.cursor.col);
+
+        let source = self.cursor.col;
+        let destination = self.cursor.col + count;
+        let num_cells = (self.size_info.cols() - destination).0;
+
+        let line = self.cursor.line; // borrowck
+        let line = &mut self.grid[line];
+
+        unsafe {
+            let src = line[source..].as_ptr();
+            let dst = line[destination..].as_mut_ptr();
+
+            ptr::copy(src, dst, num_cells);
+        }
+
+        // Cells were just moved out towards the end of the line; fill in
+        // between source and dest with blanks.
+        let template = self.template_cell.clone();
+        for c in &mut line[source..destination] {
+            c.reset(&template);
+        }
     }
 
     #[inline]
