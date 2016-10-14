@@ -31,6 +31,7 @@ use glutin::{Mods, mods};
 
 use term::mode::{self, TermMode};
 use event_loop;
+use util::encode_char;
 
 /// Processes input from glutin.
 ///
@@ -362,12 +363,7 @@ impl Processor {
                                 println!("ok");
                             },
                             Action::Char(c) => {
-                                // TODO encode_utf8 returns an iterator with "as_slice"
-                                //      https://github.com/rust-lang/rust/issues/27784 has some
-                                //      discussion about this API changing to `write_utf8` which
-                                //      requires passing a &mut [u8] to be written into.
-                                let encoded = c.encode_utf8();
-                                notifier.notify(encoded.as_slice().to_vec());
+                                notifier.notify(encode_char(c));
                             }
                         }
 

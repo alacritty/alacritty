@@ -6,6 +6,7 @@ use glutin;
 use input;
 use sync::FairMutex;
 use term::Term;
+use util::encode_char;
 
 /// The event processor
 pub struct Processor<N> {
@@ -45,8 +46,8 @@ impl<N: input::Notify> Processor<N> {
                     // These letters are handled in the bindings system
                     'v' => (),
                     _ => {
-                        let encoded = c.encode_utf8();
-                        self.notifier.notify(encoded.as_slice().to_vec());
+                        let buf = encode_char(c);
+                        self.notifier.notify(buf);
                     }
                 }
             },

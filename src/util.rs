@@ -27,3 +27,17 @@ pub mod thread {
     pub use ::std::thread::*;
 }
 
+pub fn encode_char(c: char) -> Vec<u8> {
+    let mut buf = Vec::with_capacity(4);
+    unsafe {
+        buf.set_len(4);
+        let len = {
+            let s = c.encode_utf8(&mut buf[..]);
+            s.len()
+        };
+        buf.set_len(len);
+    }
+
+    buf
+}
+

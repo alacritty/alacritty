@@ -19,9 +19,13 @@
 #![feature(drop_types_in_const)]
 #![feature(unicode)]
 #![feature(step_trait)]
-#![feature(custom_derive, plugin)]
-#![plugin(serde_macros)]
 #![feature(core_intrinsics)]
+#![allow(stable_features)] // lying about question_mark because 1.14.0 isn't released!
+
+#![feature(proc_macro)]
+
+#[macro_use]
+extern crate serde_derive;
 
 extern crate cgmath;
 extern crate copypasta;

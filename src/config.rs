@@ -72,7 +72,7 @@ impl ::std::fmt::Display for Error {
                 write!(f, "could not read $HOME environment variable: {}", err)
             },
             Error::Io(ref err) => write!(f, "error reading config file: {}", err),
-            Error::Yaml(ref err) => write!(f, "problem with config: {}", err),
+            Error::Yaml(ref err) => write!(f, "problem with config: {:?}", err),
         }
     }
 }
@@ -240,26 +240,18 @@ impl DeserializeFromF32 for Size {
         impl<__D> ::serde::de::Visitor for FloatVisitor<__D>
             where __D: ::serde::de::Deserializer
         {
-            type Value = f32;
+            type Value = f64;
 
-            fn visit_f32<E>(&mut self, value: f32) -> ::std::result::Result<Self::Value, E>
+            fn visit_f64<E>(&mut self, value: f64) -> ::std::result::Result<Self::Value, E>
                 where E: ::serde::de::Error
             {
                 Ok(value)
             }
-
-            fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<Self::Value, E>
-                where E: ::serde::de::Error
-            {
-                // FIXME serde-yaml visits a str for real numbers.
-                //       https://github.com/dtolnay/serde-yaml/issues/24
-                Ok(value.parse::<f32>().expect("size must be float"))
-            }
         }
 
         deserializer
-            .deserialize_f32(FloatVisitor::<D>{ _marker: PhantomData })
-            .map(|v| Size::new(v))
+            .deserialize_f64(FloatVisitor::<D>{ _marker: PhantomData })
+            .map(|v| Size::new(v as _))
     }
 }
 
