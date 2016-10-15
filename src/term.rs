@@ -21,6 +21,7 @@ use ansi::{self, Attr, Handler};
 use grid::{Grid, ClearRegion};
 use index::{Cursor, Column, Line};
 use tty;
+use config::Config;
 
 use ::Rgb;
 
@@ -89,7 +90,7 @@ pub mod cell {
         }
     }
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Copy)]
     pub struct Cell {
         pub c: char,
         pub fg: Rgb,
@@ -123,28 +124,6 @@ pub mod cell {
 
 pub use self::cell::Cell;
 
-/// tomorrow night bright
-///
-/// because contrast
-pub static COLORS: &'static [Rgb] = &[
-    Rgb {r: 0x00, g: 0x00, b: 0x00}, // Black
-    Rgb {r: 0xd5, g: 0x4e, b: 0x53}, // Red
-    Rgb {r: 0xb9, g: 0xca, b: 0x4a}, // Green
-    Rgb {r: 0xe6, g: 0xc5, b: 0x47}, // Yellow
-    Rgb {r: 0x7a, g: 0xa6, b: 0xda}, // Blue
-    Rgb {r: 0xc3, g: 0x97, b: 0xd8}, // Magenta
-    Rgb {r: 0x70, g: 0xc0, b: 0xba}, // Cyan
-    Rgb {r: 0x42, g: 0x42, b: 0x42}, // White
-    Rgb {r: 0x66, g: 0x66, b: 0x66}, // Bright black
-    Rgb {r: 0xff, g: 0x33, b: 0x34}, // Bright red
-    Rgb {r: 0x9e, g: 0xc4, b: 0x00}, // Bright green
-    Rgb {r: 0xe7, g: 0xc5, b: 0x47}, // Bright yellow
-    Rgb {r: 0x7a, g: 0xa6, b: 0xda}, // Bright blue
-    Rgb {r: 0xb7, g: 0x7e, b: 0xe0}, // Bright magenta
-    Rgb {r: 0x54, g: 0xce, b: 0xd6}, // Bright cyan
-    Rgb {r: 0x2a, g: 0x2a, b: 0x2a}, // Bright white
-];
-
 pub mod mode {
     bitflags! {
         pub flags TermMode: u8 {
@@ -165,8 +144,6 @@ pub mod mode {
 
 pub use self::mode::TermMode;
 
-pub const DEFAULT_FG: Rgb = Rgb { r: 0xea, g: 0xea, b: 0xea};
-pub const DEFAULT_BG: Rgb = Rgb { r: 0, g: 0, b: 0};
 pub const TAB_SPACES: usize = 8;
 
 pub struct Term {
@@ -189,16 +166,13 @@ pub struct Term {
     alt_cursor: Cursor,
 
     /// Active foreground color
-    fg: Rgb,
+    pub fg: Rgb,
 
     /// Active background color
-    bg: Rgb,
+    pub bg: Rgb,
 
     /// Tabstops
     tabs: Vec<bool>,
-
-    /// Cell attributes
-    attr: cell::Flags,
 
     /// Mode flags
     mode: TermMode,
@@ -211,6 +185,12 @@ pub struct Term {
 
     /// Template cell
     template_cell: Cell,
+
+    /// Empty cell
+    empty_cell: Cell,
+
+    /// Text colors
+    colors: [Rgb; 16],
 
     pub dirty: bool,
 }
@@ -244,7 +224,13 @@ impl SizeInfo {
 }
 
 impl Term {
-    pub fn new(width: f32, height: f32, cell_width: f32, cell_height: f32) -> Term {
+    pub fn new(
+        config: &Config,
+        width: f32,
+        height: f32,
+        cell_width: f32,
+        cell_height: f32
+    ) -> Term {
         let size = SizeInfo {
             width: width as f32,
             height: height as f32,
@@ -252,16 +238,18 @@ impl Term {
             cell_height: cell_height as f32,
         };
 
-
         let mut template = Cell::new(' ');
         template.flags = cell::Flags::empty();
-        template.bg = DEFAULT_BG;
-        template.fg = DEFAULT_FG;
+        template.bg = config.bg_color();
+        template.fg = config.fg_color();
 
         let num_cols = size.cols();
         let num_lines = size.lines();
 
         println!("num_cols, num_lines = {}, {}", num_cols, num_lines);
+
+        println!("bg: {:?}, fg: {:?}", template.bg, template.fg);
+        println!("colors: {:?}", config.color_list());
 
         let grid = Grid::new(num_lines, num_cols, &Cell::new(' '));
 
@@ -284,15 +272,16 @@ impl Term {
             alt: false,
             cursor: Cursor::default(),
             alt_cursor: Cursor::default(),
-            fg: DEFAULT_FG,
-            bg: DEFAULT_BG,
+            fg: config.fg_color(),
+            bg: config.bg_color(),
             tty: tty,
             tabs: tabs,
-            attr: cell::Flags::empty(),
             mode: Default::default(),
             scroll_region: scroll_region,
             size_info: size,
             template_cell: template,
+            empty_cell: template,
+            colors: config.color_list(),
         }
     }
 
@@ -348,7 +337,7 @@ impl Term {
         self.tabs[0] = false;
 
         // Make sure bottom of terminal is clear
-        let template = self.template_cell.clone();
+        let template = self.empty_cell.clone();
         self.grid.clear_region((self.cursor.line).., |c| c.reset(&template));
         self.alt_grid.clear_region((self.cursor.line).., |c| c.reset(&template));
 
@@ -384,7 +373,7 @@ impl Term {
         ::std::mem::swap(&mut self.cursor, &mut self.alt_cursor);
 
         if self.alt {
-            let template = self.template_cell.clone();
+            let template = self.empty_cell.clone();
             self.grid.clear(|c| c.reset(&template));
         }
     }
@@ -397,7 +386,7 @@ impl Term {
         debug_println!("scroll_down: {}", lines);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
-        let template = self.template_cell.clone();
+        let template = self.empty_cell.clone();
 
         // Clear `lines` lines at bottom of area
         {
@@ -422,7 +411,7 @@ impl Term {
         debug_println!("scroll_up: {}", lines);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
-        let template = self.template_cell.clone();
+        let template = self.empty_cell.clone();
 
         // Clear `lines` lines starting from origin to origin + lines
         {
@@ -473,10 +462,8 @@ impl ansi::Handler for Term {
         }
 
         let cell = &mut self.grid[&self.cursor];
+        *cell = self.template_cell;
         cell.c = c;
-        cell.fg = self.fg;
-        cell.bg = self.bg;
-        cell.flags = self.attr;
         self.cursor.col += 1;
     }
 
@@ -520,7 +507,7 @@ impl ansi::Handler for Term {
 
         // Cells were just moved out towards the end of the line; fill in
         // between source and dest with blanks.
-        let template = self.template_cell.clone();
+        let template = self.empty_cell.clone();
         for c in &mut line[source..destination] {
             c.reset(&template);
         }
@@ -666,7 +653,7 @@ impl ansi::Handler for Term {
         let end = start + count;
 
         let row = &mut self.grid[self.cursor.line];
-        let template = self.template_cell.clone();
+        let template = self.empty_cell.clone();
         for c in &mut row[start..end] {
             c.reset(&template);
         }
@@ -692,7 +679,7 @@ impl ansi::Handler for Term {
         }
 
         // Clear last `count` cells in line. If deleting 1 char, need to delete 1 cell.
-        let template = self.template_cell.clone();
+        let template = self.empty_cell.clone();
         let end = self.size_info.cols() - count;
         for c in &mut line[end..] {
             c.reset(&template);
@@ -722,7 +709,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         debug_println!("clear_line: {:?}", mode);
-        let template = self.template_cell.clone();
+        let template = self.empty_cell.clone();
         match mode {
             ansi::LineClearMode::Right => {
                 let row = &mut self.grid[self.cursor.line];
@@ -748,7 +735,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
         debug_println!("clear_screen: {:?}", mode);
-        let template = self.template_cell.clone();
+        let template = self.empty_cell.clone();
         match mode {
             ansi::ClearMode::Below => {
                 for row in &mut self.grid[self.cursor.line..] {
@@ -793,36 +780,36 @@ impl ansi::Handler for Term {
         debug_println!("Set Attribute: {:?}", attr);
         match attr {
             Attr::DefaultForeground => {
-                self.fg = DEFAULT_FG;
+                self.template_cell.fg = self.fg;
             },
             Attr::DefaultBackground => {
-                self.bg = DEFAULT_BG;
+                self.template_cell.bg = self.bg;
             },
             Attr::Foreground(named_color) => {
-                self.fg = COLORS[named_color as usize];
+                self.template_cell.fg = self.colors[named_color as usize];
             },
             Attr::Background(named_color) => {
-                self.bg = COLORS[named_color as usize];
+                self.template_cell.bg = self.colors[named_color as usize];
             },
             Attr::ForegroundSpec(rgb) => {
-                self.fg = rgb;
+                self.template_cell.fg = rgb;
             },
             Attr::BackgroundSpec(rgb) => {
-                self.bg = rgb;
+                self.template_cell.bg = rgb;
             },
             Attr::Reset => {
-                self.fg = DEFAULT_FG;
-                self.bg = DEFAULT_BG;
-                self.attr = cell::Flags::empty();
+                self.template_cell.fg = self.fg;
+                self.template_cell.bg = self.bg;
+                self.template_cell.flags = cell::Flags::empty();
             },
-            Attr::Reverse => self.attr.insert(cell::INVERSE),
-            Attr::CancelReverse => self.attr.remove(cell::INVERSE),
-            Attr::Bold => self.attr.insert(cell::BOLD),
-            Attr::CancelBoldDim => self.attr.remove(cell::BOLD),
-            Attr::Italic => self.attr.insert(cell::ITALIC),
-            Attr::CancelItalic => self.attr.remove(cell::ITALIC),
-            Attr::Underscore => self.attr.insert(cell::UNDERLINE),
-            Attr::CancelUnderline => self.attr.remove(cell::UNDERLINE),
+            Attr::Reverse => self.template_cell.flags.insert(cell::INVERSE),
+            Attr::CancelReverse => self.template_cell.flags.remove(cell::INVERSE),
+            Attr::Bold => self.template_cell.flags.insert(cell::BOLD),
+            Attr::CancelBoldDim => self.template_cell.flags.remove(cell::BOLD),
+            Attr::Italic => self.template_cell.flags.insert(cell::ITALIC),
+            Attr::CancelItalic => self.template_cell.flags.remove(cell::ITALIC),
+            Attr::Underscore => self.template_cell.flags.insert(cell::UNDERLINE),
+            Attr::CancelUnderline => self.template_cell.flags.remove(cell::UNDERLINE),
             _ => {
                 debug_println!("Term got unhandled attr: {:?}", attr);
             }

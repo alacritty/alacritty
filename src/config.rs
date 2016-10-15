@@ -8,9 +8,10 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
+use ::Rgb;
 use font::Size;
 use serde_yaml;
-use serde;
+use serde::{self, Error as SerdeError};
 
 /// Top-level config type
 #[derive(Debug, Deserialize, Default)]
@@ -26,6 +27,10 @@ pub struct Config {
     /// Should show render timer
     #[serde(default)]
     render_timer: bool,
+
+    /// The standard ANSI colors to use
+    #[serde(default)]
+    colors: Colors,
 }
 
 /// Errors occurring during config loading
@@ -42,6 +47,124 @@ pub enum Error {
 
     /// Not valid yaml or missing parameters
     Yaml(serde_yaml::Error),
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Colors {
+    primary: PrimaryColors,
+    normal: AnsiColors,
+    bright: AnsiColors,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PrimaryColors {
+    background: Rgb,
+    foreground: Rgb,
+}
+
+impl Default for Colors {
+    fn default() -> Colors {
+        Colors {
+            primary: PrimaryColors {
+                background: Rgb { r: 0, g: 0, b: 0 },
+                foreground: Rgb { r: 0xea, g: 0xea, b: 0xea },
+            },
+            normal: AnsiColors {
+                black: Rgb {r: 0x00, g: 0x00, b: 0x00},
+                red: Rgb {r: 0xd5, g: 0x4e, b: 0x53},
+                green: Rgb {r: 0xb9, g: 0xca, b: 0x4a},
+                yellow: Rgb {r: 0xe6, g: 0xc5, b: 0x47},
+                blue: Rgb {r: 0x7a, g: 0xa6, b: 0xda},
+                magenta: Rgb {r: 0xc3, g: 0x97, b: 0xd8},
+                cyan: Rgb {r: 0x70, g: 0xc0, b: 0xba},
+                white: Rgb {r: 0x42, g: 0x42, b: 0x42},
+            },
+            bright: AnsiColors {
+                black: Rgb {r: 0x66, g: 0x66, b: 0x66},
+                red: Rgb {r: 0xff, g: 0x33, b: 0x34},
+                green: Rgb {r: 0x9e, g: 0xc4, b: 0x00},
+                yellow: Rgb {r: 0xe7, g: 0xc5, b: 0x47},
+                blue: Rgb {r: 0x7a, g: 0xa6, b: 0xda},
+                magenta: Rgb {r: 0xb7, g: 0x7e, b: 0xe0},
+                cyan: Rgb {r: 0x54, g: 0xce, b: 0xd6},
+                white: Rgb {r: 0x2a, g: 0x2a, b: 0x2a},
+            }
+        }
+    }
+}
+
+/// The normal or bright colors section of config
+#[derive(Debug, Deserialize)]
+pub struct AnsiColors {
+    black: Rgb,
+    red: Rgb,
+    green: Rgb,
+    yellow: Rgb,
+    blue: Rgb,
+    magenta: Rgb,
+    cyan: Rgb,
+    white: Rgb,
+}
+
+impl serde::de::Deserialize for Rgb {
+    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+        where D: serde::de::Deserializer
+    {
+        use std::marker::PhantomData;
+
+        struct StringVisitor<__D> {
+            _marker: PhantomData<__D>,
+        }
+
+        impl<__D> ::serde::de::Visitor for StringVisitor<__D>
+            where __D: ::serde::de::Deserializer
+        {
+            type Value = String;
+
+            fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<Self::Value, E>
+                where E: ::serde::de::Error
+            {
+                Ok(value.to_owned())
+            }
+        }
+
+        deserializer
+            .deserialize_f64(StringVisitor::<D>{ _marker: PhantomData })
+            .and_then(|v| {
+                Rgb::from_str(&v[..])
+                    .map_err(|_| D::Error::custom("failed to parse rgb; expect 0xrrggbb"))
+            })
+    }
+}
+
+impl Rgb {
+    fn from_str(s: &str) -> ::std::result::Result<Rgb, ()> {
+        let mut chars = s.chars();
+        let mut rgb = Rgb::default();
+
+        macro_rules! component {
+            ($($c:ident),*) => {
+                $(
+                    match chars.next().unwrap().to_digit(16) {
+                        Some(val) => rgb.$c = (val as u8) << 4,
+                        None => return Err(())
+                    }
+
+                    match chars.next().unwrap().to_digit(16) {
+                        Some(val) => rgb.$c |= val as u8,
+                        None => return Err(())
+                    }
+                )*
+            }
+        }
+
+        if chars.next().unwrap() != '0' { return Err(()); }
+        if chars.next().unwrap() != 'x' { return Err(()); }
+
+        component!(r, g, b);
+
+        Ok(rgb)
+    }
 }
 
 impl ::std::error::Error for Error {
@@ -130,6 +253,44 @@ impl Config {
                 }
             }
         }
+    }
+
+    /// Get list of colors
+    ///
+    /// The ordering returned here is expected by the terminal. Colors are simply indexed in this
+    /// array for performance.
+    pub fn color_list(&self) -> [Rgb; 16] {
+        let colors = &self.colors;
+
+        [
+            // Normals
+            colors.normal.black,
+            colors.normal.red,
+            colors.normal.green,
+            colors.normal.yellow,
+            colors.normal.blue,
+            colors.normal.magenta,
+            colors.normal.cyan,
+            colors.normal.white,
+
+            // Brights
+            colors.bright.black,
+            colors.bright.red,
+            colors.bright.green,
+            colors.bright.yellow,
+            colors.bright.blue,
+            colors.bright.magenta,
+            colors.bright.cyan,
+            colors.bright.white,
+        ]
+    }
+
+    pub fn fg_color(&self) -> Rgb {
+        self.colors.primary.foreground
+    }
+
+    pub fn bg_color(&self) -> Rgb {
+        self.colors.primary.background
     }
 
     /// Get font config

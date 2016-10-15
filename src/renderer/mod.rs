@@ -610,11 +610,13 @@ impl<'a> RenderApi<'a> {
     }
     /// Render a string in a predefined location. Used for printing render time for profiling and
     /// optimization.
-    pub fn render_string(&mut self,
-                     s: &str,
-                     glyph_cache: &mut GlyphCache,
-                     color: &Rgb)
-    {
+    pub fn render_string(
+        &mut self,
+        bg: &Rgb,
+        s: &str,
+        glyph_cache: &mut GlyphCache,
+        color: &Rgb,
+    ) {
         let row = 40.0;
         let mut col = 100.0;
 
@@ -629,7 +631,7 @@ impl<'a> RenderApi<'a> {
                 let cell = Cell {
                     c: c,
                     fg: *color,
-                    bg: term::DEFAULT_BG,
+                    bg: *bg,
                     flags: cell::INVERSE,
                 };
                 self.add_render_item(row, col, &cell, glyph);
@@ -656,12 +658,12 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_grid(&mut self, grid: &Grid<Cell>, glyph_cache: &mut GlyphCache) {
+    pub fn render_grid(&mut self, bg: &Rgb, grid: &Grid<Cell>, glyph_cache: &mut GlyphCache) {
         for (i, line) in grid.lines().enumerate() {
             for (j, cell) in line.cells().enumerate() {
                 // Skip empty cells
                 if cell.c == ' ' &&
-                   cell.bg == term::DEFAULT_BG &&
+                   cell.bg == *bg &&
                    !cell.flags.contains(cell::INVERSE)
                 {
                     continue;

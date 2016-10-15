@@ -179,7 +179,13 @@ fn main() {
 
     println!("Cell Size: ({} x {})", cell_width, cell_height);
 
-    let terminal = Term::new(width as f32, height as f32, cell_width as f32, cell_height as f32);
+    let terminal = Term::new(
+        &config,
+        width as f32,
+        height as f32,
+        cell_width as f32,
+        cell_height as f32
+    );
     let pty_io = terminal.tty().reader();
 
     let (tx, rx) = mpsc::channel();
@@ -208,6 +214,7 @@ fn main() {
         window.clone(),
         renderer,
         glyph_cache,
+        config.bg_color(),
         render_timer,
         rx
     );
@@ -241,13 +248,14 @@ fn main() {
     println!("Goodbye");
 }
 
-
-
 struct Display {
     window: Arc<glutin::Window>,
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
+    clear_red: f32,
+    clear_blue: f32,
+    clear_green: f32,
     rx: mpsc::Receiver<(u32, u32)>,
     meter: Meter,
 }
@@ -256,6 +264,7 @@ impl Display {
     pub fn new(window: Arc<glutin::Window>,
                renderer: QuadRenderer,
                glyph_cache: GlyphCache,
+               clear_color: Rgb,
                render_timer: bool,
                rx: mpsc::Receiver<(u32, u32)>)
                -> Display
@@ -265,6 +274,9 @@ impl Display {
             renderer: renderer,
             glyph_cache: glyph_cache,
             render_timer: render_timer,
+            clear_red: clear_color.r as f32 / 255.0,
+            clear_blue: clear_color.g as f32 / 255.0,
+            clear_green: clear_color.b as f32 / 255.0,
             rx: rx,
             meter: Meter::new(),
         }
@@ -285,7 +297,7 @@ impl Display {
 
         // TODO should be built into renderer
         unsafe {
-            gl::ClearColor(0.0, 0.0, 0.00, 1.0);
+            gl::ClearColor(self.clear_red, self.clear_blue, self.clear_green, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
@@ -310,7 +322,8 @@ impl Display {
                 let size_info = terminal.size_info().clone();
                 self.renderer.with_api(&size_info, |mut api| {
                     // Draw the grid
-                    api.render_grid(&terminal.render_grid(), glyph_cache);
+                    let bg = terminal.bg;
+                    api.render_grid(&bg, &terminal.render_grid(), glyph_cache);
                 });
             }
 
@@ -319,7 +332,8 @@ impl Display {
                 let timing = format!("{:.3} usec", self.meter.average());
                 let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
                 self.renderer.with_api(terminal.size_info(), |mut api| {
-                    api.render_string(&timing[..], glyph_cache, &color);
+                    let bg = terminal.bg;
+                    api.render_string(&bg, &timing[..], glyph_cache, &color);
                 });
             }
         }

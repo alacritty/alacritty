@@ -7,47 +7,78 @@ dpi:
 
 # Font configuration
 font:
-  family: DejaVu Sans Mono
-  style: Book
+  family: Menlo
+  style: Regular
+  bold_style: Bold
+  italic_style: Italic
   # Point size of the font
   size: 11.0
   # Offset is the extra space around each character. offset.y can be thought of
   # as modifying the linespacing, and offset.x as modifying the letter spacing.
   offset:
-    x: 2.0
-    y: -7.0
+    x: -1.0
+    y: 1.0
 
 # Should display the render timer
 render_timer: false
 
-# Colors
+# Colors (Tomorrow Night Bright)
 colors:
   # Default colors
-  default:
-    background: 0x000000
-    foreground: 0xeaeaea
+  primary:
+    background: '0x000000'
+    foreground: '0xeaeaea'
 
   # Normal colors
   normal:
-    black: 0x000000
-    red: 0xd54e53
-    green: 0xb9ca4a
-    yellow: 0xe6c547
-    blue: 0x7aa6da
-    magenta: 0xc397d8
-    cyan: 0x70c0ba
-    white: 0x424242
+    black:   '0x000000'
+    red:     '0xd54e53'
+    green:   '0xb9ca4a'
+    yellow:  '0xe6c547'
+    blue:    '0x7aa6da'
+    magenta: '0xc397d8'
+    cyan:    '0x70c0ba'
+    white:   '0x424242'
 
   # Bright colors
   bright:
-    black: 0x666666
-    red: 0xff3334
-    green: 0x9ec400
-    yellow: 0xe7c547
-    blue: 0x7aa6da
-    magenta: 0xb77ee0
-    cyan: 0x54ced6
-    white: 0x2a2a2a
+    black:   '0x666666'
+    red:     '0xff3334'
+    green:   '0x9ec400'
+    yellow:  '0xe7c547'
+    blue:    '0x7aa6da'
+    magenta: '0xb77ee0'
+    cyan:    '0x54ced6'
+    white:   '0x2a2a2a'
 
 # Display tabs using this many cells
 tabspaces: 8
+
+# Colors (Solarized Dark)
+# colors:
+#   # Default colors
+#   primary:
+#     background: '0x002b36'
+#     foreground: '0x839496'
+#
+#   # Normal colors
+#   normal:
+#     black:   '0x073642'
+#     red:     '0xdc322f'
+#     green:   '0x859900'
+#     yellow:  '0xb58900'
+#     blue:    '0x268bd2'
+#     magenta: '0xd33682'
+#     cyan:    '0x2aa198'
+#     white:   '0xeee8d5'
+#
+#   # Bright colors
+#   bright:
+#     black:   '0x002b36'
+#     red:     '0xcb4b16'
+#     green:   '0x586e75'
+#     yellow:  '0x657b83'
+#     blue:    '0x839496'
+#     magenta: '0x6c71c4'
+#     cyan:    '0x93a1a1'
+#     white:   '0xfdf6e3'
