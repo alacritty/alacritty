@@ -483,4 +483,17 @@ mod tests {
         mode: mode::NONE,
         mods: mods::SUPER | mods::ALT
     }
+
+    test_process_binding! {
+        name: process_binding_with_mods_none,
+        binding: Binding { mods: mods::NONE, action: Action::Char('v'), mode: mode::ANY, notmode: mode::NONE },
+        expect: Some(String::from("v")),
+        mode: mode::NONE,
+        mods: mods::NONE
+    }
+
+    #[test]
+    fn print_v_bindings() {
+        println!("{:#?}", super::V_BINDINGS);
+    }
 }
