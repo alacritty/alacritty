@@ -112,6 +112,7 @@ pub struct Rgb {
 }
 
 mod gl {
+    #![allow(non_upper_case_globals)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
@@ -155,7 +156,7 @@ fn main() {
     let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr);
 
     // Create renderer
-    let mut renderer = QuadRenderer::new(width, height);
+    let mut renderer = QuadRenderer::new(&config, width, height);
 
     // Initialize glyph cache
     let glyph_cache = {
@@ -180,7 +181,6 @@ fn main() {
     println!("Cell Size: ({} x {})", cell_width, cell_height);
 
     let terminal = Term::new(
-        &config,
         width as f32,
         height as f32,
         cell_width as f32,
@@ -295,11 +295,6 @@ impl Display {
         // events into one.
         let mut new_size = None;
 
-        // TODO should be built into renderer
-        unsafe {
-            gl::ClearColor(self.clear_red, self.clear_blue, self.clear_green, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
 
         // Check for any out-of-band resize events (mac only)
         while let Ok(sz) = self.rx.try_recv() {
@@ -322,18 +317,16 @@ impl Display {
                 let size_info = terminal.size_info().clone();
                 self.renderer.with_api(&size_info, |mut api| {
                     // Draw the grid
-                    let bg = terminal.bg;
-                    api.render_grid(&bg, &terminal.render_grid(), glyph_cache);
+                    api.render_grid(&terminal.render_grid(), glyph_cache);
                 });
             }
 
             // Draw render timer
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());
-                let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
+                let color = ::term::cell::Color::Rgb(Rgb { r: 0xd5, g: 0x4e, b: 0x53 });
                 self.renderer.with_api(terminal.size_info(), |mut api| {
-                    let bg = terminal.bg;
-                    api.render_string(&bg, &timing[..], glyph_cache, &color);
+                    api.render_string(&timing[..], glyph_cache, &color);
                 });
             }
         }

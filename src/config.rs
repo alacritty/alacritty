@@ -259,7 +259,7 @@ impl Config {
     ///
     /// The ordering returned here is expected by the terminal. Colors are simply indexed in this
     /// array for performance.
-    pub fn color_list(&self) -> [Rgb; 16] {
+    pub fn color_list(&self) -> [Rgb; 18] {
         let colors = &self.colors;
 
         [
@@ -282,6 +282,10 @@ impl Config {
             colors.bright.magenta,
             colors.bright.cyan,
             colors.bright.white,
+
+            // Foreground and background
+            colors.primary.foreground,
+            colors.primary.background,
         ]
     }
 

@@ -337,6 +337,10 @@ pub enum Color {
     BrightCyan,
     /// Bright white
     BrightWhite,
+    /// The foreground color
+    Foreground,
+    /// The background color
+    Background,
 }
 
 /// Terminal character attributes
@@ -384,10 +388,6 @@ pub enum Attr {
     Background(Color),
     /// Set specific background color
     BackgroundSpec(Rgb),
-    /// Set default foreground
-    DefaultForeground,
-    /// Set default background
-    DefaultBackground,
 }
 
 impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
@@ -584,7 +584,7 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
                                 break;
                             }
                         },
-                        39 => Attr::DefaultForeground,
+                        39 => Attr::Foreground(Color::Foreground),
                         40 => Attr::Background(Color::Black),
                         41 => Attr::Background(Color::Red),
                         42 => Attr::Background(Color::Green),
@@ -600,7 +600,7 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
                                 break;
                             }
                         },
-                        49 => Attr::DefaultBackground,
+                        49 => Attr::Background(Color::Background),
                         90 => Attr::Foreground(Color::BrightBlack),
                         91 => Attr::Foreground(Color::BrightRed),
                         92 => Attr::Foreground(Color::BrightGreen),
