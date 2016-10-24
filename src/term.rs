@@ -118,6 +118,23 @@ pub mod cell {
             *self = template.clone();
         }
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::Color;
+        use std::intrinsics::discriminant_value;
+
+        #[test]
+        fn color_discriminant_values() {
+            let rgb_color = Color::Rgb(::Rgb { r: 0, g: 0, b: 0 });
+            let ansi_color = Color::Ansi(::ansi::Color::Foreground);
+
+            unsafe {
+                assert_eq!(discriminant_value(&rgb_color), 0);
+                assert_eq!(discriminant_value(&ansi_color), 1);
+            }
+        }
+    }
 }
 
 pub use self::cell::Cell;
