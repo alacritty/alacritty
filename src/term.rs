@@ -122,16 +122,34 @@ pub mod cell {
     #[cfg(test)]
     mod tests {
         use super::Color;
-        use std::intrinsics::discriminant_value;
+        use std::mem;
 
+        // Ensure memory layout is well defined so components like renderer
+        // can exploit it.
+        //
+        // Thankfully, everything is just a u8 for now so no endianness
+        // considerations are needed.
         #[test]
-        fn color_discriminant_values() {
-            let rgb_color = Color::Rgb(::Rgb { r: 0, g: 0, b: 0 });
+        fn color_memory_layout() {
+            let rgb_color = Color::Rgb(::Rgb { r: 1, g: 2, b: 3 });
             let ansi_color = Color::Ansi(::ansi::Color::Foreground);
 
             unsafe {
-                assert_eq!(discriminant_value(&rgb_color), 0);
-                assert_eq!(discriminant_value(&ansi_color), 1);
+                // Color::Rgb
+                // [discriminant(0), red, green ,blue]
+                let bytes: [u8; 4] = mem::transmute_copy(&rgb_color);
+                assert_eq!(bytes[0], 0);
+                assert_eq!(bytes[1], 1);
+                assert_eq!(bytes[2], 2);
+                assert_eq!(bytes[3], 3);
+
+                // Color::Ansi
+                // [discriminant(1), ansi::Color, 0, 0]
+                let bytes: [u8; 4] = mem::transmute_copy(&ansi_color);
+                assert_eq!(bytes[0], 1);
+                assert_eq!(bytes[1], ::ansi::Color::Foreground as u8);
+                assert_eq!(bytes[2], 0);
+                assert_eq!(bytes[3], 0);
             }
         }
     }
