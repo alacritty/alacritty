@@ -93,7 +93,12 @@ pub struct ShaderProgram {
     /// Background pass flag
     ///
     /// Rendering is split into two passes; 1 for backgrounds, and one for text
-    u_background: GLint
+    u_background: GLint,
+
+    /// Color uniforms
+    ///
+    /// Ansi colors are uploaded to the GPU and indexed in the vertex shader
+    u_colors: [GLint; 18],
 }
 
 
@@ -224,6 +229,7 @@ impl GlyphCache {
 }
 
 #[derive(Debug)]
+#[repr(C)]
 struct InstanceData {
     // coords
     col: f32,
@@ -241,13 +247,15 @@ struct InstanceData {
     uv_width: f32,
     uv_height: f32,
     // color
-    r: f32,
-    g: f32,
-    b: f32,
+    disc: u32,
+    r: u32,
+    g: u32,
+    b: u32,
     // background color
-    bg_r: f32,
-    bg_g: f32,
-    bg_b: f32,
+    bg_disc: u32,
+    bg_r: u32,
+    bg_g: u32,
+    bg_b: u32,
 }
 
 #[derive(Debug)]
@@ -260,6 +268,7 @@ pub struct QuadRenderer {
     atlas: Vec<Atlas>,
     active_tex: GLuint,
     batch: Batch,
+    colors: [Rgb; 18],
     rx: mpsc::Receiver<Msg>,
 }
 
@@ -303,17 +312,8 @@ impl Batch {
             self.tex = glyph.tex_id;
         }
 
-        // TODO move colors list to uniform buffer and do this indexing in vertex shader
-        let fg = match cell.fg {
-            ::term::cell::Color::Rgb(rgb) => rgb,
-            ::term::cell::Color::Ansi(ansi) => unsafe { COLORS[ansi as usize] },
-        };
-
-        // TODO move colors list to uniform buffer and do this indexing in vertex shader
-        let bg = match cell.bg {
-            ::term::cell::Color::Rgb(rgb) => rgb,
-            ::term::cell::Color::Ansi(ansi) => unsafe { COLORS[ansi as usize] },
-        };
+        let fg: &[u8; 4] = unsafe { ::std::mem::transmute(&cell.fg) };
+        let bg: &[u8; 4] = unsafe { ::std::mem::transmute(&cell.bg) };
 
         let mut instance = InstanceData {
             col: col,
@@ -329,23 +329,27 @@ impl Batch {
             uv_width: glyph.uv_width,
             uv_height: glyph.uv_height,
 
-            r: fg.r as f32,
-            g: fg.g as f32,
-            b: fg.b as f32,
+            disc: fg[0] as u32,
+            r: fg[1] as u32,
+            g: fg[2] as u32,
+            b: fg[3] as u32,
 
-            bg_r: bg.r as f32,
-            bg_g: bg.g as f32,
-            bg_b: bg.b as f32,
+            bg_disc: bg[0] as u32,
+            bg_r: bg[1] as u32,
+            bg_g: bg[2] as u32,
+            bg_b: bg[3] as u32,
         };
 
         if cell.flags.contains(cell::INVERSE) {
-            instance.r = bg.r as f32;
-            instance.g = bg.g as f32;
-            instance.b = bg.b as f32;
+            instance.disc = bg[0] as u32;
+            instance.r = bg[1] as u32;
+            instance.g = bg[2] as u32;
+            instance.b = bg[3] as u32;
 
-            instance.bg_r = fg.r as f32;
-            instance.bg_g = fg.g as f32;
-            instance.bg_b = fg.b as f32;
+            instance.bg_disc = fg[0] as u32;
+            instance.bg_r = fg[1] as u32;
+            instance.bg_g = fg[2] as u32;
+            instance.bg_b = fg[3] as u32;
         }
 
         self.instances.push(instance);
@@ -389,7 +393,8 @@ const ATLAS_SIZE: i32 = 1024;
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
     pub fn new(config: &Config, width: u32, height: u32) -> QuadRenderer {
-        let program = ShaderProgram::new(width, height).unwrap();
+        let colors = config.color_list();
+        let program = ShaderProgram::new(&colors, width, height).unwrap();
 
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
@@ -470,17 +475,17 @@ impl QuadRenderer {
             gl::EnableVertexAttribArray(3);
             gl::VertexAttribDivisor(3, 1);
             // color
-            gl::VertexAttribPointer(4, 3,
-                                    gl::FLOAT, gl::FALSE,
+            gl::VertexAttribIPointer(4, 4,
+                                    gl::UNSIGNED_INT,
                                     size_of::<InstanceData>() as i32,
                                     (10 * size_of::<f32>()) as *const _);
             gl::EnableVertexAttribArray(4);
             gl::VertexAttribDivisor(4, 1);
             // color
-            gl::VertexAttribPointer(5, 3,
-                                    gl::FLOAT, gl::FALSE,
+            gl::VertexAttribIPointer(5, 4,
+                                    gl::UNSIGNED_INT,
                                     size_of::<InstanceData>() as i32,
-                                    (13 * size_of::<f32>()) as *const _);
+                                    (14 * size_of::<f32>()) as *const _);
             gl::EnableVertexAttribArray(5);
             gl::VertexAttribDivisor(5, 1);
 
@@ -536,6 +541,7 @@ impl QuadRenderer {
             atlas: Vec::new(),
             active_tex: 0,
             batch: Batch::new(),
+            colors: config.color_list(),
             rx: msg_rx,
         };
 
@@ -555,9 +561,10 @@ impl QuadRenderer {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::ConfigReload(config) => {
-                    unsafe {
-                        COLORS = config.color_list();
-                    }
+                    self.colors = config.color_list();
+                    self.program.activate();
+                    self.program.set_color_uniforms(&self.colors);
+                    self.program.deactivate();
                 },
                 Msg::ShaderReload => {
                     self.reload_shaders(props.width as u32, props.height as u32);
@@ -607,7 +614,7 @@ impl QuadRenderer {
     }
 
     pub fn reload_shaders(&mut self, width: u32, height: u32) {
-        let program = match ShaderProgram::new(width, height) {
+        let program = match ShaderProgram::new(&self.colors, width, height) {
             Ok(program) => program,
             Err(err) => {
                 match err {
@@ -826,7 +833,11 @@ impl ShaderProgram {
         }
     }
 
-    pub fn new(width: u32, height: u32) -> Result<ShaderProgram, ShaderCreationError> {
+    pub fn new(
+        colors: &[Rgb; 18],
+        width: u32,
+        height: u32
+    ) -> Result<ShaderProgram, ShaderCreationError> {
         let vertex_shader = ShaderProgram::create_shader(TEXT_SHADER_V_PATH, gl::VERTEX_SHADER)?;
         let fragment_shader = ShaderProgram::create_shader(TEXT_SHADER_F_PATH,
                                                            gl::FRAGMENT_SHADER)?;
@@ -864,8 +875,19 @@ impl ShaderProgram {
 
         assert_uniform_valid!(projection, term_dim, cell_dim);
 
+        let mut color_uniforms: [GLint; 18] = unsafe { ::std::mem::uninitialized() };
+        for i in 0..18 {
+            color_uniforms[i] = unsafe {
+                let s = format!("colors[{}]\0", i).into_bytes();
+                gl::GetUniformLocation(program, cptr!(&s[..]))
+            };
+
+            assert_uniform_valid!(color_uniforms[i]);
+        }
+
         let shader = ShaderProgram {
             id: program,
+            u_colors: color_uniforms,
             u_projection: projection,
             u_term_dim: term_dim,
             u_cell_dim: cell_dim,
@@ -873,6 +895,7 @@ impl ShaderProgram {
         };
 
         shader.update_projection(width as f32, height as f32);
+        shader.set_color_uniforms(colors);
 
         shader.deactivate();
 
@@ -891,6 +914,20 @@ impl ShaderProgram {
                                  1, gl::FALSE, projection.as_ptr() as *const _);
         }
 
+    }
+
+    fn set_color_uniforms(&self, colors: &[Rgb; 18]) {
+        println!("setting colors: {:#?}", colors);
+        for (i, rgb) in colors.iter().enumerate() {
+            unsafe {
+                gl::Uniform3f(
+                    self.u_colors[i],
+                    rgb.r as f32 / 255.0,
+                    rgb.g as f32 / 255.0,
+                    rgb.b as f32 / 255.0,
+                );
+            }
+        }
     }
 
     fn set_term_uniforms(&self, props: &term::SizeInfo) {
