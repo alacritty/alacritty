@@ -18,8 +18,6 @@ use std::io::{self, Read};
 use std::mem::size_of;
 use std::path::{PathBuf};
 use std::ptr;
-use std::sync::Arc;
-use std::sync::atomic::{Ordering, AtomicBool};
 use std::sync::mpsc;
 
 use cgmath;
@@ -489,9 +487,6 @@ impl QuadRenderer {
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         }
-
-        let should_reload = Arc::new(AtomicBool::new(false));
-        let should_reload2 = should_reload.clone();
 
         let (msg_tx, msg_rx) = mpsc::channel();
 

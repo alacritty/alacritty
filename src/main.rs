@@ -75,7 +75,7 @@ use term::Term;
 use tty::process_should_exit;
 
 /// Channel used by resize handling on mac
-static mut resize_sender: Option<mpsc::Sender<(u32, u32)>> = None;
+static mut RESIZE_SENDER: Option<mpsc::Sender<(u32, u32)>> = None;
 
 #[derive(Clone)]
 pub struct Flag(Arc<AtomicBool>);
@@ -98,7 +98,7 @@ impl Flag {
 /// Resize handling for Mac
 fn window_resize_handler(width: u32, height: u32) {
     unsafe {
-        if let Some(ref tx) = resize_sender {
+        if let Some(ref tx) = RESIZE_SENDER {
             let _ = tx.send((width, height));
         }
     }
@@ -190,7 +190,7 @@ fn main() {
 
     let (tx, rx) = mpsc::channel();
     unsafe {
-        resize_sender = Some(tx.clone());
+        RESIZE_SENDER = Some(tx.clone());
     }
 
     let signal_flag = Flag::new(false);
@@ -214,7 +214,6 @@ fn main() {
         window.clone(),
         renderer,
         glyph_cache,
-        config.bg_color(),
         render_timer,
         rx
     );
@@ -253,9 +252,6 @@ struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
-    clear_red: f32,
-    clear_blue: f32,
-    clear_green: f32,
     rx: mpsc::Receiver<(u32, u32)>,
     meter: Meter,
 }
@@ -264,7 +260,6 @@ impl Display {
     pub fn new(window: Arc<glutin::Window>,
                renderer: QuadRenderer,
                glyph_cache: GlyphCache,
-               clear_color: Rgb,
                render_timer: bool,
                rx: mpsc::Receiver<(u32, u32)>)
                -> Display
@@ -274,9 +269,6 @@ impl Display {
             renderer: renderer,
             glyph_cache: glyph_cache,
             render_timer: render_timer,
-            clear_red: clear_color.r as f32 / 255.0,
-            clear_blue: clear_color.g as f32 / 255.0,
-            clear_green: clear_color.b as f32 / 255.0,
             rx: rx,
             meter: Meter::new(),
         }
