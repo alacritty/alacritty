@@ -42,36 +42,8 @@ pub trait LoadGlyph {
 }
 
 enum Msg {
-    ConfigReload(Config),
     ShaderReload,
 }
-
-/// Colors!
-///
-/// FIXME this is obviously bad; need static for reload logic for now. Hacking something in with
-/// minimal effort and will improve later.
-///
-/// Only renderer is allowed to access this to prevent race conditions
-static mut COLORS: [Rgb; 18] = [
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-    Rgb { r: 0, g: 0, b: 0 },
-];
 
 /// Text drawing program
 ///
@@ -278,6 +250,7 @@ pub struct RenderApi<'a> {
     batch: &'a mut Batch,
     atlas: &'a mut Vec<Atlas>,
     program: &'a mut ShaderProgram,
+    colors: &'a [Rgb; 18],
 }
 
 #[derive(Debug)]
@@ -500,7 +473,6 @@ impl QuadRenderer {
             let mut watcher = Watcher::new(tx).unwrap();
             watcher.watch(TEXT_SHADER_F_PATH).expect("watch fragment shader");
             watcher.watch(TEXT_SHADER_V_PATH).expect("watch vertex shader");
-            watcher.watch("/home/jwilm/.alacritty.yml").expect("watch alacritty yml");
 
             loop {
                 let event = rx.recv().expect("watcher event");
@@ -517,15 +489,8 @@ impl QuadRenderer {
                                 println!("failed to establish watch on {:?}: {:?}", path, err);
                             }
 
-                            if path == ::std::path::Path::new("/home/jwilm/.alacritty.yml") {
-                                if let Ok(config) = Config::load() {
-                                    msg_tx.send(Msg::ConfigReload(config))
-                                        .expect("msg send ok");
-                                };
-                            } else {
-                                msg_tx.send(Msg::ShaderReload)
-                                    .expect("msg send ok");
-                            }
+                            msg_tx.send(Msg::ShaderReload)
+                                .expect("msg send ok");
                         }
                     }
                 }
@@ -545,14 +510,17 @@ impl QuadRenderer {
             rx: msg_rx,
         };
 
-        unsafe {
-            COLORS = config.color_list();
-        }
-
         let atlas = Atlas::new(ATLAS_SIZE);
         renderer.atlas.push(atlas);
 
         renderer
+    }
+
+    pub fn update_config(&mut self, config: &Config) {
+        self.colors = config.color_list();
+        self.program.activate();
+        self.program.set_color_uniforms(&self.colors);
+        self.program.deactivate();
     }
 
     pub fn with_api<F, T>(&mut self, props: &term::SizeInfo, func: F) -> T
@@ -560,12 +528,6 @@ impl QuadRenderer {
     {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
-                Msg::ConfigReload(config) => {
-                    self.colors = config.color_list();
-                    self.program.activate();
-                    self.program.set_color_uniforms(&self.colors);
-                    self.program.deactivate();
-                },
                 Msg::ShaderReload => {
                     self.reload_shaders(props.width as u32, props.height as u32);
                 }
@@ -587,6 +549,7 @@ impl QuadRenderer {
             batch: &mut self.batch,
             atlas: &mut self.atlas,
             program: &mut self.program,
+            colors: &self.colors,
         });
 
         unsafe {
@@ -732,7 +695,7 @@ impl<'a> RenderApi<'a> {
         glyph_cache: &mut GlyphCache
     ) {
         // TODO should be built into renderer
-        let color = unsafe { COLORS[::ansi::Color::Background as usize] };
+        let color = self.colors[::ansi::Color::Background as usize];
         unsafe {
             gl::ClearColor(
                 color.r as f32 / 255.0,

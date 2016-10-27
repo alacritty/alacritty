@@ -118,14 +118,14 @@ mod gl {
 
 fn main() {
     // Load configuration
-    let config = match Config::load() {
+    let (config, config_path) = match Config::load() {
         Err(err) => match err {
             // Use default config when not found
-            config::Error::NotFound => Config::default(),
+            config::Error::NotFound => (Config::default(), None),
             // Exit when there's a problem with it
             _ => die!("{}", err),
         },
-        Ok(config) => config,
+        Ok((config, path)) => (config, Some(path)),
     };
 
     let font = config.font();
@@ -225,10 +225,24 @@ fn main() {
         tx
     );
 
+    let (config_tx, config_rx) = mpsc::channel();
+
+    // create a config watcher when config is loaded from disk
+    let _config_reloader = config_path.map(|config_path| {
+        config::Watcher::new(config_path, ConfigHandler {
+            tx: config_tx,
+            window: window.create_window_proxy(),
+        })
+    });
+
     // Main loop
     loop {
         // Wait for something to happen
         processor.process_events(&window);
+
+        if let Ok(config) = config_rx.try_recv() {
+            display.update_config(&config);
+        }
 
         // Maybe draw the terminal
         let terminal = terminal.lock();
@@ -242,9 +256,29 @@ fn main() {
         }
     }
 
+    // FIXME need file watcher to work with custom delegates before
+    //       joining config reloader is possible
+    // config_reloader.join().ok();
+
     // shutdown
     event_loop_handle.join().ok();
     println!("Goodbye");
+}
+
+struct ConfigHandler {
+    tx: mpsc::Sender<config::Config>,
+    window: ::glutin::WindowProxy,
+}
+
+impl config::OnConfigReload for ConfigHandler {
+    fn on_config_reload(&mut self, config: Config) {
+        if let Err(..) = self.tx.send(config) {
+            err_println!("Failed to notify of new config");
+            return;
+        }
+
+        self.window.wakeup_event_loop();
+    }
 }
 
 struct Display {
@@ -257,6 +291,10 @@ struct Display {
 }
 
 impl Display {
+    pub fn update_config(&mut self, config: &Config) {
+        self.renderer.update_config(config);
+    }
+
     pub fn new(window: Arc<glutin::Window>,
                renderer: QuadRenderer,
                glyph_cache: GlyphCache,
