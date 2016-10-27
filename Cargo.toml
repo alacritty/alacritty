@@ -3,7 +3,6 @@ name = "alacritty"
 version = "0.1.0"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
-exclude = ["res/*"]
 build = "build.rs"
 
 [dependencies]
@@ -20,6 +19,11 @@ serde_derive = "0.8"
 vte = "0.1.2"
 mio = "0.6"
 copypasta = { path = "./copypasta" }
+
+[features]
+default = []
+# Enabling this feature makes shaders automatically reload when changed
+live-shader-reload = []
 
 [build-dependencies]
 gl_generator = "0.5"

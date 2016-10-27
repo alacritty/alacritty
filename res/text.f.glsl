@@ -31,5 +31,4 @@ void main()
         alphaMask = vec4(texture(mask, TexCoords).rgb, 1.0);
         color = vec4(fg, 1.0);
     }
-
 }

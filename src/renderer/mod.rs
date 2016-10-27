@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::collections::HashMap;
-use std::ffi::CString;
 use std::fs::File;
 use std::io::{self, Read};
 use std::mem::size_of;
@@ -33,8 +32,17 @@ use term::{self, cell, Cell};
 
 use super::Rgb;
 
+// Shader paths for live reload
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
 static TEXT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
+
+// Shader source which is used when live-shader-reload feature is disable
+static TEXT_SHADER_F: &'static str = include_str!(
+    concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl")
+);
+static TEXT_SHADER_V: &'static str = include_str!(
+    concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl")
+);
 
 /// LoadGlyph allows for copying a rasterized glyph into graphics memory
 pub trait LoadGlyph {
@@ -448,34 +456,36 @@ impl QuadRenderer {
         let should_reload = Arc::new(AtomicBool::new(false));
         let should_reload2 = should_reload.clone();
 
-        ::std::thread::spawn(move || {
-            let (tx, rx) = ::std::sync::mpsc::channel();
-            let mut watcher = Watcher::new(tx).unwrap();
-            watcher.watch(TEXT_SHADER_F_PATH).expect("watch fragment shader");
-            watcher.watch(TEXT_SHADER_V_PATH).expect("watch vertex shader");
+        if cfg!(feature = "live-shader-reload") {
+            ::std::thread::spawn(move || {
+                let (tx, rx) = ::std::sync::mpsc::channel();
+                let mut watcher = Watcher::new(tx).unwrap();
+                watcher.watch(TEXT_SHADER_F_PATH).expect("watch fragment shader");
+                watcher.watch(TEXT_SHADER_V_PATH).expect("watch vertex shader");
 
-            loop {
-                let event = rx.recv().expect("watcher event");
-                let ::notify::Event { path, op } = event;
+                loop {
+                    let event = rx.recv().expect("watcher event");
+                    let ::notify::Event { path, op } = event;
 
-                if let Ok(op) = op {
-                    if op.contains(op::RENAME) {
-                        continue;
-                    }
-
-                    if op.contains(op::IGNORED) {
-                        if let Some(path) = path.as_ref() {
-                            if let Err(err) = watcher.watch(path) {
-                                println!("failed to establish watch on {:?}: {:?}", path, err);
-                            }
+                    if let Ok(op) = op {
+                        if op.contains(op::RENAME) {
+                            continue;
                         }
 
-                        // This is last event we see after saving in vim
-                        should_reload2.store(true, Ordering::Relaxed);
+                        if op.contains(op::IGNORED) {
+                            if let Some(path) = path.as_ref() {
+                                if let Err(err) = watcher.watch(path) {
+                                    println!("failed to establish watch on {:?}: {:?}", path, err);
+                                }
+                            }
+
+                            // This is last event we see after saving in vim
+                            should_reload2.store(true, Ordering::Relaxed);
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
 
         let mut renderer = QuadRenderer {
             program: program,
@@ -751,9 +761,26 @@ impl ShaderProgram {
     }
 
     pub fn new(width: u32, height: u32) -> Result<ShaderProgram, ShaderCreationError> {
-        let vertex_shader = ShaderProgram::create_shader(TEXT_SHADER_V_PATH, gl::VERTEX_SHADER)?;
-        let fragment_shader = ShaderProgram::create_shader(TEXT_SHADER_F_PATH,
-                                                           gl::FRAGMENT_SHADER)?;
+        let vertex_source = if cfg!(feature = "live-shader-reload") {
+            None
+        } else {
+            Some(TEXT_SHADER_V)
+        };
+        let vertex_shader = ShaderProgram::create_shader(
+            TEXT_SHADER_V_PATH,
+            gl::VERTEX_SHADER,
+            vertex_source
+        )?;
+        let frag_source = if cfg!(feature = "live-shader-reload") {
+            None
+        } else {
+            Some(TEXT_SHADER_F)
+        };
+        let fragment_shader = ShaderProgram::create_shader(
+            TEXT_SHADER_F_PATH,
+            gl::FRAGMENT_SHADER,
+            frag_source
+        )?;
         let program = ShaderProgram::create_program(vertex_shader, fragment_shader);
 
         unsafe {
@@ -855,11 +882,24 @@ impl ShaderProgram {
     }
 
 
-    fn create_shader(path: &str, kind: GLenum) -> Result<GLuint, ShaderCreationError> {
-        let source = CString::new(read_file(path)?).unwrap();
+    fn create_shader(
+        path: &str,
+        kind: GLenum,
+        source: Option<&'static str>
+    ) -> Result<GLuint, ShaderCreationError> {
+        let from_disk;
+        let source = if let Some(src) = source {
+            src
+        } else {
+            from_disk = read_file(path)?;
+            &from_disk[..]
+        };
+
+        let len: [GLint; 1] = [source.len() as GLint];
+
         let shader = unsafe {
             let shader = gl::CreateShader(kind);
-            gl::ShaderSource(shader, 1, &source.as_ptr(), ptr::null());
+            gl::ShaderSource(shader, 1, &(source.as_ptr() as *const i8), len.as_ptr());
             gl::CompileShader(shader);
             shader
         };
