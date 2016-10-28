@@ -103,6 +103,10 @@ pub mod cell {
     }
 
     impl Cell {
+        pub fn bold(&self) -> bool {
+            self.flags.contains(BOLD)
+        }
+
         pub fn new(c: char, fg: Color, bg: Color) -> Cell {
             Cell {
                 c: c.into(),

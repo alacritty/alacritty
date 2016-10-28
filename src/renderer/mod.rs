@@ -242,6 +242,7 @@ pub struct QuadRenderer {
     active_tex: GLuint,
     batch: Batch,
     colors: [Rgb; 18],
+    draw_bold_text_with_bright_colors: bool,
     rx: mpsc::Receiver<Msg>,
 }
 
@@ -271,15 +272,17 @@ pub struct Batch {
     tex: GLuint,
     instances: Vec<InstanceData>,
     colors: [Rgb; 18],
+    draw_bold_text_with_bright_colors: bool,
 }
 
 impl Batch {
     #[inline]
-    pub fn new(colors: [Rgb; 18]) -> Batch {
+    pub fn new(config: &Config) -> Batch {
         Batch {
             tex: 0,
             instances: Vec::with_capacity(BATCH_MAX),
-            colors: colors,
+            colors: config.color_list(),
+            draw_bold_text_with_bright_colors: config.draw_bold_text_with_bright_colors(),
         }
     }
 
@@ -290,7 +293,16 @@ impl Batch {
 
         let fg = match cell.fg {
             ::term::cell::Color::Rgb(rgb) => rgb,
-            ::term::cell::Color::Ansi(ansi) => self.colors[ansi as usize],
+            ::term::cell::Color::Ansi(ansi) => {
+                if self.draw_bold_text_with_bright_colors
+                    && cell.bold()
+                    && ansi < ::ansi::Color::BrightBlack
+                {
+                    self.colors[ansi as usize + 8]
+                } else {
+                    self.colors[ansi as usize]
+                }
+            }
         };
 
         let bg = match cell.bg {
@@ -512,9 +524,10 @@ impl QuadRenderer {
             vbo_instance: vbo_instance,
             atlas: Vec::new(),
             active_tex: 0,
-            batch: Batch::new(config.color_list()),
+            batch: Batch::new(config),
             colors: config.color_list(),
             rx: msg_rx,
+            draw_bold_text_with_bright_colors: config.draw_bold_text_with_bright_colors(),
         };
 
         let atlas = Atlas::new(ATLAS_SIZE);
@@ -526,6 +539,7 @@ impl QuadRenderer {
     pub fn update_config(&mut self, config: &Config) {
         self.colors = config.color_list();
         self.batch.colors = config.color_list();
+        self.batch.draw_bold_text_with_bright_colors = config.draw_bold_text_with_bright_colors();
     }
 
     pub fn with_api<F, T>(&mut self, props: &term::SizeInfo, func: F) -> T

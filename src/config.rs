@@ -15,8 +15,13 @@ use serde_yaml;
 use serde::{self, Error as SerdeError};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as FileWatcher, op};
 
+/// Function that returns true for serde default
+fn true_bool() -> bool {
+    true
+}
+
 /// Top-level config type
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 pub struct Config {
     /// Pixels per inch
     #[serde(default)]
@@ -30,9 +35,25 @@ pub struct Config {
     #[serde(default)]
     render_timer: bool,
 
+    /// Should show render timer
+    #[serde(default="true_bool")]
+    draw_bold_text_with_bright_colors: bool,
+
     /// The standard ANSI colors to use
     #[serde(default)]
     colors: Colors,
+}
+
+impl Default for Config {
+    fn default() -> Config {
+        Config {
+            draw_bold_text_with_bright_colors: true,
+            dpi: Default::default(),
+            font: Default::default(),
+            render_timer: Default::default(),
+            colors: Default::default(),
+        }
+    }
 }
 
 /// Errors occurring during config loading
@@ -299,6 +320,11 @@ impl Config {
 
     pub fn bg_color(&self) -> Rgb {
         self.colors.primary.background
+    }
+
+    #[inline]
+    pub fn draw_bold_text_with_bright_colors(&self) -> bool {
+        self.draw_bold_text_with_bright_colors
     }
 
     /// Get font config

@@ -270,6 +270,7 @@ struct ConfigHandler {
     window: ::glutin::WindowProxy,
 }
 
+// TODO FIXME
 impl config::OnConfigReload for ConfigHandler {
     fn on_config_reload(&mut self, config: Config) {
         if let Err(..) = self.tx.send(config) {
