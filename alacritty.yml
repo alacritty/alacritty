@@ -1,23 +1,29 @@
 # Configuration for Alacritty, the GPU enhanced terminal emulator
 
 # The FreeType rasterizer needs to know the device DPI for best results
+# (changes require restart)
 dpi:
   x: 96.0
   y: 96.0
 
-# Font configuration
+# Display tabs using this many cells (changes require restart)
+tabspaces: 8
+
+draw_bold_text_with_bright_colors: true
+
+# Font configuration (changes require restart)
 font:
-  family: Menlo
-  style: Regular
+  family: DejaVu Sans Mono
+  style: Book
   bold_style: Bold
-  italic_style: Italic
+  italic_style: Oblique
   # Point size of the font
   size: 11.0
   # Offset is the extra space around each character. offset.y can be thought of
   # as modifying the linespacing, and offset.x as modifying the letter spacing.
   offset:
-    x: -1.0
-    y: 1.0
+    x: 2.0
+    y: -7.0
 
 # Should display the render timer
 render_timer: false
@@ -50,9 +56,6 @@ colors:
     magenta: '0xb77ee0'
     cyan:    '0x54ced6'
     white:   '0x2a2a2a'
-
-# Display tabs using this many cells
-tabspaces: 8
 
 # Colors (Solarized Dark)
 # colors:
