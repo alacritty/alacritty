@@ -17,8 +17,7 @@ use std::io::{self, Read};
 use std::mem::size_of;
 use std::path::{PathBuf};
 use std::ptr;
-use std::sync::Arc;
-use std::sync::atomic::{Ordering, AtomicBool};
+use std::sync::mpsc;
 
 use cgmath;
 use font::{self, Rasterizer, RasterizedGlyph, FontDesc, GlyphKey, FontKey};
@@ -50,6 +49,10 @@ pub trait LoadGlyph {
     fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph;
 }
 
+enum Msg {
+    ShaderReload,
+}
+
 /// Text drawing program
 ///
 /// Uniforms are prefixed with "u", and vertex attributes are prefixed with "a".
@@ -70,7 +73,7 @@ pub struct ShaderProgram {
     /// Background pass flag
     ///
     /// Rendering is split into two passes; 1 for backgrounds, and one for text
-    u_background: GLint
+    u_background: GLint,
 }
 
 
@@ -201,6 +204,7 @@ impl GlyphCache {
 }
 
 #[derive(Debug)]
+#[repr(C)]
 struct InstanceData {
     // coords
     col: f32,
@@ -230,7 +234,6 @@ struct InstanceData {
 #[derive(Debug)]
 pub struct QuadRenderer {
     program: ShaderProgram,
-    should_reload: Arc<AtomicBool>,
     vao: GLuint,
     vbo: GLuint,
     ebo: GLuint,
@@ -238,6 +241,8 @@ pub struct QuadRenderer {
     atlas: Vec<Atlas>,
     active_tex: GLuint,
     batch: Batch,
+    colors: [Rgb; 18],
+    rx: mpsc::Receiver<Msg>,
 }
 
 #[derive(Debug)]
@@ -246,6 +251,7 @@ pub struct RenderApi<'a> {
     batch: &'a mut Batch,
     atlas: &'a mut Vec<Atlas>,
     program: &'a mut ShaderProgram,
+    colors: &'a [Rgb; 18],
 }
 
 #[derive(Debug)]
@@ -264,14 +270,16 @@ pub struct PackedVertex {
 pub struct Batch {
     tex: GLuint,
     instances: Vec<InstanceData>,
+    colors: [Rgb; 18],
 }
 
 impl Batch {
     #[inline]
-    pub fn new() -> Batch {
+    pub fn new(colors: [Rgb; 18]) -> Batch {
         Batch {
             tex: 0,
             instances: Vec::with_capacity(BATCH_MAX),
+            colors: colors,
         }
     }
 
@@ -279,6 +287,16 @@ impl Batch {
         if self.is_empty() {
             self.tex = glyph.tex_id;
         }
+
+        let fg = match cell.fg {
+            ::term::cell::Color::Rgb(rgb) => rgb,
+            ::term::cell::Color::Ansi(ansi) => self.colors[ansi as usize],
+        };
+
+        let bg = match cell.bg {
+            ::term::cell::Color::Rgb(rgb) => rgb,
+            ::term::cell::Color::Ansi(ansi) => self.colors[ansi as usize],
+        };
 
         let mut instance = InstanceData {
             col: col,
@@ -294,23 +312,23 @@ impl Batch {
             uv_width: glyph.uv_width,
             uv_height: glyph.uv_height,
 
-            r: cell.fg.r as f32,
-            g: cell.fg.g as f32,
-            b: cell.fg.b as f32,
+            r: fg.r as f32,
+            g: fg.g as f32,
+            b: fg.b as f32,
 
-            bg_r: cell.bg.r as f32,
-            bg_g: cell.bg.g as f32,
-            bg_b: cell.bg.b as f32,
+            bg_r: bg.r as f32,
+            bg_g: bg.g as f32,
+            bg_b: bg.b as f32,
         };
 
         if cell.flags.contains(cell::INVERSE) {
-            instance.r = cell.bg.r as f32;
-            instance.g = cell.bg.g as f32;
-            instance.b = cell.bg.b as f32;
+            instance.r = bg.r as f32;
+            instance.g = bg.g as f32;
+            instance.b = bg.b as f32;
 
-            instance.bg_r = cell.fg.r as f32;
-            instance.bg_g = cell.fg.g as f32;
-            instance.bg_b = cell.fg.b as f32;
+            instance.bg_r = fg.r as f32;
+            instance.bg_g = fg.g as f32;
+            instance.bg_b = fg.b as f32;
         }
 
         self.instances.push(instance);
@@ -353,7 +371,7 @@ const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
-    pub fn new(width: u32, height: u32) -> QuadRenderer {
+    pub fn new(config: &Config, width: u32, height: u32) -> QuadRenderer {
         let program = ShaderProgram::new(width, height).unwrap();
 
         let mut vao: GLuint = 0;
@@ -453,8 +471,7 @@ impl QuadRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         }
 
-        let should_reload = Arc::new(AtomicBool::new(false));
-        let should_reload2 = should_reload.clone();
+        let (msg_tx, msg_rx) = mpsc::channel();
 
         if cfg!(feature = "live-shader-reload") {
             ::std::thread::spawn(move || {
@@ -479,8 +496,8 @@ impl QuadRenderer {
                                 }
                             }
 
-                            // This is last event we see after saving in vim
-                            should_reload2.store(true, Ordering::Relaxed);
+                            msg_tx.send(Msg::ShaderReload)
+                                .expect("msg send ok");
                         }
                     }
                 }
@@ -489,14 +506,15 @@ impl QuadRenderer {
 
         let mut renderer = QuadRenderer {
             program: program,
-            should_reload: should_reload,
             vao: vao,
             vbo: vbo,
             ebo: ebo,
             vbo_instance: vbo_instance,
             atlas: Vec::new(),
             active_tex: 0,
-            batch: Batch::new(),
+            batch: Batch::new(config.color_list()),
+            colors: config.color_list(),
+            rx: msg_rx,
         };
 
         let atlas = Atlas::new(ATLAS_SIZE);
@@ -505,11 +523,20 @@ impl QuadRenderer {
         renderer
     }
 
+    pub fn update_config(&mut self, config: &Config) {
+        self.colors = config.color_list();
+        self.batch.colors = config.color_list();
+    }
+
     pub fn with_api<F, T>(&mut self, props: &term::SizeInfo, func: F) -> T
         where F: FnOnce(RenderApi) -> T
     {
-        if self.should_reload.load(Ordering::Relaxed) {
-            self.reload_shaders(props.width as u32, props.height as u32);
+        while let Ok(msg) = self.rx.try_recv() {
+            match msg {
+                Msg::ShaderReload => {
+                    self.reload_shaders(props.width as u32, props.height as u32);
+                }
+            }
         }
 
         unsafe {
@@ -527,6 +554,7 @@ impl QuadRenderer {
             batch: &mut self.batch,
             atlas: &mut self.atlas,
             program: &mut self.program,
+            colors: &self.colors,
         });
 
         unsafe {
@@ -554,7 +582,6 @@ impl QuadRenderer {
     }
 
     pub fn reload_shaders(&mut self, width: u32, height: u32) {
-        self.should_reload.store(false, Ordering::Relaxed);
         let program = match ShaderProgram::new(width, height) {
             Ok(program) => program,
             Err(err) => {
@@ -622,10 +649,9 @@ impl<'a> RenderApi<'a> {
     /// optimization.
     pub fn render_string(
         &mut self,
-        bg: &Rgb,
         s: &str,
         glyph_cache: &mut GlyphCache,
-        color: &Rgb,
+        color: &::term::cell::Color,
     ) {
         let row = 40.0;
         let mut col = 100.0;
@@ -640,8 +666,8 @@ impl<'a> RenderApi<'a> {
             if let Some(glyph) = glyph_cache.get(&glyph_key, self) {
                 let cell = Cell {
                     c: c,
-                    fg: *color,
-                    bg: *bg,
+                    fg: color.clone(),
+                    bg: cell::Color::Rgb(Rgb { r: 0, g: 0, b: 0}),
                     flags: cell::INVERSE,
                 };
                 self.add_render_item(row, col, &cell, glyph);
@@ -668,12 +694,27 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_grid(&mut self, bg: &Rgb, grid: &Grid<Cell>, glyph_cache: &mut GlyphCache) {
+    pub fn render_grid(
+        &mut self,
+        grid: &Grid<Cell>,
+        glyph_cache: &mut GlyphCache
+    ) {
+        // TODO should be built into renderer
+        let color = self.colors[::ansi::Color::Background as usize];
+        unsafe {
+            gl::ClearColor(
+                color.r as f32 / 255.0,
+                color.g as f32 / 255.0,
+                color.b as f32 / 255.0,
+                1.0
+                );
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+
         for (i, line) in grid.lines().enumerate() {
             for (j, cell) in line.cells().enumerate() {
                 // Skip empty cells
-                if cell.c == ' ' &&
-                   cell.bg == *bg &&
+                if cell.c == ' ' && cell.bg == cell::Color::Ansi(::ansi::Color::Background) &&
                    !cell.flags.contains(cell::INVERSE)
                 {
                     continue;
@@ -760,7 +801,10 @@ impl ShaderProgram {
         }
     }
 
-    pub fn new(width: u32, height: u32) -> Result<ShaderProgram, ShaderCreationError> {
+    pub fn new(
+        width: u32,
+        height: u32
+    ) -> Result<ShaderProgram, ShaderCreationError> {
         let vertex_source = if cfg!(feature = "live-shader-reload") {
             None
         } else {
@@ -814,6 +858,16 @@ impl ShaderProgram {
         };
 
         assert_uniform_valid!(projection, term_dim, cell_dim);
+
+        let mut color_uniforms: [GLint; 18] = unsafe { ::std::mem::uninitialized() };
+        for i in 0..18 {
+            color_uniforms[i] = unsafe {
+                let s = format!("colors[{}]\0", i).into_bytes();
+                gl::GetUniformLocation(program, cptr!(&s[..]))
+            };
+
+            assert_uniform_valid!(color_uniforms[i]);
+        }
 
         let shader = ShaderProgram {
             id: program,

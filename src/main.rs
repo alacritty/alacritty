@@ -75,7 +75,7 @@ use term::Term;
 use tty::process_should_exit;
 
 /// Channel used by resize handling on mac
-static mut resize_sender: Option<mpsc::Sender<(u32, u32)>> = None;
+static mut RESIZE_SENDER: Option<mpsc::Sender<(u32, u32)>> = None;
 
 #[derive(Clone)]
 pub struct Flag(Arc<AtomicBool>);
@@ -98,7 +98,7 @@ impl Flag {
 /// Resize handling for Mac
 fn window_resize_handler(width: u32, height: u32) {
     unsafe {
-        if let Some(ref tx) = resize_sender {
+        if let Some(ref tx) = RESIZE_SENDER {
             let _ = tx.send((width, height));
         }
     }
@@ -112,19 +112,20 @@ pub struct Rgb {
 }
 
 mod gl {
+    #![allow(non_upper_case_globals)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
 fn main() {
     // Load configuration
-    let config = match Config::load() {
+    let (config, config_path) = match Config::load() {
         Err(err) => match err {
             // Use default config when not found
-            config::Error::NotFound => Config::default(),
+            config::Error::NotFound => (Config::default(), None),
             // Exit when there's a problem with it
             _ => die!("{}", err),
         },
-        Ok(config) => config,
+        Ok((config, path)) => (config, Some(path)),
     };
 
     let font = config.font();
@@ -155,7 +156,7 @@ fn main() {
     let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr);
 
     // Create renderer
-    let mut renderer = QuadRenderer::new(width, height);
+    let mut renderer = QuadRenderer::new(&config, width, height);
 
     // Initialize glyph cache
     let glyph_cache = {
@@ -180,7 +181,6 @@ fn main() {
     println!("Cell Size: ({} x {})", cell_width, cell_height);
 
     let terminal = Term::new(
-        &config,
         width as f32,
         height as f32,
         cell_width as f32,
@@ -190,7 +190,7 @@ fn main() {
 
     let (tx, rx) = mpsc::channel();
     unsafe {
-        resize_sender = Some(tx.clone());
+        RESIZE_SENDER = Some(tx.clone());
     }
 
     let signal_flag = Flag::new(false);
@@ -214,7 +214,6 @@ fn main() {
         window.clone(),
         renderer,
         glyph_cache,
-        config.bg_color(),
         render_timer,
         rx
     );
@@ -226,10 +225,24 @@ fn main() {
         tx
     );
 
+    let (config_tx, config_rx) = mpsc::channel();
+
+    // create a config watcher when config is loaded from disk
+    let _config_reloader = config_path.map(|config_path| {
+        config::Watcher::new(config_path, ConfigHandler {
+            tx: config_tx,
+            window: window.create_window_proxy(),
+        })
+    });
+
     // Main loop
     loop {
         // Wait for something to happen
         processor.process_events(&window);
+
+        if let Ok(config) = config_rx.try_recv() {
+            display.update_config(&config);
+        }
 
         // Maybe draw the terminal
         let terminal = terminal.lock();
@@ -243,9 +256,29 @@ fn main() {
         }
     }
 
+    // FIXME need file watcher to work with custom delegates before
+    //       joining config reloader is possible
+    // config_reloader.join().ok();
+
     // shutdown
     event_loop_handle.join().ok();
     println!("Goodbye");
+}
+
+struct ConfigHandler {
+    tx: mpsc::Sender<config::Config>,
+    window: ::glutin::WindowProxy,
+}
+
+impl config::OnConfigReload for ConfigHandler {
+    fn on_config_reload(&mut self, config: Config) {
+        if let Err(..) = self.tx.send(config) {
+            err_println!("Failed to notify of new config");
+            return;
+        }
+
+        self.window.wakeup_event_loop();
+    }
 }
 
 struct Display {
@@ -253,18 +286,19 @@ struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
-    clear_red: f32,
-    clear_blue: f32,
-    clear_green: f32,
     rx: mpsc::Receiver<(u32, u32)>,
     meter: Meter,
 }
 
 impl Display {
+    pub fn update_config(&mut self, config: &Config) {
+        self.renderer.update_config(config);
+        self.render_timer = config.render_timer();
+    }
+
     pub fn new(window: Arc<glutin::Window>,
                renderer: QuadRenderer,
                glyph_cache: GlyphCache,
-               clear_color: Rgb,
                render_timer: bool,
                rx: mpsc::Receiver<(u32, u32)>)
                -> Display
@@ -274,9 +308,6 @@ impl Display {
             renderer: renderer,
             glyph_cache: glyph_cache,
             render_timer: render_timer,
-            clear_red: clear_color.r as f32 / 255.0,
-            clear_blue: clear_color.g as f32 / 255.0,
-            clear_green: clear_color.b as f32 / 255.0,
             rx: rx,
             meter: Meter::new(),
         }
@@ -295,11 +326,6 @@ impl Display {
         // events into one.
         let mut new_size = None;
 
-        // TODO should be built into renderer
-        unsafe {
-            gl::ClearColor(self.clear_red, self.clear_blue, self.clear_green, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
 
         // Check for any out-of-band resize events (mac only)
         while let Ok(sz) = self.rx.try_recv() {
@@ -322,18 +348,16 @@ impl Display {
                 let size_info = terminal.size_info().clone();
                 self.renderer.with_api(&size_info, |mut api| {
                     // Draw the grid
-                    let bg = terminal.bg;
-                    api.render_grid(&bg, &terminal.render_grid(), glyph_cache);
+                    api.render_grid(&terminal.render_grid(), glyph_cache);
                 });
             }
 
             // Draw render timer
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());
-                let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
+                let color = ::term::cell::Color::Rgb(Rgb { r: 0xd5, g: 0x4e, b: 0x53 });
                 self.renderer.with_api(terminal.size_info(), |mut api| {
-                    let bg = terminal.bg;
-                    api.render_string(&bg, &timing[..], glyph_cache, &color);
+                    api.render_string(&timing[..], glyph_cache, &color);
                 });
             }
         }

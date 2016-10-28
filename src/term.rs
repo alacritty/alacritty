@@ -21,9 +21,7 @@ use ansi::{self, Attr, Handler};
 use grid::{Grid, ClearRegion};
 use index::{Cursor, Column, Line};
 use tty;
-use config::Config;
-
-use ::Rgb;
+use ansi::Color;
 
 /// RAII type which manages grid state for render
 ///
@@ -90,20 +88,26 @@ pub mod cell {
         }
     }
 
-    #[derive(Clone, Debug, Copy)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub enum Color {
+        Rgb(Rgb),
+        Ansi(::ansi::Color),
+    }
+
+    #[derive(Clone, Debug)]
     pub struct Cell {
         pub c: char,
-        pub fg: Rgb,
-        pub bg: Rgb,
+        pub fg: Color,
+        pub bg: Color,
         pub flags: Flags,
     }
 
     impl Cell {
-        pub fn new(c: char) -> Cell {
+        pub fn new(c: char, fg: Color, bg: Color) -> Cell {
             Cell {
                 c: c.into(),
-                bg: Default::default(),
-                fg: Default::default(),
+                bg: bg,
+                fg: fg,
                 flags: Flags::empty(),
             }
         }
@@ -111,12 +115,41 @@ pub mod cell {
         #[inline]
         pub fn reset(&mut self, template: &Cell) {
             // memcpy template to self
+            *self = template.clone();
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::Color;
+        use std::mem;
+
+        // Ensure memory layout is well defined so components like renderer
+        // can exploit it.
+        //
+        // Thankfully, everything is just a u8 for now so no endianness
+        // considerations are needed.
+        #[test]
+        fn color_memory_layout() {
+            let rgb_color = Color::Rgb(::Rgb { r: 1, g: 2, b: 3 });
+            let ansi_color = Color::Ansi(::ansi::Color::Foreground);
+
             unsafe {
-                ::std::ptr::copy_nonoverlapping(
-                    template as *const Cell,
-                    self as *mut Cell,
-                    1
-                );
+                // Color::Rgb
+                // [discriminant(0), red, green ,blue]
+                let bytes: [u8; 4] = mem::transmute_copy(&rgb_color);
+                assert_eq!(bytes[0], 0);
+                assert_eq!(bytes[1], 1);
+                assert_eq!(bytes[2], 2);
+                assert_eq!(bytes[3], 3);
+
+                // Color::Ansi
+                // [discriminant(1), ansi::Color, 0, 0]
+                let bytes: [u8; 4] = mem::transmute_copy(&ansi_color);
+                assert_eq!(bytes[0], 1);
+                assert_eq!(bytes[1], ::ansi::Color::Foreground as u8);
+                assert_eq!(bytes[2], 0);
+                assert_eq!(bytes[3], 0);
             }
         }
     }
@@ -165,12 +198,6 @@ pub struct Term {
     /// Alt cursor
     alt_cursor: Cursor,
 
-    /// Active foreground color
-    pub fg: Rgb,
-
-    /// Active background color
-    pub bg: Rgb,
-
     /// Tabstops
     tabs: Vec<bool>,
 
@@ -188,9 +215,6 @@ pub struct Term {
 
     /// Empty cell
     empty_cell: Cell,
-
-    /// Text colors
-    colors: [Rgb; 16],
 
     pub dirty: bool,
 }
@@ -225,7 +249,6 @@ impl SizeInfo {
 
 impl Term {
     pub fn new(
-        config: &Config,
         width: f32,
         height: f32,
         cell_width: f32,
@@ -238,20 +261,18 @@ impl Term {
             cell_height: cell_height as f32,
         };
 
-        let mut template = Cell::new(' ');
-        template.flags = cell::Flags::empty();
-        template.bg = config.bg_color();
-        template.fg = config.fg_color();
+        let template = Cell::new(
+            ' ',
+            cell::Color::Ansi(Color::Foreground),
+            cell::Color::Ansi(Color::Background)
+        );
 
         let num_cols = size.cols();
         let num_lines = size.lines();
 
         println!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
-        println!("bg: {:?}, fg: {:?}", template.bg, template.fg);
-        println!("colors: {:?}", config.color_list());
-
-        let grid = Grid::new(num_lines, num_cols, &Cell::new(' '));
+        let grid = Grid::new(num_lines, num_cols, &template);
 
         let tty = tty::new(*num_lines as u8, *num_cols as u8);
         tty.resize(*num_lines as usize, *num_cols as usize, size.width as usize, size.height as usize);
@@ -272,16 +293,13 @@ impl Term {
             alt: false,
             cursor: Cursor::default(),
             alt_cursor: Cursor::default(),
-            fg: config.fg_color(),
-            bg: config.bg_color(),
             tty: tty,
             tabs: tabs,
             mode: Default::default(),
             scroll_region: scroll_region,
             size_info: size,
-            template_cell: template,
+            template_cell: template.clone(),
             empty_cell: template,
-            colors: config.color_list(),
         }
     }
 
@@ -323,8 +341,9 @@ impl Term {
         println!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         // Resize grids to new size
-        self.grid.resize(num_lines, num_cols, &Cell::new(' '));
-        self.alt_grid.resize(num_lines, num_cols, &Cell::new(' '));
+        let template = self.template_cell.clone();
+        self.grid.resize(num_lines, num_cols, &template);
+        self.alt_grid.resize(num_lines, num_cols, &template);
 
         // Ensure cursor is in-bounds
         self.cursor.line = limit(self.cursor.line, Line(0), num_lines);
@@ -462,7 +481,7 @@ impl ansi::Handler for Term {
         }
 
         let cell = &mut self.grid[&self.cursor];
-        *cell = self.template_cell;
+        *cell = self.template_cell.clone();
         cell.c = c;
         self.cursor.col += 1;
     }
@@ -779,27 +798,21 @@ impl ansi::Handler for Term {
     fn terminal_attribute(&mut self, attr: Attr) {
         debug_println!("Set Attribute: {:?}", attr);
         match attr {
-            Attr::DefaultForeground => {
-                self.template_cell.fg = self.fg;
-            },
-            Attr::DefaultBackground => {
-                self.template_cell.bg = self.bg;
-            },
             Attr::Foreground(named_color) => {
-                self.template_cell.fg = self.colors[named_color as usize];
+                self.template_cell.fg = cell::Color::Ansi(named_color);
             },
             Attr::Background(named_color) => {
-                self.template_cell.bg = self.colors[named_color as usize];
+                self.template_cell.bg = cell::Color::Ansi(named_color);
             },
             Attr::ForegroundSpec(rgb) => {
-                self.template_cell.fg = rgb;
+                self.template_cell.fg = cell::Color::Rgb(rgb);
             },
             Attr::BackgroundSpec(rgb) => {
-                self.template_cell.bg = rgb;
+                self.template_cell.bg = cell::Color::Rgb(rgb);
             },
             Attr::Reset => {
-                self.template_cell.fg = self.fg;
-                self.template_cell.bg = self.bg;
+                self.template_cell.fg = cell::Color::Ansi(Color::Foreground);
+                self.template_cell.bg = cell::Color::Ansi(Color::Background);
                 self.template_cell.flags = cell::Flags::empty();
             },
             Attr::Reverse => self.template_cell.flags.insert(cell::INVERSE),

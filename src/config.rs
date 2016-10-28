@@ -7,11 +7,13 @@ use std::env;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 
 use ::Rgb;
 use font::Size;
 use serde_yaml;
 use serde::{self, Error as SerdeError};
+use notify::{Watcher as WatcherApi, RecommendedWatcher as FileWatcher, op};
 
 /// Top-level config type
 #[derive(Debug, Deserialize, Default)]
@@ -232,7 +234,7 @@ impl Config {
     ///
     /// 1. `$HOME/.config/alacritty.yml`
     /// 2. `$HOME/.alacritty.yml`
-    pub fn load() -> Result<Config> {
+    pub fn load() -> Result<(Config, PathBuf)> {
         let home = env::var("HOME")?;
 
         // First path
@@ -240,15 +242,17 @@ impl Config {
         path.push(".config");
         path.push("alacritty.yml");
 
-        // Fallback path
-        let mut alt_path = PathBuf::from(&home);
-        alt_path.push(".alacritty.yml");
-
-        match Config::load_from(&path) {
+        match Config::load_from(path) {
             Ok(c) => Ok(c),
             Err(e) => {
                 match e {
-                    Error::NotFound => Config::load_from(&alt_path),
+                    Error::NotFound => {
+                        // Fallback path
+                        let mut alt_path = PathBuf::from(&home);
+                        alt_path.push(".alacritty.yml");
+
+                        Config::load_from(alt_path)
+                    },
                     _ => Err(e),
                 }
             }
@@ -259,7 +263,7 @@ impl Config {
     ///
     /// The ordering returned here is expected by the terminal. Colors are simply indexed in this
     /// array for performance.
-    pub fn color_list(&self) -> [Rgb; 16] {
+    pub fn color_list(&self) -> [Rgb; 18] {
         let colors = &self.colors;
 
         [
@@ -282,6 +286,10 @@ impl Config {
             colors.bright.magenta,
             colors.bright.cyan,
             colors.bright.white,
+
+            // Foreground and background
+            colors.primary.foreground,
+            colors.primary.background,
         ]
     }
 
@@ -311,9 +319,10 @@ impl Config {
         self.render_timer
     }
 
-    fn load_from<P: AsRef<Path>>(path: P) -> Result<Config> {
-        let raw = Config::read_file(path)?;
-        Ok(serde_yaml::from_str(&raw[..])?)
+    fn load_from<P: Into<PathBuf>>(path: P) -> Result<(Config, PathBuf)> {
+        let path = path.into();
+        let raw = Config::read_file(path.as_path())?;
+        Ok((serde_yaml::from_str(&raw[..])?, path))
     }
 
     fn read_file<P: AsRef<Path>>(path: P) -> Result<String> {
@@ -519,5 +528,48 @@ impl Default for Font {
                 y: -7.0
             }
         }
+    }
+}
+
+pub struct Watcher(::std::thread::JoinHandle<()>);
+
+pub trait OnConfigReload {
+    fn on_config_reload(&mut self, Config);
+}
+
+impl Watcher {
+    pub fn new<H: OnConfigReload + Send + 'static>(path: PathBuf, mut handler: H) -> Watcher {
+        Watcher(::util::thread::spawn_named("config watcher", move || {
+            let (tx, rx) = mpsc::channel();
+            let mut watcher = FileWatcher::new(tx).unwrap();
+            watcher.watch(&path).expect("watch alacritty yml");
+
+            let config_path = path.as_path();
+
+            loop {
+                let event = rx.recv().expect("watcher event");
+                let ::notify::Event { path, op } = event;
+
+                if let Ok(op) = op {
+                    if op.contains(op::RENAME) {
+                        continue;
+                    }
+
+                    if op.contains(op::IGNORED) {
+                        if let Some(path) = path.as_ref() {
+                            if let Err(err) = watcher.watch(&path) {
+                                err_println!("failed to establish watch on {:?}: {:?}", path, err);
+                            }
+
+                            if path == config_path {
+                                if let Ok((config, _)) = Config::load() {
+                                    handler.on_config_reload(config);
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+        }))
     }
 }
