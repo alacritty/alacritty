@@ -293,6 +293,7 @@ struct Display {
 impl Display {
     pub fn update_config(&mut self, config: &Config) {
         self.renderer.update_config(config);
+        self.render_timer = config.render_timer();
     }
 
     pub fn new(window: Arc<glutin::Window>,
