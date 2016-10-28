@@ -24,15 +24,13 @@ layout (location = 2) in vec4 glyph;
 layout (location = 3) in vec4 uv;
 
 // text fg color
-layout (location = 4) in uvec4 textColor;
+layout (location = 4) in vec3 textColor;
 // Background color
-layout (location = 5) in uvec4 backgroundColor;
+layout (location = 5) in vec3 backgroundColor;
 
 out vec2 TexCoords;
 out vec3 fg;
 out vec3 bg;
-
-uniform vec3 colors[18];
 
 // Terminal properties
 uniform vec2 termDim;
@@ -75,33 +73,6 @@ void main()
     }
 
     background = backgroundPass;
-    switch (textColor.x) {
-        case 0u:
-            // cell::Color::Rgb
-            fg = vec3(textColor.yzw) / vec3(255.0, 255.0, 255.0);
-            break;
-        case 1u:
-            // cell::Color::Ansi
-            fg = vec3(colors[textColor.y]);
-            break;
-        default:
-            // Should never happen; let's make it red
-            fg = vec3(1.0, 0.0, 0.0);
-            break;
-    }
-
-    switch (backgroundColor.x) {
-        case 0u:
-            // cell::Color::Rgb
-            bg = vec3(backgroundColor.yzw) / vec3(255.0, 255.0, 255.0);
-            break;
-        case 1u:
-            // cell::Color::Ansi
-            bg = vec3(colors[backgroundColor.y]);
-            break;
-        default:
-            // Should never happen; let's make it blue
-            bg = vec3(0.0, 0.0, 1.0);
-            break;
-    }
+    bg = backgroundColor / vec3(255.0, 255.0, 255.0);
+    fg = textColor / vec3(255.0, 255.0, 255.0);
 }

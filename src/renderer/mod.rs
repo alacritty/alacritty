@@ -66,11 +66,6 @@ pub struct ShaderProgram {
     ///
     /// Rendering is split into two passes; 1 for backgrounds, and one for text
     u_background: GLint,
-
-    /// Color uniforms
-    ///
-    /// Ansi colors are uploaded to the GPU and indexed in the vertex shader
-    u_colors: [GLint; 18],
 }
 
 
@@ -219,15 +214,13 @@ struct InstanceData {
     uv_width: f32,
     uv_height: f32,
     // color
-    disc: u32,
-    r: u32,
-    g: u32,
-    b: u32,
+    r: f32,
+    g: f32,
+    b: f32,
     // background color
-    bg_disc: u32,
-    bg_r: u32,
-    bg_g: u32,
-    bg_b: u32,
+    bg_r: f32,
+    bg_g: f32,
+    bg_b: f32,
 }
 
 #[derive(Debug)]
@@ -269,14 +262,16 @@ pub struct PackedVertex {
 pub struct Batch {
     tex: GLuint,
     instances: Vec<InstanceData>,
+    colors: [Rgb; 18],
 }
 
 impl Batch {
     #[inline]
-    pub fn new() -> Batch {
+    pub fn new(colors: [Rgb; 18]) -> Batch {
         Batch {
             tex: 0,
             instances: Vec::with_capacity(BATCH_MAX),
+            colors: colors,
         }
     }
 
@@ -285,8 +280,15 @@ impl Batch {
             self.tex = glyph.tex_id;
         }
 
-        let fg: &[u8; 4] = unsafe { ::std::mem::transmute(&cell.fg) };
-        let bg: &[u8; 4] = unsafe { ::std::mem::transmute(&cell.bg) };
+        let fg = match cell.fg {
+            ::term::cell::Color::Rgb(rgb) => rgb,
+            ::term::cell::Color::Ansi(ansi) => self.colors[ansi as usize],
+        };
+
+        let bg = match cell.bg {
+            ::term::cell::Color::Rgb(rgb) => rgb,
+            ::term::cell::Color::Ansi(ansi) => self.colors[ansi as usize],
+        };
 
         let mut instance = InstanceData {
             col: col,
@@ -302,27 +304,23 @@ impl Batch {
             uv_width: glyph.uv_width,
             uv_height: glyph.uv_height,
 
-            disc: fg[0] as u32,
-            r: fg[1] as u32,
-            g: fg[2] as u32,
-            b: fg[3] as u32,
+            r: fg.r as f32,
+            g: fg.g as f32,
+            b: fg.b as f32,
 
-            bg_disc: bg[0] as u32,
-            bg_r: bg[1] as u32,
-            bg_g: bg[2] as u32,
-            bg_b: bg[3] as u32,
+            bg_r: bg.r as f32,
+            bg_g: bg.g as f32,
+            bg_b: bg.b as f32,
         };
 
         if cell.flags.contains(cell::INVERSE) {
-            instance.disc = bg[0] as u32;
-            instance.r = bg[1] as u32;
-            instance.g = bg[2] as u32;
-            instance.b = bg[3] as u32;
+            instance.r = bg.r as f32;
+            instance.g = bg.g as f32;
+            instance.b = bg.b as f32;
 
-            instance.bg_disc = fg[0] as u32;
-            instance.bg_r = fg[1] as u32;
-            instance.bg_g = fg[2] as u32;
-            instance.bg_b = fg[3] as u32;
+            instance.bg_r = fg.r as f32;
+            instance.bg_g = fg.g as f32;
+            instance.bg_b = fg.b as f32;
         }
 
         self.instances.push(instance);
@@ -366,8 +364,7 @@ const ATLAS_SIZE: i32 = 1024;
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
     pub fn new(config: &Config, width: u32, height: u32) -> QuadRenderer {
-        let colors = config.color_list();
-        let program = ShaderProgram::new(&colors, width, height).unwrap();
+        let program = ShaderProgram::new(width, height).unwrap();
 
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
@@ -448,17 +445,17 @@ impl QuadRenderer {
             gl::EnableVertexAttribArray(3);
             gl::VertexAttribDivisor(3, 1);
             // color
-            gl::VertexAttribIPointer(4, 4,
-                                    gl::UNSIGNED_INT,
+            gl::VertexAttribPointer(4, 3,
+                                    gl::FLOAT, gl::FALSE,
                                     size_of::<InstanceData>() as i32,
                                     (10 * size_of::<f32>()) as *const _);
             gl::EnableVertexAttribArray(4);
             gl::VertexAttribDivisor(4, 1);
             // color
-            gl::VertexAttribIPointer(5, 4,
-                                    gl::UNSIGNED_INT,
+            gl::VertexAttribPointer(5, 3,
+                                    gl::FLOAT, gl::FALSE,
                                     size_of::<InstanceData>() as i32,
-                                    (14 * size_of::<f32>()) as *const _);
+                                    (13 * size_of::<f32>()) as *const _);
             gl::EnableVertexAttribArray(5);
             gl::VertexAttribDivisor(5, 1);
 
@@ -505,7 +502,7 @@ impl QuadRenderer {
             vbo_instance: vbo_instance,
             atlas: Vec::new(),
             active_tex: 0,
-            batch: Batch::new(),
+            batch: Batch::new(config.color_list()),
             colors: config.color_list(),
             rx: msg_rx,
         };
@@ -518,9 +515,7 @@ impl QuadRenderer {
 
     pub fn update_config(&mut self, config: &Config) {
         self.colors = config.color_list();
-        self.program.activate();
-        self.program.set_color_uniforms(&self.colors);
-        self.program.deactivate();
+        self.batch.colors = config.color_list();
     }
 
     pub fn with_api<F, T>(&mut self, props: &term::SizeInfo, func: F) -> T
@@ -577,7 +572,7 @@ impl QuadRenderer {
     }
 
     pub fn reload_shaders(&mut self, width: u32, height: u32) {
-        let program = match ShaderProgram::new(&self.colors, width, height) {
+        let program = match ShaderProgram::new(width, height) {
             Ok(program) => program,
             Err(err) => {
                 match err {
@@ -797,7 +792,6 @@ impl ShaderProgram {
     }
 
     pub fn new(
-        colors: &[Rgb; 18],
         width: u32,
         height: u32
     ) -> Result<ShaderProgram, ShaderCreationError> {
@@ -850,7 +844,6 @@ impl ShaderProgram {
 
         let shader = ShaderProgram {
             id: program,
-            u_colors: color_uniforms,
             u_projection: projection,
             u_term_dim: term_dim,
             u_cell_dim: cell_dim,
@@ -858,7 +851,6 @@ impl ShaderProgram {
         };
 
         shader.update_projection(width as f32, height as f32);
-        shader.set_color_uniforms(colors);
 
         shader.deactivate();
 
@@ -877,20 +869,6 @@ impl ShaderProgram {
                                  1, gl::FALSE, projection.as_ptr() as *const _);
         }
 
-    }
-
-    fn set_color_uniforms(&self, colors: &[Rgb; 18]) {
-        println!("setting colors: {:#?}", colors);
-        for (i, rgb) in colors.iter().enumerate() {
-            unsafe {
-                gl::Uniform3f(
-                    self.u_colors[i],
-                    rgb.r as f32 / 255.0,
-                    rgb.g as f32 / 255.0,
-                    rgb.b as f32 / 255.0,
-                );
-            }
-        }
     }
 
     fn set_term_uniforms(&self, props: &term::SizeInfo) {
