@@ -378,7 +378,7 @@ impl Batch {
 }
 
 /// Maximum items to be drawn in a batch.
-const BATCH_MAX: usize = 4096;
+const BATCH_MAX: usize = 65_536;
 const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
