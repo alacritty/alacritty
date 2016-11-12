@@ -41,11 +41,19 @@ impl<N: input::Notify> Processor<N> {
                 match c {
                     // Ignore BACKSPACE and DEL. These are handled specially.
                     '\u{8}' | '\u{7f}' => (),
+                    // Extra thing on macOS delete?
+                    '\u{f728}' => (),
                     // OSX arrow keys send invalid characters; ignore.
                     '\u{f700}' | '\u{f701}' | '\u{f702}' | '\u{f703}' => (),
+                    // Same with home/end. Am I missing something? Would be
+                    // nice if glutin provided the received char in
+                    // KeyboardInput event so a choice could be made there
+                    // instead of having to special case everything.
+                    '\u{f72b}' | '\u{f729}' | '\u{f72c}' | '\u{f72d}' => (),
                     // These letters are handled in the bindings system
                     'v' => (),
                     _ => {
+                        println!("printing char {:?}", c);
                         let buf = encode_char(c);
                         self.notifier.notify(buf);
                     }

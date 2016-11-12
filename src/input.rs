@@ -187,6 +187,28 @@ static F12_BINDINGS: &'static [Binding] = &[
     Binding { mods: mods::ANY, action: Action::Esc("\x1b[24~"), mode: mode::ANY, notmode: mode::NONE },
 ];
 
+/// Bindings for PageUp
+static PAGEUP_BINDINGS: &'static [Binding] = &[
+    Binding { mods: mods::ANY, action: Action::Esc("\x1b[5~"), mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for PageDown
+static PAGEDOWN_BINDINGS: &'static [Binding] = &[
+    Binding { mods: mods::ANY, action: Action::Esc("\x1b[6~"), mode: mode::ANY, notmode: mode::NONE },
+];
+
+/// Bindings for Home
+static HOME_BINDINGS: &'static [Binding] = &[
+    Binding { mods: mods::ANY, action: Action::Esc("\x1b[H"), mode: mode::ANY, notmode: mode::APP_CURSOR },
+    Binding { mods: mods::ANY, action: Action::Esc("\x1b[1~"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+];
+
+/// Bindings for End
+static END_BINDINGS: &'static [Binding] = &[
+    Binding { mods: mods::ANY, action: Action::Esc("\x1b[F"), mode: mode::ANY, notmode: mode::APP_CURSOR },
+    Binding { mods: mods::ANY, action: Action::Esc("\x1b[4~"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+];
+
 /// Bindings for the H key
 ///
 /// Control-H sends 0x08 normally, but we capture that in ReceivedCharacter
@@ -297,6 +319,10 @@ impl Processor {
                 VirtualKeyCode::F10 => F10_BINDINGS,
                 VirtualKeyCode::F11 => F11_BINDINGS,
                 VirtualKeyCode::F12 => F12_BINDINGS,
+                VirtualKeyCode::PageUp => PAGEUP_BINDINGS,
+                VirtualKeyCode::PageDown => PAGEDOWN_BINDINGS,
+                VirtualKeyCode::Home => HOME_BINDINGS,
+                VirtualKeyCode::End => END_BINDINGS,
                 VirtualKeyCode::Back => BACKSPACE_BINDINGS,
                 VirtualKeyCode::Delete => DELETE_BINDINGS,
                 VirtualKeyCode::H => H_BINDINGS,
@@ -346,6 +372,7 @@ impl Processor {
                     // Modifier keys
                     if binding.mods.is_all() || mods == binding.mods {
                         // everything matches; run the binding action
+                        println!("{:?}", binding);
                         match binding.action {
                             Action::Esc(s) => notifier.notify(s.as_bytes()),
                             Action::Paste => {
