@@ -75,7 +75,7 @@ use term::Term;
 use tty::process_should_exit;
 
 /// Channel used by resize handling on mac
-static mut RESIZE_SENDER: Option<mpsc::Sender<(u32, u32)>> = None;
+static mut RESIZE_CALLBACK: Option<Box<Fn(u32, u32)>> = None;
 
 #[derive(Clone)]
 pub struct Flag(Arc<AtomicBool>);
@@ -98,9 +98,7 @@ impl Flag {
 /// Resize handling for Mac
 fn window_resize_handler(width: u32, height: u32) {
     unsafe {
-        if let Some(ref tx) = RESIZE_SENDER {
-            let _ = tx.send((width, height));
-        }
+        RESIZE_CALLBACK.as_ref().map(|func| func(width, height));
     }
 }
 
@@ -189,15 +187,28 @@ fn main() {
     let pty_io = terminal.tty().reader();
 
     let (tx, rx) = mpsc::channel();
-    unsafe {
-        RESIZE_SENDER = Some(tx.clone());
-    }
 
     let signal_flag = Flag::new(false);
 
-
     let terminal = Arc::new(FairMutex::new(terminal));
     let window = Arc::new(window);
+
+    // Setup the rsize callback for osx
+    let terminal_ref = terminal.clone();
+    let signal_flag_ref = signal_flag.clone();
+    let proxy = window.create_window_proxy();
+    let tx2 = tx.clone();
+    unsafe {
+        RESIZE_CALLBACK = Some(Box::new(move |width: u32, height: u32| {
+            let _ = tx2.send((width, height));
+            if !signal_flag_ref.0.swap(true, Ordering::AcqRel) {
+               // We raised the signal flag
+                let mut terminal = terminal_ref.lock();
+                terminal.dirty = true;
+                proxy.wakeup_event_loop();
+            }
+        }));
+    }
 
     let event_loop = EventLoop::new(
         terminal.clone(),
