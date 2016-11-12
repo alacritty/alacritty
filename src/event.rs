@@ -37,41 +37,41 @@ impl<N: input::Notify> Processor<N> {
     fn handle_event(&mut self, event: glutin::Event) {
         match event {
             glutin::Event::Closed => panic!("window closed"), // TODO ...
-            glutin::Event::ReceivedCharacter(c) => {
-                match c {
-                    // Ignore BACKSPACE and DEL. These are handled specially.
-                    '\u{8}' | '\u{7f}' => (),
-                    // Extra thing on macOS delete?
-                    '\u{f728}' => (),
-                    // OSX arrow keys send invalid characters; ignore.
-                    '\u{f700}' | '\u{f701}' | '\u{f702}' | '\u{f703}' => (),
-                    // Same with home/end. Am I missing something? Would be
-                    // nice if glutin provided the received char in
-                    // KeyboardInput event so a choice could be made there
-                    // instead of having to special case everything.
-                    '\u{f72b}' | '\u{f729}' | '\u{f72c}' | '\u{f72d}' => (),
-                    // These letters are handled in the bindings system
-                    'v' => (),
-                    _ => {
-                        println!("printing char {:?}", c);
-                        let buf = encode_char(c);
-                        self.notifier.notify(buf);
-                    }
-                }
-            },
+            // glutin::Event::ReceivedCharacter(c) => {
+            //     match c {
+            //         // Ignore BACKSPACE and DEL. These are handled specially.
+            //         '\u{8}' | '\u{7f}' => (),
+            //         // Extra thing on macOS delete?
+            //         '\u{f728}' => (),
+            //         // OSX arrow keys send invalid characters; ignore.
+            //         '\u{f700}' | '\u{f701}' | '\u{f702}' | '\u{f703}' => (),
+            //         // Same with home/end. Am I missing something? Would be
+            //         // nice if glutin provided the received char in
+            //         // KeyboardInput event so a choice could be made there
+            //         // instead of having to special case everything.
+            //         '\u{f72b}' | '\u{f729}' | '\u{f72c}' | '\u{f72d}' => (),
+            //         // These letters are handled in the bindings system
+            //         'v' => (),
+            //         _ => {
+            //             println!("printing char {:?}", c);
+            //             let buf = encode_char(c);
+            //             self.notifier.notify(buf);
+            //         }
+            //     }
+            // },
             glutin::Event::Resized(w, h) => {
                 self.resize_tx.send((w, h)).expect("send new size");
                 // Acquire term lock
                 let mut terminal = self.terminal.lock();
                 terminal.dirty = true;
             },
-            glutin::Event::KeyboardInput(state, _code, key, mods) => {
+            glutin::Event::KeyboardInput(state, _code, key, mods, string) => {
                 // Acquire term lock
                 let terminal = self.terminal.lock();
                 let processor = &mut self.input_processor;
                 let notifier = &mut self.notifier;
 
-                processor.process_key(state, key, mods, notifier, *terminal.mode());
+                processor.process_key(state, key, mods, notifier, *terminal.mode(), string);
             },
             glutin::Event::MouseInput(state, button) => {
                 let terminal = self.terminal.lock();

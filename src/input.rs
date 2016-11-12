@@ -292,7 +292,8 @@ impl Processor {
         key: Option<VirtualKeyCode>,
         mods: Mods,
         notifier: &mut N,
-        mode: TermMode
+        mode: TermMode,
+        string: Option<String>,
     ) {
         if let Some(key) = key {
             // Ignore release events
@@ -302,57 +303,46 @@ impl Processor {
 
             let bindings = match key {
                 // Arrows
-                VirtualKeyCode::Left => LEFT_BINDINGS,
-                VirtualKeyCode::Up => UP_BINDINGS,
-                VirtualKeyCode::Down => DOWN_BINDINGS,
-                VirtualKeyCode::Right => RIGHT_BINDINGS,
+                VirtualKeyCode::Left => Some(LEFT_BINDINGS),
+                VirtualKeyCode::Up => Some(UP_BINDINGS),
+                VirtualKeyCode::Down => Some(DOWN_BINDINGS),
+                VirtualKeyCode::Right => Some(RIGHT_BINDINGS),
                 // Function keys
-                VirtualKeyCode::F1 => F1_BINDINGS,
-                VirtualKeyCode::F2 => F2_BINDINGS,
-                VirtualKeyCode::F3 => F3_BINDINGS,
-                VirtualKeyCode::F4 => F4_BINDINGS,
-                VirtualKeyCode::F5 => F5_BINDINGS,
-                VirtualKeyCode::F6 => F6_BINDINGS,
-                VirtualKeyCode::F7 => F7_BINDINGS,
-                VirtualKeyCode::F8 => F8_BINDINGS,
-                VirtualKeyCode::F9 => F9_BINDINGS,
-                VirtualKeyCode::F10 => F10_BINDINGS,
-                VirtualKeyCode::F11 => F11_BINDINGS,
-                VirtualKeyCode::F12 => F12_BINDINGS,
-                VirtualKeyCode::PageUp => PAGEUP_BINDINGS,
-                VirtualKeyCode::PageDown => PAGEDOWN_BINDINGS,
-                VirtualKeyCode::Home => HOME_BINDINGS,
-                VirtualKeyCode::End => END_BINDINGS,
-                VirtualKeyCode::Back => BACKSPACE_BINDINGS,
-                VirtualKeyCode::Delete => DELETE_BINDINGS,
-                VirtualKeyCode::H => H_BINDINGS,
-                VirtualKeyCode::V => V_BINDINGS,
-                // Mode keys ignored now
-                VirtualKeyCode::LAlt | VirtualKeyCode::RAlt | VirtualKeyCode::LShift |
-                VirtualKeyCode::RShift | VirtualKeyCode::LControl | VirtualKeyCode::RControl |
-                VirtualKeyCode::LWin | VirtualKeyCode::RWin => return,
-                // All of the alphanumeric keys get passed through here as well, but there's no work
-                // to be done for them.
-                VirtualKeyCode::A | VirtualKeyCode::B | VirtualKeyCode::C | VirtualKeyCode::D |
-                VirtualKeyCode::E | VirtualKeyCode::F | VirtualKeyCode::G |
-                VirtualKeyCode::I | VirtualKeyCode::J | VirtualKeyCode::K | VirtualKeyCode::L |
-                VirtualKeyCode::M | VirtualKeyCode::N | VirtualKeyCode::O | VirtualKeyCode::P |
-                VirtualKeyCode::Q | VirtualKeyCode::R | VirtualKeyCode::S | VirtualKeyCode::T |
-                VirtualKeyCode::U | VirtualKeyCode::W | VirtualKeyCode::X |
-                VirtualKeyCode::Y | VirtualKeyCode::Z => return,
-                VirtualKeyCode::Key1 | VirtualKeyCode::Key2 | VirtualKeyCode::Key3 |
-                VirtualKeyCode::Key4 | VirtualKeyCode::Key5 | VirtualKeyCode::Key6 |
-                VirtualKeyCode::Key7 | VirtualKeyCode::Key8 | VirtualKeyCode::Key9 |
-                VirtualKeyCode::Key0 => return,
-                // Log something by default
+                VirtualKeyCode::F1 => Some(F1_BINDINGS),
+                VirtualKeyCode::F2 => Some(F2_BINDINGS),
+                VirtualKeyCode::F3 => Some(F3_BINDINGS),
+                VirtualKeyCode::F4 => Some(F4_BINDINGS),
+                VirtualKeyCode::F5 => Some(F5_BINDINGS),
+                VirtualKeyCode::F6 => Some(F6_BINDINGS),
+                VirtualKeyCode::F7 => Some(F7_BINDINGS),
+                VirtualKeyCode::F8 => Some(F8_BINDINGS),
+                VirtualKeyCode::F9 => Some(F9_BINDINGS),
+                VirtualKeyCode::F10 => Some(F10_BINDINGS),
+                VirtualKeyCode::F11 => Some(F11_BINDINGS),
+                VirtualKeyCode::F12 => Some(F12_BINDINGS),
+                VirtualKeyCode::PageUp => Some(PAGEUP_BINDINGS),
+                VirtualKeyCode::PageDown => Some(PAGEDOWN_BINDINGS),
+                VirtualKeyCode::Home => Some(HOME_BINDINGS),
+                VirtualKeyCode::End => Some(END_BINDINGS),
+                VirtualKeyCode::Back => Some(BACKSPACE_BINDINGS),
+                VirtualKeyCode::Delete => Some(DELETE_BINDINGS),
+                VirtualKeyCode::H => Some(H_BINDINGS),
+                VirtualKeyCode::V => Some(V_BINDINGS),
                 _ => {
-                    println!("Unhandled key: {:?}; state: {:?}; mods: {:?}",
-                             key, state, mods);
-                    return;
+                    None
                 },
             };
 
-            self.process_bindings(bindings, mode, notifier, mods);
+            if let Some(bindings) = bindings {
+                if self.process_bindings(bindings, mode, notifier, mods) {
+                    return;
+                }
+            }
+
+            // Didn't process a binding; print the provided character
+            if let Some(string) = string {
+                notifier.notify(string.into_bytes());
+            }
         }
     }
 
@@ -360,7 +350,7 @@ impl Processor {
                            bindings: &[Binding],
                            mode: TermMode,
                            notifier: &mut N,
-                           mods: Mods)
+                           mods: Mods) -> bool
         where N: Notify
     {
         // Check each binding
@@ -394,11 +384,13 @@ impl Processor {
                             }
                         }
 
-                        break;
+                        return true;
                     }
                 }
             }
         }
+
+        return false;
     }
 }
 
