@@ -263,6 +263,9 @@ impl<Io> EventLoop<Io>
 
                             if kind.is_readable() {
                                 self.pty_read(&mut state, &mut buf);
+                                if ::tty::process_should_exit() {
+                                    break 'event_loop;
+                                }
                             }
 
                             if kind.is_writable() {
@@ -289,8 +292,8 @@ impl<Io> EventLoop<Io>
                 }
             }
 
-            self.poll.deregister(&self.rx).expect("deregister channel");
-            self.poll.deregister(&fd).expect("deregister pty");
+            let _ = self.poll.deregister(&self.rx);
+            let _ = self.poll.deregister(&fd);
 
             (self, state)
         })
