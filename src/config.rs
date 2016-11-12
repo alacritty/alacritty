@@ -577,23 +577,29 @@ impl Watcher {
                 let ::notify::Event { path, op } = event;
 
                 if let Ok(op) = op {
-                    if op.contains(op::RENAME) {
+                    // Skip events that are just a rename
+                    if op.contains(op::RENAME) && !op.contains(op::WRITE) {
                         continue;
                     }
 
+                    // Need to handle ignore for linux
                     if op.contains(op::IGNORED) {
                         if let Some(path) = path.as_ref() {
                             if let Err(err) = watcher.watch(&path) {
                                 err_println!("failed to establish watch on {:?}: {:?}", path, err);
                             }
-
-                            if path == config_path {
-                                if let Ok((config, _)) = Config::load() {
-                                    handler.on_config_reload(config);
-                                };
-                            }
                         }
                     }
+
+                    // Reload file
+                    path.map(|path| {
+                        if path == config_path {
+                            match Config::load() {
+                                Ok((config, _)) => handler.on_config_reload(config),
+                                Err(err) => err_println!("Ignoring invalid config: {}", err),
+                            }
+                        }
+                    });
                 }
             }
         }))
