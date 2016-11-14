@@ -80,6 +80,10 @@ impl<N: input::Notify> Processor<N> {
 
                 processor.mouse_input(state, button, notifier, *terminal.mode());
             },
+            glutin::Event::Focused(true) => {
+                let mut terminal = self.terminal.lock();
+                terminal.dirty = true;
+            }
             _ => (),
         }
     }
