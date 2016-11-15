@@ -7,6 +7,7 @@ use input;
 use sync::FairMutex;
 use term::Term;
 use util::encode_char;
+use config::Config;
 
 /// The event processor
 pub struct Processor<N> {
@@ -24,12 +25,13 @@ impl<N: input::Notify> Processor<N> {
     pub fn new(
         notifier: N,
         terminal: Arc<FairMutex<Term>>,
-        resize_tx: mpsc::Sender<(u32, u32)>
+        resize_tx: mpsc::Sender<(u32, u32)>,
+        config: &Config,
     ) -> Processor<N> {
         Processor {
             notifier: notifier,
             terminal: terminal,
-            input_processor: input::Processor::new(),
+            input_processor: input::Processor::new(config),
             resize_tx: resize_tx,
         }
     }
@@ -37,28 +39,6 @@ impl<N: input::Notify> Processor<N> {
     fn handle_event(&mut self, event: glutin::Event) {
         match event {
             glutin::Event::Closed => panic!("window closed"), // TODO ...
-            // glutin::Event::ReceivedCharacter(c) => {
-            //     match c {
-            //         // Ignore BACKSPACE and DEL. These are handled specially.
-            //         '\u{8}' | '\u{7f}' => (),
-            //         // Extra thing on macOS delete?
-            //         '\u{f728}' => (),
-            //         // OSX arrow keys send invalid characters; ignore.
-            //         '\u{f700}' | '\u{f701}' | '\u{f702}' | '\u{f703}' => (),
-            //         // Same with home/end. Am I missing something? Would be
-            //         // nice if glutin provided the received char in
-            //         // KeyboardInput event so a choice could be made there
-            //         // instead of having to special case everything.
-            //         '\u{f72b}' | '\u{f729}' | '\u{f72c}' | '\u{f72d}' => (),
-            //         // These letters are handled in the bindings system
-            //         'v' => (),
-            //         _ => {
-            //             println!("printing char {:?}", c);
-            //             let buf = encode_char(c);
-            //             self.notifier.notify(buf);
-            //         }
-            //     }
-            // },
             glutin::Event::Resized(w, h) => {
                 self.resize_tx.send((w, h)).expect("send new size");
                 // Acquire term lock
@@ -98,5 +78,9 @@ impl<N: input::Notify> Processor<N> {
         for event in window.poll_events() {
             self.handle_event(event);
         }
+    }
+
+    pub fn update_config(&mut self, config: &Config) {
+        self.input_processor.update_config(config);
     }
 }

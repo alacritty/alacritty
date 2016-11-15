@@ -7,13 +7,17 @@ use std::env;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::mpsc;
 
 use ::Rgb;
 use font::Size;
 use serde_yaml;
-use serde::{self, Error as SerdeError};
+use serde::{self, de, Error as SerdeError};
+use serde::de::{Visitor, MapVisitor};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as FileWatcher, op};
+
+use input::{Action, Binding, MouseBinding, KeyBinding};
 
 /// Function that returns true for serde default
 fn true_bool() -> bool {
@@ -42,6 +46,14 @@ pub struct Config {
     /// The standard ANSI colors to use
     #[serde(default)]
     colors: Colors,
+
+    /// Keybindings
+    #[serde(default)]
+    key_bindings: Vec<KeyBinding>,
+
+    /// Bindings for the mouse
+    #[serde(default)]
+    mouse_bindings: Vec<MouseBinding>,
 }
 
 impl Default for Config {
@@ -52,7 +64,377 @@ impl Default for Config {
             font: Default::default(),
             render_timer: Default::default(),
             colors: Default::default(),
+            key_bindings: Vec::new(),
+            mouse_bindings: Vec::new(),
         }
+    }
+}
+
+/// Newtype for implementing deserialize on glutin Mods
+///
+/// Our deserialize impl wouldn't be covered by a derive(Deserialize); see the
+/// impl below.
+struct ModsWrapper(::glutin::Mods);
+
+impl ModsWrapper {
+    fn into_inner(self) -> ::glutin::Mods {
+        self.0
+    }
+}
+
+impl de::Deserialize for ModsWrapper {
+    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+        where D: de::Deserializer
+    {
+        struct ModsVisitor;
+
+        impl Visitor for ModsVisitor {
+            type Value = ModsWrapper;
+
+            fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<ModsWrapper, E>
+                where E: de::Error,
+            {
+                use ::glutin::{mods, Mods};
+                let mut res = Mods::empty();
+                for modifier in value.split('|') {
+                    match modifier {
+                        "Command" | "Super" => res = res | mods::SUPER,
+                        "Shift" => res = res | mods::SHIFT,
+                        "Alt" | "Option" => res = res | mods::ALT,
+                        "Control" => res = res | mods::CONTROL,
+                        _ => err_println!("unknown modifier {:?}", modifier),
+                    }
+                }
+
+                Ok(ModsWrapper(res))
+            }
+        }
+
+        deserializer.deserialize_str(ModsVisitor)
+    }
+}
+
+struct ActionWrapper(::input::Action);
+
+impl ActionWrapper {
+    fn into_inner(self) -> ::input::Action {
+        self.0
+    }
+}
+
+impl de::Deserialize for ActionWrapper {
+    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+        where D: de::Deserializer
+    {
+        struct ActionVisitor;
+
+        impl Visitor for ActionVisitor {
+            type Value = ActionWrapper;
+
+            fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<ActionWrapper, E>
+                where E: de::Error,
+            {
+                Ok(ActionWrapper(match value {
+                    "Paste" => Action::Paste,
+                    "PasteSelection" => Action::PasteSelection,
+                    _ => return Err(E::invalid_value("invalid value for Action")),
+                }))
+            }
+        }
+        deserializer.deserialize_str(ActionVisitor)
+    }
+}
+
+use ::term::{mode, TermMode};
+
+struct ModeWrapper {
+    pub mode: TermMode,
+    pub not_mode: TermMode,
+}
+
+impl de::Deserialize for ModeWrapper {
+    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+        where D: de::Deserializer
+    {
+        struct ModeVisitor;
+
+        impl Visitor for ModeVisitor {
+            type Value = ModeWrapper;
+
+            fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<ModeWrapper, E>
+                where E: de::Error,
+            {
+                let mut res = ModeWrapper {
+                    mode: TermMode::empty(),
+                    not_mode: TermMode::empty()
+                };
+
+                for modifier in value.split('|') {
+                    match modifier {
+                        "AppCursor" => res.mode = res.mode | mode::APP_CURSOR,
+                        "~AppCursor" => res.not_mode = res.not_mode | mode::APP_CURSOR,
+                        "AppKeypad" => res.mode = res.mode | mode::APP_KEYPAD,
+                        "~AppKeypad" => res.not_mode = res.not_mode | mode::APP_KEYPAD,
+                        _ => err_println!("unknown omde {:?}", modifier),
+                    }
+                }
+
+                Ok(res)
+            }
+        }
+        deserializer.deserialize_str(ModeVisitor)
+    }
+}
+
+struct MouseButton(::glutin::MouseButton);
+
+impl MouseButton {
+    fn into_inner(self) -> ::glutin::MouseButton {
+        self.0
+    }
+}
+
+impl de::Deserialize for MouseButton {
+    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+        where D: de::Deserializer
+    {
+        struct MouseButtonVisitor;
+
+        impl Visitor for MouseButtonVisitor {
+            type Value = MouseButton;
+
+            fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<MouseButton, E>
+                where E: de::Error,
+            {
+                match value {
+                    "Left" => Ok(MouseButton(::glutin::MouseButton::Left)),
+                    "Right" => Ok(MouseButton(::glutin::MouseButton::Right)),
+                    "Middle" => Ok(MouseButton(::glutin::MouseButton::Middle)),
+                    _ => {
+                        if let Ok(index) = u8::from_str(value) {
+                            Ok(MouseButton(::glutin::MouseButton::Other(index)))
+                        } else {
+                            Err(E::invalid_value("mouse may be Left, Right, Middle, or u8"))
+                        }
+                    }
+                }
+            }
+        }
+
+        deserializer.deserialize_str(MouseButtonVisitor)
+    }
+}
+
+/// Bindings are deserialized into a RawBinding before being parsed as a
+/// KeyBinding or MouseBinding.
+struct RawBinding {
+    key: Option<::glutin::VirtualKeyCode>,
+    mouse: Option<::glutin::MouseButton>,
+    mods: ::glutin::Mods,
+    mode: TermMode,
+    notmode: TermMode,
+    action: Action,
+}
+
+impl RawBinding {
+    fn into_mouse_binding(self) -> ::std::result::Result<MouseBinding, Self> {
+        if self.mouse.is_some() {
+            Ok(MouseBinding {
+                button: self.mouse.unwrap(),
+                binding: Binding {
+                    mods: self.mods,
+                    action: self.action,
+                    mode: self.mode,
+                    notmode: self.notmode,
+                }
+            })
+        } else {
+            Err(self)
+        }
+    }
+
+    fn into_key_binding(self) -> ::std::result::Result<KeyBinding, Self> {
+        if self.key.is_some() {
+            Ok(KeyBinding {
+                key: self.key.unwrap(),
+                binding: Binding {
+                    mods: self.mods,
+                    action: self.action,
+                    mode: self.mode,
+                    notmode: self.notmode,
+                }
+            })
+        } else {
+            Err(self)
+        }
+    }
+}
+
+impl de::Deserialize for RawBinding {
+    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+        where D: de::Deserializer
+    {
+        enum Field {
+            Key,
+            Mods,
+            Mode,
+            Action,
+            Chars,
+            Mouse
+        }
+
+        impl de::Deserialize for Field {
+            fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Field, D::Error>
+                where D: de::Deserializer
+            {
+                struct FieldVisitor;
+
+                impl Visitor for FieldVisitor {
+                    type Value = Field;
+
+                    fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<Field, E>
+                        where E: de::Error,
+                    {
+                        match value {
+                            "key" => Ok(Field::Key),
+                            "mods" => Ok(Field::Mods),
+                            "mode" => Ok(Field::Mode),
+                            "action" => Ok(Field::Action),
+                            "chars" => Ok(Field::Chars),
+                            "mouse" => Ok(Field::Mouse),
+                            _ => Err(E::unknown_field(value)),
+                        }
+                    }
+                }
+
+                deserializer.deserialize_struct_field(FieldVisitor)
+            }
+        }
+
+        struct RawBindingVisitor;
+        impl Visitor for RawBindingVisitor {
+            type Value = RawBinding;
+
+            fn visit_map<V>(&mut self, mut visitor: V) -> ::std::result::Result<RawBinding, V::Error>
+                where V: MapVisitor,
+            {
+                let mut mods: Option<::glutin::Mods> = None;
+                let mut key: Option<::glutin::VirtualKeyCode> = None;
+                let mut chars: Option<String> = None;
+                let mut action: Option<::input::Action> = None;
+                let mut mode: Option<TermMode> = None;
+                let mut not_mode: Option<TermMode> = None;
+                let mut mouse: Option<::glutin::MouseButton> = None;
+
+                use ::serde::Error;
+
+                while let Some(struct_key) = visitor.visit_key::<Field>()? {
+                    match struct_key {
+                        Field::Key => {
+                            if key.is_some() {
+                                return Err(<V::Error as Error>::duplicate_field("key"));
+                            }
+
+                            let coherent_key = visitor.visit_value::<Key>()?;
+                            key = Some(coherent_key.to_glutin_key());
+                        },
+                        Field::Mods => {
+                            if mods.is_some() {
+                                return Err(<V::Error as Error>::duplicate_field("mods"));
+                            }
+
+                            mods = Some(visitor.visit_value::<ModsWrapper>()?.into_inner());
+                        },
+                        Field::Mode => {
+                            if mode.is_some() {
+                                return Err(<V::Error as Error>::duplicate_field("mode"));
+                            }
+
+                            let mode_deserializer = visitor.visit_value::<ModeWrapper>()?;
+                            mode = Some(mode_deserializer.mode);
+                            not_mode = Some(mode_deserializer.not_mode);
+                        },
+                        Field::Action => {
+                            if action.is_some() {
+                                return Err(<V::Error as Error>::duplicate_field("action"));
+                            }
+
+                            action = Some(visitor.visit_value::<ActionWrapper>()?.into_inner());
+                        },
+                        Field::Chars => {
+                            if chars.is_some() {
+                                return Err(<V::Error as Error>::duplicate_field("chars"));
+                            }
+
+                            chars = Some(visitor.visit_value()?);
+                        },
+                        Field::Mouse => {
+                            if chars.is_some() {
+                                return Err(<V::Error as Error>::duplicate_field("mouse"));
+                            }
+
+                            mouse = Some(visitor.visit_value::<MouseButton>()?.into_inner());
+                        }
+                    }
+                }
+                visitor.end()?;
+                if key.is_none() {
+                    return Err(V::Error::missing_field("key"));
+                }
+
+                let action = match (action, chars) {
+                    (Some(_), Some(_)) => {
+                        return Err(V::Error::custom("must specify only chars or action"));
+                    },
+                    (Some(action), _) => action,
+                    (_, Some(chars)) => Action::Esc(chars),
+                    _ => return Err(V::Error::custom("must specify chars or action"))
+                };
+
+                let mode = mode.unwrap_or_else(TermMode::empty);
+                let not_mode = not_mode.unwrap_or_else(TermMode::empty);
+                let mods = mods.unwrap_or_else(::glutin::Mods::empty);
+
+                if mouse.is_none() && key.is_none() {
+                    return Err(V::Error::custom("bindings require mouse button or key"));
+                }
+
+                Ok(RawBinding {
+                    mode: mode,
+                    notmode: not_mode,
+                    action: action,
+                    key: key,
+                    mouse: mouse,
+                    mods: mods,
+                })
+            }
+        }
+
+        const FIELDS: &'static [&'static str] = &[
+            "key", "mods", "mode", "action", "chars", "mouse"
+        ];
+
+        deserializer.deserialize_struct("RawBinding", FIELDS, RawBindingVisitor)
+    }
+}
+
+impl de::Deserialize for MouseBinding {
+    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+        where D: de::Deserializer
+    {
+        let raw = RawBinding::deserialize(deserializer)?;
+        raw.into_mouse_binding()
+           .map_err(|_| D::Error::custom("expected mouse binding"))
+    }
+}
+
+impl de::Deserialize for KeyBinding {
+    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+        where D: de::Deserializer
+    {
+        let raw = RawBinding::deserialize(deserializer)?;
+        raw.into_key_binding()
+           .map_err(|_| D::Error::custom("expected key binding"))
     }
 }
 
@@ -312,6 +694,14 @@ impl Config {
             colors.primary.foreground,
             colors.primary.background,
         ]
+    }
+
+    pub fn key_bindings(&self) -> &[KeyBinding] {
+        &self.key_bindings[..]
+    }
+
+    pub fn mouse_bindings(&self) -> &[MouseBinding] {
+        &self.mouse_bindings[..]
     }
 
     pub fn fg_color(&self) -> Rgb {
@@ -603,5 +993,339 @@ impl Watcher {
                 }
             }
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    static ALACRITTY_YML: &'static str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty.yml"));
+
+    #[test]
+    fn parse_config() {
+        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
+            .expect("deserialize config");
+
+        println!("config: {:#?}", config);
+    }
+}
+
+#[derive(Deserialize, Copy, Clone)]
+enum Key {
+    Key1,
+    Key2,
+    Key3,
+    Key4,
+    Key5,
+    Key6,
+    Key7,
+    Key8,
+    Key9,
+    Key0,
+
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    W,
+    X,
+    Y,
+    Z,
+
+    Escape,
+
+    F1,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
+    F13,
+    F14,
+    F15,
+
+    Snapshot,
+    Scroll,
+    Pause,
+    Insert,
+    Home,
+    Delete,
+    End,
+    PageDown,
+    PageUp,
+
+    Left,
+    Up,
+    Right,
+    Down,
+    Back,
+    Return,
+    Space,
+    Compose,
+    Numlock,
+    Numpad0,
+    Numpad1,
+    Numpad2,
+    Numpad3,
+    Numpad4,
+    Numpad5,
+    Numpad6,
+    Numpad7,
+    Numpad8,
+    Numpad9,
+
+    AbntC1,
+    AbntC2,
+    Add,
+    Apostrophe,
+    Apps,
+    At,
+    Ax,
+    Backslash,
+    Calculator,
+    Capital,
+    Colon,
+    Comma,
+    Convert,
+    Decimal,
+    Divide,
+    Equals,
+    Grave,
+    Kana,
+    Kanji,
+    LAlt,
+    LBracket,
+    LControl,
+    LMenu,
+    LShift,
+    LWin,
+    Mail,
+    MediaSelect,
+    MediaStop,
+    Minus,
+    Multiply,
+    Mute,
+    MyComputer,
+    NavigateForward,
+    NavigateBackward,
+    NextTrack,
+    NoConvert,
+    NumpadComma,
+    NumpadEnter,
+    NumpadEquals,
+    OEM102,
+    Period,
+    PlayPause,
+    Power,
+    PrevTrack,
+    RAlt,
+    RBracket,
+    RControl,
+    RMenu,
+    RShift,
+    RWin,
+    Semicolon,
+    Slash,
+    Sleep,
+    Stop,
+    Subtract,
+    Sysrq,
+    Tab,
+    Underline,
+    Unlabeled,
+    VolumeDown,
+    VolumeUp,
+    Wake,
+    WebBack,
+    WebFavorites,
+    WebForward,
+    WebHome,
+    WebRefresh,
+    WebSearch,
+    WebStop,
+    Yen,
+}
+
+impl Key {
+    fn to_glutin_key(&self) -> ::glutin::VirtualKeyCode {
+        // Thank you, vim macros!
+        match *self {
+            Key::Key1 => ::glutin::VirtualKeyCode::Key1,
+            Key::Key2 => ::glutin::VirtualKeyCode::Key2,
+            Key::Key3 => ::glutin::VirtualKeyCode::Key3,
+            Key::Key4 => ::glutin::VirtualKeyCode::Key4,
+            Key::Key5 => ::glutin::VirtualKeyCode::Key5,
+            Key::Key6 => ::glutin::VirtualKeyCode::Key6,
+            Key::Key7 => ::glutin::VirtualKeyCode::Key7,
+            Key::Key8 => ::glutin::VirtualKeyCode::Key8,
+            Key::Key9 => ::glutin::VirtualKeyCode::Key9,
+            Key::Key0 => ::glutin::VirtualKeyCode::Key0,
+            Key::A => ::glutin::VirtualKeyCode::A,
+            Key::B => ::glutin::VirtualKeyCode::B,
+            Key::C => ::glutin::VirtualKeyCode::C,
+            Key::D => ::glutin::VirtualKeyCode::D,
+            Key::E => ::glutin::VirtualKeyCode::E,
+            Key::F => ::glutin::VirtualKeyCode::F,
+            Key::G => ::glutin::VirtualKeyCode::G,
+            Key::H => ::glutin::VirtualKeyCode::H,
+            Key::I => ::glutin::VirtualKeyCode::I,
+            Key::J => ::glutin::VirtualKeyCode::J,
+            Key::K => ::glutin::VirtualKeyCode::K,
+            Key::L => ::glutin::VirtualKeyCode::L,
+            Key::M => ::glutin::VirtualKeyCode::M,
+            Key::N => ::glutin::VirtualKeyCode::N,
+            Key::O => ::glutin::VirtualKeyCode::O,
+            Key::P => ::glutin::VirtualKeyCode::P,
+            Key::Q => ::glutin::VirtualKeyCode::Q,
+            Key::R => ::glutin::VirtualKeyCode::R,
+            Key::S => ::glutin::VirtualKeyCode::S,
+            Key::T => ::glutin::VirtualKeyCode::T,
+            Key::U => ::glutin::VirtualKeyCode::U,
+            Key::V => ::glutin::VirtualKeyCode::V,
+            Key::W => ::glutin::VirtualKeyCode::W,
+            Key::X => ::glutin::VirtualKeyCode::X,
+            Key::Y => ::glutin::VirtualKeyCode::Y,
+            Key::Z => ::glutin::VirtualKeyCode::Z,
+            Key::Escape => ::glutin::VirtualKeyCode::Escape,
+            Key::F1 => ::glutin::VirtualKeyCode::F1,
+            Key::F2 => ::glutin::VirtualKeyCode::F2,
+            Key::F3 => ::glutin::VirtualKeyCode::F3,
+            Key::F4 => ::glutin::VirtualKeyCode::F4,
+            Key::F5 => ::glutin::VirtualKeyCode::F5,
+            Key::F6 => ::glutin::VirtualKeyCode::F6,
+            Key::F7 => ::glutin::VirtualKeyCode::F7,
+            Key::F8 => ::glutin::VirtualKeyCode::F8,
+            Key::F9 => ::glutin::VirtualKeyCode::F9,
+            Key::F10 => ::glutin::VirtualKeyCode::F10,
+            Key::F11 => ::glutin::VirtualKeyCode::F11,
+            Key::F12 => ::glutin::VirtualKeyCode::F12,
+            Key::F13 => ::glutin::VirtualKeyCode::F13,
+            Key::F14 => ::glutin::VirtualKeyCode::F14,
+            Key::F15 => ::glutin::VirtualKeyCode::F15,
+            Key::Snapshot => ::glutin::VirtualKeyCode::Snapshot,
+            Key::Scroll => ::glutin::VirtualKeyCode::Scroll,
+            Key::Pause => ::glutin::VirtualKeyCode::Pause,
+            Key::Insert => ::glutin::VirtualKeyCode::Insert,
+            Key::Home => ::glutin::VirtualKeyCode::Home,
+            Key::Delete => ::glutin::VirtualKeyCode::Delete,
+            Key::End => ::glutin::VirtualKeyCode::End,
+            Key::PageDown => ::glutin::VirtualKeyCode::PageDown,
+            Key::PageUp => ::glutin::VirtualKeyCode::PageUp,
+            Key::Left => ::glutin::VirtualKeyCode::Left,
+            Key::Up => ::glutin::VirtualKeyCode::Up,
+            Key::Right => ::glutin::VirtualKeyCode::Right,
+            Key::Down => ::glutin::VirtualKeyCode::Down,
+            Key::Back => ::glutin::VirtualKeyCode::Back,
+            Key::Return => ::glutin::VirtualKeyCode::Return,
+            Key::Space => ::glutin::VirtualKeyCode::Space,
+            Key::Compose => ::glutin::VirtualKeyCode::Compose,
+            Key::Numlock => ::glutin::VirtualKeyCode::Numlock,
+            Key::Numpad0 => ::glutin::VirtualKeyCode::Numpad0,
+            Key::Numpad1 => ::glutin::VirtualKeyCode::Numpad1,
+            Key::Numpad2 => ::glutin::VirtualKeyCode::Numpad2,
+            Key::Numpad3 => ::glutin::VirtualKeyCode::Numpad3,
+            Key::Numpad4 => ::glutin::VirtualKeyCode::Numpad4,
+            Key::Numpad5 => ::glutin::VirtualKeyCode::Numpad5,
+            Key::Numpad6 => ::glutin::VirtualKeyCode::Numpad6,
+            Key::Numpad7 => ::glutin::VirtualKeyCode::Numpad7,
+            Key::Numpad8 => ::glutin::VirtualKeyCode::Numpad8,
+            Key::Numpad9 => ::glutin::VirtualKeyCode::Numpad9,
+            Key::AbntC1 => ::glutin::VirtualKeyCode::AbntC1,
+            Key::AbntC2 => ::glutin::VirtualKeyCode::AbntC2,
+            Key::Add => ::glutin::VirtualKeyCode::Add,
+            Key::Apostrophe => ::glutin::VirtualKeyCode::Apostrophe,
+            Key::Apps => ::glutin::VirtualKeyCode::Apps,
+            Key::At => ::glutin::VirtualKeyCode::At,
+            Key::Ax => ::glutin::VirtualKeyCode::Ax,
+            Key::Backslash => ::glutin::VirtualKeyCode::Backslash,
+            Key::Calculator => ::glutin::VirtualKeyCode::Calculator,
+            Key::Capital => ::glutin::VirtualKeyCode::Capital,
+            Key::Colon => ::glutin::VirtualKeyCode::Colon,
+            Key::Comma => ::glutin::VirtualKeyCode::Comma,
+            Key::Convert => ::glutin::VirtualKeyCode::Convert,
+            Key::Decimal => ::glutin::VirtualKeyCode::Decimal,
+            Key::Divide => ::glutin::VirtualKeyCode::Divide,
+            Key::Equals => ::glutin::VirtualKeyCode::Equals,
+            Key::Grave => ::glutin::VirtualKeyCode::Grave,
+            Key::Kana => ::glutin::VirtualKeyCode::Kana,
+            Key::Kanji => ::glutin::VirtualKeyCode::Kanji,
+            Key::LAlt => ::glutin::VirtualKeyCode::LAlt,
+            Key::LBracket => ::glutin::VirtualKeyCode::LBracket,
+            Key::LControl => ::glutin::VirtualKeyCode::LControl,
+            Key::LMenu => ::glutin::VirtualKeyCode::LMenu,
+            Key::LShift => ::glutin::VirtualKeyCode::LShift,
+            Key::LWin => ::glutin::VirtualKeyCode::LWin,
+            Key::Mail => ::glutin::VirtualKeyCode::Mail,
+            Key::MediaSelect => ::glutin::VirtualKeyCode::MediaSelect,
+            Key::MediaStop => ::glutin::VirtualKeyCode::MediaStop,
+            Key::Minus => ::glutin::VirtualKeyCode::Minus,
+            Key::Multiply => ::glutin::VirtualKeyCode::Multiply,
+            Key::Mute => ::glutin::VirtualKeyCode::Mute,
+            Key::MyComputer => ::glutin::VirtualKeyCode::MyComputer,
+            Key::NavigateForward => ::glutin::VirtualKeyCode::NavigateForward,
+            Key::NavigateBackward => ::glutin::VirtualKeyCode::NavigateBackward,
+            Key::NextTrack => ::glutin::VirtualKeyCode::NextTrack,
+            Key::NoConvert => ::glutin::VirtualKeyCode::NoConvert,
+            Key::NumpadComma => ::glutin::VirtualKeyCode::NumpadComma,
+            Key::NumpadEnter => ::glutin::VirtualKeyCode::NumpadEnter,
+            Key::NumpadEquals => ::glutin::VirtualKeyCode::NumpadEquals,
+            Key::OEM102 => ::glutin::VirtualKeyCode::OEM102,
+            Key::Period => ::glutin::VirtualKeyCode::Period,
+            Key::PlayPause => ::glutin::VirtualKeyCode::PlayPause,
+            Key::Power => ::glutin::VirtualKeyCode::Power,
+            Key::PrevTrack => ::glutin::VirtualKeyCode::PrevTrack,
+            Key::RAlt => ::glutin::VirtualKeyCode::RAlt,
+            Key::RBracket => ::glutin::VirtualKeyCode::RBracket,
+            Key::RControl => ::glutin::VirtualKeyCode::RControl,
+            Key::RMenu => ::glutin::VirtualKeyCode::RMenu,
+            Key::RShift => ::glutin::VirtualKeyCode::RShift,
+            Key::RWin => ::glutin::VirtualKeyCode::RWin,
+            Key::Semicolon => ::glutin::VirtualKeyCode::Semicolon,
+            Key::Slash => ::glutin::VirtualKeyCode::Slash,
+            Key::Sleep => ::glutin::VirtualKeyCode::Sleep,
+            Key::Stop => ::glutin::VirtualKeyCode::Stop,
+            Key::Subtract => ::glutin::VirtualKeyCode::Subtract,
+            Key::Sysrq => ::glutin::VirtualKeyCode::Sysrq,
+            Key::Tab => ::glutin::VirtualKeyCode::Tab,
+            Key::Underline => ::glutin::VirtualKeyCode::Underline,
+            Key::Unlabeled => ::glutin::VirtualKeyCode::Unlabeled,
+            Key::VolumeDown => ::glutin::VirtualKeyCode::VolumeDown,
+            Key::VolumeUp => ::glutin::VirtualKeyCode::VolumeUp,
+            Key::Wake => ::glutin::VirtualKeyCode::Wake,
+            Key::WebBack => ::glutin::VirtualKeyCode::WebBack,
+            Key::WebFavorites => ::glutin::VirtualKeyCode::WebFavorites,
+            Key::WebForward => ::glutin::VirtualKeyCode::WebForward,
+            Key::WebHome => ::glutin::VirtualKeyCode::WebHome,
+            Key::WebRefresh => ::glutin::VirtualKeyCode::WebRefresh,
+            Key::WebSearch => ::glutin::VirtualKeyCode::WebSearch,
+            Key::WebStop => ::glutin::VirtualKeyCode::WebStop,
+            Key::Yen => ::glutin::VirtualKeyCode::Yen,
+        }
     }
 }

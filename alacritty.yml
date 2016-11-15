@@ -85,3 +85,94 @@ colors:
 #     magenta: '0x6c71c4'
 #     cyan:    '0x93a1a1'
 #     white:   '0xfdf6e3'
+
+# Key bindings
+#
+# Each binding is defined as an object with some properties. Most of the
+# properties are optional. All of the alphabetical keys should have a letter for
+# the `key` value such as `V`. Function keys are probably what you would expect
+# as well (F1, F2, ..). The number keys above the main keyboard are encoded as
+# `Key1`, `Key2`, etc. Keys on the number pad are encoded `Number1`, `Number2`,
+# etc.  These all match the glutin::VirtualKeyCode variants.
+#
+# Possible values for `mods`
+# `Command`, `Super` refer to the super/command/windows key
+# `Control` for the control key
+# `Shift` for the Shift key
+# `Alt` and `Option` refer to alt/option
+#
+# mods may be combined with a `|`. For example, requiring control and shift
+# looks like:
+#
+# mods: Control|Shift
+#
+# The parser is currently quite sensitive to whitespace and capitalization -
+# capitalization must match exactly, and piped items must not have whitespace
+# around them.
+#
+# Either an `action` or `chars` field must be present. `chars` writes the
+# specified string every time that binding is activated. These should generally
+# be escape sequences, but they can be configured to send arbitrary strings of
+# bytes. Possible values of `action` include `Paste` and `PasteSelection`.
+key_bindings:
+  - { key: V,        mods: Command, action: Paste                        }
+  - { key: Home,                    chars: "\x1b[H",   mode: ~AppCursor  }
+  - { key: Home,                    chars: "\x1b[1~",  mode: AppCursor   }
+  - { key: End,                     chars: "\x1b[F",   mode: ~AppCursor  }
+  - { key: End,                     chars: "\x1b[4~",  mode: AppCursor   }
+  - { key: PageUp,                  chars: "\x1b[5~"                     }
+  - { key: PageDown,                chars: "\x1b[6~"                     }
+  - { key: Left,     mods: Shift,   chars: "\x1b[1;2D"                   }
+  - { key: Left,     mods: Control, chars: "\x1b[1;5D"                   }
+  - { key: Left,     mods: Alt,     chars: "\x1b[1;3D"                   }
+  - { key: Left,                    chars: "\x1b[D",   mode: ~AppCursor  }
+  - { key: Left,                    chars: "\x1bOD",   mode: AppCursor   }
+  - { key: Right,    mods: Shift,   chars: "\x1b[1;2C"                   }
+  - { key: Right,    mods: Control, chars: "\x1b[1;5C"                   }
+  - { key: Right,    mods: Alt,     chars: "\x1b[1;3C"                   }
+  - { key: Right,                   chars: "\x1b[C",   mode: ~AppCursor  }
+  - { key: Right,                   chars: "\x1bOC",   mode: AppCursor   }
+  - { key: Up,       mods: Shift,   chars: "\x1b[1;2A"                   }
+  - { key: Up,       mods: Control, chars: "\x1b[1;5A"                   }
+  - { key: Up,       mods: Alt,     chars: "\x1b[1;3A"                   }
+  - { key: Up,                      chars: "\x1b[A",   mode: ~AppCursor  }
+  - { key: Up,                      chars: "\x1bOA",   mode: AppCursor   }
+  - { key: Down,     mods: Shift,   chars: "\x1b[1;2B"                   }
+  - { key: Down,     mods: Control, chars: "\x1b[1;5B"                   }
+  - { key: Down,     mods: Alt,     chars: "\x1b[1;3B"                   }
+  - { key: Down,                    chars: "\x1b[B",   mode: ~AppCursor  }
+  - { key: Down,                    chars: "\x1bOB",   mode: AppCursor   }
+  - { key: F1,                      chars: "\x1bOP"                      }
+  - { key: F2,                      chars: "\x1bOQ"                      }
+  - { key: F3,                      chars: "\x1bOR"                      }
+  - { key: F4,                      chars: "\x1bOS"                      }
+  - { key: F5,                      chars: "\x1b[15~"                    }
+  - { key: F6,                      chars: "\x1b[17~"                    }
+  - { key: F7,                      chars: "\x1b[18~"                    }
+  - { key: F8,                      chars: "\x1b[19~"                    }
+  - { key: F9,                      chars: "\x1b[20~"                    }
+  - { key: F10,                     chars: "\x1b[21~"                    }
+  - { key: F11,                     chars: "\x1b[23~"                    }
+  - { key: F12,                     chars: "\x1b[24~"                    }
+  - { key: Back,                    chars: "\x7f"                        }
+  - { key: Delete,                  chars: "\x1b[3~",  mode: AppKeypad   }
+  - { key: Delete,                  chars: "\x1b[P",   mode: ~AppKeypad  }
+
+# Mouse bindings
+#
+# Currently doesn't support modifiers. Both the `mouse` and `action` fields must
+# be specified.
+#
+# Values for `mouse`:
+# - Middle
+# - Left
+# - Right
+# - Numeric identifier such as `5`
+#
+# Values for `action`:
+# - Paste
+# - PasteSelection
+# - Copy (TODO)
+mouse:
+  - { mouse: Middle, action: PasteSelection }
+

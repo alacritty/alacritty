@@ -233,7 +233,8 @@ fn main() {
     let mut processor = event::Processor::new(
         input::LoopNotifier(loop_tx),
         terminal.clone(),
-        tx
+        tx,
+        &config
     );
 
     let (config_tx, config_rx) = mpsc::channel();
@@ -253,6 +254,7 @@ fn main() {
 
         if let Ok(config) = config_rx.try_recv() {
             display.update_config(&config);
+            processor.update_config(&config);
         }
 
         // Maybe draw the terminal

@@ -29,8 +29,9 @@ use copypasta::{Clipboard, Load};
 use glutin::{ElementState, VirtualKeyCode, MouseButton};
 use glutin::{Mods, mods};
 
-use term::mode::{self, TermMode};
+use config::Config;
 use event_loop;
+use term::mode::{self, TermMode};
 use util::encode_char;
 
 /// Processes input from glutin.
@@ -40,7 +41,10 @@ use util::encode_char;
 ///
 /// TODO also need terminal state when processing input
 #[derive(Default)]
-pub struct Processor;
+pub struct Processor {
+    key_bindings: Vec<KeyBinding>,
+    mouse_bindings: Vec<MouseBinding>,
+}
 
 /// Types that are notified of escape sequences from the input::Processor.
 pub trait Notify {
@@ -64,195 +68,146 @@ impl Notify for LoopNotifier {
     }
 }
 
-/// Describes a key combination that should emit a control sequence
+/// Describes a state and action to take in that state
 ///
-/// The actual triggering key is omitted here since bindings are grouped by the trigger key.
-#[derive(Debug)]
+/// This is the shared component of MouseBinding and KeyBinding
+#[derive(Debug, Clone)]
 pub struct Binding {
     /// Modifier keys required to activate binding
-    mods: Mods,
+    pub mods: Mods,
+
     /// String to send to pty if mods and mode match
-    action: Action,
+    pub action: Action,
+
     /// Terminal mode required to activate binding
-    mode: TermMode,
+    pub mode: TermMode,
+
     /// excluded terminal modes where the binding won't be activated
-    notmode: TermMode,
+    pub notmode: TermMode,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct KeyBinding {
+    pub key: VirtualKeyCode,
+    pub binding: Binding,
+}
+
+#[derive(Debug, Clone)]
+pub struct MouseBinding {
+    pub button: MouseButton,
+    pub binding: Binding,
+}
+
+impl KeyBinding {
+    #[inline]
+    fn is_triggered_by(
+        &self,
+        mode: &TermMode,
+        mods: &Mods,
+        key: &VirtualKeyCode
+    ) -> bool {
+        // Check key first since bindings are stored in one big list. This is
+        // the most likely item to fail so prioritizing it here allows more
+        // checks to be short circuited.
+        self.key == *key && self.binding.is_triggered_by(mode, mods)
+    }
+
+    #[inline]
+    fn execute<N: Notify>(&self, notifier: &mut N) {
+        self.binding.action.execute(notifier)
+    }
+}
+
+impl MouseBinding {
+    #[inline]
+    fn is_triggered_by(
+        &self,
+        mode: &TermMode,
+        mods: &Mods,
+        button: &MouseButton
+    ) -> bool {
+        // Check key first since bindings are stored in one big list. This is
+        // the most likely item to fail so prioritizing it here allows more
+        // checks to be short circuited.
+        self.button == *button && self.binding.is_triggered_by(mode, mods)
+    }
+
+    #[inline]
+    fn execute<N: Notify>(&self, notifier: &mut N) {
+        self.binding.action.execute(notifier)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Action {
     /// Write an escape sequence
-    Esc(&'static str),
+    Esc(String),
 
     /// Paste contents of system clipboard
     Paste,
 
-    /// Send a char to pty
-    Char(char)
+    /// Paste contents of selection buffer
+    PasteSelection,
 }
 
-/// Bindings for the LEFT key.
-static LEFT_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::SHIFT,   action: Action::Esc("\x1b[1;2D"), mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: mods::CONTROL, action: Action::Esc("\x1b[1;5D"), mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: mods::ALT,     action: Action::Esc("\x1b[1;3D"), mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: mods::ANY,     action: Action::Esc("\x1b[D"),    mode: mode::ANY,        notmode: mode::APP_CURSOR },
-    Binding { mods: mods::ANY,     action: Action::Esc("\x1bOD"),    mode: mode::APP_CURSOR, notmode: mode::NONE },
-];
+impl Action {
+    #[inline]
+    fn execute<N: Notify>(&self, notifier: &mut N) {
+        match *self {
+            Action::Esc(ref s) => notifier.notify(s.clone().into_bytes()),
+            Action::Paste | Action::PasteSelection => {
+                println!("paste request");
+                let clip = Clipboard::new().expect("get clipboard");
+                clip.load_selection()
+                    .map(|contents| {
+                        println!("got contents");
+                        notifier.notify(contents.into_bytes())
+                    })
+                    .unwrap_or_else(|err| {
+                        err_println!("Error getting clipboard contents: {}", err);
+                    });
 
-/// Bindings for the RIGHT key
-static RIGHT_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::SHIFT,   action: Action::Esc("\x1b[1;2C"), mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: mods::CONTROL, action: Action::Esc("\x1b[1;5C"), mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: mods::ALT,     action: Action::Esc("\x1b[1;3C"), mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: mods::ANY,     action: Action::Esc("\x1b[C"),    mode: mode::ANY,        notmode: mode::APP_CURSOR },
-    Binding { mods: mods::ANY,     action: Action::Esc("\x1bOC"),    mode: mode::APP_CURSOR, notmode: mode::NONE },
-];
+                println!("ok");
+            },
+        }
+    }
+}
 
-/// Bindings for the UP key
-static UP_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::SHIFT,   action: Action::Esc("\x1b[1;2A"), mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: mods::CONTROL, action: Action::Esc("\x1b[1;5A"), mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: mods::ALT,     action: Action::Esc("\x1b[1;3A"), mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: mods::ANY,     action: Action::Esc("\x1b[A"),    mode: mode::ANY,        notmode: mode::APP_CURSOR },
-    Binding { mods: mods::ANY,     action: Action::Esc("\x1bOA"),    mode: mode::APP_CURSOR, notmode: mode::NONE },
-];
+impl From<&'static str> for Action {
+    fn from(s: &'static str) -> Action {
+        Action::Esc(s.into())
+    }
+}
 
-/// Bindings for the DOWN key
-static DOWN_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::SHIFT,   action: Action::Esc("\x1b[1;2B"), mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: mods::CONTROL, action: Action::Esc("\x1b[1;5B"), mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: mods::ALT,     action: Action::Esc("\x1b[1;3B"), mode: mode::ANY,        notmode: mode::NONE },
-    Binding { mods: mods::ANY,     action: Action::Esc("\x1b[B"),    mode: mode::ANY,        notmode: mode::APP_CURSOR },
-    Binding { mods: mods::ANY,     action: Action::Esc("\x1bOB"),    mode: mode::APP_CURSOR, notmode: mode::NONE },
-];
+impl Binding {
+    /// Check if this binding is triggered by the current terminal mode,
+    /// modifier keys, and key pressed.
+    #[inline]
+    pub fn is_triggered_by(
+        &self,
+        mode: &TermMode,
+        mods: &Mods,
+    ) -> bool {
+        self.mode_matches(mode) &&
+            self.not_mode_matches(mode) &&
+            self.mods_match(mods)
+    }
 
-/// Bindings for the F1 key
-static F1_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1bOP"), mode: mode::ANY, notmode: mode::NONE },
-];
+    #[inline]
+    fn mode_matches(&self, mode: &TermMode) -> bool {
+        self.mode.is_empty() || mode.intersects(self.mode)
+    }
 
-/// Bindings for the F2 key
-static F2_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1bOQ"), mode: mode::ANY, notmode: mode::NONE },
-];
+    #[inline]
+    fn not_mode_matches(&self, mode: &TermMode) -> bool {
+        self.notmode.is_empty() || !mode.intersects(self.notmode)
+    }
 
-/// Bindings for the F3 key
-static F3_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1bOR"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for the F4 key
-static F4_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1bOS"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for the F5 key
-static F5_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[15~"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for the F6 key
-static F6_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[17~"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for the F7 key
-static F7_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[18~"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for the F8 key
-static F8_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[19~"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for the F9 key
-static F9_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[20~"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for the F10 key
-static F10_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[21~"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for the F11 key
-static F11_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[23~"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for the F11 key
-static F12_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[24~"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for PageUp
-static PAGEUP_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[5~"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for PageDown
-static PAGEDOWN_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[6~"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for Home
-static HOME_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[H"), mode: mode::ANY, notmode: mode::APP_CURSOR },
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[1~"), mode: mode::APP_CURSOR, notmode: mode::NONE },
-];
-
-/// Bindings for End
-static END_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[F"), mode: mode::ANY, notmode: mode::APP_CURSOR },
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[4~"), mode: mode::APP_CURSOR, notmode: mode::NONE },
-];
-
-/// Bindings for the H key
-///
-/// Control-H sends 0x08 normally, but we capture that in ReceivedCharacter
-/// since DEL and BACKSPACE are inverted. This binding is a work around to that
-/// capture.
-static H_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::CONTROL, action: Action::Esc("\x08"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for the V Key
-///
-/// Cmd-V on macOS should trigger a paste
-#[cfg(target_os="macos")]
-static V_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::SUPER, action: Action::Paste, mode: mode::ANY, notmode: mode::NONE },
-    Binding { mods: mods::NONE, action: Action::Char('v'), mode: mode::ANY, notmode: mode::NONE },
-];
-
-#[cfg(not(target_os="macos"))]
-static V_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::NONE, action: Action::Char('v'), mode: mode::ANY, notmode: mode::NONE },
-];
-
-#[cfg(target_os="linux")]
-static MOUSE_MIDDLE_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Paste, mode: mode::ANY, notmode: mode::NONE },
-];
-
-#[cfg(not(target_os="linux"))]
-static MOUSE_MIDDLE_BINDINGS: &'static [Binding] = &[];
-
-static MOUSE_LEFT_BINDINGS: &'static [Binding] = &[];
-static MOUSE_RIGHT_BINDINGS: &'static [Binding] = &[];
-
-/// Bindings for the Backspace key
-static BACKSPACE_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x7f"), mode: mode::ANY, notmode: mode::NONE },
-];
-
-/// Bindings for the Delete key
-static DELETE_BINDINGS: &'static [Binding] = &[
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[3~"), mode: mode::APP_KEYPAD, notmode: mode::NONE },
-    Binding { mods: mods::ANY, action: Action::Esc("\x1b[P"), mode: mode::ANY, notmode: mode::APP_KEYPAD },
-];
+    #[inline]
+    fn mods_match(&self, mods: &Mods) -> bool {
+        self.mods.is_all() || *mods == self.mods
+    }
+}
 
 //   key               mods            escape      appkey appcursor crlf
 //
@@ -261,14 +216,17 @@ static DELETE_BINDINGS: &'static [Binding] = &[
 //          crlf = LNM    (Linefeed/new line); wtf is this
 
 impl Processor {
-    pub fn new() -> Processor {
-        Default::default()
+    pub fn new(config: &Config) -> Processor {
+        Processor {
+            key_bindings: config.key_bindings().to_vec(),
+            mouse_bindings: config.mouse_bindings().to_vec(),
+        }
     }
 
     pub fn mouse_input<N: Notify>(
         &mut self,
         state: ElementState,
-        input: MouseButton,
+        button: MouseButton,
         notifier: &mut N,
         mode: TermMode
     ) {
@@ -276,14 +234,13 @@ impl Processor {
             return;
         }
 
-        let bindings = match input {
-            MouseButton::Middle => MOUSE_MIDDLE_BINDINGS,
-            MouseButton::Left => MOUSE_LEFT_BINDINGS,
-            MouseButton::Right => MOUSE_RIGHT_BINDINGS,
-            MouseButton::Other(_index) => return,
-        };
-
-        self.process_bindings(bindings, mode, notifier, mods::NONE);
+        Processor::process_mouse_bindings(
+            &self.mouse_bindings[..],
+            mode,
+            notifier,
+            mods::NONE,
+            button
+        );
     }
 
     pub fn process_key<N: Notify>(
@@ -301,42 +258,8 @@ impl Processor {
                 return;
             }
 
-            let bindings = match key {
-                // Arrows
-                VirtualKeyCode::Left => Some(LEFT_BINDINGS),
-                VirtualKeyCode::Up => Some(UP_BINDINGS),
-                VirtualKeyCode::Down => Some(DOWN_BINDINGS),
-                VirtualKeyCode::Right => Some(RIGHT_BINDINGS),
-                // Function keys
-                VirtualKeyCode::F1 => Some(F1_BINDINGS),
-                VirtualKeyCode::F2 => Some(F2_BINDINGS),
-                VirtualKeyCode::F3 => Some(F3_BINDINGS),
-                VirtualKeyCode::F4 => Some(F4_BINDINGS),
-                VirtualKeyCode::F5 => Some(F5_BINDINGS),
-                VirtualKeyCode::F6 => Some(F6_BINDINGS),
-                VirtualKeyCode::F7 => Some(F7_BINDINGS),
-                VirtualKeyCode::F8 => Some(F8_BINDINGS),
-                VirtualKeyCode::F9 => Some(F9_BINDINGS),
-                VirtualKeyCode::F10 => Some(F10_BINDINGS),
-                VirtualKeyCode::F11 => Some(F11_BINDINGS),
-                VirtualKeyCode::F12 => Some(F12_BINDINGS),
-                VirtualKeyCode::PageUp => Some(PAGEUP_BINDINGS),
-                VirtualKeyCode::PageDown => Some(PAGEDOWN_BINDINGS),
-                VirtualKeyCode::Home => Some(HOME_BINDINGS),
-                VirtualKeyCode::End => Some(END_BINDINGS),
-                VirtualKeyCode::Back => Some(BACKSPACE_BINDINGS),
-                VirtualKeyCode::Delete => Some(DELETE_BINDINGS),
-                VirtualKeyCode::H => Some(H_BINDINGS),
-                VirtualKeyCode::V => Some(V_BINDINGS),
-                _ => {
-                    None
-                },
-            };
-
-            if let Some(bindings) = bindings {
-                if self.process_bindings(bindings, mode, notifier, mods) {
-                    return;
-                }
+            if Processor::process_key_bindings(&self.key_bindings[..], mode, notifier, mods, key) {
+                return;
             }
 
             // Didn't process a binding; print the provided character
@@ -346,51 +269,61 @@ impl Processor {
         }
     }
 
-    fn process_bindings<N>(&self,
-                           bindings: &[Binding],
-                           mode: TermMode,
-                           notifier: &mut N,
-                           mods: Mods) -> bool
+    /// Attempts to find a binding and execute its action
+    ///
+    /// The provided mode, mods, and key must match what is allowed by a binding
+    /// for its action to be executed.
+    ///
+    /// Returns true if an action is executed.
+    fn process_key_bindings<N>(
+        bindings: &[KeyBinding],
+        mode: TermMode,
+        notifier: &mut N,
+        mods: Mods,
+        key: VirtualKeyCode
+    ) -> bool
         where N: Notify
     {
-        // Check each binding
         for binding in bindings {
-            // TermMode positive
-            if binding.mode.is_all() || mode.intersects(binding.mode) {
-                // TermMode negative
-                if binding.notmode.is_empty() || !mode.intersects(binding.notmode) {
-                    // Modifier keys
-                    if binding.mods.is_all() || mods == binding.mods {
-                        // everything matches; run the binding action
-                        println!("{:?}", binding);
-                        match binding.action {
-                            Action::Esc(s) => notifier.notify(s.as_bytes()),
-                            Action::Paste => {
-                                println!("paste request");
-                                let clip = Clipboard::new().expect("get clipboard");
-                                clip.load_selection()
-                                    .map(|contents| {
-                                        println!("got contents");
-                                        notifier.notify(contents.into_bytes())
-                                    })
-                                    .unwrap_or_else(|err| {
-                                        err_println!("Error getting clipboard contents: {}", err);
-                                    });
-
-                                println!("ok");
-                            },
-                            Action::Char(c) => {
-                                notifier.notify(encode_char(c));
-                            }
-                        }
-
-                        return true;
-                    }
-                }
+            if binding.is_triggered_by(&mode, &mods, &key) {
+                // binding was triggered; run the action
+                binding.execute(notifier);
+                return true;
             }
         }
 
-        return false;
+        false
+    }
+
+    /// Attempts to find a binding and execute its action
+    ///
+    /// The provided mode, mods, and key must match what is allowed by a binding
+    /// for its action to be executed.
+    ///
+    /// Returns true if an action is executed.
+    fn process_mouse_bindings<N>(
+        bindings: &[MouseBinding],
+        mode: TermMode,
+        notifier: &mut N,
+        mods: Mods,
+        button: MouseButton
+    ) -> bool
+        where N: Notify
+    {
+        for binding in bindings {
+            if binding.is_triggered_by(&mode, &mods, &button) {
+                // binding was triggered; run the action
+                binding.execute(notifier);
+                return true;
+            }
+        }
+
+        false
+    }
+
+    pub fn update_config(&mut self, config: &Config) {
+        self.key_bindings = config.key_bindings().to_vec();
+        self.mouse_bindings = config.mouse_bindings().to_vec();
     }
 }
 
@@ -398,13 +331,11 @@ impl Processor {
 mod tests {
     use std::borrow::Cow;
 
-    use glutin::mods;
+    use glutin::{mods, VirtualKeyCode};
 
     use term::mode;
 
-    use super::Action;
-    use super::Processor;
-    use super::Binding;
+    use super::{Action, Processor, Binding, KeyBinding};
 
     /// Receiver that keeps a copy of any strings it is notified with
     #[derive(Default)]
@@ -418,6 +349,8 @@ mod tests {
         }
     }
 
+    const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
+
     macro_rules! test_process_binding {
         {
             name: $name:ident,
@@ -430,10 +363,11 @@ mod tests {
             fn $name() {
                 let bindings = &[$binding];
 
-                let processor = Processor::new();
                 let mut receiver = Receiver::default();
 
-                processor.process_bindings(bindings, $mode, &mut receiver, $mods);
+                Processor::process_key_bindings(
+                    bindings, $mode, &mut receiver, $mods, KEY
+                );
                 assert_eq!(receiver.got, $expect);
             }
         }
@@ -441,7 +375,7 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_nomode_shiftmod_require_shift,
-        binding: Binding { mods: mods::SHIFT, action: Action::Esc("\x1b[1;2D"), mode: mode::ANY, notmode: mode::NONE },
+        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::SHIFT, action: Action::from("\x1b[1;2D"), mode: mode::NONE, notmode: mode::NONE }},
         expect: Some(String::from("\x1b[1;2D")),
         mode: mode::NONE,
         mods: mods::SHIFT
@@ -449,7 +383,7 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_shift,
-        binding: Binding { mods: mods::SHIFT, action: Action::Esc("\x1b[1;2D"), mode: mode::ANY, notmode: mode::NONE },
+        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::SHIFT, action: Action::from("\x1b[1;2D"), mode: mode::NONE, notmode: mode::NONE }},
         expect: None,
         mode: mode::NONE,
         mods: mods::NONE
@@ -457,7 +391,7 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_nomode_controlmod,
-        binding: Binding { mods: mods::CONTROL, action: Action::Esc("\x1b[1;5D"), mode: mode::ANY, notmode: mode::NONE },
+        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::CONTROL, action: Action::from("\x1b[1;5D"), mode: mode::NONE, notmode: mode::NONE }},
         expect: Some(String::from("\x1b[1;5D")),
         mode: mode::NONE,
         mods: mods::CONTROL
@@ -465,7 +399,7 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_not_appcursor,
-        binding: Binding { mods: mods::ANY, action: Action::Esc("\x1b[D"), mode: mode::ANY, notmode: mode::APP_CURSOR },
+        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::ANY, action: Action::from("\x1b[D"), mode: mode::NONE, notmode: mode::APP_CURSOR }},
         expect: Some(String::from("\x1b[D")),
         mode: mode::NONE,
         mods: mods::NONE
@@ -473,7 +407,7 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_appcursormode_nomod_require_appcursor,
-        binding: Binding { mods: mods::ANY, action: Action::Esc("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::ANY, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE }},
         expect: Some(String::from("\x1bOD")),
         mode: mode::APP_CURSOR,
         mods: mods::NONE
@@ -481,7 +415,7 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_appcursor,
-        binding: Binding { mods: mods::ANY, action: Action::Esc("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::ANY, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE }},
         expect: None,
         mode: mode::NONE,
         mods: mods::NONE
@@ -489,7 +423,7 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_appcursormode_appkeypadmode_nomod_require_appcursor,
-        binding: Binding { mods: mods::ANY, action: Action::Esc("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::ANY, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE }},
         expect: Some(String::from("\x1bOD")),
         mode: mode::APP_CURSOR | mode::APP_KEYPAD,
         mods: mods::NONE
@@ -497,22 +431,9 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_fail_with_extra_mods,
-        binding: Binding { mods: mods::SUPER, action: Action::Esc("arst"), mode: mode::ANY, notmode: mode::NONE },
+        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::SUPER, action: Action::from("arst"), mode: mode::NONE, notmode: mode::NONE }},
         expect: None,
         mode: mode::NONE,
         mods: mods::SUPER | mods::ALT
-    }
-
-    test_process_binding! {
-        name: process_binding_with_mods_none,
-        binding: Binding { mods: mods::NONE, action: Action::Char('v'), mode: mode::ANY, notmode: mode::NONE },
-        expect: Some(String::from("v")),
-        mode: mode::NONE,
-        mods: mods::NONE
-    }
-
-    #[test]
-    fn print_v_bindings() {
-        println!("{:#?}", super::V_BINDINGS);
     }
 }
