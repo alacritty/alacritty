@@ -152,8 +152,6 @@ pub mod cell {
                 let bytes: [u8; 4] = mem::transmute_copy(&ansi_color);
                 assert_eq!(bytes[0], 1);
                 assert_eq!(bytes[1], ::ansi::Color::Foreground as u8);
-                assert_eq!(bytes[2], 0);
-                assert_eq!(bytes[3], 0);
             }
         }
     }
