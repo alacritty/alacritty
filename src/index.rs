@@ -21,7 +21,7 @@ use std::mem;
 use std::ops::{self, Deref, Add};
 
 /// Index in the grid using row, column notation
-#[derive(Debug, Clone, Default, Eq, PartialEq)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Cursor {
     pub line: Line,
     pub col: Column,
@@ -30,7 +30,7 @@ pub struct Cursor {
 /// A line
 ///
 /// Newtype to avoid passing values incorrectly
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Line(pub usize);
 
 impl fmt::Display for Line {
@@ -42,7 +42,7 @@ impl fmt::Display for Line {
 /// A column
 ///
 /// Newtype to avoid passing values incorrectly
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Column(pub usize);
 
 impl fmt::Display for Column {

@@ -14,12 +14,8 @@
 //
 //! Alacritty - The GPU Enhanced Terminal
 #![feature(question_mark)]
-#![feature(range_contains)]
 #![feature(inclusive_range_syntax)]
 #![feature(drop_types_in_const)]
-#![feature(unicode)]
-#![feature(step_trait)]
-#![feature(core_intrinsics)]
 #![allow(stable_features)] // lying about question_mark because 1.14.0 isn't released!
 
 #![feature(proc_macro)]
@@ -27,6 +23,8 @@
 #[macro_use]
 extern crate serde_derive;
 
+#[macro_use]
+extern crate alacritty;
 extern crate cgmath;
 extern crate copypasta;
 extern crate errno;
@@ -37,81 +35,39 @@ extern crate mio;
 extern crate notify;
 extern crate parking_lot;
 extern crate serde;
+extern crate serde_json;
 extern crate serde_yaml;
 extern crate vte;
 
 #[macro_use]
 extern crate bitflags;
 
-#[macro_use]
-mod macros;
-
-mod event;
-mod event_loop;
-mod index;
-mod input;
-mod meter;
-mod renderer;
-mod sync;
-mod term;
-mod tty;
-mod util;
-pub mod ansi;
-pub mod config;
-pub mod grid;
-
 use std::sync::{mpsc, Arc};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 
 use parking_lot::{MutexGuard};
 
-use event_loop::EventLoop;
-
-use config::Config;
-use meter::Meter;
-use renderer::{QuadRenderer, GlyphCache};
-use sync::FairMutex;
-use term::Term;
-use tty::process_should_exit;
+use alacritty::Flag;
+use alacritty::Rgb;
+use alacritty::config::{self, Config};
+use alacritty::event;
+use alacritty::gl;
+use alacritty::input;
+use alacritty::meter::Meter;
+use alacritty::renderer::{QuadRenderer, GlyphCache};
+use alacritty::sync::FairMutex;
+use alacritty::term::{self, Term};
+use alacritty::tty::{self, Pty, process_should_exit};
+use alacritty::event_loop::EventLoop;
 
 /// Channel used by resize handling on mac
 static mut RESIZE_CALLBACK: Option<Box<Fn(u32, u32)>> = None;
-
-#[derive(Clone)]
-pub struct Flag(Arc<AtomicBool>);
-impl Flag {
-    pub fn new(initial_value: bool) -> Flag {
-        Flag(Arc::new(AtomicBool::new(initial_value)))
-    }
-
-    #[inline]
-    pub fn get(&self) -> bool {
-        self.0.load(Ordering::Acquire)
-    }
-
-    #[inline]
-    pub fn set(&self, value: bool) {
-        self.0.store(value, Ordering::Release)
-    }
-}
 
 /// Resize handling for Mac
 fn window_resize_handler(width: u32, height: u32) {
     unsafe {
         RESIZE_CALLBACK.as_ref().map(|func| func(width, height));
     }
-}
-
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Default)]
-pub struct Rgb {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-mod gl {
-    #![allow(non_upper_case_globals)]
-    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
 fn main() {
@@ -125,6 +81,27 @@ fn main() {
         },
         Ok((config, path)) => (config, Some(path)),
     };
+
+    let mut ref_test = false;
+    let mut columns = 80;
+    let mut lines = 24;
+
+    let mut args_iter = ::std::env::args();
+    while let Some(arg) = args_iter.next() {
+        match &arg[..] {
+            // Generate ref test
+            "--ref-test" => ref_test = true,
+            // Set dimensions
+            "-d" | "--dimensions" => {
+                args_iter.next()
+                    .map(|w| w.parse().map(|w| columns = w));
+                args_iter.next()
+                    .map(|h| h.parse().map(|h| lines = h));
+            },
+            // ignore unexpected
+            _ => (),
+        }
+    }
 
     let font = config.font();
     let dpi = config.dpi();
@@ -145,7 +122,7 @@ fn main() {
 
     let _ = unsafe { window.make_current() };
     unsafe {
-        gl::Viewport(0, 0, width as i32, height as i32);
+        // gl::Viewport(0, 0, width as i32, height as i32);
         gl::Enable(gl::BLEND);
         gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
         gl::Enable(gl::MULTISAMPLE);
@@ -176,15 +153,30 @@ fn main() {
     let cell_width = (metrics.average_advance + font.offset().x() as f64) as u32;
     let cell_height = (metrics.line_height + font.offset().y() as f64) as u32;
 
+    // Resize window to be 80 col x 24 lines
+    let width = cell_width * columns + 4;
+    let height = cell_height * lines + 4;
+    println!("set_inner_size: {} x {}", width, height);
+    // Is this in points?
+    let width_pts = (width as f32 / dpr) as u32;
+    let height_pts = (height as f32 / dpr) as u32;
+    println!("set_inner_size: {} x {}; pts: {} x {}", width, height, width_pts, height_pts);
+    window.set_inner_size(width_pts, height_pts);
+    renderer.resize(width as _, height as _);
+
     println!("Cell Size: ({} x {})", cell_width, cell_height);
 
-    let terminal = Term::new(
-        width as f32,
-        height as f32,
-        cell_width as f32,
-        cell_height as f32
-    );
-    let pty_io = terminal.tty().reader();
+    let size = term::SizeInfo {
+        width: width as f32,
+        height: height as f32,
+        cell_width: cell_width as f32,
+        cell_height: cell_height as f32
+    };
+
+    let terminal = Term::new(size);
+    let pty = tty::new(size.lines(), size.cols());
+    pty.resize(size.lines(), size.cols(), size.width as usize, size.height as usize);
+    let pty_io = pty.reader();
 
     let (tx, rx) = mpsc::channel();
 
@@ -215,6 +207,7 @@ fn main() {
         window.create_window_proxy(),
         signal_flag.clone(),
         pty_io,
+        ref_test,
     );
 
     let loop_tx = event_loop.channel();
@@ -226,7 +219,8 @@ fn main() {
         renderer,
         glyph_cache,
         render_timer,
-        rx
+        rx,
+        pty
     );
 
     // Event processor
@@ -234,7 +228,8 @@ fn main() {
         input::LoopNotifier(loop_tx),
         terminal.clone(),
         tx,
-        &config
+        &config,
+        ref_test,
     );
 
     let (config_tx, config_rx) = mpsc::channel();
@@ -302,6 +297,7 @@ struct Display {
     render_timer: bool,
     rx: mpsc::Receiver<(u32, u32)>,
     meter: Meter,
+    pty: Pty,
 }
 
 impl Display {
@@ -314,7 +310,8 @@ impl Display {
                renderer: QuadRenderer,
                glyph_cache: GlyphCache,
                render_timer: bool,
-               rx: mpsc::Receiver<(u32, u32)>)
+               rx: mpsc::Receiver<(u32, u32)>,
+               pty: Pty)
                -> Display
     {
         Display {
@@ -324,6 +321,7 @@ impl Display {
             render_timer: render_timer,
             rx: rx,
             meter: Meter::new(),
+            pty: pty,
         }
     }
 
@@ -350,6 +348,8 @@ impl Display {
         // available
         if let Some((w, h)) = new_size.take() {
             terminal.resize(w as f32, h as f32);
+            let size = terminal.size_info();
+            self.pty.resize(size.lines(), size.cols(), w as _, h as _);
             self.renderer.resize(w as i32, h as i32);
         }
 
@@ -369,7 +369,7 @@ impl Display {
             // Draw render timer
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());
-                let color = ::term::cell::Color::Rgb(Rgb { r: 0xd5, g: 0x4e, b: 0x53 });
+                let color = alacritty::term::cell::Color::Rgb(Rgb { r: 0xd5, g: 0x4e, b: 0x53 });
                 self.renderer.with_api(terminal.size_info(), |mut api| {
                     api.render_string(&timing[..], glyph_cache, &color);
                 });

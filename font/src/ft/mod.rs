@@ -29,6 +29,7 @@ pub struct Rasterizer {
     faces: HashMap<FontKey, Face<'static>>,
     library: Library,
     system_fonts: HashMap<String, Family>,
+    keys: HashMap<FontDesc, FontKey>,
     dpi_x: u32,
     dpi_y: u32,
     dpr: f32,
@@ -51,6 +52,7 @@ impl Rasterizer {
         Rasterizer {
             system_fonts: get_font_families(),
             faces: HashMap::new(),
+            keys: HashMap::new(),
             library: library,
             dpi_x: dpi_x as u32,
             dpi_y: dpi_y as u32,
@@ -77,11 +79,16 @@ impl Rasterizer {
     }
 
     pub fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Option<FontKey> {
-        self.get_face(desc)
-            .map(|face| {
-                let key = FontKey::next();
-                self.faces.insert(key, face);
-                key
+        self.keys
+            .get(&desc.to_owned())
+            .map(|k| *k)
+            .or_else(|| {
+                self.get_face(desc)
+                    .map(|face| {
+                        let key = FontKey::next();
+                        self.faces.insert(key, face);
+                        key
+                    })
             })
     }
 

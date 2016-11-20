@@ -31,8 +31,7 @@ use glutin::{Mods, mods};
 
 use config::Config;
 use event_loop;
-use term::mode::{self, TermMode};
-use util::encode_char;
+use term::mode::{TermMode};
 
 /// Processes input from glutin.
 ///

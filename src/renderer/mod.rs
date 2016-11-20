@@ -1100,6 +1100,7 @@ impl From<io::Error> for ShaderCreationError {
 ///
 /// The strategy for filling an atlas looks roughly like this:
 ///
+/// ```ignore
 ///                           (width, height)
 ///   ┌─────┬─────┬─────┬─────┬─────┐
 ///   │ 10  │     │     │     │     │ <- Empty spaces; can be filled while
@@ -1112,6 +1113,7 @@ impl From<io::Error> for ShaderCreationError {
 ///   │     │     │     │           │ <- Row considered full when next glyph doesn't
 ///   └─────┴─────┴─────┴───────────┘    fit in the row.
 /// (0, 0)  x->
+/// ```
 #[derive(Debug)]
 struct Atlas {
     /// Texture id for this atlas

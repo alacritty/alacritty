@@ -5,6 +5,11 @@ authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 build = "build.rs"
 
+[[bin]]
+doc = false
+path = "src/main.rs"
+name = "alacritty"
+
 [dependencies]
 libc = "*"
 cgmath = "0.7"
@@ -18,6 +23,7 @@ serde_yaml = "0.5"
 serde_derive = "0.8"
 vte = "0.1.2"
 mio = "0.6"
+serde_json = "*"
 copypasta = { path = "./copypasta" }
 
 [features]
@@ -31,6 +37,7 @@ gl_generator = "0.5"
 [dependencies.glutin]
 git = "https://github.com/jwilm/glutin"
 rev = "78838c1e1497dc8a1b1c8f69da7a6f3cd7da15c1"
+
 
 [profile.release]
 debug = true

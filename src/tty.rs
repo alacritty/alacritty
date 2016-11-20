@@ -23,6 +23,8 @@ use std::ptr;
 
 use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD};
 
+use index::{Line, Column};
+
 /// Process ID of child process
 ///
 /// Necessary to put this in static storage for `sigchld` to have access
@@ -236,8 +238,8 @@ fn execsh() -> ! {
 }
 
 /// Create a new tty and return a handle to interact with it.
-pub fn new(rows: u8, cols: u8) -> Tty {
-    let (master, slave) = openpty(rows, cols);
+pub fn new(lines: Line, cols: Column) -> Pty {
+    let (master, slave) = openpty(lines.0 as _, cols.0 as _);
 
     match fork() {
         Relation::Child => {
@@ -280,16 +282,16 @@ pub fn new(rows: u8, cols: u8) -> Tty {
                 set_nonblocking(master);
             }
 
-            Tty { fd: master }
+            Pty { fd: master }
         }
     }
 }
 
-pub struct Tty {
+pub struct Pty {
     fd: c_int,
 }
 
-impl Tty {
+impl Pty {
     /// Get reader for the TTY
     ///
     /// XXX File is a bad abstraction here; it closes the fd on drop
@@ -299,9 +301,11 @@ impl Tty {
         }
     }
 
-    pub fn resize(&self, rows: usize, cols: usize, px_x: usize, px_y: usize) {
+    pub fn resize(&self, lines: Line, cols: Column, px_x: usize, px_y: usize) {
+        let lines = lines.0;
+        let cols = cols.0;
         let win = winsize {
-            ws_row: rows as libc::c_ushort,
+            ws_row: lines as libc::c_ushort,
             ws_col: cols as libc::c_ushort,
             ws_xpixel: px_x as libc::c_ushort,
             ws_ypixel: px_y as libc::c_ushort,

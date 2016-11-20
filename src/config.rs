@@ -463,7 +463,9 @@ pub struct Colors {
 
 #[derive(Debug, Deserialize)]
 pub struct PrimaryColors {
+    #[serde(deserialize_with = "rgb_from_hex")]
     background: Rgb,
+    #[serde(deserialize_with = "rgb_from_hex")]
     foreground: Rgb,
 }
 
@@ -501,45 +503,45 @@ impl Default for Colors {
 /// The normal or bright colors section of config
 #[derive(Debug, Deserialize)]
 pub struct AnsiColors {
+    #[serde(deserialize_with = "rgb_from_hex")]
     black: Rgb,
+    #[serde(deserialize_with = "rgb_from_hex")]
     red: Rgb,
+    #[serde(deserialize_with = "rgb_from_hex")]
     green: Rgb,
+    #[serde(deserialize_with = "rgb_from_hex")]
     yellow: Rgb,
+    #[serde(deserialize_with = "rgb_from_hex")]
     blue: Rgb,
+    #[serde(deserialize_with = "rgb_from_hex")]
     magenta: Rgb,
+    #[serde(deserialize_with = "rgb_from_hex")]
     cyan: Rgb,
+    #[serde(deserialize_with = "rgb_from_hex")]
     white: Rgb,
 }
 
-impl serde::de::Deserialize for Rgb {
-    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
-        where D: serde::de::Deserializer
-    {
-        use std::marker::PhantomData;
+/// Deserialize an Rgb from a hex string
+///
+/// This is *not* the deserialize impl for Rgb since we want a symmetric
+/// serialize/deserialize impl for ref tests.
+fn rgb_from_hex<D>(deserializer: &mut D) -> ::std::result::Result<Rgb, D::Error>
+    where D: de::Deserializer
+{
+    struct RgbVisitor;
 
-        struct StringVisitor<__D> {
-            _marker: PhantomData<__D>,
-        }
+    impl ::serde::de::Visitor for RgbVisitor {
+        type Value = Rgb;
 
-        impl<__D> ::serde::de::Visitor for StringVisitor<__D>
-            where __D: ::serde::de::Deserializer
+        fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<Rgb, E>
+            where E: ::serde::de::Error
         {
-            type Value = String;
-
-            fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<Self::Value, E>
-                where E: ::serde::de::Error
-            {
-                Ok(value.to_owned())
-            }
+            Rgb::from_str(&value[..])
+                .map_err(|_| E::custom("failed to parse rgb; expect 0xrrggbb"))
         }
-
-        deserializer
-            .deserialize_f64(StringVisitor::<D>{ _marker: PhantomData })
-            .and_then(|v| {
-                Rgb::from_str(&v[..])
-                    .map_err(|_| D::Error::custom("failed to parse rgb; expect 0xrrggbb"))
-            })
     }
+
+    deserializer.deserialize_str(RgbVisitor)
 }
 
 impl Rgb {

@@ -20,7 +20,7 @@
 //!
 //! ```rust
 //! // create a meter
-//! let mut meter = Meter::new();
+//! let mut meter = alacritty::meter::Meter::new();
 //!
 //! // Sample something.
 //! {
@@ -29,7 +29,7 @@
 //!
 //! // Get the moving average. The meter tracks a fixed number of samles, and the average won't mean
 //! // much until it's filled up at least once.
-//! printf!("Average time: {}", meter.average());
+//! println!("Average time: {}", meter.average());
 
 use std::time::{Instant, Duration};
 

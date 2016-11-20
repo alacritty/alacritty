@@ -29,7 +29,7 @@ use std::slice::{self, Iter, IterMut};
 use index::{self, Cursor};
 
 /// Represents the terminal display contents
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Grid<T> {
     /// Lines in the grid. Each row holds a list of cells corresponding to the
     /// columns in that row.
@@ -221,7 +221,7 @@ impl<'cursor, T> IndexMut<&'cursor Cursor> for Grid<T> {
 }
 
 /// A row in the grid
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Row<T>(Vec<T>);
 
 impl<T: Clone> Row<T> {

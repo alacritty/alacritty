@@ -20,7 +20,6 @@ use std::ptr;
 use ansi::{self, Attr, Handler};
 use grid::{Grid, ClearRegion};
 use index::{Cursor, Column, Line};
-use tty;
 use ansi::Color;
 
 /// RAII type which manages grid state for render
@@ -80,6 +79,7 @@ pub mod cell {
     use ::Rgb;
 
     bitflags! {
+        #[derive(Serialize, Deserialize)]
         pub flags Flags: u32 {
             const INVERSE   = 0b00000001,
             const BOLD      = 0b00000010,
@@ -88,13 +88,13 @@ pub mod cell {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     pub enum Color {
         Rgb(Rgb),
         Ansi(::ansi::Color),
     }
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
     pub struct Cell {
         pub c: char,
         pub fg: Color,
@@ -191,9 +191,6 @@ pub struct Term {
     /// Alt is active
     alt: bool,
 
-    /// Reference to the underlying tty
-    tty: tty::Tty,
-
     /// The cursor
     cursor: Cursor,
 
@@ -222,7 +219,7 @@ pub struct Term {
 }
 
 /// Terminal size info
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct SizeInfo {
     /// Terminal window width
     pub width: f32,
@@ -251,18 +248,8 @@ impl SizeInfo {
 
 impl Term {
     pub fn new(
-        width: f32,
-        height: f32,
-        cell_width: f32,
-        cell_height: f32
+        size: SizeInfo
     ) -> Term {
-        let size = SizeInfo {
-            width: width as f32,
-            height: height as f32,
-            cell_width: cell_width as f32,
-            cell_height: cell_height as f32,
-        };
-
         let template = Cell::new(
             ' ',
             cell::Color::Ansi(Color::Foreground),
@@ -275,9 +262,6 @@ impl Term {
         println!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         let grid = Grid::new(num_lines, num_cols, &template);
-
-        let tty = tty::new(*num_lines as u8, *num_cols as u8);
-        tty.resize(*num_lines as usize, *num_cols as usize, size.width as usize, size.height as usize);
 
         let mut tabs = (Column(0)..grid.num_cols())
             .map(|i| (*i as usize) % TAB_SPACES == 0)
@@ -295,7 +279,6 @@ impl Term {
             alt: false,
             cursor: Cursor::default(),
             alt_cursor: Cursor::default(),
-            tty: tty,
             tabs: tabs,
             mode: Default::default(),
             scroll_region: scroll_region,
@@ -303,6 +286,10 @@ impl Term {
             template_cell: template.clone(),
             empty_cell: template,
         }
+    }
+
+    pub fn grid(&self) -> &Grid<Cell> {
+        &self.grid
     }
 
     pub fn render_grid<'a>(&'a mut self) -> RenderGrid<'a> {
@@ -364,18 +351,6 @@ impl Term {
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();
-
-        // Inform tty of new dimensions
-        self.tty.resize(*num_lines as _,
-                        *num_cols as _,
-                        self.size_info.width as usize,
-                        self.size_info.height as usize);
-
-    }
-
-    #[inline]
-    pub fn tty(&self) -> &tty::Tty {
-        &self.tty
     }
 
     #[inline]
@@ -874,5 +849,35 @@ impl ansi::Handler for Term {
     fn unset_keypad_application_mode(&mut self) {
         debug_println!("unset mode::APP_KEYPAD");
         self.mode.remove(mode::APP_KEYPAD);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate serde_json;
+
+    use ansi::Color;
+    use grid::Grid;
+    use index::{Line, Column};
+    use term::{cell, Cell};
+
+    /// Check that the grid can be serialized back and forth losslessly
+    ///
+    /// This test is in the term module as opposed to the grid since we want to
+    /// test this property with a T=Cell.
+    #[test]
+    fn grid_serde() {
+        let template = Cell::new(
+            ' ',
+            cell::Color::Ansi(Color::Foreground),
+            cell::Color::Ansi(Color::Background)
+        );
+
+        let grid = Grid::new(Line(24), Column(80), &template);
+        let serialized = serde_json::to_string(&grid).expect("ser");
+        let deserialized = serde_json::from_str::<Grid<Cell>>(&serialized)
+                                      .expect("de");
+
+        assert_eq!(deserialized, grid);
     }
 }

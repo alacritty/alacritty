@@ -1,12 +1,14 @@
 //! Process window events
+use std::fs::File;
+use std::io::Write;
 use std::sync::{Arc, mpsc};
+use serde_json as json;
 
 use glutin;
 
 use input;
 use sync::FairMutex;
 use term::Term;
-use util::encode_char;
 use config::Config;
 
 /// The event processor
@@ -15,6 +17,7 @@ pub struct Processor<N> {
     input_processor: input::Processor,
     terminal: Arc<FairMutex<Term>>,
     resize_tx: mpsc::Sender<(u32, u32)>,
+    ref_test: bool,
 }
 
 impl<N: input::Notify> Processor<N> {
@@ -27,18 +30,43 @@ impl<N: input::Notify> Processor<N> {
         terminal: Arc<FairMutex<Term>>,
         resize_tx: mpsc::Sender<(u32, u32)>,
         config: &Config,
+        ref_test: bool,
     ) -> Processor<N> {
         Processor {
             notifier: notifier,
             terminal: terminal,
             input_processor: input::Processor::new(config),
             resize_tx: resize_tx,
+            ref_test: ref_test,
         }
     }
 
     fn handle_event(&mut self, event: glutin::Event) {
         match event {
-            glutin::Event::Closed => panic!("window closed"), // TODO ...
+            glutin::Event::Closed => {
+                if self.ref_test {
+                    // dump grid state
+                    let terminal = self.terminal.lock();
+                    let grid = terminal.grid();
+
+                    let serialized_grid = json::to_string(&grid)
+                        .expect("serialize grid");
+
+                    let serialized_size = json::to_string(terminal.size_info())
+                        .expect("serialize size");
+
+                    File::create("./grid.json")
+                        .and_then(|mut f| f.write_all(serialized_grid.as_bytes()))
+                        .expect("write grid.json");
+
+                    File::create("./size.json")
+                        .and_then(|mut f| f.write_all(serialized_size.as_bytes()))
+                        .expect("write size.json");
+                }
+
+                // FIXME
+                panic!("window closed");
+            },
             glutin::Event::Resized(w, h) => {
                 self.resize_tx.send((w, h)).expect("send new size");
                 // Acquire term lock

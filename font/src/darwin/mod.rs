@@ -75,6 +75,7 @@ pub struct Descriptor {
 /// Given a fontdesc, can rasterize fonts.
 pub struct Rasterizer {
     fonts: HashMap<FontKey, Font>,
+    keys: HashMap<(FontDesc, Size), FontKey>,
     device_pixel_ratio: f32,
 }
 
@@ -83,6 +84,7 @@ impl Rasterizer {
         println!("device_pixel_ratio: {}", device_pixel_ratio);
         Rasterizer {
             fonts: HashMap::new(),
+            keys: HashMap::new(),
             device_pixel_ratio: device_pixel_ratio,
         }
     }
@@ -100,12 +102,19 @@ impl Rasterizer {
     }
 
     pub fn load_font(&mut self, desc: &FontDesc, size: Size) -> Option<FontKey> {
-        self.get_font(desc, size)
-            .map(|font| {
-                let key = FontKey::next();
-                self.fonts.insert(key, font);
+        self.keys
+            .get(&(desc.to_owned(), size))
+            .map(|k| *k)
+            .or_else(|| {
+                self.get_font(desc, size)
+                    .map(|font| {
+                        let key = FontKey::next();
 
-                key
+                        self.fonts.insert(key, font);
+                        self.keys.insert((desc.clone(), size), key);
+
+                        key
+                    })
             })
     }
 

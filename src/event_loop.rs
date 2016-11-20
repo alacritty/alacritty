@@ -1,7 +1,8 @@
 //! The main event loop which performs I/O on the pseudoterminal
 use std::borrow::Cow;
 use std::collections::VecDeque;
-use std::io::{self, ErrorKind};
+use std::io::{self, ErrorKind, Write};
+use std::fs::File;
 use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
 
@@ -34,6 +35,7 @@ pub struct EventLoop<Io> {
     terminal: Arc<FairMutex<Term>>,
     proxy: ::glutin::WindowProxy,
     signal_flag: Flag,
+    ref_test: bool,
 }
 
 /// Helper type which tracks how much of a buffer has been written.
@@ -130,6 +132,7 @@ impl<Io> EventLoop<Io>
         proxy: ::glutin::WindowProxy,
         signal_flag: Flag,
         pty: Io,
+        ref_test: bool,
     ) -> EventLoop<Io> {
         let (tx, rx) = ::mio::channel::channel();
         EventLoop {
@@ -139,7 +142,8 @@ impl<Io> EventLoop<Io>
             rx: rx,
             terminal: terminal,
             proxy: proxy,
-            signal_flag: signal_flag
+            signal_flag: signal_flag,
+            ref_test: ref_test,
         }
     }
 
@@ -174,11 +178,15 @@ impl<Io> EventLoop<Io>
     }
 
     #[inline]
-    fn pty_read(&mut self, state: &mut State, buf: &mut [u8]) {
+    fn pty_read<W: Write>(&mut self, state: &mut State, buf: &mut [u8], mut writer: Option<&mut W>) {
         loop {
             match self.pty.read(&mut buf[..]) {
                 Ok(0) => break,
                 Ok(got) => {
+                    writer = writer.map(|w| {
+                        w.write_all(&buf[..got]).unwrap(); w
+                    });
+
                     let mut terminal = self.terminal.lock();
                     for byte in &buf[..got] {
                         state.parser.advance(&mut *terminal, *byte);
@@ -252,6 +260,14 @@ impl<Io> EventLoop<Io>
 
             let mut events = Events::with_capacity(1024);
 
+            let mut pipe = if self.ref_test {
+                let file = File::create("./alacritty.recording")
+                    .expect("create alacritty recording");
+                Some(file)
+            } else {
+                None
+            };
+
             'event_loop: loop {
                 self.poll.poll(&mut events, None).expect("poll ok");
 
@@ -262,7 +278,7 @@ impl<Io> EventLoop<Io>
                             let kind = event.kind();
 
                             if kind.is_readable() {
-                                self.pty_read(&mut state, &mut buf);
+                                self.pty_read(&mut state, &mut buf, pipe.as_mut());
                                 if ::tty::process_should_exit() {
                                     break 'event_loop;
                                 }
