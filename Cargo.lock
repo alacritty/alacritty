@@ -8,7 +8,7 @@ dependencies = [
  "errno 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "font 0.1.0",
  "gl_generator 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "glutin 0.6.1 (git+https://github.com/jwilm/glutin?rev=78838c1e1497dc8a1b1c8f69da7a6f3cd7da15c1)",
+ "glutin 0.6.1 (git+https://github.com/jwilm/glutin?rev=af7fe340bd4a2af53ea521defcb4f377cdc588cf)",
  "libc 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "mio 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "notify 2.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -312,7 +312,7 @@ dependencies = [
 [[package]]
 name = "glutin"
 version = "0.6.1"
-source = "git+https://github.com/jwilm/glutin?rev=78838c1e1497dc8a1b1c8f69da7a6f3cd7da15c1#78838c1e1497dc8a1b1c8f69da7a6f3cd7da15c1"
+source = "git+https://github.com/jwilm/glutin?rev=af7fe340bd4a2af53ea521defcb4f377cdc588cf#af7fe340bd4a2af53ea521defcb4f377cdc588cf"
 dependencies = [
  "android_glue 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1080,7 +1080,7 @@ dependencies = [
 "checksum gdi32-sys 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "65256ec4dc2592e6f05bfc1ca3b956a4e0698aa90b1dff1f5687d55a5a3fd59a"
 "checksum gl_generator 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f1d8edc81c5ae84605a62f5dac661a2313003b26d59839f81d47d46cf0f16a55"
 "checksum gleam 0.2.24 (registry+https://github.com/rust-lang/crates.io-index)" = "b04d6c8a1df841e48dfe99ed67829c9d1d17b1bb3e44c5f3283992010e20359b"
-"checksum glutin 0.6.1 (git+https://github.com/jwilm/glutin?rev=78838c1e1497dc8a1b1c8f69da7a6f3cd7da15c1)" = "<none>"
+"checksum glutin 0.6.1 (git+https://github.com/jwilm/glutin?rev=af7fe340bd4a2af53ea521defcb4f377cdc588cf)" = "<none>"
 "checksum heapsize 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "8c80e194758495a9109566134dc06e42ea0423987d6ceca016edaa90381b3549"
 "checksum inotify 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "e8458c07bdbdaf309c80e2c3304d14c3db64e7465d4f07cf589ccb83fd0ff31a"
 "checksum itoa 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ae3088ea4baeceb0284ee9eea42f591226e6beaecf65373e41b38d95a1b8e7a1"
