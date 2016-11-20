@@ -52,8 +52,8 @@ mod reference {
                 let serialized_size = read_string(ref_file!($name, "size.json"));
                 let serialized_grid = read_string(ref_file!($name, "grid.json"));
 
-                let size: SizeInfo = json::from_str(&serialized_size[..]).unwrap();
-                let grid: Grid<Cell> = json::from_str(&serialized_grid[..]).unwrap();
+                let size: SizeInfo = json::from_str(&serialized_size).unwrap();
+                let grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
 
                 let mut terminal = Term::new(size);
                 let mut parser = ansi::Processor::new();
