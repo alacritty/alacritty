@@ -378,9 +378,6 @@ impl de::Deserialize for RawBinding {
                     }
                 }
                 visitor.end()?;
-                if key.is_none() {
-                    return Err(V::Error::missing_field("key"));
-                }
 
                 let action = match (action, chars) {
                     (Some(_), Some(_)) => {
@@ -1009,6 +1006,12 @@ mod tests {
     fn parse_config() {
         let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
             .expect("deserialize config");
+
+        // Sanity check that mouse bindings are being parsed
+        assert!(config.mouse_bindings.len() >= 1);
+
+        // Sanity check that key bindings are being parsed
+        assert!(config.key_bindings.len() >= 1);
 
         println!("config: {:#?}", config);
     }

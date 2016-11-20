@@ -173,6 +173,6 @@ key_bindings:
 # - Paste
 # - PasteSelection
 # - Copy (TODO)
-mouse:
+mouse_bindings:
   - { mouse: Middle, action: PasteSelection }
 
