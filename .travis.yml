@@ -9,7 +9,7 @@ os:
 
 rust:
   # Whole bunch of stuff needs nightly for now
-  - nightly-2016-07-11
+  - nightly-2016-11-06
 
 script:
-  - cargo test
+  - cargo test --no-default-features

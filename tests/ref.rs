@@ -69,10 +69,15 @@ mod reference {
         ($( $name:ident ),*) => {
             $(
                 ref_test! { $name }
-            ),*
-        }
+            )*
+        };
     }
 
     // Ref tests!
-    ref_test! { ll }
+    ref_test! {
+        ll,
+        vim_simple_edit,
+        tmux_htop,
+        tmux_git_log
+    }
 }

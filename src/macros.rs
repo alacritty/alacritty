@@ -23,16 +23,10 @@ macro_rules! die {
 #[macro_export]
 macro_rules! err_println {
     ($($arg:tt)*) => {{
-        use std::io::Write;
-        (writeln!(&mut ::std::io::stderr(), $($arg)*)).expect("stderr");
-    }}
-}
-
-#[macro_export]
-macro_rules! err_println {
-    ($($arg:tt)*) => {{
-        use std::io::Write;
-        (writeln!(&mut ::std::io::stderr(), $($arg)*)).expect("stderr");
+        if cfg!(feature = "err-println") {
+            use std::io::Write;
+            (writeln!(&mut ::std::io::stderr(), $($arg)*)).expect("stderr");
+        }
     }}
 }
 

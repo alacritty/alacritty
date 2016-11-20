@@ -27,9 +27,10 @@ serde_json = "*"
 copypasta = { path = "./copypasta" }
 
 [features]
-default = []
+default = ["err-println"]
 # Enabling this feature makes shaders automatically reload when changed
 live-shader-reload = []
+err-println = []
 
 [build-dependencies]
 gl_generator = "0.5"
