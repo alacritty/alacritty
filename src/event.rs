@@ -86,7 +86,12 @@ impl<N: input::Notify> Processor<N> {
                 let processor = &mut self.input_processor;
                 let notifier = &mut self.notifier;
 
-                processor.mouse_input(state, button, notifier, *terminal.mode());
+                processor.mouse_input(state, button, notifier, &terminal);
+            },
+            glutin::Event::MouseMoved(x, y) => {
+                if x > 0 && y > 0 {
+                    self.input_processor.mouse_moved(x as u32, y as u32);
+                }
             },
             glutin::Event::Focused(true) => {
                 let mut terminal = self.terminal.lock();

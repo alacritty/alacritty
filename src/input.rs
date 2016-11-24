@@ -29,9 +29,11 @@ use copypasta::{Clipboard, Load};
 use glutin::{ElementState, VirtualKeyCode, MouseButton};
 use glutin::{Mods, mods};
 
+use index::{Line, Column};
 use config::Config;
 use event_loop;
-use term::mode::{TermMode};
+use term::mode::{self, TermMode};
+use term::Term;
 
 /// Processes input from glutin.
 ///
@@ -43,6 +45,24 @@ use term::mode::{TermMode};
 pub struct Processor {
     key_bindings: Vec<KeyBinding>,
     mouse_bindings: Vec<MouseBinding>,
+    mouse: Mouse,
+}
+
+/// State of the mouse
+pub struct Mouse {
+    x: u32,
+    y: u32,
+    left_button_state: ElementState,
+}
+
+impl Default for Mouse {
+    fn default() -> Mouse {
+        Mouse {
+            x: 0,
+            y: 0,
+            left_button_state: ElementState::Pressed
+        }
+    }
 }
 
 /// Types that are notified of escape sequences from the input::Processor.
@@ -219,7 +239,53 @@ impl Processor {
         Processor {
             key_bindings: config.key_bindings().to_vec(),
             mouse_bindings: config.mouse_bindings().to_vec(),
+            mouse: Mouse::default(),
         }
+    }
+
+    #[inline]
+    pub fn mouse_moved(&mut self, x: u32, y: u32) {
+        // Record mouse position within window. Pixel coordinates are *not*
+        // translated to grid coordinates here since grid coordinates are rarely
+        // needed and the mouse position updates frequently.
+        self.mouse.x = x;
+        self.mouse.y = y;
+    }
+
+    fn mouse_report<N: Notify>(
+        &mut self,
+        button: u8,
+        notifier: &mut N,
+        terminal: &Term
+    ) {
+        if terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
+            let (line, column) = terminal.pixels_to_coords(
+                self.mouse.x as usize,
+                self.mouse.y as usize
+                ).unwrap();
+
+            if line < Line(223) && column < Column(223) {
+                let msg = vec![
+                    '\x1b' as u8,
+                    '[' as u8,
+                    'M' as u8,
+                    32 + button,
+                    32 + 1 + column.0 as u8,
+                    32 + 1 + line.0 as u8,
+                ];
+
+                notifier.notify(msg);
+            }
+
+        }
+    }
+
+    pub fn on_mouse_press<N: Notify>(&mut self, notifier: &mut N, terminal: &Term) {
+        self.mouse_report(0, notifier, terminal);
+    }
+
+    pub fn on_mouse_release<N: Notify>(&mut self, notifier: &mut N, terminal: &Term) {
+        self.mouse_report(3, notifier, terminal);
     }
 
     pub fn mouse_input<N: Notify>(
@@ -227,15 +293,30 @@ impl Processor {
         state: ElementState,
         button: MouseButton,
         notifier: &mut N,
-        mode: TermMode
+        terminal: &Term
     ) {
+        if let MouseButton::Left = button {
+            // TODO handle state changes
+            if self.mouse.left_button_state != state {
+                self.mouse.left_button_state = state;
+                match state {
+                    ElementState::Pressed => {
+                        self.on_mouse_press(notifier, terminal);
+                    },
+                    ElementState::Released => {
+                        self.on_mouse_release(notifier, terminal);
+                    }
+                }
+            }
+        }
+
         if let ElementState::Released = state {
             return;
         }
 
         Processor::process_mouse_bindings(
             &self.mouse_bindings[..],
-            mode,
+            *terminal.mode(),
             notifier,
             mods::NONE,
             button
