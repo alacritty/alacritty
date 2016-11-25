@@ -16,6 +16,7 @@
 use std::mem;
 use std::ops::{Deref, Range};
 use std::ptr;
+use std::cmp;
 
 use ansi::{self, Attr, Handler};
 use grid::{Grid, ClearRegion};
@@ -65,14 +66,9 @@ impl<'a> Deref for RenderGrid<'a> {
 }
 
 /// coerce val to be between min and max
-fn limit<T: PartialOrd>(val: T, min: T, max: T) -> T {
-    if val < min {
-        min
-    } else if val > max {
-        max
-    } else {
-        val
-    }
+#[inline]
+fn limit<T: PartialOrd + Ord>(val: T, min: T, max: T) -> T {
+    cmp::min(cmp::max(min, val), max)
 }
 
 pub mod cell {
@@ -878,6 +874,9 @@ impl ansi::Handler for Term {
 #[cfg(test)]
 mod tests {
     extern crate serde_json;
+    extern crate test;
+
+    use super::limit;
 
     use ansi::Color;
     use grid::Grid;
@@ -902,5 +901,12 @@ mod tests {
                                       .expect("de");
 
         assert_eq!(deserialized, grid);
+    }
+
+    #[test]
+    fn limit_works() {
+        assert_eq!(limit(5, 1, 10), 5);
+        assert_eq!(limit(5, 6, 10), 6);
+        assert_eq!(limit(5, 1, 4), 4);
     }
 }

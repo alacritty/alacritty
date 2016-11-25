@@ -20,6 +20,7 @@
 #![feature(unicode)]
 #![feature(step_trait)]
 #![feature(core_intrinsics)]
+#![feature(test)]
 #![allow(stable_features)] // lying about question_mark because 1.14.0 isn't released!
 
 #![feature(proc_macro)]
