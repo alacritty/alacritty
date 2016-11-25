@@ -28,6 +28,7 @@ use std::borrow::Cow;
 use copypasta::{Clipboard, Load};
 use glutin::{ElementState, VirtualKeyCode, MouseButton};
 use glutin::{Mods, mods};
+use glutin::{TouchPhase, MouseScrollDelta};
 
 use index::{Line, Column};
 use config::Config;
@@ -53,6 +54,7 @@ pub struct Mouse {
     x: u32,
     y: u32,
     left_button_state: ElementState,
+    scroll_px: i32,
 }
 
 impl Default for Mouse {
@@ -60,7 +62,8 @@ impl Default for Mouse {
         Mouse {
             x: 0,
             y: 0,
-            left_button_state: ElementState::Pressed
+            left_button_state: ElementState::Pressed,
+            scroll_px: 0,
         }
     }
 }
@@ -286,6 +289,46 @@ impl Processor {
 
     pub fn on_mouse_release<N: Notify>(&mut self, notifier: &mut N, terminal: &Term) {
         self.mouse_report(3, notifier, terminal);
+    }
+
+    pub fn on_mouse_wheel<N: Notify>(
+        &mut self,
+        notifier: &mut N,
+        delta: MouseScrollDelta,
+        phase: TouchPhase,
+        terminal: &Term
+    ) {
+        match delta {
+            MouseScrollDelta::LineDelta(_columns, _lines) => {
+                unimplemented!();
+            },
+            MouseScrollDelta::PixelDelta(_x, y) => {
+                match phase {
+                    TouchPhase::Started => {
+                        // Reset offset to zero
+                        self.mouse.scroll_px = 0;
+                    },
+                    TouchPhase::Moved => {
+                        self.mouse.scroll_px += y as i32;
+                        let size = terminal.size_info();
+                        let height = size.cell_height as i32;
+
+                        while self.mouse.scroll_px.abs() >= height {
+                            let button = if self.mouse.scroll_px > 0 {
+                                self.mouse.scroll_px -= height;
+                                64
+                            } else {
+                                self.mouse.scroll_px += height;
+                                65
+                            };
+
+                            self.mouse_report(button, notifier, terminal);
+                        }
+                    },
+                    _ => (),
+                }
+            }
+        }
     }
 
     pub fn mouse_input<N: Notify>(

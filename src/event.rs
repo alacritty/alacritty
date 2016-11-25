@@ -96,7 +96,19 @@ impl<N: input::Notify> Processor<N> {
             glutin::Event::Focused(true) => {
                 let mut terminal = self.terminal.lock();
                 terminal.dirty = true;
-            }
+            },
+            glutin::Event::MouseWheel(scroll_delta, touch_phase) => {
+                let terminal = self.terminal.lock();
+                let processor = &mut self.input_processor;
+                let notifier = &mut self.notifier;
+
+                processor.on_mouse_wheel(
+                    notifier,
+                    scroll_delta,
+                    touch_phase,
+                    &terminal
+                );
+            },
             _ => (),
         }
     }
