@@ -342,9 +342,7 @@ impl SizeInfo {
 }
 
 impl Term {
-    pub fn new(
-        size: SizeInfo
-    ) -> Term {
+    pub fn new(size: SizeInfo) -> Term {
         let template = Cell::new(
             ' ',
             cell::Color::Ansi(Color::Foreground),
@@ -399,10 +397,19 @@ impl Term {
         Some((line, col))
     }
 
+    /// Access to the raw grid data structure
+    ///
+    /// This is a bit of a hack; when the window is closed, the event processor
+    /// serializes the grid state to a file.
     pub fn grid(&self) -> &Grid<Cell> {
         &self.grid
     }
 
+    /// Iterate over the *renderable* cells in the terminal
+    ///
+    /// A renderable cell is any cell which has content other than the default
+    /// background color.  Cells with an alternate background color are
+    /// considered renderable as are cells with any text content.
     pub fn renderable_cells<'a>(&'a mut self) -> RenderableCellsIter<'a> {
         RenderableCellsIter::new(&mut self.grid, &self.cursor, self.mode)
     }
