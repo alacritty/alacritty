@@ -33,7 +33,7 @@
 
 use std::time::{Instant, Duration};
 
-const NUM_SAMPLES: usize = 60;
+const NUM_SAMPLES: usize = 10;
 
 /// The meter
 pub struct Meter {

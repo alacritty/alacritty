@@ -78,6 +78,7 @@ mod reference {
         ll,
         vim_simple_edit,
         tmux_htop,
-        tmux_git_log
+        tmux_git_log,
+        vim_large_window_scroll
     }
 }

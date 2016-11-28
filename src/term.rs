@@ -13,7 +13,6 @@
 // limitations under the License.
 //
 //! Exports the `Term` type which is a high-level API for the Grid
-use std::mem;
 use std::ops::{Deref, Range};
 use std::ptr;
 use std::cmp;
@@ -23,45 +22,129 @@ use grid::{Grid, ClearRegion};
 use index::{Cursor, Column, Line};
 use ansi::Color;
 
-/// RAII type which manages grid state for render
+/// Iterator that yields cells needing render
+///
+/// Yields cells that require work to be displayed (that is, not a an empty
+/// background cell). Additionally, this manages some state of the grid only
+/// relevant for rendering like temporarily changing the cell with the cursor.
 ///
 /// This manages the cursor during a render. The cursor location is inverted to
 /// draw it, and reverted after drawing to maintain state.
-pub struct RenderGrid<'a> {
-    inner: &'a mut Grid<Cell>,
+pub struct RenderableCellsIter<'a> {
+    grid: &'a mut Grid<Cell>,
     cursor: &'a Cursor,
     mode: TermMode,
+    line: Line,
+    column: Column,
 }
 
-impl<'a> RenderGrid<'a> {
-    fn new<'b>(grid: &'b mut Grid<Cell>, cursor: &'b Cursor, mode: TermMode) -> RenderGrid<'b> {
-        if mode.contains(mode::SHOW_CURSOR) && grid.contains(cursor) {
-            let cell = &mut grid[cursor];
-            mem::swap(&mut cell.fg, &mut cell.bg);
-        }
 
-        RenderGrid {
-            inner: grid,
+impl<'a> RenderableCellsIter<'a> {
+    /// Create the renderable cells iterator
+    ///
+    /// The cursor and terminal mode are required for properly displaying the
+    /// cursor.
+    fn new<'b>(
+        grid: &'b mut Grid<Cell>,
+        cursor: &'b Cursor,
+        mode: TermMode
+    ) -> RenderableCellsIter<'b> {
+        RenderableCellsIter {
+            grid: grid,
             cursor: cursor,
             mode: mode,
+            line: Line(0),
+            column: Column(0),
+        }.initialize()
+    }
+
+    fn initialize(self) -> Self {
+        if self.cursor_is_visible() {
+            self.grid[self.cursor].swap_fg_and_bg();
         }
+
+        self
+    }
+
+    /// Check if the cursor should be rendered.
+    #[inline]
+    fn cursor_is_visible(&self) -> bool {
+        self.mode.contains(mode::SHOW_CURSOR) && self.grid.contains(self.cursor)
     }
 }
 
-impl<'a> Drop for RenderGrid<'a> {
+impl<'a> Drop for RenderableCellsIter<'a> {
+    /// Resets temporary render state on the grid
     fn drop(&mut self) {
-        if self.mode.contains(mode::SHOW_CURSOR) && self.inner.contains(self.cursor) {
-            let cell = &mut self.inner[self.cursor];
-            mem::swap(&mut cell.fg, &mut cell.bg);
+        if self.cursor_is_visible() {
+            self.grid[self.cursor].swap_fg_and_bg();
         }
     }
 }
 
-impl<'a> Deref for RenderGrid<'a> {
-    type Target = Grid<Cell>;
+pub struct IndexedCell {
+    pub line: Line,
+    pub column: Column,
+    pub inner: Cell
+}
 
-    fn deref(&self) -> &Self::Target {
-        self.inner
+impl Deref for IndexedCell {
+    type Target = Cell;
+
+    #[inline(always)]
+    fn deref(&self) -> &Cell {
+        &self.inner
+    }
+}
+
+impl<'a> Iterator for RenderableCellsIter<'a> {
+    type Item = IndexedCell;
+
+    /// Gets the next renderable cell
+    ///
+    /// Skips empty (background) cells and applies any flags to the cell state
+    /// (eg. invert fg and bg colors).
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.line < self.grid.num_lines() {
+            while self.column < self.grid.num_cols() {
+                // Grab current state for this iteration
+                let line = self.line;
+                let column = self.column;
+                let cell = &self.grid[line][column];
+
+                // Update state for next iteration
+                self.column += 1;
+
+                // Skip empty cells
+                if cell.is_empty() {
+                    continue;
+                }
+
+                // fg, bg are dependent on INVERSE flag
+                let (fg, bg) = if cell.flags.contains(cell::INVERSE) {
+                    (&cell.bg, &cell.fg)
+                } else {
+                    (&cell.fg, &cell.bg)
+                };
+
+                return Some(IndexedCell {
+                    line: line,
+                    column: column,
+                    inner: Cell {
+                        flags: cell.flags,
+                        c: cell.c,
+                        fg: *fg,
+                        bg: *bg,
+                    }
+                })
+            }
+
+            self.column = Column(0);
+            self.line += 1;
+        }
+
+        None
     }
 }
 
@@ -72,6 +155,9 @@ fn limit<T: PartialOrd + Ord>(val: T, min: T, max: T) -> T {
 }
 
 pub mod cell {
+    use std::mem;
+
+    use ansi;
     use ::Rgb;
 
     bitflags! {
@@ -84,10 +170,10 @@ pub mod cell {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     pub enum Color {
         Rgb(Rgb),
-        Ansi(::ansi::Color),
+        Ansi(ansi::Color),
     }
 
     #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
@@ -113,9 +199,21 @@ pub mod cell {
         }
 
         #[inline]
+        pub fn is_empty(&self) -> bool {
+            self.c == ' ' &&
+                self.bg == Color::Ansi(ansi::Color::Background) &&
+                !self.flags.contains(INVERSE)
+        }
+
+        #[inline]
         pub fn reset(&mut self, template: &Cell) {
             // memcpy template to self
             *self = template.clone();
+        }
+
+        #[inline]
+        pub fn swap_fg_and_bg(&mut self) {
+            mem::swap(&mut self.fg, &mut self.bg);
         }
     }
 
@@ -256,8 +354,6 @@ impl Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
-        println!("num_cols, num_lines = {}, {}", num_cols, num_lines);
-
         let grid = Grid::new(num_lines, num_cols, &template);
 
         let mut tabs = (Column(0)..grid.num_cols())
@@ -307,8 +403,8 @@ impl Term {
         &self.grid
     }
 
-    pub fn render_grid<'a>(&'a mut self) -> RenderGrid<'a> {
-        RenderGrid::new(&mut self.grid, &self.cursor, self.mode)
+    pub fn renderable_cells<'a>(&'a mut self) -> RenderableCellsIter<'a> {
+        RenderableCellsIter::new(&mut self.grid, &self.cursor, self.mode)
     }
 
     /// Resize terminal to new dimensions
@@ -908,5 +1004,64 @@ mod tests {
         assert_eq!(limit(5, 1, 10), 5);
         assert_eq!(limit(5, 6, 10), 6);
         assert_eq!(limit(5, 1, 4), 4);
+    }
+}
+
+#[cfg(test)]
+mod bench {
+    extern crate test;
+    extern crate serde_json as json;
+
+    use std::io::Read;
+    use std::fs::File;
+    use std::mem;
+    use std::path::Path;
+
+    use grid::Grid;
+
+    use super::{SizeInfo, Term};
+    use super::cell::Cell;
+
+    fn read_string<P>(path: P) -> String
+        where P: AsRef<Path>
+    {
+        let mut res = String::new();
+        File::open(path.as_ref()).unwrap()
+            .read_to_string(&mut res).unwrap();
+
+        res
+    }
+
+    /// Benchmark for the renderable cells iterator
+    ///
+    /// The renderable cells iterator yields cells that require work to be displayed (that is, not a
+    /// an empty background cell). This benchmark measures how long it takes to process the whole
+    /// iterator.
+    ///
+    /// When this benchmark was first added, it averaged ~78usec on my macbook pro. The total
+    /// render time for this grid is anywhere between ~1500 and ~2000usec (measured imprecisely with
+    /// the visual meter).
+    #[bench]
+    fn render_iter(b: &mut test::Bencher) {
+        // Need some realistic grid state; using one of the ref files.
+        let serialized_grid = read_string(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/ref/vim_large_window_scroll/grid.json")
+        );
+        let serialized_size = read_string(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/ref/vim_large_window_scroll/size.json")
+        );
+
+        let mut grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
+        let size: SizeInfo = json::from_str(&serialized_size).unwrap();
+
+        let mut terminal = Term::new(size);
+        mem::swap(&mut terminal.grid, &mut grid);
+
+        b.iter(|| {
+            let iter = terminal.renderable_cells();
+            for cell in iter {
+                test::black_box(cell);
+            }
+        })
     }
 }

@@ -19,8 +19,8 @@
 #![feature(drop_types_in_const)]
 #![feature(unicode)]
 #![feature(step_trait)]
+#![cfg_attr(test, feature(test))]
 #![feature(core_intrinsics)]
-#![feature(test)]
 #![allow(stable_features)] // lying about question_mark because 1.14.0 isn't released!
 
 #![feature(proc_macro)]

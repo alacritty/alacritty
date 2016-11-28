@@ -24,10 +24,10 @@ use font::{self, Rasterizer, RasterizedGlyph, FontDesc, GlyphKey, FontKey};
 use gl::types::*;
 use gl;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
+use index::{Line, Column};
 
 use config::Config;
-use grid::Grid;
-use term::{self, cell, Cell};
+use term::{self, cell, IndexedCell, Cell};
 
 use super::Rgb;
 
@@ -286,7 +286,7 @@ impl Batch {
         }
     }
 
-    pub fn add_item(&mut self, row: f32, col: f32, cell: &Cell, glyph: &Glyph) {
+    pub fn add_item(&mut self, cell: &IndexedCell, glyph: &Glyph) {
         if self.is_empty() {
             self.tex = glyph.tex_id;
         }
@@ -310,9 +310,9 @@ impl Batch {
             ::term::cell::Color::Ansi(ansi) => self.colors[ansi as usize],
         };
 
-        let mut instance = InstanceData {
-            col: col,
-            row: row,
+        self.instances.push(InstanceData {
+            col: cell.column.0 as f32,
+            row: cell.line.0 as f32,
 
             top: glyph.top,
             left: glyph.left,
@@ -331,19 +331,7 @@ impl Batch {
             bg_r: bg.r as f32,
             bg_g: bg.g as f32,
             bg_b: bg.b as f32,
-        };
-
-        if cell.flags.contains(cell::INVERSE) {
-            instance.r = bg.r as f32;
-            instance.g = bg.g as f32;
-            instance.b = bg.b as f32;
-
-            instance.bg_r = fg.r as f32;
-            instance.bg_g = fg.g as f32;
-            instance.bg_b = fg.b as f32;
-        }
-
-        self.instances.push(instance);
+        });
     }
 
     #[inline]
@@ -631,6 +619,19 @@ impl QuadRenderer {
 }
 
 impl<'a> RenderApi<'a> {
+    pub fn clear(&self) {
+        let color = self.colors[::ansi::Color::Background as usize];
+        unsafe {
+            gl::ClearColor(
+                color.r as f32 / 255.0,
+                color.g as f32 / 255.0,
+                color.b as f32 / 255.0,
+                1.0
+                );
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+    }
+
     fn render_batch(&mut self) {
         unsafe {
             gl::BufferSubData(gl::ARRAY_BUFFER, 0, self.batch.size() as isize,
@@ -663,36 +664,32 @@ impl<'a> RenderApi<'a> {
     /// optimization.
     pub fn render_string(
         &mut self,
-        s: &str,
+        string: &str,
         glyph_cache: &mut GlyphCache,
         color: &::term::cell::Color,
     ) {
-        let row = 40.0;
-        let mut col = 100.0;
+        let line = Line(23);
+        let col = Column(0);
 
-        for c in s.chars() {
-            let glyph_key = GlyphKey {
-                font_key: glyph_cache.font_key,
-                size: glyph_cache.font_size,
-                c: c
-            };
-
-            if let Some(glyph) = glyph_cache.get(&glyph_key, self) {
-                let cell = Cell {
+        let cells = string.chars()
+            .enumerate()
+            .map(|(i, c)| IndexedCell {
+                line: line,
+                column: col + i,
+                inner: Cell {
                     c: c,
-                    fg: color.clone(),
-                    bg: cell::Color::Rgb(Rgb { r: 0, g: 0, b: 0}),
-                    flags: cell::INVERSE,
-                };
-                self.add_render_item(row, col, &cell, glyph);
-            }
+                    bg: *color,
+                    fg: cell::Color::Rgb(Rgb { r: 0, g: 0, b: 0}),
+                    flags: cell::Flags::empty(),
+                }
+            })
+            .collect::<Vec<_>>();
 
-            col += 1.0;
-        }
+        self.render_grid(cells.into_iter(), glyph_cache);
     }
 
     #[inline]
-    fn add_render_item(&mut self, row: f32, col: f32, cell: &Cell, glyph: &Glyph) {
+    fn add_render_item(&mut self, cell: &IndexedCell, glyph: &Glyph) {
         // Flush batch if tex changing
         if !self.batch.is_empty() {
             if self.batch.tex != glyph.tex_id {
@@ -700,7 +697,7 @@ impl<'a> RenderApi<'a> {
             }
         }
 
-        self.batch.add_item(row, col, cell, glyph);
+        self.batch.add_item(cell, glyph);
 
         // Render batch and clear if it's full
         if self.batch.full() {
@@ -708,51 +705,32 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_grid(
+    pub fn render_grid<I>(
         &mut self,
-        grid: &Grid<Cell>,
+        occupied_cells: I,
         glyph_cache: &mut GlyphCache
-    ) {
-        // TODO should be built into renderer
-        let color = self.colors[::ansi::Color::Background as usize];
-        unsafe {
-            gl::ClearColor(
-                color.r as f32 / 255.0,
-                color.g as f32 / 255.0,
-                color.b as f32 / 255.0,
-                1.0
-                );
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
+    )
+        where I: Iterator<Item=::term::IndexedCell>
+    {
+        for cell in occupied_cells {
+            // Get font key for cell
+            // FIXME this is super inefficient.
+            let mut font_key = glyph_cache.font_key;
+            if cell.flags.contains(cell::BOLD) {
+                font_key = glyph_cache.bold_key;
+            } else if cell.flags.contains(cell::ITALIC) {
+                font_key = glyph_cache.italic_key;
+            }
 
-        for (i, line) in grid.lines().enumerate() {
-            for (j, cell) in line.cells().enumerate() {
-                // Skip empty cells
-                if cell.c == ' ' && cell.bg == cell::Color::Ansi(::ansi::Color::Background) &&
-                   !cell.flags.contains(cell::INVERSE)
-                {
-                    continue;
-                }
+            let glyph_key = GlyphKey {
+                font_key: font_key,
+                size: glyph_cache.font_size,
+                c: cell.c
+            };
 
-                // Get font key for cell
-                // FIXME this is super inefficient.
-                let mut font_key = glyph_cache.font_key;
-                if cell.flags.contains(cell::BOLD) {
-                    font_key = glyph_cache.bold_key;
-                } else if cell.flags.contains(cell::ITALIC) {
-                    font_key = glyph_cache.italic_key;
-                }
-
-                let glyph_key = GlyphKey {
-                    font_key: font_key,
-                    size: glyph_cache.font_size,
-                    c: cell.c
-                };
-
-                // Add cell to batch if glyph available
-                if let Some(glyph) = glyph_cache.get(&glyph_key, self) {
-                    self.add_render_item(i as f32, j as f32, cell, glyph);
-                }
+            // Add cell to batch if glyph available
+            if let Some(glyph) = glyph_cache.get(&glyph_key, self) {
+                self.add_render_item(&cell, glyph);
             }
         }
     }

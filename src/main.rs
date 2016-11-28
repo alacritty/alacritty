@@ -361,8 +361,10 @@ impl Display {
 
                 let size_info = terminal.size_info().clone();
                 self.renderer.with_api(&size_info, |mut api| {
+                    api.clear();
+
                     // Draw the grid
-                    api.render_grid(&terminal.render_grid(), glyph_cache);
+                    api.render_grid(terminal.renderable_cells(), glyph_cache);
                 });
             }
 
