@@ -22,6 +22,9 @@ use grid::{Grid, ClearRegion};
 use index::{Cursor, Column, Line};
 use ansi::Color;
 
+pub mod cell;
+pub use self::cell::Cell;
+
 /// Iterator that yields cells needing render
 ///
 /// Yields cells that require work to be displayed (that is, not a an empty
@@ -153,105 +156,6 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 fn limit<T: PartialOrd + Ord>(val: T, min: T, max: T) -> T {
     cmp::min(cmp::max(min, val), max)
 }
-
-pub mod cell {
-    use std::mem;
-
-    use ansi;
-    use ::Rgb;
-
-    bitflags! {
-        #[derive(Serialize, Deserialize)]
-        pub flags Flags: u32 {
-            const INVERSE   = 0b00000001,
-            const BOLD      = 0b00000010,
-            const ITALIC    = 0b00000100,
-            const UNDERLINE = 0b00001000,
-        }
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-    pub enum Color {
-        Rgb(Rgb),
-        Ansi(ansi::Color),
-    }
-
-    #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-    pub struct Cell {
-        pub c: char,
-        pub fg: Color,
-        pub bg: Color,
-        pub flags: Flags,
-    }
-
-    impl Cell {
-        pub fn bold(&self) -> bool {
-            self.flags.contains(BOLD)
-        }
-
-        pub fn new(c: char, fg: Color, bg: Color) -> Cell {
-            Cell {
-                c: c.into(),
-                bg: bg,
-                fg: fg,
-                flags: Flags::empty(),
-            }
-        }
-
-        #[inline]
-        pub fn is_empty(&self) -> bool {
-            self.c == ' ' &&
-                self.bg == Color::Ansi(ansi::Color::Background) &&
-                !self.flags.contains(INVERSE)
-        }
-
-        #[inline]
-        pub fn reset(&mut self, template: &Cell) {
-            // memcpy template to self
-            *self = template.clone();
-        }
-
-        #[inline]
-        pub fn swap_fg_and_bg(&mut self) {
-            mem::swap(&mut self.fg, &mut self.bg);
-        }
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use super::Color;
-        use std::mem;
-
-        // Ensure memory layout is well defined so components like renderer
-        // can exploit it.
-        //
-        // Thankfully, everything is just a u8 for now so no endianness
-        // considerations are needed.
-        #[test]
-        fn color_memory_layout() {
-            let rgb_color = Color::Rgb(::Rgb { r: 1, g: 2, b: 3 });
-            let ansi_color = Color::Ansi(::ansi::Color::Foreground);
-
-            unsafe {
-                // Color::Rgb
-                // [discriminant(0), red, green ,blue]
-                let bytes: [u8; 4] = mem::transmute_copy(&rgb_color);
-                assert_eq!(bytes[0], 0);
-                assert_eq!(bytes[1], 1);
-                assert_eq!(bytes[2], 2);
-                assert_eq!(bytes[3], 3);
-
-                // Color::Ansi
-                // [discriminant(1), ansi::Color, 0, 0]
-                let bytes: [u8; 4] = mem::transmute_copy(&ansi_color);
-                assert_eq!(bytes[0], 1);
-                assert_eq!(bytes[1], ::ansi::Color::Foreground as u8);
-            }
-        }
-    }
-}
-
-pub use self::cell::Cell;
 
 pub mod mode {
     bitflags! {
@@ -981,7 +885,7 @@ mod tests {
 
     use super::limit;
 
-    use ansi::Color;
+    use ansi::{Color};
     use grid::Grid;
     use index::{Line, Column};
     use term::{cell, Cell};
