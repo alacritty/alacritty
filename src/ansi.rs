@@ -243,6 +243,8 @@ pub enum Mode {
     ReportMouseClicks = 1000,
     /// ?1049
     SwapScreenAndSetRestoreCursor = 1049,
+    /// ?2004
+    BracketedPaste = 2004,
 }
 
 impl Mode {
@@ -258,6 +260,7 @@ impl Mode {
                 25 => Mode::ShowCursor,
                 1000 => Mode::ReportMouseClicks,
                 1049 => Mode::SwapScreenAndSetRestoreCursor,
+                2004 => Mode::BracketedPaste,
                 _ => return None
             })
         } else {

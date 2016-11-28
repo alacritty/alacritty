@@ -135,8 +135,8 @@ impl KeyBinding {
     }
 
     #[inline]
-    fn execute<N: Notify>(&self, notifier: &mut N) {
-        self.binding.action.execute(notifier)
+    fn execute<N: Notify>(&self, notifier: &mut N, mode: &TermMode) {
+        self.binding.action.execute(notifier, mode)
     }
 }
 
@@ -155,8 +155,8 @@ impl MouseBinding {
     }
 
     #[inline]
-    fn execute<N: Notify>(&self, notifier: &mut N) {
-        self.binding.action.execute(notifier)
+    fn execute<N: Notify>(&self, notifier: &mut N, mode: &TermMode) {
+        self.binding.action.execute(notifier, mode)
     }
 }
 
@@ -174,7 +174,7 @@ pub enum Action {
 
 impl Action {
     #[inline]
-    fn execute<N: Notify>(&self, notifier: &mut N) {
+    fn execute<N: Notify>(&self, notifier: &mut N, mode: &TermMode) {
         match *self {
             Action::Esc(ref s) => notifier.notify(s.clone().into_bytes()),
             Action::Paste | Action::PasteSelection => {
@@ -183,7 +183,13 @@ impl Action {
                 clip.load_selection()
                     .map(|contents| {
                         println!("got contents");
-                        notifier.notify(contents.into_bytes())
+                        if mode.contains(mode::BRACKETED_PASTE) {
+                            notifier.notify("\x1b[200~".as_bytes());
+                            notifier.notify(contents.into_bytes());
+                            notifier.notify("\x1b[201~".as_bytes());
+                        } else {
+                            notifier.notify(contents.into_bytes());
+                        }
                     })
                     .unwrap_or_else(|err| {
                         err_println!("Error getting clipboard contents: {}", err);
@@ -410,7 +416,7 @@ impl Processor {
         for binding in bindings {
             if binding.is_triggered_by(&mode, &mods, &key) {
                 // binding was triggered; run the action
-                binding.execute(notifier);
+                binding.execute(notifier, &mode);
                 return true;
             }
         }
@@ -436,7 +442,7 @@ impl Processor {
         for binding in bindings {
             if binding.is_triggered_by(&mode, &mods, &button) {
                 // binding was triggered; run the action
-                binding.execute(notifier);
+                binding.execute(notifier, &mode);
                 return true;
             }
         }
