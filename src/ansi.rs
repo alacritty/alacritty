@@ -349,6 +349,22 @@ pub enum NamedColor {
     Background,
 }
 
+impl NamedColor {
+    pub fn to_bright(&self) -> Self {
+        match *self {
+            NamedColor::Black => NamedColor::BrightBlack,
+            NamedColor::Red => NamedColor::BrightRed,
+            NamedColor::Green => NamedColor::BrightGreen,
+            NamedColor::Yellow => NamedColor::BrightYellow,
+            NamedColor::Blue => NamedColor::BrightBlue,
+            NamedColor::Magenta => NamedColor::BrightMagenta,
+            NamedColor::Cyan => NamedColor::BrightCyan,
+            NamedColor::White => NamedColor::BrightWhite,
+            val => val
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Color {
     Named(NamedColor),

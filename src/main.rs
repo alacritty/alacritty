@@ -256,7 +256,7 @@ fn main() {
         let terminal = terminal.lock();
         signal_flag.set(false);
         if terminal.dirty {
-            display.draw(terminal);
+            display.draw(terminal, &config);
         }
 
         if process_should_exit() {
@@ -330,7 +330,7 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(&mut self, mut terminal: MutexGuard<Term>) {
+    pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config) {
         terminal.dirty = false;
 
         // Resize events new_size and are handled outside the poll_events
@@ -360,7 +360,7 @@ impl Display {
                 let _sampler = self.meter.sampler();
 
                 let size_info = terminal.size_info().clone();
-                self.renderer.with_api(&size_info, |mut api| {
+                self.renderer.with_api(config, &size_info, |mut api| {
                     api.clear();
 
                     // Draw the grid
@@ -372,7 +372,7 @@ impl Display {
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());
                 let color = alacritty::ansi::Color::Spec(Rgb { r: 0xd5, g: 0x4e, b: 0x53 });
-                self.renderer.with_api(terminal.size_info(), |mut api| {
+                self.renderer.with_api(config, terminal.size_info(), |mut api| {
                     api.render_string(&timing[..], glyph_cache, &color);
                 });
             }

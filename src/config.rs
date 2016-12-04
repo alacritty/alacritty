@@ -4,11 +4,13 @@
 //! parameters including font family and style, font size, etc. In the future,
 //! the config file will also hold user and platform specific keybindings.
 use std::env;
+use std::fmt;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::mpsc;
+use std::ops::{Index, IndexMut};
 
 use ::Rgb;
 use font::Size;
@@ -19,9 +21,148 @@ use notify::{Watcher as WatcherApi, RecommendedWatcher as FileWatcher, op};
 
 use input::{Action, Binding, MouseBinding, KeyBinding};
 
+use ansi;
+
 /// Function that returns true for serde default
 fn true_bool() -> bool {
     true
+}
+
+/// List of indexed colors
+///
+/// The first 16 entries are the standard ansi named colors. Items 16..232 are
+/// the color cube.  Items 233..256 are the grayscale ramp. Finally, item 256 is
+/// the configured foreground color, and item 257 is the configured background
+/// color.
+pub struct ColorList([Rgb; 258]);
+
+impl fmt::Debug for ColorList {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("ColorList[..]")
+    }
+}
+
+impl Default for ColorList {
+    fn default() -> ColorList {
+        ColorList::from(Colors::default())
+    }
+}
+
+impl From<Colors> for ColorList {
+    fn from(colors: Colors) -> ColorList {
+        // Type inference fails without this annotation
+        let mut list: ColorList = unsafe { ::std::mem::uninitialized() };
+
+        list.fill_named(&colors);
+        list.fill_cube();
+        list.fill_gray_ramp();
+
+        list
+    }
+}
+
+impl ColorList {
+    fn fill_named(&mut self, colors: &Colors) {
+        // Normals
+        self[ansi::NamedColor::Black]   = colors.normal.black;
+        self[ansi::NamedColor::Red]     = colors.normal.red;
+        self[ansi::NamedColor::Green]   = colors.normal.green;
+        self[ansi::NamedColor::Yellow]  = colors.normal.yellow;
+        self[ansi::NamedColor::Blue]    = colors.normal.blue;
+        self[ansi::NamedColor::Magenta] = colors.normal.magenta;
+        self[ansi::NamedColor::Cyan]    = colors.normal.cyan;
+        self[ansi::NamedColor::White]   = colors.normal.white;
+
+        // Brights
+        self[ansi::NamedColor::BrightBlack]   = colors.bright.black;
+        self[ansi::NamedColor::BrightRed]     = colors.bright.red;
+        self[ansi::NamedColor::BrightGreen]   = colors.bright.green;
+        self[ansi::NamedColor::BrightYellow]  = colors.bright.yellow;
+        self[ansi::NamedColor::BrightBlue]    = colors.bright.blue;
+        self[ansi::NamedColor::BrightMagenta] = colors.bright.magenta;
+        self[ansi::NamedColor::BrightCyan]    = colors.bright.cyan;
+        self[ansi::NamedColor::BrightWhite]   = colors.bright.white;
+
+        // Foreground and background
+        self[ansi::NamedColor::Foreground] = colors.primary.foreground;
+        self[ansi::NamedColor::Background] = colors.primary.background;
+    }
+
+    fn fill_cube(&mut self) {
+        let mut index = 16;
+        // Build colors
+        for r in 0..6 {
+            for g in 0..6 {
+                for b in 0..6 {
+                    self[index] = Rgb {
+                        r: if r == 0 { 0 } else { r * 40 + 55 },
+                        b: if b == 0 { 0 } else { b * 40 + 55 },
+                        g: if g == 0 { 0 } else { g * 40 + 55 },
+                    };
+                    index += 1;
+                }
+            }
+        }
+
+        debug_assert!(index == 232);
+    }
+
+    fn fill_gray_ramp(&mut self) {
+        let mut index = 232;
+
+        for i in 0..24 {
+            let value = i * 10 + 8;
+            self[index] = Rgb {
+                r: value,
+                g: value,
+                b: value
+            };
+            index += 1;
+        }
+
+        debug_assert!(index == 256);
+    }
+}
+
+impl Index<ansi::NamedColor> for ColorList {
+    type Output = Rgb;
+
+    #[inline]
+    fn index(&self, idx: ansi::NamedColor) -> &Self::Output {
+        &self.0[idx as usize]
+    }
+}
+
+impl IndexMut<ansi::NamedColor> for ColorList {
+    #[inline]
+    fn index_mut(&mut self, idx: ansi::NamedColor) -> &mut Self::Output {
+        &mut self.0[idx as usize]
+    }
+}
+
+impl Index<usize> for ColorList {
+    type Output = Rgb;
+
+    #[inline]
+    fn index(&self, idx: usize) -> &Self::Output {
+        &self.0[idx]
+    }
+}
+
+impl Index<u8> for ColorList {
+    type Output = Rgb;
+
+    #[inline]
+    fn index(&self, idx: u8) -> &Self::Output {
+        &self.0[idx as usize]
+    }
+}
+
+impl IndexMut<usize> for ColorList {
+    #[inline]
+    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
+        &mut self.0[idx]
+    }
 }
 
 /// Top-level config type
@@ -43,9 +184,8 @@ pub struct Config {
     #[serde(default="true_bool")]
     draw_bold_text_with_bright_colors: bool,
 
-    /// The standard ANSI colors to use
     #[serde(default)]
-    colors: Colors,
+    colors: ColorList,
 
     /// Keybindings
     #[serde(default)]
@@ -415,6 +555,15 @@ impl de::Deserialize for RawBinding {
     }
 }
 
+impl de::Deserialize for ColorList {
+    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+        where D: de::Deserializer
+    {
+        let named_colors = Colors::deserialize(deserializer)?;
+        Ok(ColorList::from(named_colors))
+    }
+}
+
 impl de::Deserialize for MouseBinding {
     fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
         where D: de::Deserializer
@@ -665,59 +814,8 @@ impl Config {
     ///
     /// The ordering returned here is expected by the terminal. Colors are simply indexed in this
     /// array for performance.
-    pub fn color_list(&self) -> Vec<Rgb> {
-        let mut colors = Vec::with_capacity(258);
-
-        // Normals
-        colors.push(self.colors.normal.black);
-        colors.push(self.colors.normal.red);
-        colors.push(self.colors.normal.green);
-        colors.push(self.colors.normal.yellow);
-        colors.push(self.colors.normal.blue);
-        colors.push(self.colors.normal.magenta);
-        colors.push(self.colors.normal.cyan);
-        colors.push(self.colors.normal.white);
-
-        // Brights
-        colors.push(self.colors.bright.black);
-        colors.push(self.colors.bright.red);
-        colors.push(self.colors.bright.green);
-        colors.push(self.colors.bright.yellow);
-        colors.push(self.colors.bright.blue);
-        colors.push(self.colors.bright.magenta);
-        colors.push(self.colors.bright.cyan);
-        colors.push(self.colors.bright.white);
-
-        // Build colors
-        for r in 0..6 {
-            for g in 0..6 {
-                for b in 0..6 {
-                    colors.push(Rgb {
-                        r: if r == 0 { 0 } else { r * 40 + 55 },
-                        b: if b == 0 { 0 } else { b * 40 + 55 },
-                        g: if g == 0 { 0 } else { g * 40 + 55 },
-                    });
-                }
-            }
-        }
-
-        // Build grays
-        for i in 0..24 {
-            let value = i * 10 + 8;
-            colors.push(Rgb {
-                r: value,
-                g: value,
-                b: value
-            });
-        }
-
-        debug_assert!(colors.len() == 256);
-
-        // Foreground and background
-        colors.push(self.colors.primary.foreground);
-        colors.push(self.colors.primary.background);
-
-        colors
+    pub fn color_list(&self) -> &ColorList {
+        &self.colors
     }
 
     pub fn key_bindings(&self) -> &[KeyBinding] {
@@ -726,14 +824,6 @@ impl Config {
 
     pub fn mouse_bindings(&self) -> &[MouseBinding] {
         &self.mouse_bindings[..]
-    }
-
-    pub fn fg_color(&self) -> Rgb {
-        self.colors.primary.foreground
-    }
-
-    pub fn bg_color(&self) -> Rgb {
-        self.colors.primary.background
     }
 
     #[inline]

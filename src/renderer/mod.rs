@@ -28,7 +28,7 @@ use index::{Line, Column};
 
 use ansi::{Color, NamedColor};
 
-use config::Config;
+use config::{Config, ColorList};
 use term::{self, cell, IndexedCell, Cell};
 
 use super::Rgb;
@@ -243,7 +243,6 @@ pub struct QuadRenderer {
     atlas: Vec<Atlas>,
     active_tex: GLuint,
     batch: Batch,
-    colors: Vec<Rgb>,
     draw_bold_text_with_bright_colors: bool,
     rx: mpsc::Receiver<Msg>,
 }
@@ -254,7 +253,7 @@ pub struct RenderApi<'a> {
     batch: &'a mut Batch,
     atlas: &'a mut Vec<Atlas>,
     program: &'a mut ShaderProgram,
-    colors: &'a [Rgb],
+    colors: &'a ColorList,
 }
 
 #[derive(Debug)]
@@ -273,7 +272,6 @@ pub struct PackedVertex {
 pub struct Batch {
     tex: GLuint,
     instances: Vec<InstanceData>,
-    colors: Vec<Rgb>,
     draw_bold_text_with_bright_colors: bool,
 }
 
@@ -283,12 +281,16 @@ impl Batch {
         Batch {
             tex: 0,
             instances: Vec::with_capacity(BATCH_MAX),
-            colors: config.color_list(),
             draw_bold_text_with_bright_colors: config.draw_bold_text_with_bright_colors(),
         }
     }
 
-    pub fn add_item(&mut self, cell: &IndexedCell, glyph: &Glyph) {
+    pub fn add_item(
+        &mut self,
+        cell: &IndexedCell,
+        glyph: &Glyph,
+        colors: &ColorList
+    ) {
         if self.is_empty() {
             self.tex = glyph.tex_id;
         }
@@ -296,13 +298,10 @@ impl Batch {
         let fg = match cell.fg {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => {
-                if self.draw_bold_text_with_bright_colors
-                    && cell.bold()
-                    && ansi < NamedColor::BrightBlack
-                {
-                    self.colors[ansi as usize + 8]
+                if self.draw_bold_text_with_bright_colors && cell.bold() {
+                    colors[ansi.to_bright()]
                 } else {
-                    self.colors[ansi as usize]
+                    colors[ansi]
                 }
             },
             Color::Indexed(idx) => {
@@ -315,14 +314,14 @@ impl Batch {
                     idx
                 };
 
-                self.colors[idx as usize]
+                colors[idx]
             }
         };
 
         let bg = match cell.bg {
             Color::Spec(rgb) => rgb,
-            Color::Named(ansi) => self.colors[ansi as usize],
-            Color::Indexed(idx) => self.colors[idx as usize],
+            Color::Named(ansi) => colors[ansi],
+            Color::Indexed(idx) => colors[idx],
         };
 
         self.instances.push(InstanceData {
@@ -528,7 +527,6 @@ impl QuadRenderer {
             atlas: Vec::new(),
             active_tex: 0,
             batch: Batch::new(config),
-            colors: config.color_list(),
             rx: msg_rx,
             draw_bold_text_with_bright_colors: config.draw_bold_text_with_bright_colors(),
         };
@@ -540,12 +538,15 @@ impl QuadRenderer {
     }
 
     pub fn update_config(&mut self, config: &Config) {
-        self.colors = config.color_list();
-        self.batch.colors = config.color_list();
         self.batch.draw_bold_text_with_bright_colors = config.draw_bold_text_with_bright_colors();
     }
 
-    pub fn with_api<F, T>(&mut self, props: &term::SizeInfo, func: F) -> T
+    pub fn with_api<F, T>(
+        &mut self,
+        config: &Config,
+        props: &term::SizeInfo,
+        func: F
+    ) -> T
         where F: FnOnce(RenderApi) -> T
     {
         while let Ok(msg) = self.rx.try_recv() {
@@ -571,7 +572,7 @@ impl QuadRenderer {
             batch: &mut self.batch,
             atlas: &mut self.atlas,
             program: &mut self.program,
-            colors: &self.colors,
+            colors: &config.color_list(),
         });
 
         unsafe {
@@ -635,7 +636,7 @@ impl QuadRenderer {
 
 impl<'a> RenderApi<'a> {
     pub fn clear(&self) {
-        let color = self.colors[NamedColor::Background as usize];
+        let color = self.colors[NamedColor::Background];
         unsafe {
             gl::ClearColor(
                 color.r as f32 / 255.0,
@@ -712,7 +713,7 @@ impl<'a> RenderApi<'a> {
             }
         }
 
-        self.batch.add_item(cell, glyph);
+        self.batch.add_item(cell, glyph, self.colors);
 
         // Render batch and clear if it's full
         if self.batch.full() {
