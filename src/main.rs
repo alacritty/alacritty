@@ -183,7 +183,6 @@ fn main() {
     let signal_flag = Flag::new(false);
 
     let terminal = Arc::new(FairMutex::new(terminal));
-    let window = Arc::new(window);
 
     // Setup the rsize callback for osx
     let terminal_ref = terminal.clone();
@@ -215,7 +214,7 @@ fn main() {
 
     // Wraps a renderer and gives simple draw() api.
     let mut display = Display::new(
-        window.clone(),
+        &window,
         renderer,
         glyph_cache,
         render_timer,
@@ -290,8 +289,8 @@ impl config::OnConfigReload for ConfigHandler {
     }
 }
 
-struct Display {
-    window: Arc<glutin::Window>,
+struct Display<'a> {
+    window: &'a glutin::Window,
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
@@ -300,20 +299,20 @@ struct Display {
     pty: Pty,
 }
 
-impl Display {
+impl<'a> Display<'a> {
     pub fn update_config(&mut self, config: &Config) {
         self.renderer.update_config(config);
         self.render_timer = config.render_timer();
     }
 
-    pub fn new(window: Arc<glutin::Window>,
-               renderer: QuadRenderer,
-               glyph_cache: GlyphCache,
-               render_timer: bool,
-               rx: mpsc::Receiver<(u32, u32)>,
-               pty: Pty)
-               -> Display
-    {
+    pub fn new(
+        window: &glutin::Window,
+        renderer: QuadRenderer,
+        glyph_cache: GlyphCache,
+        render_timer: bool,
+        rx: mpsc::Receiver<(u32, u32)>,
+        pty: Pty
+    ) -> Display {
         Display {
             window: window,
             renderer: renderer,
