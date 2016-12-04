@@ -364,7 +364,7 @@ impl Display {
                     api.clear();
 
                     // Draw the grid
-                    api.render_grid(terminal.renderable_cells(), glyph_cache);
+                    api.render_cells(terminal.renderable_cells(), glyph_cache);
                 });
             }
 

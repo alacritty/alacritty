@@ -685,7 +685,7 @@ impl<'a> RenderApi<'a> {
             })
             .collect::<Vec<_>>();
 
-        self.render_grid(cells.into_iter(), glyph_cache);
+        self.render_cells(cells.into_iter(), glyph_cache);
     }
 
     #[inline]
@@ -705,14 +705,14 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_grid<I>(
+    pub fn render_cells<I>(
         &mut self,
-        occupied_cells: I,
+        cells: I,
         glyph_cache: &mut GlyphCache
     )
         where I: Iterator<Item=::term::IndexedCell>
     {
-        for cell in occupied_cells {
+        for cell in cells {
             // Get font key for cell
             // FIXME this is super inefficient.
             let mut font_key = glyph_cache.font_key;
