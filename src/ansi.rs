@@ -31,6 +31,7 @@
 //! should be, feel free to add it. Please try not to become overzealous and adding support for
 //! sequences only used by folks trapped in 1988.
 use std::ops::Range;
+use std::io;
 
 use vte;
 
@@ -51,18 +52,24 @@ struct ProcessorState;
 ///
 /// Processor creates a Performer when running advance and passes the Performer
 /// to vte::Parser.
-struct Performer<'a, H: Handler + TermInfo + 'a> {
+struct Performer<'a, H: Handler + TermInfo + 'a, W: io::Write + 'a> {
     _state: &'a mut ProcessorState,
-    handler: &'a mut H
+    handler: &'a mut H,
+    writer: &'a mut W
 }
 
-impl<'a, H: Handler + TermInfo + 'a> Performer<'a, H> {
+impl<'a, H: Handler + TermInfo + 'a, W: io::Write> Performer<'a, H, W> {
     /// Create a performer
     #[inline]
-    pub fn new<'b>(state: &'b mut ProcessorState, handler: &'b mut H) -> Performer<'b, H> {
+    pub fn new<'b>(
+        state: &'b mut ProcessorState,
+        handler: &'b mut H,
+        writer: &'b mut W,
+    ) -> Performer<'b, H, W> {
         Performer {
             _state: state,
-            handler: handler
+            handler: handler,
+            writer: writer,
         }
     }
 }
@@ -76,8 +83,16 @@ impl Processor {
     }
 
     #[inline]
-    pub fn advance<H: Handler + TermInfo>(&mut self, handler: &mut H, byte: u8) {
-        let mut performer = Performer::new(&mut self.state, handler);
+    pub fn advance<H, W>(
+        &mut self,
+        handler: &mut H,
+        byte: u8,
+        writer: &mut W
+    )
+        where H: Handler + TermInfo,
+              W: io::Write
+    {
+        let mut performer = Performer::new(&mut self.state, handler, writer);
         self.parser.advance(&mut performer, byte);
     }
 }
@@ -116,7 +131,9 @@ pub trait Handler {
     fn move_down(&mut self, Line) {}
 
     /// Identify the terminal (should write back to the pty stream)
-    fn identify_terminal(&mut self) {}
+    ///
+    /// TODO this should probably return an io::Result
+    fn identify_terminal<W: io::Write>(&mut self, &mut W) {}
 
     /// Move cursor forward `cols`
     fn move_forward(&mut self, Column) {}
@@ -415,7 +432,10 @@ pub enum Attr {
     Background(Color),
 }
 
-impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
+impl<'a, H, W> vte::Perform for Performer<'a, H, W>
+    where H: Handler + TermInfo + 'a,
+          W: io::Write + 'a
+{
     #[inline]
     fn print(&mut self, c: char) {
         self.handler.input(c);
@@ -432,7 +452,7 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
             C0::SUB => self.handler.substitute(),
             C1::NEL => self.handler.newline(),
             C1::HTS => self.handler.set_horizontal_tabstop(),
-            C1::DECID => self.handler.identify_terminal(),
+            C1::DECID => self.handler.identify_terminal(self.writer),
             _ => err_println!("[unhandled] execute byte={:02x}", byte)
         }
     }
@@ -469,9 +489,16 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
     }
 
     #[inline]
-    fn csi_dispatch(&mut self, args: &[i64], intermediates: &[u8], _ignore: bool, action: char) {
+    fn csi_dispatch(
+        &mut self,
+        args: &[i64],
+        intermediates: &[u8],
+        _ignore: bool,
+        action: char
+    ) {
         let private = intermediates.get(0).map(|b| *b == b'?').unwrap_or(false);
         let handler = &mut self.handler;
+        let writer = &mut self.writer;
 
 
         macro_rules! unhandled {
@@ -500,7 +527,7 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
                 handler.move_up(Line(arg_or_default!(idx: 0, default: 1) as usize));
             },
             'B' | 'e' => handler.move_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            'c' => handler.identify_terminal(),
+            'c' => handler.identify_terminal(writer),
             'C' | 'a' => handler.move_forward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
             'D' => handler.move_backward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
             'E' => handler.move_down_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize)),
@@ -650,7 +677,7 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
                     i += 1; // C-for expr
                 }
             }
-            'n' => handler.identify_terminal(),
+            'n' => handler.identify_terminal(writer),
             'r' => {
                 if private {
                     unhandled!();
@@ -679,7 +706,7 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
             b'E' => self.handler.newline(),
             b'H' => self.handler.set_horizontal_tabstop(),
             b'M' => self.handler.reverse_index(),
-            b'Z' => self.handler.identify_terminal(),
+            b'Z' => self.handler.identify_terminal(self.writer),
             b'c' => self.handler.reset_state(),
             b'7' => self.handler.save_cursor_position(),
             b'8' => self.handler.restore_cursor_position(),
@@ -899,9 +926,25 @@ pub mod C1 {
 // Byte sequences used in these tests are recording of pty stdout.
 #[cfg(test)]
 mod tests {
+    use std::io;
+
     use index::{Line, Column};
     use super::{Processor, Handler, Attr, TermInfo, Color};
     use ::Rgb;
+
+    /// The /dev/null of io::Write
+    struct Void;
+
+    impl io::Write for Void {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
 
     #[derive(Default)]
     struct AttrHandler {
@@ -934,7 +977,7 @@ mod tests {
         let mut handler = AttrHandler::default();
 
         for byte in &BYTES[..] {
-            parser.advance(&mut handler, *byte);
+            parser.advance(&mut handler, *byte, &mut Void);
         }
 
         assert_eq!(handler.attr, Some(Attr::Bold));
@@ -951,7 +994,7 @@ mod tests {
         let mut handler = AttrHandler::default();
 
         for byte in &BYTES[..] {
-            parser.advance(&mut handler, *byte);
+            parser.advance(&mut handler, *byte, &mut Void);
         }
 
         let spec = Rgb {
@@ -986,7 +1029,7 @@ mod tests {
         let mut parser = Processor::new();
 
         for byte in &BYTES[..] {
-            parser.advance(&mut handler, *byte);
+            parser.advance(&mut handler, *byte, &mut Void);
         }
     }
 }

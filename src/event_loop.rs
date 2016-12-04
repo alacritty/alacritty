@@ -189,7 +189,7 @@ impl<Io> EventLoop<Io>
 
                     let mut terminal = self.terminal.lock();
                     for byte in &buf[..got] {
-                        state.parser.advance(&mut *terminal, *byte);
+                        state.parser.advance(&mut *terminal, *byte, &mut self.pty);
                     }
 
                     terminal.dirty = true;

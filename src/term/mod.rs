@@ -16,6 +16,7 @@
 use std::ops::{Deref, Range};
 use std::ptr;
 use std::cmp;
+use std::io;
 
 use ansi::{self, Attr, Handler};
 use grid::{Grid, ClearRegion};
@@ -557,8 +558,8 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn identify_terminal(&mut self) {
-        err_println!("[unimplemented] identify_terminal");
+    fn identify_terminal<W: io::Write>(&mut self, writer: &mut W) {
+        let _ = writer.write_all("\x1b[?6c".as_bytes());
     }
 
     #[inline]

@@ -4,7 +4,7 @@ extern crate serde_json;
 /// ref tests
 mod reference {
     use std::fs::File;
-    use std::io::Read;
+    use std::io::{self, Read};
     use std::path::Path;
 
     use serde_json as json;
@@ -14,6 +14,19 @@ mod reference {
     use alacritty::term::Cell;
     use alacritty::term::SizeInfo;
     use alacritty::ansi;
+
+    /// The /dev/null of io::Write
+    struct Void;
+
+    impl io::Write for Void {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
 
     macro_rules! ref_file {
         ($ref_name:ident, $file:expr) => {
@@ -59,7 +72,7 @@ mod reference {
                 let mut parser = ansi::Processor::new();
 
                 for byte in recording {
-                    parser.advance(&mut terminal, byte);
+                    parser.advance(&mut terminal, byte, &mut Void);
                 }
 
                 assert_eq!(grid, *terminal.grid());
