@@ -246,6 +246,7 @@ fn main() {
         // Wait for something to happen
         processor.process_events(&window);
 
+        // Handle config reloads
         if let Ok(config) = config_rx.try_recv() {
             display.update_config(&config);
             processor.update_config(&config);
@@ -258,6 +259,7 @@ fn main() {
             display.draw(terminal, &config);
         }
 
+        // Begin shutdown if the flag was raised.
         if process_should_exit() {
             break;
         }
