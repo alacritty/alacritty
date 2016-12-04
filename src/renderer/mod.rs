@@ -26,6 +26,8 @@ use gl;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 use index::{Line, Column};
 
+use ansi::{Color, NamedColor};
+
 use config::Config;
 use term::{self, cell, IndexedCell, Cell};
 
@@ -241,7 +243,7 @@ pub struct QuadRenderer {
     atlas: Vec<Atlas>,
     active_tex: GLuint,
     batch: Batch,
-    colors: [Rgb; 18],
+    colors: Vec<Rgb>,
     draw_bold_text_with_bright_colors: bool,
     rx: mpsc::Receiver<Msg>,
 }
@@ -252,7 +254,7 @@ pub struct RenderApi<'a> {
     batch: &'a mut Batch,
     atlas: &'a mut Vec<Atlas>,
     program: &'a mut ShaderProgram,
-    colors: &'a [Rgb; 18],
+    colors: &'a [Rgb],
 }
 
 #[derive(Debug)]
@@ -271,7 +273,7 @@ pub struct PackedVertex {
 pub struct Batch {
     tex: GLuint,
     instances: Vec<InstanceData>,
-    colors: [Rgb; 18],
+    colors: Vec<Rgb>,
     draw_bold_text_with_bright_colors: bool,
 }
 
@@ -292,22 +294,35 @@ impl Batch {
         }
 
         let fg = match cell.fg {
-            ::term::cell::Color::Rgb(rgb) => rgb,
-            ::term::cell::Color::Ansi(ansi) => {
+            Color::Spec(rgb) => rgb,
+            Color::Named(ansi) => {
                 if self.draw_bold_text_with_bright_colors
                     && cell.bold()
-                    && ansi < ::ansi::Color::BrightBlack
+                    && ansi < NamedColor::BrightBlack
                 {
                     self.colors[ansi as usize + 8]
                 } else {
                     self.colors[ansi as usize]
                 }
+            },
+            Color::Indexed(idx) => {
+                let idx = if self.draw_bold_text_with_bright_colors
+                    && cell.bold()
+                    && idx < 8
+                {
+                    idx + 8
+                } else {
+                    idx
+                };
+
+                self.colors[idx as usize]
             }
         };
 
         let bg = match cell.bg {
-            ::term::cell::Color::Rgb(rgb) => rgb,
-            ::term::cell::Color::Ansi(ansi) => self.colors[ansi as usize],
+            Color::Spec(rgb) => rgb,
+            Color::Named(ansi) => self.colors[ansi as usize],
+            Color::Indexed(idx) => self.colors[idx as usize],
         };
 
         self.instances.push(InstanceData {
@@ -620,7 +635,7 @@ impl QuadRenderer {
 
 impl<'a> RenderApi<'a> {
     pub fn clear(&self) {
-        let color = self.colors[::ansi::Color::Background as usize];
+        let color = self.colors[NamedColor::Background as usize];
         unsafe {
             gl::ClearColor(
                 color.r as f32 / 255.0,
@@ -666,7 +681,7 @@ impl<'a> RenderApi<'a> {
         &mut self,
         string: &str,
         glyph_cache: &mut GlyphCache,
-        color: &::term::cell::Color,
+        color: &Color,
     ) {
         let line = Line(23);
         let col = Column(0);
@@ -679,7 +694,7 @@ impl<'a> RenderApi<'a> {
                 inner: Cell {
                     c: c,
                     bg: *color,
-                    fg: cell::Color::Rgb(Rgb { r: 0, g: 0, b: 0}),
+                    fg: Color::Spec(Rgb { r: 0, g: 0, b: 0}),
                     flags: cell::Flags::empty(),
                 }
             })

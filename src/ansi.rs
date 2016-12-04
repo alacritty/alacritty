@@ -310,7 +310,7 @@ pub enum TabulationClearMode {
 /// The order here matters since the enum should be castable to a `usize` for
 /// indexing a color list.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum Color {
+pub enum NamedColor {
     /// Black
     Black = 0,
     /// Red
@@ -344,9 +344,16 @@ pub enum Color {
     /// Bright white
     BrightWhite,
     /// The foreground color
-    Foreground,
+    Foreground = 256,
     /// The background color
     Background,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Color {
+    Named(NamedColor),
+    Spec(Rgb),
+    Indexed(u8),
 }
 
 /// Terminal character attributes
@@ -388,12 +395,8 @@ pub enum Attr {
     CancelStrike,
     /// Set indexed foreground color
     Foreground(Color),
-    /// Set specific foreground color
-    ForegroundSpec(Rgb),
     /// Set indexed background color
     Background(Color),
-    /// Set specific background color
-    BackgroundSpec(Rgb),
 }
 
 impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
@@ -575,54 +578,54 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
                         27 => Attr::CancelReverse,
                         28 => Attr::CancelHidden,
                         29 => Attr::CancelStrike,
-                        30 => Attr::Foreground(Color::Black),
-                        31 => Attr::Foreground(Color::Red),
-                        32 => Attr::Foreground(Color::Green),
-                        33 => Attr::Foreground(Color::Yellow),
-                        34 => Attr::Foreground(Color::Blue),
-                        35 => Attr::Foreground(Color::Magenta),
-                        36 => Attr::Foreground(Color::Cyan),
-                        37 => Attr::Foreground(Color::White),
+                        30 => Attr::Foreground(Color::Named(NamedColor::Black)),
+                        31 => Attr::Foreground(Color::Named(NamedColor::Red)),
+                        32 => Attr::Foreground(Color::Named(NamedColor::Green)),
+                        33 => Attr::Foreground(Color::Named(NamedColor::Yellow)),
+                        34 => Attr::Foreground(Color::Named(NamedColor::Blue)),
+                        35 => Attr::Foreground(Color::Named(NamedColor::Magenta)),
+                        36 => Attr::Foreground(Color::Named(NamedColor::Cyan)),
+                        37 => Attr::Foreground(Color::Named(NamedColor::White)),
                         38 => {
-                            if let Some(spec) = parse_color(&args[i..], &mut i) {
-                                Attr::ForegroundSpec(spec)
+                            if let Some(color) = parse_color(&args[i..], &mut i) {
+                                Attr::Foreground(color)
                             } else {
                                 break;
                             }
                         },
-                        39 => Attr::Foreground(Color::Foreground),
-                        40 => Attr::Background(Color::Black),
-                        41 => Attr::Background(Color::Red),
-                        42 => Attr::Background(Color::Green),
-                        43 => Attr::Background(Color::Yellow),
-                        44 => Attr::Background(Color::Blue),
-                        45 => Attr::Background(Color::Magenta),
-                        46 => Attr::Background(Color::Cyan),
-                        47 => Attr::Background(Color::White),
+                        39 => Attr::Foreground(Color::Named(NamedColor::Foreground)),
+                        40 => Attr::Background(Color::Named(NamedColor::Black)),
+                        41 => Attr::Background(Color::Named(NamedColor::Red)),
+                        42 => Attr::Background(Color::Named(NamedColor::Green)),
+                        43 => Attr::Background(Color::Named(NamedColor::Yellow)),
+                        44 => Attr::Background(Color::Named(NamedColor::Blue)),
+                        45 => Attr::Background(Color::Named(NamedColor::Magenta)),
+                        46 => Attr::Background(Color::Named(NamedColor::Cyan)),
+                        47 => Attr::Background(Color::Named(NamedColor::White)),
                         48 =>  {
-                            if let Some(spec) = parse_color(&args[i..], &mut i) {
-                                Attr::BackgroundSpec(spec)
+                            if let Some(color) = parse_color(&args[i..], &mut i) {
+                                Attr::Background(color)
                             } else {
                                 break;
                             }
                         },
-                        49 => Attr::Background(Color::Background),
-                        90 => Attr::Foreground(Color::BrightBlack),
-                        91 => Attr::Foreground(Color::BrightRed),
-                        92 => Attr::Foreground(Color::BrightGreen),
-                        93 => Attr::Foreground(Color::BrightYellow),
-                        94 => Attr::Foreground(Color::BrightBlue),
-                        95 => Attr::Foreground(Color::BrightMagenta),
-                        96 => Attr::Foreground(Color::BrightCyan),
-                        97 => Attr::Foreground(Color::BrightWhite),
-                        100 => Attr::Foreground(Color::BrightBlack),
-                        101 => Attr::Foreground(Color::BrightRed),
-                        102 => Attr::Foreground(Color::BrightGreen),
-                        103 => Attr::Foreground(Color::BrightYellow),
-                        104 => Attr::Foreground(Color::BrightBlue),
-                        105 => Attr::Foreground(Color::BrightMagenta),
-                        106 => Attr::Foreground(Color::BrightCyan),
-                        107 => Attr::Foreground(Color::BrightWhite),
+                        49 => Attr::Background(Color::Named(NamedColor::Background)),
+                        90 => Attr::Foreground(Color::Named(NamedColor::BrightBlack)),
+                        91 => Attr::Foreground(Color::Named(NamedColor::BrightRed)),
+                        92 => Attr::Foreground(Color::Named(NamedColor::BrightGreen)),
+                        93 => Attr::Foreground(Color::Named(NamedColor::BrightYellow)),
+                        94 => Attr::Foreground(Color::Named(NamedColor::BrightBlue)),
+                        95 => Attr::Foreground(Color::Named(NamedColor::BrightMagenta)),
+                        96 => Attr::Foreground(Color::Named(NamedColor::BrightCyan)),
+                        97 => Attr::Foreground(Color::Named(NamedColor::BrightWhite)),
+                        100 => Attr::Foreground(Color::Named(NamedColor::BrightBlack)),
+                        101 => Attr::Foreground(Color::Named(NamedColor::BrightRed)),
+                        102 => Attr::Foreground(Color::Named(NamedColor::BrightGreen)),
+                        103 => Attr::Foreground(Color::Named(NamedColor::BrightYellow)),
+                        104 => Attr::Foreground(Color::Named(NamedColor::BrightBlue)),
+                        105 => Attr::Foreground(Color::Named(NamedColor::BrightMagenta)),
+                        106 => Attr::Foreground(Color::Named(NamedColor::BrightCyan)),
+                        107 => Attr::Foreground(Color::Named(NamedColor::BrightWhite)),
                         _ => unhandled!(),
                     };
 
@@ -674,7 +677,7 @@ impl<'a, H: Handler + TermInfo + 'a> vte::Perform for Performer<'a, H> {
 
 
 /// Parse a color specifier from list of attributes
-fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Rgb> {
+fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
     if attrs.len() < 2 {
         return None;
     }
@@ -699,11 +702,29 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Rgb> {
                 return None;
             }
 
-            Some(Rgb {
+            Some(Color::Spec(Rgb {
                 r: r as u8,
                 g: g as u8,
                 b: b as u8
-            })
+            }))
+        },
+        5 => {
+            if attrs.len() < 3 {
+                err_println!("Expected color index; got {:?}", attrs);
+                None
+            } else {
+                *i = *i + 2;
+                let idx = attrs[*i];
+                match idx {
+                    0 ... 255 => {
+                        Some(Color::Indexed(idx as u8))
+                    },
+                    _ => {
+                        err_println!("Invalid color index: {}", idx);
+                        None
+                    }
+                }
+            }
         },
         _ => {
             err_println!("Unexpected color attr: {}", attrs[*i+1]);
@@ -863,7 +884,7 @@ pub mod C1 {
 #[cfg(test)]
 mod tests {
     use index::{Line, Column};
-    use super::{Processor, Handler, Attr, TermInfo};
+    use super::{Processor, Handler, Attr, TermInfo, Color};
     use ::Rgb;
 
     #[derive(Default)]
@@ -923,7 +944,7 @@ mod tests {
             b: 255
         };
 
-        assert_eq!(handler.attr, Some(Attr::ForegroundSpec(spec)));
+        assert_eq!(handler.attr, Some(Attr::Foreground(Color::Spec(spec))));
     }
 
     /// No exactly a test; useful for debugging

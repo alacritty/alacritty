@@ -665,34 +665,59 @@ impl Config {
     ///
     /// The ordering returned here is expected by the terminal. Colors are simply indexed in this
     /// array for performance.
-    pub fn color_list(&self) -> [Rgb; 18] {
-        let colors = &self.colors;
+    pub fn color_list(&self) -> Vec<Rgb> {
+        let mut colors = Vec::with_capacity(258);
 
-        [
-            // Normals
-            colors.normal.black,
-            colors.normal.red,
-            colors.normal.green,
-            colors.normal.yellow,
-            colors.normal.blue,
-            colors.normal.magenta,
-            colors.normal.cyan,
-            colors.normal.white,
+        // Normals
+        colors.push(self.colors.normal.black);
+        colors.push(self.colors.normal.red);
+        colors.push(self.colors.normal.green);
+        colors.push(self.colors.normal.yellow);
+        colors.push(self.colors.normal.blue);
+        colors.push(self.colors.normal.magenta);
+        colors.push(self.colors.normal.cyan);
+        colors.push(self.colors.normal.white);
 
-            // Brights
-            colors.bright.black,
-            colors.bright.red,
-            colors.bright.green,
-            colors.bright.yellow,
-            colors.bright.blue,
-            colors.bright.magenta,
-            colors.bright.cyan,
-            colors.bright.white,
+        // Brights
+        colors.push(self.colors.bright.black);
+        colors.push(self.colors.bright.red);
+        colors.push(self.colors.bright.green);
+        colors.push(self.colors.bright.yellow);
+        colors.push(self.colors.bright.blue);
+        colors.push(self.colors.bright.magenta);
+        colors.push(self.colors.bright.cyan);
+        colors.push(self.colors.bright.white);
 
-            // Foreground and background
-            colors.primary.foreground,
-            colors.primary.background,
-        ]
+        // Build colors
+        for r in 0..6 {
+            for g in 0..6 {
+                for b in 0..6 {
+                    colors.push(Rgb {
+                        r: if r == 0 { 0 } else { r * 40 + 55 },
+                        b: if b == 0 { 0 } else { b * 40 + 55 },
+                        g: if g == 0 { 0 } else { g * 40 + 55 },
+                    });
+                }
+            }
+        }
+
+        // Build grays
+        for i in 0..24 {
+            let value = i * 10 + 8;
+            colors.push(Rgb {
+                r: value,
+                g: value,
+                b: value
+            });
+        }
+
+        debug_assert!(colors.len() == 256);
+
+        // Foreground and background
+        colors.push(self.colors.primary.foreground);
+        colors.push(self.colors.primary.background);
+
+        colors
     }
 
     pub fn key_bindings(&self) -> &[KeyBinding] {

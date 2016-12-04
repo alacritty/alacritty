@@ -15,8 +15,7 @@
 
 use std::mem;
 
-use ansi;
-use Rgb;
+use ansi::{NamedColor, Color};
 
 bitflags! {
     #[derive(Serialize, Deserialize)]
@@ -26,12 +25,6 @@ bitflags! {
         const ITALIC    = 0b00000100,
         const UNDERLINE = 0b00001000,
     }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Color {
-    Rgb(Rgb),
-    Ansi(ansi::Color),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
@@ -59,7 +52,7 @@ impl Cell {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.c == ' ' &&
-            self.bg == Color::Ansi(ansi::Color::Background) &&
+            self.bg == Color::Named(NamedColor::Background) &&
             !self.flags.contains(INVERSE)
     }
 

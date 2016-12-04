@@ -20,7 +20,7 @@ use std::cmp;
 use ansi::{self, Attr, Handler};
 use grid::{Grid, ClearRegion};
 use index::{Cursor, Column, Line};
-use ansi::Color;
+use ansi::{Color, NamedColor};
 
 pub mod cell;
 pub use self::cell::Cell;
@@ -250,8 +250,8 @@ impl Term {
     pub fn new(size: SizeInfo) -> Term {
         let template = Cell::new(
             ' ',
-            cell::Color::Ansi(Color::Foreground),
-            cell::Color::Ansi(Color::Background)
+            Color::Named(NamedColor::Foreground),
+            Color::Named(NamedColor::Background)
         );
 
         let num_cols = size.cols();
@@ -800,21 +800,11 @@ impl ansi::Handler for Term {
     fn terminal_attribute(&mut self, attr: Attr) {
         debug_println!("Set Attribute: {:?}", attr);
         match attr {
-            Attr::Foreground(named_color) => {
-                self.template_cell.fg = cell::Color::Ansi(named_color);
-            },
-            Attr::Background(named_color) => {
-                self.template_cell.bg = cell::Color::Ansi(named_color);
-            },
-            Attr::ForegroundSpec(rgb) => {
-                self.template_cell.fg = cell::Color::Rgb(rgb);
-            },
-            Attr::BackgroundSpec(rgb) => {
-                self.template_cell.bg = cell::Color::Rgb(rgb);
-            },
+            Attr::Foreground(color) => self.template_cell.fg = color,
+            Attr::Background(color) => self.template_cell.bg = color,
             Attr::Reset => {
-                self.template_cell.fg = cell::Color::Ansi(Color::Foreground);
-                self.template_cell.bg = cell::Color::Ansi(Color::Background);
+                self.template_cell.fg = Color::Named(NamedColor::Foreground);
+                self.template_cell.bg = Color::Named(NamedColor::Background);
                 self.template_cell.flags = cell::Flags::empty();
             },
             Attr::Reverse => self.template_cell.flags.insert(cell::INVERSE),
@@ -888,10 +878,10 @@ mod tests {
 
     use super::limit;
 
-    use ansi::{Color};
+    use ansi::{Color, NamedColor};
     use grid::Grid;
     use index::{Line, Column};
-    use term::{cell, Cell};
+    use term::{Cell};
 
     /// Check that the grid can be serialized back and forth losslessly
     ///
@@ -901,8 +891,8 @@ mod tests {
     fn grid_serde() {
         let template = Cell::new(
             ' ',
-            cell::Color::Ansi(Color::Foreground),
-            cell::Color::Ansi(Color::Background)
+            Color::Named(NamedColor::Foreground),
+            Color::Named(NamedColor::Background)
         );
 
         let grid = Grid::new(Line(24), Column(80), &template);

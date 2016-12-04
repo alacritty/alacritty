@@ -371,7 +371,7 @@ impl Display {
             // Draw render timer
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());
-                let color = alacritty::term::cell::Color::Rgb(Rgb { r: 0xd5, g: 0x4e, b: 0x53 });
+                let color = alacritty::ansi::Color::Spec(Rgb { r: 0xd5, g: 0x4e, b: 0x53 });
                 self.renderer.with_api(terminal.size_info(), |mut api| {
                     api.render_string(&timing[..], glyph_cache, &color);
                 });
