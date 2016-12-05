@@ -74,13 +74,13 @@ mod cli;
 
 fn main() {
     // Load configuration
-    let (config, config_path) = match Config::load() {
+    let config = match Config::load() {
         // Error loading config
         Err(err) => match err {
             // Use default config when not found
             config::Error::NotFound => {
                 err_println!("Config file not found; using defaults");
-                (Config::default(), None)
+                Config::default()
             },
 
             // If there's a problem with the config file, print an error
@@ -89,23 +89,29 @@ fn main() {
         },
 
         // Successfully loaded config from file
-        Ok((config, path)) => (config, Some(path)),
+        Ok(config) => config
     };
 
+    // Load command line options
     let options = cli::Options::load();
 
+    // Extract some properties from config
     let font = config.font();
     let dpi = config.dpi();
     let render_timer = config.render_timer();
 
+    // Create glutin window
     let mut window = glutin::WindowBuilder::new()
                                            .with_vsync()
                                            .with_title("Alacritty")
                                            .build().unwrap();
 
+    // Set the glutin window resize callback for this one window.
     window.set_window_resize_callback(Some(window_resize_handler as fn(u32, u32)));
 
+    // load gl symbols
     gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
+    // get window properties for initializing the other subsytems
     let (width, height) = window.get_inner_size_pixels().unwrap();
     let dpr = window.hidpi_factor();
 
@@ -140,11 +146,14 @@ fn main() {
         cache
     };
 
+    // Need font metrics to resize the window properly. This suggests to me the
+    // font metrics should be computed before creating the window in the first
+    // place so that a resize is not needed.
     let metrics = glyph_cache.font_metrics();
     let cell_width = (metrics.average_advance + font.offset().x() as f64) as u32;
     let cell_height = (metrics.line_height + font.offset().y() as f64) as u32;
 
-    // Resize window to be 80 col x 24 lines
+    // Resize window to specified dimensions
     let width = cell_width * options.columns_u32() + 4;
     let height = cell_height * options.lines_u32() + 4;
     println!("set_inner_size: {} x {}", width, height);
@@ -225,8 +234,8 @@ fn main() {
     let (config_tx, config_rx) = mpsc::channel();
 
     // create a config watcher when config is loaded from disk
-    let _config_reloader = config_path.map(|config_path| {
-        config::Watcher::new(config_path, ConfigHandler {
+    let _config_reloader = config.path().map(|path| {
+        config::Watcher::new(path, ConfigHandler {
             tx: config_tx,
             window: window.create_window_proxy(),
         })
@@ -273,7 +282,6 @@ struct ConfigHandler {
     window: ::glutin::WindowProxy,
 }
 
-// TODO FIXME
 impl config::OnConfigReload for ConfigHandler {
     fn on_config_reload(&mut self, config: Config) {
         if let Err(..) = self.tx.send(config) {

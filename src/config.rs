@@ -194,6 +194,9 @@ pub struct Config {
     /// Bindings for the mouse
     #[serde(default)]
     mouse_bindings: Vec<MouseBinding>,
+
+    /// Path where config was loaded from
+    config_path: Option<PathBuf>,
 }
 
 impl Default for Config {
@@ -206,6 +209,7 @@ impl Default for Config {
             colors: Default::default(),
             key_bindings: Vec::new(),
             mouse_bindings: Vec::new(),
+            config_path: None,
         }
     }
 }
@@ -785,7 +789,7 @@ impl Config {
     ///
     /// 1. `$HOME/.config/alacritty.yml`
     /// 2. `$HOME/.alacritty.yml`
-    pub fn load() -> Result<(Config, PathBuf)> {
+    pub fn load() -> Result<Config> {
         let home = env::var("HOME")?;
 
         // First path
@@ -849,10 +853,19 @@ impl Config {
         self.render_timer
     }
 
-    fn load_from<P: Into<PathBuf>>(path: P) -> Result<(Config, PathBuf)> {
+    pub fn path(&self) -> Option<&Path> {
+        self.config_path
+            .as_ref()
+            .map(|p| p.as_path())
+    }
+
+    fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
         let path = path.into();
         let raw = Config::read_file(path.as_path())?;
-        Ok((serde_yaml::from_str(&raw[..])?, path))
+        let mut config: Config = serde_yaml::from_str(&raw)?;
+        config.config_path = Some(path);
+
+        Ok(config)
     }
 
     fn read_file<P: AsRef<Path>>(path: P) -> Result<String> {
@@ -1068,7 +1081,12 @@ pub trait OnConfigReload {
 }
 
 impl Watcher {
-    pub fn new<H: OnConfigReload + Send + 'static>(path: PathBuf, mut handler: H) -> Watcher {
+    pub fn new<H, P>(path: P, mut handler: H) -> Watcher
+        where H: OnConfigReload + Send + 'static,
+              P: Into<PathBuf>
+    {
+        let path = path.into();
+
         Watcher(::util::thread::spawn_named("config watcher", move || {
             let (tx, rx) = mpsc::channel();
             let mut watcher = FileWatcher::new(tx).unwrap();
@@ -1099,7 +1117,7 @@ impl Watcher {
                     path.map(|path| {
                         if path == config_path {
                             match Config::load() {
-                                Ok((config, _)) => handler.on_config_reload(config),
+                                Ok(config) => handler.on_config_reload(config),
                                 Err(err) => err_println!("Ignoring invalid config: {}", err),
                             }
                         }
