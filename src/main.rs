@@ -70,38 +70,29 @@ fn window_resize_handler(width: u32, height: u32) {
     }
 }
 
+mod cli;
+
 fn main() {
     // Load configuration
     let (config, config_path) = match Config::load() {
+        // Error loading config
         Err(err) => match err {
             // Use default config when not found
-            config::Error::NotFound => (Config::default(), None),
-            // Exit when there's a problem with it
+            config::Error::NotFound => {
+                err_println!("Config file not found; using defaults");
+                (Config::default(), None)
+            },
+
+            // If there's a problem with the config file, print an error
+            // and exit.
             _ => die!("{}", err),
         },
+
+        // Successfully loaded config from file
         Ok((config, path)) => (config, Some(path)),
     };
 
-    let mut ref_test = false;
-    let mut columns = 80;
-    let mut lines = 24;
-
-    let mut args_iter = ::std::env::args();
-    while let Some(arg) = args_iter.next() {
-        match &arg[..] {
-            // Generate ref test
-            "--ref-test" => ref_test = true,
-            // Set dimensions
-            "-d" | "--dimensions" => {
-                args_iter.next()
-                    .map(|w| w.parse().map(|w| columns = w));
-                args_iter.next()
-                    .map(|h| h.parse().map(|h| lines = h));
-            },
-            // ignore unexpected
-            _ => (),
-        }
-    }
+    let options = cli::Options::load();
 
     let font = config.font();
     let dpi = config.dpi();
@@ -154,8 +145,8 @@ fn main() {
     let cell_height = (metrics.line_height + font.offset().y() as f64) as u32;
 
     // Resize window to be 80 col x 24 lines
-    let width = cell_width * columns + 4;
-    let height = cell_height * lines + 4;
+    let width = cell_width * options.columns_u32() + 4;
+    let height = cell_height * options.lines_u32() + 4;
     println!("set_inner_size: {} x {}", width, height);
     // Is this in points?
     let width_pts = (width as f32 / dpr) as u32;
@@ -206,7 +197,7 @@ fn main() {
         window.create_window_proxy(),
         signal_flag.clone(),
         pty_io,
-        ref_test,
+        options.ref_test,
     );
 
     let loop_tx = event_loop.channel();
@@ -228,7 +219,7 @@ fn main() {
         terminal.clone(),
         tx,
         &config,
-        ref_test,
+        options.ref_test,
     );
 
     let (config_tx, config_rx) = mpsc::channel();
