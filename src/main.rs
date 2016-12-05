@@ -242,12 +242,15 @@ fn main() {
     });
 
     // Main loop
+    let mut force_draw;
     loop {
+        force_draw = false;
         // Wait for something to happen
         processor.process_events(&window);
 
         // Handle config reloads
         if let Ok(config) = config_rx.try_recv() {
+            force_draw = true;
             display.update_config(&config);
             processor.update_config(&config);
         }
@@ -255,7 +258,7 @@ fn main() {
         // Maybe draw the terminal
         let terminal = terminal.lock();
         signal_flag.set(false);
-        if terminal.dirty {
+        if force_draw || terminal.dirty {
             display.draw(terminal, &config);
         }
 
