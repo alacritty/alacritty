@@ -570,7 +570,9 @@ impl ansi::Handler for Term {
     #[inline]
     fn backspace(&mut self) {
         debug_println!("backspace");
-        self.cursor.col -= 1;
+        if self.cursor.col > Column(0) {
+            self.cursor.col -= 1;
+        }
     }
 
     /// Carriage return
