@@ -85,6 +85,80 @@ fn main() {
     // Load command line options
     let options = cli::Options::load();
 
+    // Run alacritty
+    run(config, options);
+}
+
+/// Run Alacritty
+///
+/// Currently, these operations take place in this order.
+/// 1.  create a window
+/// 2.  create font rasterizer
+/// 3.  create quad renderer
+/// 4.  create glyph cache
+/// 5.  resize window/renderer using info from glyph cache / rasterizer
+/// 6.  create a pty
+/// 7.  create the terminal
+/// 8.  set resize callback on the window
+/// 9.  create event loop
+/// 10. create display
+/// 11. create input processor
+/// 12. create config reloader
+/// 13. enter main loop
+///
+/// Observations:
+/// * The window + quad renderer + glyph cache and display are closely
+///   related Actually, probably include the input processor as well.
+///   The resize callback can be lumped in there and that resize step.
+///   Rasterizer as well. Maybe we can lump *all* of this into the
+///   `Display`.
+/// * the pty and event loop closely related
+/// * The term bridges the display and pty
+/// * Main loop currently manages input, config reload events, drawing, and
+///   exiting
+///
+/// It would be *really* great if this could read more like
+///
+/// ```ignore
+/// let display = Display::new(args..);
+/// let pty = Pty::new(display.size());
+/// let term = Arc::new(Term::new(display.size());
+/// let io_loop = Loop::new(Pty::new(display.size()), term.clone());
+/// let config_reloader = config::Monitor::new(&config);
+///
+/// loop {
+///     force_draw = false;
+///     // Wait for something to happen
+///     processor.process_events(&display);
+///
+///     // Handle config reloads
+///     if let Ok(config) = config_rx.try_recv() {
+///         force_draw = true;
+///         display.update_config(&config);
+///         processor.update_config(&config);
+///     }
+///
+///     // Maybe draw the terminal
+///     let terminal = terminal.lock();
+///     signal_flag.set(false);
+///     if force_draw || terminal.dirty {
+///         display.draw(terminal, &config);
+///         drop(terminal);
+///         display.swap_buffers();
+///     }
+///
+///     // Begin shutdown if the flag was raised.
+///     if process_should_exit() {
+///         break;
+///     }
+/// }
+/// ```
+///
+/// instead of the 200 line monster it currently is.
+///
+fn run(config: Config, options: cli::Options) {
+
+
     // Extract some properties from config
     let font = config.font();
     let dpi = config.dpi();
