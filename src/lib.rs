@@ -48,8 +48,11 @@ extern crate bitflags;
 #[macro_use]
 pub mod macros;
 
+pub mod ansi;
+pub mod config;
 pub mod event;
 pub mod event_loop;
+pub mod grid;
 pub mod index;
 pub mod input;
 pub mod meter;
@@ -58,9 +61,7 @@ pub mod sync;
 pub mod term;
 pub mod tty;
 pub mod util;
-pub mod ansi;
-pub mod config;
-pub mod grid;
+pub mod window;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};

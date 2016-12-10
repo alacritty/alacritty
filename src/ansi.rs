@@ -927,7 +927,6 @@ pub mod C1 {
 #[cfg(test)]
 mod tests {
     use std::io;
-
     use index::{Line, Column};
     use super::{Processor, Handler, Attr, TermInfo, Color};
     use ::Rgb;
@@ -944,7 +943,6 @@ mod tests {
             Ok(())
         }
     }
-
 
     #[derive(Default)]
     struct AttrHandler {

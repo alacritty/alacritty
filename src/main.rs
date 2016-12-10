@@ -51,24 +51,14 @@ use alacritty::Flag;
 use alacritty::Rgb;
 use alacritty::config::{self, Config};
 use alacritty::event;
-use alacritty::gl;
+use alacritty::event_loop::EventLoop;
 use alacritty::input;
 use alacritty::meter::Meter;
 use alacritty::renderer::{QuadRenderer, GlyphCache};
 use alacritty::sync::FairMutex;
 use alacritty::term::{self, Term};
 use alacritty::tty::{self, Pty, process_should_exit};
-use alacritty::event_loop::EventLoop;
-
-/// Channel used by resize handling on mac
-static mut RESIZE_CALLBACK: Option<Box<Fn(u32, u32)>> = None;
-
-/// Resize handling for Mac
-fn window_resize_handler(width: u32, height: u32) {
-    unsafe {
-        RESIZE_CALLBACK.as_ref().map(|func| func(width, height));
-    }
-}
+use alacritty::window::{self, Window, SetInnerSize, Pixels, Size};
 
 mod cli;
 
@@ -100,35 +90,22 @@ fn main() {
     let dpi = config.dpi();
     let render_timer = config.render_timer();
 
-    // Create glutin window
-    let mut window = glutin::WindowBuilder::new()
-                                           .with_vsync()
-                                           .with_title("Alacritty")
-                                           .build().unwrap();
+    // Create the window where Alacritty will be displayed
+    let mut window = match Window::new() {
+        Ok(window) => window,
+        Err(err) => die!("{}", err)
+    };
 
-    // Set the glutin window resize callback for this one window.
-    window.set_window_resize_callback(Some(window_resize_handler as fn(u32, u32)));
-
-    // load gl symbols
-    gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
     // get window properties for initializing the other subsytems
-    let (width, height) = window.get_inner_size_pixels().unwrap();
+    let size = window.inner_size_pixels().unwrap();
     let dpr = window.hidpi_factor();
 
     println!("device_pixel_ratio: {}", dpr);
 
-    let _ = unsafe { window.make_current() };
-    unsafe {
-        // gl::Viewport(0, 0, width as i32, height as i32);
-        gl::Enable(gl::BLEND);
-        gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
-        gl::Enable(gl::MULTISAMPLE);
-    }
-
     let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr);
 
     // Create renderer
-    let mut renderer = QuadRenderer::new(&config, width, height);
+    let mut renderer = QuadRenderer::new(&config, size);
 
     // Initialize glyph cache
     let glyph_cache = {
@@ -156,19 +133,17 @@ fn main() {
     // Resize window to specified dimensions
     let width = cell_width * options.columns_u32() + 4;
     let height = cell_height * options.lines_u32() + 4;
-    println!("set_inner_size: {} x {}", width, height);
-    // Is this in points?
-    let width_pts = (width as f32 / dpr) as u32;
-    let height_pts = (height as f32 / dpr) as u32;
-    println!("set_inner_size: {} x {}; pts: {} x {}", width, height, width_pts, height_pts);
-    window.set_inner_size(width_pts, height_pts);
-    renderer.resize(width as _, height as _);
+    let size = Size { width: Pixels(width), height: Pixels(height) };
+    println!("set_inner_size: {}", size);
+
+    window.set_inner_size(size);
+    renderer.resize(*size.width as _, *size.height as _);
 
     println!("Cell Size: ({} x {})", cell_width, cell_height);
 
     let size = term::SizeInfo {
-        width: width as f32,
-        height: height as f32,
+        width: *size.width as f32,
+        height: *size.height as f32,
         cell_width: cell_width as f32,
         cell_height: cell_height as f32
     };
@@ -189,17 +164,15 @@ fn main() {
     let signal_flag_ref = signal_flag.clone();
     let proxy = window.create_window_proxy();
     let tx2 = tx.clone();
-    unsafe {
-        RESIZE_CALLBACK = Some(Box::new(move |width: u32, height: u32| {
-            let _ = tx2.send((width, height));
-            if !signal_flag_ref.0.swap(true, Ordering::AcqRel) {
-               // We raised the signal flag
-                let mut terminal = terminal_ref.lock();
-                terminal.dirty = true;
-                proxy.wakeup_event_loop();
-            }
-        }));
-    }
+    window.set_resize_callback(move |width, height| {
+        let _ = tx2.send((width, height));
+        if !signal_flag_ref.0.swap(true, Ordering::AcqRel) {
+           // We raised the signal flag
+            let mut terminal = terminal_ref.lock();
+            terminal.dirty = true;
+            proxy.wakeup_event_loop();
+        }
+    });
 
     let event_loop = EventLoop::new(
         terminal.clone(),
@@ -279,7 +252,7 @@ fn main() {
 
 struct ConfigHandler {
     tx: mpsc::Sender<config::Config>,
-    window: ::glutin::WindowProxy,
+    window: window::Proxy,
 }
 
 impl config::OnConfigReload for ConfigHandler {
@@ -294,7 +267,7 @@ impl config::OnConfigReload for ConfigHandler {
 }
 
 struct Display<'a> {
-    window: &'a glutin::Window,
+    window: &'a Window,
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
@@ -310,7 +283,7 @@ impl<'a> Display<'a> {
     }
 
     pub fn new(
-        window: &glutin::Window,
+        window: &Window,
         renderer: QuadRenderer,
         glyph_cache: GlyphCache,
         render_timer: bool,

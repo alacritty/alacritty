@@ -14,6 +14,8 @@ use term::Term;
 use util::thread;
 use sync::FairMutex;
 
+use window;
+
 use super::Flag;
 
 /// Messages that may be sent to the `EventLoop`
@@ -33,7 +35,7 @@ pub struct EventLoop<Io> {
     rx: mio::channel::Receiver<Msg>,
     tx: mio::channel::Sender<Msg>,
     terminal: Arc<FairMutex<Term>>,
-    proxy: ::glutin::WindowProxy,
+    proxy: window::Proxy,
     signal_flag: Flag,
     ref_test: bool,
 }
@@ -129,7 +131,7 @@ impl<Io> EventLoop<Io>
     /// Create a new event loop
     pub fn new(
         terminal: Arc<FairMutex<Term>>,
-        proxy: ::glutin::WindowProxy,
+        proxy: window::Proxy,
         signal_flag: Flag,
         pty: Io,
         ref_test: bool,

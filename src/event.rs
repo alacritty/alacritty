@@ -5,6 +5,7 @@ use std::sync::{Arc, mpsc};
 use serde_json as json;
 
 use glutin;
+use window::Window;
 
 use input;
 use sync::FairMutex;
@@ -114,7 +115,7 @@ impl<N: input::Notify> Processor<N> {
     }
 
     /// Process at least one event and handle any additional queued events.
-    pub fn process_events(&mut self, window: &glutin::Window) {
+    pub fn process_events(&mut self, window: &Window) {
         for event in window.wait_events() {
             self.handle_event(event);
             break;

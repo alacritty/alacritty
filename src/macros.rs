@@ -48,3 +48,12 @@ macro_rules! debug_print {
     }
 }
 
+#[macro_export]
+macro_rules! maybe {
+    ($option:expr) => {
+        match $option {
+            Some(value) => value,
+            None => return None,
+        }
+    }
+}

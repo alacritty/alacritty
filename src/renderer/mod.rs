@@ -26,6 +26,8 @@ use gl;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 use index::{Line, Column};
 
+use window::{Size, Pixels};
+
 use ansi::{Color, NamedColor};
 
 use config::{Config, ColorList};
@@ -385,8 +387,8 @@ const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
-    pub fn new(config: &Config, width: u32, height: u32) -> QuadRenderer {
-        let program = ShaderProgram::new(width, height).unwrap();
+    pub fn new(config: &Config, size: Size<Pixels<u32>>) -> QuadRenderer {
+        let program = ShaderProgram::new(size).unwrap();
 
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
@@ -394,8 +396,11 @@ impl QuadRenderer {
 
         let mut vbo_instance: GLuint = 0;
 
-
         unsafe {
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
+            gl::Enable(gl::MULTISAMPLE);
+
             gl::GenVertexArrays(1, &mut vao);
             gl::GenBuffers(1, &mut vbo);
             gl::GenBuffers(1, &mut ebo);
@@ -552,7 +557,10 @@ impl QuadRenderer {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::ShaderReload => {
-                    self.reload_shaders(props.width as u32, props.height as u32);
+                    self.reload_shaders(Size {
+                        width: Pixels(props.width as u32),
+                        height: Pixels(props.height as u32)
+                    });
                 }
             }
         }
@@ -599,8 +607,8 @@ impl QuadRenderer {
         })
     }
 
-    pub fn reload_shaders(&mut self, width: u32, height: u32) {
-        let program = match ShaderProgram::new(width, height) {
+    pub fn reload_shaders(&mut self, size: Size<Pixels<u32>>) {
+        let program = match ShaderProgram::new(size) {
             Ok(program) => program,
             Err(err) => {
                 match err {
@@ -809,10 +817,7 @@ impl ShaderProgram {
         }
     }
 
-    pub fn new(
-        width: u32,
-        height: u32
-    ) -> Result<ShaderProgram, ShaderCreationError> {
+    pub fn new(size: Size<Pixels<u32>>) -> Result<ShaderProgram, ShaderCreationError> {
         let vertex_source = if cfg!(feature = "live-shader-reload") {
             None
         } else {
@@ -885,7 +890,7 @@ impl ShaderProgram {
             u_background: background,
         };
 
-        shader.update_projection(width as f32, height as f32);
+        shader.update_projection(*size.width as f32, *size.height as f32);
 
         shader.deactivate();
 
