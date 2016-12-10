@@ -142,6 +142,12 @@ impl<T: Display> Display for Pixels<T> {
     }
 }
 
+impl<T: Display> Display for Points<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}pts", self.0)
+    }
+}
+
 impl ::std::error::Error for Error {
     fn cause(&self) -> Option<&::std::error::Error> {
         match *self {
