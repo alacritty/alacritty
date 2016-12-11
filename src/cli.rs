@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::env;
-use alacritty::index::{Line, Column};
+use index::{Line, Column};
 
 /// Options specified on the command line
 pub struct Options {

@@ -10,13 +10,10 @@ use mio::{self, Events, PollOpt, Ready};
 use mio::unix::EventedFd;
 
 use ansi;
+use display;
 use term::Term;
 use util::thread;
 use sync::FairMutex;
-
-use window;
-
-use super::Flag;
 
 /// Messages that may be sent to the `EventLoop`
 #[derive(Debug)]
@@ -35,8 +32,7 @@ pub struct EventLoop<Io> {
     rx: mio::channel::Receiver<Msg>,
     tx: mio::channel::Sender<Msg>,
     terminal: Arc<FairMutex<Term>>,
-    proxy: window::Proxy,
-    signal_flag: Flag,
+    display: display::Notifier,
     ref_test: bool,
 }
 
@@ -131,8 +127,7 @@ impl<Io> EventLoop<Io>
     /// Create a new event loop
     pub fn new(
         terminal: Arc<FairMutex<Term>>,
-        proxy: window::Proxy,
-        signal_flag: Flag,
+        display: display::Notifier,
         pty: Io,
         ref_test: bool,
     ) -> EventLoop<Io> {
@@ -143,8 +138,7 @@ impl<Io> EventLoop<Io>
             tx: tx,
             rx: rx,
             terminal: terminal,
-            proxy: proxy,
-            signal_flag: signal_flag,
+            display: display,
             ref_test: ref_test,
         }
     }
@@ -196,14 +190,7 @@ impl<Io> EventLoop<Io>
 
                     terminal.dirty = true;
 
-                    // Only wake up the event loop if it hasn't already been
-                    // signaled. This is a really important optimization because
-                    // waking up the event loop redundantly burns *a lot* of
-                    // cycles.
-                    if !self.signal_flag.get() {
-                        self.proxy.wakeup_event_loop();
-                        self.signal_flag.set(true);
-                    }
+                    self.display.notify();
                 },
                 Err(err) => {
                     match err.kind() {

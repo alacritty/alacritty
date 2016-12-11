@@ -49,7 +49,9 @@ extern crate bitflags;
 pub mod macros;
 
 pub mod ansi;
+pub mod cli;
 pub mod config;
+pub mod display;
 pub mod event;
 pub mod event_loop;
 pub mod grid;
@@ -62,9 +64,6 @@ pub mod term;
 pub mod tty;
 pub mod util;
 pub mod window;
-
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 pub use grid::Grid;
 pub use term::Term;
@@ -79,22 +78,4 @@ pub struct Rgb {
 pub mod gl {
     #![allow(non_upper_case_globals)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
-}
-
-#[derive(Clone)]
-pub struct Flag(pub Arc<AtomicBool>);
-impl Flag {
-    pub fn new(initial_value: bool) -> Flag {
-        Flag(Arc::new(AtomicBool::new(initial_value)))
-    }
-
-    #[inline]
-    pub fn get(&self) -> bool {
-        self.0.load(Ordering::Acquire)
-    }
-
-    #[inline]
-    pub fn set(&self, value: bool) {
-        self.0.store(value, Ordering::Release)
-    }
 }

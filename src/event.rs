@@ -5,6 +5,7 @@ use std::sync::{Arc, mpsc};
 use serde_json as json;
 
 use glutin;
+
 use window::Window;
 
 use input;

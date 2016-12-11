@@ -23,8 +23,6 @@ use std::ptr;
 
 use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD};
 
-use index::{Line, Column};
-
 /// Process ID of child process
 ///
 /// Necessary to put this in static storage for `sigchld` to have access
@@ -238,8 +236,10 @@ fn execsh() -> ! {
 }
 
 /// Create a new tty and return a handle to interact with it.
-pub fn new(lines: Line, cols: Column) -> Pty {
-    let (master, slave) = openpty(lines.0 as _, cols.0 as _);
+pub fn new<T: ToWinsize>(size: T) -> Pty {
+    let win = size.to_winsize();
+
+    let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
 
     match fork() {
         Relation::Child => {
@@ -282,7 +282,9 @@ pub fn new(lines: Line, cols: Column) -> Pty {
                 set_nonblocking(master);
             }
 
-            Pty { fd: master }
+            let pty = Pty { fd: master };
+            pty.resize(size);
+            pty
         }
     }
 }
@@ -301,15 +303,12 @@ impl Pty {
         }
     }
 
-    pub fn resize(&self, lines: Line, cols: Column, px_x: usize, px_y: usize) {
-        let lines = lines.0;
-        let cols = cols.0;
-        let win = winsize {
-            ws_row: lines as libc::c_ushort,
-            ws_col: cols as libc::c_ushort,
-            ws_xpixel: px_x as libc::c_ushort,
-            ws_ypixel: px_y as libc::c_ushort,
-        };
+    /// Resize the pty
+    ///
+    /// Tells the kernel that the window size changed with the new pixel
+    /// dimensions and line/column counts.
+    pub fn resize<T: ToWinsize>(&self, size: T) {
+        let win = size.to_winsize();
 
         let res = unsafe {
             libc::ioctl(self.fd, libc::TIOCSWINSZ, &win as *const _)
@@ -319,6 +318,12 @@ impl Pty {
             die!("ioctl TIOCSWINSZ failed: {}", errno());
         }
     }
+}
+
+/// Types that can produce a `libc::winsize`
+pub trait ToWinsize {
+    /// Get a `libc::winsize`
+    fn to_winsize(&self) -> winsize;
 }
 
 unsafe fn set_nonblocking(fd: c_int) {
