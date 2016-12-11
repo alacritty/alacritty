@@ -13,49 +13,24 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
-#![feature(question_mark)]
-#![feature(inclusive_range_syntax)]
-#![feature(drop_types_in_const)]
 #![allow(stable_features)] // lying about question_mark because 1.14.0 isn't released!
-
-#![feature(proc_macro)]
-
-#[macro_use]
-extern crate serde_derive;
 
 #[macro_use]
 extern crate alacritty;
-extern crate cgmath;
-extern crate copypasta;
-extern crate errno;
-extern crate font;
-extern crate glutin;
-extern crate libc;
-extern crate mio;
-extern crate notify;
-extern crate parking_lot;
-extern crate serde;
-extern crate serde_json;
-extern crate serde_yaml;
-extern crate vte;
-
-#[macro_use]
-extern crate bitflags;
 
 use std::error::Error;
-use std::sync::{mpsc, Arc};
+use std::sync::Arc;
 use std::rc::Rc;
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
-use alacritty::display::{self, Display};
+use alacritty::display::Display;
 use alacritty::event;
 use alacritty::event_loop::EventLoop;
 use alacritty::input;
 use alacritty::sync::FairMutex;
 use alacritty::term::{Term};
 use alacritty::tty::{self, process_should_exit};
-
 
 fn main() {
     // Load configuration
@@ -90,71 +65,8 @@ fn main() {
 
 /// Run Alacritty
 ///
-/// Currently, these operations take place in this order.
-/// 1.  create a window
-/// 2.  create font rasterizer
-/// 3.  create quad renderer
-/// 4.  create glyph cache
-/// 5.  resize window/renderer using info from glyph cache / rasterizer
-/// 6.  create a pty
-/// 7.  create the terminal
-/// 8.  set resize callback on the window
-/// 9.  create event loop
-/// 10. create display
-/// 11. create input processor
-/// 12. create config reloader
-/// 13. enter main loop
-///
-/// Observations:
-/// * The window + quad renderer + glyph cache and display are closely
-///   related Actually, probably include the input processor as well.
-///   The resize callback can be lumped in there and that resize step.
-///   Rasterizer as well. Maybe we can lump *all* of this into the
-///   `Display`.
-/// * the pty and event loop closely related
-/// * The term bridges the display and pty
-/// * Main loop currently manages input, config reload events, drawing, and
-///   exiting
-///
-/// It would be *really* great if this could read more like
-///
-/// ```ignore
-/// let display = Display::new(args..);
-/// let pty = Pty::new(display.size());
-/// let term = Arc::new(Term::new(display.size());
-/// let io_loop = Loop::new(Pty::new(display.size()), term.clone());
-/// let config_reloader = config::Monitor::new(&config);
-///
-/// loop {
-///     force_draw = false;
-///     // Wait for something to happen
-///     processor.process_events(&display);
-///
-///     // Handle config reloads
-///     if let Ok(config) = config_rx.try_recv() {
-///         force_draw = true;
-///         display.update_config(&config);
-///         processor.update_config(&config);
-///     }
-///
-///     // Maybe draw the terminal
-///     let terminal = terminal.lock();
-///     signal_flag.set(false);
-///     if force_draw || terminal.dirty {
-///         display.draw(terminal, &config);
-///         drop(terminal);
-///         display.swap_buffers();
-///     }
-///
-///     // Begin shutdown if the flag was raised.
-///     if process_should_exit() {
-///         break;
-///     }
-/// }
-/// ```
-///
-/// instead of the 200 line monster it currently is.
-///
+/// Creates a window, the terminal state, pty, I/O event loop, input processor,
+/// config change monitor, and runs the main display loop.
 fn run(config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // Create a display.
     //
@@ -199,45 +111,46 @@ fn run(config: Config, options: cli::Options) -> Result<(), Box<Error>> {
         options.ref_test,
     );
 
+    // The event loop channel allows write requests from the event processor
+    // to be sent to the loop and ultimately written to the pty.
     let loop_tx = event_loop.channel();
-    let event_loop_handle = event_loop.spawn(None);
 
     // Event processor
-    let resize_tx = display.resize_channel();
     let mut processor = event::Processor::new(
         input::LoopNotifier(loop_tx),
         terminal.clone(),
-        resize_tx,
+        display.resize_channel(),
         &config,
         options.ref_test,
     );
 
-    let (config_tx, config_rx) = mpsc::channel();
+    // Create a config monitor when config was loaded from path
+    //
+    // The monitor watches the config file for changes and reloads it. Pending
+    // config changes are processed in the main loop.
+    let config_monitor = config.path()
+        .map(|path| config::Monitor::new(path, display.notifier()));
 
-    // create a config watcher when config is loaded from disk
-    let _config_reloader = config.path().map(|path| {
-        config::Watcher::new(path, ConfigHandler {
-            tx: config_tx,
-            loop_kicker: display.notifier(),
-        })
-    });
+    // Kick off the I/O thread
+    let io_thread = event_loop.spawn(None);
 
-    // Main loop
-    let mut config_updated = false;
+    // Main display loop
     loop {
-        // Wait for something to happen
-        processor.process_events(display.window());
+        // Process input and window events
+        let wakeup_request = processor.process_events(display.window());
 
         // Handle config reloads
-        if let Ok(config) = config_rx.try_recv() {
-            config_updated = true;
-            display.update_config(&config);
-            processor.update_config(&config);
-        }
+        let config_updated = config_monitor.as_ref()
+            .and_then(|monitor| monitor.pending_config())
+            .map(|config| {
+                display.update_config(&config);
+                processor.update_config(&config);
+                true
+            }).unwrap_or(false);
 
         // Maybe draw the terminal
         let terminal = terminal.lock();
-        if terminal.dirty || config_updated {
+        if wakeup_request || config_updated {
             display.draw(terminal, &config);
         }
 
@@ -247,31 +160,11 @@ fn run(config: Config, options: cli::Options) -> Result<(), Box<Error>> {
         }
     }
 
-    // FIXME need file watcher to work with custom delegates before
-    //       joining config reloader is possible
-    //
-    // HELP I don't know what I meant in the above fixme
+    // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();
 
-    // shutdown
-    event_loop_handle.join().ok();
+    // Wait for the I/O thread thread to finish
+    let _ = io_thread.join();
 
     Ok(())
 }
-
-struct ConfigHandler {
-    tx: mpsc::Sender<config::Config>,
-    loop_kicker: display::Notifier,
-}
-
-impl config::OnConfigReload for ConfigHandler {
-    fn on_config_reload(&mut self, config: Config) {
-        if let Err(..) = self.tx.send(config) {
-            err_println!("Failed to notify of new config");
-            return;
-        }
-
-        self.loop_kicker.notify();
-    }
-}
-

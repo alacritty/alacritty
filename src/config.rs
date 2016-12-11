@@ -1074,57 +1074,83 @@ impl Default for Font {
     }
 }
 
-pub struct Watcher(::std::thread::JoinHandle<()>);
-
-pub trait OnConfigReload {
-    fn on_config_reload(&mut self, Config);
+pub struct Monitor {
+    _thread: ::std::thread::JoinHandle<()>,
+    rx: mpsc::Receiver<Config>,
 }
 
-impl Watcher {
-    pub fn new<H, P>(path: P, mut handler: H) -> Watcher
+pub trait OnConfigReload {
+    fn on_config_reload(&mut self);
+}
+
+impl OnConfigReload for ::display::Notifier {
+    fn on_config_reload(&mut self) {
+        self.notify();
+    }
+}
+
+impl Monitor {
+    /// Get pending config changes
+    pub fn pending_config(&self) -> Option<Config> {
+        let mut config = None;
+        while let Ok(new) = self.rx.try_recv() {
+            config = Some(new);
+        }
+
+        config
+    }
+    pub fn new<H, P>(path: P, mut handler: H) -> Monitor
         where H: OnConfigReload + Send + 'static,
               P: Into<PathBuf>
     {
         let path = path.into();
 
-        Watcher(::util::thread::spawn_named("config watcher", move || {
-            let (tx, rx) = mpsc::channel();
-            let mut watcher = FileWatcher::new(tx).unwrap();
-            watcher.watch(&path).expect("watch alacritty yml");
+        let (config_tx, config_rx) = mpsc::channel();
 
-            let config_path = path.as_path();
+        Monitor {
+            _thread: ::util::thread::spawn_named("config watcher", move || {
+                let (tx, rx) = mpsc::channel();
+                let mut watcher = FileWatcher::new(tx).unwrap();
+                watcher.watch(&path).expect("watch alacritty yml");
 
-            loop {
-                let event = rx.recv().expect("watcher event");
-                let ::notify::Event { path, op } = event;
+                let config_path = path.as_path();
 
-                if let Ok(op) = op {
-                    // Skip events that are just a rename
-                    if op.contains(op::RENAME) && !op.contains(op::WRITE) {
-                        continue;
-                    }
+                loop {
+                    let event = rx.recv().expect("watcher event");
+                    let ::notify::Event { path, op } = event;
 
-                    // Need to handle ignore for linux
-                    if op.contains(op::IGNORED) {
-                        if let Some(path) = path.as_ref() {
-                            if let Err(err) = watcher.watch(&path) {
-                                err_println!("failed to establish watch on {:?}: {:?}", path, err);
+                    if let Ok(op) = op {
+                        // Skip events that are just a rename
+                        if op.contains(op::RENAME) && !op.contains(op::WRITE) {
+                            continue;
+                        }
+
+                        // Need to handle ignore for linux
+                        if op.contains(op::IGNORED) {
+                            if let Some(path) = path.as_ref() {
+                                if let Err(err) = watcher.watch(&path) {
+                                    err_println!("failed to establish watch on {:?}: {:?}", path, err);
+                                }
                             }
                         }
-                    }
 
-                    // Reload file
-                    path.map(|path| {
-                        if path == config_path {
-                            match Config::load() {
-                                Ok(config) => handler.on_config_reload(config),
-                                Err(err) => err_println!("Ignoring invalid config: {}", err),
+                        // Reload file
+                        path.map(|path| {
+                            if path == config_path {
+                                match Config::load() {
+                                    Ok(config) => {
+                                        let _ = config_tx.send(config);
+                                        handler.on_config_reload();
+                                    },
+                                    Err(err) => err_println!("Ignoring invalid config: {}", err),
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
-            }
-        }))
+            }),
+            rx: config_rx,
+        }
     }
 }
 

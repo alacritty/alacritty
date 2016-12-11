@@ -43,7 +43,7 @@ impl<N: input::Notify> Processor<N> {
         }
     }
 
-    fn handle_event(&mut self, event: glutin::Event) {
+    fn handle_event(&mut self, event: glutin::Event, wakeup_request: &mut bool) {
         match event {
             glutin::Event::Closed => {
                 if self.ref_test {
@@ -111,20 +111,26 @@ impl<N: input::Notify> Processor<N> {
                     &terminal
                 );
             },
+            glutin::Event::Awakened => {
+                *wakeup_request = true;
+            },
             _ => (),
         }
     }
 
     /// Process at least one event and handle any additional queued events.
-    pub fn process_events(&mut self, window: &Window) {
+    pub fn process_events(&mut self, window: &Window) -> bool {
+        let mut wakeup_request = false;
         for event in window.wait_events() {
-            self.handle_event(event);
+            self.handle_event(event, &mut wakeup_request);
             break;
         }
 
         for event in window.poll_events() {
-            self.handle_event(event);
+            self.handle_event(event, &mut wakeup_request);
         }
+
+        wakeup_request
     }
 
     pub fn update_config(&mut self, config: &Config) {
