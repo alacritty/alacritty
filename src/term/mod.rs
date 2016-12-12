@@ -259,6 +259,17 @@ impl SizeInfo {
     pub fn cols(&self) -> Column {
         Column((self.width / self.cell_width) as usize)
     }
+
+    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<(Line, Column)> {
+        if x > self.width as usize || y > self.height as usize {
+            return None;
+        }
+
+        let col = Column(x / (self.cell_width as usize));
+        let line = Line(y / (self.cell_height as usize));
+
+        Some((line, col))
+    }
 }
 
 impl Term {
@@ -306,15 +317,7 @@ impl Term {
     ///
     /// Returns None if the coordinates are outside the screen
     pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<(Line, Column)> {
-        let size = self.size_info();
-        if x > size.width as usize || y > size.height as usize {
-            return None;
-        }
-
-        let col = Column(x / (size.cell_width as usize));
-        let line = Line(y / (size.cell_height as usize));
-
-        Some((line, col))
+        self.size_info().pixels_to_coords(x, y)
     }
 
     /// Access to the raw grid data structure

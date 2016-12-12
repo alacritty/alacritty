@@ -18,9 +18,10 @@
 #[macro_use]
 extern crate alacritty;
 
+use std::cell::RefCell;
 use std::error::Error;
-use std::sync::Arc;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
@@ -85,18 +86,7 @@ fn run(config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // The pty forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-    let pty = Rc::new(tty::new(display.size()));
-
-    // When the display is resized, inform the kernel of changes to pty
-    // dimensions.
-    //
-    // TODO: The Rc on pty is needed due to a borrowck error here. The borrow
-    // checker says that `pty` is still borrowed when it is dropped at the end
-    // of the `run` function.
-    let pty_ref = pty.clone();
-    display.set_resize_callback(move |size| {
-        pty_ref.resize(size);
-    });
+    let pty = tty::new(display.size());
 
     // Create the pseudoterminal I/O loop
     //
@@ -116,13 +106,30 @@ fn run(config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     let loop_tx = event_loop.channel();
 
     // Event processor
-    let mut processor = event::Processor::new(
+    //
+    // Need the Rc<RefCell<_>> here since a ref is shared in the resize callback
+    let processor = Rc::new(RefCell::new(event::Processor::new(
         input::LoopNotifier(loop_tx),
         terminal.clone(),
         display.resize_channel(),
         &config,
         options.ref_test,
-    );
+    )));
+
+    // Configure the display resize callback
+    let processor_ref = processor.clone();
+    display.set_resize_callback(move |size| {
+        // Resizing the pty lets the child processes know the window changed
+        // size.
+        pty.resize(size);
+
+        // It's a bit funny that the event processor is in this callback since
+        // on some platforms it's the first to be aware of a resize event. It
+        // appears here since resizes are processed out-of-band from when the
+        // events arrive. This way, the processor state is updated at the same
+        // time as the rest of the system.
+        processor_ref.borrow_mut().resize(size)
+    });
 
     // Create a config monitor when config was loaded from path
     //
@@ -137,14 +144,14 @@ fn run(config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // Main display loop
     loop {
         // Process input and window events
-        let wakeup_request = processor.process_events(display.window());
+        let wakeup_request = processor.borrow_mut().process_events(display.window());
 
         // Handle config reloads
         let config_updated = config_monitor.as_ref()
             .and_then(|monitor| monitor.pending_config())
             .map(|config| {
                 display.update_config(&config);
-                processor.update_config(&config);
+                processor.borrow_mut().update_config(&config);
                 true
             }).unwrap_or(false);
 

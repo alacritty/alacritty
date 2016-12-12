@@ -10,7 +10,7 @@ use window::Window;
 
 use input;
 use sync::FairMutex;
-use term::Term;
+use term::{self, Term};
 use config::Config;
 
 /// The event processor
@@ -34,13 +34,25 @@ impl<N: input::Notify> Processor<N> {
         config: &Config,
         ref_test: bool,
     ) -> Processor<N> {
+        let input_processor = {
+            let terminal = terminal.lock();
+            input::Processor::new(config, terminal.size_info())
+        };
+
         Processor {
             notifier: notifier,
             terminal: terminal,
-            input_processor: input::Processor::new(config),
+            input_processor: input_processor,
             resize_tx: resize_tx,
             ref_test: ref_test,
         }
+    }
+
+    /// Notify that the terminal was resized
+    ///
+    /// Currently this just forwards the notice to the input processor.
+    pub fn resize(&mut self, size_info: &term::SizeInfo) {
+        self.input_processor.resize(size_info);
     }
 
     fn handle_event(&mut self, event: glutin::Event, wakeup_request: &mut bool) {
@@ -71,9 +83,11 @@ impl<N: input::Notify> Processor<N> {
             },
             glutin::Event::Resized(w, h) => {
                 self.resize_tx.send((w, h)).expect("send new size");
-                // Acquire term lock
-                let mut terminal = self.terminal.lock();
-                terminal.dirty = true;
+
+                // Previously, this marked the terminal state as "dirty", but
+                // now the wakeup_request controls whether a display update is
+                // triggered.
+                *wakeup_request = true;
             },
             glutin::Event::KeyboardInput(state, _code, key, mods, string) => {
                 // Acquire term lock

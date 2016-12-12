@@ -24,17 +24,19 @@
 //!
 //! TODO handling xmodmap would be good
 use std::borrow::Cow;
+use std::mem;
 
 use copypasta::{Clipboard, Load};
 use glutin::{ElementState, VirtualKeyCode, MouseButton};
 use glutin::{Mods, mods};
 use glutin::{TouchPhase, MouseScrollDelta};
 
-use index::{Line, Column};
 use config::Config;
 use event_loop;
+use index::{Line, Column};
+use sync::FairMutex;
 use term::mode::{self, TermMode};
-use term::Term;
+use term::{self, Term};
 
 /// Processes input from glutin.
 ///
@@ -42,11 +44,11 @@ use term::Term;
 /// are activated.
 ///
 /// TODO also need terminal state when processing input
-#[derive(Default)]
 pub struct Processor {
     key_bindings: Vec<KeyBinding>,
     mouse_bindings: Vec<MouseBinding>,
     mouse: Mouse,
+    size_info: term::SizeInfo,
 }
 
 /// State of the mouse
@@ -55,6 +57,8 @@ pub struct Mouse {
     y: u32,
     left_button_state: ElementState,
     scroll_px: i32,
+    line: Line,
+    column: Column,
 }
 
 impl Default for Mouse {
@@ -64,6 +68,8 @@ impl Default for Mouse {
             y: 0,
             left_button_state: ElementState::Pressed,
             scroll_px: 0,
+            line: Line(0),
+            column: Column(0),
         }
     }
 }
@@ -244,11 +250,16 @@ impl Binding {
 //          crlf = LNM    (Linefeed/new line); wtf is this
 
 impl Processor {
-    pub fn new(config: &Config) -> Processor {
+    pub fn resize(&mut self, size_info: &term::SizeInfo) {
+        self.size_info = size_info.to_owned();
+    }
+
+    pub fn new(config: &Config, size_info: &term::SizeInfo) -> Processor {
         Processor {
             key_bindings: config.key_bindings().to_vec(),
             mouse_bindings: config.mouse_bindings().to_vec(),
             mouse: Mouse::default(),
+            size_info: size_info.to_owned(),
         }
     }
 
@@ -259,9 +270,15 @@ impl Processor {
         // needed and the mouse position updates frequently.
         self.mouse.x = x;
         self.mouse.y = y;
+
+        if let Some((line, column)) = self.size_info.pixels_to_coords(x as usize, y as usize) {
+            // Swap values for following comparison
+            let line = mem::replace(&mut self.mouse.line, line);
+            let column = mem::replace(&mut self.mouse.column, column);
+        }
     }
 
-    fn mouse_report<N: Notify>(
+    pub fn mouse_report<N: Notify>(
         &mut self,
         button: u8,
         notifier: &mut N,
