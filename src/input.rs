@@ -34,7 +34,6 @@ use glutin::{TouchPhase, MouseScrollDelta};
 use config::Config;
 use event_loop;
 use index::{Line, Column};
-use sync::FairMutex;
 use term::mode::{self, TermMode};
 use term::{self, Term};
 
@@ -273,8 +272,10 @@ impl Processor {
 
         if let Some((line, column)) = self.size_info.pixels_to_coords(x as usize, y as usize) {
             // Swap values for following comparison
-            let line = mem::replace(&mut self.mouse.line, line);
-            let column = mem::replace(&mut self.mouse.column, column);
+            let _line = mem::replace(&mut self.mouse.line, line);
+            let _column = mem::replace(&mut self.mouse.column, column);
+
+            // TODO process changes
         }
     }
 
