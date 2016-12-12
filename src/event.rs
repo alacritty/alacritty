@@ -6,12 +6,12 @@ use serde_json as json;
 
 use glutin;
 
-use window::Window;
-
+use config::Config;
+use display::OnResize;
 use input;
 use sync::FairMutex;
-use term::{self, Term};
-use config::Config;
+use term::{Term, SizeInfo};
+use window::Window;
 
 /// The event processor
 pub struct Processor<N> {
@@ -20,6 +20,15 @@ pub struct Processor<N> {
     terminal: Arc<FairMutex<Term>>,
     resize_tx: mpsc::Sender<(u32, u32)>,
     ref_test: bool,
+}
+
+/// Notify that the terminal was resized
+///
+/// Currently this just forwards the notice to the input processor.
+impl<N> OnResize for Processor<N> {
+    fn on_resize(&mut self, size: &SizeInfo) {
+        self.input_processor.resize(size);
+    }
 }
 
 impl<N: input::Notify> Processor<N> {
@@ -46,13 +55,6 @@ impl<N: input::Notify> Processor<N> {
             resize_tx: resize_tx,
             ref_test: ref_test,
         }
-    }
-
-    /// Notify that the terminal was resized
-    ///
-    /// Currently this just forwards the notice to the input processor.
-    pub fn resize(&mut self, size_info: &term::SizeInfo) {
-        self.input_processor.resize(size_info);
     }
 
     fn handle_event(&mut self, event: glutin::Event, wakeup_request: &mut bool) {

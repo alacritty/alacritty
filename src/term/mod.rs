@@ -23,20 +23,6 @@ use grid::{Grid, ClearRegion};
 use index::{Cursor, Column, Line};
 use ansi::{Color, NamedColor};
 
-use tty::ToWinsize;
-use libc::{self, winsize};
-
-impl<'a> ToWinsize for &'a SizeInfo {
-    fn to_winsize(&self) -> winsize {
-        winsize {
-            ws_row: self.lines().0 as libc::c_ushort,
-            ws_col: self.cols().0 as libc::c_ushort,
-            ws_xpixel: self.width as libc::c_ushort,
-            ws_ypixel: self.height as libc::c_ushort,
-        }
-    }
-}
-
 pub mod cell;
 pub use self::cell::Cell;
 

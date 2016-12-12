@@ -23,6 +23,9 @@ use std::ptr;
 
 use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD};
 
+use term::SizeInfo;
+use display::OnResize;
+
 /// Process ID of child process
 ///
 /// Necessary to put this in static storage for `sigchld` to have access
@@ -324,6 +327,23 @@ impl Pty {
 pub trait ToWinsize {
     /// Get a `libc::winsize`
     fn to_winsize(&self) -> winsize;
+}
+
+impl<'a> ToWinsize for &'a SizeInfo {
+    fn to_winsize(&self) -> winsize {
+        winsize {
+            ws_row: self.lines().0 as libc::c_ushort,
+            ws_col: self.cols().0 as libc::c_ushort,
+            ws_xpixel: self.width as libc::c_ushort,
+            ws_ypixel: self.height as libc::c_ushort,
+        }
+    }
+}
+
+impl OnResize for Pty {
+    fn on_resize(&mut self, size: &SizeInfo) {
+        self.resize(size);
+    }
 }
 
 unsafe fn set_nonblocking(fd: c_int) {

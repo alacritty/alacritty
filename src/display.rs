@@ -30,7 +30,7 @@ use term::{Term, SizeInfo};
 use window::{self, Size, Pixels, Window, SetInnerSize};
 
 /// The display wraps a window, font rasterizer, and GPU renderer
-pub struct Display<F> {
+pub struct Display {
     window: Window,
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
@@ -38,12 +38,16 @@ pub struct Display<F> {
     rx: mpsc::Receiver<(u32, u32)>,
     tx: mpsc::Sender<(u32, u32)>,
     meter: Meter,
-    resize_callback: Option<F>,
     size_info: SizeInfo,
 }
 
 /// Can wakeup the render loop from other threads
 pub struct Notifier(window::Proxy);
+
+/// Types that are interested in when the display is resized
+pub trait OnResize {
+    fn on_resize(&mut self, size: &SizeInfo);
+}
 
 impl Notifier {
     pub fn notify(&self) {
@@ -51,9 +55,7 @@ impl Notifier {
     }
 }
 
-impl<F> Display<F>
-    where F: Fn(&SizeInfo)
-{
+impl Display {
     pub fn notifier(&self) -> Notifier {
         Notifier(self.window.create_window_proxy())
     }
@@ -61,11 +63,6 @@ impl<F> Display<F>
     pub fn update_config(&mut self, config: &Config) {
         self.renderer.update_config(config);
         self.render_timer = config.render_timer();
-    }
-
-    /// Provide a callback to be invoked then the display changes size.
-    pub fn set_resize_callback(&mut self, callback: F) {
-        self.resize_callback = Some(callback);
     }
 
     /// Get size info about the display
@@ -76,7 +73,7 @@ impl<F> Display<F>
     pub fn new(
         config: &Config,
         options: &cli::Options,
-    ) -> Result<Display<F>, window::Error> {
+    ) -> Result<Display, window::Error> {
         // Extract some properties from config
         let font = config.font();
         let dpi = config.dpi();
@@ -156,7 +153,6 @@ impl<F> Display<F>
             tx: tx,
             rx: rx,
             meter: Meter::new(),
-            resize_callback: None,
             size_info: size_info,
         };
 
@@ -179,6 +175,33 @@ impl<F> Display<F>
         &self.window
     }
 
+    /// Process pending resize events
+    pub fn handle_resize(&mut self, terminal: &mut MutexGuard<Term>, items: &mut [&mut OnResize]) {
+        // Resize events new_size and are handled outside the poll_events
+        // iterator. This has the effect of coalescing multiple resize
+        // events into one.
+        let mut new_size = None;
+
+        // Take most recent resize event, if any
+        while let Ok(sz) = self.rx.try_recv() {
+            new_size = Some(sz);
+        }
+
+        // Receive any resize events; only call gl::Viewport on last
+        // available
+        if let Some((w, h)) = new_size.take() {
+            terminal.resize(w as f32, h as f32);
+            let size = terminal.size_info();
+
+            for mut item in items {
+                item.on_resize(size)
+            }
+
+            self.renderer.resize(w as i32, h as i32);
+        }
+
+    }
+
     /// Draw the screen
     ///
     /// A reference to Term whose state is being drawn must be provided.
@@ -193,26 +216,6 @@ impl<F> Display<F>
 
         // Clear dirty flag
         terminal.dirty = false;
-
-        // Resize events new_size and are handled outside the poll_events
-        // iterator. This has the effect of coalescing multiple resize
-        // events into one.
-        let mut new_size = None;
-
-        // Check for any out-of-band resize events (mac only)
-        while let Ok(sz) = self.rx.try_recv() {
-            new_size = Some(sz);
-        }
-
-        // Receive any resize events; only call gl::Viewport on last
-        // available
-        if let Some((w, h)) = new_size.take() {
-            terminal.resize(w as f32, h as f32);
-            let size = terminal.size_info();
-            self.resize_callback.as_ref()
-                .map(|func| func(&size));
-            self.renderer.resize(w as i32, h as i32);
-        }
 
         {
             let glyph_cache = &mut self.glyph_cache;
