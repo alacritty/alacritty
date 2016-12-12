@@ -305,8 +305,16 @@ impl Processor {
         terminal: &Term
     ) {
         match delta {
-            MouseScrollDelta::LineDelta(_columns, _lines) => {
-                unimplemented!();
+            MouseScrollDelta::LineDelta(_columns, lines) => {
+                let code = if lines > 0.0 {
+                    64
+                } else {
+                    65
+                };
+
+                for _ in 0..(lines.abs() as usize) {
+                    self.mouse_report(code, notifier, terminal);
+                }
             },
             MouseScrollDelta::PixelDelta(_x, y) => {
                 match phase {
