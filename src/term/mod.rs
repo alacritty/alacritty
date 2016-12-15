@@ -557,7 +557,11 @@ impl ansi::Handler for Term {
     #[inline]
     fn move_backward(&mut self, cols: Column) {
         debug_println!("move_backward: {}", cols);
-        self.cursor.col -= cols;
+        if cols > self.cursor.col {
+            self.cursor.col = Column(0);
+        } else {
+            self.cursor.col -= cols;
+        }
     }
 
     #[inline]
