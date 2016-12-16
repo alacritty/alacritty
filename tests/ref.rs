@@ -93,6 +93,7 @@ mod reference {
         tmux_htop,
         tmux_git_log,
         vim_large_window_scroll,
-        indexed_256_colors
+        indexed_256_colors,
+        fish_cc
     }
 }
