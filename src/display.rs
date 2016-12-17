@@ -176,7 +176,11 @@ impl Display {
     }
 
     /// Process pending resize events
-    pub fn handle_resize(&mut self, terminal: &mut MutexGuard<Term>, items: &mut [&mut OnResize]) {
+    pub fn handle_resize(
+        &mut self,
+        terminal: &mut MutexGuard<Term>,
+        items: &mut [&mut OnResize]
+    ) {
         // Resize events new_size and are handled outside the poll_events
         // iterator. This has the effect of coalescing multiple resize
         // events into one.

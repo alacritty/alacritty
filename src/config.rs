@@ -459,7 +459,10 @@ impl de::Deserialize for RawBinding {
         impl Visitor for RawBindingVisitor {
             type Value = RawBinding;
 
-            fn visit_map<V>(&mut self, mut visitor: V) -> ::std::result::Result<RawBinding, V::Error>
+            fn visit_map<V>(
+                &mut self,
+                mut visitor: V
+            ) -> ::std::result::Result<RawBinding, V::Error>
                 where V: MapVisitor,
             {
                 let mut mods: Option<::glutin::Mods> = None;
@@ -1129,7 +1132,8 @@ impl Monitor {
                         if op.contains(op::IGNORED) {
                             if let Some(path) = path.as_ref() {
                                 if let Err(err) = watcher.watch(&path) {
-                                    err_println!("failed to establish watch on {:?}: {:?}", path, err);
+                                    err_println!("failed to establish watch on {:?}: {:?}",
+                                                 path, err);
                                 }
                             }
                         }

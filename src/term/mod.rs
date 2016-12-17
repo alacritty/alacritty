@@ -343,8 +343,8 @@ impl Term {
             return;
         }
 
-        // Scroll up to keep cursor and as much context as possible in grid. This only runs when the
-        // lines decreases.
+        // Scroll up to keep cursor and as much context as possible in grid.
+        // This only runs when the lines decreases.
         self.scroll_region = Line(0)..self.grid.num_lines();
 
         // Scroll up to keep cursor in terminal
@@ -366,8 +366,9 @@ impl Term {
         self.cursor.col = limit(self.cursor.col, Column(0), num_cols);
 
         // Recreate tabs list
-        self.tabs = (Column(0)..self.grid.num_cols()).map(|i| (*i as usize) % TAB_SPACES == 0)
-                                                     .collect::<Vec<bool>>();
+        self.tabs = (Column(0)..self.grid.num_cols())
+            .map(|i| (*i as usize) % TAB_SPACES == 0)
+            .collect::<Vec<bool>>();
 
         self.tabs[0] = false;
 
@@ -707,7 +708,8 @@ impl ansi::Handler for Term {
             ptr::copy(src, dst, n);
         }
 
-        // Clear last `count` cells in line. If deleting 1 char, need to delete 1 cell.
+        // Clear last `count` cells in line. If deleting 1 char, need to delete
+        // 1 cell.
         let template = self.empty_cell.clone();
         let end = self.size_info.cols() - count;
         for c in &mut line[end..] {
@@ -946,13 +948,13 @@ mod bench {
 
     /// Benchmark for the renderable cells iterator
     ///
-    /// The renderable cells iterator yields cells that require work to be displayed (that is, not a
-    /// an empty background cell). This benchmark measures how long it takes to process the whole
-    /// iterator.
+    /// The renderable cells iterator yields cells that require work to be
+    /// displayed (that is, not a an empty background cell). This benchmark
+    /// measures how long it takes to process the whole iterator.
     ///
-    /// When this benchmark was first added, it averaged ~78usec on my macbook pro. The total
-    /// render time for this grid is anywhere between ~1500 and ~2000usec (measured imprecisely with
-    /// the visual meter).
+    /// When this benchmark was first added, it averaged ~78usec on my macbook
+    /// pro. The total render time for this grid is anywhere between ~1500 and
+    /// ~2000usec (measured imprecisely with the visual meter).
     #[bench]
     fn render_iter(b: &mut test::Bencher) {
         // Need some realistic grid state; using one of the ref files.

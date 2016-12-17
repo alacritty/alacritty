@@ -65,7 +65,11 @@ fn list_families() -> Vec<String> {
             }
 
             let mut id = 0;
-            while FcPatternGetString(*font, b"family\0".as_ptr() as *mut c_char, id, &mut family) == FcResultMatch {
+            while FcPatternGetString(
+                *font,
+                b"family\0".as_ptr() as *mut c_char,
+                id, &mut family
+            ) == FcResultMatch {
                 let safe_family = fc_char8_to_string(family);
                 id += 1;
                 families.push(safe_family);
@@ -139,7 +143,11 @@ pub fn get_family_info(family: String) -> Family {
         let family_name = family_name.as_ptr();
 
         // Add family name to pattern. Use this for searching.
-        FcPatternAddString(pattern, FAMILY.as_ptr() as *mut c_char, family_name as *mut FcChar8);
+        FcPatternAddString(
+            pattern,
+            FAMILY.as_ptr() as *mut c_char,
+            family_name as *mut FcChar8
+        );
 
         // Request filename, style, and index for each variant in family
         let object_set = FcObjectSetCreate(); // *mut FcObjectSet
@@ -147,7 +155,13 @@ pub fn get_family_info(family: String) -> Family {
         FcObjectSetAdd(object_set, INDEX.as_ptr() as *mut c_char);
         FcObjectSetAdd(object_set, STYLE.as_ptr() as *mut c_char);
 
-        let variants = FcFontSetList(config, &mut font_set, 1 /* nsets */, pattern, object_set);
+        let variants = FcFontSetList(
+            config,
+            &mut font_set,
+            1 /* nsets */,
+            pattern, object_set
+        );
+
         let num_variant = (*variants).nfont as isize;
 
         for i in 0..num_variant {

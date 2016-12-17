@@ -226,9 +226,15 @@ impl Descriptor {
 
 impl Font {
     /// The the bounding rect of a glyph
-    pub fn bounding_rect_for_glyph(&self, orientation: FontOrientation, index: u32) -> Rect<f64> {
-        let cg_rect = self.ct_font.get_bounding_rects_for_glyphs(orientation as CTFontOrientation,
-                                                                 &[index as CGGlyph]);
+    pub fn bounding_rect_for_glyph(
+        &self,
+        orientation: FontOrientation,
+        index: u32
+    ) -> Rect<f64> {
+        let cg_rect = self.ct_font.get_bounding_rects_for_glyphs(
+            orientation as CTFontOrientation,
+            &[index as CGGlyph]
+        );
 
         Rect::new(
             Point2D::new(cg_rect.origin.x, cg_rect.origin.y),
@@ -255,10 +261,12 @@ impl Font {
 
         let indices = [index as CGGlyph];
 
-        self.ct_font.get_advances_for_glyphs(FontOrientation::Default as _,
-                                             &indices[0],
-                                             ptr::null_mut(),
-                                             1)
+        self.ct_font.get_advances_for_glyphs(
+            FontOrientation::Default as _,
+            &indices[0],
+            ptr::null_mut(),
+            1
+        )
     }
 
     pub fn get_glyph(&self, character: char, _size: f64) -> RasterizedGlyph {
@@ -297,19 +305,25 @@ impl Font {
             };
         }
 
-        let mut cg_context = CGContext::create_bitmap_context(rasterized_width as usize,
-                                                              rasterized_height as usize,
-                                                              8, // bits per component
-                                                              rasterized_width as usize * 4,
-                                                              &CGColorSpace::create_device_rgb(),
-                                                              kCGImageAlphaPremultipliedFirst |
-                                                              kCGBitmapByteOrder32Host);
+        let mut cg_context = CGContext::create_bitmap_context(
+            rasterized_width as usize,
+            rasterized_height as usize,
+            8, // bits per component
+            rasterized_width as usize * 4,
+            &CGColorSpace::create_device_rgb(),
+            kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host
+        );
 
         // Give the context an opaque, black background
         cg_context.set_rgb_fill_color(0.0, 0.0, 0.0, 1.0);
-        let context_rect = CGRect::new(&CGPoint::new(0.0, 0.0),
-                                       &CGSize::new(rasterized_width as f64,
-                                                    rasterized_height as f64));
+        let context_rect = CGRect::new(
+            &CGPoint::new(0.0, 0.0),
+            &CGSize::new(
+                rasterized_width as f64,
+                rasterized_height as f64
+            )
+        );
+
         cg_context.fill_rect(context_rect);
 
         // Uses thin strokes
@@ -354,7 +368,11 @@ impl Font {
         let chars = [character as UniChar];
         let mut glyphs = [0 as CGGlyph];
 
-        let res = self.ct_font.get_glyphs_for_characters(&chars[0], &mut glyphs[0], 1 as CFIndex);
+        let res = self.ct_font.get_glyphs_for_characters(
+            &chars[0],
+            &mut glyphs[0],
+            1 as CFIndex
+        );
 
         if res {
             Some(glyphs[0] as u32)

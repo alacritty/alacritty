@@ -21,7 +21,10 @@ pub mod thread {
               T: Send + 'static,
               S: Into<String>
     {
-        ::std::thread::Builder::new().name(name.into()).spawn(f).expect("thread spawn works")
+        ::std::thread::Builder::new()
+            .name(name.into())
+            .spawn(f)
+            .expect("thread spawn works")
     }
 
     pub use ::std::thread::*;

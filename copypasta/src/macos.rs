@@ -1,6 +1,7 @@
 //! Clipboard access on macOS
 //!
-//! Implemented according to https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/PasteboardGuide106/Articles/pbReading.html#//apple_ref/doc/uid/TP40008123-SW1
+//! Implemented according to
+//! https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/PasteboardGuide106/Articles/pbReading.html#//apple_ref/doc/uid/TP40008123-SW1
 
 mod ns {
     extern crate objc_id;
@@ -62,22 +63,25 @@ mod ns {
             };
 
             let classes: Id<NSArray<NSObject, Owned>> = unsafe {
-                // I think this transmute is valid. It's going from an Id<Object> to an
-                // Id<NSObject>. From transmute's perspective, the only thing that matters is that
-                // they both have the same size (they do for now since the generic is phantom data).
-                // In both cases, the underlying pointer is an id (from `[NSString class]`), so
-                // again, this should be valid. There's just nothing implemented in objc_id or
-                // objc_foundation to do this "safely". By the way, the only reason this is
-                // necessary is because INSObject isn't implemented for Id<Object>.
+                // I think this transmute is valid. It's going from an
+                // Id<Object> to an Id<NSObject>. From transmute's perspective,
+                // the only thing that matters is that they both have the same
+                // size (they do for now since the generic is phantom data).  In
+                // both cases, the underlying pointer is an id (from `[NSString
+                // class]`), so again, this should be valid. There's just
+                // nothing implemented in objc_id or objc_foundation to do this
+                // "safely". By the way, the only reason this is necessary is
+                // because INSObject isn't implemented for Id<Object>.
                 //
-                // And if that argument isn't convincing, my final reasoning is that "it seems to
-                // work".
+                // And if that argument isn't convincing, my final reasoning is
+                // that "it seems to work".
                 NSArray::from_vec(vec![mem::transmute(ns_string)])
             };
 
             // No options
             //
-            // Apparently this doesn't compile without a type hint, so it maps objects to objects!
+            // Apparently this doesn't compile without a type hint, so it maps
+            // objects to objects!
             let options: Id<NSDictionary<NSObject, NSObject>> = NSDictionary::new();
 
             // call [pasteboard readObjectsForClasses:options:]
@@ -95,8 +99,10 @@ mod ns {
                 }
             };
 
-            // Ok, this is great. We have an NSArray<NSString>, and these have decent bindings. Use
-            // the first item returned (if an item was returned) or just return an empty string
+            // Ok, this is great. We have an NSArray<NSString>, and these have
+            // decent bindings. Use the first item returned (if an item was
+            // returned) or just return an empty string
+            //
             // XXX Should this return an error if no items were returned?
             let contents = copied_items
                 .first_object()

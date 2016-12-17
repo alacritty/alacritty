@@ -127,7 +127,9 @@ impl GlyphCache {
 
         // Load regular font
         let regular_desc = FontDesc::new(font.family(), font.style());
-        let regular = rasterizer.load_font(&regular_desc, size).expect("regular font load ok");
+        let regular = rasterizer
+            .load_font(&regular_desc, size)
+            .expect("regular font load ok");
 
         // Load bold font
         let bold_style = font.bold_style().unwrap_or("Bold");
@@ -1192,8 +1194,9 @@ impl Atlas {
 
     /// Insert the glyph without checking for room
     ///
-    /// Internal function for use once atlas has been checked for space. GL errors could still occur
-    /// at this point if we were checking for them; hence, the Result.
+    /// Internal function for use once atlas has been checked for space. GL
+    /// errors could still occur at this point if we were checking for them;
+    /// hence, the Result.
     fn insert_inner(&mut self,
                     glyph: &RasterizedGlyph,
                     active_tex: &mut u32)

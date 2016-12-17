@@ -174,7 +174,14 @@ impl<Io> EventLoop<Io>
     }
 
     #[inline]
-    fn pty_read<W: Write>(&mut self, state: &mut State, buf: &mut [u8], mut writer: Option<&mut W>) {
+    fn pty_read<W>(
+        &mut self,
+        state: &mut State,
+        buf: &mut [u8],
+        mut writer: Option<&mut W>
+    )
+        where W: Write
+    {
         loop {
             match self.pty.read(&mut buf[..]) {
                 Ok(0) => break,
@@ -234,7 +241,10 @@ impl<Io> EventLoop<Io>
         }
     }
 
-    pub fn spawn(mut self, state: Option<State>) -> thread::JoinHandle<(EventLoop<Io>, State)> {
+    pub fn spawn(
+        mut self,
+        state: Option<State>
+    ) -> thread::JoinHandle<(EventLoop<Io>, State)> {
         thread::spawn_named("pty reader", move || {
             let mut state = state.unwrap_or_else(Default::default);
             let mut buf = [0u8; 4096];

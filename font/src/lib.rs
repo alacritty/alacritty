@@ -14,11 +14,9 @@
 //
 //! Compatibility layer for different font engines
 //!
-//! This module is developed as part of Alacritty; Alacritty does not include Windows support
-//! as a goal at this time, and neither does this module.
-//!
 //! CoreText is used on Mac OS.
 //! FreeType is used on everything that's not Mac OS.
+//! Eventually, ClearType support will be available for windows
 #![feature(integer_atomics)]
 
 #[cfg(not(target_os = "macos"))]
