@@ -13,23 +13,6 @@
 // limitations under the License.
 //
 //! ANSI Terminal Stream Parsing
-//!
-//! The `Parser` implementation is largely based on the suck-less _simple terminal_ parser. Because
-//! this is Rust and Rust has a fantastic type system, some improvements are possible. First,
-//! `Parser` is a struct, and its data is stored internally instead of statically. Second, there's
-//! no terminal updates hard-coded into the parser. Instead, `Parser` is generic over a `Handler`
-//! type which has methods for all of the actions supported by the parser. Because Parser is
-//! generic, it should be possible (with proper inlining) to have equivalent performance to the
-//! hard-coded version.
-//!
-//! In addition to using _simple terminal_ as a reference, there's a doc in Alacritty's repository
-//! `docs/ansicode.txt`, a summary of the ANSI terminal protocol, which has been referenced
-//! extensively.
-//!
-//! There's probably a large number escapes we don't handle, and that's ok. There's a lot that
-//! aren't necessary for everyday terminal usage. If you feel like something that's not supported
-//! should be, feel free to add it. Please try not to become overzealous and adding support for
-//! sequences only used by folks trapped in 1988.
 use std::ops::Range;
 use std::io;
 
