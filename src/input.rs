@@ -73,7 +73,7 @@ impl Default for Mouse {
     }
 }
 
-/// Types that are notified of escape sequences from the input::Processor.
+/// Types that are notified of escape sequences from the `input::Processor`.
 pub trait Notify {
     /// Notify that an escape sequence should be written to the pty
     ///
@@ -97,7 +97,7 @@ impl Notify for LoopNotifier {
 
 /// Describes a state and action to take in that state
 ///
-/// This is the shared component of MouseBinding and KeyBinding
+/// This is the shared component of `MouseBinding` and `KeyBinding`
 #[derive(Debug, Clone)]
 pub struct Binding {
     /// Modifier keys required to activate binding
@@ -183,15 +183,13 @@ impl Action {
         match *self {
             Action::Esc(ref s) => notifier.notify(s.clone().into_bytes()),
             Action::Paste | Action::PasteSelection => {
-                println!("paste request");
                 let clip = Clipboard::new().expect("get clipboard");
                 clip.load_selection()
                     .map(|contents| {
-                        println!("got contents");
                         if mode.contains(mode::BRACKETED_PASTE) {
-                            notifier.notify("\x1b[200~".as_bytes());
+                            notifier.notify(&b"\x1b[200~"[..]);
                             notifier.notify(contents.into_bytes());
-                            notifier.notify("\x1b[201~".as_bytes());
+                            notifier.notify(&b"\x1b[201~"[..]);
                         } else {
                             notifier.notify(contents.into_bytes());
                         }
@@ -199,8 +197,6 @@ impl Action {
                     .unwrap_or_else(|err| {
                         err_println!("Error getting clipboard contents: {}", err);
                     });
-
-                println!("ok");
             },
         }
     }

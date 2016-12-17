@@ -95,7 +95,7 @@ pub struct IndexedCell {
 impl Deref for IndexedCell {
     type Target = Cell;
 
-    #[inline(always)]
+    #[inline]
     fn deref(&self) -> &Cell {
         &self.inner
     }
@@ -108,7 +108,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
     ///
     /// Skips empty (background) cells and applies any flags to the cell state
     /// (eg. invert fg and bg colors).
-    #[inline(always)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         while self.line < self.grid.num_lines() {
             while self.column < self.grid.num_cols() {
@@ -319,7 +319,7 @@ impl Term {
     /// A renderable cell is any cell which has content other than the default
     /// background color.  Cells with an alternate background color are
     /// considered renderable as are cells with any text content.
-    pub fn renderable_cells<'a>(&'a mut self) -> RenderableCellsIter<'a> {
+    pub fn renderable_cells(&mut self) -> RenderableCellsIter {
         RenderableCellsIter::new(&mut self.grid, &self.cursor, self.mode)
     }
 
@@ -566,7 +566,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn identify_terminal<W: io::Write>(&mut self, writer: &mut W) {
-        let _ = writer.write_all("\x1b[?6c".as_bytes());
+        let _ = writer.write_all(b"\x1b[?6c");
     }
 
     #[inline]

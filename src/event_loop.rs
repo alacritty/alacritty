@@ -74,7 +74,7 @@ impl State {
     fn goto_next(&mut self) {
         self.writing = self.write_list
             .pop_front()
-            .map(|c| Writing::new(c));
+            .map(Writing::new);
     }
 
     #[inline]
@@ -115,10 +115,10 @@ impl Writing {
     }
 }
 
-/// mio::Token for the event loop channel
+/// `mio::Token` for the event loop channel
 const CHANNEL: mio::Token = mio::Token(0);
 
-/// mio::Token for the pty file descriptor
+/// `mio::Token` for the pty file descriptor
 const PTY: mio::Token = mio::Token(1);
 
 impl<Io> EventLoop<Io>

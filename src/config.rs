@@ -242,10 +242,10 @@ impl de::Deserialize for ModsWrapper {
                 let mut res = Mods::empty();
                 for modifier in value.split('|') {
                     match modifier {
-                        "Command" | "Super" => res = res | mods::SUPER,
-                        "Shift" => res = res | mods::SHIFT,
-                        "Alt" | "Option" => res = res | mods::ALT,
-                        "Control" => res = res | mods::CONTROL,
+                        "Command" | "Super" => res |= mods::SUPER,
+                        "Shift" => res |= mods::SHIFT,
+                        "Alt" | "Option" => res |= mods::ALT,
+                        "Control" => res |= mods::CONTROL,
                         _ => err_println!("unknown modifier {:?}", modifier),
                     }
                 }
@@ -315,10 +315,10 @@ impl de::Deserialize for ModeWrapper {
 
                 for modifier in value.split('|') {
                     match modifier {
-                        "AppCursor" => res.mode = res.mode | mode::APP_CURSOR,
-                        "~AppCursor" => res.not_mode = res.not_mode | mode::APP_CURSOR,
-                        "AppKeypad" => res.mode = res.mode | mode::APP_KEYPAD,
-                        "~AppKeypad" => res.not_mode = res.not_mode | mode::APP_KEYPAD,
+                        "AppCursor" => res.mode |= mode::APP_CURSOR,
+                        "~AppCursor" => res.not_mode |= mode::APP_CURSOR,
+                        "AppKeypad" => res.mode |= mode::APP_KEYPAD,
+                        "~AppKeypad" => res.not_mode |= mode::APP_KEYPAD,
                         _ => err_println!("unknown omde {:?}", modifier),
                     }
                 }
@@ -369,8 +369,8 @@ impl de::Deserialize for MouseButton {
     }
 }
 
-/// Bindings are deserialized into a RawBinding before being parsed as a
-/// KeyBinding or MouseBinding.
+/// Bindings are deserialized into a `RawBinding` before being parsed as a
+/// `KeyBinding` or `MouseBinding`.
 struct RawBinding {
     key: Option<::glutin::VirtualKeyCode>,
     mouse: Option<::glutin::MouseButton>,
@@ -879,7 +879,7 @@ impl Config {
 
 /// Pixels per inch
 ///
-/// This is only used on FreeType systems
+/// This is only used on `FreeType` systems
 #[derive(Debug, Deserialize)]
 pub struct Dpi {
     /// Horizontal dpi
@@ -1176,6 +1176,7 @@ mod tests {
     }
 }
 
+#[cfg_attr(feature = "clippy", allow(enum_variant_names))]
 #[derive(Deserialize, Copy, Clone)]
 enum Key {
     Key1,

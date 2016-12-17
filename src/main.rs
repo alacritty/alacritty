@@ -13,7 +13,8 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
-#![allow(stable_features)] // lying about question_mark because 1.14.0 isn't released!
+#![feature(plugin)]
+#![cfg_attr(feature = "clippy", plugin(clippy))]
 
 #[macro_use]
 extern crate alacritty;

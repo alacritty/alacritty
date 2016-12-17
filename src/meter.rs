@@ -36,6 +36,7 @@ use std::time::{Instant, Duration};
 const NUM_SAMPLES: usize = 10;
 
 /// The meter
+#[derive(Default)]
 pub struct Meter {
     /// Track last 60 timestamps
     times: [f64; NUM_SAMPLES],
@@ -83,11 +84,7 @@ impl<'a> Drop for Sampler<'a> {
 impl Meter {
     /// Create a meter
     pub fn new() -> Meter {
-        Meter {
-            times: [0.0; NUM_SAMPLES],
-            avg: 0.0,
-            index: 0,
-        }
+        Default::default()
     }
 
     /// Get a sampler

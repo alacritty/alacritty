@@ -13,15 +13,19 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
-#![feature(question_mark)]
 #![feature(range_contains)]
 #![feature(inclusive_range_syntax)]
 #![feature(drop_types_in_const)]
 #![feature(unicode)]
 #![feature(step_trait)]
+#![feature(plugin)]
+#![cfg_attr(feature = "clippy", plugin(clippy))]
+#![cfg_attr(feature = "clippy", deny(clippy))]
+#![cfg_attr(feature = "clippy", deny(enum_glob_use))]
+#![cfg_attr(feature = "clippy", deny(if_not_else))]
+#![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
 #![cfg_attr(test, feature(test))]
 #![feature(core_intrinsics)]
-#![allow(stable_features)] // lying about question_mark because 1.14.0 isn't released!
 
 #![feature(proc_macro)]
 
@@ -75,6 +79,8 @@ pub struct Rgb {
     pub b: u8,
 }
 
+#[cfg_attr(feature = "clippy", allow(too_many_arguments))]
+#[cfg_attr(feature = "clippy", allow(doc_markdown))]
 pub mod gl {
     #![allow(non_upper_case_globals)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));

@@ -47,7 +47,7 @@ static TEXT_SHADER_V: &'static str = include_str!(
     concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl")
 );
 
-/// LoadGlyph allows for copying a rasterized glyph into graphics memory
+/// `LoadGlyph` allows for copying a rasterized glyph into graphics memory
 pub trait LoadGlyph {
     /// Load the rasterized glyph into GPU memory
     fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph;
@@ -134,9 +134,9 @@ impl GlyphCache {
         let bold_desc = FontDesc::new(font.family(), bold_style);
 
         let bold = if bold_desc == regular_desc {
-            regular.clone()
+            regular
         } else {
-            rasterizer.load_font(&bold_desc, size).unwrap_or_else(|| regular.clone())
+            rasterizer.load_font(&bold_desc, size).unwrap_or_else(|| regular)
         };
 
         // Load italic font
@@ -144,19 +144,19 @@ impl GlyphCache {
         let italic_desc = FontDesc::new(font.family(), italic_style);
 
         let italic = if italic_desc == regular_desc {
-            regular.clone()
+            regular
         } else {
             rasterizer.load_font(&italic_desc, size)
-                      .unwrap_or_else(|| regular.clone())
+                      .unwrap_or_else(|| regular)
         };
 
         let mut cache = GlyphCache {
             cache: HashMap::new(),
             rasterizer: rasterizer,
             font_size: font.size(),
-            font_key: regular.clone(),
-            bold_key: bold.clone(),
-            italic_key: italic.clone(),
+            font_key: regular,
+            bold_key: bold,
+            italic_key: italic,
         };
 
         macro_rules! load_glyphs_for_font {
@@ -203,7 +203,7 @@ impl GlyphCache {
 
         // Rasterize and load the glyph
         self.load_and_cache_glyph(glyph_key.to_owned(), loader);
-        self.cache.get(&glyph_key)
+        self.cache.get(glyph_key)
     }
 }
 
@@ -511,7 +511,7 @@ impl QuadRenderer {
                         if op.contains(op::IGNORED) {
                             if let Some(path) = path.as_ref() {
                                 if let Err(err) = watcher.watch(path) {
-                                    println!("failed to establish watch on {:?}: {:?}", path, err);
+                                    err_println!("failed to establish watch on {:?}: {:?}", path, err);
                                 }
                             }
 
@@ -580,7 +580,7 @@ impl QuadRenderer {
             batch: &mut self.batch,
             atlas: &mut self.atlas,
             program: &mut self.program,
-            colors: &config.color_list(),
+            colors: config.color_list(),
         });
 
         unsafe {
@@ -613,10 +613,10 @@ impl QuadRenderer {
             Err(err) => {
                 match err {
                     ShaderCreationError::Io(err) => {
-                        println!("Error reading shader file: {}", err);
+                        err_println!("Error reading shader file: {}", err);
                     },
                     ShaderCreationError::Compile(path, log) => {
-                        println!("Error compiling shader at {:?}", path);
+                        err_println!("Error compiling shader at {:?}", path);
                         io::copy(&mut log.as_bytes(), &mut io::stdout()).unwrap();
                     }
                 }
@@ -715,10 +715,8 @@ impl<'a> RenderApi<'a> {
     #[inline]
     fn add_render_item(&mut self, cell: &IndexedCell, glyph: &Glyph) {
         // Flush batch if tex changing
-        if !self.batch.is_empty() {
-            if self.batch.tex != glyph.tex_id {
-                self.render_batch();
-            }
+        if !self.batch.is_empty() && self.batch.tex != glyph.tex_id {
+            self.render_batch();
         }
 
         self.batch.add_item(cell, glyph, self.colors);
@@ -872,16 +870,6 @@ impl ShaderProgram {
 
         assert_uniform_valid!(projection, term_dim, cell_dim);
 
-        let mut color_uniforms: [GLint; 18] = unsafe { ::std::mem::uninitialized() };
-        for i in 0..18 {
-            color_uniforms[i] = unsafe {
-                let s = format!("colors[{}]\0", i).into_bytes();
-                gl::GetUniformLocation(program, cptr!(&s[..]))
-            };
-
-            assert_uniform_valid!(color_uniforms[i]);
-        }
-
         let shader = ShaderProgram {
             id: program,
             u_projection: projection,
@@ -941,7 +929,7 @@ impl ShaderProgram {
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
 
             if success != (gl::TRUE as GLint) {
-                println!("{}", get_program_info_log(program));
+                err_println!("{}", get_program_info_log(program));
                 panic!("failed to link shader program");
             }
             program
@@ -1248,7 +1236,7 @@ impl Atlas {
         let uv_height = height as f32 / self.height as f32;
         let uv_width = width as f32 / self.width as f32;
 
-        let g = Glyph {
+        Glyph {
             tex_id: self.id,
             top: glyph.top as f32,
             width: width as f32,
@@ -1258,10 +1246,7 @@ impl Atlas {
             uv_left: uv_left,
             uv_width: uv_width,
             uv_height: uv_height,
-        };
-
-        // Return the glyph
-        g
+        }
     }
 
     /// Check if there's room in the current row for given glyph

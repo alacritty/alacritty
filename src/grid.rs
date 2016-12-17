@@ -192,14 +192,14 @@ impl<T> Index<index::Line> for Grid<T> {
     type Output = Row<T>;
 
     #[inline]
-    fn index<'a>(&'a self, index: index::Line) -> &'a Row<T> {
+    fn index(&self, index: index::Line) -> &Row<T> {
         &self.raw[index.0]
     }
 }
 
 impl<T> IndexMut<index::Line> for Grid<T> {
     #[inline]
-    fn index_mut<'a>(&'a mut self, index: index::Line) -> &'a mut Row<T> {
+    fn index_mut(&mut self, index: index::Line) -> &mut Row<T> {
         &mut self.raw[index.0]
     }
 }
@@ -208,7 +208,7 @@ impl<'cursor, T> Index<&'cursor Cursor> for Grid<T> {
     type Output = T;
 
     #[inline]
-    fn index<'a, 'b>(&'a self, cursor: &'b Cursor) -> &'a T {
+    fn index<'a>(&'a self, cursor: &Cursor) -> &'a T {
         &self.raw[cursor.line.0][cursor.col]
     }
 }
@@ -294,14 +294,14 @@ impl<T> Index<index::Column> for Row<T> {
     type Output = T;
 
     #[inline]
-    fn index<'a>(&'a self, index: index::Column) -> &'a T {
+    fn index(&self, index: index::Column) -> &T {
         &self.0[index.0]
     }
 }
 
 impl<T> IndexMut<index::Column> for Row<T> {
     #[inline]
-    fn index_mut<'a>(&'a mut self, index: index::Column) -> &'a mut T {
+    fn index_mut(&mut self, index: index::Column) -> &mut T {
         &mut self.0[index.0]
     }
 }
@@ -312,14 +312,14 @@ macro_rules! row_index_range {
             type Output = [T];
 
             #[inline]
-            fn index<'a>(&'a self, index: $range) -> &'a [T] {
+            fn index(&self, index: $range) -> &[T] {
                 &self.0[index]
             }
         }
 
         impl<T> IndexMut<$range> for Row<T> {
             #[inline]
-            fn index_mut<'a>(&'a mut self, index: $range) -> &'a mut [T] {
+            fn index_mut(&mut self, index: $range) -> &mut [T] {
                 &mut self.0[index]
             }
         }

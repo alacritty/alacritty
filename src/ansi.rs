@@ -39,7 +39,7 @@ use index::{Column, Line};
 
 use ::Rgb;
 
-/// The processor wraps a vte::Parser to ultimately call methods on a Handler
+/// The processor wraps a `vte::Parser` to ultimately call methods on a Handler
 pub struct Processor {
     state: ProcessorState,
     parser: vte::Parser,
@@ -48,10 +48,10 @@ pub struct Processor {
 /// Internal state for VTE processor
 struct ProcessorState;
 
-/// Helper type that implements vte::Perform.
+/// Helper type that implements `vte::Perform`.
 ///
 /// Processor creates a Performer when running advance and passes the Performer
-/// to vte::Parser.
+/// to `vte::Parser`.
 struct Performer<'a, H: Handler + TermInfo + 'a, W: io::Write + 'a> {
     _state: &'a mut ProcessorState,
     handler: &'a mut H,
@@ -74,12 +74,18 @@ impl<'a, H: Handler + TermInfo + 'a, W: io::Write> Performer<'a, H, W> {
     }
 }
 
-impl Processor {
-    pub fn new() -> Processor {
+impl Default for Processor {
+    fn default() -> Processor {
         Processor {
             state: ProcessorState,
             parser: vte::Parser::new(),
         }
+    }
+}
+
+impl Processor {
+    pub fn new() -> Processor {
+        Default::default()
     }
 
     #[inline]
@@ -527,7 +533,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                 handler.move_up(Line(arg_or_default!(idx: 0, default: 1) as usize));
             },
             'B' | 'e' => handler.move_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            'c' => handler.identify_terminal(writer),
+            'c' | 'n' => handler.identify_terminal(writer),
             'C' | 'a' => handler.move_forward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
             'D' => handler.move_backward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
             'E' => handler.move_down_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize)),
@@ -661,14 +667,14 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                         95 => Attr::Foreground(Color::Named(NamedColor::BrightMagenta)),
                         96 => Attr::Foreground(Color::Named(NamedColor::BrightCyan)),
                         97 => Attr::Foreground(Color::Named(NamedColor::BrightWhite)),
-                        100 => Attr::Foreground(Color::Named(NamedColor::BrightBlack)),
-                        101 => Attr::Foreground(Color::Named(NamedColor::BrightRed)),
-                        102 => Attr::Foreground(Color::Named(NamedColor::BrightGreen)),
-                        103 => Attr::Foreground(Color::Named(NamedColor::BrightYellow)),
-                        104 => Attr::Foreground(Color::Named(NamedColor::BrightBlue)),
-                        105 => Attr::Foreground(Color::Named(NamedColor::BrightMagenta)),
-                        106 => Attr::Foreground(Color::Named(NamedColor::BrightCyan)),
-                        107 => Attr::Foreground(Color::Named(NamedColor::BrightWhite)),
+                        100 => Attr::Background(Color::Named(NamedColor::BrightBlack)),
+                        101 => Attr::Background(Color::Named(NamedColor::BrightRed)),
+                        102 => Attr::Background(Color::Named(NamedColor::BrightGreen)),
+                        103 => Attr::Background(Color::Named(NamedColor::BrightYellow)),
+                        104 => Attr::Background(Color::Named(NamedColor::BrightBlue)),
+                        105 => Attr::Background(Color::Named(NamedColor::BrightMagenta)),
+                        106 => Attr::Background(Color::Named(NamedColor::BrightCyan)),
+                        107 => Attr::Background(Color::Named(NamedColor::BrightWhite)),
                         _ => unhandled!(),
                     };
 
@@ -677,7 +683,8 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     i += 1; // C-for expr
                 }
             }
-            'n' => handler.identify_terminal(writer),
+            // TODO this should be a device status report
+            // 'n' => handler.identify_terminal(writer),
             'r' => {
                 if private {
                     unhandled!();
@@ -737,7 +744,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
             let g = attrs[*i+3];
             let b = attrs[*i+4];
 
-            *i = *i + 4;
+            *i += 4;
 
             let range = 0...255;
             if !range.contains(r) || !range.contains(g) || !range.contains(b) {
@@ -756,7 +763,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
                 err_println!("Expected color index; got {:?}", attrs);
                 None
             } else {
-                *i = *i + 2;
+                *i += 2;
                 let idx = attrs[*i];
                 match idx {
                     0 ... 255 => {
@@ -833,7 +840,7 @@ pub mod C0 {
     pub const EM: u8 = 0x19;
     /// Substitute (VT100 uses this to display parity errors)
     pub const SUB: u8 = 0x1A;
-    /// Prefix to an ESCape sequence
+    /// Prefix to an escape sequence
     pub const ESC: u8 = 0x1B;
     /// File Separator
     pub const FS: u8 = 0x1C;
@@ -865,7 +872,7 @@ pub mod C1 {
     pub const NBH: u8 = 0x83;
     /// Index, moves down one line same column regardless of NL
     pub const IND: u8 = 0x84;
-    /// NEw Line, moves done one line and to first column (CR+LF)
+    /// New line, moves done one line and to first column (CR+LF)
     pub const NEL: u8 = 0x85;
     /// Start of Selected Area to be  as charsent to auxiliary output device
     pub const SSA: u8 = 0x86;
@@ -895,7 +902,7 @@ pub mod C1 {
     pub const PU2: u8 = 0x92;
     /// Set Transmit State
     pub const STS: u8 = 0x93;
-    /// Cancel CHaracter, ignore previous character
+    /// Cancel character, ignore previous character
     pub const CCH: u8 = 0x94;
     /// Message Waiting, turns on an indicator on the terminal
     pub const MW: u8 = 0x95;

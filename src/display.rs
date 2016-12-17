@@ -94,7 +94,7 @@ impl Display {
         let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(&config, size);
+        let mut renderer = QuadRenderer::new(config, size);
 
         // Initialize glyph cache
         let glyph_cache = {
@@ -102,7 +102,7 @@ impl Display {
             let init_start = ::std::time::Instant::now();
 
             let cache = renderer.with_loader(|mut api| {
-                GlyphCache::new(rasterizer, &config, &mut api)
+                GlyphCache::new(rasterizer, config, &mut api)
             });
 
             let stop = init_start.elapsed();
@@ -223,7 +223,12 @@ impl Display {
             {
                 let _sampler = self.meter.sampler();
 
-                let size_info = terminal.size_info().clone();
+                // Make a copy of size_info since the closure passed here
+                // borrows terminal mutably
+                //
+                // TODO I wonder if the renderable cells iter could avoid the
+                // mutable borrow
+                let size_info = *terminal.size_info();
                 self.renderer.with_api(config, &size_info, |mut api| {
                     api.clear();
 

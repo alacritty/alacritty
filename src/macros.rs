@@ -34,7 +34,7 @@ macro_rules! err_println {
 macro_rules! debug_println {
     ($($t:tt)*) => {
         if cfg!(debug_assertions) {
-            println!($($t)*);
+            err_println!($($t)*);
         }
     }
 }
@@ -43,7 +43,7 @@ macro_rules! debug_println {
 macro_rules! debug_print {
     ($($t:tt)*) => {
         if cfg!(debug_assertions) {
-            print!($($t)*);
+            err_print!($($t)*);
         }
     }
 }

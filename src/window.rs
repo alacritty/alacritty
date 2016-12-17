@@ -98,7 +98,7 @@ pub struct Pixels<T>(pub T);
 #[derive(Debug, Copy, Clone)]
 pub struct Points<T>(pub T);
 
-/// A wrapper around glutin's WaitEventsIterator that clears the wakeup
+/// A wrapper around glutin's `WaitEventsIterator` that clears the wakeup
 /// optimization flag on drop.
 pub struct WaitEventsIterator<'a> {
     inner: glutin::WaitEventsIterator<'a>,
