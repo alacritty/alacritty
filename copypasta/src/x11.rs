@@ -71,17 +71,17 @@ impl Load for Clipboard {
     }
 
     fn load_primary(&self) -> Result<String, Self::Err> {
-        let output = try!(Command::new("xclip")
+        let output = Command::new("xclip")
             .args(&["-o", "-selection", "clipboard"])
-            .output());
+            .output()?;
 
         Clipboard::process_xclip_output(output)
     }
 
     fn load_selection(&self) -> Result<String, Self::Err> {
-        let output = try!(Command::new("xclip")
+        let output = Command::new("xclip")
             .args(&["-o"])
-            .output());
+            .output()?;
 
         Clipboard::process_xclip_output(output)
     }
@@ -90,9 +90,9 @@ impl Load for Clipboard {
 impl Clipboard {
     fn process_xclip_output(output: Output) -> Result<String, Error> {
         if output.status.success() {
-            Ok(try!(String::from_utf8(output.stdout)))
+            String::from_utf8(output.stdout).map_err(::std::convert::From::from)
         } else {
-            Ok(try!(String::from_utf8(output.stderr)))
+            String::from_utf8(output.stderr).map_err(::std::convert::From::from)
         }
     }
 }

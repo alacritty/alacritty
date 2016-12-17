@@ -105,9 +105,9 @@ pub struct Family {
 
 impl fmt::Display for Family {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(write!(f, "{}: ", self.name));
+        write!(f, "{}: ", self.name)?;
         for (k, _v) in &self.variants {
-            try!(write!(f, "{}, ", k));
+            write!(f, "{}, ", k)?;
         }
 
         Ok(())

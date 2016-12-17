@@ -222,11 +222,12 @@ impl super::Load for Clipboard {
     type Err = Error;
 
     fn new() -> Result<Self, Error> {
-        Ok(Clipboard(try!(ns::Pasteboard::new())))
+        Ok(Clipboard(ns::Pasteboard::new()?))
     }
 
     fn load_primary(&self) -> Result<String, Self::Err> {
-        Ok(try!(self::ns::PasteboardReadObject::<String>::read_object(&self.0)))
+        self::ns::PasteboardReadObject::<String>::read_object(&self.0)
+            .map_err(::std::convert::From::from)
     }
 }
 
