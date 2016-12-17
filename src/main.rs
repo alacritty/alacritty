@@ -67,7 +67,7 @@ fn main() {
 ///
 /// Creates a window, the terminal state, pty, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn run(config: Config, options: cli::Options) -> Result<(), Box<Error>> {
+fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // Create a display.
     //
     // The display manages a window and can draw the terminal
@@ -133,9 +133,10 @@ fn run(config: Config, options: cli::Options) -> Result<(), Box<Error>> {
         // Handle config reloads
         let config_updated = config_monitor.as_ref()
             .and_then(|monitor| monitor.pending_config())
-            .map(|config| {
+            .map(|new_config| {
                 display.update_config(&config);
                 processor.update_config(&config);
+                config = new_config;
                 true
             }).unwrap_or(false);
 
