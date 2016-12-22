@@ -24,7 +24,6 @@
 //!
 //! TODO handling xmodmap would be good
 use std::borrow::Cow;
-use std::mem;
 
 use copypasta::{Clipboard, Load};
 use glutin::{ElementState, VirtualKeyCode, MouseButton};
@@ -33,7 +32,8 @@ use glutin::{TouchPhase, MouseScrollDelta};
 
 use config::Config;
 use event_loop;
-use index::{Line, Column};
+use index::{Line, Column, Side, Location};
+use selection::Selection;
 use term::mode::{self, TermMode};
 use term::{self, Term};
 
@@ -58,6 +58,7 @@ pub struct Mouse {
     scroll_px: i32,
     line: Line,
     column: Column,
+    cell_side: Side
 }
 
 impl Default for Mouse {
@@ -65,10 +66,11 @@ impl Default for Mouse {
         Mouse {
             x: 0,
             y: 0,
-            left_button_state: ElementState::Pressed,
+            left_button_state: ElementState::Released,
             scroll_px: 0,
             line: Line(0),
             column: Column(0),
+            cell_side: Side::Left,
         }
     }
 }
@@ -259,7 +261,7 @@ impl Processor {
     }
 
     #[inline]
-    pub fn mouse_moved(&mut self, x: u32, y: u32) {
+    pub fn mouse_moved(&mut self, selection: &mut Selection, mode: TermMode, x: u32, y: u32) {
         // Record mouse position within window. Pixel coordinates are *not*
         // translated to grid coordinates here since grid coordinates are rarely
         // needed and the mouse position updates frequently.
@@ -267,11 +269,26 @@ impl Processor {
         self.mouse.y = y;
 
         if let Some((line, column)) = self.size_info.pixels_to_coords(x as usize, y as usize) {
-            // Swap values for following comparison
-            let _line = mem::replace(&mut self.mouse.line, line);
-            let _column = mem::replace(&mut self.mouse.column, column);
+            self.mouse.line = line;
+            self.mouse.column = column;
 
-            // TODO process changes
+            let cell_x = x as usize % self.size_info.cell_width as usize;
+            let half_cell_width = (self.size_info.cell_width / 2.0) as usize;
+
+            self.mouse.cell_side = if cell_x > half_cell_width {
+                Side::Right
+            } else {
+                Side::Left
+            };
+
+            if self.mouse.left_button_state == ElementState::Pressed &&
+                !mode.contains(mode::MOUSE_REPORT_CLICK)
+            {
+                selection.update(Location {
+                    line: line,
+                    col: column
+                }, self.mouse.cell_side);
+            }
         }
     }
 
@@ -279,36 +296,42 @@ impl Processor {
         &mut self,
         button: u8,
         notifier: &mut N,
-        terminal: &Term
     ) {
-        if terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
-            let (line, column) = terminal.pixels_to_coords(
-                self.mouse.x as usize,
-                self.mouse.y as usize
-                ).unwrap();
+        let (line, column) = (self.mouse.line, self.mouse.column);
 
-            if line < Line(223) && column < Column(223) {
-                let msg = vec![
-                    '\x1b' as u8,
-                    '[' as u8,
-                    'M' as u8,
-                    32 + button,
-                    32 + 1 + column.0 as u8,
-                    32 + 1 + line.0 as u8,
-                ];
+        if line < Line(223) && column < Column(223) {
+            let msg = vec![
+                '\x1b' as u8,
+                '[' as u8,
+                'M' as u8,
+                32 + button,
+                32 + 1 + column.0 as u8,
+                32 + 1 + line.0 as u8,
+            ];
 
-                notifier.notify(msg);
-            }
-
+            notifier.notify(msg);
         }
     }
 
-    pub fn on_mouse_press<N: Notify>(&mut self, notifier: &mut N, terminal: &Term) {
-        self.mouse_report(0, notifier, terminal);
+    pub fn on_mouse_press<N: Notify>(
+        &mut self,
+        notifier: &mut N,
+        terminal: &Term,
+        selection: &mut Selection
+    ) {
+        if terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
+            self.mouse_report(0, notifier);
+            return;
+        }
+
+        selection.clear();
     }
 
     pub fn on_mouse_release<N: Notify>(&mut self, notifier: &mut N, terminal: &Term) {
-        self.mouse_report(3, notifier, terminal);
+        if terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
+            self.mouse_report(3, notifier);
+            return;
+        }
     }
 
     pub fn on_mouse_wheel<N: Notify>(
@@ -316,7 +339,6 @@ impl Processor {
         notifier: &mut N,
         delta: MouseScrollDelta,
         phase: TouchPhase,
-        terminal: &Term
     ) {
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
@@ -327,7 +349,7 @@ impl Processor {
                 };
 
                 for _ in 0..(lines.abs() as usize) {
-                    self.mouse_report(code, notifier, terminal);
+                    self.mouse_report(code, notifier);
                 }
             },
             MouseScrollDelta::PixelDelta(_x, y) => {
@@ -338,8 +360,7 @@ impl Processor {
                     },
                     TouchPhase::Moved => {
                         self.mouse.scroll_px += y as i32;
-                        let size = terminal.size_info();
-                        let height = size.cell_height as i32;
+                        let height = self.size_info.cell_height as i32;
 
                         while self.mouse.scroll_px.abs() >= height {
                             let button = if self.mouse.scroll_px > 0 {
@@ -350,7 +371,7 @@ impl Processor {
                                 65
                             };
 
-                            self.mouse_report(button, notifier, terminal);
+                            self.mouse_report(button, notifier);
                         }
                     },
                     _ => (),
@@ -361,6 +382,7 @@ impl Processor {
 
     pub fn mouse_input<N: Notify>(
         &mut self,
+        selection: &mut Selection,
         state: ElementState,
         button: MouseButton,
         notifier: &mut N,
@@ -372,7 +394,7 @@ impl Processor {
                 self.mouse.left_button_state = state;
                 match state {
                     ElementState::Pressed => {
-                        self.on_mouse_press(notifier, terminal);
+                        self.on_mouse_press(notifier, terminal, selection);
                     },
                     ElementState::Released => {
                         self.on_mouse_release(notifier, terminal);

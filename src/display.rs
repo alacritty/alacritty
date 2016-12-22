@@ -18,13 +18,14 @@ use std::sync::mpsc;
 
 use parking_lot::{MutexGuard};
 
-use font;
 use Rgb;
 use ansi::Color;
 use cli;
 use config::Config;
+use font;
 use meter::Meter;
 use renderer::{GlyphCache, QuadRenderer};
+use selection::Selection;
 use term::{Term, SizeInfo};
 
 use window::{self, Size, Pixels, Window, SetInnerSize};
@@ -211,7 +212,7 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config) {
+    pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config, selection: &Selection) {
         // This is a hack since sometimes we get stuck waiting for events
         // in the main loop otherwise.
         //
@@ -237,7 +238,7 @@ impl Display {
                     api.clear();
 
                     // Draw the grid
-                    api.render_cells(terminal.renderable_cells(), glyph_cache);
+                    api.render_cells(terminal.renderable_cells(selection), glyph_cache);
                 });
             }
 

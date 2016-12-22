@@ -24,9 +24,15 @@ use std::borrow::ToOwned;
 use std::cmp::Ordering;
 use std::iter::IntoIterator;
 use std::ops::{Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull, Index, IndexMut};
+use std::ops::RangeInclusive;
 use std::slice::{self, Iter, IterMut};
 
 use index::{self, Cursor};
+
+/// Convert a type to a linear index range.
+pub trait ToRange {
+    fn to_range(&self, columns: index::Column) -> RangeInclusive<index::Linear>;
+}
 
 /// Represents the terminal display contents
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]

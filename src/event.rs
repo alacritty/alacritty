@@ -9,6 +9,7 @@ use glutin;
 use config::Config;
 use display::OnResize;
 use input;
+use selection::Selection;
 use sync::FairMutex;
 use term::{Term, SizeInfo};
 use window::Window;
@@ -20,6 +21,7 @@ pub struct Processor<N> {
     terminal: Arc<FairMutex<Term>>,
     resize_tx: mpsc::Sender<(u32, u32)>,
     ref_test: bool,
+    pub selection: Selection,
 }
 
 /// Notify that the terminal was resized
@@ -54,6 +56,7 @@ impl<N: input::Notify> Processor<N> {
             input_processor: input_processor,
             resize_tx: resize_tx,
             ref_test: ref_test,
+            selection: Default::default(),
         }
     }
 
@@ -97,6 +100,8 @@ impl<N: input::Notify> Processor<N> {
                 let processor = &mut self.input_processor;
                 let notifier = &mut self.notifier;
 
+                self.selection.clear();
+
                 processor.process_key(state, key, mods, notifier, *terminal.mode(), string);
             },
             glutin::Event::MouseInput(state, button) => {
@@ -104,11 +109,21 @@ impl<N: input::Notify> Processor<N> {
                 let processor = &mut self.input_processor;
                 let notifier = &mut self.notifier;
 
-                processor.mouse_input(state, button, notifier, &terminal);
+                processor.mouse_input(&mut self.selection, state, button, notifier, &terminal);
+                *wakeup_request = true;
             },
             glutin::Event::MouseMoved(x, y) => {
                 if x > 0 && y > 0 {
-                    self.input_processor.mouse_moved(x as u32, y as u32);
+                    let terminal = self.terminal.lock();
+                    self.input_processor.mouse_moved(
+                        &mut self.selection,
+                        *terminal.mode(),
+                        x as u32,
+                        y as u32
+                    );
+                    if !self.selection.is_empty() {
+                        *wakeup_request = true;
+                    }
                 }
             },
             glutin::Event::Focused(true) => {
@@ -116,7 +131,6 @@ impl<N: input::Notify> Processor<N> {
                 terminal.dirty = true;
             },
             glutin::Event::MouseWheel(scroll_delta, touch_phase) => {
-                let terminal = self.terminal.lock();
                 let processor = &mut self.input_processor;
                 let notifier = &mut self.notifier;
 
@@ -124,7 +138,6 @@ impl<N: input::Notify> Processor<N> {
                     notifier,
                     scroll_delta,
                     touch_phase,
-                    &terminal
                 );
             },
             glutin::Event::Awakened => {

@@ -13,15 +13,15 @@
 // limitations under the License.
 //
 //! Exports the `Term` type which is a high-level API for the Grid
-use std::ops::{Deref, Range};
+use std::ops::{Deref, Range, RangeInclusive};
 use std::ptr;
 use std::cmp;
 use std::io;
 
-use ansi::{self, Attr, Handler};
-use grid::{Grid, ClearRegion};
-use index::{Cursor, Column, Line};
-use ansi::{Color, NamedColor};
+use ansi::{self, Color, NamedColor, Attr, Handler};
+use grid::{Grid, ClearRegion, ToRange};
+use index::{self, Cursor, Column, Line, Linear};
+use selection::Selection;
 
 pub mod cell;
 pub use self::cell::Cell;
@@ -40,8 +40,8 @@ pub struct RenderableCellsIter<'a> {
     mode: TermMode,
     line: Line,
     column: Column,
+    selection: Option<RangeInclusive<index::Linear>>,
 }
-
 
 impl<'a> RenderableCellsIter<'a> {
     /// Create the renderable cells iterator
@@ -51,14 +51,19 @@ impl<'a> RenderableCellsIter<'a> {
     fn new<'b>(
         grid: &'b mut Grid<Cell>,
         cursor: &'b Cursor,
-        mode: TermMode
+        mode: TermMode,
+        selection: &Selection,
     ) -> RenderableCellsIter<'b> {
+        let selection = selection.span()
+            .map(|span| span.to_range(grid.num_cols()));
+
         RenderableCellsIter {
             grid: grid,
             cursor: cursor,
             mode: mode,
             line: Line(0),
             column: Column(0),
+            selection: selection,
         }.initialize()
     }
 
@@ -117,16 +122,24 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 let column = self.column;
                 let cell = &self.grid[line][column];
 
+                let index = Linear(line.0 * self.grid.num_cols().0 + column.0);
+
                 // Update state for next iteration
                 self.column += 1;
 
+                let selected = self.selection.as_ref()
+                    .map(|range| range.contains(index))
+                    .unwrap_or(false);
+
                 // Skip empty cells
-                if cell.is_empty() {
+                if cell.is_empty() && !selected {
                     continue;
                 }
 
                 // fg, bg are dependent on INVERSE flag
-                let (fg, bg) = if cell.flags.contains(cell::INVERSE) {
+                let invert = cell.flags.contains(cell::INVERSE) || selected;
+
+                let (fg, bg) = if invert {
                     (&cell.bg, &cell.fg)
                 } else {
                     (&cell.fg, &cell.bg)
@@ -319,8 +332,8 @@ impl Term {
     /// A renderable cell is any cell which has content other than the default
     /// background color.  Cells with an alternate background color are
     /// considered renderable as are cells with any text content.
-    pub fn renderable_cells(&mut self) -> RenderableCellsIter {
-        RenderableCellsIter::new(&mut self.grid, &self.cursor, self.mode)
+    pub fn renderable_cells(&mut self, selection: &Selection) -> RenderableCellsIter {
+        RenderableCellsIter::new(&mut self.grid, &self.cursor, self.mode, selection)
     }
 
     /// Resize terminal to new dimensions
@@ -932,6 +945,7 @@ mod bench {
     use std::path::Path;
 
     use grid::Grid;
+    use selection::Selection;
 
     use super::{SizeInfo, Term};
     use super::cell::Cell;
@@ -972,7 +986,7 @@ mod bench {
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {
-            let iter = terminal.renderable_cells();
+            let iter = terminal.renderable_cells(&Selection::Empty);
             for cell in iter {
                 test::black_box(cell);
             }

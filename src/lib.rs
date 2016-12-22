@@ -15,6 +15,7 @@
 //! Alacritty - The GPU Enhanced Terminal
 #![feature(range_contains)]
 #![feature(inclusive_range_syntax)]
+#![feature(inclusive_range)]
 #![feature(drop_types_in_const)]
 #![feature(step_trait)]
 #![feature(plugin)]
@@ -62,6 +63,7 @@ pub mod index;
 pub mod input;
 pub mod meter;
 pub mod renderer;
+pub mod selection;
 pub mod sync;
 pub mod term;
 pub mod tty;

@@ -15,16 +15,50 @@
 //! Line and Column newtypes for strongly typed tty/grid/terminal APIs
 
 /// Indexing types and implementations for Grid and Line
+use std::cmp::{Ord, Ordering};
 use std::fmt;
 use std::iter::Step;
 use std::mem;
 use std::ops::{self, Deref, Add};
+
+/// The side of a cell
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Side {
+    Left,
+    Right
+}
 
 /// Index in the grid using row, column notation
 #[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Cursor {
     pub line: Line,
     pub col: Column,
+}
+
+/// Location
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
+pub struct Location {
+    pub line: Line,
+    pub col: Column,
+}
+
+impl Location {
+    pub fn new(line: Line, col: Column) -> Location {
+        Location { line: line, col: col }
+    }
+}
+
+impl Ord for Location {
+    fn cmp(&self, other: &Location) -> Ordering {
+        use std::cmp::Ordering::*;
+        match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
+            (Equal,   Equal) => Equal,
+            (Equal,   ord)   => ord,
+            (ord,     Equal) => ord,
+            (Less,    _)     => Less,
+            (Greater, _)     => Greater,
+        }
+    }
 }
 
 /// A line
@@ -48,6 +82,18 @@ pub struct Column(pub usize);
 impl fmt::Display for Column {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Column({})", self.0)
+    }
+}
+
+/// A linear index
+///
+/// Newtype to avoid passing values incorrectly
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct Linear(pub usize);
+
+impl fmt::Display for Linear {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Linear({})", self.0)
     }
 }
 
@@ -281,3 +327,19 @@ macro_rules! ops {
 
 ops!(Line, Line);
 ops!(Column, Column);
+ops!(Linear, Linear);
+
+#[cfg(test)]
+mod tests {
+    use super::{Line, Column, Location};
+
+    #[test]
+    fn location_ordering() {
+        assert!(Location::new(Line(0), Column(0)) == Location::new(Line(0), Column(0)));
+        assert!(Location::new(Line(1), Column(0)) > Location::new(Line(0), Column(0)));
+        assert!(Location::new(Line(0), Column(1)) > Location::new(Line(0), Column(0)));
+        assert!(Location::new(Line(1), Column(1)) > Location::new(Line(0), Column(0)));
+        assert!(Location::new(Line(1), Column(1)) > Location::new(Line(0), Column(1)));
+        assert!(Location::new(Line(1), Column(1)) > Location::new(Line(1), Column(0)));
+    }
+}
