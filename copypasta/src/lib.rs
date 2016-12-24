@@ -32,10 +32,12 @@ pub trait Load : Sized {
 /// order to load the contents from other applications.
 pub trait Store : Load {
     /// Sets the primary clipboard contents
-    fn store_primary(&mut self, contents: String) -> Result<(), Self::Err>;
+    fn store_primary<S>(&mut self, contents: S) -> Result<(), Self::Err>
+        where S: Into<String>;
 
     /// Sets the secondary clipboard contents
-    fn store_selection(&mut self, contents: String) -> Result<(), Self::Err>;
+    fn store_selection<S>(&mut self, contents: S) -> Result<(), Self::Err>
+        where S: Into<String>;
 }
 
 #[cfg(target_os = "linux")]
