@@ -25,7 +25,7 @@
 //! TODO handling xmodmap would be good
 use std::borrow::Cow;
 
-use copypasta::{Clipboard, Load};
+use copypasta::{Clipboard, Load, Store};
 use glutin::{ElementState, VirtualKeyCode, MouseButton};
 use glutin::{Mods, mods};
 use glutin::{TouchPhase, MouseScrollDelta};
@@ -142,8 +142,8 @@ impl KeyBinding {
     }
 
     #[inline]
-    fn execute<N: Notify>(&self, notifier: &mut N, mode: &TermMode) {
-        self.binding.action.execute(notifier, mode)
+    fn execute<'a, N: Notify>(&self, context: &mut ActionContext<'a, N>) {
+        self.binding.action.execute(context)
     }
 }
 
@@ -162,8 +162,8 @@ impl MouseBinding {
     }
 
     #[inline]
-    fn execute<N: Notify>(&self, notifier: &mut N, mode: &TermMode) {
-        self.binding.action.execute(notifier, mode)
+    fn execute<'a, N: Notify>(&self, context: &mut ActionContext<'a, N>) {
+        self.binding.action.execute(context)
     }
 }
 
@@ -175,25 +175,32 @@ pub enum Action {
     /// Paste contents of system clipboard
     Paste,
 
+    // Store current selection into clipboard
+    Copy,
+
     /// Paste contents of selection buffer
     PasteSelection,
 }
 
 impl Action {
     #[inline]
-    fn execute<N: Notify>(&self, notifier: &mut N, mode: &TermMode) {
+    fn execute<'a, N: Notify>(&self, ctx: &mut ActionContext<'a, N>) {
         match *self {
-            Action::Esc(ref s) => notifier.notify(s.clone().into_bytes()),
+            Action::Esc(ref s) => ctx.notifier.notify(s.clone().into_bytes()),
+            Action::Copy => {
+                // so... need access to terminal state. and the selection.
+                unimplemented!();
+            },
             Action::Paste | Action::PasteSelection => {
                 let clip = Clipboard::new().expect("get clipboard");
                 clip.load_selection()
                     .map(|contents| {
-                        if mode.contains(mode::BRACKETED_PASTE) {
-                            notifier.notify(&b"\x1b[200~"[..]);
-                            notifier.notify(contents.into_bytes());
-                            notifier.notify(&b"\x1b[201~"[..]);
+                        if ctx.terminal.mode().contains(mode::BRACKETED_PASTE) {
+                            ctx.notifier.notify(&b"\x1b[200~"[..]);
+                            ctx.notifier.notify(contents.into_bytes());
+                            ctx.notifier.notify(&b"\x1b[201~"[..]);
                         } else {
-                            notifier.notify(contents.into_bytes());
+                            ctx.notifier.notify(contents.into_bytes());
                         }
                     })
                     .unwrap_or_else(|err| {
@@ -240,11 +247,11 @@ impl Binding {
     }
 }
 
-//   key               mods            escape      appkey appcursor crlf
-//
-// notes: appkey = DECPAM (application keypad mode); not enabled is "normal keypad"
-//     appcursor = DECCKM (application cursor mode);
-//          crlf = LNM    (Linefeed/new line); wtf is this
+pub struct ActionContext<'a, N: 'a> {
+    pub notifier: &'a mut N,
+    pub terminal: &'a Term,
+    pub selection: &'a mut Selection
+}
 
 impl Processor {
     pub fn resize(&mut self, size_info: &term::SizeInfo) {
@@ -292,10 +299,10 @@ impl Processor {
         }
     }
 
-    pub fn mouse_report<N: Notify>(
+    pub fn mouse_report<'a, N: Notify>(
         &mut self,
         button: u8,
-        notifier: &mut N,
+        context: &mut ActionContext<'a, N>
     ) {
         let (line, column) = (self.mouse.line, self.mouse.column);
 
@@ -309,34 +316,32 @@ impl Processor {
                 32 + 1 + line.0 as u8,
             ];
 
-            notifier.notify(msg);
+            context.notifier.notify(msg);
         }
     }
 
-    pub fn on_mouse_press<N: Notify>(
+    pub fn on_mouse_press<'a, N: Notify>(
         &mut self,
-        notifier: &mut N,
-        terminal: &Term,
-        selection: &mut Selection
+        context: &mut ActionContext<'a, N>
     ) {
-        if terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
-            self.mouse_report(0, notifier);
+        if context.terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
+            self.mouse_report(0, context);
             return;
         }
 
-        selection.clear();
+        context.selection.clear();
     }
 
-    pub fn on_mouse_release<N: Notify>(&mut self, notifier: &mut N, terminal: &Term) {
-        if terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
-            self.mouse_report(3, notifier);
+    pub fn on_mouse_release<'a, N: Notify>(&mut self, context: &mut ActionContext<'a, N>) {
+        if context.terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
+            self.mouse_report(3, context);
             return;
         }
     }
 
-    pub fn on_mouse_wheel<N: Notify>(
+    pub fn on_mouse_wheel<'a, N: Notify>(
         &mut self,
-        notifier: &mut N,
+        context: &mut ActionContext<'a, N>,
         delta: MouseScrollDelta,
         phase: TouchPhase,
     ) {
@@ -349,7 +354,7 @@ impl Processor {
                 };
 
                 for _ in 0..(lines.abs() as usize) {
-                    self.mouse_report(code, notifier);
+                    self.mouse_report(code, context);
                 }
             },
             MouseScrollDelta::PixelDelta(_x, y) => {
@@ -371,7 +376,7 @@ impl Processor {
                                 65
                             };
 
-                            self.mouse_report(button, notifier);
+                            self.mouse_report(button, context);
                         }
                     },
                     _ => (),
@@ -380,13 +385,11 @@ impl Processor {
         }
     }
 
-    pub fn mouse_input<N: Notify>(
+    pub fn mouse_input<'a, N: Notify>(
         &mut self,
-        selection: &mut Selection,
+        context: &mut ActionContext<'a, N>,
         state: ElementState,
         button: MouseButton,
-        notifier: &mut N,
-        terminal: &Term
     ) {
         if let MouseButton::Left = button {
             // TODO handle state changes
@@ -394,10 +397,10 @@ impl Processor {
                 self.mouse.left_button_state = state;
                 match state {
                     ElementState::Pressed => {
-                        self.on_mouse_press(notifier, terminal, selection);
+                        self.on_mouse_press(context);
                     },
                     ElementState::Released => {
-                        self.on_mouse_release(notifier, terminal);
+                        self.on_mouse_release(context);
                     }
                 }
             }
@@ -408,21 +411,19 @@ impl Processor {
         }
 
         Processor::process_mouse_bindings(
+            context,
             &self.mouse_bindings[..],
-            *terminal.mode(),
-            notifier,
             mods::NONE,
             button
         );
     }
 
-    pub fn process_key<N: Notify>(
+    pub fn process_key<'a, N: Notify>(
         &mut self,
+        context: &mut ActionContext<'a, N>,
         state: ElementState,
         key: Option<VirtualKeyCode>,
         mods: Mods,
-        notifier: &mut N,
-        mode: TermMode,
         string: Option<String>,
     ) {
         if let Some(key) = key {
@@ -431,13 +432,13 @@ impl Processor {
                 return;
             }
 
-            if Processor::process_key_bindings(&self.key_bindings[..], mode, notifier, mods, key) {
+            if Processor::process_key_bindings(context, &self.key_bindings[..], mods, key) {
                 return;
             }
 
             // Didn't process a binding; print the provided character
             if let Some(string) = string {
-                notifier.notify(string.into_bytes());
+                context.notifier.notify(string.into_bytes());
             }
         }
     }
@@ -448,19 +449,16 @@ impl Processor {
     /// for its action to be executed.
     ///
     /// Returns true if an action is executed.
-    fn process_key_bindings<N>(
+    fn process_key_bindings<'a, N: Notify>(
+        context: &mut ActionContext<'a, N>,
         bindings: &[KeyBinding],
-        mode: TermMode,
-        notifier: &mut N,
         mods: Mods,
         key: VirtualKeyCode
-    ) -> bool
-        where N: Notify
-    {
+    ) -> bool {
         for binding in bindings {
-            if binding.is_triggered_by(&mode, &mods, &key) {
+            if binding.is_triggered_by(context.terminal.mode(), &mods, &key) {
                 // binding was triggered; run the action
-                binding.execute(notifier, &mode);
+                binding.execute(context);
                 return true;
             }
         }
@@ -474,19 +472,16 @@ impl Processor {
     /// for its action to be executed.
     ///
     /// Returns true if an action is executed.
-    fn process_mouse_bindings<N>(
+    fn process_mouse_bindings<'a, N: Notify>(
+        context: &mut ActionContext<'a, N>,
         bindings: &[MouseBinding],
-        mode: TermMode,
-        notifier: &mut N,
         mods: Mods,
         button: MouseButton
-    ) -> bool
-        where N: Notify
-    {
+    ) -> bool {
         for binding in bindings {
-            if binding.is_triggered_by(&mode, &mods, &button) {
+            if binding.is_triggered_by(context.terminal.mode(), &mods, &button) {
                 // binding was triggered; run the action
-                binding.execute(notifier, &mode);
+                binding.execute(context);
                 return true;
             }
         }

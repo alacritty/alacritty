@@ -8,7 +8,7 @@ use glutin;
 
 use config::Config;
 use display::OnResize;
-use input;
+use input::{self, ActionContext};
 use selection::Selection;
 use sync::FairMutex;
 use term::{Term, SizeInfo};
@@ -98,18 +98,29 @@ impl<N: input::Notify> Processor<N> {
                 // Acquire term lock
                 let terminal = self.terminal.lock();
                 let processor = &mut self.input_processor;
-                let notifier = &mut self.notifier;
 
+                {
+                    let mut context = ActionContext {
+                        terminal: &terminal,
+                        notifier: &mut self.notifier,
+                        selection: &mut self.selection,
+                    };
+
+                    processor.process_key(&mut context, state, key, mods, string);
+                }
                 self.selection.clear();
-
-                processor.process_key(state, key, mods, notifier, *terminal.mode(), string);
             },
             glutin::Event::MouseInput(state, button) => {
                 let terminal = self.terminal.lock();
                 let processor = &mut self.input_processor;
-                let notifier = &mut self.notifier;
 
-                processor.mouse_input(&mut self.selection, state, button, notifier, &terminal);
+                let mut context = ActionContext {
+                    terminal: &terminal,
+                    notifier: &mut self.notifier,
+                    selection: &mut self.selection,
+                };
+
+                processor.mouse_input(&mut context, state, button);
                 *wakeup_request = true;
             },
             glutin::Event::MouseMoved(x, y) => {
@@ -131,11 +142,17 @@ impl<N: input::Notify> Processor<N> {
                 terminal.dirty = true;
             },
             glutin::Event::MouseWheel(scroll_delta, touch_phase) => {
+                let mut terminal = self.terminal.lock();
                 let processor = &mut self.input_processor;
-                let notifier = &mut self.notifier;
+
+                let mut context = ActionContext {
+                    terminal: &terminal,
+                    notifier: &mut self.notifier,
+                    selection: &mut self.selection,
+                };
 
                 processor.on_mouse_wheel(
-                    notifier,
+                    &mut context,
                     scroll_delta,
                     touch_phase,
                 );
