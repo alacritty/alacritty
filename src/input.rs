@@ -23,19 +23,17 @@
 //! APIs
 //!
 //! TODO handling xmodmap would be good
-use std::borrow::Cow;
-
 use copypasta::{Clipboard, Load, Store};
 use glutin::{ElementState, VirtualKeyCode, MouseButton};
 use glutin::{Mods, mods};
 use glutin::{TouchPhase, MouseScrollDelta};
 
-use config::Config;
-use event_loop;
+use event::Notify;
 use index::{Line, Column, Side, Location};
 use selection::Selection;
 use term::mode::{self, TermMode};
 use term::{self, Term};
+use event::Mouse;
 
 /// Processes input from glutin.
 ///
@@ -43,58 +41,18 @@ use term::{self, Term};
 /// are activated.
 ///
 /// TODO also need terminal state when processing input
-pub struct Processor {
-    key_bindings: Vec<KeyBinding>,
-    mouse_bindings: Vec<MouseBinding>,
-    mouse: Mouse,
-    size_info: term::SizeInfo,
+pub struct Processor<'a, N: 'a> {
+    pub key_bindings: &'a [KeyBinding],
+    pub mouse_bindings: &'a [MouseBinding],
+    pub ctx: ActionContext<'a, N>,
 }
 
-/// State of the mouse
-pub struct Mouse {
-    x: u32,
-    y: u32,
-    left_button_state: ElementState,
-    scroll_px: i32,
-    line: Line,
-    column: Column,
-    cell_side: Side
-}
-
-impl Default for Mouse {
-    fn default() -> Mouse {
-        Mouse {
-            x: 0,
-            y: 0,
-            left_button_state: ElementState::Released,
-            scroll_px: 0,
-            line: Line(0),
-            column: Column(0),
-            cell_side: Side::Left,
-        }
-    }
-}
-
-/// Types that are notified of escape sequences from the `input::Processor`.
-pub trait Notify {
-    /// Notify that an escape sequence should be written to the pty
-    ///
-    /// TODO this needs to be able to error somehow
-    fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, B);
-}
-
-pub struct LoopNotifier(pub ::mio::channel::Sender<event_loop::Msg>);
-
-impl Notify for LoopNotifier {
-    fn notify<B>(&mut self, bytes: B)
-        where B: Into<Cow<'static, [u8]>>
-    {
-        let bytes = bytes.into();
-        match self.0.send(event_loop::Msg::Input(bytes)) {
-            Ok(_) => (),
-            Err(_) => panic!("expected send event loop msg"),
-        }
-    }
+pub struct ActionContext<'a, N: 'a> {
+    pub notifier: &'a mut N,
+    pub terminal: &'a Term,
+    pub selection: &'a mut Selection,
+    pub mouse: &'a mut Mouse,
+    pub size_info: &'a term::SizeInfo,
 }
 
 /// Describes a state and action to take in that state
@@ -142,8 +100,8 @@ impl KeyBinding {
     }
 
     #[inline]
-    fn execute<'a, N: Notify>(&self, context: &mut ActionContext<'a, N>) {
-        self.binding.action.execute(context)
+    fn execute<'a, N: Notify>(&self, ctx: &mut ActionContext<'a, N>) {
+        self.binding.action.execute(ctx)
     }
 }
 
@@ -162,8 +120,8 @@ impl MouseBinding {
     }
 
     #[inline]
-    fn execute<'a, N: Notify>(&self, context: &mut ActionContext<'a, N>) {
-        self.binding.action.execute(context)
+    fn execute<'a, N: Notify>(&self, ctx: &mut ActionContext<'a, N>) {
+        self.binding.action.execute(ctx)
     }
 }
 
@@ -186,12 +144,15 @@ impl Action {
     #[inline]
     fn execute<'a, N: Notify>(&self, ctx: &mut ActionContext<'a, N>) {
         match *self {
-            Action::Esc(ref s) => ctx.notifier.notify(s.clone().into_bytes()),
+            Action::Esc(ref s) => {
+                ctx.notifier.notify(s.clone().into_bytes())
+            },
             Action::Copy => {
                 // so... need access to terminal state. and the selection.
                 unimplemented!();
             },
-            Action::Paste | Action::PasteSelection => {
+            Action::Paste |
+            Action::PasteSelection => {
                 let clip = Clipboard::new().expect("get clipboard");
                 clip.load_selection()
                     .map(|contents| {
@@ -247,64 +208,41 @@ impl Binding {
     }
 }
 
-pub struct ActionContext<'a, N: 'a> {
-    pub notifier: &'a mut N,
-    pub terminal: &'a Term,
-    pub selection: &'a mut Selection
-}
-
-impl Processor {
-    pub fn resize(&mut self, size_info: &term::SizeInfo) {
-        self.size_info = size_info.to_owned();
-    }
-
-    pub fn new(config: &Config, size_info: &term::SizeInfo) -> Processor {
-        Processor {
-            key_bindings: config.key_bindings().to_vec(),
-            mouse_bindings: config.mouse_bindings().to_vec(),
-            mouse: Mouse::default(),
-            size_info: size_info.to_owned(),
-        }
-    }
-
+impl<'a, N: Notify + 'a> Processor<'a, N> {
     #[inline]
-    pub fn mouse_moved(&mut self, selection: &mut Selection, mode: TermMode, x: u32, y: u32) {
+    pub fn mouse_moved(&mut self, x: u32, y: u32) {
         // Record mouse position within window. Pixel coordinates are *not*
         // translated to grid coordinates here since grid coordinates are rarely
         // needed and the mouse position updates frequently.
-        self.mouse.x = x;
-        self.mouse.y = y;
+        self.ctx.mouse.x = x;
+        self.ctx.mouse.y = y;
 
-        if let Some((line, column)) = self.size_info.pixels_to_coords(x as usize, y as usize) {
-            self.mouse.line = line;
-            self.mouse.column = column;
+        if let Some((line, column)) = self.ctx.size_info.pixels_to_coords(x as usize, y as usize) {
+            self.ctx.mouse.line = line;
+            self.ctx.mouse.column = column;
 
-            let cell_x = x as usize % self.size_info.cell_width as usize;
-            let half_cell_width = (self.size_info.cell_width / 2.0) as usize;
+            let cell_x = x as usize % self.ctx.size_info.cell_width as usize;
+            let half_cell_width = (self.ctx.size_info.cell_width / 2.0) as usize;
 
-            self.mouse.cell_side = if cell_x > half_cell_width {
+            self.ctx.mouse.cell_side = if cell_x > half_cell_width {
                 Side::Right
             } else {
                 Side::Left
             };
 
-            if self.mouse.left_button_state == ElementState::Pressed &&
-                !mode.contains(mode::MOUSE_REPORT_CLICK)
+            if self.ctx.mouse.left_button_state == ElementState::Pressed &&
+                !self.ctx.terminal.mode().contains(mode::MOUSE_REPORT_CLICK)
             {
-                selection.update(Location {
+                self.ctx.selection.update(Location {
                     line: line,
                     col: column
-                }, self.mouse.cell_side);
+                }, self.ctx.mouse.cell_side);
             }
         }
     }
 
-    pub fn mouse_report<'a, N: Notify>(
-        &mut self,
-        button: u8,
-        context: &mut ActionContext<'a, N>
-    ) {
-        let (line, column) = (self.mouse.line, self.mouse.column);
+    pub fn mouse_report(&mut self, button: u8) {
+        let (line, column) = (self.ctx.mouse.line, self.ctx.mouse.column);
 
         if line < Line(223) && column < Column(223) {
             let msg = vec![
@@ -316,35 +254,27 @@ impl Processor {
                 32 + 1 + line.0 as u8,
             ];
 
-            context.notifier.notify(msg);
+            self.ctx.notifier.notify(msg);
         }
     }
 
-    pub fn on_mouse_press<'a, N: Notify>(
-        &mut self,
-        context: &mut ActionContext<'a, N>
-    ) {
-        if context.terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
-            self.mouse_report(0, context);
+    pub fn on_mouse_press(&mut self) {
+        if self.ctx.terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
+            self.mouse_report(0);
             return;
         }
 
-        context.selection.clear();
+        self.ctx.selection.clear();
     }
 
-    pub fn on_mouse_release<'a, N: Notify>(&mut self, context: &mut ActionContext<'a, N>) {
-        if context.terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
-            self.mouse_report(3, context);
+    pub fn on_mouse_release(&mut self) {
+        if self.ctx.terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
+            self.mouse_report(3);
             return;
         }
     }
 
-    pub fn on_mouse_wheel<'a, N: Notify>(
-        &mut self,
-        context: &mut ActionContext<'a, N>,
-        delta: MouseScrollDelta,
-        phase: TouchPhase,
-    ) {
+    pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let code = if lines > 0.0 {
@@ -354,29 +284,29 @@ impl Processor {
                 };
 
                 for _ in 0..(lines.abs() as usize) {
-                    self.mouse_report(code, context);
+                    self.mouse_report(code);
                 }
             },
             MouseScrollDelta::PixelDelta(_x, y) => {
                 match phase {
                     TouchPhase::Started => {
                         // Reset offset to zero
-                        self.mouse.scroll_px = 0;
+                        self.ctx.mouse.scroll_px = 0;
                     },
                     TouchPhase::Moved => {
-                        self.mouse.scroll_px += y as i32;
-                        let height = self.size_info.cell_height as i32;
+                        self.ctx.mouse.scroll_px += y as i32;
+                        let height = self.ctx.size_info.cell_height as i32;
 
-                        while self.mouse.scroll_px.abs() >= height {
-                            let button = if self.mouse.scroll_px > 0 {
-                                self.mouse.scroll_px -= height;
+                        while self.ctx.mouse.scroll_px.abs() >= height {
+                            let button = if self.ctx.mouse.scroll_px > 0 {
+                                self.ctx.mouse.scroll_px -= height;
                                 64
                             } else {
-                                self.mouse.scroll_px += height;
+                                self.ctx.mouse.scroll_px += height;
                                 65
                             };
 
-                            self.mouse_report(button, context);
+                            self.mouse_report(button);
                         }
                     },
                     _ => (),
@@ -385,22 +315,17 @@ impl Processor {
         }
     }
 
-    pub fn mouse_input<'a, N: Notify>(
-        &mut self,
-        context: &mut ActionContext<'a, N>,
-        state: ElementState,
-        button: MouseButton,
-    ) {
+    pub fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
         if let MouseButton::Left = button {
             // TODO handle state changes
-            if self.mouse.left_button_state != state {
-                self.mouse.left_button_state = state;
+            if self.ctx.mouse.left_button_state != state {
+                self.ctx.mouse.left_button_state = state;
                 match state {
                     ElementState::Pressed => {
-                        self.on_mouse_press(context);
+                        self.on_mouse_press();
                     },
                     ElementState::Released => {
-                        self.on_mouse_release(context);
+                        self.on_mouse_release();
                     }
                 }
             }
@@ -410,17 +335,11 @@ impl Processor {
             return;
         }
 
-        Processor::process_mouse_bindings(
-            context,
-            &self.mouse_bindings[..],
-            mods::NONE,
-            button
-        );
+        self.process_mouse_bindings(mods::NONE, button);
     }
 
-    pub fn process_key<'a, N: Notify>(
+    pub fn process_key(
         &mut self,
-        context: &mut ActionContext<'a, N>,
         state: ElementState,
         key: Option<VirtualKeyCode>,
         mods: Mods,
@@ -432,13 +351,13 @@ impl Processor {
                 return;
             }
 
-            if Processor::process_key_bindings(context, &self.key_bindings[..], mods, key) {
+            if self.process_key_bindings(mods, key) {
                 return;
             }
 
             // Didn't process a binding; print the provided character
             if let Some(string) = string {
-                context.notifier.notify(string.into_bytes());
+                self.ctx.notifier.notify(string.into_bytes());
             }
         }
     }
@@ -449,16 +368,11 @@ impl Processor {
     /// for its action to be executed.
     ///
     /// Returns true if an action is executed.
-    fn process_key_bindings<'a, N: Notify>(
-        context: &mut ActionContext<'a, N>,
-        bindings: &[KeyBinding],
-        mods: Mods,
-        key: VirtualKeyCode
-    ) -> bool {
-        for binding in bindings {
-            if binding.is_triggered_by(context.terminal.mode(), &mods, &key) {
+    fn process_key_bindings(&mut self, mods: Mods, key: VirtualKeyCode) -> bool {
+        for binding in self.key_bindings {
+            if binding.is_triggered_by(self.ctx.terminal.mode(), &mods, &key) {
                 // binding was triggered; run the action
-                binding.execute(context);
+                binding.execute(&mut self.ctx);
                 return true;
             }
         }
@@ -472,26 +386,16 @@ impl Processor {
     /// for its action to be executed.
     ///
     /// Returns true if an action is executed.
-    fn process_mouse_bindings<'a, N: Notify>(
-        context: &mut ActionContext<'a, N>,
-        bindings: &[MouseBinding],
-        mods: Mods,
-        button: MouseButton
-    ) -> bool {
-        for binding in bindings {
-            if binding.is_triggered_by(context.terminal.mode(), &mods, &button) {
+    fn process_mouse_bindings(&mut self, mods: Mods, button: MouseButton) -> bool {
+        for binding in self.mouse_bindings {
+            if binding.is_triggered_by(self.ctx.terminal.mode(), &mods, &button) {
                 // binding was triggered; run the action
-                binding.execute(context);
+                binding.execute(&mut self.ctx);
                 return true;
             }
         }
 
         false
-    }
-
-    pub fn update_config(&mut self, config: &Config) {
-        self.key_bindings = config.key_bindings().to_vec();
-        self.mouse_bindings = config.mouse_bindings().to_vec();
     }
 }
 

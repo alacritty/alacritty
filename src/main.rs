@@ -26,8 +26,7 @@ use alacritty::cli;
 use alacritty::config::{self, Config};
 use alacritty::display::Display;
 use alacritty::event;
-use alacritty::event_loop::EventLoop;
-use alacritty::input;
+use alacritty::event_loop::{self, EventLoop};
 use alacritty::sync::FairMutex;
 use alacritty::term::{Term};
 use alacritty::tty::{self, process_should_exit};
@@ -108,7 +107,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     //
     // Need the Rc<RefCell<_>> here since a ref is shared in the resize callback
     let mut processor = event::Processor::new(
-        input::LoopNotifier(loop_tx),
+        event_loop::Notifier(loop_tx),
         terminal.clone(),
         display.resize_channel(),
         &config,

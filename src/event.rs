@@ -1,26 +1,67 @@
 //! Process window events
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::Write;
 use std::sync::{Arc, mpsc};
 use serde_json as json;
 
-use glutin;
+use glutin::{self, ElementState};
+use index::{Line, Column, Side};
 
 use config::Config;
 use display::OnResize;
-use input::{self, ActionContext};
+use input::{self, ActionContext, MouseBinding, KeyBinding};
 use selection::Selection;
 use sync::FairMutex;
 use term::{Term, SizeInfo};
 use window::Window;
 
+/// Byte sequences are sent to a `Notify` in response to some events
+pub trait Notify {
+    /// Notify that an escape sequence should be written to the pty
+    ///
+    /// TODO this needs to be able to error somehow
+    fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, B);
+}
+
+/// State of the mouse
+pub struct Mouse {
+    pub x: u32,
+    pub y: u32,
+    pub left_button_state: ElementState,
+    pub scroll_px: i32,
+    pub line: Line,
+    pub column: Column,
+    pub cell_side: Side
+}
+
+impl Default for Mouse {
+    fn default() -> Mouse {
+        Mouse {
+            x: 0,
+            y: 0,
+            left_button_state: ElementState::Released,
+            scroll_px: 0,
+            line: Line(0),
+            column: Column(0),
+            cell_side: Side::Left,
+        }
+    }
+}
+
 /// The event processor
+///
+/// Stores some state from received events and dispatches actions when they are
+/// triggered.
 pub struct Processor<N> {
+    key_bindings: Vec<KeyBinding>,
+    mouse_bindings: Vec<MouseBinding>,
     notifier: N,
-    input_processor: input::Processor,
+    mouse: Mouse,
     terminal: Arc<FairMutex<Term>>,
     resize_tx: mpsc::Sender<(u32, u32)>,
     ref_test: bool,
+    size_info: SizeInfo,
     pub selection: Selection,
 }
 
@@ -29,11 +70,11 @@ pub struct Processor<N> {
 /// Currently this just forwards the notice to the input processor.
 impl<N> OnResize for Processor<N> {
     fn on_resize(&mut self, size: &SizeInfo) {
-        self.input_processor.resize(size);
+        self.size_info = size.to_owned();
     }
 }
 
-impl<N: input::Notify> Processor<N> {
+impl<N: Notify> Processor<N> {
     /// Create a new event processor
     ///
     /// Takes a writer which is expected to be hooked up to the write end of a
@@ -45,33 +86,44 @@ impl<N: input::Notify> Processor<N> {
         config: &Config,
         ref_test: bool,
     ) -> Processor<N> {
-        let input_processor = {
+        let size_info = {
             let terminal = terminal.lock();
-            input::Processor::new(config, terminal.size_info())
+            terminal.size_info().to_owned()
         };
 
         Processor {
+            key_bindings: config.key_bindings().to_vec(),
+            mouse_bindings: config.mouse_bindings().to_vec(),
             notifier: notifier,
             terminal: terminal,
-            input_processor: input_processor,
             resize_tx: resize_tx,
             ref_test: ref_test,
+            mouse: Default::default(),
             selection: Default::default(),
+            size_info: size_info,
         }
     }
 
-    fn handle_event(&mut self, event: glutin::Event, wakeup_request: &mut bool) {
+    /// Handle events from glutin
+    ///
+    /// Doesn't take self mutably due to borrow checking. Kinda uggo but w/e.
+    fn handle_event<'a>(
+        processor: &mut input::Processor<'a, N>,
+        event: glutin::Event,
+        wakeup_request: &mut bool,
+        ref_test: bool,
+        resize_tx: &mpsc::Sender<(u32, u32)>,
+    ) {
         match event {
             glutin::Event::Closed => {
-                if self.ref_test {
+                if ref_test {
                     // dump grid state
-                    let terminal = self.terminal.lock();
-                    let grid = terminal.grid();
+                    let grid = processor.ctx.terminal.grid();
 
                     let serialized_grid = json::to_string(&grid)
                         .expect("serialize grid");
 
-                    let serialized_size = json::to_string(terminal.size_info())
+                    let serialized_size = json::to_string(processor.ctx.terminal.size_info())
                         .expect("serialize size");
 
                     File::create("./grid.json")
@@ -87,7 +139,7 @@ impl<N: input::Notify> Processor<N> {
                 panic!("window closed");
             },
             glutin::Event::Resized(w, h) => {
-                self.resize_tx.send((w, h)).expect("send new size");
+                resize_tx.send((w, h)).expect("send new size");
 
                 // Previously, this marked the terminal state as "dirty", but
                 // now the wakeup_request controls whether a display update is
@@ -95,67 +147,27 @@ impl<N: input::Notify> Processor<N> {
                 *wakeup_request = true;
             },
             glutin::Event::KeyboardInput(state, _code, key, mods, string) => {
-                // Acquire term lock
-                let terminal = self.terminal.lock();
-                let processor = &mut self.input_processor;
-
-                {
-                    let mut context = ActionContext {
-                        terminal: &terminal,
-                        notifier: &mut self.notifier,
-                        selection: &mut self.selection,
-                    };
-
-                    processor.process_key(&mut context, state, key, mods, string);
-                }
-                self.selection.clear();
+                processor.process_key(state, key, mods, string);
+                processor.ctx.selection.clear();
             },
             glutin::Event::MouseInput(state, button) => {
-                let terminal = self.terminal.lock();
-                let processor = &mut self.input_processor;
-
-                let mut context = ActionContext {
-                    terminal: &terminal,
-                    notifier: &mut self.notifier,
-                    selection: &mut self.selection,
-                };
-
-                processor.mouse_input(&mut context, state, button);
+                processor.mouse_input(state, button);
                 *wakeup_request = true;
             },
             glutin::Event::MouseMoved(x, y) => {
                 if x > 0 && y > 0 {
-                    let terminal = self.terminal.lock();
-                    self.input_processor.mouse_moved(
-                        &mut self.selection,
-                        *terminal.mode(),
-                        x as u32,
-                        y as u32
-                    );
-                    if !self.selection.is_empty() {
+                    processor.mouse_moved(x as u32, y as u32);
+
+                    if !processor.ctx.selection.is_empty() {
                         *wakeup_request = true;
                     }
                 }
             },
             glutin::Event::Focused(true) => {
-                let mut terminal = self.terminal.lock();
-                terminal.dirty = true;
+                *wakeup_request = true;
             },
             glutin::Event::MouseWheel(scroll_delta, touch_phase) => {
-                let mut terminal = self.terminal.lock();
-                let processor = &mut self.input_processor;
-
-                let mut context = ActionContext {
-                    terminal: &terminal,
-                    notifier: &mut self.notifier,
-                    selection: &mut self.selection,
-                };
-
-                processor.on_mouse_wheel(
-                    &mut context,
-                    scroll_delta,
-                    touch_phase,
-                );
+                processor.on_mouse_wheel(scroll_delta, touch_phase);
             },
             glutin::Event::Awakened => {
                 *wakeup_request = true;
@@ -167,19 +179,59 @@ impl<N: input::Notify> Processor<N> {
     /// Process at least one event and handle any additional queued events.
     pub fn process_events(&mut self, window: &Window) -> bool {
         let mut wakeup_request = false;
-        for event in window.wait_events() {
-            self.handle_event(event, &mut wakeup_request);
-            break;
+
+        // These are lazily initialized the first time an event is returned
+        // from the blocking WaitEventsIterator. Otherwise, the pty reader
+        // would be blocked the entire time we wait for input!
+        let terminal;
+        let context;
+        let mut processor: input::Processor<N>;
+
+        // Convenience macro which curries most arguments to handle_event.
+        macro_rules! process {
+            ($event:expr) => {
+                Processor::handle_event(
+                    &mut processor,
+                    $event,
+                    &mut wakeup_request,
+                    self.ref_test,
+                    &self.resize_tx,
+                )
+            }
+        }
+
+        match window.wait_events().next() {
+            Some(event) => {
+                terminal = self.terminal.lock();
+                context = ActionContext {
+                    terminal: &terminal,
+                    notifier: &mut self.notifier,
+                    selection: &mut self.selection,
+                    mouse: &mut self.mouse,
+                    size_info: &self.size_info,
+                };
+
+                processor = input::Processor {
+                    ctx: context,
+                    key_bindings: &self.key_bindings[..],
+                    mouse_bindings: &self.mouse_bindings[..]
+                };
+
+                process!(event);
+            },
+            // Glutin guarantees the WaitEventsIterator never returns None.
+            None => unreachable!(),
         }
 
         for event in window.poll_events() {
-            self.handle_event(event, &mut wakeup_request);
+            process!(event);
         }
 
         wakeup_request
     }
 
     pub fn update_config(&mut self, config: &Config) {
-        self.input_processor.update_config(config);
+        self.key_bindings = config.key_bindings().to_vec();
+        self.mouse_bindings = config.mouse_bindings().to_vec();
     }
 }

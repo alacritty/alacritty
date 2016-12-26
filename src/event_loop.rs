@@ -11,6 +11,7 @@ use mio::unix::EventedFd;
 
 use ansi;
 use display;
+use event;
 use term::Term;
 use util::thread;
 use sync::FairMutex;
@@ -51,6 +52,21 @@ pub struct State {
     writing: Option<Writing>,
     parser: ansi::Processor,
 }
+
+pub struct Notifier(pub ::mio::channel::Sender<Msg>);
+
+impl event::Notify for Notifier {
+    fn notify<B>(&mut self, bytes: B)
+        where B: Into<Cow<'static, [u8]>>
+    {
+        let bytes = bytes.into();
+        match self.0.send(Msg::Input(bytes)) {
+            Ok(_) => (),
+            Err(_) => panic!("expected send event loop msg"),
+        }
+    }
+}
+
 
 impl Default for State {
     fn default() -> State {
