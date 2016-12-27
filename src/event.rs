@@ -148,7 +148,6 @@ impl<N: Notify> Processor<N> {
             },
             glutin::Event::KeyboardInput(state, _code, key, mods, string) => {
                 processor.process_key(state, key, mods, string);
-                processor.ctx.selection.clear();
             },
             glutin::Event::MouseInput(state, button) => {
                 processor.mouse_input(state, button);

@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-
 use std::mem;
 
 use ansi::{NamedColor, Color};
+use grid;
+use index::Column;
 
 bitflags! {
     #[derive(Serialize, Deserialize)]
@@ -33,6 +33,27 @@ pub struct Cell {
     pub fg: Color,
     pub bg: Color,
     pub flags: Flags,
+}
+
+/// Get the length of occupied cells in a line
+pub trait LineLength {
+    /// Calculate the occupied line length
+    fn line_length(&self) -> Column;
+}
+
+impl LineLength for grid::Row<Cell> {
+    fn line_length(&self) -> Column {
+        let mut length = Column(0);
+
+        for (index, cell) in self[..].iter().rev().enumerate() {
+            if cell.c != ' ' {
+                length = Column(self.len() - index);
+                break;
+            }
+        }
+
+        length
+    }
 }
 
 impl Cell {
@@ -65,5 +86,23 @@ impl Cell {
     #[inline]
     pub fn swap_fg_and_bg(&mut self) {
         mem::swap(&mut self.fg, &mut self.bg);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Cell, LineLength};
+
+    use grid::Row;
+    use index::Column;
+    use ansi::Color;
+
+    #[test]
+    fn line_length_works() {
+        let template = Cell::new(' ', Color::Indexed(0), Color::Indexed(0));
+        let mut row = Row::new(Column(10), &template);
+        row[Column(5)].c = 'a';
+
+        assert_eq!(row.line_length(), Column(6));
     }
 }

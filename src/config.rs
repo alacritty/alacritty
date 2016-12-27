@@ -280,6 +280,7 @@ impl de::Deserialize for ActionWrapper {
             {
                 Ok(ActionWrapper(match value {
                     "Paste" => Action::Paste,
+                    "Copy" => Action::Copy,
                     "PasteSelection" => Action::PasteSelection,
                     _ => return Err(E::invalid_value("invalid value for Action")),
                 }))

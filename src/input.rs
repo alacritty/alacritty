@@ -148,8 +148,14 @@ impl Action {
                 ctx.notifier.notify(s.clone().into_bytes())
             },
             Action::Copy => {
-                // so... need access to terminal state. and the selection.
-                unimplemented!();
+                if let Some(selection) = ctx.selection.span() {
+                    let buf = ctx.terminal.string_from_selection(&selection);
+
+                    Clipboard::new()
+                        .expect("get clipboard")
+                        .store_primary(buf)
+                        .expect("copy into clipboard");
+                }
             },
             Action::Paste |
             Action::PasteSelection => {
@@ -328,6 +334,7 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
             // Didn't process a binding; print the provided character
             if let Some(string) = string {
                 self.ctx.notifier.notify(string.into_bytes());
+                self.ctx.selection.clear();
             }
         }
     }

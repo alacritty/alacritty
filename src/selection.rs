@@ -21,7 +21,7 @@
 use std::mem;
 use std::ops::RangeInclusive;
 
-use index::{Location, Column, Side, Linear};
+use index::{Location, Column, Side, Linear, Line};
 use grid::ToRange;
 
 /// The area selected
@@ -94,7 +94,7 @@ impl Selection {
 
     pub fn span(&self) -> Option<Span> {
         match *self {
-            Selection::Active {ref start, ref end, ref start_side, ref end_side } => {
+            Selection::Active { ref start, ref end, ref start_side, ref end_side } => {
                 let (front, tail, front_side, tail_side) = if *start > *end {
                     // Selected upward; start/end are swapped
                     (end, start, end_side, start_side)
@@ -180,6 +180,43 @@ pub struct Span {
 }
 
 impl Span {
+    pub fn to_locations(&self, cols: Column) -> (Location, Location) {
+        match self.ty {
+            SpanType::Inclusive => (self.front, self.tail),
+            SpanType::Exclusive => {
+                (Span::wrap_start(self.front, cols), Span::wrap_end(self.tail, cols))
+            },
+            SpanType::ExcludeFront => (Span::wrap_start(self.front, cols), self.tail),
+            SpanType::ExcludeTail => (self.front, Span::wrap_end(self.tail, cols))
+        }
+    }
+
+    fn wrap_start(mut start: Location, cols: Column) -> Location {
+        if start.col == cols - 1 {
+            Location {
+                line: start.line + 1,
+                col: Column(0),
+            }
+        } else {
+            start.col += 1;
+            start
+        }
+    }
+
+    fn wrap_end(end: Location, cols: Column) -> Location {
+        if end.col == Column(0) && end.line != Line(0) {
+            Location {
+                line: end.line - 1,
+                col: cols
+            }
+        } else {
+            Location {
+                line: end.line,
+                col: end.col - 1
+            }
+        }
+    }
+
     #[inline]
     fn exclude_start(start: Linear) -> Linear {
         start + 1

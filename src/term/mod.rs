@@ -21,10 +21,11 @@ use std::io;
 use ansi::{self, Color, NamedColor, Attr, Handler};
 use grid::{Grid, ClearRegion, ToRange};
 use index::{self, Cursor, Column, Line, Linear};
-use selection::Selection;
+use selection::{Span, Selection};
 
 pub mod cell;
 pub use self::cell::Cell;
+use self::cell::LineLength;
 
 /// Iterator that yields cells needing render
 ///
@@ -307,6 +308,85 @@ impl Term {
             template_cell: template.clone(),
             empty_cell: template,
         }
+    }
+
+    pub fn string_from_selection(&self, span: &Span) -> String {
+        trait Append<T> {
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: T);
+        }
+
+        use std::ops::{Range, RangeTo, RangeFrom, RangeFull};
+
+        impl Append<Range<Column>> for String {
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: Range<Column>) {
+                let line = &grid[line];
+                let line_length = line.line_length();
+                let line_end = cmp::min(line_length, cols.end + 1);
+                for cell in &line[cols.start..line_end] {
+                    self.push(cell.c);
+                }
+            }
+        }
+
+        impl Append<RangeTo<Column>> for String {
+            #[inline]
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: RangeTo<Column>) {
+                self.append(grid, line, Column(0)..cols.end);
+            }
+        }
+
+        impl Append<RangeFrom<Column>> for String {
+            #[inline]
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: RangeFrom<Column>) {
+                self.append(grid, line, cols.start..Column(usize::max_value() - 1));
+                self.push('\n');
+            }
+        }
+
+        impl Append<RangeFull> for String {
+            #[inline]
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, _: RangeFull) {
+                self.append(grid, line, Column(0)..Column(usize::max_value() - 1));
+                self.push('\n');
+            }
+        }
+
+        let mut res = String::new();
+
+        let (start, end) = span.to_locations(self.grid.num_cols());
+        let line_count = end.line - start.line;
+
+        match line_count {
+            // Selection within single line
+            Line(0) => {
+                res.append(&self.grid, start.line, start.col..end.col);
+            },
+
+            // Selection ends on line following start
+            Line(1) => {
+                // Starting line
+                res.append(&self.grid, start.line, start.col..);
+
+                // Ending line
+                res.append(&self.grid, end.line, ..end.col);
+            },
+
+            // Multi line selection
+            _ => {
+                // Starting line
+                res.append(&self.grid, start.line, start.col..);
+
+                let middle_range = (start.line + 1)..(end.line);
+                for line in middle_range {
+                    res.append(&self.grid, line, ..);
+                }
+
+                // Ending line
+                res.append(&self.grid, end.line, ..end.col);
+            }
+        }
+
+        res
     }
 
     /// Convert the given pixel values to a grid coordinate
