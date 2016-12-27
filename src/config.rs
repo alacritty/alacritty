@@ -383,14 +383,12 @@ struct RawBinding {
 impl RawBinding {
     fn into_mouse_binding(self) -> ::std::result::Result<MouseBinding, Self> {
         if self.mouse.is_some() {
-            Ok(MouseBinding {
-                button: self.mouse.unwrap(),
-                binding: Binding {
-                    mods: self.mods,
-                    action: self.action,
-                    mode: self.mode,
-                    notmode: self.notmode,
-                }
+            Ok(Binding {
+                trigger: self.mouse.unwrap(),
+                mods: self.mods,
+                action: self.action,
+                mode: self.mode,
+                notmode: self.notmode,
             })
         } else {
             Err(self)
@@ -400,13 +398,11 @@ impl RawBinding {
     fn into_key_binding(self) -> ::std::result::Result<KeyBinding, Self> {
         if self.key.is_some() {
             Ok(KeyBinding {
-                key: self.key.unwrap(),
-                binding: Binding {
-                    mods: self.mods,
-                    action: self.action,
-                    mode: self.mode,
-                    notmode: self.notmode,
-                }
+                trigger: self.key.unwrap(),
+                mods: self.mods,
+                action: self.action,
+                mode: self.mode,
+                notmode: self.notmode,
             })
         } else {
             Err(self)

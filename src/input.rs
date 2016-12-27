@@ -59,7 +59,7 @@ pub struct ActionContext<'a, N: 'a> {
 ///
 /// This is the shared component of `MouseBinding` and `KeyBinding`
 #[derive(Debug, Clone)]
-pub struct Binding {
+pub struct Binding<T> {
     /// Modifier keys required to activate binding
     pub mods: Mods,
 
@@ -71,57 +71,57 @@ pub struct Binding {
 
     /// excluded terminal modes where the binding won't be activated
     pub notmode: TermMode,
+
+    /// This property is used as part of the trigger detection code.
+    ///
+    /// For example, this might be a key like "G", or a mouse button.
+    pub trigger: T,
 }
 
-#[derive(Debug, Clone)]
-pub struct KeyBinding {
-    pub key: VirtualKeyCode,
-    pub binding: Binding,
-}
+/// Bindings that are triggered by a keyboard key
+pub type KeyBinding = Binding<VirtualKeyCode>;
 
-#[derive(Debug, Clone)]
-pub struct MouseBinding {
-    pub button: MouseButton,
-    pub binding: Binding,
-}
+/// Bindings that are triggered by a mouse button
+pub type MouseBinding = Binding<MouseButton>;
 
-impl KeyBinding {
+impl<T: Eq> Binding<T> {
     #[inline]
     fn is_triggered_by(
         &self,
         mode: &TermMode,
         mods: &Mods,
-        key: &VirtualKeyCode
+        input: &T
     ) -> bool {
-        // Check key first since bindings are stored in one big list. This is
+        // Check input first since bindings are stored in one big list. This is
         // the most likely item to fail so prioritizing it here allows more
         // checks to be short circuited.
-        self.key == *key && self.binding.is_triggered_by(mode, mods)
-    }
-
-    #[inline]
-    fn execute<'a, N: Notify>(&self, ctx: &mut ActionContext<'a, N>) {
-        self.binding.action.execute(ctx)
+        self.trigger == *input &&
+            self.mode_matches(mode) &&
+            self.not_mode_matches(mode) &&
+            self.mods_match(mods)
     }
 }
 
-impl MouseBinding {
+impl<T> Binding<T> {
+    /// Execute the action associate with this binding
     #[inline]
-    fn is_triggered_by(
-        &self,
-        mode: &TermMode,
-        mods: &Mods,
-        button: &MouseButton
-    ) -> bool {
-        // Check key first since bindings are stored in one big list. This is
-        // the most likely item to fail so prioritizing it here allows more
-        // checks to be short circuited.
-        self.button == *button && self.binding.is_triggered_by(mode, mods)
+    fn execute<'a, N: Notify>(&self, ctx: &mut ActionContext<'a, N>) {
+        self.action.execute(ctx)
     }
 
     #[inline]
-    fn execute<'a, N: Notify>(&self, ctx: &mut ActionContext<'a, N>) {
-        self.binding.action.execute(ctx)
+    fn mode_matches(&self, mode: &TermMode) -> bool {
+        self.mode.is_empty() || mode.intersects(self.mode)
+    }
+
+    #[inline]
+    fn not_mode_matches(&self, mode: &TermMode) -> bool {
+        self.notmode.is_empty() || !mode.intersects(self.notmode)
+    }
+
+    #[inline]
+    fn mods_match(&self, mods: &Mods) -> bool {
+        self.mods.is_all() || *mods == self.mods
     }
 }
 
@@ -175,36 +175,6 @@ impl Action {
 impl From<&'static str> for Action {
     fn from(s: &'static str) -> Action {
         Action::Esc(s.into())
-    }
-}
-
-impl Binding {
-    /// Check if this binding is triggered by the current terminal mode,
-    /// modifier keys, and key pressed.
-    #[inline]
-    pub fn is_triggered_by(
-        &self,
-        mode: &TermMode,
-        mods: &Mods,
-    ) -> bool {
-        self.mode_matches(mode) &&
-            self.not_mode_matches(mode) &&
-            self.mods_match(mods)
-    }
-
-    #[inline]
-    fn mode_matches(&self, mode: &TermMode) -> bool {
-        self.mode.is_empty() || mode.intersects(self.mode)
-    }
-
-    #[inline]
-    fn not_mode_matches(&self, mode: &TermMode) -> bool {
-        self.notmode.is_empty() || !mode.intersects(self.notmode)
-    }
-
-    #[inline]
-    fn mods_match(&self, mods: &Mods) -> bool {
-        self.mods.is_all() || *mods == self.mods
     }
 }
 
@@ -401,25 +371,11 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
-
     use glutin::{mods, VirtualKeyCode};
 
     use term::mode;
 
-    use super::{Action, Processor, Binding, KeyBinding};
-
-    /// Receiver that keeps a copy of any strings it is notified with
-    #[derive(Default)]
-    struct Receiver {
-        pub got: Option<String>
-    }
-
-    impl super::Notify for Receiver {
-        fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, item: B) {
-            self.got = Some(String::from_utf8(item.into().to_vec()).unwrap());
-        }
-    }
+    use super::{Action, Binding};
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
@@ -427,84 +383,81 @@ mod tests {
         {
             name: $name:ident,
             binding: $binding:expr,
-            expect: $expect:expr,
+            triggers: $triggers:expr,
             mode: $mode:expr,
             mods: $mods:expr
         } => {
             #[test]
             fn $name() {
-                let bindings = &[$binding];
-
-                let mut receiver = Receiver::default();
-
-                Processor::process_key_bindings(
-                    bindings, $mode, &mut receiver, $mods, KEY
-                );
-                assert_eq!(receiver.got, $expect);
+                if $triggers {
+                    assert!($binding.is_triggered_by(&$mode, &$mods, &KEY));
+                } else {
+                    assert!(!$binding.is_triggered_by(&$mode, &$mods, &KEY));
+                }
             }
         }
     }
 
     test_process_binding! {
         name: process_binding_nomode_shiftmod_require_shift,
-        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::SHIFT, action: Action::from("\x1b[1;2D"), mode: mode::NONE, notmode: mode::NONE }},
-        expect: Some(String::from("\x1b[1;2D")),
+        binding: Binding { trigger: KEY, mods: mods::SHIFT, action: Action::from("\x1b[1;2D"), mode: mode::NONE, notmode: mode::NONE },
+        triggers: true,
         mode: mode::NONE,
         mods: mods::SHIFT
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_shift,
-        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::SHIFT, action: Action::from("\x1b[1;2D"), mode: mode::NONE, notmode: mode::NONE }},
-        expect: None,
+        binding: Binding { trigger: KEY, mods: mods::SHIFT, action: Action::from("\x1b[1;2D"), mode: mode::NONE, notmode: mode::NONE },
+        triggers: false,
         mode: mode::NONE,
         mods: mods::NONE
     }
 
     test_process_binding! {
         name: process_binding_nomode_controlmod,
-        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::CONTROL, action: Action::from("\x1b[1;5D"), mode: mode::NONE, notmode: mode::NONE }},
-        expect: Some(String::from("\x1b[1;5D")),
+        binding: Binding { trigger: KEY, mods: mods::CONTROL, action: Action::from("\x1b[1;5D"), mode: mode::NONE, notmode: mode::NONE },
+        triggers: true,
         mode: mode::NONE,
         mods: mods::CONTROL
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_not_appcursor,
-        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::ANY, action: Action::from("\x1b[D"), mode: mode::NONE, notmode: mode::APP_CURSOR }},
-        expect: Some(String::from("\x1b[D")),
+        binding: Binding { trigger: KEY, mods: mods::ANY, action: Action::from("\x1b[D"), mode: mode::NONE, notmode: mode::APP_CURSOR },
+        triggers: true,
         mode: mode::NONE,
         mods: mods::NONE
     }
 
     test_process_binding! {
         name: process_binding_appcursormode_nomod_require_appcursor,
-        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::ANY, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE }},
-        expect: Some(String::from("\x1bOD")),
+        binding: Binding { trigger: KEY, mods: mods::ANY, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        triggers: true,
         mode: mode::APP_CURSOR,
         mods: mods::NONE
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_appcursor,
-        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::ANY, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE }},
-        expect: None,
+        binding: Binding { trigger: KEY, mods: mods::ANY, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        triggers: false,
         mode: mode::NONE,
         mods: mods::NONE
     }
 
     test_process_binding! {
         name: process_binding_appcursormode_appkeypadmode_nomod_require_appcursor,
-        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::ANY, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE }},
-        expect: Some(String::from("\x1bOD")),
+        binding: Binding { trigger: KEY, mods: mods::ANY, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        triggers: true,
         mode: mode::APP_CURSOR | mode::APP_KEYPAD,
         mods: mods::NONE
     }
 
     test_process_binding! {
         name: process_binding_fail_with_extra_mods,
-        binding: KeyBinding { key: KEY, binding: Binding { mods: mods::SUPER, action: Action::from("arst"), mode: mode::NONE, notmode: mode::NONE }},
-        expect: None,
+        binding: Binding { trigger: KEY, mods: mods::SUPER, action: Action::from("arst"), mode: mode::NONE, notmode: mode::NONE },
+        triggers: false,
         mode: mode::NONE,
         mods: mods::SUPER | mods::ALT
     }
