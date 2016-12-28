@@ -133,9 +133,9 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
         let config_updated = config_monitor.as_ref()
             .and_then(|monitor| monitor.pending_config())
             .map(|new_config| {
+                config = new_config;
                 display.update_config(&config);
                 processor.update_config(&config);
-                config = new_config;
                 true
             }).unwrap_or(false);
 
