@@ -33,9 +33,8 @@ use alacritty::tty::{self, process_should_exit};
 
 fn main() {
     // Load configuration
-    let config = match Config::load() {
-        // Error loading config
-        Err(err) => match err {
+    let config = Config::load().unwrap_or_else(|err| {
+        match err {
             // Use default config when not found
             config::Error::NotFound => {
                 err_println!("Config file not found; using defaults");
@@ -45,11 +44,8 @@ fn main() {
             // If there's a problem with the config file, print an error
             // and exit.
             _ => die!("{}", err),
-        },
-
-        // Successfully loaded config from file
-        Ok(config) => config
-    };
+        }
+    });
 
     // Load command line options
     let options = cli::Options::load();
