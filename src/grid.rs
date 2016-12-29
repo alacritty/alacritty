@@ -27,7 +27,7 @@ use std::ops::{Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull, Index, Ind
 use std::ops::RangeInclusive;
 use std::slice::{self, Iter, IterMut};
 
-use index::{self, Cursor};
+use index::{self, Point};
 
 /// Convert a type to a linear index range.
 pub trait ToRange {
@@ -141,8 +141,8 @@ impl<T> Grid<T> {
     }
 
     #[inline]
-    pub fn contains(&self, cursor: &Cursor) -> bool {
-        self.lines > cursor.line && self.cols > cursor.col
+    pub fn contains(&self, point: &Point) -> bool {
+        self.lines > point.line && self.cols > point.col
     }
 
     /// Swap two lines in the grid
@@ -210,19 +210,19 @@ impl<T> IndexMut<index::Line> for Grid<T> {
     }
 }
 
-impl<'cursor, T> Index<&'cursor Cursor> for Grid<T> {
+impl<'point, T> Index<&'point Point> for Grid<T> {
     type Output = T;
 
     #[inline]
-    fn index<'a>(&'a self, cursor: &Cursor) -> &'a T {
-        &self.raw[cursor.line.0][cursor.col]
+    fn index<'a>(&'a self, point: &Point) -> &'a T {
+        &self.raw[point.line.0][point.col]
     }
 }
 
-impl<'cursor, T> IndexMut<&'cursor Cursor> for Grid<T> {
+impl<'point, T> IndexMut<&'point Point> for Grid<T> {
     #[inline]
-    fn index_mut<'a, 'b>(&'a mut self, cursor: &'b Cursor) -> &'a mut T {
-        &mut self.raw[cursor.line.0][cursor.col]
+    fn index_mut<'a, 'b>(&'a mut self, point: &'b Point) -> &'a mut T {
+        &mut self.raw[point.line.0][point.col]
     }
 }
 

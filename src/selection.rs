@@ -21,7 +21,7 @@
 use std::mem;
 use std::ops::RangeInclusive;
 
-use index::{Location, Column, Side, Linear, Line};
+use index::{Point, Column, Side, Linear, Line};
 use grid::ToRange;
 
 /// The area selected
@@ -34,8 +34,8 @@ pub enum Selection {
     Empty,
 
     Active {
-        start: Location,
-        end: Location,
+        start: Point,
+        end: Point,
         start_side: Side,
         end_side: Side
     },
@@ -66,7 +66,7 @@ impl Selection {
         }
     }
 
-    pub fn update(&mut self, location: Location, side: Side) {
+    pub fn update(&mut self, location: Point, side: Side) {
         let selection = mem::replace(self, Selection::Empty);
         let selection = match selection {
             Selection::Empty => {
@@ -172,15 +172,15 @@ pub enum SpanType {
 /// Represents a span of selected cells
 #[derive(Debug, Eq, PartialEq)]
 pub struct Span {
-    front: Location,
-    tail: Location,
+    front: Point,
+    tail: Point,
 
     /// The type says whether ends are included or not.
     ty: SpanType,
 }
 
 impl Span {
-    pub fn to_locations(&self, cols: Column) -> (Location, Location) {
+    pub fn to_locations(&self, cols: Column) -> (Point, Point) {
         match self.ty {
             SpanType::Inclusive => (self.front, self.tail),
             SpanType::Exclusive => {
@@ -191,9 +191,9 @@ impl Span {
         }
     }
 
-    fn wrap_start(mut start: Location, cols: Column) -> Location {
+    fn wrap_start(mut start: Point, cols: Column) -> Point {
         if start.col == cols - 1 {
-            Location {
+            Point {
                 line: start.line + 1,
                 col: Column(0),
             }
@@ -203,14 +203,14 @@ impl Span {
         }
     }
 
-    fn wrap_end(end: Location, cols: Column) -> Location {
+    fn wrap_end(end: Point, cols: Column) -> Point {
         if end.col == Column(0) && end.line != Line(0) {
-            Location {
+            Point {
                 line: end.line - 1,
                 col: cols
             }
         } else {
-            Location {
+            Point {
                 line: end.line,
                 col: end.col - 1
             }
@@ -259,7 +259,7 @@ impl ToRange for Span {
 /// look like [ B] and [E ].
 #[cfg(test)]
 mod test {
-    use index::{Line, Column, Side, Location};
+    use index::{Line, Column, Side, Point};
     use super::{Selection, Span, SpanType};
 
     /// Test case of single cell selection
@@ -269,7 +269,7 @@ mod test {
     /// 3. [BE]
     #[test]
     fn single_cell_left_to_right() {
-        let location = Location { line: Line(0), col: Column(0) };
+        let location = Point { line: Line(0), col: Column(0) };
         let mut selection = Selection::Empty;
         selection.update(location, Side::Left);
         selection.update(location, Side::Right);
@@ -288,7 +288,7 @@ mod test {
     /// 3. [EB]
     #[test]
     fn single_cell_right_to_left() {
-        let location = Location { line: Line(0), col: Column(0) };
+        let location = Point { line: Line(0), col: Column(0) };
         let mut selection = Selection::Empty;
         selection.update(location, Side::Right);
         selection.update(location, Side::Left);
@@ -308,8 +308,8 @@ mod test {
     #[test]
     fn between_adjacent_cells_left_to_right() {
         let mut selection = Selection::Empty;
-        selection.update(Location::new(Line(0), Column(0)), Side::Right);
-        selection.update(Location::new(Line(0), Column(1)), Side::Left);
+        selection.update(Point::new(Line(0), Column(0)), Side::Right);
+        selection.update(Point::new(Line(0), Column(1)), Side::Left);
 
         assert_eq!(selection.span(), None);
     }
@@ -322,8 +322,8 @@ mod test {
     #[test]
     fn between_adjacent_cells_right_to_left() {
         let mut selection = Selection::Empty;
-        selection.update(Location::new(Line(0), Column(1)), Side::Left);
-        selection.update(Location::new(Line(0), Column(0)), Side::Right);
+        selection.update(Point::new(Line(0), Column(1)), Side::Left);
+        selection.update(Point::new(Line(0), Column(0)), Side::Right);
 
         assert_eq!(selection.span(), None);
     }
@@ -340,12 +340,12 @@ mod test {
     #[test]
     fn across_adjacent_lines_upward_final_cell_exclusive() {
         let mut selection = Selection::Empty;
-        selection.update(Location::new(Line(1), Column(1)), Side::Right);
-        selection.update(Location::new(Line(0), Column(1)), Side::Right);
+        selection.update(Point::new(Line(1), Column(1)), Side::Right);
+        selection.update(Point::new(Line(0), Column(1)), Side::Right);
 
         assert_eq!(selection.span().unwrap(), Span {
-            front: Location::new(Line(0), Column(1)),
-            tail: Location::new(Line(1), Column(1)),
+            front: Point::new(Line(0), Column(1)),
+            tail: Point::new(Line(1), Column(1)),
             ty: SpanType::ExcludeFront
         });
     }
@@ -364,13 +364,13 @@ mod test {
     #[test]
     fn selection_bigger_then_smaller() {
         let mut selection = Selection::Empty;
-        selection.update(Location::new(Line(0), Column(1)), Side::Right);
-        selection.update(Location::new(Line(1), Column(1)), Side::Right);
-        selection.update(Location::new(Line(1), Column(0)), Side::Right);
+        selection.update(Point::new(Line(0), Column(1)), Side::Right);
+        selection.update(Point::new(Line(1), Column(1)), Side::Right);
+        selection.update(Point::new(Line(1), Column(0)), Side::Right);
 
         assert_eq!(selection.span().unwrap(), Span {
-            front: Location::new(Line(0), Column(1)),
-            tail: Location::new(Line(1), Column(0)),
+            front: Point::new(Line(0), Column(1)),
+            tail: Point::new(Line(1), Column(0)),
             ty: SpanType::ExcludeFront
         });
     }

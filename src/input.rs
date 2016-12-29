@@ -29,7 +29,7 @@ use glutin::{Mods, mods};
 use glutin::{TouchPhase, MouseScrollDelta};
 
 use event::Notify;
-use index::{Line, Column, Side, Location};
+use index::{Line, Column, Side, Point};
 use selection::Selection;
 use term::mode::{self, TermMode};
 use term::{self, Term};
@@ -209,7 +209,7 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
             if self.ctx.mouse.left_button_state == ElementState::Pressed &&
                 !self.ctx.terminal.mode().contains(mode::MOUSE_REPORT_CLICK)
             {
-                self.ctx.selection.update(Location {
+                self.ctx.selection.update(Point {
                     line: line,
                     col: column
                 }, self.ctx.mouse.cell_side);

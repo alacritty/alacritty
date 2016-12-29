@@ -29,27 +29,20 @@ pub enum Side {
 }
 
 /// Index in the grid using row, column notation
-#[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Cursor {
-    pub line: Line,
-    pub col: Column,
-}
-
-/// Location
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
-pub struct Location {
+pub struct Point {
     pub line: Line,
     pub col: Column,
 }
 
-impl Location {
-    pub fn new(line: Line, col: Column) -> Location {
-        Location { line: line, col: col }
+impl Point {
+    pub fn new(line: Line, col: Column) -> Point {
+        Point { line: line, col: col }
     }
 }
 
-impl Ord for Location {
-    fn cmp(&self, other: &Location) -> Ordering {
+impl Ord for Point {
+    fn cmp(&self, other: &Point) -> Ordering {
         use std::cmp::Ordering::*;
         match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
             (Equal,   Equal) => Equal,
@@ -331,15 +324,15 @@ ops!(Linear, Linear);
 
 #[cfg(test)]
 mod tests {
-    use super::{Line, Column, Location};
+    use super::{Line, Column, Point};
 
     #[test]
     fn location_ordering() {
-        assert!(Location::new(Line(0), Column(0)) == Location::new(Line(0), Column(0)));
-        assert!(Location::new(Line(1), Column(0)) > Location::new(Line(0), Column(0)));
-        assert!(Location::new(Line(0), Column(1)) > Location::new(Line(0), Column(0)));
-        assert!(Location::new(Line(1), Column(1)) > Location::new(Line(0), Column(0)));
-        assert!(Location::new(Line(1), Column(1)) > Location::new(Line(0), Column(1)));
-        assert!(Location::new(Line(1), Column(1)) > Location::new(Line(1), Column(0)));
+        assert!(Point::new(Line(0), Column(0)) == Point::new(Line(0), Column(0)));
+        assert!(Point::new(Line(1), Column(0)) > Point::new(Line(0), Column(0)));
+        assert!(Point::new(Line(0), Column(1)) > Point::new(Line(0), Column(0)));
+        assert!(Point::new(Line(1), Column(1)) > Point::new(Line(0), Column(0)));
+        assert!(Point::new(Line(1), Column(1)) > Point::new(Line(0), Column(1)));
+        assert!(Point::new(Line(1), Column(1)) > Point::new(Line(1), Column(0)));
     }
 }

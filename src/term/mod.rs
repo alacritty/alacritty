@@ -20,7 +20,7 @@ use std::io;
 
 use ansi::{self, Color, NamedColor, Attr, Handler};
 use grid::{Grid, ClearRegion, ToRange};
-use index::{self, Cursor, Column, Line, Linear};
+use index::{self, Point, Column, Line, Linear};
 use selection::{Span, Selection};
 
 pub mod cell;
@@ -37,7 +37,7 @@ use self::cell::LineLength;
 /// draw it, and reverted after drawing to maintain state.
 pub struct RenderableCellsIter<'a> {
     grid: &'a mut Grid<Cell>,
-    cursor: &'a Cursor,
+    cursor: &'a Point,
     mode: TermMode,
     line: Line,
     column: Column,
@@ -51,7 +51,7 @@ impl<'a> RenderableCellsIter<'a> {
     /// cursor.
     fn new<'b>(
         grid: &'b mut Grid<Cell>,
-        cursor: &'b Cursor,
+        cursor: &'b Point,
         mode: TermMode,
         selection: &Selection,
     ) -> RenderableCellsIter<'b> {
@@ -207,10 +207,10 @@ pub struct Term {
     alt: bool,
 
     /// The cursor
-    cursor: Cursor,
+    cursor: Point,
 
     /// Alt cursor
-    alt_cursor: Cursor,
+    alt_cursor: Point,
 
     /// Tabstops
     tabs: Vec<bool>,
@@ -299,8 +299,8 @@ impl Term {
             grid: grid,
             alt_grid: alt,
             alt: false,
-            cursor: Cursor::default(),
-            alt_cursor: Cursor::default(),
+            cursor: Point::default(),
+            alt_cursor: Point::default(),
             tabs: tabs,
             mode: Default::default(),
             scroll_region: scroll_region,
@@ -585,7 +585,7 @@ impl ansi::Handler for Term {
         if self.cursor.col == self.grid.num_cols() {
             debug_println!("wrapping");
             {
-                let location = Cursor {
+                let location = Point {
                     line: self.cursor.line,
                     col: self.cursor.col - 1
                 };
