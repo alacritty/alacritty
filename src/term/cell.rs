@@ -24,6 +24,7 @@ bitflags! {
         const BOLD      = 0b00000010,
         const ITALIC    = 0b00000100,
         const UNDERLINE = 0b00001000,
+        const WRAPLINE  = 0b00010000,
     }
 }
 
@@ -44,6 +45,10 @@ pub trait LineLength {
 impl LineLength for grid::Row<Cell> {
     fn line_length(&self) -> Column {
         let mut length = Column(0);
+
+        if self[Column(self.len() - 1)].flags.contains(WRAPLINE) {
+            return Column(self.len());
+        }
 
         for (index, cell) in self[..].iter().rev().enumerate() {
             if cell.c != ' ' {
@@ -104,5 +109,14 @@ mod tests {
         row[Column(5)].c = 'a';
 
         assert_eq!(row.line_length(), Column(6));
+    }
+
+    #[test]
+    fn line_length_works_with_wrapline() {
+        let template = Cell::new(' ', Color::Indexed(0), Color::Indexed(0));
+        let mut row = Row::new(Column(10), &template);
+        row[Column(9)].flags.insert(super::WRAPLINE);
+
+        assert_eq!(row.line_length(), Column(10));
     }
 }

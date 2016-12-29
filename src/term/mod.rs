@@ -311,43 +311,63 @@ impl Term {
     }
 
     pub fn string_from_selection(&self, span: &Span) -> String {
-        trait Append<T> {
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: T);
+        /// Need a generic push() for the Append trait
+        trait PushChar {
+            fn push_char(&mut self, c: char);
+            fn maybe_newline(&mut self, grid: &Grid<Cell>, line: Line, ending: Column) {
+                if ending != Column(0) && !grid[line][ending - 1].flags.contains(cell::WRAPLINE) {
+                    self.push_char('\n');
+                }
+            }
+        }
+
+        impl PushChar for String {
+            #[inline]
+            fn push_char(&mut self, c: char) {
+                self.push(c);
+            }
+        }
+        trait Append<T> : PushChar {
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: T) -> Range<Column> ;
         }
 
         use std::ops::{Range, RangeTo, RangeFrom, RangeFull};
 
         impl Append<Range<Column>> for String {
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: Range<Column>) {
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: Range<Column>) -> Range<Column> {
                 let line = &grid[line];
                 let line_length = line.line_length();
                 let line_end = cmp::min(line_length, cols.end + 1);
                 for cell in &line[cols.start..line_end] {
                     self.push(cell.c);
                 }
+
+                cols.start..line_end
             }
         }
 
         impl Append<RangeTo<Column>> for String {
             #[inline]
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: RangeTo<Column>) {
-                self.append(grid, line, Column(0)..cols.end);
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: RangeTo<Column>) -> Range<Column> {
+                self.append(grid, line, Column(0)..cols.end)
             }
         }
 
         impl Append<RangeFrom<Column>> for String {
             #[inline]
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: RangeFrom<Column>) {
-                self.append(grid, line, cols.start..Column(usize::max_value() - 1));
-                self.push('\n');
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: RangeFrom<Column>) -> Range<Column> {
+                let range = self.append(grid, line, cols.start..Column(usize::max_value() - 1));
+                self.maybe_newline(grid, line, range.end);
+                range
             }
         }
 
         impl Append<RangeFull> for String {
             #[inline]
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, _: RangeFull) {
-                self.append(grid, line, Column(0)..Column(usize::max_value() - 1));
-                self.push('\n');
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, _: RangeFull) -> Range<Column> {
+                let range = self.append(grid, line, Column(0)..Column(usize::max_value() - 1));
+                self.maybe_newline(grid, line, range.end);
+                range
             }
         }
 
@@ -564,6 +584,15 @@ impl ansi::Handler for Term {
     fn input(&mut self, c: char) {
         if self.cursor.col == self.grid.num_cols() {
             debug_println!("wrapping");
+            {
+                let location = Cursor {
+                    line: self.cursor.line,
+                    col: self.cursor.col - 1
+                };
+
+                let cell = &mut self.grid[&location];
+                cell.flags.insert(cell::WRAPLINE);
+            }
             if (self.cursor.line + 1) >= self.scroll_region.end {
                 self.linefeed();
             } else {
