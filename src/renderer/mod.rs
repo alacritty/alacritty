@@ -753,9 +753,25 @@ impl<'a> RenderApi<'a> {
             };
 
             // Add cell to batch if glyph available
-            if let Some(glyph) = glyph_cache.get(&glyph_key, self) {
-                self.add_render_item(&cell, glyph);
-            }
+            glyph_cache.get(&glyph_key, self)
+                .map(|glyph| self.add_render_item(&cell, glyph))
+                .and_then(|_| {
+                    // FIXME This is a super hacky way to do underlined text. During
+                    //       a time crunch to release 0.1, this seemed like a really
+                    //       easy, clean hack.
+                    if cell.flags.contains(cell::UNDERLINE) {
+                        let glyph_key = GlyphKey {
+                            font_key: font_key,
+                            size: glyph_cache.font_size,
+                            c: '_'
+                        };
+
+                        glyph_cache.get(&glyph_key, self)
+                    } else {
+                        None
+                    }
+                })
+                .map(|underscore| self.add_render_item(&cell, underscore));
         }
     }
 }
