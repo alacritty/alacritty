@@ -2,14 +2,15 @@
 use std::borrow::Cow;
 use std::fs::File;
 use std::io::Write;
-use std::sync::{Arc, mpsc};
-use serde_json as json;
+use std::sync::mpsc;
 
+use serde_json as json;
+use parking_lot::MutexGuard;
 use glutin::{self, ElementState};
-use index::{Line, Column, Side};
 
 use config::Config;
 use display::OnResize;
+use index::{Line, Column, Side};
 use input::{self, ActionContext, MouseBinding, KeyBinding};
 use selection::Selection;
 use sync::FairMutex;
@@ -58,7 +59,6 @@ pub struct Processor<N> {
     mouse_bindings: Vec<MouseBinding>,
     notifier: N,
     mouse: Mouse,
-    terminal: Arc<FairMutex<Term>>,
     resize_tx: mpsc::Sender<(u32, u32)>,
     ref_test: bool,
     size_info: SizeInfo,
@@ -81,21 +81,15 @@ impl<N: Notify> Processor<N> {
     /// pty.
     pub fn new(
         notifier: N,
-        terminal: Arc<FairMutex<Term>>,
         resize_tx: mpsc::Sender<(u32, u32)>,
         config: &Config,
         ref_test: bool,
+        size_info: SizeInfo,
     ) -> Processor<N> {
-        let size_info = {
-            let terminal = terminal.lock();
-            terminal.size_info().to_owned()
-        };
-
         Processor {
             key_bindings: config.key_bindings().to_vec(),
             mouse_bindings: config.mouse_bindings().to_vec(),
             notifier: notifier,
-            terminal: terminal,
             resize_tx: resize_tx,
             ref_test: ref_test,
             mouse: Default::default(),
@@ -176,57 +170,65 @@ impl<N: Notify> Processor<N> {
     }
 
     /// Process at least one event and handle any additional queued events.
-    pub fn process_events(&mut self, window: &Window) -> bool {
+    pub fn process_events<'a>(
+        &mut self,
+        term: &'a FairMutex<Term>,
+        window: &Window
+    ) -> (MutexGuard<'a, Term>, bool) {
         let mut wakeup_request = false;
 
-        // These are lazily initialized the first time an event is returned
-        // from the blocking WaitEventsIterator. Otherwise, the pty reader
-        // would be blocked the entire time we wait for input!
+        // Terminal is lazily initialized the first time an event is returned
+        // from the blocking WaitEventsIterator. Otherwise, the pty reader would
+        // be blocked the entire time we wait for input!
         let terminal;
-        let context;
-        let mut processor: input::Processor<N>;
 
-        // Convenience macro which curries most arguments to handle_event.
-        macro_rules! process {
-            ($event:expr) => {
-                Processor::handle_event(
-                    &mut processor,
-                    $event,
-                    &mut wakeup_request,
-                    self.ref_test,
-                    &self.resize_tx,
-                )
+        {
+            // Ditto on lazy initialization for context and processor.
+            let context;
+            let mut processor: input::Processor<N>;
+
+            // Convenience macro which curries most arguments to handle_event.
+            macro_rules! process {
+                ($event:expr) => {
+                    Processor::handle_event(
+                        &mut processor,
+                        $event,
+                        &mut wakeup_request,
+                        self.ref_test,
+                        &self.resize_tx,
+                    )
+                }
+            }
+
+            match window.wait_events().next() {
+                Some(event) => {
+                    terminal = term.lock();
+                    context = ActionContext {
+                        terminal: &terminal,
+                        notifier: &mut self.notifier,
+                        selection: &mut self.selection,
+                        mouse: &mut self.mouse,
+                        size_info: &self.size_info,
+                    };
+
+                    processor = input::Processor {
+                        ctx: context,
+                        key_bindings: &self.key_bindings[..],
+                        mouse_bindings: &self.mouse_bindings[..]
+                    };
+
+                    process!(event);
+                },
+                // Glutin guarantees the WaitEventsIterator never returns None.
+                None => unreachable!(),
+            }
+
+            for event in window.poll_events() {
+                process!(event);
             }
         }
 
-        match window.wait_events().next() {
-            Some(event) => {
-                terminal = self.terminal.lock();
-                context = ActionContext {
-                    terminal: &terminal,
-                    notifier: &mut self.notifier,
-                    selection: &mut self.selection,
-                    mouse: &mut self.mouse,
-                    size_info: &self.size_info,
-                };
-
-                processor = input::Processor {
-                    ctx: context,
-                    key_bindings: &self.key_bindings[..],
-                    mouse_bindings: &self.mouse_bindings[..]
-                };
-
-                process!(event);
-            },
-            // Glutin guarantees the WaitEventsIterator never returns None.
-            None => unreachable!(),
-        }
-
-        for event in window.poll_events() {
-            process!(event);
-        }
-
-        wakeup_request
+        (terminal, wakeup_request)
     }
 
     pub fn update_config(&mut self, config: &Config) {

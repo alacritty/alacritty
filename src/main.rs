@@ -104,10 +104,10 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // Need the Rc<RefCell<_>> here since a ref is shared in the resize callback
     let mut processor = event::Processor::new(
         event_loop::Notifier(loop_tx),
-        terminal.clone(),
         display.resize_channel(),
         &config,
         options.ref_test,
+        display.size().to_owned(),
     );
 
     // Create a config monitor when config was loaded from path
@@ -123,7 +123,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // Main display loop
     loop {
         // Process input and window events
-        let wakeup_request = processor.process_events(display.window());
+        let (mut terminal, wakeup_request) = processor.process_events(&terminal, display.window());
 
         // Handle config reloads
         let config_updated = config_monitor.as_ref()
@@ -136,7 +136,6 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
             }).unwrap_or(false);
 
         // Maybe draw the terminal
-        let mut terminal = terminal.lock();
         if wakeup_request || config_updated {
             // Handle pending resize events
             //
