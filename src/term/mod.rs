@@ -1065,7 +1065,7 @@ mod tests {
 }
 
 #[cfg(test)]
-mod bench {
+mod benches {
     extern crate test;
     extern crate serde_json as json;
 

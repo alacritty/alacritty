@@ -28,7 +28,7 @@ bitflags! {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Cell {
     pub c: char,
     pub fg: Color,
@@ -128,5 +128,24 @@ mod tests {
         row[Column(9)].flags.insert(super::WRAPLINE);
 
         assert_eq!(row.line_length(), Column(10));
+    }
+}
+
+#[cfg(test)]
+mod benches {
+    extern crate test;
+    use super::Cell;
+
+    #[bench]
+    fn cell_reset(b: &mut test::Bencher) {
+        b.iter(|| {
+            let mut cell = Cell::default();
+
+            for _ in 0..100 {
+                cell.reset(test::black_box(&Cell::default()));
+            }
+
+            test::black_box(cell);
+        });
     }
 }
