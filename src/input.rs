@@ -150,11 +150,12 @@ impl Action {
             Action::Copy => {
                 if let Some(selection) = ctx.selection.span() {
                     let buf = ctx.terminal.string_from_selection(&selection);
-
-                    Clipboard::new()
-                        .expect("get clipboard")
-                        .store_primary(buf)
-                        .expect("copy into clipboard");
+                    if !buf.is_empty() {
+                        Clipboard::new()
+                            .expect("get clipboard")
+                            .store_primary(buf)
+                            .expect("copy into clipboard");
+                    }
                 }
             },
             Action::Paste |
@@ -193,9 +194,9 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
         self.ctx.mouse.x = x;
         self.ctx.mouse.y = y;
 
-        if let Some((line, column)) = self.ctx.size_info.pixels_to_coords(x as usize, y as usize) {
-            self.ctx.mouse.line = line;
-            self.ctx.mouse.column = column;
+        if let Some(point) = self.ctx.size_info.pixels_to_coords(x as usize, y as usize) {
+            self.ctx.mouse.line = point.line;
+            self.ctx.mouse.column = point.col;
 
             let cell_x = x as usize % self.ctx.size_info.cell_width as usize;
             let half_cell_width = (self.ctx.size_info.cell_width / 2.0) as usize;
@@ -210,8 +211,8 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
                 !self.ctx.terminal.mode().contains(mode::MOUSE_REPORT_CLICK)
             {
                 self.ctx.selection.update(Point {
-                    line: line,
-                    col: column
+                    line: point.line,
+                    col: point.col
                 }, self.ctx.mouse.cell_side);
             }
         }
@@ -247,6 +248,16 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
         if self.ctx.terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
             self.mouse_report(3);
             return;
+        }
+
+        if let Some(selection) = self.ctx.selection.span() {
+            let buf = self.ctx.terminal.string_from_selection(&selection);
+            if !buf.is_empty() {
+                Clipboard::new()
+                    .expect("get clipboard")
+                    .store_selection(buf)
+                    .expect("copy into clipboard");
+            }
         }
     }
 

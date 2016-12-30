@@ -15,6 +15,7 @@ use input::{self, ActionContext, MouseBinding, KeyBinding};
 use selection::Selection;
 use sync::FairMutex;
 use term::{Term, SizeInfo};
+use util::limit;
 use window::Window;
 
 /// Byte sequences are sent to a `Notify` in response to some events
@@ -148,12 +149,13 @@ impl<N: Notify> Processor<N> {
                 *wakeup_request = true;
             },
             glutin::Event::MouseMoved(x, y) => {
-                if x > 0 && y > 0 {
-                    processor.mouse_moved(x as u32, y as u32);
+                let x = limit(x, 0, processor.ctx.size_info.width as i32);
+                let y = limit(y, 0, processor.ctx.size_info.height as i32);
 
-                    if !processor.ctx.selection.is_empty() {
-                        *wakeup_request = true;
-                    }
+                processor.mouse_moved(x as u32, y as u32);
+
+                if !processor.ctx.selection.is_empty() {
+                    *wakeup_request = true;
                 }
             },
             glutin::Event::Focused(true) => {

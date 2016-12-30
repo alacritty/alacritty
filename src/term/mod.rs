@@ -260,7 +260,7 @@ impl SizeInfo {
         Column((self.width / self.cell_width) as usize)
     }
 
-    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<(Line, Column)> {
+    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<Point> {
         if x > self.width as usize || y > self.height as usize {
             return None;
         }
@@ -268,7 +268,10 @@ impl SizeInfo {
         let col = Column(x / (self.cell_width as usize));
         let line = Line(y / (self.cell_height as usize));
 
-        Some((line, col))
+        Some(Point {
+            line: cmp::min(line, self.lines() - 1),
+            col: cmp::min(col, self.cols() - 1)
+        })
     }
 }
 
@@ -328,45 +331,67 @@ impl Term {
             }
         }
         trait Append<T> : PushChar {
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: T) -> Range<Column> ;
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: T) -> Option<Range<Column>>;
         }
 
         use std::ops::{Range, RangeTo, RangeFrom, RangeFull};
 
         impl Append<Range<Column>> for String {
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: Range<Column>) -> Range<Column> {
+            fn append(
+                &mut self,
+                grid: &Grid<Cell>,
+                line: Line,
+                cols: Range<Column>
+            ) -> Option<Range<Column>> {
                 let line = &grid[line];
                 let line_length = line.line_length();
                 let line_end = cmp::min(line_length, cols.end + 1);
-                for cell in &line[cols.start..line_end] {
-                    self.push(cell.c);
-                }
 
-                cols.start..line_end
+                if cols.start >= line_end {
+                    None
+                } else {
+                    for cell in &line[cols.start..line_end] {
+                        self.push(cell.c);
+                    }
+
+                    Some(cols.start..line_end)
+                }
             }
         }
 
         impl Append<RangeTo<Column>> for String {
             #[inline]
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: RangeTo<Column>) -> Range<Column> {
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: RangeTo<Column>) -> Option<Range<Column>> {
                 self.append(grid, line, Column(0)..cols.end)
             }
         }
 
         impl Append<RangeFrom<Column>> for String {
             #[inline]
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: RangeFrom<Column>) -> Range<Column> {
+            fn append(
+                &mut self,
+                grid: &Grid<Cell>,
+                line: Line,
+                cols: RangeFrom<Column>
+            ) -> Option<Range<Column>> {
                 let range = self.append(grid, line, cols.start..Column(usize::max_value() - 1));
-                self.maybe_newline(grid, line, range.end);
+                range.as_ref()
+                    .map(|range| self.maybe_newline(grid, line, range.end));
                 range
             }
         }
 
         impl Append<RangeFull> for String {
             #[inline]
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, _: RangeFull) -> Range<Column> {
+            fn append(
+                &mut self,
+                grid: &Grid<Cell>,
+                line: Line,
+                _: RangeFull
+            ) -> Option<Range<Column>> {
                 let range = self.append(grid, line, Column(0)..Column(usize::max_value() - 1));
-                self.maybe_newline(grid, line, range.end);
+                range.as_ref()
+                    .map(|range| self.maybe_newline(grid, line, range.end));
                 range
             }
         }
@@ -415,7 +440,7 @@ impl Term {
     /// line and column returned are also relative to the top left.
     ///
     /// Returns None if the coordinates are outside the screen
-    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<(Line, Column)> {
+    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<Point> {
         self.size_info().pixels_to_coords(x, y)
     }
 

@@ -106,12 +106,16 @@ impl Selection {
                 debug_assert!(!(tail < front));
 
                 // Single-cell selections are a special case
-                if start == end && start_side != end_side {
-                    return Some(Span {
-                        ty: SpanType::Inclusive,
-                        front: *front,
-                        tail: *tail
-                    });
+                if start == end {
+                    if start_side != end_side {
+                        return Some(Span {
+                            ty: SpanType::Inclusive,
+                            front: *front,
+                            tail: *tail
+                        });
+                    } else {
+                        return None;
+                    }
                 }
 
                 // The other special case is two adjacent cells with no

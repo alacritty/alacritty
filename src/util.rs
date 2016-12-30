@@ -11,7 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
+use std::cmp;
+
 /// Threading utilities
 pub mod thread {
     /// Like `thread::spawn`, but with a `name` argument
@@ -28,4 +29,20 @@ pub mod thread {
     }
 
     pub use ::std::thread::*;
+}
+
+pub fn limit<T: Ord>(value: T, min: T, max: T) -> T {
+    cmp::min(cmp::max(value, min), max)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::limit;
+
+    #[test]
+    fn limit_works() {
+        assert_eq!(10, limit(10, 0, 100));
+        assert_eq!(10, limit(5, 10, 100));
+        assert_eq!(100, limit(1000, 10, 100));
+    }
 }
