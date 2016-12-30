@@ -11,8 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::convert::From;
 use std::fmt::{self, Display};
 use std::ops::Deref;
@@ -57,16 +55,11 @@ type Result<T> = ::std::result::Result<T, Error>;
 /// Wraps the underlying windowing library to provide a stable API in Alacritty
 pub struct Window {
     glutin_window: glutin::Window,
-
-    /// This flag allows calls to wakeup_event_loop to be coalesced. Waking the
-    /// event loop is potentially very slow (and indeed is on X11).
-    flag: Flag
 }
 
 /// Threadsafe APIs for the window
 pub struct Proxy {
     inner: glutin::WindowProxy,
-    flag: Flag,
 }
 
 /// Information about where the window is being displayed
@@ -97,46 +90,6 @@ pub struct Pixels<T>(pub T);
 /// Points are like pixels but adjusted for DPI.
 #[derive(Debug, Copy, Clone)]
 pub struct Points<T>(pub T);
-
-/// A wrapper around glutin's `WaitEventsIterator` that clears the wakeup
-/// optimization flag on drop.
-pub struct WaitEventsIterator<'a> {
-    inner: glutin::WaitEventsIterator<'a>,
-    flag: Flag
-}
-
-impl<'a> Iterator for WaitEventsIterator<'a> {
-    type Item = glutin::Event;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
-    }
-}
-
-impl<'a> Drop for WaitEventsIterator<'a> {
-    fn drop(&mut self) {
-        self.flag.set(false);
-    }
-}
-
-#[derive(Clone)]
-pub struct Flag(pub Arc<AtomicBool>);
-impl Flag {
-    pub fn new(initial_value: bool) -> Flag {
-        Flag(Arc::new(AtomicBool::new(initial_value)))
-    }
-
-    #[inline]
-    pub fn get(&self) -> bool {
-        self.0.load(Ordering::Acquire)
-    }
-
-    #[inline]
-    pub fn set(&self, value: bool) {
-        self.0.store(value, Ordering::Release)
-    }
-}
 
 pub trait ToPoints {
     fn to_points(&self, scale: f32) -> Size<Points<u32>>;
@@ -265,7 +218,6 @@ impl Window {
 
         Ok(Window {
             glutin_window: window,
-            flag: Flag::new(false),
         })
     }
 
@@ -308,7 +260,6 @@ impl Window {
     pub fn create_window_proxy(&self) -> Proxy {
         Proxy {
             inner: self.glutin_window.create_window_proxy(),
-            flag: self.flag.clone(),
         }
     }
 
@@ -319,26 +270,18 @@ impl Window {
             .map_err(From::from)
     }
 
-    /// Block waiting for events
+    /// Poll for any available events
     #[inline]
-    pub fn wait_events(&self) -> WaitEventsIterator {
-        WaitEventsIterator {
-            inner: self.glutin_window.wait_events(),
-            flag: self.flag.clone()
-        }
-    }
-
-    /// Clear the wakeup optimization flag
-    pub fn clear_wakeup_flag(&self) {
-        self.flag.set(false);
+    pub fn poll_events(&self) -> glutin::PollEventsIterator {
+        self.glutin_window.poll_events()
     }
 
     /// Block waiting for events
     ///
     /// FIXME should return our own type
     #[inline]
-    pub fn poll_events(&self) -> glutin::PollEventsIterator {
-        self.glutin_window.poll_events()
+    pub fn wait_events(&self) -> glutin::WaitEventsIterator {
+        self.glutin_window.wait_events()
     }
 }
 
@@ -348,13 +291,7 @@ impl Proxy {
     /// This is useful for triggering a draw when the renderer would otherwise
     /// be waiting on user input.
     pub fn wakeup_event_loop(&self) {
-        // Only wake up the window event loop if it hasn't already been
-        // signaled. This is a really important optimization because waking up
-        // the event loop redundantly burns *a lot* of cycles.
-        if !self.flag.get() {
-            self.inner.wakeup_event_loop();
-            self.flag.set(true);
-        }
+        self.inner.wakeup_event_loop();
     }
 }
 

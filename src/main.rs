@@ -79,7 +79,8 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let terminal = Arc::new(FairMutex::new(Term::new(display.size().to_owned())));
+    let terminal = Term::new(display.size().to_owned());
+    let terminal = Arc::new(FairMutex::new(terminal));
 
     // Create the pty
     //
@@ -129,20 +130,20 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // Main display loop
     loop {
         // Process input and window events
-        let (mut terminal, wakeup_request) = processor.process_events(&terminal, display.window());
+        let mut terminal = processor.process_events(&terminal, display.window());
 
         // Handle config reloads
-        let config_updated = config_monitor.as_ref()
+        config_monitor.as_ref()
             .and_then(|monitor| monitor.pending_config())
             .map(|new_config| {
                 config = new_config;
                 display.update_config(&config);
                 processor.update_config(&config);
-                true
-            }).unwrap_or(false);
+                terminal.dirty = true;
+            });
 
         // Maybe draw the terminal
-        if wakeup_request || config_updated {
+        if terminal.needs_draw() {
             // Handle pending resize events
             //
             // The second argument is a list of types that want to be notified

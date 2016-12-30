@@ -298,7 +298,7 @@ impl Term {
         let scroll_region = Line(0)..grid.num_lines();
 
         Term {
-            dirty: true,
+            dirty: false,
             grid: grid,
             alt_grid: alt,
             alt: false,
@@ -311,6 +311,11 @@ impl Term {
             template_cell: template.clone(),
             empty_cell: template,
         }
+    }
+
+    #[inline]
+    pub fn needs_draw(&self) -> bool {
+        self.dirty
     }
 
     pub fn string_from_selection(&self, span: &Span) -> String {

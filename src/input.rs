@@ -49,7 +49,7 @@ pub struct Processor<'a, N: 'a> {
 
 pub struct ActionContext<'a, N: 'a> {
     pub notifier: &'a mut N,
-    pub terminal: &'a Term,
+    pub terminal: &'a mut Term,
     pub selection: &'a mut Selection,
     pub mouse: &'a mut Mouse,
     pub size_info: &'a term::SizeInfo,

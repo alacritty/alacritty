@@ -213,12 +213,6 @@ impl Display {
     ///
     /// This call may block if vsync is enabled
     pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config, selection: &Selection) {
-        // This is a hack since sometimes we get stuck waiting for events
-        // in the main loop otherwise.
-        //
-        // TODO figure out why this is necessary
-        self.window.clear_wakeup_flag();
-
         // Clear dirty flag
         terminal.dirty = false;
 

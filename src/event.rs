@@ -105,7 +105,6 @@ impl<N: Notify> Processor<N> {
     fn handle_event<'a>(
         processor: &mut input::Processor<'a, N>,
         event: glutin::Event,
-        wakeup_request: &mut bool,
         ref_test: bool,
         resize_tx: &mpsc::Sender<(u32, u32)>,
     ) {
@@ -135,18 +134,14 @@ impl<N: Notify> Processor<N> {
             },
             glutin::Event::Resized(w, h) => {
                 resize_tx.send((w, h)).expect("send new size");
-
-                // Previously, this marked the terminal state as "dirty", but
-                // now the wakeup_request controls whether a display update is
-                // triggered.
-                *wakeup_request = true;
+                processor.ctx.terminal.dirty = true;
             },
             glutin::Event::KeyboardInput(state, _code, key, mods, string) => {
                 processor.process_key(state, key, mods, string);
             },
             glutin::Event::MouseInput(state, button) => {
                 processor.mouse_input(state, button);
-                *wakeup_request = true;
+                processor.ctx.terminal.dirty = true;
             },
             glutin::Event::MouseMoved(x, y) => {
                 let x = limit(x, 0, processor.ctx.size_info.width as i32);
@@ -155,17 +150,17 @@ impl<N: Notify> Processor<N> {
                 processor.mouse_moved(x as u32, y as u32);
 
                 if !processor.ctx.selection.is_empty() {
-                    *wakeup_request = true;
+                    processor.ctx.terminal.dirty = true;
                 }
             },
             glutin::Event::Focused(true) => {
-                *wakeup_request = true;
+                processor.ctx.terminal.dirty = true;
             },
             glutin::Event::MouseWheel(scroll_delta, touch_phase) => {
                 processor.on_mouse_wheel(scroll_delta, touch_phase);
             },
             glutin::Event::Awakened => {
-                *wakeup_request = true;
+                processor.ctx.terminal.dirty = true;
             },
             _ => (),
         }
@@ -176,13 +171,11 @@ impl<N: Notify> Processor<N> {
         &mut self,
         term: &'a FairMutex<Term>,
         window: &Window
-    ) -> (MutexGuard<'a, Term>, bool) {
-        let mut wakeup_request = false;
-
+    ) -> MutexGuard<'a, Term> {
         // Terminal is lazily initialized the first time an event is returned
         // from the blocking WaitEventsIterator. Otherwise, the pty reader would
         // be blocked the entire time we wait for input!
-        let terminal;
+        let mut terminal;
 
         {
             // Ditto on lazy initialization for context and processor.
@@ -195,7 +188,6 @@ impl<N: Notify> Processor<N> {
                     Processor::handle_event(
                         &mut processor,
                         $event,
-                        &mut wakeup_request,
                         self.ref_test,
                         &self.resize_tx,
                     )
@@ -206,7 +198,7 @@ impl<N: Notify> Processor<N> {
                 Some(event) => {
                     terminal = term.lock();
                     context = ActionContext {
-                        terminal: &terminal,
+                        terminal: &mut terminal,
                         notifier: &mut self.notifier,
                         selection: &mut self.selection,
                         mouse: &mut self.mouse,
@@ -230,7 +222,7 @@ impl<N: Notify> Processor<N> {
             }
         }
 
-        (terminal, wakeup_request)
+        terminal
     }
 
     pub fn update_config(&mut self, config: &Config) {

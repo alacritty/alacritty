@@ -211,9 +211,14 @@ impl<Io> EventLoop<Io>
                         state.parser.advance(&mut *terminal, *byte, &mut self.pty);
                     }
 
-                    terminal.dirty = true;
-
-                    self.display.notify();
+                    // Only request a draw if one hasn't already been requested.
+                    //
+                    // This is a performance optimization even if only for X11
+                    // which is very expensive to hammer on the even loop wakeup
+                    if !terminal.dirty {
+                        self.display.notify();
+                        terminal.dirty = true;
+                    }
                 },
                 Err(err) => {
                     match err.kind() {
