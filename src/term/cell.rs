@@ -36,6 +36,17 @@ pub struct Cell {
     pub flags: Flags,
 }
 
+impl Default for Cell {
+    fn default() -> Cell {
+        Cell::new(
+            ' ',
+            Color::Named(NamedColor::Foreground),
+            Color::Named(NamedColor::Background)
+        )
+    }
+
+}
+
 /// Get the length of occupied cells in a line
 pub trait LineLength {
     /// Calculate the occupied line length
@@ -100,11 +111,10 @@ mod tests {
 
     use grid::Row;
     use index::Column;
-    use ansi::Color;
 
     #[test]
     fn line_length_works() {
-        let template = Cell::new(' ', Color::Indexed(0), Color::Indexed(0));
+        let template = Cell::default();
         let mut row = Row::new(Column(10), &template);
         row[Column(5)].c = 'a';
 
@@ -113,7 +123,7 @@ mod tests {
 
     #[test]
     fn line_length_works_with_wrapline() {
-        let template = Cell::new(' ', Color::Indexed(0), Color::Indexed(0));
+        let template = Cell::default();
         let mut row = Row::new(Column(10), &template);
         row[Column(9)].flags.insert(super::WRAPLINE);
 

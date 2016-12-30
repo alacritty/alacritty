@@ -277,11 +277,7 @@ impl SizeInfo {
 
 impl Term {
     pub fn new(size: SizeInfo) -> Term {
-        let template = Cell::new(
-            ' ',
-            Color::Named(NamedColor::Foreground),
-            Color::Named(NamedColor::Background)
-        );
+        let template = Cell::default();
 
         let num_cols = size.cols();
         let num_lines = size.lines();
@@ -1040,7 +1036,6 @@ mod tests {
 
     use super::limit;
 
-    use ansi::{Color, NamedColor};
     use grid::Grid;
     use index::{Line, Column};
     use term::{Cell};
@@ -1051,11 +1046,7 @@ mod tests {
     /// test this property with a T=Cell.
     #[test]
     fn grid_serde() {
-        let template = Cell::new(
-            ' ',
-            Color::Named(NamedColor::Foreground),
-            Color::Named(NamedColor::Background)
-        );
+        let template = Cell::default();
 
         let grid = Grid::new(Line(24), Column(80), &template);
         let serialized = serde_json::to_string(&grid).expect("ser");
