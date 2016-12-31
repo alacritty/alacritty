@@ -20,7 +20,7 @@ use std::ptr;
 use std::sync::mpsc;
 
 use cgmath;
-use font::{self, Rasterizer, RasterizedGlyph, FontDesc, GlyphKey, FontKey};
+use font::{self, Rasterizer, Rasterize, RasterizedGlyph, FontDesc, GlyphKey, FontKey};
 use gl::types::*;
 use gl;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
@@ -138,7 +138,7 @@ impl GlyphCache {
         let bold = if bold_desc == regular_desc {
             regular
         } else {
-            rasterizer.load_font(&bold_desc, size).unwrap_or_else(|| regular)
+            rasterizer.load_font(&bold_desc, size).unwrap_or_else(|_| regular)
         };
 
         // Load italic font
@@ -149,7 +149,7 @@ impl GlyphCache {
             regular
         } else {
             rasterizer.load_font(&italic_desc, size)
-                      .unwrap_or_else(|| regular)
+                      .unwrap_or_else(|_| regular)
         };
 
         let mut cache = GlyphCache {
@@ -181,13 +181,15 @@ impl GlyphCache {
     }
 
     pub fn font_metrics(&self) -> font::Metrics {
-        self.rasterizer.metrics(self.font_key, self.font_size)
+        // TODO ERROR HANDLING
+        self.rasterizer.metrics(self.font_key, self.font_size).unwrap()
     }
 
     fn load_and_cache_glyph<L>(&mut self, glyph_key: GlyphKey, loader: &mut L)
         where L: LoadGlyph
     {
-        let rasterized = self.rasterizer.get_glyph(&glyph_key);
+        // TODO ERROR HANDLING
+        let rasterized = self.rasterizer.get_glyph(&glyph_key).unwrap();
         let glyph = loader.load_glyph(&rasterized);
         self.cache.insert(glyph_key, glyph);
     }

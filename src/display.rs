@@ -22,7 +22,7 @@ use Rgb;
 use ansi::Color;
 use cli;
 use config::Config;
-use font;
+use font::{self, Rasterize};
 use meter::Meter;
 use renderer::{GlyphCache, QuadRenderer};
 use selection::Selection;
@@ -92,7 +92,8 @@ impl Display {
 
         println!("device_pixel_ratio: {}", dpr);
 
-        let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr);
+        // TODO ERROR HANDLING
+        let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr).unwrap();
 
         // Create renderer
         let mut renderer = QuadRenderer::new(config, size);

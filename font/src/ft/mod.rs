@@ -15,9 +15,7 @@
 //! Rasterization powered by FreeType and FontConfig
 use std::collections::HashMap;
 
-use freetype::Library;
-use freetype::Face;
-use freetype;
+use freetype::{self, Library, Face};
 
 mod list_fonts;
 
@@ -25,7 +23,7 @@ use self::list_fonts::{Family, get_font_families};
 use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey};
 
 /// Rasterizes glyphs for a single font face.
-pub struct Rasterizer {
+pub struct FreeTypeRasterizer {
     faces: HashMap<FontKey, Face<'static>>,
     library: Library,
     system_fonts: HashMap<String, Family>,
@@ -40,16 +38,13 @@ fn to_freetype_26_6(f: f32) -> isize {
     ((1i32 << 6) as f32 * f) as isize
 }
 
-// #[inline]
-// fn freetype_26_6_to_float(val: i64) -> f64 {
-//     val as f64 / (1i64 << 6) as f64
-// }
+impl ::Rasterize for FreeTypeRasterizer {
+    type Err = Error;
 
-impl Rasterizer {
-    pub fn new(dpi_x: f32, dpi_y: f32, device_pixel_ratio: f32) -> Rasterizer {
-        let library = Library::init().unwrap();
+    fn new(dpi_x: f32, dpi_y: f32, device_pixel_ratio: f32) -> Result<FreeTypeRasterizer, Error> {
+        let library = Library::init()?;
 
-        Rasterizer {
+        Ok(FreeTypeRasterizer {
             system_fonts: get_font_families(),
             faces: HashMap::new(),
             keys: HashMap::new(),
@@ -57,11 +52,13 @@ impl Rasterizer {
             dpi_x: dpi_x as u32,
             dpi_y: dpi_y as u32,
             dpr: device_pixel_ratio,
-        }
+        })
     }
 
-    pub fn metrics(&self, key: FontKey, size: Size) -> Metrics {
-        let face = self.faces.get(&key).unwrap();
+    fn metrics(&self, key: FontKey, size: Size) -> Result<Metrics, Error> {
+        let face = self.faces
+            .get(&key)
+            .ok_or(Error::FontNotLoaded)?;
 
         let scale_size = self.dpr as f64 * size.as_f32_pts() as f64;
 
@@ -72,48 +69,36 @@ impl Rasterizer {
         let w_scale = w * scale_size / em_size;
         let h_scale = h * scale_size / em_size;
 
-        Metrics {
+        Ok(Metrics {
             average_advance: w_scale,
             line_height: h_scale,
-        }
+        })
     }
 
-    pub fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Option<FontKey> {
+    fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Error> {
         self.keys
             .get(&desc.to_owned())
-            .map(|k| *k)
-            .or_else(|| {
-                self.get_face(desc)
-                    .map(|face| {
-                        let key = FontKey::next();
-                        self.faces.insert(key, face);
-                        key
-                    })
+            .map(|k| Ok(*k))
+            .unwrap_or_else(|| {
+                let face = self.get_face(desc)?;
+                let key = FontKey::next();
+                self.faces.insert(key, face);
+                Ok(key)
             })
     }
 
-    fn get_face(&mut self, desc: &FontDesc) -> Option<Face<'static>> {
-        self.system_fonts
-            .get(&desc.name[..])
-            .and_then(|font| font.variants().get(&desc.style[..]))
-            .map(|variant| {
-                self.library.new_face(variant.path(), variant.index())
-                            .expect("TODO handle new_face error")
-            })
-    }
-
-    pub fn get_glyph(&mut self, glyph_key: &GlyphKey) -> RasterizedGlyph {
+    fn get_glyph(&mut self, glyph_key: &GlyphKey) -> Result<RasterizedGlyph, Error> {
         let face = self.faces
             .get(&glyph_key.font_key)
-            .expect("TODO handle get_face error");
+            .ok_or(Error::FontNotLoaded)?;
 
         let size = glyph_key.size.as_f32_pts() * self.dpr;
         let c = glyph_key.c;
 
-        face.set_char_size(to_freetype_26_6(size), 0, self.dpi_x, self.dpi_y).unwrap();
-        face.load_char(c as usize, freetype::face::TARGET_LIGHT).unwrap();
+        face.set_char_size(to_freetype_26_6(size), 0, self.dpi_x, self.dpi_y)?;
+        face.load_char(c as usize, freetype::face::TARGET_LIGHT)?;
         let glyph = face.glyph();
-        glyph.render_glyph(freetype::render_mode::RenderMode::Lcd).unwrap();
+        glyph.render_glyph(freetype::render_mode::RenderMode::Lcd)?;
 
         unsafe {
             let ft_lib = self.library.raw();
@@ -134,18 +119,80 @@ impl Rasterizer {
             packed.extend_from_slice(&buf[start..stop]);
         }
 
-        RasterizedGlyph {
+        Ok(RasterizedGlyph {
             c: c,
             top: glyph.bitmap_top(),
             left: glyph.bitmap_left(),
             width: glyph.bitmap().width() / 3,
             height: glyph.bitmap().rows(),
             buf: packed,
+        })
+    }
+}
+
+impl FreeTypeRasterizer {
+    fn get_face(&mut self, desc: &FontDesc) -> Result<Face<'static>, Error> {
+        self.system_fonts
+            .get(&desc.name[..])
+            .and_then(|font| font.variants().get(&desc.style[..]))
+            .ok_or_else(|| Error::MissingFont(desc.to_owned()))
+            .and_then(|variant| Ok(self.library.new_face(variant.path(), variant.index())?))
+    }
+}
+
+/// Errors occurring when using the freetype rasterizer
+#[derive(Debug)]
+pub enum Error {
+    /// Error occurred within the FreeType library
+    FreeType(freetype::Error),
+
+    /// Couldn't find font matching description
+    MissingFont(FontDesc),
+
+    /// Requested an operation with a FontKey that isn't known to the rasterizer
+    FontNotLoaded,
+}
+
+impl ::std::error::Error for Error {
+    fn cause(&self) -> Option<&::std::error::Error> {
+        match *self {
+            Error::FreeType(ref err) => Some(err),
+            _ => None,
+        }
+    }
+
+    fn description(&self) -> &str {
+        match *self {
+            Error::FreeType(ref err) => err.description(),
+            Error::MissingFont(ref _desc) => "couldn't find the requested font",
+            Error::FontNotLoaded => "tried to operate on font that hasn't been loaded",
         }
     }
 }
 
-unsafe impl Send for Rasterizer {}
+impl ::std::fmt::Display for Error {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        match *self {
+            Error::FreeType(ref err) => {
+                err.fmt(f)
+            },
+            Error::MissingFont(ref desc) => {
+                write!(f, "Couldn't find a font with {}", desc)
+            },
+            Error::FontNotLoaded => {
+                f.write_str("Tried to use a font that hasn't been loaded")
+            }
+        }
+    }
+}
+
+impl From<freetype::Error> for Error {
+    fn from(val: freetype::Error) -> Error {
+        Error::FreeType(val)
+    }
+}
+
+unsafe impl Send for FreeTypeRasterizer {}
 
 #[cfg(test)]
 mod tests {

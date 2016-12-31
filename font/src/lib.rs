@@ -46,7 +46,7 @@ use std::sync::atomic::{AtomicU32, ATOMIC_U32_INIT, Ordering};
 #[cfg(not(target_os = "macos"))]
 mod ft;
 #[cfg(not(target_os = "macos"))]
-pub use ft::*;
+pub use ft::{FreeTypeRasterizer as Rasterizer, Error};
 
 // If target is macos, reexport everything from darwin
 #[cfg(target_os = "macos")]
@@ -68,6 +68,12 @@ impl FontDesc {
             name: name.into(),
             style: style.into()
         }
+    }
+}
+
+impl fmt::Display for FontDesc {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "name '{}' and style '{}'", self.name, self.style)
     }
 }
 
@@ -155,4 +161,22 @@ impl fmt::Debug for RasterizedGlyph {
 pub struct Metrics {
     pub average_advance: f64,
     pub line_height: f64,
+}
+
+pub trait Rasterize {
+    /// Errors occurring in Rasterize methods
+    type Err: ::std::error::Error + Send + Sync + 'static;
+
+    /// Create a new Rasterize
+    fn new(dpi_x: f32, dpi_y: f32, device_pixel_ratio: f32) -> Result<Self, Self::Err>
+        where Self: Sized;
+
+    /// Get `Metrics` for the given `FontKey` and `Size`
+    fn metrics(&self, FontKey, Size) -> Result<Metrics, Self::Err>;
+
+    /// Load the font described by `FontDesc` and `Size`
+    fn load_font(&mut self, &FontDesc, Size) -> Result<FontKey, Self::Err>;
+
+    /// Rasterize the glyph described by `GlyphKey`.
+    fn get_glyph(&mut self, &GlyphKey) -> Result<RasterizedGlyph, Self::Err>;
 }
