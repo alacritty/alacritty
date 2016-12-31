@@ -231,6 +231,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ffi-util"
+version = "0.1.0"
+
+[[package]]
 name = "filetime"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -247,6 +251,7 @@ dependencies = [
  "core-graphics 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-text 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "euclid 0.6.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-util 0.1.0",
  "freetype-rs 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "servo-fontconfig 0.2.0 (git+https://github.com/jwilm/rust-fontconfig)",

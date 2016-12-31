@@ -36,6 +36,9 @@ extern crate core_graphics;
 extern crate euclid;
 extern crate libc;
 
+#[macro_use]
+extern crate ffi_util;
+
 use std::fmt;
 use std::sync::atomic::{AtomicU32, ATOMIC_U32_INIT, Ordering};
 

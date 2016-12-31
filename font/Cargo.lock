@@ -7,6 +7,7 @@ dependencies = [
  "core-graphics 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-text 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "euclid 0.6.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-util 0.1.0",
  "freetype-rs 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "servo-fontconfig 0.2.0 (git+https://github.com/jwilm/rust-fontconfig)",
@@ -74,6 +75,10 @@ dependencies = [
  "make-cmd 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pkg-config 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "ffi-util"
+version = "0.1.0"
 
 [[package]]
 name = "freetype-rs"

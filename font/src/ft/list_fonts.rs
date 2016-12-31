@@ -20,27 +20,20 @@ mod fc {
     use std::ptr;
     use std::ffi::{CStr, CString};
     use std::str;
-    use std::ops::{Deref, DerefMut};
+    use std::ops::Deref;
+
+    use ffi_util::ForeignTypeRef;
 
     use libc::{c_char, c_int};
     use fontconfig::fontconfig as ffi;
 
-    use self::ffi::{FcConfigGetCurrent, FcConfigGetFonts};
+    use self::ffi::{FcConfigGetCurrent, FcConfigGetFonts, FcSetSystem, FcSetApplication};
     use self::ffi::{FcPatternGetString, FcPatternCreate, FcPatternAddString};
     use self::ffi::{FcPatternGetInteger};
     use self::ffi::{FcObjectSetCreate, FcObjectSetAdd};
     use self::ffi::{FcResultMatch, FcFontSetList};
     use self::ffi::{FcChar8, FcConfig, FcPattern, FcFontSet, FcObjectSet};
     use self::ffi::{FcFontSetDestroy, FcPatternDestroy, FcObjectSetDestroy, FcConfigDestroy};
-
-    /// FcConfig - Font Configuration
-    pub struct Config(*mut FcConfig);
-
-    /// FcFontSet
-    pub struct FontSet(*mut FcFontSet);
-
-    /// FcFontSet reference
-    pub struct FontSetRef(*mut FcFontSet);
 
     /// Iterator over a font set
     pub struct FontSetIter<'a> {
@@ -49,51 +42,10 @@ mod fc {
         current: usize,
     }
 
-    macro_rules! ref_type {
-        ($($owned:ty => $refty:ty),*) => {
-            $(
-                impl Deref for $owned {
-                    type Target = $refty;
-                    fn deref(&self) -> &Self::Target {
-                        unsafe {
-                            &*(self.0 as *mut _)
-                        }
-                    }
-                }
-
-                impl DerefMut for $owned {
-                    fn deref_mut(&mut self) -> &mut Self::Target {
-                        unsafe {
-                            &mut *(self.0 as *mut _)
-                        }
-                    }
-                }
-            )*
-        }
-    }
-
-    /// FcPattern
-    pub struct Pattern(*mut FcPattern);
-
-    /// FcObjectSet
-    pub struct ObjectSet(*mut FcObjectSet);
-
-    /// FcObjectSet reference
-    pub struct ObjectSetRef(*mut FcObjectSet);
-
-    ref_type! {
-        ObjectSet => ObjectSetRef,
-        Pattern => PatternRef,
-        FontSet => FontSetRef
-    }
-
-    impl Drop for ObjectSet {
-        fn drop(&mut self) {
-            unsafe {
-                FcObjectSetDestroy(self.0);
-            }
-        }
-    }
+    ffi_type!(Pattern, PatternRef, FcPattern, FcPatternDestroy);
+    ffi_type!(Config, ConfigRef, FcConfig, FcConfigDestroy);
+    ffi_type!(ObjectSet, ObjectSetRef, FcObjectSet, FcObjectSetDestroy);
+    ffi_type!(FontSet, FontSetRef, FcFontSet, FcFontSetDestroy);
 
     impl ObjectSet {
         pub fn new() -> ObjectSet {
@@ -103,11 +55,10 @@ mod fc {
         }
     }
 
-
     impl ObjectSetRef {
         fn add(&mut self, property: &[u8]) {
             unsafe {
-                FcObjectSetAdd(self.0, property.as_ptr() as *mut c_char);
+                FcObjectSetAdd(self.as_ptr(), property.as_ptr() as *mut c_char);
             }
         }
 
@@ -144,21 +95,11 @@ mod fc {
         }
     }
 
-    impl Drop for Pattern {
-        fn drop(&mut self) {
-            unsafe {
-                FcPatternDestroy(self.0);
-            }
-        }
-    }
-
-    /// FcPattern reference
-    pub struct PatternRef(*mut FcPattern);
-
     /// Available font sets
+    #[derive(Debug, Copy, Clone)]
     pub enum SetName {
-        System = 0,
-        Application = 1,
+        System = FcSetSystem as isize,
+        Application = FcSetApplication as isize,
     }
 
     pub unsafe fn char8_to_string(fc_str: *mut FcChar8) -> String {
@@ -173,7 +114,7 @@ mod fc {
                         let mut format: *mut FcChar8 = ptr::null_mut();
 
                         let result = FcPatternGetString(
-                            self.0,
+                            self.as_ptr(),
                             $property.as_ptr() as *mut c_char,
                             id as c_int,
                             &mut format
@@ -197,7 +138,7 @@ mod fc {
                     let mut index = 0 as c_int;
                     unsafe {
                         let result = FcPatternGetInteger(
-                            self.0,
+                            self.as_ptr(),
                             $property.as_ptr() as *mut c_char,
                             id as c_int,
                             &mut index
@@ -228,7 +169,7 @@ mod fc {
             let value = value.as_ptr();
 
             FcPatternAddString(
-                self.0,
+                self.as_ptr(),
                 object.as_ptr() as *mut c_char,
                 value as *mut FcChar8
             ) == 1
@@ -255,11 +196,11 @@ mod fc {
         type IntoIter = FontSetIter<'a>;
         fn into_iter(self) -> FontSetIter<'a> {
             let num_fonts = unsafe {
-                (*self.0).nfont as isize
+                (*self.as_ptr()).nfont as isize
             };
 
             FontSetIter {
-                font_set: unsafe { &*(self.0 as *mut _) },
+                font_set: self.deref(),
                 num_fonts: num_fonts as _,
                 current: 0,
             }
@@ -271,7 +212,7 @@ mod fc {
         type IntoIter = FontSetIter<'a>;
         fn into_iter(self) -> FontSetIter<'a> {
             let num_fonts = unsafe {
-                (*self.0).nfont as isize
+                (*self.as_ptr()).nfont as isize
             };
 
             FontSetIter {
@@ -290,8 +231,8 @@ mod fc {
                 None
             } else {
                 let pattern = unsafe {
-                    let ptr = *(*self.font_set.0).fonts.offset(self.current as isize);
-                    &*(ptr as *mut _)
+                    let ptr = *(*self.font_set.as_ptr()).fonts.offset(self.current as isize);
+                    PatternRef::from_ptr(ptr)
                 };
 
                 self.current += 1;
@@ -302,18 +243,18 @@ mod fc {
 
     impl FontSet {
         pub fn list(
-            config: &Config,
+            config: &ConfigRef,
             source: &mut FontSetRef,
             pattern: &PatternRef,
             objects: &ObjectSetRef
         ) -> FontSet {
             let raw = unsafe {
                 FcFontSetList(
-                    config.0,
-                    &mut source.0,
+                    config.as_ptr(),
+                    &mut source.as_ptr(),
                     1 /* nsets */,
-                    pattern.0,
-                    objects.0
+                    pattern.as_ptr(),
+                    objects.as_ptr(),
                 )
             };
             FontSet(raw)
@@ -322,34 +263,20 @@ mod fc {
 
     impl Config {
         /// Get the current configuration
-        pub fn get_current() -> Config {
-            Config(unsafe { FcConfigGetCurrent() })
+        pub fn get_current() -> &'static ConfigRef {
+            unsafe {
+                ConfigRef::from_ptr(FcConfigGetCurrent())
+            }
         }
+    }
 
+    impl ConfigRef {
         /// Returns one of the two sets of fonts from the configuration as
         /// specified by `set`.
         pub fn get_fonts<'a>(&'a self, set: SetName) -> &'a FontSetRef {
             unsafe {
-                let ptr = FcConfigGetFonts(self.0, set as u32);
-                &*(ptr as *mut _)
-            }
-        }
-    }
-
-    impl Drop for FontSet {
-        fn drop(&mut self) {
-            unsafe {
-                FcFontSetDestroy(self.0)
-            }
-        }
-    }
-
-    impl Drop for Config {
-        fn drop(&mut self) {
-            unsafe {
-                if self.0 != FcConfigGetCurrent() {
-                    FcConfigDestroy(self.0)
-                }
+                let ptr = FcConfigGetFonts(self.as_ptr(), set as u32);
+                FontSetRef::from_ptr(ptr)
             }
         }
     }
@@ -363,9 +290,11 @@ fn list_families() -> Vec<String> {
     for font in font_set {
         if let Some(format) = font.fontformat(0) {
             if format == "TrueType" || format == "CFF" {
-                let id = 0;
-                while let Some(family) = font.family(id) {
-                    families.push(family);
+                for id in 0.. {
+                    match font.family(id) {
+                        Some(family)  => families.push(family),
+                        None => break,
+                    }
                 }
             }
         }
