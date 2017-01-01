@@ -52,10 +52,18 @@ fn main() {
 
     // Run alacritty
     if let Err(err) = run(config, options) {
-        die!("{}", err);
+        die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
     }
 
     println!("Goodbye");
+}
+
+use std::fmt;
+struct Red<T>(T);
+impl<T: fmt::Display> fmt::Display for Red<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "\x1b[31m{}\x1b[0m", self.0)
+    }
 }
 
 /// Run Alacritty

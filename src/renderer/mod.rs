@@ -119,7 +119,11 @@ pub struct GlyphCache {
 }
 
 impl GlyphCache {
-    pub fn new<L>(mut rasterizer: Rasterizer, config: &Config, loader: &mut L) -> GlyphCache
+    pub fn new<L>(
+        mut rasterizer: Rasterizer,
+        config: &Config,
+        loader: &mut L
+    ) -> Result<GlyphCache, font::Error>
         where L: LoadGlyph
     {
         let font = config.font();
@@ -128,8 +132,7 @@ impl GlyphCache {
         // Load regular font
         let regular_desc = FontDesc::new(font.family(), font.style());
         let regular = rasterizer
-            .load_font(&regular_desc, size)
-            .expect("regular font load ok");
+            .load_font(&regular_desc, size)?;
 
         // Load bold font
         let bold_style = font.bold_style().unwrap_or("Bold");
@@ -177,21 +180,22 @@ impl GlyphCache {
         load_glyphs_for_font!(bold);
         load_glyphs_for_font!(italic);
 
-        cache
+        Ok(cache)
     }
 
     pub fn font_metrics(&self) -> font::Metrics {
-        // TODO ERROR HANDLING
-        self.rasterizer.metrics(self.font_key, self.font_size).unwrap()
+        self.rasterizer
+            .metrics(self.font_key, self.font_size)
+            .expect("metrics load since font is loaded at glyph cache creation")
     }
 
     fn load_and_cache_glyph<L>(&mut self, glyph_key: GlyphKey, loader: &mut L)
         where L: LoadGlyph
     {
-        // TODO ERROR HANDLING
-        let rasterized = self.rasterizer.get_glyph(&glyph_key).unwrap();
-        let glyph = loader.load_glyph(&rasterized);
-        self.cache.insert(glyph_key, glyph);
+        if let Ok(rasterized) = self.rasterizer.get_glyph(&glyph_key) {
+            let glyph = loader.load_glyph(&rasterized);
+            self.cache.insert(glyph_key, glyph);
+        }
     }
 
     pub fn get<L>(&mut self, glyph_key: &GlyphKey, loader: &mut L) -> Option<&Glyph>
@@ -783,7 +787,8 @@ impl<'a> LoadGlyph for LoaderApi<'a> {
     ///
     /// If the current atlas is full, a new one will be created.
     fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
-        // At least one atlas is guaranteed to be in the `self.atlas` list; thus the unwrap.
+        // At least one atlas is guaranteed to be in the `self.atlas` list; thus
+        // the unwrap should always be ok.
         match self.atlas.last_mut().unwrap().insert(rasterized, &mut self.active_tex) {
             Ok(glyph) => glyph,
             Err(_) => {
@@ -801,7 +806,8 @@ impl<'a> LoadGlyph for RenderApi<'a> {
     ///
     /// If the current atlas is full, a new one will be created.
     fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
-        // At least one atlas is guaranteed to be in the `self.atlas` list; thus the unwrap.
+        // At least one atlas is guaranteed to be in the `self.atlas` list; thus
+        // the unwrap.
         match self.atlas.last_mut().unwrap().insert(rasterized, &mut self.active_tex) {
             Ok(glyph) => glyph,
             Err(_) => {

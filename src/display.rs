@@ -30,6 +30,52 @@ use term::{Term, SizeInfo};
 
 use window::{self, Size, Pixels, Window, SetInnerSize};
 
+#[derive(Debug)]
+pub enum Error {
+    /// Error with window management
+    Window(window::Error),
+
+    /// Error dealing with fonts
+    Font(font::Error),
+}
+
+impl ::std::error::Error for Error {
+    fn cause(&self) -> Option<&::std::error::Error> {
+        match *self {
+            Error::Window(ref err) => Some(err),
+            Error::Font(ref err) => Some(err),
+        }
+    }
+
+    fn description(&self) -> &str {
+        match *self {
+            Error::Window(ref err) => err.description(),
+            Error::Font(ref err) => err.description(),
+        }
+    }
+}
+
+impl ::std::fmt::Display for Error {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        match *self {
+            Error::Window(ref err) => err.fmt(f),
+            Error::Font(ref err) => err.fmt(f),
+        }
+    }
+}
+
+impl From<window::Error> for Error {
+    fn from(val: window::Error) -> Error {
+        Error::Window(val)
+    }
+}
+
+impl From<font::Error> for Error {
+    fn from(val: font::Error) -> Error {
+        Error::Font(val)
+    }
+}
+
 /// The display wraps a window, font rasterizer, and GPU renderer
 pub struct Display {
     window: Window,
@@ -74,26 +120,23 @@ impl Display {
     pub fn new(
         config: &Config,
         options: &cli::Options,
-    ) -> Result<Display, window::Error> {
+    ) -> Result<Display, Error> {
         // Extract some properties from config
         let font = config.font();
         let dpi = config.dpi();
         let render_timer = config.render_timer();
 
         // Create the window where Alacritty will be displayed
-        let mut window = match Window::new() {
-            Ok(window) => window,
-            Err(err) => die!("{}", err)
-        };
+        let mut window = Window::new()?;
 
         // get window properties for initializing the other subsytems
-        let size = window.inner_size_pixels().unwrap();
+        let size = window.inner_size_pixels()
+            .expect("glutin returns window size");
         let dpr = window.hidpi_factor();
 
         println!("device_pixel_ratio: {}", dpr);
 
-        // TODO ERROR HANDLING
-        let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr).unwrap();
+        let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr)?;
 
         // Create renderer
         let mut renderer = QuadRenderer::new(config, size);
@@ -105,7 +148,7 @@ impl Display {
 
             let cache = renderer.with_loader(|mut api| {
                 GlyphCache::new(rasterizer, config, &mut api)
-            });
+            })?;
 
             let stop = init_start.elapsed();
             let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;
@@ -247,8 +290,10 @@ impl Display {
             }
         }
 
-        // Unlock the terminal mutex
+        // Unlock the terminal mutex; following call to swap_buffers() may block
         drop(terminal);
-        self.window.swap_buffers().unwrap();
+        self.window
+            .swap_buffers()
+            .expect("swap buffers");
     }
 }
