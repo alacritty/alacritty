@@ -25,12 +25,12 @@ use glutin::{ElementState, VirtualKeyCode, MouseButton};
 use glutin::{Mods, mods};
 use glutin::{TouchPhase, MouseScrollDelta};
 
-use event::Notify;
+use event::{Mouse, Notify};
 use index::{Line, Column, Side, Point};
 use selection::Selection;
 use term::mode::{self, TermMode};
 use term::{self, Term};
-use event::Mouse;
+use util::fmt::Red;
 
 /// Processes input from glutin.
 ///
@@ -149,16 +149,17 @@ impl Action {
                     let buf = ctx.terminal.string_from_selection(&selection);
                     if !buf.is_empty() {
                         Clipboard::new()
-                            .expect("get clipboard")
-                            .store_primary(buf)
-                            .expect("copy into clipboard");
+                            .and_then(|mut clipboard| clipboard.store_primary(buf))
+                            .unwrap_or_else(|err| {
+                                err_println!("Error storing selection to clipboard: {}", Red(err));
+                            });
                     }
                 }
             },
             Action::Paste |
             Action::PasteSelection => {
-                let clip = Clipboard::new().expect("get clipboard");
-                clip.load_selection()
+                Clipboard::new()
+                    .and_then(|clipboard| clipboard.load_selection())
                     .map(|contents| {
                         if ctx.terminal.mode().contains(mode::BRACKETED_PASTE) {
                             ctx.notifier.notify(&b"\x1b[200~"[..]);
@@ -169,7 +170,7 @@ impl Action {
                         }
                     })
                     .unwrap_or_else(|err| {
-                        err_println!("Error getting clipboard contents: {}", err);
+                        err_println!("Error loading data from clipboard {}", Red(err));
                     });
             },
         }
@@ -275,9 +276,10 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
             let buf = self.ctx.terminal.string_from_selection(&selection);
             if !buf.is_empty() {
                 Clipboard::new()
-                    .expect("get clipboard")
-                    .store_selection(buf)
-                    .expect("copy into clipboard");
+                    .and_then(|mut clipboard| clipboard.store_selection(buf))
+                    .unwrap_or_else(|err| {
+                        err_println!("Error storing selection to clipboard: {}", Red(err));
+                    });
             }
         }
     }

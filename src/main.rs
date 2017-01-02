@@ -30,6 +30,7 @@ use alacritty::event_loop::{self, EventLoop};
 use alacritty::sync::FairMutex;
 use alacritty::term::{Term};
 use alacritty::tty::{self, process_should_exit};
+use alacritty::util::fmt::Red;
 
 fn main() {
     // Load configuration
@@ -58,13 +59,6 @@ fn main() {
     println!("Goodbye");
 }
 
-use std::fmt;
-struct Red<T>(T);
-impl<T: fmt::Display> fmt::Display for Red<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\x1b[31m{}\x1b[0m", self.0)
-    }
-}
 
 /// Run Alacritty
 ///
