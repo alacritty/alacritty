@@ -18,11 +18,8 @@
 //! In order to figure that out, state about which modifier keys are pressed
 //! needs to be tracked. Additionally, we need a bit of a state machine to
 //! determine what to do when a non-modifier key is pressed.
-//!
-//! TODO would be nice to generalize this so it could work with other windowing
-//! APIs
-//!
-//! TODO handling xmodmap would be good
+use std::mem;
+
 use copypasta::{Clipboard, Load, Store};
 use glutin::{ElementState, VirtualKeyCode, MouseButton};
 use glutin::{Mods, mods};
@@ -188,15 +185,12 @@ impl From<&'static str> for Action {
 impl<'a, N: Notify + 'a> Processor<'a, N> {
     #[inline]
     pub fn mouse_moved(&mut self, x: u32, y: u32) {
-        // Record mouse position within window. Pixel coordinates are *not*
-        // translated to grid coordinates here since grid coordinates are rarely
-        // needed and the mouse position updates frequently.
         self.ctx.mouse.x = x;
         self.ctx.mouse.y = y;
 
         if let Some(point) = self.ctx.size_info.pixels_to_coords(x as usize, y as usize) {
-            self.ctx.mouse.line = point.line;
-            self.ctx.mouse.column = point.col;
+            let prev_line = mem::replace(&mut self.ctx.mouse.line, point.line);
+            let prev_col = mem::replace(&mut self.ctx.mouse.column, point.col);
 
             let cell_x = x as usize % self.ctx.size_info.cell_width as usize;
             let half_cell_width = (self.ctx.size_info.cell_width / 2.0) as usize;
@@ -207,18 +201,28 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
                 Side::Left
             };
 
-            if self.ctx.mouse.left_button_state == ElementState::Pressed &&
-                !self.ctx.terminal.mode().contains(mode::MOUSE_REPORT_CLICK)
-            {
-                self.ctx.selection.update(Point {
-                    line: point.line,
-                    col: point.col
-                }, self.ctx.mouse.cell_side);
+            if self.ctx.mouse.left_button_state == ElementState::Pressed {
+                let report_mode = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION;
+                if !self.ctx.terminal.mode().intersects(report_mode) {
+                    self.ctx.selection.update(Point {
+                        line: point.line,
+                        col: point.col
+                    }, self.ctx.mouse.cell_side);
+                } else if self.ctx.terminal.mode().contains(mode::MOUSE_MOTION) {
+                    // Only report motion when changing cells
+                    if prev_line != self.ctx.mouse.line || prev_col != self.ctx.mouse.column {
+                        self.mouse_report(0 + 32);
+                    }
+                }
             }
         }
     }
 
-    pub fn mouse_report(&mut self, button: u8) {
+    pub fn mouse_moved_cells(&mut self) {
+
+    }
+
+    pub fn normal_mouse_report(&mut self, button: u8) {
         let (line, column) = (self.ctx.mouse.line, self.ctx.mouse.column);
 
         if line < Line(223) && column < Column(223) {
@@ -235,8 +239,25 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
         }
     }
 
+    pub fn sgr_mouse_report(&mut self, button: u8, release: bool) {
+        let (line, column) = (self.ctx.mouse.line, self.ctx.mouse.column);
+        let c = if release { 'm' } else { 'M' };
+
+        let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1, c);
+        self.ctx.notifier.notify(msg.into_bytes());
+    }
+
+    pub fn mouse_report(&mut self, button: u8) {
+        if self.ctx.terminal.mode().contains(mode::SGR_MOUSE) {
+            let release = self.ctx.mouse.left_button_state != ElementState::Pressed;
+            self.sgr_mouse_report(button, release);
+        } else {
+            self.normal_mouse_report(button);
+        }
+    }
+
     pub fn on_mouse_press(&mut self) {
-        if self.ctx.terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
+        if self.ctx.terminal.mode().intersects(mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION) {
             self.mouse_report(0);
             return;
         }
@@ -245,7 +266,7 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
     }
 
     pub fn on_mouse_release(&mut self) {
-        if self.ctx.terminal.mode().contains(mode::MOUSE_REPORT_CLICK) {
+        if self.ctx.terminal.mode().intersects(mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION) {
             self.mouse_report(3);
             return;
         }
@@ -304,10 +325,9 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
 
     pub fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
         if let MouseButton::Left = button {
-            // TODO handle state changes
+            let state = mem::replace(&mut self.ctx.mouse.left_button_state, state);
             if self.ctx.mouse.left_button_state != state {
-                self.ctx.mouse.left_button_state = state;
-                match state {
+                match self.ctx.mouse.left_button_state {
                     ElementState::Pressed => {
                         self.on_mouse_press();
                     },

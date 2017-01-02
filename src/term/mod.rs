@@ -180,6 +180,8 @@ pub mod mode {
             const APP_KEYPAD          = 0b00000100,
             const MOUSE_REPORT_CLICK  = 0b00001000,
             const BRACKETED_PASTE     = 0b00010000,
+            const SGR_MOUSE           = 0b00100000,
+            const MOUSE_MOTION        = 0b01000000,
             const ANY                 = 0b11111111,
             const NONE                = 0b00000000,
         }
@@ -987,7 +989,9 @@ impl ansi::Handler for Term {
             ansi::Mode::ShowCursor => self.mode.insert(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.insert(mode::APP_CURSOR),
             ansi::Mode::ReportMouseClicks => self.mode.insert(mode::MOUSE_REPORT_CLICK),
+            ansi::Mode::ReportMouseMotion => self.mode.insert(mode::MOUSE_MOTION),
             ansi::Mode::BracketedPaste => self.mode.insert(mode::BRACKETED_PASTE),
+            ansi::Mode::SgrMouse => self.mode.insert(mode::SGR_MOUSE),
             _ => {
                 debug_println!(".. ignoring set_mode");
             }
@@ -1002,7 +1006,9 @@ impl ansi::Handler for Term {
             ansi::Mode::ShowCursor => self.mode.remove(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.remove(mode::APP_CURSOR),
             ansi::Mode::ReportMouseClicks => self.mode.remove(mode::MOUSE_REPORT_CLICK),
+            ansi::Mode::ReportMouseMotion => self.mode.remove(mode::MOUSE_MOTION),
             ansi::Mode::BracketedPaste => self.mode.remove(mode::BRACKETED_PASTE),
+            ansi::Mode::SgrMouse => self.mode.remove(mode::SGR_MOUSE),
             _ => {
                 debug_println!(".. ignoring unset_mode");
             }

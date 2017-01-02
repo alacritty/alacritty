@@ -62,7 +62,7 @@ pub struct Line(pub usize);
 
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Line({})", self.0)
+        write!(f, "{}", self.0)
     }
 }
 
@@ -74,7 +74,7 @@ pub struct Column(pub usize);
 
 impl fmt::Display for Column {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Column({})", self.0)
+        write!(f, "{}", self.0)
     }
 }
 

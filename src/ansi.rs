@@ -249,6 +249,10 @@ pub enum Mode {
     ShowCursor = 25,
     /// ?1000
     ReportMouseClicks = 1000,
+    /// ?1002
+    ReportMouseMotion = 1002,
+    /// ?1006
+    SgrMouse = 1006,
     /// ?1049
     SwapScreenAndSetRestoreCursor = 1049,
     /// ?2004
@@ -267,6 +271,8 @@ impl Mode {
                 12 => Mode::BlinkingCursor,
                 25 => Mode::ShowCursor,
                 1000 => Mode::ReportMouseClicks,
+                1002 => Mode::ReportMouseMotion,
+                1006 => Mode::SgrMouse,
                 1049 => Mode::SwapScreenAndSetRestoreCursor,
                 2004 => Mode::BracketedPaste,
                 _ => return None
