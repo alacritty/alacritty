@@ -57,6 +57,42 @@ enum Msg {
     ShaderReload,
 }
 
+#[derive(Debug)]
+pub enum Error {
+    ShaderCreation(ShaderCreationError),
+}
+
+impl ::std::error::Error for Error {
+    fn cause(&self) -> Option<&::std::error::Error> {
+        match *self {
+            Error::ShaderCreation(ref err) => Some(err),
+        }
+    }
+
+    fn description(&self) -> &str {
+        match *self {
+            Error::ShaderCreation(ref err) => err.description(),
+        }
+    }
+}
+
+impl ::std::fmt::Display for Error {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        match *self {
+            Error::ShaderCreation(ref err) => {
+                write!(f, "There was an error initializing the shaders: {}", err)
+            }
+        }
+    }
+}
+
+impl From<ShaderCreationError> for Error {
+    fn from(val: ShaderCreationError) -> Error {
+        Error::ShaderCreation(val)
+    }
+}
+
+
 /// Text drawing program
 ///
 /// Uniforms are prefixed with "u", and vertex attributes are prefixed with "a".
@@ -395,8 +431,8 @@ const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
-    pub fn new(config: &Config, size: Size<Pixels<u32>>) -> QuadRenderer {
-        let program = ShaderProgram::new(size).unwrap();
+    pub fn new(config: &Config, size: Size<Pixels<u32>>) -> Result<QuadRenderer, Error> {
+        let program = ShaderProgram::new(size)?;
 
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
@@ -503,7 +539,7 @@ impl QuadRenderer {
         if cfg!(feature = "live-shader-reload") {
             ::std::thread::spawn(move || {
                 let (tx, rx) = ::std::sync::mpsc::channel();
-                let mut watcher = Watcher::new(tx).unwrap();
+                let mut watcher = Watcher::new(tx).expect("create file watcher");
                 watcher.watch(TEXT_SHADER_F_PATH).expect("watch fragment shader");
                 watcher.watch(TEXT_SHADER_V_PATH).expect("watch vertex shader");
 
@@ -547,7 +583,7 @@ impl QuadRenderer {
         let atlas = Atlas::new(ATLAS_SIZE);
         renderer.atlas.push(atlas);
 
-        renderer
+        Ok(renderer)
     }
 
     pub fn update_config(&mut self, config: &Config) {
@@ -625,7 +661,7 @@ impl QuadRenderer {
                     },
                     ShaderCreationError::Compile(path, log) => {
                         err_println!("Error compiling shader at {:?}", path);
-                        io::copy(&mut log.as_bytes(), &mut io::stdout()).unwrap();
+                        let _ = io::copy(&mut log.as_bytes(), &mut io::stdout());
                     }
                 }
 
@@ -1094,9 +1130,9 @@ impl ::std::error::Error for ShaderCreationError {
 impl ::std::fmt::Display for ShaderCreationError {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            ShaderCreationError::Io(ref err) => write!(f, "Error creating shader: {}", err),
+            ShaderCreationError::Io(ref err) => write!(f, "couldn't read shader: {}", err),
             ShaderCreationError::Compile(ref _path, ref s) => {
-                write!(f, "Error compiling shader: {}", s)
+                write!(f, "failed compiling shader: {}", s)
             },
         }
     }

@@ -24,7 +24,7 @@ use cli;
 use config::Config;
 use font::{self, Rasterize};
 use meter::Meter;
-use renderer::{GlyphCache, QuadRenderer};
+use renderer::{self, GlyphCache, QuadRenderer};
 use selection::Selection;
 use term::{Term, SizeInfo};
 
@@ -37,6 +37,9 @@ pub enum Error {
 
     /// Error dealing with fonts
     Font(font::Error),
+
+    /// Error in renderer
+    Render(renderer::Error),
 }
 
 impl ::std::error::Error for Error {
@@ -44,6 +47,7 @@ impl ::std::error::Error for Error {
         match *self {
             Error::Window(ref err) => Some(err),
             Error::Font(ref err) => Some(err),
+            Error::Render(ref err) => Some(err),
         }
     }
 
@@ -51,6 +55,7 @@ impl ::std::error::Error for Error {
         match *self {
             Error::Window(ref err) => err.description(),
             Error::Font(ref err) => err.description(),
+            Error::Render(ref err) => err.description(),
         }
     }
 }
@@ -60,6 +65,7 @@ impl ::std::fmt::Display for Error {
         match *self {
             Error::Window(ref err) => err.fmt(f),
             Error::Font(ref err) => err.fmt(f),
+            Error::Render(ref err) => err.fmt(f),
         }
     }
 }
@@ -73,6 +79,12 @@ impl From<window::Error> for Error {
 impl From<font::Error> for Error {
     fn from(val: font::Error) -> Error {
         Error::Font(val)
+    }
+}
+
+impl From<renderer::Error> for Error {
+    fn from(val: renderer::Error) -> Error {
+        Error::Render(val)
     }
 }
 
@@ -139,7 +151,7 @@ impl Display {
         let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr)?;
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(config, size);
+        let mut renderer = QuadRenderer::new(config, size)?;
 
         // Initialize glyph cache
         let glyph_cache = {
