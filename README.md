@@ -120,7 +120,8 @@ Just Works.
   that needs some updates to work with Wayland.
 - _When will Windows support be available?_ When someone has time to work on it.
   Contributors would be welcomed :).
-- _My arrow keys don't work_ Did you install the default config file?
+- _My arrow keys don't work_ It sounds like you deleted some key bindings from
+  your config file. Please reference the default config file to restore them.
 
 
 ## License
