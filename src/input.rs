@@ -151,7 +151,7 @@ impl Action {
                         Clipboard::new()
                             .and_then(|mut clipboard| clipboard.store_primary(buf))
                             .unwrap_or_else(|err| {
-                                err_println!("Error storing selection to clipboard: {}", Red(err));
+                                err_println!("Error storing selection to clipboard. {}", Red(err));
                             });
                     }
                 }
@@ -170,7 +170,7 @@ impl Action {
                         }
                     })
                     .unwrap_or_else(|err| {
-                        err_println!("Error loading data from clipboard {}", Red(err));
+                        err_println!("Error loading data from clipboard. {}", Red(err));
                     });
             },
         }
@@ -278,7 +278,7 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
                 Clipboard::new()
                     .and_then(|mut clipboard| clipboard.store_selection(buf))
                     .unwrap_or_else(|err| {
-                        err_println!("Error storing selection to clipboard: {}", Red(err));
+                        err_println!("Error storing selection to clipboard. {}", Red(err));
                     });
             }
         }

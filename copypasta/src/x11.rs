@@ -45,7 +45,14 @@ impl ::std::error::Error for Error {
 impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            Error::Io(ref err) => write!(f, "error calling xclip: {}", err),
+            Error::Io(ref err) => {
+                match err.kind() {
+                    io::ErrorKind::NotFound => {
+                        write!(f, "Please install `xclip` to enable clipboard support")
+                    },
+                    _ => write!(f, "error calling xclip: {}", err),
+                }
+            },
             Error::Xclip(ref s) => write!(f, "error from xclip: {}", s),
             Error::Utf8(ref err) => write!(f, "error parsing xclip output: {}", err),
         }
