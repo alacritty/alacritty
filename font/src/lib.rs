@@ -57,16 +57,47 @@ pub use darwin::*;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FontDesc {
     name: String,
-    style: String,
+    style: Style,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Slant {
+    Normal,
+    Italic,
+    Oblique,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Weight {
+    Normal,
+    Bold
+}
+
+/// Style of font
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Style {
+    Specific(String),
+    Description { slant: Slant, weight: Weight }
+}
+
+impl fmt::Display for Style {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Style::Specific(ref s) => f.write_str(&s),
+            Style::Description { slant, weight } => {
+                write!(f, "slant={:?}, weight={:?}", slant, weight)
+            },
+        }
+    }
 }
 
 impl FontDesc {
-    pub fn new<S>(name: S, style: S) -> FontDesc
+    pub fn new<S>(name: S, style: Style) -> FontDesc
         where S: Into<String>
     {
         FontDesc {
             name: name.into(),
-            style: style.into()
+            style: style
         }
     }
 }

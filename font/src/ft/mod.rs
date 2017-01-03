@@ -17,16 +17,16 @@ use std::collections::HashMap;
 
 use freetype::{self, Library, Face};
 
+
 mod list_fonts;
 
-use self::list_fonts::{Family, get_font_families};
-use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey};
+use self::list_fonts::fc;
+use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight, Slant, Style};
 
 /// Rasterizes glyphs for a single font face.
 pub struct FreeTypeRasterizer {
     faces: HashMap<FontKey, Face<'static>>,
     library: Library,
-    system_fonts: HashMap<String, Family>,
     keys: HashMap<FontDesc, FontKey>,
     dpi_x: u32,
     dpi_y: u32,
@@ -45,7 +45,6 @@ impl ::Rasterize for FreeTypeRasterizer {
         let library = Library::init()?;
 
         Ok(FreeTypeRasterizer {
-            system_fonts: get_font_families(),
             faces: HashMap::new(),
             keys: HashMap::new(),
             library: library,
@@ -130,13 +129,89 @@ impl ::Rasterize for FreeTypeRasterizer {
     }
 }
 
+pub trait IntoFontconfigType {
+    type FcType;
+    fn into_fontconfig_type(&self) -> Self::FcType;
+}
+
+impl IntoFontconfigType for Slant {
+    type FcType = fc::Slant;
+    fn into_fontconfig_type(&self) -> Self::FcType {
+        match *self {
+            Slant::Normal => fc::Slant::Roman,
+            Slant::Italic => fc::Slant::Italic,
+            Slant::Oblique => fc::Slant::Oblique,
+        }
+    }
+}
+
+impl IntoFontconfigType for Weight {
+    type FcType = fc::Weight;
+
+    fn into_fontconfig_type(&self) -> Self::FcType {
+        match *self {
+            Weight::Normal => fc::Weight::Regular,
+            Weight::Bold => fc::Weight::Bold,
+        }
+    }
+}
+
 impl FreeTypeRasterizer {
+    /// Load a font face accoring to `FontDesc`
     fn get_face(&mut self, desc: &FontDesc) -> Result<Face<'static>, Error> {
-        self.system_fonts
-            .get(&desc.name[..])
-            .and_then(|font| font.variants().get(&desc.style[..]))
-            .ok_or_else(|| Error::MissingFont(desc.to_owned()))
-            .and_then(|variant| Ok(self.library.new_face(variant.path(), variant.index())?))
+        match desc.style {
+            Style::Description { slant, weight } => {
+                // Match nearest font
+                self.get_matching_face(&desc, slant, weight)
+            }
+            Style::Specific(ref style) => {
+                // If a name was specified, try and load specifically that font.
+                self.get_specific_face(&desc, &style)
+            }
+        }
+    }
+
+    fn get_matching_face(
+        &mut self,
+        desc: &FontDesc,
+        slant: Slant,
+        weight: Weight
+    ) -> Result<Face<'static>, Error> {
+        let mut pattern = fc::Pattern::new();
+        pattern.add_family(&desc.name);
+        pattern.set_weight(weight.into_fontconfig_type());
+        pattern.set_slant(slant.into_fontconfig_type());
+
+        let fonts = fc::font_sort(fc::Config::get_current(), &mut pattern)
+            .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
+
+        // Take first font that has a path
+        for font in &fonts {
+            if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
+                return Ok(self.library.new_face(path, index)?);
+            }
+        }
+
+        Err(Error::MissingFont(desc.to_owned()))
+    }
+
+    fn get_specific_face(
+        &mut self,
+        desc: &FontDesc,
+        style: &str
+    ) -> Result<Face<'static>, Error> {
+        let mut pattern = fc::Pattern::new();
+        pattern.add_family(&desc.name);
+        pattern.add_style(style);
+
+        let font = fc::font_match(fc::Config::get_current(), &mut pattern)
+            .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
+        if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
+            println!("got font path={:?}", path);
+            return Ok(self.library.new_face(path, index)?);
+        } else {
+            Err(Error::MissingFont(desc.to_owned()))
+        }
     }
 }
 
@@ -193,12 +268,3 @@ impl From<freetype::Error> for Error {
 }
 
 unsafe impl Send for FreeTypeRasterizer {}
-
-#[cfg(test)]
-mod tests {
-    use ::FontDesc;
-
-    fn font_desc() -> FontDesc {
-        FontDesc::new("Ubuntu Mono", "Regular")
-    }
-}

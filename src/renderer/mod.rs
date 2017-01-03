@@ -166,13 +166,29 @@ impl GlyphCache {
         let size = font.size();
 
         // Load regular font
-        let regular_desc = FontDesc::new(font.family(), font.style());
+        let regular_desc = if let Some(ref style) = font.normal.style {
+            FontDesc::new(&font.normal.family[..], font::Style::Specific(style.to_owned()))
+        } else {
+            let style = font::Style::Description {
+                slant: font::Slant::Normal,
+                weight: font::Weight::Normal
+            };
+            FontDesc::new(&font.normal.family[..], style)
+        };
+
         let regular = rasterizer
             .load_font(&regular_desc, size)?;
 
         // Load bold font
-        let bold_style = font.bold_style().unwrap_or("Bold");
-        let bold_desc = FontDesc::new(font.family(), bold_style);
+        let bold_desc = if let Some(ref style) = font.bold.style {
+            FontDesc::new(&font.bold.family[..], font::Style::Specific(style.to_owned()))
+        } else {
+            let style = font::Style::Description {
+                slant: font::Slant::Normal,
+                weight: font::Weight::Bold
+            };
+            FontDesc::new(&font.bold.family[..], style)
+        };
 
         let bold = if bold_desc == regular_desc {
             regular
@@ -181,8 +197,15 @@ impl GlyphCache {
         };
 
         // Load italic font
-        let italic_style = font.italic_style().unwrap_or("Italic");
-        let italic_desc = FontDesc::new(font.family(), italic_style);
+        let italic_desc = if let Some(ref style) = font.italic.style {
+            FontDesc::new(&font.italic.family[..], font::Style::Specific(style.to_owned()))
+        } else {
+            let style = font::Style::Description {
+                slant: font::Slant::Italic,
+                weight: font::Weight::Normal
+            };
+            FontDesc::new(&font.italic.family[..], style)
+        };
 
         let italic = if italic_desc == regular_desc {
             regular

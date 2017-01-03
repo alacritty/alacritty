@@ -9,14 +9,29 @@ dpi:
 # Display tabs using this many cells (changes require restart)
 tabspaces: 8
 
+# When true, bold text is drawn using the bright variant of colors.
 draw_bold_text_with_bright_colors: true
 
 # Font configuration (changes require restart)
 font:
-  family: DejaVu Sans Mono
-  style: Book
-  bold_style: Bold
-  italic_style: Oblique
+  # The normal (roman) font face to use.
+  normal:
+    family: monospace # should be "Menlo" or something on macOS.
+    # Style can be specified to pick a specific face.
+    # style: Regular
+
+  # The bold font face
+  bold:
+    family: monospace # should be "Menlo" or something on macOS.
+    # Style can be specified to pick a specific face.
+    # style: Bold
+
+  # The italic font face
+  italic:
+    family: monospace # should be "Menlo" or something on macOS.
+    # Style can be specified to pick a specific face.
+    # style: Italic
+
   # Point size of the font
   size: 11.0
   # Offset is the extra space around each character. offset.y can be thought of

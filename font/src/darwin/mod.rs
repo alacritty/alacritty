@@ -19,6 +19,8 @@
 use std::collections::HashMap;
 use std::ptr;
 
+use ::{Slant, Weight, Style};
+
 use core_foundation::base::TCFType;
 use core_foundation::string::{CFString, CFStringRef};
 use core_foundation::array::CFIndex;
@@ -36,6 +38,7 @@ use core_text::font_descriptor::kCTFontDefaultOrientation;
 use core_text::font_descriptor::kCTFontHorizontalOrientation;
 use core_text::font_descriptor::kCTFontVerticalOrientation;
 use core_text::font_descriptor::{CTFontDescriptor, CTFontDescriptorRef, CTFontOrientation};
+use core_text::font_descriptor::SymbolicTraitAccessors;
 
 use libc::{size_t, c_int};
 
@@ -166,10 +169,15 @@ impl ::Rasterize for Rasterizer {
 }
 
 impl Rasterizer {
-    fn get_font(&mut self, desc: &FontDesc, size: Size) -> Result<Font, Error> {
+    fn get_specific_face(
+        &mut self,
+        desc: &FontDesc,
+        style: &str,
+        size: Size
+    ) -> Result<Font, Error> {
         let descriptors = descriptors_for_family(&desc.name[..]);
         for descriptor in descriptors {
-            if descriptor.style_name == desc.style {
+            if descriptor.style_name == style {
                 // Found the font we want
                 let scaled_size = size.as_f32_pts() as f64 * self.device_pixel_ratio as f64;
                 let font = descriptor.to_font(scaled_size);
@@ -178,6 +186,44 @@ impl Rasterizer {
         }
 
         Err(Error::MissingFont(desc.to_owned()))
+    }
+
+    fn get_matching_face(
+        &mut self,
+        desc: &FontDesc,
+        slant: Slant,
+        weight: Weight,
+        size: Size
+    ) -> Result<Font, Error> {
+        let bold = match weight {
+            Weight::Bold => true,
+            _ => false
+        };
+        let italic = match slant {
+            Slant::Normal => false,
+            _ => true,
+        };
+        let scaled_size = size.as_f32_pts() as f64 * self.device_pixel_ratio as f64;
+
+        let descriptors = descriptors_for_family(&desc.name[..]);
+        for descriptor in descriptors {
+            let font = descriptor.to_font(scaled_size);
+            if font.is_bold() == bold && font.is_italic() == italic {
+                // Found the font we want
+                return Ok(font);
+            }
+        }
+
+        Err(Error::MissingFont(desc.to_owned()))
+    }
+
+    fn get_font(&mut self, desc: &FontDesc, size: Size) -> Result<Font, Error> {
+        match desc.style {
+            Style::Specific(ref style) => self.get_specific_face(desc, style, size),
+            Style::Description { slant, weight } => {
+                self.get_matching_face(desc, slant, weight, size)
+            },
+        }
     }
 }
 
@@ -288,6 +334,14 @@ impl Font {
             average_advance: average_advance,
             line_height: line_height,
         }
+    }
+
+    pub fn is_bold(&self) -> bool {
+        self.ct_font.symbolic_traits().is_bold()
+    }
+
+    pub fn is_italic(&self) -> bool {
+        self.ct_font.symbolic_traits().is_italic()
     }
 
     fn glyph_advance(&self, character: char) -> f64 {
@@ -539,12 +593,9 @@ mod tests {
                         .collect::<Vec<_>>();
 
         for font in fonts {
-            // Check deref
-            println!("family: {}", font.family_name());
-
             // Get a glyph
             for c in &['a', 'b', 'c', 'd'] {
-                let glyph = font.get_glyph(*c, 72.);
+                let glyph = font.get_glyph(*c, 72.).unwrap();
 
                 // Debug the glyph.. sigh
                 for row in 0..glyph.height {

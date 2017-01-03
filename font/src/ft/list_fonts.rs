@@ -12,28 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-use std::collections::HashMap;
-use std::fmt;
-use std::path::PathBuf;
-
-mod fc {
+pub mod fc {
     use std::ptr;
     use std::ffi::{CStr, CString};
     use std::str;
     use std::ops::Deref;
+    use std::path::PathBuf;
 
-    use ffi_util::ForeignTypeRef;
+    use ffi_util::{ForeignType, ForeignTypeRef};
 
     use libc::{c_char, c_int};
     use fontconfig::fontconfig as ffi;
 
     use self::ffi::{FcConfigGetCurrent, FcConfigGetFonts, FcSetSystem, FcSetApplication};
     use self::ffi::{FcPatternGetString, FcPatternCreate, FcPatternAddString};
-    use self::ffi::{FcPatternGetInteger};
+    use self::ffi::{FcPatternGetInteger, FcPatternAddInteger};
     use self::ffi::{FcObjectSetCreate, FcObjectSetAdd};
-    use self::ffi::{FcResultMatch, FcFontSetList};
-    use self::ffi::{FcChar8, FcConfig, FcPattern, FcFontSet, FcObjectSet};
+    use self::ffi::{FcResultMatch, FcResultNoMatch, FcFontSetList};
+    use self::ffi::{FcChar8, FcConfig, FcPattern, FcFontSet, FcObjectSet, FcCharSet};
     use self::ffi::{FcFontSetDestroy, FcPatternDestroy, FcObjectSetDestroy, FcConfigDestroy};
+    use self::ffi::{FcFontMatch, FcFontList, FcFontSort, FcConfigSubstitute, FcDefaultSubstitute};
+    use self::ffi::{FcMatchFont, FcMatchPattern, FcMatchScan, FC_SLANT_ITALIC, FC_SLANT_ROMAN};
+    use self::ffi::{FC_SLANT_OBLIQUE};
+    use self::ffi::{FC_WEIGHT_THIN, FC_WEIGHT_EXTRALIGHT, FC_WEIGHT_LIGHT};
+    use self::ffi::{FC_WEIGHT_BOOK, FC_WEIGHT_REGULAR, FC_WEIGHT_MEDIUM, FC_WEIGHT_SEMIBOLD};
+    use self::ffi::{FC_WEIGHT_BOLD, FC_WEIGHT_EXTRABOLD, FC_WEIGHT_BLACK, FC_WEIGHT_EXTRABLACK};
 
     /// Iterator over a font set
     pub struct FontSetIter<'a> {
@@ -48,10 +51,94 @@ mod fc {
     ffi_type!(FontSet, FontSetRef, FcFontSet, FcFontSetDestroy);
 
     impl ObjectSet {
+        #[allow(dead_code)]
         pub fn new() -> ObjectSet {
             ObjectSet(unsafe {
                 FcObjectSetCreate()
             })
+        }
+    }
+
+    /// Find the font closest matching the provided pattern.
+    #[allow(dead_code)]
+    pub fn font_match(
+        config: &ConfigRef,
+        pattern: &mut PatternRef,
+    ) -> Option<Pattern> {
+        pattern.config_subsitute(config, MatchKind::Pattern);
+        pattern.default_substitute();
+
+        unsafe {
+            // What is this result actually used for? Seems redundant with
+            // return type.
+            let mut result = FcResultNoMatch;
+            let ptr = FcFontMatch(
+                config.as_ptr(),
+                pattern.as_ptr(),
+                &mut result,
+                );
+
+            if ptr.is_null() {
+                None
+            } else {
+                Some(Pattern::from_ptr(ptr))
+            }
+        }
+    }
+
+    /// list fonts by closeness to the pattern
+    pub fn font_sort(
+        config: &ConfigRef,
+        pattern: &mut PatternRef,
+    ) -> Option<FontSet> {
+        pattern.config_subsitute(config, MatchKind::Pattern);
+        pattern.default_substitute();
+
+        unsafe {
+            // What is this result actually used for? Seems redundant with
+            // return type.
+            let mut result = FcResultNoMatch;
+
+            let mut charsets: *mut FcCharSet = ptr::null_mut();
+
+            let ptr = FcFontSort(
+                config.as_ptr(),
+                pattern.as_ptr(),
+                0, // false
+                &mut charsets,
+                &mut result,
+            );
+
+            if ptr.is_null() {
+                None
+            } else {
+                Some(FontSet::from_ptr(ptr))
+            }
+        }
+    }
+
+    /// List fonts matching pattern
+    #[allow(dead_code)]
+    pub fn font_list(
+        config: &ConfigRef,
+        pattern: &mut PatternRef,
+        objects: &ObjectSetRef,
+    ) -> Option<FontSet> {
+        pattern.config_subsitute(config, MatchKind::Pattern);
+        pattern.default_substitute();
+
+        unsafe {
+            let ptr = FcFontList(
+                config.as_ptr(),
+                pattern.as_ptr(),
+                objects.as_ptr(),
+            );
+
+            if ptr.is_null() {
+                None
+            } else {
+                Some(FontSet::from_ptr(ptr))
+            }
         }
     }
 
@@ -79,13 +166,28 @@ mod fc {
     }
 
     macro_rules! pattern_add_string {
-        ($name:ident => $object:expr) => {
-            #[inline]
-            pub fn $name(&mut self, value: &str) -> bool {
-                unsafe {
-                    self.add_string($object, value)
+        ($($name:ident => $object:expr),*) => {
+            $(
+                #[inline]
+                pub fn $name(&mut self, value: &str) -> bool {
+                    unsafe {
+                        self.add_string($object, value)
+                    }
                 }
-            }
+            )*
+        }
+    }
+
+    macro_rules! pattern_add_int {
+        ($($name:ident => $object:expr),*) => {
+            $(
+                #[inline]
+                pub fn $name(&mut self, value: &str) -> bool {
+                    unsafe {
+                        self.add_string($object, value)
+                    }
+                }
+            )*
         }
     }
 
@@ -102,6 +204,14 @@ mod fc {
         Application = FcSetApplication as isize,
     }
 
+    /// When matching, how to match
+    #[derive(Debug, Copy, Clone)]
+    pub enum MatchKind {
+        Font = FcMatchFont as isize,
+        Pattern = FcMatchPattern as isize,
+        Scan = FcMatchScan as isize,
+    }
+
     pub unsafe fn char8_to_string(fc_str: *mut FcChar8) -> String {
         str::from_utf8(CStr::from_ptr(fc_str as *const c_char).to_bytes()).unwrap().to_owned()
     }
@@ -111,20 +221,24 @@ mod fc {
             $(
                 pub fn $method(&self, id: isize) -> Option<String> {
                     unsafe {
-                        let mut format: *mut FcChar8 = ptr::null_mut();
+                        self.get_string($property, id)
+                    }
+                }
+            )+
+        };
+    }
 
-                        let result = FcPatternGetString(
+    macro_rules! pattern_add_integer {
+        ($($method:ident() => $property:expr),+) => {
+            $(
+                pub fn $method(&self, int: isize) -> bool {
+                    unsafe {
+                        FcPatternAddInteger(
                             self.as_ptr(),
                             $property.as_ptr() as *mut c_char,
-                            id as c_int,
-                            &mut format
-                        );
-
-                        if result == FcResultMatch {
-                            Some(char8_to_string(format))
-                        } else {
-                            None
-                        }
+                            int as c_int,
+                            &mut index
+                        ) == 1
                     }
                 }
             )+
@@ -155,6 +269,28 @@ mod fc {
         };
     }
 
+    #[derive(Debug, Copy, Clone)]
+    pub enum Slant {
+        Italic = FC_SLANT_ITALIC as isize,
+        Oblique = FC_SLANT_OBLIQUE as isize,
+        Roman = FC_SLANT_ROMAN as isize,
+    }
+
+    #[derive(Debug, Copy, Clone)]
+    pub enum Weight {
+        Thin = FC_WEIGHT_THIN as isize,
+        Extralight = FC_WEIGHT_EXTRALIGHT as isize,
+        Light = FC_WEIGHT_LIGHT as isize,
+        Book = FC_WEIGHT_BOOK as isize,
+        Regular = FC_WEIGHT_REGULAR as isize,
+        Medium = FC_WEIGHT_MEDIUM as isize,
+        Semibold = FC_WEIGHT_SEMIBOLD as isize,
+        Bold = FC_WEIGHT_BOLD as isize,
+        Extrabold = FC_WEIGHT_EXTRABOLD as isize,
+        Black = FC_WEIGHT_BLACK as isize,
+        Extrablack = FC_WEIGHT_EXTRABLACK as isize,
+    }
+
     impl PatternRef {
         /// Add a string value to the pattern
         ///
@@ -175,19 +311,74 @@ mod fc {
             ) == 1
         }
 
+        unsafe fn add_integer(&self, object: &[u8], int: isize) -> bool {
+            FcPatternAddInteger(
+                self.as_ptr(),
+                object.as_ptr() as *mut c_char,
+                int as c_int
+            ) == 1
+        }
+
+        unsafe fn get_string(&self, object: &[u8], index: isize) -> Option<String> {
+            let mut format: *mut FcChar8 = ptr::null_mut();
+
+            let result = FcPatternGetString(
+                self.as_ptr(),
+                object.as_ptr() as *mut c_char,
+                index as c_int,
+                &mut format
+            );
+
+            if result == FcResultMatch {
+                Some(char8_to_string(format))
+            } else {
+                None
+            }
+        }
+
         pattern_add_string! {
-            add_family => b"family\0"
+            add_family => b"family\0",
+            add_style => b"style\0"
+        }
+
+        pub fn set_slant(&mut self, slant: Slant) -> bool {
+            unsafe {
+                self.add_integer(b"slant\0", slant as isize)
+            }
+        }
+
+        pub fn set_weight(&mut self, weight: Weight) -> bool {
+            unsafe {
+                self.add_integer(b"weight\0", weight as isize)
+            }
+        }
+
+        pub fn file(&self, index: isize) -> Option<PathBuf> {
+            unsafe {
+                self.get_string(b"file\0", index)
+            }.map(From::from)
         }
 
         pattern_get_string! {
             fontformat() => b"fontformat\0",
             family() => b"family\0",
-            file() => b"file\0",
             style() => b"style\0"
         }
 
         pattern_get_integer! {
             index() => b"index\0"
+        }
+
+        pub fn config_subsitute(&mut self, config: &ConfigRef, kind: MatchKind) {
+            unsafe {
+                FcConfigSubstitute(config.as_ptr(), self.as_ptr(), kind as u32);
+            }
+        }
+
+        pub fn default_substitute(&mut self) {
+            unsafe {
+                FcDefaultSubstitute(self.as_ptr());
+            }
         }
     }
 
@@ -198,6 +389,8 @@ mod fc {
             let num_fonts = unsafe {
                 (*self.as_ptr()).nfont as isize
             };
+
+            println!("num fonts = {}", num_fonts);
 
             FontSetIter {
                 font_set: self.deref(),
@@ -214,6 +407,8 @@ mod fc {
             let num_fonts = unsafe {
                 (*self.as_ptr()).nfont as isize
             };
+
+            println!("num fonts = {}", num_fonts);
 
             FontSetIter {
                 font_set: self,
@@ -282,119 +477,50 @@ mod fc {
     }
 }
 
-fn list_families() -> Vec<String> {
-    let mut families = Vec::new();
-
-    let config = fc::Config::get_current();
-    let font_set = config.get_fonts(fc::SetName::System);
-    for font in font_set {
-        if let Some(format) = font.fontformat(0) {
-            if format == "TrueType" || format == "CFF" {
-                for id in 0.. {
-                    match font.family(id) {
-                        Some(family)  => families.push(family),
-                        None => break,
-                    }
-                }
-            }
-        }
-    }
-
-    families.sort();
-    families.dedup();
-    families
-}
-
-#[derive(Debug)]
-pub struct Variant {
-    style: String,
-    file: PathBuf,
-    index: isize,
-}
-
-impl Variant {
-    #[inline]
-    pub fn path(&self) -> &::std::path::Path {
-        self.file.as_path()
-    }
-
-    #[inline]
-    pub fn index(&self) -> isize {
-        self.index
-    }
-}
-
-#[derive(Debug)]
-pub struct Family {
-    name: String,
-    variants: HashMap<String, Variant>,
-}
-
-impl fmt::Display for Family {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: ", self.name)?;
-        for (k, _v) in &self.variants {
-            write!(f, "{}, ", k)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl Family {
-    #[inline]
-    pub fn variants(&self) -> &HashMap<String, Variant> {
-        &self.variants
-    }
-}
-
-#[allow(mutable_transmutes)]
-pub fn get_family_info(family: String) -> Family {
-    let mut members = Vec::new();
-    let config = fc::Config::get_current();
-    let font_set = config.get_fonts(fc::SetName::System);
-
-    let mut pattern = fc::Pattern::new();
-    pattern.add_family(&family);
-
-    let mut objects = fc::ObjectSet::new();
-    objects.add_file();
-    objects.add_index();
-    objects.add_style();
-
-    let variants = fc::FontSet::list(&config, unsafe { ::std::mem::transmute(font_set) }, &pattern, &objects);
-    for variant in &variants {
-        if let Some(file) = variant.file(0) {
-            if let Some(style) = variant.style(0) {
-                if let Some(index) = variant.index(0) {
-                    members.push(Variant {
-                        style: style,
-                        file: PathBuf::from(file),
-                        index: index as isize,
-                    });
-                }
-            }
-        }
-    }
-
-    Family {
-        name: family,
-        variants: members.into_iter().map(|v| (v.style.clone(), v)).collect()
-    }
-}
-
-pub fn get_font_families() -> HashMap<String, Family> {
-    list_families()
-        .into_iter()
-        .map(|family| (family.clone(), get_family_info(family)))
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
+    use super::fc;
+
     #[test]
-    fn get_font_families() {
-        let families = super::get_font_families();
-        assert!(!families.is_empty());
+    fn font_match() {
+        let mut pattern = fc::Pattern::new();
+        pattern.add_family("monospace");
+        pattern.add_style("regular");
+
+        let config = fc::Config::get_current();
+        let font = fc::font_match(config, &mut pattern).expect("match font monospace");
+
+        print!("family={:?}", font.family(0));
+        for i in 0.. {
+            if let Some(style) = font.style(i) {
+                print!(", style={:?}, ", style);
+            } else {
+                break;
+            }
+        }
+        println!("");
+    }
+
+    #[test]
+    fn font_sort() {
+        let mut pattern = fc::Pattern::new();
+        pattern.add_family("monospace");
+        pattern.set_slant(fc::Slant::Italic);
+
+        let config = fc::Config::get_current();
+        let fonts = fc::font_sort(config, &mut pattern)
+            .expect("sort font monospace");
+
+        for font in fonts.into_iter().take(10) {
+            print!("family={:?}", font.family(0));
+            for i in 0.. {
+                if let Some(style) = font.style(i) {
+                    print!(", style={:?}", style);
+                } else {
+                    break;
+                }
+            }
+            println!("");
+        }
     }
 }

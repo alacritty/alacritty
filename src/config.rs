@@ -977,16 +977,13 @@ impl DeserializeFromF32 for Size {
 #[derive(Debug, Deserialize)]
 pub struct Font {
     /// Font family
-    family: String,
+    pub normal: FontDescription,
 
-    /// Font style
-    style: String,
+    #[serde(default="default_italic_desc")]
+    pub italic: FontDescription,
 
-    /// Bold font style
-    bold_style: Option<String>,
-
-    /// Italic font style
-    italic_style: Option<String>,
+    #[serde(default="default_bold_desc")]
+    pub bold: FontDescription,
 
     // Font size in points
     #[serde(deserialize_with="DeserializeFromF32::deserialize_from_f32")]
@@ -996,35 +993,31 @@ pub struct Font {
     offset: FontOffset,
 }
 
+fn default_bold_desc() -> FontDescription {
+    Font::default().bold
+}
+
+fn default_italic_desc() -> FontDescription {
+    Font::default().italic
+}
+
+/// Description of a single font
+#[derive(Debug, Deserialize)]
+pub struct FontDescription {
+    pub family: String,
+    pub style: Option<String>,
+}
+
+impl FontDescription {
+    fn new_with_family<S: Into<String>>(family: S) -> FontDescription {
+        FontDescription {
+            family: family.into(),
+            style: None,
+        }
+    }
+}
+
 impl Font {
-    /// Get the font family
-    #[inline]
-    pub fn family(&self) -> &str {
-        &self.family[..]
-    }
-
-    /// Get the font style
-    #[inline]
-    pub fn style(&self) -> &str {
-        &self.style[..]
-    }
-
-    /// Get italic font style; assumes same family
-    #[inline]
-    pub fn italic_style(&self) -> Option<&str> {
-        self.italic_style
-            .as_ref()
-            .map(|s| s.as_str())
-    }
-
-    /// Get bold font style; assumes same family
-    #[inline]
-    pub fn bold_style(&self) -> Option<&str> {
-        self.bold_style
-            .as_ref()
-            .map(|s| s.as_str())
-    }
-
     /// Get the font size in points
     #[inline]
     pub fn size(&self) -> Size {
@@ -1042,11 +1035,10 @@ impl Font {
 impl Default for Font {
     fn default() -> Font {
         Font {
-            family: String::from("Menlo"),
-            style: String::from("Regular"),
+            normal: FontDescription::new_with_family("Menlo"),
+            bold: FontDescription::new_with_family("Menlo"),
+            italic: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
-            bold_style: Some(String::from("Bold")),
-            italic_style: Some(String::from("Italic")),
             offset: FontOffset {
                 x: 0.0,
                 y: 0.0
@@ -1059,11 +1051,10 @@ impl Default for Font {
 impl Default for Font {
     fn default() -> Font {
         Font {
-            family: String::from("DejaVu Sans Mono"),
-            style: String::from("Book"),
+            normal: FontDescription::new_with_family("monospace"),
+            bold: FontDescription::new_with_family("monospace"),
+            italic: FontDescription::new_with_family("monospace"),
             size: Size::new(11.0),
-            bold_style: Some(String::from("Bold")),
-            italic_style: Some(String::from("Italic")),
             offset: FontOffset {
                 // TODO should improve freetype metrics... shouldn't need such
                 // drastic offsets for the default!
