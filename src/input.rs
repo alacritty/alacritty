@@ -365,7 +365,12 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
             }
 
             // Didn't process a binding; print the provided character
-            if let Some(string) = string {
+            if let Some(mut string) = string {
+                // from ST
+                if string.len() == 1 && mods.contains(mods::ALT) {
+                    string.insert(0, '\x1b');
+                }
+
                 self.ctx.notifier.notify(string.into_bytes());
                 self.ctx.selection.clear();
             }
