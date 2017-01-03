@@ -188,15 +188,30 @@ pub struct Config {
     colors: ColorList,
 
     /// Keybindings
-    #[serde(default)]
+    #[serde(default="default_key_bindings")]
     key_bindings: Vec<KeyBinding>,
 
     /// Bindings for the mouse
-    #[serde(default)]
+    #[serde(default="default_mouse_bindings")]
     mouse_bindings: Vec<MouseBinding>,
 
     /// Path where config was loaded from
     config_path: Option<PathBuf>,
+}
+
+static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty.yml");
+
+fn default_config() -> Config {
+    serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG)
+        .expect("default config is valid")
+}
+
+fn default_key_bindings() -> Vec<KeyBinding> {
+    default_config().key_bindings
+}
+
+fn default_mouse_bindings() -> Vec<MouseBinding> {
+    default_config().mouse_bindings
 }
 
 impl Default for Config {
@@ -1158,6 +1173,12 @@ mod tests {
 
         println!("config: {:#?}", config);
     }
+
+    #[test]
+    fn defaults_are_ok() {
+        super::default_key_bindings();
+        super::default_mouse_bindings();
+    }
 }
 
 #[cfg_attr(feature = "clippy", allow(enum_variant_names))]
@@ -1478,3 +1499,4 @@ impl Key {
         }
     }
 }
+
