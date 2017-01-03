@@ -294,7 +294,7 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
                 };
 
                 for _ in 0..(lines.abs() as usize) {
-                    self.mouse_report(code);
+                    self.normal_mouse_report(code);
                 }
             },
             MouseScrollDelta::PixelDelta(_x, y) => {
@@ -316,7 +316,7 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
                                 65
                             };
 
-                            self.mouse_report(button);
+                            self.normal_mouse_report(button);
                         }
                     },
                     _ => (),
