@@ -792,26 +792,18 @@ impl Config {
     pub fn load() -> Result<Config> {
         let home = env::var("HOME")?;
 
-        // First path
-        let mut path = PathBuf::from(&home);
-        path.push(".config");
-        path.push("alacritty.yml");
+        // Try using XDG location by default
+        let path = ::xdg::BaseDirectories::new()
+            .ok()
+            .and_then(|xdg| xdg.find_config_file("alacritty.yml"))
+            .unwrap_or_else(|| {
+                // Fallback path: $HOME/.alacritty.yml
+                let mut alt_path = PathBuf::from(&home);
+                alt_path.push(".alacritty.yml");
+                alt_path
+            });
 
-        match Config::load_from(path) {
-            Ok(c) => Ok(c),
-            Err(e) => {
-                match e {
-                    Error::NotFound => {
-                        // Fallback path
-                        let mut alt_path = PathBuf::from(&home);
-                        alt_path.push(".alacritty.yml");
-
-                        Config::load_from(alt_path)
-                    },
-                    _ => Err(e),
-                }
-            }
-        }
+        Config::load_from(path)
     }
 
     /// Get list of colors
