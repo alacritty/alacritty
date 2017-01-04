@@ -20,6 +20,10 @@ goal means that it doesn't have many features like tabs or scroll back as in
 other terminals. Instead, it is expected that users of Alacritty make use of a
 terminal multiplexer such as [`tmux`](https://github.com/tmux/tmux).
 
+## Blog Posts
+
+There is a forthcoming announcement post the week of Jan 2, 2017.
+
 ## Installation
 
 The only supported installation method at this time is from source. Proper
