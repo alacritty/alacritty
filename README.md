@@ -66,12 +66,6 @@ apt-get install cmake libfreetype6-dev libfontconfig1-dev xclip
 If you build Alacritty on another Linux distribution, we would love some help
 filling in this section of the README.
 
-#### Additional macOS Prerequisites
-
-It's possible `cmake` is needed on macOS to build Alacritty. If someone can
-verify this and make a PR clarifying either way, it would be greatly
-appreciated!
-
 ### Building
 
 Once all the prerequisites are installed, compiling Alacritty should be easy:
