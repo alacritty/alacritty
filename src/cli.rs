@@ -19,6 +19,7 @@ pub struct Options {
     pub ref_test: bool,
     pub columns: Column,
     pub lines: Line,
+    pub title: String
 }
 
 impl Default for Options {
@@ -27,6 +28,7 @@ impl Default for Options {
             ref_test: false,
             columns: Column(80),
             lines: Line(24),
+            title: "Alacritty".to_owned()
         }
     }
 }
@@ -47,6 +49,9 @@ impl Options {
                         .map(|w| w.parse().map(|w| options.columns = Column(w)));
                     args_iter.next()
                         .map(|h| h.parse().map(|h| options.lines = Line(h)));
+                },
+                "-t" | "--title" => {
+                    args_iter.next().map(|t| options.title = t);
                 },
                 // ignore unexpected
                 _ => (),
