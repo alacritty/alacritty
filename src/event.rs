@@ -159,6 +159,7 @@ impl<N: Notify> Processor<N> {
             glutin::Event::MouseWheel(scroll_delta, touch_phase) => {
                 processor.on_mouse_wheel(scroll_delta, touch_phase);
             },
+            glutin::Event::Refresh |
             glutin::Event::Awakened => {
                 processor.ctx.terminal.dirty = true;
             },
