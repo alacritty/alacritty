@@ -171,7 +171,7 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
     // Try and read the pw file.
     let uid = unsafe { libc::getuid() };
     let status = unsafe {
-        libc::getpwuid_r(uid, &mut entry, buf.as_mut_ptr(), buf.len(), &mut res)
+        libc::getpwuid_r(uid, &mut entry, buf.as_mut_ptr() as *mut _, buf.len(), &mut res)
     };
 
     if status < 0 {
