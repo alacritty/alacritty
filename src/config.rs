@@ -256,7 +256,7 @@ impl de::Deserialize for ModsWrapper {
                 use ::glutin::{mods, Mods};
                 let mut res = Mods::empty();
                 for modifier in value.split('|') {
-                    match modifier {
+                    match modifier.trim() {
                         "Command" | "Super" => res |= mods::SUPER,
                         "Shift" => res |= mods::SHIFT,
                         "Alt" | "Option" => res |= mods::ALT,
@@ -330,7 +330,7 @@ impl de::Deserialize for ModeWrapper {
                 };
 
                 for modifier in value.split('|') {
-                    match modifier {
+                    match modifier.trim() {
                         "AppCursor" => res.mode |= mode::APP_CURSOR,
                         "~AppCursor" => res.not_mode |= mode::APP_CURSOR,
                         "AppKeypad" => res.mode |= mode::APP_KEYPAD,
