@@ -74,6 +74,16 @@ to be missing, please open an issue.
 pacman -S cmake freetype2 fontconfig xclip
 ```
 
+##### Fedora
+
+On Fedora, you need a few extra libraries to build Alacritty. Here's a `dnf`
+command that should install all of them. If something is still found to be
+missing, please open an issue.
+
+```sh
+dnf install freetype-devel fontconfig-devel xclip
+```
+
 ##### Other
 
 If you build Alacritty on another Linux distribution, we would love some help
