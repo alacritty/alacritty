@@ -6,11 +6,12 @@
 use std::env;
 use std::fmt;
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::mpsc;
 use std::ops::{Index, IndexMut};
+use std::fs::File;
 
 use ::Rgb;
 use font::Size;
@@ -819,6 +820,14 @@ impl Config {
             });
 
         Config::load_from(path)
+    }
+
+    pub fn write_defaults() -> io::Result<PathBuf> {
+        let path = ::xdg::BaseDirectories::new()
+            .map_err(|err| io::Error::new(io::ErrorKind::NotFound, ::std::error::Error::description(&err)))
+            .and_then(|p| p.place_config_file("alacritty.yml"))?;
+        File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
+        Ok(path)
     }
 
     /// Get list of colors
