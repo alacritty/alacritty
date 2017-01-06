@@ -26,7 +26,7 @@ binaries will be provided for supported operating systems.
 
 ## Blog Posts
 
-There is a forthcoming announcement post the week of Jan 2, 2017.
+- [Announcement Post](http://blog.jwilm.io/announcing-alacritty/)
 
 ## Installation
 
