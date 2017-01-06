@@ -17,7 +17,7 @@
 /// Indexing types and implementations for Grid and Line
 use std::cmp::{Ord, Ordering};
 use std::fmt;
-use std::ops::{self, Deref, Add, Range};
+use std::ops::{self, Deref, Add, Range, RangeInclusive};
 
 /// The side of a cell
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -207,6 +207,29 @@ pub struct IndexRange<T>(pub Range<T>);
 impl<T> From<Range<T>> for IndexRange<T> {
     fn from(from: Range<T>) -> Self {
         IndexRange(from)
+    }
+}
+
+// can be removed if range_contains is stabilized
+
+pub trait Contains {
+    type Content;
+    fn contains_(&self, item: Self::Content) -> bool;
+}
+
+impl<T: PartialOrd<T>> Contains for Range<T> {
+    type Content = T;
+    fn contains_(&self, item: Self::Content) -> bool {
+        (self.start <= item) && (item < self.end)
+    }
+}
+
+impl<T: PartialOrd<T>> Contains for RangeInclusive<T> {
+    type Content = T;
+    fn contains_(&self, item: Self::Content) -> bool {
+        if let &RangeInclusive::NonEmpty{ref start, ref end} = self {
+            (*start <= item) && (item <= *end)
+        } else { false }
     }
 }
 

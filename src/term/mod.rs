@@ -20,7 +20,7 @@ use std::io;
 
 use ansi::{self, Color, NamedColor, Attr, Handler};
 use grid::{Grid, ClearRegion, ToRange};
-use index::{self, Point, Column, Line, Linear, IndexRange};
+use index::{self, Point, Column, Line, Linear, IndexRange, Contains};
 use selection::{Span, Selection};
 
 pub mod cell;
@@ -129,7 +129,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 self.column += 1;
 
                 let selected = self.selection.as_ref()
-                    .map(|range| range.contains(index))
+                    .map(|range| range.contains_(index))
                     .unwrap_or(false);
 
                 // Skip empty cells
@@ -812,7 +812,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn insert_blank_lines(&mut self, lines: Line) {
         debug_println!("insert_blank_lines: {}", lines);
-        if self.scroll_region.contains(self.cursor.line) {
+        if self.scroll_region.contains_(self.cursor.line) {
             let origin = self.cursor.line;
             self.scroll_down_relative(origin, lines);
         }
@@ -821,7 +821,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn delete_lines(&mut self, lines: Line) {
         debug_println!("delete_lines: {}", lines);
-        if self.scroll_region.contains(self.cursor.line) {
+        if self.scroll_region.contains_(self.cursor.line) {
             let origin = self.cursor.line;
             self.scroll_up_relative(origin, lines);
         }
