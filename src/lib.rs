@@ -16,7 +16,6 @@
 #![feature(range_contains)]
 #![feature(inclusive_range_syntax)]
 #![feature(inclusive_range)]
-#![feature(drop_types_in_const)]
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 #![cfg_attr(feature = "clippy", deny(clippy))]
@@ -36,6 +35,8 @@ extern crate copypasta;
 extern crate errno;
 extern crate font;
 extern crate glutin;
+#[macro_use]
+extern crate lazy_static;
 extern crate libc;
 extern crate mio;
 extern crate notify;

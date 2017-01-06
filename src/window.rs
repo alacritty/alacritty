@@ -14,6 +14,7 @@
 use std::convert::From;
 use std::fmt::{self, Display};
 use std::ops::Deref;
+use std::sync::Mutex;
 
 use gl;
 use glutin;
@@ -26,13 +27,13 @@ use glutin;
 ///
 /// This will fail horribly if more than one window is created. Don't do that :)
 fn window_resize_handler(width: u32, height: u32) {
-    unsafe {
-        RESIZE_CALLBACK.as_ref().map(|func| func(width, height));
-    }
+        RESIZE_CALLBACK.lock().unwrap().as_ref().map(|func| (*func)(width, height));
 }
 
-/// The resize callback invoked by `window_resize_handler`
-static mut RESIZE_CALLBACK: Option<Box<Fn(u32, u32)>> = None;
+lazy_static! {
+    /// The resize callback invoked by `window_resize_handler`
+   static ref RESIZE_CALLBACK: Mutex<Option<Box<Fn(u32, u32) + 'static + Send>>> = Mutex::new(None); 
+}
 
 /// Window errors
 #[derive(Debug)]
@@ -238,10 +239,9 @@ impl Window {
     ///
     /// This method takes self mutably to ensure there's no race condition
     /// setting the callback.
-    pub fn set_resize_callback<F: Fn(u32, u32) + 'static>(&mut self, func: F) {
-        unsafe {
-            RESIZE_CALLBACK = Some(Box::new(func));
-        }
+    pub fn set_resize_callback<F: Fn(u32, u32) + 'static + Send>(&mut self, func: F) {
+        let mut guard = RESIZE_CALLBACK.lock().unwrap();
+        *guard = Some(Box::new(func));
     }
 
     pub fn inner_size_pixels(&self) -> Option<Size<Pixels<u32>>> {
