@@ -43,7 +43,7 @@ fn main() {
                     Err(err) => err_println!("Write defaults config failure: {}", err)
                 }
 
-                Config::default()
+                Config::load().unwrap()
             },
 
             // If there's a problem with the config file, print an error

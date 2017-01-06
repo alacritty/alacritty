@@ -200,7 +200,10 @@ pub struct Config {
     config_path: Option<PathBuf>,
 }
 
+#[cfg(not(target_os="macos"))]
 static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty.yml");
+#[cfg(target_os="macos")]
+static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty_macos.yml");
 
 fn default_config() -> Config {
     serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG)
