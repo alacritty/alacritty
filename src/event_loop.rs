@@ -222,6 +222,7 @@ impl<Io> EventLoop<Io>
                 },
                 Err(err) => {
                     match err.kind() {
+                        ErrorKind::Interrupted |
                         ErrorKind::WouldBlock => break,
                         _ => panic!("unexpected read err: {:?}", err),
                     }
@@ -251,6 +252,7 @@ impl<Io> EventLoop<Io>
                     Err(err) => {
                         state.set_current(Some(current));
                         match err.kind() {
+                            ErrorKind::Interrupted |
                             ErrorKind::WouldBlock => break 'write_many,
                             // TODO
                             _ => panic!("unexpected err: {:?}", err),
@@ -289,7 +291,12 @@ impl<Io> EventLoop<Io>
             };
 
             'event_loop: loop {
-                self.poll.poll(&mut events, None).expect("poll ok");
+                if let Err(err) = self.poll.poll(&mut events, None) {
+                    match err.kind() {
+                        ErrorKind::Interrupted => continue,
+                        _ => panic!("EventLoop polling error: {:?}", err)
+                    }
+                }
 
                 for event in events.iter() {
                     match event.token() {
