@@ -643,9 +643,10 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn goto(&mut self, line: Line, col: Column) {
+        use std::cmp::min;
         debug_println!("goto: line={}, col={}", line, col);
-        self.cursor.line = line;
-        self.cursor.col = col;
+        self.cursor.line = min(line, self.grid.num_lines() - 1);
+        self.cursor.col = min(col, self.grid.num_cols() - 1);
     }
 
     #[inline]
