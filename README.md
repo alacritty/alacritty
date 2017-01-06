@@ -20,6 +20,10 @@ goal means that it doesn't have many features like tabs or scroll back as in
 other terminals. Instead, it is expected that users of Alacritty make use of a
 terminal multiplexer such as [`tmux`](https://github.com/tmux/tmux).
 
+This initial release should be considered as pre-alpha software--it will have
+issues. Once Alacritty reaches an alpha level of readiness, precompiled binaries
+will be provided for supported operating systems.
+
 ## Blog Posts
 
 There is a forthcoming announcement post the week of Jan 2, 2017.
