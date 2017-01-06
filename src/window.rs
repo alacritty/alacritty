@@ -18,9 +18,6 @@ use std::ops::Deref;
 use gl;
 use glutin;
 
-/// Default title for the window
-const DEFAULT_TITLE: &'static str = "Alacritty";
-
 /// Resize handling for Mac and maybe other platforms
 ///
 /// This delegates to a statically referenced closure for convenience. The
@@ -195,11 +192,13 @@ impl Window {
     /// Create a new window
     ///
     /// This creates a window and fully initializes a window.
-    pub fn new() -> Result<Window> {
+    pub fn new(
+        title: &str
+    ) -> Result<Window> {
         /// Create a glutin::Window
         let mut window = glutin::WindowBuilder::new()
             .with_vsync()
-            .with_title(DEFAULT_TITLE)
+            .with_title(title)
             .build()?;
 
         /// Set the glutin window resize callback for *this* window. The
