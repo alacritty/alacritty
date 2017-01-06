@@ -74,6 +74,13 @@ to be missing, please open an issue.
 pacman -S cmake freetype2 fontconfig xclip
 ```
 
+##### Void Linux
+
+On [Void Linux](https://voidlinux.eu), install following packages before compiling Alacritty:
+```sh
+xbps-install cmake freetype-devel freetype expat-devel fontconfig xclip
+```
+
 ##### Other
 
 If you build Alacritty on another Linux distribution, we would love some help
