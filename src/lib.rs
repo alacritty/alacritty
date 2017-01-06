@@ -17,7 +17,6 @@
 #![feature(inclusive_range_syntax)]
 #![feature(inclusive_range)]
 #![feature(drop_types_in_const)]
-#![feature(step_trait)]
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 #![cfg_attr(feature = "clippy", deny(clippy))]

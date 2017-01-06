@@ -20,7 +20,7 @@ use std::io;
 
 use ansi::{self, Color, NamedColor, Attr, Handler};
 use grid::{Grid, ClearRegion, ToRange};
-use index::{self, Point, Column, Line, Linear};
+use index::{self, Point, Column, Line, Linear, IndexRange};
 use selection::{Span, Selection};
 
 pub mod cell;
@@ -286,7 +286,7 @@ impl Term {
 
         let grid = Grid::new(num_lines, num_cols, &template);
 
-        let mut tabs = (Column(0)..grid.num_cols())
+        let mut tabs = IndexRange::from(Column(0)..grid.num_cols())
             .map(|i| (*i as usize) % TAB_SPACES == 0)
             .collect::<Vec<bool>>();
 
@@ -424,7 +424,7 @@ impl Term {
                 // Starting line
                 res.append(&self.grid, start.line, start.col..);
 
-                let middle_range = (start.line + 1)..(end.line);
+                let middle_range = IndexRange::from((start.line + 1)..(end.line));
                 for line in middle_range {
                     res.append(&self.grid, line, ..);
                 }
@@ -507,7 +507,7 @@ impl Term {
         self.cursor.col = limit(self.cursor.col, Column(0), num_cols);
 
         // Recreate tabs list
-        self.tabs = (Column(0)..self.grid.num_cols())
+        self.tabs = IndexRange::from(Column(0)..self.grid.num_cols())
             .map(|i| (*i as usize) % TAB_SPACES == 0)
             .collect::<Vec<bool>>();
 

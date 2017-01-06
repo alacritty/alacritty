@@ -17,9 +17,7 @@
 /// Indexing types and implementations for Grid and Line
 use std::cmp::{Ord, Ordering};
 use std::fmt;
-use std::iter::Step;
-use std::mem;
-use std::ops::{self, Deref, Add};
+use std::ops::{self, Deref, Add, Range};
 
 /// The side of a cell
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -200,6 +198,18 @@ macro_rules! sub {
     }
 }
 
+/// This exists because we can't implement Iterator on Range
+/// and the existing impl needs the unstable Step trait
+/// This should be removed and replaced with a Step impl
+/// in the ops macro when `step_by` is stabilized
+pub struct IndexRange<T>(pub Range<T>);
+
+impl<T> From<Range<T>> for IndexRange<T> {
+    fn from(from: Range<T>) -> Self {
+        IndexRange(from)
+    }
+}
+
 macro_rules! ops {
     ($ty:ty, $construct:expr) => {
         add!($ty, $construct);
@@ -207,12 +217,7 @@ macro_rules! ops {
         deref!($ty, usize);
         forward_ref_binop!(impl Add, add for $ty, $ty);
 
-        impl Step for $ty {
-            #[inline]
-            fn step(&self, by: &$ty) -> Option<$ty> {
-                Some(*self + *by)
-            }
-
+        impl $ty {
             #[inline]
             #[allow(trivial_numeric_casts)]
             fn steps_between(start: &$ty, end: &$ty, by: &$ty) -> Option<usize> {
@@ -233,33 +238,41 @@ macro_rules! ops {
 
             #[inline]
             fn steps_between_by_one(start: &$ty, end: &$ty) -> Option<usize> {
-                Step::steps_between(start, end, &$construct(1))
+                Self::steps_between(start, end, &$construct(1))
             }
+        }
 
+        impl Iterator for IndexRange<$ty> {
+            type Item = $ty;
             #[inline]
-            #[allow(unused_comparisons)]
-            fn is_negative(&self) -> bool {
-                self.0 < 0
+            fn next(&mut self) -> Option<$ty> {
+                if self.0.start < self.0.end {
+                    let old = self.0.start;
+                    self.0.start = old + 1;
+                    Some(old)
+                } else {
+                    None
+                }
             }
-
             #[inline]
-            fn replace_one(&mut self) -> Self {
-                mem::replace(self, $construct(0))
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                match Self::Item::steps_between_by_one(&self.0.start, &self.0.end) {
+                    Some(hint) => (hint, Some(hint)),
+                    None => (0, None)
+                }
             }
+        }
 
+        impl DoubleEndedIterator for IndexRange<$ty> {
             #[inline]
-            fn replace_zero(&mut self) -> Self {
-                mem::replace(self, $construct(1))
-            }
-
-            #[inline]
-            fn add_one(&self) -> Self {
-                *self + 1
-            }
-
-            #[inline]
-            fn sub_one(&self) -> Self {
-                *self - 1
+            fn next_back(&mut self) -> Option<$ty> {
+                if self.0.start < self.0.end {
+                    let new = self.0.end - 1;
+                    self.0.end = new;
+                    Some(new)
+                } else {
+                    None
+                }
             }
         }
 
