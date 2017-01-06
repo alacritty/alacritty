@@ -38,7 +38,11 @@ fn main() {
         match err {
             // Use default config when not found
             config::Error::NotFound => {
-                err_println!("Config file not found; using defaults");
+                match Config::write_defaults() {
+                    Ok(path) => err_println!("Config file not found; write defaults config to {:?}", path),
+                    Err(err) => err_println!("Write defaults config failure: {}", err)
+                }
+
                 Config::default()
             },
 
