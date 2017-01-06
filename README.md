@@ -84,6 +84,16 @@ missing, please open an issue.
 dnf install freetype-devel fontconfig-devel xclip
 ```
 
+##### openSUSE
+
+On openSUSE, you need a few extra libraries to build Alacritty. Here's
+a `zypper` command that should install all of them. If something is
+still found to be missing, please open an issue.
+
+```sh
+zypper install freetype-devel fontconfig-devel xclip
+```
+
 ##### Other
 
 If you build Alacritty on another Linux distribution, we would love some help
