@@ -92,6 +92,16 @@ If all goes well, this should place a binary at `target/release/alacritty`.
 many things (such as arrow keys) would not work. If you're on macOS, you'll need
 to change the `monospace` font family to something like `Menlo`.
 
+## Desktop Entry
+
+Many linux distributions support desktop entries for adding applications to
+system menus. To install the desktop entry for Alacritty, run
+
+```sh
+sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
+cp Alacritty.desktop ~/.local/share/applications
+```
+
 ### Configuration
 
 Although it's possible the default configuration would work on your system,
