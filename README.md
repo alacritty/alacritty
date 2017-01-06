@@ -26,7 +26,7 @@ binaries will be provided for supported operating systems.
 
 ## Blog Posts
 
-There is a forthcoming announcement post the week of Jan 2, 2017.
+- [Announcing Alacritty, a GPU-Accelerated Terminal Emulator](http://blog.jwilm.io/announcing-alacritty/) January 6, 2017
 
 ## Installation
 
