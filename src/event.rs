@@ -129,8 +129,8 @@ impl<N: Notify> Processor<N> {
                         .expect("write size.json");
                 }
 
-                // FIXME
-                panic!("window closed");
+                // FIXME should do a more graceful shutdown
+                ::std::process::exit(0);
             },
             glutin::Event::Resized(w, h) => {
                 resize_tx.send((w, h)).expect("send new size");
