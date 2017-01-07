@@ -176,7 +176,7 @@ Just Works.
   `env WAYLAND_DISPLAY= alacritty`
 - _When will Windows support be available?_ When someone has time to work on it.
   Contributors would be welcomed :).
-- _My arrow keys don't work_ It sounds like you deleted some key bindings from
+- _My arrow keys don't work_. It sounds like you deleted some key bindings from
   your config file. Please reference the default config file to restore them.
 
 
