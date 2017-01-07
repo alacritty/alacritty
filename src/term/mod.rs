@@ -651,14 +651,16 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn goto_line(&mut self, line: Line) {
+        use std::cmp::min;
         debug_println!("goto_line: {}", line);
-        self.cursor.line = line;
+        self.cursor.line = min(line, self.grid.num_lines() - 1);
     }
 
     #[inline]
     fn goto_col(&mut self, col: Column) {
+        use std::cmp::min;
         debug_println!("goto_col: {}", col);
-        self.cursor.col = col;
+        self.cursor.col = min(col, self.grid.num_cols() - 1);
     }
 
     #[inline]
@@ -691,29 +693,25 @@ impl ansi::Handler for Term {
     #[inline]
     fn move_up(&mut self, lines: Line) {
         debug_println!("move_up: {}", lines);
-        self.cursor.line -= lines;
+        self.cursor.line = limit(self.cursor.line - lines, Line(0), self.grid.num_lines());
     }
 
     #[inline]
     fn move_down(&mut self, lines: Line) {
         debug_println!("move_down: {}", lines);
-        self.cursor.line += lines;
+        self.cursor.line = limit(self.cursor.line + lines, Line(0), self.grid.num_lines());
     }
 
     #[inline]
     fn move_forward(&mut self, cols: Column) {
         debug_println!("move_forward: {}", cols);
-        self.cursor.col += cols;
+        self.cursor.col = limit(self.cursor.col + cols, Column(0), self.grid.num_cols());
     }
 
     #[inline]
     fn move_backward(&mut self, cols: Column) {
         debug_println!("move_backward: {}", cols);
-        if cols > self.cursor.col {
-            self.cursor.col = Column(0);
-        } else {
-            self.cursor.col -= cols;
-        }
+        self.cursor.col = limit(self.cursor.col - cols, Column(0), self.grid.num_cols());
     }
 
     #[inline]
@@ -769,7 +767,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn linefeed(&mut self) {
         debug_println!("linefeed");
-        if self.cursor.line + 1 == self.scroll_region.end {
+        if (self.cursor.line + 1) >= self.scroll_region.end {
             self.scroll_up(Line(1));
         } else {
             self.cursor.line += 1;
