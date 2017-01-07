@@ -208,7 +208,10 @@ fn execsh(config: &Config) -> ! {
     let pw = get_pw_entry(&mut buf);
 
     let shell = match config.shell() {
-        Some(shell) => shell.to_str().unwrap(),
+        Some(shell) => match shell.to_str() {
+            Some(shell) => shell,
+            None => die!("Invalid shell value")
+        },
         None => pw.shell
     };
 
