@@ -713,7 +713,8 @@ fn rgb_from_hex<D>(deserializer: &mut D) -> ::std::result::Result<Rgb, D::Error>
     deserializer.deserialize_str(RgbVisitor)
 }
 
-impl Rgb {
+impl FromStr for Rgb {
+    type Err = ();
     fn from_str(s: &str) -> ::std::result::Result<Rgb, ()> {
         let mut chars = s.chars();
         let mut rgb = Rgb::default();

@@ -96,7 +96,7 @@ impl Cell {
     #[inline]
     pub fn reset(&mut self, template: &Cell) {
         // memcpy template to self
-        *self = template.clone();
+        *self = *template;
     }
 
     #[inline]

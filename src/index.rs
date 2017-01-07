@@ -44,7 +44,7 @@ impl Ord for Point {
         use std::cmp::Ordering::*;
         match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
             (Equal,   Equal) => Equal,
-            (Equal,   ord)   => ord,
+            (Equal,   ord) |
             (ord,     Equal) => ord,
             (Less,    _)     => Less,
             (Greater, _)     => Greater,
@@ -314,7 +314,7 @@ impl<T: PartialOrd<T>> Contains for Range<T> {
 impl<T: PartialOrd<T>> Contains for RangeInclusive<T> {
     type Content = T;
     fn contains_(&self, item: Self::Content) -> bool {
-        if let &RangeInclusive::NonEmpty{ref start, ref end} = self {
+        if let RangeInclusive::NonEmpty{ref start, ref end} = *self {
             (*start <= item) && (item <= *end)
         } else { false }
     }

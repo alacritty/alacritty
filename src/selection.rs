@@ -106,14 +106,14 @@ impl Selection {
 
                 // Single-cell selections are a special case
                 if start == end {
-                    if start_side != end_side {
+                    if start_side == end_side {
+                        return None;
+                    } else {
                         return Some(Span {
                             ty: SpanType::Inclusive,
                             front: *front,
                             tail: *tail
                         });
-                    } else {
-                        return None;
                     }
                 }
 
