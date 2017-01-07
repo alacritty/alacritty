@@ -150,7 +150,7 @@ impl<T> Grid<T> {
     /// better error messages by doing the bounds checking ourselves.
     #[inline]
     pub fn swap_lines(&mut self, src: index::Line, dst: index::Line) {
-        use std::intrinsics::unlikely;
+        use util::unlikely;
 
         unsafe {
             // check that src/dst are in bounds. Since index::Line newtypes usize,

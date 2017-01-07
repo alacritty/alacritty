@@ -630,7 +630,7 @@ impl ansi::Handler for Term {
         }
 
         unsafe {
-            if ::std::intrinsics::unlikely(self.cursor.line == self.grid.num_lines()) {
+            if ::util::unlikely(self.cursor.line == self.grid.num_lines()) {
                 panic!("cursor fell off grid");
             }
         }

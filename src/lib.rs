@@ -20,7 +20,7 @@
 #![cfg_attr(feature = "clippy", deny(if_not_else))]
 #![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
 #![cfg_attr(test, feature(test))]
-#![feature(core_intrinsics)]
+#![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
 #![feature(proc_macro)]
 
