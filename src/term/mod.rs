@@ -703,7 +703,12 @@ impl ansi::Handler for Term {
     #[inline]
     fn move_forward(&mut self, cols: Column) {
         debug_println!("move_forward: {}", cols);
-        self.cursor.col += cols;
+        if self.cursor.col + cols > self.grid.num_cols() - 1 {
+            self.cursor.col = self.grid.num_cols() - 1;
+        }
+        else {
+            self.cursor.col += cols;
+        }
     }
 
     #[inline]
