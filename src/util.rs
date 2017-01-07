@@ -13,6 +13,16 @@
 // limitations under the License.
 use std::cmp;
 
+#[cfg(not(feature = "nightly"))]
+#[inline(always)]
+#[cfg_attr(feature = "clippy", allow(inline_always))]
+pub unsafe fn unlikely(x: bool) -> bool {
+    x
+}
+
+#[cfg(feature = "nightly")]
+pub use ::std::intrinsics::unlikely;
+
 /// Threading utilities
 pub mod thread {
     /// Like `thread::spawn`, but with a `name` argument

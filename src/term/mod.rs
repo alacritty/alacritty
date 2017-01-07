@@ -13,14 +13,14 @@
 // limitations under the License.
 //
 //! Exports the `Term` type which is a high-level API for the Grid
-use std::ops::{Deref, Range, RangeInclusive};
+use std::ops::{Deref, Range};
 use std::ptr;
 use std::cmp;
 use std::io;
 
 use ansi::{self, Color, NamedColor, Attr, Handler};
 use grid::{Grid, ClearRegion, ToRange};
-use index::{self, Point, Column, Line, Linear};
+use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{Span, Selection};
 
 pub mod cell;
@@ -129,7 +129,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 self.column += 1;
 
                 let selected = self.selection.as_ref()
-                    .map(|range| range.contains(index))
+                    .map(|range| range.contains_(index))
                     .unwrap_or(false);
 
                 // Skip empty cells
@@ -286,7 +286,7 @@ impl Term {
 
         let grid = Grid::new(num_lines, num_cols, &template);
 
-        let mut tabs = (Column(0)..grid.num_cols())
+        let mut tabs = IndexRange::from(Column(0)..grid.num_cols())
             .map(|i| (*i as usize) % TAB_SPACES == 0)
             .collect::<Vec<bool>>();
 
@@ -306,7 +306,7 @@ impl Term {
             mode: Default::default(),
             scroll_region: scroll_region,
             size_info: size,
-            template_cell: template.clone(),
+            template_cell: template,
             empty_cell: template,
         }
     }
@@ -424,7 +424,7 @@ impl Term {
                 // Starting line
                 res.append(&self.grid, start.line, start.col..);
 
-                let middle_range = (start.line + 1)..(end.line);
+                let middle_range = IndexRange::from((start.line + 1)..(end.line));
                 for line in middle_range {
                     res.append(&self.grid, line, ..);
                 }
@@ -498,7 +498,7 @@ impl Term {
         println!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         // Resize grids to new size
-        let template = self.template_cell.clone();
+        let template = self.template_cell;
         self.grid.resize(num_lines, num_cols, &template);
         self.alt_grid.resize(num_lines, num_cols, &template);
 
@@ -507,14 +507,14 @@ impl Term {
         self.cursor.col = limit(self.cursor.col, Column(0), num_cols);
 
         // Recreate tabs list
-        self.tabs = (Column(0)..self.grid.num_cols())
+        self.tabs = IndexRange::from(Column(0)..self.grid.num_cols())
             .map(|i| (*i as usize) % TAB_SPACES == 0)
             .collect::<Vec<bool>>();
 
         self.tabs[0] = false;
 
         // Make sure bottom of terminal is clear
-        let template = self.empty_cell.clone();
+        let template = self.empty_cell;
         self.grid.clear_region((self.cursor.line).., |c| c.reset(&template));
         self.alt_grid.clear_region((self.cursor.line).., |c| c.reset(&template));
 
@@ -538,7 +538,7 @@ impl Term {
         ::std::mem::swap(&mut self.cursor, &mut self.alt_cursor);
 
         if self.alt {
-            let template = self.empty_cell.clone();
+            let template = self.empty_cell;
             self.grid.clear(|c| c.reset(&template));
         }
     }
@@ -551,7 +551,7 @@ impl Term {
         debug_println!("scroll_down: {}", lines);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
-        let template = self.empty_cell.clone();
+        let template = self.empty_cell;
 
         // Clear `lines` lines at bottom of area
         {
@@ -576,7 +576,7 @@ impl Term {
         debug_println!("scroll_up: {}", lines);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
-        let template = self.empty_cell.clone();
+        let template = self.empty_cell;
 
         // Clear `lines` lines starting from origin to origin + lines
         {
@@ -630,13 +630,13 @@ impl ansi::Handler for Term {
         }
 
         unsafe {
-            if ::std::intrinsics::unlikely(self.cursor.line == self.grid.num_lines()) {
+            if ::util::unlikely(self.cursor.line == self.grid.num_lines()) {
                 panic!("cursor fell off grid");
             }
         }
 
         let cell = &mut self.grid[&self.cursor];
-        *cell = self.template_cell.clone();
+        *cell = self.template_cell;
         cell.c = c;
         self.cursor.col += 1;
     }
@@ -682,7 +682,7 @@ impl ansi::Handler for Term {
 
         // Cells were just moved out towards the end of the line; fill in
         // between source and dest with blanks.
-        let template = self.empty_cell.clone();
+        let template = self.empty_cell;
         for c in &mut line[source..destination] {
             c.reset(&template);
         }
@@ -812,7 +812,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn insert_blank_lines(&mut self, lines: Line) {
         debug_println!("insert_blank_lines: {}", lines);
-        if self.scroll_region.contains(self.cursor.line) {
+        if self.scroll_region.contains_(self.cursor.line) {
             let origin = self.cursor.line;
             self.scroll_down_relative(origin, lines);
         }
@@ -821,7 +821,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn delete_lines(&mut self, lines: Line) {
         debug_println!("delete_lines: {}", lines);
-        if self.scroll_region.contains(self.cursor.line) {
+        if self.scroll_region.contains_(self.cursor.line) {
             let origin = self.cursor.line;
             self.scroll_up_relative(origin, lines);
         }
@@ -834,7 +834,7 @@ impl ansi::Handler for Term {
         let end = start + count;
 
         let row = &mut self.grid[self.cursor.line];
-        let template = self.empty_cell.clone();
+        let template = self.empty_cell;
         for c in &mut row[start..end] {
             c.reset(&template);
         }
@@ -861,7 +861,7 @@ impl ansi::Handler for Term {
 
         // Clear last `count` cells in line. If deleting 1 char, need to delete
         // 1 cell.
-        let template = self.empty_cell.clone();
+        let template = self.empty_cell;
         let end = self.size_info.cols() - count;
         for c in &mut line[end..] {
             c.reset(&template);
@@ -891,7 +891,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         debug_println!("clear_line: {:?}", mode);
-        let template = self.empty_cell.clone();
+        let template = self.empty_cell;
         match mode {
             ansi::LineClearMode::Right => {
                 let row = &mut self.grid[self.cursor.line];
@@ -917,7 +917,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
         debug_println!("clear_screen: {:?}", mode);
-        let template = self.empty_cell.clone();
+        let template = self.empty_cell;
         match mode {
             ansi::ClearMode::Below => {
                 for row in &mut self.grid[self.cursor.line..] {

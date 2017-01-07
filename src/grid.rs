@@ -24,10 +24,9 @@ use std::borrow::ToOwned;
 use std::cmp::Ordering;
 use std::iter::IntoIterator;
 use std::ops::{Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull, Index, IndexMut};
-use std::ops::RangeInclusive;
 use std::slice::{self, Iter, IterMut};
 
-use index::{self, Point};
+use index::{self, Point, IndexRange, RangeInclusive};
 
 /// Convert a type to a linear index range.
 pub trait ToRange {
@@ -53,7 +52,7 @@ pub struct Grid<T> {
 impl<T: Clone> Grid<T> {
     pub fn new(lines: index::Line, cols: index::Column, template: &T) -> Grid<T> {
         let mut raw = Vec::with_capacity(*lines);
-        for _ in index::Line(0)..lines {
+        for _ in IndexRange(index::Line(0)..lines) {
             raw.push(Row::new(cols, template));
         }
 
@@ -84,7 +83,7 @@ impl<T: Clone> Grid<T> {
     }
 
     fn grow_lines(&mut self, lines: index::Line, template: &T) {
-        for _ in self.num_lines()..lines {
+        for _ in IndexRange(self.num_lines()..lines) {
             self.raw.push(Row::new(self.cols, template));
         }
 
@@ -124,7 +123,7 @@ impl<T> Grid<T> {
 
     #[inline]
     pub fn scroll_down(&mut self, region: Range<index::Line>, positions: index::Line) {
-        for line in region.rev() {
+        for line in IndexRange(region).rev() {
             let src = line;
             let dst = line - positions;
             self.swap_lines(src, dst);
@@ -133,7 +132,7 @@ impl<T> Grid<T> {
 
     #[inline]
     pub fn scroll_up(&mut self, region: Range<index::Line>, positions: index::Line) {
-        for line in region {
+        for line in IndexRange(region) {
             let src = line;
             let dst = line + positions;
             self.swap_lines(src, dst);
@@ -151,7 +150,7 @@ impl<T> Grid<T> {
     /// better error messages by doing the bounds checking ourselves.
     #[inline]
     pub fn swap_lines(&mut self, src: index::Line, dst: index::Line) {
-        use std::intrinsics::unlikely;
+        use util::unlikely;
 
         unsafe {
             // check that src/dst are in bounds. Since index::Line newtypes usize,

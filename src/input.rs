@@ -209,11 +209,10 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
                         line: point.line,
                         col: point.col
                     }, self.ctx.mouse.cell_side);
-                } else if self.ctx.terminal.mode().contains(mode::MOUSE_MOTION) {
-                    // Only report motion when changing cells
-                    if prev_line != self.ctx.mouse.line || prev_col != self.ctx.mouse.column {
-                        self.mouse_report(0 + 32);
-                    }
+                } else if self.ctx.terminal.mode().contains(mode::MOUSE_MOTION)
+                        // Only report motion when changing cells
+                        && (prev_line != self.ctx.mouse.line || prev_col != self.ctx.mouse.column) {
+                        self.mouse_report(32);
                 }
             }
         }

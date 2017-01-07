@@ -13,19 +13,14 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
-#![feature(range_contains)]
-#![feature(inclusive_range_syntax)]
-#![feature(inclusive_range)]
-#![feature(drop_types_in_const)]
-#![feature(step_trait)]
-#![feature(plugin)]
+#![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 #![cfg_attr(feature = "clippy", deny(clippy))]
 #![cfg_attr(feature = "clippy", deny(enum_glob_use))]
 #![cfg_attr(feature = "clippy", deny(if_not_else))]
 #![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
 #![cfg_attr(test, feature(test))]
-#![feature(core_intrinsics)]
+#![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
 #![feature(proc_macro)]
 
@@ -37,6 +32,8 @@ extern crate copypasta;
 extern crate errno;
 extern crate font;
 extern crate glutin;
+#[macro_use]
+extern crate lazy_static;
 extern crate libc;
 extern crate mio;
 extern crate notify;

@@ -10,6 +10,7 @@ dependencies = [
  "font 0.1.0",
  "gl_generator 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.6.1 (git+https://github.com/jwilm/glutin?rev=af7fe340bd4a2af53ea521defcb4f377cdc588cf)",
+ "lazy_static 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "mio 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "notify 2.6.3 (registry+https://github.com/rust-lang/crates.io-index)",

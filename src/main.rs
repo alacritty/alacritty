@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
-#![feature(plugin)]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
+#![cfg_attr(feature = "clippy", feature(plugin))]
 
 #[macro_use]
 extern crate alacritty;

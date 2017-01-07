@@ -17,6 +17,7 @@ notify = "2.6"
 bitflags = "*"
 font = { path = "./font" }
 errno = "0.1.6"
+lazy_static = "0.2.2"
 parking_lot = { version = "0.3.1", features = ["nightly"] }
 serde = "0.8"
 serde_yaml = "0.5"
@@ -34,6 +35,7 @@ default = ["err-println"]
 # Enabling this feature makes shaders automatically reload when changed
 live-shader-reload = []
 err-println = []
+nightly = []
 
 [build-dependencies]
 gl_generator = "0.5"
