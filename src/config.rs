@@ -196,6 +196,9 @@ pub struct Config {
     #[serde(default="default_mouse_bindings")]
     mouse_bindings: Vec<MouseBinding>,
 
+    /// Path to a shell program to run on startup
+    shell: Option<PathBuf>,
+
     /// Path where config was loaded from
     config_path: Option<PathBuf>,
 }
@@ -228,6 +231,7 @@ impl Default for Config {
             colors: Default::default(),
             key_bindings: Vec::new(),
             mouse_bindings: Vec::new(),
+            shell: None,
             config_path: None,
         }
     }
@@ -877,6 +881,12 @@ impl Config {
         self.config_path
             .as_ref()
             .map(|p| p.as_path())
+    }
+
+    pub fn shell(&self) -> Option<&Path> {
+        self.shell
+            .as_ref()
+            .map(PathBuf::as_path)
     }
 
     fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {

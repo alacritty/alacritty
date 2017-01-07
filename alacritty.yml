@@ -193,3 +193,8 @@ key_bindings:
 mouse_bindings:
   - { mouse: Middle, action: PasteSelection }
 
+
+# Shell
+#
+# You can set this to a path to your favorite shell, e.g. /bin/fish
+shell:
