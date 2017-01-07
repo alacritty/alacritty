@@ -743,7 +743,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
 
             *i += 4;
 
-            let range = 0...255;
+            let range = 0..256;
             if !range.contains_(r) || !range.contains_(g) || !range.contains_(b) {
                 err_println!("Invalid RGB color spec: ({}, {}, {})", r, g, b);
                 return None;

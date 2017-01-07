@@ -19,9 +19,8 @@
 //! when text is added/removed/scrolled on the screen. The selection should
 //! also be cleared if the user clicks off of the selection.
 use std::mem;
-use std::ops::RangeInclusive;
 
-use index::{Point, Column, Side, Linear, Line};
+use index::{Point, Column, RangeInclusive, Side, Linear, Line};
 use grid::ToRange;
 
 /// The area selected
@@ -248,7 +247,7 @@ impl ToRange for Span {
             SpanType::ExcludeTail => (start, Span::exclude_end(end))
         };
 
-        start...end
+        RangeInclusive::new(start, end)
     }
 }
 

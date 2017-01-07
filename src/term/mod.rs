@@ -13,14 +13,14 @@
 // limitations under the License.
 //
 //! Exports the `Term` type which is a high-level API for the Grid
-use std::ops::{Deref, Range, RangeInclusive};
+use std::ops::{Deref, Range};
 use std::ptr;
 use std::cmp;
 use std::io;
 
 use ansi::{self, Color, NamedColor, Attr, Handler};
 use grid::{Grid, ClearRegion, ToRange};
-use index::{self, Point, Column, Line, Linear, IndexRange, Contains};
+use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{Span, Selection};
 
 pub mod cell;

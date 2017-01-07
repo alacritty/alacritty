@@ -24,7 +24,7 @@ use font::{self, Rasterizer, Rasterize, RasterizedGlyph, FontDesc, GlyphKey, Fon
 use gl::types::*;
 use gl;
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
-use index::{Line, Column};
+use index::{Line, Column, RangeInclusive};
 
 use window::{Size, Pixels};
 
@@ -225,7 +225,7 @@ impl GlyphCache {
 
         macro_rules! load_glyphs_for_font {
             ($font:expr) => {
-                for i in 32u8...128u8 {
+                for i in RangeInclusive::new(32u8, 128u8) {
                     cache.load_and_cache_glyph(GlyphKey {
                         font_key: $font,
                         c: i as char,

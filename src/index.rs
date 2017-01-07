@@ -17,7 +17,7 @@
 /// Indexing types and implementations for Grid and Line
 use std::cmp::{Ord, Ordering};
 use std::fmt;
-use std::ops::{self, Deref, Add, Range, RangeInclusive};
+use std::ops::{self, Deref, Add, Range};
 
 /// The side of a cell
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -210,8 +210,95 @@ impl<T> From<Range<T>> for IndexRange<T> {
     }
 }
 
-// can be removed if range_contains is stabilized
+pub enum RangeInclusive<Idx> {
+    Empty {
+        at: Idx,
+    },
+    NonEmpty {
+        start: Idx,
+        end: Idx,
+    },
+}
 
+impl<Idx> RangeInclusive<Idx> {
+    pub fn new(from: Idx, to: Idx) -> Self {
+        RangeInclusive::NonEmpty {
+            start: from,
+            end: to
+        }
+    }
+}
+
+macro_rules! inclusive {
+    ($ty:ty, $steps_add_one:expr) => {
+        // impl copied from stdlib, can be removed when inclusive_range is stabilized
+        impl Iterator for RangeInclusive<$ty> {
+            type Item = $ty;
+
+            #[inline]
+            fn next(&mut self) -> Option<$ty> {
+                use index::RangeInclusive::*;
+
+                // this function has a sort of odd structure due to borrowck issues
+                // we may need to replace self.range, so borrows of start and end need to end early
+
+                let at_end;
+                match *self {
+                    Empty { .. } => return None, // empty iterators yield no values
+
+                    NonEmpty { ref mut start, ref mut end } => {
+
+                        // march start towards (maybe past!) end and yield the old value
+                        if start <= end {
+                            let old = *start;
+                            *start = old + 1;
+                            return Some(old);
+                        }
+                        at_end = *end;
+                    }
+                };
+
+                // got this far; the range is empty, replace it
+                *self = Empty { at: at_end };
+                None
+            }
+
+            #[inline]
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                use index::RangeInclusive::*;
+
+                match *self {
+                    Empty { .. } => (0, Some(0)),
+
+                    NonEmpty { ref start, ref end } => {
+                        let added = $steps_add_one(start, end);
+                        match added {
+                            Some(hint) => (hint.saturating_add(1), hint.checked_add(1)),
+                            None       => (0, None)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn steps_add_one_u8(start: &u8, end: &u8) -> Option<usize> {
+    if *start < *end {
+        Some((*end - *start) as usize)
+    } else {
+        None
+    }
+}
+inclusive!(u8, steps_add_one_u8);
+
+#[test]
+fn test_range() {
+    assert_eq!(RangeInclusive::new(1,10).collect::<Vec<_>>(),
+               vec![1,2,3,4,5,6,7,8,9,10]);
+}
+
+// can be removed if range_contains is stabilized
 pub trait Contains {
     type Content;
     fn contains_(&self, item: Self::Content) -> bool;
@@ -286,6 +373,8 @@ macro_rules! ops {
             }
         }
 
+        inclusive!($ty, <$ty>::steps_between_by_one);
+
         impl DoubleEndedIterator for IndexRange<$ty> {
             #[inline]
             fn next_back(&mut self) -> Option<$ty> {
@@ -298,7 +387,6 @@ macro_rules! ops {
                 }
             }
         }
-
         impl ops::AddAssign<$ty> for $ty {
             #[inline]
             fn add_assign(&mut self, rhs: $ty) {

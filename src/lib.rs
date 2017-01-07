@@ -13,8 +13,6 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
-#![feature(inclusive_range_syntax)]
-#![feature(inclusive_range)]
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 #![cfg_attr(feature = "clippy", deny(clippy))]
