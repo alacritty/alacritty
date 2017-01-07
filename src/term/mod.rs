@@ -512,11 +512,13 @@ impl Term {
             .collect::<Vec<bool>>();
 
         self.tabs[0] = false;
-
-        // Make sure bottom of terminal is clear
-        let template = self.empty_cell.clone();
-        self.grid.clear_region((self.cursor.line).., |c| c.reset(&template));
-        self.alt_grid.clear_region((self.cursor.line).., |c| c.reset(&template));
+        
+        // Make sure new lines at the bottom of terminal are clear
+        if num_lines > old_lines {
+            let template = self.empty_cell.clone();
+            self.grid.clear_region((self.cursor.line + 1).., |c| c.reset(&template));
+            self.alt_grid.clear_region((self.cursor.line + 1).., |c| c.reset(&template));
+        }
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();
