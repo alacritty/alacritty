@@ -503,8 +503,8 @@ impl Term {
         self.alt_grid.resize(num_lines, num_cols, &template);
 
         // Ensure cursor is in-bounds
-        self.cursor.line = limit(self.cursor.line, Line(0), num_lines);
-        self.cursor.col = limit(self.cursor.col, Column(0), num_cols);
+        self.cursor.line = limit(self.cursor.line, Line(0), num_lines - 1);
+        self.cursor.col = limit(self.cursor.col, Column(0), num_cols - 1);
 
         // Recreate tabs list
         self.tabs = IndexRange::from(Column(0)..self.grid.num_cols())
@@ -556,14 +556,15 @@ impl Term {
         // Clear `lines` lines at bottom of area
         {
             let end = self.scroll_region.end;
-            let start = end - lines;
+            let start = limit(end - lines, Line(0), self.scroll_region.end);
             self.grid.clear_region(start..end, |c| c.reset(&template));
         }
 
         // Scroll between origin and bottom
         {
             let end = self.scroll_region.end;
-            let start = origin + lines;
+            let start = limit(origin + lines, Line(0), self.scroll_region.end);
+            let lines  = limit(lines, Line(0), self.grid.num_lines()); 
             self.grid.scroll_down(start..end, lines);
         }
     }
@@ -580,15 +581,16 @@ impl Term {
 
         // Clear `lines` lines starting from origin to origin + lines
         {
-            let start = origin;
-            let end = start + lines;
+            let start = limit(origin, Line(0), self.grid.num_lines() - 1);
+            let end = limit(start + lines, Line(0), self.grid.num_lines() - 1);
             self.grid.clear_region(start..end, |c| c.reset(&template));
         }
 
         // Scroll from origin to bottom less number of lines
         {
-            let start = origin;
-            let end = self.scroll_region.end - lines;
+            let start = limit(origin, Line(0), self.grid.num_lines() - 1);
+            let end = limit(self.scroll_region.end - lines, Line(0), self.grid.num_lines() - 1);
+            let lines = limit(lines, Line(0), self.grid.num_lines()); 
             self.grid.scroll_up(start..end, lines);
         }
     }
@@ -610,6 +612,7 @@ impl ansi::Handler for Term {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
+
         if self.cursor.col == self.grid.num_cols() {
             debug_println!("wrapping");
             {
@@ -651,23 +654,26 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn goto_line(&mut self, line: Line) {
+        use std::cmp::min;
         debug_println!("goto_line: {}", line);
-        self.cursor.line = line;
+        self.cursor.line = min(line, self.grid.num_lines() - 1);
     }
 
     #[inline]
     fn goto_col(&mut self, col: Column) {
+        use std::cmp::min;
         debug_println!("goto_col: {}", col);
-        self.cursor.col = col;
+        self.cursor.col = min(col, self.grid.num_cols() - 1);
     }
 
     #[inline]
     fn insert_blank(&mut self, count: Column) {
         // Ensure inserting within terminal bounds
-        let count = ::std::cmp::min(count, self.size_info.cols() - self.cursor.col);
+        let col = limit(self.cursor.col, Column(0), self.grid.num_cols()); 
+        let count = ::std::cmp::min(count, self.size_info.cols() - col);
 
-        let source = self.cursor.col;
-        let destination = self.cursor.col + count;
+        let source = col;
+        let destination = col + count;
         let num_cells = (self.size_info.cols() - destination).0;
 
         let line = self.cursor.line; // borrowck
@@ -691,28 +697,29 @@ impl ansi::Handler for Term {
     #[inline]
     fn move_up(&mut self, lines: Line) {
         debug_println!("move_up: {}", lines);
-        self.cursor.line -= lines;
+        self.cursor.line = limit(self.cursor.line - lines, Line(0), self.grid.num_lines() -1);
     }
 
     #[inline]
     fn move_down(&mut self, lines: Line) {
         debug_println!("move_down: {}", lines);
-        self.cursor.line += lines;
+        self.cursor.line = limit(self.cursor.line + lines, Line(0), self.grid.num_lines() - 1);
+        debug_println!("move_down - > lines: {}", self.cursor.line);
     }
 
     #[inline]
     fn move_forward(&mut self, cols: Column) {
         debug_println!("move_forward: {}", cols);
-        self.cursor.col += cols;
+        let col = limit(self.cursor.col, Column(0), self.grid.num_cols() - 1);
+        self.cursor.col = limit(col + cols, Column(0), self.grid.num_cols() - 1);
     }
 
     #[inline]
     fn move_backward(&mut self, cols: Column) {
         debug_println!("move_backward: {}", cols);
-        if cols > self.cursor.col {
-            self.cursor.col = Column(0);
-        } else {
-            self.cursor.col -= cols;
+        let col = limit(self.cursor.col, Column(0), self.grid.num_cols() - 1);
+        if col >= cols { 
+            self.cursor.col = col - cols;
         }
     }
 
@@ -735,11 +742,11 @@ impl ansi::Handler for Term {
     fn put_tab(&mut self, mut count: i64) {
         debug_println!("put_tab: {}", count);
 
-        let mut col = self.cursor.col;
+        let mut col = limit(self.cursor.col, Column(0), self.grid.num_cols() - 1);
         while col < self.grid.num_cols() && count != 0 {
             count -= 1;
             loop {
-                if col == self.grid.num_cols() || self.tabs[*col as usize] {
+                if (col + 1) == self.grid.num_cols() || self.tabs[*col as usize] {
                     break;
                 }
                 col += 1;
@@ -769,7 +776,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn linefeed(&mut self) {
         debug_println!("linefeed");
-        if self.cursor.line + 1 == self.scroll_region.end {
+        if (self.cursor.line + 1) >= self.scroll_region.end {
             self.scroll_up(Line(1));
         } else {
             self.cursor.line += 1;
@@ -829,9 +836,9 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn erase_chars(&mut self, count: Column) {
-        debug_println!("erase_chars: {}", count);
-        let start = self.cursor.col;
-        let end = start + count;
+        debug_println!("erase_chars: {}, {}", count, self.cursor.col);
+        let start = limit(self.cursor.col, Column(0), self.grid.num_cols() - 1);
+        let end = limit(start + count, Column(0), self.grid.num_cols() - 1);
 
         let row = &mut self.grid[self.cursor.line];
         let template = self.empty_cell;
@@ -845,8 +852,8 @@ impl ansi::Handler for Term {
         // Ensure deleting within terminal bounds
         let count = ::std::cmp::min(count, self.size_info.cols());
 
-        let start = self.cursor.col;
-        let end = self.cursor.col + count;
+        let start = limit(self.cursor.col, Column(0), self.grid.num_cols() - 1);
+        let end = limit(self.cursor.col + count, Column(0), self.grid.num_cols() - 1);
         let n = (self.size_info.cols() - end).0;
 
         let line = self.cursor.line; // borrowck
@@ -892,16 +899,17 @@ impl ansi::Handler for Term {
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         debug_println!("clear_line: {:?}", mode);
         let template = self.empty_cell;
+        let col =  limit(self.cursor.col, Column(0), self.grid.num_cols() - 1); 
         match mode {
             ansi::LineClearMode::Right => {
                 let row = &mut self.grid[self.cursor.line];
-                for cell in &mut row[self.cursor.col..] {
+                for cell in &mut row[col..] {
                     cell.reset(&template);
                 }
             },
             ansi::LineClearMode::Left => {
                 let row = &mut self.grid[self.cursor.line];
-                for cell in &mut row[..(self.cursor.col + 1)] {
+                for cell in &mut row[..(col + 1)] {
                     cell.reset(&template);
                 }
             },
