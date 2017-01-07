@@ -202,6 +202,9 @@ pub struct Term {
     /// The grid
     grid: Grid<Cell>,
 
+    /// Wrap on next input
+    wrap: bool, 
+
     /// Alternate grid
     alt_grid: Grid<Cell>,
 
@@ -297,6 +300,7 @@ impl Term {
 
         Term {
             dirty: false,
+            wrap: false, 
             grid: grid,
             alt_grid: alt,
             alt: false,
@@ -613,6 +617,31 @@ impl ansi::Handler for Term {
     #[inline]
     fn input(&mut self, c: char) {
 
+        if self.wrap {
+            
+            debug_println!("wrapping");
+        
+            {
+                let location = Point {
+                    line: self.cursor.line,
+                    col: self.cursor.col
+                };
+
+                let cell = &mut self.grid[&location];
+                cell.flags.insert(cell::WRAPLINE);
+            }
+           
+            if (self.cursor.line + 1) >= self.scroll_region.end {
+                self.linefeed();
+            } else {
+                self.cursor.line += 1;
+            }
+           
+            self.cursor.col = Column(0);
+            self.wrap = false;
+        }
+
+
         {
             let cell = &mut self.grid[&self.cursor];
             *cell = self.template_cell;
@@ -621,6 +650,8 @@ impl ansi::Handler for Term {
         
         if (self.cursor.col + 1) < self.grid.num_cols() {
             self.cursor.col += 1;
+        } else {
+            self.wrap = true;
         }
 
         // TODO handle auto wrap if auto wrap is enabled. 
@@ -633,18 +664,21 @@ impl ansi::Handler for Term {
         debug_println!("goto: line={}, col={}", line, col);
         self.cursor.line = cmp::min(line, self.grid.num_lines() - 1);
         self.cursor.col = cmp::min(col, self.grid.num_cols() - 1);
+        self.wrap = false;
     }
 
     #[inline]
     fn goto_line(&mut self, line: Line) {
         debug_println!("goto_line: {}", line);
         self.cursor.line = cmp::min(line, self.grid.num_lines() - 1);
+        self.wrap = false;
     }
 
     #[inline]
     fn goto_col(&mut self, col: Column) {
         debug_println!("goto_col: {}", col);
         self.cursor.col = cmp::min(col, self.grid.num_cols() - 1);
+        self.wrap = false;
     }
 
     #[inline]
@@ -692,6 +726,7 @@ impl ansi::Handler for Term {
     fn move_forward(&mut self, cols: Column) {
         debug_println!("move_forward: {}", cols);
         self.cursor.col = cmp::min(self.cursor.col + cols, self.grid.num_cols() - 1); 
+        self.wrap = false;
     }
 
     #[inline]
@@ -699,6 +734,7 @@ impl ansi::Handler for Term {
         debug_println!("move_backward: {}", cols);
         let cols = cmp::min(self.cursor.col, cols); 
         self.cursor.col = cmp::min(self.cursor.col - cols, self.grid.num_cols() - 1); 
+        self.wrap = false;
     }
 
     #[inline]
@@ -732,6 +768,7 @@ impl ansi::Handler for Term {
         }
 
         self.cursor.col = col;
+        self.wrap = false;
     }
 
     /// Backspace `count` characters
@@ -740,6 +777,7 @@ impl ansi::Handler for Term {
         debug_println!("backspace");
         if self.cursor.col > Column(0) {
             self.cursor.col -= 1;
+            self.wrap = false;
         }
     }
 
@@ -748,6 +786,7 @@ impl ansi::Handler for Term {
     fn carriage_return(&mut self) {
         debug_println!("carriage_return");
         self.cursor.col = Column(0);
+        self.wrap = false;
     }
 
     /// Linefeed
