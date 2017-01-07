@@ -101,11 +101,34 @@ colors:
 #     cyan:    '0x93a1a1'
 #     white:   '0xfdf6e3'
 
-# Key bindings
-#
-# Each binding is defined as an object with some properties. Most of the
-# properties are optional. All of the alphabetical keys should have a letter for
-# the `key` value such as `V`. Function keys are probably what you would expect
+# Colors (MacOS Terminal.app)
+# colors:
+#   # Normal colors
+#   normal:
+#     black:   '0x000000'
+#     red:     '0x990000'
+#     green:   '0x00a600'
+#     yellow:  '0x999900'
+#     blue:    '0x0000b2'
+#     magenta: '0xb200b2'
+#     cyan:    '0x00a6b2'
+#     white:   '0xbfbfbf'
+#   # Bright colors
+#   bright:
+#     black:   '0x666666'
+#     red:     '0xe50000'
+#     green:   '0x00d900'
+#     yellow:  '0xe5e500'
+#     blue:    '0x0000ff'
+#     magenta: '0xe500e5'
+#     cyan:    '0x00e5e5'
+#     white:   '0xe5e5e5'
+
+# # Key bindings
+# #
+# # Each binding is defined as an object with some properties. Most of the
+# # properties are optional. All of the alphabetical keys should have a letter for
+# # the `key` value such as `V`. Function keys are probably what you would expect
 # as well (F1, F2, ..). The number keys above the main keyboard are encoded as
 # `Key1`, `Key2`, etc. Keys on the number pad are encoded `Number1`, `Number2`,
 # etc.  These all match the glutin::VirtualKeyCode variants.
