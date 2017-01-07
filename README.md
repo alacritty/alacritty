@@ -45,10 +45,14 @@ will walk you through how to build from source on both macOS and Ubuntu.
    cd alacritty
    ```
 
-3. Make sure you have the right Rust compiler installed. Alacritty is currently
-   pinned to a certain Rust nightly, and the compiler/nightly dependencies are
-   updated as needed. To install the correct compiler, run:
+3. Make sure you have the right Rust compiler installed. Alacritty requires nightly Rust. Run
 
+   ```sh
+   rustup override set nightly
+   ```
+   
+   If you run into problems, you can try a known-good version of the compiler by running
+   
    ```sh
    rustup override set $(cat rustc-version)
    ```
