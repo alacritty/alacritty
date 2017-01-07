@@ -54,7 +54,7 @@ will walk you through how to build from source on both macOS and Ubuntu.
    If you run into problems, you can try a known-good version of the compiler by running
    
    ```sh
-   rustup override set $(cat rustc-version)
+   rustup override set $(<rustc-version)
    ```
 
 #### Additional Linux Prerequisites
