@@ -159,7 +159,9 @@ Just Works.
   disappears. Actual throughput and rendering performance are still better in
   Alacritty.
 - _Is wayland supported?_ Not yet. Alacritty is currently on a fork of glutin
-  that needs some updates to work with Wayland.
+  that needs some updates to work with Wayland. To stop glutin from detecting
+  Wayland (e.g. for use on XWayland) launch Alacritty like this:
+  `env WAYLAND_DISPLAY= alacritty`
 - _When will Windows support be available?_ When someone has time to work on it.
   Contributors would be welcomed :).
 - _My arrow keys don't work_ It sounds like you deleted some key bindings from
