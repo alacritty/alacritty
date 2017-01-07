@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+use std::ascii::AsciiExt;
 use std::collections::HashMap;
 use std::hash::BuildHasherDefault;
 use std::fs::File;
@@ -157,6 +158,9 @@ pub struct GlyphCache {
     /// bold font
     bold_key: FontKey,
 
+    /// non-ascii font
+    non_ascii_key: FontKey,
+
     /// font size
     font_size: font::Size,
 
@@ -223,6 +227,24 @@ impl GlyphCache {
         rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = rasterizer.metrics(regular)?;
 
+        // Load non-ascii font
+        let non_ascii_desc = if let Some(ref style) = font.non_ascii.style {
+            FontDesc::new(&font.non_ascii.family[..], font::Style::Specific(style.to_owned()))
+        } else {
+            let style = font::Style::Description {
+                slant: font::Slant::Normal,
+                weight: font::Weight::Normal
+            };
+            FontDesc::new(&font.non_ascii.family[..], style)
+        };
+
+        let non_ascii = if non_ascii_desc == regular_desc {
+            regular
+        } else {
+            rasterizer.load_font(&non_ascii_desc, size)
+                      .unwrap_or_else(|_| regular)
+        };
+
         let mut cache = GlyphCache {
             cache: HashMap::default(),
             rasterizer: rasterizer,
@@ -231,7 +253,8 @@ impl GlyphCache {
             bold_key: bold,
             italic_key: italic,
             glyph_offset: glyph_offset,
-            metrics: metrics
+            metrics: metrics,
+            non_ascii_key: non_ascii,
         };
 
         macro_rules! load_glyphs_for_font {
@@ -249,6 +272,7 @@ impl GlyphCache {
         load_glyphs_for_font!(regular);
         load_glyphs_for_font!(bold);
         load_glyphs_for_font!(italic);
+        load_glyphs_for_font!(non_ascii);
 
         Ok(cache)
     }
@@ -783,6 +807,8 @@ impl<'a> RenderApi<'a> {
                 font_key = glyph_cache.bold_key;
             } else if cell.flags.contains(cell::ITALIC) {
                 font_key = glyph_cache.italic_key;
+            } else if !cell.c.is_ascii() {
+                font_key = glyph_cache.non_ascii_key;
             }
 
             let glyph_key = GlyphKey {
