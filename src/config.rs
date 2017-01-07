@@ -196,7 +196,7 @@ pub struct Config {
     #[serde(default="default_mouse_bindings")]
     mouse_bindings: Vec<MouseBinding>,
 
-    /// Path to a shell program to ru on startup
+    /// Path to a shell program to run on startup
     shell: Option<PathBuf>,
 
     /// Path where config was loaded from
