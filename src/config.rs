@@ -885,7 +885,7 @@ impl Config {
     pub fn shell(&self) -> Option<&Path> {
         self.shell
             .as_ref()
-            .map(|p| p.as_path())
+            .map(PathBuf::as_path)
     }
 
     fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
