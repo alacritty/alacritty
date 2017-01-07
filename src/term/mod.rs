@@ -641,7 +641,6 @@ impl ansi::Handler for Term {
             self.wrap = false;
         }
 
-
         {
             let cell = &mut self.grid[&self.cursor];
             *cell = self.template_cell;
@@ -653,9 +652,6 @@ impl ansi::Handler for Term {
         } else {
             self.wrap = true;
         }
-
-        // TODO handle auto wrap if auto wrap is enabled. 
-        // ESC[?h 57 code 104 
 
     }
 
