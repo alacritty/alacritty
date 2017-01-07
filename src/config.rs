@@ -811,19 +811,19 @@ impl Config {
     ///
     /// The config file is loaded from the first file it finds in this list of paths
     ///
-    /// 1. `$HOME/.config/alacritty.yml`
-    /// 2. `$HOME/.alacritty.yml`
+    /// 1. $XDG_CONFIG_HOME/alacritty/alacritty.yml
+    /// 2. $HOME/.config/alacritty/alacritty.yml
     pub fn load() -> Result<Config> {
         let home = env::var("HOME")?;
 
         // Try using XDG location by default
-        let path = ::xdg::BaseDirectories::new()
+        let path = ::xdg::BaseDirectories::with_prefix("alacritty")
             .ok()
             .and_then(|xdg| xdg.find_config_file("alacritty.yml"))
             .unwrap_or_else(|| {
-                // Fallback path: $HOME/.alacritty.yml
+                // Fallback path: $HOME/.config/alacritty/alacritty.yml
                 let mut alt_path = PathBuf::from(&home);
-                alt_path.push(".alacritty.yml");
+                alt_path.push(".config/alacritty/alacritty.yml");
                 alt_path
             });
 
@@ -831,7 +831,7 @@ impl Config {
     }
 
     pub fn write_defaults() -> io::Result<PathBuf> {
-        let path = ::xdg::BaseDirectories::new()
+        let path = ::xdg::BaseDirectories::with_prefix("alacritty")
             .map_err(|err| io::Error::new(io::ErrorKind::NotFound, ::std::error::Error::description(&err)))
             .and_then(|p| p.place_config_file("alacritty.yml"))?;
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
