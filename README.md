@@ -74,6 +74,7 @@ apt-get install cmake libfreetype6-dev libfontconfig1-dev xclip
 On Arch Linux, you need a few extra libraries to build Alacritty. Here's a
 `pacman` command that should install all of them. If something is still found
 to be missing, please open an issue.
+
 ```sh
 pacman -S cmake freetype2 fontconfig xclip
 ```
