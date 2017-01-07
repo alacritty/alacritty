@@ -25,6 +25,7 @@ use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD
 
 use term::SizeInfo;
 use display::OnResize;
+use config::Config;
 
 /// Process ID of child process
 ///
@@ -202,14 +203,19 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
 }
 
 /// Exec a shell
-fn execsh() -> ! {
+fn execsh(config: &Config) -> ! {
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
+
+    let shell = match config.shell() {
+        Some(shell) => shell.to_str().unwrap(),
+        None => pw.shell
+    };
 
     // setup environment
     env::set_var("LOGNAME", pw.name);
     env::set_var("USER", pw.name);
-    env::set_var("SHELL", pw.shell);
+    env::set_var("SHELL", shell);
     env::set_var("HOME", pw.dir);
     env::set_var("TERM", "xterm-256color"); // sigh
 
@@ -223,7 +229,7 @@ fn execsh() -> ! {
     }
 
     // pw.shell is null terminated
-    let shell = unsafe { CStr::from_ptr(pw.shell.as_ptr() as *const _) };
+    let shell = unsafe { CStr::from_ptr(shell.as_ptr() as *const _) };
 
     let argv = [shell.as_ptr(), ptr::null()];
 
@@ -239,7 +245,7 @@ fn execsh() -> ! {
 }
 
 /// Create a new tty and return a handle to interact with it.
-pub fn new<T: ToWinsize>(size: T) -> Pty {
+pub fn new<T: ToWinsize>(config: &Config, size: T) -> Pty {
     let win = size.to_winsize();
 
     let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
@@ -265,7 +271,7 @@ pub fn new<T: ToWinsize>(size: T) -> Pty {
             }
 
             // Exec a shell!
-            execsh();
+            execsh(config);
         },
         Relation::Parent(pid) => {
             unsafe {
