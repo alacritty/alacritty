@@ -9,6 +9,7 @@ use parking_lot::MutexGuard;
 use glutin::{self, ElementState};
 
 use config::Config;
+use cli::Options;
 use display::OnResize;
 use index::{Line, Column, Side};
 use input::{self, ActionContext, MouseBinding, KeyBinding};
@@ -58,6 +59,7 @@ impl Default for Mouse {
 pub struct Processor<N> {
     key_bindings: Vec<KeyBinding>,
     mouse_bindings: Vec<MouseBinding>,
+    print_events: bool,
     notifier: N,
     mouse: Mouse,
     resize_tx: mpsc::Sender<(u32, u32)>,
@@ -83,6 +85,7 @@ impl<N: Notify> Processor<N> {
     pub fn new(
         notifier: N,
         resize_tx: mpsc::Sender<(u32, u32)>,
+        options: &Options,
         config: &Config,
         ref_test: bool,
         size_info: SizeInfo,
@@ -90,6 +93,7 @@ impl<N: Notify> Processor<N> {
         Processor {
             key_bindings: config.key_bindings().to_vec(),
             mouse_bindings: config.mouse_bindings().to_vec(),
+            print_events: options.print_events,
             notifier: notifier,
             resize_tx: resize_tx,
             ref_test: ref_test,
@@ -184,6 +188,9 @@ impl<N: Notify> Processor<N> {
             // Convenience macro which curries most arguments to handle_event.
             macro_rules! process {
                 ($event:expr) => {
+                    if self.print_events {
+                        err_println!("glutin event: {:?}", $event);
+                    }
                     Processor::handle_event(
                         &mut processor,
                         $event,

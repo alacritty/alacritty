@@ -16,6 +16,7 @@ use index::{Line, Column};
 
 /// Options specified on the command line
 pub struct Options {
+    pub print_events: bool,
     pub ref_test: bool,
     pub columns: Column,
     pub lines: Line,
@@ -25,6 +26,7 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Options {
         Options {
+            print_events: false,
             ref_test: false,
             columns: Column(80),
             lines: Line(24),
@@ -43,6 +45,7 @@ impl Options {
             match &arg[..] {
                 // Generate ref test
                 "--ref-test" => options.ref_test = true,
+                "--print-events" => options.print_events = true,
                 // Set dimensions
                 "-d" | "--dimensions" => {
                     args_iter.next()
