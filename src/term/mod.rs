@@ -15,7 +15,7 @@
 //! Exports the `Term` type which is a high-level API for the Grid
 use std::ops::{Deref, Range};
 use std::ptr;
-use std::cmp;
+use std::cmp::min;
 use std::io;
 
 use ansi::{self, Color, NamedColor, Attr, Handler};
@@ -168,8 +168,9 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 
 /// coerce val to be between min and max
 #[inline]
-fn limit<T: PartialOrd + Ord>(val: T, min: T, max: T) -> T {
-    cmp::min(cmp::max(min, val), max)
+fn limit<T: PartialOrd + Ord>(val: T, min_limit: T, max_limit: T) -> T {
+    use std::cmp::max;
+    min(max(min_limit, val), max_limit)
 }
 
 pub mod mode {
@@ -201,6 +202,13 @@ pub const TAB_SPACES: usize = 8;
 pub struct Term {
     /// The grid
     grid: Grid<Cell>,
+
+    /// Tracks if the next call to input will need to first handle wrapping. 
+    /// This is true after the last column is set with the input function. Any function that
+    /// implicitly sets the line or column needs to set this to false to avoid wrapping twice.
+    /// input_needs_wrap ensures that cursor.col is always valid for use into indexing into
+    /// arrays. Without it we wold have to sanitize cursor.col every time we used it.  
+    input_needs_wrap: bool, 
 
     /// Alternate grid
     alt_grid: Grid<Cell>,
@@ -271,8 +279,8 @@ impl SizeInfo {
         let line = Line(y / (self.cell_height as usize));
 
         Some(Point {
-            line: cmp::min(line, self.lines() - 1),
-            col: cmp::min(col, self.cols() - 1)
+            line: min(line, self.lines() - 1),
+            col: min(col, self.cols() - 1)
         })
     }
 }
@@ -297,6 +305,7 @@ impl Term {
 
         Term {
             dirty: false,
+            input_needs_wrap: false, 
             grid: grid,
             alt_grid: alt,
             alt: false,
@@ -348,7 +357,7 @@ impl Term {
             ) -> Option<Range<Column>> {
                 let line = &grid[line];
                 let line_length = line.line_length();
-                let line_end = cmp::min(line_length, cols.end + 1);
+                let line_end = min(line_length, cols.end + 1);
 
                 if cols.start >= line_end {
                     None
@@ -625,67 +634,74 @@ impl ansi::Handler for Term {
     #[inline]
     fn input(&mut self, c: char) {
 
-        if self.cursor.col == self.grid.num_cols() {
+        if self.input_needs_wrap {
+            
             debug_println!("wrapping");
+        
             {
                 let location = Point {
                     line: self.cursor.line,
-                    col: self.cursor.col - 1
+                    col: self.cursor.col
                 };
 
                 let cell = &mut self.grid[&location];
                 cell.flags.insert(cell::WRAPLINE);
             }
+           
             if (self.cursor.line + 1) >= self.scroll_region.end {
                 self.linefeed();
             } else {
                 self.cursor.line += 1;
             }
+           
             self.cursor.col = Column(0);
+            self.input_needs_wrap = false;
         }
 
-        unsafe {
-            if ::util::unlikely(self.cursor.line == self.grid.num_lines()) {
-                panic!("cursor fell off grid");
-            }
+        {
+            let cell = &mut self.grid[&self.cursor];
+            *cell = self.template_cell;
+            cell.c = c;
+        } 
+        
+        if (self.cursor.col + 1) < self.grid.num_cols() {
+            self.cursor.col += 1;
+        } else {
+            self.input_needs_wrap = true;
         }
 
-        let cell = &mut self.grid[&self.cursor];
-        *cell = self.template_cell;
-        cell.c = c;
-        self.cursor.col += 1;
     }
 
     #[inline]
     fn goto(&mut self, line: Line, col: Column) {
-        use std::cmp::min;
         debug_println!("goto: line={}, col={}", line, col);
         self.cursor.line = min(line, self.grid.num_lines() - 1);
         self.cursor.col = min(col, self.grid.num_cols() - 1);
+        self.input_needs_wrap = false;
     }
 
     #[inline]
     fn goto_line(&mut self, line: Line) {
-        use std::cmp::min;
         debug_println!("goto_line: {}", line);
         self.cursor.line = min(line, self.grid.num_lines() - 1);
+        self.input_needs_wrap = false;
     }
 
     #[inline]
     fn goto_col(&mut self, col: Column) {
-        use std::cmp::min;
         debug_println!("goto_col: {}", col);
         self.cursor.col = min(col, self.grid.num_cols() - 1);
+        self.input_needs_wrap = false;
     }
 
     #[inline]
     fn insert_blank(&mut self, count: Column) {
         // Ensure inserting within terminal bounds
-        let col = limit(self.cursor.col, Column(0), self.grid.num_cols()); 
-        let count = ::std::cmp::min(count, self.size_info.cols() - col);
+        
+        let count = min(count, self.size_info.cols() - self.cursor.col);
 
-        let source = col;
-        let destination = col + count;
+        let source = self.cursor.col;
+        let destination = self.cursor.col + count;
         let num_cells = (self.size_info.cols() - destination).0;
 
         let line = self.cursor.line; // borrowck
@@ -709,30 +725,28 @@ impl ansi::Handler for Term {
     #[inline]
     fn move_up(&mut self, lines: Line) {
         debug_println!("move_up: {}", lines);
-        self.cursor.line = limit(self.cursor.line - lines, Line(0), self.grid.num_lines() -1);
+        let lines = min(self.cursor.line, lines); 
+        self.cursor.line = min(self.cursor.line - lines, self.grid.num_lines() -1);
     }
 
     #[inline]
     fn move_down(&mut self, lines: Line) {
         debug_println!("move_down: {}", lines);
-        self.cursor.line = limit(self.cursor.line + lines, Line(0), self.grid.num_lines() - 1);
-        debug_println!("move_down - > lines: {}", self.cursor.line);
+        self.cursor.line = min(self.cursor.line + lines, self.grid.num_lines() - 1);
     }
 
     #[inline]
     fn move_forward(&mut self, cols: Column) {
         debug_println!("move_forward: {}", cols);
-        let col = limit(self.cursor.col, Column(0), self.grid.num_cols() - 1);
-        self.cursor.col = limit(col + cols, Column(0), self.grid.num_cols() - 1);
+        self.cursor.col = min(self.cursor.col + cols, self.grid.num_cols() - 1); 
+        self.input_needs_wrap = false;
     }
 
     #[inline]
     fn move_backward(&mut self, cols: Column) {
         debug_println!("move_backward: {}", cols);
-        let col = limit(self.cursor.col, Column(0), self.grid.num_cols() - 1);
-        if col >= cols { 
-            self.cursor.col = col - cols;
-        }
+        self.cursor.col -= min(self.cursor.col, cols); 
+        self.input_needs_wrap = false;
     }
 
     #[inline]
@@ -754,7 +768,7 @@ impl ansi::Handler for Term {
     fn put_tab(&mut self, mut count: i64) {
         debug_println!("put_tab: {}", count);
 
-        let mut col = limit(self.cursor.col, Column(0), self.grid.num_cols() - 1);
+        let mut col = self.cursor.col;
         while col < self.grid.num_cols() && count != 0 {
             count -= 1;
             loop {
@@ -766,6 +780,7 @@ impl ansi::Handler for Term {
         }
 
         self.cursor.col = col;
+        self.input_needs_wrap = false;
     }
 
     /// Backspace `count` characters
@@ -774,6 +789,7 @@ impl ansi::Handler for Term {
         debug_println!("backspace");
         if self.cursor.col > Column(0) {
             self.cursor.col -= 1;
+            self.input_needs_wrap = false;
         }
     }
 
@@ -782,6 +798,7 @@ impl ansi::Handler for Term {
     fn carriage_return(&mut self) {
         debug_println!("carriage_return");
         self.cursor.col = Column(0);
+        self.input_needs_wrap = false;
     }
 
     /// Linefeed
@@ -849,8 +866,8 @@ impl ansi::Handler for Term {
     #[inline]
     fn erase_chars(&mut self, count: Column) {
         debug_println!("erase_chars: {}, {}", count, self.cursor.col);
-        let start = limit(self.cursor.col, Column(0), self.grid.num_cols() - 1);
-        let end = limit(start + count, Column(0), self.grid.num_cols() - 1);
+        let start = self.cursor.col;
+        let end = min(start + count, self.grid.num_cols() - 1);
 
         let row = &mut self.grid[self.cursor.line];
         let template = self.empty_cell;
@@ -862,10 +879,10 @@ impl ansi::Handler for Term {
     #[inline]
     fn delete_chars(&mut self, count: Column) {
         // Ensure deleting within terminal bounds
-        let count = ::std::cmp::min(count, self.size_info.cols());
-
-        let start = limit(self.cursor.col, Column(0), self.grid.num_cols() - 1);
-        let end = limit(self.cursor.col + count, Column(0), self.grid.num_cols() - 1);
+        let count = min(count, self.size_info.cols());
+        
+        let start = self.cursor.col;
+        let end = min(start + count, self.grid.num_cols() - 1);
         let n = (self.size_info.cols() - end).0;
 
         let line = self.cursor.line; // borrowck
@@ -911,7 +928,8 @@ impl ansi::Handler for Term {
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         debug_println!("clear_line: {:?}", mode);
         let template = self.empty_cell;
-        let col =  limit(self.cursor.col, Column(0), self.grid.num_cols() - 1); 
+        let col =  self.cursor.col; 
+        
         match mode {
             ansi::LineClearMode::Right => {
                 let row = &mut self.grid[self.cursor.line];
