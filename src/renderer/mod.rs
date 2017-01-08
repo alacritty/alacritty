@@ -803,12 +803,12 @@ impl<'a> RenderApi<'a> {
             // Get font key for cell
             // FIXME this is super inefficient.
             let mut font_key = glyph_cache.font_key;
-            if cell.flags.contains(cell::BOLD) {
+            if !cell.c.is_ascii() {
+                font_key = glyph_cache.non_ascii_key;
+            } else if cell.flags.contains(cell::BOLD) {
                 font_key = glyph_cache.bold_key;
             } else if cell.flags.contains(cell::ITALIC) {
                 font_key = glyph_cache.italic_key;
-            } else if !cell.c.is_ascii() {
-                font_key = glyph_cache.non_ascii_key;
             }
 
             let glyph_key = GlyphKey {
