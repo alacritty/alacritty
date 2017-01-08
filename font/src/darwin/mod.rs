@@ -111,7 +111,8 @@ impl ::std::fmt::Display for Error {
                 write!(f, "Glyph not found for char {:?}", c)
             },
             Error::MissingFont(ref desc) => {
-                write!(f, "Couldn't find a font with {}", desc)
+                write!(f, "Couldn't find a font with {}\
+                       \n\tPlease check the font config in your alacritty.yml.", desc)
             },
             Error::FontNotLoaded => {
                 f.write_str("Tried to use a font that hasn't been loaded")
