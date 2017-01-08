@@ -475,13 +475,23 @@ impl Term {
 
         let old_cols = self.size_info.cols();
         let old_lines = self.size_info.lines();
-        let num_cols = size.cols();
-        let num_lines = size.lines();
+        let mut num_cols = size.cols();
+        let mut num_lines = size.lines();
 
         self.size_info = size;
 
         if old_cols == num_cols && old_lines == num_lines {
             return;
+        }
+
+        // Should not allow less than 1 col, causes all sorts of checks to be required. 
+        if num_cols <= Column(1) {
+            num_cols = Column(2); 
+        }
+
+        // Should not allow less than 1 line, causes all sorts of checks to be required. 
+        if num_lines <= Line(1) {
+            num_lines = Line(2); 
         }
 
         // Scroll up to keep cursor and as much context as possible in grid.
@@ -513,10 +523,12 @@ impl Term {
 
         self.tabs[0] = false;
 
-        // Make sure bottom of terminal is clear
-        let template = self.empty_cell;
-        self.grid.clear_region((self.cursor.line).., |c| c.reset(&template));
-        self.alt_grid.clear_region((self.cursor.line).., |c| c.reset(&template));
+        if num_lines > old_lines {
+            // Make sure bottom of terminal is clear
+            let template = self.empty_cell;
+            self.grid.clear_region((self.cursor.line + 1).., |c| c.reset(&template));
+            self.alt_grid.clear_region((self.cursor.line + 1).., |c| c.reset(&template));
+        }
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();
