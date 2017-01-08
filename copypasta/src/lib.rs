@@ -4,6 +4,9 @@
 #[cfg(target_os = "macos")]
 #[macro_use] extern crate objc;
 
+#[cfg(target_os = "linux")] extern crate xcb;
+#[cfg(target_os = "linux")] extern crate xcb_util;
+
 /// Types that can get the system clipboard contents
 pub trait Load : Sized {
     /// Errors encountered when working with a clipboard. Each implementation is
