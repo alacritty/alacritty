@@ -812,7 +812,8 @@ impl Config {
     /// The config file is loaded from the first file it finds in this list of paths
     ///
     /// 1. $XDG_CONFIG_HOME/alacritty/alacritty.yml
-    /// 2. $HOME/.config/alacritty/alacritty.yml
+    /// 2. $XDG_CONFIG_HOME/alacritty.yml
+    /// 3. $HOME/.config/alacritty/alacritty.yml
     pub fn load() -> Result<Config> {
         let home = env::var("HOME")?;
 
@@ -820,6 +821,11 @@ impl Config {
         let path = ::xdg::BaseDirectories::with_prefix("alacritty")
             .ok()
             .and_then(|xdg| xdg.find_config_file("alacritty.yml"))
+            .or_else(|| {
+                ::xdg::BaseDirectories::new().ok().and_then(|fallback| {
+                    fallback.find_config_file("alacritty.yml")
+                })
+            })
             .unwrap_or_else(|| {
                 // Fallback path: $HOME/.config/alacritty/alacritty.yml
                 let mut alt_path = PathBuf::from(&home);
