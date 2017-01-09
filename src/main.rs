@@ -146,6 +146,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     let mut processor = event::Processor::new(
         event_loop::Notifier(loop_tx),
         display.resize_channel(),
+        &options,
         &config,
         options.ref_test,
         display.size().to_owned(),
