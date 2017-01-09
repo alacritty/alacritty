@@ -627,7 +627,9 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                         36 => Attr::Foreground(Color::Named(NamedColor::Cyan)),
                         37 => Attr::Foreground(Color::Named(NamedColor::White)),
                         38 => {
-                            if let Some(color) = parse_color(&args[i..], &mut i) {
+                            let mut start = 0;
+                            if let Some(color) = parse_color(&args[i..], &mut start) {
+                                i += start;
                                 Attr::Foreground(color)
                             } else {
                                 break;
@@ -643,7 +645,9 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                         46 => Attr::Background(Color::Named(NamedColor::Cyan)),
                         47 => Attr::Background(Color::Named(NamedColor::White)),
                         48 =>  {
-                            if let Some(color) = parse_color(&args[i..], &mut i) {
+                            let mut start = 0;
+                            if let Some(color) = parse_color(&args[i..], &mut start) {
+                                i += start;
                                 Attr::Background(color)
                             } else {
                                 break;
