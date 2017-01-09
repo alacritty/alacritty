@@ -11,8 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::mem;
-
 use ansi::{NamedColor, Color};
 use grid;
 use index::Column;
@@ -97,11 +95,6 @@ impl Cell {
     pub fn reset(&mut self, template: &Cell) {
         // memcpy template to self
         *self = *template;
-    }
-
-    #[inline]
-    pub fn swap_fg_and_bg(&mut self) {
-        mem::swap(&mut self.fg, &mut self.bg);
     }
 }
 
