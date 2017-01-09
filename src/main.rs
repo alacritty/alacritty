@@ -13,8 +13,36 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
+<<<<<<< HEAD
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 #![cfg_attr(feature = "clippy", feature(plugin))]
+=======
+#![feature(question_mark)]
+#![feature(range_contains)]
+#![feature(inclusive_range_syntax)]
+#![feature(drop_types_in_const)]
+#![feature(unicode)]
+#![feature(step_trait)]
+#![feature(custom_derive, plugin)]
+#![plugin(serde_macros)]
+#![feature(core_intrinsics)]
+
+extern crate cgmath;
+extern crate errno;
+extern crate font;
+extern crate glutin;
+extern crate libc;
+extern crate notify;
+extern crate parking_lot;
+extern crate serde;
+extern crate serde_yaml;
+extern crate vte;
+extern crate crossbeam;
+extern crate pc_buffer;
+
+#[macro_use]
+extern crate bitflags;
+>>>>>>> refs/remotes/origin/pc-buffer
 
 #[macro_use]
 extern crate alacritty;
@@ -169,8 +197,65 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();
 
+<<<<<<< HEAD
     // Wait for the I/O thread thread to finish
     let _ = io_thread.join();
+=======
+struct PtyReader;
+
+impl PtyReader {
+    pub fn spawn<R>(terminal: Arc<PriorityMutex<Term>>,
+                    mut pty: R,
+                    proxy: ::glutin::WindowProxy,
+                    signal_flag: Flag)
+                    -> std::thread::JoinHandle<()>
+        where R: std::io::Read + Send + 'static
+    {
+        thread::spawn_named("pty reader", move || {
+            let mut buf: [u8; 65_536] = unsafe { ::std::mem::uninitialized() };
+            let (mut producer, mut consumer) = pc_buffer::pair(&mut buf);
+
+            crossbeam::scope(|scope| {
+                let _handle = scope.spawn(move || {
+                    let mut pty_parser = ansi::Processor::new();
+                    while let Some(chunk) = consumer.next() {
+                        let mut terminal = terminal.lock_high();
+                        for byte in &chunk[..] {
+                            pty_parser.advance(&mut *terminal, *byte);
+                        }
+
+                        terminal.dirty = true;
+
+                        // Only wake up the event loop if it hasn't already been
+                        // signaled. This is a really important optimization
+                        // because waking up the event loop redundantly burns *a
+                        // lot* of cycles.
+                        if !signal_flag.get() {
+                            proxy.wakeup_event_loop();
+                            signal_flag.set(true);
+                        }
+                    }
+                });
+
+                loop {
+                    match producer.produce(|buf| pty.read(buf)) {
+                        Ok(0) => break,
+                        Ok(_) => (),
+                        Err(err) => {
+                            println!("error! {:?}", err);
+                            break;
+                        }
+                    }
+                }
+
+                drop(producer);
+            });
+
+            println!("pty reader stopped");
+        })
+    }
+}
+>>>>>>> refs/remotes/origin/pc-buffer
 
     Ok(())
 }

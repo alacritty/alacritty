@@ -4,8 +4,12 @@ version = "0.1.0"
 dependencies = [
  "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cgmath 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+<<<<<<< HEAD
  "clippy 0.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "copypasta 0.0.1",
+=======
+ "crossbeam 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
+>>>>>>> refs/remotes/origin/pc-buffer
  "errno 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "font 0.1.0",
  "gl_generator 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -14,11 +18,19 @@ dependencies = [
  "libc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "mio 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "notify 2.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
+<<<<<<< HEAD
  "parking_lot 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 0.8.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 0.8.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 0.8.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_yaml 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+=======
+ "parking_lot 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pc-buffer 0.1.0",
+ "serde 0.8.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_macros 0.8.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_yaml 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+>>>>>>> refs/remotes/origin/pc-buffer
  "vte 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "xdg 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -711,8 +723,20 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "phf"
 version = "0.7.20"
+=======
+name = "pc-buffer"
+version = "0.1.0"
+dependencies = [
+ "crossbeam 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "pkg-config"
+version = "0.3.8"
+>>>>>>> refs/remotes/origin/pc-buffer
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "phf_shared 0.7.20 (registry+https://github.com/rust-lang/crates.io-index)",
