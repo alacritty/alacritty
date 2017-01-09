@@ -34,9 +34,10 @@ fn true_bool() -> bool {
 ///
 /// The first 16 entries are the standard ansi named colors. Items 16..232 are
 /// the color cube.  Items 233..256 are the grayscale ramp. Finally, item 256 is
-/// the configured foreground color, and item 257 is the configured background
-/// color.
-pub struct ColorList([Rgb; 258]);
+/// the configured foreground color, item 257 is the configured background
+/// color, item 258 is the cursor foreground color, item 259 is the cursor
+//background color.
+pub struct ColorList([Rgb; 260]);
 
 impl fmt::Debug for ColorList {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -88,6 +89,10 @@ impl ColorList {
         // Foreground and background
         self[ansi::NamedColor::Foreground] = colors.primary.foreground;
         self[ansi::NamedColor::Background] = colors.primary.background;
+
+        // Foreground and background for custom cursor colors
+        self[ansi::NamedColor::CursorForeground] = colors.cursor.foreground;
+        self[ansi::NamedColor::CursorBackground] = colors.cursor.background;
     }
 
     fn fill_cube(&mut self) {
@@ -218,7 +223,11 @@ pub struct Config {
     #[serde(default)]
     render_timer: bool,
 
-    /// Should show render timer
+    /// Should use custom cursor colors
+    #[serde(default)]
+    custom_cursor_colors: bool,
+
+    /// Should draw bold text with brighter colors intead of bold font
     #[serde(default="true_bool")]
     draw_bold_text_with_bright_colors: bool,
 
@@ -266,6 +275,7 @@ impl Default for Config {
             dpi: Default::default(),
             font: Default::default(),
             render_timer: Default::default(),
+            custom_cursor_colors: false,
             colors: Default::default(),
             key_bindings: Vec::new(),
             mouse_bindings: Vec::new(),
@@ -668,6 +678,7 @@ pub enum Error {
 #[derive(Debug, Deserialize)]
 pub struct Colors {
     primary: PrimaryColors,
+    cursor: PrimaryColors,
     normal: AnsiColors,
     bright: AnsiColors,
 }
@@ -686,6 +697,10 @@ impl Default for Colors {
             primary: PrimaryColors {
                 background: Rgb { r: 0, g: 0, b: 0 },
                 foreground: Rgb { r: 0xea, g: 0xea, b: 0xea },
+            },
+            cursor: PrimaryColors {
+                foreground: Rgb { r: 0, g: 0, b: 0 },
+                background: Rgb { r: 0xff, g: 0xff, b: 0xff },
             },
             normal: AnsiColors {
                 black: Rgb {r: 0x00, g: 0x00, b: 0x00},
@@ -933,6 +948,11 @@ impl Config {
         self.font.use_thin_strokes
     }
 
+    /// show cursor as inverted
+    #[inline]
+    pub fn custom_cursor_colors(&self) -> bool {
+        self.custom_cursor_colors
+    }
 
     pub fn path(&self) -> Option<&Path> {
         self.config_path

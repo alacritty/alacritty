@@ -13,6 +13,7 @@
 // limitations under the License.
 //
 //! Exports the `Term` type which is a high-level API for the Grid
+use std::mem;
 use std::ops::{Deref, Range, Index, IndexMut};
 use std::ptr;
 use std::cmp::min;
@@ -22,6 +23,7 @@ use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset
 use grid::{Grid, ClearRegion, ToRange};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{Span, Selection};
+use config::{Config};
 
 pub mod cell;
 pub use self::cell::Cell;
@@ -42,6 +44,7 @@ pub struct RenderableCellsIter<'a> {
     line: Line,
     column: Column,
     selection: Option<RangeInclusive<index::Linear>>,
+    cursor_original: Option<IndexedCell>
 }
 
 impl<'a> RenderableCellsIter<'a> {
@@ -54,6 +57,7 @@ impl<'a> RenderableCellsIter<'a> {
         cursor: &'b Point,
         mode: TermMode,
         selection: &Selection,
+        custom_cursor_colors: bool,
     ) -> RenderableCellsIter<'b> {
         let selection = selection.span()
             .map(|span| span.to_range(grid.num_cols()));
@@ -65,14 +69,27 @@ impl<'a> RenderableCellsIter<'a> {
             line: Line(0),
             column: Column(0),
             selection: selection,
-        }.initialize()
+            cursor_original: None,
+        }.initialize(custom_cursor_colors)
     }
 
-    fn initialize(self) -> Self {
+    fn initialize(mut self, custom_cursor_colors: bool) -> Self {
         if self.cursor_is_visible() {
-            self.grid[self.cursor].swap_fg_and_bg();
-        }
+            self.cursor_original = Some(IndexedCell {
+                line:   self.cursor.line,
+                column: self.cursor.col,
+                inner:  self.grid[self.cursor]
+            });
+            if custom_cursor_colors {
+                let cell = &mut self.grid[self.cursor];
+                cell.fg = Color::Named(NamedColor::CursorForeground);
+                cell.bg = Color::Named(NamedColor::CursorBackground);
 
+            } else {
+                let cell = &mut self.grid[self.cursor];
+                mem::swap(&mut cell.fg, &mut cell.bg);
+            }
+        }
         self
     }
 
@@ -87,7 +104,9 @@ impl<'a> Drop for RenderableCellsIter<'a> {
     /// Resets temporary render state on the grid
     fn drop(&mut self) {
         if self.cursor_is_visible() {
-            self.grid[self.cursor].swap_fg_and_bg();
+            if let Some(ref original) = self.cursor_original {
+                self.grid[self.cursor] = original.inner;
+            }
         }
     }
 }
@@ -327,6 +346,8 @@ pub struct Term {
     empty_cell: Cell,
 
     pub dirty: bool,
+
+    custom_cursor_colors: bool,
 }
 
 /// Terminal size info
@@ -377,7 +398,7 @@ impl Term {
         self.next_title.take()
     }
 
-    pub fn new(size: SizeInfo) -> Term {
+    pub fn new(config : &Config, size: SizeInfo) -> Term {
         let template = Cell::default();
 
         let num_cols = size.cols();
@@ -411,7 +432,12 @@ impl Term {
             size_info: size,
             template_cell: template,
             empty_cell: template,
+            custom_cursor_colors: config.custom_cursor_colors(),
         }
+    }
+
+    pub fn update_config(&mut self, config: &Config) {
+        self.custom_cursor_colors = config.custom_cursor_colors()
     }
 
     #[inline]
@@ -564,7 +590,7 @@ impl Term {
     /// background color.  Cells with an alternate background color are
     /// considered renderable as are cells with any text content.
     pub fn renderable_cells(&mut self, selection: &Selection) -> RenderableCellsIter {
-        RenderableCellsIter::new(&mut self.grid, &self.cursor, self.mode, selection)
+        RenderableCellsIter::new(&mut self.grid, &self.cursor, self.mode, selection, self.custom_cursor_colors)
     }
 
     /// Resize terminal to new dimensions
@@ -1248,7 +1274,7 @@ mod tests {
             cell_width: 3.0,
             cell_height: 3.0,
         };
-        let mut term = Term::new(size);
+        let mut term = Term::new(&Default::default(), size);
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0,
                                StandardCharset::SpecialCharacterAndLineDrawing);
@@ -1306,7 +1332,7 @@ mod benches {
         let mut grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
         let size: SizeInfo = json::from_str(&serialized_size).unwrap();
 
-        let mut terminal = Term::new(size);
+        let mut terminal = Term::new(&Default::default(), size);
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {

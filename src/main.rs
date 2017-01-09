@@ -95,7 +95,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let terminal = Term::new(display.size().to_owned());
+    let terminal = Term::new(&config, display.size().to_owned());
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Create the pty
@@ -156,6 +156,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
                 config = new_config;
                 display.update_config(&config);
                 processor.update_config(&config);
+                terminal.update_config(&config);
                 terminal.dirty = true;
             });
 
