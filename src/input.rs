@@ -218,10 +218,6 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
         }
     }
 
-    pub fn mouse_moved_cells(&mut self) {
-
-    }
-
     pub fn normal_mouse_report(&mut self, button: u8) {
         let (line, column) = (self.ctx.mouse.line, self.ctx.mouse.column);
 
