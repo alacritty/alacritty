@@ -144,9 +144,11 @@ file as the following paths:
 1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
 2. `$XDG_CONFIG_HOME/alacritty.yml`
 3. `$HOME/.config/alacritty/alacritty.yml`
+4. `$HOME/.alacritty.yml`
 
-If neither path 1 or 2 are found then `$HOME/.config/alacritty/alacritty.yml`
-is created as or once alacritty is first run.
+If neither of these paths are found then `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
+is created once alacritty is first run. On most systems this often defaults
+to `$HOME/.config/alacritty/alacritty.yml`.
 
 Many configuration options will take effect immediately upon saving changes to
 the config file. The only exception is the `font` and `dpi` section which

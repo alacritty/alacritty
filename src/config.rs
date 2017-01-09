@@ -814,6 +814,7 @@ impl Config {
     /// 1. $XDG_CONFIG_HOME/alacritty/alacritty.yml
     /// 2. $XDG_CONFIG_HOME/alacritty.yml
     /// 3. $HOME/.config/alacritty/alacritty.yml
+    /// 4. $HOME/.alacritty.yml
     pub fn load() -> Result<Config> {
         let home = env::var("HOME")?;
 
@@ -826,11 +827,17 @@ impl Config {
                     fallback.find_config_file("alacritty.yml")
                 })
             })
-            .unwrap_or_else(|| {
+            .or_else(|| {
                 // Fallback path: $HOME/.config/alacritty/alacritty.yml
-                let mut alt_path = PathBuf::from(&home);
-                alt_path.push(".config/alacritty/alacritty.yml");
-                alt_path
+                let fallback = PathBuf::from(&home).join(".config/alacritty/alacritty.yml");
+                match fallback.exists() {
+                    true => Some(fallback),
+                    false => None
+                }
+            })
+            .unwrap_or_else(|| {
+                // Fallback path: $HOME/.alacritty.yml
+                PathBuf::from(&home).join(".alacritty.yml")
             });
 
         Config::load_from(path)
