@@ -368,9 +368,11 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
         // Didn't process a binding; print the provided character
         if let Some(mut string) = string {
             // from ST
+            println!("process_key got string={:?}, mods={:?}, key={:?}", string, mods, key);
             if string.len() == 1 && mods.contains(mods::ALT) {
                 string.insert(0, '\x1b');
             }
+            println!("process_key sending {:?}", string);
 
             self.ctx.notifier.notify(string.into_bytes());
             self.ctx.selection.clear();
