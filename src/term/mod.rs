@@ -13,12 +13,12 @@
 // limitations under the License.
 //
 //! Exports the `Term` type which is a high-level API for the Grid
-use std::ops::{Deref, Range};
+use std::ops::{Deref, Range, Index, IndexMut};
 use std::ptr;
 use std::cmp::min;
 use std::io;
 
-use ansi::{self, Color, NamedColor, Attr, Handler};
+use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset};
 use grid::{Grid, ClearRegion, ToRange};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{Span, Selection};
@@ -200,6 +200,79 @@ pub use self::mode::TermMode;
 
 pub const TAB_SPACES: usize = 8;
 
+trait CharsetMapping {
+    fn map(&self, c: char) -> char {
+        c
+    }
+}
+
+impl CharsetMapping for StandardCharset {
+    /// Switch/Map character to the active charset. Ascii is the common case and
+    /// for that we want to do as little as possible.
+    #[inline]
+    fn map(&self, c: char) -> char {
+        match *self {
+            StandardCharset::Ascii => c,
+            StandardCharset::SpecialCharacterAndLineDrawing =>
+                match c {
+                    '`' => '◆',
+                    'a' => '▒',
+                    'b' => '\t',
+                    'c' => '\u{000c}',
+                    'd' => '\r',
+                    'e' => '\n',
+                    'f' => '°',
+                    'g' => '±',
+                    'h' => '\u{2424}',
+                    'i' => '\u{000b}',
+                    'j' => '┘',
+                    'k' => '┐',
+                    'l' => '┌',
+                    'm' => '└',
+                    'n' => '┼',
+                    'o' => '⎺',
+                    'p' => '⎻',
+                    'q' => '─',
+                    'r' => '⎼',
+                    's' => '⎽',
+                    't' => '├',
+                    'u' => '┤',
+                    'v' => '┴',
+                    'w' => '┬',
+                    'x' => '│',
+                    'y' => '≤',
+                    'z' => '≥',
+                    '{' => 'π',
+                    '|' => '≠',
+                    '}' => '£',
+                    '~' => '·',
+                    _ => c
+                },
+        }
+    }
+}
+
+struct Charsets([StandardCharset; 4]);
+
+impl Charsets {
+    fn new() -> Charsets {
+        Charsets([StandardCharset::Ascii; 4])
+    }
+}
+
+impl Index<CharsetIndex> for Charsets {
+    type Output = StandardCharset;
+    fn index(&self, index: CharsetIndex) -> &StandardCharset {
+        &self.0[index as usize]
+    }
+}
+
+impl IndexMut<CharsetIndex> for Charsets {
+    fn index_mut(&mut self, index: CharsetIndex) -> &mut StandardCharset {
+        &mut self.0[index as usize]
+    }
+}
+
 pub struct Term {
     /// The grid
     grid: Grid<Cell>,
@@ -227,6 +300,13 @@ pub struct Term {
 
     /// Alt cursor
     alt_cursor: Point,
+
+    /// Currently configured graphic character sets
+    charsets: Charsets,
+
+    /// The graphic character set, out of `charsets`, which ASCII is currently
+    /// being mapped to
+    active_charset: CharsetIndex,
 
     /// Tabstops
     tabs: Vec<bool>,
@@ -323,6 +403,8 @@ impl Term {
             alt: false,
             cursor: Point::default(),
             alt_cursor: Point::default(),
+            active_charset: CharsetIndex::G0,
+            charsets: Charsets::new(),
             tabs: tabs,
             mode: Default::default(),
             scroll_region: scroll_region,
@@ -695,7 +777,7 @@ impl ansi::Handler for Term {
         {
             let cell = &mut self.grid[&self.cursor];
             *cell = self.template_cell;
-            cell.c = c;
+            cell.c = self.charsets[self.active_charset].map(c);
         }
 
         if (self.cursor.col + 1) < self.grid.num_cols() {
@@ -1109,6 +1191,18 @@ impl ansi::Handler for Term {
         debug_println!("unset mode::APP_KEYPAD");
         self.mode.remove(mode::APP_KEYPAD);
     }
+
+    #[inline]
+    fn configure_charset(&mut self, index: CharsetIndex, charset: StandardCharset) {
+        debug_println!("designate {:?} character set as {:?}", index, charset);
+        self.charsets[index] = charset;
+    }
+
+    #[inline]
+    fn set_active_charset(&mut self, index: CharsetIndex) {
+        debug_println!("Activate {:?} character set", index);
+        self.active_charset = index;
+    }
 }
 
 #[cfg(test)]
@@ -1116,11 +1210,12 @@ mod tests {
     extern crate serde_json;
     extern crate test;
 
-    use super::limit;
+    use super::{Term, limit, SizeInfo};
 
     use grid::Grid;
-    use index::{Line, Column};
+    use index::{Point, Line, Column};
     use term::{Cell};
+    use ansi::{Handler, CharsetIndex, StandardCharset};
 
     /// Check that the grid can be serialized back and forth losslessly
     ///
@@ -1143,6 +1238,23 @@ mod tests {
         assert_eq!(limit(5, 1, 10), 5);
         assert_eq!(limit(5, 6, 10), 6);
         assert_eq!(limit(5, 1, 4), 4);
+    }
+
+    #[test]
+    fn input_line_drawing_character() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+        };
+        let mut term = Term::new(size);
+        let cursor = Point::new(Line(0), Column(0));
+        term.configure_charset(CharsetIndex::G0,
+                               StandardCharset::SpecialCharacterAndLineDrawing);
+        term.input('a');
+
+        assert_eq!(term.grid()[&cursor].c, '▒');
     }
 }
 
