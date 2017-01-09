@@ -33,6 +33,8 @@ pub struct Cell {
     pub c: char,
     pub fg: Color,
     pub bg: Color,
+    pub undercursorfg: Color,
+    pub undercursorbg: Color,
     pub flags: Flags,
 }
 
@@ -82,6 +84,8 @@ impl Cell {
             c: c.into(),
             bg: bg,
             fg: fg,
+            undercursorbg: bg,
+            undercursorfg: fg,
             flags: Flags::empty(),
         }
     }
@@ -102,6 +106,20 @@ impl Cell {
     #[inline]
     pub fn swap_fg_and_bg(&mut self) {
         mem::swap(&mut self.fg, &mut self.bg);
+    }
+
+    #[inline]
+    pub fn set_cursor(&mut self) {
+        self.undercursorfg = self.fg;
+        self.undercursorbg = self.bg;
+        self.fg = Color::Named(NamedColor::CursorForeground);
+        self.bg = Color::Named(NamedColor::CursorBackground);
+    }
+
+    #[inline]
+    pub fn unset_cursor(&mut self) {
+        self.fg = self.undercursorfg;
+        self.bg = self.undercursorbg;
     }
 }
 
