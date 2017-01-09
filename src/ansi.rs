@@ -238,6 +238,18 @@ pub trait Handler {
 
     /// DECKPNM - Set keypad to numeric mode (digits intead of ESCape seq)
     fn unset_keypad_application_mode(&mut self) {}
+
+    /// Set one of the graphic character sets, G0 to G3, as the active charset.
+    ///
+    /// 'Invoke' one of G0 to G3 in the GL area. Also refered to as shift in,
+    /// shift out and locking shift depending on the set being activated
+    fn set_active_charset(&mut self, CharsetIndex) {}
+
+    /// Assign a graphic character set to G0, G1, G2 or G3
+    ///
+    /// 'Designate' a graphic character set as one of G0 to G3, so that it can
+    /// later be 'invoked' by `set_active_charset`
+    fn configure_charset(&mut self, CharsetIndex, StandardCharset) {}
 }
 
 /// Terminal modes
@@ -436,6 +448,23 @@ pub enum Attr {
     Background(Color),
 }
 
+/// Identifiers which can be assigned to a graphic character set
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CharsetIndex {
+    /// Default set, is designated as ASCII at startup
+    G0,
+    G1,
+    G2,
+    G3,
+}
+
+/// Standard or common character sets which can be designated as G0-G3
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StandardCharset {
+    Ascii,
+    SpecialCharacterAndLineDrawing,
+}
+
 impl<'a, H, W> vte::Perform for Performer<'a, H, W>
     where H: Handler + TermInfo + 'a,
           W: io::Write + 'a
@@ -454,6 +483,8 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             C0::LF | C0::VT | C0::FF => self.handler.linefeed(),
             C0::BEL => self.handler.bell(),
             C0::SUB => self.handler.substitute(),
+            C0::SI => self.handler.set_active_charset(CharsetIndex::G0),
+            C0::SO => self.handler.set_active_charset(CharsetIndex::G1),
             C1::NEL => self.handler.newline(),
             C1::HTS => self.handler.set_horizontal_tabstop(),
             C1::DECID => self.handler.identify_terminal(self.writer),
@@ -742,19 +773,41 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
         _ignore: bool,
         byte: u8
     ) {
+        macro_rules! unhandled {
+            () => {{
+                err_println!("[unhandled] esc_dispatch params={:?}, ints={:?}, byte={:?} ({:02x})",
+                             params, intermediates, byte as char, byte);
+                return;
+            }}
+        }
+
+        macro_rules! configure_charset {
+            ($charset:path) => {{
+                let index: CharsetIndex = match intermediates.first().cloned() {
+                    Some(b'(') => CharsetIndex::G0,
+                    Some(b')') => CharsetIndex::G1,
+                    Some(b'*') => CharsetIndex::G2,
+                    Some(b'+') => CharsetIndex::G3,
+                    _ => unhandled!(),
+                };
+                self.handler.configure_charset(index, $charset)
+            }}
+        }
+
         match byte {
+            b'B' => configure_charset!(StandardCharset::Ascii),
             b'D' => self.handler.linefeed(),
             b'E' => self.handler.newline(),
             b'H' => self.handler.set_horizontal_tabstop(),
             b'M' => self.handler.reverse_index(),
             b'Z' => self.handler.identify_terminal(self.writer),
             b'c' => self.handler.reset_state(),
+            b'0' => configure_charset!(StandardCharset::SpecialCharacterAndLineDrawing),
             b'7' => self.handler.save_cursor_position(),
             b'8' => self.handler.restore_cursor_position(),
             b'=' => self.handler.set_keypad_application_mode(),
             b'>' => self.handler.unset_keypad_application_mode(),
-            _ => err_println!("[unhandled] esc_dispatch params={:?}, ints={:?}, byte={:?} ({:02x})",
-                              params, intermediates, byte as char, byte),
+            _ => unhandled!(),
         }
     }
 }
@@ -969,7 +1022,7 @@ pub mod C1 {
 mod tests {
     use std::io;
     use index::{Line, Column};
-    use super::{Processor, Handler, Attr, TermInfo, Color};
+    use super::{Processor, Handler, Attr, TermInfo, Color, StandardCharset, CharsetIndex};
     use ::Rgb;
 
     /// The /dev/null of io::Write
@@ -1073,5 +1126,68 @@ mod tests {
         for byte in &BYTES[..] {
             parser.advance(&mut handler, *byte, &mut Void);
         }
+    }
+
+    struct CharsetHandler {
+        index: CharsetIndex,
+        charset: StandardCharset,
+    }
+
+    impl Default for CharsetHandler {
+        fn default() -> CharsetHandler {
+            CharsetHandler {
+                index: CharsetIndex::G0,
+                charset: StandardCharset::Ascii,
+            }
+        }
+    }
+
+    impl Handler for CharsetHandler {
+        fn configure_charset(&mut self, index: CharsetIndex, charset: StandardCharset) {
+            self.index = index;
+            self.charset = charset;
+        }
+
+        fn set_active_charset(&mut self, index: CharsetIndex) {
+            self.index = index;
+        }
+    }
+
+    impl TermInfo for CharsetHandler {
+        fn lines(&self) -> Line { Line(200) }
+        fn cols(&self) -> Column { Column(90) }
+    }
+
+    #[test]
+    fn parse_designate_g0_as_line_drawing() {
+        static BYTES: &'static [u8] = &[0x1b, b'(', b'0'];
+        let mut parser = Processor::new();
+        let mut handler = CharsetHandler::default();
+
+        for byte in &BYTES[..] {
+            parser.advance(&mut handler, *byte, &mut Void);
+        }
+
+        assert_eq!(handler.index, CharsetIndex::G0);
+        assert_eq!(handler.charset, StandardCharset::SpecialCharacterAndLineDrawing);
+    }
+
+    #[test]
+    fn parse_designate_g1_as_line_drawing_and_invoke() {
+        static BYTES: &'static [u8] = &[0x1b, 0x29, 0x30, 0x0e];
+        let mut parser = Processor::new();
+        let mut handler = CharsetHandler::default();
+
+        for byte in &BYTES[..3] {
+            parser.advance(&mut handler, *byte, &mut Void);
+        }
+
+        assert_eq!(handler.index, CharsetIndex::G1);
+        assert_eq!(handler.charset, StandardCharset::SpecialCharacterAndLineDrawing);
+
+        let mut handler = CharsetHandler::default();
+        parser.advance(&mut handler, BYTES[3], &mut Void);
+
+        assert_eq!(handler.index, CharsetIndex::G1);
     }
 }
