@@ -122,7 +122,7 @@ cargo build --release
 
 If all goes well, this should place a binary at `target/release/alacritty`.
 **BEFORE YOU RUN IT:** Install the config file as described below; otherwise,
-many things (such as arrow keys) would not work. If you're on macOS, you'll need
+many things (such as arrow keys) will not work. If you're on macOS, you'll need
 to change the `monospace` font family to something like `Menlo`.
 
 ### Desktop Entry
