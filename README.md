@@ -140,7 +140,7 @@ cp Alacritty.desktop ~/.local/share/applications
 Although it's possible the default configuration would work on your system,
 you'll probably end up wanting to customize it anyhow. There is an
 `alacritty.yml` at the git repository root. Copy this to either
-`$HOME/.alacritty.yml` or `$XDG_CONFIG_HOME/alacritty.yml` and run Alacritty.
+`$HOME/.config/alacritty.yml` or `$XDG_CONFIG_HOME/alacritty.yml` and run Alacritty.
 
 Many configuration options will take effect immediately upon saving changes to
 the config file. The only exception is the `font` and `dpi` section which
