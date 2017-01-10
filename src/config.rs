@@ -188,9 +188,13 @@ pub struct Config {
     #[serde(default)]
     colors: ColorList,
 
+    #[serde(default)]
+    option_as_meta: bool,
+
     /// Keybindings
     #[serde(default="default_key_bindings")]
     key_bindings: Vec<KeyBinding>,
+
 
     /// Bindings for the mouse
     #[serde(default="default_mouse_bindings")]
@@ -232,6 +236,7 @@ impl Default for Config {
             key_bindings: Vec::new(),
             mouse_bindings: Vec::new(),
             shell: None,
+            option_as_meta: false,
             config_path: None,
         }
     }
@@ -906,6 +911,11 @@ impl Config {
         self.shell
             .as_ref()
             .map(PathBuf::as_path)
+    }
+
+    #[inline]
+    pub fn option_as_meta(&self) -> bool {
+        self.option_as_meta
     }
 
     fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {

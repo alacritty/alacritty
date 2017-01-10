@@ -56,11 +56,12 @@ impl Default for Mouse {
 ///
 /// Stores some state from received events and dispatches actions when they are
 /// triggered.
-pub struct Processor<N> {
+pub struct Processor<N, E> {
     key_bindings: Vec<KeyBinding>,
     mouse_bindings: Vec<MouseBinding>,
     print_events: bool,
     notifier: N,
+    event_translator: E,
     mouse: Mouse,
     resize_tx: mpsc::Sender<(u32, u32)>,
     ref_test: bool,
@@ -71,30 +72,32 @@ pub struct Processor<N> {
 /// Notify that the terminal was resized
 ///
 /// Currently this just forwards the notice to the input processor.
-impl<N> OnResize for Processor<N> {
+impl<N, E> OnResize for Processor<N, E> {
     fn on_resize(&mut self, size: &SizeInfo) {
         self.size_info = size.to_owned();
     }
 }
 
-impl<N: Notify> Processor<N> {
+impl<N: Notify, E: EventTranslator> Processor<N, E> {
     /// Create a new event processor
     ///
     /// Takes a writer which is expected to be hooked up to the write end of a
     /// pty.
     pub fn new(
         notifier: N,
+        event_translator: E,
         resize_tx: mpsc::Sender<(u32, u32)>,
         options: &Options,
         config: &Config,
         ref_test: bool,
         size_info: SizeInfo,
-    ) -> Processor<N> {
+    ) -> Processor<N, E> {
         Processor {
             key_bindings: config.key_bindings().to_vec(),
             mouse_bindings: config.mouse_bindings().to_vec(),
             print_events: options.print_events,
             notifier: notifier,
+            event_translator: event_translator,
             resize_tx: resize_tx,
             ref_test: ref_test,
             mouse: Default::default(),
@@ -217,7 +220,8 @@ impl<N: Notify> Processor<N> {
                         mouse_bindings: &self.mouse_bindings[..]
                     };
 
-                    process!(event);
+                    let translated = self.event_translator.translate_event(event);
+                    process!(translated);
                 },
                 // Glutin guarantees the WaitEventsIterator never returns None.
                 None => unreachable!(),
@@ -234,5 +238,30 @@ impl<N: Notify> Processor<N> {
     pub fn update_config(&mut self, config: &Config) {
         self.key_bindings = config.key_bindings().to_vec();
         self.mouse_bindings = config.mouse_bindings().to_vec();
+    }
+}
+
+trait EventTranslator {
+    fn translate_event(self, glutin::Event) -> glutin::Event;
+}
+
+struct ModTranslator {
+    mods_to_match: glutin::Mods,
+    mods_to_add: glutin::Mods,
+}
+
+impl EventTranslator for ModTranslator {
+    fn translate_event(self, event: glutin::Event) -> glutin::Event {
+        match event {
+            glutin::Event::KeyboardInput(state, _code, key, mods, string) => {
+                if mods.intersects(self.mods_to_match) {
+                    mods |= self.mods_to_add;
+                    return glutin::Event::KeyboardInput(state, _code, key, mods, string)
+                } else {
+                    return event
+                }
+            }
+        }
+        return event
     }
 }
