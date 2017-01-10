@@ -148,7 +148,7 @@ impl Display {
 
         println!("device_pixel_ratio: {}", dpr);
 
-        let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr)?;
+        let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr, config.use_thin_strokes())?;
 
         // Create renderer
         let mut renderer = QuadRenderer::new(config, size)?;

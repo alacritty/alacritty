@@ -890,6 +890,12 @@ impl Config {
         self.render_timer
     }
 
+    #[inline]
+    pub fn use_thin_strokes(&self) -> bool {
+        self.font.use_thin_strokes
+    }
+
+
     pub fn path(&self) -> Option<&Path> {
         self.config_path
             .as_ref()
@@ -1034,6 +1040,9 @@ pub struct Font {
 
     /// Extra spacing per character
     offset: FontOffset,
+
+    #[serde(default="true_bool")]
+    use_thin_strokes: bool
 }
 
 fn default_bold_desc() -> FontDescription {
@@ -1082,6 +1091,7 @@ impl Default for Font {
             bold: FontDescription::new_with_family("Menlo"),
             italic: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
+            use_thin_strokes: true,
             offset: FontOffset {
                 x: 0.0,
                 y: 0.0
@@ -1098,6 +1108,7 @@ impl Default for Font {
             bold: FontDescription::new_with_family("monospace"),
             italic: FontDescription::new_with_family("monospace"),
             size: Size::new(11.0),
+            use_thin_strokes: false,
             offset: FontOffset {
                 // TODO should improve freetype metrics... shouldn't need such
                 // drastic offsets for the default!
