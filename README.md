@@ -86,7 +86,7 @@ command that should install all of them. If something is still found to be
 missing, please open an issue.
 
 ```sh
-dnf install freetype-devel fontconfig-devel xclip
+dnf install cmake freetype-devel fontconfig-devel xclip
 ```
 
 ##### openSUSE
@@ -96,7 +96,7 @@ a `zypper` command that should install all of them. If something is
 still found to be missing, please open an issue.
 
 ```sh
-zypper install freetype-devel fontconfig-devel xclip
+zypper install cmake freetype-devel fontconfig-devel xclip
 ```
 
 ##### Void Linux
