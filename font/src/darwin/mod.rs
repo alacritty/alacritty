@@ -78,6 +78,7 @@ pub struct Rasterizer {
     fonts: HashMap<FontKey, Font>,
     keys: HashMap<(FontDesc, Size), FontKey>,
     device_pixel_ratio: f32,
+    use_thin_strokes: bool,
 }
 
 /// Errors occurring when using the core text rasterizer
@@ -122,12 +123,13 @@ impl ::std::fmt::Display for Error {
 impl ::Rasterize for Rasterizer {
     type Err = Error;
 
-    fn new(_dpi_x: f32, _dpi_y: f32, device_pixel_ratio: f32) -> Result<Rasterizer, Error> {
+    fn new(_dpi_x: f32, _dpi_y: f32, device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {
         println!("device_pixel_ratio: {}", device_pixel_ratio);
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
             device_pixel_ratio: device_pixel_ratio,
+            use_thin_strokes: use_thin_strokes,
         })
     }
 
@@ -164,7 +166,7 @@ impl ::Rasterize for Rasterizer {
         self.fonts
             .get(&glyph.font_key)
             .ok_or(Error::FontNotLoaded)?
-            .get_glyph(glyph.c, scaled_size as _)
+            .get_glyph(glyph.c, scaled_size as _, self.use_thin_strokes)
     }
 }
 
@@ -357,7 +359,7 @@ impl Font {
         )
     }
 
-    pub fn get_glyph(&self, character: char, _size: f64) -> Result<RasterizedGlyph, Error> {
+    pub fn get_glyph(&self, character: char, _size: f64, use_thin_strokes: bool) -> Result<RasterizedGlyph, Error> {
         let glyph_index = self.glyph_index(character)
             .ok_or(Error::MissingGlyph(character))?;
 
@@ -402,9 +404,9 @@ impl Font {
 
         cg_context.fill_rect(context_rect);
 
-        // Uses thin strokes
-        // TODO make this configurable since it's undesirable on non-retina displays.
-        cg_context.set_font_smoothing_style(16);
+        if use_thin_strokes {
+            cg_context.set_font_smoothing_style(16);
+        }
 
         cg_context.set_allows_font_smoothing(true);
         cg_context.set_should_smooth_fonts(true);
