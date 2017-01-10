@@ -23,6 +23,7 @@ serde = "0.8"
 serde_yaml = "0.5"
 serde_derive = "0.8"
 vte = "0.1.2"
+<<<<<<< HEAD
 mio = "0.6"
 serde_json = "*"
 copypasta = { path = "./copypasta" }
@@ -36,15 +37,25 @@ default = ["err-println"]
 live-shader-reload = []
 err-println = []
 nightly = []
+=======
+crossbeam = "*"
+>>>>>>> refs/remotes/origin/pc-buffer
 
 [build-dependencies]
 gl_generator = "0.5"
 
 [dependencies.glutin]
 git = "https://github.com/jwilm/glutin"
+<<<<<<< HEAD
 rev = "af7fe340bd4a2af53ea521defcb4f377cdc588cf"
 
 
 [profile.release]
 lto = true
 debug = true
+=======
+rev = "16ed800f68022a37203434bd3b542ff5400c1403"
+
+[dependencies.pc-buffer]
+path = "../pc-buffer"
+>>>>>>> refs/remotes/origin/pc-buffer
