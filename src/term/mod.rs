@@ -567,6 +567,7 @@ impl Term {
     /// Scroll screen down
     ///
     /// Text moves down; clear at bottom
+    /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_down_relative(&mut self, origin: Line, lines: Line) {
         debug_println!("scroll_down: {}", lines);
@@ -574,18 +575,24 @@ impl Term {
         // Copy of cell template; can't have it borrowed when calling clear/scroll
         let template = self.empty_cell;
 
+        // Clear the entire region if lines is going to be greater than the region.
+        // This also ensures all the math below this if statement is sane.
+        if lines > self.scroll_region.end - origin {
+            self.grid.clear_region(origin..self.scroll_region.end, |c| c.reset(&template));
+            return;
+        }
+
         // Clear `lines` lines at bottom of area
         {
             let end = self.scroll_region.end;
-            let start = limit(end - lines, Line(0), self.scroll_region.end);
+            let start = end - lines;
             self.grid.clear_region(start..end, |c| c.reset(&template));
         }
 
         // Scroll between origin and bottom
         {
             let end = self.scroll_region.end;
-            let start = limit(origin + lines, Line(0), self.scroll_region.end);
-            let lines  = limit(lines, Line(0), self.grid.num_lines()); 
+            let start = origin + lines;
             self.grid.scroll_down(start..end, lines);
         }
     }
@@ -593,6 +600,7 @@ impl Term {
     /// Scroll screen up
     ///
     /// Text moves up; clear at top
+    /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_up_relative(&mut self, origin: Line, lines: Line) {
         debug_println!("scroll_up: {}", lines);
@@ -600,19 +608,23 @@ impl Term {
         // Copy of cell template; can't have it borrowed when calling clear/scroll
         let template = self.empty_cell;
 
+        // Clear the entire region if lines is going to be greater than the region.
+        // This also ensures all the math below this if statement is sane.
+        if lines > self.scroll_region.end - origin {
+            self.grid.clear_region(origin..self.scroll_region.end, |c| c.reset(&template));
+            return;
+        }
+
         // Clear `lines` lines starting from origin to origin + lines
-        {
-            let start = limit(origin, Line(0), self.grid.num_lines() - 1);
-            let end = limit(start + lines, Line(0), self.grid.num_lines() - 1);
-            self.grid.clear_region(start..end, |c| c.reset(&template));
+        { 
+            let end = origin + lines;
+            self.grid.clear_region(origin..end, |c| c.reset(&template));
         }
 
         // Scroll from origin to bottom less number of lines
         {
-            let start = limit(origin, Line(0), self.grid.num_lines() - 1);
-            let end = limit(self.scroll_region.end - lines, Line(0), self.grid.num_lines() - 1);
-            let lines = limit(lines, Line(0), self.grid.num_lines()); 
-            self.grid.scroll_up(start..end, lines);
+            let end = self.scroll_region.end - lines;  
+            self.grid.scroll_up(origin..end, lines);
         }
     }
 }
@@ -968,7 +980,7 @@ impl ansi::Handler for Term {
                 self.grid.clear(|c| c.reset(&template));
             },
             _ => {
-                panic!("ansi::ClearMode::Above not implemented");
+                err_println!("ansi::ClearMode::Above not implemented");
             }
         }
     }
@@ -1057,7 +1069,8 @@ impl ansi::Handler for Term {
     #[inline]
     fn set_scrolling_region(&mut self, region: Range<Line>) {
         debug_println!("set scroll region: {:?}", region);
-        self.scroll_region = region;
+        self.scroll_region.start = min(region.start, self.grid.num_lines());
+        self.scroll_region.end = min(region.end, self.grid.num_lines());
         self.goto(Line(0), Column(0));
     }
 
