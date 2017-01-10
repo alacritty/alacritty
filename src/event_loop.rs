@@ -163,15 +163,26 @@ impl<Io> EventLoop<Io>
         self.tx.clone()
     }
 
-    #[inline]
-    fn channel_event(&mut self, state: &mut State) {
+    // Drain the channel
+    //
+    // Returns true if items were received
+    fn drain_recv_channel(&self, state: &mut State) -> bool {
+        let mut received_item = false;
         while let Ok(msg) = self.rx.try_recv() {
+            received_item = true;
             match msg {
                 Msg::Input(input) => {
                     state.write_list.push_back(input);
                 }
             }
         }
+
+        received_item
+    }
+
+    #[inline]
+    fn channel_event(&mut self, state: &mut State) {
+        self.drain_recv_channel(state);
 
         self.poll.reregister(
             &self.rx, CHANNEL,
@@ -218,6 +229,20 @@ impl<Io> EventLoop<Io>
                     if !terminal.dirty {
                         self.display.notify();
                         terminal.dirty = true;
+
+                        // Break for writing
+                        //
+                        // Want to prevent case where reading always returns
+                        // data and sequences like `C-c` cannot be sent.
+                        //
+                        // Doing this check in !terminal.dirty will prevent the
+                        // condition from being checked overzealously.
+                        if state.writing.is_some()
+                            || !state.write_list.is_empty()
+                            || self.drain_recv_channel(state)
+                        {
+                            break;
+                        }
                     }
                 },
                 Err(err) => {
