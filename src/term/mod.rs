@@ -1002,7 +1002,7 @@ impl ansi::Handler for Term {
         if self.cursor.line == self.scroll_region.start {
             self.scroll_down(Line(1));
         } else {
-            self.cursor.line -= 1;
+            self.cursor.line -= min(self.cursor.line, Line(1));
         }
     }
 
