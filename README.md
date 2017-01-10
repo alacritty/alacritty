@@ -100,6 +100,13 @@ still found to be missing, please open an issue.
 zypper install cmake freetype-devel fontconfig-devel xclip
 ```
 
+##### Slackware
+
+Compiles out of the box for 14.2
+For copy & paste support (middle mouse button) you need to install xclip
+https://slackbuilds.org/repository/14.2/misc/xclip/?search=xclip
+
+
 ##### Void Linux
 
 On [Void Linux](https://voidlinux.eu), install following packages before compiling Alacritty:
