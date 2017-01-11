@@ -771,6 +771,8 @@ impl<'a> RenderApi<'a> {
                     c: c,
                     bg: *color,
                     fg: Color::Spec(Rgb { r: 0, g: 0, b: 0}),
+                    undercursorbg: *color,
+                    undercursorfg: Color::Spec(Rgb { r: 0, g: 0, b: 0}),
                     flags: cell::Flags::empty(),
                 }
             })

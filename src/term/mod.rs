@@ -22,6 +22,7 @@ use ansi::{self, Color, NamedColor, Attr, Handler};
 use grid::{Grid, ClearRegion, ToRange};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{Span, Selection};
+use config::{Config};
 
 pub mod cell;
 pub use self::cell::Cell;
@@ -42,6 +43,7 @@ pub struct RenderableCellsIter<'a> {
     line: Line,
     column: Column,
     selection: Option<RangeInclusive<index::Linear>>,
+    invert_cursor: bool,
 }
 
 impl<'a> RenderableCellsIter<'a> {
@@ -54,6 +56,7 @@ impl<'a> RenderableCellsIter<'a> {
         cursor: &'b Point,
         mode: TermMode,
         selection: &Selection,
+        invert_cursor: bool,
     ) -> RenderableCellsIter<'b> {
         let selection = selection.span()
             .map(|span| span.to_range(grid.num_cols()));
@@ -65,12 +68,17 @@ impl<'a> RenderableCellsIter<'a> {
             line: Line(0),
             column: Column(0),
             selection: selection,
+            invert_cursor: invert_cursor,
         }.initialize()
     }
 
     fn initialize(self) -> Self {
         if self.cursor_is_visible() {
-            self.grid[self.cursor].swap_fg_and_bg();
+            if self.invert_cursor {
+                self.grid[self.cursor].swap_fg_and_bg();
+            } else {
+                self.grid[self.cursor].set_cursor();
+            }
         }
 
         self
@@ -87,7 +95,11 @@ impl<'a> Drop for RenderableCellsIter<'a> {
     /// Resets temporary render state on the grid
     fn drop(&mut self) {
         if self.cursor_is_visible() {
-            self.grid[self.cursor].swap_fg_and_bg();
+            if self.invert_cursor {
+                self.grid[self.cursor].swap_fg_and_bg();
+            } else {
+                self.grid[self.cursor].unset_cursor();
+            }
         }
     }
 }
@@ -154,6 +166,8 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                         c: cell.c,
                         fg: *fg,
                         bg: *bg,
+                        undercursorfg: *fg,
+                        undercursorbg: *bg,
                     }
                 })
             }
@@ -241,6 +255,8 @@ pub struct Term {
     empty_cell: Cell,
 
     pub dirty: bool,
+
+    invert_cursor: bool,
 }
 
 /// Terminal size info
@@ -286,7 +302,7 @@ impl SizeInfo {
 }
 
 impl Term {
-    pub fn new(size: SizeInfo) -> Term {
+    pub fn new(size: SizeInfo, config : &Config) -> Term {
         let template = Cell::default();
 
         let num_cols = size.cols();
@@ -317,7 +333,12 @@ impl Term {
             size_info: size,
             template_cell: template,
             empty_cell: template,
+            invert_cursor: config.invert_cursor(),
         }
+    }
+
+    pub fn update_config(&mut self, config: &Config) {
+        self.invert_cursor = config.invert_cursor()
     }
 
     #[inline]
@@ -470,7 +491,7 @@ impl Term {
     /// background color.  Cells with an alternate background color are
     /// considered renderable as are cells with any text content.
     pub fn renderable_cells(&mut self, selection: &Selection) -> RenderableCellsIter {
-        RenderableCellsIter::new(&mut self.grid, &self.cursor, self.mode, selection)
+        RenderableCellsIter::new(&mut self.grid, &self.cursor, self.mode, selection, self.invert_cursor)
     }
 
     /// Resize terminal to new dimensions
