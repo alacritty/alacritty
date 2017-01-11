@@ -13,8 +13,9 @@
 // limitations under the License.
 //
 //! ANSI Terminal Stream Parsing
-use std::ops::Range;
 use std::io;
+use std::ops::Range;
+use std::str;
 
 use vte;
 
@@ -98,6 +99,9 @@ pub trait TermInfo {
 /// XXX Should probably not provide default impls for everything, but it makes
 /// writing specific handler impls for tests far easier.
 pub trait Handler {
+    /// OSC to set window title
+    fn set_title(&mut self, &str) {}
+
     /// A character to be displayed
     fn input(&mut self, _c: char) {}
 
@@ -455,9 +459,9 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
     }
 
     #[inline]
-    fn hook(&mut self, params: &[i64], intermediates: &[u8], ignore: bool, byte: u8) {
-        err_println!("[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}, byte={:?}",
-                     params, intermediates, ignore, byte as char);
+    fn hook(&mut self, params: &[i64], intermediates: &[u8], ignore: bool) {
+        err_println!("[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}",
+                     params, intermediates, ignore);
     }
 
     #[inline]
@@ -466,23 +470,49 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
     }
 
     #[inline]
-    fn unhook(&mut self, byte: u8) {
-        err_println!("[unhandled unhook] byte={:?}", byte);
+    fn unhook(&mut self) {
+        err_println!("[unhandled unhook]");
     }
 
     #[inline]
-    fn osc_start(&mut self) {
-        err_println!("[unhandled osc_start]");
-    }
+    fn osc_dispatch(&mut self, params: &[&[u8]]) {
+        macro_rules! unhandled {
+            () => {{
+                err_print!("[unhandled osc_dispatch]: [");
+                for param in params {
+                    err_print!("[");
+                    for byte in *param {
+                        err_print!("{:?}, ", *byte as char);
+                    }
+                    err_print!("],");
+                }
+                err_println!("]");
+            }}
+        }
 
-    #[inline]
-    fn osc_put(&mut self, byte: u8) {
-        err_println!("[unhandled osc_put] byte={:?}", byte as char);
-    }
+        if params.len() != 2 {
+            unhandled!();
+            return;
+        }
 
-    #[inline]
-    fn osc_end(&mut self, byte: u8) {
-        err_println!("[unhandled osc_end] byte={:?}", byte);
+        let kind = params[0];
+        let arg = params[1];
+
+        if kind.is_empty() || arg.is_empty() {
+            unhandled!();
+            return;
+        }
+
+        match kind[0] {
+            b'0' | b'2' => {
+                if let Ok(utf8_title) = str::from_utf8(arg) {
+                    self.handler.set_title(utf8_title);
+                }
+            },
+            _ => {
+                unhandled!();
+            }
+        }
     }
 
     #[inline]

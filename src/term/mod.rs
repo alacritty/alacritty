@@ -210,6 +210,11 @@ pub struct Term {
     /// arrays. Without it we wold have to sanitize cursor.col every time we used it.  
     input_needs_wrap: bool, 
 
+    /// Got a request to set title; it's buffered here until next draw.
+    ///
+    /// Would be nice to avoid the allocation...
+    next_title: Option<String>,
+
     /// Alternate grid
     alt_grid: Grid<Cell>,
 
@@ -286,6 +291,11 @@ impl SizeInfo {
 }
 
 impl Term {
+    #[inline]
+    pub fn get_next_title(&mut self) -> Option<String> {
+        self.next_title.take()
+    }
+
     pub fn new(size: SizeInfo) -> Term {
         let template = Cell::default();
 
@@ -304,6 +314,7 @@ impl Term {
         let scroll_region = Line(0)..grid.num_lines();
 
         Term {
+            next_title: None,
             dirty: false,
             input_needs_wrap: false, 
             grid: grid,
@@ -642,6 +653,12 @@ impl ansi::TermInfo for Term {
 }
 
 impl ansi::Handler for Term {
+    /// Set the window title
+    #[inline]
+    fn set_title(&mut self, title: &str) {
+        self.next_title = Some(title.to_owned());
+    }
+
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {

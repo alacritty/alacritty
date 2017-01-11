@@ -31,6 +31,16 @@ macro_rules! err_println {
 }
 
 #[macro_export]
+macro_rules! err_print {
+    ($($arg:tt)*) => {{
+        if cfg!(feature = "err-println") {
+            use std::io::Write;
+            (write!(&mut ::std::io::stderr(), $($arg)*)).expect("stderr");
+        }
+    }}
+}
+
+#[macro_export]
 macro_rules! debug_println {
     ($($t:tt)*) => {
         if cfg!(debug_assertions) {

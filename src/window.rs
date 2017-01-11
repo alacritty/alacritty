@@ -282,6 +282,12 @@ impl Window {
     pub fn wait_events(&self) -> glutin::WaitEventsIterator {
         self.glutin_window.wait_events()
     }
+
+    /// Set the window title
+    #[inline]
+    pub fn set_title(&self, title: &str) {
+        self.glutin_window.set_title(title);
+    }
 }
 
 impl Proxy {
