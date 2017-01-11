@@ -22,7 +22,7 @@ parking_lot = { version = "0.3.1", features = ["nightly"] }
 serde = "0.8"
 serde_yaml = "0.5"
 serde_derive = "0.8"
-vte = "0.1.2"
+vte = "0.2.1"
 mio = "0.6"
 serde_json = "*"
 copypasta = { path = "./copypasta" }

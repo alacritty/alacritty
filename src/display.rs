@@ -272,6 +272,10 @@ impl Display {
         // Clear dirty flag
         terminal.dirty = false;
 
+        if let Some(title) = terminal.get_next_title() {
+            self.window.set_title(&title);
+        }
+
         {
             let glyph_cache = &mut self.glyph_cache;
             // Draw grid
