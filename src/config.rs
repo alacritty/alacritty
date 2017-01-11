@@ -65,24 +65,24 @@ impl From<Colors> for ColorList {
 impl ColorList {
     fn fill_named(&mut self, colors: &Colors) {
         // Normals
-        self[ansi::NamedColor::Black]   = colors.normal.black;
-        self[ansi::NamedColor::Red]     = colors.normal.red;
-        self[ansi::NamedColor::Green]   = colors.normal.green;
-        self[ansi::NamedColor::Yellow]  = colors.normal.yellow;
-        self[ansi::NamedColor::Blue]    = colors.normal.blue;
+        self[ansi::NamedColor::Black] = colors.normal.black;
+        self[ansi::NamedColor::Red] = colors.normal.red;
+        self[ansi::NamedColor::Green] = colors.normal.green;
+        self[ansi::NamedColor::Yellow] = colors.normal.yellow;
+        self[ansi::NamedColor::Blue] = colors.normal.blue;
         self[ansi::NamedColor::Magenta] = colors.normal.magenta;
-        self[ansi::NamedColor::Cyan]    = colors.normal.cyan;
-        self[ansi::NamedColor::White]   = colors.normal.white;
+        self[ansi::NamedColor::Cyan] = colors.normal.cyan;
+        self[ansi::NamedColor::White] = colors.normal.white;
 
         // Brights
-        self[ansi::NamedColor::BrightBlack]   = colors.bright.black;
-        self[ansi::NamedColor::BrightRed]     = colors.bright.red;
-        self[ansi::NamedColor::BrightGreen]   = colors.bright.green;
-        self[ansi::NamedColor::BrightYellow]  = colors.bright.yellow;
-        self[ansi::NamedColor::BrightBlue]    = colors.bright.blue;
+        self[ansi::NamedColor::BrightBlack] = colors.bright.black;
+        self[ansi::NamedColor::BrightRed] = colors.bright.red;
+        self[ansi::NamedColor::BrightGreen] = colors.bright.green;
+        self[ansi::NamedColor::BrightYellow] = colors.bright.yellow;
+        self[ansi::NamedColor::BrightBlue] = colors.bright.blue;
         self[ansi::NamedColor::BrightMagenta] = colors.bright.magenta;
-        self[ansi::NamedColor::BrightCyan]    = colors.bright.cyan;
-        self[ansi::NamedColor::BrightWhite]   = colors.bright.white;
+        self[ansi::NamedColor::BrightCyan] = colors.bright.cyan;
+        self[ansi::NamedColor::BrightWhite] = colors.bright.white;
 
         // Foreground and background
         self[ansi::NamedColor::Foreground] = colors.primary.foreground;
@@ -116,7 +116,7 @@ impl ColorList {
             self[index] = Rgb {
                 r: value,
                 g: value,
-                b: value
+                b: value,
             };
             index += 1;
         }
@@ -209,8 +209,7 @@ static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty.yml")
 static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty_macos.yml");
 
 fn default_config() -> Config {
-    serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG)
-        .expect("default config is valid")
+    serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("default config is valid")
 }
 
 fn default_key_bindings() -> Vec<KeyBinding> {
@@ -259,7 +258,7 @@ impl de::Deserialize for ModsWrapper {
             type Value = ModsWrapper;
 
             fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<ModsWrapper, E>
-                where E: de::Error,
+                where E: de::Error
             {
                 use ::glutin::{mods, Mods};
                 let mut res = Mods::empty();
@@ -299,7 +298,7 @@ impl de::Deserialize for ActionWrapper {
             type Value = ActionWrapper;
 
             fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<ActionWrapper, E>
-                where E: de::Error,
+                where E: de::Error
             {
                 Ok(ActionWrapper(match value {
                     "Paste" => Action::Paste,
@@ -330,11 +329,11 @@ impl de::Deserialize for ModeWrapper {
             type Value = ModeWrapper;
 
             fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<ModeWrapper, E>
-                where E: de::Error,
+                where E: de::Error
             {
                 let mut res = ModeWrapper {
                     mode: TermMode::empty(),
-                    not_mode: TermMode::empty()
+                    not_mode: TermMode::empty(),
                 };
 
                 for modifier in value.split('|') {
@@ -372,7 +371,7 @@ impl de::Deserialize for MouseButton {
             type Value = MouseButton;
 
             fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<MouseButton, E>
-                where E: de::Error,
+                where E: de::Error
             {
                 match value {
                     "Left" => Ok(MouseButton(::glutin::MouseButton::Left)),
@@ -444,7 +443,7 @@ impl de::Deserialize for RawBinding {
             Mode,
             Action,
             Chars,
-            Mouse
+            Mouse,
         }
 
         impl de::Deserialize for Field {
@@ -457,7 +456,7 @@ impl de::Deserialize for RawBinding {
                     type Value = Field;
 
                     fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<Field, E>
-                        where E: de::Error,
+                        where E: de::Error
                     {
                         match value {
                             "key" => Ok(Field::Key),
@@ -479,11 +478,10 @@ impl de::Deserialize for RawBinding {
         impl Visitor for RawBindingVisitor {
             type Value = RawBinding;
 
-            fn visit_map<V>(
-                &mut self,
-                mut visitor: V
-            ) -> ::std::result::Result<RawBinding, V::Error>
-                where V: MapVisitor,
+            fn visit_map<V>(&mut self,
+                            mut visitor: V)
+                            -> ::std::result::Result<RawBinding, V::Error>
+                where V: MapVisitor
             {
                 let mut mods: Option<::glutin::Mods> = None;
                 let mut key: Option<::glutin::VirtualKeyCode> = None;
@@ -504,14 +502,14 @@ impl de::Deserialize for RawBinding {
 
                             let coherent_key = visitor.visit_value::<Key>()?;
                             key = Some(coherent_key.to_glutin_key());
-                        },
+                        }
                         Field::Mods => {
                             if mods.is_some() {
                                 return Err(<V::Error as Error>::duplicate_field("mods"));
                             }
 
                             mods = Some(visitor.visit_value::<ModsWrapper>()?.into_inner());
-                        },
+                        }
                         Field::Mode => {
                             if mode.is_some() {
                                 return Err(<V::Error as Error>::duplicate_field("mode"));
@@ -520,21 +518,21 @@ impl de::Deserialize for RawBinding {
                             let mode_deserializer = visitor.visit_value::<ModeWrapper>()?;
                             mode = Some(mode_deserializer.mode);
                             not_mode = Some(mode_deserializer.not_mode);
-                        },
+                        }
                         Field::Action => {
                             if action.is_some() {
                                 return Err(<V::Error as Error>::duplicate_field("action"));
                             }
 
                             action = Some(visitor.visit_value::<ActionWrapper>()?.into_inner());
-                        },
+                        }
                         Field::Chars => {
                             if chars.is_some() {
                                 return Err(<V::Error as Error>::duplicate_field("chars"));
                             }
 
                             chars = Some(visitor.visit_value()?);
-                        },
+                        }
                         Field::Mouse => {
                             if chars.is_some() {
                                 return Err(<V::Error as Error>::duplicate_field("mouse"));
@@ -549,10 +547,10 @@ impl de::Deserialize for RawBinding {
                 let action = match (action, chars) {
                     (Some(_), Some(_)) => {
                         return Err(V::Error::custom("must specify only chars or action"));
-                    },
+                    }
                     (Some(action), _) => action,
                     (_, Some(chars)) => Action::Esc(chars),
-                    _ => return Err(V::Error::custom("must specify chars or action"))
+                    _ => return Err(V::Error::custom("must specify chars or action")),
                 };
 
                 let mode = mode.unwrap_or_else(TermMode::empty);
@@ -574,9 +572,8 @@ impl de::Deserialize for RawBinding {
             }
         }
 
-        const FIELDS: &'static [&'static str] = &[
-            "key", "mods", "mode", "action", "chars", "mouse"
-        ];
+        const FIELDS: &'static [&'static str] = &["key", "mods", "mode", "action", "chars",
+                                                  "mouse"];
 
         deserializer.deserialize_struct("RawBinding", FIELDS, RawBindingVisitor)
     }
@@ -597,7 +594,7 @@ impl de::Deserialize for MouseBinding {
     {
         let raw = RawBinding::deserialize(deserializer)?;
         raw.into_mouse_binding()
-           .map_err(|_| D::Error::custom("expected mouse binding"))
+            .map_err(|_| D::Error::custom("expected mouse binding"))
     }
 }
 
@@ -607,7 +604,7 @@ impl de::Deserialize for KeyBinding {
     {
         let raw = RawBinding::deserialize(deserializer)?;
         raw.into_key_binding()
-           .map_err(|_| D::Error::custom("expected key binding"))
+            .map_err(|_| D::Error::custom("expected key binding"))
     }
 }
 
@@ -647,28 +644,96 @@ impl Default for Colors {
         Colors {
             primary: PrimaryColors {
                 background: Rgb { r: 0, g: 0, b: 0 },
-                foreground: Rgb { r: 0xea, g: 0xea, b: 0xea },
+                foreground: Rgb {
+                    r: 0xea,
+                    g: 0xea,
+                    b: 0xea,
+                },
             },
             normal: AnsiColors {
-                black: Rgb {r: 0x00, g: 0x00, b: 0x00},
-                red: Rgb {r: 0xd5, g: 0x4e, b: 0x53},
-                green: Rgb {r: 0xb9, g: 0xca, b: 0x4a},
-                yellow: Rgb {r: 0xe6, g: 0xc5, b: 0x47},
-                blue: Rgb {r: 0x7a, g: 0xa6, b: 0xda},
-                magenta: Rgb {r: 0xc3, g: 0x97, b: 0xd8},
-                cyan: Rgb {r: 0x70, g: 0xc0, b: 0xba},
-                white: Rgb {r: 0x42, g: 0x42, b: 0x42},
+                black: Rgb {
+                    r: 0x00,
+                    g: 0x00,
+                    b: 0x00,
+                },
+                red: Rgb {
+                    r: 0xd5,
+                    g: 0x4e,
+                    b: 0x53,
+                },
+                green: Rgb {
+                    r: 0xb9,
+                    g: 0xca,
+                    b: 0x4a,
+                },
+                yellow: Rgb {
+                    r: 0xe6,
+                    g: 0xc5,
+                    b: 0x47,
+                },
+                blue: Rgb {
+                    r: 0x7a,
+                    g: 0xa6,
+                    b: 0xda,
+                },
+                magenta: Rgb {
+                    r: 0xc3,
+                    g: 0x97,
+                    b: 0xd8,
+                },
+                cyan: Rgb {
+                    r: 0x70,
+                    g: 0xc0,
+                    b: 0xba,
+                },
+                white: Rgb {
+                    r: 0x42,
+                    g: 0x42,
+                    b: 0x42,
+                },
             },
             bright: AnsiColors {
-                black: Rgb {r: 0x66, g: 0x66, b: 0x66},
-                red: Rgb {r: 0xff, g: 0x33, b: 0x34},
-                green: Rgb {r: 0x9e, g: 0xc4, b: 0x00},
-                yellow: Rgb {r: 0xe7, g: 0xc5, b: 0x47},
-                blue: Rgb {r: 0x7a, g: 0xa6, b: 0xda},
-                magenta: Rgb {r: 0xb7, g: 0x7e, b: 0xe0},
-                cyan: Rgb {r: 0x54, g: 0xce, b: 0xd6},
-                white: Rgb {r: 0x2a, g: 0x2a, b: 0x2a},
-            }
+                black: Rgb {
+                    r: 0x66,
+                    g: 0x66,
+                    b: 0x66,
+                },
+                red: Rgb {
+                    r: 0xff,
+                    g: 0x33,
+                    b: 0x34,
+                },
+                green: Rgb {
+                    r: 0x9e,
+                    g: 0xc4,
+                    b: 0x00,
+                },
+                yellow: Rgb {
+                    r: 0xe7,
+                    g: 0xc5,
+                    b: 0x47,
+                },
+                blue: Rgb {
+                    r: 0x7a,
+                    g: 0xa6,
+                    b: 0xda,
+                },
+                magenta: Rgb {
+                    r: 0xb7,
+                    g: 0x7e,
+                    b: 0xe0,
+                },
+                cyan: Rgb {
+                    r: 0x54,
+                    g: 0xce,
+                    b: 0xd6,
+                },
+                white: Rgb {
+                    r: 0x2a,
+                    g: 0x2a,
+                    b: 0x2a,
+                },
+            },
         }
     }
 }
@@ -709,8 +774,7 @@ fn rgb_from_hex<D>(deserializer: &mut D) -> ::std::result::Result<Rgb, D::Error>
         fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<Rgb, E>
             where E: ::serde::de::Error
         {
-            Rgb::from_str(&value[..])
-                .map_err(|_| E::custom("failed to parse rgb; expect 0xrrggbb"))
+            Rgb::from_str(&value[..]).map_err(|_| E::custom("failed to parse rgb; expect 0xrrggbb"))
         }
     }
 
@@ -739,8 +803,12 @@ impl FromStr for Rgb {
             }
         }
 
-        if chars.next().unwrap() != '0' { return Err(()); }
-        if chars.next().unwrap() != 'x' { return Err(()); }
+        if chars.next().unwrap() != '0' {
+            return Err(());
+        }
+        if chars.next().unwrap() != 'x' {
+            return Err(());
+        }
 
         component!(r, g, b);
 
@@ -774,7 +842,7 @@ impl ::std::fmt::Display for Error {
             Error::NotFound => write!(f, "{}", ::std::error::Error::description(self)),
             Error::ReadingEnvHome(ref err) => {
                 write!(f, "could not read $HOME environment variable: {}", err)
-            },
+            }
             Error::Io(ref err) => write!(f, "error reading config file: {}", err),
             Error::Yaml(ref err) => write!(f, "problem with config: {:?}", err),
         }
@@ -823,16 +891,16 @@ impl Config {
             .ok()
             .and_then(|xdg| xdg.find_config_file("alacritty.yml"))
             .or_else(|| {
-                ::xdg::BaseDirectories::new().ok().and_then(|fallback| {
-                    fallback.find_config_file("alacritty.yml")
-                })
+                ::xdg::BaseDirectories::new()
+                    .ok()
+                    .and_then(|fallback| fallback.find_config_file("alacritty.yml"))
             })
             .or_else(|| {
                 // Fallback path: $HOME/.config/alacritty/alacritty.yml
                 let fallback = PathBuf::from(&home).join(".config/alacritty/alacritty.yml");
                 match fallback.exists() {
                     true => Some(fallback),
-                    false => None
+                    false => None,
                 }
             })
             .unwrap_or_else(|| {
@@ -844,8 +912,10 @@ impl Config {
     }
 
     pub fn write_defaults() -> io::Result<PathBuf> {
-        let path = ::xdg::BaseDirectories::with_prefix("alacritty")
-            .map_err(|err| io::Error::new(io::ErrorKind::NotFound, ::std::error::Error::description(&err)))
+        let path = ::xdg::BaseDirectories::with_prefix("alacritty").map_err(|err| {
+                io::Error::new(io::ErrorKind::NotFound,
+                               ::std::error::Error::description(&err))
+            })
             .and_then(|p| p.place_config_file("alacritty.yml"))?;
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
         Ok(path)
@@ -956,7 +1026,7 @@ impl Dpi {
 ///
 /// The way Alacritty calculates vertical and horizontal cell sizes may not be
 /// ideal for all fonts. This gives the user a way to tweak those values.
-#[derive(Debug, Deserialize)]
+#[derive(Default, Debug, Deserialize)]
 pub struct FontOffset {
     /// Extra horizontal spacing between letters
     x: f32,
@@ -978,7 +1048,7 @@ impl FontOffset {
     }
 }
 
-trait DeserializeFromF32 : Sized {
+trait DeserializeFromF32: Sized {
     fn deserialize_from_f32<D>(&mut D) -> ::std::result::Result<Self, D::Error>
         where D: serde::de::Deserializer;
 }
@@ -1005,8 +1075,7 @@ impl DeserializeFromF32 for Size {
             }
         }
 
-        deserializer
-            .deserialize_f64(FloatVisitor::<D>{ _marker: PhantomData })
+        deserializer.deserialize_f64(FloatVisitor::<D> { _marker: PhantomData })
             .map(|v| Size::new(v as _))
     }
 }
@@ -1017,7 +1086,7 @@ impl DeserializeFromF32 for Size {
 /// field in this struct. It might be nice in the future to have defaults for
 /// each value independently. Alternatively, maybe erroring when the user
 /// doesn't provide complete config is Ok.
-#[derive(Debug, Deserialize)]
+#[derive(Default, Debug, Deserialize)]
 pub struct Font {
     /// Font family
     pub normal: FontDescription,
@@ -1045,7 +1114,7 @@ fn default_italic_desc() -> FontDescription {
 }
 
 /// Description of a single font
-#[derive(Debug, Deserialize)]
+#[derive(Default, Debug, Deserialize)]
 pub struct FontDescription {
     pub family: String,
     pub style: Option<String>,
@@ -1082,10 +1151,7 @@ impl Default for Font {
             bold: FontDescription::new_with_family("Menlo"),
             italic: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
-            offset: FontOffset {
-                x: 0.0,
-                y: 0.0
-            }
+            offset: FontOffset { x: 0.0, y: 0.0 },
         }
     }
 }
@@ -1102,8 +1168,8 @@ impl Default for Font {
                 // TODO should improve freetype metrics... shouldn't need such
                 // drastic offsets for the default!
                 x: 2.0,
-                y: -7.0
-            }
+                y: -7.0,
+            },
         }
     }
 }
@@ -1164,7 +1230,8 @@ impl Monitor {
                             if let Some(path) = path.as_ref() {
                                 if let Err(err) = watcher.watch(&path) {
                                     err_println!("failed to establish watch on {:?}: {:?}",
-                                                 path, err);
+                                                 path,
+                                                 err);
                                 }
                             }
                         }
@@ -1176,7 +1243,7 @@ impl Monitor {
                                     Ok(config) => {
                                         let _ = config_tx.send(config);
                                         handler.on_config_reload();
-                                    },
+                                    }
                                     Err(err) => err_println!("Ignoring invalid config: {}", err),
                                 }
                             }
@@ -1193,13 +1260,12 @@ impl Monitor {
 mod tests {
     use super::Config;
 
-    static ALACRITTY_YML: &'static str =
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty.yml"));
+    static ALACRITTY_YML: &'static str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"),
+                                                              "/alacritty.yml"));
 
     #[test]
     fn parse_config() {
-        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
-            .expect("deserialize config");
+        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML).expect("deserialize config");
 
         // Sanity check that mouse bindings are being parsed
         assert!(config.mouse_bindings.len() >= 1);
@@ -1535,4 +1601,3 @@ impl Key {
         }
     }
 }
-

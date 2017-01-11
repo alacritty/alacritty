@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-//! Compatibility layer for different font engines
-//!
-//! CoreText is used on Mac OS.
-//! FreeType is used on everything that's not Mac OS.
-//! Eventually, ClearType support will be available for windows
+// Compatibility layer for different font engines
+//
+// CoreText is used on Mac OS.
+// FreeType is used on everything that's not Mac OS.
+// Eventually, ClearType support will be available for windows
 #![feature(integer_atomics)]
 
 #[cfg(not(target_os = "macos"))]
@@ -70,14 +70,14 @@ pub enum Slant {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Weight {
     Normal,
-    Bold
+    Bold,
 }
 
 /// Style of font
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Style {
     Specific(String),
-    Description { slant: Slant, weight: Weight }
+    Description { slant: Slant, weight: Weight },
 }
 
 impl fmt::Display for Style {
@@ -86,7 +86,7 @@ impl fmt::Display for Style {
             Style::Specific(ref s) => f.write_str(&s),
             Style::Description { slant, weight } => {
                 write!(f, "slant={:?}, weight={:?}", slant, weight)
-            },
+            }
         }
     }
 }
@@ -97,7 +97,7 @@ impl FontDesc {
     {
         FontDesc {
             name: name.into(),
-            style: style
+            style: style,
         }
     }
 }
@@ -121,9 +121,7 @@ impl FontKey {
     pub fn next() -> FontKey {
         static TOKEN: AtomicU32 = ATOMIC_U32_INIT;
 
-        FontKey {
-            token: TOKEN.fetch_add(1, Ordering::SeqCst),
-        }
+        FontKey { token: TOKEN.fetch_add(1, Ordering::SeqCst) }
     }
 }
 
@@ -135,7 +133,7 @@ pub struct GlyphKey {
 }
 
 /// Font size stored as integer
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Default, Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct Size(i32);
 
 impl Size {

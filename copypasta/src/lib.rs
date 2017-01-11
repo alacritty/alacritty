@@ -2,10 +2,11 @@
 
 // This has to be here due to macro_use
 #[cfg(target_os = "macos")]
-#[macro_use] extern crate objc;
+#[macro_use]
+extern crate objc;
 
 /// Types that can get the system clipboard contents
-pub trait Load : Sized {
+pub trait Load: Sized {
     /// Errors encountered when working with a clipboard. Each implementation is
     /// allowed to define its own error type, but it must conform to std error.
     type Err: ::std::error::Error + Send + Sync + 'static;
@@ -30,23 +31,20 @@ pub trait Load : Sized {
 ///
 /// Note that some platforms require the clipboard context to stay active in
 /// order to load the contents from other applications.
-pub trait Store : Load {
+pub trait Store: Load {
     /// Sets the primary clipboard contents
-    fn store_primary<S>(&mut self, contents: S) -> Result<(), Self::Err>
-        where S: Into<String>;
+    fn store_primary<S>(&mut self, contents: S) -> Result<(), Self::Err> where S: Into<String>;
 
     /// Sets the secondary clipboard contents
-    fn store_selection<S>(&mut self, contents: S) -> Result<(), Self::Err>
-        where S: Into<String>;
+    fn store_selection<S>(&mut self, contents: S) -> Result<(), Self::Err> where S: Into<String>;
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 mod x11;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 pub use x11::{Clipboard, Error};
 
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "macos")]
 pub use macos::{Clipboard, Error};
-
