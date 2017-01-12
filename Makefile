@@ -3,9 +3,11 @@ TARGET = alacritty
 APP_NAME = Alacritty.app
 ASSETS_DIR = assets
 RELEASE_DIR = target/release
+BINARY_FILE = $(RELEASE_DIR)/$(TARGET)
 APP_TEMPLATE = $(ASSETS_DIR)/osx/$(APP_NAME)
 APP_DIR = $(RELEASE_DIR)/osx
 APP_BINARY_DIR  = $(APP_DIR)/$(APP_NAME)/Contents/MacOS
+
 
 DMG_NAME = Alacritty.dmg
 DMG_DIR = $(RELEASE_DIR)/osx
@@ -26,7 +28,8 @@ app: | $(APP_NAME) ## Clone Alacritty.app template and mount binary
 $(APP_NAME): $(TARGET) $(APP_TEMPLATE)
 	@mkdir -p $(APP_DIR)
 	@cp -R $(APP_TEMPLATE) $(APP_DIR)
-	@cp $< $(APP_BINARY_DIR)
+	@mkdir $(APP_BINARY_DIR)
+	@cp $(BINARY_FILE) $(APP_BINARY_DIR)
 	@echo "$@ created in $(APP_DIR)"
 
 dmg: | $(DMG_NAME) ## Pack Alacritty.app into .dmg
