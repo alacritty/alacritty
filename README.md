@@ -50,9 +50,9 @@ will walk you through how to build from source on both macOS and Ubuntu.
    ```sh
    rustup override set nightly
    ```
-   
+
    If you run into problems, you can try a known-good version of the compiler by running
-   
+
    ```sh
    rustup override set $(<rustc-version)
    ```
@@ -105,6 +105,16 @@ On [Void Linux](https://voidlinux.eu), install following packages before compili
 
 ```sh
 xbps-install cmake freetype-devel freetype expat-devel fontconfig xclip
+```
+
+##### FreeBSD
+
+On FreeBSD, you need a few extra libraries to build Alacritty. Here's a `pkg`
+command that should install all of them. If something is still found to be
+missing, please open an issue.
+
+```sh
+pkg install cmake freetype2 fontconfig xclip
 ```
 
 ##### Other
