@@ -135,6 +135,13 @@ sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
 cp Alacritty.desktop ~/.local/share/applications
 ```
 
+On macOS:
+
+```sh
+mkdir -p /Applications/Alacritty.app/Contents/MacOS
+cp target/release/alacritty /Applications/Alacritty.app/Contents/MacOS
+```
+
 ### Configuration
 
 Although it's possible the default configuration would work on your system,
