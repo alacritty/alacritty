@@ -21,7 +21,7 @@ use std::mem;
 use std::os::unix::io::FromRawFd;
 use std::ptr;
 
-use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD};
+use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD, TIOCSCTTY};
 
 use term::SizeInfo;
 use display::OnResize;
@@ -113,7 +113,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     (master, slave)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos",target_os = "freebsd"))]
 fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     let mut master: c_int = 0;
     let mut slave: c_int = 0;
@@ -139,7 +139,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
 /// Really only needed on BSD, but should be fine elsewhere
 fn set_controlling_terminal(fd: c_int) {
     let res = unsafe {
-        libc::ioctl(fd, libc::TIOCSCTTY as _, 0)
+        libc::ioctl(fd, TIOCSCTTY as _, 0)
     };
 
     if res < 0 {
