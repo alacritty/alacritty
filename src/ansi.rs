@@ -247,6 +247,8 @@ pub enum Mode {
     CursorKeys = 1,
     /// ?6
     Origin = 6,
+    /// ?7
+    LineWrap = 7,
     /// ?12
     BlinkingCursor = 12,
     /// ?25
@@ -272,6 +274,7 @@ impl Mode {
             Some(match num {
                 1 => Mode::CursorKeys,
                 6 => Mode::Origin,
+                7 => Mode::LineWrap,
                 12 => Mode::BlinkingCursor,
                 25 => Mode::ShowCursor,
                 1000 => Mode::ReportMouseClicks,

@@ -183,6 +183,7 @@ pub mod mode {
             const BRACKETED_PASTE     = 0b00010000,
             const SGR_MOUSE           = 0b00100000,
             const MOUSE_MOTION        = 0b01000000,
+            const LINE_WRAP           = 0b10000000,
             const ANY                 = 0b11111111,
             const NONE                = 0b00000000,
         }
@@ -190,7 +191,7 @@ pub mod mode {
 
     impl Default for TermMode {
         fn default() -> TermMode {
-            SHOW_CURSOR
+            SHOW_CURSOR | LINE_WRAP
         }
     }
 }
@@ -203,12 +204,12 @@ pub struct Term {
     /// The grid
     grid: Grid<Cell>,
 
-    /// Tracks if the next call to input will need to first handle wrapping. 
+    /// Tracks if the next call to input will need to first handle wrapping.
     /// This is true after the last column is set with the input function. Any function that
     /// implicitly sets the line or column needs to set this to false to avoid wrapping twice.
     /// input_needs_wrap ensures that cursor.col is always valid for use into indexing into
-    /// arrays. Without it we wold have to sanitize cursor.col every time we used it.  
-    input_needs_wrap: bool, 
+    /// arrays. Without it we wold have to sanitize cursor.col every time we used it.
+    input_needs_wrap: bool,
 
     /// Got a request to set title; it's buffered here until next draw.
     ///
@@ -316,7 +317,7 @@ impl Term {
         Term {
             next_title: None,
             dirty: false,
-            input_needs_wrap: false, 
+            input_needs_wrap: false,
             grid: grid,
             alt_grid: alt,
             alt: false,
@@ -504,14 +505,14 @@ impl Term {
             return;
         }
 
-        // Should not allow less than 1 col, causes all sorts of checks to be required. 
+        // Should not allow less than 1 col, causes all sorts of checks to be required.
         if num_cols <= Column(1) {
-            num_cols = Column(2); 
+            num_cols = Column(2);
         }
 
-        // Should not allow less than 1 line, causes all sorts of checks to be required. 
+        // Should not allow less than 1 line, causes all sorts of checks to be required.
         if num_lines <= Line(1) {
-            num_lines = Line(2); 
+            num_lines = Line(2);
         }
 
         // Scroll up to keep cursor and as much context as possible in grid.
@@ -627,14 +628,14 @@ impl Term {
         }
 
         // Clear `lines` lines starting from origin to origin + lines
-        { 
+        {
             let end = origin + lines;
             self.grid.clear_region(origin..end, |c| c.reset(&template));
         }
 
         // Scroll from origin to bottom less number of lines
         {
-            let end = self.scroll_region.end - lines;  
+            let end = self.scroll_region.end - lines;
             self.grid.scroll_up(origin..end, lines);
         }
     }
@@ -664,9 +665,13 @@ impl ansi::Handler for Term {
     fn input(&mut self, c: char) {
 
         if self.input_needs_wrap {
-            
+
+            if !self.mode.contains(mode::LINE_WRAP) {
+                return;
+            }
+
             debug_println!("wrapping");
-        
+
             {
                 let location = Point {
                     line: self.cursor.line,
@@ -676,13 +681,13 @@ impl ansi::Handler for Term {
                 let cell = &mut self.grid[&location];
                 cell.flags.insert(cell::WRAPLINE);
             }
-           
+
             if (self.cursor.line + 1) >= self.scroll_region.end {
                 self.linefeed();
             } else {
                 self.cursor.line += 1;
             }
-           
+
             self.cursor.col = Column(0);
             self.input_needs_wrap = false;
         }
@@ -691,8 +696,8 @@ impl ansi::Handler for Term {
             let cell = &mut self.grid[&self.cursor];
             *cell = self.template_cell;
             cell.c = c;
-        } 
-        
+        }
+
         if (self.cursor.col + 1) < self.grid.num_cols() {
             self.cursor.col += 1;
         } else {
@@ -726,7 +731,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn insert_blank(&mut self, count: Column) {
         // Ensure inserting within terminal bounds
-        
+
         let count = min(count, self.size_info.cols() - self.cursor.col);
 
         let source = self.cursor.col;
@@ -754,7 +759,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn move_up(&mut self, lines: Line) {
         debug_println!("move_up: {}", lines);
-        let lines = min(self.cursor.line, lines); 
+        let lines = min(self.cursor.line, lines);
         self.cursor.line = min(self.cursor.line - lines, self.grid.num_lines() -1);
     }
 
@@ -767,14 +772,14 @@ impl ansi::Handler for Term {
     #[inline]
     fn move_forward(&mut self, cols: Column) {
         debug_println!("move_forward: {}", cols);
-        self.cursor.col = min(self.cursor.col + cols, self.grid.num_cols() - 1); 
+        self.cursor.col = min(self.cursor.col + cols, self.grid.num_cols() - 1);
         self.input_needs_wrap = false;
     }
 
     #[inline]
     fn move_backward(&mut self, cols: Column) {
         debug_println!("move_backward: {}", cols);
-        self.cursor.col -= min(self.cursor.col, cols); 
+        self.cursor.col -= min(self.cursor.col, cols);
         self.input_needs_wrap = false;
     }
 
@@ -909,7 +914,7 @@ impl ansi::Handler for Term {
     fn delete_chars(&mut self, count: Column) {
         // Ensure deleting within terminal bounds
         let count = min(count, self.size_info.cols());
-        
+
         let start = self.cursor.col;
         let end = min(start + count, self.grid.num_cols() - 1);
         let n = (self.size_info.cols() - end).0;
@@ -957,8 +962,8 @@ impl ansi::Handler for Term {
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         debug_println!("clear_line: {:?}", mode);
         let template = self.empty_cell;
-        let col =  self.cursor.col; 
-        
+        let col =  self.cursor.col;
+
         match mode {
             ansi::LineClearMode::Right => {
                 let row = &mut self.grid[self.cursor.line];
@@ -1060,6 +1065,7 @@ impl ansi::Handler for Term {
             ansi::Mode::ReportMouseMotion => self.mode.insert(mode::MOUSE_MOTION),
             ansi::Mode::BracketedPaste => self.mode.insert(mode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.insert(mode::SGR_MOUSE),
+            ansi::Mode::LineWrap => self.mode.insert(mode::LINE_WRAP),
             _ => {
                 debug_println!(".. ignoring set_mode");
             }
@@ -1077,6 +1083,7 @@ impl ansi::Handler for Term {
             ansi::Mode::ReportMouseMotion => self.mode.remove(mode::MOUSE_MOTION),
             ansi::Mode::BracketedPaste => self.mode.remove(mode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.remove(mode::SGR_MOUSE),
+            ansi::Mode::LineWrap => self.mode.remove(mode::LINE_WRAP),
             _ => {
                 debug_println!(".. ignoring unset_mode");
             }
