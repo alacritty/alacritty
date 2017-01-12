@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-//! tty related functionality
-//!
+// tty related functionality
+//
 use std::env;
 use std::ffi::CStr;
 use std::fs::File;
@@ -70,13 +70,11 @@ fn errno() -> c_int {
 
 enum Relation {
     Child,
-    Parent(pid_t)
+    Parent(pid_t),
 }
 
 fn fork() -> Relation {
-    let res = unsafe {
-        libc::fork()
-    };
+    let res = unsafe { libc::fork() };
 
     if res < 0 {
         die!("fork failed");
@@ -102,9 +100,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
         ws_ypixel: 0,
     };
 
-    let res = unsafe {
-        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null(), &win)
-    };
+    let res = unsafe { libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null(), &win) };
 
     if res < 0 {
         die!("openpty failed");
@@ -113,7 +109,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     (master, slave)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos",target_os = "freebsd"))]
 fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     let mut master: c_int = 0;
     let mut slave: c_int = 0;
@@ -126,7 +122,11 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     };
 
     let res = unsafe {
-        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null_mut(), &mut win)
+        libc::openpty(&mut master,
+                      &mut slave,
+                      ptr::null_mut(),
+                      ptr::null_mut(),
+                      &mut win)
     };
 
     if res < 0 {
@@ -137,15 +137,27 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
 }
 
 /// Really only needed on BSD, but should be fine elsewhere
+#[cfg(not(target_os = "freebsd"))]
 fn set_controlling_terminal(fd: c_int) {
-    let res = unsafe {
-        libc::ioctl(fd, libc::TIOCSCTTY as _, 0)
-    };
+    let res = unsafe { libc::ioctl(fd, libc::TIOCSCTTY as _, 0) };
 
     if res < 0 {
         die!("ioctl TIOCSCTTY failed: {}", errno());
     }
 }
+
+// Missing from FreeBSD libc crate?? Remove this case
+// when TIOCSCTTY has been added to FreeBSD's libc crate.
+#[cfg(target_os = "freebsd")]
+fn set_controlling_terminal(fd: c_int) {
+    pub const TIOCSCTTY: libc::c_ulong = 536900705;
+    let res = unsafe { libc::ioctl(fd, TIOCSCTTY as _, 0) };
+
+    if res < 0 {
+        die!("ioctl TIOCSCTTY failed: {}", errno());
+    }
+}
+
 
 #[derive(Debug)]
 struct Passwd<'a> {
@@ -172,7 +184,11 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
     // Try and read the pw file.
     let uid = unsafe { libc::getuid() };
     let status = unsafe {
-        libc::getpwuid_r(uid, &mut entry, buf.as_mut_ptr() as *mut _, buf.len(), &mut res)
+        libc::getpwuid_r(uid,
+                         &mut entry,
+                         buf.as_mut_ptr() as *mut _,
+                         buf.len(),
+                         &mut res)
     };
 
     if status < 0 {
@@ -208,11 +224,13 @@ fn execsh(config: &Config) -> ! {
     let pw = get_pw_entry(&mut buf);
 
     let shell = match config.shell() {
-        Some(shell) => match shell.to_str() {
-            Some(shell) => shell,
-            None => die!("Invalid shell value")
-        },
-        None => pw.shell
+        Some(shell) => {
+            match shell.to_str() {
+                Some(shell) => shell,
+                None => die!("Invalid shell value"),
+            }
+        }
+        None => pw.shell,
     };
 
     // setup environment
@@ -236,9 +254,7 @@ fn execsh(config: &Config) -> ! {
 
     let argv = [shell.as_ptr(), ptr::null()];
 
-    let res = unsafe {
-        libc::execvp(shell.as_ptr(), argv.as_ptr())
-    };
+    let res = unsafe { libc::execvp(shell.as_ptr(), argv.as_ptr()) };
 
     if res < 0 {
         die!("execvp failed: {}", errno());
@@ -275,7 +291,7 @@ pub fn new<T: ToWinsize>(config: &Config, size: T) -> Pty {
 
             // Exec a shell!
             execsh(config);
-        },
+        }
         Relation::Parent(pid) => {
             unsafe {
                 // Set PID for SIGCHLD handler
@@ -310,9 +326,7 @@ impl Pty {
     ///
     /// XXX File is a bad abstraction here; it closes the fd on drop
     pub fn reader(&self) -> File {
-        unsafe {
-            File::from_raw_fd(self.fd)
-        }
+        unsafe { File::from_raw_fd(self.fd) }
     }
 
     /// Resize the pty
@@ -322,9 +336,7 @@ impl Pty {
     pub fn resize<T: ToWinsize>(&self, size: T) {
         let win = size.to_winsize();
 
-        let res = unsafe {
-            libc::ioctl(self.fd, libc::TIOCSWINSZ, &win as *const _)
-        };
+        let res = unsafe { libc::ioctl(self.fd, libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
             die!("ioctl TIOCSWINSZ failed: {}", errno());
