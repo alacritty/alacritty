@@ -103,6 +103,20 @@ impl Cell {
     pub fn swap_fg_and_bg(&mut self) {
         mem::swap(&mut self.fg, &mut self.bg);
     }
+
+    #[inline]
+    pub fn set_cursor(&mut self) -> (Color, Color) {
+        let ret = (self.fg.clone(), self.bg.clone());
+        self.fg = Color::Named(NamedColor::CursorForeground);
+        self.bg = Color::Named(NamedColor::CursorBackground);
+        ret
+    }
+
+    #[inline]
+    pub fn unset_cursor(&mut self, fg: Color, bg: Color) {
+        self.fg = fg;
+        self.bg = bg;
+    }
 }
 
 #[cfg(test)]

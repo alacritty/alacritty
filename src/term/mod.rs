@@ -18,10 +18,12 @@ use std::ptr;
 use std::cmp::min;
 use std::io;
 
+use ::Rgb;
 use ansi::{self, Color, NamedColor, Attr, Handler};
 use grid::{Grid, ClearRegion, ToRange};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{Span, Selection};
+use config::{Config};
 
 pub mod cell;
 pub use self::cell::Cell;
@@ -42,6 +44,9 @@ pub struct RenderableCellsIter<'a> {
     line: Line,
     column: Column,
     selection: Option<RangeInclusive<index::Linear>>,
+    custom_cursor_colors: bool,
+    undercursorfg: Color,
+    undercursorbg: Color,
 }
 
 impl<'a> RenderableCellsIter<'a> {
@@ -54,6 +59,7 @@ impl<'a> RenderableCellsIter<'a> {
         cursor: &'b Point,
         mode: TermMode,
         selection: &Selection,
+        custom_cursor_colors: bool,
     ) -> RenderableCellsIter<'b> {
         let selection = selection.span()
             .map(|span| span.to_range(grid.num_cols()));
@@ -65,14 +71,23 @@ impl<'a> RenderableCellsIter<'a> {
             line: Line(0),
             column: Column(0),
             selection: selection,
+            custom_cursor_colors: custom_cursor_colors,
+            undercursorfg: Color::Spec(Rgb { r: 0, g: 0, b: 0 }),
+            undercursorbg: Color::Spec(Rgb { r: 0, g: 0, b: 0 }),
         }.initialize()
     }
 
-    fn initialize(self) -> Self {
+    fn initialize(mut self) -> Self {
         if self.cursor_is_visible() {
-            self.grid[self.cursor].swap_fg_and_bg();
-        }
+            if self.custom_cursor_colors {
+                let (fg, bg) = self.grid[self.cursor].set_cursor();
+                self.undercursorfg = fg;
+                self.undercursorbg = bg;
 
+            } else {
+                self.grid[self.cursor].swap_fg_and_bg();
+            }
+        }
         self
     }
 
@@ -87,7 +102,11 @@ impl<'a> Drop for RenderableCellsIter<'a> {
     /// Resets temporary render state on the grid
     fn drop(&mut self) {
         if self.cursor_is_visible() {
-            self.grid[self.cursor].swap_fg_and_bg();
+            if self.custom_cursor_colors {
+                self.grid[self.cursor].unset_cursor(self.undercursorfg, self.undercursorbg);
+            } else {
+                self.grid[self.cursor].swap_fg_and_bg();
+            }
         }
     }
 }
@@ -247,6 +266,8 @@ pub struct Term {
     empty_cell: Cell,
 
     pub dirty: bool,
+
+    custom_cursor_colors: bool,
 }
 
 /// Terminal size info
@@ -297,7 +318,7 @@ impl Term {
         self.next_title.take()
     }
 
-    pub fn new(size: SizeInfo) -> Term {
+    pub fn new(size: SizeInfo, config : &Config) -> Term {
         let template = Cell::default();
 
         let num_cols = size.cols();
@@ -329,7 +350,12 @@ impl Term {
             size_info: size,
             template_cell: template,
             empty_cell: template,
+            custom_cursor_colors: config.custom_cursor_colors(),
         }
+    }
+
+    pub fn update_config(&mut self, config: &Config) {
+        self.custom_cursor_colors = config.custom_cursor_colors()
     }
 
     #[inline]
@@ -482,7 +508,7 @@ impl Term {
     /// background color.  Cells with an alternate background color are
     /// considered renderable as are cells with any text content.
     pub fn renderable_cells(&mut self, selection: &Selection) -> RenderableCellsIter {
-        RenderableCellsIter::new(&mut self.grid, &self.cursor, self.mode, selection)
+        RenderableCellsIter::new(&mut self.grid, &self.cursor, self.mode, selection, self.custom_cursor_colors)
     }
 
     /// Resize terminal to new dimensions
