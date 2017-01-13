@@ -578,7 +578,7 @@ impl QuadRenderer {
                         if op.contains(op::IGNORED) {
                             if let Some(path) = path.as_ref() {
                                 if let Err(err) = watcher.watch(path) {
-                                    err_println!("failed to establish watch on {:?}: {:?}", path, err);
+                                    warn!("failed to establish watch on {:?}: {:?}", path, err);
                                 }
                             }
 
@@ -680,10 +680,10 @@ impl QuadRenderer {
             Err(err) => {
                 match err {
                     ShaderCreationError::Io(err) => {
-                        err_println!("Error reading shader file: {}", err);
+                        error!("Error reading shader file: {}", err);
                     },
                     ShaderCreationError::Compile(path, log) => {
-                        err_println!("Error compiling shader at {:?}", path);
+                        error!("Error compiling shader at {:?}", path);
                         let _ = io::copy(&mut log.as_bytes(), &mut io::stdout());
                     }
                 }
@@ -975,7 +975,7 @@ impl ShaderProgram {
         let ortho = cgmath::ortho(0., width, 0., height, -1., 1.);
         let projection: [[f32; 4]; 4] = ortho.into();
 
-        println!("width: {}, height: {}", width, height);
+        info!("width: {}, height: {}", width, height);
 
         unsafe {
             gl::UniformMatrix4fv(self.u_projection,
@@ -1014,7 +1014,7 @@ impl ShaderProgram {
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
 
             if success != (gl::TRUE as GLint) {
-                err_println!("{}", get_program_info_log(program));
+                error!("{}", get_program_info_log(program));
                 panic!("failed to link shader program");
             }
             program

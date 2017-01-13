@@ -11,8 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+extern crate log;
 use std::env;
 use index::{Line, Column};
+
 
 /// Options specified on the command line
 pub struct Options {
@@ -20,7 +22,8 @@ pub struct Options {
     pub ref_test: bool,
     pub columns: Column,
     pub lines: Line,
-    pub title: String
+    pub title: String,
+    pub log_level: log::LogLevelFilter
 }
 
 impl Default for Options {
@@ -30,7 +33,8 @@ impl Default for Options {
             ref_test: false,
             columns: Column(80),
             lines: Line(24),
-            title: "Alacritty".to_owned()
+            title: "Alacritty".to_owned(),
+            log_level: log::LogLevelFilter::Warn,
         }
     }
 }
@@ -56,6 +60,11 @@ impl Options {
                 "-t" | "--title" => {
                     args_iter.next().map(|t| options.title = t);
                 },
+                "-q" => options.log_level = log::LogLevelFilter::Error,
+                "-qq" => options.log_level = log::LogLevelFilter::Off,
+                "-v" => options.log_level = log::LogLevelFilter::Info,
+                "-vv" => options.log_level = log::LogLevelFilter::Debug,
+                "-vvv" => options.log_level = log::LogLevelFilter::Trace,
                 // ignore unexpected
                 _ => (),
             }

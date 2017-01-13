@@ -189,7 +189,7 @@ impl<N: Notify> Processor<N> {
             macro_rules! process {
                 ($event:expr) => {
                     if self.print_events {
-                        err_println!("glutin event: {:?}", $event);
+                        println!("glutin event: {:?}", $event);
                     }
                     Processor::handle_event(
                         &mut processor,

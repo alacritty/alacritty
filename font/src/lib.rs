@@ -39,6 +39,9 @@ extern crate libc;
 #[macro_use]
 extern crate ffi_util;
 
+#[macro_use]
+extern crate log;
+
 use std::fmt;
 use std::sync::atomic::{AtomicU32, ATOMIC_U32_INIT, Ordering};
 

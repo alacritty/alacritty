@@ -488,39 +488,39 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             C1::NEL => self.handler.newline(),
             C1::HTS => self.handler.set_horizontal_tabstop(),
             C1::DECID => self.handler.identify_terminal(self.writer),
-            _ => err_println!("[unhandled] execute byte={:02x}", byte)
+            _ => debug!("[unhandled] execute byte={:02x}", byte)
         }
     }
 
     #[inline]
     fn hook(&mut self, params: &[i64], intermediates: &[u8], ignore: bool) {
-        err_println!("[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}",
+        debug!("[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}",
                      params, intermediates, ignore);
     }
 
     #[inline]
     fn put(&mut self, byte: u8) {
-        err_println!("[unhandled put] byte={:?}", byte);
+        debug!("[unhandled put] byte={:?}", byte);
     }
 
     #[inline]
     fn unhook(&mut self) {
-        err_println!("[unhandled unhook]");
+        debug!("[unhandled unhook]");
     }
 
     #[inline]
     fn osc_dispatch(&mut self, params: &[&[u8]]) {
         macro_rules! unhandled {
             () => {{
-                err_print!("[unhandled osc_dispatch]: [");
-                for param in params {
-                    err_print!("[");
-                    for byte in *param {
-                        err_print!("{:?}, ", *byte as char);
+                let mut buf = String::new();
+                for items in params {
+                    buf.push_str("[");
+                    for item in *items {
+                        buf.push_str(&format!("{:?},", *item as char));
                     }
-                    err_print!("],");
+                    buf.push_str("],");
                 }
-                err_println!("]");
+                warn!("[unhandled osc_dispatch]: [{}]", &buf);
             }}
         }
 
@@ -564,7 +564,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
 
         macro_rules! unhandled {
             () => {{
-                err_println!("[Unhandled CSI] action={:?}, args={:?}, intermediates={:?}",
+                warn!("[Unhandled CSI] action={:?}, args={:?}, intermediates={:?}",
                              action, args, intermediates);
                 return;
             }}
@@ -775,7 +775,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
     ) {
         macro_rules! unhandled {
             () => {{
-                err_println!("[unhandled] esc_dispatch params={:?}, ints={:?}, byte={:?} ({:02x})",
+                warn!("[unhandled] esc_dispatch params={:?}, ints={:?}, byte={:?} ({:02x})",
                              params, intermediates, byte as char, byte);
                 return;
             }}
@@ -823,7 +823,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
         2 => {
             // RGB color spec
             if attrs.len() < 5 {
-                err_println!("Expected RGB color spec; got {:?}", attrs);
+                warn!("Expected RGB color spec; got {:?}", attrs);
                 return None;
             }
 
@@ -835,7 +835,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
 
             let range = 0..256;
             if !range.contains_(r) || !range.contains_(g) || !range.contains_(b) {
-                err_println!("Invalid RGB color spec: ({}, {}, {})", r, g, b);
+                warn!("Invalid RGB color spec: ({}, {}, {})", r, g, b);
                 return None;
             }
 
@@ -847,7 +847,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
         },
         5 => {
             if attrs.len() < 3 {
-                err_println!("Expected color index; got {:?}", attrs);
+                warn!("Expected color index; got {:?}", attrs);
                 None
             } else {
                 *i += 2;
@@ -857,14 +857,14 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
                         Some(Color::Indexed(idx as u8))
                     },
                     _ => {
-                        err_println!("Invalid color index: {}", idx);
+                        warn!("Invalid color index: {}", idx);
                         None
                     }
                 }
             }
         },
         _ => {
-            err_println!("Unexpected color attr: {}", attrs[*i+1]);
+            warn!("Unexpected color attr: {}", attrs[*i+1]);
             None
         }
     }

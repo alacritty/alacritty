@@ -125,7 +125,7 @@ impl ::Rasterize for Rasterizer {
     type Err = Error;
 
     fn new(_dpi_x: f32, _dpi_y: f32, device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {
-        println!("device_pixel_ratio: {}", device_pixel_ratio);
+        info!("device_pixel_ratio: {}", device_pixel_ratio);
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
@@ -588,7 +588,7 @@ mod tests {
     fn get_descriptors_and_build_font() {
         let list = super::descriptors_for_family("Menlo");
         assert!(!list.is_empty());
-        println!("{:?}", list);
+        info!("{:?}", list);
 
         // Check to_font
         let fonts = list.iter()

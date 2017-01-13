@@ -45,6 +45,9 @@ extern crate xdg;
 extern crate bitflags;
 
 #[macro_use]
+extern crate log;
+
+#[macro_use]
 pub mod macros;
 
 pub mod ansi;
@@ -56,6 +59,7 @@ pub mod event_loop;
 pub mod grid;
 pub mod index;
 pub mod input;
+pub mod logging;
 pub mod meter;
 pub mod renderer;
 pub mod selection;

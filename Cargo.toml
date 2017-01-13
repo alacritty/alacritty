@@ -31,6 +31,7 @@ mio = "0.6"
 serde_json = "*"
 copypasta = { path = "./copypasta" }
 xdg = "2.0.0"
+log = "0.3"
 
 clippy = { version = "0.0.104", optional = true }
 
