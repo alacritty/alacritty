@@ -9,6 +9,7 @@ license = "Apache-2.0"
 euclid = "0.6.8"
 libc = "0.2.11"
 ffi-util = { path = "../ffi-util" }
+log = "0.3"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig" }

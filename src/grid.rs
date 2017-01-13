@@ -469,7 +469,7 @@ mod tests {
     #[test]
     fn grid_swap_lines_ok() {
         let mut grid = Grid::new(Line(10), Column(1), &0);
-        println!("");
+        info!("");
 
         // swap test ends
         grid[Line(0)][Column(0)] = 1;
@@ -487,14 +487,14 @@ mod tests {
         grid[Line(4)][Column(0)] = 1;
         grid[Line(5)][Column(0)] = 2;
 
-        println!("grid: {:?}", grid);
+        info!("grid: {:?}", grid);
 
         assert_eq!(grid[Line(4)][Column(0)], 1);
         assert_eq!(grid[Line(5)][Column(0)], 2);
 
         grid.swap_lines(Line(4), Line(5));
 
-        println!("grid: {:?}", grid);
+        info!("grid: {:?}", grid);
 
         assert_eq!(grid[Line(4)][Column(0)], 2);
         assert_eq!(grid[Line(5)][Column(0)], 1);
@@ -524,18 +524,18 @@ mod tests {
     // Scroll up moves lines upwards
     #[test]
     fn scroll_up() {
-        println!("");
+        info!("");
 
         let mut grid = Grid::new(Line(10), Column(1), &0);
         for i in 0..10 {
             grid[Line(i)][Column(0)] = i;
         }
 
-        println!("grid: {:?}", grid);
+        info!("grid: {:?}", grid);
 
         grid.scroll_up(Line(0)..Line(8), Line(2));
 
-        println!("grid: {:?}", grid);
+        info!("grid: {:?}", grid);
 
         let mut other = Grid::new(Line(10), Column(1), &9);
 
@@ -558,18 +558,18 @@ mod tests {
     // Scroll down moves lines downwards
     #[test]
     fn scroll_down() {
-        println!("");
+        info!("");
 
         let mut grid = Grid::new(Line(10), Column(1), &0);
         for i in 0..10 {
             grid[Line(i)][Column(0)] = i;
         }
 
-        println!("grid: {:?}", grid);
+        info!("grid: {:?}", grid);
 
         grid.scroll_down(Line(2)..Line(10), Line(2));
 
-        println!("grid: {:?}", grid);
+        info!("grid: {:?}", grid);
 
         let mut other = Grid::new(Line(10), Column(1), &9);
 

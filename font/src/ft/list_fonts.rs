@@ -390,7 +390,7 @@ pub mod fc {
                 (*self.as_ptr()).nfont as isize
             };
 
-            println!("num fonts = {}", num_fonts);
+            info!("num fonts = {}", num_fonts);
 
             FontSetIter {
                 font_set: self.deref(),
@@ -408,7 +408,7 @@ pub mod fc {
                 (*self.as_ptr()).nfont as isize
             };
 
-            println!("num fonts = {}", num_fonts);
+            info!("num fonts = {}", num_fonts);
 
             FontSetIter {
                 font_set: self,
@@ -498,7 +498,7 @@ mod tests {
                 break;
             }
         }
-        println!("");
+        info!("");
     }
 
     #[test]
@@ -520,7 +520,7 @@ mod tests {
                     break;
                 }
             }
-            println!("");
+            info!("");
         }
     }
 }

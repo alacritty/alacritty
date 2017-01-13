@@ -664,7 +664,7 @@ impl Term {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_down_relative(&mut self, origin: Line, lines: Line) {
-        debug_println!("scroll_down: {}", lines);
+        trace!("scroll_down: {}", lines);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
         let template = self.empty_cell;
@@ -697,7 +697,7 @@ impl Term {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_up_relative(&mut self, origin: Line, lines: Line) {
-        debug_println!("scroll_up: {}", lines);
+        trace!("scroll_up: {}", lines);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
         let template = self.empty_cell;
@@ -752,7 +752,7 @@ impl ansi::Handler for Term {
                 return;
             }
 
-            debug_println!("wrapping");
+            trace!("wrapping");
 
             {
                 let location = Point {
@@ -790,7 +790,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn goto(&mut self, line: Line, col: Column) {
-        debug_println!("goto: line={}, col={}", line, col);
+        trace!("goto: line={}, col={}", line, col);
         self.cursor.line = min(line, self.grid.num_lines() - 1);
         self.cursor.col = min(col, self.grid.num_cols() - 1);
         self.input_needs_wrap = false;
@@ -798,14 +798,14 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn goto_line(&mut self, line: Line) {
-        debug_println!("goto_line: {}", line);
+        trace!("goto_line: {}", line);
         self.cursor.line = min(line, self.grid.num_lines() - 1);
         self.input_needs_wrap = false;
     }
 
     #[inline]
     fn goto_col(&mut self, col: Column) {
-        debug_println!("goto_col: {}", col);
+        trace!("goto_col: {}", col);
         self.cursor.col = min(col, self.grid.num_cols() - 1);
         self.input_needs_wrap = false;
     }
@@ -840,27 +840,27 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn move_up(&mut self, lines: Line) {
-        debug_println!("move_up: {}", lines);
+        trace!("move_up: {}", lines);
         let lines = min(self.cursor.line, lines);
         self.cursor.line = min(self.cursor.line - lines, self.grid.num_lines() -1);
     }
 
     #[inline]
     fn move_down(&mut self, lines: Line) {
-        debug_println!("move_down: {}", lines);
+        trace!("move_down: {}", lines);
         self.cursor.line = min(self.cursor.line + lines, self.grid.num_lines() - 1);
     }
 
     #[inline]
     fn move_forward(&mut self, cols: Column) {
-        debug_println!("move_forward: {}", cols);
+        trace!("move_forward: {}", cols);
         self.cursor.col = min(self.cursor.col + cols, self.grid.num_cols() - 1);
         self.input_needs_wrap = false;
     }
 
     #[inline]
     fn move_backward(&mut self, cols: Column) {
-        debug_println!("move_backward: {}", cols);
+        trace!("move_backward: {}", cols);
         self.cursor.col -= min(self.cursor.col, cols);
         self.input_needs_wrap = false;
     }
@@ -872,17 +872,17 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn move_down_and_cr(&mut self, lines: Line) {
-        err_println!("[unimplemented] move_down_and_cr: {}", lines);
+        trace!("[unimplemented] move_down_and_cr: {}", lines);
     }
 
     #[inline]
     fn move_up_and_cr(&mut self, lines: Line) {
-        err_println!("[unimplemented] move_up_and_cr: {}", lines);
+        trace!("[unimplemented] move_up_and_cr: {}", lines);
     }
 
     #[inline]
     fn put_tab(&mut self, mut count: i64) {
-        debug_println!("put_tab: {}", count);
+        trace!("put_tab: {}", count);
 
         let mut col = self.cursor.col;
         while col < self.grid.num_cols() && count != 0 {
@@ -902,7 +902,7 @@ impl ansi::Handler for Term {
     /// Backspace `count` characters
     #[inline]
     fn backspace(&mut self) {
-        debug_println!("backspace");
+        trace!("backspace");
         if self.cursor.col > Column(0) {
             self.cursor.col -= 1;
             self.input_needs_wrap = false;
@@ -912,7 +912,7 @@ impl ansi::Handler for Term {
     /// Carriage return
     #[inline]
     fn carriage_return(&mut self) {
-        debug_println!("carriage_return");
+        trace!("carriage_return");
         self.cursor.col = Column(0);
         self.input_needs_wrap = false;
     }
@@ -920,7 +920,7 @@ impl ansi::Handler for Term {
     /// Linefeed
     #[inline]
     fn linefeed(&mut self) {
-        debug_println!("linefeed");
+        trace!("linefeed");
         if (self.cursor.line + 1) >= self.scroll_region.end {
             self.scroll_up(Line(1));
         } else {
@@ -931,22 +931,22 @@ impl ansi::Handler for Term {
     /// Set current position as a tabstop
     #[inline]
     fn bell(&mut self) {
-        debug_println!("bell");
+        trace!("bell");
     }
 
     #[inline]
     fn substitute(&mut self) {
-        err_println!("[unimplemented] substitute");
+        trace!("[unimplemented] substitute");
     }
 
     #[inline]
     fn newline(&mut self) {
-        err_println!("[unimplemented] newline");
+        trace!("[unimplemented] newline");
     }
 
     #[inline]
     fn set_horizontal_tabstop(&mut self) {
-        err_println!("[unimplemented] set_horizontal_tabstop");
+        trace!("[unimplemented] set_horizontal_tabstop");
     }
 
     #[inline]
@@ -963,7 +963,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn insert_blank_lines(&mut self, lines: Line) {
-        debug_println!("insert_blank_lines: {}", lines);
+        trace!("insert_blank_lines: {}", lines);
         if self.scroll_region.contains_(self.cursor.line) {
             let origin = self.cursor.line;
             self.scroll_down_relative(origin, lines);
@@ -972,7 +972,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn delete_lines(&mut self, lines: Line) {
-        debug_println!("delete_lines: {}", lines);
+        trace!("delete_lines: {}", lines);
         if self.scroll_region.contains_(self.cursor.line) {
             let origin = self.cursor.line;
             self.scroll_up_relative(origin, lines);
@@ -981,7 +981,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn erase_chars(&mut self, count: Column) {
-        debug_println!("erase_chars: {}, {}", count, self.cursor.col);
+        trace!("erase_chars: {}, {}", count, self.cursor.col);
         let start = self.cursor.col;
         let end = min(start + count, self.grid.num_cols() - 1);
 
@@ -1022,27 +1022,27 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn move_backward_tabs(&mut self, count: i64) {
-        err_println!("[unimplemented] move_backward_tabs: {}", count);
+        trace!("[unimplemented] move_backward_tabs: {}", count);
     }
 
     #[inline]
     fn move_forward_tabs(&mut self, count: i64) {
-        err_println!("[unimplemented] move_forward_tabs: {}", count);
+        trace!("[unimplemented] move_forward_tabs: {}", count);
     }
 
     #[inline]
     fn save_cursor_position(&mut self) {
-        err_println!("[unimplemented] save_cursor_position");
+        trace!("[unimplemented] save_cursor_position");
     }
 
     #[inline]
     fn restore_cursor_position(&mut self) {
-        err_println!("[unimplemented] restore_cursor_position");
+        trace!("[unimplemented] restore_cursor_position");
     }
 
     #[inline]
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
-        debug_println!("clear_line: {:?}", mode);
+        trace!("clear_line: {:?}", mode);
         let template = self.empty_cell;
         let col =  self.cursor.col;
 
@@ -1070,7 +1070,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
-        debug_println!("clear_screen: {:?}", mode);
+        trace!("clear_screen: {:?}", mode);
         let template = self.empty_cell;
         match mode {
             ansi::ClearMode::Below => {
@@ -1084,24 +1084,24 @@ impl ansi::Handler for Term {
                 self.grid.clear(|c| c.reset(&template));
             },
             _ => {
-                err_println!("ansi::ClearMode::Above not implemented");
+                trace!("ansi::ClearMode::Above not implemented");
             }
         }
     }
 
     #[inline]
     fn clear_tabs(&mut self, mode: ansi::TabulationClearMode) {
-        err_println!("[unimplemented] clear_tabs: {:?}", mode);
+        trace!("[unimplemented] clear_tabs: {:?}", mode);
     }
 
     #[inline]
     fn reset_state(&mut self) {
-        err_println!("[unimplemented] reset_state");
+        trace!("[unimplemented] reset_state");
     }
 
     #[inline]
     fn reverse_index(&mut self) {
-        debug_println!("reverse_index");
+        trace!("reverse_index");
         // if cursor is at the top
         if self.cursor.line == self.scroll_region.start {
             self.scroll_down(Line(1));
@@ -1113,7 +1113,7 @@ impl ansi::Handler for Term {
     /// set a terminal attribute
     #[inline]
     fn terminal_attribute(&mut self, attr: Attr) {
-        debug_println!("Set Attribute: {:?}", attr);
+        trace!("Set Attribute: {:?}", attr);
         match attr {
             Attr::Foreground(color) => self.template_cell.fg = color,
             Attr::Background(color) => self.template_cell.bg = color,
@@ -1131,14 +1131,14 @@ impl ansi::Handler for Term {
             Attr::Underscore => self.template_cell.flags.insert(cell::UNDERLINE),
             Attr::CancelUnderline => self.template_cell.flags.remove(cell::UNDERLINE),
             _ => {
-                debug_println!("Term got unhandled attr: {:?}", attr);
+                debug!("Term got unhandled attr: {:?}", attr);
             }
         }
     }
 
     #[inline]
     fn set_mode(&mut self, mode: ansi::Mode) {
-        debug_println!("set_mode: {:?}", mode);
+        trace!("set_mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => self.swap_alt(),
             ansi::Mode::ShowCursor => self.mode.insert(mode::SHOW_CURSOR),
@@ -1149,14 +1149,14 @@ impl ansi::Handler for Term {
             ansi::Mode::SgrMouse => self.mode.insert(mode::SGR_MOUSE),
             ansi::Mode::LineWrap => self.mode.insert(mode::LINE_WRAP),
             _ => {
-                debug_println!(".. ignoring set_mode");
+                debug!(".. ignoring set_mode");
             }
         }
     }
 
     #[inline]
     fn unset_mode(&mut self,mode: ansi::Mode) {
-        debug_println!("unset_mode: {:?}", mode);
+        trace!("unset_mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => self.swap_alt(),
             ansi::Mode::ShowCursor => self.mode.remove(mode::SHOW_CURSOR),
@@ -1167,14 +1167,14 @@ impl ansi::Handler for Term {
             ansi::Mode::SgrMouse => self.mode.remove(mode::SGR_MOUSE),
             ansi::Mode::LineWrap => self.mode.remove(mode::LINE_WRAP),
             _ => {
-                debug_println!(".. ignoring unset_mode");
+                debug!(".. ignoring unset_mode");
             }
         }
     }
 
     #[inline]
     fn set_scrolling_region(&mut self, region: Range<Line>) {
-        debug_println!("set scroll region: {:?}", region);
+        trace!("set scroll region: {:?}", region);
         self.scroll_region.start = min(region.start, self.grid.num_lines());
         self.scroll_region.end = min(region.end, self.grid.num_lines());
         self.goto(Line(0), Column(0));
@@ -1182,13 +1182,13 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn set_keypad_application_mode(&mut self) {
-        debug_println!("set mode::APP_KEYPAD");
+        trace!("set mode::APP_KEYPAD");
         self.mode.insert(mode::APP_KEYPAD);
     }
 
     #[inline]
     fn unset_keypad_application_mode(&mut self) {
-        debug_println!("unset mode::APP_KEYPAD");
+        trace!("unset mode::APP_KEYPAD");
         self.mode.remove(mode::APP_KEYPAD);
     }
 
