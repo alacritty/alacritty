@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::collections::HashMap;
+use std::hash::BuildHasherDefault;
 use std::fs::File;
 use std::io::{self, Read};
 use std::mem::size_of;
@@ -20,20 +21,19 @@ use std::ptr;
 use std::sync::mpsc;
 
 use cgmath;
+use fnv::FnvHasher;
 use font::{self, Rasterizer, Rasterize, RasterizedGlyph, FontDesc, GlyphKey, FontKey};
 use gl::types::*;
 use gl;
-use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 use index::{Line, Column, RangeInclusive};
-
-use window::{Size, Pixels};
+use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 
 use ansi::{Color, NamedColor};
-
 use config::{Config, ColorList};
 use term::{self, cell, IndexedCell, Cell};
+use window::{Size, Pixels};
 
-use super::Rgb;
+use Rgb;
 
 // Shader paths for live reload
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
@@ -136,7 +136,7 @@ pub struct Glyph {
 /// representations of the same code point.
 pub struct GlyphCache {
     /// Cache of buffered glyphs
-    cache: HashMap<GlyphKey, Glyph>,
+    cache: HashMap<GlyphKey, Glyph, BuildHasherDefault<FnvHasher>>,
 
     /// Rasterizer for loading new glyphs
     rasterizer: Rasterizer,
@@ -215,7 +215,7 @@ impl GlyphCache {
         };
 
         let mut cache = GlyphCache {
-            cache: HashMap::new(),
+            cache: HashMap::default(),
             rasterizer: rasterizer,
             font_size: font.size(),
             font_key: regular,
@@ -251,26 +251,24 @@ impl GlyphCache {
     fn load_and_cache_glyph<L>(&mut self, glyph_key: GlyphKey, loader: &mut L)
         where L: LoadGlyph
     {
-        if let Ok(rasterized) = self.rasterizer.get_glyph(&glyph_key) {
-            let glyph = loader.load_glyph(&rasterized);
-            self.cache.insert(glyph_key, glyph);
-        }
+        let rasterized = self.rasterizer.get_glyph(&glyph_key)
+            .unwrap_or_else(|_| Default::default());
+
+        let glyph = loader.load_glyph(&rasterized);
+        self.cache.insert(glyph_key, glyph);
     }
 
-    pub fn get<L>(&mut self, glyph_key: &GlyphKey, loader: &mut L) -> Option<&Glyph>
+    pub fn get<'a, L>(&'a mut self, glyph_key: &GlyphKey, loader: &mut L) -> &'a Glyph
         where L: LoadGlyph
     {
-        // Return glyph if it's already loaded
-        // hi borrowck
-        {
-            if self.cache.contains_key(glyph_key) {
-                return self.cache.get(glyph_key);
-            }
-        }
-
-        // Rasterize and load the glyph
-        self.load_and_cache_glyph(glyph_key.to_owned(), loader);
-        self.cache.get(glyph_key)
+        let rasterizer = &mut self.rasterizer;
+        self.cache
+            .entry(*glyph_key)
+            .or_insert_with(|| {
+                let rasterized = rasterizer.get_glyph(&glyph_key)
+                    .unwrap_or_else(|_| Default::default());
+                loader.load_glyph(&rasterized)
+            })
     }
 }
 
@@ -817,26 +815,25 @@ impl<'a> RenderApi<'a> {
                 c: cell.c
             };
 
-            // Add cell to batch if glyph available
-            glyph_cache.get(&glyph_key, self)
-                .map(|glyph| self.add_render_item(&cell, glyph))
-                .and_then(|_| {
-                    // FIXME This is a super hacky way to do underlined text. During
-                    //       a time crunch to release 0.1, this seemed like a really
-                    //       easy, clean hack.
-                    if cell.flags.contains(cell::UNDERLINE) {
-                        let glyph_key = GlyphKey {
-                            font_key: font_key,
-                            size: glyph_cache.font_size,
-                            c: '_'
-                        };
+            // Add cell to batch
+            {
+                let glyph = glyph_cache.get(&glyph_key, self);
+                self.add_render_item(&cell, glyph);
+            }
 
-                        glyph_cache.get(&glyph_key, self)
-                    } else {
-                        None
-                    }
-                })
-                .map(|underscore| self.add_render_item(&cell, underscore));
+            // FIXME This is a super hacky way to do underlined text. During
+            //       a time crunch to release 0.1, this seemed like a really
+            //       easy, clean hack.
+            if cell.flags.contains(cell::UNDERLINE) {
+                let glyph_key = GlyphKey {
+                    font_key: font_key,
+                    size: glyph_cache.font_size,
+                    c: '_'
+                };
+
+                let underscore = glyph_cache.get(&glyph_key, self);
+                self.add_render_item(&cell, underscore);
+            }
         }
     }
 }
