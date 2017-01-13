@@ -42,8 +42,9 @@ extern crate ffi_util;
 #[macro_use]
 extern crate log;
 
+use std::hash::{Hash, Hasher};
 use std::fmt;
-use std::sync::atomic::{AtomicU32, ATOMIC_U32_INIT, Ordering};
+use std::sync::atomic::{AtomicU16, ATOMIC_U16_INIT, Ordering};
 
 // If target isn't macos, reexport everything from ft
 #[cfg(not(target_os = "macos"))]
@@ -114,7 +115,7 @@ impl fmt::Display for FontDesc {
 /// Identifier for a Font for use in maps/etc
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct FontKey {
-    token: u32,
+    token: u16,
 }
 
 impl FontKey {
@@ -122,7 +123,7 @@ impl FontKey {
     ///
     /// The generated key will be globally unique
     pub fn next() -> FontKey {
-        static TOKEN: AtomicU32 = ATOMIC_U32_INIT;
+        static TOKEN: AtomicU16 = ATOMIC_U16_INIT;
 
         FontKey {
             token: TOKEN.fetch_add(1, Ordering::SeqCst),
@@ -130,16 +131,28 @@ impl FontKey {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct GlyphKey {
     pub c: char,
     pub font_key: FontKey,
     pub size: Size,
 }
 
+impl Hash for GlyphKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        unsafe {
+            // This transmute is fine:
+            //
+            // - If GlyphKey ever becomes a different size, this will fail to compile
+            // - Result is being used for hashing and has no fields (it's a u64)
+            ::std::mem::transmute::<GlyphKey, u64>(*self)
+        }.hash(state);
+    }
+}
+
 /// Font size stored as integer
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct Size(i32);
+pub struct Size(i16);
 
 impl Size {
     /// Scale factor between font "Size" type and point size
@@ -150,7 +163,7 @@ impl Size {
 
     /// Create a new `Size` from a f32 size in points
     pub fn new(size: f32) -> Size {
-        Size((size * Size::factor()) as i32)
+        Size((size * Size::factor()) as i16)
     }
 
     /// Get the f32 size in points
@@ -166,6 +179,19 @@ pub struct RasterizedGlyph {
     pub top: i32,
     pub left: i32,
     pub buf: Vec<u8>,
+}
+
+impl Default for RasterizedGlyph {
+    fn default() -> RasterizedGlyph {
+        RasterizedGlyph {
+            c: ' ',
+            width: 0,
+            height: 0,
+            top: 0,
+            left: 0,
+            buf: Vec::new(),
+        }
+    }
 }
 
 struct BufDebugger<'a>(&'a [u8]);
