@@ -28,11 +28,20 @@ binaries will be provided for supported operating systems.
 
 - [Announcing Alacritty, a GPU-Accelerated Terminal Emulator](http://blog.jwilm.io/announcing-alacritty/) January 6, 2017
 
-## Installation
+## Package Installation
 
-The only supported installation method at this time is from source. Proper
-installers will be added prior to the 1.0 release of Alacritty. This section
-will walk you through how to build from source on both macOS and Ubuntu.
+The only supported installation method at this time is from source. Proper installers will be added prior to the 1.0 release of Alacritty.
+
+### Arch Linux
+
+```sh
+git clone https://aur.archlinux.org/alacritty-git.git
+cd alacritty-git
+pacman -S rustup # needed until Rust 1.15 is available (see PR #131)
+makepkg -isr
+```
+
+## Manual Installation
 
 ### Prerequisites
 
@@ -41,7 +50,7 @@ will walk you through how to build from source on both macOS and Ubuntu.
 2. Clone the source code:
 
    ```sh
-   git clone https://github.com/jwilm/alacritty
+   git clone https://github.com/jwilm/alacritty.git
    cd alacritty
    ```
 
@@ -76,7 +85,7 @@ On Arch Linux, you need a few extra libraries to build Alacritty. Here's a
 to be missing, please open an issue.
 
 ```sh
-pacman -S cmake freetype2 fontconfig xclip
+pacman -S cmake freetype2 fontconfig pkg-config make xclip
 ```
 
 ##### Fedora
@@ -145,7 +154,7 @@ sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
 cp Alacritty.desktop ~/.local/share/applications
 ```
 
-### Configuration
+## Configuration
 
 Although it's possible the default configuration would work on your system,
 you'll probably end up wanting to customize it anyhow. There is a default
