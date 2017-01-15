@@ -1195,6 +1195,25 @@ impl Default for FontOffset {
     }
 }
 
+/// Modifications to glyph positions within their cells
+///
+/// By default the glyphs are located at the bottom of the cell which can be
+/// undesirable. This gives the user a way to shift where the glyphs are
+/// displayed in their cells.
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub struct GlyphOffset {
+    /// Horizontal position
+    pub x: f32,
+    /// Vertical position
+    pub y: f32,
+}
+
+impl Default for GlyphOffset {
+    fn default() -> GlyphOffset {
+        GlyphOffset { x: 0.0, y: 0.0 }
+    }
+}
+
 trait DeserializeFromF32 : Sized {
     fn deserialize_from_f32<D>(D) -> ::std::result::Result<Self, D::Error>
         where D: serde::de::Deserializer;
@@ -1256,6 +1275,10 @@ pub struct Font {
     /// Extra spacing per character
     offset: FontOffset,
 
+    /// Glyph offset within character cell
+    #[serde(default)]
+    glyph_offset: GlyphOffset,
+
     #[serde(default="true_bool")]
     use_thin_strokes: bool
 }
@@ -1296,6 +1319,12 @@ impl Font {
     pub fn offset(&self) -> &FontOffset {
         &self.offset
     }
+
+    /// Get cell offsets for glyphs
+    #[inline]
+    pub fn glyph_offset(&self) -> &GlyphOffset {
+        &self.glyph_offset
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -1307,7 +1336,8 @@ impl Default for Font {
             italic: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
             use_thin_strokes: true,
-            offset: Default::default()
+            offset: Default::default(),
+            glyph_offset: Default::default()
         }
     }
 }
@@ -1321,7 +1351,8 @@ impl Default for Font {
             italic: FontDescription::new_with_family("monospace"),
             size: Size::new(11.0),
             use_thin_strokes: false,
-            offset: Default::default()
+            offset: Default::default(),
+            glyph_offset: Default::default()
         }
     }
 }

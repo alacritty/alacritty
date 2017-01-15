@@ -28,7 +28,7 @@ use gl;
 use index::{Line, Column, RangeInclusive};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 
-use config::Config;
+use config::{Config, GlyphOffset};
 use term::{self, cell, RenderableCell};
 use window::{Size, Pixels};
 
@@ -154,6 +154,9 @@ pub struct GlyphCache {
 
     /// font size
     font_size: font::Size,
+
+    /// glyph offset
+    glyph_offset: GlyphOffset,
 }
 
 impl GlyphCache {
@@ -166,6 +169,7 @@ impl GlyphCache {
     {
         let font = config.font();
         let size = font.size();
+        let glyph_offset = *font.glyph_offset();
 
         // Load regular font
         let regular_desc = if let Some(ref style) = font.normal.style {
@@ -223,6 +227,7 @@ impl GlyphCache {
             font_key: regular,
             bold_key: bold,
             italic_key: italic,
+            glyph_offset: glyph_offset,
         };
 
         macro_rules! load_glyphs_for_font {
@@ -253,8 +258,11 @@ impl GlyphCache {
     fn load_and_cache_glyph<L>(&mut self, glyph_key: GlyphKey, loader: &mut L)
         where L: LoadGlyph
     {
-        let rasterized = self.rasterizer.get_glyph(&glyph_key)
+        let mut rasterized = self.rasterizer.get_glyph(&glyph_key)
             .unwrap_or_else(|_| Default::default());
+
+        rasterized.left += self.glyph_offset.x as i32;
+        rasterized.top += self.glyph_offset.y as i32;
 
         let glyph = loader.load_glyph(&rasterized);
         self.cache.insert(glyph_key, glyph);
@@ -263,12 +271,18 @@ impl GlyphCache {
     pub fn get<'a, L>(&'a mut self, glyph_key: &GlyphKey, loader: &mut L) -> &'a Glyph
         where L: LoadGlyph
     {
+        let glyph_offset = self.glyph_offset;
         let rasterizer = &mut self.rasterizer;
         self.cache
             .entry(*glyph_key)
             .or_insert_with(|| {
-                let rasterized = rasterizer.get_glyph(&glyph_key)
+                let mut rasterized = rasterizer.get_glyph(&glyph_key)
                     .unwrap_or_else(|_| Default::default());
+
+                // We need to apply the offset to glyphs that didn't get cached initially
+                rasterized.left += glyph_offset.x as i32;
+                rasterized.top += glyph_offset.y as i32;
+
                 loader.load_glyph(&rasterized)
             })
     }
