@@ -1,0 +1,6 @@
+#!/bin/bash
+
+BIN_DIR=$(dirname $0)
+
+cd "$HOME"
+exec "$BIN_DIR/alacritty" "$@"

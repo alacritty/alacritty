@@ -26,9 +26,9 @@ $(TARGET):
 
 app: | $(APP_NAME) ## Clone Alacritty.app template and mount binary
 $(APP_NAME): $(TARGET) $(APP_TEMPLATE)
-	@mkdir -p $(APP_DIR)
-	@cp -R $(APP_TEMPLATE) $(APP_DIR)
-	@cp $(APP_BINARY) $(APP_BINARY_DIR)
+	@mkdir -p $(APP_BINARY_DIR)
+	@cp -fRp $(APP_TEMPLATE) $(APP_DIR)
+	@cp -fp $(APP_BINARY) $(APP_BINARY_DIR)
 	@echo "Created '$@' in '$(APP_DIR)'"
 
 dmg: | $(DMG_NAME) ## Pack Alacritty.app into .dmg
