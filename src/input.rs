@@ -20,16 +20,18 @@
 //! determine what to do when a non-modifier key is pressed.
 use std::borrow::Cow;
 use std::mem;
+use std::time::Instant;
 
 use copypasta::{Clipboard, Load, Buffer};
 use glutin::{ElementState, VirtualKeyCode, MouseButton};
 use glutin::{Mods, mods};
 use glutin::{TouchPhase, MouseScrollDelta};
 
-use event::{Mouse};
+use config;
+use event::{ClickState, Mouse};
 use index::{Line, Column, Side, Point};
-use term::mode::{self, TermMode};
 use term::SizeInfo;
+use term::mode::{self, TermMode};
 use util::fmt::Red;
 
 /// Processes input from glutin.
@@ -41,6 +43,7 @@ use util::fmt::Red;
 pub struct Processor<'a, A: 'a> {
     pub key_bindings: &'a [KeyBinding],
     pub mouse_bindings: &'a [MouseBinding],
+    pub mouse_config: &'a config::Mouse,
     pub ctx: A,
 }
 
@@ -51,7 +54,10 @@ pub trait ActionContext {
     fn copy_selection(&self, Buffer);
     fn clear_selection(&mut self);
     fn update_selection(&mut self, Point, Side);
+    fn semantic_selection(&mut self, Point);
+    fn line_selection(&mut self, Point);
     fn mouse_mut(&mut self) -> &mut Mouse;
+    fn mouse_coords(&self) -> Option<Point>;
 }
 
 /// Describes a state and action to take in that state
@@ -266,13 +272,43 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn on_mouse_press(&mut self) {
-        if self.ctx.terminal_mode().intersects(mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION) {
-            self.mouse_report(0);
-            return;
+    pub fn on_mouse_double_click(&mut self) {
+        if let Some(point) = self.ctx.mouse_coords() {
+            self.ctx.semantic_selection(point);
         }
+    }
 
-        self.ctx.clear_selection();
+    pub fn on_mouse_triple_click(&mut self) {
+        if let Some(point) = self.ctx.mouse_coords() {
+            self.ctx.line_selection(point);
+        }
+    }
+
+    pub fn on_mouse_press(&mut self) {
+        let now = Instant::now();
+        let elapsed = self.ctx.mouse_mut().last_click_timestamp.elapsed();
+        self.ctx.mouse_mut().last_click_timestamp = now;
+
+        self.ctx.mouse_mut().click_state = match self.ctx.mouse_mut().click_state {
+            ClickState::Click if elapsed < self.mouse_config.double_click.threshold => {
+                self.on_mouse_double_click();
+                ClickState::DoubleClick
+            },
+            ClickState::DoubleClick if elapsed < self.mouse_config.triple_click.threshold => {
+                self.on_mouse_triple_click();
+                ClickState::TripleClick
+            },
+            _ => {
+                let report_modes = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION;
+                if self.ctx.terminal_mode().intersects(report_modes) {
+                    self.mouse_report(0);
+                    return;
+                }
+
+                self.ctx.clear_selection();
+                ClickState::Click
+            }
+        };
     }
 
     pub fn on_mouse_release(&mut self) {
@@ -422,13 +458,135 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
 #[cfg(test)]
 mod tests {
-    use glutin::{mods, VirtualKeyCode};
+    use std::borrow::Cow;
+    use std::time::Duration;
 
-    use term::mode;
+    use glutin::{mods, VirtualKeyCode, Event, ElementState, MouseButton};
 
-    use super::{Action, Binding};
+    use term::{SizeInfo, Term, TermMode, mode};
+    use event::{Mouse, ClickState};
+    use config::{self, Config, ClickHandler};
+    use selection::Selection;
+    use index::{Point, Side};
+
+    use super::{Action, Binding, Processor};
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
+
+    #[derive(PartialEq)]
+    enum MultiClick {
+        DoubleClick,
+        TripleClick,
+        None,
+    }
+
+    struct ActionContext<'a> {
+        pub terminal: &'a mut Term,
+        pub selection: &'a mut Selection,
+        pub size_info: &'a SizeInfo,
+        pub mouse: &'a mut Mouse,
+        pub last_action: MultiClick,
+    }
+
+    impl <'a>super::ActionContext for ActionContext<'a> {
+        fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _val: B) {
+            // STUBBED
+        }
+
+        fn terminal_mode(&self) -> TermMode {
+            *self.terminal.mode()
+        }
+
+        fn size_info(&self) -> SizeInfo {
+            *self.size_info
+        }
+
+        fn copy_selection(&self, _buffer: ::copypasta::Buffer) {
+            // STUBBED
+        }
+
+        fn clear_selection(&mut self) { }
+
+        fn update_selection(&mut self, point: Point, side: Side) {
+            self.selection.update(point, side);
+        }
+
+        fn semantic_selection(&mut self, _point: Point) {
+            // set something that we can check for here
+            self.last_action = MultiClick::DoubleClick;
+        }
+
+        fn line_selection(&mut self, _point: Point) {
+            self.last_action = MultiClick::TripleClick;
+        }
+
+        fn mouse_coords(&self) -> Option<Point> {
+            self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
+        }
+
+        #[inline]
+        fn mouse_mut(&mut self) -> &mut Mouse {
+            self.mouse
+        }
+    }
+
+    macro_rules! test_clickstate {
+        {
+            name: $name:ident,
+            initial_state: $initial_state:expr,
+            input: $input:expr,
+            end_state: $end_state:pat,
+            last_action: $last_action:expr
+        } => {
+            #[test]
+            fn $name() {
+                let config = Config::default();
+                let size = SizeInfo {
+                    width: 21.0,
+                    height: 51.0,
+                    cell_width: 3.0,
+                    cell_height: 3.0,
+                };
+
+                let mut terminal = Term::new(&config, size);
+
+                let mut mouse = Mouse::default();
+                let mut selection = Selection::new();
+                mouse.click_state = $initial_state;
+
+                let context = ActionContext {
+                    terminal: &mut terminal,
+                    selection: &mut selection,
+                    mouse: &mut mouse,
+                    size_info: &size,
+                    last_action: MultiClick::None,
+                };
+
+                let mut processor = Processor {
+                    ctx: context,
+                    mouse_config: &config::Mouse {
+                        double_click: ClickHandler {
+                            threshold: Duration::from_millis(1000),
+                        },
+                        triple_click: ClickHandler {
+                            threshold: Duration::from_millis(1000),
+                        }
+                    },
+                    key_bindings: &config.key_bindings()[..],
+                    mouse_bindings: &config.mouse_bindings()[..],
+                };
+
+                if let Event::MouseInput(state, input) = $input {
+                    processor.mouse_input(state, input);
+                };
+
+                assert!(match mouse.click_state {
+                    $end_state => processor.ctx.last_action == $last_action,
+                    _ => false
+                });
+            }
+        }
+    }
 
     macro_rules! test_process_binding {
         {
@@ -447,6 +605,30 @@ mod tests {
                 }
             }
         }
+    }
+
+    test_clickstate! {
+        name: single_click,
+        initial_state: ClickState::None,
+        input: Event::MouseInput(ElementState::Pressed, MouseButton::Left),
+        end_state: ClickState::Click,
+        last_action: MultiClick::None
+    }
+
+    test_clickstate! {
+        name: double_click,
+        initial_state: ClickState::Click,
+        input: Event::MouseInput(ElementState::Pressed, MouseButton::Left),
+        end_state: ClickState::DoubleClick,
+        last_action: MultiClick::DoubleClick
+    }
+
+    test_clickstate! {
+        name: triple_click,
+        initial_state: ClickState::DoubleClick,
+        input: Event::MouseInput(ElementState::Pressed, MouseButton::Left),
+        end_state: ClickState::TripleClick,
+        last_action: MultiClick::TripleClick
     }
 
     test_process_binding! {

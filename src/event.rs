@@ -3,13 +3,14 @@ use std::borrow::Cow;
 use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc;
+use std::time::{Instant};
 
 use serde_json as json;
 use parking_lot::MutexGuard;
 use glutin::{self, ElementState};
 use copypasta::{Clipboard, Load, Store};
 
-use config::Config;
+use config::{self, Config};
 use cli::Options;
 use display::OnResize;
 use index::{Line, Column, Side, Point};
@@ -71,10 +72,29 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.selection.update(point, side);
     }
 
+    fn semantic_selection(&mut self, point: Point) {
+        self.terminal.semantic_selection(&mut self.selection, point)
+    }
+
+    fn line_selection(&mut self, point: Point) {
+        self.terminal.line_selection(&mut self.selection, point)
+    }
+
+    fn mouse_coords(&self) -> Option<Point> {
+        self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
+    }
+
     #[inline]
     fn mouse_mut(&mut self) -> &mut Mouse {
         self.mouse
     }
+}
+
+pub enum ClickState {
+    None,
+    Click,
+    DoubleClick,
+    TripleClick,
 }
 
 /// State of the mouse
@@ -82,6 +102,8 @@ pub struct Mouse {
     pub x: u32,
     pub y: u32,
     pub left_button_state: ElementState,
+    pub last_click_timestamp: Instant,
+    pub click_state: ClickState,
     pub scroll_px: i32,
     pub line: Line,
     pub column: Column,
@@ -93,7 +115,9 @@ impl Default for Mouse {
         Mouse {
             x: 0,
             y: 0,
+            last_click_timestamp: Instant::now(),
             left_button_state: ElementState::Released,
+            click_state: ClickState::None,
             scroll_px: 0,
             line: Line(0),
             column: Column(0),
@@ -109,6 +133,7 @@ impl Default for Mouse {
 pub struct Processor<N> {
     key_bindings: Vec<KeyBinding>,
     mouse_bindings: Vec<MouseBinding>,
+    mouse_config: config::Mouse,
     print_events: bool,
     notifier: N,
     mouse: Mouse,
@@ -143,6 +168,7 @@ impl<N: Notify> Processor<N> {
         Processor {
             key_bindings: config.key_bindings().to_vec(),
             mouse_bindings: config.mouse_bindings().to_vec(),
+            mouse_config: config.mouse().to_owned(),
             print_events: options.print_events,
             notifier: notifier,
             resize_tx: resize_tx,
@@ -263,8 +289,9 @@ impl<N: Notify> Processor<N> {
 
                     processor = input::Processor {
                         ctx: context,
+                        mouse_config: &self.mouse_config,
                         key_bindings: &self.key_bindings[..],
-                        mouse_bindings: &self.mouse_bindings[..]
+                        mouse_bindings: &self.mouse_bindings[..],
                     };
 
                     process!(event);
@@ -284,5 +311,6 @@ impl<N: Notify> Processor<N> {
     pub fn update_config(&mut self, config: &Config) {
         self.key_bindings = config.key_bindings().to_vec();
         self.mouse_bindings = config.mouse_bindings().to_vec();
+        self.mouse_config = config.mouse().to_owned();
     }
 }

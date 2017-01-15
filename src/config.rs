@@ -3,21 +3,22 @@
 //! Alacritty reads from a config file at startup to determine various runtime
 //! parameters including font family and style, font size, etc. In the future,
 //! the config file will also hold user and platform specific keybindings.
+use std::borrow::Cow;
 use std::env;
 use std::fmt;
+use std::fs::File;
 use std::fs;
 use std::io::{self, Read, Write};
+use std::ops::{Index, IndexMut};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::mpsc;
-use std::ops::{Index, IndexMut};
-use std::fs::File;
-use std::borrow::Cow;
+use std::time::Duration;
 
 use ::Rgb;
 use font::Size;
 use serde_yaml;
-use serde::{self, de};
+use serde::{self, de, Deserialize};
 use serde::de::Error as SerdeError;
 use serde::de::{Visitor, MapVisitor, Unexpected};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as FileWatcher, op};
@@ -30,6 +31,52 @@ use ansi;
 /// Function that returns true for serde default
 fn true_bool() -> bool {
     true
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Selection {
+    pub semantic_escape_chars: String,
+}
+
+impl Default for Selection {
+    fn default() -> Selection {
+        Selection {
+            semantic_escape_chars: String::new()
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct ClickHandler {
+    #[serde(deserialize_with="deserialize_duration_ms")]
+    pub threshold: Duration,
+}
+
+fn deserialize_duration_ms<D>(deserializer: D) -> ::std::result::Result<Duration, D::Error>
+    where D: de::Deserializer
+{
+    let threshold_ms = u64::deserialize(deserializer)?;
+    Ok(Duration::from_millis(threshold_ms))
+}
+
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Mouse {
+    pub double_click: ClickHandler,
+    pub triple_click: ClickHandler,
+}
+
+impl Default for Mouse {
+    fn default() -> Mouse {
+        Mouse {
+            double_click: ClickHandler {
+                threshold: Duration::from_millis(300),
+            },
+            triple_click: ClickHandler {
+                threshold: Duration::from_millis(300),
+            }
+        }
+    }
 }
 
 /// List of indexed colors
@@ -248,6 +295,12 @@ pub struct Config {
     #[serde(default="default_mouse_bindings")]
     mouse_bindings: Vec<MouseBinding>,
 
+    #[serde(default="default_selection")]
+    selection: Selection,
+
+    #[serde(default="default_mouse")]
+    mouse: Mouse,
+
     /// Path to a shell program to run on startup
     #[serde(default)]
     shell: Option<Shell<'static>>,
@@ -266,12 +319,20 @@ fn default_config() -> Config {
         .expect("default config is valid")
 }
 
+fn default_selection() -> Selection {
+    default_config().selection
+}
+
 fn default_key_bindings() -> Vec<KeyBinding> {
     default_config().key_bindings
 }
 
 fn default_mouse_bindings() -> Vec<MouseBinding> {
     default_config().mouse_bindings
+}
+
+fn default_mouse() -> Mouse {
+    default_config().mouse
 }
 
 impl Default for Config {
@@ -286,6 +347,8 @@ impl Default for Config {
             colors: Default::default(),
             key_bindings: Vec::new(),
             mouse_bindings: Vec::new(),
+            selection: Default::default(),
+            mouse: Default::default(),
             shell: None,
             config_path: None,
         }
@@ -962,6 +1025,14 @@ impl Config {
 
     pub fn mouse_bindings(&self) -> &[MouseBinding] {
         &self.mouse_bindings[..]
+    }
+
+    pub fn mouse(&self) -> &Mouse {
+        &self.mouse
+    }
+
+    pub fn selection(&self) -> &Selection {
+        &self.selection
     }
 
     #[inline]

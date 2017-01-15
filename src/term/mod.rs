@@ -20,8 +20,8 @@ use std::cmp::min;
 use std::io;
 
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset};
-use grid::{Grid, ClearRegion, ToRange};
-use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
+use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange};
+use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive, Side};
 use selection::{Span, Selection};
 use config::{Config};
 
@@ -352,6 +352,8 @@ pub struct Term {
 
     /// Saved cursor from alt grid
     cursor_save_alt: Cursor,
+
+    semantic_escape_chars: String,
 }
 
 /// Terminal size info
@@ -436,16 +438,76 @@ impl Term {
             size_info: size,
             empty_cell: template,
             custom_cursor_colors: config.custom_cursor_colors(),
+            semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
         }
     }
 
     pub fn update_config(&mut self, config: &Config) {
-        self.custom_cursor_colors = config.custom_cursor_colors()
+        self.custom_cursor_colors = config.custom_cursor_colors();
+        self.semantic_escape_chars = config.selection().semantic_escape_chars.clone();
     }
 
     #[inline]
     pub fn needs_draw(&self) -> bool {
         self.dirty
+    }
+
+    pub fn line_selection(&self, selection: &mut Selection, point: Point) {
+        selection.clear();
+        selection.update(Point {
+            line: point.line,
+            col: Column(0),
+        }, Side::Left);
+        selection.update(Point {
+            line: point.line,
+            col: self.grid.num_cols() - Column(1),
+        }, Side::Right);
+    }
+
+    pub fn semantic_selection(&self, selection: &mut Selection, point: Point) {
+        let mut side_left = Point {
+            line: point.line,
+            col: point.col
+        };
+        let mut side_right = Point {
+            line: point.line,
+            col: point.col
+        };
+
+        let mut left_iter = self.grid.iter_from(point);
+        let mut right_iter = self.grid.iter_from(point);
+
+        let last_col = self.grid.num_cols() - Column(1);
+
+        while let Some(cell) = left_iter.prev() {
+            if self.semantic_escape_chars.contains(cell.c) {
+                break;
+            }
+
+            if left_iter.cur.col == last_col && !cell.flags.contains(cell::WRAPLINE) {
+                break; // cut off if on new line or hit escape char
+            }
+
+            side_left.col = left_iter.cur.col;
+            side_left.line = left_iter.cur.line;
+        }
+
+        while let Some(cell) = right_iter.next() {
+            if self.semantic_escape_chars.contains(cell.c) {
+                break;
+            }
+
+            side_right.col = right_iter.cur.col;
+            side_right.line = right_iter.cur.line;
+
+            if right_iter.cur.col == last_col && !cell.flags.contains(cell::WRAPLINE) {
+                break; // cut off if on new line or hit escape char
+            }
+        }
+
+        selection.clear();
+        selection.update(side_left, Side::Left);
+        selection.update(side_right, Side::Right);
     }
 
     pub fn string_from_selection(&self, span: &Span) -> String {
@@ -1267,12 +1329,85 @@ impl ansi::Handler for Term {
 mod tests {
     extern crate serde_json;
 
-    use super::{Term, limit, SizeInfo};
+    use super::{Cell, Term, limit, SizeInfo};
+    use term::cell;
 
     use grid::Grid;
     use index::{Point, Line, Column};
-    use term::{Cell};
     use ansi::{Handler, CharsetIndex, StandardCharset};
+    use selection::Selection;
+    use std::mem;
+
+    #[test]
+    fn semantic_selection_works() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+        };
+        let mut term = Term::new(&Default::default(), size);
+        let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), &Cell::default());
+        for i in 0..5 {
+            for j in 0..2 {
+                grid[Line(j)][Column(i)].c = 'a';
+            }
+        }
+        grid[Line(0)][Column(0)].c = '"';
+        grid[Line(0)][Column(3)].c = '"';
+        grid[Line(1)][Column(2)].c = '"';
+        grid[Line(0)][Column(4)].flags.insert(cell::WRAPLINE);
+
+        let mut escape_chars = String::from("\"");
+
+        mem::swap(&mut term.grid, &mut grid);
+        mem::swap(&mut term.semantic_escape_chars, &mut escape_chars);
+
+        {
+            let mut selection = Selection::new();
+            term.semantic_selection(&mut selection, Point { line: Line(0), col: Column(1) });
+            assert_eq!(term.string_from_selection(&selection.span().unwrap()), "aa");
+        }
+
+        {
+            let mut selection = Selection::new();
+            term.semantic_selection(&mut selection, Point { line: Line(0), col: Column(4) });
+            assert_eq!(term.string_from_selection(&selection.span().unwrap()), "aaa");
+        }
+
+        {
+            let mut selection = Selection::new();
+            term.semantic_selection(&mut selection, Point { line: Line(1), col: Column(1) });
+            assert_eq!(term.string_from_selection(&selection.span().unwrap()), "aaa");
+        }
+    }
+
+    #[test]
+    fn line_selection_works() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+        };
+        let mut term = Term::new(&Default::default(), size);
+        let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), &Cell::default());
+        for i in 0..5 {
+            grid[Line(0)][Column(i)].c = 'a';
+        }
+        grid[Line(0)][Column(0)].c = '"';
+        grid[Line(0)][Column(3)].c = '"';
+
+
+        mem::swap(&mut term.grid, &mut grid);
+
+        let mut selection = Selection::new();
+        term.line_selection(&mut selection, Point { line: Line(0), col: Column(3) });
+        match selection.span() {
+            Some(span) => assert_eq!(term.string_from_selection(&span), "\"aa\"a"),
+            _ => ()
+        }
+    }
 
     /// Check that the grid can be serialized back and forth losslessly
     ///
