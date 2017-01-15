@@ -201,6 +201,10 @@ pub struct Config {
 
     /// Path where config was loaded from
     config_path: Option<PathBuf>,
+
+    /// Subpixel rendering toggle
+    #[serde(default="true_bool")]
+    subpixel_render: bool,
 }
 
 #[cfg(not(target_os="macos"))]
@@ -228,6 +232,7 @@ impl Default for Config {
             dpi: Default::default(),
             font: Default::default(),
             render_timer: Default::default(),
+            subpixel_render: Default::default(),
             colors: Default::default(),
             key_bindings: Vec::new(),
             mouse_bindings: Vec::new(),
@@ -890,6 +895,13 @@ impl Config {
         self.render_timer
     }
 
+
+    /// Show subpixel rendering setting
+    #[inline]
+    pub fn subpixel_render(&self) -> bool {
+        self.subpixel_render
+    }
+
     #[inline]
     pub fn use_thin_strokes(&self) -> bool {
         self.font.use_thin_strokes
@@ -1546,4 +1558,3 @@ impl Key {
         }
     }
 }
-

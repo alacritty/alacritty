@@ -79,6 +79,7 @@ pub struct Rasterizer {
     keys: HashMap<(FontDesc, Size), FontKey>,
     device_pixel_ratio: f32,
     use_thin_strokes: bool,
+    subpixel_render: bool,
 }
 
 /// Errors occurring when using the core text rasterizer
@@ -124,13 +125,14 @@ impl ::std::fmt::Display for Error {
 impl ::Rasterize for Rasterizer {
     type Err = Error;
 
-    fn new(_dpi_x: f32, _dpi_y: f32, device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {
+    fn new(_dpi_x: f32, _dpi_y: f32, device_pixel_ratio: f32, use_thin_strokes: bool, subpixel_render: bool) -> Result<Rasterizer, Error> {
         println!("device_pixel_ratio: {}", device_pixel_ratio);
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
             device_pixel_ratio: device_pixel_ratio,
             use_thin_strokes: use_thin_strokes,
+            subpixel_render: subpixel_render,
         })
     }
 
@@ -167,7 +169,7 @@ impl ::Rasterize for Rasterizer {
         self.fonts
             .get(&glyph.font_key)
             .ok_or(Error::FontNotLoaded)?
-            .get_glyph(glyph.c, scaled_size as _, self.use_thin_strokes)
+            .get_glyph(glyph.c, scaled_size as _, self.use_thin_strokes, self.subpixel_render)
     }
 }
 
@@ -360,7 +362,7 @@ impl Font {
         )
     }
 
-    pub fn get_glyph(&self, character: char, _size: f64, use_thin_strokes: bool) -> Result<RasterizedGlyph, Error> {
+    pub fn get_glyph(&self, character: char, _size: f64, use_thin_strokes: bool, subpixel_render: bool) -> Result<RasterizedGlyph, Error> {
         let glyph_index = self.glyph_index(character)
             .ok_or(Error::MissingGlyph(character))?;
 
@@ -411,12 +413,13 @@ impl Font {
 
         cg_context.set_allows_font_smoothing(true);
         cg_context.set_should_smooth_fonts(true);
-        cg_context.set_allows_font_subpixel_quantization(true);
-        cg_context.set_should_subpixel_quantize_fonts(true);
-        cg_context.set_allows_font_subpixel_positioning(true);
-        cg_context.set_should_subpixel_position_fonts(true);
         cg_context.set_allows_antialiasing(true);
         cg_context.set_should_antialias(true);
+        // apply/remove subpixel rendering
+        cg_context.set_allows_font_subpixel_quantization(subpixel_render);
+        cg_context.set_should_subpixel_quantize_fonts(subpixel_render);
+        cg_context.set_allows_font_subpixel_positioning(true);
+        cg_context.set_should_subpixel_position_fonts(true);
 
         // Set fill color to white for drawing the glyph
         cg_context.set_rgb_fill_color(1.0, 1.0, 1.0, 1.0);

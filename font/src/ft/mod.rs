@@ -31,6 +31,7 @@ pub struct FreeTypeRasterizer {
     dpi_x: u32,
     dpi_y: u32,
     dpr: f32,
+    subpixel_render: bool,
 }
 
 #[inline]
@@ -41,7 +42,7 @@ fn to_freetype_26_6(f: f32) -> isize {
 impl ::Rasterize for FreeTypeRasterizer {
     type Err = Error;
 
-    fn new(dpi_x: f32, dpi_y: f32, device_pixel_ratio: f32, _: bool) -> Result<FreeTypeRasterizer, Error> {
+    fn new(dpi_x: f32, dpi_y: f32, device_pixel_ratio: f32, _: bool, subpixel_render: bool) -> Result<FreeTypeRasterizer, Error> {
         let library = Library::init()?;
 
         Ok(FreeTypeRasterizer {
@@ -51,6 +52,7 @@ impl ::Rasterize for FreeTypeRasterizer {
             dpi_x: dpi_x as u32,
             dpi_y: dpi_y as u32,
             dpr: device_pixel_ratio,
+            subpixel_render: subpixel_render,
         })
     }
 
@@ -99,12 +101,14 @@ impl ::Rasterize for FreeTypeRasterizer {
         let glyph = face.glyph();
         glyph.render_glyph(freetype::render_mode::RenderMode::Lcd)?;
 
-        unsafe {
-            let ft_lib = self.library.raw();
-            freetype::ffi::FT_Library_SetLcdFilter(
-                ft_lib,
-                freetype::ffi::FT_LCD_FILTER_DEFAULT
-            );
+        if self.subpixel_render {
+            unsafe {
+                let ft_lib = self.library.raw();
+                freetype::ffi::FT_Library_SetLcdFilter(
+                    ft_lib,
+                    freetype::ffi::FT_LCD_FILTER_DEFAULT
+                );
+            }
         }
 
         let bitmap = glyph.bitmap();
