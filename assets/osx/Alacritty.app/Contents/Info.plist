@@ -5,7 +5,7 @@
     <key>CFBundleDisplayName</key>
     <string>Alacritty</string>
     <key>CFBundleExecutable</key>
-    <string>alacritty</string>
+    <string>launcher</string>
     <!-- <key>CFBundleIdentifier</key> -->
     <!-- <string>alacritty</string> -->
     <key>CFBundleName</key>
