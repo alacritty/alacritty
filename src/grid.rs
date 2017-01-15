@@ -26,11 +26,16 @@ use std::iter::IntoIterator;
 use std::ops::{Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull, Index, IndexMut};
 use std::slice::{self, Iter, IterMut};
 
-use index::{self, Point, IndexRange, RangeInclusive};
+use index::{self, Point, Line, Column, IndexRange, RangeInclusive};
 
 /// Convert a type to a linear index range.
 pub trait ToRange {
     fn to_range(&self, columns: index::Column) -> RangeInclusive<index::Linear>;
+}
+
+/// Bidirection iterator
+pub trait BidirectionalIterator: Iterator {
+    fn prev(&mut self) -> Option<Self::Item>;
 }
 
 /// Represents the terminal display contents
@@ -47,6 +52,11 @@ pub struct Grid<T> {
     ///
     /// Invariant: lines is equivalent to raw.len()
     lines: index::Line,
+}
+
+pub struct GridIterator<'a, T: 'a> {
+    grid: &'a Grid<T>,
+    pub cur: Point,
 }
 
 impl<T: Clone> Grid<T> {
@@ -139,6 +149,13 @@ impl<T> Grid<T> {
         }
     }
 
+    pub fn iter_from(&self, point: Point) -> GridIterator<T> {
+        GridIterator {
+            grid: self,
+            cur: point,
+        }
+    }
+
     #[inline]
     pub fn contains(&self, point: &Point) -> bool {
         self.lines > point.line && self.cols > point.col
@@ -190,6 +207,49 @@ impl<T> Grid<T> {
         }
 
         self.cols = cols;
+    }
+}
+
+impl<'a, T> Iterator for GridIterator<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let last_line = self.grid.num_lines() - Line(1);
+        let last_col = self.grid.num_cols() - Column(1);
+        match self.cur {
+            Point { line, col } if
+                (line == last_line) &&
+                (col == last_col) => None,
+            Point { col, .. } if
+                (col == last_col) => {
+                self.cur.line += Line(1);
+                self.cur.col = Column(0);
+                Some(&self.grid[self.cur.line][self.cur.col])
+            },
+            _ => {
+                self.cur.col += Column(1);
+                Some(&self.grid[self.cur.line][self.cur.col])
+            }
+        }
+    }
+}
+
+impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
+    fn prev(&mut self) -> Option<Self::Item> {
+        let num_cols = self.grid.num_cols();
+
+        match self.cur {
+            Point { line: Line(0), col: Column(0) } => None,
+            Point { col: Column(0), .. } => {
+                self.cur.line -= Line(1);
+                self.cur.col = num_cols - Column(1);
+                Some(&self.grid[self.cur.line][self.cur.col])
+            },
+            _ => {
+                self.cur.col -= Column(1);
+                Some(&self.grid[self.cur.line][self.cur.col])
+            }
+        }
     }
 }
 
@@ -464,8 +524,8 @@ clear_region_impl!(RangeFrom<index::Line>);
 
 #[cfg(test)]
 mod tests {
-    use super::Grid;
-    use index::{Line, Column};
+    use super::{Grid, BidirectionalIterator};
+    use index::{Point, Line, Column};
     #[test]
     fn grid_swap_lines_ok() {
         let mut grid = Grid::new(Line(10), Column(1), &0);
@@ -588,4 +648,52 @@ mod tests {
             assert_eq!(grid[Line(i)][Column(0)], other[Line(i)][Column(0)]);
         }
     }
+
+    // Test that GridIterator works
+    #[test]
+    fn test_iter() {
+        info!("");
+
+        let mut grid = Grid::new(Line(5), Column(5), &0);
+        for i in 0..5 {
+            for j in 0..5 {
+                grid[Line(i)][Column(j)] = i*5 + j;
+            }
+        }
+
+        info!("grid: {:?}", grid);
+
+        let mut iter = grid.iter_from(Point {
+            line: Line(0),
+            col: Column(0),
+        });
+
+        assert_eq!(None, iter.prev());
+        assert_eq!(Some(&1), iter.next());
+        assert_eq!(Column(1), iter.cur.col);
+        assert_eq!(Line(0), iter.cur.line);
+
+        assert_eq!(Some(&2), iter.next());
+        assert_eq!(Some(&3), iter.next());
+        assert_eq!(Some(&4), iter.next());
+
+        // test linewrapping
+        assert_eq!(Some(&5), iter.next());
+        assert_eq!(Column(0), iter.cur.col);
+        assert_eq!(Line(1), iter.cur.line);
+
+        assert_eq!(Some(&4), iter.prev());
+        assert_eq!(Column(4), iter.cur.col);
+        assert_eq!(Line(0), iter.cur.line);
+
+
+        // test that iter ends at end of grid
+        let mut final_iter = grid.iter_from(Point {
+            line: Line(4),
+            col: Column(4),
+        });
+        assert_eq!(None, final_iter.next());
+        assert_eq!(Some(&23), final_iter.prev());
+    }
+
 }
