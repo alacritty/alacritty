@@ -17,7 +17,6 @@
 use std::env;
 use std::ffi::CStr;
 use std::fs::File;
-use std::mem;
 use std::os::unix::io::FromRawFd;
 use std::ptr;
 
@@ -192,13 +191,13 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
     // Transmute is used here to conveniently cast from the raw CStr to a &str with the appropriate
     // lifetime.
     Passwd {
-        name: unsafe { mem::transmute(CStr::from_ptr(entry.pw_name).to_str().unwrap()) },
-        passwd: unsafe { mem::transmute(CStr::from_ptr(entry.pw_passwd).to_str().unwrap()) },
+        name: unsafe { CStr::from_ptr(entry.pw_name).to_str().unwrap() },
+        passwd: unsafe { CStr::from_ptr(entry.pw_passwd).to_str().unwrap() },
         uid: entry.pw_uid,
         gid: entry.pw_gid,
-        gecos: unsafe { mem::transmute(CStr::from_ptr(entry.pw_gecos).to_str().unwrap()) },
-        dir: unsafe { mem::transmute(CStr::from_ptr(entry.pw_dir).to_str().unwrap()) },
-        shell: unsafe { mem::transmute(CStr::from_ptr(entry.pw_shell).to_str().unwrap()) },
+        gecos: unsafe { CStr::from_ptr(entry.pw_gecos).to_str().unwrap() },
+        dir: unsafe { CStr::from_ptr(entry.pw_dir).to_str().unwrap() },
+        shell: unsafe { CStr::from_ptr(entry.pw_shell).to_str().unwrap() },
     }
 }
 
