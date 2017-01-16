@@ -228,6 +228,9 @@ pub struct Term {
     /// Alt cursor
     alt_cursor: Point,
 
+    /// Saved cursor position
+    saved_cursor: Option<Point>,
+
     /// Tabstops
     tabs: Vec<bool>,
 
@@ -323,6 +326,7 @@ impl Term {
             alt: false,
             cursor: Point::default(),
             alt_cursor: Point::default(),
+            saved_cursor: None,
             tabs: tabs,
             mode: Default::default(),
             scroll_region: scroll_region,
@@ -950,12 +954,16 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn save_cursor_position(&mut self) {
-        err_println!("[unimplemented] save_cursor_position");
+        self.saved_cursor = Some(self.cursor);
     }
 
     #[inline]
     fn restore_cursor_position(&mut self) {
-        err_println!("[unimplemented] restore_cursor_position");
+        if let Some(pos) = self.saved_cursor {
+            self.cursor = pos;
+        } else {
+            err_println!("restore_cursor_position called, but no cursor position is saved");
+        }
     }
 
     #[inline]
