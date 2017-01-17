@@ -22,8 +22,6 @@
 #![cfg_attr(test, feature(test))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
-#![feature(proc_macro)]
-
 #[macro_use]
 extern crate serde_derive;
 
