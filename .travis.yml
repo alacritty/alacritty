@@ -8,8 +8,7 @@ os:
   - osx
 
 rust:
-  # Whole bunch of stuff needs nightly for now
-  - nightly-2016-12-05
+  - nightly
 
 script:
   - cargo test --no-default-features
