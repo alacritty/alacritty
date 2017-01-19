@@ -199,6 +199,9 @@ Just Works.
 - _My arrow keys don't work_. It sounds like you deleted some key bindings from
   your config file. Please reference the default config file to restore them.
 
+## IRC
+
+Alacritty discussion can be found in `#alacritty` on freenode.
 
 ## License
 
