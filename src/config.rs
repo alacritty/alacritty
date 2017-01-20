@@ -209,6 +209,10 @@ pub struct Config {
     #[serde(default)]
     colors: Colors,
 
+    /// Cursor type
+    #[serde(default)]
+    cursor_style: CursorStyle,
+
     /// Keybindings
     #[serde(default="default_key_bindings")]
     key_bindings: Vec<KeyBinding>,
@@ -279,6 +283,7 @@ impl Default for Config {
             render_timer: Default::default(),
             custom_cursor_colors: false,
             colors: Default::default(),
+            cursor_style: Default::default(),
             key_bindings: Vec::new(),
             mouse_bindings: Vec::new(),
             selection: Default::default(),
@@ -290,6 +295,15 @@ impl Default for Config {
             hide_cursor_when_typing: Default::default(),
             padding: default_padding(),
         }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+pub struct CursorStyle(pub ansi::CursorStyle);
+
+impl Default for CursorStyle {
+    fn default() -> Self {
+        CursorStyle(ansi::CursorStyle::Block)
     }
 }
 
@@ -1033,6 +1047,10 @@ impl Config {
     /// array for performance.
     pub fn colors(&self) -> &Colors {
         &self.colors
+    }
+
+    pub fn cursor_style(&self) -> CursorStyle {
+        self.cursor_style
     }
 
     pub fn key_bindings(&self) -> &[KeyBinding] {
