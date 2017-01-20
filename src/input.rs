@@ -156,23 +156,32 @@ impl Action {
                     }
                 }
             },
-            Action::Paste |
+            Action::Paste => {
+                Clipboard::new()
+                    .and_then(|clipboard| clipboard.load_primary() )
+                    .map(|contents| { self.paste(ctx, contents) })
+                    .unwrap_or_else(|err| {
+                        err_println!("Error loading data from clipboard. {}", Red(err));
+                    });
+            },
             Action::PasteSelection => {
                 Clipboard::new()
-                    .and_then(|clipboard| clipboard.load_selection())
-                    .map(|contents| {
-                        if ctx.terminal.mode().contains(mode::BRACKETED_PASTE) {
-                            ctx.notifier.notify(&b"\x1b[200~"[..]);
-                            ctx.notifier.notify(contents.into_bytes());
-                            ctx.notifier.notify(&b"\x1b[201~"[..]);
-                        } else {
-                            ctx.notifier.notify(contents.into_bytes());
-                        }
-                    })
+                    .and_then(|clipboard| clipboard.load_selection() )
+                    .map(|contents| { self.paste(ctx, contents) })
                     .unwrap_or_else(|err| {
                         warn!("Error loading data from clipboard. {}", Red(err));
                     });
             },
+        }
+    }
+
+    fn paste<'a, N: Notify>(&self, ctx: &mut ActionContext<'a, N>, contents: String) {
+        if ctx.terminal.mode().contains(mode::BRACKETED_PASTE) {
+            ctx.notifier.notify(&b"\x1b[200~"[..]);
+            ctx.notifier.notify(contents.into_bytes());
+            ctx.notifier.notify(&b"\x1b[201~"[..]);
+        } else {
+            ctx.notifier.notify(contents.into_bytes());
         }
     }
 }
