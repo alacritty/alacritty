@@ -22,6 +22,7 @@ extern crate alacritty;
 use std::error::Error;
 use std::sync::Arc;
 
+use alacritty::build_info;
 use alacritty::cli;
 use alacritty::config::{self, Config};
 use alacritty::display::Display;
@@ -33,6 +34,12 @@ use alacritty::tty::{self, process_should_exit};
 use alacritty::util::fmt::Red;
 
 fn main() {
+    println!("Welcome to alacritty {}{} {}.", build_info::PKG_VERSION,
+             build_info::GIT_VERSION.unwrap_or(""), build_info::PROFILE);
+    // Only to be enabled on DEBUG and up
+    println!("I was compiled for {} using {}", build_info::TARGET, build_info::get_dependencies_string());
+    println!("Enabled features are {}", build_info::get_features_string());
+
     // Load configuration
     let config = Config::load().unwrap_or_else(|err| {
         match err {

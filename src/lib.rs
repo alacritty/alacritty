@@ -49,6 +49,7 @@ extern crate bitflags;
 pub mod macros;
 
 pub mod ansi;
+pub mod build_info;
 pub mod cli;
 pub mod config;
 pub mod display;
