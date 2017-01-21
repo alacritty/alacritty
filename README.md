@@ -24,9 +24,10 @@ This initial release should be considered to be **pre-alpha** software--it will
 have issues. Once Alacritty reaches an alpha level of readiness, precompiled
 binaries will be provided for supported operating systems.
 
-## Blog Posts
+## Further information
 
 - [Announcing Alacritty, a GPU-Accelerated Terminal Emulator](http://blog.jwilm.io/announcing-alacritty/) January 6, 2017
+- [A short talk about Alacritty at the Rust Meetup January 2017](https://air.mozilla.org/rust-meetup-january-2017/) (starts at 57:00)
 
 ## Installation
 
