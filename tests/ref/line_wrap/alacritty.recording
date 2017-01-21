@@ -1,11 +1,0 @@
-]0;mbrumlow@neptune[0;33mneptune[0m:~/src/alacritty[0m (line_wrap) 
-$ tput rmam
-[?7l]0;mbrumlow@neptune[0;33mneptune[0m:~/src/alacritty[0m (line_wrap) 
-$ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaa^C
-]0;mbrumlow@neptune[0;33mneptune[0m:~/src/alacritty[0m (line_wrap) 
-$ tput rmam[1Pmamsmam
-[?7h]0;mbrumlow@neptune[0;33mneptune[0m:~/src/alacritty[0m (line_wrap) 
-$ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaa^C
-]0;mbrumlow@neptune[0;33mneptune[0m:~/src/alacritty[0m (line_wrap) 
-$ exit
-exit
