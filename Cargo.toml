@@ -10,6 +10,10 @@ doc = false
 path = "src/main.rs"
 name = "alacritty"
 
+[[test]]
+name = "ref"
+harness = false
+
 [dependencies]
 libc = "*"
 cgmath = "0.7"
@@ -44,6 +48,8 @@ gl_generator = "0.5"
 git = "https://github.com/jwilm/glutin"
 rev = "af7fe340bd4a2af53ea521defcb4f377cdc588cf"
 
+[dev-dependencies]
+rustc-test = "0.1"
 
 [profile.release]
 lto = true

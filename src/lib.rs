@@ -19,7 +19,6 @@
 #![cfg_attr(feature = "clippy", deny(enum_glob_use))]
 #![cfg_attr(feature = "clippy", deny(if_not_else))]
 #![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
-#![cfg_attr(test, feature(test))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
 #[macro_use]
