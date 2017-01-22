@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 extern crate log;
-use std::env;
+use clap::{Arg, App};
 use index::{Line, Column};
 
+const DEFAULT_TITLE: &'static str = "Alacritty";
 
 /// Options specified on the command line
 pub struct Options {
@@ -33,41 +34,76 @@ impl Default for Options {
             ref_test: false,
             columns: Column(80),
             lines: Line(24),
-            title: "Alacritty".to_owned(),
-            log_level: log::LogLevelFilter::Warn,
+            title: DEFAULT_TITLE.to_owned(),
+            log_level: log::LogLevelFilter::Warn
         }
     }
 }
 
 impl Options {
-    /// Iterate through env::args() to build `Options`
+    /// Build `Options` from command line arguments
     pub fn load() -> Options {
         let mut options = Options::default();
-        let mut args_iter = env::args();
 
-        while let Some(arg) = args_iter.next() {
-            match &arg[..] {
-                // Generate ref test
-                "--ref-test" => options.ref_test = true,
-                "--print-events" => options.print_events = true,
-                // Set dimensions
-                "-d" | "--dimensions" => {
-                    args_iter.next()
-                        .map(|w| w.parse().map(|w| options.columns = Column(w)));
-                    args_iter.next()
-                        .map(|h| h.parse().map(|h| options.lines = Line(h)));
-                },
-                "-t" | "--title" => {
-                    args_iter.next().map(|t| options.title = t);
-                },
-                "-q" => options.log_level = log::LogLevelFilter::Error,
-                "-qq" => options.log_level = log::LogLevelFilter::Off,
-                "-v" => options.log_level = log::LogLevelFilter::Info,
-                "-vv" => options.log_level = log::LogLevelFilter::Debug,
-                "-vvv" => options.log_level = log::LogLevelFilter::Trace,
-                // ignore unexpected
-                _ => (),
-            }
+        let matches = App::new(crate_name!())
+            .version(crate_version!())
+            .author(crate_authors!("\n"))
+            .about(crate_description!())
+            .arg(Arg::with_name("ref-test")
+                .long("ref-test")
+                .help("Generates ref test"))
+            .arg(Arg::with_name("print-events")
+                .long("print-events"))
+            .arg(Arg::with_name("dimensions")
+                .long("dimensions")
+                .short("d")
+                .value_names(&["columns", "lines"])
+                .help("Defines the window dimensions [default: 80x24]"))
+            .arg(Arg::with_name("title")
+                .long("title")
+                .short("t")
+                .default_value(DEFAULT_TITLE)
+                .help("Defines the window title"))
+            .arg(Arg::with_name("q")
+                .short("q")
+                .multiple(true)
+                .conflicts_with("v")
+                .help("Reduces the level of verbosity (the min level is -qq)"))
+            .arg(Arg::with_name("v")
+                .short("v")
+                .multiple(true)
+                .conflicts_with("q")
+                .help("Increases the level of verbosity (the max level is -vvv)"))
+            .get_matches();
+
+        if matches.is_present("ref-test") {
+            options.ref_test = true;
+        }
+
+        if matches.is_present("print-events") {
+            options.print_events = true;
+        }
+
+        if let Some(mut dimensions) = matches.values_of("dimensions") {
+            dimensions.next().map(|w| w.parse().map(|w| options.columns = Column(w)));
+            dimensions.next().map(|h| h.parse().map(|h| options.lines = Line(h)));
+        }
+
+        if let Some(title) = matches.value_of("title") {
+            options.title = title.to_owned();
+        }
+
+        match matches.occurrences_of("q") {
+            0 => {},
+            1 => options.log_level = log::LogLevelFilter::Error,
+            2 | _ => options.log_level = log::LogLevelFilter::Off
+        }
+
+        match matches.occurrences_of("v") {
+            0 => {},
+            1 => options.log_level = log::LogLevelFilter::Info,
+            2 => options.log_level = log::LogLevelFilter::Debug,
+            3 | _ => options.log_level = log::LogLevelFilter::Trace
         }
 
         options
