@@ -25,6 +25,8 @@
 extern crate serde_derive;
 
 extern crate cgmath;
+#[macro_use]
+extern crate clap;
 extern crate copypasta;
 extern crate errno;
 extern crate font;

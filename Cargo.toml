@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 build = "build.rs"
+description = "GPU-accelerated terminal emulator"
 
 [[bin]]
 doc = false
@@ -32,6 +33,7 @@ serde_json = "*"
 copypasta = { path = "./copypasta" }
 xdg = "2.0.0"
 log = "0.3"
+clap = "2.20"
 
 clippy = { version = "0.0.104", optional = true }
 
