@@ -12,6 +12,7 @@ use std::str::FromStr;
 use std::sync::mpsc;
 use std::ops::{Index, IndexMut};
 use std::fs::File;
+use std::borrow::Cow;
 
 use ::Rgb;
 use font::Size;
@@ -166,6 +167,31 @@ impl IndexMut<usize> for ColorList {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Shell<'a> {
+    program: Cow<'a, str>,
+
+    #[serde(default)]
+    args: Vec<String>,
+}
+
+impl<'a> Shell<'a> {
+    pub fn new(program: &'a str) -> Shell<'a> {
+        Shell {
+            program: Cow::from(program),
+            args: Vec::new(),
+        }
+    }
+
+    pub fn program(&self) -> &str {
+        &*self.program
+    }
+
+    pub fn args(&self) -> &[String] {
+        self.args.as_slice()
+    }
+}
+
 /// Top-level config type
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -197,7 +223,8 @@ pub struct Config {
     mouse_bindings: Vec<MouseBinding>,
 
     /// Path to a shell program to run on startup
-    shell: Option<String>,
+    #[serde(default)]
+    shell: Option<Shell<'static>>,
 
     /// Path where config was loaded from
     config_path: Option<PathBuf>,
@@ -902,10 +929,8 @@ impl Config {
             .map(|p| p.as_path())
     }
 
-    pub fn shell(&self) -> Option<&str> {
-        self.shell
-            .as_ref()
-            .map(String::as_str)
+    pub fn shell(&self) -> Option<&Shell> {
+        self.shell.as_ref()
     }
 
     fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
