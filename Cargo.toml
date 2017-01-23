@@ -49,7 +49,7 @@ git = "https://github.com/jwilm/glutin"
 rev = "af7fe340bd4a2af53ea521defcb4f377cdc588cf"
 
 [dev-dependencies]
-rustc-test = "0.1"
+rustc-test = { version = "0.1", features = ["capture"] }
 
 [profile.release]
 lto = true
