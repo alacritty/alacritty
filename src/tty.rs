@@ -22,6 +22,7 @@ use std::ptr;
 
 use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD, TIOCSCTTY};
 
+use cli::Options;
 use term::SizeInfo;
 use display::OnResize;
 use config::Config;
@@ -202,17 +203,44 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
 }
 
 /// Exec a shell
-fn execsh(config: &Config) -> ! {
+fn execsh(config: &Config, options: &Options) -> ! {
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
 
-    let shell = match config.shell() {
-        Some(shell) => match shell.to_str() {
-            Some(shell) => shell,
-            None => die!("Invalid shell value")
-        },
-        None => pw.shell
-    };
+    // We construct a string with the shell path and an array of C-string
+    // pointers to pass to execv.
+    // Shells are searched in the following order:
+    //   Command line argument
+    //   Alacritty's Configuration
+    //   User's shell from passwd
+    // Config _cannot_ return a reference, therefore it has to be stored in
+    // this scope.
+    let argv_conf = config.shell();
+    let shell;
+    let mut argv = Vec::new();
+    if let Some(ref argv_opt) = options.shell {
+        shell = argv_opt
+            .first().expect("Internal error: argv should never be empty")
+            .to_str().expect("Failed to parse shell option");
+        for a in argv_opt.iter() {
+            argv.push(a.as_ptr())
+        }
+        argv.push(ptr::null());
+    }
+    else if let Some(ref argv_conf) = argv_conf {
+        shell = argv_conf
+            .first().expect("Internal error: argv should never be empty")
+            .to_str().expect("Failed to parse shell option");
+        for a in argv_conf.iter() {
+            argv.push(a.as_ptr());
+        }
+        argv.push(ptr::null());
+    }
+    else {
+        shell = pw.shell;
+        argv.push(pw.shell.as_ptr() as *const i8);
+        argv.push(ptr::null());
+    }
 
     // setup environment
     env::set_var("LOGNAME", pw.name);
@@ -230,13 +258,9 @@ fn execsh(config: &Config) -> ! {
         libc::signal(libc::SIGALRM, libc::SIG_DFL);
     }
 
-    // pw.shell is null terminated
-    let shell = unsafe { CStr::from_ptr(shell.as_ptr() as *const _) };
-
-    let argv = [shell.as_ptr(), ptr::null()];
 
     let res = unsafe {
-        libc::execvp(shell.as_ptr(), argv.as_ptr())
+        libc::execvp(shell.as_ptr() as *const i8, argv.as_ptr())
     };
 
     if res < 0 {
@@ -247,7 +271,7 @@ fn execsh(config: &Config) -> ! {
 }
 
 /// Create a new tty and return a handle to interact with it.
-pub fn new<T: ToWinsize>(config: &Config, size: T) -> Pty {
+pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T) -> Pty {
     let win = size.to_winsize();
 
     let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
@@ -273,7 +297,7 @@ pub fn new<T: ToWinsize>(config: &Config, size: T) -> Pty {
             }
 
             // Exec a shell!
-            execsh(config);
+            execsh(config, options);
         },
         Relation::Parent(pid) => {
             unsafe {

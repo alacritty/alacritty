@@ -13,6 +13,7 @@
 // limitations under the License.
 use std::env;
 use index::{Line, Column};
+use std::ffi::CString;
 
 /// Options specified on the command line
 pub struct Options {
@@ -20,7 +21,8 @@ pub struct Options {
     pub ref_test: bool,
     pub columns: Column,
     pub lines: Line,
-    pub title: String
+    pub title: String,
+    pub shell: Option<Vec<CString>>,
 }
 
 impl Default for Options {
@@ -30,7 +32,8 @@ impl Default for Options {
             ref_test: false,
             columns: Column(80),
             lines: Line(24),
-            title: "Alacritty".to_owned()
+            title: "Alacritty".to_owned(),
+            shell: None,
         }
     }
 }
@@ -55,6 +58,16 @@ impl Options {
                 },
                 "-t" | "--title" => {
                     args_iter.next().map(|t| options.title = t);
+                },
+                // Shell, all arguments after -e are passed to the shell
+                "-e" => {
+                    let mut shell_args = Vec::new();
+                    while let Some(earg) = args_iter.next() {
+                        if let Ok(s) = CString::new(earg) {
+                            shell_args.push(s)
+                        }
+                    }
+                    options.shell = Some(shell_args);
                 },
                 // ignore unexpected
                 _ => (),

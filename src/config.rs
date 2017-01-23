@@ -12,6 +12,7 @@ use std::str::FromStr;
 use std::sync::mpsc;
 use std::ops::{Index, IndexMut};
 use std::fs::File;
+use std::ffi::CString;
 
 use ::Rgb;
 use font::Size;
@@ -196,8 +197,8 @@ pub struct Config {
     #[serde(default="default_mouse_bindings")]
     mouse_bindings: Vec<MouseBinding>,
 
-    /// Path to a shell program to run on startup
-    shell: Option<PathBuf>,
+    /// Whitespace separated string of arguments to execute
+    shell: Option<String>,
 
     /// Path where config was loaded from
     config_path: Option<PathBuf>,
@@ -902,10 +903,12 @@ impl Config {
             .map(|p| p.as_path())
     }
 
-    pub fn shell(&self) -> Option<&Path> {
-        self.shell
-            .as_ref()
-            .map(PathBuf::as_path)
+    /// Get the arguments to execute
+    pub fn shell(&self) -> Option<Vec<CString>> {
+        if let Some(ref shell) = self.shell {
+            return parse_shell(shell)
+        }
+        None
     }
 
     fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
@@ -924,6 +927,34 @@ impl Config {
 
         Ok(contents)
     }
+}
+
+fn parse_shell(raw: &String) -> Option<Vec<CString>> {
+    let mut argv = Vec::new();
+    let mut st = 0; // Single tick '
+    let mut dt = 0; // Double tick "
+    let mut current_arg = String::new();
+    for c in raw.chars() {
+        match c {
+            '\'' => st = (st + 1) % 2,
+            '"' => dt = (dt + 1) % 2,
+            ' ' | '\t' => {
+                if st == 0 && dt == 0 {
+                    if let Ok(arg) = CString::new(current_arg.as_bytes()) {
+                        argv.push(arg);
+                    }
+                    current_arg = String::new();
+                } else {
+                    current_arg.push(c);
+                }
+            },
+            _ => current_arg.push(c),
+        }
+    }
+    if let Ok(arg) = CString::new(current_arg.as_bytes()) {
+        argv.push(arg);
+    }
+    Some(argv)
 }
 
 /// Pixels per inch
