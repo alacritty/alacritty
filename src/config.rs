@@ -197,7 +197,7 @@ pub struct Config {
     mouse_bindings: Vec<MouseBinding>,
 
     /// Path to a shell program to run on startup
-    shell: Option<PathBuf>,
+    shell: Option<String>,
 
     /// Path where config was loaded from
     config_path: Option<PathBuf>,
@@ -902,10 +902,10 @@ impl Config {
             .map(|p| p.as_path())
     }
 
-    pub fn shell(&self) -> Option<&Path> {
+    pub fn shell(&self) -> Option<&str> {
         self.shell
             .as_ref()
-            .map(PathBuf::as_path)
+            .map(String::as_str)
     }
 
     fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
