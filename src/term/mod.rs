@@ -1194,13 +1194,13 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn configure_charset(&mut self, index: CharsetIndex, charset: StandardCharset) {
-        debug_println!("designate {:?} character set as {:?}", index, charset);
+        trace!("designate {:?} character set as {:?}", index, charset);
         self.charsets[index] = charset;
     }
 
     #[inline]
     fn set_active_charset(&mut self, index: CharsetIndex) {
-        debug_println!("Activate {:?} character set", index);
+        trace!("Activate {:?} character set", index);
         self.active_charset = index;
     }
 }
