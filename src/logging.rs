@@ -22,20 +22,22 @@ use std::sync;
 use std::io;
 use cli;
 
-pub struct Logger<T:Send+io::Write> {
+pub struct Logger<T> {
     level: log::LogLevelFilter,
     output: sync::Mutex<T>
 }
 
-impl<T> Logger<T> where T:Send+io::Write {
+impl<T: Send + io::Write> Logger<T> {
     pub fn new(output: T, level: log::LogLevelFilter) -> Logger<io::LineWriter<T>> {
-        Logger { level: level,
-                 output: sync::Mutex::new(io::LineWriter::new(output)) }
+        Logger {
+            level: level,
+            output: sync::Mutex::new(io::LineWriter::new(output))
+        }
     }
 }
 
 
-impl<T> log::Log for Logger<T> where T:Send+io::Write {
+impl<T: Send + io::Write> log::Log for Logger<T> {
     fn enabled(&self, metadata: &log::LogMetadata) -> bool {
         metadata.level() <= self.level
     }
