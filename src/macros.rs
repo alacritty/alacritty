@@ -41,24 +41,6 @@ macro_rules! err_print {
 }
 
 #[macro_export]
-macro_rules! debug_println {
-    ($($t:tt)*) => {
-        if cfg!(debug_assertions) {
-            err_println!($($t)*);
-        }
-    }
-}
-
-#[macro_export]
-macro_rules! debug_print {
-    ($($t:tt)*) => {
-        if cfg!(debug_assertions) {
-            err_print!($($t)*);
-        }
-    }
-}
-
-#[macro_export]
 macro_rules! maybe {
     ($option:expr) => {
         match $option {
