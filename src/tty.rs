@@ -19,13 +19,13 @@ use std::fs::File;
 use std::os::unix::io::FromRawFd;
 use std::os::unix::process::CommandExt;
 use std::ptr;
-use std::process;
+use std::process::{Command, Stdio};
 
 use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD, TIOCSCTTY};
 
 use term::SizeInfo;
 use display::OnResize;
-use config::Config;
+use config::{Config, Shell};
 
 /// Process ID of child process
 ///
@@ -186,19 +186,23 @@ pub fn new<T: ToWinsize>(config: &Config, size: T) -> Pty {
 
     let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
 
-    let shell = config.shell().unwrap_or(pw.shell);
+    let default_shell = Shell::new(pw.shell);
+    let shell = config.shell().unwrap_or(&default_shell);
 
-    let mut builder = process::Command::new(shell);
+    let mut builder = Command::new(shell.program());
+    for arg in shell.args() {
+        builder.arg(arg);
+    }
 
     // Setup child stdin/stdout/stderr as slave fd of pty
-    builder.stdin(unsafe { process::Stdio::from_raw_fd(slave) });
-    builder.stderr(unsafe { process::Stdio::from_raw_fd(slave) });
-    builder.stdout(unsafe { process::Stdio::from_raw_fd(slave) });
+    builder.stdin(unsafe { Stdio::from_raw_fd(slave) });
+    builder.stderr(unsafe { Stdio::from_raw_fd(slave) });
+    builder.stdout(unsafe { Stdio::from_raw_fd(slave) });
 
     // Setup environment
     builder.env("LOGNAME", pw.name);
     builder.env("USER", pw.name);
-    builder.env("SHELL", shell);
+    builder.env("SHELL", shell.program());
     builder.env("HOME", pw.dir);
     builder.env("TERM", "xterm-256color"); // sigh
 
