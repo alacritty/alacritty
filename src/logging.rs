@@ -53,9 +53,9 @@ impl<T: Send + io::Write> log::Log for Logger<T> {
     }
 }
 
-pub fn initialize(options: &cli::Options) {
+pub fn initialize(options: &cli::Options) -> Result<(), log::SetLoggerError> {
     log::set_logger(|max_log_level| {
         max_log_level.set(options.log_level);
         Box::new(Logger::new(io::stdout(), options.log_level))
-    }).unwrap_or_else(|e| die!("{}", e));
+    })
 }

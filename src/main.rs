@@ -60,9 +60,6 @@ fn main() {
     // Load command line options
     let options = cli::Options::load();
 
-    // Initialize the logger before entering alacritty main loop
-    logging::initialize(&options);
-
     // Run alacritty
     if let Err(err) = run(config, options) {
         die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
@@ -77,6 +74,9 @@ fn main() {
 /// Creates a window, the terminal state, pty, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
 fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
+    // Initialize the logger first as to capture output from other subsystems
+    logging::initialize(&options)?;
+
     info!("Welcome to Alacritty.");
 
     // Create a display.
