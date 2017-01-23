@@ -41,17 +41,12 @@ impl<T> log::Log for Logger<T> where T:Send+io::Write {
     }
 
     fn log(&self, record: &log::LogRecord) {
-        if !self.enabled(record.metadata()) {
-            return
-        }
-        let writer = &mut self.output.lock().unwrap();
-        if self.level < log::LogLevelFilter::Debug {
-            writer.write(format!("{}\n", record.args()).as_ref()).unwrap();
-        } else {
-            writer.write(format!("{}: {}\n",
-                                 record.target(),
-                                 record.args())
-                         .as_ref()).unwrap();
+        if self.enabled(record.metadata()) {
+            if record.target().starts_with("alacritty") {
+                if let Ok(ref mut writer) = self.output.lock() {
+                    let _ = writer.write(format!("{}\n", record.args()).as_ref());
+                }
+            }
         }
     }
 }
