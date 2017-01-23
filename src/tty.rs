@@ -14,11 +14,12 @@
 //
 //! tty related functionality
 //!
-use std::env;
 use std::ffi::CStr;
 use std::fs::File;
 use std::os::unix::io::FromRawFd;
+use std::os::unix::process::CommandExt;
 use std::ptr;
+use std::process;
 
 use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD, TIOCSCTTY};
 
@@ -65,27 +66,6 @@ pub fn process_should_exit() -> bool {
 /// Get the current value of errno
 fn errno() -> c_int {
     ::errno::errno().0
-}
-
-enum Relation {
-    Child,
-    Parent(pid_t)
-}
-
-fn fork() -> Relation {
-    let res = unsafe {
-        libc::fork()
-    };
-
-    if res < 0 {
-        die!("fork failed");
-    }
-
-    if res == 0 {
-        Relation::Child
-    } else {
-        Relation::Parent(res)
-    }
 }
 
 /// Get raw fds for master/slave ends of a new pty
@@ -187,9 +167,6 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
     assert_eq!(entry.pw_uid, uid);
 
     // Build a borrowed Passwd struct
-    //
-    // Transmute is used here to conveniently cast from the raw CStr to a &str with the appropriate
-    // lifetime.
     Passwd {
         name: unsafe { CStr::from_ptr(entry.pw_name).to_str().unwrap() },
         passwd: unsafe { CStr::from_ptr(entry.pw_passwd).to_str().unwrap() },
@@ -201,84 +178,63 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
     }
 }
 
-/// Exec a shell
-fn execsh(config: &Config) -> ! {
-    let mut buf = [0; 1024];
-    let pw = get_pw_entry(&mut buf);
-
-    let shell = match config.shell() {
-        Some(shell) => match shell.to_str() {
-            Some(shell) => shell,
-            None => die!("Invalid shell value")
-        },
-        None => pw.shell
-    };
-
-    // setup environment
-    env::set_var("LOGNAME", pw.name);
-    env::set_var("USER", pw.name);
-    env::set_var("SHELL", shell);
-    env::set_var("HOME", pw.dir);
-    env::set_var("TERM", "xterm-256color"); // sigh
-
-    unsafe {
-        libc::signal(libc::SIGCHLD, libc::SIG_DFL);
-        libc::signal(libc::SIGHUP, libc::SIG_DFL);
-        libc::signal(libc::SIGINT, libc::SIG_DFL);
-        libc::signal(libc::SIGQUIT, libc::SIG_DFL);
-        libc::signal(libc::SIGTERM, libc::SIG_DFL);
-        libc::signal(libc::SIGALRM, libc::SIG_DFL);
-    }
-
-    // pw.shell is null terminated
-    let shell = unsafe { CStr::from_ptr(shell.as_ptr() as *const _) };
-
-    let argv = [shell.as_ptr(), ptr::null()];
-
-    let res = unsafe {
-        libc::execvp(shell.as_ptr(), argv.as_ptr())
-    };
-
-    if res < 0 {
-        die!("execvp failed: {}", errno());
-    }
-
-    ::std::process::exit(1);
-}
-
 /// Create a new tty and return a handle to interact with it.
 pub fn new<T: ToWinsize>(config: &Config, size: T) -> Pty {
     let win = size.to_winsize();
+    let mut buf = [0; 1024];
+    let pw = get_pw_entry(&mut buf);
 
     let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
 
-    match fork() {
-        Relation::Child => {
-            unsafe {
-                // Create a new process group
-                libc::setsid();
+    let shell = config.shell().unwrap_or(pw.shell);
 
-                // Duplicate pty slave to be child stdin, stdoud, and stderr
-                libc::dup2(slave, 0);
-                libc::dup2(slave, 1);
-                libc::dup2(slave, 2);
+    let mut builder = process::Command::new(shell);
+
+    // Setup child stdin/stdout/stderr as slave fd of pty
+    builder.stdin(unsafe { process::Stdio::from_raw_fd(slave) });
+    builder.stderr(unsafe { process::Stdio::from_raw_fd(slave) });
+    builder.stdout(unsafe { process::Stdio::from_raw_fd(slave) });
+
+    // Setup environment
+    builder.env("LOGNAME", pw.name);
+    builder.env("USER", pw.name);
+    builder.env("SHELL", shell);
+    builder.env("HOME", pw.dir);
+    builder.env("TERM", "xterm-256color"); // sigh
+
+    builder.before_exec(move || {
+        // Create a new process group
+        unsafe {
+            let err = libc::setsid();
+            if err == -1 {
+                die!("Failed to set session id: {}", errno());
             }
+        }
 
-            set_controlling_terminal(slave);
+        set_controlling_terminal(slave);
 
-            // No longer need slave/master fds
-            unsafe {
-                libc::close(slave);
-                libc::close(master);
-            }
+        // No longer need slave/master fds
+        unsafe {
+            libc::close(slave);
+            libc::close(master);
+        }
 
-            // Exec a shell!
-            execsh(config);
-        },
-        Relation::Parent(pid) => {
+        unsafe {
+            libc::signal(libc::SIGCHLD, libc::SIG_DFL);
+            libc::signal(libc::SIGHUP, libc::SIG_DFL);
+            libc::signal(libc::SIGINT, libc::SIG_DFL);
+            libc::signal(libc::SIGQUIT, libc::SIG_DFL);
+            libc::signal(libc::SIGTERM, libc::SIG_DFL);
+            libc::signal(libc::SIGALRM, libc::SIG_DFL);
+        }
+        Ok(())
+    });
+
+    match builder.spawn() {
+        Ok(child) => {
             unsafe {
                 // Set PID for SIGCHLD handler
-                PID = pid;
+                PID = child.id() as _;
 
                 // Handle SIGCHLD
                 libc::signal(SIGCHLD, sigchld as _);
@@ -286,7 +242,6 @@ pub fn new<T: ToWinsize>(config: &Config, size: T) -> Pty {
                 // Parent doesn't need slave fd
                 libc::close(slave);
             }
-
             unsafe {
                 // Maybe this should be done outside of this function so nonblocking
                 // isn't forced upon consumers. Although maybe it should be?
@@ -296,6 +251,9 @@ pub fn new<T: ToWinsize>(config: &Config, size: T) -> Pty {
             let pty = Pty { fd: master };
             pty.resize(size);
             pty
+        },
+        Err(err) => {
+            die!("Command::spawn() failed: {}", err);
         }
     }
 }
