@@ -26,6 +26,7 @@ use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD
 use term::SizeInfo;
 use display::OnResize;
 use config::{Config, Shell};
+use cli::Options;
 
 /// Process ID of child process
 ///
@@ -179,15 +180,17 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
 }
 
 /// Create a new tty and return a handle to interact with it.
-pub fn new<T: ToWinsize>(config: &Config, size: T) -> Pty {
+pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T) -> Pty {
     let win = size.to_winsize();
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
 
     let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
 
-    let default_shell = Shell::new(pw.shell);
-    let shell = config.shell().unwrap_or(&default_shell);
+    let default_shell = &Shell::new(pw.shell);
+    let shell = options.shell()
+        .or_else(|| config.shell())
+        .unwrap_or(&default_shell);
 
     let mut builder = Command::new(shell.program());
     for arg in shell.args() {
