@@ -14,6 +14,7 @@
 extern crate log;
 use clap::{Arg, App};
 use index::{Line, Column};
+use config::Shell;
 
 const DEFAULT_TITLE: &'static str = "Alacritty";
 
@@ -24,7 +25,8 @@ pub struct Options {
     pub columns: Column,
     pub lines: Line,
     pub title: String,
-    pub log_level: log::LogLevelFilter
+    pub log_level: log::LogLevelFilter,
+    pub shell: Option<Shell<'static>>,
 }
 
 impl Default for Options {
@@ -35,7 +37,8 @@ impl Default for Options {
             columns: Column(80),
             lines: Line(24),
             title: DEFAULT_TITLE.to_owned(),
-            log_level: log::LogLevelFilter::Warn
+            log_level: log::LogLevelFilter::Warn,
+            shell: None,
         }
     }
 }
@@ -74,6 +77,13 @@ impl Options {
                 .multiple(true)
                 .conflicts_with("q")
                 .help("Increases the level of verbosity (the max level is -vvv)"))
+            .arg(Arg::with_name("command")
+                .short("e")
+                .multiple(true)
+                .takes_value(true)
+                .min_values(1)
+                .allow_hyphen_values(true)
+                .help("Command and args to execute (must be last argument)"))
             .get_matches();
 
         if matches.is_present("ref-test") {
@@ -106,6 +116,15 @@ impl Options {
             3 | _ => options.log_level = log::LogLevelFilter::Trace
         }
 
+        if let Some(mut args) = matches.values_of("command") {
+            // The following unwrap is guaranteed to succeed.
+            // If 'command' exists it must also have a first item since
+            // Arg::min_values(1) is set.
+            let command = String::from(args.next().unwrap());
+            let args = args.map(String::from).collect();
+            options.shell = Some(Shell::new_with_args(command, args));
+        }
+
         options
     }
 
@@ -115,5 +134,9 @@ impl Options {
 
     pub fn columns_u32(&self) -> u32 {
         self.columns.0 as u32
+    }
+
+    pub fn shell(&self) -> Option<&Shell> {
+        self.shell.as_ref()
     }
 }

@@ -176,10 +176,21 @@ pub struct Shell<'a> {
 }
 
 impl<'a> Shell<'a> {
-    pub fn new(program: &'a str) -> Shell<'a> {
+    pub fn new<S>(program: S) -> Shell<'a>
+        where S: Into<Cow<'a, str>>
+    {
         Shell {
-            program: Cow::from(program),
+            program: program.into(),
             args: Vec::new(),
+        }
+    }
+
+    pub fn new_with_args<S>(program: S, args: Vec<String>) -> Shell<'a>
+        where S: Into<Cow<'a, str>>
+    {
+        Shell {
+            program: program.into(),
+            args: args
         }
     }
 
