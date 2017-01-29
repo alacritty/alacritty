@@ -171,8 +171,8 @@ impl Display {
         // font metrics should be computed before creating the window in the first
         // place so that a resize is not needed.
         let metrics = glyph_cache.font_metrics();
-        let cell_width = (metrics.average_advance + font.offset().x() as f64) as u32;
-        let cell_height = (metrics.line_height + font.offset().y() as f64) as u32;
+        let cell_width = (metrics.max_advance + font.offset().x() as f64) as u32 + 1;
+        let cell_height = (metrics.height + font.offset().y() as f64) as u32 + 1;
 
         // Resize window to specified dimensions
         let dimensions = options.dimensions()

@@ -135,7 +135,7 @@ impl ::Rasterize for Rasterizer {
     }
 
     /// Get metrics for font specified by FontKey
-    fn metrics(&self, key: FontKey, _size: Size) -> Result<Metrics, Error> {
+    fn metrics(&self, key: FontKey) -> Result<Metrics, Error> {
         // NOTE size is not needed here since the font loaded already contains
         // it. It's part of the API due to platform differences.
         let font = self.fonts
@@ -334,8 +334,8 @@ impl Font {
         let line_height = (ascent + descent + leading + 0.5).floor();
 
         Metrics {
-            average_advance: average_advance,
-            line_height: line_height,
+            max_advance: average_advance,
+            height: line_height,
         }
     }
 
