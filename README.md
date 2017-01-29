@@ -58,9 +58,7 @@ will walk you through how to build from source on both macOS and Ubuntu.
    rustup override set $(<rustc-version)
    ```
 
-#### Additional Linux Prerequisites
-
-##### Ubuntu
+#### Ubuntu
 
 On Ubuntu, you need a few extra libraries to build Alacritty. Here's an `apt`
 command that should install all of them. If something is still found to be
@@ -70,7 +68,7 @@ missing, please open an issue.
 apt-get install cmake libfreetype6-dev libfontconfig1-dev xclip
 ```
 
-##### Arch Linux
+#### Arch Linux
 
 On Arch Linux, you need a few extra libraries to build Alacritty. Here's a
 `pacman` command that should install all of them. If something is still found
@@ -80,7 +78,7 @@ to be missing, please open an issue.
 pacman -S cmake freetype2 fontconfig xclip
 ```
 
-##### Fedora
+#### Fedora
 
 On Fedora, you need a few extra libraries to build Alacritty. Here's a `dnf`
 command that should install all of them. If something is still found to be
@@ -90,7 +88,7 @@ missing, please open an issue.
 dnf install cmake freetype-devel fontconfig-devel xclip
 ```
 
-##### openSUSE
+#### openSUSE
 
 On openSUSE, you need a few extra libraries to build Alacritty. Here's
 a `zypper` command that should install all of them. If something is
@@ -100,14 +98,14 @@ still found to be missing, please open an issue.
 zypper install cmake freetype-devel fontconfig-devel xclip
 ```
 
-##### Slackware
+#### Slackware
 
 Compiles out of the box for 14.2
 For copy & paste support (middle mouse button) you need to install xclip
 https://slackbuilds.org/repository/14.2/misc/xclip/?search=xclip
 
 
-##### Void Linux
+#### Void Linux
 
 On [Void Linux](https://voidlinux.eu), install following packages before compiling Alacritty:
 
@@ -115,7 +113,7 @@ On [Void Linux](https://voidlinux.eu), install following packages before compili
 xbps-install cmake freetype-devel freetype expat-devel fontconfig xclip
 ```
 
-##### FreeBSD
+#### FreeBSD
 
 On FreeBSD, you need a few extra libraries to build Alacritty. Here's a `pkg`
 command that should install all of them. If something is still found to be
@@ -125,9 +123,9 @@ missing, please open an issue.
 pkg install cmake freetype2 fontconfig xclip
 ```
 
-##### Other
+#### Other
 
-If you build Alacritty on another Linux distribution, we would love some help
+If you build Alacritty on another distribution, we would love some help
 filling in this section of the README.
 
 ### Building
