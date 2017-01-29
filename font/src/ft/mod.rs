@@ -59,18 +59,15 @@ impl ::Rasterize for FreeTypeRasterizer {
             .get(&key)
             .ok_or(Error::FontNotLoaded)?;
 
-        let scale_size = self.dpr as f64 * size.as_f32_pts() as f64;
+        let size_metrics = face.size_metrics()
+            .ok_or(Error::MissingSizeMetrics)?;
 
-        let em_size = face.em_size() as f64;
-        let w = face.max_advance_width() as f64;
-        let h = (face.ascender() - face.descender() + face.height()) as f64;
-
-        let w_scale = w * scale_size / em_size;
-        let h_scale = h * scale_size / em_size;
+        let width = (size_metrics.max_advance / 64) as f64;
+        let height = (size_metrics.height / 64) as f64;
 
         Ok(Metrics {
-            average_advance: w_scale,
-            line_height: h_scale,
+            average_advance: width,
+            line_height: height,
         })
     }
 
@@ -278,6 +275,9 @@ pub enum Error {
     /// Couldn't find font matching description
     MissingFont(FontDesc),
 
+    /// Tried to get size metrics from a Face that didn't have a size
+    MissingSizeMetrics,
+
     /// Requested an operation with a FontKey that isn't known to the rasterizer
     FontNotLoaded,
 }
@@ -295,6 +295,7 @@ impl ::std::error::Error for Error {
             Error::FreeType(ref err) => err.description(),
             Error::MissingFont(ref _desc) => "couldn't find the requested font",
             Error::FontNotLoaded => "tried to operate on font that hasn't been loaded",
+            Error::MissingSizeMetrics => "tried to get size metrics from a face without a size",
         }
     }
 }
@@ -311,6 +312,9 @@ impl ::std::fmt::Display for Error {
             },
             Error::FontNotLoaded => {
                 f.write_str("Tried to use a font that hasn't been loaded")
+            },
+            Error::MissingSizeMetrics => {
+                f.write_str("Tried to get size metrics from a face without a size")
             }
         }
     }
