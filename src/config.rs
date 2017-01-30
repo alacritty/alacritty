@@ -706,9 +706,17 @@ pub enum Error {
 #[derive(Debug, Deserialize)]
 pub struct Colors {
     primary: PrimaryColors,
+    #[serde(default="default_cursor_colors")]
     cursor: PrimaryColors,
     normal: AnsiColors,
     bright: AnsiColors,
+}
+
+fn default_cursor_colors() -> PrimaryColors {
+    PrimaryColors {
+        foreground: Rgb { r: 0, g: 0, b: 0 },
+        background: Rgb { r: 0xff, g: 0xff, b: 0xff },
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -726,10 +734,7 @@ impl Default for Colors {
                 background: Rgb { r: 0, g: 0, b: 0 },
                 foreground: Rgb { r: 0xea, g: 0xea, b: 0xea },
             },
-            cursor: PrimaryColors {
-                foreground: Rgb { r: 0, g: 0, b: 0 },
-                background: Rgb { r: 0xff, g: 0xff, b: 0xff },
-            },
+            cursor: default_cursor_colors(),
             normal: AnsiColors {
                 black: Rgb {r: 0x00, g: 0x00, b: 0x00},
                 red: Rgb {r: 0xd5, g: 0x4e, b: 0x53},
