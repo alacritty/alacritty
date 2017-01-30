@@ -17,8 +17,9 @@ use std::borrow::Cow;
 use ::Rgb;
 use font::Size;
 use serde_yaml;
-use serde::{self, de, Error as SerdeError};
-use serde::de::{Visitor, MapVisitor};
+use serde::{self, de};
+use serde::de::Error as SerdeError;
+use serde::de::{Visitor, MapVisitor, Unexpected};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as FileWatcher, op};
 
 use input::{Action, Binding, MouseBinding, KeyBinding};
@@ -298,7 +299,7 @@ impl ModsWrapper {
 }
 
 impl de::Deserialize for ModsWrapper {
-    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
         where D: de::Deserializer
     {
         struct ModsVisitor;
@@ -306,7 +307,11 @@ impl de::Deserialize for ModsWrapper {
         impl Visitor for ModsVisitor {
             type Value = ModsWrapper;
 
-            fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<ModsWrapper, E>
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("Some subset of Command|Shift|Super|Alt|Option|Control")
+            }
+
+            fn visit_str<E>(self, value: &str) -> ::std::result::Result<ModsWrapper, E>
                 where E: de::Error,
             {
                 use ::glutin::{mods, Mods};
@@ -338,7 +343,7 @@ impl ActionWrapper {
 }
 
 impl de::Deserialize for ActionWrapper {
-    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
         where D: de::Deserializer
     {
         struct ActionVisitor;
@@ -346,14 +351,18 @@ impl de::Deserialize for ActionWrapper {
         impl Visitor for ActionVisitor {
             type Value = ActionWrapper;
 
-            fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<ActionWrapper, E>
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("Paste, Copy, or PasteSelection")
+            }
+
+            fn visit_str<E>(self, value: &str) -> ::std::result::Result<ActionWrapper, E>
                 where E: de::Error,
             {
                 Ok(ActionWrapper(match value {
                     "Paste" => Action::Paste,
                     "Copy" => Action::Copy,
                     "PasteSelection" => Action::PasteSelection,
-                    _ => return Err(E::invalid_value("invalid value for Action")),
+                    _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
             }
         }
@@ -369,7 +378,7 @@ struct ModeWrapper {
 }
 
 impl de::Deserialize for ModeWrapper {
-    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer:  D) -> ::std::result::Result<Self, D::Error>
         where D: de::Deserializer
     {
         struct ModeVisitor;
@@ -377,7 +386,11 @@ impl de::Deserialize for ModeWrapper {
         impl Visitor for ModeVisitor {
             type Value = ModeWrapper;
 
-            fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<ModeWrapper, E>
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("Combination of AppCursor | AppKeypad, possibly with negation (~)")
+            }
+
+            fn visit_str<E>(self, value: &str) -> ::std::result::Result<ModeWrapper, E>
                 where E: de::Error,
             {
                 let mut res = ModeWrapper {
@@ -411,7 +424,7 @@ impl MouseButton {
 }
 
 impl de::Deserialize for MouseButton {
-    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
         where D: de::Deserializer
     {
         struct MouseButtonVisitor;
@@ -419,7 +432,11 @@ impl de::Deserialize for MouseButton {
         impl Visitor for MouseButtonVisitor {
             type Value = MouseButton;
 
-            fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<MouseButton, E>
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("Left, Right, Middle, or a number")
+            }
+
+            fn visit_str<E>(self, value: &str) -> ::std::result::Result<MouseButton, E>
                 where E: de::Error,
             {
                 match value {
@@ -430,7 +447,7 @@ impl de::Deserialize for MouseButton {
                         if let Ok(index) = u8::from_str(value) {
                             Ok(MouseButton(::glutin::MouseButton::Other(index)))
                         } else {
-                            Err(E::invalid_value("mouse may be Left, Right, Middle, or u8"))
+                            Err(E::invalid_value(Unexpected::Str(value), &self))
                         }
                     }
                 }
@@ -483,7 +500,7 @@ impl RawBinding {
 }
 
 impl de::Deserialize for RawBinding {
-    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
         where D: de::Deserializer
     {
         enum Field {
@@ -496,15 +513,23 @@ impl de::Deserialize for RawBinding {
         }
 
         impl de::Deserialize for Field {
-            fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Field, D::Error>
+            fn deserialize<D>(deserializer: D) -> ::std::result::Result<Field, D::Error>
                 where D: de::Deserializer
             {
                 struct FieldVisitor;
 
+                static FIELDS: &'static [&'static str] = &[
+                        "key", "mods", "mode", "action", "chars", "mouse"
+                ];
+
                 impl Visitor for FieldVisitor {
                     type Value = Field;
 
-                    fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<Field, E>
+                    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                        f.write_str("binding fields")
+                    }
+
+                    fn visit_str<E>(self, value: &str) -> ::std::result::Result<Field, E>
                         where E: de::Error,
                     {
                         match value {
@@ -514,7 +539,7 @@ impl de::Deserialize for RawBinding {
                             "action" => Ok(Field::Action),
                             "chars" => Ok(Field::Chars),
                             "mouse" => Ok(Field::Mouse),
-                            _ => Err(E::unknown_field(value)),
+                            _ => Err(E::unknown_field(value, FIELDS)),
                         }
                     }
                 }
@@ -527,8 +552,12 @@ impl de::Deserialize for RawBinding {
         impl Visitor for RawBindingVisitor {
             type Value = RawBinding;
 
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("binding specification")
+            }
+
             fn visit_map<V>(
-                &mut self,
+                self,
                 mut visitor: V
             ) -> ::std::result::Result<RawBinding, V::Error>
                 where V: MapVisitor,
@@ -541,7 +570,7 @@ impl de::Deserialize for RawBinding {
                 let mut not_mode: Option<TermMode> = None;
                 let mut mouse: Option<::glutin::MouseButton> = None;
 
-                use ::serde::Error;
+                use ::serde::de::Error;
 
                 while let Some(struct_key) = visitor.visit_key::<Field>()? {
                     match struct_key {
@@ -592,7 +621,6 @@ impl de::Deserialize for RawBinding {
                         }
                     }
                 }
-                visitor.end()?;
 
                 let action = match (action, chars) {
                     (Some(_), Some(_)) => {
@@ -631,7 +659,7 @@ impl de::Deserialize for RawBinding {
 }
 
 impl de::Deserialize for ColorList {
-    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
         where D: de::Deserializer
     {
         let named_colors = Colors::deserialize(deserializer)?;
@@ -640,7 +668,7 @@ impl de::Deserialize for ColorList {
 }
 
 impl de::Deserialize for MouseBinding {
-    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
         where D: de::Deserializer
     {
         let raw = RawBinding::deserialize(deserializer)?;
@@ -650,7 +678,7 @@ impl de::Deserialize for MouseBinding {
 }
 
 impl de::Deserialize for KeyBinding {
-    fn deserialize<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
         where D: de::Deserializer
     {
         let raw = RawBinding::deserialize(deserializer)?;
@@ -751,7 +779,7 @@ pub struct AnsiColors {
 ///
 /// This is *not* the deserialize impl for Rgb since we want a symmetric
 /// serialize/deserialize impl for ref tests.
-fn rgb_from_hex<D>(deserializer: &mut D) -> ::std::result::Result<Rgb, D::Error>
+fn rgb_from_hex<D>(deserializer: D) -> ::std::result::Result<Rgb, D::Error>
     where D: de::Deserializer
 {
     struct RgbVisitor;
@@ -759,7 +787,11 @@ fn rgb_from_hex<D>(deserializer: &mut D) -> ::std::result::Result<Rgb, D::Error>
     impl ::serde::de::Visitor for RgbVisitor {
         type Value = Rgb;
 
-        fn visit_str<E>(&mut self, value: &str) -> ::std::result::Result<Rgb, E>
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("Hex colors spec like 'ffaabb'")
+        }
+
+        fn visit_str<E>(self, value: &str) -> ::std::result::Result<Rgb, E>
             where E: ::serde::de::Error
         {
             Rgb::from_str(&value[..])
@@ -1041,12 +1073,12 @@ impl FontOffset {
 }
 
 trait DeserializeFromF32 : Sized {
-    fn deserialize_from_f32<D>(&mut D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize_from_f32<D>(D) -> ::std::result::Result<Self, D::Error>
         where D: serde::de::Deserializer;
 }
 
 impl DeserializeFromF32 for Size {
-    fn deserialize_from_f32<D>(deserializer: &mut D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize_from_f32<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
         where D: serde::de::Deserializer
     {
         use std::marker::PhantomData;
@@ -1060,7 +1092,11 @@ impl DeserializeFromF32 for Size {
         {
             type Value = f64;
 
-            fn visit_f64<E>(&mut self, value: f64) -> ::std::result::Result<Self::Value, E>
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("f64")
+            }
+
+            fn visit_f64<E>(self, value: f64) -> ::std::result::Result<Self::Value, E>
                 where E: ::serde::de::Error
             {
                 Ok(value)
