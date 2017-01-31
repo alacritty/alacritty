@@ -289,6 +289,10 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
+        if !self.ctx.terminal.mode().intersects(mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION | mode::SGR_MOUSE) {
+            return;
+        }
+
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let code = if lines > 0.0 {
