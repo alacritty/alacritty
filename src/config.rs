@@ -178,9 +178,9 @@ pub struct Config {
     #[serde(default)]
     env: HashMap<String, String>,
 
-    /// Initial dimensions
+    /// Window configuration
     #[serde(default)]
-    dimensions: Dimensions,
+    window: Window,
 
     /// Pixels per inch
     #[serde(default)]
@@ -265,7 +265,7 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             draw_bold_text_with_bright_colors: true,
-            dimensions: Default::default(),
+            window: Default::default(),
             dpi: Default::default(),
             font: Default::default(),
             render_timer: Default::default(),
@@ -1022,7 +1022,13 @@ impl Config {
     /// Get window dimensions
     #[inline]
     pub fn dimensions(&self) -> Dimensions {
-        self.dimensions
+        self.window.dimensions
+    }
+
+    /// Get window padding
+    #[inline]
+    pub fn padding(&self) -> u8 {
+        self.window.padding
     }
 
     /// Get dpi config
@@ -1128,6 +1134,25 @@ impl Dimensions {
     #[inline]
     pub fn columns_u32(&self) -> u32 {
         self.columns.0 as u32
+    }
+}
+
+/// Window configuration
+#[derive(Debug, Deserialize)]
+pub struct Window  {
+    /// Window dimensions
+    pub dimensions: Dimensions,
+
+    /// Window padding
+    pub padding: u8,
+}
+
+impl Default for Window {
+    fn default() -> Window {
+        Window {
+            dimensions: Dimensions::default(),
+            padding: 0,
+        }
     }
 }
 

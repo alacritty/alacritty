@@ -179,18 +179,24 @@ impl Display {
             .unwrap_or_else(|| config.dimensions());
         let width = cell_width * dimensions.columns_u32() + 4;
         let height = cell_height * dimensions.lines_u32() + 4;
+        let padding = config.padding() as u32;
         let size = Size { width: Pixels(width), height: Pixels(height) };
+        let window_size = Size {
+            width: Pixels(width + 2 * padding),
+            height: Pixels(height + 2 * padding),
+        };
         info!("set_inner_size: {}", size);
 
-        window.set_inner_size(size);
-        renderer.resize(*size.width as _, *size.height as _);
+        window.set_inner_size(window_size);
+        renderer.resize(*window_size.width as _, *window_size.height as _, padding as i32);
         info!("Cell Size: ({} x {})", cell_width, cell_height);
 
         let size_info = SizeInfo {
             width: *size.width as f32,
             height: *size.height as f32,
             cell_width: cell_width as f32,
-            cell_height: cell_height as f32
+            cell_height: cell_height as f32,
+            padding: padding as f32,
         };
 
         // Channel for resize events
@@ -254,14 +260,14 @@ impl Display {
         // Receive any resize events; only call gl::Viewport on last
         // available
         if let Some((w, h)) = new_size.take() {
-            terminal.resize(w as f32, h as f32);
+            terminal.resize(w as f32 - 2.0 * self.size_info.padding, h as f32 - 2.0 * self.size_info.padding);
             let size = terminal.size_info();
 
             for mut item in items {
                 item.on_resize(size)
             }
 
-            self.renderer.resize(w as i32, h as i32);
+            self.renderer.resize(w as i32, h as i32, self.size_info.padding as i32);
         }
 
     }

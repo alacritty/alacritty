@@ -237,8 +237,8 @@ impl<N: Notify> Processor<N> {
                 processor.ctx.terminal.dirty = true;
             },
             glutin::Event::MouseMoved(x, y) => {
-                let x = limit(x, 0, processor.ctx.size_info.width as i32);
-                let y = limit(y, 0, processor.ctx.size_info.height as i32);
+                let x = limit(x - processor.ctx.size_info.padding as i32, 0, processor.ctx.size_info.width as i32);
+                let y = limit(y - processor.ctx.size_info.padding as i32, 0, processor.ctx.size_info.height as i32);
 
                 *hide_cursor = false;
                 processor.mouse_moved(x as u32, y as u32);
