@@ -88,7 +88,7 @@ impl Cell {
     pub fn is_empty(&self) -> bool {
         self.c == ' ' &&
             self.bg == Color::Named(NamedColor::Background) &&
-            !self.flags.contains(INVERSE)
+            !self.flags.intersects(INVERSE | UNDERLINE)
     }
 
     #[inline]
