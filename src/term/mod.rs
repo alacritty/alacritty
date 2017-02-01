@@ -271,13 +271,8 @@ impl CharsetMapping for StandardCharset {
     }
 }
 
+#[derive(Default, Copy, Clone)]
 struct Charsets([StandardCharset; 4]);
-
-impl Charsets {
-    fn new() -> Charsets {
-        Charsets([StandardCharset::Ascii; 4])
-    }
-}
 
 impl Index<CharsetIndex> for Charsets {
     type Output = StandardCharset;
@@ -290,6 +285,18 @@ impl IndexMut<CharsetIndex> for Charsets {
     fn index_mut(&mut self, index: CharsetIndex) -> &mut StandardCharset {
         &mut self.0[index as usize]
     }
+}
+
+#[derive(Default, Copy, Clone)]
+pub struct Cursor {
+    /// The location of this cursor
+    point: Point,
+
+    /// Template cell when using this cursor
+    template: Cell,
+
+    /// Currently configured graphic character sets
+    charsets: Charsets,
 }
 
 pub struct Term {
@@ -315,13 +322,7 @@ pub struct Term {
     alt: bool,
 
     /// The cursor
-    cursor: Point,
-
-    /// Alt cursor
-    alt_cursor: Point,
-
-    /// Currently configured graphic character sets
-    charsets: Charsets,
+    cursor: Cursor,
 
     /// The graphic character set, out of `charsets`, which ASCII is currently
     /// being mapped to
@@ -339,15 +340,18 @@ pub struct Term {
     /// Size
     size_info: SizeInfo,
 
-    /// Template cell
-    template_cell: Cell,
-
     /// Empty cell
     empty_cell: Cell,
 
     pub dirty: bool,
 
     custom_cursor_colors: bool,
+
+    /// Saved cursor from main grid
+    cursor_save: Cursor,
+
+    /// Saved cursor from alt grid
+    cursor_save_alt: Cursor,
 }
 
 /// Terminal size info
@@ -422,15 +426,14 @@ impl Term {
             grid: grid,
             alt_grid: alt,
             alt: false,
-            cursor: Point::default(),
-            alt_cursor: Point::default(),
-            active_charset: CharsetIndex::G0,
-            charsets: Charsets::new(),
+            active_charset: Default::default(),
+            cursor: Default::default(),
+            cursor_save: Default::default(),
+            cursor_save_alt: Default::default(),
             tabs: tabs,
             mode: Default::default(),
             scroll_region: scroll_region,
             size_info: size,
-            template_cell: template,
             empty_cell: template,
             custom_cursor_colors: config.custom_cursor_colors(),
         }
@@ -590,7 +593,13 @@ impl Term {
     /// background color.  Cells with an alternate background color are
     /// considered renderable as are cells with any text content.
     pub fn renderable_cells(&mut self, selection: &Selection) -> RenderableCellsIter {
-        RenderableCellsIter::new(&mut self.grid, &self.cursor, self.mode, selection, self.custom_cursor_colors)
+        RenderableCellsIter::new(
+            &mut self.grid,
+            &self.cursor.point,
+            self.mode,
+            selection,
+            self.custom_cursor_colors
+        )
     }
 
     /// Resize terminal to new dimensions
@@ -628,22 +637,22 @@ impl Term {
         self.scroll_region = Line(0)..self.grid.num_lines();
 
         // Scroll up to keep cursor in terminal
-        if self.cursor.line >= num_lines {
-            let lines = self.cursor.line - num_lines + 1;
+        if self.cursor.point.line >= num_lines {
+            let lines = self.cursor.point.line - num_lines + 1;
             self.scroll_up(lines);
-            self.cursor.line -= lines;
+            self.cursor.point.line -= lines;
         }
 
         println!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         // Resize grids to new size
-        let template = self.template_cell;
+        let template = self.cursor.template;
         self.grid.resize(num_lines, num_cols, &template);
         self.alt_grid.resize(num_lines, num_cols, &template);
 
         // Ensure cursor is in-bounds
-        self.cursor.line = limit(self.cursor.line, Line(0), num_lines - 1);
-        self.cursor.col = limit(self.cursor.col, Column(0), num_cols - 1);
+        self.cursor.point.line = limit(self.cursor.point.line, Line(0), num_lines - 1);
+        self.cursor.point.col = limit(self.cursor.point.col, Column(0), num_cols - 1);
 
         // Recreate tabs list
         self.tabs = IndexRange::from(Column(0)..self.grid.num_cols())
@@ -655,8 +664,8 @@ impl Term {
         if num_lines > old_lines {
             // Make sure bottom of terminal is clear
             let template = self.empty_cell;
-            self.grid.clear_region((self.cursor.line + 1).., |c| c.reset(&template));
-            self.alt_grid.clear_region((self.cursor.line + 1).., |c| c.reset(&template));
+            self.grid.clear_region((self.cursor.point.line + 1).., |c| c.reset(&template));
+            self.alt_grid.clear_region((self.cursor.point.line + 1).., |c| c.reset(&template));
         }
 
         // Reset scrolling region to new size
@@ -676,7 +685,6 @@ impl Term {
     pub fn swap_alt(&mut self) {
         self.alt = !self.alt;
         ::std::mem::swap(&mut self.grid, &mut self.alt_grid);
-        ::std::mem::swap(&mut self.cursor, &mut self.alt_cursor);
 
         if self.alt {
             let template = self.empty_cell;
@@ -782,32 +790,32 @@ impl ansi::Handler for Term {
 
             {
                 let location = Point {
-                    line: self.cursor.line,
-                    col: self.cursor.col
+                    line: self.cursor.point.line,
+                    col: self.cursor.point.col
                 };
 
                 let cell = &mut self.grid[&location];
                 cell.flags.insert(cell::WRAPLINE);
             }
 
-            if (self.cursor.line + 1) >= self.scroll_region.end {
+            if (self.cursor.point.line + 1) >= self.scroll_region.end {
                 self.linefeed();
             } else {
-                self.cursor.line += 1;
+                self.cursor.point.line += 1;
             }
 
-            self.cursor.col = Column(0);
+            self.cursor.point.col = Column(0);
             self.input_needs_wrap = false;
         }
 
         {
-            let cell = &mut self.grid[&self.cursor];
-            *cell = self.template_cell;
-            cell.c = self.charsets[self.active_charset].map(c);
+            let cell = &mut self.grid[&self.cursor.point];
+            *cell = self.cursor.template;
+            cell.c = self.cursor.charsets[self.active_charset].map(c);
         }
 
-        if (self.cursor.col + 1) < self.grid.num_cols() {
-            self.cursor.col += 1;
+        if (self.cursor.point.col + 1) < self.grid.num_cols() {
+            self.cursor.point.col += 1;
         } else {
             self.input_needs_wrap = true;
         }
@@ -817,22 +825,22 @@ impl ansi::Handler for Term {
     #[inline]
     fn goto(&mut self, line: Line, col: Column) {
         trace!("goto: line={}, col={}", line, col);
-        self.cursor.line = min(line, self.grid.num_lines() - 1);
-        self.cursor.col = min(col, self.grid.num_cols() - 1);
+        self.cursor.point.line = min(line, self.grid.num_lines() - 1);
+        self.cursor.point.col = min(col, self.grid.num_cols() - 1);
         self.input_needs_wrap = false;
     }
 
     #[inline]
     fn goto_line(&mut self, line: Line) {
         trace!("goto_line: {}", line);
-        self.cursor.line = min(line, self.grid.num_lines() - 1);
+        self.cursor.point.line = min(line, self.grid.num_lines() - 1);
         self.input_needs_wrap = false;
     }
 
     #[inline]
     fn goto_col(&mut self, col: Column) {
         trace!("goto_col: {}", col);
-        self.cursor.col = min(col, self.grid.num_cols() - 1);
+        self.cursor.point.col = min(col, self.grid.num_cols() - 1);
         self.input_needs_wrap = false;
     }
 
@@ -840,13 +848,13 @@ impl ansi::Handler for Term {
     fn insert_blank(&mut self, count: Column) {
         // Ensure inserting within terminal bounds
 
-        let count = min(count, self.size_info.cols() - self.cursor.col);
+        let count = min(count, self.size_info.cols() - self.cursor.point.col);
 
-        let source = self.cursor.col;
-        let destination = self.cursor.col + count;
+        let source = self.cursor.point.col;
+        let destination = self.cursor.point.col + count;
         let num_cells = (self.size_info.cols() - destination).0;
 
-        let line = self.cursor.line; // borrowck
+        let line = self.cursor.point.line; // borrowck
         let line = &mut self.grid[line];
 
         unsafe {
@@ -867,27 +875,27 @@ impl ansi::Handler for Term {
     #[inline]
     fn move_up(&mut self, lines: Line) {
         trace!("move_up: {}", lines);
-        let lines = min(self.cursor.line, lines);
-        self.cursor.line = min(self.cursor.line - lines, self.grid.num_lines() -1);
+        let lines = min(self.cursor.point.line, lines);
+        self.cursor.point.line = min(self.cursor.point.line - lines, self.grid.num_lines() -1);
     }
 
     #[inline]
     fn move_down(&mut self, lines: Line) {
         trace!("move_down: {}", lines);
-        self.cursor.line = min(self.cursor.line + lines, self.grid.num_lines() - 1);
+        self.cursor.point.line = min(self.cursor.point.line + lines, self.grid.num_lines() - 1);
     }
 
     #[inline]
     fn move_forward(&mut self, cols: Column) {
         trace!("move_forward: {}", cols);
-        self.cursor.col = min(self.cursor.col + cols, self.grid.num_cols() - 1);
+        self.cursor.point.col = min(self.cursor.point.col + cols, self.grid.num_cols() - 1);
         self.input_needs_wrap = false;
     }
 
     #[inline]
     fn move_backward(&mut self, cols: Column) {
         trace!("move_backward: {}", cols);
-        self.cursor.col -= min(self.cursor.col, cols);
+        self.cursor.point.col -= min(self.cursor.point.col, cols);
         self.input_needs_wrap = false;
     }
 
@@ -910,7 +918,7 @@ impl ansi::Handler for Term {
     fn put_tab(&mut self, mut count: i64) {
         trace!("put_tab: {}", count);
 
-        let mut col = self.cursor.col;
+        let mut col = self.cursor.point.col;
         while col < self.grid.num_cols() && count != 0 {
             count -= 1;
             loop {
@@ -921,7 +929,7 @@ impl ansi::Handler for Term {
             }
         }
 
-        self.cursor.col = col;
+        self.cursor.point.col = col;
         self.input_needs_wrap = false;
     }
 
@@ -929,8 +937,8 @@ impl ansi::Handler for Term {
     #[inline]
     fn backspace(&mut self) {
         trace!("backspace");
-        if self.cursor.col > Column(0) {
-            self.cursor.col -= 1;
+        if self.cursor.point.col > Column(0) {
+            self.cursor.point.col -= 1;
             self.input_needs_wrap = false;
         }
     }
@@ -939,7 +947,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn carriage_return(&mut self) {
         trace!("carriage_return");
-        self.cursor.col = Column(0);
+        self.cursor.point.col = Column(0);
         self.input_needs_wrap = false;
     }
 
@@ -947,10 +955,10 @@ impl ansi::Handler for Term {
     #[inline]
     fn linefeed(&mut self) {
         trace!("linefeed");
-        if (self.cursor.line + 1) >= self.scroll_region.end {
+        if (self.cursor.point.line + 1) >= self.scroll_region.end {
             self.scroll_up(Line(1));
         } else {
-            self.cursor.line += 1;
+            self.cursor.point.line += 1;
         }
     }
 
@@ -990,8 +998,8 @@ impl ansi::Handler for Term {
     #[inline]
     fn insert_blank_lines(&mut self, lines: Line) {
         trace!("insert_blank_lines: {}", lines);
-        if self.scroll_region.contains_(self.cursor.line) {
-            let origin = self.cursor.line;
+        if self.scroll_region.contains_(self.cursor.point.line) {
+            let origin = self.cursor.point.line;
             self.scroll_down_relative(origin, lines);
         }
     }
@@ -999,19 +1007,19 @@ impl ansi::Handler for Term {
     #[inline]
     fn delete_lines(&mut self, lines: Line) {
         trace!("delete_lines: {}", lines);
-        if self.scroll_region.contains_(self.cursor.line) {
-            let origin = self.cursor.line;
+        if self.scroll_region.contains_(self.cursor.point.line) {
+            let origin = self.cursor.point.line;
             self.scroll_up_relative(origin, lines);
         }
     }
 
     #[inline]
     fn erase_chars(&mut self, count: Column) {
-        trace!("erase_chars: {}, {}", count, self.cursor.col);
-        let start = self.cursor.col;
+        trace!("erase_chars: {}, {}", count, self.cursor.point.col);
+        let start = self.cursor.point.col;
         let end = min(start + count, self.grid.num_cols() - 1);
 
-        let row = &mut self.grid[self.cursor.line];
+        let row = &mut self.grid[self.cursor.point.line];
         let template = self.empty_cell;
         for c in &mut row[start..end] {
             c.reset(&template);
@@ -1023,11 +1031,11 @@ impl ansi::Handler for Term {
         // Ensure deleting within terminal bounds
         let count = min(count, self.size_info.cols());
 
-        let start = self.cursor.col;
+        let start = self.cursor.point.col;
         let end = min(start + count, self.grid.num_cols() - 1);
         let n = (self.size_info.cols() - end).0;
 
-        let line = self.cursor.line; // borrowck
+        let line = self.cursor.point.line; // borrowck
         let line = &mut self.grid[line];
 
         unsafe {
@@ -1058,35 +1066,49 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn save_cursor_position(&mut self) {
-        trace!("[unimplemented] save_cursor_position");
+        trace!("CursorSave");
+        let mut holder = if self.alt {
+            &mut self.cursor_save_alt
+        } else {
+            &mut self.cursor_save
+        };
+
+        *holder = self.cursor;
     }
 
     #[inline]
     fn restore_cursor_position(&mut self) {
-        trace!("[unimplemented] restore_cursor_position");
+        trace!("CursorRestore");
+        let holder = if self.alt {
+            &self.cursor_save_alt
+        } else {
+            &self.cursor_save
+        };
+
+        self.cursor = *holder;
     }
 
     #[inline]
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         trace!("clear_line: {:?}", mode);
         let template = self.empty_cell;
-        let col =  self.cursor.col;
+        let col =  self.cursor.point.col;
 
         match mode {
             ansi::LineClearMode::Right => {
-                let row = &mut self.grid[self.cursor.line];
+                let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[col..] {
                     cell.reset(&template);
                 }
             },
             ansi::LineClearMode::Left => {
-                let row = &mut self.grid[self.cursor.line];
+                let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..(col + 1)] {
                     cell.reset(&template);
                 }
             },
             ansi::LineClearMode::All => {
-                let row = &mut self.grid[self.cursor.line];
+                let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..] {
                     cell.reset(&template);
                 }
@@ -1100,7 +1122,7 @@ impl ansi::Handler for Term {
         let template = self.empty_cell;
         match mode {
             ansi::ClearMode::Below => {
-                for row in &mut self.grid[self.cursor.line..] {
+                for row in &mut self.grid[self.cursor.point.line..] {
                     for cell in row {
                         cell.reset(&template);
                     }
@@ -1129,10 +1151,10 @@ impl ansi::Handler for Term {
     fn reverse_index(&mut self) {
         trace!("reverse_index");
         // if cursor is at the top
-        if self.cursor.line == self.scroll_region.start {
+        if self.cursor.point.line == self.scroll_region.start {
             self.scroll_down(Line(1));
         } else {
-            self.cursor.line -= min(self.cursor.line, Line(1));
+            self.cursor.point.line -= min(self.cursor.point.line, Line(1));
         }
     }
 
@@ -1141,21 +1163,21 @@ impl ansi::Handler for Term {
     fn terminal_attribute(&mut self, attr: Attr) {
         trace!("Set Attribute: {:?}", attr);
         match attr {
-            Attr::Foreground(color) => self.template_cell.fg = color,
-            Attr::Background(color) => self.template_cell.bg = color,
+            Attr::Foreground(color) => self.cursor.template.fg = color,
+            Attr::Background(color) => self.cursor.template.bg = color,
             Attr::Reset => {
-                self.template_cell.fg = Color::Named(NamedColor::Foreground);
-                self.template_cell.bg = Color::Named(NamedColor::Background);
-                self.template_cell.flags = cell::Flags::empty();
+                self.cursor.template.fg = Color::Named(NamedColor::Foreground);
+                self.cursor.template.bg = Color::Named(NamedColor::Background);
+                self.cursor.template.flags = cell::Flags::empty();
             },
-            Attr::Reverse => self.template_cell.flags.insert(cell::INVERSE),
-            Attr::CancelReverse => self.template_cell.flags.remove(cell::INVERSE),
-            Attr::Bold => self.template_cell.flags.insert(cell::BOLD),
-            Attr::CancelBoldDim => self.template_cell.flags.remove(cell::BOLD),
-            Attr::Italic => self.template_cell.flags.insert(cell::ITALIC),
-            Attr::CancelItalic => self.template_cell.flags.remove(cell::ITALIC),
-            Attr::Underscore => self.template_cell.flags.insert(cell::UNDERLINE),
-            Attr::CancelUnderline => self.template_cell.flags.remove(cell::UNDERLINE),
+            Attr::Reverse => self.cursor.template.flags.insert(cell::INVERSE),
+            Attr::CancelReverse => self.cursor.template.flags.remove(cell::INVERSE),
+            Attr::Bold => self.cursor.template.flags.insert(cell::BOLD),
+            Attr::CancelBoldDim => self.cursor.template.flags.remove(cell::BOLD),
+            Attr::Italic => self.cursor.template.flags.insert(cell::ITALIC),
+            Attr::CancelItalic => self.cursor.template.flags.remove(cell::ITALIC),
+            Attr::Underscore => self.cursor.template.flags.insert(cell::UNDERLINE),
+            Attr::CancelUnderline => self.cursor.template.flags.remove(cell::UNDERLINE),
             _ => {
                 debug!("Term got unhandled attr: {:?}", attr);
             }
@@ -1166,7 +1188,10 @@ impl ansi::Handler for Term {
     fn set_mode(&mut self, mode: ansi::Mode) {
         trace!("set_mode: {:?}", mode);
         match mode {
-            ansi::Mode::SwapScreenAndSetRestoreCursor => self.swap_alt(),
+            ansi::Mode::SwapScreenAndSetRestoreCursor => {
+                self.save_cursor_position();
+                self.swap_alt();
+            },
             ansi::Mode::ShowCursor => self.mode.insert(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.insert(mode::APP_CURSOR),
             ansi::Mode::ReportMouseClicks => self.mode.insert(mode::MOUSE_REPORT_CLICK),
@@ -1184,7 +1209,10 @@ impl ansi::Handler for Term {
     fn unset_mode(&mut self,mode: ansi::Mode) {
         trace!("unset_mode: {:?}", mode);
         match mode {
-            ansi::Mode::SwapScreenAndSetRestoreCursor => self.swap_alt(),
+            ansi::Mode::SwapScreenAndSetRestoreCursor => {
+                self.restore_cursor_position();
+                self.swap_alt();
+            },
             ansi::Mode::ShowCursor => self.mode.remove(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.remove(mode::APP_CURSOR),
             ansi::Mode::ReportMouseClicks => self.mode.remove(mode::MOUSE_REPORT_CLICK),
@@ -1221,7 +1249,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn configure_charset(&mut self, index: CharsetIndex, charset: StandardCharset) {
         trace!("designate {:?} character set as {:?}", index, charset);
-        self.charsets[index] = charset;
+        self.cursor.charsets[index] = charset;
     }
 
     #[inline]

@@ -462,11 +462,23 @@ pub enum CharsetIndex {
     G3,
 }
 
+impl Default for CharsetIndex {
+    fn default() -> Self {
+        CharsetIndex::G0
+    }
+}
+
 /// Standard or common character sets which can be designated as G0-G3
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StandardCharset {
     Ascii,
     SpecialCharacterAndLineDrawing,
+}
+
+impl Default for StandardCharset {
+    fn default() -> Self {
+        StandardCharset::Ascii
+    }
 }
 
 impl<'a, H, W> vte::Perform for Performer<'a, H, W>
