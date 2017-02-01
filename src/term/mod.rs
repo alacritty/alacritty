@@ -152,7 +152,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     .unwrap_or(false);
 
                 // Skip empty cells
-                if cell.is_empty() && !selected {
+                if cell.is_empty() && !cell.flags.contains(cell::UNDERLINE) && !selected {
                     continue;
                 }
 
