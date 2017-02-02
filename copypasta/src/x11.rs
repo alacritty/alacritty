@@ -1,173 +1,143 @@
 //! X11 Clipboard implementation
-//!
-//! Note that the x11 implementation is really crap right now - we just depend
-//! on xclip being on the user's path. If x11 pasting doesn't work, it's
-//! probably because xclip is unavailable. There's currently no non-GPL x11
-//! clipboard library for Rust. Until then, we have this hack.
-//!
-//! FIXME: Implement actual X11 clipboard API using the ICCCM reference
-//!        https://tronche.com/gui/x/icccm/
-use std::io;
-use std::process::{Output, Command};
-use std::string::FromUtf8Error;
-use std::ffi::OsStr;
+use std::{ fmt, error };
+use xcb::{ Connection, Window, Atom };
+use xcb_util::icccm;
 
-use super::{Load, Store};
+use super::{ Load };
 
-/// The x11 clipboard
-pub struct Clipboard;
+
+pub struct Clipboard {
+    conn: Connection,
+    window: Window,
+}
 
 #[derive(Debug)]
 pub enum Error {
-    Io(io::Error),
-    Xclip(String),
-    Utf8(FromUtf8Error),
+    X11Conn(::xcb::ConnError),
+    Generic(::xcb::GenericError),
+    CaptureEventFail
 }
 
-impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&::std::error::Error> {
-        match *self {
-            Error::Io(ref err) => Some(err),
-            Error::Utf8(ref err) => Some(err),
-            _ => None,
-        }
+impl From<::xcb::ConnError> for Error {
+    fn from(err: ::xcb::ConnError) -> Error {
+        Error::X11Conn(err)
     }
+}
 
+impl From<::xcb::GenericError> for Error {
+    fn from(err: ::xcb::GenericError) -> Error {
+        Error::Generic(err)
+    }
+}
+
+impl error::Error for Error {
     fn description(&self) -> &str {
         match *self {
-            Error::Io(..) => "error calling xclip",
-            Error::Xclip(..) => "error reported by xclip",
-            Error::Utf8(..) => "clipboard contents not utf8",
+            Error::X11Conn(..) => "X11 Connection Error",
+            Error::Generic(..) => "X11 Generic Error",
+            Error::CaptureEventFail => "X11 Event Capture Fail"
         }
     }
 }
 
-impl ::std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Io(ref err) => {
-                match err.kind() {
-                    io::ErrorKind::NotFound => {
-                        write!(f, "Please install `xclip` to enable clipboard support")
-                    },
-                    _ => write!(f, "error calling xclip: {}", err),
-                }
-            },
-            Error::Xclip(ref s) => write!(f, "error from xclip: {}", s),
-            Error::Utf8(ref err) => write!(f, "error parsing xclip output: {}", err),
+            Error::X11Conn(ref err) =>
+                write!(f, "{}: {:?}", error::Error::description(self), err),
+            Error::Generic(ref err) =>
+                write!(f, "{}: {}", error::Error::description(self), err.error_code()),
+            Error::CaptureEventFail =>
+                write!(f, "{}", error::Error::description(self))
         }
     }
 }
 
-impl From<io::Error> for Error {
-    fn from(val: io::Error) -> Error {
-        Error::Io(val)
-    }
-}
+impl Clipboard {
+    fn load(&self, selection: Atom, target: Atom, property: Atom) -> Result<String, Error> {
+        ::xcb::convert_selection(
+            &self.conn, self.window,
+            selection, target, property,
+            ::xcb::CURRENT_TIME
+        );
+        self.conn.flush();
 
-impl From<FromUtf8Error> for Error {
-    fn from(val: FromUtf8Error) -> Error {
-        Error::Utf8(val)
+        while let Some(event) = self.conn.wait_for_event() {
+            let event = ::xcb::cast_event::<::xcb::PropertyNotifyEvent>(&event);
+            if event.atom() == property {
+                if let Ok(reply) = icccm::get_text_property(&self.conn, self.window, property).get_reply() {
+                    return Ok(reply.name().to_string());
+                }
+            }
+        }
+
+        Err(Error::CaptureEventFail)
     }
 }
 
 impl Load for Clipboard {
     type Err = Error;
 
-    fn new() -> Result<Self, Error> {
-        Ok(Clipboard)
+    fn new() -> Result<Self, Self::Err> {
+        let (conn, id) = Connection::connect(None)?;
+        let window = conn.generate_id();
+
+        {
+            let screen = conn.get_setup().roots().nth(id as usize)
+                .ok_or(::xcb::ConnError::ClosedInvalidScreen)?;
+            ::xcb::create_window(
+                &conn,
+                ::xcb::COPY_FROM_PARENT as u8,
+                window,
+                screen.root(),
+                0, 0, 1, 1,
+                0,
+                ::xcb::WINDOW_CLASS_INPUT_OUTPUT as u16,
+                screen.root_visual(),
+                &[(::xcb::CW_EVENT_MASK, ::xcb::EVENT_MASK_PROPERTY_CHANGE)]
+            );
+            conn.flush();
+        }
+
+        Ok(Clipboard {
+            conn: conn,
+            window: window,
+        })
     }
 
     fn load_primary(&self) -> Result<String, Self::Err> {
-        let output = Command::new("xclip")
-            .args(&["-o", "-selection", "clipboard"])
-            .output()?;
-
-        Clipboard::process_xclip_output(output)
+        self.load(
+            ::xcb::intern_atom(&self.conn, false, "CLIPBOARD").get_reply()?.atom(),
+            ::xcb::intern_atom(&self.conn, false, "UTF8_STRING").get_reply()?.atom(),
+            ::xcb::intern_atom(&self.conn, false, "XSEL_DATA").get_reply()?.atom()
+        )
     }
 
     fn load_selection(&self) -> Result<String, Self::Err> {
-        let output = Command::new("xclip")
-            .args(&["-o"])
-            .output()?;
-
-        Clipboard::process_xclip_output(output)
+        self.load(
+            ::xcb::ATOM_PRIMARY,
+            ::xcb::intern_atom(&self.conn, false, "UTF8_STRING").get_reply()?.atom(),
+            ::xcb::intern_atom(&self.conn, false, "XSEL_DATA").get_reply()?.atom()
+        )
     }
 }
 
-impl Store for Clipboard {
-    /// Sets the primary clipboard contents
-    #[inline]
-    fn store_primary<S>(&mut self, contents: S) -> Result<(), Self::Err>
-        where S: Into<String>
-    {
-        self.store(contents, &["-i", "-selection", "clipboard"])
-    }
-
-    /// Sets the secondary clipboard contents
-    #[inline]
-    fn store_selection<S>(&mut self, contents: S) -> Result<(), Self::Err>
-        where S: Into<String>
-    {
-        self.store(contents, &["-i"])
-    }
-}
-
-impl Clipboard {
-    fn process_xclip_output(output: Output) -> Result<String, Error> {
-        if output.status.success() {
-            String::from_utf8(output.stdout)
-                .map_err(::std::convert::From::from)
-        } else {
-            String::from_utf8(output.stderr)
-                .map_err(::std::convert::From::from)
-        }
-    }
-
-    fn store<C, S>(&mut self, contents: C, args: &[S]) -> Result<(), Error>
-        where C: Into<String>,
-              S: AsRef<OsStr>,
-    {
-        use std::io::Write;
-        use std::process::{Command, Stdio};
-
-        let contents = contents.into();
-        let mut child = Command::new("xclip")
-            .args(args)
-            .stdin(Stdio::piped())
-            .spawn()?;
-
-        if let Some(mut stdin) = child.stdin.as_mut() {
-            stdin.write_all(contents.as_bytes())?;
-        }
-
-        // Return error if didn't exit cleanly
-        let exit_status = child.wait()?;
-        if exit_status.success() {
-            Ok(())
-        } else {
-            Err(Error::Xclip("xclip returned non-zero exit code".into()))
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::Clipboard;
-    use ::{Load, Store};
+    use ::Load;
 
     #[test]
     fn clipboard_works() {
-        let mut clipboard = Clipboard::new().expect("create clipboard");
-        let arst = "arst";
-        let oien = "oien";
-        clipboard.store_primary(arst).expect("store selection");
-        clipboard.store_selection(oien).expect("store selection");
-
-        let selection = clipboard.load_selection().expect("load selection");
-        let primary = clipboard.load_primary().expect("load selection");
-
-        assert_eq!(arst, primary);
-        assert_eq!(oien, selection);
+        let clipboard = Clipboard::new().expect("create clipboard");
+        assert_eq!(
+            clipboard.load_primary().expect("load selection"),
+            clipboard.load_primary().expect("load selection")
+        );
+        assert_eq!(
+            clipboard.load_selection().expect("load selection"),
+            clipboard.load_selection().expect("load selection")
+        );
     }
 }
