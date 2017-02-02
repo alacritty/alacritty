@@ -4,6 +4,12 @@
 #[cfg(target_os = "macos")]
 #[macro_use] extern crate objc;
 
+/// An enumeration describing available clipboard buffers
+pub enum Buffer {
+    Primary,
+    Selection
+}
+
 /// Types that can get the system clipboard contents
 pub trait Load : Sized {
     /// Errors encountered when working with a clipboard. Each implementation is
@@ -24,6 +30,13 @@ pub trait Load : Sized {
     fn load_selection(&self) -> Result<String, Self::Err> {
         self.load_primary()
     }
+
+    fn load(&self, buffer: Buffer) -> Result<String, Self::Err> {
+        match buffer {
+            Buffer::Selection => self.load_selection(),
+            Buffer::Primary => self.load_primary(),
+        }
+    }
 }
 
 /// Types that can set the system clipboard contents
@@ -38,6 +51,16 @@ pub trait Store : Load {
     /// Sets the secondary clipboard contents
     fn store_selection<S>(&mut self, contents: S) -> Result<(), Self::Err>
         where S: Into<String>;
+
+    /// Store into the specified `buffer`.
+    fn store<S>(&mut self, contents: S, buffer: Buffer) -> Result<(), Self::Err>
+        where S: Into<String>
+    {
+        match buffer {
+            Buffer::Selection => self.store_selection(contents),
+            Buffer::Primary => self.store_primary(contents),
+        }
+    }
 }
 
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]

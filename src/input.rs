@@ -18,18 +18,18 @@
 //! In order to figure that out, state about which modifier keys are pressed
 //! needs to be tracked. Additionally, we need a bit of a state machine to
 //! determine what to do when a non-modifier key is pressed.
+use std::borrow::Cow;
 use std::mem;
 
-use copypasta::{Clipboard, Load, Store};
+use copypasta::{Clipboard, Load, Buffer};
 use glutin::{ElementState, VirtualKeyCode, MouseButton};
 use glutin::{Mods, mods};
 use glutin::{TouchPhase, MouseScrollDelta};
 
-use event::{Mouse, Notify};
+use event::{Mouse};
 use index::{Line, Column, Side, Point};
-use selection::Selection;
 use term::mode::{self, TermMode};
-use term::{self, Term};
+use term::SizeInfo;
 use util::fmt::Red;
 
 /// Processes input from glutin.
@@ -38,18 +38,20 @@ use util::fmt::Red;
 /// are activated.
 ///
 /// TODO also need terminal state when processing input
-pub struct Processor<'a, N: 'a> {
+pub struct Processor<'a, A: 'a> {
     pub key_bindings: &'a [KeyBinding],
     pub mouse_bindings: &'a [MouseBinding],
-    pub ctx: ActionContext<'a, N>,
+    pub ctx: A,
 }
 
-pub struct ActionContext<'a, N: 'a> {
-    pub notifier: &'a mut N,
-    pub terminal: &'a mut Term,
-    pub selection: &'a mut Selection,
-    pub mouse: &'a mut Mouse,
-    pub size_info: &'a term::SizeInfo,
+pub trait ActionContext {
+    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, B);
+    fn terminal_mode(&self) -> TermMode;
+    fn size_info(&self) -> SizeInfo;
+    fn copy_selection(&self, Buffer);
+    fn clear_selection(&mut self);
+    fn update_selection(&mut self, Point, Side);
+    fn mouse_mut(&mut self) -> &mut Mouse;
 }
 
 /// Describes a state and action to take in that state
@@ -85,7 +87,7 @@ impl<T: Eq> Binding<T> {
     #[inline]
     fn is_triggered_by(
         &self,
-        mode: &TermMode,
+        mode: TermMode,
         mods: &Mods,
         input: &T
     ) -> bool {
@@ -93,8 +95,8 @@ impl<T: Eq> Binding<T> {
         // the most likely item to fail so prioritizing it here allows more
         // checks to be short circuited.
         self.trigger == *input &&
-            self.mode_matches(mode) &&
-            self.not_mode_matches(mode) &&
+            self.mode_matches(&mode) &&
+            self.not_mode_matches(&mode) &&
             self.mods_match(mods)
     }
 }
@@ -102,7 +104,7 @@ impl<T: Eq> Binding<T> {
 impl<T> Binding<T> {
     /// Execute the action associate with this binding
     #[inline]
-    fn execute<'a, N: Notify>(&self, ctx: &mut ActionContext<'a, N>) {
+    fn execute<A: ActionContext>(&self, ctx: &mut A) {
         self.action.execute(ctx)
     }
 
@@ -139,22 +141,13 @@ pub enum Action {
 
 impl Action {
     #[inline]
-    fn execute<'a, N: Notify>(&self, ctx: &mut ActionContext<'a, N>) {
+    fn execute<A: ActionContext>(&self, ctx: &mut A) {
         match *self {
             Action::Esc(ref s) => {
-                ctx.notifier.notify(s.clone().into_bytes())
+                ctx.write_to_pty(s.clone().into_bytes())
             },
             Action::Copy => {
-                if let Some(selection) = ctx.selection.span() {
-                    let buf = ctx.terminal.string_from_selection(&selection);
-                    if !buf.is_empty() {
-                        Clipboard::new()
-                            .and_then(|mut clipboard| clipboard.store_primary(buf))
-                            .unwrap_or_else(|err| {
-                                warn!("Error storing selection to clipboard. {}", Red(err));
-                            });
-                    }
-                }
+                ctx.copy_selection(Buffer::Primary);
             },
             Action::Paste => {
                 Clipboard::new()
@@ -175,13 +168,13 @@ impl Action {
         }
     }
 
-    fn paste<'a, N: Notify>(&self, ctx: &mut ActionContext<'a, N>, contents: String) {
-        if ctx.terminal.mode().contains(mode::BRACKETED_PASTE) {
-            ctx.notifier.notify(&b"\x1b[200~"[..]);
-            ctx.notifier.notify(contents.into_bytes());
-            ctx.notifier.notify(&b"\x1b[201~"[..]);
+    fn paste<A: ActionContext>(&self, ctx: &mut A, contents: String) {
+        if ctx.terminal_mode().contains(mode::BRACKETED_PASTE) {
+            ctx.write_to_pty(&b"\x1b[200~"[..]);
+            ctx.write_to_pty(contents.into_bytes());
+            ctx.write_to_pty(&b"\x1b[201~"[..]);
         } else {
-            ctx.notifier.notify(contents.into_bytes());
+            ctx.write_to_pty(contents.into_bytes());
         }
     }
 }
@@ -192,35 +185,40 @@ impl From<&'static str> for Action {
     }
 }
 
-impl<'a, N: Notify + 'a> Processor<'a, N> {
+impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     #[inline]
     pub fn mouse_moved(&mut self, x: u32, y: u32) {
-        self.ctx.mouse.x = x;
-        self.ctx.mouse.y = y;
+        self.ctx.mouse_mut().x = x;
+        self.ctx.mouse_mut().y = y;
 
-        if let Some(point) = self.ctx.size_info.pixels_to_coords(x as usize, y as usize) {
-            let prev_line = mem::replace(&mut self.ctx.mouse.line, point.line);
-            let prev_col = mem::replace(&mut self.ctx.mouse.column, point.col);
+        let size_info = self.ctx.size_info();
+        if let Some(point) = size_info.pixels_to_coords(x as usize, y as usize) {
+            let prev_line = mem::replace(&mut self.ctx.mouse_mut().line, point.line);
+            let prev_col = mem::replace(&mut self.ctx.mouse_mut().column, point.col);
 
-            let cell_x = x as usize % self.ctx.size_info.cell_width as usize;
-            let half_cell_width = (self.ctx.size_info.cell_width / 2.0) as usize;
+            let cell_x = x as usize % size_info.cell_width as usize;
+            let half_cell_width = (size_info.cell_width / 2.0) as usize;
 
-            self.ctx.mouse.cell_side = if cell_x > half_cell_width {
+            let cell_side = if cell_x > half_cell_width {
                 Side::Right
             } else {
                 Side::Left
             };
+            self.ctx.mouse_mut().cell_side = cell_side;
 
-            if self.ctx.mouse.left_button_state == ElementState::Pressed {
+            if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
                 let report_mode = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION;
-                if !self.ctx.terminal.mode().intersects(report_mode) {
-                    self.ctx.selection.update(Point {
+                if !self.ctx.terminal_mode().intersects(report_mode) {
+                    self.ctx.update_selection(Point {
                         line: point.line,
                         col: point.col
-                    }, self.ctx.mouse.cell_side);
-                } else if self.ctx.terminal.mode().contains(mode::MOUSE_MOTION)
+                    }, cell_side);
+                } else if self.ctx.terminal_mode().contains(mode::MOUSE_MOTION)
                         // Only report motion when changing cells
-                        && (prev_line != self.ctx.mouse.line || prev_col != self.ctx.mouse.column) {
+                        && (
+                            prev_line != self.ctx.mouse_mut().line
+                            || prev_col != self.ctx.mouse_mut().column
+                        ) {
                         self.mouse_report(32);
                 }
             }
@@ -228,7 +226,7 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
     }
 
     pub fn normal_mouse_report(&mut self, button: u8) {
-        let (line, column) = (self.ctx.mouse.line, self.ctx.mouse.column);
+        let (line, column) = (self.ctx.mouse_mut().line, self.ctx.mouse_mut().column);
 
         if line < Line(223) && column < Column(223) {
             let msg = vec![
@@ -240,21 +238,21 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
                 32 + 1 + line.0 as u8,
             ];
 
-            self.ctx.notifier.notify(msg);
+            self.ctx.write_to_pty(msg);
         }
     }
 
     pub fn sgr_mouse_report(&mut self, button: u8, release: bool) {
-        let (line, column) = (self.ctx.mouse.line, self.ctx.mouse.column);
+        let (line, column) = (self.ctx.mouse_mut().line, self.ctx.mouse_mut().column);
         let c = if release { 'm' } else { 'M' };
 
         let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1, c);
-        self.ctx.notifier.notify(msg.into_bytes());
+        self.ctx.write_to_pty(msg.into_bytes());
     }
 
     pub fn mouse_report(&mut self, button: u8) {
-        if self.ctx.terminal.mode().contains(mode::SGR_MOUSE) {
-            let release = self.ctx.mouse.left_button_state != ElementState::Pressed;
+        if self.ctx.terminal_mode().contains(mode::SGR_MOUSE) {
+            let release = self.ctx.mouse_mut().left_button_state != ElementState::Pressed;
             self.sgr_mouse_report(button, release);
         } else {
             self.normal_mouse_report(button);
@@ -262,30 +260,21 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
     }
 
     pub fn on_mouse_press(&mut self) {
-        if self.ctx.terminal.mode().intersects(mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION) {
+        if self.ctx.terminal_mode().intersects(mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION) {
             self.mouse_report(0);
             return;
         }
 
-        self.ctx.selection.clear();
+        self.ctx.clear_selection();
     }
 
     pub fn on_mouse_release(&mut self) {
-        if self.ctx.terminal.mode().intersects(mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION) {
+        if self.ctx.terminal_mode().intersects(mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION) {
             self.mouse_report(3);
             return;
         }
 
-        if let Some(selection) = self.ctx.selection.span() {
-            let buf = self.ctx.terminal.string_from_selection(&selection);
-            if !buf.is_empty() {
-                Clipboard::new()
-                    .and_then(|mut clipboard| clipboard.store_selection(buf))
-                    .unwrap_or_else(|err| {
-                        warn!("Error storing selection to clipboard. {}", Red(err));
-                    });
-            }
-        }
+        self.ctx.copy_selection(Buffer::Selection);
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
@@ -305,18 +294,18 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
                 match phase {
                     TouchPhase::Started => {
                         // Reset offset to zero
-                        self.ctx.mouse.scroll_px = 0;
+                        self.ctx.mouse_mut().scroll_px = 0;
                     },
                     TouchPhase::Moved => {
-                        self.ctx.mouse.scroll_px += y as i32;
-                        let height = self.ctx.size_info.cell_height as i32;
+                        self.ctx.mouse_mut().scroll_px += y as i32;
+                        let height = self.ctx.size_info().cell_height as i32;
 
-                        while self.ctx.mouse.scroll_px.abs() >= height {
-                            let button = if self.ctx.mouse.scroll_px > 0 {
-                                self.ctx.mouse.scroll_px -= height;
+                        while self.ctx.mouse_mut().scroll_px.abs() >= height {
+                            let button = if self.ctx.mouse_mut().scroll_px > 0 {
+                                self.ctx.mouse_mut().scroll_px -= height;
                                 64
                             } else {
-                                self.ctx.mouse.scroll_px += height;
+                                self.ctx.mouse_mut().scroll_px += height;
                                 65
                             };
 
@@ -331,9 +320,9 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
 
     pub fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
         if let MouseButton::Left = button {
-            let state = mem::replace(&mut self.ctx.mouse.left_button_state, state);
-            if self.ctx.mouse.left_button_state != state {
-                match self.ctx.mouse.left_button_state {
+            let state = mem::replace(&mut self.ctx.mouse_mut().left_button_state, state);
+            if self.ctx.mouse_mut().left_button_state != state {
+                match self.ctx.mouse_mut().left_button_state {
                     ElementState::Pressed => {
                         self.on_mouse_press();
                     },
@@ -377,8 +366,8 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
                 string.insert(0, '\x1b');
             }
 
-            self.ctx.notifier.notify(string.into_bytes());
-            self.ctx.selection.clear();
+            self.ctx.write_to_pty(string.into_bytes());
+            self.ctx.clear_selection();
         }
     }
 
@@ -390,7 +379,7 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
     /// Returns true if an action is executed.
     fn process_key_bindings(&mut self, mods: Mods, key: VirtualKeyCode) -> bool {
         for binding in self.key_bindings {
-            if binding.is_triggered_by(self.ctx.terminal.mode(), &mods, &key) {
+            if binding.is_triggered_by(self.ctx.terminal_mode(), &mods, &key) {
                 // binding was triggered; run the action
                 binding.execute(&mut self.ctx);
                 return true;
@@ -408,7 +397,7 @@ impl<'a, N: Notify + 'a> Processor<'a, N> {
     /// Returns true if an action is executed.
     fn process_mouse_bindings(&mut self, mods: Mods, button: MouseButton) -> bool {
         for binding in self.mouse_bindings {
-            if binding.is_triggered_by(self.ctx.terminal.mode(), &mods, &button) {
+            if binding.is_triggered_by(self.ctx.terminal_mode(), &mods, &button) {
                 // binding was triggered; run the action
                 binding.execute(&mut self.ctx);
                 return true;
@@ -440,9 +429,9 @@ mod tests {
             #[test]
             fn $name() {
                 if $triggers {
-                    assert!($binding.is_triggered_by(&$mode, &$mods, &KEY));
+                    assert!($binding.is_triggered_by($mode, &$mods, &KEY));
                 } else {
-                    assert!(!$binding.is_triggered_by(&$mode, &$mods, &KEY));
+                    assert!(!$binding.is_triggered_by($mode, &$mods, &KEY));
                 }
             }
         }
