@@ -7,16 +7,18 @@ use std::sync::mpsc;
 use serde_json as json;
 use parking_lot::MutexGuard;
 use glutin::{self, ElementState};
+use copypasta::{Clipboard, Load, Store};
 
 use config::Config;
 use cli::Options;
 use display::OnResize;
-use index::{Line, Column, Side};
-use input::{self, ActionContext, MouseBinding, KeyBinding};
+use index::{Line, Column, Side, Point};
+use input::{self, MouseBinding, KeyBinding};
 use selection::Selection;
 use sync::FairMutex;
-use term::{Term, SizeInfo};
+use term::{Term, SizeInfo, TermMode};
 use util::limit;
+use util::fmt::Red;
 use window::Window;
 
 /// Byte sequences are sent to a `Notify` in response to some events
@@ -25,6 +27,54 @@ pub trait Notify {
     ///
     /// TODO this needs to be able to error somehow
     fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, B);
+}
+
+pub struct ActionContext<'a, N: 'a> {
+    pub notifier: &'a mut N,
+    pub terminal: &'a mut Term,
+    pub selection: &'a mut Selection,
+    pub size_info: &'a SizeInfo,
+    pub mouse: &'a mut Mouse,
+}
+
+impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
+    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, val: B) {
+        self.notifier.notify(val);
+    }
+
+    fn terminal_mode(&self) -> TermMode {
+        *self.terminal.mode()
+    }
+
+    fn size_info(&self) -> SizeInfo {
+        *self.size_info
+    }
+
+    fn copy_selection(&self, buffer: ::copypasta::Buffer) {
+        if let Some(selection) = self.selection.span() {
+            let buf = self.terminal.string_from_selection(&selection);
+            if !buf.is_empty() {
+                Clipboard::new()
+                    .and_then(|mut clipboard| clipboard.store(buf, buffer))
+                    .unwrap_or_else(|err| {
+                        warn!("Error storing selection to clipboard. {}", Red(err));
+                    });
+            }
+        }
+    }
+
+    fn clear_selection(&mut self) {
+        self.selection.clear();
+    }
+
+    fn update_selection(&mut self, point: Point, side: Side) {
+        self.selection.update(point, side);
+    }
+
+    #[inline]
+    fn mouse_mut(&mut self) -> &mut Mouse {
+        self.mouse
+    }
 }
 
 /// State of the mouse
@@ -107,7 +157,7 @@ impl<N: Notify> Processor<N> {
     ///
     /// Doesn't take self mutably due to borrow checking. Kinda uggo but w/e.
     fn handle_event<'a>(
-        processor: &mut input::Processor<'a, N>,
+        processor: &mut input::Processor<'a, ActionContext<'a, N>>,
         event: glutin::Event,
         ref_test: bool,
         resize_tx: &mpsc::Sender<(u32, u32)>,
@@ -183,7 +233,7 @@ impl<N: Notify> Processor<N> {
         {
             // Ditto on lazy initialization for context and processor.
             let context;
-            let mut processor: input::Processor<N>;
+            let mut processor: input::Processor<ActionContext<N>>;
 
             // Convenience macro which curries most arguments to handle_event.
             macro_rules! process {
