@@ -1,12 +1,9 @@
 extern crate alacritty;
 extern crate serde_json as json;
-extern crate test;
 
-use std::env;
 use std::fs::File;
 use std::io::{self, Read};
-use std::path::{Path, PathBuf};
-use test::{TestDescAndFn, TestDesc, TestFn, ShouldPanic, TestName, test_main};
+use std::path::Path;
 
 use alacritty::Grid;
 use alacritty::Term;
@@ -14,29 +11,30 @@ use alacritty::term::Cell;
 use alacritty::term::SizeInfo;
 use alacritty::ansi;
 
-fn main() {
-    let test_dir = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/ref"));
-
-    let args = env::args().collect::<Vec<_>>();
-
-    let tests = test_dir
-        .read_dir()
-        .unwrap()
-        .map(|e| desc(e.unwrap().path()))
-        .collect();
-
-    test_main(&args, tests);
+macro_rules! ref_tests {
+    ($($name:ident,)*) => {
+        ref_tests!($($name),*);
+    };
+    ($($name:ident),*) => {
+        $(
+            #[test]
+            fn $name() {
+                let test_dir = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/ref"));
+                let test_path = test_dir.join(stringify!($name));
+                ref_test(&test_path);
+            }
+        )*
+    }
 }
 
-fn desc(dir: PathBuf) -> TestDescAndFn {
-    TestDescAndFn {
-        desc: TestDesc {
-            name: TestName::DynTestName(dir.file_name().unwrap().to_string_lossy().into_owned()),
-            ignore: false,
-            should_panic: ShouldPanic::No,
-        },
-        testfn: TestFn::dyn_test_fn(move || ref_test(&dir)),
-    }
+ref_tests! {
+    fish_cc,
+    indexed_256_colors,
+    ll,
+    tmux_git_log,
+    tmux_htop,
+    vim_large_window_scroll,
+    vim_simple_edit,
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>

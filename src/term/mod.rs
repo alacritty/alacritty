@@ -1264,7 +1264,6 @@ impl ansi::Handler for Term {
 #[cfg(test)]
 mod tests {
     extern crate serde_json;
-    extern crate test;
 
     use super::{Term, limit, SizeInfo};
 
@@ -1314,7 +1313,7 @@ mod tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "bench"))]
 mod benches {
     extern crate test;
     extern crate serde_json as json;

@@ -329,6 +329,5 @@ unsafe fn set_nonblocking(fd: c_int) {
 #[test]
 fn test_get_pw_entry() {
     let mut buf: [i8; 1024] = [0; 1024];
-    let pw = get_pw_entry(&mut buf);
-    println!("{:?}", pw);
+    let _pw = get_pw_entry(&mut buf);
 }

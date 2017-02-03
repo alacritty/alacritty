@@ -55,16 +55,11 @@ makepkg -isr
    cd alacritty
    ```
 
-3. Make sure you have the right Rust compiler installed. Alacritty requires nightly Rust. Run
+3. Make sure you have the right Rust compiler installed. Alacritty requires at least 1.15. Run
 
    ```sh
-   rustup override set nightly
-   ```
-
-   If you run into problems, you can try a known-good version of the compiler by running
-
-   ```sh
-   rustup override set $(<rustc-version)
+   rustup override set stable
+   rustup update stable
    ```
 
 #### Ubuntu

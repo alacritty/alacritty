@@ -11,10 +11,6 @@ doc = false
 path = "src/main.rs"
 name = "alacritty"
 
-[[test]]
-name = "ref"
-harness = false
-
 [dependencies]
 libc = "*"
 cgmath = "0.7"
@@ -23,7 +19,7 @@ bitflags = "*"
 font = { path = "./font" }
 errno = "0.1.6"
 lazy_static = "0.2.2"
-parking_lot = { version = "0.3.1", features = ["nightly"] }
+parking_lot = "0.3.1"
 serde = "0.9"
 serde_yaml = "0.6"
 serde_derive = "0.9"
@@ -51,9 +47,6 @@ gl_generator = "0.5"
 [dependencies.glutin]
 git = "https://github.com/jwilm/glutin"
 rev = "af7fe340bd4a2af53ea521defcb4f377cdc588cf"
-
-[dev-dependencies]
-rustc-test = { version = "0.1", features = ["capture"] }
 
 [profile.release]
 lto = true

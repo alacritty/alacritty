@@ -1314,8 +1314,6 @@ mod tests {
 
         // Sanity check that key bindings are being parsed
         assert!(config.key_bindings.len() >= 1);
-
-        println!("config: {:#?}", config);
     }
 
     #[test]

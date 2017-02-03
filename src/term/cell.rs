@@ -124,7 +124,7 @@ mod tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "bench"))]
 mod benches {
     extern crate test;
     use super::Cell;
