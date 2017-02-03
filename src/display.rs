@@ -272,7 +272,7 @@ impl Display {
     /// This call may block if vsync is enabled
     pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config, selection: &Selection) {
         // Clear dirty flag
-        terminal.dirty = false;
+        terminal.dirty = !terminal.visual_bell.completed();
 
         if let Some(title) = terminal.get_next_title() {
             self.window.set_title(&title);
@@ -291,6 +291,8 @@ impl Display {
                 // mutable borrow
                 let size_info = *terminal.size_info();
                 self.renderer.with_api(config, &size_info, |mut api| {
+                    api.set_visual_bell(terminal.visual_bell.intensity() as f32);
+
                     api.clear();
 
                     // Draw the grid
