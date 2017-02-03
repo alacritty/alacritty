@@ -38,7 +38,6 @@ The only supported installation method at this time is from source. Proper insta
 ```sh
 git clone https://aur.archlinux.org/alacritty-git.git
 cd alacritty-git
-pacman -S rustup # needed until Rust 1.15 is available (see PR #131)
 makepkg -isr
 ```
 
