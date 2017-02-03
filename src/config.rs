@@ -4,10 +4,8 @@
 //! parameters including font family and style, font size, etc. In the future,
 //! the config file will also hold user and platform specific keybindings.
 use std::borrow::Cow;
-use std::env;
-use std::fmt;
-use std::fs::File;
-use std::fs;
+use std::{env, fmt};
+use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::ops::{Index, IndexMut};
 use std::path::{Path, PathBuf};
@@ -221,6 +219,64 @@ impl IndexMut<usize> for ColorList {
     }
 }
 
+/// VisulBellAnimations are modeled after a subset of CSS transitions and Robert
+/// Penner's Easing Functions.
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub enum VisualBellAnimation {
+    Ease,          // CSS
+    EaseOut,       // CSS
+    EaseOutSine,   // Penner
+    EaseOutQuad,   // Penner
+    EaseOutCubic,  // Penner
+    EaseOutQuart,  // Penner
+    EaseOutQuint,  // Penner
+    EaseOutExpo,   // Penner
+    EaseOutCirc,   // Penner
+    Linear,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct VisualBellConfig {
+    /// Visual bell animation function
+    #[serde(default="default_visual_bell_animation")]
+    animation: VisualBellAnimation,
+
+    /// Visual bell duration in milliseconds
+    #[serde(default="default_visual_bell_duration")]
+    duration: u16,
+}
+
+fn default_visual_bell_animation() -> VisualBellAnimation {
+    VisualBellAnimation::EaseOutExpo
+}
+
+fn default_visual_bell_duration() -> u16 {
+    150
+}
+
+impl VisualBellConfig {
+    /// Visual bell animation
+    #[inline]
+    pub fn animation(&self) -> VisualBellAnimation {
+        self.animation
+    }
+
+    /// Visual bell duration in milliseconds
+    #[inline]
+    pub fn duration(&self) -> Duration {
+        Duration::from_millis(self.duration as u64)
+    }
+}
+
+impl Default for VisualBellConfig {
+    fn default() -> VisualBellConfig {
+        VisualBellConfig {
+            animation: default_visual_bell_animation(),
+            duration: default_visual_bell_duration(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Shell<'a> {
     program: Cow<'a, str>,
@@ -307,6 +363,10 @@ pub struct Config {
 
     /// Path where config was loaded from
     config_path: Option<PathBuf>,
+
+    /// Visual bell configuration
+    #[serde(default)]
+    visual_bell: VisualBellConfig,
 }
 
 #[cfg(not(target_os="macos"))]
@@ -351,6 +411,7 @@ impl Default for Config {
             mouse: Default::default(),
             shell: None,
             config_path: None,
+            visual_bell: Default::default(),
         }
     }
 }
@@ -1056,6 +1117,12 @@ impl Config {
     #[inline]
     pub fn dpi(&self) -> &Dpi {
         &self.dpi
+    }
+
+    /// Get visual bell config
+    #[inline]
+    pub fn visual_bell(&self) -> &VisualBellConfig {
+        &self.visual_bell
     }
 
     /// Should show render timer

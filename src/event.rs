@@ -135,6 +135,7 @@ pub struct Processor<N> {
     mouse_bindings: Vec<MouseBinding>,
     mouse_config: config::Mouse,
     print_events: bool,
+    wait_for_event: bool,
     notifier: N,
     mouse: Mouse,
     resize_tx: mpsc::Sender<(u32, u32)>,
@@ -170,6 +171,7 @@ impl<N: Notify> Processor<N> {
             mouse_bindings: config.mouse_bindings().to_vec(),
             mouse_config: config.mouse().to_owned(),
             print_events: options.print_events,
+            wait_for_event: true,
             notifier: notifier,
             resize_tx: resize_tx,
             ref_test: ref_test,
@@ -245,7 +247,8 @@ impl<N: Notify> Processor<N> {
         }
     }
 
-    /// Process at least one event and handle any additional queued events.
+    /// Process events. When `wait_for_event` is set, this method is guaranteed
+    /// to process at least one event.
     pub fn process_events<'a>(
         &mut self,
         term: &'a FairMutex<Term>,
@@ -276,34 +279,39 @@ impl<N: Notify> Processor<N> {
                 }
             }
 
-            match window.wait_events().next() {
-                Some(event) => {
-                    terminal = term.lock();
-                    context = ActionContext {
-                        terminal: &mut terminal,
-                        notifier: &mut self.notifier,
-                        selection: &mut self.selection,
-                        mouse: &mut self.mouse,
-                        size_info: &self.size_info,
-                    };
+            let event = if self.wait_for_event {
+                window.wait_events().next()
+            } else {
+                None
+            };
 
-                    processor = input::Processor {
-                        ctx: context,
-                        mouse_config: &self.mouse_config,
-                        key_bindings: &self.key_bindings[..],
-                        mouse_bindings: &self.mouse_bindings[..],
-                    };
+            terminal = term.lock();
 
-                    process!(event);
-                },
-                // Glutin guarantees the WaitEventsIterator never returns None.
-                None => unreachable!(),
+            context = ActionContext {
+                terminal: &mut terminal,
+                notifier: &mut self.notifier,
+                selection: &mut self.selection,
+                mouse: &mut self.mouse,
+                size_info: &self.size_info,
+            };
+
+            processor = input::Processor {
+                ctx: context,
+                mouse_config: &self.mouse_config,
+                key_bindings: &self.key_bindings[..],
+                mouse_bindings: &self.mouse_bindings[..]
+            };
+
+            if let Some(event) = event {
+                process!(event);
             }
 
             for event in window.poll_events() {
                 process!(event);
             }
         }
+
+        self.wait_for_event = !terminal.dirty;
 
         terminal
     }
