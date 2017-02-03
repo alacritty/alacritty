@@ -8,7 +8,7 @@ os:
   - osx
 
 rust:
-  - nightly
+  - stable
 
 script:
   - cargo test --no-default-features

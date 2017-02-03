@@ -17,8 +17,6 @@
 //! CoreText is used on Mac OS.
 //! FreeType is used on everything that's not Mac OS.
 //! Eventually, ClearType support will be available for windows
-#![feature(integer_atomics)]
-
 #[cfg(not(target_os = "macos"))]
 extern crate fontconfig;
 #[cfg(not(target_os = "macos"))]
@@ -44,7 +42,7 @@ extern crate log;
 
 use std::hash::{Hash, Hasher};
 use std::fmt;
-use std::sync::atomic::{AtomicU16, ATOMIC_U16_INIT, Ordering};
+use std::sync::atomic::{AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
 
 // If target isn't macos, reexport everything from ft
 #[cfg(not(target_os = "macos"))]
@@ -123,10 +121,10 @@ impl FontKey {
     ///
     /// The generated key will be globally unique
     pub fn next() -> FontKey {
-        static TOKEN: AtomicU16 = ATOMIC_U16_INIT;
+        static TOKEN: AtomicUsize = ATOMIC_USIZE_INIT;
 
         FontKey {
-            token: TOKEN.fetch_add(1, Ordering::SeqCst),
+            token: TOKEN.fetch_add(1, Ordering::SeqCst) as _,
         }
     }
 }
