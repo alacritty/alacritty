@@ -683,13 +683,13 @@ impl Term {
     }
 
     pub fn swap_alt(&mut self) {
-        self.alt = !self.alt;
-        ::std::mem::swap(&mut self.grid, &mut self.alt_grid);
-
         if self.alt {
             let template = self.empty_cell;
             self.grid.clear(|c| c.reset(&template));
         }
+
+        self.alt = !self.alt;
+        ::std::mem::swap(&mut self.grid, &mut self.alt_grid);
     }
 
     /// Scroll screen down
@@ -1191,6 +1191,7 @@ impl ansi::Handler for Term {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 self.save_cursor_position();
                 self.swap_alt();
+                self.save_cursor_position();
             },
             ansi::Mode::ShowCursor => self.mode.insert(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.insert(mode::APP_CURSOR),
@@ -1212,6 +1213,7 @@ impl ansi::Handler for Term {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 self.restore_cursor_position();
                 self.swap_alt();
+                self.restore_cursor_position();
             },
             ansi::Mode::ShowCursor => self.mode.remove(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.remove(mode::APP_CURSOR),
