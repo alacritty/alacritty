@@ -1086,6 +1086,8 @@ impl ansi::Handler for Term {
         };
 
         self.cursor = *holder;
+        self.cursor.point.line = min(self.cursor.point.line, self.grid.num_lines() - 1);
+        self.cursor.point.col = min(self.cursor.point.col, self.grid.num_cols() - 1);
     }
 
     #[inline]
