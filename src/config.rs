@@ -1189,6 +1189,12 @@ impl FontOffset {
     }
 }
 
+impl Default for FontOffset {
+    fn default() -> FontOffset {
+        FontOffset { x: 0.0, y: 0.0 }
+    }
+}
+
 
 /// Modifications to glyph positions within their cells
 ///
@@ -1331,10 +1337,7 @@ impl Default for Font {
             italic: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
             use_thin_strokes: true,
-            offset: FontOffset {
-                x: 0.0,
-                y: 0.0
-            },
+            offset: Default::default(),
             glyph_offset: Default::default()
         }
     }
@@ -1349,12 +1352,7 @@ impl Default for Font {
             italic: FontDescription::new_with_family("monospace"),
             size: Size::new(11.0),
             use_thin_strokes: false,
-            offset: FontOffset {
-                // TODO should improve freetype metrics... shouldn't need such
-                // drastic offsets for the default!
-                x: 2.0,
-                y: -7.0
-            },
+            offset: Default::default(),
             glyph_offset: Default::default()
         }
     }
