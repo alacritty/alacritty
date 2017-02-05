@@ -177,8 +177,10 @@ impl Display {
         let cell_height = (metrics.line_height + font.offset().y() as f64) as u32;
 
         // Resize window to specified dimensions
-        let width = cell_width * options.columns_u32() + 4;
-        let height = cell_height * options.lines_u32() + 4;
+        let dimensions = options.dimensions()
+            .unwrap_or_else(|| config.dimensions());
+        let width = cell_width * dimensions.columns_u32() + 4;
+        let height = cell_height * dimensions.lines_u32() + 4;
         let size = Size { width: Pixels(width), height: Pixels(height) };
         info!("set_inner_size: {}", size);
 

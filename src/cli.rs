@@ -14,7 +14,7 @@
 extern crate log;
 use clap::{Arg, App};
 use index::{Line, Column};
-use config::Shell;
+use config::{Dimensions, Shell};
 
 const DEFAULT_TITLE: &'static str = "Alacritty";
 
@@ -22,8 +22,7 @@ const DEFAULT_TITLE: &'static str = "Alacritty";
 pub struct Options {
     pub print_events: bool,
     pub ref_test: bool,
-    pub columns: Column,
-    pub lines: Line,
+    pub dimensions: Option<Dimensions>,
     pub title: String,
     pub log_level: log::LogLevelFilter,
     pub shell: Option<Shell<'static>>,
@@ -34,8 +33,7 @@ impl Default for Options {
         Options {
             print_events: false,
             ref_test: false,
-            columns: Column(80),
-            lines: Line(24),
+            dimensions: None,
             title: DEFAULT_TITLE.to_owned(),
             log_level: log::LogLevelFilter::Warn,
             shell: None,
@@ -95,8 +93,11 @@ impl Options {
         }
 
         if let Some(mut dimensions) = matches.values_of("dimensions") {
-            dimensions.next().map(|w| w.parse().map(|w| options.columns = Column(w)));
-            dimensions.next().map(|h| h.parse().map(|h| options.lines = Line(h)));
+            let width = dimensions.next().map(|w| w.parse().map(|w| Column(w)));
+            let height = dimensions.next().map(|h| h.parse().map(|h| Line(h)));
+            if let (Some(Ok(width)), Some(Ok(height))) = (width, height) {
+                options.dimensions = Some(Dimensions::new(width, height));
+            }
         }
 
         if let Some(title) = matches.value_of("title") {
@@ -128,12 +129,8 @@ impl Options {
         options
     }
 
-    pub fn lines_u32(&self) -> u32 {
-        self.lines.0 as u32
-    }
-
-    pub fn columns_u32(&self) -> u32 {
-        self.columns.0 as u32
+    pub fn dimensions(&self) -> Option<Dimensions> {
+        self.dimensions
     }
 
     pub fn shell(&self) -> Option<&Shell> {

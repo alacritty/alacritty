@@ -23,6 +23,7 @@ use serde::de::{Visitor, MapVisitor, Unexpected};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as FileWatcher, op};
 
 use input::{Action, Binding, MouseBinding, KeyBinding};
+use index::{Line, Column};
 
 use ansi;
 
@@ -212,6 +213,10 @@ impl<'a> Shell<'a> {
 /// Top-level config type
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    /// Initial dimensions
+    #[serde(default)]
+    dimensions: Dimensions,
+
     /// Pixels per inch
     #[serde(default)]
     dpi: Dpi,
@@ -273,6 +278,7 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             draw_bold_text_with_bright_colors: true,
+            dimensions: Default::default(),
             dpi: Default::default(),
             font: Default::default(),
             render_timer: Default::default(),
@@ -969,6 +975,12 @@ impl Config {
         &self.font
     }
 
+    /// Get window dimensions
+    #[inline]
+    pub fn dimensions(&self) -> Dimensions {
+        self.dimensions
+    }
+
     /// Get dpi config
     #[inline]
     pub fn dpi(&self) -> &Dpi {
@@ -1017,6 +1029,45 @@ impl Config {
         f.read_to_string(&mut contents)?;
 
         Ok(contents)
+    }
+}
+
+/// Window Dimensions
+///
+/// Newtype to avoid passing values incorrectly
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub struct Dimensions {
+    /// Window width in character columns
+    columns: Column,
+
+    /// Window Height in character lines
+    lines: Line,
+}
+
+impl Default for Dimensions {
+    fn default() -> Dimensions {
+        Dimensions::new(Column(80), Line(24))
+    }
+}
+
+impl Dimensions {
+    pub fn new(columns: Column, lines: Line) -> Self {
+        Dimensions {
+            columns: columns,
+            lines: lines
+        }
+    }
+
+    /// Get lines
+    #[inline]
+    pub fn lines_u32(&self) -> u32 {
+        self.lines.0 as u32
+    }
+
+    /// Get columns
+    #[inline]
+    pub fn columns_u32(&self) -> u32 {
+        self.columns.0 as u32
     }
 }
 
