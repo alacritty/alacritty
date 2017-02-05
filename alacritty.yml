@@ -1,4 +1,9 @@
 # Configuration for Alacritty, the GPU enhanced terminal emulator
+# Window dimensions in character columns and lines
+# (changes require restart)
+dimensions:
+  columns: 80
+  lines: 40
 
 # The FreeType rasterizer needs to know the device DPI for best results
 # (changes require restart)
