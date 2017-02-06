@@ -374,8 +374,8 @@ pub enum ClearMode {
     Saved
 }
 
-/// Mode for cursor
-#[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+/// Style for cursor
+#[derive(Debug, Copy, Clone, Deserialize)]
 pub enum CursorStyle {
     /// Block cursor
     Block,
@@ -383,6 +383,12 @@ pub enum CursorStyle {
     Underline,
     /// Beam cursor
     Beam,
+}
+
+impl Default for CursorStyle {
+    fn default() -> Self {
+        CursorStyle::Block
+    }
 }
 
 /// Mode for clearing tab stops

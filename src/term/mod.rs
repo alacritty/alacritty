@@ -45,7 +45,6 @@ use self::cell::LineLength;
 pub struct RenderableCellsIter<'a> {
     grid: &'a mut Grid<Cell>,
     cursor: &'a Point,
-    cursor_style: CursorStyle,
     mode: TermMode,
     line: Line,
     column: Column,
@@ -66,7 +65,7 @@ impl<'a> RenderableCellsIter<'a> {
         grid: &'b mut Grid<Cell>,
         cursor: &'b Point,
         colors: &'b color::List,
-        cursor_style: CursorStyle,
+        cursor_style: ansi::CursorStyle,
         mode: TermMode,
         config: &'b Config,
         selection: &Selection,
@@ -80,36 +79,28 @@ impl<'a> RenderableCellsIter<'a> {
             inner: grid[cursor]
         };
 
-        let cursor_cell = match cursor_style.0 {
-            ansi::CursorStyle::Block => {
-                CursorCell::Replacement(cell)
-            }
-            ansi::CursorStyle::Underline => {
-                CursorCell::Extra(cell)
-            }
-            ansi::CursorStyle::Beam => {
-                CursorCell::Extra(cell)
-            }
+        let cursor_original = match cursor_style {
+            ansi::CursorStyle::Block => (Some(cell), None),
+            ansi::CursorStyle::Underline => (None, Some(cell)),
+            ansi::CursorStyle::Beam => (None, Some(cell))
         };
 
         RenderableCellsIter {
             grid: grid,
             cursor: cursor,
-            cursor_style: cursor_style,
             mode: mode,
             line: Line(0),
             column: Column(0),
             selection: selection,
             config: config,
             colors: colors,
-            cursor_original: (None, None),
+            cursor_original: cursor_original,
             last_cell: false
-        }.initialize()
+        }.initialize(cursor_style)
     }
 
-    fn initialize(mut self) -> Self {
+    fn initialize(mut self, cursor_style: ansi::CursorStyle) -> Self {
         if self.cursor_is_visible() {
-<<<<<<< HEAD
             self.cursor_original.0 = Some(Indexed {
                 line:   self.cursor.line,
                 column: self.cursor.col,
@@ -273,13 +264,9 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
         if self.last_cell {
             return None;
         } else {
-            let cell = self.cursor_cell.as_ref();
-
-            let (fg, bg) = match self.cursor_style.0 {
-                ansi::CursorStyle::Block => {
-                    (cell.fg, cell.bg)
-                }
-                ansi::CursorStyle::Beam | ansi::CursorStyle::Underline => {
+            let (fg, bg) = match self.cursor_cell {
+                CursorCell::Replacement(ref cell) => (cell.fg, cell.bg),
+                CursorCell::Extra(ref cell) => {
                     if cell.flags.contains(cell::INVERSE) {
                         (cell.fg, Color::Named(NamedColor::Foreground))
                     } else {
@@ -289,6 +276,8 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
             };
 
             self.last_cell = true;
+
+            let cell = self.cursor_cell.as_ref();
 
             return Some(IndexedCell {
                 line: cell.line,
@@ -560,7 +549,7 @@ pub struct Term {
     cursor: Cursor,
 
     /// The cursor type
-    cursor_style: CursorStyle,
+    cursor_style: ansi::CursorStyle,
 
     /// The graphic character set, out of `charsets`, which ASCII is currently
     /// being mapped to
@@ -1515,7 +1504,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn set_cursor_style(&mut self, style: ansi::CursorStyle) {
         trace!("set_cursor_style: {:?}", style);
-        self.cursor_style.0 = style;
+        self.cursor_style = style;
     }
 
     #[inline]

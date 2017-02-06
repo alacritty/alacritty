@@ -211,7 +211,7 @@ pub struct Config {
 
     /// Cursor type
     #[serde(default)]
-    cursor_style: CursorStyle,
+    cursor_style: ansi::CursorStyle,
 
     /// Keybindings
     #[serde(default="default_key_bindings")]
@@ -295,15 +295,6 @@ impl Default for Config {
             hide_cursor_when_typing: Default::default(),
             padding: default_padding(),
         }
-    }
-}
-
-#[derive(Copy, Clone, Debug, Deserialize)]
-pub struct CursorStyle(pub ansi::CursorStyle);
-
-impl Default for CursorStyle {
-    fn default() -> Self {
-        CursorStyle(ansi::CursorStyle::Block)
     }
 }
 
@@ -1049,7 +1040,7 @@ impl Config {
         &self.colors
     }
 
-    pub fn cursor_style(&self) -> CursorStyle {
+    pub fn cursor_style(&self) -> ansi::CursorStyle {
         self.cursor_style
     }
 
