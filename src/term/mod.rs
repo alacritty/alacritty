@@ -779,7 +779,6 @@ impl ansi::Handler for Term {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
-
         if self.input_needs_wrap {
 
             if !self.mode.contains(mode::LINE_WRAP) {
@@ -1124,9 +1123,14 @@ impl ansi::Handler for Term {
         let template = self.empty_cell;
         match mode {
             ansi::ClearMode::Below => {
-                for row in &mut self.grid[self.cursor.point.line..] {
-                    for cell in row {
-                        cell.reset(&template);
+                for cell in &mut self.grid[self.cursor.point.line][self.cursor.point.col..] {
+                    cell.reset(&template);
+                }
+                if self.cursor.point.line < self.grid.num_lines() - 1 {
+                    for row in &mut self.grid[(self.cursor.point.line + 1)..] {
+                        for cell in row {
+                            cell.reset(&template);
+                        }
                     }
                 }
             },
