@@ -208,8 +208,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 // Update state for next iteration
                 self.column += 1;
 
-                let selected = self.selection
-                    .as_ref()
+                let selected = self.selection.as_ref()
                     .map(|range| range.contains_(index))
                     .unwrap_or(false);
 
@@ -288,8 +287,8 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     }
                 }
             };
-            
-            self.last_cell = true;            
+
+            self.last_cell = true;
 
             return Some(IndexedCell {
                 line: cell.line,
@@ -648,7 +647,7 @@ impl SizeInfo {
 
         Some(Point {
             line: min(line, self.lines() - 1),
-            col: min(col, self.cols() - 1),
+            col: min(col, self.cols() - 1)
         })
     }
 }
@@ -788,18 +787,19 @@ impl Term {
                 self.push(c);
             }
         }
-        trait Append<T>: PushChar {
+        trait Append<T> : PushChar {
             fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: T) -> Option<Range<Column>>;
         }
 
         use std::ops::{Range, RangeTo, RangeFrom, RangeFull};
 
         impl Append<Range<Column>> for String {
-            fn append(&mut self,
-                      grid: &Grid<Cell>,
-                      line: Line,
-                      cols: Range<Column>)
-                      -> Option<Range<Column>> {
+            fn append(
+                &mut self,
+                grid: &Grid<Cell>,
+                line: Line,
+                cols: Range<Column>
+            ) -> Option<Range<Column>> {
                 let line = &grid[line];
                 let line_length = line.line_length();
                 let line_end = min(line_length, cols.end + 1);
@@ -820,22 +820,19 @@ impl Term {
 
         impl Append<RangeTo<Column>> for String {
             #[inline]
-            fn append(&mut self,
-                      grid: &Grid<Cell>,
-                      line: Line,
-                      cols: RangeTo<Column>)
-                      -> Option<Range<Column>> {
+            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: RangeTo<Column>) -> Option<Range<Column>> {
                 self.append(grid, line, Column(0)..cols.end)
             }
         }
 
         impl Append<RangeFrom<Column>> for String {
             #[inline]
-            fn append(&mut self,
-                      grid: &Grid<Cell>,
-                      line: Line,
-                      cols: RangeFrom<Column>)
-                      -> Option<Range<Column>> {
+            fn append(
+                &mut self,
+                grid: &Grid<Cell>,
+                line: Line,
+                cols: RangeFrom<Column>
+            ) -> Option<Range<Column>> {
                 let range = self.append(grid, line, cols.start..Column(usize::max_value() - 1));
                 range.as_ref()
                     .map(|range| self.maybe_newline(grid, line, range.end));
@@ -845,11 +842,12 @@ impl Term {
 
         impl Append<RangeFull> for String {
             #[inline]
-            fn append(&mut self,
-                      grid: &Grid<Cell>,
-                      line: Line,
-                      _: RangeFull)
-                      -> Option<Range<Column>> {
+            fn append(
+                &mut self,
+                grid: &Grid<Cell>,
+                line: Line,
+                _: RangeFull
+            ) -> Option<Range<Column>> {
                 let range = self.append(grid, line, Column(0)..Column(usize::max_value() - 1));
                 range.as_ref()
                     .map(|range| self.maybe_newline(grid, line, range.end));
@@ -866,7 +864,7 @@ impl Term {
             // Selection within single line
             Line(0) => {
                 res.append(&self.grid, start.line, start.col..end.col);
-            }
+            },
 
             // Selection ends on line following start
             Line(1) => {
@@ -875,7 +873,7 @@ impl Term {
 
                 // Ending line
                 res.append(&self.grid, end.line, ..end.col);
-            }
+            },
 
             // Multi line selection
             _ => {
@@ -1560,19 +1558,19 @@ impl ansi::Handler for Term {
                 for cell in &mut row[col..] {
                     cell.reset(&template);
                 }
-            }
+            },
             ansi::LineClearMode::Left => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..(col + 1)] {
                     cell.reset(&template);
                 }
-            }
+            },
             ansi::LineClearMode::All => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..] {
                     cell.reset(&template);
                 }
-            }
+            },
         }
     }
 
@@ -1604,7 +1602,7 @@ impl ansi::Handler for Term {
                         }
                     }
                 }
-            }
+            },
             ansi::ClearMode::All => {
                 self.grid.clear(|c| c.reset(&template));
             },
@@ -1875,7 +1873,8 @@ mod tests {
 
         let grid = Grid::new(Line(24), Column(80), &template);
         let serialized = serde_json::to_string(&grid).expect("ser");
-        let deserialized = serde_json::from_str::<Grid<Cell>>(&serialized).expect("de");
+        let deserialized = serde_json::from_str::<Grid<Cell>>(&serialized)
+                                      .expect("de");
 
         assert_eq!(deserialized, grid);
     }
@@ -1890,7 +1889,6 @@ mod tests {
             padding_x: 0.0,
             padding_y: 0.0,
         };
-
         let mut term = Term::new(&Default::default(), size);
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0,
@@ -1913,7 +1911,6 @@ mod benches {
 
     use grid::Grid;
     use selection::Selection;
-    use config::Config;
 
     use super::{SizeInfo, Term};
     use super::cell::Cell;
@@ -1922,10 +1919,8 @@ mod benches {
         where P: AsRef<Path>
     {
         let mut res = String::new();
-        File::open(path.as_ref())
-            .unwrap()
-            .read_to_string(&mut res)
-            .unwrap();
+        File::open(path.as_ref()).unwrap()
+            .read_to_string(&mut res).unwrap();
 
         res
     }
@@ -1942,10 +1937,12 @@ mod benches {
     #[bench]
     fn render_iter(b: &mut test::Bencher) {
         // Need some realistic grid state; using one of the ref files.
-        let serialized_grid = read_string(concat!(env!("CARGO_MANIFEST_DIR"),
-                                                  "/tests/ref/vim_large_window_scroll/grid.json"));
-        let serialized_size = read_string(concat!(env!("CARGO_MANIFEST_DIR"),
-                                                  "/tests/ref/vim_large_window_scroll/size.json"));
+        let serialized_grid = read_string(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/ref/vim_large_window_scroll/grid.json")
+        );
+        let serialized_size = read_string(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/ref/vim_large_window_scroll/size.json")
+        );
 
         let mut grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
         let size: SizeInfo = json::from_str(&serialized_size).unwrap();
