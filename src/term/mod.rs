@@ -1137,8 +1137,20 @@ impl ansi::Handler for Term {
             ansi::ClearMode::All => {
                 self.grid.clear(|c| c.reset(&template));
             },
-            _ => {
-                trace!("ansi::ClearMode::Above not implemented");
+            ansi::ClearMode::Above => {
+                // If clearing more than one line
+                if self.cursor.point.line > Line(1) {
+                    // Fully clear all lines before the current line
+                    for row in &mut self.grid[..self.cursor.point.line] {
+                        for cell in row {
+                            cell.reset(&template);
+                        }
+                    }
+                }
+                // Clear up to the current column in the current line
+                for cell in &mut self.grid[self.cursor.point.line][..self.cursor.point.col] {
+                    cell.reset(&template);
+                }
             }
         }
     }
