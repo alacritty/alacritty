@@ -250,6 +250,9 @@ pub trait Handler {
     /// 'Designate' a graphic character set as one of G0 to G3, so that it can
     /// later be 'invoked' by `set_active_charset`
     fn configure_charset(&mut self, CharsetIndex, StandardCharset) {}
+
+    /// Set an indexed color value
+    fn set_color(&mut self, usize, Rgb) {}
 }
 
 /// Terminal modes
@@ -524,6 +527,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
         debug!("[unhandled unhook]");
     }
 
+    // TODO replace OSC parsing with parser combinators
     #[inline]
     fn osc_dispatch(&mut self, params: &[&[u8]]) {
         macro_rules! unhandled {
@@ -536,29 +540,100 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     }
                     buf.push_str("],");
                 }
-                warn!("[unhandled osc_dispatch]: [{}]", &buf);
+                warn!("[unhandled osc_dispatch]: [{}] at line {}", &buf, line!());
             }}
         }
 
-        if params.len() != 2 {
-            unhandled!();
+        if params.is_empty() || params[0].is_empty() {
             return;
         }
 
-        let kind = params[0];
-        let arg = params[1];
-
-        if kind.is_empty() || arg.is_empty() {
-            unhandled!();
-            return;
-        }
-
-        match kind[0] {
+        match params[0][0] {
+            // Set window title
             b'0' | b'2' => {
-                if let Ok(utf8_title) = str::from_utf8(arg) {
+                if params.len() < 2 {
+                    return unhandled!();
+                }
+
+                if let Ok(utf8_title) = str::from_utf8(params[1]) {
                     self.handler.set_title(utf8_title);
                 }
             },
+
+            // Set color index
+            b'4' => {
+                if params.len() < 3 {
+                    return unhandled!();
+                }
+
+                // Parse index
+                let index = {
+                    let raw = params[1];
+                    if raw.len() > 3 {
+                        return unhandled!();
+                    }
+                    let mut index: u8 = 0;
+                    for c in raw {
+                        let c = *c as char;
+                        if let Some(digit) = c.to_digit(10) {
+                            index *= 10;
+                            index += digit as u8;
+                        }
+                    }
+
+                    index
+                };
+
+                // Check that index is a valid u8
+                if index & 0xff != index {
+                    return unhandled!();
+                }
+
+                // Parse color arguments
+                //
+                // Expect that color argument looks like "rgb:xx/xx/xx"
+                let color = {
+                    let raw = params[2];
+                    let mut iter = raw.iter();
+                    macro_rules! next {
+                        () => {
+                            iter.next().map(|v| *v as char)
+                        }
+                    }
+                    if next!() != Some('r') { return unhandled!(); }
+                    if next!() != Some('g') { return unhandled!(); }
+                    if next!() != Some('b') { return unhandled!(); }
+                    if next!() != Some(':') { return unhandled!(); }
+
+                    macro_rules! parse_hex {
+                        () => {{
+                            let mut digit: u8 = 0;
+                            let next = next!().and_then(|v| v.to_digit(16));
+                            if let Some(value) = next {
+                                digit = value as u8;
+                            }
+
+                            let next = next!().and_then(|v| v.to_digit(16));
+                            if let Some(value) = next {
+                                digit <<= 4;
+                                digit += value as u8;
+                            }
+                            digit
+                        }}
+                    }
+
+                    let r = parse_hex!();
+                    let val = next!();
+                    if val != Some('/') { println!("val={:?}", val); return unhandled!(); }
+                    let g = parse_hex!();
+                    if next!() != Some('/') { return unhandled!(); }
+                    let b = parse_hex!();
+
+                    Rgb { r: r, g: g, b: b}
+                };
+
+                self.handler.set_color(index as usize, color);
+            }
             _ => {
                 unhandled!();
             }
@@ -823,6 +898,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             b'8' => self.handler.restore_cursor_position(),
             b'=' => self.handler.set_keypad_application_mode(),
             b'>' => self.handler.unset_keypad_application_mode(),
+            b'\\' => (), // String terminator, do nothing (parser handles as string terminator)
             _ => unhandled!(),
         }
     }
