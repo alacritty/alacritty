@@ -137,6 +137,9 @@ pub enum Action {
 
     /// Paste contents of selection buffer
     PasteSelection,
+
+    /// Quits Alacritty.
+    Quit,
 }
 
 impl Action {
@@ -164,6 +167,10 @@ impl Action {
                     .unwrap_or_else(|err| {
                         warn!("Error loading data from clipboard. {}", Red(err));
                     });
+            },
+            Action::Quit => {
+                // FIXME should do a more graceful shutdown
+                ::std::process::exit(0);
             },
         }
     }
