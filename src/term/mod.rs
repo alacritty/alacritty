@@ -1335,6 +1335,16 @@ impl ansi::Handler for Term {
         }
     }
 
+    /// Set the indexed color value
+    ///
+    /// TODO needs access to `Config`, and `Config` should not overwrite values
+    ///      when reloading
+    #[inline]
+    fn set_color(&mut self, index: usize, color: Rgb) {
+        trace!("set_color[{}] = {:?}", index, color);
+        self.colors[index] = color;
+    }
+
     #[inline]
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
         trace!("clear_screen: {:?}", mode);
