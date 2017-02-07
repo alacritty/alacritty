@@ -1,4 +1,8 @@
 target
 FlameGraph
+
+# Temp files
 .idea
 *.iml
+*.swp
+.DS_Store
