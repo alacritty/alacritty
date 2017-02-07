@@ -35,6 +35,7 @@ ref_tests! {
     tmux_htop,
     vim_large_window_scroll,
     vim_simple_edit,
+    zsh_tab_completion,
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
