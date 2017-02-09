@@ -154,6 +154,12 @@ pub struct GlyphCache {
 
     /// font size
     font_size: font::Size,
+
+    /// glyph horizontal offset
+    glyph_offset_x: i32,
+
+    /// glyph vertical offset
+    glyph_offset_y: i32,
 }
 
 impl GlyphCache {
@@ -166,6 +172,7 @@ impl GlyphCache {
     {
         let font = config.font();
         let size = font.size();
+        let glyph_offset = font.glyph_offset();
 
         // Load regular font
         let regular_desc = if let Some(ref style) = font.normal.style {
@@ -223,6 +230,8 @@ impl GlyphCache {
             font_key: regular,
             bold_key: bold,
             italic_key: italic,
+            glyph_offset_x: glyph_offset.x as i32,
+            glyph_offset_y: glyph_offset.y as i32,
         };
 
         macro_rules! load_glyphs_for_font {
@@ -253,8 +262,11 @@ impl GlyphCache {
     fn load_and_cache_glyph<L>(&mut self, glyph_key: GlyphKey, loader: &mut L)
         where L: LoadGlyph
     {
-        let rasterized = self.rasterizer.get_glyph(&glyph_key)
+        let mut rasterized = self.rasterizer.get_glyph(&glyph_key)
             .unwrap_or_else(|_| Default::default());
+
+        rasterized.left += self.glyph_offset_x as i32;
+        rasterized.top += self.glyph_offset_y as i32;
 
         let glyph = loader.load_glyph(&rasterized);
         self.cache.insert(glyph_key, glyph);
