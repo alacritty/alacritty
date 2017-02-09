@@ -217,8 +217,8 @@ impl fmt::Debug for RasterizedGlyph {
 }
 
 pub struct Metrics {
-    pub max_advance: f64,
-    pub height: f64,
+    pub average_advance: f64,
+    pub line_height: f64,
 }
 
 pub trait Rasterize {
@@ -230,7 +230,7 @@ pub trait Rasterize {
         where Self: Sized;
 
     /// Get `Metrics` for the given `FontKey` and `Size`
-    fn metrics(&self, FontKey) -> Result<Metrics, Self::Err>;
+    fn metrics(&self, FontKey, Size) -> Result<Metrics, Self::Err>;
 
     /// Load the font described by `FontDesc` and `Size`
     fn load_font(&mut self, &FontDesc, Size) -> Result<FontKey, Self::Err>;

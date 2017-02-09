@@ -54,23 +54,23 @@ impl ::Rasterize for FreeTypeRasterizer {
         })
     }
 
-    fn metrics(&self, key: FontKey) -> Result<Metrics, Error> {
+    fn metrics(&self, key: FontKey, size: Size) -> Result<Metrics, Error> {
         let face = self.faces
             .get(&key)
             .ok_or(Error::FontNotLoaded)?;
 
-        // A face should always have a size and size metrics
-        let size_metrics = match face.size_metrics() {
-            Some(metrics) => metrics,
-            None => panic!("There was an error loading font size metrics"),
-        };
+        let scale_size = self.dpr as f64 * size.as_f32_pts() as f64;
 
-        let width = (size_metrics.max_advance / 64) as f64;
-        let height = (size_metrics.height / 64) as f64;
+        let em_size = face.em_size() as f64;
+        let w = face.max_advance_width() as f64;
+        let h = (face.ascender() - face.descender()) as f64;
+
+        let w_scale = w * scale_size / em_size;
+        let h_scale = h * scale_size / em_size;
 
         Ok(Metrics {
-            max_advance: width,
-            height: height,
+            average_advance: w_scale,
+            line_height: h_scale,
         })
     }
 
