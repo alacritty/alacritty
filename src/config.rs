@@ -997,7 +997,7 @@ impl ::std::fmt::Display for Error {
                 write!(f, "could not read $HOME environment variable: {}", err)
             },
             Error::Io(ref err) => write!(f, "error reading config file: {}", err),
-            Error::Yaml(ref err) => write!(f, "problem with config: {:?}", err),
+            Error::Yaml(ref err) => write!(f, "problem with config: {}", err),
         }
     }
 }
