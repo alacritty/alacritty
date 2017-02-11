@@ -38,6 +38,21 @@ pub trait BidirectionalIterator: Iterator {
     fn prev(&mut self) -> Option<Self::Item>;
 }
 
+pub struct Indexed<T> {
+    pub line: Line,
+    pub column: Column,
+    pub inner: T
+}
+
+impl<T> Deref for Indexed<T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &T {
+        &self.inner
+    }
+}
+
 /// Represents the terminal display contents
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Grid<T> {

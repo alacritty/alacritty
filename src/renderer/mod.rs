@@ -28,9 +28,8 @@ use gl;
 use index::{Line, Column, RangeInclusive};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 
-use ansi::{Color, NamedColor};
-use config::{Config, ColorList};
-use term::{self, cell, IndexedCell, Cell};
+use config::Config;
+use term::{self, cell, RenderableCell};
 use window::{Size, Pixels};
 
 use Rgb;
@@ -313,7 +312,6 @@ pub struct QuadRenderer {
     atlas: Vec<Atlas>,
     active_tex: GLuint,
     batch: Batch,
-    draw_bold_text_with_bright_colors: bool,
     rx: mpsc::Receiver<Msg>,
 }
 
@@ -323,8 +321,8 @@ pub struct RenderApi<'a> {
     batch: &'a mut Batch,
     atlas: &'a mut Vec<Atlas>,
     program: &'a mut ShaderProgram,
-    colors: &'a ColorList,
-    visual_bell: f32,
+    config: &'a Config,
+    visual_bell_intensity: f32
 }
 
 #[derive(Debug)]
@@ -343,57 +341,25 @@ pub struct PackedVertex {
 pub struct Batch {
     tex: GLuint,
     instances: Vec<InstanceData>,
-    draw_bold_text_with_bright_colors: bool,
 }
 
 impl Batch {
     #[inline]
-    pub fn new(config: &Config) -> Batch {
+    pub fn new() -> Batch {
         Batch {
             tex: 0,
             instances: Vec::with_capacity(BATCH_MAX),
-            draw_bold_text_with_bright_colors: config.draw_bold_text_with_bright_colors(),
         }
     }
 
     pub fn add_item(
         &mut self,
-        cell: &IndexedCell,
+        cell: &RenderableCell,
         glyph: &Glyph,
-        colors: &ColorList
     ) {
         if self.is_empty() {
             self.tex = glyph.tex_id;
         }
-
-        let fg = match cell.fg {
-            Color::Spec(rgb) => rgb,
-            Color::Named(ansi) => {
-                if self.draw_bold_text_with_bright_colors && cell.bold() {
-                    colors[ansi.to_bright()]
-                } else {
-                    colors[ansi]
-                }
-            },
-            Color::Indexed(idx) => {
-                let idx = if self.draw_bold_text_with_bright_colors
-                    && cell.bold()
-                    && idx < 8
-                {
-                    idx + 8
-                } else {
-                    idx
-                };
-
-                colors[idx]
-            }
-        };
-
-        let bg = match cell.bg {
-            Color::Spec(rgb) => rgb,
-            Color::Named(ansi) => colors[ansi],
-            Color::Indexed(idx) => colors[idx],
-        };
 
         self.instances.push(InstanceData {
             col: cell.column.0 as f32,
@@ -409,13 +375,13 @@ impl Batch {
             uv_width: glyph.uv_width,
             uv_height: glyph.uv_height,
 
-            r: fg.r as f32,
-            g: fg.g as f32,
-            b: fg.b as f32,
+            r: cell.fg.r as f32,
+            g: cell.fg.g as f32,
+            b: cell.fg.b as f32,
 
-            bg_r: bg.r as f32,
-            bg_g: bg.g as f32,
-            bg_b: bg.b as f32,
+            bg_r: cell.bg.r as f32,
+            bg_g: cell.bg.g as f32,
+            bg_b: cell.bg.b as f32,
         });
     }
 
@@ -456,7 +422,7 @@ const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
-    pub fn new(config: &Config, size: Size<Pixels<u32>>) -> Result<QuadRenderer, Error> {
+    pub fn new(size: Size<Pixels<u32>>) -> Result<QuadRenderer, Error> {
         let program = ShaderProgram::new(size)?;
 
         let mut vao: GLuint = 0;
@@ -600,9 +566,8 @@ impl QuadRenderer {
             vbo_instance: vbo_instance,
             atlas: Vec::new(),
             active_tex: 0,
-            batch: Batch::new(config),
+            batch: Batch::new(),
             rx: msg_rx,
-            draw_bold_text_with_bright_colors: config.draw_bold_text_with_bright_colors(),
         };
 
         let atlas = Atlas::new(ATLAS_SIZE);
@@ -611,14 +576,11 @@ impl QuadRenderer {
         Ok(renderer)
     }
 
-    pub fn update_config(&mut self, config: &Config) {
-        self.batch.draw_bold_text_with_bright_colors = config.draw_bold_text_with_bright_colors();
-    }
-
     pub fn with_api<F, T>(
         &mut self,
         config: &Config,
         props: &term::SizeInfo,
+        visual_bell_intensity: f64,
         func: F
     ) -> T
         where F: FnOnce(RenderApi) -> T
@@ -637,6 +599,7 @@ impl QuadRenderer {
         unsafe {
             self.program.activate();
             self.program.set_term_uniforms(props);
+            self.program.set_visual_bell(visual_bell_intensity as _);
 
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
@@ -649,8 +612,8 @@ impl QuadRenderer {
             batch: &mut self.batch,
             atlas: &mut self.atlas,
             program: &mut self.program,
-            colors: config.color_list(),
-            visual_bell: 0.0,
+            visual_bell_intensity: visual_bell_intensity as _,
+            config: config,
         });
 
         unsafe {
@@ -713,18 +676,13 @@ impl QuadRenderer {
 }
 
 impl<'a> RenderApi<'a> {
-    pub fn set_visual_bell(&mut self, visual_bell: f32) {
-        self.visual_bell = visual_bell;
-        self.program.set_visual_bell(visual_bell);
-    }
-
     pub fn clear(&self) {
-        let color = self.colors[NamedColor::Background];
+        let color = self.config.colors().primary.background;
         unsafe {
             gl::ClearColor(
-                (self.visual_bell + color.r as f32 / 255.0).min(1.0),
-                (self.visual_bell + color.g as f32 / 255.0).min(1.0),
-                (self.visual_bell + color.b as f32 / 255.0).min(1.0),
+                (self.visual_bell_intensity + color.r as f32 / 255.0).min(1.0),
+                (self.visual_bell_intensity + color.g as f32 / 255.0).min(1.0),
+                (self.visual_bell_intensity + color.b as f32 / 255.0).min(1.0),
                 1.0
                 );
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -764,22 +722,20 @@ impl<'a> RenderApi<'a> {
         &mut self,
         string: &str,
         glyph_cache: &mut GlyphCache,
-        color: &Color,
+        color: Rgb,
     ) {
         let line = Line(23);
         let col = Column(0);
 
         let cells = string.chars()
             .enumerate()
-            .map(|(i, c)| IndexedCell {
+            .map(|(i, c)| RenderableCell {
                 line: line,
                 column: col + i,
-                inner: Cell {
-                    c: c,
-                    bg: *color,
-                    fg: Color::Spec(Rgb { r: 0, g: 0, b: 0}),
-                    flags: cell::Flags::empty(),
-                }
+                c: c,
+                bg: color,
+                fg: Rgb { r: 0, g: 0, b: 0 },
+                flags: cell::Flags::empty(),
             })
             .collect::<Vec<_>>();
 
@@ -787,13 +743,13 @@ impl<'a> RenderApi<'a> {
     }
 
     #[inline]
-    fn add_render_item(&mut self, cell: &IndexedCell, glyph: &Glyph) {
+    fn add_render_item(&mut self, cell: &RenderableCell, glyph: &Glyph) {
         // Flush batch if tex changing
         if !self.batch.is_empty() && self.batch.tex != glyph.tex_id {
             self.render_batch();
         }
 
-        self.batch.add_item(cell, glyph, self.colors);
+        self.batch.add_item(cell, glyph);
 
         // Render batch and clear if it's full
         if self.batch.full() {
@@ -806,7 +762,7 @@ impl<'a> RenderApi<'a> {
         cells: I,
         glyph_cache: &mut GlyphCache
     )
-        where I: Iterator<Item=::term::IndexedCell>
+        where I: Iterator<Item=RenderableCell>
     {
         for cell in cells {
             // Get font key for cell
