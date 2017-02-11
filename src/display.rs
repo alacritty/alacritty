@@ -19,7 +19,6 @@ use std::sync::mpsc;
 use parking_lot::{MutexGuard};
 
 use Rgb;
-use ansi::Color;
 use cli;
 use config::Config;
 use font::{self, Rasterize};
@@ -120,7 +119,6 @@ impl Display {
     }
 
     pub fn update_config(&mut self, config: &Config) {
-        self.renderer.update_config(config);
         self.render_timer = config.render_timer();
     }
 
@@ -151,7 +149,7 @@ impl Display {
         let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr, config.use_thin_strokes())?;
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(config, size)?;
+        let mut renderer = QuadRenderer::new(size)?;
 
         // Initialize glyph cache
         let glyph_cache = {
@@ -280,6 +278,9 @@ impl Display {
 
         {
             let glyph_cache = &mut self.glyph_cache;
+            let size_info = *terminal.size_info();
+            let visual_bell_intensity = terminal.visual_bell.intensity();
+
             // Draw grid
             {
                 let _sampler = self.meter.sampler();
@@ -289,23 +290,20 @@ impl Display {
                 //
                 // TODO I wonder if the renderable cells iter could avoid the
                 // mutable borrow
-                let size_info = *terminal.size_info();
-                self.renderer.with_api(config, &size_info, |mut api| {
-                    api.set_visual_bell(terminal.visual_bell.intensity() as f32);
-
+                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
                     api.clear();
 
                     // Draw the grid
-                    api.render_cells(terminal.renderable_cells(selection), glyph_cache);
+                    api.render_cells(terminal.renderable_cells(config, selection), glyph_cache);
                 });
             }
 
             // Draw render timer
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());
-                let color = Color::Spec(Rgb { r: 0xd5, g: 0x4e, b: 0x53 });
-                self.renderer.with_api(config, terminal.size_info(), |mut api| {
-                    api.render_string(&timing[..], glyph_cache, &color);
+                let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
+                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                    api.render_string(&timing[..], glyph_cache, color);
                 });
             }
         }

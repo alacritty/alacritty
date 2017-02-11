@@ -14,19 +14,21 @@
 //
 //! Exports the `Term` type which is a high-level API for the Grid
 use std::mem;
-use std::ops::{Deref, Range, Index, IndexMut};
+use std::ops::{Range, Index, IndexMut};
 use std::ptr;
 use std::cmp::min;
 use std::io;
 use std::time::{Duration, Instant};
 
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset};
-use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange};
+use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive, Side};
 use selection::{Span, Selection};
 use config::{Config, VisualBellAnimation};
+use Rgb;
 
 pub mod cell;
+pub mod color;
 pub use self::cell::Cell;
 use self::cell::LineLength;
 
@@ -44,8 +46,10 @@ pub struct RenderableCellsIter<'a> {
     mode: TermMode,
     line: Line,
     column: Column,
+    config: &'a Config,
+    colors: &'a color::List,
     selection: Option<RangeInclusive<index::Linear>>,
-    cursor_original: Option<IndexedCell>
+    cursor_original: Option<Indexed<Cell>>
 }
 
 impl<'a> RenderableCellsIter<'a> {
@@ -56,9 +60,10 @@ impl<'a> RenderableCellsIter<'a> {
     fn new<'b>(
         grid: &'b mut Grid<Cell>,
         cursor: &'b Point,
+        colors: &'b color::List,
         mode: TermMode,
+        config: &'b Config,
         selection: &Selection,
-        custom_cursor_colors: bool,
     ) -> RenderableCellsIter<'b> {
         let selection = selection.span()
             .map(|span| span.to_range(grid.num_cols()));
@@ -70,18 +75,21 @@ impl<'a> RenderableCellsIter<'a> {
             line: Line(0),
             column: Column(0),
             selection: selection,
+            config: config,
+            colors: colors,
             cursor_original: None,
-        }.initialize(custom_cursor_colors)
+        }.initialize()
     }
 
-    fn initialize(mut self, custom_cursor_colors: bool) -> Self {
+    fn initialize(mut self) -> Self {
         if self.cursor_is_visible() {
-            self.cursor_original = Some(IndexedCell {
+            self.cursor_original = Some(Indexed {
                 line:   self.cursor.line,
                 column: self.cursor.col,
                 inner:  self.grid[self.cursor]
             });
-            if custom_cursor_colors {
+
+            if self.config.custom_cursor_colors() {
                 let cell = &mut self.grid[self.cursor];
                 cell.fg = Color::Named(NamedColor::CursorForeground);
                 cell.bg = Color::Named(NamedColor::CursorBackground);
@@ -112,23 +120,17 @@ impl<'a> Drop for RenderableCellsIter<'a> {
     }
 }
 
-pub struct IndexedCell {
+pub struct RenderableCell {
     pub line: Line,
     pub column: Column,
-    pub inner: Cell
-}
-
-impl Deref for IndexedCell {
-    type Target = Cell;
-
-    #[inline]
-    fn deref(&self) -> &Cell {
-        &self.inner
-    }
+    pub c: char,
+    pub fg: Rgb,
+    pub bg: Rgb,
+    pub flags: cell::Flags,
 }
 
 impl<'a> Iterator for RenderableCellsIter<'a> {
-    type Item = IndexedCell;
+    type Item = RenderableCell;
 
     /// Gets the next renderable cell
     ///
@@ -159,22 +161,50 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 
                 // fg, bg are dependent on INVERSE flag
                 let invert = cell.flags.contains(cell::INVERSE) || selected;
-
                 let (fg, bg) = if invert {
                     (&cell.bg, &cell.fg)
                 } else {
                     (&cell.fg, &cell.bg)
                 };
 
-                return Some(IndexedCell {
+                // Get Rgb value for foreground
+                let fg = match *fg {
+                    Color::Spec(rgb) => rgb,
+                    Color::Named(ansi) => {
+                        if self.config.draw_bold_text_with_bright_colors() && cell.bold() {
+                            self.colors[ansi.to_bright()]
+                        } else {
+                            self.colors[ansi]
+                        }
+                    },
+                    Color::Indexed(idx) => {
+                        let idx = if self.config.draw_bold_text_with_bright_colors()
+                            && cell.bold()
+                            && idx < 8
+                        {
+                            idx + 8
+                        } else {
+                            idx
+                        };
+
+                        self.colors[idx]
+                    }
+                };
+
+                // Get Rgb value for background
+                let bg = match *bg {
+                    Color::Spec(rgb) => rgb,
+                    Color::Named(ansi) => self.colors[ansi],
+                    Color::Indexed(idx) => self.colors[idx],
+                };
+
+                return Some(RenderableCell {
                     line: line,
                     column: column,
-                    inner: Cell {
-                        flags: cell.flags,
-                        c: cell.c,
-                        fg: *fg,
-                        bg: *bg,
-                    }
+                    flags: cell.flags,
+                    c: cell.c,
+                    fg: fg,
+                    bg: bg,
                 })
             }
 
@@ -461,8 +491,6 @@ pub struct Term {
 
     pub visual_bell: VisualBell,
 
-    custom_cursor_colors: bool,
-
     /// Saved cursor from main grid
     cursor_save: Cursor,
 
@@ -470,6 +498,9 @@ pub struct Term {
     cursor_save_alt: Cursor,
 
     semantic_escape_chars: String,
+
+    /// Colors used for rendering
+    colors: color::List,
 }
 
 /// Terminal size info
@@ -514,6 +545,7 @@ impl SizeInfo {
     }
 }
 
+
 impl Term {
     #[inline]
     pub fn get_next_title(&mut self) -> Option<String> {
@@ -554,14 +586,14 @@ impl Term {
             scroll_region: scroll_region,
             size_info: size,
             empty_cell: template,
-            custom_cursor_colors: config.custom_cursor_colors(),
+            colors: color::List::from(config.colors()),
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
         }
     }
 
     pub fn update_config(&mut self, config: &Config) {
-        self.custom_cursor_colors = config.custom_cursor_colors();
         self.semantic_escape_chars = config.selection().semantic_escape_chars.clone();
+        self.colors.fill_named(config.colors());
         self.visual_bell.update_config(config);
     }
 
@@ -772,13 +804,18 @@ impl Term {
     /// A renderable cell is any cell which has content other than the default
     /// background color.  Cells with an alternate background color are
     /// considered renderable as are cells with any text content.
-    pub fn renderable_cells(&mut self, selection: &Selection) -> RenderableCellsIter {
+    pub fn renderable_cells<'b>(
+        &'b mut self,
+        config: &'b Config,
+        selection: &'b Selection
+    ) -> RenderableCellsIter {
         RenderableCellsIter::new(
             &mut self.grid,
             &self.cursor.point,
+            &self.colors,
             self.mode,
+            config,
             selection,
-            self.custom_cursor_colors
         )
     }
 
