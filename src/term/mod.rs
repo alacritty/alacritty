@@ -893,7 +893,7 @@ impl Term {
         // Clear `lines` lines at bottom of area
         {
             let end = self.scroll_region.end;
-            let start = end - lines;
+            let start = Line(end.0.saturating_sub(lines.0));
             self.grid.clear_region(start..end, |c| c.reset(&template));
         }
 
@@ -925,7 +925,7 @@ impl Term {
 
         // Clear `lines` lines starting from origin to origin + lines
         {
-            let end = origin + lines;
+            let end = min(origin + lines, self.grid.num_lines());
             self.grid.clear_region(origin..end, |c| c.reset(&template));
         }
 
