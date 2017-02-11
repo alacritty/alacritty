@@ -21,7 +21,7 @@ dependencies = [
  "serde 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_yaml 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_yaml 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "vte 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "xdg 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -895,7 +895,7 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "linked-hash-map 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1290,7 +1290,7 @@ dependencies = [
 "checksum serde_derive 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7278d46eaf402b063c25288d0e4232029e9fb2f20e272a932b2c15a9fed7f32d"
 "checksum serde_json 0.8.6 (registry+https://github.com/rust-lang/crates.io-index)" = "67f7d2e9edc3523a9c8ec8cd6ec481b3a27810aafee3e625d311febd3e656b4c"
 "checksum serde_json 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)" = "d30dd31e5b6b2752ba87da4bb34edc01391bbab71563fc1e95cdd1e30dce16b8"
-"checksum serde_yaml 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "9ae54cf19eac47e8a15b8461f3cad85a1565c9b602f6f33e63871b6408c551a1"
+"checksum serde_yaml 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "6c13dac9aa2a6dd1172806c391e4c1a3853708b3161ebef9cb7892dc31509332"
 "checksum servo-fontconfig 0.2.0 (git+https://github.com/jwilm/rust-fontconfig)" = "<none>"
 "checksum servo-fontconfig-sys 2.11.3 (git+https://github.com/jwilm/libfontconfig)" = "<none>"
 "checksum shared_library 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "fb04126b6fcfd2710fb5b6d18f4207b6c535f2850a7e1a43bcd526d44f30a79a"
