@@ -325,6 +325,7 @@ pub struct RenderApi<'a> {
     atlas: &'a mut Vec<Atlas>,
     program: &'a mut ShaderProgram,
     config: &'a Config,
+    visual_bell_effect: VisualBellEffect,
     visual_bell_intensity: f32
 }
 
@@ -599,10 +600,12 @@ impl QuadRenderer {
             }
         }
 
+        let visual_bell_effect = config.visual_bell().effect();
+
         unsafe {
             self.program.activate();
             self.program.set_term_uniforms(props);
-            self.program.set_visual_bell(config.visual_bell().effect(), visual_bell_intensity as _);
+            self.program.set_visual_bell(visual_bell_effect, visual_bell_intensity as _);
 
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
@@ -615,6 +618,7 @@ impl QuadRenderer {
             batch: &mut self.batch,
             atlas: &mut self.atlas,
             program: &mut self.program,
+            visual_bell_effect: visual_bell_effect,
             visual_bell_intensity: visual_bell_intensity as _,
             config: config,
         });
@@ -682,10 +686,15 @@ impl<'a> RenderApi<'a> {
     pub fn clear(&self) {
         let color = self.config.colors().primary.background;
         unsafe {
+            let offset = if self.visual_bell_effect == VisualBellEffect::FlashBackground {
+                self.visual_bell_intensity
+            } else {
+                0.0
+            };
             gl::ClearColor(
-                (self.visual_bell_intensity + color.r as f32 / 255.0).min(1.0),
-                (self.visual_bell_intensity + color.g as f32 / 255.0).min(1.0),
-                (self.visual_bell_intensity + color.b as f32 / 255.0).min(1.0),
+                (offset + color.r as f32 / 255.0).min(1.0),
+                (offset + color.g as f32 / 255.0).min(1.0),
+                (offset + color.b as f32 / 255.0).min(1.0),
                 1.0
                 );
             gl::Clear(gl::COLOR_BUFFER_BIT);

@@ -90,7 +90,7 @@ pub enum VisualBellAnimation {
     Linear,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 pub enum VisualBellEffect {
     None,
     FlashText,
