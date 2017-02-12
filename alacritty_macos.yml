@@ -115,7 +115,7 @@ colors:
 #
 visual_bell:
   animation: EaseOutExpo
-  duration: 150
+  duration: 0
 
 # Key bindings
 #
