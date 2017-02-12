@@ -109,8 +109,8 @@ pub struct ShaderProgram {
     /// Cell dimensions (pixels)
     u_cell_dim: GLint,
 
-    /// Visual bell
-    u_visual_bell: GLint,
+    /// Visual bell intensity
+    u_visual_bell_intensity: GLint,
 
     /// Background pass flag
     ///
@@ -906,12 +906,12 @@ impl ShaderProgram {
         }
 
         // get uniform locations
-        let (projection, term_dim, cell_dim, visual_bell, background) = unsafe {
+        let (projection, term_dim, cell_dim, visual_bell_intensity, background) = unsafe {
             (
                 gl::GetUniformLocation(program, cptr!(b"projection\0")),
                 gl::GetUniformLocation(program, cptr!(b"termDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"cellDim\0")),
-                gl::GetUniformLocation(program, cptr!(b"visualBell\0")),
+                gl::GetUniformLocation(program, cptr!(b"visualBellIntensity\0")),
                 gl::GetUniformLocation(program, cptr!(b"backgroundPass\0")),
             )
         };
@@ -923,7 +923,7 @@ impl ShaderProgram {
             u_projection: projection,
             u_term_dim: term_dim,
             u_cell_dim: cell_dim,
-            u_visual_bell: visual_bell,
+            u_visual_bell_intensity: visual_bell_intensity,
             u_background: background,
         };
 
@@ -955,9 +955,9 @@ impl ShaderProgram {
         }
     }
 
-    fn set_visual_bell(&self, visual_bell: f32) {
+    fn set_visual_bell(&self, visual_bell_intensity: f32) {
         unsafe {
-            gl::Uniform1f(self.u_visual_bell, visual_bell);
+            gl::Uniform1f(self.u_visual_bell_intensity, visual_bell_intensity);
         }
     }
 

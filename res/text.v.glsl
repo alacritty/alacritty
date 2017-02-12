@@ -36,12 +36,12 @@ out vec3 bg;
 uniform vec2 termDim;
 uniform vec2 cellDim;
 
-uniform float visualBell;
+uniform float visualBellIntensity;
 uniform int backgroundPass;
 
 // Orthographic projection
 uniform mat4 projection;
-flat out float vb;
+flat out float vbi;
 flat out int background;
 
 void main()
@@ -74,7 +74,7 @@ void main()
         TexCoords = uvOffset + vec2(position.x, 1 - position.y) * uvSize;
     }
 
-    vb = visualBell;
+    vbi = visualBellIntensity;
     background = backgroundPass;
     bg = backgroundColor / vec3(255.0, 255.0, 255.0);
     fg = textColor / vec3(255.0, 255.0, 255.0);
