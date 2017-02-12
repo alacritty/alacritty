@@ -28,7 +28,7 @@ use gl;
 use index::{Line, Column, RangeInclusive};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 
-use config::Config;
+use config::{Config, VisualBellEffect};
 use term::{self, cell, RenderableCell};
 use window::{Size, Pixels};
 
@@ -108,6 +108,9 @@ pub struct ShaderProgram {
 
     /// Cell dimensions (pixels)
     u_cell_dim: GLint,
+
+    /// Visual bell effect
+    u_visual_bell_effect: GLint,
 
     /// Visual bell intensity
     u_visual_bell_intensity: GLint,
@@ -599,7 +602,7 @@ impl QuadRenderer {
         unsafe {
             self.program.activate();
             self.program.set_term_uniforms(props);
-            self.program.set_visual_bell(visual_bell_intensity as _);
+            self.program.set_visual_bell(config.visual_bell().effect(), visual_bell_intensity as _);
 
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
@@ -906,11 +909,12 @@ impl ShaderProgram {
         }
 
         // get uniform locations
-        let (projection, term_dim, cell_dim, visual_bell_intensity, background) = unsafe {
+        let (projection, term_dim, cell_dim, visual_bell_effect, visual_bell_intensity, background) = unsafe {
             (
                 gl::GetUniformLocation(program, cptr!(b"projection\0")),
                 gl::GetUniformLocation(program, cptr!(b"termDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"cellDim\0")),
+                gl::GetUniformLocation(program, cptr!(b"visualBellEffect\0")),
                 gl::GetUniformLocation(program, cptr!(b"visualBellIntensity\0")),
                 gl::GetUniformLocation(program, cptr!(b"backgroundPass\0")),
             )
@@ -923,6 +927,7 @@ impl ShaderProgram {
             u_projection: projection,
             u_term_dim: term_dim,
             u_cell_dim: cell_dim,
+            u_visual_bell_effect: visual_bell_effect,
             u_visual_bell_intensity: visual_bell_intensity,
             u_background: background,
         };
@@ -955,9 +960,10 @@ impl ShaderProgram {
         }
     }
 
-    fn set_visual_bell(&self, visual_bell_intensity: f32) {
+    fn set_visual_bell(&self, effect: VisualBellEffect, intensity: f32) {
         unsafe {
-            gl::Uniform1f(self.u_visual_bell_intensity, visual_bell_intensity);
+            gl::Uniform1i(self.u_visual_bell_effect, effect as _);
+            gl::Uniform1f(self.u_visual_bell_intensity, intensity);
         }
     }
 

@@ -15,6 +15,7 @@
 in vec2 TexCoords;
 in vec3 fg;
 in vec3 bg;
+flat in int vbe;
 flat in float vbi;
 flat in int background;
 
