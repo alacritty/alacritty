@@ -90,6 +90,13 @@ pub enum VisualBellAnimation {
     Linear,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub enum VisualBellEffect {
+    None,
+    FlashText,
+    FlashBackground,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct VisualBellConfig {
     /// Visual bell animation function
@@ -99,6 +106,10 @@ pub struct VisualBellConfig {
     /// Visual bell duration in milliseconds
     #[serde(default="default_visual_bell_duration")]
     duration: u16,
+
+    /// Visual bell effect
+    #[serde(default="default_visual_bell_effect")]
+    effect: VisualBellEffect,
 }
 
 fn default_visual_bell_animation() -> VisualBellAnimation {
@@ -107,6 +118,10 @@ fn default_visual_bell_animation() -> VisualBellAnimation {
 
 fn default_visual_bell_duration() -> u16 {
     150
+}
+
+fn default_visual_bell_effect() -> VisualBellEffect {
+    VisualBellEffect::None
 }
 
 impl VisualBellConfig {
@@ -121,6 +136,12 @@ impl VisualBellConfig {
     pub fn duration(&self) -> Duration {
         Duration::from_millis(self.duration as u64)
     }
+
+    /// Visual bell effect
+    #[inline]
+    pub fn effect(&self) -> VisualBellEffect {
+        self.effect
+    }
 }
 
 impl Default for VisualBellConfig {
@@ -128,6 +149,7 @@ impl Default for VisualBellConfig {
         VisualBellConfig {
             animation: default_visual_bell_animation(),
             duration: default_visual_bell_duration(),
+            effect: default_visual_bell_effect(),
         }
     }
 }
