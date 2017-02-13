@@ -10,3 +10,12 @@ FlameGraph
 
 # other ignores
 *.DS_Store
+=======
+
+# Snapcraft files
+stage
+prime
+parts
+*.snap
+*.pyc
+alacritty_*_source.tar.bz2
