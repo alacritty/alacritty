@@ -13,6 +13,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 use std::collections::HashMap;
 
+use ansi::CursorStyle;
 use ::Rgb;
 use font::Size;
 use serde_yaml;
@@ -211,7 +212,7 @@ pub struct Config {
 
     /// Cursor type
     #[serde(default)]
-    cursor_style: ansi::CursorStyle,
+    cursor_style: CursorStyle,
 
     /// Keybindings
     #[serde(default="default_key_bindings")]
@@ -1040,7 +1041,7 @@ impl Config {
         &self.colors
     }
 
-    pub fn cursor_style(&self) -> ansi::CursorStyle {
+    pub fn cursor_style(&self) -> CursorStyle {
         self.cursor_style
     }
 

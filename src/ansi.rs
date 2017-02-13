@@ -375,7 +375,7 @@ pub enum ClearMode {
 }
 
 /// Style for cursor
-#[derive(Debug, Copy, Clone, Deserialize)]
+#[derive(Debug, Copy, Clone, Deserialize, PartialEq)]
 pub enum CursorStyle {
     /// Block cursor
     Block,
