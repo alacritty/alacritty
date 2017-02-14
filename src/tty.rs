@@ -207,7 +207,10 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T) -> Pty {
     builder.env("USER", pw.name);
     builder.env("SHELL", shell.program());
     builder.env("HOME", pw.dir);
-    builder.env("TERM", "xterm-256color"); // sigh
+    builder.env("TERM", "xterm-256color"); // default term until we can supply our own
+    for (key, value) in config.env().iter() {
+        builder.env(key, value);
+    }
 
     builder.before_exec(move || {
         // Create a new process group

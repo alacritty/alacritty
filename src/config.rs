@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::mpsc;
 use std::time::Duration;
+use std::collections::HashMap;
 
 use ::Rgb;
 use font::Size;
@@ -171,6 +172,10 @@ impl<'a> Shell<'a> {
 /// Top-level config type
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    /// TERM env variable
+    #[serde(default)]
+    env: HashMap<String, String>,
+
     /// Initial dimensions
     #[serde(default)]
     dimensions: Dimensions,
@@ -267,6 +272,7 @@ impl Default for Config {
             shell: None,
             config_path: None,
             visual_bell: Default::default(),
+            env: Default::default(),
         }
     }
 }
@@ -996,6 +1002,10 @@ impl Config {
 
     pub fn shell(&self) -> Option<&Shell> {
         self.shell.as_ref()
+    }
+
+    pub fn env(&self) -> &HashMap<String, String> {
+        &self.env
     }
 
     fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
