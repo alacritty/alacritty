@@ -202,6 +202,9 @@ impl Display {
         // need to be in the callback.
         let (tx, rx) = mpsc::channel();
 
+        // Clear screen
+        renderer.with_api(config, &size_info, 0. /* visual bell intensity */, |api| api.clear());
+
         let mut display = Display {
             window: window,
             renderer: renderer,
@@ -276,10 +279,11 @@ impl Display {
             self.window.set_title(&title);
         }
 
+        let size_info = *terminal.size_info();
+        let visual_bell_intensity = terminal.visual_bell.intensity();
+
         {
             let glyph_cache = &mut self.glyph_cache;
-            let size_info = *terminal.size_info();
-            let visual_bell_intensity = terminal.visual_bell.intensity();
 
             // Draw grid
             {
@@ -291,8 +295,6 @@ impl Display {
                 // TODO I wonder if the renderable cells iter could avoid the
                 // mutable borrow
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
-                    api.clear();
-
                     // Draw the grid
                     api.render_cells(terminal.renderable_cells(config, selection), glyph_cache);
                 });
@@ -313,5 +315,18 @@ impl Display {
         self.window
             .swap_buffers()
             .expect("swap buffers");
+
+        // Clear after swap_buffers when terminal mutex isn't held. Mesa for
+        // some reason takes a long time to call glClear(). The driver descends
+        // into xcb_connect_to_fd() which ends up calling __poll_nocancel()
+        // which blocks for a while.
+        //
+        // By keeping this outside of the critical region, the Mesa bug is
+        // worked around to some extent. Since this doesn't actually address the
+        // issue of glClear being slow, less time is available for input
+        // handling and rendering.
+        self.renderer.with_api(config, &size_info, visual_bell_intensity, |api| {
+            api.clear();
+        });
     }
 }
