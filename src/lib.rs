@@ -53,6 +53,9 @@ extern crate log;
 #[macro_use]
 pub mod macros;
 
+pub mod built {
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+}
 pub mod ansi;
 pub mod cli;
 pub mod config;

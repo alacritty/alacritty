@@ -43,6 +43,7 @@ nightly = []
 
 [build-dependencies]
 gl_generator = "0.5"
+built = { version = "0.1", git = "https://github.com/lukaslueg/built", features = ["serialized_git", "serialized_time"] }
 
 [dependencies.glutin]
 git = "https://github.com/jwilm/glutin"

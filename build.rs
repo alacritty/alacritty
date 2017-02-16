@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+extern crate built;
 extern crate gl_generator;
 
 use gl_generator::{Registry, Api, Profile, Fallbacks, GlobalGenerator};
@@ -27,4 +28,10 @@ fn main() {
         ])
         .write_bindings(GlobalGenerator, &mut file)
         .unwrap();
+
+    let mut built_opts = built::Options::default();
+    built_opts.set_dependencies(true);
+    let built_src = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let built_dst = Path::new(&dest).join("built.rs");
+    built::write_built_file_with_opts(&built_opts, &built_src, &built_dst).unwrap();
 }
