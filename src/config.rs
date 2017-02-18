@@ -888,6 +888,7 @@ impl Config {
     /// 2. $XDG_CONFIG_HOME/alacritty.yml
     /// 3. $HOME/.config/alacritty/alacritty.yml
     /// 4. $HOME/.alacritty.yml
+    /// 5. /etc/alacritty/alacritty.yml
     pub fn load() -> Result<Config> {
         let home = env::var("HOME")?;
 
@@ -908,9 +909,17 @@ impl Config {
                     false => None
                 }
             })
-            .unwrap_or_else(|| {
+            .or_else(|| {
                 // Fallback path: $HOME/.alacritty.yml
-                PathBuf::from(&home).join(".alacritty.yml")
+                let fallback = PathBuf::from(&home).join(".alacritty.yml");
+                match fallback.exists() {
+                    true => Some(fallback),
+                    false => None
+                }
+            })
+            .unwrap_or_else(|| {
+                // Fallback path: /etc/alacritty/alacritty.yml
+                PathBuf::from("/etc/alacritty/alacritty.yml")
             });
 
         Config::load_from(path)
