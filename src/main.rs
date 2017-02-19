@@ -67,14 +67,14 @@ fn main() {
     if let Err(err) = run(config, options) {
         err_println!("Alacritty encountered an unrecoverable error:\n\n");
 
-        println!("\terror: {}", Red(&err));
+        err_println!("\terror: {}", Red(&err));
 
         for e in err.iter().skip(1) {
-            println!("\tcaused by: {}", Red(e));
+            err_println!("\tcaused by: {}", Red(e));
         }
 
         if let Some(backtrace) = err.backtrace() {
-            println!("\tbacktrace: {:?}", Red(backtrace));
+            err_println!("\tbacktrace: {:?}", Red(backtrace));
         }
 
         std::process::exit(1);
