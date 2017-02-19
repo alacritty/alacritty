@@ -1,14 +1,18 @@
 [package]
-name = "copypasta"
-version = "0.0.1"
 authors = ["Joe Wilm <joe@jwilm.com>"]
-license = "Apache-2.0"
 description = "Forthcoming clipboard library"
 keywords = ["clipboard", "copy", "paste"]
+license = "Apache-2.0"
+name = "copypasta"
+version = "0.0.1"
 
 [dependencies]
 
-[target.'cfg(target_os = "macos")'.dependencies]
+[target]
+
+[target."cfg(target_os = \"macos\")"]
+
+[target."cfg(target_os = \"macos\")".dependencies]
 objc = "0.2"
-objc_id = "0.1"
 objc-foundation = "0.1"
+objc_id = "0.1"

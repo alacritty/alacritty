@@ -1,53 +1,61 @@
 [package]
-name = "alacritty"
-version = "0.1.0"
 authors = ["Joe Wilm <joe@jwilm.com>"]
-license = "Apache-2.0"
 build = "build.rs"
 description = "GPU-accelerated terminal emulator"
+license = "Apache-2.0"
+name = "alacritty"
+version = "0.1.0"
 
 [[bin]]
 doc = false
-path = "src/main.rs"
 name = "alacritty"
-
-[dependencies]
-libc = "*"
-cgmath = "0.7"
-notify = "2.6"
-bitflags = "*"
-font = { path = "./font" }
-errno = "0.1.6"
-lazy_static = "0.2.2"
-parking_lot = "0.3.1"
-serde = "0.9"
-serde_yaml = "0.6"
-serde_derive = "0.9"
-vte = "0.2.2"
-mio = "0.6"
-serde_json = "0.9"
-copypasta = { path = "./copypasta" }
-xdg = "2.0.0"
-log = "0.3"
-clap = "2.20"
-fnv = "1.0.5"
-
-clippy = { version = "0.0.104", optional = true }
-
-[features]
-default = ["err-println"]
-# Enabling this feature makes shaders automatically reload when changed
-live-shader-reload = []
-err-println = []
-nightly = []
+path = "src/main.rs"
 
 [build-dependencies]
 gl_generator = "0.5"
+
+[dependencies]
+bitflags = "*"
+cgmath = "0.7"
+clap = "2.20"
+errno = "0.1.6"
+error-chain = "0.9.0"
+fnv = "1.0.5"
+lazy_static = "0.2.2"
+libc = "*"
+log = "0.3"
+mio = "0.6"
+notify = "2.6"
+parking_lot = "0.3.1"
+serde = "0.9"
+serde_derive = "0.9"
+serde_json = "0.9"
+serde_yaml = "0.6"
+vte = "0.2.2"
+xdg = "2.0.0"
+
+[dependencies.clippy]
+optional = true
+version = "0.0.104"
+
+[dependencies.copypasta]
+path = "./copypasta"
+
+[dependencies.font]
+path = "./font"
 
 [dependencies.glutin]
 git = "https://github.com/jwilm/glutin"
 rev = "cc64178d39a1fa06b2c5403117e5e0ef24deeac4"
 
+[features]
+default = ["err-println"]
+err-println = []
+live-shader-reload = []
+nightly = []
+
+[profile]
+
 [profile.release]
-lto = true
 debug = true
+lto = true

@@ -34,6 +34,8 @@ use window::{Size, Pixels};
 
 use Rgb;
 
+pub use self::renderer_error::*;
+
 // Shader paths for live reload
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
 static TEXT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
@@ -56,41 +58,13 @@ enum Msg {
     ShaderReload,
 }
 
-#[derive(Debug)]
-pub enum Error {
-    ShaderCreation(ShaderCreationError),
-}
-
-impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&::std::error::Error> {
-        match *self {
-            Error::ShaderCreation(ref err) => Some(err),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::ShaderCreation(ref err) => err.description(),
+mod renderer_error {
+    error_chain! {
+        links {
+            ShaderCreation(super::shader_error::Error, super::shader_error::ErrorKind);
         }
     }
 }
-
-impl ::std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match *self {
-            Error::ShaderCreation(ref err) => {
-                write!(f, "There was an error initializing the shaders: {}", err)
-            }
-        }
-    }
-}
-
-impl From<ShaderCreationError> for Error {
-    fn from(val: ShaderCreationError) -> Error {
-        Error::ShaderCreation(val)
-    }
-}
-
 
 /// Text drawing program
 ///
@@ -161,7 +135,7 @@ impl GlyphCache {
         mut rasterizer: Rasterizer,
         config: &Config,
         loader: &mut L
-    ) -> Result<GlyphCache, font::Error>
+    ) -> ::std::result::Result<GlyphCache, font::Error>
         where L: LoadGlyph
     {
         let font = config.font();
@@ -422,8 +396,8 @@ const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
-    pub fn new(size: Size<Pixels<u32>>) -> Result<QuadRenderer, Error> {
-        let program = ShaderProgram::new(size)?;
+    pub fn new(size: Size<Pixels<u32>>) -> Result<QuadRenderer> {
+        let program = ShaderProgram::new(size).chain_err(|| "failed to create shader program")?;
 
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
@@ -644,13 +618,16 @@ impl QuadRenderer {
         let program = match ShaderProgram::new(size) {
             Ok(program) => program,
             Err(err) => {
-                match err {
-                    ShaderCreationError::Io(err) => {
+                match err.0 {
+                    shader_error::ErrorKind::Io(err) => {
                         error!("Error reading shader file: {}", err);
                     },
-                    ShaderCreationError::Compile(path, log) => {
+                    shader_error::ErrorKind::Compile(path, log) => {
                         error!("Error compiling shader at {:?}", path);
                         let _ = io::copy(&mut log.as_bytes(), &mut io::stdout());
+                    }
+                    shader_error::ErrorKind::Msg(msg) => {
+                        error!("Error: {}", msg)
                     }
                 }
 
@@ -862,7 +839,7 @@ impl ShaderProgram {
         }
     }
 
-    pub fn new(size: Size<Pixels<u32>>) -> Result<ShaderProgram, ShaderCreationError> {
+    pub fn new(size: Size<Pixels<u32>>) -> shader_error::Result<ShaderProgram> {
         let vertex_source = if cfg!(feature = "live-shader-reload") {
             None
         } else {
@@ -872,7 +849,9 @@ impl ShaderProgram {
             TEXT_SHADER_V_PATH,
             gl::VERTEX_SHADER,
             vertex_source
-        )?;
+        );
+        let vertex_shader = shader_error::ResultExt::chain_err(vertex_shader,
+            || "failed to create vertex shader")?;
         let frag_source = if cfg!(feature = "live-shader-reload") {
             None
         } else {
@@ -882,7 +861,9 @@ impl ShaderProgram {
             TEXT_SHADER_F_PATH,
             gl::FRAGMENT_SHADER,
             frag_source
-        )?;
+        );
+        let fragment_shader = shader_error::ResultExt::chain_err(fragment_shader,
+            || "failed to create fragment shader")?;
         let program = ShaderProgram::create_program(vertex_shader, fragment_shader);
 
         unsafe {
@@ -996,12 +977,13 @@ impl ShaderProgram {
         path: &str,
         kind: GLenum,
         source: Option<&'static str>
-    ) -> Result<GLuint, ShaderCreationError> {
+    ) -> shader_error::Result<GLuint> {
         let from_disk;
         let source = if let Some(src) = source {
             src
         } else {
-            from_disk = read_file(path)?;
+            let read = read_file(path);
+            from_disk = shader_error::ResultExt::chain_err(read, || "failed to read shader file")?;
             &from_disk[..]
         };
 
@@ -1028,7 +1010,7 @@ impl ShaderProgram {
             // Cleanup
             unsafe { gl::DeleteShader(shader); }
 
-            Err(ShaderCreationError::Compile(PathBuf::from(path), log))
+            bail!(shader_error::ErrorKind::Compile(PathBuf::from(path), log));
         }
     }
 }
@@ -1087,7 +1069,7 @@ fn get_shader_info_log(shader: GLuint) -> String {
     String::from_utf8(buf).unwrap()
 }
 
-fn read_file(path: &str) -> Result<String, io::Error> {
+fn read_file(path: &str) -> ::std::result::Result<String, io::Error> {
     let mut f = File::open(path)?;
     let mut buf = String::new();
     f.read_to_string(&mut buf)?;
@@ -1095,48 +1077,22 @@ fn read_file(path: &str) -> Result<String, io::Error> {
     Ok(buf)
 }
 
-#[derive(Debug)]
-pub enum ShaderCreationError {
-    /// Error reading file
-    Io(io::Error),
-
-    /// Error compiling shader
-    Compile(PathBuf, String),
-}
-
-impl ::std::error::Error for ShaderCreationError {
-    fn cause(&self) -> Option<&::std::error::Error> {
-        match *self {
-            ShaderCreationError::Io(ref err) => Some(err),
-            ShaderCreationError::Compile(_, _) => None,
+mod shader_error {
+    error_chain! {
+        errors {
+            /// Error compiling shader
+            Compile(_p: ::std::path::PathBuf, s: String) {
+                description("failed compiling shader")
+                display("failed compiling shader: {}", s)
+            }
         }
-    }
 
-    fn description(&self) -> &str {
-        match *self {
-            ShaderCreationError::Io(ref err) => err.description(),
-            ShaderCreationError::Compile(ref _path, ref s) => s.as_str(),
+        foreign_links {
+            Io(::std::io::Error) /// Error reading file
+            ;
         }
     }
 }
-
-impl ::std::fmt::Display for ShaderCreationError {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match *self {
-            ShaderCreationError::Io(ref err) => write!(f, "couldn't read shader: {}", err),
-            ShaderCreationError::Compile(ref _path, ref s) => {
-                write!(f, "failed compiling shader: {}", s)
-            },
-        }
-    }
-}
-
-impl From<io::Error> for ShaderCreationError {
-    fn from(val: io::Error) -> ShaderCreationError {
-        ShaderCreationError::Io(val)
-    }
-}
-
 
 /// Manages a single texture atlas
 ///
@@ -1182,10 +1138,16 @@ struct Atlas {
     row_tallest: i32,
 }
 
-/// Error that can happen when inserting a texture to the Atlas
-enum AtlasInsertError {
-    /// Texture atlas is full
-    Full,
+mod atlas_error {
+    error_chain! {
+        errors {
+            /// Texture atlas is full
+            Full {
+                description("texture atlas is full")
+                display("texture atlas is full")
+            }
+        }
+    }
 }
 
 impl Atlas {
@@ -1229,16 +1191,16 @@ impl Atlas {
     pub fn insert(&mut self,
                   glyph: &RasterizedGlyph,
                   active_tex: &mut u32)
-                  -> Result<Glyph, AtlasInsertError>
+                  -> atlas_error::Result<Glyph>
     {
         // If there's not enough room in current row, go onto next one
         if !self.room_in_row(glyph) {
-            self.advance_row()?;
+            atlas_error::ResultExt::chain_err(self.advance_row(), || "failed to advance row in atlas")?;
         }
 
         // If there's still not room, there's nothing that can be done here.
         if !self.room_in_row(glyph) {
-            return Err(AtlasInsertError::Full);
+            bail!(atlas_error::ErrorKind::Full);
         }
 
         // There appears to be room; load the glyph.
@@ -1315,10 +1277,10 @@ impl Atlas {
     }
 
     /// Mark current row as finished and prepare to insert into the next row
-    fn advance_row(&mut self) -> Result<(), AtlasInsertError> {
+    fn advance_row(&mut self) -> atlas_error::Result<()> {
         let advance_to = self.row_baseline + self.row_tallest;
         if self.height - advance_to <= 0 {
-            return Err(AtlasInsertError::Full);
+            bail!(atlas_error::ErrorKind::Full);
         }
 
         self.row_baseline = advance_to;

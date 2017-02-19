@@ -26,6 +26,8 @@ use index::{Line, Column};
 
 use util::fmt::Yellow;
 
+pub use self::config_error::*;
+
 /// Function that returns true for serde default
 fn true_bool() -> bool {
     true
@@ -677,20 +679,25 @@ impl de::Deserialize for KeyBinding {
     }
 }
 
-/// Errors occurring during config loading
-#[derive(Debug)]
-pub enum Error {
-    /// Config file not found
-    NotFound,
+mod config_error {
+    error_chain! {
+        errors {
+            /// Config file not found
+            NotFound {
+                description("could not locate config file")
+                display("could not locate config file")
+            }
+        }
 
-    /// Couldn't read $HOME environment variable
-    ReadingEnvHome(env::VarError),
-
-    /// io error reading file
-    Io(io::Error),
-
-    /// Not valid yaml or missing parameters
-    Yaml(serde_yaml::Error),
+        foreign_links {
+            ReadingEnvHome(::std::env::VarError) /// Couldn't read $HOME environment variable
+            ;
+            Io(::std::io::Error) /// io error reading file
+            ;
+            Yaml(::serde_yaml::Error) /// Not valid yaml or missing parameters
+            ;
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -881,61 +888,6 @@ impl FromStr for Rgb {
     }
 }
 
-impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&::std::error::Error> {
-        match *self {
-            Error::NotFound => None,
-            Error::ReadingEnvHome(ref err) => Some(err),
-            Error::Io(ref err) => Some(err),
-            Error::Yaml(ref err) => Some(err),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::NotFound => "could not locate config file",
-            Error::ReadingEnvHome(ref err) => err.description(),
-            Error::Io(ref err) => err.description(),
-            Error::Yaml(ref err) => err.description(),
-        }
-    }
-}
-
-impl ::std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match *self {
-            Error::NotFound => write!(f, "{}", ::std::error::Error::description(self)),
-            Error::ReadingEnvHome(ref err) => {
-                write!(f, "could not read $HOME environment variable: {}", err)
-            },
-            Error::Io(ref err) => write!(f, "error reading config file: {}", err),
-            Error::Yaml(ref err) => write!(f, "problem with config: {}", err),
-        }
-    }
-}
-
-impl From<env::VarError> for Error {
-    fn from(val: env::VarError) -> Error {
-        Error::ReadingEnvHome(val)
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(val: io::Error) -> Error {
-        if val.kind() == io::ErrorKind::NotFound {
-            Error::NotFound
-        } else {
-            Error::Io(val)
-        }
-    }
-}
-
-impl From<serde_yaml::Error> for Error {
-    fn from(val: serde_yaml::Error) -> Error {
-        Error::Yaml(val)
-    }
-}
-
 /// Result from config loading
 pub type Result<T> = ::std::result::Result<T, Error>;
 
@@ -949,7 +901,7 @@ impl Config {
     /// 3. $HOME/.config/alacritty/alacritty.yml
     /// 4. $HOME/.alacritty.yml
     pub fn load() -> Result<Config> {
-        let home = env::var("HOME")?;
+        let home = env::var("HOME").chain_err(|| "couldn't read $HOME environment variable")?;
 
         // Try using XDG location by default
         let path = ::xdg::BaseDirectories::with_prefix("alacritty")
@@ -1076,17 +1028,17 @@ impl Config {
 
     fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
         let path = path.into();
-        let raw = Config::read_file(path.as_path())?;
-        let mut config: Config = serde_yaml::from_str(&raw)?;
+        let raw = Config::read_file(path.as_path()).chain_err(|| "failed to read config file")?;
+        let mut config: Config = serde_yaml::from_str(&raw).chain_err(|| "failed to deserialize config")?;
         config.config_path = Some(path);
 
         Ok(config)
     }
 
     fn read_file<P: AsRef<Path>>(path: P) -> Result<String> {
-        let mut f = fs::File::open(path)?;
+        let mut f = fs::File::open(path).chain_err(|| "failed to open file")?;
         let mut contents = String::new();
-        f.read_to_string(&mut contents)?;
+        f.read_to_string(&mut contents).chain_err(|| "failed to read file contents")?;
 
         Ok(contents)
     }
