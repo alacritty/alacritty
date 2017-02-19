@@ -65,7 +65,7 @@ fn main() {
 
     // Run alacritty
     if let Err(err) = run(config, options) {
-        err_println!("Alacritty encountered an unrecoverable error:\n\n");
+        err_println!("Alacritty encountered an unrecoverable error:\n");
 
         err_println!("\terror: {}", Red(&err));
 
