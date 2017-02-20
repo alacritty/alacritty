@@ -24,7 +24,7 @@ use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset
 use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive, Side};
 use selection::{Span, Selection};
-use config::{Config, VisualBellAnimation};
+use config::{Config, VisualBellEasing};
 use Rgb;
 
 pub mod cell;
@@ -331,29 +331,22 @@ pub struct Cursor {
 }
 
 pub struct VisualBell {
-    /// Visual bell animation
-    animation: VisualBellAnimation,
-
     /// Visual bell duration
     duration: Duration,
 
+    /// Visual bell easing
+    easing: VisualBellEasing,
+
     /// The last time the visual bell rang, if at all
     start_time: Option<Instant>,
-}
-
-fn cubic_bezier(p0: f64, p1: f64, p2: f64, p3: f64, x: f64) -> f64 {
-    (1.0 - x).powi(3) * p0 +
-    3.0 * (1.0 - x).powi(2) * x * p1 +
-    3.0 * (1.0 - x) * x.powi(2) * p2 +
-    x.powi(3) * p3
 }
 
 impl VisualBell {
     pub fn new(config: &Config) -> VisualBell {
         let visual_bell_config = config.visual_bell();
         VisualBell {
-            animation: visual_bell_config.animation(),
             duration: visual_bell_config.duration(),
+            easing: visual_bell_config.easing(),
             start_time: None,
         }
     }
@@ -413,32 +406,14 @@ impl VisualBell {
                 // `duration` of the VisualBell.
                 let time = (elapsed_f / duration_f).min(1.0);
 
-                // We use this to compute the inverse `intensity` of the
-                // VisualBell. When `time` is 0.0, `inverse_intensity` is 0.0,
-                // and when `time` is 1.0, `inverse_intensity` is 1.0.
-                let inverse_intensity = match self.animation {
-                    VisualBellAnimation::Ease => cubic_bezier(0.25, 0.1, 0.25, 1.0, time),
-                    VisualBellAnimation::EaseOut => cubic_bezier(0.25, 0.1, 0.25, 1.0, time),
-                    VisualBellAnimation::EaseOutSine => cubic_bezier(0.39, 0.575, 0.565, 1.0, time),
-                    VisualBellAnimation::EaseOutQuad => cubic_bezier(0.25, 0.46, 0.45, 0.94, time),
-                    VisualBellAnimation::EaseOutCubic => cubic_bezier(0.215, 0.61, 0.355, 1.0, time),
-                    VisualBellAnimation::EaseOutQuart => cubic_bezier(0.165, 0.84, 0.44, 1.0, time),
-                    VisualBellAnimation::EaseOutQuint => cubic_bezier(0.23, 1.0, 0.32, 1.0, time),
-                    VisualBellAnimation::EaseOutExpo => cubic_bezier(0.19, 1.0, 0.22, 1.0, time),
-                    VisualBellAnimation::EaseOutCirc => cubic_bezier(0.075, 0.82, 0.165, 1.0, time),
-                    VisualBellAnimation::Linear => time,
-                };
-
-                // Since we want the `intensity` of the VisualBell to decay over
-                // `time`, we subtract the `inverse_intensity` from 1.0.
-                1.0 - inverse_intensity
+                1.0 - self.easing.ease(time)
             }
         }
     }
 
     pub fn update_config(&mut self, config: &Config) {
         let visual_bell_config = config.visual_bell();
-        self.animation = visual_bell_config.animation();
+        self.easing = visual_bell_config.easing();
         self.duration = visual_bell_config.duration();
     }
 }

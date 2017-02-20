@@ -28,7 +28,7 @@ use gl;
 use index::{Line, Column, RangeInclusive};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 
-use config::{Config, VisualBellEffect};
+use config::{Config, VisualBellConfig};
 use term::{self, cell, RenderableCell};
 use window::{Size, Pixels};
 
@@ -328,7 +328,7 @@ pub struct RenderApi<'a> {
     atlas: &'a mut Vec<Atlas>,
     program: &'a mut ShaderProgram,
     config: &'a Config,
-    visual_bell_effect: VisualBellEffect,
+    visual_bell_config: &'a VisualBellConfig,
     visual_bell_intensity: f32
 }
 
@@ -603,12 +603,12 @@ impl QuadRenderer {
             }
         }
 
-        let visual_bell_effect = config.visual_bell().effect();
+        let visual_bell_config = config.visual_bell();
 
         unsafe {
             self.program.activate();
             self.program.set_term_uniforms(props);
-            self.program.set_visual_bell(visual_bell_effect, visual_bell_intensity as _);
+            self.program.set_visual_bell(visual_bell_config, visual_bell_intensity as _);
 
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
@@ -621,7 +621,7 @@ impl QuadRenderer {
             batch: &mut self.batch,
             atlas: &mut self.atlas,
             program: &mut self.program,
-            visual_bell_effect: visual_bell_effect,
+            visual_bell_config: visual_bell_config,
             visual_bell_intensity: visual_bell_intensity as _,
             config: config,
         });
@@ -693,8 +693,8 @@ impl<'a> RenderApi<'a> {
     pub fn clear(&self) {
         let color = self.config.colors().primary.background;
         unsafe {
-            let (flash, intensity) = match self.visual_bell_effect {
-                VisualBellEffect::FlashBackground { color } => (color, self.visual_bell_intensity),
+            let (flash, intensity) = match self.visual_bell_config {
+                &VisualBellConfig::FlashBackground { color, duration, easing } => (color, self.visual_bell_intensity),
                 _ => (Rgb { r: 0, g: 0, b: 0 }, 0.0),
             };
             gl::ClearColor(
@@ -977,15 +977,15 @@ impl ShaderProgram {
         }
     }
 
-    fn set_visual_bell(&self, effect: VisualBellEffect, intensity: f32) {
+    fn set_visual_bell(&self, config: &VisualBellConfig, intensity: f32) {
         unsafe {
-            match effect {
-                VisualBellEffect::None => {
+            match config {
+                &VisualBellConfig::None => {
                     gl::Uniform3f(self.u_visual_bell_color, 0.0, 0.0, 0.0);
                     gl::Uniform1i(self.u_visual_bell_effect, 0);
                     gl::Uniform1f(self.u_visual_bell_intensity, 0.0);
                 },
-                VisualBellEffect::FlashText { color } => {
+                &VisualBellConfig::FlashText { color, duration, easing } => {
                     gl::Uniform3f(self.u_visual_bell_color,
                         color.r as f32 / 255.0,
                         color.g as f32 / 255.0,
@@ -993,7 +993,7 @@ impl ShaderProgram {
                     gl::Uniform1i(self.u_visual_bell_effect, 1);
                     gl::Uniform1f(self.u_visual_bell_intensity, intensity);
                 },
-                VisualBellEffect::FlashBackground { color } => {
+                &VisualBellConfig::FlashBackground { color, duration, easing } => {
                     gl::Uniform3f(self.u_visual_bell_color,
                         color.r as f32 / 255.0,
                         color.g as f32 / 255.0,

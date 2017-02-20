@@ -74,10 +74,10 @@ impl Default for Mouse {
     }
 }
 
-/// VisulBellAnimations are modeled after a subset of CSS transitions and Robert
+/// VisulBellEasings are modeled after a subset of CSS transitions and Robert
 /// Penner's Easing Functions.
-#[derive(Clone, Copy, Debug, Deserialize)]
-pub enum VisualBellAnimation {
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+pub enum VisualBellEasing {
     Ease,          // CSS
     EaseOut,       // CSS
     EaseOutSine,   // Penner
@@ -90,73 +90,101 @@ pub enum VisualBellAnimation {
     Linear,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
-pub enum VisualBellEffect {
+impl VisualBellEasing {
+    #[inline]
+    pub fn ease(&self, time: f64) -> f64 {
+        match self {
+            &VisualBellEasing::Ease => cubic_bezier(0.25, 0.1, 0.25, 1.0, time),
+            &VisualBellEasing::EaseOut => cubic_bezier(0.25, 0.1, 0.25, 1.0, time),
+            &VisualBellEasing::EaseOutSine => cubic_bezier(0.39, 0.575, 0.565, 1.0, time),
+            &VisualBellEasing::EaseOutQuad => cubic_bezier(0.25, 0.46, 0.45, 0.94, time),
+            &VisualBellEasing::EaseOutCubic => cubic_bezier(0.215, 0.61, 0.355, 1.0, time),
+            &VisualBellEasing::EaseOutQuart => cubic_bezier(0.165, 0.84, 0.44, 1.0, time),
+            &VisualBellEasing::EaseOutQuint => cubic_bezier(0.23, 1.0, 0.32, 1.0, time),
+            &VisualBellEasing::EaseOutExpo => cubic_bezier(0.19, 1.0, 0.22, 1.0, time),
+            &VisualBellEasing::EaseOutCirc => cubic_bezier(0.075, 0.82, 0.165, 1.0, time),
+            &VisualBellEasing::Linear => time,
+        }
+    }
+}
+
+fn cubic_bezier(p0: f64, p1: f64, p2: f64, p3: f64, x: f64) -> f64 {
+    (1.0 - x).powi(3) * p0 +
+    3.0 * (1.0 - x).powi(2) * x * p1 +
+    3.0 * (1.0 - x) * x.powi(2) * p2 +
+    x.powi(3) * p3
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub enum VisualBellConfig {
+    /// Do nothing when the visual bell is rung.
     None,
+
+    /// Flash the text color when the visual bell is rung.
     FlashText {
+        /// The color to flash the text with
         #[serde(deserialize_with="rgb_from_hex")]
-        color: Rgb
+        color: Rgb,
+
+        /// The effect's duration in milliseconds
+        #[serde(default="default_visual_bell_duration")]
+        duration: u16,
+
+        /// The effect's easing function
+        #[serde(default="default_visual_bell_easing")]
+        easing: VisualBellEasing,
     },
+
+    /// Flash the background color when the visual bell is rung.
     FlashBackground {
+        /// The color to flash the background with
         #[serde(deserialize_with="rgb_from_hex")]
-        color: Rgb
+        color: Rgb,
+
+        /// The effect's duration in milliseconds
+        #[serde(default="default_visual_bell_duration")]
+        duration: u16,
+
+        /// The effect's easing function
+        #[serde(default="default_visual_bell_easing")]
+        easing: VisualBellEasing,
     },
-}
-
-#[derive(Debug, Deserialize)]
-pub struct VisualBellConfig {
-    /// Visual bell animation function
-    #[serde(default="default_visual_bell_animation")]
-    animation: VisualBellAnimation,
-
-    /// Visual bell duration in milliseconds
-    #[serde(default="default_visual_bell_duration")]
-    duration: u16,
-
-    /// Visual bell effect
-    #[serde(default="default_visual_bell_effect")]
-    effect: VisualBellEffect,
-}
-
-fn default_visual_bell_animation() -> VisualBellAnimation {
-    VisualBellAnimation::EaseOutExpo
 }
 
 fn default_visual_bell_duration() -> u16 {
     150
 }
 
-fn default_visual_bell_effect() -> VisualBellEffect {
-    VisualBellEffect::None
+fn default_visual_bell_easing() -> VisualBellEasing {
+    VisualBellEasing::EaseOutExpo
 }
 
 impl VisualBellConfig {
-    /// Visual bell animation
-    #[inline]
-    pub fn animation(&self) -> VisualBellAnimation {
-        self.animation
-    }
-
-    /// Visual bell duration in milliseconds
+    /// The visual bell's duration in milliseconds
     #[inline]
     pub fn duration(&self) -> Duration {
-        Duration::from_millis(self.duration as u64)
+        let duration = match self {
+            &VisualBellConfig::None => 0,
+            &VisualBellConfig::FlashText { color, duration, easing } => duration,
+            &VisualBellConfig::FlashBackground { color, duration, easing } => duration,
+        };
+        Duration::from_millis(duration as _)
     }
 
-    /// Visual bell effect
+    /// The visual bell's easing function
     #[inline]
-    pub fn effect(&self) -> VisualBellEffect {
-        self.effect
+    pub fn easing(&self) -> VisualBellEasing {
+        match self {
+            &VisualBellConfig::None => default_visual_bell_easing(),
+            &VisualBellConfig::FlashText { color, duration, easing } => easing,
+            &VisualBellConfig::FlashBackground { color, duration, easing } => easing,
+        }
     }
 }
 
 impl Default for VisualBellConfig {
     fn default() -> VisualBellConfig {
-        VisualBellConfig {
-            animation: default_visual_bell_animation(),
-            duration: default_visual_bell_duration(),
-            effect: default_visual_bell_effect(),
-        }
+        VisualBellConfig::None
     }
 }
 
