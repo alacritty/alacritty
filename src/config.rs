@@ -93,8 +93,14 @@ pub enum VisualBellAnimation {
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 pub enum VisualBellEffect {
     None,
-    FlashText,
-    FlashBackground,
+    FlashText {
+        #[serde(deserialize_with="rgb_from_hex")]
+        color: Rgb
+    },
+    FlashBackground {
+        #[serde(deserialize_with="rgb_from_hex")]
+        color: Rgb
+    },
 }
 
 #[derive(Debug, Deserialize)]

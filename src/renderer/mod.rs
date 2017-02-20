@@ -109,6 +109,9 @@ pub struct ShaderProgram {
     /// Cell dimensions (pixels)
     u_cell_dim: GLint,
 
+    /// Visual bell color
+    u_visual_bell_color: GLint,
+
     /// Visual bell effect
     u_visual_bell_effect: GLint,
 
@@ -682,19 +685,22 @@ impl QuadRenderer {
     }
 }
 
+fn mix(x: f32, y: f32, a: f32) -> f32 {
+    x * (1.0 - a) + y * a
+}
+
 impl<'a> RenderApi<'a> {
     pub fn clear(&self) {
         let color = self.config.colors().primary.background;
         unsafe {
-            let offset = if self.visual_bell_effect == VisualBellEffect::FlashBackground {
-                self.visual_bell_intensity
-            } else {
-                0.0
+            let (flash, intensity) = match self.visual_bell_effect {
+                VisualBellEffect::FlashBackground { color } => (color, self.visual_bell_intensity),
+                _ => (Rgb { r: 0, g: 0, b: 0 }, 0.0),
             };
             gl::ClearColor(
-                (offset + color.r as f32 / 255.0).min(1.0),
-                (offset + color.g as f32 / 255.0).min(1.0),
-                (offset + color.b as f32 / 255.0).min(1.0),
+                mix(color.r as f32 / 255.0, flash.r as f32 / 255.0, intensity).min(1.0),
+                mix(color.g as f32 / 255.0, flash.g as f32 / 255.0, intensity).min(1.0),
+                mix(color.b as f32 / 255.0, flash.b as f32 / 255.0, intensity).min(1.0),
                 1.0
                 );
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -918,11 +924,12 @@ impl ShaderProgram {
         }
 
         // get uniform locations
-        let (projection, term_dim, cell_dim, visual_bell_effect, visual_bell_intensity, background) = unsafe {
+        let (projection, term_dim, cell_dim, visual_bell_color, visual_bell_effect, visual_bell_intensity, background) = unsafe {
             (
                 gl::GetUniformLocation(program, cptr!(b"projection\0")),
                 gl::GetUniformLocation(program, cptr!(b"termDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"cellDim\0")),
+                gl::GetUniformLocation(program, cptr!(b"visualBellColor\0")),
                 gl::GetUniformLocation(program, cptr!(b"visualBellEffect\0")),
                 gl::GetUniformLocation(program, cptr!(b"visualBellIntensity\0")),
                 gl::GetUniformLocation(program, cptr!(b"backgroundPass\0")),
@@ -936,6 +943,7 @@ impl ShaderProgram {
             u_projection: projection,
             u_term_dim: term_dim,
             u_cell_dim: cell_dim,
+            u_visual_bell_color: visual_bell_color,
             u_visual_bell_effect: visual_bell_effect,
             u_visual_bell_intensity: visual_bell_intensity,
             u_background: background,
@@ -971,8 +979,29 @@ impl ShaderProgram {
 
     fn set_visual_bell(&self, effect: VisualBellEffect, intensity: f32) {
         unsafe {
-            gl::Uniform1i(self.u_visual_bell_effect, effect as _);
-            gl::Uniform1f(self.u_visual_bell_intensity, intensity);
+            match effect {
+                VisualBellEffect::None => {
+                    gl::Uniform3f(self.u_visual_bell_color, 0.0, 0.0, 0.0);
+                    gl::Uniform1i(self.u_visual_bell_effect, 0);
+                    gl::Uniform1f(self.u_visual_bell_intensity, 0.0);
+                },
+                VisualBellEffect::FlashText { color } => {
+                    gl::Uniform3f(self.u_visual_bell_color,
+                        color.r as f32 / 255.0,
+                        color.g as f32 / 255.0,
+                        color.b as f32 / 255.0);
+                    gl::Uniform1i(self.u_visual_bell_effect, 1);
+                    gl::Uniform1f(self.u_visual_bell_intensity, intensity);
+                },
+                VisualBellEffect::FlashBackground { color } => {
+                    gl::Uniform3f(self.u_visual_bell_color,
+                        color.r as f32 / 255.0,
+                        color.g as f32 / 255.0,
+                        color.b as f32 / 255.0);
+                    gl::Uniform1i(self.u_visual_bell_effect, 2);
+                    gl::Uniform1f(self.u_visual_bell_intensity, intensity);
+                },
+            };
         }
     }
 

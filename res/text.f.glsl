@@ -15,6 +15,7 @@
 in vec2 TexCoords;
 in vec3 fg;
 in vec3 bg;
+flat in vec3 vbc;
 flat in int vbe;
 flat in float vbi;
 flat in int background;
@@ -31,9 +32,9 @@ void main()
 {
     if (background != 0) {
         alphaMask = vec4(1.0, 1.0, 1.0, 1.0);
-        color = vec4(bg + (vbe == FLASH_BACKGROUND ? vbi : 0), 1.0);
+        color = vec4(mix(bg, vbc, vbe == FLASH_BACKGROUND ? vbi : 0.0), 1.0);
     } else {
         alphaMask = vec4(texture(mask, TexCoords).rgb, 1.0);
-        color = vec4(fg + (vbe == FLASH_TEXT ? vbi : 0), 1.0);
+        color = vec4(mix(fg, vbc, vbe == FLASH_TEXT ? vbi : 0.0), 1.0);
     }
 }
