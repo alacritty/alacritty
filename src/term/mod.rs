@@ -372,9 +372,14 @@ impl VisualBell {
     }
 
     /// Check whether or not the visual bell has completed "ringing".
-    pub fn completed(&self) -> bool {
+    pub fn completed(&mut self) -> bool {
         match self.start_time {
-            Some(earlier) => Instant::now().duration_since(earlier) > self.duration,
+            Some(earlier) => {
+                if Instant::now().duration_since(earlier) >= self.duration {
+                    self.start_time = None;
+                }
+                false
+            },
             None => true
         }
     }
