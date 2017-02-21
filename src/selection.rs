@@ -78,27 +78,22 @@ impl Selection {
         let selection = mem::replace(self, Selection::Empty);
         let selection = match selection {
             Selection::Empty => {
-                let (start_side, end_side) = if location.front != location.tail {
-                    (Side::Left, Side::Right)
-                } else {
-                    (side, side)
-                };
                 // Start a selection
                 Selection::Active {
                     start: location,
                     end: location,
-                    start_side: start_side,
-                    end_side: end_side,
+                    start_side: side,
+                    end_side: side,
                     mode: mode,
                 }
             },
-            Selection::Active { start, start_side, end_side, .. } => {
+            Selection::Active { start, start_side, .. } => {
                 // Update ends
                 Selection::Active {
                     start: start,
                     start_side: start_side,
                     end: location,
-                    end_side: end_side,
+                    end_side: side,
                     mode: mode,
                 }
             }
@@ -121,10 +116,10 @@ impl Selection {
                     _ => {
                         let (front, tail, front_side, tail_side) = if *start > *end {
                             // Selected upward; start/end are swapped
-                            (end.front, start.tail, end_side, start_side)
+                            (end.front, start.front, end_side, start_side)
                         } else {
                             // Selected downward; no swapping
-                            (start.front, end.tail, start_side, end_side)
+                            (start.front, end.front, start_side, end_side)
                         };
 
                         debug_assert!(!(tail < front));
@@ -298,7 +293,7 @@ impl ToRange for Span {
 #[cfg(test)]
 mod test {
     use index::{Line, Column, Side, Point};
-    use super::{Selection, Span, SpanType};
+    use super::{Selection, SelectionMode, Span, SpanType};
 
     /// Test case of single cell selection
     ///
@@ -307,15 +302,16 @@ mod test {
     /// 3. [BE]
     #[test]
     fn single_cell_left_to_right() {
-        let location = Point { line: Line(0), col: Column(0) };
+        let point = Point { line: Line(0), col: Column(0) };
+        let location = Span { front: point, tail: point, ty: SpanType::Inclusive };
         let mut selection = Selection::Empty;
-        selection.update(location, Side::Left);
-        selection.update(location, Side::Right);
+        selection.update(location, Side::Left, SelectionMode::Cell);
+        selection.update(location, Side::Right, SelectionMode::Cell);
 
         assert_eq!(selection.span().unwrap(), Span {
             ty: SpanType::Inclusive,
-            front: location,
-            tail: location
+            front: point,
+            tail: point,
         });
     }
 
@@ -326,15 +322,16 @@ mod test {
     /// 3. [EB]
     #[test]
     fn single_cell_right_to_left() {
-        let location = Point { line: Line(0), col: Column(0) };
+        let point = Point { line: Line(0), col: Column(0) };
+        let location = Span { front: point, tail: point, ty: SpanType::Inclusive };
         let mut selection = Selection::Empty;
-        selection.update(location, Side::Right);
-        selection.update(location, Side::Left);
+        selection.update(location, Side::Right, SelectionMode::Cell);
+        selection.update(location, Side::Left, SelectionMode::Cell);
 
         assert_eq!(selection.span().unwrap(), Span {
             ty: SpanType::Inclusive,
-            front: location,
-            tail: location
+            front: point,
+            tail: point,
         });
     }
 
@@ -346,8 +343,12 @@ mod test {
     #[test]
     fn between_adjacent_cells_left_to_right() {
         let mut selection = Selection::Empty;
-        selection.update(Point::new(Line(0), Column(0)), Side::Right);
-        selection.update(Point::new(Line(0), Column(1)), Side::Left);
+        let point1 = Point::new(Line(0), Column(0));
+        let point2 = Point::new(Line(0), Column(1));
+        let loc1 = Span { front: point1, tail: point1, ty: SpanType::Inclusive };
+        let loc2 = Span { front: point2, tail: point2, ty: SpanType::Inclusive };
+        selection.update(loc1, Side::Right, SelectionMode::Cell);
+        selection.update(loc2, Side::Left, SelectionMode::Cell);
 
         assert_eq!(selection.span(), None);
     }
@@ -360,8 +361,12 @@ mod test {
     #[test]
     fn between_adjacent_cells_right_to_left() {
         let mut selection = Selection::Empty;
-        selection.update(Point::new(Line(0), Column(1)), Side::Left);
-        selection.update(Point::new(Line(0), Column(0)), Side::Right);
+        let point1 = Point::new(Line(0), Column(0));
+        let point2 = Point::new(Line(0), Column(1));
+        let loc1 = Span { front: point1, tail: point1, ty: SpanType::Inclusive };
+        let loc2 = Span { front: point2, tail: point2, ty: SpanType::Inclusive };
+        selection.update(loc2, Side::Left, SelectionMode::Cell);
+        selection.update(loc1, Side::Right, SelectionMode::Cell);
 
         assert_eq!(selection.span(), None);
     }
@@ -378,8 +383,12 @@ mod test {
     #[test]
     fn across_adjacent_lines_upward_final_cell_exclusive() {
         let mut selection = Selection::Empty;
-        selection.update(Point::new(Line(1), Column(1)), Side::Right);
-        selection.update(Point::new(Line(0), Column(1)), Side::Right);
+        let point1 = Point::new(Line(1), Column(1));
+        let point2 = Point::new(Line(0), Column(1));
+        let loc1 = Span { front: point1, tail: point1, ty: SpanType::Inclusive };
+        let loc2 = Span { front: point2, tail: point2, ty: SpanType::Inclusive };
+        selection.update(loc1, Side::Right, SelectionMode::Cell);
+        selection.update(loc2, Side::Right, SelectionMode::Cell);
 
         assert_eq!(selection.span().unwrap(), Span {
             front: Point::new(Line(0), Column(1)),
@@ -402,9 +411,15 @@ mod test {
     #[test]
     fn selection_bigger_then_smaller() {
         let mut selection = Selection::Empty;
-        selection.update(Point::new(Line(0), Column(1)), Side::Right);
-        selection.update(Point::new(Line(1), Column(1)), Side::Right);
-        selection.update(Point::new(Line(1), Column(0)), Side::Right);
+        let point1 = Point::new(Line(0), Column(1));
+        let point2 = Point::new(Line(1), Column(1));
+        let point3 = Point::new(Line(1), Column(0));
+        let loc1 = Span { front: point1, tail: point1, ty: SpanType::Inclusive };
+        let loc2 = Span { front: point2, tail: point2, ty: SpanType::Inclusive };
+        let loc3 = Span { front: point3, tail: point3, ty: SpanType::Inclusive };
+        selection.update(loc1, Side::Right, SelectionMode::Cell);
+        selection.update(loc2, Side::Right, SelectionMode::Cell);
+        selection.update(loc3, Side::Right, SelectionMode::Cell);
 
         assert_eq!(selection.span().unwrap(), Span {
             front: Point::new(Line(0), Column(1)),
