@@ -427,4 +427,142 @@ mod test {
             ty: SpanType::ExcludeFront
         });
     }
+
+    /// Test non-cell selection
+    ///
+    /// 1. [  ][  ][  ][  ][  ]
+    ///    [  ][  ][  ][  ][  ]
+    /// 2. [  ][BX][XX][XE][  ]
+    ///    [  ][  ][  ][  ][  ]
+    #[test]
+    fn selection_semantic_mode() {
+        let mut selection = Selection::Empty;
+        let location = Span { front: Point::new(Line(0), Column(1)), tail: Point::new(Line(0), Column(3)), ty: SpanType::Inclusive };
+        selection.update(location, Side::Left, SelectionMode::Semantic);
+
+        assert_eq!(selection.span().unwrap(), Span {
+            front: Point::new(Line(0), Column(1)),
+            tail: Point::new(Line(0), Column(3)),
+            ty: SpanType::Inclusive,
+        });
+    }
+
+    /// Test non-cell selection
+    ///
+    /// 1. [  ][  ][  ][  ][  ]
+    ///    [  ][  ][  ][  ][  ]
+    /// 2. [  ][BX][XX][XE][  ]
+    ///    [  ][  ][  ][  ][  ]
+    /// 3. [  ][BX][XX][XE][  ]
+    ///    [BX][XE][  ][  ][  ]
+    /// 4. [  ][BX][XX][XX][XX]
+    ///    [XX][XE][  ][  ][  ]
+    #[test]
+    fn selection_semantic_mode_extend() {
+        let mut selection = Selection::Empty;
+        let location = Span { front: Point::new(Line(0), Column(1)), tail: Point::new(Line(0), Column(3)), ty: SpanType::Inclusive };
+        selection.update(location, Side::Left, SelectionMode::Semantic);
+        let location = Span { front: Point::new(Line(1), Column(0)), tail: Point::new(Line(1), Column(1)), ty: SpanType::Inclusive };
+        selection.update(location, Side::Left, SelectionMode::Semantic);
+
+        assert_eq!(selection.span().unwrap(), Span {
+            front: Point::new(Line(0), Column(1)),
+            tail: Point::new(Line(1), Column(1)),
+            ty: SpanType::Inclusive,
+        });
+    }
+
+    /// Test non-cell selection
+    ///
+    /// 1. [  ][  ][  ][  ][  ]
+    ///    [  ][  ][  ][  ][  ]
+    /// 2. [  ][  ][  ][  ][  ]
+    ///    [BX][XE][  ][  ][  ]
+    /// 3. [  ][BX][XX][XE][  ]
+    ///    [BX][XE][  ][  ][  ]
+    /// 4. [  ][BX][XX][XX][XX]
+    ///    [XX][XE][  ][  ][  ]
+    #[test]
+    fn selection_semantic_mode_extend_reverse() {
+        let mut selection = Selection::Empty;
+        let location = Span { front: Point::new(Line(1), Column(0)), tail: Point::new(Line(1), Column(1)), ty: SpanType::Inclusive };
+        selection.update(location, Side::Left, SelectionMode::Semantic);
+        let location = Span { front: Point::new(Line(0), Column(1)), tail: Point::new(Line(0), Column(3)), ty: SpanType::Inclusive };
+        selection.update(location, Side::Left, SelectionMode::Semantic);
+
+        assert_eq!(selection.span().unwrap(), Span {
+            front: Point::new(Line(0), Column(1)),
+            tail: Point::new(Line(1), Column(1)),
+            ty: SpanType::Inclusive,
+        });
+    }
+
+    /// Test non-cell selection
+    ///
+    /// 1. [  ][  ][  ][  ][  ]
+    ///    [  ][  ][  ][  ][  ]
+    /// 2. [BX][XX][XX][XX][XE]
+    ///    [  ][  ][  ][  ][  ]
+    #[test]
+    fn selection_line_mode() {
+        let mut selection = Selection::Empty;
+        let location = Span { front: Point::new(Line(0), Column(0)), tail: Point::new(Line(0), Column(4)), ty: SpanType::Inclusive };
+        selection.update(location, Side::Left, SelectionMode::Line);
+
+        assert_eq!(selection.span().unwrap(), Span {
+            front: Point::new(Line(0), Column(0)),
+            tail: Point::new(Line(0), Column(4)),
+            ty: SpanType::Inclusive,
+        });
+    }
+
+    /// Test non-cell selection
+    ///
+    /// 1. [  ][  ][  ][  ][  ]
+    ///    [  ][  ][  ][  ][  ]
+    /// 2. [BX][XX][XX][XX][XE]
+    ///    [  ][  ][  ][  ][  ]
+    /// 3. [BX][XX][XX][XX][XE]
+    ///    [BX][XX][XX][XX][XE]
+    /// 4. [BX][XX][XX][XX][XX]
+    ///    [XX][XX][XX][XX][XE]
+    #[test]
+    fn selection_line_mode_extend() {
+        let mut selection = Selection::Empty;
+        let location = Span { front: Point::new(Line(0), Column(0)), tail: Point::new(Line(0), Column(4)), ty: SpanType::Inclusive };
+        selection.update(location, Side::Left, SelectionMode::Line);
+        let location = Span { front: Point::new(Line(1), Column(0)), tail: Point::new(Line(1), Column(4)), ty: SpanType::Inclusive };
+        selection.update(location, Side::Left, SelectionMode::Line);
+
+        assert_eq!(selection.span().unwrap(), Span {
+            front: Point::new(Line(0), Column(0)),
+            tail: Point::new(Line(1), Column(4)),
+            ty: SpanType::Inclusive,
+        });
+    }
+
+    /// Test non-cell selection
+    ///
+    /// 1. [  ][  ][  ][  ][  ]
+    ///    [  ][  ][  ][  ][  ]
+    /// 2. [  ][  ][  ][  ][  ]
+    ///    [BX][XX][XX][XX][XE]
+    /// 3. [BX][XX][XX][XX][XE]
+    ///    [BX][XX][XX][XX][XE]
+    /// 4. [BX][XX][XX][XX][XX]
+    ///    [XX][XX][XX][XX][XE]
+    #[test]
+    fn selection_line_mode_extend_reverse() {
+        let mut selection = Selection::Empty;
+        let location = Span { front: Point::new(Line(1), Column(0)), tail: Point::new(Line(1), Column(4)), ty: SpanType::Inclusive };
+        selection.update(location, Side::Left, SelectionMode::Line);
+        let location = Span { front: Point::new(Line(0), Column(0)), tail: Point::new(Line(0), Column(4)), ty: SpanType::Inclusive };
+        selection.update(location, Side::Left, SelectionMode::Line);
+
+        assert_eq!(selection.span().unwrap(), Span {
+            front: Point::new(Line(0), Column(0)),
+            tail: Point::new(Line(1), Column(4)),
+            ty: SpanType::Inclusive,
+        });
+    }
 }
