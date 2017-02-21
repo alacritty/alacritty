@@ -232,7 +232,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             } else {
                 Side::Left
             };
-            self.ctx.mouse_mut().cell_side = cell_side;
 
             if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
                 let report_mode = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION;
