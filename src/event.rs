@@ -261,7 +261,7 @@ impl<N: Notify> Processor<N> {
     pub fn process_events<'a>(
         &mut self,
         term: &'a FairMutex<Term>,
-        window: &Window
+        window: &mut Window
     ) -> MutexGuard<'a, Term> {
         // Terminal is lazily initialized the first time an event is returned
         // from the blocking WaitEventsIterator. Otherwise, the pty reader would

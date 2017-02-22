@@ -231,8 +231,8 @@ impl Display {
         self.tx.clone()
     }
 
-    pub fn window(&self) -> &Window {
-        &self.window
+    pub fn window(&mut self) -> &mut Window {
+        &mut self.window
     }
 
     /// Process pending resize events
