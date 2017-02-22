@@ -224,7 +224,9 @@ impl<N: Notify> Processor<N> {
                 processor.ctx.terminal.dirty = true;
             },
             glutin::Event::KeyboardInput(state, _code, key, mods, string) => {
-                *hide_cursor = true;
+                if state == ElementState::Pressed {
+                    *hide_cursor = true;
+                }
                 processor.process_key(state, key, mods, string);
             },
             glutin::Event::MouseInput(state, button) => {
@@ -251,6 +253,9 @@ impl<N: Notify> Processor<N> {
             glutin::Event::Refresh |
             glutin::Event::Awakened => {
                 processor.ctx.terminal.dirty = true;
+            },
+            glutin::Event::Focused(false) => {
+                *hide_cursor = false;
             },
             _ => (),
         }
