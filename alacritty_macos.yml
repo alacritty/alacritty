@@ -232,6 +232,8 @@ mouse:
 selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>"
 
+hide_cursor_when_typing: false
+
 # Shell
 #
 # You can set shell.program to the path of your favorite shell, e.g. /bin/fish.

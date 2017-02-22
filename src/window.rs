@@ -288,6 +288,13 @@ impl Window {
     pub fn set_title(&self, title: &str) {
         self.glutin_window.set_title(title);
     }
+
+    /// Set cursor visible
+    #[inline]
+    pub fn set_cursor_visible(&self, show: bool) {
+        self.glutin_window.set_cursor(if show { glutin::MouseCursor::Default }
+                                      else { glutin::MouseCursor::NoneCursor });
+    }
 }
 
 impl Proxy {
