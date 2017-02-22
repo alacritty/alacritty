@@ -53,6 +53,7 @@ type Result<T> = ::std::result::Result<T, Error>;
 /// Wraps the underlying windowing library to provide a stable API in Alacritty
 pub struct Window {
     glutin_window: glutin::Window,
+    cursor_visible: bool,
 }
 
 /// Threadsafe APIs for the window
@@ -218,6 +219,7 @@ impl Window {
 
         Ok(Window {
             glutin_window: window,
+            cursor_visible: true,
         })
     }
 
@@ -290,10 +292,12 @@ impl Window {
     }
 
     /// Set cursor visible
-    #[inline]
-    pub fn set_cursor_visible(&self, show: bool) {
-        self.glutin_window.set_cursor(if show { glutin::MouseCursor::Default }
-                                      else { glutin::MouseCursor::NoneCursor });
+    pub fn set_cursor_visible(&mut self, visible: bool) {
+        if visible != self.cursor_visible {
+            self.cursor_visible = visible;
+            self.glutin_window.set_cursor(if visible { glutin::MouseCursor::Default }
+                                          else { glutin::MouseCursor::NoneCursor });
+        }
     }
 }
 
