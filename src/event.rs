@@ -224,6 +224,8 @@ impl<N: Notify> Processor<N> {
                 processor.ctx.terminal.dirty = true;
             },
             glutin::Event::KeyboardInput(state, _code, key, mods, string) => {
+                // Ensure that key event originates from our window. For example using a shortcut
+                // to switch windows could generate a release key event.
                 if state == ElementState::Pressed {
                     *hide_cursor = true;
                 }
