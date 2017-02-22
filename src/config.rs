@@ -227,6 +227,10 @@ pub struct Config {
     /// Visual bell configuration
     #[serde(default)]
     visual_bell: VisualBellConfig,
+
+    /// Hide cursor when typing
+    #[serde(default)]
+    hide_cursor_when_typing: bool,
 }
 
 #[cfg(not(target_os="macos"))]
@@ -273,6 +277,7 @@ impl Default for Config {
             config_path: None,
             visual_bell: Default::default(),
             env: Default::default(),
+            hide_cursor_when_typing: Default::default(),
         }
     }
 }
@@ -1006,6 +1011,12 @@ impl Config {
 
     pub fn env(&self) -> &HashMap<String, String> {
         &self.env
+    }
+
+    /// Should hide cursor when typing
+    #[inline]
+    pub fn hide_cursor_when_typing(&self) -> bool {
+        self.hide_cursor_when_typing
     }
 
     fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {

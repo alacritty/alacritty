@@ -142,6 +142,8 @@ pub struct Processor<N> {
     ref_test: bool,
     size_info: SizeInfo,
     pub selection: Selection,
+    hide_cursor_when_typing: bool,
+    hide_cursor: bool,
 }
 
 /// Notify that the terminal was resized
@@ -178,6 +180,8 @@ impl<N: Notify> Processor<N> {
             mouse: Default::default(),
             selection: Default::default(),
             size_info: size_info,
+            hide_cursor_when_typing: config.hide_cursor_when_typing(),
+            hide_cursor: false,
         }
     }
 
@@ -189,6 +193,7 @@ impl<N: Notify> Processor<N> {
         event: glutin::Event,
         ref_test: bool,
         resize_tx: &mpsc::Sender<(u32, u32)>,
+        hide_cursor: &mut bool,
     ) {
         match event {
             glutin::Event::Closed => {
@@ -219,9 +224,11 @@ impl<N: Notify> Processor<N> {
                 processor.ctx.terminal.dirty = true;
             },
             glutin::Event::KeyboardInput(state, _code, key, mods, string) => {
+                *hide_cursor = true;
                 processor.process_key(state, key, mods, string);
             },
             glutin::Event::MouseInput(state, button) => {
+                *hide_cursor = false;
                 processor.mouse_input(state, button);
                 processor.ctx.terminal.dirty = true;
             },
@@ -229,6 +236,7 @@ impl<N: Notify> Processor<N> {
                 let x = limit(x, 0, processor.ctx.size_info.width as i32);
                 let y = limit(y, 0, processor.ctx.size_info.height as i32);
 
+                *hide_cursor = false;
                 processor.mouse_moved(x as u32, y as u32);
 
                 if !processor.ctx.selection.is_empty() {
@@ -236,6 +244,7 @@ impl<N: Notify> Processor<N> {
                 }
             },
             glutin::Event::MouseWheel(scroll_delta, touch_phase) => {
+                *hide_cursor = false;
                 processor.on_mouse_wheel(scroll_delta, touch_phase);
             },
             glutin::Event::Focused(true) |
@@ -275,6 +284,7 @@ impl<N: Notify> Processor<N> {
                         $event,
                         self.ref_test,
                         &self.resize_tx,
+                        &mut self.hide_cursor,
                     )
                 }
             }
@@ -308,6 +318,10 @@ impl<N: Notify> Processor<N> {
 
             for event in window.poll_events() {
                 process!(event);
+            }
+
+            if self.hide_cursor_when_typing {
+                window.set_cursor_visible(!self.hide_cursor);
             }
         }
 
