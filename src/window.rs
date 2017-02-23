@@ -32,7 +32,7 @@ fn window_resize_handler(width: u32, height: u32) {
 
 lazy_static! {
     /// The resize callback invoked by `window_resize_handler`
-   static ref RESIZE_CALLBACK: Mutex<Option<Box<Fn(u32, u32) + 'static + Send>>> = Mutex::new(None); 
+   static ref RESIZE_CALLBACK: Mutex<Option<Box<Fn(u32, u32) + 'static + Send>>> = Mutex::new(None);
 }
 
 /// Window errors
@@ -295,8 +295,8 @@ impl Window {
     pub fn set_cursor_visible(&mut self, visible: bool) {
         if visible != self.cursor_visible {
             self.cursor_visible = visible;
-            self.glutin_window.set_cursor(if visible { glutin::MouseCursor::Default }
-                                          else { glutin::MouseCursor::NoneCursor });
+            self.glutin_window.set_cursor_state(if visible { glutin::CursorState::Normal }
+                                                else { glutin::CursorState::Hide }).unwrap();
         }
     }
 }
