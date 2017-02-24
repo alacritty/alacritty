@@ -383,10 +383,10 @@ pub enum NamedColor {
     Foreground = 256,
     /// The background color
     Background,
-    /// The cursor foreground color
-    CursorForeground,
-    /// The cursor background color
-    CursorBackground,
+    /// Color for the text under the cursor
+    CursorText,
+    /// Color for the cursor itself
+    Cursor,
 }
 
 impl NamedColor {

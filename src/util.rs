@@ -49,19 +49,33 @@ pub fn limit<T: Ord>(value: T, min: T, max: T) -> T {
 pub mod fmt {
     use std::fmt;
 
-    /// Write a `Display` or `Debug` escaped with Red
-    pub struct Red<T>(pub T);
+    macro_rules! define_colors {
+        ($($(#[$attrs:meta])* pub struct $s:ident => $color:expr;)*) => {
+            $(
+                $(#[$attrs])*
+                pub struct $s<T>(pub T);
 
-    impl<T: fmt::Display> fmt::Display for Red<T> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "\x1b[31m{}\x1b[0m", self.0)
+                impl<T: fmt::Display> fmt::Display for $s<T> {
+                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                        write!(f, "\x1b[{}m{}\x1b[0m", $color, self.0)
+                    }
+                }
+
+                impl<T: fmt::Debug> fmt::Debug for $s<T> {
+                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                        write!(f, "\x1b[{}m{:?}\x1b[0m", $color, self.0)
+                    }
+                }
+            )*
         }
     }
 
-    impl<T: fmt::Debug> fmt::Debug for Red<T> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "\x1b[31m{:?}\x1b[0m", self.0)
-        }
+    define_colors! {
+        /// Write a `Display` or `Debug` escaped with Red
+        pub struct Red => "31";
+
+        /// Write a `Display` or `Debug` escaped with Yellow
+        pub struct Yellow => "33";
     }
 }
 

@@ -91,9 +91,8 @@ impl<'a> RenderableCellsIter<'a> {
 
             if self.config.custom_cursor_colors() {
                 let cell = &mut self.grid[self.cursor];
-                cell.fg = Color::Named(NamedColor::CursorForeground);
-                cell.bg = Color::Named(NamedColor::CursorBackground);
-
+                cell.fg = Color::Named(NamedColor::CursorText);
+                cell.bg = Color::Named(NamedColor::Cursor);
             } else {
                 let cell = &mut self.grid[self.cursor];
                 mem::swap(&mut cell.fg, &mut cell.bg);

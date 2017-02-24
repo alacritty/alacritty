@@ -24,6 +24,8 @@ use notify::{Watcher as WatcherApi, RecommendedWatcher as FileWatcher, op};
 use input::{Action, Binding, MouseBinding, KeyBinding};
 use index::{Line, Column};
 
+use util::fmt::Yellow;
+
 /// Function that returns true for serde default
 fn true_bool() -> bool {
     true
@@ -694,17 +696,70 @@ pub enum Error {
 #[derive(Debug, Deserialize)]
 pub struct Colors {
     pub primary: PrimaryColors,
-    #[serde(default="default_cursor_colors")]
-    pub cursor: PrimaryColors,
+    #[serde(deserialize_with="deserialize_cursor_colors", default="default_cursor_colors")]
+    pub cursor: CursorColors,
     pub normal: AnsiColors,
     pub bright: AnsiColors,
 }
 
-fn default_cursor_colors() -> PrimaryColors {
-    PrimaryColors {
-        foreground: Rgb { r: 0, g: 0, b: 0 },
-        background: Rgb { r: 0xff, g: 0xff, b: 0xff },
+fn deserialize_cursor_colors<D>(deserializer: D) -> ::std::result::Result<CursorColors, D::Error>
+    where D: de::Deserializer
+{
+    let either = CursorOrPrimaryColors::deserialize(deserializer)?;
+    Ok(either.into_cursor_colors())
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum CursorOrPrimaryColors {
+    Cursor {
+        #[serde(deserialize_with = "rgb_from_hex")]
+        text: Rgb,
+        #[serde(deserialize_with = "rgb_from_hex")]
+        cursor: Rgb,
+    },
+    Primary {
+        #[serde(deserialize_with = "rgb_from_hex")]
+        foreground: Rgb,
+        #[serde(deserialize_with = "rgb_from_hex")]
+        background: Rgb,
     }
+}
+
+impl CursorOrPrimaryColors {
+    fn into_cursor_colors(self) -> CursorColors {
+        match self {
+            CursorOrPrimaryColors::Cursor { text, cursor } => CursorColors {
+                text: text,
+                cursor: cursor
+            },
+            CursorOrPrimaryColors::Primary { foreground, background } => {
+                // Must print in config since logger isn't setup yet.
+                println!("{}",
+                    Yellow("You're using a deprecated form of cursor color config. Please update \
+                        your config to use `text` and `cursor` properties instead of `foreground` \
+                        and `background`. This will become an error in a future release.")
+                );
+                CursorColors {
+                    text: foreground,
+                    cursor: background
+                }
+            }
+        }
+    }
+}
+
+fn default_cursor_colors() -> CursorColors {
+    CursorColors {
+        text: Rgb { r: 0, g: 0, b: 0 },
+        cursor: Rgb { r: 0xff, g: 0xff, b: 0xff },
+    }
+}
+
+#[derive(Debug)]
+pub struct CursorColors {
+    pub text: Rgb,
+    pub cursor: Rgb,
 }
 
 #[derive(Debug, Deserialize)]
@@ -731,7 +786,7 @@ impl Default for Colors {
                 blue: Rgb {r: 0x7a, g: 0xa6, b: 0xda},
                 magenta: Rgb {r: 0xc3, g: 0x97, b: 0xd8},
                 cyan: Rgb {r: 0x70, g: 0xc0, b: 0xba},
-                white: Rgb {r: 0x42, g: 0x42, b: 0x42},
+                white: Rgb {r: 0xea, g: 0xea, b: 0xea},
             },
             bright: AnsiColors {
                 black: Rgb {r: 0x66, g: 0x66, b: 0x66},
@@ -741,7 +796,7 @@ impl Default for Colors {
                 blue: Rgb {r: 0x7a, g: 0xa6, b: 0xda},
                 magenta: Rgb {r: 0xb7, g: 0x7e, b: 0xe0},
                 cyan: Rgb {r: 0x54, g: 0xce, b: 0xd6},
-                white: Rgb {r: 0x2a, g: 0x2a, b: 0x2a},
+                white: Rgb {r: 0xff, g: 0xff, b: 0xff},
             }
         }
     }
