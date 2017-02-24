@@ -78,8 +78,8 @@ colors:
 
   # Colors the cursor will use if `custom_cursor_colors` is true
   cursor:
-    background: '0xffffff'
-    foreground: '0x000000'
+    text: '0x000000'
+    cursor: '0xffffff'
 
   # Normal colors
   normal:

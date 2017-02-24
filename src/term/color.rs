@@ -53,8 +53,8 @@ impl List {
         self[ansi::NamedColor::Background] = colors.primary.background;
 
         // Foreground and background for custom cursor colors
-        self[ansi::NamedColor::CursorForeground] = colors.cursor.foreground;
-        self[ansi::NamedColor::CursorBackground] = colors.cursor.background;
+        self[ansi::NamedColor::CursorText] = colors.cursor.text;
+        self[ansi::NamedColor::Cursor]     = colors.cursor.cursor;
     }
 
     fn fill_cube(&mut self) {
