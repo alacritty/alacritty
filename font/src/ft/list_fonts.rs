@@ -30,6 +30,8 @@ pub mod fc {
     use self::ffi::{FcObjectSetCreate, FcObjectSetAdd};
     use self::ffi::{FcResultMatch, FcResultNoMatch, FcFontSetList};
     use self::ffi::{FcChar8, FcConfig, FcPattern, FcFontSet, FcObjectSet, FcCharSet};
+    use self::ffi::{FcCharSetCreate, FcCharSetAddChar, FcChar32};
+    use self::ffi::{FcPatternGetCharSet, FcPatternAddCharSet};
     use self::ffi::{FcFontSetDestroy, FcPatternDestroy, FcObjectSetDestroy, FcConfigDestroy};
     use self::ffi::{FcFontMatch, FcFontList, FcFontSort, FcConfigSubstitute, FcDefaultSubstitute};
     use self::ffi::{FcMatchFont, FcMatchPattern, FcMatchScan, FC_SLANT_ITALIC, FC_SLANT_ROMAN};
@@ -292,6 +294,21 @@ pub mod fc {
     }
 
     impl PatternRef {
+        /// Add a charset to the pattern
+        ///
+        /// Note, this requires a char which may or may not represent
+        /// a full character.
+        unsafe fn add_charset(&mut self, object: &[u8], value: char) -> bool {
+            let charset = FcCharSetCreate();
+            FcCharSetAddChar(charset, value as FcChar32) == 1;
+
+            FcPatternAddCharSet(
+                self.as_ptr(),
+                object.as_ptr() as *mut c_char,
+                charset
+            ) == 1
+        }
+
         /// Add a string value to the pattern
         ///
         /// If the returned value is `true`, the value is added at the end of
@@ -339,6 +356,12 @@ pub mod fc {
         pattern_add_string! {
             add_family => b"family\0",
             add_style => b"style\0"
+        }
+
+        pub fn add_glyph(&mut self, glyph: char) -> bool {
+            unsafe {
+                self.add_charset(b"charset\0", glyph)
+            }
         }
 
         pub fn set_slant(&mut self, slant: Slant) -> bool {
