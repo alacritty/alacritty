@@ -87,8 +87,8 @@ impl ::Rasterize for FreeTypeRasterizer {
     }
 
     fn get_glyph(&mut self, glyph_key: &GlyphKey) -> Result<RasterizedGlyph, Error> {
-        let face = self.faces
-            .get(&glyph_key.font_key)
+        let faces = self.faces.clone();
+        let face = faces.get(&glyph_key.font_key)
             .ok_or(Error::FontNotLoaded)?;
 
         let size = glyph_key.size.as_f32_pts() * self.dpr;
@@ -102,8 +102,9 @@ impl ::Rasterize for FreeTypeRasterizer {
             self.load_font(
                 &FontDesc::new("fallback", Style::ContainsGlyph(glyph_key.c)),
                 glyph_key.size
+//            ).and_then(|_| {
+//                return self.get_glyph(&glyph_key)
             );
-            return self.get_glyph(&glyph_key);
         }
 
         face.load_glyph(index as u32, freetype::face::TARGET_LIGHT)?;

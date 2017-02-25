@@ -31,7 +31,7 @@ pub mod fc {
     use self::ffi::{FcResultMatch, FcResultNoMatch, FcFontSetList};
     use self::ffi::{FcChar8, FcConfig, FcPattern, FcFontSet, FcObjectSet, FcCharSet};
     use self::ffi::{FcCharSetCreate, FcCharSetAddChar, FcChar32};
-    use self::ffi::{FcPatternGetCharSet, FcPatternAddCharSet};
+    use self::ffi::{FcPatternGetCharSet, FcPatternAddCharSet, FcPatternPrint, FcCharSetCount};
     use self::ffi::{FcFontSetDestroy, FcPatternDestroy, FcObjectSetDestroy, FcConfigDestroy};
     use self::ffi::{FcFontMatch, FcFontList, FcFontSort, FcConfigSubstitute, FcDefaultSubstitute};
     use self::ffi::{FcMatchFont, FcMatchPattern, FcMatchScan, FC_SLANT_ITALIC, FC_SLANT_ROMAN};
@@ -102,7 +102,7 @@ pub mod fc {
             let mut result = FcResultNoMatch;
 
             let mut charsets: *mut FcCharSet = ptr::null_mut();
-
+            println!("Pattern! {:?}", pattern.as_ptr());
             let ptr = FcFontSort(
                 config.as_ptr(),
                 pattern.as_ptr(),
@@ -196,6 +196,15 @@ pub mod fc {
     impl Pattern {
         pub fn new() -> Pattern {
             Pattern(unsafe { FcPatternCreate() })
+        }
+    }
+
+    impl ::fmt::Debug for Pattern {
+        fn fmt(&self, f: &mut ::fmt::Formatter) -> ::fmt::Result {
+            unsafe {
+                FcPatternPrint(self.as_ptr());
+            }
+            Ok(())
         }
     }
 
@@ -301,7 +310,7 @@ pub mod fc {
         unsafe fn add_charset(&mut self, object: &[u8], value: char) -> bool {
             let charset = FcCharSetCreate();
             FcCharSetAddChar(charset, value as FcChar32) == 1;
-
+            println!("Count: {:?}", FcCharSetCount(charset));
             FcPatternAddCharSet(
                 self.as_ptr(),
                 object.as_ptr() as *mut c_char,
@@ -360,6 +369,7 @@ pub mod fc {
 
         pub fn add_glyph(&mut self, glyph: char) -> bool {
             unsafe {
+                println!("Glyph is: {:?}", glyph);
                 self.add_charset(b"charset\0", glyph)
             }
         }
