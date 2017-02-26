@@ -336,6 +336,8 @@ impl Font {
         Metrics {
             average_advance: average_advance,
             line_height: line_height,
+            height: line_height,
+            width: average_advance,
         }
     }
 
