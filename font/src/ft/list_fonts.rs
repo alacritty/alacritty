@@ -376,9 +376,11 @@ pub mod fc {
 
         /// Add charset to the pattern
         ///
-        /// The lifetimes here ensure that the charset is alive at least as long
-        /// as the pattern.
-        pub fn add_charset<'b, 'a: 'b>(&'b self, charset: &'a CharSetRef) -> bool {
+        /// The referenced charset is copied by fontconfig internally using
+        /// FcValueSave so that no references to application provided memory are
+        /// retained. That is, the CharSet can be safely dropped immediately
+        /// after being added to the pattern.
+        pub unsafe fn add_charset(&self, charset: &CharSetRef) -> bool {
             unsafe {
                 FcPatternAddCharSet(
                     self.as_ptr(),
@@ -565,6 +567,7 @@ mod tests {
         charset.add('💖');
         let mut pattern = fc::Pattern::new();
         pattern.add_charset(&charset);
+        drop(charset);
 
         let config = fc::Config::get_current();
         let fonts = fc::font_sort(config, &mut pattern).expect("font_sort");
@@ -581,4 +584,4 @@ mod tests {
             println!("");
         }
     }
-}
+
