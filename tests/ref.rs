@@ -12,10 +12,7 @@ use alacritty::term::SizeInfo;
 use alacritty::ansi;
 
 macro_rules! ref_tests {
-    ($($name:ident,)*) => {
-        ref_tests!($($name),*);
-    };
-    ($($name:ident),*) => {
+    ($($name:ident)*) => {
         $(
             #[test]
             fn $name() {
@@ -28,14 +25,15 @@ macro_rules! ref_tests {
 }
 
 ref_tests! {
-    fish_cc,
-    indexed_256_colors,
-    ll,
-    tmux_git_log,
-    tmux_htop,
-    vim_large_window_scroll,
-    vim_simple_edit,
-    zsh_tab_completion,
+    fish_cc
+    indexed_256_colors
+    ll
+    tab_bg_highlight
+    tmux_git_log
+    tmux_htop
+    vim_large_window_scroll
+    vim_simple_edit
+    zsh_tab_completion
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
