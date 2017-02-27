@@ -1086,7 +1086,7 @@ impl ansi::Handler for Term {
 
         // Cells were just moved out towards the end of the line; fill in
         // between source and dest with blanks.
-        let template = self.empty_cell;
+        let template = self.cursor.template;
         for c in &mut line[source..destination] {
             c.reset(&template);
         }
@@ -1145,6 +1145,9 @@ impl ansi::Handler for Term {
                 if (col + 1) == self.grid.num_cols() || self.tabs[*col as usize] {
                     break;
                 }
+
+                self.insert_blank(Column(1));
+
                 col += 1;
             }
         }
