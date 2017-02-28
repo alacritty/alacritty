@@ -63,7 +63,6 @@ pub mod fc {
     }
 
     /// Find the font closest matching the provided pattern.
-    #[allow(dead_code)]
     pub fn font_match(
         config: &ConfigRef,
         pattern: &mut PatternRef,
@@ -90,6 +89,7 @@ pub mod fc {
     }
 
     /// list fonts by closeness to the pattern
+    #[allow(dead_code)]
     pub fn font_sort(
         config: &ConfigRef,
         pattern: &mut PatternRef,
