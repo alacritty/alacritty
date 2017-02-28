@@ -158,6 +158,10 @@ visual_bell:
 # specified string every time that binding is activated. These should generally
 # be escape sequences, but they can be configured to send arbitrary strings of
 # bytes. Possible values of `action` include `Paste` and `PasteSelection`.
+#
+# Want to add a binding (e.g. "PageUp") but are unsure what the X sequence
+# (e.g. "\x1b[5~") is? Open another terminal (like xterm) without tmux,
+# then run `showkey -a` to get the sequence associated to a key combination.
 key_bindings:
   - { key: V,        mods: Command, action: Paste                        }
   - { key: C,        mods: Command, action: Copy                         }
