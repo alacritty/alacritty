@@ -140,14 +140,11 @@ impl FreeTypeRasterizer {
         pattern.set_weight(weight.into_fontconfig_type());
         pattern.set_slant(slant.into_fontconfig_type());
 
-        let fonts = fc::font_sort(fc::Config::get_current(), &mut pattern)
+        let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
 
-        // Take first font that has a path
-        for font in &fonts {
-            if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
-                return Ok(self.library.new_face(path, index)?);
-            }
+        if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
+            return Ok(self.library.new_face(path, index)?);
         }
 
         Err(Error::MissingFont(desc.to_owned()))
@@ -167,9 +164,8 @@ impl FreeTypeRasterizer {
         if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
             println!("got font path={:?}", path);
             return Ok(self.library.new_face(path, index)?);
-        } else {
-            Err(Error::MissingFont(desc.to_owned()))
         }
+        Err(Error::MissingFont(desc.to_owned()))
     }
 
     fn get_rendered_glyph(&mut self, glyph_key: &GlyphKey, have_recursed: bool)
