@@ -380,7 +380,7 @@ pub mod fc {
         /// FcValueSave so that no references to application provided memory are
         /// retained. That is, the CharSet can be safely dropped immediately
         /// after being added to the pattern.
-        pub unsafe fn add_charset(&self, charset: &CharSetRef) -> bool {
+        pub fn add_charset(&self, charset: &CharSetRef) -> bool {
             unsafe {
                 FcPatternAddCharSet(
                     self.as_ptr(),

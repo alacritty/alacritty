@@ -229,9 +229,7 @@ impl FreeTypeRasterizer {
         let mut charset = fc::CharSet::new();
         charset.add(glyph);
         let mut pattern = fc::Pattern::new();
-        unsafe {
-            pattern.add_charset(&charset);
-        }
+        pattern.add_charset(&charset);
 
         let config = fc::Config::get_current();
         match fc::font_match(config, &mut pattern) {
