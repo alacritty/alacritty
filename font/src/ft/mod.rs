@@ -27,7 +27,7 @@ use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight,
 pub struct FreeTypeRasterizer {
     faces: HashMap<FontKey, Face<'static>>,
     library: Library,
-    keys: HashMap<FontDesc, FontKey>,
+    keys: HashMap<::std::path::PathBuf, FontKey>,
     dpi_x: u32,
     dpi_y: u32,
     dpr: f32,
@@ -75,15 +75,10 @@ impl ::Rasterize for FreeTypeRasterizer {
     }
 
     fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Error> {
-        self.keys
-            .get(&desc.to_owned())
-            .map(|k| Ok(*k))
-            .unwrap_or_else(|| {
-                let face = self.get_face(desc)?;
-                let key = FontKey::next();
-                self.faces.insert(key, face);
-                Ok(key)
-            })
+        let face = self.get_face(desc)?;
+        let key = FontKey::next();
+        self.faces.insert(key, face);
+        Ok(key)
     }
 
     fn get_glyph(&mut self, glyph_key: &GlyphKey) -> Result<RasterizedGlyph, Error> {
@@ -246,11 +241,26 @@ impl FreeTypeRasterizer {
         match fc::font_match(config, &mut pattern) {
             Some(font) => {
                 if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
-                    let face = self.library.new_face(path, index)?;
-                    let key = FontKey::next();
-                    self.faces.insert(key, face);
-                    return Ok(key)
+                    match self.keys.get(&path.to_path_buf()) {
+                        // We've previously loaded this font, so don't
+                        // load it again.
+                        Some(&key) => {
+                            debug!("Hit for font {:?}", path);
+                            return Ok(key)
+                        },
+
+                        None => {
+                            debug!("Miss for font {:?}", path);
+                            let pathbuf = path.to_path_buf();
+                            let face = self.library.new_face(path, index)?;
+                            let key = FontKey::next();
+                            self.keys.insert(pathbuf, key);
+                            self.faces.insert(key, face);
+                            return Ok(key)
+                        }
+                    }
                 }
+
                 Err(Error::MissingFont(
                     FontDesc::new("fallback-without-path", Style::Specific(glyph.to_string()))
                 ))
