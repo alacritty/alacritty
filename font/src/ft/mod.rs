@@ -82,6 +82,7 @@ impl ::Rasterize for FreeTypeRasterizer {
                 let face = self.get_face(desc)?;
                 let key = FontKey::next();
                 self.faces.insert(key, face);
+                self.keys.insert(desc.to_owned(), key);
                 Ok(key)
             })
     }
