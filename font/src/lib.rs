@@ -238,3 +238,23 @@ pub trait Rasterize {
     /// Rasterize the glyph described by `GlyphKey`.
     fn get_glyph(&mut self, &GlyphKey) -> Result<RasterizedGlyph, Self::Err>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn load_font() {
+        let mut rasterizer = Rasterizer::new(96.0, 96.0, 1.0, false).unwrap();
+        let style = Style::Description {
+            slant: Slant::Normal,
+            weight: Weight::Normal,
+        };
+        let desc = FontDesc::new("monospace", style);
+        let size = Size::new(12.0);
+
+        let key1 = rasterizer.load_font(&desc, size).unwrap();
+        let key2 = rasterizer.load_font(&desc, size).unwrap();
+        assert!(key1 == key2);
+    }
+}
