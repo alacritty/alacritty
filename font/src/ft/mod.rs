@@ -163,9 +163,11 @@ impl FreeTypeRasterizer {
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
         if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
             println!("got font path={:?}", path);
-            return Ok(self.library.new_face(path, index)?);
+            Ok(self.library.new_face(path, index)?)
         }
-        Err(Error::MissingFont(desc.to_owned()))
+        else {
+            Err(Error::MissingFont(desc.to_owned()))
+        }
     }
 
     fn get_rendered_glyph(&mut self, glyph_key: &GlyphKey, have_recursed: bool)
@@ -235,29 +237,28 @@ impl FreeTypeRasterizer {
         match fc::font_match(config, &mut pattern) {
             Some(font) => {
                 if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
-                    match self.keys.get(&path.to_path_buf()) {
+                    match self.keys.get(&path) {
                         // We've previously loaded this font, so don't
                         // load it again.
                         Some(&key) => {
                             debug!("Hit for font {:?}", path);
-                            return Ok(key)
+                            Ok(key)
                         },
 
                         None => {
                             debug!("Miss for font {:?}", path);
-                            let pathbuf = path.to_path_buf();
-                            let face = self.library.new_face(path, index)?;
+                            let face = self.library.new_face(path.clone(), index)?;
                             let key = FontKey::next();
-                            self.keys.insert(pathbuf, key);
                             self.faces.insert(key, face);
-                            return Ok(key)
+                            self.keys.insert(path, key);
+                            Ok(key)
                         }
                     }
                 }
-
+                else {
                 Err(Error::MissingFont(
-                    FontDesc::new("fallback-without-path", Style::Specific(glyph.to_string()))
-                ))
+                    FontDesc::new("fallback-without-path", Style::Specific(glyph.to_string()))))
+                }
             },
             None => {
                 Err(Error::MissingFont(
