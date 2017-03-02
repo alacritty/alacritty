@@ -87,15 +87,27 @@ impl ::Rasterize for FreeTypeRasterizer {
     }
 
     fn get_glyph(&mut self, glyph_key: &GlyphKey) -> Result<RasterizedGlyph, Error> {
-        let face = self.faces
-            .get(&glyph_key.font_key)
+        let faces = self.faces.clone();
+        let face = faces.get(&glyph_key.font_key)
             .ok_or(Error::FontNotLoaded)?;
 
         let size = glyph_key.size.as_f32_pts() * self.dpr;
         let c = glyph_key.c;
 
         face.set_char_size(to_freetype_26_6(size), 0, self.dpi_x, self.dpi_y)?;
-        face.load_char(c as usize, freetype::face::TARGET_LIGHT)?;
+        let index = face.get_char_index(c as usize);
+
+        // Test fallback case
+        if index == 0 {
+            self.load_font(
+                &FontDesc::new("fallback", Style::ContainsGlyph(glyph_key.c)),
+                glyph_key.size
+//            ).and_then(|_| {
+//                return self.get_glyph(&glyph_key)
+            );
+        }
+
+        face.load_glyph(index as u32, freetype::face::TARGET_LIGHT)?;
         let glyph = face.glyph();
         glyph.render_glyph(freetype::render_mode::RenderMode::Lcd)?;
 
@@ -160,6 +172,9 @@ impl FreeTypeRasterizer {
     /// Load a font face accoring to `FontDesc`
     fn get_face(&mut self, desc: &FontDesc) -> Result<Face<'static>, Error> {
         match desc.style {
+            Style::ContainsGlyph(glyph) => {
+                self.get_face_with_glyph(&desc, glyph)
+            }
             Style::Description { slant, weight } => {
                 // Match nearest font
                 self.get_matching_face(&desc, slant, weight)
@@ -169,6 +184,22 @@ impl FreeTypeRasterizer {
                 self.get_specific_face(&desc, &style)
             }
         }
+    }
+
+    fn get_face_with_glyph(&mut self, desc: &FontDesc, glyph: char) -> Result<Face<'static>, Error> {
+        let mut pattern = fc::Pattern::new();
+        pattern.add_glyph(glyph);
+
+        let fonts = fc::font_sort(fc::Config::get_current(), &mut pattern)
+            .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
+
+        for font in &fonts {
+            if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
+                return Ok(self.library.new_face(path, index)?);
+            }
+        }
+
+        Err(Error::MissingFont(desc.to_owned()))
     }
 
     fn get_matching_face(

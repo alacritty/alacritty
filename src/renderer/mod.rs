@@ -181,40 +181,28 @@ impl GlyphCache {
         let regular = rasterizer
             .load_font(&regular_desc, size)?;
 
-        // Load bold font
-        let bold_desc = if let Some(ref style) = font.bold.style {
-            FontDesc::new(&font.bold.family[..], font::Style::Specific(style.to_owned()))
-        } else {
-            let style = font::Style::Description {
-                slant: font::Slant::Normal,
-                weight: font::Weight::Bold
+        macro_rules! load_font_type {
+            ($font:expr, $font_type:ident) => {
+                let desc = if let Some(ref style) = $font.$font_type.style {
+                    FontDesc::new(&$font.$font_type.family[..], font::Style::Specific(style.to_owned()))
+                } else {
+                    let style = font::Style::Description {
+                        slant: font::Slant::Normal,
+                        weight: font::Weight::Normal
+                    };
+                    FontDesc::new(&$font.$font_type.family[..], style)
+                };
+
+                let $font_type = if desc == regular_desc {
+                    regular
+                } else {
+                    rasterizer.load_font(&desc, size).unwrap_or_else(|_| regular)
+                };
             };
-            FontDesc::new(&font.bold.family[..], style)
-        };
+        }
 
-        let bold = if bold_desc == regular_desc {
-            regular
-        } else {
-            rasterizer.load_font(&bold_desc, size).unwrap_or_else(|_| regular)
-        };
-
-        // Load italic font
-        let italic_desc = if let Some(ref style) = font.italic.style {
-            FontDesc::new(&font.italic.family[..], font::Style::Specific(style.to_owned()))
-        } else {
-            let style = font::Style::Description {
-                slant: font::Slant::Italic,
-                weight: font::Weight::Normal
-            };
-            FontDesc::new(&font.italic.family[..], style)
-        };
-
-        let italic = if italic_desc == regular_desc {
-            regular
-        } else {
-            rasterizer.load_font(&italic_desc, size)
-                      .unwrap_or_else(|_| regular)
-        };
+        load_font_type!(font, italic);
+        load_font_type!(font, bold);
 
         let mut cache = GlyphCache {
             cache: HashMap::default(),

@@ -78,6 +78,7 @@ pub enum Weight {
 /// Style of font
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Style {
+    ContainsGlyph(char),
     Specific(String),
     Description { slant: Slant, weight: Weight }
 }
@@ -85,6 +86,9 @@ pub enum Style {
 impl fmt::Display for Style {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Style::ContainsGlyph(ref glyph) => {
+                write!(f, "contains={:?}", glyph)
+            },
             Style::Specific(ref s) => f.write_str(&s),
             Style::Description { slant, weight } => {
                 write!(f, "slant={:?}, weight={:?}", slant, weight)
