@@ -31,6 +31,7 @@ xdg = "2.0.0"
 log = "0.3"
 clap = "2.20"
 fnv = "1.0.5"
+error-chain = "0.9.0"
 
 clippy = { version = "0.0.104", optional = true }
 

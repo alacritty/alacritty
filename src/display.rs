@@ -23,67 +23,24 @@ use cli;
 use config::Config;
 use font::{self, Rasterize};
 use meter::Meter;
-use renderer::{self, GlyphCache, QuadRenderer};
+use renderer::{GlyphCache, QuadRenderer};
 use selection::Selection;
 use term::{Term, SizeInfo};
 
 use window::{self, Size, Pixels, Window, SetInnerSize};
 
-#[derive(Debug)]
-pub enum Error {
-    /// Error with window management
-    Window(window::Error),
+pub use self::display_error::*;
 
-    /// Error dealing with fonts
-    Font(font::Error),
-
-    /// Error in renderer
-    Render(renderer::Error),
-}
-
-impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&::std::error::Error> {
-        match *self {
-            Error::Window(ref err) => Some(err),
-            Error::Font(ref err) => Some(err),
-            Error::Render(ref err) => Some(err),
+mod display_error {
+    error_chain! {
+        foreign_links {
+            Window(::window::Error) /// Error with window management
+            ;
+            Font(::font::Error) /// Error dealing with fonts
+            ;
+            Render(::renderer::Error) /// Error in renderer
+            ;
         }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Window(ref err) => err.description(),
-            Error::Font(ref err) => err.description(),
-            Error::Render(ref err) => err.description(),
-        }
-    }
-}
-
-impl ::std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match *self {
-            Error::Window(ref err) => err.fmt(f),
-            Error::Font(ref err) => err.fmt(f),
-            Error::Render(ref err) => err.fmt(f),
-        }
-    }
-}
-
-impl From<window::Error> for Error {
-    fn from(val: window::Error) -> Error {
-        Error::Window(val)
-    }
-}
-
-impl From<font::Error> for Error {
-    fn from(val: font::Error) -> Error {
-        Error::Font(val)
-    }
-}
-
-impl From<renderer::Error> for Error {
-    fn from(val: renderer::Error) -> Error {
-        Error::Render(val)
     }
 }
 
@@ -130,14 +87,14 @@ impl Display {
     pub fn new(
         config: &Config,
         options: &cli::Options,
-    ) -> Result<Display, Error> {
+    ) -> Result<Display> {
         // Extract some properties from config
         let font = config.font();
         let dpi = config.dpi();
         let render_timer = config.render_timer();
 
         // Create the window where Alacritty will be displayed
-        let mut window = Window::new(&options.title)?;
+        let mut window = Window::new(&options.title).chain_err(|| "failed to create window")?;
 
         // get window properties for initializing the other subsytems
         let size = window.inner_size_pixels()
@@ -146,10 +103,12 @@ impl Display {
 
         info!("device_pixel_ratio: {}", dpr);
 
-        let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr, config.use_thin_strokes())?;
+        let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr, config.use_thin_strokes())
+            .chain_err(|| "failed to create rasterizer")?;
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(size)?;
+        let mut renderer = QuadRenderer::new(size).chain_err(|| "failed to create quad renderer")
+            .chain_err(|| "failed to create quad renderer")?;
 
         // Initialize glyph cache
         let glyph_cache = {
@@ -158,7 +117,7 @@ impl Display {
 
             let cache = renderer.with_loader(|mut api| {
                 GlyphCache::new(rasterizer, config, &mut api)
-            })?;
+            }).chain_err(|| "failed to create glyph cache")?;
 
             let stop = init_start.elapsed();
             let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;

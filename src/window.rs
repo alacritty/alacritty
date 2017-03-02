@@ -19,6 +19,8 @@ use std::sync::Mutex;
 use gl;
 use glutin;
 
+pub use self::window_error::*;
+
 /// Resize handling for Mac and maybe other platforms
 ///
 /// This delegates to a statically referenced closure for convenience. The
@@ -35,18 +37,16 @@ lazy_static! {
    static ref RESIZE_CALLBACK: Mutex<Option<Box<Fn(u32, u32) + 'static + Send>>> = Mutex::new(None);
 }
 
-/// Window errors
-#[derive(Debug)]
-pub enum Error {
-    /// Error creating the window
-    Creation(glutin::CreationError),
-
-    /// Error manipulating the rendering context
-    Context(glutin::ContextError),
+mod window_error {
+    error_chain! {
+        foreign_links {
+            Creation(::glutin::CreationError) /// Error creating the window
+            ;
+            Context(::glutin::ContextError) /// Error manipulating the rendering context
+            ;
+        }
+    }
 }
-
-/// Result of fallible operations concerning a Window.
-type Result<T> = ::std::result::Result<T, Error>;
 
 /// A window which can be used for displaying the terminal
 ///
@@ -149,47 +149,6 @@ impl<T: Display> Display for Points<T> {
     }
 }
 
-impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&::std::error::Error> {
-        match *self {
-            Error::Creation(ref err) => Some(err),
-            Error::Context(ref err) => Some(err),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Creation(ref _err) => "Error creating glutin Window",
-            Error::Context(ref _err) => "Error operating on render context",
-        }
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match *self {
-            Error::Creation(ref err) => {
-                write!(f, "Error creating glutin::Window; {}", err)
-            },
-            Error::Context(ref err) => {
-                write!(f, "Error operating on render context; {}", err)
-            },
-        }
-    }
-}
-
-impl From<glutin::CreationError> for Error {
-    fn from(val: glutin::CreationError) -> Error {
-        Error::Creation(val)
-    }
-}
-
-impl From<glutin::ContextError> for Error {
-    fn from(val: glutin::ContextError) -> Error {
-        Error::Context(val)
-    }
-}
-
 impl Window {
     /// Create a new window
     ///
@@ -201,7 +160,7 @@ impl Window {
         let mut window = glutin::WindowBuilder::new()
             .with_vsync()
             .with_title(title)
-            .build()?;
+            .build().chain_err(|| "failed to build window")?;
 
         /// Set the glutin window resize callback for *this* window. The
         /// function pointer must be a C-style callback. This sets such a
@@ -214,7 +173,7 @@ impl Window {
 
         /// Make the window's context current so OpenGL operations can run
         unsafe {
-            window.make_current()?;
+            window.make_current().chain_err(|| "failed to make window's context current")?;
         }
 
         Ok(Window {

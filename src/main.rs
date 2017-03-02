@@ -21,8 +21,9 @@ extern crate alacritty;
 
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate error_chain;
 
-use std::error::Error;
 use std::sync::Arc;
 
 use alacritty::cli;
@@ -36,24 +37,26 @@ use alacritty::term::{Term};
 use alacritty::tty::{self, process_should_exit};
 use alacritty::util::fmt::Red;
 
+use self::run_error::*;
+
 fn main() {
 
     // Load configuration
     let config = Config::load().unwrap_or_else(|err| {
-        match err {
+
+        // If there's a problem with the config file, print an error (and the cause and backtrace)
+        print_error(&err, err.iter());
+
+        if let config::ErrorKind::NotFound = err.0 {
             // Use default config when not found
-            config::Error::NotFound => {
-                match Config::write_defaults() {
-                    Ok(path) => err_println!("Config file not found; write defaults config to {:?}", path),
-                    Err(err) => err_println!("Write defaults config failure: {}", err)
-                }
+            match Config::write_defaults() {
+                Ok(path) => err_println!("Config file not found; write defaults config to {:?}", path),
+                Err(err) => err_println!("Write defaults config failure: {}", err)
+            }
 
-                Config::load().unwrap()
-            },
-
-            // If there's a problem with the config file, print an error
-            // and exit.
-            _ => die!("{}", err),
+            Config::load().unwrap()
+        } else {
+            std::process::exit(1);
         }
     });
 
@@ -62,7 +65,19 @@ fn main() {
 
     // Run alacritty
     if let Err(err) = run(config, options) {
-        die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
+        err_println!("Alacritty encountered an unrecoverable error:\n");
+
+        err_println!("\terror: {}", Red(&err));
+
+        for e in err.iter().skip(1) {
+            err_println!("\tcaused by: {}", Red(e));
+        }
+
+        if let Some(backtrace) = err.backtrace() {
+            err_println!("\tbacktrace: {:?}", Red(backtrace));
+        }
+
+        std::process::exit(1);
     }
 
     info!("Goodbye.");
@@ -73,16 +88,16 @@ fn main() {
 ///
 /// Creates a window, the terminal state, pty, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
+fn run(mut config: Config, options: cli::Options) -> run_error::Result<()> {
     // Initialize the logger first as to capture output from other subsystems
-    logging::initialize(&options)?;
+    logging::initialize(&options).chain_err(|| "failed to initialize logger")?;
 
     info!("Welcome to Alacritty.");
 
     // Create a display.
     //
     // The display manages a window and can draw the terminal
-    let mut display = Display::new(&config, &options)?;
+    let mut display = Display::new(&config, &options).chain_err(|| "failed to create display")?;
 
     info!(
         "PTY Dimensions: {:?} x {:?}",
@@ -185,4 +200,32 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     let _ = io_thread.join();
 
     Ok(())
+}
+
+mod run_error {
+    error_chain! {
+        links {
+            Display(::alacritty::display::Error, ::alacritty::display::ErrorKind);
+        }
+        
+        foreign_links {
+            Log(::log::SetLoggerError);
+        }
+    }
+}
+
+/// Print an error, its cause, and its backtrace
+fn print_error<'a, E, I>(err: &E, iter: I)
+    where I: Iterator<Item = &'a std::error::Error>,
+          E: std::fmt::Display + error_chain::ChainedError
+{
+    println!("error: {}", err);
+
+    for e in iter.skip(1) {
+        println!("caused by: {}", e);
+    }
+
+    if let Some(backtrace) = err.backtrace() {
+        println!("backtrace: {:?}", backtrace);
+    }
 }
