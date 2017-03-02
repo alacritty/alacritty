@@ -31,6 +31,7 @@ xdg = "2.0.0"
 log = "0.3"
 clap = "2.20"
 fnv = "1.0.5"
+unicode-width = "0.1.4"
 
 clippy = { version = "0.0.104", optional = true }
 

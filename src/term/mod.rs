@@ -20,6 +20,8 @@ use std::cmp::min;
 use std::io;
 use std::time::{Duration, Instant};
 
+use unicode_width::UnicodeWidthChar;
+
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset};
 use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive, Side};
@@ -49,7 +51,7 @@ pub struct RenderableCellsIter<'a> {
     config: &'a Config,
     colors: &'a color::List,
     selection: Option<RangeInclusive<index::Linear>>,
-    cursor_original: Option<Indexed<Cell>>
+    cursor_original: (Option<Indexed<Cell>>, Option<Indexed<Cell>>),
 }
 
 impl<'a> RenderableCellsIter<'a> {
@@ -77,25 +79,52 @@ impl<'a> RenderableCellsIter<'a> {
             selection: selection,
             config: config,
             colors: colors,
-            cursor_original: None,
+            cursor_original: (None, None),
         }.initialize()
     }
 
     fn initialize(mut self) -> Self {
         if self.cursor_is_visible() {
-            self.cursor_original = Some(Indexed {
+            self.cursor_original.0 = Some(Indexed {
                 line:   self.cursor.line,
                 column: self.cursor.col,
                 inner:  self.grid[self.cursor]
             });
+            let mut spacer = false;
+            let mut location = *self.cursor;
+
+            if self.grid[self.cursor].flags.contains(cell::WIDE_CHAR) &&
+                self.cursor.col + 1 < self.grid.num_cols()
+            {
+                spacer = true;
+                location.col += 1;
+                self.cursor_original.1 = Some(Indexed {
+                    line:   location.line,
+                    column: location.col,
+                    inner:  self.grid[&location]
+                });
+            }
 
             if self.config.custom_cursor_colors() {
-                let cell = &mut self.grid[self.cursor];
-                cell.fg = Color::Named(NamedColor::CursorText);
-                cell.bg = Color::Named(NamedColor::Cursor);
+                {
+                    let cell = &mut self.grid[self.cursor];
+                    cell.fg = Color::Named(NamedColor::CursorText);
+                    cell.bg = Color::Named(NamedColor::Cursor);
+                }
+                if spacer {
+                    let cell = &mut self.grid[&location];
+                    cell.fg = Color::Named(NamedColor::CursorText);
+                    cell.bg = Color::Named(NamedColor::Cursor);
+                }
             } else {
-                let cell = &mut self.grid[self.cursor];
-                mem::swap(&mut cell.fg, &mut cell.bg);
+                {
+                    let cell = &mut self.grid[self.cursor];
+                    mem::swap(&mut cell.fg, &mut cell.bg);
+                }
+                if spacer {
+                    let cell = &mut self.grid[&location];
+                    mem::swap(&mut cell.fg, &mut cell.bg);
+                }
             }
         }
         self
@@ -112,8 +141,13 @@ impl<'a> Drop for RenderableCellsIter<'a> {
     /// Resets temporary render state on the grid
     fn drop(&mut self) {
         if self.cursor_is_visible() {
-            if let Some(ref original) = self.cursor_original {
+            if let Some(ref original) = self.cursor_original.0 {
                 self.grid[self.cursor] = original.inner;
+            }
+            if let Some(ref original) = self.cursor_original.1 {
+                let mut location = *self.cursor;
+                location.col += 1;
+                self.grid[&location] = original.inner;
             }
         }
     }
@@ -702,7 +736,9 @@ impl Term {
                     None
                 } else {
                     for cell in &line[cols.start..line_end] {
-                        self.push(cell.c);
+                        if !cell.flags.contains(cell::WIDE_CHAR_SPACER) {
+                            self.push(cell.c);
+                        }
                     }
 
                     Some(cols.start..line_end)
@@ -1001,7 +1037,6 @@ impl ansi::Handler for Term {
     #[inline]
     fn input(&mut self, c: char) {
         if self.input_needs_wrap {
-
             if !self.mode.contains(mode::LINE_WRAP) {
                 return;
             }
@@ -1029,9 +1064,31 @@ impl ansi::Handler for Term {
         }
 
         {
-            let cell = &mut self.grid[&self.cursor.point];
-            *cell = self.cursor.template;
-            cell.c = self.cursor.charsets[self.active_charset].map(c);
+            // Number of cells the char will occupy
+            let width = c.width();
+
+            // Sigh, borrowck making us check the width twice. Hopefully the
+            // optimizer can fix it.
+            {
+                let cell = &mut self.grid[&self.cursor.point];
+                *cell = self.cursor.template;
+                cell.c = self.cursor.charsets[self.active_charset].map(c);
+
+                // Handle wide chars
+                if let Some(2) = width {
+                    cell.flags.insert(cell::WIDE_CHAR);
+                }
+            }
+
+            // Set spacer cell for wide chars.
+            if let Some(2) = width {
+                if self.cursor.point.col + 1 < self.grid.num_cols() {
+                    self.cursor.point.col += 1;
+                    let spacer = &mut self.grid[&self.cursor.point];
+                    *spacer = self.cursor.template;
+                    spacer.flags.insert(cell::WIDE_CHAR_SPACER);
+                }
+            }
         }
 
         if (self.cursor.point.col + 1) < self.grid.num_cols() {
