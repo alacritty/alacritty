@@ -247,7 +247,7 @@ impl FreeTypeRasterizer {
 
                         None => {
                             debug!("Miss for font {:?}", path);
-                            let face = self.library.new_face(path.clone(), index)?;
+                            let face = self.library.new_face(&path, index)?;
                             let key = FontKey::next();
                             self.faces.insert(key, face);
                             self.keys.insert(path, key);
