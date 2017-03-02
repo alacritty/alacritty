@@ -23,7 +23,7 @@ parking_lot = "0.3.1"
 serde = "0.9"
 serde_yaml = "0.6"
 serde_derive = "0.9"
-vte = "0.2.2"
+vte = "0.3.0"
 mio = "0.6"
 serde_json = "0.9"
 copypasta = { path = "./copypasta" }
