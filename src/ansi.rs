@@ -560,6 +560,10 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                 }
             },
 
+            // Set icon name
+            // This is ignored, since alacritty has no concept of tabs
+            b'1' => return,
+
             // Set color index
             b'4' => {
                 if params.len() < 3 {
