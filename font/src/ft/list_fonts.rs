@@ -27,10 +27,12 @@ pub mod fc {
     use self::ffi::{FcConfigGetCurrent, FcConfigGetFonts, FcSetSystem, FcSetApplication};
     use self::ffi::{FcPatternGetString, FcPatternCreate, FcPatternAddString};
     use self::ffi::{FcPatternGetInteger, FcPatternAddInteger};
+    use self::ffi::{FcPatternGetCharSet};
     use self::ffi::{FcObjectSetCreate, FcObjectSetAdd};
     use self::ffi::{FcResultMatch, FcResultNoMatch, FcFontSetList};
     use self::ffi::{FcChar8, FcConfig, FcPattern, FcFontSet, FcObjectSet, FcCharSet};
     use self::ffi::{FcFontSetDestroy, FcPatternDestroy, FcObjectSetDestroy, FcConfigDestroy};
+    use self::ffi::{FcCharSetDestroy, FcCharSetCopy, FcCharSetHasChar};
     use self::ffi::{FcFontMatch, FcFontList, FcFontSort, FcConfigSubstitute, FcDefaultSubstitute};
     use self::ffi::{FcMatchFont, FcMatchPattern, FcMatchScan, FC_SLANT_ITALIC, FC_SLANT_ROMAN};
     use self::ffi::{FC_SLANT_OBLIQUE};
@@ -49,6 +51,7 @@ pub mod fc {
     ffi_type!(Config, ConfigRef, FcConfig, FcConfigDestroy);
     ffi_type!(ObjectSet, ObjectSetRef, FcObjectSet, FcObjectSetDestroy);
     ffi_type!(FontSet, FontSetRef, FcFontSet, FcFontSetDestroy);
+    ffi_type!(CharSet, CharSetRef, FcCharSet, FcCharSetDestroy);
 
     impl ObjectSet {
         #[allow(dead_code)]
@@ -369,6 +372,30 @@ pub mod fc {
             index() => b"index\0"
         }
 
+        pub fn charset(&self, index: isize) -> Option<CharSet> {
+            unsafe {
+                let mut charset: *mut FcCharSet = ptr::null_mut();
+
+                let result = FcPatternGetCharSet(
+                    self.as_ptr(),
+                    b"charset\0".as_ptr() as *mut c_char,
+                    index as c_int,
+                    &mut charset
+                );
+
+                if result == FcResultMatch {
+                    let charset_owned_copy = FcCharSetCopy(charset);
+                    if charset_owned_copy.is_null() {
+                        None
+                    } else {
+                        Some(CharSet::from_ptr(charset_owned_copy))
+                    }
+                } else {
+                    None
+                }
+            }
+        }
+
         pub fn config_subsitute(&mut self, config: &ConfigRef, kind: MatchKind) {
             unsafe {
                 FcConfigSubstitute(config.as_ptr(), self.as_ptr(), kind as u32);
@@ -472,6 +499,14 @@ pub mod fc {
             unsafe {
                 let ptr = FcConfigGetFonts(self.as_ptr(), set as u32);
                 FontSetRef::from_ptr(ptr)
+            }
+        }
+    }
+
+    impl CharSetRef {
+        pub fn contains(&self, c: char) -> bool {
+            unsafe {
+                FcCharSetHasChar(self.as_ptr(), c as u32) != 0
             }
         }
     }
