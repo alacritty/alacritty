@@ -102,13 +102,11 @@ pub mod fc {
             // return type.
             let mut result = FcResultNoMatch;
 
-            let mut charsets: *mut FcCharSet = ptr::null_mut();
-
             let ptr = FcFontSort(
                 config.as_ptr(),
                 pattern.as_ptr(),
-                0, // false
-                &mut charsets,
+                1, // true
+                ptr::null_mut(), // charsets
                 &mut result,
             );
 

@@ -14,6 +14,7 @@
 //
 //! Rasterization powered by FreeType and FontConfig
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 use freetype::{self, Library, Face};
 
@@ -23,9 +24,29 @@ mod list_fonts;
 use self::list_fonts::fc;
 use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight, Slant, Style};
 
+use std::path::PathBuf;
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+struct FaceKey {
+    file: PathBuf,
+    index: isize,
+}
+
+struct FaceDesc {
+    charset: fc::CharSet,
+    face_key: FaceKey,
+}
+
+type FaceDescs = Vec<FaceDesc>;
+
+struct FaceCache {
+    faces: HashMap<FaceKey, Face<'static>>,
+}
+
 /// Rasterizes glyphs for a single font face.
 pub struct FreeTypeRasterizer {
-    faces: HashMap<FontKey, Face<'static>>,
+    fonts: HashMap<FontKey, FaceDescs>,
+    faces: FaceCache,
     library: Library,
     keys: HashMap<FontDesc, FontKey>,
     dpi_x: u32,
@@ -45,7 +66,8 @@ impl ::Rasterize for FreeTypeRasterizer {
         let library = Library::init()?;
 
         Ok(FreeTypeRasterizer {
-            faces: HashMap::new(),
+            fonts: HashMap::new(),
+            faces: FaceCache::new(),
             keys: HashMap::new(),
             library: library,
             dpi_x: dpi_x as u32,
@@ -56,7 +78,10 @@ impl ::Rasterize for FreeTypeRasterizer {
 
     fn metrics(&self, key: FontKey, size: Size) -> Result<Metrics, Error> {
         let face = self.faces
-            .get(&key)
+            .get(&self.fonts
+                .get(&key)
+                .ok_or(Error::FontNotLoaded)?[0 /* first/primary face */]
+                .face_key)
             .ok_or(Error::FontNotLoaded)?;
 
         let scale_size = self.dpr as f64 * size.as_f32_pts() as f64;
@@ -79,19 +104,23 @@ impl ::Rasterize for FreeTypeRasterizer {
             .get(&desc.to_owned())
             .map(|k| Ok(*k))
             .unwrap_or_else(|| {
-                let face = self.get_face(desc)?;
+                let face_descs = self.get_face_descs(desc)?;
                 let key = FontKey::next();
-                self.faces.insert(key, face);
+                self.fonts.insert(key, face_descs);
                 self.keys.insert(desc.to_owned(), key);
                 Ok(key)
             })
     }
 
     fn get_glyph(&mut self, glyph_key: &GlyphKey) -> Result<RasterizedGlyph, Error> {
-        let face = self.faces
-            .get(&glyph_key.font_key)
+        let face_descs = self.fonts.get(&glyph_key.font_key)
             .ok_or(Error::FontNotLoaded)?;
+        let face_desc = face_descs
+            .iter()
+            .find(|&face_desc| face_desc.charset.contains(glyph_key.c))
+            .unwrap_or(&face_descs[0 /* first/primary face */]);
 
+        let face = self.faces.load_face(&self.library, &face_desc.face_key)?;
         let size = glyph_key.size.as_f32_pts() * self.dpr;
         let c = glyph_key.c;
 
@@ -157,27 +186,64 @@ impl IntoFontconfigType for Weight {
     }
 }
 
+impl FaceDesc {
+    pub fn new(charset: fc::CharSet, file: PathBuf, index: isize) -> FaceDesc {
+        FaceDesc {
+            charset: charset,
+            face_key: FaceKey {
+                file: file,
+                index: index,
+            },
+        }
+    }
+}
+
+impl FaceCache {
+    pub fn new() -> FaceCache {
+        FaceCache {
+            faces: HashMap::new()
+        }
+    }
+
+    pub fn get(&self, face_key: &FaceKey) -> Option<&Face<'static>> {
+        self.faces.get(face_key)
+    }
+
+    pub fn load_face(
+        &mut self,
+        library: &Library,
+        face_key: &FaceKey
+    ) -> Result<&Face<'static>, Error> {
+        Ok(match self.faces.entry(face_key.clone()) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(v) => v.insert(
+                library.new_face(face_key.file.to_owned(), face_key.index)?
+            ),
+        })
+    }
+}
+
 impl FreeTypeRasterizer {
     /// Load a font face accoring to `FontDesc`
-    fn get_face(&mut self, desc: &FontDesc) -> Result<Face<'static>, Error> {
+    fn get_face_descs(&mut self, desc: &FontDesc) -> Result<FaceDescs, Error> {
         match desc.style {
             Style::Description { slant, weight } => {
                 // Match nearest font
-                self.get_matching_face(&desc, slant, weight)
+                self.get_matching_face_descs(&desc, slant, weight)
             }
             Style::Specific(ref style) => {
                 // If a name was specified, try and load specifically that font.
-                self.get_specific_face(&desc, &style)
+                self.get_specific_face_desc(&desc, &style)
             }
         }
     }
 
-    fn get_matching_face(
+    fn get_matching_face_descs(
         &mut self,
         desc: &FontDesc,
         slant: Slant,
         weight: Weight
-    ) -> Result<Face<'static>, Error> {
+    ) -> Result<FaceDescs, Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.set_weight(weight.into_fontconfig_type());
@@ -186,30 +252,36 @@ impl FreeTypeRasterizer {
         let fonts = fc::font_sort(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
 
-        // Take first font that has a path
+        let mut face_descs = FaceDescs::new();
         for font in &fonts {
-            if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
-                return Ok(self.library.new_face(path, index)?);
+            if let (Some(file), Some(index), Some(charset))
+                    = (font.file(0), font.index(0), font.charset(0)) {
+                face_descs.push(FaceDesc::new(charset, file, index));
             }
         }
 
-        Err(Error::MissingFont(desc.to_owned()))
+        if face_descs.is_empty() {
+            Err(Error::MissingFont(desc.to_owned()))
+        } else {
+            Ok(face_descs)
+        }
     }
 
-    fn get_specific_face(
+    fn get_specific_face_desc(
         &mut self,
         desc: &FontDesc,
         style: &str
-    ) -> Result<Face<'static>, Error> {
+    ) -> Result<FaceDescs, Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.add_style(style);
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
-        if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
-            println!("got font path={:?}", path);
-            return Ok(self.library.new_face(path, index)?);
+        if let (Some(file), Some(index), Some(charset))
+                = (font.file(0), font.index(0), font.charset(0)) {
+            println!("got font path={:?}", file);
+            return Ok(vec![FaceDesc::new(charset, file, index)]);
         } else {
             Err(Error::MissingFont(desc.to_owned()))
         }
