@@ -1443,7 +1443,9 @@ impl ansi::Handler for Term {
                 for cell in &mut self.grid[self.cursor.point.line][..self.cursor.point.col] {
                     cell.reset(&template);
                 }
-            }
+            },
+            // If scrollback is implemented, this should clear it
+            ansi::ClearMode::Saved => return
         }
     }
 

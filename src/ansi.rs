@@ -330,6 +330,8 @@ pub enum ClearMode {
     Above,
     /// Clear entire terminal
     All,
+    /// Clear 'saved' lines (scrollback)
+    Saved
 }
 
 /// Mode for clearing tab stops
@@ -709,6 +711,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     0 => ClearMode::Below,
                     1 => ClearMode::Above,
                     2 => ClearMode::All,
+                    3 => ClearMode::Saved,
                     _ => unhandled!(),
                 };
 
