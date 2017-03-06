@@ -9,3 +9,4 @@ Catagories=System;TerminalEmulator
 Name=Alacritty
 GenericName=Terminal
 Comment=A cross-platform, GPU enhanced terminal emulator
+StartupWMClass=Alacritty
