@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BIN_DIR=$(dirname $0)
+BIN_DIR=$(cd "$(dirname "$0")"; pwd)
 
 cd "$HOME"
 exec "$BIN_DIR/alacritty"
