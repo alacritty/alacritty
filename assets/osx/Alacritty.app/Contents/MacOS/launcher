@@ -1,6 +1,15 @@
 #!/bin/bash
 
+# Dynamically discover canonical path to alacritty binary
 BIN_DIR=$(cd "$(dirname "$0")"; pwd)
 
+# Query OS for locale and setup alacritty shell to conform
+ALACRITTY_LOCALE="$(osascript -e "return user locale of (get system info)")"
+export LANG="${ALACRITTY_LOCALE}.UTF-8"
+export LC_CTYPE="${ALACRITTY_LOCALE}.UTF-8"
+
+# Start alacritty in user's home directory
 cd "$HOME"
+
+# Engage
 exec "$BIN_DIR/alacritty"
