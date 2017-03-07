@@ -14,6 +14,7 @@
 //
 //! Rasterization powered by FreeType and FontConfig
 use std::collections::HashMap;
+use std::cmp::min;
 
 use freetype::{self, Library, Face};
 
@@ -213,7 +214,7 @@ impl FreeTypeRasterizer {
         let mut packed = Vec::with_capacity((bitmap.rows() * bitmap.width()) as usize);
         for i in 0..bitmap.rows() {
             let start = (i as usize) * pitch;
-            let stop = start + bitmap.width() as usize;
+            let stop = min(start + bitmap.width() as usize, buf.len());
             packed.extend_from_slice(&buf[start..stop]);
         }
 
