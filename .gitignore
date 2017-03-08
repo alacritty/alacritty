@@ -1,5 +1,7 @@
 target
 FlameGraph
+
+# Temp files
 .idea
 *.iml
 
