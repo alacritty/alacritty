@@ -158,12 +158,14 @@ cp Alacritty.desktop ~/.local/share/applications
 
 #### OS X
 
-To install the desktop entry for Alacritty, run
+You can pack desktop app for OS X with running this task.
 
 ```sh
-make app
-cp -r target/release/osx/Alacritty.app /Applications/Alacritty.app
+make install
 ```
+
+But this task includes build task.
+So if you want to build by yourself, you should build before running task.
 
 ## Configuration
 
