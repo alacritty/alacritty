@@ -253,6 +253,10 @@ impl<Io> EventLoop<Io>
                     }
                 }
             }
+
+            if ::tty::process_should_exit() {
+                break;
+            }
         }
     }
 
