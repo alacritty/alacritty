@@ -14,12 +14,13 @@
 //
 //! tty related functionality
 //!
-use std::ffi::{CString, CStr};
+use std::ffi::CStr;
 use std::fs::File;
 use std::os::unix::io::FromRawFd;
 use std::os::unix::process::CommandExt;
 use std::ptr;
 use std::process::{Command, Stdio};
+use std::env;
 
 use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD, TIOCSCTTY};
 
@@ -240,13 +241,11 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T) -> Pty {
         Ok(())
     });
 
+    // Handle set working directory option
     if let Some(ref dir) = options.chdir {
-        unsafe {
-            // Change the process working directory
-            if libc::chdir(CString::new(dir.as_str()).unwrap().as_ptr()) == -1 {
-                die!("Failed to set working directory: {}", errno());
-            }
-        }
+        env::set_current_dir(dir.as_path()).unwrap_or_else(|e| {
+            die!("Failed to set working directory: {}", e);
+        });
     }
 
     match builder.spawn() {

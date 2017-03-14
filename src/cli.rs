@@ -15,6 +15,7 @@ extern crate log;
 use clap::{Arg, App};
 use index::{Line, Column};
 use config::{Dimensions, Shell};
+use std::path::PathBuf;
 
 const DEFAULT_TITLE: &'static str = "Alacritty";
 
@@ -26,7 +27,7 @@ pub struct Options {
     pub title: String,
     pub log_level: log::LogLevelFilter,
     pub shell: Option<Shell<'static>>,
-    pub chdir: Option<String>,
+    pub chdir: Option<PathBuf>,
 }
 
 impl Default for Options {
@@ -80,7 +81,7 @@ impl Options {
             .arg(Arg::with_name("chdir")
                  .short("c")
                  .takes_value(true)
-                 .help("Set the working directory"))
+                 .help("Start the shell in the specified working directory"))
             .arg(Arg::with_name("command")
                 .short("e")
                 .multiple(true)
@@ -124,7 +125,7 @@ impl Options {
         }
 
         if let Some(dir) = matches.value_of("chdir") {
-            options.chdir = Some(dir.to_string());
+            options.chdir = Some(PathBuf::from(dir.to_string()));
         }
 
         if let Some(mut args) = matches.values_of("command") {
