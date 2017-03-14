@@ -21,7 +21,7 @@ use std::os::unix::process::CommandExt;
 use std::ptr;
 use std::process::{Command, Stdio};
 
-use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD, TIOCSCTTY};
+use libc::{self, winsize, c_int, pid_t, WNOHANG, SIGCHLD, TIOCSCTTY};
 
 use term::SizeInfo;
 use display::OnResize;
@@ -48,15 +48,9 @@ extern "C" fn sigchld(_a: c_int) {
             die!("Waiting for pid {} failed: {}\n", PID, errno());
         }
 
-        if PID != p {
-            return;
+        if PID == p {
+            SHOULD_EXIT = true;
         }
-
-        if !WIFEXITED(status) || WEXITSTATUS(status) != 0 {
-            die!("child finished with error '{}'\n", status);
-        }
-
-        SHOULD_EXIT = true;
     }
 }
 
