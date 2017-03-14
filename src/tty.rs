@@ -235,6 +235,11 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T) -> Pty {
         Ok(())
     });
 
+    // Handle set working directory option
+    if let Some(ref dir) = options.working_dir {
+        builder.current_dir(dir.as_path());
+    }
+
     match builder.spawn() {
         Ok(child) => {
             unsafe {

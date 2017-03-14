@@ -15,6 +15,7 @@ extern crate log;
 use clap::{Arg, App};
 use index::{Line, Column};
 use config::{Dimensions, Shell};
+use std::path::PathBuf;
 
 const DEFAULT_TITLE: &'static str = "Alacritty";
 
@@ -26,6 +27,7 @@ pub struct Options {
     pub title: String,
     pub log_level: log::LogLevelFilter,
     pub command: Option<Shell<'static>>,
+    pub working_dir: Option<PathBuf>,
 }
 
 impl Default for Options {
@@ -37,6 +39,7 @@ impl Default for Options {
             title: DEFAULT_TITLE.to_owned(),
             log_level: log::LogLevelFilter::Warn,
             command: None,
+            working_dir: None,
         }
     }
 }
@@ -75,6 +78,10 @@ impl Options {
                 .multiple(true)
                 .conflicts_with("q")
                 .help("Increases the level of verbosity (the max level is -vvv)"))
+            .arg(Arg::with_name("working-directory")
+                 .long("working-directory")
+                 .takes_value(true)
+                 .help("Start the shell in the specified working directory"))
             .arg(Arg::with_name("command")
                 .short("e")
                 .multiple(true)
@@ -115,6 +122,10 @@ impl Options {
             1 => options.log_level = log::LogLevelFilter::Info,
             2 => options.log_level = log::LogLevelFilter::Debug,
             3 | _ => options.log_level = log::LogLevelFilter::Trace
+        }
+
+        if let Some(dir) = matches.value_of("working-directory") {
+            options.working_dir = Some(PathBuf::from(dir.to_string()));
         }
 
         if let Some(mut args) = matches.values_of("command") {
