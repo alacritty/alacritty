@@ -26,6 +26,7 @@ pub struct Options {
     pub title: String,
     pub log_level: log::LogLevelFilter,
     pub shell: Option<Shell<'static>>,
+    pub chdir: Option<String>,
 }
 
 impl Default for Options {
@@ -37,6 +38,7 @@ impl Default for Options {
             title: DEFAULT_TITLE.to_owned(),
             log_level: log::LogLevelFilter::Warn,
             shell: None,
+            chdir: None,
         }
     }
 }
@@ -75,6 +77,10 @@ impl Options {
                 .multiple(true)
                 .conflicts_with("q")
                 .help("Increases the level of verbosity (the max level is -vvv)"))
+            .arg(Arg::with_name("chdir")
+                 .short("c")
+                 .takes_value(true)
+                 .help("Set the working directory"))
             .arg(Arg::with_name("command")
                 .short("e")
                 .multiple(true)
@@ -115,6 +121,10 @@ impl Options {
             1 => options.log_level = log::LogLevelFilter::Info,
             2 => options.log_level = log::LogLevelFilter::Debug,
             3 | _ => options.log_level = log::LogLevelFilter::Trace
+        }
+
+        if let Some(dir) = matches.value_of("chdir") {
+            options.chdir = Some(dir.to_string());
         }
 
         if let Some(mut args) = matches.values_of("command") {

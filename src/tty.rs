@@ -14,7 +14,7 @@
 //
 //! tty related functionality
 //!
-use std::ffi::CStr;
+use std::ffi::{CString, CStr};
 use std::fs::File;
 use std::os::unix::io::FromRawFd;
 use std::os::unix::process::CommandExt;
@@ -239,6 +239,15 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T) -> Pty {
         }
         Ok(())
     });
+
+    if let Some(ref dir) = options.chdir {
+        unsafe {
+            // Change the process working directory
+            if libc::chdir(CString::new(dir.as_str()).unwrap().as_ptr()) == -1 {
+                die!("Failed to set working directory: {}", errno());
+            }
+        }
+    }
 
     match builder.spawn() {
         Ok(child) => {
