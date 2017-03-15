@@ -1036,6 +1036,14 @@ impl ansi::Handler for Term {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
+        // Number of cells the char will occupy
+        //
+        // TODO handle zero width characters (eg unicode variation selectors)
+        let width = match c.width() {
+            Some(0) | None => return,
+            Some(width) => width,
+        };
+
         if self.input_needs_wrap {
             if !self.mode.contains(mode::LINE_WRAP) {
                 return;
@@ -1064,9 +1072,6 @@ impl ansi::Handler for Term {
         }
 
         {
-            // Number of cells the char will occupy
-            let width = c.width();
-
             // Sigh, borrowck making us check the width twice. Hopefully the
             // optimizer can fix it.
             {
@@ -1075,24 +1080,26 @@ impl ansi::Handler for Term {
                 cell.c = self.cursor.charsets[self.active_charset].map(c);
 
                 // Handle wide chars
-                if let Some(2) = width {
+                if width == 2 {
                     cell.flags.insert(cell::WIDE_CHAR);
                 }
             }
 
             // Set spacer cell for wide chars.
-            if let Some(2) = width {
+            if width == 2 {
+                // Only set the wide char spacer when not at EOL
                 if self.cursor.point.col + 1 < self.grid.num_cols() {
-                    self.cursor.point.col += 1;
-                    let spacer = &mut self.grid[&self.cursor.point];
+                    let mut point = self.cursor.point;
+                    point.col += 1;
+                    let spacer = &mut self.grid[&point];
                     *spacer = self.cursor.template;
                     spacer.flags.insert(cell::WIDE_CHAR_SPACER);
                 }
             }
         }
 
-        if (self.cursor.point.col + 1) < self.grid.num_cols() {
-            self.cursor.point.col += 1;
+        if (self.cursor.point.col + width) < self.grid.num_cols() {
+            self.cursor.point.col += width;
         } else {
             self.input_needs_wrap = true;
         }
