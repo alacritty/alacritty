@@ -126,6 +126,13 @@ missing, please open an issue.
 pkg install cmake freetype2 fontconfig xclip
 ```
 
+#### MacOS
+On MacOS, the missing library can be added via the following [Homebrew](https://brew.sh) instruction
+
+```sh
+brew install fontconfig
+```
+
 #### Other
 
 If you build Alacritty on another distribution, we would love some help
