@@ -7,6 +7,7 @@ use std::borrow::Cow;
 use std::{env, fmt};
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
+use std::ops::Mul;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::mpsc;
@@ -700,6 +701,7 @@ pub struct Colors {
     pub cursor: CursorColors,
     pub normal: AnsiColors,
     pub bright: AnsiColors,
+    pub dim: Option<AnsiColors>,
 }
 
 fn deserialize_cursor_colors<D>(deserializer: D) -> ::std::result::Result<CursorColors, D::Error>
@@ -797,12 +799,13 @@ impl Default for Colors {
                 magenta: Rgb {r: 0xb7, g: 0x7e, b: 0xe0},
                 cyan: Rgb {r: 0x54, g: 0xce, b: 0xd6},
                 white: Rgb {r: 0xff, g: 0xff, b: 0xff},
-            }
+            },
+            dim: None,
         }
     }
 }
 
-/// The normal or bright colors section of config
+/// The classic 8-color sections of config
 #[derive(Debug, Deserialize)]
 pub struct AnsiColors {
     #[serde(deserialize_with = "rgb_from_hex")]
@@ -878,6 +881,17 @@ impl FromStr for Rgb {
         component!(r, g, b);
 
         Ok(rgb)
+    }
+}
+
+// a multiply function for Rgb, as the default dim is just *2/3
+impl Mul<f32> for Rgb {
+    type Output = Rgb;
+
+    fn mul(self, rhs: f32) -> Rgb {
+        Rgb{r: (self.r as f32 * rhs).max(0.0).min(255.0) as u8,
+            g: (self.g as f32 * rhs).max(0.0).min(255.0) as u8,
+            b: (self.b as f32 * rhs).max(0.0).min(255.0) as u8}
     }
 }
 

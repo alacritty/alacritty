@@ -25,6 +25,7 @@ bitflags! {
         const WRAPLINE          = 0b00010000,
         const WIDE_CHAR         = 0b00100000,
         const WIDE_CHAR_SPACER  = 0b01000000,
+        const DIM               = 0b10000000,
     }
 }
 
@@ -75,6 +76,10 @@ impl LineLength for grid::Row<Cell> {
 impl Cell {
     pub fn bold(&self) -> bool {
         self.flags.contains(BOLD)
+    }
+
+    pub fn dim(&self) -> bool {
+        self.flags.contains(DIM)
     }
 
     pub fn new(c: char, fg: Color, bg: Color) -> Cell {
