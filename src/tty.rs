@@ -188,12 +188,13 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T) -> Pty {
     let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
 
     let default_shell = &Shell::new(pw.shell);
-    let shell = options.shell()
-        .or_else(|| config.shell())
+    let shell = config.shell()
         .unwrap_or(&default_shell);
 
-    let mut builder = Command::new(shell.program());
-    for arg in shell.args() {
+    let initial_command = options.command().unwrap_or(&shell);
+
+    let mut builder = Command::new(initial_command.program());
+    for arg in initial_command.args() {
         builder.arg(arg);
     }
 

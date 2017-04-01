@@ -25,7 +25,7 @@ pub struct Options {
     pub dimensions: Option<Dimensions>,
     pub title: String,
     pub log_level: log::LogLevelFilter,
-    pub shell: Option<Shell<'static>>,
+    pub command: Option<Shell<'static>>,
 }
 
 impl Default for Options {
@@ -36,7 +36,7 @@ impl Default for Options {
             dimensions: None,
             title: DEFAULT_TITLE.to_owned(),
             log_level: log::LogLevelFilter::Warn,
-            shell: None,
+            command: None,
         }
     }
 }
@@ -123,7 +123,7 @@ impl Options {
             // Arg::min_values(1) is set.
             let command = String::from(args.next().unwrap());
             let args = args.map(String::from).collect();
-            options.shell = Some(Shell::new_with_args(command, args));
+            options.command = Some(Shell::new_with_args(command, args));
         }
 
         options
@@ -133,7 +133,7 @@ impl Options {
         self.dimensions
     }
 
-    pub fn shell(&self) -> Option<&Shell> {
-        self.shell.as_ref()
+    pub fn command(&self) -> Option<&Shell> {
+        self.command.as_ref()
     }
 }
