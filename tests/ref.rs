@@ -31,6 +31,7 @@ ref_tests! {
     indexed_256_colors
     ll
     tab_bg_highlight
+    tab_rendering
     tmux_git_log
     tmux_htop
     vim_large_window_scroll
