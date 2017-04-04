@@ -146,6 +146,10 @@ impl<T> Grid<T> {
         self.cols
     }
 
+    pub fn iter_rows(&self) -> slice::Iter<Row<T>> {
+        self.raw.iter()
+    }
+
     #[inline]
     pub fn scroll_down(&mut self, region: Range<index::Line>, positions: index::Line) {
         for line in IndexRange(region).rev() {
@@ -331,6 +335,16 @@ impl<T> Row<T> {
     #[inline]
     pub fn cells_mut(&mut self) -> IterMut<T> {
         self.0.iter_mut()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Grid<T> {
+    type Item = &'a Row<T>;
+    type IntoIter = slice::Iter<'a, Row<T>>;
+
+    #[inline]
+    fn into_iter(self) -> slice::Iter<'a, Row<T>> {
+        self.raw.iter()
     }
 }
 
