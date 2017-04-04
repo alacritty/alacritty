@@ -1199,13 +1199,17 @@ impl ansi::Handler for Term {
         while col < self.grid.num_cols() && count != 0 {
             count -= 1;
             loop {
-                if (col + 1) == self.grid.num_cols() || self.tabs[*col as usize] {
+                if (col + 1) == self.grid.num_cols() {
                     break;
                 }
 
                 self.insert_blank(Column(1));
 
                 col += 1;
+
+                if self.tabs[*col as usize] {
+                    break;
+                }
             }
         }
 
