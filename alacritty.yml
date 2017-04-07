@@ -210,8 +210,7 @@ key_bindings:
   - { key: Back,                    chars: "\x7f"                        }
   - { key: Back,     mods: Alt,     chars: "\x1b\x7f"                    }
   - { key: Insert,                  chars: "\x1b[2~"                     }
-  - { key: Delete,                  chars: "\x1b[3~",  mode: AppKeypad   }
-  - { key: Delete,                  chars: "\x1b[P",   mode: ~AppKeypad  }
+  - { key: Delete,                  chars: "\x1b[3~"                     }
 
 # Mouse bindings
 #
