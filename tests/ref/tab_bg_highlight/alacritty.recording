@@ -1,0 +1,5 @@
+[1m[7m%[27m[1m[0m                                                                                ]2;jwilm@jwilm-desk: ~/code/alacritty]1;..ode/alacritty[0m[27m[24m[Jjwilm@jwilm-desk [01;32m➜ [01;32m [36m~/code/alacritty [00m [K[?1h=[?2004h[7m[35mecho[39m[7m -e [7m[33m"\x1b[48;5;31m1\t2\n\n3\x1b[0;m"[27m[39m[40D[27m[35me[27m[35mc[27m[35mh[27m[35mo[39m[27m [27m-[27me[27m [27m[33m"[27m[33m\[27m[33mx[27m[33m1[27m[33mb[27m[33m[[27m[33m4[27m[33m8[27m[33m;[27m[33m5[27m[33m;[27m[33m3[27m[33m1[27m[33mm[27m[33m1[27m[33m\[27m[33mt[27m[33m2[27m[33m\[27m[33mn[27m[33m\[27m[33mn[27m[33m3[27m[33m\[27m[33mx[27m[33m1[27m[33mb[27m[33m[[27m[33m0[27m[33m;[27m[33mm[27m[33m"[39m[?1l>[?2004l
+]2;echo -e "\x1b[48;5;31m1\t2\n\n3\x1b[0;m"]1;echo[48;5;31m1	2
+
+3[0;m
+[1m[7m%[27m[1m[0m                                                                                ]2;jwilm@jwilm-desk: ~/code/alacritty]1;..ode/alacritty[0m[27m[24m[Jjwilm@jwilm-desk [01;32m➜ [01;32m [36m~/code/alacritty [00m [K[?1h=[?2004h

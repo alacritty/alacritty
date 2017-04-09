@@ -23,7 +23,7 @@ parking_lot = "0.3.1"
 serde = "0.9"
 serde_yaml = "0.6"
 serde_derive = "0.9"
-vte = "0.2.2"
+vte = "0.3.0"
 mio = "0.6"
 serde_json = "0.9"
 copypasta = { path = "./copypasta" }
@@ -31,6 +31,7 @@ xdg = "2.0.0"
 log = "0.3"
 clap = "2.20"
 fnv = "1.0.5"
+unicode-width = "0.1.4"
 
 clippy = { version = "0.0.104", optional = true }
 

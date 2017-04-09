@@ -18,11 +18,13 @@ use index::Column;
 bitflags! {
     #[derive(Serialize, Deserialize)]
     pub flags Flags: u32 {
-        const INVERSE   = 0b00000001,
-        const BOLD      = 0b00000010,
-        const ITALIC    = 0b00000100,
-        const UNDERLINE = 0b00001000,
-        const WRAPLINE  = 0b00010000,
+        const INVERSE           = 0b00000001,
+        const BOLD              = 0b00000010,
+        const ITALIC            = 0b00000100,
+        const UNDERLINE         = 0b00001000,
+        const WRAPLINE          = 0b00010000,
+        const WIDE_CHAR         = 0b00100000,
+        const WIDE_CHAR_SPACER  = 0b01000000,
     }
 }
 

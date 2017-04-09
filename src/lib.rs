@@ -21,19 +21,18 @@
 #![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
-#[macro_use]
-extern crate serde_derive;
+#[macro_use] extern crate bitflags;
+#[macro_use] extern crate clap;
+#[macro_use] extern crate lazy_static;
+#[macro_use] extern crate log;
+#[macro_use] extern crate serde_derive;
 
 extern crate cgmath;
-#[macro_use]
-extern crate clap;
 extern crate copypasta;
 extern crate errno;
-extern crate font;
 extern crate fnv;
+extern crate font;
 extern crate glutin;
-#[macro_use]
-extern crate lazy_static;
 extern crate libc;
 extern crate mio;
 extern crate notify;
@@ -41,14 +40,9 @@ extern crate parking_lot;
 extern crate serde;
 extern crate serde_json;
 extern crate serde_yaml;
+extern crate unicode_width;
 extern crate vte;
 extern crate xdg;
-
-#[macro_use]
-extern crate bitflags;
-
-#[macro_use]
-extern crate log;
 
 #[macro_use]
 pub mod macros;

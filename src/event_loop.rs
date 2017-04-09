@@ -206,7 +206,7 @@ impl<Io> EventLoop<Io>
         state: &mut State,
         buf: &mut [u8],
         mut writer: Option<&mut W>
-    )
+    ) -> io::Result<()>
         where W: Write
     {
         loop {
@@ -249,15 +249,17 @@ impl<Io> EventLoop<Io>
                     match err.kind() {
                         ErrorKind::Interrupted |
                         ErrorKind::WouldBlock => break,
-                        _ => panic!("unexpected read err: {:?}", err),
+                        _ => return Err(err),
                     }
                 }
             }
         }
+
+        Ok(())
     }
 
     #[inline]
-    fn pty_write(&mut self, state: &mut State) {
+    fn pty_write(&mut self, state: &mut State) -> io::Result<()> {
         state.ensure_next();
 
         'write_many: while let Some(mut current) = state.take_current() {
@@ -279,14 +281,15 @@ impl<Io> EventLoop<Io>
                         match err.kind() {
                             ErrorKind::Interrupted |
                             ErrorKind::WouldBlock => break 'write_many,
-                            // TODO
-                            _ => panic!("unexpected err: {:?}", err),
+                            _ => return Err(err),
                         }
                     }
                 }
 
             }
         }
+
+        Ok(())
     }
 
     pub fn spawn(
@@ -329,19 +332,28 @@ impl<Io> EventLoop<Io>
                         PTY => {
                             let kind = event.kind();
 
+                            if kind.is_hup() {
+                                break 'event_loop;
+                            }
+
                             if kind.is_readable() {
-                                self.pty_read(&mut state, &mut buf, pipe.as_mut());
+                                if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut()) {
+                                    error!("Event loop exitting due to error: {} [{}:{}]",
+                                           err, file!(), line!());
+                                    break 'event_loop;
+                                }
+
                                 if ::tty::process_should_exit() {
                                     break 'event_loop;
                                 }
                             }
 
                             if kind.is_writable() {
-                                self.pty_write(&mut state);
-                            }
-
-                            if kind.is_hup() {
-                                break 'event_loop;
+                                if let Err(err) = self.pty_write(&mut state) {
+                                    error!("Event loop exitting due to error: {} [{}:{}]",
+                                           err, file!(), line!());
+                                    break 'event_loop;
+                                }
                             }
 
                             // Figure out pty interest

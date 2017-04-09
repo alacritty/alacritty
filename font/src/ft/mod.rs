@@ -27,7 +27,7 @@ use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight,
 pub struct FreeTypeRasterizer {
     faces: HashMap<FontKey, Face<'static>>,
     library: Library,
-    keys: HashMap<FontDesc, FontKey>,
+    keys: HashMap<::std::path::PathBuf, FontKey>,
     dpi_x: u32,
     dpi_y: u32,
     dpr: f32,
@@ -91,58 +91,16 @@ impl ::Rasterize for FreeTypeRasterizer {
     }
 
     fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Error> {
-        self.keys
-            .get(&desc.to_owned())
-            .map(|k| Ok(*k))
-            .unwrap_or_else(|| {
-                let face = self.get_face(desc)?;
-                let key = FontKey::next();
-                self.faces.insert(key, face);
-                Ok(key)
-            })
+        let face = self.get_face(desc)?;
+        let key = FontKey::next();
+        self.faces.insert(key, face);
+        Ok(key)
     }
 
     fn get_glyph(&mut self, glyph_key: &GlyphKey) -> Result<RasterizedGlyph, Error> {
-        let face = self.faces
-            .get(&glyph_key.font_key)
-            .ok_or(Error::FontNotLoaded)?;
-
-        let size = glyph_key.size.as_f32_pts() * self.dpr;
-        let c = glyph_key.c;
-
-        face.set_char_size(to_freetype_26_6(size), 0, self.dpi_x, self.dpi_y)?;
-        face.load_char(c as usize, freetype::face::TARGET_LIGHT)?;
-        let glyph = face.glyph();
-        glyph.render_glyph(freetype::render_mode::RenderMode::Lcd)?;
-
-        unsafe {
-            let ft_lib = self.library.raw();
-            freetype::ffi::FT_Library_SetLcdFilter(
-                ft_lib,
-                freetype::ffi::FT_LCD_FILTER_DEFAULT
-            );
-        }
-
-        let bitmap = glyph.bitmap();
-        let buf = bitmap.buffer();
-        let pitch = bitmap.pitch() as usize;
-
-        let mut packed = Vec::with_capacity((bitmap.rows() * bitmap.width()) as usize);
-        for i in 0..bitmap.rows() {
-            let start = (i as usize) * pitch;
-            let stop = start + bitmap.width() as usize;
-            packed.extend_from_slice(&buf[start..stop]);
-        }
-
-        Ok(RasterizedGlyph {
-            c: c,
-            top: glyph.bitmap_top(),
-            left: glyph.bitmap_left(),
-            width: glyph.bitmap().width() / 3,
-            height: glyph.bitmap().rows(),
-            buf: packed,
-        })
+        self.get_rendered_glyph(glyph_key, false)
     }
+
 }
 
 pub trait IntoFontconfigType {
@@ -198,14 +156,11 @@ impl FreeTypeRasterizer {
         pattern.set_weight(weight.into_fontconfig_type());
         pattern.set_slant(slant.into_fontconfig_type());
 
-        let fonts = fc::font_sort(fc::Config::get_current(), &mut pattern)
+        let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
 
-        // Take first font that has a path
-        for font in &fonts {
-            if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
-                return Ok(self.library.new_face(path, index)?);
-            }
+        if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
+            return Ok(self.library.new_face(path, index)?);
         }
 
         Err(Error::MissingFont(desc.to_owned()))
@@ -224,9 +179,108 @@ impl FreeTypeRasterizer {
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
         if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
             println!("got font path={:?}", path);
-            return Ok(self.library.new_face(path, index)?);
-        } else {
+            Ok(self.library.new_face(path, index)?)
+        }
+        else {
             Err(Error::MissingFont(desc.to_owned()))
+        }
+    }
+
+    fn get_rendered_glyph(&mut self, glyph_key: &GlyphKey, have_recursed: bool)
+                          -> Result<RasterizedGlyph, Error> {
+        let faces = self.faces.clone();
+        let face = faces
+            .get(&glyph_key.font_key)
+            .ok_or(Error::FontNotLoaded)?;
+
+        let size = glyph_key.size.as_f32_pts() * self.dpr;
+        let c = glyph_key.c;
+
+        face.set_char_size(to_freetype_26_6(size), 0, self.dpi_x, self.dpi_y)?;
+        let index = face.get_char_index(c as usize);
+
+        if index == 0 && have_recursed == false {
+            let key = self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key);
+            let new_glyph_key = GlyphKey {
+                c: glyph_key.c,
+                font_key: key,
+                size: glyph_key.size
+            };
+
+            return self.get_rendered_glyph(&new_glyph_key, true);
+        }
+
+        face.load_glyph(index as u32, freetype::face::TARGET_LIGHT)?;
+        let glyph = face.glyph();
+        glyph.render_glyph(freetype::render_mode::RenderMode::Lcd)?;
+
+        unsafe {
+            let ft_lib = self.library.raw();
+            freetype::ffi::FT_Library_SetLcdFilter(
+                ft_lib,
+                freetype::ffi::FT_LCD_FILTER_DEFAULT
+            );
+        }
+
+        let bitmap = glyph.bitmap();
+        let buf = bitmap.buffer();
+        let pitch = bitmap.pitch() as usize;
+
+        let mut packed = Vec::with_capacity((bitmap.rows() * bitmap.width()) as usize);
+        for i in 0..bitmap.rows() {
+            let start = (i as usize) * pitch;
+            let stop = start + bitmap.width() as usize;
+            packed.extend_from_slice(&buf[start..stop]);
+        }
+
+        Ok(RasterizedGlyph {
+            c: c,
+            top: glyph.bitmap_top(),
+            left: glyph.bitmap_left(),
+            width: glyph.bitmap().width() / 3,
+            height: glyph.bitmap().rows(),
+            buf: packed,
+        })
+    }
+
+    fn load_face_with_glyph(&mut self, glyph: char) -> Result<FontKey, Error> {
+        let mut charset = fc::CharSet::new();
+        charset.add(glyph);
+        let mut pattern = fc::Pattern::new();
+        pattern.add_charset(&charset);
+
+        let config = fc::Config::get_current();
+        match fc::font_match(config, &mut pattern) {
+            Some(font) => {
+                if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
+                    match self.keys.get(&path) {
+                        // We've previously loaded this font, so don't
+                        // load it again.
+                        Some(&key) => {
+                            debug!("Hit for font {:?}", path);
+                            Ok(key)
+                        },
+
+                        None => {
+                            debug!("Miss for font {:?}", path);
+                            let face = self.library.new_face(&path, index)?;
+                            let key = FontKey::next();
+                            self.faces.insert(key, face);
+                            self.keys.insert(path, key);
+                            Ok(key)
+                        }
+                    }
+                }
+                else {
+                Err(Error::MissingFont(
+                    FontDesc::new("fallback-without-path", Style::Specific(glyph.to_string()))))
+                }
+            },
+            None => {
+                Err(Error::MissingFont(
+                    FontDesc::new("no-fallback-for", Style::Specific(glyph.to_string()))
+                ))
+            }
         }
     }
 }

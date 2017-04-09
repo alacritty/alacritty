@@ -29,7 +29,7 @@ pub mod fc {
     use self::ffi::{FcPatternGetInteger, FcPatternAddInteger};
     use self::ffi::{FcObjectSetCreate, FcObjectSetAdd};
     use self::ffi::{FcResultMatch, FcResultNoMatch, FcFontSetList};
-    use self::ffi::{FcChar8, FcConfig, FcPattern, FcFontSet, FcObjectSet, FcCharSet};
+    use self::ffi::{FcChar8, FcConfig, FcPattern, FcFontSet, FcObjectSet};
     use self::ffi::{FcFontSetDestroy, FcPatternDestroy, FcObjectSetDestroy, FcConfigDestroy};
     use self::ffi::{FcFontMatch, FcFontList, FcFontSort, FcConfigSubstitute, FcDefaultSubstitute};
     use self::ffi::{FcMatchFont, FcMatchPattern, FcMatchScan, FC_SLANT_ITALIC, FC_SLANT_ROMAN};
@@ -37,6 +37,8 @@ pub mod fc {
     use self::ffi::{FC_WEIGHT_THIN, FC_WEIGHT_EXTRALIGHT, FC_WEIGHT_LIGHT};
     use self::ffi::{FC_WEIGHT_BOOK, FC_WEIGHT_REGULAR, FC_WEIGHT_MEDIUM, FC_WEIGHT_SEMIBOLD};
     use self::ffi::{FC_WEIGHT_BOLD, FC_WEIGHT_EXTRABOLD, FC_WEIGHT_BLACK, FC_WEIGHT_EXTRABLACK};
+    use self::ffi::{FcCharSet, FcCharSetDestroy, FcPatternAddCharSet, FcCharSetAddChar};
+    use self::ffi::{FcCharSetCreate};
 
     /// Iterator over a font set
     pub struct FontSetIter<'a> {
@@ -49,6 +51,7 @@ pub mod fc {
     ffi_type!(Config, ConfigRef, FcConfig, FcConfigDestroy);
     ffi_type!(ObjectSet, ObjectSetRef, FcObjectSet, FcObjectSetDestroy);
     ffi_type!(FontSet, FontSetRef, FcFontSet, FcFontSetDestroy);
+    ffi_type!(CharSet, CharSetRef, FcCharSet, FcCharSetDestroy);
 
     impl ObjectSet {
         #[allow(dead_code)]
@@ -60,7 +63,6 @@ pub mod fc {
     }
 
     /// Find the font closest matching the provided pattern.
-    #[allow(dead_code)]
     pub fn font_match(
         config: &ConfigRef,
         pattern: &mut PatternRef,
@@ -87,6 +89,7 @@ pub mod fc {
     }
 
     /// list fonts by closeness to the pattern
+    #[allow(dead_code)]
     pub fn font_sort(
         config: &ConfigRef,
         pattern: &mut PatternRef,
@@ -291,6 +294,23 @@ pub mod fc {
         Extrablack = FC_WEIGHT_EXTRABLACK as isize,
     }
 
+    impl CharSet {
+        pub fn new() -> CharSet {
+            CharSet(unsafe { FcCharSetCreate() })
+        }
+    }
+
+    impl CharSetRef {
+        pub fn add(&mut self, glyph: char) -> bool {
+            unsafe {
+                FcCharSetAddChar(
+                    self.as_ptr(),
+                    glyph as _
+                ) == 1
+            }
+        }
+    }
+
     impl PatternRef {
         /// Add a string value to the pattern
         ///
@@ -350,6 +370,23 @@ pub mod fc {
         pub fn set_weight(&mut self, weight: Weight) -> bool {
             unsafe {
                 self.add_integer(b"weight\0", weight as isize)
+            }
+        }
+
+
+        /// Add charset to the pattern
+        ///
+        /// The referenced charset is copied by fontconfig internally using
+        /// FcValueSave so that no references to application provided memory are
+        /// retained. That is, the CharSet can be safely dropped immediately
+        /// after being added to the pattern.
+        pub fn add_charset(&self, charset: &CharSetRef) -> bool {
+            unsafe {
+                FcPatternAddCharSet(
+                    self.as_ptr(),
+                    b"charset\0".as_ptr() as *mut c_char,
+                    charset.as_ptr()
+                ) == 1
             }
         }
 
@@ -520,7 +557,31 @@ mod tests {
                     break;
                 }
             }
-            info!("");
+            println!("");
+        }
+    }
+
+    #[test]
+    fn font_sort_with_glyph() {
+        let mut charset = fc::CharSet::new();
+        charset.add('💖');
+        let mut pattern = fc::Pattern::new();
+        pattern.add_charset(&charset);
+        drop(charset);
+
+        let config = fc::Config::get_current();
+        let fonts = fc::font_sort(config, &mut pattern).expect("font_sort");
+
+        for font in fonts.into_iter().take(10) {
+            print!("family={:?}", font.family(0));
+            for i in 0.. {
+                if let Some(style) = font.style(i) {
+                    print!(", style={:?}", style);
+                } else {
+                    break;
+                }
+            }
+            println!("");
         }
     }
 }
