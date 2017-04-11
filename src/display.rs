@@ -14,6 +14,7 @@
 
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
+use std::mem;
 use std::sync::mpsc;
 
 use parking_lot::{MutexGuard};
@@ -272,9 +273,9 @@ impl Display {
             let dpr = self.window.hidpi_factor();
             if self.dpr != dpr {
                 let (glyph_cache, size_info, _) = update_display_dpr(config, options, &mut self.window, &mut self.renderer)?;
-                self.glyph_cache = glyph_cache;
-                self.size_info = size_info;
-                self.dpr = dpr;
+                mem::replace(&mut self.glyph_cache, glyph_cache);
+                mem::replace(&mut self.size_info, size_info);
+                mem::replace(&mut self.dpr, dpr);
             }
         }
         Ok(())
