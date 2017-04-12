@@ -20,7 +20,6 @@ use std::os::unix::io::FromRawFd;
 use std::os::unix::process::CommandExt;
 use std::ptr;
 use std::process::{Command, Stdio};
-use std::env;
 
 use libc::{self, winsize, c_int, pid_t, WNOHANG, SIGCHLD, TIOCSCTTY};
 
@@ -238,9 +237,7 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T) -> Pty {
 
     // Handle set working directory option
     if let Some(ref dir) = options.working_dir {
-        env::set_current_dir(dir.as_path()).unwrap_or_else(|e| {
-            die!("Failed to set working directory: {}", e);
-        });
+        builder.current_dir(dir.as_path());
     }
 
     match builder.spawn() {
