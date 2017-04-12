@@ -7,9 +7,11 @@ use std::path::Path;
 
 use alacritty::Grid;
 use alacritty::Term;
+use alacritty::ansi;
+use alacritty::index::{Line, Column};
 use alacritty::term::Cell;
 use alacritty::term::SizeInfo;
-use alacritty::ansi;
+use alacritty::util::fmt::{Red, Green};
 
 macro_rules! ref_tests {
     ($($name:ident)*) => {
@@ -29,6 +31,7 @@ ref_tests! {
     indexed_256_colors
     ll
     tab_bg_highlight
+    tab_rendering
     tmux_git_log
     tmux_htop
     vim_large_window_scroll
@@ -69,6 +72,20 @@ fn ref_test(dir: &Path) {
 
     for byte in recording {
         parser.advance(&mut terminal, byte, &mut io::sink());
+    }
+
+    if grid != *terminal.grid() {
+        for (i, row) in terminal.grid().iter_rows().enumerate() {
+            for (j, cell) in row.iter().enumerate() {
+                let original_cell = &grid[Line(i)][Column(j)];
+                if *original_cell != *cell {
+                    println!("[{i}][{j}] {original:?} => {now:?}",
+                             i=i, j=j, original=Green(original_cell), now=Red(cell));
+                }
+            }
+        }
+
+        panic!("Ref test failed; grid doesn't match");
     }
 
     assert_eq!(grid, *terminal.grid());

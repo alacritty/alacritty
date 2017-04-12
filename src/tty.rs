@@ -22,7 +22,7 @@ use std::ptr;
 use std::process::{Command, Stdio};
 use std::env;
 
-use libc::{self, winsize, c_int, pid_t, WNOHANG, WIFEXITED, WEXITSTATUS, SIGCHLD, TIOCSCTTY};
+use libc::{self, winsize, c_int, pid_t, WNOHANG, SIGCHLD, TIOCSCTTY};
 
 use term::SizeInfo;
 use display::OnResize;
@@ -49,15 +49,9 @@ extern "C" fn sigchld(_a: c_int) {
             die!("Waiting for pid {} failed: {}\n", PID, errno());
         }
 
-        if PID != p {
-            return;
+        if PID == p {
+            SHOULD_EXIT = true;
         }
-
-        if !WIFEXITED(status) || WEXITSTATUS(status) != 0 {
-            die!("child finished with error '{}'\n", status);
-        }
-
-        SHOULD_EXIT = true;
     }
 }
 
@@ -189,12 +183,13 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T) -> Pty {
     let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
 
     let default_shell = &Shell::new(pw.shell);
-    let shell = options.shell()
-        .or_else(|| config.shell())
+    let shell = config.shell()
         .unwrap_or(&default_shell);
 
-    let mut builder = Command::new(shell.program());
-    for arg in shell.args() {
+    let initial_command = options.command().unwrap_or(&shell);
+
+    let mut builder = Command::new(initial_command.program());
+    for arg in initial_command.args() {
         builder.arg(arg);
     }
 

@@ -1199,13 +1199,17 @@ impl ansi::Handler for Term {
         while col < self.grid.num_cols() && count != 0 {
             count -= 1;
             loop {
-                if (col + 1) == self.grid.num_cols() || self.tabs[*col as usize] {
+                if (col + 1) == self.grid.num_cols() {
                     break;
                 }
 
                 self.insert_blank(Column(1));
 
                 col += 1;
+
+                if self.tabs[*col as usize] {
+                    break;
+                }
             }
         }
 
@@ -1374,7 +1378,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         trace!("clear_line: {:?}", mode);
-        let template = self.empty_cell;
+        let template = self.cursor.template;
         let col =  self.cursor.point.col;
 
         match mode {
@@ -1412,7 +1416,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
         trace!("clear_screen: {:?}", mode);
-        let template = self.empty_cell;
+        let template = self.cursor.template;
         match mode {
             ansi::ClearMode::Below => {
                 for cell in &mut self.grid[self.cursor.point.line][self.cursor.point.col..] {

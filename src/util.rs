@@ -77,6 +77,21 @@ pub mod fmt {
         /// Write a `Display` or `Debug` escaped with Yellow
         pub struct Yellow => "33";
     }
+
+    /// Write a `Display` or `Debug` escaped with Red
+    pub struct Green<T>(pub T);
+
+    impl<T: fmt::Display> fmt::Display for Green<T> {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "\x1b[32m{}\x1b[0m", self.0)
+        }
+    }
+
+    impl<T: fmt::Debug> fmt::Debug for Green<T> {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "\x1b[32m{:?}\x1b[0m", self.0)
+        }
+    }
 }
 
 #[cfg(test)]

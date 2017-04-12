@@ -27,7 +27,8 @@ pub struct Options {
     pub title: String,
     pub log_level: log::LogLevelFilter,
     pub shell: Option<Shell<'static>>,
-    pub chdir: Option<PathBuf>,
+    pub working_dir: Option<PathBuf>,
+    pub command: Option<Shell<'static>>,
 }
 
 impl Default for Options {
@@ -39,7 +40,8 @@ impl Default for Options {
             title: DEFAULT_TITLE.to_owned(),
             log_level: log::LogLevelFilter::Warn,
             shell: None,
-            chdir: None,
+            working_dir: None,
+            command: None,
         }
     }
 }
@@ -78,10 +80,10 @@ impl Options {
                 .multiple(true)
                 .conflicts_with("q")
                 .help("Increases the level of verbosity (the max level is -vvv)"))
-            .arg(Arg::with_name("chdir")
-                 .short("c")
+            .arg(Arg::with_name("working-directory")
+                 .long("working-directory")
                  .takes_value(true)
-                 .help("Start the shell in the specified working directory"))
+                 .help("Starts the shell in the specified working directory"))
             .arg(Arg::with_name("command")
                 .short("e")
                 .multiple(true)
@@ -124,8 +126,8 @@ impl Options {
             3 | _ => options.log_level = log::LogLevelFilter::Trace
         }
 
-        if let Some(dir) = matches.value_of("chdir") {
-            options.chdir = Some(PathBuf::from(dir.to_string()));
+        if let Some(dir) = matches.value_of("working-directory") {
+            options.working_dir = Some(PathBuf::from(dir));
         }
 
         if let Some(mut args) = matches.values_of("command") {
@@ -134,7 +136,7 @@ impl Options {
             // Arg::min_values(1) is set.
             let command = String::from(args.next().unwrap());
             let args = args.map(String::from).collect();
-            options.shell = Some(Shell::new_with_args(command, args));
+            options.command = Some(Shell::new_with_args(command, args));
         }
 
         options
@@ -144,7 +146,7 @@ impl Options {
         self.dimensions
     }
 
-    pub fn shell(&self) -> Option<&Shell> {
-        self.shell.as_ref()
+    pub fn command(&self) -> Option<&Shell> {
+        self.command.as_ref()
     }
 }
