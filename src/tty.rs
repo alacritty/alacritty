@@ -237,7 +237,7 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T) -> Pty {
     });
 
     // Handle set working directory option
-    if let Some(ref dir) = options.chdir {
+    if let Some(ref dir) = options.working_dir {
         env::set_current_dir(dir.as_path()).unwrap_or_else(|e| {
             die!("Failed to set working directory: {}", e);
         });
