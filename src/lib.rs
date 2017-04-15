@@ -30,7 +30,7 @@
 extern crate cgmath;
 extern crate copypasta;
 extern crate errno;
-extern crate fnv;
+extern crate twox_hash;
 extern crate font;
 extern crate glutin;
 extern crate libc;

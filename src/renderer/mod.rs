@@ -21,7 +21,7 @@ use std::ptr;
 use std::sync::mpsc;
 
 use cgmath;
-use fnv::FnvHasher;
+use twox_hash::XxHash;
 use font::{self, Rasterizer, Rasterize, RasterizedGlyph, FontDesc, GlyphKey, FontKey};
 use gl::types::*;
 use gl;
@@ -138,7 +138,7 @@ pub struct Glyph {
 /// representations of the same code point.
 pub struct GlyphCache {
     /// Cache of buffered glyphs
-    cache: HashMap<GlyphKey, Glyph, BuildHasherDefault<FnvHasher>>,
+    cache: HashMap<GlyphKey, Glyph, BuildHasherDefault<XxHash>>,
 
     /// Rasterizer for loading new glyphs
     rasterizer: Rasterizer,
