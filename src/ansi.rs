@@ -253,6 +253,9 @@ pub trait Handler {
 
     /// Set an indexed color value
     fn set_color(&mut self, usize, Rgb) {}
+
+    /// Run the dectest routine
+    fn dectest(&mut self) {}
 }
 
 /// Terminal modes
@@ -902,14 +905,23 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
         match byte {
             b'B' => configure_charset!(StandardCharset::Ascii),
             b'D' => self.handler.linefeed(),
-            b'E' => self.handler.newline(),
+            b'E' => {
+                self.handler.linefeed();
+                self.handler.carriage_return();
+            }
             b'H' => self.handler.set_horizontal_tabstop(),
             b'M' => self.handler.reverse_index(),
             b'Z' => self.handler.identify_terminal(self.writer),
             b'c' => self.handler.reset_state(),
             b'0' => configure_charset!(StandardCharset::SpecialCharacterAndLineDrawing),
             b'7' => self.handler.save_cursor_position(),
-            b'8' => self.handler.restore_cursor_position(),
+            b'8' => {
+                if !intermediates.is_empty() && intermediates[0] == b'#' {
+                    self.handler.dectest();
+                } else {
+                    self.handler.restore_cursor_position();
+                }
+            }
             b'=' => self.handler.set_keypad_application_mode(),
             b'>' => self.handler.unset_keypad_application_mode(),
             b'\\' => (), // String terminator, do nothing (parser handles as string terminator)

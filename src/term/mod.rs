@@ -1101,6 +1101,19 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
+    fn dectest(&mut self) {
+        trace!("dectest");
+        let mut template = self.cursor.template;
+        template.c = 'E';
+
+        for row in &mut self.grid.lines_mut() {
+            for cell in row {
+                cell.reset(&template);
+            }
+        }
+    }
+
+    #[inline]
     fn goto(&mut self, line: Line, col: Column) {
         trace!("goto: line={}, col={}", line, col);
         self.cursor.point.line = min(line, self.grid.num_lines() - 1);
@@ -1471,7 +1484,8 @@ impl ansi::Handler for Term {
                     }
                 }
                 // Clear up to the current column in the current line
-                for cell in &mut self.grid[self.cursor.point.line][..self.cursor.point.col] {
+                let end = min(self.cursor.point.col + 1, self.grid.num_cols());
+                for cell in &mut self.grid[self.cursor.point.line][..end] {
                     cell.reset(&template);
                 }
             },
