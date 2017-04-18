@@ -258,17 +258,18 @@ fn limit<T: PartialOrd + Ord>(val: T, min_limit: T, max_limit: T) -> T {
 
 pub mod mode {
     bitflags! {
-        pub flags TermMode: u8 {
-            const SHOW_CURSOR         = 0b00000001,
-            const APP_CURSOR          = 0b00000010,
-            const APP_KEYPAD          = 0b00000100,
-            const MOUSE_REPORT_CLICK  = 0b00001000,
-            const BRACKETED_PASTE     = 0b00010000,
-            const SGR_MOUSE           = 0b00100000,
-            const MOUSE_MOTION        = 0b01000000,
-            const LINE_WRAP           = 0b10000000,
-            const ANY                 = 0b11111111,
-            const NONE                = 0b00000000,
+        pub flags TermMode: u16 {
+            const SHOW_CURSOR         = 0b000000001,
+            const APP_CURSOR          = 0b000000010,
+            const APP_KEYPAD          = 0b000000100,
+            const MOUSE_REPORT_CLICK  = 0b000001000,
+            const BRACKETED_PASTE     = 0b000010000,
+            const SGR_MOUSE           = 0b000100000,
+            const MOUSE_MOTION        = 0b001000000,
+            const LINE_WRAP           = 0b010000000,
+            const LINE_FEED_NEW_LINE  = 0b100000000,
+            const ANY                 = 0b111111111,
+            const NONE                = 0,
         }
     }
 
@@ -1258,9 +1259,35 @@ impl ansi::Handler for Term {
         trace!("[unimplemented] substitute");
     }
 
+    /// Run LF/NL
+    ///
+    /// LF/NL mode has some interesting history. According to ECMA-48 4th
+    /// edition, in LINE FEED mode,
+    ///
+    /// > The execution of the formator functions LINE FEED (LF), FORM FEED
+    /// (FF), LINE TABULATION (VT) cause only movement of the active position in
+    /// the direction of the line progression.
+    ///
+    /// In NEW LINE mode,
+    ///
+    /// > The execution of the formator functions LINE FEED (LF), FORM FEED
+    /// (FF), LINE TABULATION (VT) cause movement to the line home position on
+    /// the following line, the following form, etc. In the case of LF this is
+    /// referred to as the New Line (NL) option.
+    ///
+    /// Additionally, ECMA-48 4th edition says that this option is deprecated.
+    /// ECMA-48 5th edition only mentions this option (without explanation)
+    /// saying that it's been removed.
+    ///
+    /// As an emulator, we need to support it since applications may still rely
+    /// on it.
     #[inline]
     fn newline(&mut self) {
-        trace!("[unimplemented] newline");
+        self.linefeed();
+
+        if self.mode.contains(mode::LINE_FEED_NEW_LINE) {
+            self.carriage_return();
+        }
     }
 
     #[inline]
@@ -1516,6 +1543,7 @@ impl ansi::Handler for Term {
             ansi::Mode::BracketedPaste => self.mode.insert(mode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.insert(mode::SGR_MOUSE),
             ansi::Mode::LineWrap => self.mode.insert(mode::LINE_WRAP),
+            ansi::Mode::LineFeedNewLine => self.mode.insert(mode::LINE_FEED_NEW_LINE),
             _ => {
                 debug!(".. ignoring set_mode");
             }
@@ -1538,6 +1566,7 @@ impl ansi::Handler for Term {
             ansi::Mode::BracketedPaste => self.mode.remove(mode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.remove(mode::SGR_MOUSE),
             ansi::Mode::LineWrap => self.mode.remove(mode::LINE_WRAP),
+            ansi::Mode::LineFeedNewLine => self.mode.remove(mode::LINE_FEED_NEW_LINE),
             _ => {
                 debug!(".. ignoring unset_mode");
             }

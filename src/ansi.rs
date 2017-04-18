@@ -266,6 +266,11 @@ pub enum Mode {
     LineWrap = 7,
     /// ?12
     BlinkingCursor = 12,
+    /// 20
+    ///
+    /// NB This is actually a private mode. We should consider adding a second
+    /// enumeration for public/private modesets.
+    LineFeedNewLine = 20,
     /// ?25
     ShowCursor = 25,
     /// ?1000
@@ -300,8 +305,10 @@ impl Mode {
                 _ => return None
             })
         } else {
-            // TODO
-            None
+            Some(match num {
+                20 => Mode::LineFeedNewLine,
+                _ => return None
+            })
         }
     }
 }
