@@ -1014,6 +1014,17 @@ impl Term {
             self.grid.scroll_up(origin..end, lines);
         }
     }
+
+    fn deccolm(&mut self) {
+        // Setting 132 column font makes no sense, but run the other side effects
+        // Clear scrolling region
+        let scroll_region = Line(0)..self.grid.num_lines();
+        self.set_scrolling_region(scroll_region);
+
+        // Clear grid
+        let template = self.empty_cell;
+        self.grid.clear(|c| c.reset(&template));
+    }
 }
 
 impl ansi::TermInfo for Term {
@@ -1572,6 +1583,7 @@ impl ansi::Handler for Term {
             ansi::Mode::LineWrap => self.mode.insert(mode::LINE_WRAP),
             ansi::Mode::LineFeedNewLine => self.mode.insert(mode::LINE_FEED_NEW_LINE),
             ansi::Mode::Origin => self.mode.insert(mode::ORIGIN),
+            ansi::Mode::DECCOLM => self.deccolm(),
             _ => {
                 debug!(".. ignoring set_mode");
             }
@@ -1596,6 +1608,7 @@ impl ansi::Handler for Term {
             ansi::Mode::LineWrap => self.mode.remove(mode::LINE_WRAP),
             ansi::Mode::LineFeedNewLine => self.mode.remove(mode::LINE_FEED_NEW_LINE),
             ansi::Mode::Origin => self.mode.remove(mode::ORIGIN),
+            ansi::Mode::DECCOLM => self.deccolm(),
             _ => {
                 debug!(".. ignoring unset_mode");
             }

@@ -263,6 +263,18 @@ pub trait Handler {
 pub enum Mode {
     /// ?1
     CursorKeys = 1,
+    /// Select 80 or 132 columns per page
+    ///
+    /// CSI ? 3 h -> set 132 column font
+    /// CSI ? 3 l -> reset 80 column font
+    ///
+    /// Additionally,
+    ///
+    /// * set margins to default positions
+    /// * erases all data in page memory
+    /// * resets DECLRMM to unavailable
+    /// * clears data from the status line (if set to host-writable)
+    DECCOLM = 3,
     /// ?6
     Origin = 6,
     /// ?7
@@ -296,6 +308,7 @@ impl Mode {
         if private {
             Some(match num {
                 1 => Mode::CursorKeys,
+                3 => Mode::DECCOLM,
                 6 => Mode::Origin,
                 7 => Mode::LineWrap,
                 12 => Mode::BlinkingCursor,
