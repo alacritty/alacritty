@@ -259,16 +259,17 @@ fn limit<T: PartialOrd + Ord>(val: T, min_limit: T, max_limit: T) -> T {
 pub mod mode {
     bitflags! {
         pub flags TermMode: u16 {
-            const SHOW_CURSOR         = 0b000000001,
-            const APP_CURSOR          = 0b000000010,
-            const APP_KEYPAD          = 0b000000100,
-            const MOUSE_REPORT_CLICK  = 0b000001000,
-            const BRACKETED_PASTE     = 0b000010000,
-            const SGR_MOUSE           = 0b000100000,
-            const MOUSE_MOTION        = 0b001000000,
-            const LINE_WRAP           = 0b010000000,
-            const LINE_FEED_NEW_LINE  = 0b100000000,
-            const ANY                 = 0b111111111,
+            const SHOW_CURSOR         = 0b0000000001,
+            const APP_CURSOR          = 0b0000000010,
+            const APP_KEYPAD          = 0b0000000100,
+            const MOUSE_REPORT_CLICK  = 0b0000001000,
+            const BRACKETED_PASTE     = 0b0000010000,
+            const SGR_MOUSE           = 0b0000100000,
+            const MOUSE_MOTION        = 0b0001000000,
+            const LINE_WRAP           = 0b0010000000,
+            const LINE_FEED_NEW_LINE  = 0b0100000000,
+            const ORIGIN              = 0b1000000000,
+            const ANY                 = 0b1111111111,
             const NONE                = 0,
         }
     }
@@ -1037,6 +1038,9 @@ impl ansi::Handler for Term {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
+        // The character is printed in yellow to differentiate from
+        // other logs.
+        print!("{}", ::util::fmt::Yellow(c));
         if self.input_needs_wrap {
             if !self.mode.contains(mode::LINE_WRAP) {
                 return;
@@ -1116,7 +1120,13 @@ impl ansi::Handler for Term {
     #[inline]
     fn goto(&mut self, line: Line, col: Column) {
         trace!("goto: line={}, col={}", line, col);
-        self.cursor.point.line = min(line, self.grid.num_lines() - 1);
+        let (y_offset, max_y) = if self.mode.contains(mode::ORIGIN) {
+            (self.scroll_region.start, self.scroll_region.end)
+        } else {
+            (Line(0), self.grid.num_lines() - 1)
+        };
+
+        self.cursor.point.line = min(line + y_offset, max_y);
         self.cursor.point.col = min(col, self.grid.num_cols() - 1);
         self.input_needs_wrap = false;
     }
@@ -1124,15 +1134,15 @@ impl ansi::Handler for Term {
     #[inline]
     fn goto_line(&mut self, line: Line) {
         trace!("goto_line: {}", line);
-        self.cursor.point.line = min(line, self.grid.num_lines() - 1);
-        self.input_needs_wrap = false;
+        let col = self.cursor.point.col; // borrowck
+        self.goto(line, col)
     }
 
     #[inline]
     fn goto_col(&mut self, col: Column) {
         trace!("goto_col: {}", col);
-        self.cursor.point.col = min(col, self.grid.num_cols() - 1);
-        self.input_needs_wrap = false;
+        let line = self.cursor.point.line; // borrowck
+        self.goto(line, col)
     }
 
     #[inline]
@@ -1166,14 +1176,17 @@ impl ansi::Handler for Term {
     #[inline]
     fn move_up(&mut self, lines: Line) {
         trace!("move_up: {}", lines);
-        let lines = min(self.cursor.point.line, lines);
-        self.cursor.point.line = min(self.cursor.point.line - lines, self.grid.num_lines() -1);
+        let move_to = Line(self.cursor.point.line.0.saturating_sub(lines.0));
+        let col = self.cursor.point.col; // borrowck
+        self.goto(move_to, col)
     }
 
     #[inline]
     fn move_down(&mut self, lines: Line) {
         trace!("move_down: {}", lines);
-        self.cursor.point.line = min(self.cursor.point.line + lines, self.grid.num_lines() - 1);
+        let move_to = self.cursor.point.line + lines;
+        let col = self.cursor.point.col; // borrowck
+        self.goto(move_to, col)
     }
 
     #[inline]
@@ -1558,6 +1571,7 @@ impl ansi::Handler for Term {
             ansi::Mode::SgrMouse => self.mode.insert(mode::SGR_MOUSE),
             ansi::Mode::LineWrap => self.mode.insert(mode::LINE_WRAP),
             ansi::Mode::LineFeedNewLine => self.mode.insert(mode::LINE_FEED_NEW_LINE),
+            ansi::Mode::Origin => self.mode.insert(mode::ORIGIN),
             _ => {
                 debug!(".. ignoring set_mode");
             }
@@ -1581,6 +1595,7 @@ impl ansi::Handler for Term {
             ansi::Mode::SgrMouse => self.mode.remove(mode::SGR_MOUSE),
             ansi::Mode::LineWrap => self.mode.remove(mode::LINE_WRAP),
             ansi::Mode::LineFeedNewLine => self.mode.remove(mode::LINE_FEED_NEW_LINE),
+            ansi::Mode::Origin => self.mode.remove(mode::ORIGIN),
             _ => {
                 debug!(".. ignoring unset_mode");
             }
