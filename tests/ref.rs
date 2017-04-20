@@ -36,6 +36,9 @@ ref_tests! {
     tmux_htop
     vim_large_window_scroll
     vim_simple_edit
+    vttest_cursor_movement_1
+    vttest_origin_mode_1
+    vttest_origin_mode_2
     vttest_scroll
     zsh_tab_completion
 }
