@@ -159,7 +159,6 @@ impl<T> Grid<T> {
 
     #[inline]
     pub fn scroll_up(&mut self, region: Range<index::Line>, positions: index::Line) {
-
         for line in IndexRange(region.start..(region.end - positions)) {
             self.swap_lines(line, line + positions);
         }

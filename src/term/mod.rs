@@ -898,8 +898,13 @@ impl Term {
         // Scroll up to keep cursor in terminal
         if self.cursor.point.line >= num_lines {
             let lines = self.cursor.point.line - num_lines + 1;
-            self.scroll_up(lines);
-            self.cursor.point.line -= lines;
+            self.grid.scroll_up(Line(0)..old_lines, lines);
+        }
+
+        // Scroll up alt grid as well
+        if self.cursor_save_alt.point.line >= num_lines {
+            let lines = self.cursor_save_alt.point.line - num_lines + 1;
+            self.alt_grid.scroll_up(Line(0)..old_lines, lines);
         }
 
         println!("num_cols, num_lines = {}, {}", num_cols, num_lines);
@@ -909,9 +914,16 @@ impl Term {
         self.grid.resize(num_lines, num_cols, &template);
         self.alt_grid.resize(num_lines, num_cols, &template);
 
-        // Ensure cursor is in-bounds
-        self.cursor.point.line = limit(self.cursor.point.line, Line(0), num_lines - 1);
-        self.cursor.point.col = limit(self.cursor.point.col, Column(0), num_cols - 1);
+        // Reset scrolling region to new size
+        self.scroll_region = Line(0)..self.grid.num_lines();
+
+        // Ensure cursors are in-bounds.
+        self.cursor.point.col = min(self.cursor.point.col, num_cols - 1);
+        self.cursor.point.line = min(self.cursor.point.line, num_lines - 1);
+        self.cursor_save.point.col = min(self.cursor_save.point.col, num_cols - 1);
+        self.cursor_save.point.line = min(self.cursor_save.point.line, num_lines - 1);
+        self.cursor_save_alt.point.col = min(self.cursor_save_alt.point.col, num_cols - 1);
+        self.cursor_save_alt.point.line = min(self.cursor_save_alt.point.line, num_lines - 1);
 
         // Recreate tabs list
         self.tabs = IndexRange::from(Column(0)..self.grid.num_cols())
@@ -924,11 +936,9 @@ impl Term {
             // Make sure bottom of terminal is clear
             let template = self.empty_cell;
             self.grid.clear_region((self.cursor.point.line + 1).., |c| c.reset(&template));
-            self.alt_grid.clear_region((self.cursor.point.line + 1).., |c| c.reset(&template));
+            self.alt_grid.clear_region((self.cursor_save_alt.point.line + 1).., |c| c.reset(&template));
         }
 
-        // Reset scrolling region to new size
-        self.scroll_region = Line(0)..self.grid.num_lines();
     }
 
     #[inline]
