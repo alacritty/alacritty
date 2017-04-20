@@ -249,13 +249,6 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
     }
 }
 
-/// coerce val to be between min and max
-#[inline]
-fn limit<T: PartialOrd + Ord>(val: T, min_limit: T, max_limit: T) -> T {
-    use std::cmp::max;
-    min(max(min_limit, val), max_limit)
-}
-
 pub mod mode {
     bitflags! {
         pub flags TermMode: u16 {
@@ -1641,7 +1634,7 @@ impl ansi::Handler for Term {
 mod tests {
     extern crate serde_json;
 
-    use super::{Cell, Term, limit, SizeInfo};
+    use super::{Cell, Term, SizeInfo};
     use term::cell;
 
     use grid::Grid;
@@ -1735,13 +1728,6 @@ mod tests {
                                       .expect("de");
 
         assert_eq!(deserialized, grid);
-    }
-
-    #[test]
-    fn limit_works() {
-        assert_eq!(limit(5, 1, 10), 5);
-        assert_eq!(limit(5, 6, 10), 6);
-        assert_eq!(limit(5, 1, 4), 4);
     }
 
     #[test]
