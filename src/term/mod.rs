@@ -16,7 +16,7 @@
 use std::mem;
 use std::ops::{Range, Index, IndexMut};
 use std::ptr;
-use std::cmp::min;
+use std::cmp::{min, max};
 use std::io;
 use std::time::{Duration, Instant};
 
@@ -962,26 +962,14 @@ impl Term {
         // Copy of cell template; can't have it borrowed when calling clear/scroll
         let template = self.empty_cell;
 
-        // Clear the entire region if lines is going to be greater than the region.
-        // This also ensures all the math below this if statement is sane.
-        if lines > self.scroll_region.end - origin {
-            self.grid.clear_region(origin..self.scroll_region.end, |c| c.reset(&template));
-            return;
-        }
-
         // Clear `lines` lines at bottom of area
         {
-            let end = self.scroll_region.end;
-            let start = Line(end.0.saturating_sub(lines.0));
-            self.grid.clear_region(start..end, |c| c.reset(&template));
+            let start = max(origin, Line(self.scroll_region.end.0.saturating_sub(lines.0)));
+            self.grid.clear_region(start..self.scroll_region.end, |c| c.reset(&template));
         }
 
         // Scroll between origin and bottom
-        {
-            let end = self.scroll_region.end;
-            let start = origin + lines;
-            self.grid.scroll_down(start..end, lines);
-        }
+        self.grid.scroll_down(origin..self.scroll_region.end, lines);
     }
 
     /// Scroll screen up
@@ -995,24 +983,14 @@ impl Term {
         // Copy of cell template; can't have it borrowed when calling clear/scroll
         let template = self.empty_cell;
 
-        // Clear the entire region if lines is going to be greater than the region.
-        // This also ensures all the math below this if statement is sane.
-        if lines > self.scroll_region.end - origin {
-            self.grid.clear_region(origin..self.scroll_region.end, |c| c.reset(&template));
-            return;
-        }
-
         // Clear `lines` lines starting from origin to origin + lines
         {
-            let end = min(origin + lines, self.grid.num_lines());
+            let end = min(origin + lines, self.scroll_region.end);
             self.grid.clear_region(origin..end, |c| c.reset(&template));
         }
 
         // Scroll from origin to bottom less number of lines
-        {
-            let end = self.scroll_region.end - lines;
-            self.grid.scroll_up(origin..end, lines);
-        }
+        self.grid.scroll_up(origin..self.scroll_region.end, lines);
     }
 
     fn deccolm(&mut self) {
@@ -1049,9 +1027,6 @@ impl ansi::Handler for Term {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
-        // The character is printed in yellow to differentiate from
-        // other logs.
-        print!("{}", ::util::fmt::Yellow(c));
         if self.input_needs_wrap {
             if !self.mode.contains(mode::LINE_WRAP) {
                 return;
@@ -1132,7 +1107,7 @@ impl ansi::Handler for Term {
     fn goto(&mut self, line: Line, col: Column) {
         trace!("goto: line={}, col={}", line, col);
         let (y_offset, max_y) = if self.mode.contains(mode::ORIGIN) {
-            (self.scroll_region.start, self.scroll_region.end)
+            (self.scroll_region.start, self.scroll_region.end - 1)
         } else {
             (Line(0), self.grid.num_lines() - 1)
         };

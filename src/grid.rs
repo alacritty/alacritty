@@ -152,19 +152,16 @@ impl<T> Grid<T> {
 
     #[inline]
     pub fn scroll_down(&mut self, region: Range<index::Line>, positions: index::Line) {
-        for line in IndexRange(region).rev() {
-            let src = line;
-            let dst = line - positions;
-            self.swap_lines(src, dst);
+        for line in IndexRange((region.start + positions)..region.end).rev() {
+            self.swap_lines(line, line - positions);
         }
     }
 
     #[inline]
     pub fn scroll_up(&mut self, region: Range<index::Line>, positions: index::Line) {
-        for line in IndexRange(region) {
-            let src = line;
-            let dst = line + positions;
-            self.swap_lines(src, dst);
+
+        for line in IndexRange(region.start..(region.end - positions)) {
+            self.swap_lines(line, line + positions);
         }
     }
 
@@ -622,7 +619,7 @@ mod tests {
 
         info!("grid: {:?}", grid);
 
-        grid.scroll_up(Line(0)..Line(8), Line(2));
+        grid.scroll_up(Line(0)..Line(10), Line(2));
 
         info!("grid: {:?}", grid);
 
@@ -656,7 +653,7 @@ mod tests {
 
         info!("grid: {:?}", grid);
 
-        grid.scroll_down(Line(2)..Line(10), Line(2));
+        grid.scroll_down(Line(0)..Line(10), Line(2));
 
         info!("grid: {:?}", grid);
 
