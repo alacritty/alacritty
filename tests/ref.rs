@@ -36,6 +36,7 @@ ref_tests! {
     tmux_htop
     vim_large_window_scroll
     vim_simple_edit
+    vttest_scroll
     zsh_tab_completion
 }
 
