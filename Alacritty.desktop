@@ -4,13 +4,13 @@ TryExec=alacritty
 Exec=alacritty
 Icon=utilities-terminal
 Terminal=false
-Categories=System;TerminalEmulator
+Categories=System;TerminalEmulator;
 
 Name=Alacritty
 GenericName=Terminal
 Comment=A cross-platform, GPU enhanced terminal emulator
 StartupWMClass=Alacritty
-Actions=New
+Actions=New;
 
 [Desktop Action New]
 Name=New Terminal
