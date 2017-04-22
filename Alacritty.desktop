@@ -4,7 +4,7 @@ TryExec=alacritty
 Exec=alacritty
 Icon=utilities-terminal
 Terminal=false
-Catagories=System;TerminalEmulator
+Categories=System;TerminalEmulator
 
 Name=Alacritty
 GenericName=Terminal
