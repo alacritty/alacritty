@@ -54,7 +54,7 @@ impl ::Rasterize for FreeTypeRasterizer {
         })
     }
 
-    fn metrics(&self, key: FontKey, size: Size) -> Result<Metrics, Error> {
+    fn metrics(&self, key: FontKey) -> Result<Metrics, Error> {
         let face = self.faces
             .get(&key)
             .ok_or(Error::FontNotLoaded)?;
