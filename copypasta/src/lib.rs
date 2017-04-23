@@ -4,6 +4,9 @@
 #[cfg(target_os = "macos")]
 #[macro_use] extern crate objc;
 
+#[cfg(target_os = "linux")]
+extern crate x11_clipboard;
+
 /// An enumeration describing available clipboard buffers
 pub enum Buffer {
     Primary,

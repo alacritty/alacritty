@@ -8,6 +8,9 @@ keywords = ["clipboard", "copy", "paste"]
 
 [dependencies]
 
+[target.'cfg(target_os = "linux")'.dependencies]
+x11-clipboard = "0.1"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"
 objc_id = "0.1"

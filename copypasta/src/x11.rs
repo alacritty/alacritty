@@ -7,36 +7,31 @@
 //!
 //! FIXME: Implement actual X11 clipboard API using the ICCCM reference
 //!        https://tronche.com/gui/x/icccm/
-use std::io;
-use std::process::{Output, Command};
 use std::string::FromUtf8Error;
-use std::ffi::OsStr;
-
+use std::time::Duration;
+use x11_clipboard::Clipboard as X11Clipboard;
 use super::{Load, Store};
 
 /// The x11 clipboard
-pub struct Clipboard;
+pub struct Clipboard(X11Clipboard);
 
 #[derive(Debug)]
 pub enum Error {
-    Io(io::Error),
-    Xclip(String),
+    Clipboard(String),
     Utf8(FromUtf8Error),
 }
 
 impl ::std::error::Error for Error {
     fn cause(&self) -> Option<&::std::error::Error> {
         match *self {
-            Error::Io(ref err) => Some(err),
             Error::Utf8(ref err) => Some(err),
-            _ => None,
+            _ => None
         }
     }
 
     fn description(&self) -> &str {
         match *self {
-            Error::Io(..) => "error calling xclip",
-            Error::Xclip(..) => "error reported by xclip",
+            Error::Clipboard(..) => "clipboard error",
             Error::Utf8(..) => "clipboard contents not utf8",
         }
     }
@@ -45,23 +40,9 @@ impl ::std::error::Error for Error {
 impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            Error::Io(ref err) => {
-                match err.kind() {
-                    io::ErrorKind::NotFound => {
-                        write!(f, "Please install `xclip` to enable clipboard support")
-                    },
-                    _ => write!(f, "error calling xclip: {}", err),
-                }
-            },
-            Error::Xclip(ref s) => write!(f, "error from xclip: {}", s),
+            Error::Clipboard(ref err) => write!(f, "clipboard error: {}", err),
             Error::Utf8(ref err) => write!(f, "error parsing xclip output: {}", err),
         }
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(val: io::Error) -> Error {
-        Error::Io(val)
     }
 }
 
@@ -71,27 +52,39 @@ impl From<FromUtf8Error> for Error {
     }
 }
 
+impl From<::x11_clipboard::error::Error> for Error {
+    fn from(val: ::x11_clipboard::error::Error) -> Error {
+        Error::Clipboard(format!("{}", val))
+    }
+}
+
 impl Load for Clipboard {
     type Err = Error;
 
     fn new() -> Result<Self, Error> {
-        Ok(Clipboard)
+        X11Clipboard::new()
+            .map(Clipboard)
+            .map_err(Into::into)
     }
 
     fn load_primary(&self) -> Result<String, Self::Err> {
-        let output = Command::new("xclip")
-            .args(&["-o", "-selection", "clipboard"])
-            .output()?;
+        let atom_clipboard = self.0.getter.atoms.clipboard;
+        let atom_utf8string = self.0.getter.atoms.utf8_string;
+        let atom_property = self.0.getter.atoms.property;
 
-        Clipboard::process_xclip_output(output)
+        self.0.load(atom_clipboard, atom_utf8string, atom_property, Duration::from_secs(3))
+            .map_err(Into::into)
+            .and_then(|vec| String::from_utf8(vec).map_err(Into::into))
     }
 
     fn load_selection(&self) -> Result<String, Self::Err> {
-        let output = Command::new("xclip")
-            .args(&["-o"])
-            .output()?;
+        let atom_primary = self.0.getter.atoms.primary;
+        let atom_utf8string = self.0.getter.atoms.utf8_string;
+        let atom_property = self.0.getter.atoms.property;
 
-        Clipboard::process_xclip_output(output)
+        self.0.load(atom_primary, atom_utf8string, atom_property, Duration::from_secs(3))
+            .map_err(Into::into)
+            .and_then(|vec| String::from_utf8(vec).map_err(Into::into))
     }
 }
 
@@ -101,7 +94,12 @@ impl Store for Clipboard {
     fn store_primary<S>(&mut self, contents: S) -> Result<(), Self::Err>
         where S: Into<String>
     {
-        self.store(contents, &["-i", "-selection", "clipboard"])
+
+        let atom_clipboard = self.0.setter.atoms.clipboard;
+        let atom_utf8string = self.0.setter.atoms.utf8_string;
+
+        self.0.store(atom_clipboard, atom_utf8string, contents.into())
+            .map_err(Into::into)
     }
 
     /// Sets the secondary clipboard contents
@@ -109,45 +107,11 @@ impl Store for Clipboard {
     fn store_selection<S>(&mut self, contents: S) -> Result<(), Self::Err>
         where S: Into<String>
     {
-        self.store(contents, &["-i"])
-    }
-}
+        let atom_primary = self.0.setter.atoms.primary;
+        let atom_utf8string = self.0.setter.atoms.utf8_string;
 
-impl Clipboard {
-    fn process_xclip_output(output: Output) -> Result<String, Error> {
-        if output.status.success() {
-            String::from_utf8(output.stdout)
-                .map_err(::std::convert::From::from)
-        } else {
-            String::from_utf8(output.stderr)
-                .map_err(::std::convert::From::from)
-        }
-    }
-
-    fn store<C, S>(&mut self, contents: C, args: &[S]) -> Result<(), Error>
-        where C: Into<String>,
-              S: AsRef<OsStr>,
-    {
-        use std::io::Write;
-        use std::process::{Command, Stdio};
-
-        let contents = contents.into();
-        let mut child = Command::new("xclip")
-            .args(args)
-            .stdin(Stdio::piped())
-            .spawn()?;
-
-        if let Some(mut stdin) = child.stdin.as_mut() {
-            stdin.write_all(contents.as_bytes())?;
-        }
-
-        // Return error if didn't exit cleanly
-        let exit_status = child.wait()?;
-        if exit_status.success() {
-            Ok(())
-        } else {
-            Err(Error::Xclip("xclip returned non-zero exit code".into()))
-        }
+        self.0.store(atom_primary, atom_utf8string, contents.into())
+            .map_err(Into::into)
     }
 }
 
