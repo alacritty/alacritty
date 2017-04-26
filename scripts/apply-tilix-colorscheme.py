@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
-import logging
-log = logging.getLogger(__name__)
-
 import collections
+import logging
 import shutil
 import json
 import sys
@@ -11,7 +9,10 @@ import os
 
 import yaml
 
-ALACONF_FN = os.path.expanduser('~/.config/alacritty/alacritty.yml')
+log = logging.getLogger(__name__)
+
+XDG_CONFIG_HOME = os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config'))
+ALACONF_FN = os.path.join(XDG_CONFIG_HOME, 'alacritty', 'alacritty.yml')
 
 Palette = collections.namedtuple('Pallete', ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'])
 
