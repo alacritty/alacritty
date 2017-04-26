@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 
-import collections
 import logging
 log = logging.getLogger(__name__)
 
-import json, sys, os, yaml
-from pprint import pprint as pp
+import collections
+import shutil
+import json
+import sys
+import os
+
+import yaml
 
 ALACONF_FN = os.path.expanduser('~/.config/alacritty/alacritty.yml')
 
@@ -59,9 +63,8 @@ def convert(tilix_scheme):
 
 
 def patch_alaconf_colors(colors, alaconf_fn=ALACONF_FN):
-    with open(ALACONF_FN, 'r') as fh:
+    with open(alaconf_fn, 'r') as fh:
         ac_raw = fh.read()
-        ac = yaml.load(ac_raw)
 
     # Write config file taking care to not remove delicious comments.
     # Sure, it's janky, but less so than losing comments.
@@ -80,18 +83,21 @@ def patch_alaconf_colors(colors, alaconf_fn=ALACONF_FN):
                 continue
             lines.append(line)
 
-    with open(ALACONF_FN + '.tmp', 'w') as fh:
+    temp_fn = '%s.tmp' % alaconf_fn
+    backup_fn = '%s.bak' % alaconf_fn
+
+    with open(temp_fn, 'w') as fh:
         fh.write('\n'.join(lines))
         fh.write('\n')
         yaml.safe_dump(dict(colors=colors), fh)
 
-    os.rename(ALACONF_FN, ALACONF_FN + '.bak')
-    os.rename(ALACONF_FN + '.tmp', ALACONF_FN)
+    shutil.copyfile(alaconf_fn, backup_fn)
+    os.rename(temp_fn, alaconf_fn)
 
 
 def main(argv=sys.argv):
     if len(argv) != 2:
-        print("Usage: %s TILIX_SCHEME_JSON_FILE", file=sys.stderr)
+        print("Usage: %s TILIX_SCHEME_JSON_FILE" % sys.executable, file=sys.stderr)
         sys.exit(1)
 
     fn = argv[1]
