@@ -27,6 +27,9 @@
 #[macro_use] extern crate log;
 #[macro_use] extern crate serde_derive;
 
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
+extern crate x11_dl;
+
 extern crate cgmath;
 extern crate copypasta;
 extern crate errno;
