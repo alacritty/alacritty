@@ -28,7 +28,7 @@ use gl;
 use index::{Line, Column, RangeInclusive};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 
-use config::{Config, GlyphOffset};
+use config::{Config, Delta};
 use term::{self, cell, RenderableCell};
 use window::{Size, Pixels};
 
@@ -156,7 +156,7 @@ pub struct GlyphCache {
     font_size: font::Size,
 
     /// glyph offset
-    glyph_offset: GlyphOffset,
+    glyph_offset: Delta,
 }
 
 impl GlyphCache {
