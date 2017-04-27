@@ -1163,54 +1163,18 @@ impl Dpi {
     }
 }
 
-/// Modifications to font spacing
-///
-/// The way Alacritty calculates vertical and horizontal cell sizes may not be
-/// ideal for all fonts. This gives the user a way to tweak those values.
-#[derive(Debug, Deserialize)]
-pub struct FontOffset {
-    /// Extra horizontal spacing between letters
-    x: f32,
-    /// Extra vertical spacing between lines
-    y: f32,
-}
-
-impl FontOffset {
-    /// Get letter spacing
-    #[inline]
-    pub fn x(&self) -> f32 {
-        self.x
-    }
-
-    /// Get line spacing
-    #[inline]
-    pub fn y(&self) -> f32 {
-        self.y
-    }
-}
-
-impl Default for FontOffset {
-    fn default() -> FontOffset {
-        FontOffset { x: 0.0, y: 0.0 }
-    }
-}
-
-/// Modifications to glyph positions within their cells
-///
-/// By default the glyphs are located at the bottom of the cell which can be
-/// undesirable. This gives the user a way to shift where the glyphs are
-/// displayed in their cells.
+/// A delta for a point in a 2 dimensional plane
 #[derive(Clone, Copy, Debug, Deserialize)]
-pub struct GlyphOffset {
-    /// Horizontal position
+pub struct Delta {
+    /// Horizontal change
     pub x: f32,
-    /// Vertical position
+    /// Vertical change
     pub y: f32,
 }
 
-impl Default for GlyphOffset {
-    fn default() -> GlyphOffset {
-        GlyphOffset { x: 0.0, y: 0.0 }
+impl Default for Delta {
+    fn default() -> Delta {
+        Delta { x: 0.0, y: 0.0 }
     }
 }
 
@@ -1273,11 +1237,11 @@ pub struct Font {
     size: Size,
 
     /// Extra spacing per character
-    offset: FontOffset,
+    offset: Delta,
 
     /// Glyph offset within character cell
     #[serde(default)]
-    glyph_offset: GlyphOffset,
+    glyph_offset: Delta,
 
     #[serde(default="true_bool")]
     use_thin_strokes: bool
@@ -1316,13 +1280,13 @@ impl Font {
 
     /// Get offsets to font metrics
     #[inline]
-    pub fn offset(&self) -> &FontOffset {
+    pub fn offset(&self) -> &Delta {
         &self.offset
     }
 
     /// Get cell offsets for glyphs
     #[inline]
-    pub fn glyph_offset(&self) -> &GlyphOffset {
+    pub fn glyph_offset(&self) -> &Delta {
         &self.glyph_offset
     }
 }
