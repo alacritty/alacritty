@@ -14,7 +14,6 @@
 
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
-use std::mem;
 use std::sync::mpsc;
 
 use parking_lot::{MutexGuard};
@@ -97,8 +96,7 @@ pub struct Display {
     rx: mpsc::Receiver<(u32, u32)>,
     tx: mpsc::Sender<(u32, u32)>,
     meter: Meter,
-    size_info: SizeInfo,
-    dpr: f32
+    size_info: SizeInfo
 }
 
 /// Can wakeup the render loop from other threads
@@ -209,7 +207,6 @@ impl Display {
         renderer.resize(*size.width as _, *size.height as _);
 
         renderer.with_api(config, &size_info, 0. /* visual bell intensity */, |api| api.clear());
-        let dpr = window.hidpi_factor();
 
         let mut display = Display {
             window: window,
@@ -219,8 +216,7 @@ impl Display {
             tx: tx,
             rx: rx,
             meter: Meter::new(),
-            size_info: size_info,
-            dpr: dpr
+            size_info: size_info
         };
 
         let resize_tx = display.resize_channel();
@@ -264,11 +260,10 @@ impl Display {
         // available
         if let Some((w, h)) = new_size.take() {
             self.renderer.resize(w as i32, h as i32);
-            let dpr = self.window.hidpi_factor();
+            self.renderer.drain_atlas();
             let (glyph_cache, size_info, _) = update_display_dpr(config, options, &mut self.window, &mut self.renderer)?;
-            mem::replace(&mut self.glyph_cache, glyph_cache);
-            mem::replace(&mut self.size_info, size_info);
-            mem::replace(&mut self.dpr, dpr);
+            self.glyph_cache = glyph_cache;
+            self.size_info = size_info;
             let size = SizeInfo {
                 width: w as f32,
                 height: h as f32,
