@@ -61,16 +61,32 @@ impl ::Rasterize for FreeTypeRasterizer {
 
         let scale_size = self.dpr as f64 * size.as_f32_pts() as f64;
 
+        // A face should always have a size and size metrics
+        let size_metrics = match face.size_metrics() {
+            Some(metrics) => metrics,
+            None => panic!("There was an error loading font size metrics"),
+        };
+
+        let width = (size_metrics.max_advance / 64) as f64;
+        let height = (size_metrics.height / 64) as f64;
+
         let em_size = face.em_size() as f64;
         let w = face.max_advance_width() as f64;
-        let h = (face.ascender() - face.descender() + face.height()) as f64;
+        let h = (face.ascender() - face.descender()) as f64;
 
         let w_scale = w * scale_size / em_size;
         let h_scale = h * scale_size / em_size;
 
+        println!("height: {}", size_metrics.height / 64);
+        println!("h_scale: {}", h_scale);
+        println!("width: {}", size_metrics.max_advance / 64);
+        println!("w_scale: {}", w_scale);
+
         Ok(Metrics {
             average_advance: w_scale,
             line_height: h_scale,
+            width: width,
+            height: height,
         })
     }
 

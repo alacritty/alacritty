@@ -154,6 +154,12 @@ pub struct GlyphCache {
 
     /// font size
     font_size: font::Size,
+
+    /// glyph horizontal offset
+    glyph_offset_x: i32,
+
+    /// glyph vertical offset
+    glyph_offset_y: i32,
 }
 
 impl GlyphCache {
@@ -166,6 +172,7 @@ impl GlyphCache {
     {
         let font = config.font();
         let size = font.size();
+        let glyph_offset = font.glyph_offset();
 
         // Load regular font
         let regular_desc = if let Some(ref style) = font.normal.style {
@@ -223,12 +230,15 @@ impl GlyphCache {
             font_key: regular,
             bold_key: bold,
             italic_key: italic,
+            glyph_offset_x: glyph_offset.x as i32,
+            glyph_offset_y: glyph_offset.y as i32,
         };
 
         macro_rules! load_glyphs_for_font {
             ($font:expr) => {
                 for i in RangeInclusive::new(32u8, 128u8) {
-                    cache.load_and_cache_glyph(GlyphKey {
+                    // Cache the glyph
+                    let _ = cache.get(&GlyphKey {
                         font_key: $font,
                         c: i as char,
                         size: font.size()
@@ -250,25 +260,23 @@ impl GlyphCache {
             .expect("metrics load since font is loaded at glyph cache creation")
     }
 
-    fn load_and_cache_glyph<L>(&mut self, glyph_key: GlyphKey, loader: &mut L)
-        where L: LoadGlyph
-    {
-        let rasterized = self.rasterizer.get_glyph(&glyph_key)
-            .unwrap_or_else(|_| Default::default());
-
-        let glyph = loader.load_glyph(&rasterized);
-        self.cache.insert(glyph_key, glyph);
-    }
-
     pub fn get<'a, L>(&'a mut self, glyph_key: &GlyphKey, loader: &mut L) -> &'a Glyph
         where L: LoadGlyph
     {
         let rasterizer = &mut self.rasterizer;
+        let glyph_offset_x = self.glyph_offset_x;
+        let glyph_offset_y = self.glyph_offset_y;
+
+        // Retrieve the glyph, caching it if it does not exist.
         self.cache
             .entry(*glyph_key)
             .or_insert_with(|| {
-                let rasterized = rasterizer.get_glyph(&glyph_key)
+                let mut rasterized = rasterizer.get_glyph(&glyph_key)
                     .unwrap_or_else(|_| Default::default());
+
+                rasterized.left += glyph_offset_x as i32;
+                rasterized.top += glyph_offset_y as i32;
+
                 loader.load_glyph(&rasterized)
             })
     }

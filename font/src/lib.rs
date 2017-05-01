@@ -219,6 +219,8 @@ impl fmt::Debug for RasterizedGlyph {
 pub struct Metrics {
     pub average_advance: f64,
     pub line_height: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 pub trait Rasterize {
