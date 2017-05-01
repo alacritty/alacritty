@@ -395,8 +395,14 @@ pub enum NamedColor {
     /// Cyan
     Cyan,
     /// White
+    ///
+    /// Note that in terminal color schemes White is often used to represent a
+    /// light gray color while BrightWhite is used for true white.
     White,
     /// Bright black
+    ///
+    /// Note that in terminal color schemes BrightBlack is often used to
+    /// represent a dark gray color while Black is used for true black.
     BrightBlack,
     /// Bright red
     BrightRed,
