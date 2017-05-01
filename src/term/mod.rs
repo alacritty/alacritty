@@ -1307,7 +1307,9 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn set_horizontal_tabstop(&mut self) {
-        trace!("[unimplemented] set_horizontal_tabstop");
+        trace!("set_horizontal_tabstop");
+        let column = self.cursor.point.col;
+        self.tabs[column.0] = true;
     }
 
     #[inline]
@@ -1502,7 +1504,21 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn clear_tabs(&mut self, mode: ansi::TabulationClearMode) {
-        trace!("[unimplemented] clear_tabs: {:?}", mode);
+        trace!("clear_tabs: {:?}", mode);
+        match mode {
+            ansi::TabulationClearMode::Current => {
+                let column = self.cursor.point.col;
+                self.tabs[column.0] = false;
+            },
+            ansi::TabulationClearMode::All => {
+                let len = self.tabs.len();
+                // Safe since false boolean is null, each item occupies only 1
+                // byte, and called on the length of the vec.
+                unsafe {
+                    ::std::ptr::write_bytes(self.tabs.as_mut_ptr(), 0, len);
+                }
+            }
+        }
     }
 
     #[inline]
