@@ -166,7 +166,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
-            display.handle_resize(&mut terminal, &mut [&mut pty, &mut processor]);
+            display.handle_resize(&mut terminal, &mut [&mut pty, &mut processor], &config, &options)?;
 
             // Draw the current state of the terminal
             display.draw(terminal, &config, &processor.selection);

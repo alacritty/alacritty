@@ -856,14 +856,7 @@ impl Term {
     }
 
     /// Resize terminal to new dimensions
-    pub fn resize(&mut self, width: f32, height: f32) {
-        let size = SizeInfo {
-            width: width,
-            height: height,
-            cell_width: self.size_info.cell_width,
-            cell_height: self.size_info.cell_height,
-        };
-
+    pub fn resize(&mut self, size: SizeInfo) {
         let old_cols = self.size_info.cols();
         let old_lines = self.size_info.lines();
         let mut num_cols = size.cols();

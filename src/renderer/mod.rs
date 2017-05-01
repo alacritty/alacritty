@@ -570,8 +570,7 @@ impl QuadRenderer {
             rx: msg_rx,
         };
 
-        let atlas = Atlas::new(ATLAS_SIZE);
-        renderer.atlas.push(atlas);
+        renderer.drain_atlas();
 
         Ok(renderer)
     }
@@ -673,6 +672,13 @@ impl QuadRenderer {
         self.program.update_projection(width as f32, height as f32);
         self.program.deactivate();
     }
+
+    pub fn drain_atlas(&mut self) {
+        self.atlas.clear();
+        let atlas = Atlas::new(ATLAS_SIZE);
+        self.atlas.push(atlas);
+    }
+
 }
 
 impl<'a> RenderApi<'a> {
@@ -1326,5 +1332,15 @@ impl Atlas {
         self.row_tallest = 0;
 
         Ok(())
+    }
+}
+
+impl Drop for Atlas {
+    fn drop(&mut self) {
+        let length: GLint = 1;
+        let buf: Vec<GLuint> = vec![self.id];
+        unsafe {
+            gl::DeleteTextures(length, buf.as_ptr() as *const _)
+        }
     }
 }

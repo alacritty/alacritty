@@ -96,7 +96,7 @@ pub struct Display {
     rx: mpsc::Receiver<(u32, u32)>,
     tx: mpsc::Sender<(u32, u32)>,
     meter: Meter,
-    size_info: SizeInfo,
+    size_info: SizeInfo
 }
 
 /// Can wakeup the render loop from other threads
@@ -113,6 +113,55 @@ impl Notifier {
     }
 }
 
+fn update_display_dpr(config: &Config, options: &cli::Options, window: &mut Window, renderer: &mut QuadRenderer) -> Result<(GlyphCache, SizeInfo, Size<Pixels<u32>>), Error> {
+    let font = config.font();
+    let dpr = window.hidpi_factor();
+    let dpi = config.dpi();
+
+    info!("device_pixel_ratio: {}", dpr);
+    let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr, config.use_thin_strokes())?;
+    // Initialize glyph cache
+    let glyph_cache = {
+        info!("Initializing glyph cache");
+        let init_start = ::std::time::Instant::now();
+
+        let cache = renderer.with_loader(|mut api| {
+            GlyphCache::new(rasterizer, config, &mut api)
+        })?;
+
+        let stop = init_start.elapsed();
+        let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;
+        info!("Finished initializing glyph cache in {}", stop_f);
+
+        cache
+    };
+
+    let metrics = glyph_cache.font_metrics();
+
+    // Need font metrics to resize the window properly. This suggests to me the
+    // font metrics should be computed before creating the window in the first
+    // place so that a resize is not needed.
+    let cell_width = (metrics.average_advance + font.offset().x() as f64) as u32;
+    let cell_height = (metrics.line_height + font.offset().y() as f64) as u32;
+
+    // Resize window to specified dimensions
+    let dimensions = options.dimensions()
+        .unwrap_or_else(|| config.dimensions());
+    let width = cell_width * dimensions.columns_u32() + 4;
+    let height = cell_height * dimensions.lines_u32() + 4;
+    let size = Size { width: Pixels(width), height: Pixels(height) };
+    info!("set_inner_size: {}", size);
+    info!("Cell Size: ({} x {})", cell_width, cell_height);
+
+    let size_info = SizeInfo {
+        width: *size.width as f32,
+        height: *size.height as f32,
+        cell_width: cell_width as f32,
+        cell_height: cell_height as f32
+    };
+
+    Ok((glyph_cache, size_info, size))
+}
 impl Display {
     pub fn notifier(&self) -> Notifier {
         Notifier(self.window.create_window_proxy())
@@ -132,8 +181,6 @@ impl Display {
         options: &cli::Options,
     ) -> Result<Display, Error> {
         // Extract some properties from config
-        let font = config.font();
-        let dpi = config.dpi();
         let render_timer = config.render_timer();
 
         // Create the window where Alacritty will be displayed
@@ -142,56 +189,9 @@ impl Display {
         // get window properties for initializing the other subsytems
         let size = window.inner_size_pixels()
             .expect("glutin returns window size");
-        let dpr = window.hidpi_factor();
-
-        info!("device_pixel_ratio: {}", dpr);
-
-        let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr, config.use_thin_strokes())?;
 
         // Create renderer
         let mut renderer = QuadRenderer::new(size)?;
-
-        // Initialize glyph cache
-        let glyph_cache = {
-            info!("Initializing glyph cache");
-            let init_start = ::std::time::Instant::now();
-
-            let cache = renderer.with_loader(|mut api| {
-                GlyphCache::new(rasterizer, config, &mut api)
-            })?;
-
-            let stop = init_start.elapsed();
-            let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;
-            info!("Finished initializing glyph cache in {}", stop_f);
-
-            cache
-        };
-
-        // Need font metrics to resize the window properly. This suggests to me the
-        // font metrics should be computed before creating the window in the first
-        // place so that a resize is not needed.
-        let metrics = glyph_cache.font_metrics();
-        let cell_width = (metrics.average_advance + font.offset().x() as f64) as u32;
-        let cell_height = (metrics.line_height + font.offset().y() as f64) as u32;
-
-        // Resize window to specified dimensions
-        let dimensions = options.dimensions()
-            .unwrap_or_else(|| config.dimensions());
-        let width = cell_width * dimensions.columns_u32() + 4;
-        let height = cell_height * dimensions.lines_u32() + 4;
-        let size = Size { width: Pixels(width), height: Pixels(height) };
-        info!("set_inner_size: {}", size);
-
-        window.set_inner_size(size);
-        renderer.resize(*size.width as _, *size.height as _);
-        info!("Cell Size: ({} x {})", cell_width, cell_height);
-
-        let size_info = SizeInfo {
-            width: *size.width as f32,
-            height: *size.height as f32,
-            cell_width: cell_width as f32,
-            cell_height: cell_height as f32
-        };
 
         // Channel for resize events
         //
@@ -202,7 +202,10 @@ impl Display {
         // need to be in the callback.
         let (tx, rx) = mpsc::channel();
 
-        // Clear screen
+        let (glyph_cache, size_info, size) = update_display_dpr(config, options, &mut window, &mut renderer)?;
+        window.set_inner_size(size);
+        renderer.resize(*size.width as _, *size.height as _);
+
         renderer.with_api(config, &size_info, 0. /* visual bell intensity */, |api| api.clear());
 
         let mut display = Display {
@@ -213,7 +216,7 @@ impl Display {
             tx: tx,
             rx: rx,
             meter: Meter::new(),
-            size_info: size_info,
+            size_info: size_info
         };
 
         let resize_tx = display.resize_channel();
@@ -239,8 +242,10 @@ impl Display {
     pub fn handle_resize(
         &mut self,
         terminal: &mut MutexGuard<Term>,
-        items: &mut [&mut OnResize]
-    ) {
+        items: &mut [&mut OnResize],
+        config: &Config,
+        options: &cli::Options
+    ) -> Result<(), Error> {
         // Resize events new_size and are handled outside the poll_events
         // iterator. This has the effect of coalescing multiple resize
         // events into one.
@@ -254,16 +259,23 @@ impl Display {
         // Receive any resize events; only call gl::Viewport on last
         // available
         if let Some((w, h)) = new_size.take() {
-            terminal.resize(w as f32, h as f32);
-            let size = terminal.size_info();
-
-            for mut item in items {
-                item.on_resize(size)
-            }
-
             self.renderer.resize(w as i32, h as i32);
+            self.renderer.drain_atlas();
+            let (glyph_cache, size_info, _) = update_display_dpr(config, options, &mut self.window, &mut self.renderer)?;
+            self.glyph_cache = glyph_cache;
+            self.size_info = size_info;
+            let size = SizeInfo {
+                width: w as f32,
+                height: h as f32,
+                cell_width: size_info.cell_width,
+                cell_height: size_info.cell_height,
+            };
+            terminal.resize(size);
+            for mut item in items {
+                item.on_resize(&size);
+            }
         }
-
+        Ok(())
     }
 
     /// Draw the screen
