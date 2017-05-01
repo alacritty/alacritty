@@ -40,6 +40,7 @@ ref_tests! {
     vttest_origin_mode_1
     vttest_origin_mode_2
     vttest_scroll
+    vttest_tab_clear_set
     zsh_tab_completion
 }
 
