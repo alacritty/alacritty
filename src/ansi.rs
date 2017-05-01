@@ -275,6 +275,13 @@ pub enum Mode {
     /// * resets DECLRMM to unavailable
     /// * clears data from the status line (if set to host-writable)
     DECCOLM = 3,
+    /// IRM Insert Mode
+    ///
+    /// NB should be part of non-private mode enum
+    ///
+    /// * `CSI 4 h` change to insert mode
+    /// * `CSI 4 l` reset to replacement mode
+    Insert = 4,
     /// ?6
     Origin = 6,
     /// ?7
@@ -322,6 +329,7 @@ impl Mode {
             })
         } else {
             Some(match num {
+                4 => Mode::Insert,
                 20 => Mode::LineFeedNewLine,
                 _ => return None
             })

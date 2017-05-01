@@ -252,17 +252,18 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 pub mod mode {
     bitflags! {
         pub flags TermMode: u16 {
-            const SHOW_CURSOR         = 0b0000000001,
-            const APP_CURSOR          = 0b0000000010,
-            const APP_KEYPAD          = 0b0000000100,
-            const MOUSE_REPORT_CLICK  = 0b0000001000,
-            const BRACKETED_PASTE     = 0b0000010000,
-            const SGR_MOUSE           = 0b0000100000,
-            const MOUSE_MOTION        = 0b0001000000,
-            const LINE_WRAP           = 0b0010000000,
-            const LINE_FEED_NEW_LINE  = 0b0100000000,
-            const ORIGIN              = 0b1000000000,
-            const ANY                 = 0b1111111111,
+            const SHOW_CURSOR         = 0b00000000001,
+            const APP_CURSOR          = 0b00000000010,
+            const APP_KEYPAD          = 0b00000000100,
+            const MOUSE_REPORT_CLICK  = 0b00000001000,
+            const BRACKETED_PASTE     = 0b00000010000,
+            const SGR_MOUSE           = 0b00000100000,
+            const MOUSE_MOTION        = 0b00001000000,
+            const LINE_WRAP           = 0b00010000000,
+            const LINE_FEED_NEW_LINE  = 0b00100000000,
+            const ORIGIN              = 0b01000000000,
+            const INSERT              = 0b10000000000,
+            const ANY                 = 0b11111111111,
             const NONE                = 0,
         }
     }
@@ -1061,28 +1062,43 @@ impl ansi::Handler for Term {
 
         {
             // Number of cells the char will occupy
-            let width = c.width();
+            if let Some(width) = c.width() {
+                // Sigh, borrowck making us check the width twice. Hopefully the
+                // optimizer can fix it.
+                let num_cols = self.grid.num_cols();
+                {
+                    // If in insert mode, first shift cells to the right.
+                    if self.mode.contains(mode::INSERT) && self.cursor.point.col + width < num_cols {
+                        let line = self.cursor.point.line; // borrowck
+                        let col = self.cursor.point.col;
+                        let line = &mut self.grid[line];
 
-            // Sigh, borrowck making us check the width twice. Hopefully the
-            // optimizer can fix it.
-            {
-                let cell = &mut self.grid[&self.cursor.point];
-                *cell = self.cursor.template;
-                cell.c = self.cursor.charsets[self.active_charset].map(c);
+                        let src = line[col..].as_ptr();
+                        let dst = line[(col + width)..].as_mut_ptr();
+                        unsafe {
+                            // memmove
+                            ptr::copy(src, dst, (num_cols - col - width).0);
+                        }
+                    }
 
-                // Handle wide chars
-                if let Some(2) = width {
-                    cell.flags.insert(cell::WIDE_CHAR);
+                    let cell = &mut self.grid[&self.cursor.point];
+                    *cell = self.cursor.template;
+                    cell.c = self.cursor.charsets[self.active_charset].map(c);
+
+                    // Handle wide chars
+                    if width == 2 {
+                        cell.flags.insert(cell::WIDE_CHAR);
+                    }
                 }
-            }
 
-            // Set spacer cell for wide chars.
-            if let Some(2) = width {
-                if self.cursor.point.col + 1 < self.grid.num_cols() {
-                    self.cursor.point.col += 1;
-                    let spacer = &mut self.grid[&self.cursor.point];
-                    *spacer = self.cursor.template;
-                    spacer.flags.insert(cell::WIDE_CHAR_SPACER);
+                // Set spacer cell for wide chars.
+                if width == 2 {
+                    if self.cursor.point.col + 1 < num_cols {
+                        self.cursor.point.col += 1;
+                        let spacer = &mut self.grid[&self.cursor.point];
+                        *spacer = self.cursor.template;
+                        spacer.flags.insert(cell::WIDE_CHAR_SPACER);
+                    }
                 }
             }
         }
@@ -1584,6 +1600,7 @@ impl ansi::Handler for Term {
             ansi::Mode::LineFeedNewLine => self.mode.insert(mode::LINE_FEED_NEW_LINE),
             ansi::Mode::Origin => self.mode.insert(mode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
+            ansi::Mode::Insert => self.mode.insert(mode::INSERT), // heh
             _ => {
                 debug!(".. ignoring set_mode");
             }
@@ -1609,6 +1626,7 @@ impl ansi::Handler for Term {
             ansi::Mode::LineFeedNewLine => self.mode.remove(mode::LINE_FEED_NEW_LINE),
             ansi::Mode::Origin => self.mode.remove(mode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
+            ansi::Mode::Insert => self.mode.remove(mode::INSERT),
             _ => {
                 debug!(".. ignoring unset_mode");
             }
