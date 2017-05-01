@@ -1237,8 +1237,6 @@ impl ansi::Handler for Term {
                     break;
                 }
 
-                self.insert_blank(Column(1));
-
                 col += 1;
 
                 if self.tabs[*col as usize] {

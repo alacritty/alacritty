@@ -30,7 +30,6 @@ ref_tests! {
     fish_cc
     indexed_256_colors
     ll
-    tab_bg_highlight
     tab_rendering
     tmux_git_log
     tmux_htop
