@@ -960,7 +960,8 @@ impl Term {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_down_relative(&mut self, origin: Line, lines: Line) {
-        trace!("scroll_down: {}", lines);
+        trace!("scroll_down_relative: origin={}, lines={}", origin, lines);
+        let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
         let template = self.empty_cell;
@@ -981,7 +982,8 @@ impl Term {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_up_relative(&mut self, origin: Line, lines: Line) {
-        trace!("scroll_up: {}", lines);
+        trace!("scroll_up_relative: origin={}, lines={}", origin, lines);
+        let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
         let template = self.empty_cell;
