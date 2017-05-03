@@ -191,10 +191,6 @@ Just Works.
 - _Is it really the fastest terminal emulator?_ In the terminals I've
   benchmarked against, alacritty is either faster, WAY faster, or at least
   neutral. There are no benchmarks in which I've found Alacritty to be slower.
-- _It's not fast! Why?_ There's a known bug affecting some versions of
-  Mesa/libxcb where calls to glClear take an insanely long time. If it's not
-  that, there's probably another bug. I'd be happy to look at the issue if you
-  can provide some profiling information (wall time and otherwise).
 - _macOS + tmux + vim is slow! I thought this was supposed to be fast!_ This
   appears to be an issue outside of terminal emulators; either macOS has an IPC
   performance issue, or either tmux or vim (or both) have a bug. This same issue
