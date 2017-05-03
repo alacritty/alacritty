@@ -58,7 +58,7 @@ void main()
     cellPosition.y = termDim.y - cellPosition.y - cellDim.y;
 
     if (backgroundPass != 0) {
-        cellPosition.y = cellPosition.y - 3;
+        cellPosition.y = cellPosition.y;
         vec2 finalPosition = cellDim * position + cellPosition;
         gl_Position = projection * vec4(finalPosition.xy, 0.0, 1.0);
         TexCoords = vec2(0, 0);

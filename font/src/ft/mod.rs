@@ -64,10 +64,12 @@ impl ::Rasterize for FreeTypeRasterizer {
 
         let width = (size_metrics.max_advance / 64) as f64;
         let height = (size_metrics.height / 64) as f64;
+        let descent = (size_metrics.descender / 64) as f32;
 
         Ok(Metrics {
             average_advance: width,
             line_height: height,
+            descent: descent,
         })
     }
 
