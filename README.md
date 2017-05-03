@@ -31,7 +31,8 @@ binaries will be provided for supported operating systems.
 
 ## Package Installation
 
-The only supported installation method at this time is from source. Proper installers will be added prior to the 1.0 release of Alacritty.
+The only supported installation method at this time is from source. Proper
+installers will be added prior to the 1.0 release of Alacritty.
 
 ### Arch Linux
 
@@ -54,7 +55,8 @@ makepkg -isr
    cd alacritty
    ```
 
-3. Make sure you have the right Rust compiler installed. Alacritty requires at least 1.15. Run
+3. Make sure you have the right Rust compiler installed. Alacritty requires at
+   least 1.15. Run
 
    ```sh
    rustup override set stable
@@ -110,7 +112,8 @@ https://slackbuilds.org/repository/14.2/misc/xclip/?search=xclip
 
 #### Void Linux
 
-On [Void Linux](https://voidlinux.eu), install following packages before compiling Alacritty:
+On [Void Linux](https://voidlinux.eu), install following packages before
+compiling Alacritty:
 
 ```sh
 xbps-install cmake freetype-devel freetype expat-devel fontconfig xclip
@@ -158,8 +161,8 @@ cp Alacritty.desktop ~/.local/share/applications
 
 Although it's possible the default configuration would work on your system,
 you'll probably end up wanting to customize it anyhow. There is a default
-`alacritty.yml` at the git repository root. Alacritty looks for the configuration
-file as the following paths:
+`alacritty.yml` at the git repository root. Alacritty looks for the
+configuration file as the following paths:
 
 1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
 2. `$XDG_CONFIG_HOME/alacritty.yml`
@@ -171,9 +174,9 @@ is created once alacritty is first run. On most systems this often defaults
 to `$HOME/.config/alacritty/alacritty.yml`.
 
 Many configuration options will take effect immediately upon saving changes to
-the config file. The only exception is the `font`, `dimensions` and `dpi` sections
-which requires Alacritty to be restarted. For further explanation of the config
-file, please consult the comments in the default config file.
+the config file. The only exception is the `font`, `dimensions` and `dpi`
+sections which requires Alacritty to be restarted. For further explanation of
+the config file, please consult the comments in the default config file.
 
 ## Issues (known, unknown, feature requests, etc)
 
