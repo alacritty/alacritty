@@ -177,8 +177,8 @@ impl Display {
         // Resize window to specified dimensions
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
-        let width = cell_width * dimensions.columns_u32() + 4;
-        let height = cell_height * dimensions.lines_u32() + 4;
+        let width = cell_width * dimensions.columns_u32();
+        let height = cell_height * dimensions.lines_u32();
         let size = Size { width: Pixels(width), height: Pixels(height) };
         info!("set_inner_size: {}", size);
 

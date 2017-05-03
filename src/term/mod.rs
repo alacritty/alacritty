@@ -556,12 +556,12 @@ pub struct SizeInfo {
 impl SizeInfo {
     #[inline]
     pub fn lines(&self) -> Line {
-        Line((self.height / self.cell_height) as usize)
+        Line(((self.height - 4.0) / self.cell_height) as usize)
     }
 
     #[inline]
     pub fn cols(&self) -> Column {
-        Column((self.width / self.cell_width) as usize)
+        Column(((self.width - 4.0) / self.cell_width) as usize)
     }
 
     pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<Point> {
