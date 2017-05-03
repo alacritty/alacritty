@@ -46,7 +46,8 @@ makepkg -isr
 
 ### Prerequisites
 
-1. Install [`rustup.rs`](https://rustup.rs/)
+1. Install [`rustup.rs`](https://rustup.rs/). **DO NOT** use the Homebrew Rust
+   compiler on macOS (see FAQ for explanation).
 
 2. Clone the source code:
 
@@ -188,6 +189,9 @@ Just Works.
 
 ## FAQ
 
+- _proc-macro derive panicked during macOS build; what's wrong?_ There's an
+  issue with the Rust compiler from Homebrew. Please follow the instructions
+  and use `rustup`.
 - _Is it really the fastest terminal emulator?_ In the terminals I've
   benchmarked against, alacritty is either faster, WAY faster, or at least
   neutral. There are no benchmarks in which I've found Alacritty to be slower.
