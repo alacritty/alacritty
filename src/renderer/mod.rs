@@ -676,15 +676,15 @@ impl QuadRenderer {
         self.program = program;
     }
 
-    pub fn resize(&mut self, width: i32, height: i32) {
+    pub fn resize(&mut self, width: i32, height: i32, padding: i32) {
         // viewport
         unsafe {
-            gl::Viewport(0, 0, width, height);
+            gl::Viewport(padding, padding, width - 2 * padding, height - 2 * padding);
         }
 
         // update projection
         self.program.activate();
-        self.program.update_projection(width as f32, height as f32);
+        self.program.update_projection((width - 2 * padding) as f32, (height - 2 * padding) as f32);
         self.program.deactivate();
     }
 }

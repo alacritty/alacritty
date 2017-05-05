@@ -546,6 +546,9 @@ pub struct SizeInfo {
     /// Terminal window height
     pub height: f32,
 
+    /// Terminal window padding
+    pub padding: f32,
+
     /// Width of individual cell
     pub cell_width: f32,
 
@@ -857,11 +860,14 @@ impl Term {
 
     /// Resize terminal to new dimensions
     pub fn resize(&mut self, width: f32, height: f32) {
+        if width <= 0.0 || height <= 0.0 { return }
+
         let size = SizeInfo {
             width: width,
             height: height,
             cell_width: self.size_info.cell_width,
             cell_height: self.size_info.cell_height,
+            padding: self.size_info.padding,
         };
 
         let old_cols = self.size_info.cols();
@@ -1684,6 +1690,7 @@ mod tests {
             height: 51.0,
             cell_width: 3.0,
             cell_height: 3.0,
+            padding: 0.0,
         };
         let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), &Cell::default());
@@ -1728,6 +1735,7 @@ mod tests {
             height: 51.0,
             cell_width: 3.0,
             cell_height: 3.0,
+            padding: 0.0,
         };
         let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), &Cell::default());
@@ -1771,6 +1779,7 @@ mod tests {
             height: 51.0,
             cell_width: 3.0,
             cell_height: 3.0,
+            padding: 0.0,
         };
         let mut term = Term::new(&Default::default(), size);
         let cursor = Point::new(Line(0), Column(0));

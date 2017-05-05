@@ -14,11 +14,15 @@ env:
   # `infocmp xterm-256color`.
   TERM: xterm-256color
 
-# Window dimensions in character columns and lines
-# (changes require restart)
-dimensions:
-  columns: 80
-  lines: 24
+# Window configuration (changes require restart)
+window:
+  # Window dimensions in character columns and lines
+  dimensions:
+    columns: 80
+    lines: 24
+
+  # Window padding in pixels
+  padding: 2
 
 # The FreeType rasterizer needs to know the device DPI for best results
 # (changes require restart)
