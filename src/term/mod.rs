@@ -551,26 +551,39 @@ pub struct SizeInfo {
 
     /// Height of individual cell
     pub cell_height: f32,
+
+    /// Horizontal window padding
+    pub padding_x: f32,
+
+    /// Horizontal window padding
+    pub padding_y: f32,
 }
 
 impl SizeInfo {
     #[inline]
     pub fn lines(&self) -> Line {
-        Line(((self.height - 4.0) / self.cell_height) as usize)
+        Line(((self.height - 2. * self.padding_y) / self.cell_height) as usize)
     }
 
     #[inline]
     pub fn cols(&self) -> Column {
-        Column(((self.width - 4.0) / self.cell_width) as usize)
+        Column(((self.width - 2. * self.padding_x) / self.cell_width) as usize)
+    }
+
+    fn contains_point(&self, x: usize, y:usize) -> bool {
+        x <= (self.width - self.padding_x) as usize ||
+            x >= self.padding_x as usize ||
+            y <= (self.height - self.padding_y) as usize ||
+            y >= self.padding_y as usize
     }
 
     pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<Point> {
-        if x > self.width as usize || y > self.height as usize {
+        if !self.contains_point(x, y) {
             return None;
         }
 
-        let col = Column(x / (self.cell_width as usize));
-        let line = Line(y / (self.cell_height as usize));
+        let col = Column((x - self.padding_x as usize) / (self.cell_width as usize));
+        let line = Line((y - self.padding_y as usize) / (self.cell_height as usize));
 
         Some(Point {
             line: min(line, self.lines() - 1),
@@ -857,21 +870,32 @@ impl Term {
 
     /// Resize terminal to new dimensions
     pub fn resize(&mut self, width: f32, height: f32) {
+        debug!("Term::resize");
+        // Bounds check; lots of math assumes width and height are > 0
+        if width as usize <= 2 * self.size_info.padding_x as usize ||
+            height as usize <= 2 * self.size_info.padding_y as usize
+        {
+            return;
+        }
+
         let size = SizeInfo {
             width: width,
             height: height,
             cell_width: self.size_info.cell_width,
             cell_height: self.size_info.cell_height,
+            padding_x: self.size_info.padding_x,
+            padding_y: self.size_info.padding_y,
         };
 
-        let old_cols = self.size_info.cols();
-        let old_lines = self.size_info.lines();
+        let old_cols = self.grid.num_cols();
+        let old_lines = self.grid.num_lines();
         let mut num_cols = size.cols();
         let mut num_lines = size.lines();
 
         self.size_info = size;
 
         if old_cols == num_cols && old_lines == num_lines {
+            debug!("Term::resize dimensions unchanged");
             return;
         }
 
@@ -1600,7 +1624,7 @@ impl ansi::Handler for Term {
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.insert(mode::INSERT), // heh
             _ => {
-                debug!(".. ignoring set_mode");
+                trace!(".. ignoring set_mode");
             }
         }
     }
@@ -1626,7 +1650,7 @@ impl ansi::Handler for Term {
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.remove(mode::INSERT),
             _ => {
-                debug!(".. ignoring unset_mode");
+                trace!(".. ignoring unset_mode");
             }
         }
     }
@@ -1684,6 +1708,8 @@ mod tests {
             height: 51.0,
             cell_width: 3.0,
             cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
         };
         let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), &Cell::default());
@@ -1728,6 +1754,8 @@ mod tests {
             height: 51.0,
             cell_width: 3.0,
             cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
         };
         let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), &Cell::default());
@@ -1771,6 +1799,8 @@ mod tests {
             height: 51.0,
             cell_width: 3.0,
             cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
         };
         let mut term = Term::new(&Default::default(), size);
         let cursor = Point::new(Line(0), Column(0));
