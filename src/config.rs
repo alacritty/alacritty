@@ -182,6 +182,10 @@ pub struct Config {
     #[serde(default)]
     dimensions: Dimensions,
 
+    /// Pixel padding
+    #[serde(default="default_padding")]
+    padding: Delta,
+
     /// Pixels per inch
     #[serde(default)]
     dpi: Dpi,
@@ -235,6 +239,10 @@ pub struct Config {
     hide_cursor_when_typing: bool,
 }
 
+fn default_padding() -> Delta {
+    Delta { x: 2., y: 2. }
+}
+
 #[cfg(not(target_os="macos"))]
 static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty.yml");
 #[cfg(target_os="macos")]
@@ -280,6 +288,7 @@ impl Default for Config {
             visual_bell: Default::default(),
             env: Default::default(),
             hide_cursor_when_typing: Default::default(),
+            padding: default_padding(),
         }
     }
 }
@@ -1006,6 +1015,10 @@ impl Config {
 
     pub fn selection(&self) -> &Selection {
         &self.selection
+    }
+
+    pub fn padding(&self) -> &Delta {
+        &self.padding
     }
 
     #[inline]

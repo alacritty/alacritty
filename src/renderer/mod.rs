@@ -116,6 +116,9 @@ pub struct ShaderProgram {
     ///
     /// Rendering is split into two passes; 1 for backgrounds, and one for text
     u_background: GLint,
+
+    padding_x: f32,
+    padding_y: f32,
 }
 
 
@@ -276,7 +279,6 @@ impl GlyphCache {
                 let mut rasterized = rasterizer.get_glyph(&glyph_key)
                     .unwrap_or_else(|_| Default::default());
 
-                // Apply offsets so they aren't computed every draw
                 rasterized.left += glyph_offset.x as i32;
                 rasterized.top += glyph_offset.y as i32;
                 rasterized.top -= metrics.descent as i32;
@@ -434,8 +436,8 @@ const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
-    pub fn new(size: Size<Pixels<u32>>) -> Result<QuadRenderer, Error> {
-        let program = ShaderProgram::new(size)?;
+    pub fn new(config: &Config, size: Size<Pixels<u32>>) -> Result<QuadRenderer, Error> {
+        let program = ShaderProgram::new(config, size)?;
 
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
@@ -600,7 +602,7 @@ impl QuadRenderer {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::ShaderReload => {
-                    self.reload_shaders(Size {
+                    self.reload_shaders(&config, Size {
                         width: Pixels(props.width as u32),
                         height: Pixels(props.height as u32)
                     });
@@ -652,8 +654,9 @@ impl QuadRenderer {
         })
     }
 
-    pub fn reload_shaders(&mut self, size: Size<Pixels<u32>>) {
-        let program = match ShaderProgram::new(size) {
+    pub fn reload_shaders(&mut self, config: &Config, size: Size<Pixels<u32>>) {
+        info!("Reloading shaders");
+        let program = match ShaderProgram::new(config, size) {
             Ok(program) => program,
             Err(err) => {
                 match err {
@@ -675,9 +678,12 @@ impl QuadRenderer {
     }
 
     pub fn resize(&mut self, width: i32, height: i32) {
+        let padding_x = self.program.padding_x as i32;
+        let padding_y = self.program.padding_y as i32;
+
         // viewport
         unsafe {
-            gl::Viewport(0, 0, width, height);
+            gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
         }
 
         // update projection
@@ -874,7 +880,10 @@ impl ShaderProgram {
         }
     }
 
-    pub fn new(size: Size<Pixels<u32>>) -> Result<ShaderProgram, ShaderCreationError> {
+    pub fn new(
+        config: &Config,
+        size: Size<Pixels<u32>>
+    ) -> Result<ShaderProgram, ShaderCreationError> {
         let vertex_source = if cfg!(feature = "live-shader-reload") {
             None
         } else {
@@ -937,6 +946,8 @@ impl ShaderProgram {
             u_cell_dim: cell_dim,
             u_visual_bell: visual_bell,
             u_background: background,
+            padding_x: config.padding().x.floor(),
+            padding_y: config.padding().y.floor(),
         };
 
         shader.update_projection(*size.width as f32, *size.height as f32);
@@ -947,8 +958,20 @@ impl ShaderProgram {
     }
 
     fn update_projection(&self, width: f32, height: f32) {
+        // Bounds check
+        if (width as u32) < (2 * self.padding_x as u32) ||
+            (height as u32) < (2 * self.padding_y as u32)
+        {
+            return;
+        }
+
         // set projection uniform
-        let ortho = cgmath::ortho(0., width, 0., height, -1., 1.);
+        //
+        // NB Not sure why padding change only requires changing the vertical
+        //    translation in the projection, but this makes everything work
+        //    correctly.
+        let ortho = cgmath::ortho(0., width - 2. * self.padding_x, 2. * self.padding_y, height,
+            -1., 1.);
         let projection: [[f32; 4]; 4] = ortho.into();
 
         info!("width: {}, height: {}", width, height);

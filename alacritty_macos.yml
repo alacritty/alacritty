@@ -19,6 +19,13 @@ dimensions:
   columns: 80
   lines: 24
 
+# Adds this many blank pixels of padding around the window
+# Units are physical pixels; this is not DPI aware.
+# (change requires restart)
+padding:
+  x: 2
+  y: 2
+
 # The FreeType rasterizer needs to know the device DPI for best results
 # (changes require restart)
 dpi:

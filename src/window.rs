@@ -360,11 +360,11 @@ impl Proxy {
 }
 
 pub trait SetInnerSize<T> {
-    fn set_inner_size<S: ToPoints>(&mut self, size: S);
+    fn set_inner_size<S: ToPoints>(&mut self, size: &S);
 }
 
 impl SetInnerSize<Pixels<u32>> for Window {
-    fn set_inner_size<T: ToPoints>(&mut self, size: T) {
+    fn set_inner_size<T: ToPoints>(&mut self, size: &T) {
         let size = size.to_points(self.hidpi_factor());
         self.glutin_window.set_inner_size(*size.width as _, *size.height as _);
     }
