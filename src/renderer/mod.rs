@@ -228,7 +228,7 @@ impl GlyphCache {
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm' as char, size: font.size() })?;
+        rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = rasterizer.metrics(regular)?;
 
         let mut cache = GlyphCache {
