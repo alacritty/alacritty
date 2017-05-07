@@ -128,6 +128,9 @@ pub trait Handler {
     /// TODO this should probably return an io::Result
     fn identify_terminal<W: io::Write>(&mut self, &mut W) {}
 
+    // Report device status
+    fn device_status<W: io::Write>(&mut self, &mut W) {}
+
     /// Move cursor forward `cols`
     fn move_forward(&mut self, Column) {}
 
@@ -716,7 +719,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                 handler.move_up(Line(arg_or_default!(idx: 0, default: 1) as usize));
             },
             'B' | 'e' => handler.move_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            'c' | 'n' => handler.identify_terminal(writer),
+            'c' => handler.identify_terminal(writer),
             'C' | 'a' => handler.move_forward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
             'D' => handler.move_backward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
             'E' => handler.move_down_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize)),
@@ -871,8 +874,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     i += 1; // C-for expr
                 }
             }
-            // TODO this should be a device status report
-            // 'n' => handler.identify_terminal(writer),
+            'n' => handler.device_status(writer),
             'r' => {
                 if private {
                     unhandled!();

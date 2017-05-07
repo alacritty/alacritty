@@ -1240,6 +1240,11 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
+    fn device_status<W: io::Write>(&mut self, writer: &mut W) {
+        let _ = writer.write_all(b"\x1b0n");
+    }
+
+    #[inline]
     fn move_down_and_cr(&mut self, lines: Line) {
         trace!("[unimplemented] move_down_and_cr: {}", lines);
     }
