@@ -334,7 +334,7 @@ impl Font {
         Metrics {
             average_advance: average_advance,
             line_height: line_height,
-            descent: self.ct_font.descent() as f32,
+            descent: -(self.ct_font.descent() as f32),
         }
     }
 
