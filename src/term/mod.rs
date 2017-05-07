@@ -571,9 +571,9 @@ impl SizeInfo {
     }
 
     fn contains_point(&self, x: usize, y:usize) -> bool {
-        x <= (self.width - self.padding_x) as usize ||
-            x >= self.padding_x as usize ||
-            y <= (self.height - self.padding_y) as usize ||
+        x <= (self.width - self.padding_x) as usize &&
+            x >= self.padding_x as usize &&
+            y <= (self.height - self.padding_y) as usize &&
             y >= self.padding_y as usize
     }
 
