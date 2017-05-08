@@ -1240,8 +1240,18 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn device_status<W: io::Write>(&mut self, writer: &mut W) {
-        let _ = writer.write_all(b"\x1b0n");
+    fn device_status<W: io::Write>(&mut self, writer: &mut W, arg: usize) {
+        trace!("device status: {}", arg);
+        match arg {
+            5 => {
+                let _ = writer.write_all(b"\x1b[0n");
+            },
+            6 => {
+                let pos = self.cursor.point;
+                let _ = write!(writer, "\x1b[{};{}R", pos.line + 1, pos.col + 1);
+            },
+            _ => debug!("unknown device status query: {}", arg),
+        };
     }
 
     #[inline]
