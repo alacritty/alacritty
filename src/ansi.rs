@@ -129,7 +129,7 @@ pub trait Handler {
     fn identify_terminal<W: io::Write>(&mut self, &mut W) {}
 
     // Report device status
-    fn device_status<W: io::Write>(&mut self, &mut W) {}
+    fn device_status<W: io::Write>(&mut self, &mut W, usize) {}
 
     /// Move cursor forward `cols`
     fn move_forward(&mut self, Column) {}
@@ -874,7 +874,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     i += 1; // C-for expr
                 }
             }
-            'n' => handler.device_status(writer),
+            'n' => handler.device_status(writer, arg_or_default!(idx: 0, default: 0) as usize),
             'r' => {
                 if private {
                     unhandled!();
