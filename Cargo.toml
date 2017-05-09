@@ -32,6 +32,8 @@ log = "0.3"
 clap = "2.20"
 fnv = "1.0.5"
 unicode-width = "0.1.4"
+glutin = "0.8"
+winit = "0.6"
 
 clippy = { version = "0.0.104", optional = true }
 
@@ -48,10 +50,10 @@ nightly = []
 [build-dependencies]
 gl_generator = "0.5"
 
-[dependencies.glutin]
-git = "https://github.com/jwilm/glutin"
-rev = "cc64178d39a1fa06b2c5403117e5e0ef24deeac4"
-
 [profile.release]
 lto = true
 debug = true
+
+[replace]
+# "winit:0.6.4" = { path = "../winit" }
+"winit:0.6.4" = { git = "https://github.com/jwilm/winit", branch = "x11-fixes" }

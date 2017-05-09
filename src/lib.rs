@@ -45,6 +45,7 @@ extern crate serde_json;
 extern crate serde_yaml;
 extern crate unicode_width;
 extern crate vte;
+extern crate winit;
 extern crate xdg;
 
 #[macro_use]
