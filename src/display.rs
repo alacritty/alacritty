@@ -184,7 +184,7 @@ impl Display {
 
         let viewport_size = Size {
             width: Pixels(width + 2 * config.padding().x as u32),
-            height: Pixels(width + 2 * config.padding().y as u32),
+            height: Pixels(height + 2 * config.padding().y as u32),
         };
         window.set_inner_size(&viewport_size);
         renderer.resize(viewport_size.width.0 as _, viewport_size.height.0 as _);
