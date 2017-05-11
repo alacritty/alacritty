@@ -85,6 +85,7 @@ pub struct Rasterizer {
     keys: HashMap<(FontDesc, Size), FontKey>,
     device_pixel_ratio: f32,
     use_thin_strokes: bool,
+    use_anti_alias: bool,
 }
 
 /// Errors occurring when using the core text rasterizer
@@ -130,13 +131,14 @@ impl ::std::fmt::Display for Error {
 impl ::Rasterize for Rasterizer {
     type Err = Error;
 
-    fn new(_dpi_x: f32, _dpi_y: f32, device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {
+    fn new(_dpi_x: f32, _dpi_y: f32, device_pixel_ratio: f32, use_thin_strokes: bool, use_anti_alias: bool) -> Result<Rasterizer, Error> {
         info!("device_pixel_ratio: {}", device_pixel_ratio);
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
             device_pixel_ratio: device_pixel_ratio,
             use_thin_strokes: use_thin_strokes,
+            use_anti_alias: use_anti_alias,
         })
     }
 
@@ -269,7 +271,7 @@ impl Rasterizer {
         font: &Font,
     ) -> Option<Result<RasterizedGlyph, Error>> {
         let scaled_size = self.device_pixel_ratio * glyph.size.as_f32_pts();
-        font.get_glyph(glyph.c, scaled_size as _, self.use_thin_strokes)
+        font.get_glyph(glyph.c, scaled_size as _, self.use_thin_strokes, self.use_anti_alias)
             .map(|r| Some(Ok(r)))
             .unwrap_or_else(|e| match e {
                 Error::MissingGlyph(_) => None,
@@ -453,7 +455,7 @@ impl Font {
         )
     }
 
-    pub fn get_glyph(&self, character: char, _size: f64, use_thin_strokes: bool) -> Result<RasterizedGlyph, Error> {
+    pub fn get_glyph(&self, character: char, _size: f64, use_thin_strokes: bool, use_anti_alias: bool) -> Result<RasterizedGlyph, Error> {
         let glyph_index = self.glyph_index(character)
             .ok_or(Error::MissingGlyph(character))?;
 
@@ -509,8 +511,8 @@ impl Font {
         cg_context.set_should_subpixel_quantize_fonts(true);
         cg_context.set_allows_font_subpixel_positioning(true);
         cg_context.set_should_subpixel_position_fonts(true);
-        cg_context.set_allows_antialiasing(true);
-        cg_context.set_should_antialias(true);
+        cg_context.set_allows_antialiasing(use_anti_alias);
+        cg_context.set_should_antialias(use_anti_alias);
 
         // Set fill color to white for drawing the glyph
         cg_context.set_rgb_fill_color(1.0, 1.0, 1.0, 1.0);

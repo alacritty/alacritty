@@ -1097,6 +1097,11 @@ impl Config {
         self.font.use_thin_strokes
     }
 
+    #[inline]
+    pub fn use_anti_alias(&self) -> bool {
+        self.font.use_anti_alias
+    }
+
     /// show cursor as inverted
     #[inline]
     pub fn custom_cursor_colors(&self) -> bool {
@@ -1296,7 +1301,10 @@ pub struct Font {
     glyph_offset: Delta,
 
     #[serde(default="true_bool")]
-    use_thin_strokes: bool
+    use_thin_strokes: bool,
+
+    #[serde(default="true_bool")]
+    use_anti_alias: bool,
 }
 
 fn default_bold_desc() -> FontDescription {
@@ -1352,6 +1360,7 @@ impl Default for Font {
             italic: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
             use_thin_strokes: true,
+            use_anti_alias: true,
             offset: Default::default(),
             glyph_offset: Default::default()
         }
@@ -1367,6 +1376,7 @@ impl Default for Font {
             italic: FontDescription::new_with_family("monospace"),
             size: Size::new(11.0),
             use_thin_strokes: false,
+            use_anti_alias: true,
             offset: Default::default(),
             glyph_offset: Default::default()
         }
