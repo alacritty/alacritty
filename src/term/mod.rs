@@ -925,7 +925,7 @@ impl Term {
             self.alt_grid.scroll_up(Line(0)..old_lines, lines);
         }
 
-        println!("num_cols, num_lines = {}, {}", num_cols, num_lines);
+        debug!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         // Resize grids to new size
         let template = self.empty_cell;
