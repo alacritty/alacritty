@@ -378,6 +378,111 @@ impl de::Deserialize for ActionWrapper {
     }
 }
 
+struct CommandWrapper {
+    program: String,
+    args: Vec<String>,
+}
+
+impl de::Deserialize for CommandWrapper {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+        where D: de::Deserializer
+    {
+        enum Field {
+            Program,
+            Args,
+        }
+
+        impl de::Deserialize for Field {
+            fn deserialize<D>(deserializer: D) -> ::std::result::Result<Field, D::Error>
+                where D: de::Deserializer
+            {
+                struct FieldVisitor;
+
+                static FIELDS: &'static [&'static str] = &["program", "args"];
+
+                impl Visitor for FieldVisitor {
+                    type Value = Field;
+
+                    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                        f.write_str("command fields")
+                    }
+
+                    fn visit_str<E>(self, value: &str) -> ::std::result::Result<Field, E>
+                        where E: de::Error,
+                    {
+                        match value {
+                            "program" => Ok(Field::Program),
+                            "args" => Ok(Field::Args),
+                            _ => Err(E::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+
+                deserializer.deserialize_struct_field(FieldVisitor)
+            }
+        }
+
+        struct CommandWrapperVisitor;
+        impl Visitor for CommandWrapperVisitor {
+            type Value = CommandWrapper;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("command specification")
+            }
+
+
+            fn visit_str<E>(self, value: &str) -> ::std::result::Result<CommandWrapper, E>
+                where E: de::Error,
+            {
+                return Ok(CommandWrapper {
+                    program: value.to_owned(),
+                    args: vec![],
+                })
+            }
+
+            fn visit_map<V>(
+                self,
+                mut visitor: V
+            ) -> ::std::result::Result<CommandWrapper, V::Error>
+                where V: MapVisitor,
+            {
+                let mut program: Option<String> = None;
+                let mut args: Option<Vec<String>> = None;
+
+                use ::serde::de::Error;
+
+                while let Some(struct_key) = visitor.visit_key::<Field>()? {
+                    match struct_key {
+                        Field::Program => {
+                            if program.is_some() {
+                                return Err(<V::Error as Error>::duplicate_field("program"));
+                            }
+
+                            program = Some(visitor.visit_value()?);
+                        },
+                        Field::Args => {
+                            if args.is_some() {
+                                return Err(<V::Error as Error>::duplicate_field("args"));
+                            }
+
+                            args = Some(visitor.visit_value()?);
+                        },
+                    }
+                }
+
+                match program {
+                    Some(program) => Ok(CommandWrapper { program, args: args.unwrap_or(vec![]) }),
+                    _ => Err(V::Error::custom("must specify at least program")),
+                }
+            }
+        }
+
+        const FIELDS: &'static [&'static str] = &["program", "args"];
+
+        deserializer.deserialize_struct("CommandWrapper", FIELDS, CommandWrapperVisitor)
+    }
+}
+
 use ::term::{mode, TermMode};
 
 struct ModeWrapper {
@@ -517,7 +622,8 @@ impl de::Deserialize for RawBinding {
             Mode,
             Action,
             Chars,
-            Mouse
+            Mouse,
+            Command,
         }
 
         impl de::Deserialize for Field {
@@ -527,7 +633,7 @@ impl de::Deserialize for RawBinding {
                 struct FieldVisitor;
 
                 static FIELDS: &'static [&'static str] = &[
-                        "key", "mods", "mode", "action", "chars", "mouse"
+                        "key", "mods", "mode", "action", "chars", "mouse", "command",
                 ];
 
                 impl Visitor for FieldVisitor {
@@ -547,6 +653,7 @@ impl de::Deserialize for RawBinding {
                             "action" => Ok(Field::Action),
                             "chars" => Ok(Field::Chars),
                             "mouse" => Ok(Field::Mouse),
+                            "command" => Ok(Field::Command),
                             _ => Err(E::unknown_field(value, FIELDS)),
                         }
                     }
@@ -577,6 +684,7 @@ impl de::Deserialize for RawBinding {
                 let mut mode: Option<TermMode> = None;
                 let mut not_mode: Option<TermMode> = None;
                 let mut mouse: Option<::glutin::MouseButton> = None;
+                let mut command: Option<CommandWrapper> = None;
 
                 use ::serde::de::Error;
 
@@ -626,17 +734,23 @@ impl de::Deserialize for RawBinding {
                             }
 
                             mouse = Some(visitor.visit_value::<MouseButton>()?.into_inner());
-                        }
+                        },
+                        Field::Command => {
+                            if command.is_some() {
+                                return Err(<V::Error as Error>::duplicate_field("command"));
+                            }
+
+                            command = Some(visitor.visit_value::<CommandWrapper>()?);
+                        },
                     }
                 }
 
-                let action = match (action, chars) {
-                    (Some(_), Some(_)) => {
-                        return Err(V::Error::custom("must specify only chars or action"));
-                    },
-                    (Some(action), _) => action,
-                    (_, Some(chars)) => Action::Esc(chars),
-                    _ => return Err(V::Error::custom("must specify chars or action"))
+                let action = match (action, chars, command) {
+                    (Some(action), None, None) => action,
+                    (None, Some(chars), None) => Action::Esc(chars),
+                    (None, None, Some(cmd)) => Action::Command(cmd.program, cmd.args),
+                    (None, None, None) => return Err(V::Error::custom("must specify chars, action or command")),
+                    _ => return Err(V::Error::custom("must specify only chars, action or command")),
                 };
 
                 let mode = mode.unwrap_or_else(TermMode::empty);
@@ -659,7 +773,7 @@ impl de::Deserialize for RawBinding {
         }
 
         const FIELDS: &'static [&'static str] = &[
-            "key", "mods", "mode", "action", "chars", "mouse"
+            "key", "mods", "mode", "action", "chars", "mouse", "command",
         ];
 
         deserializer.deserialize_struct("RawBinding", FIELDS, RawBindingVisitor)

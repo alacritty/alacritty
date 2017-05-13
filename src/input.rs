@@ -20,6 +20,7 @@
 //! determine what to do when a non-modifier key is pressed.
 use std::borrow::Cow;
 use std::mem;
+use std::process::Command;
 use std::time::Instant;
 
 use copypasta::{Clipboard, Load, Buffer};
@@ -144,6 +145,9 @@ pub enum Action {
     /// Paste contents of selection buffer
     PasteSelection,
 
+    /// Run given command
+    Command(String, Vec<String>),
+
     /// Quits Alacritty.
     Quit,
 }
@@ -173,6 +177,17 @@ impl Action {
                     .unwrap_or_else(|err| {
                         warn!("Error loading data from clipboard. {}", Red(err));
                     });
+            },
+            Action::Command(ref program, ref args) => {
+                trace!("running command: {} {}", program, args.join(" "));
+                match Command::new(program).args(args).spawn() {
+                    Ok(child) => {
+                        debug!("spawned new proc with pid: {}", child.id());
+                    },
+                    Err(err) => {
+                        err_println!("couldn't run command: {}", err);
+                    },
+                }
             },
             Action::Quit => {
                 // FIXME should do a more graceful shutdown
