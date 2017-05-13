@@ -28,7 +28,7 @@ use gl;
 use index::{Line, Column, RangeInclusive};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 
-use config::{Config, Delta};
+use config::{self, Config, Delta};
 use term::{self, cell, RenderableCell};
 use window::{Size, Pixels};
 
@@ -176,54 +176,44 @@ impl GlyphCache {
         let size = font.size();
         let glyph_offset = *font.glyph_offset();
 
-        // Load regular font
-        let regular_desc = if let Some(ref style) = font.normal.style {
-            FontDesc::new(&font.normal.family[..], font::Style::Specific(style.to_owned()))
-        } else {
-            let style = font::Style::Description {
-                slant: font::Slant::Normal,
-                weight: font::Weight::Normal
+        fn make_desc(
+            desc: &config::FontDescription,
+            slant: font::Slant,
+            weight: font::Weight,
+        ) -> FontDesc
+        {
+            let style = if let Some(ref spec) = desc.style {
+                font::Style::Specific(spec.to_owned())
+            } else {
+                font::Style::Description {slant, weight}
             };
-            FontDesc::new(&font.normal.family[..], style)
-        };
+            FontDesc::new(&desc.family[..], style)
+        }
+
+        // Load regular font
+        let regular_desc = make_desc(&font.normal, font::Slant::Normal, font::Weight::Normal);
 
         let regular = rasterizer
             .load_font(&regular_desc, size)?;
 
-        // Load bold font
-        let bold_desc = if let Some(ref style) = font.bold.style {
-            FontDesc::new(&font.bold.family[..], font::Style::Specific(style.to_owned()))
-        } else {
-            let style = font::Style::Description {
-                slant: font::Slant::Normal,
-                weight: font::Weight::Bold
-            };
-            FontDesc::new(&font.bold.family[..], style)
+        // helper to load a description if it is not the regular_desc
+        let load_or_regular = |desc:FontDesc, rasterizer: &mut Rasterizer| {
+            if desc == regular_desc {
+                regular
+            } else {
+                rasterizer.load_font(&desc, size).unwrap_or_else(|_| regular)
+            }
         };
 
-        let bold = if bold_desc == regular_desc {
-            regular
-        } else {
-            rasterizer.load_font(&bold_desc, size).unwrap_or_else(|_| regular)
-        };
+        // Load bold font
+        let bold_desc = make_desc(&font.bold, font::Slant::Normal, font::Weight::Bold);
+
+        let bold = load_or_regular(bold_desc, &mut rasterizer);
 
         // Load italic font
-        let italic_desc = if let Some(ref style) = font.italic.style {
-            FontDesc::new(&font.italic.family[..], font::Style::Specific(style.to_owned()))
-        } else {
-            let style = font::Style::Description {
-                slant: font::Slant::Italic,
-                weight: font::Weight::Normal
-            };
-            FontDesc::new(&font.italic.family[..], style)
-        };
+        let italic_desc = make_desc(&font.italic, font::Slant::Italic, font::Weight::Normal);
 
-        let italic = if italic_desc == regular_desc {
-            regular
-        } else {
-            rasterizer.load_font(&italic_desc, size)
-                      .unwrap_or_else(|_| regular)
-        };
+        let italic = load_or_regular(italic_desc, &mut rasterizer);
 
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
