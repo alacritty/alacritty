@@ -179,13 +179,13 @@ impl Action {
                     });
             },
             Action::Command(ref program, ref args) => {
-                trace!("running command: {} {}", program, args.join(" "));
+                trace!("running command: {} {:?}", program, args);
                 match Command::new(program).args(args).spawn() {
                     Ok(child) => {
                         debug!("spawned new proc with pid: {}", child.id());
                     },
                     Err(err) => {
-                        err_println!("couldn't run command: {}", err);
+                        warn!("couldn't run command: {}", err);
                     },
                 }
             },
