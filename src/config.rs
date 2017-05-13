@@ -378,109 +378,15 @@ impl de::Deserialize for ActionWrapper {
     }
 }
 
-struct CommandWrapper {
-    program: String,
-    args: Vec<String>,
-}
-
-impl de::Deserialize for CommandWrapper {
-    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
-        where D: de::Deserializer
-    {
-        enum Field {
-            Program,
-            Args,
-        }
-
-        impl de::Deserialize for Field {
-            fn deserialize<D>(deserializer: D) -> ::std::result::Result<Field, D::Error>
-                where D: de::Deserializer
-            {
-                struct FieldVisitor;
-
-                static FIELDS: &'static [&'static str] = &["program", "args"];
-
-                impl Visitor for FieldVisitor {
-                    type Value = Field;
-
-                    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                        f.write_str("command fields")
-                    }
-
-                    fn visit_str<E>(self, value: &str) -> ::std::result::Result<Field, E>
-                        where E: de::Error,
-                    {
-                        match value {
-                            "program" => Ok(Field::Program),
-                            "args" => Ok(Field::Args),
-                            _ => Err(E::unknown_field(value, FIELDS)),
-                        }
-                    }
-                }
-
-                deserializer.deserialize_struct_field(FieldVisitor)
-            }
-        }
-
-        struct CommandWrapperVisitor;
-        impl Visitor for CommandWrapperVisitor {
-            type Value = CommandWrapper;
-
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                f.write_str("command specification")
-            }
-
-
-            fn visit_str<E>(self, value: &str) -> ::std::result::Result<CommandWrapper, E>
-                where E: de::Error,
-            {
-                return Ok(CommandWrapper {
-                    program: value.to_owned(),
-                    args: vec![],
-                })
-            }
-
-            fn visit_map<V>(
-                self,
-                mut visitor: V
-            ) -> ::std::result::Result<CommandWrapper, V::Error>
-                where V: MapVisitor,
-            {
-                let mut program: Option<String> = None;
-                let mut args: Option<Vec<String>> = None;
-
-                use ::serde::de::Error;
-
-                while let Some(struct_key) = visitor.visit_key::<Field>()? {
-                    match struct_key {
-                        Field::Program => {
-                            if program.is_some() {
-                                return Err(<V::Error as Error>::duplicate_field("program"));
-                            }
-
-                            program = Some(visitor.visit_value()?);
-                        },
-                        Field::Args => {
-                            if args.is_some() {
-                                return Err(<V::Error as Error>::duplicate_field("args"));
-                            }
-
-                            args = Some(visitor.visit_value()?);
-                        },
-                    }
-                }
-
-                match program {
-                    Some(program) => Ok(CommandWrapper { program, args: args.unwrap_or(vec![]) }),
-                    _ => Err(V::Error::custom("must specify at least program")),
-                }
-            }
-        }
-
-        const FIELDS: &'static [&'static str] = &["program", "args"];
-
-        deserializer.deserialize_struct("CommandWrapper", FIELDS, CommandWrapperVisitor)
-    }
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum CommandWrapper {
+    Just(String),
+    WithArgs {
+        program: String,
+        #[serde(default)]
+        args: Vec<String>,
+    },
 }
 
 use ::term::{mode, TermMode};
@@ -748,7 +654,16 @@ impl de::Deserialize for RawBinding {
                 let action = match (action, chars, command) {
                     (Some(action), None, None) => action,
                     (None, Some(chars), None) => Action::Esc(chars),
-                    (None, None, Some(cmd)) => Action::Command(cmd.program, cmd.args),
+                    (None, None, Some(cmd)) => {
+                        match cmd {
+                            CommandWrapper::Just(program) => {
+                                Action::Command(program, vec![])
+                            },
+                            CommandWrapper::WithArgs { program, args } => {
+                                Action::Command(program, args)
+                            },
+                        }
+                    },
                     (None, None, None) => return Err(V::Error::custom("must specify chars, action or command")),
                     _ => return Err(V::Error::custom("must specify only chars, action or command")),
                 };
