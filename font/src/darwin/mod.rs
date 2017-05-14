@@ -285,7 +285,7 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
             font_name: desc.font_name(),
             style_name: desc.style_name(),
             display_name: desc.display_name(),
-            font_path: desc.font_path(),
+            font_path: desc.font_path().unwrap_or_else(||{"".to_owned()}),
             ct_descriptor: desc,
         });
     }
