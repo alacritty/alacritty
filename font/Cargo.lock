@@ -5,7 +5,7 @@ dependencies = [
  "core-foundation 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation-sys 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-graphics 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-text 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-text 4.0.0 (git+https://github.com/servo/core-text-rs?rev=7a267bc8f6c098f5370583333a5fd00a0d12fb83)",
  "euclid 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ffi-util 0.1.0",
  "freetype-rs 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -49,7 +49,7 @@ dependencies = [
 [[package]]
 name = "core-text"
 version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/servo/core-text-rs?rev=7a267bc8f6c098f5370583333a5fd00a0d12fb83#7a267bc8f6c098f5370583333a5fd00a0d12fb83"
 dependencies = [
  "core-foundation 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-graphics 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -202,7 +202,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum core-foundation 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f51ce3b8ebe311c56de14231eb57572c15abebd2d32b3bcb99bcdb9c101f5ac3"
 "checksum core-foundation-sys 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "41115a6aa5d3e1e5ef98148373f25971d1fad53818553f216495f9e67e90a624"
 "checksum core-graphics 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ead017dcf77f503dc991f6b52de6084eeea60a94b0a652baa9bf88654a28e83f"
-"checksum core-text 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0e9719616a10f717628e074744f8c55df7b450f7a34d29c196d14f4498aad05d"
+"checksum core-text 4.0.0 (git+https://github.com/servo/core-text-rs?rev=7a267bc8f6c098f5370583333a5fd00a0d12fb83)" = "<none>"
 "checksum euclid 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ba6ab6f0e63a602978f4b8cf8a43f87a1a475ddf32407f087d579a13cf06b114"
 "checksum expat-sys 2.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "4ccf6f838594c1571f176f0afdbeb9cfa9f83b478f269d3f0390939b1df4323e"
 "checksum freetype-rs 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a1418e2a055fec8efe18c1a90a54b2cf5e649e583830dd4c71226c4e3bc920c6"

@@ -16,7 +16,11 @@ servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig" }
 freetype-rs = "0.13.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-core-text = "4.0.0"
+#core-text = { path = "../../core-text-rs" }
 core-foundation = "0.3.0"
 core-graphics = "0.7.0"
 core-foundation-sys = "0.3.1"
+
+[target.'cfg(target_os = "macos")'.dependencies.core-text]
+git = "https://github.com/servo/core-text-rs"
+rev = "7a267bc8f6c098f5370583333a5fd00a0d12fb83"
