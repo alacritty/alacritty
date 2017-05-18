@@ -37,6 +37,8 @@ use alacritty::tty::{self, process_should_exit};
 use alacritty::util::fmt::Red;
 
 fn main() {
+    // Load command line options
+    let options = cli::Options::load();
 
     // Load configuration
     let config = Config::load().unwrap_or_else(|err| {
@@ -56,9 +58,6 @@ fn main() {
             _ => die!("{}", err),
         }
     });
-
-    // Load command line options
-    let options = cli::Options::load();
 
     // Run alacritty
     if let Err(err) = run(config, options) {
