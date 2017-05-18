@@ -86,7 +86,6 @@ impl Options {
                  .help("Start the shell in the specified working directory"))
             .arg(Arg::with_name("config-file")
                  .long("config-file")
-                 .short("f")
                  .takes_value(true)
                  .help("Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]"))
             .arg(Arg::with_name("command")
