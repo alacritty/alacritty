@@ -135,8 +135,8 @@ impl Options {
             options.working_dir = Some(PathBuf::from(dir.to_string()));
         }
 
-        if let Some(dir) = matches.value_of("config-file") {
-            options.config = Some(PathBuf::from(dir.to_string()));
+        if let Some(path) = matches.value_of("config-file") {
+            options.config = Some(PathBuf::from(path.to_string()));
         }
 
         if let Some(mut args) = matches.values_of("command") {
