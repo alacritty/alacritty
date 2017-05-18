@@ -28,6 +28,7 @@ pub struct Options {
     pub log_level: log::LogLevelFilter,
     pub command: Option<Shell<'static>>,
     pub working_dir: Option<PathBuf>,
+    pub config: Option<PathBuf>,
 }
 
 impl Default for Options {
@@ -40,6 +41,7 @@ impl Default for Options {
             log_level: log::LogLevelFilter::Warn,
             command: None,
             working_dir: None,
+            config: None,
         }
     }
 }
@@ -82,6 +84,11 @@ impl Options {
                  .long("working-directory")
                  .takes_value(true)
                  .help("Start the shell in the specified working directory"))
+            .arg(Arg::with_name("config-file")
+                 .long("config-file")
+                 .short("f")
+                 .takes_value(true)
+                 .help("Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]"))
             .arg(Arg::with_name("command")
                 .short("e")
                 .multiple(true)
@@ -126,6 +133,10 @@ impl Options {
 
         if let Some(dir) = matches.value_of("working-directory") {
             options.working_dir = Some(PathBuf::from(dir.to_string()));
+        }
+
+        if let Some(dir) = matches.value_of("config-file") {
+            options.config = Some(PathBuf::from(dir.to_string()));
         }
 
         if let Some(mut args) = matches.values_of("command") {
