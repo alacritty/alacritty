@@ -43,41 +43,38 @@ fn main() {
     // Load configuration
     // If a configuration file is given as a command line argument we don't generate a default file.
     // If an invalid configuration file is given, i.e. /dev/null, we load the compiled in defaults.
-    let config = match options.config {
-        Some(ref config) => {
-            Config::load_from(config).unwrap_or_else(|err| {
-                match err {
-                    config::Error::NotFound => {
-                        die!("Config file not found at: {}", config.as_path().display());
-                    },
-                    _ => {
-                        err_println!("Error while loading config: {}", err);
-                        err_println!("Loading defaults");
-                        Config::default()
-                    },
-                }
-            })
-        },
-        None => {
-            Config::load().unwrap_or_else(|err| {
-                match err {
-                    // Use default config when not found
-                    config::Error::NotFound => {
-                        match Config::write_defaults() {
-                            Ok(path) => err_println!("Config file not found; write defaults config to {:?}", path),
-                            Err(err) => err_println!("Write defaults config failure: {}", err)
-                        }
+    let config = options.config.as_ref().and_then(|config| {
+        Some(Config::load_from(config).unwrap_or_else(|err| {
+            match err {
+                config::Error::NotFound => {
+                    die!("Config file not found at: {}", config.as_path().display());
+                },
+                _ => {
+                    err_println!("Error while loading config: {}", err);
+                    err_println!("Loading defaults");
+                    Config::default()
+                },
+            }
+        }))
+    }).or_else(|| {
+        Some(Config::load().unwrap_or_else(|err| {
+            match err {
+                // Use default config when not found
+                config::Error::NotFound => {
+                    match Config::write_defaults() {
+                        Ok(path) => err_println!("Config file not found; write defaults config to {:?}", path),
+                        Err(err) => err_println!("Write defaults config failure: {}", err)
+                    }
 
-                        Config::load().expect("Config file not found or broken")
-                    },
+                    Config::load().expect("Config file not found or broken")
+                },
 
-                    // If there's a problem with the config file, print an error
-                    // and exit.
-                    _ => die!("{}", err),
-                }
-            })
-        },
-    };
+                // If there's a problem with the config file, print an error
+                // and exit.
+                _ => die!("{}", err),
+            }
+        }))
+    }).unwrap(); // This unwrap is safe, if we don't return a valid config we will exit
 
     // Run alacritty
     if let Err(err) = run(config, options) {
