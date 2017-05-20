@@ -29,7 +29,7 @@ use alacritty::cli;
 use alacritty::config::{self, Config};
 use alacritty::display::Display;
 use alacritty::event;
-use alacritty::event_loop::{self, EventLoop};
+use alacritty::event_loop::{self, EventLoop, Msg};
 use alacritty::logging;
 use alacritty::sync::FairMutex;
 use alacritty::term::{Term};
@@ -126,7 +126,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     //
     // Need the Rc<RefCell<_>> here since a ref is shared in the resize callback
     let mut processor = event::Processor::new(
-        event_loop::Notifier(loop_tx),
+        event_loop::Notifier(event_loop.channel()),
         display.resize_channel(),
         &options,
         &config,
@@ -177,6 +177,8 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
             break;
         }
     }
+
+    loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to event loop");
 
     // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();

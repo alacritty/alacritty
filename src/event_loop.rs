@@ -21,6 +21,9 @@ use sync::FairMutex;
 pub enum Msg {
     /// Data that should be written to the pty
     Input(Cow<'static, [u8]>),
+
+    /// Indicates that the `EvemtLoop` should shut down, as Alacritty is shutting down
+    Shutdown
 }
 
 /// The main event!.. loop.
@@ -165,24 +168,33 @@ impl<Io> EventLoop<Io>
 
     // Drain the channel
     //
-    // Returns true if items were received
-    fn drain_recv_channel(&self, state: &mut State) -> bool {
+    // Returns `Ok` if the `EventLoop` should continue running.
+    // `Ok(true)`is returned if items were received
+    //
+    // An `Err` indicates that the event loop should shut down
+    fn drain_recv_channel(&self, state: &mut State) -> Result<bool, ()> {
         let mut received_item = false;
         while let Ok(msg) = self.rx.try_recv() {
             received_item = true;
             match msg {
                 Msg::Input(input) => {
                     state.write_list.push_back(input);
+                },
+                Msg::Shutdown => {
+                    return Err(())
                 }
             }
         }
 
-        received_item
+        Ok(received_item)
     }
 
+    // Returns a `bool` indicating whether or not the event loop should continue running
     #[inline]
-    fn channel_event(&mut self, state: &mut State) {
-        self.drain_recv_channel(state);
+    fn channel_event(&mut self, state: &mut State) -> bool {
+        if self.drain_recv_channel(state).is_err() {
+            return false;
+        }
 
         self.poll.reregister(
             &self.rx, CHANNEL,
@@ -198,6 +210,7 @@ impl<Io> EventLoop<Io>
                 PollOpt::edge() | PollOpt::oneshot()
             ).expect("reregister fd after channel recv");
         }
+        true
     }
 
     #[inline]
@@ -237,9 +250,12 @@ impl<Io> EventLoop<Io>
                         //
                         // Doing this check in !terminal.dirty will prevent the
                         // condition from being checked overzealously.
+                        //
+                        // We want to break if `drain_recv_channel` returns either `Ok(true)`
+                        // (new items came in for writing) or `Err` (we need to shut down)
                         if state.writing.is_some()
                             || !state.write_list.is_empty()
-                            || self.drain_recv_channel(state)
+                            || self.drain_recv_channel(state).unwrap_or_else(|_| true)
                         {
                             break;
                         }
@@ -328,7 +344,11 @@ impl<Io> EventLoop<Io>
 
                 for event in events.iter() {
                     match event.token() {
-                        CHANNEL => self.channel_event(&mut state),
+                        CHANNEL =>  {
+                            if !self.channel_event(&mut state) {
+                                break 'event_loop;
+                            }
+                        },
                         PTY => {
                             let kind = event.kind();
 
