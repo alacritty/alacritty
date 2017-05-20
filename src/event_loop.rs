@@ -22,7 +22,7 @@ pub enum Msg {
     /// Data that should be written to the pty
     Input(Cow<'static, [u8]>),
 
-    /// Indicates that the `EvemtLoop` should shut down, as Alacritty is shutting down
+    /// Indicates that the `EventLoop` should shut down, as Alacritty is shutting down
     Shutdown
 }
 
