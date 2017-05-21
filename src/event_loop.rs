@@ -60,6 +60,10 @@ impl event::Notify for Notifier {
         where B: Into<Cow<'static, [u8]>>
     {
         let bytes = bytes.into();
+        // terminal hangs if we send 0 bytes through.
+        if bytes.len() == 0 {
+            return
+        }
         match self.0.send(Msg::Input(bytes)) {
             Ok(_) => (),
             Err(_) => panic!("expected send event loop msg"),
