@@ -46,6 +46,44 @@ struct Writing {
     written: usize,
 }
 
+/// Indicates the result of draining the mio channel
+#[derive(Debug)]
+enum DrainResult {
+    /// At least one new item was received
+    ReceivedItem,
+    /// Nothing was available to receive
+    Empty,
+    /// A shutdown message was received
+    Shutdown
+}
+
+impl DrainResult {
+
+    pub fn is_shutdown(&self) -> bool {
+        match *self {
+            DrainResult::Shutdown => true,
+            _ => false
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        match *self {
+            DrainResult::Empty => true,
+            _ => false
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn is_item(&self) -> bool {
+        match *self {
+            DrainResult::ReceivedItem => true,
+            _ => false
+        }
+    }
+
+}
+
 /// All of the mutable state needed to run the event loop
 ///
 /// Contains list of items to write, current write state, etc. Anything that
@@ -168,11 +206,9 @@ impl<Io> EventLoop<Io>
 
     // Drain the channel
     //
-    // Returns `Ok` if the `EventLoop` should continue running.
-    // `Ok(true)`is returned if items were received
+    // Returns a `DrainResult` indicating the result of receiving from the channe;
     //
-    // An `Err` indicates that the event loop should shut down
-    fn drain_recv_channel(&self, state: &mut State) -> Result<bool, ()> {
+    fn drain_recv_channel(&self, state: &mut State) -> DrainResult {
         let mut received_item = false;
         while let Ok(msg) = self.rx.try_recv() {
             received_item = true;
@@ -181,18 +217,18 @@ impl<Io> EventLoop<Io>
                     state.write_list.push_back(input);
                 },
                 Msg::Shutdown => {
-                    return Err(())
+                    return DrainResult::Shutdown;
                 }
             }
         }
 
-        Ok(received_item)
+        return if received_item { DrainResult::ReceivedItem } else { DrainResult::Empty };
     }
 
     // Returns a `bool` indicating whether or not the event loop should continue running
     #[inline]
     fn channel_event(&mut self, state: &mut State) -> bool {
-        if self.drain_recv_channel(state).is_err() {
+        if self.drain_recv_channel(state).is_shutdown() {
             return false;
         }
 
@@ -255,7 +291,10 @@ impl<Io> EventLoop<Io>
                         // (new items came in for writing) or `Err` (we need to shut down)
                         if state.writing.is_some()
                             || !state.write_list.is_empty()
-                            || self.drain_recv_channel(state).unwrap_or_else(|_| true)
+                            || match self.drain_recv_channel(state) {
+                                DrainResult::Shutdown | DrainResult::ReceivedItem => true,
+                                _ => false
+                            }
                         {
                             break;
                         }
