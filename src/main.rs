@@ -43,8 +43,8 @@ fn main() {
     // Load configuration
     // If a configuration file is given as a command line argument we don't generate a default file.
     // If an invalid configuration file is given, i.e. /dev/null, we load the compiled in defaults.
-    let config = options.config.as_ref().and_then(|config| {
-        Some(Config::load_from(config).unwrap_or_else(|err| {
+    let config = options.config.as_ref().map(|config| {
+        Config::load_from(config).unwrap_or_else(|err| {
             match err {
                 config::Error::NotFound => {
                     die!("Config file not found at: {}", config.as_path().display());
@@ -55,9 +55,9 @@ fn main() {
                     Config::default()
                 },
             }
-        }))
-    }).or_else(|| {
-        Some(Config::load().unwrap_or_else(|err| {
+        })
+    }).unwrap_or_else(|| {
+        Config::load().unwrap_or_else(|err| {
             match err {
                 // Use default config when not found
                 config::Error::NotFound => {
@@ -73,8 +73,8 @@ fn main() {
                 // and exit.
                 _ => die!("{}", err),
             }
-        }))
-    }).unwrap(); // This unwrap is safe, if we don't return a valid config we will exit
+        })
+    });
 
     // Run alacritty
     if let Err(err) = run(config, options) {
