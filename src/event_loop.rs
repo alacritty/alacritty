@@ -58,7 +58,6 @@ enum DrainResult {
 }
 
 impl DrainResult {
-
     pub fn is_shutdown(&self) -> bool {
         match *self {
             DrainResult::Shutdown => true,
@@ -66,22 +65,12 @@ impl DrainResult {
         }
     }
 
-    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         match *self {
             DrainResult::Empty => true,
             _ => false
         }
     }
-
-    #[allow(dead_code)]
-    pub fn is_item(&self) -> bool {
-        match *self {
-            DrainResult::ReceivedItem => true,
-            _ => false
-        }
-    }
-
 }
 
 /// All of the mutable state needed to run the event loop
@@ -226,7 +215,11 @@ impl<Io> EventLoop<Io>
             }
         }
 
-        return if received_item { DrainResult::ReceivedItem } else { DrainResult::Empty };
+        if received_item {
+            DrainResult::ReceivedItem
+        } else {
+            DrainResult::Empty
+        }
     }
 
     // Returns a `bool` indicating whether or not the event loop should continue running
@@ -250,6 +243,7 @@ impl<Io> EventLoop<Io>
                 PollOpt::edge() | PollOpt::oneshot()
             ).expect("reregister fd after channel recv");
         }
+
         true
     }
 
@@ -291,14 +285,11 @@ impl<Io> EventLoop<Io>
                         // Doing this check in !terminal.dirty will prevent the
                         // condition from being checked overzealously.
                         //
-                        // We want to break if `drain_recv_channel` returns either `Ok(true)`
-                        // (new items came in for writing) or `Err` (we need to shut down)
+                        // Break if `drain_recv_channel` signals there is work to do or
+                        // shutting down.
                         if state.writing.is_some()
                             || !state.write_list.is_empty()
-                            || match self.drain_recv_channel(state) {
-                                DrainResult::Shutdown | DrainResult::ReceivedItem => true,
-                                _ => false
-                            }
+                            || !self.drain_recv_channel(state).is_empty()
                         {
                             break;
                         }
