@@ -692,6 +692,9 @@ pub enum Error {
     /// Config file not found
     NotFound,
 
+    /// Config file empty
+    Empty,
+
     /// Couldn't read $HOME environment variable
     ReadingEnvHome(env::VarError),
 
@@ -894,6 +897,7 @@ impl ::std::error::Error for Error {
     fn cause(&self) -> Option<&::std::error::Error> {
         match *self {
             Error::NotFound => None,
+            Error::Empty => None,
             Error::ReadingEnvHome(ref err) => Some(err),
             Error::Io(ref err) => Some(err),
             Error::Yaml(ref err) => Some(err),
@@ -903,6 +907,7 @@ impl ::std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
             Error::NotFound => "could not locate config file",
+            Error::Empty => "empty config file",
             Error::ReadingEnvHome(ref err) => err.description(),
             Error::Io(ref err) => err.description(),
             Error::Yaml(ref err) => err.description(),
@@ -914,6 +919,7 @@ impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
             Error::NotFound => write!(f, "{}", ::std::error::Error::description(self)),
+            Error::Empty => write!(f, "{}", ::std::error::Error::description(self)),
             Error::ReadingEnvHome(ref err) => {
                 write!(f, "could not read $HOME environment variable: {}", err)
             },
@@ -1100,6 +1106,9 @@ impl Config {
         let mut f = fs::File::open(path)?;
         let mut contents = String::new();
         f.read_to_string(&mut contents)?;
+        if contents.len() == 0 {
+            return Err(Error::Empty);
+        }
 
         Ok(contents)
     }

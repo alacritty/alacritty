@@ -49,11 +49,11 @@ fn main() {
                 config::Error::NotFound => {
                     die!("Config file not found at: {}", config.as_path().display());
                 },
-                _ => {
-                    err_println!("Error while loading config: {}", err);
-                    err_println!("Loading defaults");
+                config::Error::Empty => {
+                    err_println!("Empty config; Loading defaults");
                     Config::default()
                 },
+                _ => die!("{}", err),
             }
         })
     }).unwrap_or_else(|| {
