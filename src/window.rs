@@ -303,6 +303,15 @@ impl Window {
                                                 else { glutin::CursorState::Hide }).unwrap();
         }
     }
+
+    pub fn get_window_id(&self) -> Option<usize> {
+        use glutin::os::unix::WindowExt;
+
+        match self.glutin_window.get_xlib_window() {
+            Some(xlib_window) => Some(xlib_window as usize),
+            None => None
+        }
+    }
 }
 
 pub trait OsExtensions {

@@ -98,12 +98,15 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     let terminal = Term::new(&config, display.size().to_owned());
     let terminal = Arc::new(FairMutex::new(terminal));
 
+    // Find the window ID for setting $WINDOWID
+    let window_id = display.get_window_id();
+
     // Create the pty
     //
     // The pty forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-    let mut pty = tty::new(&config, &options, display.size());
+    let mut pty = tty::new(&config, &options, display.size(), window_id);
 
     // Create the pseudoterminal I/O loop
     //
