@@ -25,6 +25,7 @@ extern crate log;
 use std::error::Error;
 use std::sync::Arc;
 
+use alacritty::built;
 use alacritty::cli;
 use alacritty::config::{self, Config};
 use alacritty::display::Display;
@@ -78,6 +79,18 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     logging::initialize(&options)?;
 
     info!("Welcome to Alacritty.");
+    info!("This is version {}{}, built for {} by {}.",
+          built::PKG_VERSION,
+          built::GIT_VERSION.map_or_else(|| "".to_owned(),
+                                         |v| format!(" (git {})", v)),
+          built::TARGET,
+          built::RUSTC_VERSION);
+    trace!("Alacritty was built with profile \"{}\", features \"{}\" on {} using {}",
+           built::PROFILE,
+           built::FEATURES_STR,
+           built::BUILT_TIME_UTC,
+           built::DEPENDENCIES_STR);
+
 
     // Create a display.
     //
