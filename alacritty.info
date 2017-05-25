@@ -1,3 +1,5 @@
 alacritty| alacritty,
 	use=xterm-256color,
+	ritm=\E[23m,
+	sitm=\E[3m,
 	Tc,
