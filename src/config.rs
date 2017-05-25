@@ -962,7 +962,7 @@ impl Config {
     /// 2. $XDG_CONFIG_HOME/alacritty.yml
     /// 3. $HOME/.config/alacritty/alacritty.yml
     /// 4. $HOME/.alacritty.yml
-    pub fn default_config() -> Option<PathBuf> {
+    pub fn installed_config() -> Option<PathBuf> {
         // Try using XDG location by default
         ::xdg::BaseDirectories::with_prefix("alacritty")
             .ok()
