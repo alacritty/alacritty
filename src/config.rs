@@ -955,40 +955,38 @@ impl From<serde_yaml::Error> for Error {
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 impl Config {
-    /// Attempt to load the config file
-    ///
-    /// The config file is loaded from the first file it finds in this list of paths
+    /// Get the location of the first found default config file paths
+    /// according to the following order:
     ///
     /// 1. $XDG_CONFIG_HOME/alacritty/alacritty.yml
     /// 2. $XDG_CONFIG_HOME/alacritty.yml
     /// 3. $HOME/.config/alacritty/alacritty.yml
     /// 4. $HOME/.alacritty.yml
-    pub fn load() -> Result<Config> {
-        let home = env::var("HOME")?;
-
+    pub fn default_config() -> Option<PathBuf> {
         // Try using XDG location by default
-        let path = ::xdg::BaseDirectories::with_prefix("alacritty")
+        ::xdg::BaseDirectories::with_prefix("alacritty")
             .ok()
-            .and_then(|xdg| xdg.find_config_file("alacritty.yml"))
+            .and_then(|xdg| Some(xdg.find_config_file("alacritty.yml")))
             .or_else(|| {
                 ::xdg::BaseDirectories::new().ok().and_then(|fallback| {
-                    fallback.find_config_file("alacritty.yml")
+                    Some(fallback.find_config_file("alacritty.yml"))
                 })
             })
-            .or_else(|| {
-                // Fallback path: $HOME/.config/alacritty/alacritty.yml
-                let fallback = PathBuf::from(&home).join(".config/alacritty/alacritty.yml");
-                match fallback.exists() {
-                    true => Some(fallback),
-                    false => None
-                }
-            })
             .unwrap_or_else(|| {
-                // Fallback path: $HOME/.alacritty.yml
-                PathBuf::from(&home).join(".alacritty.yml")
-            });
-
-        Config::load_from(path)
+                if let Ok(home) = env::var("HOME") {
+                    // Fallback path: $HOME/.config/alacritty/alacritty.yml
+                    let fallback = PathBuf::from(&home).join(".config/alacritty/alacritty.yml");
+                    if fallback.exists() {
+                        return Some(fallback);
+                    }
+                    // Fallback path: $HOME/.alacritty.yml
+                    let fallback = PathBuf::from(&home).join(".alacritty.yml");
+                    if fallback.exists() {
+                        return Some(fallback);
+                    }
+                }
+                None
+            })
     }
 
     pub fn write_defaults() -> io::Result<PathBuf> {
