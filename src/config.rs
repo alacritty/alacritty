@@ -1407,7 +1407,7 @@ impl Monitor {
                         // Reload file
                         path.map(|path| {
                             if path == config_path {
-                                match Config::load() {
+                                match Config::load_from(path) {
                                     Ok(config) => {
                                         let _ = config_tx.send(config);
                                         handler.on_config_reload();
