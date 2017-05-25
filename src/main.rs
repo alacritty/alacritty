@@ -43,29 +43,27 @@ fn main() {
     // Load configuration
     // If a configuration file is given as a command line argument we don't generate a default file.
     // If an empty configuration file is given, i.e. /dev/null, we load the compiled-in defaults.
-    let config = {
-        let config_path = options.config.clone().unwrap_or_else(|| {
-            Config::default_config().unwrap_or_else(||{
-                match Config::write_defaults() {
-                    Ok(path) => err_println!("Config file not found; write defaults config to {:?}", path),
-                    Err(err) => err_println!("Write defaults config failure: {}", err)
-                }
-                Config::default_config().expect("a config file should have been written")
-            })
-        });
-        Config::load_from(&config_path).unwrap_or_else(|err| {
-            match err {
-                config::Error::NotFound => {
-                    die!("Config file not found at: {}", config_path.as_path().display());
-                },
-                config::Error::Empty => {
-                    err_println!("Empty config; Loading defaults");
-                    Config::default()
-                },
-                _ => die!("{}", err),
+    let config_path = options.config.clone().unwrap_or_else(|| {
+        Config::default_config().unwrap_or_else(||{
+            match Config::write_defaults() {
+                Ok(path) => err_println!("Config file not found; write defaults config to {:?}", path),
+                Err(err) => err_println!("Write defaults config failure: {}", err)
             }
+            Config::default_config().expect("a config file should have been written")
         })
-    };
+    });
+    let config = Config::load_from(&config_path).unwrap_or_else(|err| {
+        match err {
+            config::Error::NotFound => {
+                die!("Config file not found at: {}", config_path.as_path().display());
+            },
+            config::Error::Empty => {
+                err_println!("Empty config; Loading defaults");
+                Config::default()
+            },
+            _ => die!("{}", err),
+        }
+    });
 
     // Run alacritty
     if let Err(err) = run(config, options) {
