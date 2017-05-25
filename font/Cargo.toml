@@ -7,7 +7,7 @@ license = "Apache-2.0"
 
 [dependencies]
 euclid = "0.6.8"
-libc = "0.2.11"
+libc = "0.2"
 ffi-util = { path = "../ffi-util" }
 log = "0.3"
 

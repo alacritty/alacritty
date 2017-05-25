@@ -12,19 +12,19 @@ path = "src/main.rs"
 name = "alacritty"
 
 [dependencies]
-libc = "*"
+libc = "0.2.23"
 cgmath = "0.7"
 notify = "2.6"
-bitflags = "*"
+bitflags = "0.7"
 font = { path = "./font" }
-errno = "0.1.6"
+errno = "0.2"
 lazy_static = "0.2.2"
 parking_lot = "0.3.1"
 serde = "0.9"
 serde_yaml = "0.6"
 serde_derive = "0.9"
 vte = "0.3.0"
-mio = "0.6"
+mio = "=0.6.2"
 serde_json = "0.9"
 copypasta = { path = "./copypasta" }
 xdg = "2.0.0"
