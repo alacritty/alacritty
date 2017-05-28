@@ -251,14 +251,19 @@ impl<N: Notify> Processor<N> {
                 *hide_cursor = false;
                 processor.on_mouse_wheel(scroll_delta, touch_phase);
             },
-            glutin::Event::Focused(true) |
             glutin::Event::Refresh |
             glutin::Event::Awakened => {
                 processor.ctx.terminal.dirty = true;
             },
-            glutin::Event::Focused(false) => {
-                *hide_cursor = false;
-            },
+            glutin::Event::Focused(is_focused) => {
+                if is_focused {
+                    processor.ctx.terminal.dirty = true;
+                } else {
+                    *hide_cursor = false;
+                }
+
+                processor.on_focus_change(is_focused);
+            }
             _ => (),
         }
     }
