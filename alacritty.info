@@ -1,0 +1,8 @@
+alacritty| alacritty,
+	use=xterm-256color,
+	ritm=\E[23m,
+	sitm=\E[3m,
+	Tc,
+
+alacritty-256color| alacritty with 256 colors,
+	use=alacritty,
