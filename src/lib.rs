@@ -20,6 +20,7 @@
 #![cfg_attr(feature = "clippy", deny(if_not_else))]
 #![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
+#![cfg_attr(all(test, feature = "bench"), feature(test))]
 
 #[macro_use] extern crate bitflags;
 #[macro_use] extern crate clap;
@@ -30,6 +31,7 @@
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
 extern crate x11_dl;
 
+extern crate arraydeque;
 extern crate cgmath;
 extern crate copypasta;
 extern crate errno;

@@ -32,7 +32,7 @@ log = "0.3"
 clap = "2.20"
 fnv = "1.0.5"
 unicode-width = "0.1.4"
-
+arraydeque = "0.2"
 clippy = { version = "0.0.104", optional = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
@@ -44,6 +44,7 @@ default = ["err-println"]
 live-shader-reload = []
 err-println = []
 nightly = []
+bench = []
 
 [build-dependencies]
 gl_generator = "0.5"
