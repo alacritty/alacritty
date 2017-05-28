@@ -423,6 +423,22 @@ pub enum NamedColor {
     CursorText,
     /// Color for the cursor itself
     Cursor,
+    /// Dim black
+    DimBlack,
+    /// Dim red
+    DimRed,
+    /// Dim green
+    DimGreen,
+    /// Dim yellow
+    DimYellow,
+    /// Dim blue
+    DimBlue,
+    /// Dim magenta
+    DimMagenta,
+    /// Dim cyan
+    DimCyan,
+    /// Dim white
+    DimWhite,
 }
 
 impl NamedColor {
@@ -436,6 +452,35 @@ impl NamedColor {
             NamedColor::Magenta => NamedColor::BrightMagenta,
             NamedColor::Cyan => NamedColor::BrightCyan,
             NamedColor::White => NamedColor::BrightWhite,
+            NamedColor::DimBlack => NamedColor::Black,
+            NamedColor::DimRed => NamedColor::Red,
+            NamedColor::DimGreen => NamedColor::Green,
+            NamedColor::DimYellow => NamedColor::Yellow,
+            NamedColor::DimBlue => NamedColor::Blue,
+            NamedColor::DimMagenta => NamedColor::Magenta,
+            NamedColor::DimCyan => NamedColor::Cyan,
+            NamedColor::DimWhite => NamedColor::White,
+            val => val
+        }
+    }
+    pub fn to_dim(&self) -> Self {
+        match *self {
+            NamedColor::Black => NamedColor::DimBlack,
+            NamedColor::Red => NamedColor::DimRed,
+            NamedColor::Green => NamedColor::DimGreen,
+            NamedColor::Yellow => NamedColor::DimYellow,
+            NamedColor::Blue => NamedColor::DimBlue,
+            NamedColor::Magenta => NamedColor::DimMagenta,
+            NamedColor::Cyan => NamedColor::DimCyan,
+            NamedColor::White => NamedColor::DimWhite,
+            NamedColor::BrightBlack => NamedColor::Black,
+            NamedColor::BrightRed => NamedColor::Red,
+            NamedColor::BrightGreen => NamedColor::Green,
+            NamedColor::BrightYellow => NamedColor::Yellow,
+            NamedColor::BrightBlue => NamedColor::Blue,
+            NamedColor::BrightMagenta => NamedColor::Magenta,
+            NamedColor::BrightCyan => NamedColor::Cyan,
+            NamedColor::BrightWhite => NamedColor::White,
             val => val
         }
     }
@@ -445,7 +490,7 @@ impl NamedColor {
 pub enum Color {
     Named(NamedColor),
     Spec(Rgb),
-    Indexed(u8),
+    Indexed(usize),
 }
 
 /// Terminal character attributes
@@ -995,7 +1040,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
                 let idx = attrs[*i];
                 match idx {
                     0 ... 255 => {
-                        Some(Color::Indexed(idx as u8))
+                        Some(Color::Indexed(idx as usize))
                     },
                     _ => {
                         warn!("Invalid color index: {}", idx);

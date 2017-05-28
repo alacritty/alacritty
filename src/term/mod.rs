@@ -204,18 +204,27 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 let fg = match *fg {
                     Color::Spec(rgb) => rgb,
                     Color::Named(ansi) => {
+                        let mut ansi_mod = ansi;
                         if self.config.draw_bold_text_with_bright_colors() && cell.bold() {
-                            self.colors[ansi.to_bright()]
-                        } else {
-                            self.colors[ansi]
+                            ansi_mod = ansi_mod.to_bright();
                         }
+
+                        if cell.dim() {
+                            ansi_mod = ansi_mod.to_dim();
+                        }
+                        self.colors[ansi_mod]
                     },
                     Color::Indexed(idx) => {
                         let idx = if self.config.draw_bold_text_with_bright_colors()
                             && cell.bold()
                             && idx < 8
+                            && !cell.dim()
                         {
                             idx + 8
+                        } else if cell.dim() && idx >= 8 && idx < 16 {
+                            idx - 8
+                        } else if cell.dim() && idx < 8 {
+                            idx + 260
                         } else {
                             idx
                         };
@@ -1607,7 +1616,8 @@ impl ansi::Handler for Term {
             Attr::Reverse => self.cursor.template.flags.insert(cell::INVERSE),
             Attr::CancelReverse => self.cursor.template.flags.remove(cell::INVERSE),
             Attr::Bold => self.cursor.template.flags.insert(cell::BOLD),
-            Attr::CancelBoldDim => self.cursor.template.flags.remove(cell::BOLD),
+            Attr::Dim => self.cursor.template.flags.insert(cell::DIM),
+            Attr::CancelBoldDim => self.cursor.template.flags.remove(cell::BOLD | cell::DIM),
             Attr::Italic => self.cursor.template.flags.insert(cell::ITALIC),
             Attr::CancelItalic => self.cursor.template.flags.remove(cell::ITALIC),
             Attr::Underscore => self.cursor.template.flags.insert(cell::UNDERLINE),

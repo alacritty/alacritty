@@ -7,11 +7,11 @@ use config::Colors;
 /// List of indexed colors
 ///
 /// The first 16 entries are the standard ansi named colors. Items 16..232 are
-/// the color cube.  Items 233..256 are the grayscale ramp. Finally, item 256 is
+/// the color cube.  Items 233..256 are the grayscale ramp. Item 256 is
 /// the configured foreground color, item 257 is the configured background
 /// color, item 258 is the cursor foreground color, item 259 is the cursor
-/// background color.
-pub struct List([Rgb; 260]);
+/// background color. 260-267 are dim versons of the ansi colors (2/3 or custom).
+pub struct List([Rgb; 268]);
 
 impl<'a> From<&'a Colors> for List {
     fn from(colors: &Colors) -> List {
@@ -47,6 +47,30 @@ impl List {
         self[ansi::NamedColor::BrightMagenta] = colors.bright.magenta;
         self[ansi::NamedColor::BrightCyan]    = colors.bright.cyan;
         self[ansi::NamedColor::BrightWhite]   = colors.bright.white;
+
+        // Dims
+        match colors.dim {
+            Some(ref dim_colors) => {
+                self[ansi::NamedColor::DimBlack]   = dim_colors.black;
+                self[ansi::NamedColor::DimRed]     = dim_colors.red;
+                self[ansi::NamedColor::DimGreen]   = dim_colors.green;
+                self[ansi::NamedColor::DimYellow]  = dim_colors.yellow;
+                self[ansi::NamedColor::DimBlue]    = dim_colors.blue;
+                self[ansi::NamedColor::DimMagenta] = dim_colors.magenta;
+                self[ansi::NamedColor::DimCyan]    = dim_colors.cyan;
+                self[ansi::NamedColor::DimWhite]   = dim_colors.white;
+            }
+            None => {
+                self[ansi::NamedColor::DimBlack]   = colors.normal.black   * 0.66;
+                self[ansi::NamedColor::DimRed]     = colors.normal.red     * 0.66;
+                self[ansi::NamedColor::DimGreen]   = colors.normal.green   * 0.66;
+                self[ansi::NamedColor::DimYellow]  = colors.normal.yellow  * 0.66;
+                self[ansi::NamedColor::DimBlue]    = colors.normal.blue    * 0.66;
+                self[ansi::NamedColor::DimMagenta] = colors.normal.magenta * 0.66;
+                self[ansi::NamedColor::DimCyan]    = colors.normal.cyan    * 0.66;
+                self[ansi::NamedColor::DimWhite]   = colors.normal.white   * 0.66;
+            }
+        }
 
         // Foreground and background
         self[ansi::NamedColor::Foreground] = colors.primary.foreground;
