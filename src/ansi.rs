@@ -102,6 +102,9 @@ pub trait Handler {
     /// OSC to set window title
     fn set_title(&mut self, &str) {}
 
+    /// Set the cursor style
+    fn set_cursor_style(&mut self, _: CursorStyle) {}
+
     /// A character to be displayed
     fn input(&mut self, _c: char) {}
 
@@ -259,6 +262,19 @@ pub trait Handler {
 
     /// Run the dectest routine
     fn dectest(&mut self) {}
+}
+
+/// Describes shape of cursor
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum CursorStyle {
+    /// Cursor is a block like `▒`
+    Block,
+
+    /// Cursor is an underscore like `_`
+    Underline,
+
+    /// Cursor is a vertical bar `⎸`
+    Beam,
 }
 
 /// Terminal modes
@@ -895,6 +911,16 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             },
             's' => handler.save_cursor_position(),
             'u' => handler.restore_cursor_position(),
+            'q' => {
+                let style = match arg_or_default!(idx: 0, default: 0) {
+                    0 ... 2 => CursorStyle::Block,
+                    3 | 4 => CursorStyle::Underline,
+                    5 | 6 => CursorStyle::Beam,
+                    _ => unhandled!()
+                };
+
+                handler.set_cursor_style(style);
+            }
             _ => unhandled!(),
         }
     }
