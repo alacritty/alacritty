@@ -37,30 +37,9 @@ use alacritty::tty::{self, process_should_exit};
 use alacritty::util::fmt::Red;
 
 fn main() {
-    // Load command line options
+    // Load command line options and config
     let options = cli::Options::load();
-
-    // Load configuration
-    // If a configuration file is given as a command line argument we don't generate a default file.
-    // If an empty configuration file is given, i.e. /dev/null, we load the compiled-in defaults.
-    let config_path = options.config.clone().unwrap_or_else(|| {
-        Config::installed_config().unwrap_or_else(||{
-            Config::write_defaults()
-                .unwrap_or_else(|err| die!("Write defaults config failure: {}", err))
-        })
-    });
-    let config = Config::load_from(&config_path).unwrap_or_else(|err| {
-        match err {
-            config::Error::NotFound => {
-                die!("Config file not found at: {}", config_path.as_path().display());
-            },
-            config::Error::Empty => {
-                err_println!("Empty config; Loading defaults");
-                Config::default()
-            },
-            _ => die!("{}", err),
-        }
-    });
+    let config = load_config(&options);
 
     // Run alacritty
     if let Err(err) = run(config, options) {
@@ -70,6 +49,32 @@ fn main() {
     info!("Goodbye.");
 }
 
+/// Load configuration
+///
+/// If a configuration file is given as a command line argument we don't
+/// generate a default file. If an empty configuration file is given, i.e.
+/// /dev/null, we load the compiled-in defaults.
+fn load_config(options: &cli::Options) -> Config {
+    let config_path = options.config_path()
+        .or_else(|| Config::installed_config())
+        .unwrap_or_else(|| {
+            Config::write_defaults()
+                .unwrap_or_else(|err| die!("Write defaults config failure: {}", err))
+        });
+
+    Config::load_from(&*config_path).unwrap_or_else(|err| {
+        match err {
+            config::Error::NotFound => {
+                die!("Config file not found at: {}", config_path.display());
+            },
+            config::Error::Empty => {
+                err_println!("Empty config; Loading defaults");
+                Config::default()
+            },
+            _ => die!("{}", err),
+        }
+    })
+}
 
 /// Run Alacritty
 ///

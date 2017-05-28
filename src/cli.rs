@@ -15,7 +15,8 @@ extern crate log;
 use clap::{Arg, App};
 use index::{Line, Column};
 use config::{Dimensions, Shell};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::borrow::Cow;
 
 const DEFAULT_TITLE: &'static str = "Alacritty";
 
@@ -156,5 +157,9 @@ impl Options {
 
     pub fn command(&self) -> Option<&Shell> {
         self.command.as_ref()
+    }
+
+    pub fn config_path(&self) -> Option<Cow<Path>> {
+        self.config.as_ref().map(|p| Cow::Borrowed(p.as_path()))
     }
 }
