@@ -14,6 +14,7 @@
 //
 //! Rasterization powered by FreeType and FontConfig
 use std::collections::HashMap;
+use std::cmp::min;
 
 use freetype::{self, Library, Face};
 
@@ -205,25 +206,83 @@ impl FreeTypeRasterizer {
             );
         }
 
-        let bitmap = glyph.bitmap();
-        let buf = bitmap.buffer();
-        let pitch = bitmap.pitch() as usize;
-
-        let mut packed = Vec::with_capacity((bitmap.rows() * bitmap.width()) as usize);
-        for i in 0..bitmap.rows() {
-            let start = (i as usize) * pitch;
-            let stop = start + bitmap.width() as usize;
-            packed.extend_from_slice(&buf[start..stop]);
-        }
+        let (pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;
 
         Ok(RasterizedGlyph {
             c: c,
             top: glyph.bitmap_top(),
             left: glyph.bitmap_left(),
-            width: glyph.bitmap().width() / 3,
+            width: pixel_width,
             height: glyph.bitmap().rows(),
-            buf: packed,
+            buf: buf,
         })
+    }
+
+
+    /// Given a FreeType `Bitmap`, returns packed buffer with 1 byte per LCD channel.
+    ///
+    /// The i32 value in the return type is the number of pixels per row.
+    fn normalize_buffer(bitmap: &freetype::bitmap::Bitmap) -> freetype::FtResult<(i32, Vec<u8>)> {
+        use freetype::bitmap::PixelMode;
+
+        let buf = bitmap.buffer();
+        let mut packed = Vec::with_capacity((bitmap.rows() * bitmap.width()) as usize);
+        let pitch = bitmap.pitch().abs() as usize;
+        match bitmap.pixel_mode()? {
+            PixelMode::Lcd => {
+                for i in 0..bitmap.rows() {
+                    let start = (i as usize) * pitch;
+                    let stop = start + bitmap.width() as usize;
+                    packed.extend_from_slice(&buf[start..stop]);
+                }
+                Ok((bitmap.width() / 3, packed))
+            },
+            // Mono data is stored in a packed format using 1 bit per pixel.
+            PixelMode::Mono => {
+                fn unpack_byte(res: &mut Vec<u8>, byte: u8, mut count: u8) {
+                    // Mono stores MSBit at top of byte
+                    let mut bit = 7;
+                    while count != 0 {
+                        let value = ((byte >> bit) & 1) * 255;
+                        // Push value 3x since result buffer should be 1 byte
+                        // per channel
+                        res.push(value);
+                        res.push(value);
+                        res.push(value);
+                        count -= 1;
+                        bit -= 1;
+                    }
+                };
+
+                for i in 0..(bitmap.rows() as usize) {
+                    let mut columns = bitmap.width();
+                    let mut byte = 0;
+                    let offset = i * bitmap.pitch().abs() as usize;
+                    while columns != 0 {
+                        let bits = min(8, columns);
+                        unpack_byte(&mut packed, buf[offset + byte], bits as u8);
+
+                        columns -= bits;
+                        byte += 1;
+                    }
+                }
+                Ok((bitmap.width(), packed))
+            },
+            // Gray data is stored as a value between 0 and 255 using 1 byte per pixel.
+            PixelMode::Gray => {
+                for i in 0..bitmap.rows() {
+                    let start = (i as usize) * pitch;
+                    let stop = start + bitmap.width() as usize;
+                    for byte in &buf[start..stop] {
+                        packed.push(*byte);
+                        packed.push(*byte);
+                        packed.push(*byte);
+                    }
+                }
+                Ok((bitmap.width(), packed))
+            },
+            mode @ _ => panic!("unhandled pixel mode: {:?}", mode)
+        }
     }
 
     fn load_face_with_glyph(&mut self, glyph: char) -> Result<FontKey, Error> {
