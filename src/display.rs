@@ -335,4 +335,8 @@ impl Display {
             api.clear();
         });
     }
+
+    pub fn get_window_id(&self) -> Option<usize> {
+        self.window.get_window_id()
+    }
 }
