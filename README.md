@@ -169,6 +169,7 @@ configuration file as the following paths:
 2. `$XDG_CONFIG_HOME/alacritty.yml`
 3. `$HOME/.config/alacritty/alacritty.yml`
 4. `$HOME/.alacritty.yml`
+5. `/etc/alacritty/alacritty.yml`
 
 If neither of these paths are found then `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
 is created once alacritty is first run. On most systems this often defaults
