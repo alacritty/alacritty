@@ -381,6 +381,19 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
+    pub fn on_focus_change(&mut self, is_focused: bool) {
+        if self.ctx.terminal_mode().contains(mode::FOCUS_IN_OUT) {
+            let chr = if is_focused {
+                "I"
+            } else {
+                "O"
+            };
+
+            let msg = format!("\x1b[{}", chr);
+            self.ctx.write_to_pty(msg.into_bytes());
+        }
+    }
+
     pub fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
         if let MouseButton::Left = button {
             let state = mem::replace(&mut self.ctx.mouse_mut().left_button_state, state);
