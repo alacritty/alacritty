@@ -21,7 +21,7 @@ use parking_lot::{MutexGuard};
 use Rgb;
 use cli;
 use config::Config;
-use font::{self, Rasterize};
+use font;
 use meter::Meter;
 use renderer::{self, GlyphCache, QuadRenderer};
 use selection::Selection;

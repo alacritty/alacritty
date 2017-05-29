@@ -22,13 +22,13 @@ use std::sync::mpsc;
 
 use cgmath;
 use fnv::FnvHasher;
-use font::{self, Rasterizer, Rasterize, RasterizedGlyph, FontDesc, GlyphKey, FontKey};
+use font::{self, Rasterizer, RasterizedGlyph, FontDesc, FontDescList, GlyphKey, FontKey};
 use gl::types::*;
 use gl;
 use index::{Line, Column, RangeInclusive};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
 
-use config::{Config, Delta};
+use config::{self, Config, Delta};
 use term::{self, cell, RenderableCell};
 use window::{Size, Pixels};
 
@@ -176,60 +176,55 @@ impl GlyphCache {
         let size = font.size();
         let glyph_offset = *font.glyph_offset();
 
+        fn make_descs(
+            confs: &Vec<config::FontDescription>,
+            slant: font::Slant,
+            weight: font::Weight,
+        ) -> FontDescList
+        {
+            let descs = confs.into_iter()
+                .map(|desc| {
+                    let style = if let Some(ref spec) = desc.style {
+                        font::Style::Specific(spec.to_owned())
+                    } else {
+                        font::Style::Description {slant, weight}
+                    };
+                    FontDesc::new(&desc.family[..], style)
+                })
+                .collect();
+            FontDescList {descs}
+        }
+
         // Load regular font
-        let regular_desc = if let Some(ref style) = font.normal.style {
-            FontDesc::new(&font.normal.family[..], font::Style::Specific(style.to_owned()))
-        } else {
-            let style = font::Style::Description {
-                slant: font::Slant::Normal,
-                weight: font::Weight::Normal
-            };
-            FontDesc::new(&font.normal.family[..], style)
-        };
+        let regular_desc = make_descs(&font.normal, font::Slant::Normal, font::Weight::Normal);
 
         let regular = rasterizer
-            .load_font(&regular_desc, size)?;
+            .declare_font_list(&regular_desc, size)?;
+
+        // helper to load a description if it is not the regular_desc
+        let load_or_regular = |desc:FontDescList, rasterizer: &mut Rasterizer| {
+            if desc == regular_desc {
+                regular
+            } else {
+                rasterizer.declare_font_list(&desc, size).unwrap_or_else(|_| regular)
+            }
+        };
 
         // Load bold font
-        let bold_desc = if let Some(ref style) = font.bold.style {
-            FontDesc::new(&font.bold.family[..], font::Style::Specific(style.to_owned()))
-        } else {
-            let style = font::Style::Description {
-                slant: font::Slant::Normal,
-                weight: font::Weight::Bold
-            };
-            FontDesc::new(&font.bold.family[..], style)
-        };
+        let bold_desc = make_descs(&font.bold, font::Slant::Normal, font::Weight::Bold);
 
-        let bold = if bold_desc == regular_desc {
-            regular
-        } else {
-            rasterizer.load_font(&bold_desc, size).unwrap_or_else(|_| regular)
-        };
+        let bold = load_or_regular(bold_desc, &mut rasterizer);
 
         // Load italic font
-        let italic_desc = if let Some(ref style) = font.italic.style {
-            FontDesc::new(&font.italic.family[..], font::Style::Specific(style.to_owned()))
-        } else {
-            let style = font::Style::Description {
-                slant: font::Slant::Italic,
-                weight: font::Weight::Normal
-            };
-            FontDesc::new(&font.italic.family[..], style)
-        };
+        let italic_desc = make_descs(&font.italic, font::Slant::Italic, font::Weight::Normal);
 
-        let italic = if italic_desc == regular_desc {
-            regular
-        } else {
-            rasterizer.load_font(&italic_desc, size)
-                      .unwrap_or_else(|_| regular)
-        };
+        let italic = load_or_regular(italic_desc, &mut rasterizer);
 
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
         // meaning.
         rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
-        let metrics = rasterizer.metrics(regular)?;
+        let metrics = rasterizer.metrics(&regular)?;
 
         let mut cache = GlyphCache {
             cache: HashMap::default(),
@@ -263,7 +258,7 @@ impl GlyphCache {
 
     pub fn font_metrics(&self) -> font::Metrics {
         self.rasterizer
-            .metrics(self.font_key)
+            .metrics(&self.font_key)
             .expect("metrics load since font is loaded at glyph cache creation")
     }
 

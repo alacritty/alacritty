@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use core_foundation::base::{CFRelease, CFRetain, CFTypeID, CFTypeRef, TCFType};
-use core_graphics::color_space::{CGColorSpace, CGColorSpaceRef};
-use core_graphics::base::CGFloat;
+//use core_graphics::color_space::{CGColorSpace, CGColorSpaceRef};
+//use core_graphics::base::CGFloat;
 use std::mem;
 
 #[repr(C)]
@@ -75,18 +75,17 @@ impl TCFType<CGColorRef> for CGColor {
     }
 }
 
-impl CGColor {
-    pub fn new(color_space: CGColorSpace, values: [CGFloat; 4]) -> CGColor {
-        unsafe {
-            let result = CGColorCreate(color_space.as_concrete_TypeRef(), values.as_ptr());
-            TCFType::wrap_under_create_rule(result)
-        }
-    }
-}
+// impl CGColor {
+//     pub fn new(color_space: CGColorSpace, values: [CGFloat; 4]) -> CGColor {
+//         unsafe {
+//             let result = CGColorCreate(color_space.as_concrete_TypeRef(), values.as_ptr());
+//             TCFType::wrap_under_create_rule(result)
+//         }
+//     }
+// }
 
 #[link(name = "ApplicationServices", kind = "framework")]
 extern {
-    fn CGColorCreate(space: CGColorSpaceRef, vals: *const CGFloat) -> CGColorRef;
+//    fn CGColorCreate(space: CGColorSpaceRef, vals: *const CGFloat) -> CGColorRef;
     fn CGColorGetTypeID() -> CFTypeID;
 }
-

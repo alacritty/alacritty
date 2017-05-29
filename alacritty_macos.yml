@@ -42,21 +42,27 @@ draw_bold_text_with_bright_colors: true
 font:
   # The normal (roman) font face to use.
   normal:
-    family: Menlo
+    - family: Menlo
     # Style can be specified to pick a specific face.
     # style: Regular
+    # Apple Symbols is a reasonable fallback for some glyphs.
+    - family: "Apple Symbols"
 
   # The bold font face
   bold:
-    family: Menlo
+    - family: Menlo
     # Style can be specified to pick a specific face.
     # style: Bold
+    # Apple Symbols is a reasonable fallback for some glyphs.
+    - family: "Apple Symbols"
 
   # The italic font face
   italic:
-    family: Menlo
+    - family: Menlo
     # Style can be specified to pick a specific face.
     # style: Italic
+    # Apple Symbols is a reasonable fallback for some glyphs.
+    - family: "Apple Symbols"
 
   # Point size of the font
   size: 12.0

@@ -1274,13 +1274,13 @@ impl DeserializeFromF32 for Size {
 #[derive(Debug, Deserialize)]
 pub struct Font {
     /// Font family
-    pub normal: FontDescription,
+    pub normal: Vec<FontDescription>,
 
     #[serde(default="default_italic_desc")]
-    pub italic: FontDescription,
+    pub italic: Vec<FontDescription>,
 
     #[serde(default="default_bold_desc")]
-    pub bold: FontDescription,
+    pub bold: Vec<FontDescription>,
 
     // Font size in points
     #[serde(deserialize_with="DeserializeFromF32::deserialize_from_f32")]
@@ -1297,11 +1297,11 @@ pub struct Font {
     use_thin_strokes: bool
 }
 
-fn default_bold_desc() -> FontDescription {
+fn default_bold_desc() -> Vec<FontDescription> {
     Font::default().bold
 }
 
-fn default_italic_desc() -> FontDescription {
+fn default_italic_desc() -> Vec<FontDescription> {
     Font::default().italic
 }
 
@@ -1345,9 +1345,9 @@ impl Font {
 impl Default for Font {
     fn default() -> Font {
         Font {
-            normal: FontDescription::new_with_family("Menlo"),
-            bold: FontDescription::new_with_family("Menlo"),
-            italic: FontDescription::new_with_family("Menlo"),
+            normal: vec![FontDescription::new_with_family("Menlo")],
+            bold: vec![FontDescription::new_with_family("Menlo")],
+            italic: vec![FontDescription::new_with_family("Menlo")],
             size: Size::new(11.0),
             use_thin_strokes: true,
             offset: Default::default(),
@@ -1360,9 +1360,9 @@ impl Default for Font {
 impl Default for Font {
     fn default() -> Font {
         Font {
-            normal: FontDescription::new_with_family("monospace"),
-            bold: FontDescription::new_with_family("monospace"),
-            italic: FontDescription::new_with_family("monospace"),
+            normal: vec![FontDescription::new_with_family("monospace")],
+            bold: vec![FontDescription::new_with_family("monospace")],
+            italic: vec![FontDescription::new_with_family("monospace")],
             size: Size::new(11.0),
             use_thin_strokes: false,
             offset: Default::default(),

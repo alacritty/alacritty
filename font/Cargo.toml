@@ -6,17 +6,21 @@ description = "Font rendering using the best available solution per platform"
 license = "Apache-2.0"
 
 [dependencies]
-euclid = "0.6.8"
+euclid = "0.12.0"
 libc = "0.2"
 ffi-util = { path = "../ffi-util" }
 log = "0.3"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig" }
-freetype-rs = "0.9.0"
+freetype-rs = "0.13.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-core-text = "1.1.1"
-core-foundation = "0.2.2"
-core-graphics = "0.3.2"
-core-foundation-sys = "0.2.2"
+#core-text = { path = "../../core-text-rs" }
+core-foundation = "0.3.0"
+core-graphics = "0.7.0"
+core-foundation-sys = "0.3.1"
+
+[target.'cfg(target_os = "macos")'.dependencies.core-text]
+git = "https://github.com/servo/core-text-rs"
+rev = "7a267bc8f6c098f5370583333a5fd00a0d12fb83"
