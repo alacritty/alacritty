@@ -721,6 +721,9 @@ pub enum Error {
     /// Config file not found
     NotFound,
 
+    /// Config file empty
+    Empty,
+
     /// Couldn't read $HOME environment variable
     ReadingEnvHome(env::VarError),
 
@@ -923,6 +926,7 @@ impl ::std::error::Error for Error {
     fn cause(&self) -> Option<&::std::error::Error> {
         match *self {
             Error::NotFound => None,
+            Error::Empty => None,
             Error::ReadingEnvHome(ref err) => Some(err),
             Error::Io(ref err) => Some(err),
             Error::Yaml(ref err) => Some(err),
@@ -932,6 +936,7 @@ impl ::std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
             Error::NotFound => "could not locate config file",
+            Error::Empty => "empty config file",
             Error::ReadingEnvHome(ref err) => err.description(),
             Error::Io(ref err) => err.description(),
             Error::Yaml(ref err) => err.description(),
@@ -943,6 +948,7 @@ impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
             Error::NotFound => write!(f, "{}", ::std::error::Error::description(self)),
+            Error::Empty => write!(f, "{}", ::std::error::Error::description(self)),
             Error::ReadingEnvHome(ref err) => {
                 write!(f, "could not read $HOME environment variable: {}", err)
             },
@@ -978,19 +984,16 @@ impl From<serde_yaml::Error> for Error {
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 impl Config {
-    /// Attempt to load the config file
-    ///
-    /// The config file is loaded from the first file it finds in this list of paths
+    /// Get the location of the first found default config file paths
+    /// according to the following order:
     ///
     /// 1. $XDG_CONFIG_HOME/alacritty/alacritty.yml
     /// 2. $XDG_CONFIG_HOME/alacritty.yml
     /// 3. $HOME/.config/alacritty/alacritty.yml
     /// 4. $HOME/.alacritty.yml
-    pub fn load() -> Result<Config> {
-        let home = env::var("HOME")?;
-
+    pub fn installed_config() -> Option<Cow<'static, Path>> {
         // Try using XDG location by default
-        let path = ::xdg::BaseDirectories::with_prefix("alacritty")
+        ::xdg::BaseDirectories::with_prefix("alacritty")
             .ok()
             .and_then(|xdg| xdg.find_config_file("alacritty.yml"))
             .or_else(|| {
@@ -999,27 +1002,29 @@ impl Config {
                 })
             })
             .or_else(|| {
-                // Fallback path: $HOME/.config/alacritty/alacritty.yml
-                let fallback = PathBuf::from(&home).join(".config/alacritty/alacritty.yml");
-                match fallback.exists() {
-                    true => Some(fallback),
-                    false => None
+                if let Ok(home) = env::var("HOME") {
+                    // Fallback path: $HOME/.config/alacritty/alacritty.yml
+                    let fallback = PathBuf::from(&home).join(".config/alacritty/alacritty.yml");
+                    if fallback.exists() {
+                        return Some(fallback);
+                    }
+                    // Fallback path: $HOME/.alacritty.yml
+                    let fallback = PathBuf::from(&home).join(".alacritty.yml");
+                    if fallback.exists() {
+                        return Some(fallback);
+                    }
                 }
+                None
             })
-            .unwrap_or_else(|| {
-                // Fallback path: $HOME/.alacritty.yml
-                PathBuf::from(&home).join(".alacritty.yml")
-            });
-
-        Config::load_from(path)
+            .map(|path| path.into())
     }
 
-    pub fn write_defaults() -> io::Result<PathBuf> {
+    pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
         let path = ::xdg::BaseDirectories::with_prefix("alacritty")
             .map_err(|err| io::Error::new(io::ErrorKind::NotFound, ::std::error::Error::description(&err)))
             .and_then(|p| p.place_config_file("alacritty.yml"))?;
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
-        Ok(path)
+        Ok(path.into())
     }
 
     /// Get list of colors
@@ -1116,7 +1121,7 @@ impl Config {
         self.hide_cursor_when_typing
     }
 
-    fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
+    pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
         let path = path.into();
         let raw = Config::read_file(path.as_path())?;
         let mut config: Config = serde_yaml::from_str(&raw)?;
@@ -1129,6 +1134,9 @@ impl Config {
         let mut f = fs::File::open(path)?;
         let mut contents = String::new();
         f.read_to_string(&mut contents)?;
+        if contents.len() == 0 {
+            return Err(Error::Empty);
+        }
 
         Ok(contents)
     }
@@ -1427,7 +1435,7 @@ impl Monitor {
                         // Reload file
                         path.map(|path| {
                             if path == config_path {
-                                match Config::load() {
+                                match Config::load_from(path) {
                                     Ok(config) => {
                                         let _ = config_tx.send(config);
                                         handler.on_config_reload();
