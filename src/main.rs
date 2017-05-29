@@ -43,7 +43,7 @@ fn main() {
 
     // Run alacritty
     if let Err(err) = run(config, options) {
-        die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
+        die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n\t{}\n", Red(err), Red("Please report a bug at https://github.com/jwilm/alacritty/issues"));
     }
 
     info!("Goodbye.");
