@@ -23,14 +23,13 @@ use ::{Slant, Weight, Style};
 
 use core_foundation::base::TCFType;
 use core_foundation::string::{CFString, CFStringRef};
-use core_foundation::array::CFIndex;
-use core_foundation_sys::string::UniChar;
+use core_foundation::array::{CFIndex, CFArray};
 use core_graphics::base::kCGImageAlphaPremultipliedFirst;
 use core_graphics::color_space::CGColorSpace;
 use core_graphics::context::{CGContext};
 use core_graphics::font::{CGFont, CGGlyph};
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
-use core_text::font::{CTFont, new_from_descriptor as ct_new_from_descriptor};
+use core_text::font::{CTFont, new_from_descriptor as ct_new_from_descriptor, cascade_list_for_languages as ct_cascade_list_for_languages};
 use core_text::font_collection::create_for_family;
 use core_text::font_collection::get_family_names as ct_get_family_names;
 use core_text::font_descriptor::kCTFontDefaultOrientation;
@@ -63,6 +62,19 @@ pub struct Descriptor {
     font_path: String,
 
     ct_descriptor: CTFontDescriptor
+}
+
+impl Descriptor {
+    fn new(desc:CTFontDescriptor) -> Descriptor {
+        Descriptor {
+            family_name: desc.family_name(),
+            font_name: desc.font_name(),
+            style_name: desc.style_name(),
+            display_name: desc.display_name(),
+            font_path: desc.font_path().unwrap_or_else(||{"".to_owned()}),
+            ct_descriptor: desc,
+        }
+    }
 }
 
 /// Rasterizer, the main type exported by this package
@@ -142,7 +154,22 @@ impl ::Rasterize for Rasterizer {
             .get(&(desc.to_owned(), size))
             .map(|k| Ok(*k))
             .unwrap_or_else(|| {
-                let font = self.get_font(desc, size)?;
+                let mut font = self.get_font(desc, size)?;
+
+                // TODO, we can't use apple's proposed
+                // .Apple Symbol Fallback (filtered out below),
+                // but not having these makes us not able to render
+                // many chars. We add the symbols back in.
+                // Investigate if we can actually use the .-prefixed
+                // fallbacks somehow.
+                {
+                    let symbols = {
+                        let d = FontDesc::new("Apple Symbols".to_owned(), desc.style.clone());
+                        self.get_font(&d, size)?
+                    };
+                    font.fallbacks.push(symbols);
+                }
+
                 let key = FontKey::next();
 
                 self.fonts.insert(key, font);
@@ -154,12 +181,25 @@ impl ::Rasterize for Rasterizer {
 
     /// Get rasterized glyph for given glyph key
     fn get_glyph(&mut self, glyph: &GlyphKey) -> Result<RasterizedGlyph, Error> {
-        let scaled_size = self.device_pixel_ratio * glyph.size.as_f32_pts();
 
-        self.fonts
+        // get loaded font
+        let font = self.fonts
             .get(&glyph.font_key)
-            .ok_or(Error::FontNotLoaded)?
-            .get_glyph(glyph.c, scaled_size as _, self.use_thin_strokes)
+            .ok_or(Error::FontNotLoaded)?;
+
+        // first try the font itself as a direct hit
+        self.maybe_get_glyph(glyph, font)
+            .unwrap_or_else(|| {
+                // then try fallbacks
+                for fallback in &font.fallbacks {
+                    if let Some(result) = self.maybe_get_glyph(glyph, &fallback) {
+                        // found a fallback
+                        return result;
+                    }
+                }
+                // no fallback, give up.
+                Err(Error::MissingGlyph(glyph.c))
+            })
     }
 }
 
@@ -175,7 +215,7 @@ impl Rasterizer {
             if descriptor.style_name == style {
                 // Found the font we want
                 let scaled_size = size.as_f32_pts() as f64 * self.device_pixel_ratio as f64;
-                let font = descriptor.to_font(scaled_size);
+                let font = descriptor.to_font(scaled_size, true);
                 return Ok(font);
             }
         }
@@ -202,7 +242,7 @@ impl Rasterizer {
 
         let descriptors = descriptors_for_family(&desc.name[..]);
         for descriptor in descriptors {
-            let font = descriptor.to_font(scaled_size);
+            let font = descriptor.to_font(scaled_size, true);
             if font.is_bold() == bold && font.is_italic() == italic {
                 // Found the font we want
                 return Ok(font);
@@ -220,6 +260,22 @@ impl Rasterizer {
             },
         }
     }
+
+    // Helper to try and get a glyph for a given font. Used for font fallback.
+    fn maybe_get_glyph(
+        &self,
+        glyph: &GlyphKey,
+        font: &Font,
+    ) -> Option<Result<RasterizedGlyph, Error>> {
+        let scaled_size = self.device_pixel_ratio * glyph.size.as_f32_pts();
+        font.get_glyph(glyph.c, scaled_size as _, self.use_thin_strokes)
+            .map(|r| Some(Ok(r)))
+            .unwrap_or_else(|e| match e {
+                Error::MissingGlyph(_) => None,
+                _ => Some(Err(e)),
+            })
+    }
+
 }
 
 /// Specifies the intended rendering orientation of the font for obtaining glyph metrics
@@ -241,6 +297,7 @@ impl Default for FontOrientation {
 pub struct Font {
     ct_font: CTFont,
     cg_font: CGFont,
+    fallbacks: Vec<Font>,
 }
 
 unsafe impl Send for Font {}
@@ -259,6 +316,36 @@ pub fn get_family_names() -> Vec<String> {
     owned_names
 }
 
+
+/// Return fallback descriptors for font/language list
+fn cascade_list_for_languages(
+    ct_font: &CTFont,
+    languages: &Vec<String>
+) -> Vec<Descriptor> {
+
+    // convert language type &Vec<String> -> CFArray
+    let langarr:CFArray = {
+        let tmp:Vec<CFString> = languages.iter()
+            .map(|language| CFString::new(&language))
+            .collect();
+        CFArray::from_CFTypes(&tmp)
+    };
+
+    // CFArray of CTFontDescriptorRef (again)
+    let list = ct_cascade_list_for_languages(ct_font, &langarr);
+
+    // convert CFArray to Vec<Descriptor>
+    list.into_iter()
+        .map(|fontdesc| {
+            let desc: CTFontDescriptor = unsafe {
+                TCFType::wrap_under_get_rule(fontdesc as CTFontDescriptorRef)
+            };
+            Descriptor::new(desc)
+        })
+        .collect()
+}
+
+
 /// Get descriptors for family name
 pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
     let mut out = Vec::new();
@@ -274,14 +361,7 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
         let desc: CTFontDescriptor = unsafe {
             TCFType::wrap_under_get_rule(descriptor as CTFontDescriptorRef)
         };
-        out.push(Descriptor {
-            family_name: desc.family_name(),
-            font_name: desc.font_name(),
-            style_name: desc.style_name(),
-            display_name: desc.display_name(),
-            font_path: desc.font_path().unwrap_or_else(||{"".to_owned()}),
-            ct_descriptor: desc,
-        });
+        out.push(Descriptor::new(desc));
     }
 
     out
@@ -289,12 +369,31 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
 
 impl Descriptor {
     /// Create a Font from this descriptor
-    pub fn to_font(&self, size: f64) -> Font {
+    pub fn to_font(&self, size: f64, load_fallbacks:bool) -> Font {
         let ct_font = ct_new_from_descriptor(&self.ct_descriptor, size);
         let cg_font = ct_font.copy_to_CGFont();
+
+        let fallbacks = if load_fallbacks {
+            // TODO fixme, hardcoded en for english
+            cascade_list_for_languages(&ct_font, &vec!["en".to_owned()])
+                .into_iter()
+                // the system lists contains (at least) two strange fonts:
+                // .Apple Symbol Fallback
+                // .Noto Sans Universal
+                // both have a .-prefix (to indicate they are internal?)
+                // neither work very well. the latter even breaks things because
+                // it defines code points with just [?] glyphs.
+                .filter(|desc| desc.font_path != "")
+                .map(|desc| desc.to_font(size, false))
+                .collect()
+        } else {
+            vec![]
+        };
+
         Font {
             ct_font: ct_font,
             cg_font: cg_font,
+            fallbacks: fallbacks,
         }
     }
 }
@@ -438,13 +537,23 @@ impl Font {
     }
 
     fn glyph_index(&self, character: char) -> Option<u32> {
-        let chars = [character as UniChar];
-        let mut glyphs = [0 as CGGlyph];
+        // encode this char as utf-16
+        let mut buf = [0; 2];
+        let encoded:&[u16] = character.encode_utf16(&mut buf);
+        // and use the utf-16 buffer to get the index
+        self.glyph_index_utf16(encoded)
+    }
+    fn glyph_index_utf16(&self, encoded: &[u16]) -> Option<u32> {
+
+        // output buffer for the glyph. for non-BMP glyphs, like
+        // emojis, this will be filled with two chars the second
+        // always being a 0.
+        let mut glyphs:[CGGlyph; 2] = [0; 2];
 
         let res = self.ct_font.get_glyphs_for_characters(
-            &chars[0],
-            &mut glyphs[0],
-            1 as CFIndex
+            encoded.as_ptr(),
+            glyphs.as_mut_ptr(),
+            encoded.len() as CFIndex
         );
 
         if res {
