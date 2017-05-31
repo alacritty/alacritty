@@ -16,9 +16,12 @@ before the 1.0 release.
 
 Alacritty is focused on simplicity and performance. The performance goal means
 it should be faster than any other terminal emulator available. The simplicity
-goal means that it doesn't have many features like tabs or scroll back as in
-other terminals. Instead, it is expected that users of Alacritty make use of a
-terminal multiplexer such as [`tmux`](https://github.com/tmux/tmux).
+goal means that it doesn't have many features like tabs as in other terminals.
+Instead, it is expected that users of Alacritty make use of a terminal
+multiplexer such as [`tmux`](https://github.com/tmux/tmux).
+
+Some features, like scroll back can be provided as an opt-in compile-time
+option.
 
 This initial release should be considered to be **pre-alpha** software--it will
 have issues. Once Alacritty reaches an alpha level of readiness, precompiled
