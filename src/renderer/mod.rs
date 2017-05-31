@@ -185,7 +185,7 @@ impl GlyphCache {
             let style = if let Some(ref spec) = desc.style {
                 font::Style::Specific(spec.to_owned())
             } else {
-                font::Style::Description {slant, weight}
+                font::Style::Description {slant:slant, weight:weight}
             };
             FontDesc::new(&desc.family[..], style)
         }
