@@ -27,7 +27,7 @@ use core_foundation::array::CFIndex;
 use core_foundation_sys::string::UniChar;
 use core_graphics::base::kCGImageAlphaPremultipliedFirst;
 use core_graphics::color_space::CGColorSpace;
-use core_graphics::context::{CGContext, CGContextRef};
+use core_graphics::context::{CGContext};
 use core_graphics::font::{CGFont, CGGlyph};
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use core_text::font::{CTFont, new_from_descriptor as ct_new_from_descriptor};
@@ -38,8 +38,6 @@ use core_text::font_descriptor::kCTFontHorizontalOrientation;
 use core_text::font_descriptor::kCTFontVerticalOrientation;
 use core_text::font_descriptor::{CTFontDescriptor, CTFontDescriptorRef, CTFontOrientation};
 use core_text::font_descriptor::SymbolicTraitAccessors;
-
-use libc::{c_int};
 
 use euclid::point::Point2D;
 use euclid::rect::Rect;
@@ -380,6 +378,7 @@ impl Font {
         }
 
         let mut cg_context = CGContext::create_bitmap_context(
+            None,
             rasterized_width as usize,
             rasterized_height as usize,
             8, // bits per component
@@ -454,28 +453,6 @@ impl Font {
             None
         }
     }
-}
-
-/// Additional methods needed to render fonts for Alacritty
-///
-/// TODO CGContextSetFontSmoothingStyle has been upstreamed in
-/// core-graphics 0.8.0, but core-text must be bumped before we
-/// can use it.
-pub trait CGContextExt {
-    fn set_font_smoothing_style(&self, style: i32);
-}
-
-impl CGContextExt for CGContext {
-    fn set_font_smoothing_style(&self, style: i32) {
-        unsafe {
-            CGContextSetFontSmoothingStyle(self.as_concrete_TypeRef(), style as _);
-        }
-    }
-}
-
-#[link(name = "ApplicationServices", kind = "framework")]
-extern {
-    fn CGContextSetFontSmoothingStyle(c: CGContextRef, style: c_int);
 }
 
 #[cfg(test)]
