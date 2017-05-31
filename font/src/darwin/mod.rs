@@ -26,10 +26,9 @@ use core_foundation::string::{CFString, CFStringRef};
 use core_foundation::array::CFIndex;
 use core_foundation_sys::string::UniChar;
 use core_graphics::base::kCGImageAlphaPremultipliedFirst;
-use core_graphics::base::CGFloat;
 use core_graphics::color_space::CGColorSpace;
 use core_graphics::context::{CGContext, CGContextRef};
-use core_graphics::font::{CGFont, CGFontRef, CGGlyph};
+use core_graphics::font::{CGFont, CGGlyph};
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use core_text::font::{CTFont, new_from_descriptor as ct_new_from_descriptor};
 use core_text::font_collection::create_for_family;
@@ -40,16 +39,13 @@ use core_text::font_descriptor::kCTFontVerticalOrientation;
 use core_text::font_descriptor::{CTFontDescriptor, CTFontDescriptorRef, CTFontOrientation};
 use core_text::font_descriptor::SymbolicTraitAccessors;
 
-use libc::{size_t, c_int};
+use libc::{c_int};
 
 use euclid::point::Point2D;
 use euclid::rect::Rect;
 use euclid::size::Size2D;
 
 use super::{FontDesc, RasterizedGlyph, Metrics, FontKey, GlyphKey};
-
-pub mod cg_color;
-use self::cg_color::{CGColorRef, CGColor};
 
 pub mod byte_order;
 use self::byte_order::kCGBitmapByteOrder32Host;
@@ -462,94 +458,14 @@ impl Font {
 
 /// Additional methods needed to render fonts for Alacritty
 ///
-/// TODO upstream these into core_graphics crate
+/// TODO CGContextSetFontSmoothingStyle has been upstreamed in
+/// core-graphics 0.8.0, but core-text must be bumped before we
+/// can use it.
 pub trait CGContextExt {
-    fn set_allows_font_subpixel_quantization(&self, bool);
-    fn set_should_subpixel_quantize_fonts(&self, bool);
-    fn set_allows_font_subpixel_positioning(&self, bool);
-    fn set_should_subpixel_position_fonts(&self, bool);
-    fn set_allows_antialiasing(&self, bool);
-    fn set_should_antialias(&self, bool);
-    fn fill_rect(&self, rect: CGRect);
-    fn set_font_smoothing_background_color(&self, color: CGColor);
-    fn show_glyphs_at_positions(&self, &[CGGlyph], &[CGPoint]);
-    fn set_font(&self, &CGFont);
-    fn set_font_size(&self, size: f64);
     fn set_font_smoothing_style(&self, style: i32);
 }
 
 impl CGContextExt for CGContext {
-    fn set_allows_font_subpixel_quantization(&self, allows: bool) {
-        unsafe {
-            CGContextSetAllowsFontSubpixelQuantization(self.as_concrete_TypeRef(), allows);
-        }
-    }
-
-    fn set_should_subpixel_quantize_fonts(&self, should: bool) {
-        unsafe {
-            CGContextSetShouldSubpixelQuantizeFonts(self.as_concrete_TypeRef(), should);
-        }
-    }
-
-    fn set_should_subpixel_position_fonts(&self, should: bool) {
-        unsafe {
-            CGContextSetShouldSubpixelPositionFonts(self.as_concrete_TypeRef(), should);
-        }
-    }
-
-    fn set_allows_font_subpixel_positioning(&self, allows: bool) {
-        unsafe {
-            CGContextSetAllowsFontSubpixelPositioning(self.as_concrete_TypeRef(), allows);
-        }
-    }
-
-    fn set_should_antialias(&self, should: bool) {
-        unsafe {
-            CGContextSetShouldAntialias(self.as_concrete_TypeRef(), should);
-        }
-    }
-
-    fn set_allows_antialiasing(&self, allows: bool) {
-        unsafe {
-            CGContextSetAllowsAntialiasing(self.as_concrete_TypeRef(), allows);
-        }
-    }
-
-    fn fill_rect(&self, rect: CGRect) {
-        unsafe {
-            CGContextFillRect(self.as_concrete_TypeRef(), rect);
-        }
-    }
-
-    fn set_font_smoothing_background_color(&self, color: CGColor) {
-        unsafe {
-            CGContextSetFontSmoothingBackgroundColor(self.as_concrete_TypeRef(),
-                                                     color.as_concrete_TypeRef());
-        }
-    }
-
-    fn show_glyphs_at_positions(&self, glyphs: &[CGGlyph], positions: &[CGPoint]) {
-        assert_eq!(glyphs.len(), positions.len());
-        unsafe {
-            CGContextShowGlyphsAtPositions(self.as_concrete_TypeRef(),
-                                           glyphs.as_ptr(),
-                                           positions.as_ptr(),
-                                           glyphs.len());
-        }
-    }
-
-    fn set_font(&self, font: &CGFont) {
-        unsafe {
-            CGContextSetFont(self.as_concrete_TypeRef(), font.as_concrete_TypeRef());
-        }
-    }
-
-    fn set_font_size(&self, size: f64) {
-        unsafe {
-            CGContextSetFontSize(self.as_concrete_TypeRef(), size as CGFloat);
-        }
-    }
-
     fn set_font_smoothing_style(&self, style: i32) {
         unsafe {
             CGContextSetFontSmoothingStyle(self.as_concrete_TypeRef(), style as _);
@@ -559,18 +475,6 @@ impl CGContextExt for CGContext {
 
 #[link(name = "ApplicationServices", kind = "framework")]
 extern {
-    fn CGContextSetAllowsFontSubpixelQuantization(c: CGContextRef, allows: bool);
-    fn CGContextSetShouldSubpixelQuantizeFonts(c: CGContextRef, should: bool);
-    fn CGContextSetAllowsFontSubpixelPositioning(c: CGContextRef, allows: bool);
-    fn CGContextSetShouldSubpixelPositionFonts(c: CGContextRef, should: bool);
-    fn CGContextSetAllowsAntialiasing(c: CGContextRef, allows: bool);
-    fn CGContextSetShouldAntialias(c: CGContextRef, should: bool);
-    fn CGContextFillRect(c: CGContextRef, r: CGRect);
-    fn CGContextSetFontSmoothingBackgroundColor(c: CGContextRef, color: CGColorRef);
-    fn CGContextShowGlyphsAtPositions(c: CGContextRef, glyphs: *const CGGlyph,
-                                      positions: *const CGPoint, count: size_t);
-    fn CGContextSetFont(c: CGContextRef, font: CGFontRef);
-    fn CGContextSetFontSize(c: CGContextRef, size: CGFloat);
     fn CGContextSetFontSmoothingStyle(c: CGContextRef, style: c_int);
 }
 
