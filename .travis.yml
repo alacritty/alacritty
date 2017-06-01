@@ -8,6 +8,7 @@ os:
   - osx
 
 rust:
+  - 1.15.0
   - stable
 
 script:
