@@ -28,7 +28,7 @@ padding:
   y: 2
 
 # The FreeType rasterizer needs to know the device DPI for best results
-# (changes require restart)
+# (changes require restart). To find your monitor's dpi, see http://dpi.lv/
 dpi:
   x: 96.0
   y: 96.0
