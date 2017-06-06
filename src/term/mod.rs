@@ -949,7 +949,9 @@ impl Term {
             .map(|i| (*i as usize) % TAB_SPACES == 0)
             .collect::<Vec<bool>>();
 
-        self.tabs[0] = false;
+        if num_cols > Column(0) {
+            self.tabs[0] = false;
+        }
 
         if num_lines > old_lines {
             // Make sure bottom of terminal is clear
