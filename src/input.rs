@@ -224,7 +224,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             let prev_line = mem::replace(&mut self.ctx.mouse_mut().line, point.line);
             let prev_col = mem::replace(&mut self.ctx.mouse_mut().column, point.col);
 
-            let cell_x = x as usize % size_info.cell_width as usize;
+            let cell_x = (x as usize - size_info.padding_x as usize) % size_info.cell_width as usize;
             let half_cell_width = (size_info.cell_width / 2.0) as usize;
 
             let cell_side = if cell_x > half_cell_width {
