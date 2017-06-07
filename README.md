@@ -150,6 +150,8 @@ to change the `monospace` font family to something like `Menlo`.
 
 ### Desktop Entry
 
+#### Linux
+
 Many linux distributions support desktop entries for adding applications to
 system menus. To install the desktop entry for Alacritty, run
 
@@ -157,6 +159,17 @@ system menus. To install the desktop entry for Alacritty, run
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
 cp Alacritty.desktop ~/.local/share/applications
 ```
+
+#### OS X
+
+You can pack desktop app for OS X with running this task.
+
+```sh
+make install
+```
+
+But this task includes build task.
+So if you want to build by yourself, you should build before running task.
 
 ## Configuration
 
