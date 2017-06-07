@@ -21,7 +21,11 @@ use std::os::unix::process::CommandExt;
 use std::ptr;
 use std::process::{Command, Stdio};
 
-use libc::{self, winsize, c_int, pid_t, WNOHANG, SIGCHLD, TIOCSCTTY};
+use libc::{self, winsize, c_int, pid_t, WNOHANG, SIGCHLD};
+
+// Import TIOCSCTTY *only* if we're not on freebsd.
+#[cfg(not(target_os = "freebsd"))]
+use libc::TIOCSCTTY;
 
 use term::SizeInfo;
 use display::OnResize;
@@ -110,7 +114,9 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     (master, slave)
 }
 
-/// Really only needed on BSD, but should be fine elsewhere
+/// Really only needed on BSD, but doesn't seem to be a thing on FreeBSD.
+/// Should be OK elsewhere though.
+#[cfg(not(target_os = "freebsd"))]
 fn set_controlling_terminal(fd: c_int) {
     let res = unsafe {
         libc::ioctl(fd, TIOCSCTTY as _, 0)
@@ -222,6 +228,8 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T, window_id:
             }
         }
 
+        // Call should work everywhere. But not on FreeBSD.
+        #[cfg(not(target_os = "freebsd"))]
         set_controlling_terminal(slave);
 
         // No longer need slave/master fds
