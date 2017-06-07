@@ -164,7 +164,8 @@ impl ::Rasterize for Rasterizer {
                 // fallbacks somehow.
                 {
                     let symbols = {
-                        let d = FontDesc::new("Apple Symbols".to_owned(), desc.style.clone());
+                        let fallback_style = Style::Description { slant:Slant::Normal, weight:Weight::Normal  } ;
+                        let d = FontDesc::new("Apple Symbols".to_owned(), fallback_style);
                         self.get_font(&d, size)?
                     };
                     font.fallbacks.push(symbols);
