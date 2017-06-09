@@ -86,6 +86,10 @@ render_timer: false
 # and cursor.background colors, otherwise invert the colors of the cursor.
 custom_cursor_colors: false
 
+# Cursor style could be specified by `Block`, `Beam` or `Underline`.
+# Which will give you `▒`, `|` or `_`.
+cursor_style: Block
+
 # Colors (Tomorrow Night Bright)
 colors:
   # Default colors

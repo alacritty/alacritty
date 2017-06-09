@@ -199,6 +199,9 @@ pub trait Handler {
     /// Move forward `count` tabs
     fn move_forward_tabs(&mut self, _count: i64) {}
 
+    /// Set cursor style
+    fn set_cursor_style(&mut self, _style: CursorStyle) {}
+
     /// Save current cursor position
     fn save_cursor_position(&mut self) {}
 
@@ -369,6 +372,23 @@ pub enum ClearMode {
     All,
     /// Clear 'saved' lines (scrollback)
     Saved
+}
+
+/// Style for cursor
+#[derive(Debug, Copy, Clone, Deserialize, PartialEq)]
+pub enum CursorStyle {
+    /// Block cursor
+    Block,
+    /// Underline cursor
+    Underline,
+    /// Beam cursor
+    Beam,
+}
+
+impl Default for CursorStyle {
+    fn default() -> Self {
+        CursorStyle::Block
+    }
 }
 
 /// Mode for clearing tab stops
@@ -895,6 +915,16 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             },
             's' => handler.save_cursor_position(),
             'u' => handler.restore_cursor_position(),
+            'q' => {
+                let style = match arg_or_default!(idx: 0, default: 0) {
+                    0 ... 2 => CursorStyle::Block,
+                    3 | 4 => CursorStyle::Underline,
+                    5 | 6 => CursorStyle::Beam,
+                    _ => unhandled!()
+                };
+
+                handler.set_cursor_style(style);
+            },
             _ => unhandled!(),
         }
     }

@@ -52,6 +52,29 @@ pub struct RenderableCellsIter<'a> {
     colors: &'a color::List,
     selection: Option<RangeInclusive<index::Linear>>,
     cursor_original: (Option<Indexed<Cell>>, Option<Indexed<Cell>>),
+    cursor_cell: CursorCell,
+    last_cell: bool
+}
+
+pub enum CursorCell {
+    Replacement(Indexed<Cell>),
+    Extra(Indexed<Cell>)
+}
+
+impl CursorCell {
+    fn as_ref(&self) -> &Indexed<Cell> {
+        match *self {
+            CursorCell::Replacement(ref cell) => cell,
+            CursorCell::Extra(ref cell) => cell
+        }
+    }
+
+    fn as_mut(&mut self) -> &mut Indexed<Cell> {
+        match *self {
+            CursorCell::Replacement(ref mut cell) => cell,
+            CursorCell::Extra(ref mut cell) => cell
+        }
+    }
 }
 
 impl<'a> RenderableCellsIter<'a> {
@@ -62,6 +85,7 @@ impl<'a> RenderableCellsIter<'a> {
     fn new<'b>(
         grid: &'b mut Grid<Cell>,
         cursor: &'b Point,
+        cursor_style: ansi::CursorStyle,
         colors: &'b color::List,
         mode: TermMode,
         config: &'b Config,
@@ -69,6 +93,18 @@ impl<'a> RenderableCellsIter<'a> {
     ) -> RenderableCellsIter<'b> {
         let selection = selection.span()
             .map(|span| span.to_range(grid.num_cols()));
+
+        let cell = Indexed {
+            line: cursor.line,
+            column: cursor.col,
+            inner: grid[cursor]
+        };
+
+        let cursor_cell = match cursor_style {
+            ansi::CursorStyle::Block => CursorCell::Replacement(cell),
+            ansi::CursorStyle::Underline => CursorCell::Extra(cell),
+            ansi::CursorStyle::Beam => CursorCell::Extra(cell)
+        };
 
         RenderableCellsIter {
             grid: grid,
@@ -80,10 +116,12 @@ impl<'a> RenderableCellsIter<'a> {
             config: config,
             colors: colors,
             cursor_original: (None, None),
-        }.initialize()
+            cursor_cell: cursor_cell,
+            last_cell: false
+        }.initialize(cursor_style)
     }
 
-    fn initialize(mut self) -> Self {
+    fn initialize(mut self, cursor_style: ansi::CursorStyle) -> Self {
         if self.cursor_is_visible() {
             self.cursor_original.0 = Some(Indexed {
                 line:   self.cursor.line,
@@ -105,11 +143,30 @@ impl<'a> RenderableCellsIter<'a> {
                 });
             }
 
+            if cursor_style == ansi::CursorStyle::Beam {
+                let mut cell = self.cursor_cell.as_mut();
+                cell.inner.c = '\u{258e}';
+            }
+
+            if cursor_style == ansi::CursorStyle::Underline {
+                let mut cell = self.cursor_cell.as_mut();
+                cell.inner.c = '\u{2581}';
+            }
+
             if self.config.custom_cursor_colors() {
                 {
-                    let cell = &mut self.grid[self.cursor];
-                    cell.fg = Color::Named(NamedColor::CursorText);
-                    cell.bg = Color::Named(NamedColor::Cursor);
+                    let mut cell = self.cursor_cell.as_mut();
+                    match cursor_style {
+                        ansi::CursorStyle::Block => {
+                            cell.inner.fg = Color::Named(NamedColor::CursorText);
+                            cell.inner.bg = Color::Named(NamedColor::Cursor);
+                        }
+                        ansi::CursorStyle::Beam |
+                        ansi::CursorStyle::Underline => {
+                            cell.inner.fg = Color::Named(NamedColor::Cursor);
+                            cell.inner.bg = Color::Named(NamedColor::Background);
+                        }
+                    }
                 }
                 if spacer {
                     let cell = &mut self.grid[&location];
@@ -118,8 +175,10 @@ impl<'a> RenderableCellsIter<'a> {
                 }
             } else {
                 {
-                    let cell = &mut self.grid[self.cursor];
-                    mem::swap(&mut cell.fg, &mut cell.bg);
+                    let mut cell = self.cursor_cell.as_mut();
+                    if cursor_style == ansi::CursorStyle::Block {
+                        mem::swap(&mut cell.inner.fg, &mut cell.inner.bg);
+                    }
                 }
                 if spacer {
                     let cell = &mut self.grid[&location];
@@ -142,7 +201,7 @@ impl<'a> Drop for RenderableCellsIter<'a> {
     fn drop(&mut self) {
         if self.cursor_is_visible() {
             if let Some(ref original) = self.cursor_original.0 {
-                self.grid[self.cursor] = original.inner;
+                self.cursor_cell.as_mut().inner = original.inner;
             }
             if let Some(ref original) = self.cursor_original.1 {
                 let mut location = *self.cursor;
@@ -245,7 +304,63 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
             self.line += 1;
         }
 
-        None
+        if !self.last_cell {
+            let cursor_cell = self.cursor_cell.as_ref();
+
+            // fg, bg are dependent on INVERSE flag
+            let invert = cursor_cell.flags.contains(cell::INVERSE);
+            let (fg, bg) = if invert {
+                (cursor_cell.inner.bg, cursor_cell.inner.fg)
+            } else {
+                (cursor_cell.inner.fg, cursor_cell.inner.bg)
+            };
+
+            // Get Rgb value for foreground
+            let fg = match fg {
+                Color::Spec(rgb) => rgb,
+                Color::Named(ansi) => {
+                    if self.config.draw_bold_text_with_bright_colors()
+                        && cursor_cell.bold()
+                    {
+                        self.colors[ansi.to_bright()]
+                    } else {
+                        self.colors[ansi]
+                    }
+                },
+                Color::Indexed(idx) => {
+                    let idx = if self.config.draw_bold_text_with_bright_colors()
+                        && cursor_cell.bold()
+                        && idx < 8
+                    {
+                        idx + 8
+                    } else {
+                        idx
+                    };
+
+                    self.colors[idx]
+                }
+            };
+
+            // Get Rgb value for background
+            let bg = match bg {
+                Color::Spec(rgb) => rgb,
+                Color::Named(ansi) => self.colors[ansi],
+                Color::Indexed(idx) => self.colors[idx],
+            };
+
+            self.last_cell = true;
+
+            return Some(RenderableCell {
+                line: cursor_cell.line,
+                column: cursor_cell.column,
+                flags: cursor_cell.flags,
+                c: cursor_cell.c,
+                fg: fg,
+                bg: bg
+            });
+        } else {
+            return None;
+        }
     }
 }
 
@@ -293,7 +408,7 @@ impl CharsetMapping for StandardCharset {
     fn map(&self, c: char) -> char {
         match *self {
             StandardCharset::Ascii => c,
-            StandardCharset::SpecialCharacterAndLineDrawing =>
+            StandardCharset::SpecialCharacterAndLineDrawing => {
                 match c {
                     '`' => '◆',
                     'a' => '▒',
@@ -326,8 +441,9 @@ impl CharsetMapping for StandardCharset {
                     '|' => '≠',
                     '}' => '£',
                     '~' => '·',
-                    _ => c
-                },
+                    _ => c,
+                }
+            }
         }
     }
 }
@@ -503,6 +619,9 @@ pub struct Term {
     /// The cursor
     cursor: Cursor,
 
+    /// The cursor type
+    cursor_style: ansi::CursorStyle,
+
     /// The graphic character set, out of `charsets`, which ASCII is currently
     /// being mapped to
     active_charset: CharsetIndex,
@@ -627,6 +746,7 @@ impl Term {
             alt: false,
             active_charset: Default::default(),
             cursor: Default::default(),
+            cursor_style: config.cursor_style(),
             cursor_save: Default::default(),
             cursor_save_alt: Default::default(),
             tabs: tabs,
@@ -643,6 +763,7 @@ impl Term {
         self.semantic_escape_chars = config.selection().semantic_escape_chars.clone();
         self.colors.fill_named(config.colors());
         self.visual_bell.update_config(config);
+        self.cursor_style = config.cursor_style();
     }
 
     #[inline]
@@ -862,6 +983,7 @@ impl Term {
         RenderableCellsIter::new(
             &mut self.grid,
             &self.cursor.point,
+            self.cursor_style,
             &self.colors,
             self.mode,
             config,
@@ -1450,6 +1572,12 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
+    fn set_cursor_style(&mut self, style: ansi::CursorStyle) {
+        trace!("set_cursor_style: {:?}", style);
+        self.cursor_style = style;
+    }
+
+    #[inline]
     fn save_cursor_position(&mut self) {
         trace!("CursorSave");
         let mut holder = if self.alt {
@@ -1647,7 +1775,7 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn unset_mode(&mut self,mode: ansi::Mode) {
+    fn unset_mode(&mut self, mode: ansi::Mode) {
         trace!("unset_mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
