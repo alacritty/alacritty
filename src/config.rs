@@ -965,8 +965,11 @@ impl FromStr for Rgb {
             }
         }
 
-        if chars.next().unwrap() != '0' { return Err(()); }
-        if chars.next().unwrap() != 'x' { return Err(()); }
+        match chars.next().unwrap() {
+            '0' => if chars.next().unwrap() != 'x' { return Err(()); },
+            '#' => (),
+            _ => return Err(()),
+        }
 
         component!(r, g, b);
 
