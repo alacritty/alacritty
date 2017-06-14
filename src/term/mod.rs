@@ -1495,7 +1495,7 @@ impl ansi::Handler for Term {
         let end = min(start + count, self.grid.num_cols() - 1);
 
         let row = &mut self.grid[self.cursor.point.line];
-        let template = self.empty_cell;
+        let template = self.cursor.template; // Cleared cells have current background color set
         for c in &mut row[start..end] {
             c.reset(&template);
         }
