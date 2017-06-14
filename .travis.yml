@@ -10,6 +10,12 @@ os:
 rust:
   - 1.15.0
   - stable
+  - nightly
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - rust: nightly
 
 script:
   - cargo test --no-default-features
