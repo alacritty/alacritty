@@ -310,19 +310,27 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 };
 
                 // `Color` fg, bg
-                let (fg, bg) = cell.colors(selected);
+                let (fg, bg) = cell.colors();
 
                 // `Rgb` fg, bg
-                let fg = self.compute_fg_rgb(fg, &cell);
-                let bg = self.compute_bg_rgb(bg);
+                let rgb_fg;
+                let rgb_bg;
+
+                if selected || cell.inverse() {
+                    rgb_bg = self.compute_fg_rgb(fg, &cell);
+                    rgb_fg = self.compute_bg_rgb(bg);
+                } else {
+                    rgb_fg = self.compute_fg_rgb(fg, &cell);
+                    rgb_bg = self.compute_bg_rgb(bg);
+                }
 
                 return Some(RenderableCell {
                     line: line,
                     column: column,
                     flags: cell.flags,
                     c: cell.c,
-                    fg: fg,
-                    bg: bg,
+                    fg: rgb_fg,
+                    bg: rgb_bg,
                 })
             }
 
