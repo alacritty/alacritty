@@ -90,13 +90,6 @@ impl Cell {
         }
     }
 
-    /// Get foreground and background colors adjusted for INVERSE flag
-    ///
-    /// First color is the foreground, second color is the background.
-    pub fn colors(&self) -> (&Color, &Color) {
-        (&self.fg, &self.bg)
-    }
-
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.c == ' ' &&
