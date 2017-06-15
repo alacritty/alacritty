@@ -696,11 +696,9 @@ impl Term {
 
         let grid = Grid::new(num_lines, num_cols, &template);
 
-        let mut tabs = IndexRange::from(Column(0)..grid.num_cols())
+        let tabs = IndexRange::from(Column(0)..grid.num_cols())
             .map(|i| (*i as usize) % TAB_SPACES == 0)
             .collect::<Vec<bool>>();
-
-        tabs[0] = false;
 
         let alt = grid.clone();
         let scroll_region = Line(0)..grid.num_lines();
@@ -1038,8 +1036,6 @@ impl Term {
         self.tabs = IndexRange::from(Column(0)..self.grid.num_cols())
             .map(|i| (*i as usize) % TAB_SPACES == 0)
             .collect::<Vec<bool>>();
-
-        self.tabs[0] = false;
 
         if num_lines > old_lines {
             // Make sure bottom of terminal is clear
@@ -1531,7 +1527,18 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn move_backward_tabs(&mut self, count: i64) {
-        trace!("[unimplemented] move_backward_tabs: {}", count);
+        trace!("move_backward_tabs: {}", count);
+
+        for _ in 0..count {
+            let mut col = self.cursor.point.col;
+            for i in (0..(col.0)).rev() {
+                if self.tabs[i as usize] {
+                    col = index::Column(i);
+                    break;
+                }
+            }
+            self.cursor.point.col = col;
+        }
     }
 
     #[inline]
