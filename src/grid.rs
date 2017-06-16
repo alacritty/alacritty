@@ -30,7 +30,7 @@ use index::{self, Point, Line, Column, IndexRange, RangeInclusive};
 
 /// Convert a type to a linear index range.
 pub trait ToRange {
-    fn to_range(&self, columns: index::Column) -> RangeInclusive<index::Linear>;
+    fn to_range(&self) -> RangeInclusive<index::Linear>;
 }
 
 /// Bidirection iterator

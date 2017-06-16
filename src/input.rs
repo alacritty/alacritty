@@ -54,9 +54,10 @@ pub trait ActionContext {
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&self, Buffer);
     fn clear_selection(&mut self);
-    fn update_selection(&mut self, Point, Side);
-    fn semantic_selection(&mut self, Point);
-    fn line_selection(&mut self, Point);
+    fn update_selection(&mut self, point: Point, side: Side);
+    fn simple_selection(&mut self, point: Point, side: Side);
+    fn semantic_selection(&mut self, point: Point);
+    fn line_selection(&mut self, point: Point);
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse_coords(&self) -> Option<Point>;
 }
@@ -494,7 +495,6 @@ mod tests {
     use term::{SizeInfo, Term, TermMode, mode};
     use event::{Mouse, ClickState};
     use config::{self, Config, ClickHandler};
-    use selection::Selection;
     use index::{Point, Side};
 
     use super::{Action, Binding, Processor};
@@ -510,7 +510,7 @@ mod tests {
 
     struct ActionContext<'a> {
         pub terminal: &'a mut Term,
-        pub selection: &'a mut Selection,
+        pub selection: Option<&'a mut Selection>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
         pub last_action: MultiClick,
@@ -578,15 +578,16 @@ mod tests {
                     padding_y: 0.0,
                 };
 
+                use ::ansi::TermInfo;
+
                 let mut terminal = Term::new(&config, size);
 
                 let mut mouse = Mouse::default();
-                let mut selection = Selection::new();
                 mouse.click_state = $initial_state;
 
                 let context = ActionContext {
                     terminal: &mut terminal,
-                    selection: &mut selection,
+                    selection: None,
                     mouse: &mut mouse,
                     size_info: &size,
                     last_action: MultiClick::None,

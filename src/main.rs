@@ -179,7 +179,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
             display.handle_resize(&mut terminal, &mut [&mut pty, &mut processor]);
 
             // Draw the current state of the terminal
-            display.draw(terminal, &config, &processor.selection);
+            display.draw(terminal, &config, processor.selection.as_ref());
         }
 
         // Begin shutdown if the flag was raised.
