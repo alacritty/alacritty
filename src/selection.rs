@@ -18,13 +18,10 @@
 //! finalized when the button is released. The selection should be cleared
 //! when text is added/removed/scrolled on the screen. The selection should
 //! also be cleared if the user clicks off of the selection.
-use std::mem;
-use std::cmp::min;
-use std::cmp::max;
+use std::cmp::{min, max};
 
 use index::{Point, Column, RangeInclusive, Side, Linear, Line};
-use grid::{Grid, ToRange};
-use term::Cell;
+use grid::ToRange;
 
 /// Describes a region of a 2-dimensional area
 ///

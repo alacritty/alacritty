@@ -36,6 +36,7 @@ pub struct ActionContext<'a, N: 'a> {
     pub selection: &'a mut Option<Selection>,
     pub size_info: &'a SizeInfo,
     pub mouse: &'a mut Mouse,
+    pub selection_modified: bool,
 }
 
 impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
@@ -69,9 +70,11 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn clear_selection(&mut self) {
         *self.selection = None;
+        self.selection_modified = true;
     }
 
     fn update_selection(&mut self, point: Point, side: Side) {
+        self.selection_modified = true;
         // Update selection if one exists
         if let &mut Some(ref mut selection) = self.selection {
             selection.update(point, side);
@@ -84,14 +87,17 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn simple_selection(&mut self, point: Point, side: Side) {
         *self.selection = Some(Selection::simple(point, side));
+        self.selection_modified = true;
     }
 
     fn semantic_selection(&mut self, point: Point) {
         *self.selection = Some(Selection::semantic(point, self.terminal as &Term));
+        self.selection_modified = true;
     }
 
     fn line_selection(&mut self, point: Point) {
         *self.selection = Some(Selection::lines(point));
+        self.selection_modified = true;
     }
 
     fn mouse_coords(&self) -> Option<Point> {
@@ -256,16 +262,6 @@ impl<N: Notify> Processor<N> {
 
                 *hide_cursor = false;
                 processor.mouse_moved(x as u32, y as u32);
-
-                if !processor.ctx.selection.is_none() {
-                    // TODO this should only be passed if the selection changes
-                    // which happens when the point/side change *and* the mouse
-                    // is still pressed.
-                    //
-                    // Right now, this causes lots of unnecessary redraws while
-                    // selection is active.
-                    processor.ctx.terminal.dirty = true;
-                }
             },
             glutin::Event::MouseWheel(scroll_delta, touch_phase) => {
                 *hide_cursor = false;
@@ -335,6 +331,7 @@ impl<N: Notify> Processor<N> {
                 selection: &mut self.selection,
                 mouse: &mut self.mouse,
                 size_info: &self.size_info,
+                selection_modified: false,
             };
 
             processor = input::Processor {
@@ -354,6 +351,10 @@ impl<N: Notify> Processor<N> {
 
             if self.hide_cursor_when_typing {
                 window.set_cursor_visible(!self.hide_cursor);
+            }
+
+            if processor.ctx.selection_modified {
+                processor.ctx.terminal.dirty = true;
             }
         }
 
