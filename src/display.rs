@@ -277,7 +277,7 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config, selection: &Selection) {
+    pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config, selection: Option<&Selection>) {
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
 

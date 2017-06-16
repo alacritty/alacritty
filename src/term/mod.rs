@@ -25,7 +25,7 @@ use unicode_width::UnicodeWidthChar;
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
 use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive, Side};
-use selection::{Span, Selection};
+use selection::{self, Span, Selection};
 use config::{Config, VisualBellAnimation};
 use Rgb;
 
@@ -33,6 +33,55 @@ pub mod cell;
 pub mod color;
 pub use self::cell::Cell;
 use self::cell::LineLength;
+
+impl<'a> selection::SemanticSearch for &'a Term {
+    fn semantic_search_left(&self, mut point: Point) -> Point {
+        let mut iter = self.grid.iter_from(point);
+        let last_col = self.grid.num_cols() - Column(1);
+
+        while let Some(cell) = iter.prev() {
+            if self.semantic_escape_chars.contains(cell.c) {
+                break;
+            }
+
+            if iter.cur.col == last_col && !cell.flags.contains(cell::WRAPLINE) {
+                break; // cut off if on new line or hit escape char
+            }
+
+            point = iter.cur;
+        }
+
+        point
+    }
+
+    fn semantic_search_right(&self, mut point: Point) -> Point {
+        let mut iter = self.grid.iter_from(point);
+        let last_col = self.grid.num_cols() - Column(1);
+
+        while let Some(cell) = iter.next() {
+            if self.semantic_escape_chars.contains(cell.c) {
+                break;
+            }
+
+            point = iter.cur;
+
+            if iter.cur.col == last_col && !cell.flags.contains(cell::WRAPLINE) {
+                break; // cut off if on new line or hit escape char
+            }
+        }
+
+        point
+    }
+}
+
+impl<'a> selection::Dimensions for &'a Term {
+    fn dimensions(&self) -> Point {
+        Point {
+            col: self.grid.num_cols(),
+            line: self.grid.num_lines()
+        }
+    }
+}
 
 /// Iterator that yields cells needing render
 ///
@@ -66,12 +115,9 @@ impl<'a> RenderableCellsIter<'a> {
         colors: &'b color::List,
         mode: TermMode,
         config: &'b Config,
-        selection: &Selection,
+        selection: Option<RangeInclusive<index::Linear>>,
         cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b> {
-        let selection = selection.span()
-            .map(|span| span.to_range(grid.num_cols()));
-
         let cursor_index = Linear(cursor.line.0 * grid.num_cols().0 + cursor.col.0);
 
         RenderableCellsIter {
@@ -739,64 +785,6 @@ impl Term {
         self.dirty
     }
 
-    pub fn line_selection(&self, selection: &mut Selection, point: Point) {
-        selection.clear();
-        selection.update(Point {
-            line: point.line,
-            col: Column(0),
-        }, Side::Left);
-        selection.update(Point {
-            line: point.line,
-            col: self.grid.num_cols() - Column(1),
-        }, Side::Right);
-    }
-
-    pub fn semantic_selection(&self, selection: &mut Selection, point: Point) {
-        let mut side_left = Point {
-            line: point.line,
-            col: point.col
-        };
-        let mut side_right = Point {
-            line: point.line,
-            col: point.col
-        };
-
-        let mut left_iter = self.grid.iter_from(point);
-        let mut right_iter = self.grid.iter_from(point);
-
-        let last_col = self.grid.num_cols() - Column(1);
-
-        while let Some(cell) = left_iter.prev() {
-            if self.semantic_escape_chars.contains(cell.c) {
-                break;
-            }
-
-            if left_iter.cur.col == last_col && !cell.flags.contains(cell::WRAPLINE) {
-                break; // cut off if on new line or hit escape char
-            }
-
-            side_left.col = left_iter.cur.col;
-            side_left.line = left_iter.cur.line;
-        }
-
-        while let Some(cell) = right_iter.next() {
-            if self.semantic_escape_chars.contains(cell.c) {
-                break;
-            }
-
-            side_right.col = right_iter.cur.col;
-            side_right.line = right_iter.cur.line;
-
-            if right_iter.cur.col == last_col && !cell.flags.contains(cell::WRAPLINE) {
-                break; // cut off if on new line or hit escape char
-            }
-        }
-
-        selection.clear();
-        selection.update(side_left, Side::Left);
-        selection.update(side_right, Side::Right);
-    }
-
     pub fn string_from_selection(&self, span: &Span) -> String {
         /// Need a generic push() for the Append trait
         trait PushChar {
@@ -884,7 +872,7 @@ impl Term {
 
         let mut res = String::new();
 
-        let (start, end) = span.to_locations(self.grid.num_cols());
+        let (start, end) = span.to_locations();
         let line_count = end.line - start.line;
 
         match line_count {
@@ -946,8 +934,11 @@ impl Term {
     pub fn renderable_cells<'b>(
         &'b self,
         config: &'b Config,
-        selection: &'b Selection
+        selection: Option<&'b Selection>,
     ) -> RenderableCellsIter {
+        let selection = selection.and_then(|s| s.to_span(self))
+            .map(|span| span.to_range());
+
         RenderableCellsIter::new(
             &self.grid,
             &self.cursor.point,
@@ -1843,19 +1834,19 @@ mod tests {
         mem::swap(&mut term.semantic_escape_chars, &mut escape_chars);
 
         {
-            let mut selection = Selection::new();
+            let mut selection = Selection::new(grid.num_lines(), grid.num_cols());
             term.semantic_selection(&mut selection, Point { line: Line(0), col: Column(1) });
             assert_eq!(term.string_from_selection(&selection.span().unwrap()), "aa");
         }
 
         {
-            let mut selection = Selection::new();
+            let mut selection = Selection::new(grid.num_lines(), grid.num_cols());
             term.semantic_selection(&mut selection, Point { line: Line(0), col: Column(4) });
             assert_eq!(term.string_from_selection(&selection.span().unwrap()), "aaa");
         }
 
         {
-            let mut selection = Selection::new();
+            let mut selection = Selection::new(grid.num_lines(), grid.num_cols());
             term.semantic_selection(&mut selection, Point { line: Line(1), col: Column(1) });
             assert_eq!(term.string_from_selection(&selection.span().unwrap()), "aaa");
         }
@@ -1882,7 +1873,7 @@ mod tests {
 
         mem::swap(&mut term.grid, &mut grid);
 
-        let mut selection = Selection::new();
+        let mut selection = Selection::new(grid.num_lines(), grid.num_cols());
         term.line_selection(&mut selection, Point { line: Line(0), col: Column(3) });
         match selection.span() {
             Some(span) => assert_eq!(term.string_from_selection(&span), "\"aa\"a"),
@@ -1937,7 +1928,6 @@ mod benches {
     use std::path::Path;
 
     use grid::Grid;
-    use selection::Selection;
     use config::Config;
 
     use super::{SizeInfo, Term};
@@ -1976,13 +1966,12 @@ mod benches {
         let size: SizeInfo = json::from_str(&serialized_size).unwrap();
 
         let config = Config::default();
-        let selection = Selection::Empty;
 
         let mut terminal = Term::new(&config, size);
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {
-            let iter = terminal.renderable_cells(&config, &selection);
+            let iter = terminal.renderable_cells(&config, None);
             for cell in iter {
                 test::black_box(cell);
             }
