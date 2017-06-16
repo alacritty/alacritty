@@ -24,7 +24,7 @@ use unicode_width::UnicodeWidthChar;
 
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
 use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
-use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive, Side};
+use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{self, Span, Selection};
 use config::{Config, VisualBellAnimation};
 use Rgb;
