@@ -1841,21 +1841,18 @@ mod tests {
         mem::swap(&mut term.semantic_escape_chars, &mut escape_chars);
 
         {
-            let mut selection = Selection::new(grid.num_lines(), grid.num_cols());
-            term.semantic_selection(&mut selection, Point { line: Line(0), col: Column(1) });
-            assert_eq!(term.string_from_selection(&selection.span().unwrap()), "aa");
+            let selection = Selection::semantic(Point { line: Line(0), col: Column(1) }, &term);
+            assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aa");
         }
 
         {
-            let mut selection = Selection::new(grid.num_lines(), grid.num_cols());
-            term.semantic_selection(&mut selection, Point { line: Line(0), col: Column(4) });
-            assert_eq!(term.string_from_selection(&selection.span().unwrap()), "aaa");
+            let selection = Selection::semantic(Point { line: Line(0), col: Column(4) }, &term);
+            assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aaa");
         }
 
         {
-            let mut selection = Selection::new(grid.num_lines(), grid.num_cols());
-            term.semantic_selection(&mut selection, Point { line: Line(1), col: Column(1) });
-            assert_eq!(term.string_from_selection(&selection.span().unwrap()), "aaa");
+            let selection = Selection::semantic(Point { line: Line(1), col: Column(1) }, &term);
+            assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aaa");
         }
     }
 
@@ -1880,9 +1877,8 @@ mod tests {
 
         mem::swap(&mut term.grid, &mut grid);
 
-        let mut selection = Selection::new(grid.num_lines(), grid.num_cols());
-        term.line_selection(&mut selection, Point { line: Line(0), col: Column(3) });
-        match selection.span() {
+        let selection = Selection::lines(Point { line: Line(0), col: Column(3) });
+        match selection.to_span(&term) {
             Some(span) => assert_eq!(term.string_from_selection(&span), "\"aa\"a"),
             _ => ()
         }

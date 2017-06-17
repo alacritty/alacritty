@@ -496,6 +496,7 @@ mod tests {
     use event::{Mouse, ClickState};
     use config::{self, Config, ClickHandler};
     use index::{Point, Side};
+    use selection::Selection;
 
     use super::{Action, Binding, Processor};
 
@@ -510,7 +511,7 @@ mod tests {
 
     struct ActionContext<'a> {
         pub terminal: &'a mut Term,
-        pub selection: Option<&'a mut Selection>,
+        pub selection: &'a mut Option<Selection>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
         pub last_action: MultiClick,
@@ -533,11 +534,9 @@ mod tests {
             // STUBBED
         }
 
-        fn clear_selection(&mut self) { }
-
-        fn update_selection(&mut self, point: Point, side: Side) {
-            self.selection.update(point, side);
-        }
+        fn clear_selection(&mut self) {}
+        fn update_selection(&mut self, _point: Point, _side: Side) {}
+        fn simple_selection(&mut self, _point: Point, _side: Side) {}
 
         fn semantic_selection(&mut self, _point: Point) {
             // set something that we can check for here
@@ -578,16 +577,16 @@ mod tests {
                     padding_y: 0.0,
                 };
 
-                use ::ansi::TermInfo;
-
                 let mut terminal = Term::new(&config, size);
 
                 let mut mouse = Mouse::default();
                 mouse.click_state = $initial_state;
 
+                let mut selection = None;
+
                 let context = ActionContext {
                     terminal: &mut terminal,
-                    selection: None,
+                    selection: &mut selection,
                     mouse: &mut mouse,
                     size_info: &size,
                     last_action: MultiClick::None,

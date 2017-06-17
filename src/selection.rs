@@ -408,6 +408,27 @@ mod test {
     use index::{Line, Column, Side, Point};
     use super::{Selection, Span, SpanType};
 
+    struct Dimensions(Point);
+    impl<'a> super::Dimensions for &'a Dimensions {
+        fn dimensions(&self) -> Point {
+            self.0
+        }
+    }
+
+    impl Dimensions {
+        pub fn new(line: usize, col: usize) -> Self {
+            Dimensions(Point {
+                line: Line(line),
+                col: Column(col)
+            })
+        }
+    }
+
+    impl<'a> super::SemanticSearch for &'a Dimensions {
+        fn semantic_search_left(&self, _: Point) -> Point { unimplemented!(); }
+        fn semantic_search_right(&self, _: Point) -> Point { unimplemented!(); }
+    }
+
     /// Test case of single cell selection
     ///
     /// 1. [  ]
@@ -416,11 +437,11 @@ mod test {
     #[test]
     fn single_cell_left_to_right() {
         let location = Point { line: Line(0), col: Column(0) };
-        let mut selection = Selection::new(Line(1), Column(1));
-        selection.update(location, Side::Left);
+        let mut selection = Selection::simple(location, Side::Left);
         selection.update(location, Side::Right);
 
-        assert_eq!(selection.span().unwrap(), Span {
+        assert_eq!(selection.to_span(&Dimensions::new(1, 1)).unwrap(), Span {
+            cols: Column(1),
             ty: SpanType::Inclusive,
             front: location,
             tail: location
@@ -435,11 +456,11 @@ mod test {
     #[test]
     fn single_cell_right_to_left() {
         let location = Point { line: Line(0), col: Column(0) };
-        let mut selection = Selection::new(Line(1), Column(1));
-        selection.update(location, Side::Right);
+        let mut selection = Selection::simple(location, Side::Right);
         selection.update(location, Side::Left);
 
-        assert_eq!(selection.span().unwrap(), Span {
+        assert_eq!(selection.to_span(&Dimensions::new(1, 1)).unwrap(), Span {
+            cols: Column(1),
             ty: SpanType::Inclusive,
             front: location,
             tail: location
@@ -453,11 +474,10 @@ mod test {
     /// 3. [ B][E ]
     #[test]
     fn between_adjacent_cells_left_to_right() {
-        let mut selection = Selection::new(Line(1), Column(2));
-        selection.update(Point::new(Line(0), Column(0)), Side::Right);
+        let mut selection = Selection::simple(Point::new(Line(0), Column(0)), Side::Right);
         selection.update(Point::new(Line(0), Column(1)), Side::Left);
 
-        assert_eq!(selection.span(), None);
+        assert_eq!(selection.to_span(&Dimensions::new(1, 2)), None);
     }
 
     /// Test adjacent cell selection from right to left
@@ -467,11 +487,10 @@ mod test {
     /// 3. [ E][B ]
     #[test]
     fn between_adjacent_cells_right_to_left() {
-        let mut selection = Selection::new(Line(1), Column(2));
-        selection.update(Point::new(Line(0), Column(1)), Side::Left);
+        let mut selection = Selection::simple(Point::new(Line(0), Column(1)), Side::Left);
         selection.update(Point::new(Line(0), Column(0)), Side::Right);
 
-        assert_eq!(selection.span(), None);
+        assert_eq!(selection.to_span(&Dimensions::new(1, 2)), None);
     }
 
     /// Test selection across adjacent lines
@@ -485,11 +504,11 @@ mod test {
     ///     [XX][XB][  ][  ][  ]
     #[test]
     fn across_adjacent_lines_upward_final_cell_exclusive() {
-        let mut selection = Selection::new(Line(2), Column(5));
-        selection.update(Point::new(Line(1), Column(1)), Side::Right);
+        let mut selection = Selection::simple(Point::new(Line(1), Column(1)), Side::Right);
         selection.update(Point::new(Line(0), Column(1)), Side::Right);
 
-        assert_eq!(selection.span().unwrap(), Span {
+        assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
+            cols: Column(5),
             front: Point::new(Line(0), Column(1)),
             tail: Point::new(Line(1), Column(1)),
             ty: SpanType::ExcludeFront
@@ -509,12 +528,12 @@ mod test {
     ///     [XE][  ][  ][  ][  ]
     #[test]
     fn selection_bigger_then_smaller() {
-        let mut selection = Selection::new(Line(2), Column(5));
-        selection.update(Point::new(Line(0), Column(1)), Side::Right);
+        let mut selection = Selection::simple(Point::new(Line(0), Column(1)), Side::Right);
         selection.update(Point::new(Line(1), Column(1)), Side::Right);
         selection.update(Point::new(Line(1), Column(0)), Side::Right);
 
-        assert_eq!(selection.span().unwrap(), Span {
+        assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
+            cols: Column(5),
             front: Point::new(Line(0), Column(1)),
             tail: Point::new(Line(1), Column(0)),
             ty: SpanType::ExcludeFront
