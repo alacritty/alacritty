@@ -77,23 +77,16 @@ impl Cell {
         self.flags.contains(BOLD)
     }
 
+    pub fn inverse(&self) -> bool {
+        self.flags.contains(INVERSE)
+    }
+
     pub fn new(c: char, fg: Color, bg: Color) -> Cell {
         Cell {
             c: c.into(),
             bg: bg,
             fg: fg,
             flags: Flags::empty(),
-        }
-    }
-
-    /// Get foreground and background colors adjusted for INVERSE flag
-    ///
-    /// First color is the foreground, second color is the background.
-    pub fn colors(&self, force_invert: bool) -> (&Color, &Color) {
-        if self.flags.contains(INVERSE) || force_invert {
-            (&self.bg, &self.fg)
-        } else {
-            (&self.fg, &self.bg)
         }
     }
 
