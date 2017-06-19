@@ -25,7 +25,7 @@ use unicode_width::UnicodeWidthChar;
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
 use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive, Side};
-use selection::{Span, Selection};
+use selection::{Span, Selection, SelectionMode};
 use config::{Config, VisualBellAnimation};
 use Rgb;
 
@@ -620,6 +620,8 @@ pub struct Term {
 
     semantic_escape_chars: String,
 
+    selection_mode: SelectionMode,
+
     /// Colors used for rendering
     colors: color::List,
 
@@ -723,6 +725,7 @@ impl Term {
             colors: color::List::from(config.colors()),
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
             cursor_style: CursorStyle::Block,
+            selection_mode: SelectionMode::Cell,
         }
     }
 
@@ -737,19 +740,31 @@ impl Term {
         self.dirty
     }
 
-    pub fn line_selection(&self, selection: &mut Selection, point: Point) {
-        selection.clear();
-        selection.update(Point {
-            line: point.line,
-            col: Column(0),
-        }, Side::Left);
-        selection.update(Point {
-            line: point.line,
-            col: self.grid.num_cols() - Column(1),
-        }, Side::Right);
+    pub fn update_selection(&self, selection: &mut Selection, point: Point, side: Side) {
+        match self.selection_mode {
+            SelectionMode::Cell => selection.update(Span::new(point, point), side, SelectionMode::Cell),
+            SelectionMode::Line => selection.update(self.line_span(point), side, SelectionMode::Line),
+            SelectionMode::Semantic => selection.update(self.semantic_span(point), side, SelectionMode::Semantic),
+        };
     }
 
-    pub fn semantic_selection(&self, selection: &mut Selection, point: Point) {
+    fn line_span(&self, point: Point) -> Span {
+        Span::new(Point {
+            line: point.line,
+            col: Column(0)
+        }, Point {
+            line: point.line,
+            col: self.grid.num_cols() - Column(1)
+        })
+    }
+
+    pub fn line_selection(&mut self, selection: &mut Selection, point: Point) {
+        selection.clear();
+        self.selection_mode = SelectionMode::Line;
+        selection.update(self.line_span(point), Side::Left, SelectionMode::Line);
+    }
+
+    fn semantic_span(&self, point: Point) -> Span {
         let mut side_left = Point {
             line: point.line,
             col: point.col
@@ -790,9 +805,18 @@ impl Term {
             }
         }
 
+        Span::new(side_left, side_right)
+    }
+
+    pub fn semantic_selection(&mut self, selection: &mut Selection, point: Point) {
         selection.clear();
-        selection.update(side_left, Side::Left);
-        selection.update(side_right, Side::Right);
+        self.selection_mode = SelectionMode::Semantic;
+        selection.update(self.semantic_span(point), Side::Left, SelectionMode::Semantic);
+    }
+
+    pub fn clear_selection(&mut self, selection: &mut Selection) {
+        self.selection_mode = SelectionMode::Cell;
+        selection.clear();
     }
 
     pub fn string_from_selection(&self, span: &Span) -> String {

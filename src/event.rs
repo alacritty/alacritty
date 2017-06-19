@@ -65,11 +65,11 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn clear_selection(&mut self) {
-        self.selection.clear();
+        self.terminal.clear_selection(&mut self.selection);
     }
 
     fn update_selection(&mut self, point: Point, side: Side) {
-        self.selection.update(point, side);
+        self.terminal.update_selection(&mut self.selection, point, side);
     }
 
     fn semantic_selection(&mut self, point: Point) {

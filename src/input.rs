@@ -232,7 +232,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             } else {
                 Side::Left
             };
-            self.ctx.mouse_mut().cell_side = cell_side;
 
             if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
                 let report_mode = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION;
@@ -494,7 +493,7 @@ mod tests {
     use term::{SizeInfo, Term, TermMode, mode};
     use event::{Mouse, ClickState};
     use config::{self, Config, ClickHandler};
-    use selection::Selection;
+    use selection::{Selection, SelectionMode, Span};
     use index::{Point, Side};
 
     use super::{Action, Binding, Processor};
@@ -536,7 +535,7 @@ mod tests {
         fn clear_selection(&mut self) { }
 
         fn update_selection(&mut self, point: Point, side: Side) {
-            self.selection.update(point, side);
+            self.selection.update(Span::new(point, point), side, SelectionMode::Cell);
         }
 
         fn semantic_selection(&mut self, _point: Point) {
