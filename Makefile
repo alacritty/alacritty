@@ -1,8 +1,18 @@
 TARGET = alacritty
 
+DEBUG = false ## Build binary in debug mode
+FEATURES = default ## Features to build into binary
+ifeq ($(DEBUG), true)
+	CARGO_BUILD = cargo build
+	RELEAS_TYPE = debug
+else
+	CARGO_BUILD = cargo build --release
+	RELEAS_TYPE = release
+endif
+RELEAS_DIR = target/$(RELEAS_TYPE)
+
 APP_NAME = Alacritty.app
 ASSETS_DIR = assets
-RELEASE_DIR = target/release
 APP_TEMPLATE = $(ASSETS_DIR)/osx/$(APP_NAME)
 APP_DIR = $(RELEASE_DIR)/osx
 APP_BINARY = $(RELEASE_DIR)/$(TARGET)
@@ -19,10 +29,11 @@ all: help
 
 help: ## Prints help for targets with comments
 	@grep -E '^[a-zA-Z._-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z._-]+ *=.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = "## "}; {printf "\033[33m%-30s\033[0m %s\n", $$1, $$2}'
 
-binary: | $(TARGET) ## Build release binary with cargo
+binary: | $(TARGET) ## Build binary with cargo
 $(TARGET):
-	cargo build --release
+	$(CARGO_BUILD) --no-default-features --features="$(FEATURES)"
 
 app: | $(APP_NAME) ## Clone Alacritty.app template and mount binary
 $(APP_NAME): $(TARGET) $(APP_TEMPLATE)
