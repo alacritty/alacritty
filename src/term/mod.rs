@@ -268,23 +268,30 @@ impl<'a> RenderableCellsIter<'a> {
     }
 
     fn compute_fg_rgb(&self, fg: &Color, cell: &Cell) -> Rgb {
+        use self::cell::DIM_BOLD;
         match *fg {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => {
-                if self.config.draw_bold_text_with_bright_colors() && cell.bold() {
-                    self.colors[ansi.to_bright()]
-                } else {
-                    self.colors[ansi]
+                match (self.config.draw_bold_text_with_bright_colors(), cell.flags & DIM_BOLD) {
+                    // Draw bold text in bright colors *and* contains bold flag.
+                    (true, self::cell::DIM_BOLD) |
+                    (true, self::cell::BOLD)     => self.colors[ansi.to_bright()],
+                    // Cell is marked as dim and not bold
+                    (_,    self::cell::DIM)      => self.colors[ansi.to_dim()],
+                    // None of the above, keep original color.
+                    _ => self.colors[ansi]
                 }
             },
             Color::Indexed(idx) => {
-                let idx = if self.config.draw_bold_text_with_bright_colors()
-                    && cell.bold()
-                    && idx < 8
-                {
-                    idx + 8
-                } else {
+                let idx = match (
+                    self.config.draw_bold_text_with_bright_colors(),
+                    cell.flags & DIM_BOLD,
                     idx
+                ) {
+                    (true,  self::cell::BOLD, 0...7)  => idx as usize + 8,
+                    (false, self::cell::DIM,  8...15) => idx as usize - 8,
+                    (false, self::cell::DIM,  0...7)  => idx as usize + 260,
+                    _ => idx as usize,
                 };
 
                 self.colors[idx]
@@ -1696,7 +1703,8 @@ impl ansi::Handler for Term {
             Attr::Reverse => self.cursor.template.flags.insert(cell::INVERSE),
             Attr::CancelReverse => self.cursor.template.flags.remove(cell::INVERSE),
             Attr::Bold => self.cursor.template.flags.insert(cell::BOLD),
-            Attr::CancelBoldDim => self.cursor.template.flags.remove(cell::BOLD),
+            Attr::Dim => self.cursor.template.flags.insert(cell::DIM),
+            Attr::CancelBoldDim => self.cursor.template.flags.remove(cell::BOLD | cell::DIM),
             Attr::Italic => self.cursor.template.flags.insert(cell::ITALIC),
             Attr::CancelItalic => self.cursor.template.flags.remove(cell::ITALIC),
             Attr::Underscore => self.cursor.template.flags.insert(cell::UNDERLINE),

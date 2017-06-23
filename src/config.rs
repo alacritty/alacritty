@@ -741,6 +741,7 @@ pub struct Colors {
     pub cursor: CursorColors,
     pub normal: AnsiColors,
     pub bright: AnsiColors,
+    pub dim: Option<AnsiColors>,
 }
 
 fn deserialize_cursor_colors<D>(deserializer: D) -> ::std::result::Result<CursorColors, D::Error>
@@ -838,12 +839,13 @@ impl Default for Colors {
                 magenta: Rgb {r: 0xb7, g: 0x7e, b: 0xe0},
                 cyan: Rgb {r: 0x54, g: 0xce, b: 0xd6},
                 white: Rgb {r: 0xff, g: 0xff, b: 0xff},
-            }
+            },
+            dim: None,
         }
     }
 }
 
-/// The normal or bright colors section of config
+/// The 8-colors sections of config
 #[derive(Debug, Deserialize)]
 pub struct AnsiColors {
     #[serde(deserialize_with = "rgb_from_hex")]

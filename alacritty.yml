@@ -121,6 +121,17 @@ colors:
     cyan:    '0x54ced6'
     white:   '0xffffff'
 
+  # Dim colors (Optional)
+  dim:
+￼   black:   '0x333333'
+￼   red:     '0xf2777a'
+￼   green:   '0x99cc99'
+￼   yellow:  '0xffcc66'
+￼   blue:    '0x6699cc'
+￼   magenta: '0xcc99cc'
+￼   cyan:    '0x66cccc'
+￼   white:   '0xdddddd'
+
 # Visual Bell
 #
 # Any time the BEL code is received, Alacritty "rings" the visual bell. Once
