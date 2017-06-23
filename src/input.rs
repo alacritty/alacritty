@@ -444,6 +444,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     *self.ctx.suppress_chars() = true;
                 }
             },
+            (_, ElementState::Released) => *self.ctx.suppress_chars() = false,
             _ => ()
         }
     }
