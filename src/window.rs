@@ -297,7 +297,7 @@ impl Window {
 
     #[cfg(not(target_os = "macos"))]
     pub fn get_window_id(&self) -> Option<usize> {
-        use glutin::os::unix::WindowExt;
+        use glutin::winit::os::unix::WindowExt;
 
         match self.window.get_xlib_window() {
             Some(xlib_window) => Some(xlib_window as usize),
@@ -321,14 +321,14 @@ impl OsExtensions for Window { }
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
 impl OsExtensions for Window {
     fn run_os_extensions(&self) {
-        use winit::os::unix::WindowExt;
+        use glutin::winit::os::unix::WindowExt;
         use x11_dl::xlib::{self, XA_CARDINAL, PropModeReplace};
         use std::ffi::{CStr};
         use std::ptr;
         use libc::getpid;
 
-        let xlib_display = self.window.as_winit_window().get_xlib_display();
-        let xlib_window = self.window.as_winit_window().get_xlib_window();
+        let xlib_display = self.window.get_xlib_display();
+        let xlib_window = self.window.get_xlib_window();
 
         if let (Some(xlib_window), Some(xlib_display)) = (xlib_window, xlib_display) {
             let xlib = xlib::Xlib::open().expect("get xlib");
