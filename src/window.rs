@@ -14,32 +14,17 @@
 use std::convert::From;
 use std::fmt::{self, Display};
 use std::ops::Deref;
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
 
 use gl;
-use glutin;
-
-/// Resize handling for Mac and maybe other platforms
-///
-/// This delegates to a statically referenced closure for convenience. The
-/// C-style callback doesn't receive a pointer or anything, so we are forced to
-/// use static storage.
-///
-/// This will fail horribly if more than one window is created. Don't do that :)
-fn window_resize_handler(width: u32, height: u32) {
-        RESIZE_CALLBACK.lock().unwrap().as_ref().map(|func| (*func)(width, height));
-}
-
-lazy_static! {
-    /// The resize callback invoked by `window_resize_handler`
-   static ref RESIZE_CALLBACK: Mutex<Option<Box<Fn(u32, u32) + 'static + Send>>> = Mutex::new(None);
-}
+use glutin::{self, EventsLoop, WindowBuilder, Event, CursorState, ControlFlow, ContextBuilder};
+use glutin::GlContext;
 
 /// Window errors
 #[derive(Debug)]
 pub enum Error {
     /// Error creating the window
-    Creation(glutin::CreationError),
+    ContextCreation(glutin::CreationError),
 
     /// Error manipulating the rendering context
     Context(glutin::ContextError),
@@ -52,13 +37,14 @@ type Result<T> = ::std::result::Result<T, Error>;
 ///
 /// Wraps the underlying windowing library to provide a stable API in Alacritty
 pub struct Window {
-    glutin_window: glutin::Window,
+    event_loop: EventsLoop,
+    window: glutin::GlWindow,
     cursor_visible: bool,
 }
 
 /// Threadsafe APIs for the window
 pub struct Proxy {
-    inner: glutin::WindowProxy,
+    inner: glutin::EventsLoopProxy,
 }
 
 /// Information about where the window is being displayed
@@ -152,14 +138,14 @@ impl<T: Display> Display for Points<T> {
 impl ::std::error::Error for Error {
     fn cause(&self) -> Option<&::std::error::Error> {
         match *self {
-            Error::Creation(ref err) => Some(err),
+            Error::ContextCreation(ref err) => Some(err),
             Error::Context(ref err) => Some(err),
         }
     }
 
     fn description(&self) -> &str {
         match *self {
-            Error::Creation(ref _err) => "Error creating glutin Window",
+            Error::ContextCreation(ref _err) => "Error creating gl context",
             Error::Context(ref _err) => "Error operating on render context",
         }
     }
@@ -168,8 +154,8 @@ impl ::std::error::Error for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            Error::Creation(ref err) => {
-                write!(f, "Error creating glutin::Window; {}", err)
+            Error::ContextCreation(ref err) => {
+                write!(f, "Error creating GL context; {}", err)
             },
             Error::Context(ref err) => {
                 write!(f, "Error operating on render context; {}", err)
@@ -180,7 +166,7 @@ impl Display for Error {
 
 impl From<glutin::CreationError> for Error {
     fn from(val: glutin::CreationError) -> Error {
-        Error::Creation(val)
+        Error::ContextCreation(val)
     }
 }
 
@@ -197,28 +183,24 @@ impl Window {
     pub fn new(
         title: &str
     ) -> Result<Window> {
-        /// Create a glutin::Window
-        let mut window = glutin::WindowBuilder::new()
-            .with_vsync()
-            .with_title(title)
-            .build()?;
-
-        /// Set the glutin window resize callback for *this* window. The
-        /// function pointer must be a C-style callback. This sets such a
-        /// callback which simply delegates to a statically referenced Rust
-        /// closure.
-        window.set_window_resize_callback(Some(window_resize_handler as fn(u32, u32)));
+        let event_loop = EventsLoop::new();
+        let window = WindowBuilder::new()
+            .with_title(title);
+        let context = ContextBuilder::new()
+            .with_vsync(true);
+        let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
 
         /// Set OpenGL symbol loader
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
-        /// Make the window's context current so OpenGL operations can run
+        /// Make the context current so OpenGL operations can run
         unsafe {
             window.make_current()?;
         }
 
         let window = Window {
-            glutin_window: window,
+            event_loop: event_loop,
+            window: window,
             cursor_visible: true,
         };
 
@@ -233,74 +215,66 @@ impl Window {
     /// rasterization depend on DPI and scale factor.
     pub fn device_properties(&self) -> DeviceProperties {
         DeviceProperties {
-            scale_factor: self.glutin_window.hidpi_factor(),
+            scale_factor: self.window.hidpi_factor(),
         }
     }
 
-    /// Set the window resize callback
-    ///
-    /// Pass a `move` closure which will be called with the new width and height
-    /// when the window is resized. According to the glutin docs, this can be
-    /// used to draw during resizing.
-    ///
-    /// This method takes self mutably to ensure there's no race condition
-    /// setting the callback.
-    pub fn set_resize_callback<F: Fn(u32, u32) + 'static + Send>(&mut self, func: F) {
-        let mut guard = RESIZE_CALLBACK.lock().unwrap();
-        *guard = Some(Box::new(func));
-    }
-
     pub fn inner_size_pixels(&self) -> Option<Size<Pixels<u32>>> {
-        self.glutin_window
+        self.window
             .get_inner_size_pixels()
             .map(|(w, h)| Size { width: Pixels(w), height: Pixels(h) })
     }
 
     #[inline]
     pub fn hidpi_factor(&self) -> f32 {
-        self.glutin_window.hidpi_factor()
+        self.window.hidpi_factor()
     }
 
     #[inline]
     pub fn create_window_proxy(&self) -> Proxy {
         Proxy {
-            inner: self.glutin_window.create_window_proxy(),
+            inner: self.event_loop.create_proxy(),
         }
     }
 
     #[inline]
     pub fn swap_buffers(&self) -> Result<()> {
-        self.glutin_window
+        self.window
             .swap_buffers()
             .map_err(From::from)
     }
 
     /// Poll for any available events
     #[inline]
-    pub fn poll_events(&self) -> glutin::PollEventsIterator {
-        self.glutin_window.poll_events()
+    pub fn poll_events<F>(&mut self, func: F)
+        where F: FnMut(Event)
+    {
+        self.event_loop.poll_events(func);
     }
 
     /// Block waiting for events
-    ///
-    /// FIXME should return our own type
     #[inline]
-    pub fn wait_events(&self) -> glutin::WaitEventsIterator {
-        self.glutin_window.wait_events()
+    pub fn wait_events<F>(&mut self, func: F)
+        where F: FnMut(Event) -> ControlFlow
+    {
+        self.event_loop.run_forever(func);
     }
 
     /// Set the window title
     #[inline]
     pub fn set_title(&self, title: &str) {
-        self.glutin_window.set_title(title);
+        self.window.set_title(title);
     }
 
     /// Set cursor visible
     pub fn set_cursor_visible(&mut self, visible: bool) {
         if visible != self.cursor_visible {
             self.cursor_visible = visible;
-            self.glutin_window.set_cursor_state(if visible { glutin::CursorState::Normal }
-                                                else { glutin::CursorState::Hide }).unwrap();
+            self.window.set_cursor_state(if visible {
+                CursorState::Normal
+            } else {
+                CursorState::Hide
+            }).unwrap();
         }
     }
 
@@ -308,7 +282,7 @@ impl Window {
     pub fn get_window_id(&self) -> Option<usize> {
         use glutin::os::unix::WindowExt;
 
-        match self.glutin_window.get_xlib_window() {
+        match self.window.get_xlib_window() {
             Some(xlib_window) => Some(xlib_window as usize),
             None => None
         }
@@ -330,14 +304,14 @@ impl OsExtensions for Window { }
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
 impl OsExtensions for Window {
     fn run_os_extensions(&self) {
-        use ::glutin::os::unix::WindowExt;
-        use ::x11_dl::xlib::{self, XA_CARDINAL, PropModeReplace};
-        use ::std::ffi::{CStr};
-        use ::std::ptr;
-        use ::libc::getpid;
+        use glutin::os::unix::WindowExt;
+        use x11_dl::xlib::{self, XA_CARDINAL, PropModeReplace};
+        use std::ffi::{CStr};
+        use std::ptr;
+        use libc::getpid;
 
-        let xlib_display = self.glutin_window.get_xlib_display();
-        let xlib_window = self.glutin_window.get_xlib_window();
+        let xlib_display = self.window.get_xlib_display();
+        let xlib_window = self.window.get_xlib_window();
 
         if let (Some(xlib_window), Some(xlib_display)) = (xlib_window, xlib_display) {
             let xlib = xlib::Xlib::open().expect("get xlib");
@@ -370,7 +344,7 @@ impl Proxy {
     /// This is useful for triggering a draw when the renderer would otherwise
     /// be waiting on user input.
     pub fn wakeup_event_loop(&self) {
-        self.inner.wakeup_event_loop();
+        self.inner.wakeup().unwrap();
     }
 }
 
@@ -381,6 +355,6 @@ pub trait SetInnerSize<T> {
 impl SetInnerSize<Pixels<u32>> for Window {
     fn set_inner_size<T: ToPoints>(&mut self, size: &T) {
         let size = size.to_points(self.hidpi_factor());
-        self.glutin_window.set_inner_size(*size.width as _, *size.height as _);
+        self.window.set_inner_size(*size.width as _, *size.height as _);
     }
 }

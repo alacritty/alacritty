@@ -24,9 +24,8 @@ use std::process::Command;
 use std::time::Instant;
 
 use copypasta::{Clipboard, Load, Buffer};
-use glutin::{ElementState, VirtualKeyCode, MouseButton};
-use glutin::{Mods, mods};
-use glutin::{TouchPhase, MouseScrollDelta};
+use glutin::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollDelta};
+use glutin::ModifiersState;
 
 use config;
 use event::{ClickState, Mouse};
@@ -60,6 +59,9 @@ pub trait ActionContext {
     fn line_selection(&mut self, point: Point);
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse_coords(&self) -> Option<Point>;
+    fn received_count(&mut self) -> &mut usize;
+    fn suppress_chars(&mut self) -> &mut bool;
+    fn last_modifiers(&mut self) -> &mut ModifiersState;
 }
 
 /// Describes a state and action to take in that state
@@ -68,7 +70,7 @@ pub trait ActionContext {
 #[derive(Debug, Clone)]
 pub struct Binding<T> {
     /// Modifier keys required to activate binding
-    pub mods: Mods,
+    pub mods: ModifiersState,
 
     /// String to send to pty if mods and mode match
     pub action: Action,
@@ -96,7 +98,7 @@ impl<T: Eq> Binding<T> {
     fn is_triggered_by(
         &self,
         mode: TermMode,
-        mods: &Mods,
+        mods: &ModifiersState,
         input: &T
     ) -> bool {
         // Check input first since bindings are stored in one big list. This is
@@ -126,9 +128,15 @@ impl<T> Binding<T> {
         self.notmode.is_empty() || !mode.intersects(self.notmode)
     }
 
+    /// Check that two mods descriptions for equivalence
+    ///
+    /// Optimized to use single check instead of four (one per modifier)
     #[inline]
-    fn mods_match(&self, mods: &Mods) -> bool {
-        self.mods.is_all() || *mods == self.mods
+    fn mods_match(&self, mods: &ModifiersState) -> bool {
+        debug_assert!(4 == mem::size_of::<ModifiersState>());
+        unsafe {
+            mem::transmute_copy::<_, u32>(&self.mods) == mem::transmute_copy::<_, u32>(mods)
+        }
     }
 }
 
@@ -414,37 +422,51 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return;
         }
 
-        self.process_mouse_bindings(mods::NONE, button);
+        self.process_mouse_bindings(&ModifiersState::default(), button);
     }
 
+    /// Process key input
+    ///
+    /// If a keybinding was run, returns true. Otherwise returns false.
     pub fn process_key(
         &mut self,
         state: ElementState,
         key: Option<VirtualKeyCode>,
-        mods: Mods,
-        string: Option<String>,
+        mods: &ModifiersState,
     ) {
-        if let Some(key) = key {
-            // Ignore release events
-            if state == ElementState::Released {
-                return;
-            }
+        match (key, state) {
+            (Some(key), ElementState::Pressed) => {
+                *self.ctx.last_modifiers() = *mods;
+                *self.ctx.received_count() = 0;
+                *self.ctx.suppress_chars() = false;
 
-            if self.process_key_bindings(mods, key) {
-                return;
-            }
-
+                if self.process_key_bindings(&mods, key) {
+                    *self.ctx.suppress_chars() = true;
+                }
+            },
+            _ => ()
         }
+    }
 
-        // Didn't process a binding; print the provided character
-        if let Some(mut string) = string {
-            // from ST
-            if string.len() == 1 && mods.contains(mods::ALT) {
-                string.insert(0, '\x1b');
+    /// Process a received character
+    pub fn received_char(&mut self, c: char) {
+        if !*self.ctx.suppress_chars() {
+            self.ctx.clear_selection();
+
+            let utf8_len = c.len_utf8();
+            if *self.ctx.received_count() == 0 && self.ctx.last_modifiers().alt && utf8_len == 1 {
+                self.ctx.write_to_pty(b"\x1b".to_vec());
             }
 
-            self.ctx.write_to_pty(string.into_bytes());
-            self.ctx.clear_selection();
+            let mut bytes = Vec::with_capacity(utf8_len);
+            unsafe {
+                bytes.set_len(utf8_len);
+                c.encode_utf8(&mut bytes[..]);
+            }
+
+            self.ctx.write_to_pty(bytes);
+
+            *self.ctx.received_count() += 1;
         }
     }
 
@@ -454,9 +476,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// for its action to be executed.
     ///
     /// Returns true if an action is executed.
-    fn process_key_bindings(&mut self, mods: Mods, key: VirtualKeyCode) -> bool {
+    fn process_key_bindings(&mut self, mods: &ModifiersState, key: VirtualKeyCode) -> bool {
         for binding in self.key_bindings {
-            if binding.is_triggered_by(self.ctx.terminal_mode(), &mods, &key) {
+            if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &key) {
                 // binding was triggered; run the action
                 binding.execute(&mut self.ctx);
                 return true;
@@ -472,9 +494,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// for its action to be executed.
     ///
     /// Returns true if an action is executed.
-    fn process_mouse_bindings(&mut self, mods: Mods, button: MouseButton) -> bool {
+    fn process_mouse_bindings(&mut self, mods: &ModifiersState, button: MouseButton) -> bool {
         for binding in self.mouse_bindings {
-            if binding.is_triggered_by(self.ctx.terminal_mode(), &mods, &button) {
+            if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &button) {
                 // binding was triggered; run the action
                 binding.execute(&mut self.ctx);
                 return true;
@@ -490,7 +512,7 @@ mod tests {
     use std::borrow::Cow;
     use std::time::Duration;
 
-    use glutin::{mods, VirtualKeyCode, Event, ElementState, MouseButton};
+    use glutin::{VirtualKeyCode, Event, ElementState, MouseButton, ModifiersState};
 
     use term::{SizeInfo, Term, TermMode, mode};
     use event::{Mouse, ClickState};
@@ -663,65 +685,65 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_nomode_shiftmod_require_shift,
-        binding: Binding { trigger: KEY, mods: mods::SHIFT, action: Action::from("\x1b[1;2D"), mode: mode::NONE, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: false, alt: false, logo: false }, action: Action::from("\x1b[1;2D"), mode: mode::NONE, notmode: mode::NONE },
         triggers: true,
         mode: mode::NONE,
-        mods: mods::SHIFT
+        mods: ModifiersState { shift: true, ctrl: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_shift,
-        binding: Binding { trigger: KEY, mods: mods::SHIFT, action: Action::from("\x1b[1;2D"), mode: mode::NONE, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: false, alt: false, logo: false }, action: Action::from("\x1b[1;2D"), mode: mode::NONE, notmode: mode::NONE },
         triggers: false,
         mode: mode::NONE,
-        mods: mods::NONE
+        mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_nomode_controlmod,
-        binding: Binding { trigger: KEY, mods: mods::CONTROL, action: Action::from("\x1b[1;5D"), mode: mode::NONE, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { ctrl: true, shift: false, alt: false, logo: false }, action: Action::from("\x1b[1;5D"), mode: mode::NONE, notmode: mode::NONE },
         triggers: true,
         mode: mode::NONE,
-        mods: mods::CONTROL
+        mods: ModifiersState { ctrl: true, shift: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_not_appcursor,
-        binding: Binding { trigger: KEY, mods: mods::ANY, action: Action::from("\x1b[D"), mode: mode::NONE, notmode: mode::APP_CURSOR },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: true, alt: true, logo: true }, action: Action::from("\x1b[D"), mode: mode::NONE, notmode: mode::APP_CURSOR },
         triggers: true,
         mode: mode::NONE,
-        mods: mods::NONE
+        mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_appcursormode_nomod_require_appcursor,
-        binding: Binding { trigger: KEY, mods: mods::ANY, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: true, alt: true, logo: true }, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
         triggers: true,
         mode: mode::APP_CURSOR,
-        mods: mods::NONE
+        mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_appcursor,
-        binding: Binding { trigger: KEY, mods: mods::ANY, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: true, alt: true, logo: true }, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
         triggers: false,
         mode: mode::NONE,
-        mods: mods::NONE
+        mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_appcursormode_appkeypadmode_nomod_require_appcursor,
-        binding: Binding { trigger: KEY, mods: mods::ANY, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: true, alt: true, logo: true }, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
         triggers: true,
         mode: mode::APP_CURSOR | mode::APP_KEYPAD,
-        mods: mods::NONE
+        mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_fail_with_extra_mods,
-        binding: Binding { trigger: KEY, mods: mods::SUPER, action: Action::from("arst"), mode: mode::NONE, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: true }, action: Action::from("arst"), mode: mode::NONE, notmode: mode::NONE },
         triggers: false,
         mode: mode::NONE,
-        mods: mods::SUPER | mods::ALT
+        mods: ModifiersState { shift: false, ctrl: false, alt: true, logo: true }
     }
 }

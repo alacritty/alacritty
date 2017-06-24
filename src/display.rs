@@ -211,7 +211,7 @@ impl Display {
         // Clear screen
         renderer.with_api(config, &size_info, 0. /* visual bell intensity */, |api| api.clear());
 
-        let mut display = Display {
+        Ok(Display {
             window: window,
             renderer: renderer,
             glyph_cache: glyph_cache,
@@ -220,16 +220,7 @@ impl Display {
             rx: rx,
             meter: Meter::new(),
             size_info: size_info,
-        };
-
-        let resize_tx = display.resize_channel();
-        let proxy = display.window.create_window_proxy();
-        display.window.set_resize_callback(move |width, height| {
-            let _ = resize_tx.send((width, height));
-            proxy.wakeup_event_loop();
-        });
-
-        Ok(display)
+        })
     }
 
     #[inline]
