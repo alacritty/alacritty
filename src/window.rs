@@ -42,7 +42,7 @@ type Result<T> = ::std::result::Result<T, Error>;
 pub struct Window {
     event_loop: EventsLoop,
     window: winit::Window,
-    context: glutin::Context,
+    pub context: glutin::Context,
     cursor_visible: bool,
 }
 
