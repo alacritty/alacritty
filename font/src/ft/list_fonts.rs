@@ -19,7 +19,7 @@ pub mod fc {
     use std::ops::Deref;
     use std::path::PathBuf;
 
-    use ffi_util::{ForeignType, ForeignTypeRef};
+    use foreign_types::{ForeignType, ForeignTypeRef};
 
     use libc::{c_char, c_int};
     use fontconfig::fontconfig as ffi;
@@ -47,11 +47,40 @@ pub mod fc {
         current: usize,
     }
 
-    ffi_type!(Pattern, PatternRef, FcPattern, FcPatternDestroy);
-    ffi_type!(Config, ConfigRef, FcConfig, FcConfigDestroy);
-    ffi_type!(ObjectSet, ObjectSetRef, FcObjectSet, FcObjectSetDestroy);
-    ffi_type!(FontSet, FontSetRef, FcFontSet, FcFontSetDestroy);
-    ffi_type!(CharSet, CharSetRef, FcCharSet, FcCharSetDestroy);
+    foreign_type! {
+        type CType = FcPattern;
+        fn drop = FcPatternDestroy;
+        pub struct Pattern;
+        pub struct PatternRef;
+    }
+
+    foreign_type! {
+        type CType = FcConfig;
+        fn drop = FcConfigDestroy;
+        pub struct Config;
+        pub struct ConfigRef;
+    }
+
+    foreign_type! {
+        type CType = FcObjectSet;
+        fn drop = FcObjectSetDestroy;
+        pub struct ObjectSet;
+        pub struct ObjectSetRef;
+    }
+
+    foreign_type! {
+        type CType = FcFontSet;
+        fn drop = FcFontSetDestroy;
+        pub struct FontSet;
+        pub struct FontSetRef;
+    }
+
+    foreign_type! {
+        type CType = FcCharSet;
+        fn drop = FcCharSetDestroy;
+        pub struct CharSet;
+        pub struct CharSetRef;
+    }
 
     impl ObjectSet {
         #[allow(dead_code)]
