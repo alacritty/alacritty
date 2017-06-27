@@ -19,9 +19,8 @@ use std::cmp::min;
 use freetype::{self, Library, Face};
 
 
-mod list_fonts;
+mod fc;
 
-use self::list_fonts::fc;
 use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight, Slant, Style};
 
 /// Rasterizes glyphs for a single font face.
