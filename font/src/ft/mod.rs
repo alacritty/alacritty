@@ -19,7 +19,7 @@ use std::cmp::min;
 use freetype::{self, Library, Face};
 
 
-mod fc;
+pub mod fc;
 
 use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight, Slant, Style};
 
@@ -142,7 +142,7 @@ impl FreeTypeRasterizer {
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
 
-        if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
+        if let (Some(path), Some(index)) = (font.file(0), font.index().nth(0)) {
             return Ok(self.library.new_face(path, index)?);
         }
 
@@ -160,7 +160,7 @@ impl FreeTypeRasterizer {
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
-        if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
+        if let (Some(path), Some(index)) = (font.file(0), font.index().nth(0)) {
             println!("got font path={:?}", path);
             Ok(self.library.new_face(path, index)?)
         }
@@ -293,7 +293,7 @@ impl FreeTypeRasterizer {
         let config = fc::Config::get_current();
         match fc::font_match(config, &mut pattern) {
             Some(font) => {
-                if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
+                if let (Some(path), Some(index)) = (font.file(0), font.index().nth(0)) {
                     match self.keys.get(&path) {
                         // We've previously loaded this font, so don't
                         // load it again.
