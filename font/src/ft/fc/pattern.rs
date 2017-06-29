@@ -12,20 +12,308 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::ptr;
+use std::fmt;
 use std::ffi::{CStr, CString};
 use std::path::PathBuf;
 use std::str;
+use std::mem;
 
 use libc::{c_char, c_int};
-use foreign_types::{ForeignTypeRef};
+use foreign_types::{ForeignType, ForeignTypeRef};
 
 use super::ffi::FcResultMatch;
 use super::ffi::{FcPatternDestroy, FcPatternAddCharSet};
 use super::ffi::{FcPatternGetString, FcPatternCreate, FcPatternAddString};
 use super::ffi::{FcPatternGetInteger, FcPatternAddInteger};
 use super::ffi::{FcChar8, FcPattern, FcDefaultSubstitute, FcConfigSubstitute};
+use super::ffi::{FcFontRenderPrepare, FcPatternGetBool, FcBool};
 
-use super::{MatchKind, ConfigRef, CharSetRef, Weight, Slant};
+use super::{MatchKind, ConfigRef, CharSetRef, Weight, Slant, Width, Rgba, HintStyle, LcdFilter};
+
+pub struct StringPropertyIter<'a> {
+    pattern: &'a PatternRef,
+    object: &'a [u8],
+    index: usize
+}
+
+impl<'a> StringPropertyIter<'a> {
+    fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> StringPropertyIter<'b> {
+        StringPropertyIter {
+            pattern: pattern,
+            object: object,
+            index: 0
+        }
+    }
+
+    fn get_value(&self, index: usize) -> Option<&'a str> {
+        let mut value: *mut FcChar8 = ptr::null_mut();
+
+        let result = unsafe {
+            FcPatternGetString(
+                self.pattern.as_ptr(),
+                self.object.as_ptr() as *mut c_char,
+                index as c_int,
+                &mut value
+            )
+        };
+
+        if result == FcResultMatch {
+            // Transmute here is to extend lifetime of the str to that of the iterator
+            //
+            // Potential unsafety? What happens if the pattern is modified while this ptr is
+            // borrowed out?
+            Some(unsafe {
+                mem::transmute(CStr::from_ptr(value as *const c_char).to_str().unwrap())
+            })
+        } else {
+            None
+        }
+    }
+}
+
+/// Iterator over interger properties
+pub struct BooleanPropertyIter<'a> {
+    pattern: &'a PatternRef,
+    object: &'a [u8],
+    index: usize
+}
+
+
+impl<'a> BooleanPropertyIter<'a> {
+    fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> BooleanPropertyIter<'b> {
+        BooleanPropertyIter {
+            pattern: pattern,
+            object: object,
+            index: 0
+        }
+    }
+
+    fn get_value(&self, index: usize) -> Option<bool> {
+        let mut value: FcBool = 0;
+
+        let result = unsafe {
+            FcPatternGetBool(
+                self.pattern.as_ptr(),
+                self.object.as_ptr() as *mut c_char,
+                index as c_int,
+                &mut value
+            )
+        };
+
+        if result == FcResultMatch {
+            Some(!(value == 0))
+        } else {
+            None
+        }
+    }
+}
+
+/// Iterator over interger properties
+pub struct IntPropertyIter<'a> {
+    pattern: &'a PatternRef,
+    object: &'a [u8],
+    index: usize
+}
+
+
+impl<'a> IntPropertyIter<'a> {
+    fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> IntPropertyIter<'b> {
+        IntPropertyIter {
+            pattern: pattern,
+            object: object,
+            index: 0
+        }
+    }
+
+    fn get_value(&self, index: usize) -> Option<isize> {
+        let mut value = 0 as c_int;
+
+        let result = unsafe {
+            FcPatternGetInteger(
+                self.pattern.as_ptr(),
+                self.object.as_ptr() as *mut c_char,
+                index as c_int,
+                &mut value
+            )
+        };
+
+        if result == FcResultMatch {
+            Some(value as isize)
+        } else {
+            None
+        }
+    }
+}
+
+pub struct RgbaPropertyIter<'a> {
+    inner: IntPropertyIter<'a>,
+}
+
+impl<'a> RgbaPropertyIter<'a> {
+    fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> RgbaPropertyIter<'b> {
+        RgbaPropertyIter {
+            inner: IntPropertyIter::new(pattern, object)
+        }
+    }
+
+    #[inline]
+    fn inner<'b>(&'b mut self) -> &'b mut IntPropertyIter<'a> {
+        &mut self.inner
+    }
+
+    fn get_value(&self, index: usize) -> Option<Rgba> {
+        self.inner.get_value(index)
+            .map(Rgba::from)
+    }
+}
+
+pub struct HintStylePropertyIter<'a> {
+    inner: IntPropertyIter<'a>,
+}
+
+impl<'a> HintStylePropertyIter<'a> {
+    fn new<'b>(pattern: &'b PatternRef) -> HintStylePropertyIter<'b> {
+        HintStylePropertyIter {
+            inner: IntPropertyIter::new(pattern, b"hintstyle\0")
+        }
+    }
+
+    #[inline]
+    fn inner<'b>(&'b mut self) -> &'b mut IntPropertyIter<'a> {
+        &mut self.inner
+    }
+
+    fn get_value(&self, index: usize) -> Option<HintStyle> {
+        self.inner.get_value(index)
+            .and_then(|hint_style| {
+                Some(match hint_style {
+                    0 => HintStyle::None,
+                    1 => HintStyle::Slight,
+                    2 => HintStyle::Medium,
+                    3 => HintStyle::Full,
+                    _ => return None
+                })
+            })
+    }
+}
+
+pub struct LcdFilterPropertyIter<'a> {
+    inner: IntPropertyIter<'a>,
+}
+
+impl<'a> LcdFilterPropertyIter<'a> {
+    fn new<'b>(pattern: &'b PatternRef) -> LcdFilterPropertyIter<'b> {
+        LcdFilterPropertyIter {
+            inner: IntPropertyIter::new(pattern, b"lcdfilter\0")
+        }
+    }
+
+    #[inline]
+    fn inner<'b>(&'b mut self) -> &'b mut IntPropertyIter<'a> {
+        &mut self.inner
+    }
+
+    fn get_value(&self, index: usize) -> Option<LcdFilter> {
+        self.inner.get_value(index)
+            .and_then(|hint_style| {
+                Some(match hint_style {
+                    0 => LcdFilter::None,
+                    1 => LcdFilter::Default,
+                    2 => LcdFilter::Light,
+                    3 => LcdFilter::Legacy,
+                    _ => return None
+                })
+            })
+    }
+}
+
+/// Implement debug for a property iterator
+macro_rules! impl_property_iter_debug {
+    ($iter:ty => $item:ty) => {
+        impl<'a> fmt::Debug for $iter {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "[")?;
+                for i in 0.. {
+                    match self.get_value(i) {
+                        Some(val) => {
+                            if i > 0 {
+                                write!(f, ", {}", val)?;
+                            } else {
+                                write!(f, "{}", val)?;
+                            }
+                        },
+                        _ => break
+                    }
+                }
+                write!(f, "]")
+            }
+        }
+    }
+}
+
+/// Implement Iterator and Debug for a property iterator
+macro_rules! impl_property_iter {
+    ($($iter:ty => $item:ty),*) => {
+        $(
+            impl<'a> Iterator for $iter {
+                type Item = $item;
+
+                fn next(&mut self) -> Option<Self::Item> {
+                    let res = self.get_value(self.index);
+                    self.index += 1;
+                    res
+                }
+
+                #[inline]
+                fn nth(&mut self, n: usize) -> Option<Self::Item> {
+                    self.index += n;
+                    self.next()
+                }
+            }
+            impl_property_iter_debug!($iter => $item);
+        )*
+    }
+}
+
+/// Implement Iterator and Debug for a property iterator which internally relies
+/// on another property iterator.
+macro_rules! impl_derived_property_iter {
+    ($($iter:ty => $item:ty),*) => {
+        $(
+            impl<'a> Iterator for $iter {
+                type Item = $item;
+
+                fn next(&mut self) -> Option<Self::Item> {
+                    let index = { self.inner().index };
+                    let res = self.get_value(index);
+                    self.inner().index += 1;
+                    res
+                }
+
+                #[inline]
+                fn nth(&mut self, n: usize) -> Option<Self::Item> {
+                    self.inner().index += n;
+                    self.next()
+                }
+            }
+            impl_property_iter_debug!($iter => $item);
+        )*
+    }
+}
+
+// Basic Iterators
+impl_property_iter! {
+    StringPropertyIter<'a> => &'a str,
+    IntPropertyIter<'a> => isize,
+    BooleanPropertyIter<'a> => bool
+}
+
+// Derived Iterators
+impl_derived_property_iter! {
+    RgbaPropertyIter<'a> => Rgba,
+    HintStylePropertyIter<'a> => HintStyle,
+    LcdFilterPropertyIter<'a> => LcdFilter
+}
 
 foreign_type! {
     type CType = FcPattern;
@@ -34,13 +322,20 @@ foreign_type! {
     pub struct PatternRef;
 }
 
-macro_rules! pattern_add_string {
-    ($($name:ident => $object:expr),*) => {
+macro_rules! pattern_string_accessors {
+    ($([$getter:ident, $setter:ident] => $object_name:expr),*) => {
         $(
             #[inline]
-            pub fn $name(&mut self, value: &str) -> bool {
+            pub fn $setter(&mut self, value: &str) -> bool {
                 unsafe {
-                    self.add_string($object, value)
+                    self.add_string($object_name, value)
+                }
+            }
+
+            #[inline]
+            pub fn $getter(&self) -> StringPropertyIter {
+                unsafe {
+                    self.get_string($object_name)
                 }
             }
         )*
@@ -66,18 +361,6 @@ impl Pattern {
     }
 }
 
-macro_rules! pattern_get_string {
-    ($($method:ident() => $property:expr),+) => {
-        $(
-            pub fn $method(&self, id: isize) -> Option<String> {
-                unsafe {
-                    self.get_string($property, id)
-                }
-            }
-        )+
-    };
-}
-
 macro_rules! pattern_add_integer {
     ($($method:ident() => $property:expr),+) => {
         $(
@@ -98,29 +381,25 @@ macro_rules! pattern_add_integer {
 macro_rules! pattern_get_integer {
     ($($method:ident() => $property:expr),+) => {
         $(
-            pub fn $method(&self, id: isize) -> Option<isize> {
-                let mut index = 0 as c_int;
+            pub fn $method(&self) -> IntPropertyIter {
                 unsafe {
-                    let result = FcPatternGetInteger(
-                        self.as_ptr(),
-                        $property.as_ptr() as *mut c_char,
-                        id as c_int,
-                        &mut index
-                    );
-
-                    if result == FcResultMatch {
-                        Some(index as isize)
-                    } else {
-                        None
-                    }
+                    self.get_integer($property)
                 }
             }
         )+
     };
 }
 
-unsafe fn char8_to_string(fc_str: *mut FcChar8) -> String {
-    str::from_utf8(CStr::from_ptr(fc_str as *const c_char).to_bytes()).unwrap().to_owned()
+macro_rules! boolean_getter {
+    ($($method:ident() => $property:expr),*) => {
+        $(
+            pub fn $method(&self) -> BooleanPropertyIter {
+                unsafe {
+                    self.get_boolean($property)
+                }
+            }
+        )*
+    }
 }
 
 impl PatternRef {
@@ -151,26 +430,54 @@ impl PatternRef {
         ) == 1
     }
 
-    unsafe fn get_string(&self, object: &[u8], index: isize) -> Option<String> {
-        let mut format: *mut FcChar8 = ptr::null_mut();
-
-        let result = FcPatternGetString(
-            self.as_ptr(),
-            object.as_ptr() as *mut c_char,
-            index as c_int,
-            &mut format
-        );
-
-        if result == FcResultMatch {
-            Some(char8_to_string(format))
-        } else {
-            None
-        }
+    unsafe fn get_string<'a>(&'a self, object: &'a [u8]) -> StringPropertyIter<'a> {
+        StringPropertyIter::new(self, object)
     }
 
-    pattern_add_string! {
-        add_family => b"family\0",
-        add_style => b"style\0"
+    unsafe fn get_integer<'a>(&'a self, object: &'a [u8]) -> IntPropertyIter<'a> {
+        IntPropertyIter::new(self, object)
+    }
+
+    unsafe fn get_boolean<'a>(&'a self, object: &'a [u8]) -> BooleanPropertyIter<'a> {
+        BooleanPropertyIter::new(self, object)
+    }
+
+    pub fn hintstyle<'a>(&'a self) -> HintStylePropertyIter<'a> {
+        HintStylePropertyIter::new(self)
+    }
+
+    pub fn lcdfilter<'a>(&'a self) -> LcdFilterPropertyIter<'a> {
+        LcdFilterPropertyIter::new(self)
+    }
+
+    boolean_getter! {
+        antialias() => b"antialias\0",
+        hinting() => b"hinting\0",
+        verticallayout() => b"verticallayout\0",
+        autohint() => b"autohint\0",
+        globaladvance() => b"globaladvance\0",
+        scalable() => b"scalable\0",
+        symbol() => b"symbol\0",
+        color() => b"color\0",
+        minspace() => b"minspace\0",
+        embolden() => b"embolden\0",
+        embeddedbitmap() => b"embeddedbitmap\0",
+        decorative() => b"decorative\0"
+    }
+
+    pattern_string_accessors! {
+        [family, add_family] => b"family\0",
+        [familylang, add_familylang] => b"familylang\0",
+        [style, add_style] => b"style\0",
+        [stylelang, add_stylelang] => b"stylelang\0",
+        [fullname, add_fullname] => b"fullname\0",
+        [fullnamelang, add_fullnamelang] => b"fullnamelang\0",
+        [foundry, add_foundry] => b"foundry\0",
+        [capability, add_capability] => b"capability\0",
+        [fontformat, add_fontformat] => b"fontformat\0",
+        [fontfeatures, add_fontfeatures] => b"fontfeatures\0",
+        [namelang, add_namelang] => b"namelang\0",
+        [postscriptname, add_postscriptname] => b"postscriptname\0"
     }
 
     pub fn set_slant(&mut self, slant: Slant) -> bool {
@@ -185,6 +492,36 @@ impl PatternRef {
         }
     }
 
+    pub fn set_width(&mut self, width: Width) -> bool {
+        unsafe {
+            self.add_integer(b"width\0", width.to_isize())
+        }
+    }
+
+    pub fn get_width(&self) -> Option<Width> {
+        unsafe {
+            self.get_integer(b"width\0")
+                .nth(0)
+                .map(Width::from)
+        }
+    }
+
+    pub fn rgba(&self) -> RgbaPropertyIter {
+        RgbaPropertyIter::new(self, b"rgba\0")
+    }
+
+    pub fn set_rgba(&self, rgba: Rgba) -> bool {
+        unsafe {
+            self.add_integer(b"rgba\0", rgba.to_isize())
+        }
+    }
+
+    pub fn render_prepare(&self, config: &ConfigRef, request: &PatternRef) -> Pattern {
+        unsafe {
+            let ptr = FcFontRenderPrepare(config.as_ptr(), request.as_ptr(), self.as_ptr());
+            Pattern::from_ptr(ptr)
+        }
+    }
 
     /// Add charset to the pattern
     ///
@@ -202,16 +539,10 @@ impl PatternRef {
         }
     }
 
-    pub fn file(&self, index: isize) -> Option<PathBuf> {
+    pub fn file(&self, index: usize) -> Option<PathBuf> {
         unsafe {
-            self.get_string(b"file\0", index)
+            self.get_string(b"file\0").nth(index)
         }.map(From::from)
-    }
-
-    pattern_get_string! {
-        fontformat() => b"fontformat\0",
-        family() => b"family\0",
-        style() => b"style\0"
     }
 
     pattern_get_integer! {
