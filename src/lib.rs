@@ -41,6 +41,7 @@ extern crate env_logger;
 extern crate fnv;
 extern crate font;
 extern crate glutin;
+extern crate half;
 extern crate libc;
 extern crate mio;
 extern crate mio_more;
