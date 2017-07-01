@@ -27,6 +27,7 @@ use gl::types::*;
 use gl;
 use index::{Line, Column, RangeInclusive};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
+use half::f16;
 
 use config::{self, Config, Delta};
 use term::{self, cell, RenderableCell};
@@ -125,14 +126,14 @@ pub struct ShaderProgram {
 #[derive(Debug, Clone)]
 pub struct Glyph {
     tex_id: GLuint,
-    top: f32,
-    left: f32,
-    width: f32,
-    height: f32,
-    uv_bot: f32,
-    uv_left: f32,
-    uv_width: f32,
-    uv_height: f32,
+    top: i16,
+    left: i16,
+    width: i16,
+    height: i16,
+    uv_bot: f16,
+    uv_left: f16,
+    uv_width: f16,
+    uv_height: f16,
 }
 
 /// Naïve glyph cache
@@ -281,29 +282,33 @@ impl GlyphCache {
 #[derive(Debug)]
 #[repr(C)]
 struct InstanceData {
-    // coords
-    col: f32,
-    row: f32,
+    // Grid coordinates of the cell
+    //
+    // By storing these as u16, it puts a limit on the max dimensions of the
+    // terminal to u16 max value. Practically speaking, this shouldn't be a
+    // problem.
+    col: u16,
+    row: u16,
     // glyph offset
-    left: f32,
-    top: f32,
+    left: i16,
+    top: i16,
     // glyph scale
-    width: f32,
-    height: f32,
+    width: i16,
+    height: i16,
     // uv offset
-    uv_left: f32,
-    uv_bot: f32,
+    uv_left: f16,
+    uv_bot: f16,
     // uv scale
-    uv_width: f32,
-    uv_height: f32,
+    uv_width: f16,
+    uv_height: f16,
     // color
-    r: f32,
-    g: f32,
-    b: f32,
+    r: u8,
+    g: u8,
+    b: u8,
     // background color
-    bg_r: f32,
-    bg_g: f32,
-    bg_b: f32,
+    bg_r: u8,
+    bg_g: u8,
+    bg_b: u8,
 }
 
 #[derive(Debug)]
@@ -366,8 +371,8 @@ impl Batch {
         }
 
         self.instances.push(InstanceData {
-            col: cell.column.0 as f32,
-            row: cell.line.0 as f32,
+            col: cell.column.0 as u16,
+            row: cell.line.0 as u16,
 
             top: glyph.top,
             left: glyph.left,
@@ -379,13 +384,13 @@ impl Batch {
             uv_width: glyph.uv_width,
             uv_height: glyph.uv_height,
 
-            r: cell.fg.r as f32,
-            g: cell.fg.g as f32,
-            b: cell.fg.b as f32,
+            r: cell.fg.r,
+            g: cell.fg.g,
+            b: cell.fg.b,
 
-            bg_r: cell.bg.r as f32,
-            bg_g: cell.bg.g as f32,
-            bg_b: cell.bg.b as f32,
+            bg_r: cell.bg.r,
+            bg_g: cell.bg.g,
+            bg_b: cell.bg.b,
         });
     }
 
@@ -490,38 +495,48 @@ impl QuadRenderer {
                            (BATCH_MAX * size_of::<InstanceData>()) as isize,
                            ptr::null(), gl::STREAM_DRAW);
             // coords
+            let mut size = 0;
             gl::VertexAttribPointer(1, 2,
-                                    gl::FLOAT, gl::FALSE,
+                                    gl::UNSIGNED_SHORT, gl::FALSE,
                                     size_of::<InstanceData>() as i32,
                                     ptr::null());
             gl::EnableVertexAttribArray(1);
             gl::VertexAttribDivisor(1, 1);
+            size += 2 * size_of::<u16>();
+
+
             // glyphoffset
             gl::VertexAttribPointer(2, 4,
-                                    gl::FLOAT, gl::FALSE,
+                                    gl::SHORT, gl::FALSE,
                                     size_of::<InstanceData>() as i32,
-                                    (2 * size_of::<f32>()) as *const _);
+                                    size as *const _);
             gl::EnableVertexAttribArray(2);
             gl::VertexAttribDivisor(2, 1);
+            size += 4 * size_of::<i16>();
+
             // uv
             gl::VertexAttribPointer(3, 4,
-                                    gl::FLOAT, gl::FALSE,
+                                    gl::HALF_FLOAT, gl::FALSE,
                                     size_of::<InstanceData>() as i32,
-                                    (6 * size_of::<f32>()) as *const _);
+                                    size as *const _);
             gl::EnableVertexAttribArray(3);
             gl::VertexAttribDivisor(3, 1);
+            size += 4 * size_of::<f16>();
+
             // color
             gl::VertexAttribPointer(4, 3,
-                                    gl::FLOAT, gl::FALSE,
+                                    gl::UNSIGNED_BYTE, gl::FALSE,
                                     size_of::<InstanceData>() as i32,
-                                    (10 * size_of::<f32>()) as *const _);
+                                    size as *const _);
             gl::EnableVertexAttribArray(4);
             gl::VertexAttribDivisor(4, 1);
+            size += 3 * size_of::<u8>();
+
             // color
             gl::VertexAttribPointer(5, 3,
-                                    gl::FLOAT, gl::FALSE,
+                                    gl::UNSIGNED_BYTE, gl::FALSE,
                                     size_of::<InstanceData>() as i32,
-                                    (13 * size_of::<f32>()) as *const _);
+                                    size as *const _);
             gl::EnableVertexAttribArray(5);
             gl::VertexAttribDivisor(5, 1);
 
@@ -1319,14 +1334,14 @@ impl Atlas {
 
         Glyph {
             tex_id: self.id,
-            top: glyph.top as f32,
-            width: width as f32,
-            height: height as f32,
-            left: glyph.left as f32,
-            uv_bot: uv_bot,
-            uv_left: uv_left,
-            uv_width: uv_width,
-            uv_height: uv_height,
+            top: glyph.top as i16,
+            width: width as i16,
+            height: height as i16,
+            left: glyph.left as i16,
+            uv_bot: f16::from_f32(uv_bot),
+            uv_left: f16::from_f32(uv_left),
+            uv_width: f16::from_f32(uv_width),
+            uv_height: f16::from_f32(uv_height),
         }
     }
 
