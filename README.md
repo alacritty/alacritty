@@ -138,6 +138,16 @@ missing, please open an issue.
 pkg install cmake freetype2 fontconfig xclip pkgconf
 ```
 
+#### Solus
+
+On [Solus](https://solus-project.com/), you need a few extra libraries to build Alacritty. Here's a
+`eopkg` command that should install all of them. If something is still found
+to be missing, please open an issue.
+
+```sh
+sudo eopkg install freetype2-devel fontconfig-devel
+```
+
 #### Other
 
 If you build Alacritty on another distribution, we would love some help
