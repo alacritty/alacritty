@@ -38,6 +38,7 @@ extern crate errno;
 extern crate fnv;
 extern crate font;
 extern crate glutin;
+extern crate half;
 extern crate libc;
 extern crate mio;
 extern crate notify;
