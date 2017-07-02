@@ -64,13 +64,6 @@ impl DrainResult {
             _ => false
         }
     }
-
-    pub fn is_empty(&self) -> bool {
-        match *self {
-            DrainResult::Empty => true,
-            _ => false
-        }
-    }
 }
 
 /// All of the mutable state needed to run the event loop
@@ -256,52 +249,59 @@ impl<Io> EventLoop<Io>
     ) -> io::Result<()>
         where W: Write
     {
+        const MAX_READ: usize = 65_536;
+        let mut processed = 0;
+        let mut terminal = None;
+
         loop {
             match self.pty.read(&mut buf[..]) {
                 Ok(0) => break,
                 Ok(got) => {
+                    // Record bytes read; used to limit time spent in pty_read.
+                    processed += got;
+
+                    // Send a copy of bytes read to a subscriber. Used for
+                    // example with ref test recording.
                     writer = writer.map(|w| {
-                        w.write_all(&buf[..got]).unwrap(); w
+                        w.write_all(&buf[..got]).unwrap();
+                        w
                     });
 
-                    let mut terminal = self.terminal.lock();
+                    // Get reference to terminal. Lock is acquired on initial
+                    // iteration and held until there's no bytes left to parse
+                    // or we've reached MAX_READ.
+                    if terminal.is_none() {
+                        terminal = Some(self.terminal.lock());
+                    }
+                    let terminal = terminal.as_mut().unwrap();
+
+                    // Run the parser
                     for byte in &buf[..got] {
-                        state.parser.advance(&mut *terminal, *byte, &mut self.pty);
+                        state.parser.advance(&mut **terminal, *byte, &mut self.pty);
                     }
 
-                    // Only request a draw if one hasn't already been requested.
-                    //
-                    // This is a performance optimization even if only for X11
-                    // which is very expensive to hammer on the even loop wakeup
-                    if !terminal.dirty {
-                        self.display.notify();
-                        terminal.dirty = true;
-
-                        // Break for writing
-                        //
-                        // Want to prevent case where reading always returns
-                        // data and sequences like `C-c` cannot be sent.
-                        //
-                        // Doing this check in !terminal.dirty will prevent the
-                        // condition from being checked overzealously.
-                        //
-                        // Break if `drain_recv_channel` signals there is work to do or
-                        // shutting down.
-                        if state.writing.is_some()
-                            || !state.write_list.is_empty()
-                            || !self.drain_recv_channel(state).is_empty()
-                        {
-                            break;
-                        }
+                    // Exit if we've processed enough bytes
+                    if processed > MAX_READ {
+                        break;
                     }
                 },
                 Err(err) => {
                     match err.kind() {
                         ErrorKind::Interrupted |
-                        ErrorKind::WouldBlock => break,
+                        ErrorKind::WouldBlock => {
+                            break;
+                        },
                         _ => return Err(err),
                     }
                 }
+            }
+        }
+
+        // Only request a draw if one hasn't already been requested.
+        if let Some(mut terminal) = terminal {
+            if !terminal.dirty {
+                self.display.notify();
+                terminal.dirty = true;
             }
         }
 
