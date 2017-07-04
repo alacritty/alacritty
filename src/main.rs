@@ -123,6 +123,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // consumes it periodically.
     let event_loop = EventLoop::new(
         terminal.clone(),
+        &config,
         display.notifier(),
         pty.reader(),
         options.ref_test,

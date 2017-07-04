@@ -114,6 +114,7 @@ impl<'a> RenderableCellsIter<'a> {
         cursor: &'b Point,
         colors: &'b color::List,
         mode: TermMode,
+        cursor_blink: bool,
         config: &'b Config,
         selection: Option<RangeInclusive<index::Linear>>,
         cursor_style: CursorStyle,
@@ -131,7 +132,7 @@ impl<'a> RenderableCellsIter<'a> {
             config: config,
             colors: colors,
             cursor_cells: ArrayDeque::new(),
-        }.initialize(cursor_style)
+        }.initialize(cursor_style, cursor_blink)
     }
 
     fn populate_block_cursor(&mut self) {
@@ -242,8 +243,8 @@ impl<'a> RenderableCellsIter<'a> {
         });
     }
 
-    fn initialize(mut self, cursor_style: CursorStyle) -> Self {
-        if self.cursor_is_visible() {
+    fn initialize(mut self, cursor_style: CursorStyle, blink: bool) -> Self {
+        if !blink && self.cursor_is_visible() {
             match cursor_style {
                 CursorStyle::Block => {
                     self.populate_block_cursor();
@@ -391,19 +392,20 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 pub mod mode {
     bitflags! {
         pub flags TermMode: u16 {
-            const SHOW_CURSOR         = 0b000000000001,
-            const APP_CURSOR          = 0b000000000010,
-            const APP_KEYPAD          = 0b000000000100,
-            const MOUSE_REPORT_CLICK  = 0b000000001000,
-            const BRACKETED_PASTE     = 0b000000010000,
-            const SGR_MOUSE           = 0b000000100000,
-            const MOUSE_MOTION        = 0b000001000000,
-            const LINE_WRAP           = 0b000010000000,
-            const LINE_FEED_NEW_LINE  = 0b000100000000,
-            const ORIGIN              = 0b001000000000,
-            const INSERT              = 0b010000000000,
-            const FOCUS_IN_OUT        = 0b100000000000,
-            const ANY                 = 0b111111111111,
+            const SHOW_CURSOR         = 0b0000000000001,
+            const APP_CURSOR          = 0b0000000000010,
+            const APP_KEYPAD          = 0b0000000000100,
+            const MOUSE_REPORT_CLICK  = 0b0000000001000,
+            const BRACKETED_PASTE     = 0b0000000010000,
+            const SGR_MOUSE           = 0b0000000100000,
+            const MOUSE_MOTION        = 0b0000001000000,
+            const LINE_WRAP           = 0b0000010000000,
+            const LINE_FEED_NEW_LINE  = 0b0000100000000,
+            const ORIGIN              = 0b0001000000000,
+            const INSERT              = 0b0010000000000,
+            const FOCUS_IN_OUT        = 0b0100000000000,
+            const CURSOR_BLINK        = 0b1000000000000,
+            const ANY                 = 0b1111111111111,
             const NONE                = 0,
         }
     }
@@ -677,6 +679,9 @@ pub struct Term {
     colors: color::List,
 
     cursor_style: CursorStyle,
+
+    pub cursor_blink_interval: Duration,
+    pub cursor_blink: bool,
 }
 
 /// Terminal size info
@@ -741,6 +746,10 @@ impl Term {
         self.next_title.take()
     }
 
+    pub fn toggle_blink_state(&mut self) {
+        self.cursor_blink = !self.cursor_blink;
+    }
+
     pub fn new(config : &Config, size: SizeInfo) -> Term {
         let template = Cell::default();
 
@@ -756,11 +765,19 @@ impl Term {
         let alt = grid.clone();
         let scroll_region = Line(0)..grid.num_lines();
 
+        let mut mode = TermMode::default();
+        if config.blink_enabled() {
+            println!("enable blink from term");
+            mode.insert(mode::CURSOR_BLINK);
+        }
+
         Term {
             next_title: None,
             dirty: false,
             visual_bell: VisualBell::new(config),
             input_needs_wrap: false,
+            cursor_blink_interval: config.cursor_blink_interval(),
+            cursor_blink: false,
             grid: grid,
             alt_grid: alt,
             alt: false,
@@ -769,7 +786,7 @@ impl Term {
             cursor_save: Default::default(),
             cursor_save_alt: Default::default(),
             tabs: tabs,
-            mode: Default::default(),
+            mode: mode,
             scroll_region: scroll_region,
             size_info: size,
             empty_cell: template,
@@ -949,6 +966,7 @@ impl Term {
             &self.cursor.point,
             &self.colors,
             self.mode,
+            self.cursor_blink,
             config,
             selection,
             self.cursor_style

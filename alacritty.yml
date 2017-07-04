@@ -36,6 +36,10 @@ dpi:
 # Display tabs using this many cells (changes require restart)
 tabspaces: 8
 
+# Cursor blinking
+cursor_blink_interval: 300
+cursor_blink: true
+
 # When true, bold text is drawn using the bright variant of colors.
 draw_bold_text_with_bright_colors: true
 
