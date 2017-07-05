@@ -27,7 +27,7 @@
 //!     let _sampler = meter.sampler();
 //! }
 //!
-//! // Get the moving average. The meter tracks a fixed number of samles, and
+//! // Get the moving average. The meter tracks a fixed number of samples, and
 //! // the average won't mean much until it's filled up at least once.
 //! println!("Average time: {}", meter.average());
 
