@@ -244,12 +244,12 @@ fn default_padding() -> Delta {
 }
 
 #[cfg(not(target_os="macos"))]
-static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty.yml");
+static DEFAULT_CONFIG: &'static str = include_str!("../alacritty.yml");
 #[cfg(target_os="macos")]
-static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty_macos.yml");
+static DEFAULT_CONFIG: &'static str = include_str!("../alacritty_macos.yml");
 
 fn default_config() -> Config {
-    serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG)
+    serde_yaml::from_str(DEFAULT_CONFIG)
         .expect("default config is valid")
 }
 
@@ -993,11 +993,13 @@ impl Config {
     /// 2. $XDG_CONFIG_HOME/alacritty.yml
     /// 3. $HOME/.config/alacritty/alacritty.yml
     /// 4. $HOME/.alacritty.yml
-    pub fn installed_config() -> Option<Cow<'static, Path>> {
+    pub fn existing_path() -> Option<Cow<'static, Path>> {
         // Try using XDG location by default
         ::xdg::BaseDirectories::with_prefix("alacritty")
             .ok()
+            // $XDG_CONFIG_HOME/alacritty/alacritty.yml
             .and_then(|xdg| xdg.find_config_file("alacritty.yml"))
+            // $XDG_CONFIG_HOME/alacritty.yml
             .or_else(|| {
                 ::xdg::BaseDirectories::new().ok().and_then(|fallback| {
                     fallback.find_config_file("alacritty.yml")
@@ -1023,9 +1025,13 @@ impl Config {
 
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
         let path = ::xdg::BaseDirectories::with_prefix("alacritty")
-            .map_err(|err| io::Error::new(io::ErrorKind::NotFound, ::std::error::Error::description(&err)))
+            .map_err(|err| io::Error::new(io::ErrorKind::NotFound, Box::new(err)))
             .and_then(|p| p.place_config_file("alacritty.yml"))?;
-        File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
+
+        File::create(&path)?
+            .write_all(DEFAULT_CONFIG.as_bytes())?;
+        warn!("Wrote default config to {}", path.display());
+
         Ok(path.into())
     }
 
@@ -1129,13 +1135,15 @@ impl Config {
     /// generate a default file. If an empty configuration file is given, i.e.
     /// /dev/null, we load the compiled-in defaults.
     pub fn load(options: &::cli::Options) -> Config {
+        // Get config path
         let config_path = options.config_path()
-            .or_else(|| Config::installed_config())
+            .or_else(|| Config::existing_path())
             .unwrap_or_else(|| {
                 Config::write_defaults()
                     .unwrap_or_else(|err| die!("Write defaults config failure: {}", err))
             });
 
+        // Load config from path
         Config::load_from(&*config_path)
             .map(|config| {
                 if let Some(path) = config.path().as_ref() {
@@ -1147,12 +1155,8 @@ impl Config {
             .unwrap_or_else(|err| {
                 use self::Error::*;
                 match err {
-                    NotFound => {
-                        die!("Config file not found at: {}", config_path.display());
-                    },
-                    Empty => {
-                        err_println!("Empty config; Loading defaults");
-                        Config::default()
+                    NotFound | Empty => {
+                        die!("Config file empty or not found at: {}", config_path.display());
                     },
                     _ => die!("{}", err),
                 }
