@@ -91,12 +91,6 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // The display manages a window and can draw the terminal
     let mut display = Display::new(&config, &options)?;
 
-    info!(
-        "PTY Dimensions: {:?} x {:?}",
-        display.size().lines(),
-        display.size().cols()
-    );
-
     // Create the terminal
     //
     // This object contains all of the state about what's being displayed. It's

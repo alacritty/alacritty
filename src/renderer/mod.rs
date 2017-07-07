@@ -964,8 +964,6 @@ impl ShaderProgram {
             -1., 1.);
         let projection: [[f32; 4]; 4] = ortho.into();
 
-        info!("width: {}, height: {}", width, height);
-
         unsafe {
             gl::UniformMatrix4fv(self.u_projection,
                                  1, gl::FALSE, projection.as_ptr() as *const _);

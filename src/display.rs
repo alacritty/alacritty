@@ -144,7 +144,7 @@ impl Display {
             .expect("glutin returns window size");
         let dpr = window.hidpi_factor();
 
-        info!("device_pixel_ratio: {}", dpr);
+        debug!("device_pixel_ratio: {}", dpr);
 
         let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr, config.use_thin_strokes())?;
 
@@ -153,7 +153,7 @@ impl Display {
 
         // Initialize glyph cache
         let glyph_cache = {
-            info!("Initializing glyph cache");
+            debug!("Initializing glyph cache");
             let init_start = ::std::time::Instant::now();
 
             let cache = renderer.with_loader(|mut api| {
@@ -162,7 +162,7 @@ impl Display {
 
             let stop = init_start.elapsed();
             let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;
-            info!("Finished initializing glyph cache in {}", stop_f);
+            debug!("Finished initializing glyph cache in {}", stop_f);
 
             cache
         };
@@ -180,7 +180,7 @@ impl Display {
         let width = cell_width * dimensions.columns_u32();
         let height = cell_height * dimensions.lines_u32();
         let size = Size { width: Pixels(width), height: Pixels(height) };
-        info!("set_inner_size: {}", size);
+        trace!("set_inner_size: {}", size);
 
         let viewport_size = Size {
             width: Pixels(width + 2 * config.padding().x as u32),
@@ -188,7 +188,7 @@ impl Display {
         };
         window.set_inner_size(&viewport_size);
         renderer.resize(viewport_size.width.0 as _, viewport_size.height.0 as _);
-        info!("Cell Size: ({} x {})", cell_width, cell_height);
+        debug!("Cell Size: ({} x {})", cell_width, cell_height);
 
         let size_info = SizeInfo {
             width: viewport_size.width.0 as f32,
