@@ -1123,7 +1123,43 @@ impl Config {
         self.hide_cursor_when_typing
     }
 
-    pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
+    /// Load configuration
+    ///
+    /// If a configuration file is given as a command line argument we don't
+    /// generate a default file. If an empty configuration file is given, i.e.
+    /// /dev/null, we load the compiled-in defaults.
+    pub fn load(options: &::cli::Options) -> Config {
+        let config_path = options.config_path()
+            .or_else(|| Config::installed_config())
+            .unwrap_or_else(|| {
+                Config::write_defaults()
+                    .unwrap_or_else(|err| die!("Write defaults config failure: {}", err))
+            });
+
+        Config::load_from(&*config_path)
+            .map(|config| {
+                if let Some(path) = config.path().as_ref() {
+                    info!("Config loaded from {}", path.display());
+                }
+
+                config
+            })
+            .unwrap_or_else(|err| {
+                use self::Error::*;
+                match err {
+                    NotFound => {
+                        die!("Config file not found at: {}", config_path.display());
+                    },
+                    Empty => {
+                        err_println!("Empty config; Loading defaults");
+                        Config::default()
+                    },
+                    _ => die!("{}", err),
+                }
+            })
+    }
+
+    fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
         let path = path.into();
         let raw = Config::read_file(path.as_path())?;
         let mut config: Config = serde_yaml::from_str(&raw)?;
