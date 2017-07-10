@@ -18,6 +18,7 @@
 use std::cmp::{Ord, Ordering};
 use std::fmt;
 use std::ops::{self, Deref, Add, Range};
+use num::{Zero, One};
 
 /// The side of a cell
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -58,7 +59,40 @@ impl Ord for Point {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Line(pub usize);
 
+impl Line {
+    pub fn to_absolute(self) -> AbsoluteLine {
+        AbsoluteLine(self.0)
+    }
+}
+
 impl fmt::Display for Line {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Zero for Line {
+    fn zero() -> Self {
+        Line(0)
+    }
+    fn is_zero(&self) -> bool {
+        *self == Line(0)
+    }
+}
+
+impl One for Line {
+    fn one() -> Self {
+        Line(1)
+    }
+}
+
+/// A line
+///
+/// Newtype to avoid passing values incorrectly
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct AbsoluteLine(pub usize);
+
+impl fmt::Display for AbsoluteLine {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -327,6 +361,15 @@ macro_rules! ops {
         deref!($ty, usize);
         forward_ref_binop!(impl Add, add for $ty, $ty);
 
+        impl ops::Mul<$ty> for $ty {
+            type Output = $ty;
+
+            #[inline]
+            fn mul(self, rhs: $ty) -> $ty {
+                $construct(self.0 * rhs.0)
+            }
+        }
+
         impl $ty {
             #[inline]
             #[allow(trivial_numeric_casts)]
@@ -443,6 +486,7 @@ macro_rules! ops {
 }
 
 ops!(Line, Line);
+ops!(AbsoluteLine, AbsoluteLine);
 ops!(Column, Column);
 ops!(Linear, Linear);
 
