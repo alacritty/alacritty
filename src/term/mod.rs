@@ -21,10 +21,11 @@ use std::time::{Duration, Instant};
 
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
+use owned_slice::TakeSlice;
 
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
 use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
-use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
+use index::{self, Point, Column, Line, AbsoluteLine, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{self, Span, Selection};
 use config::{Config, VisualBellAnimation};
 use Rgb;
@@ -93,6 +94,7 @@ impl<'a> selection::Dimensions for &'a Term {
 /// draw it, and reverted after drawing to maintain state.
 pub struct RenderableCellsIter<'a> {
     grid: &'a Grid<Cell>,
+    visible_region: Range<AbsoluteLine>,
     cursor: &'a Point,
     cursor_index: index::Linear,
     mode: TermMode,
@@ -122,6 +124,7 @@ impl<'a> RenderableCellsIter<'a> {
 
         RenderableCellsIter {
             grid: grid,
+            visible_region: grid.visible_region(),
             cursor: cursor,
             cursor_index: cursor_index,
             mode: mode,
@@ -340,7 +343,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 // Grab current state for this iteration
                 let line = self.line;
                 let column = self.column;
-                let cell = &self.grid[line][column];
+                let cell = &self.grid.get_absolute_line(self.visible_region.start + line.to_absolute())[column];
 
                 let index = Linear(line.0 * self.grid.num_cols().0 + column.0);
 
@@ -1125,7 +1128,7 @@ impl Term {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_down_relative(&mut self, origin: Line, lines: Line) {
-        trace!("scroll_down_relative: origin={}, lines={}", origin, lines);
+        println!("scroll_down_relative: origin={}, lines={}", origin, lines);
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
@@ -1147,7 +1150,7 @@ impl Term {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_up_relative(&mut self, origin: Line, lines: Line) {
-        trace!("scroll_up_relative: origin={}, lines={}", origin, lines);
+        println !("scroll_up_relative: origin={}, lines={}", origin, lines);
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
@@ -1161,6 +1164,28 @@ impl Term {
 
         // Scroll from origin to bottom less number of lines
         self.grid.scroll_up(origin..self.scroll_region.end, lines);
+    }
+
+    /// Moves the region that is currently being rendered..
+    /// In other words, this is scrolling :D
+    pub fn move_visible_region_up(&mut self, lines: AbsoluteLine) {
+        match self.grid.move_visible_region_up(lines) {
+            Ok(()) => self.dirty = true,
+            Err(e) => println!("Didn't scroll up because: {:?}", e)
+        }
+    }
+
+    pub fn move_visible_region_down(&mut self, lines: AbsoluteLine) {
+        match self.grid.move_visible_region_down(lines) {
+            Ok(()) => self.dirty = true,
+            Err(e) => println!("Didn't scroll down because: {:?}", e)
+        }
+    }
+
+    pub fn move_visible_region_to_bottom(&mut self) {
+        if let Err(e) = self.grid.move_visible_region_to_bottom() {
+            println!("Didn't scroll to bottom because: {:?}", e);
+        }
     }
 
     fn deccolm(&mut self) {
@@ -1516,8 +1541,15 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn scroll_up(&mut self, lines: Line) {
-        let origin = self.scroll_region.start;
-        self.scroll_up_relative(origin, lines);
+        let whole_screen = Line(0)..self.grid.num_lines();
+        if self.scroll_region == whole_screen {
+            println!("Perhaps we should just use the scrollback buffer?");
+            let template = self.empty_cell;
+            self.grid.insert_new_lines(lines, |c| c.reset(&template));
+        } else {
+            let origin = self.scroll_region.start;
+            self.scroll_up_relative(origin, lines);
+        }
     }
 
     #[inline]
@@ -1690,7 +1722,7 @@ impl ansi::Handler for Term {
                     cell.reset(&template);
                 }
                 if self.cursor.point.line < self.grid.num_lines() - 1 {
-                    for row in &mut self.grid[(self.cursor.point.line + 1)..] {
+                    for row in self.grid.index_range_from_mut(self.cursor.point.line + 1..) {
                         for cell in row {
                             cell.reset(&template);
                         }
@@ -1704,7 +1736,7 @@ impl ansi::Handler for Term {
                 // If clearing more than one line
                 if self.cursor.point.line > Line(1) {
                     // Fully clear all lines before the current line
-                    for row in &mut self.grid[..self.cursor.point.line] {
+                    for row in self.grid.index_range_to_mut(..self.cursor.point.line) {
                         for cell in row {
                             cell.reset(&template);
                         }
