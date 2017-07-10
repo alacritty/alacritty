@@ -29,7 +29,7 @@ use glutin::ModifiersState;
 
 use config;
 use event::{ClickState, Mouse};
-use index::{Line, Column, Side, Point};
+use index::{Line, AbsoluteLine, Column, Side, Point};
 use term::SizeInfo;
 use term::mode::{self, TermMode};
 use util::fmt::Red;
@@ -64,6 +64,9 @@ pub trait ActionContext {
     fn last_modifiers(&mut self) -> &mut ModifiersState;
     fn change_font_size(&mut self, delta: i8);
     fn reset_font_size(&mut self);
+    fn move_visible_region_up(&mut self, lines: AbsoluteLine);
+    fn move_visible_region_down(&mut self, lines: AbsoluteLine);
+    fn jump_to_bottom(&mut self);
 }
 
 /// Describes a state and action to take in that state
@@ -170,6 +173,12 @@ pub enum Action {
 
     /// Quits Alacritty.
     Quit,
+
+    /// Scrolls up
+    ScrollUp,
+
+    /// Scrolls down
+    ScrollDown
 }
 
 impl Action {
@@ -221,6 +230,14 @@ impl Action {
             }
             Action::ResetFontSize => {
                ctx.reset_font_size();
+            },
+            Action::ScrollUp => {
+                println!("Scrolling up!!! :D");
+                ctx.move_visible_region_up(AbsoluteLine(1));
+            },
+            Action::ScrollDown => {
+                println!("Scrolling down!!! :D");
+                ctx.move_visible_region_down(AbsoluteLine(1));
             }
         }
     }
@@ -491,6 +508,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.ctx.write_to_pty(bytes);
 
             *self.ctx.received_count() += 1;
+            self.ctx.jump_to_bottom();
         }
     }
 
