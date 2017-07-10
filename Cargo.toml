@@ -36,7 +36,7 @@ arraydeque = "0.2"
 glutin = "0.9.2"
 clippy = { version = "*", optional = true }
 env_logger = "0.4"
-owned_slice = { path = "../owned_slice" }
+owned_slice = { git = "https://github.com/neon64/owned-slice" }
 num = "0.1.37"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
