@@ -372,7 +372,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     self.ctx.mouse_mut().scroll_line = 0.0;
 
                     let amount = AbsoluteLine(amount_float.abs().round() as usize);
-                    println!("Scrolling by {}", amount.0);
                     if amount_float > 0.0 {
                         // scroll up
                         self.ctx.move_visible_region_up(amount);
