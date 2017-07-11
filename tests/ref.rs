@@ -80,7 +80,7 @@ fn ref_test(dir: &Path) {
     }
 
     if grid != *terminal.grid() {
-        for (i, row) in terminal.grid().iter_rows().enumerate() {
+        for (i, row) in terminal.grid().lines().enumerate() {
             for (j, cell) in row.iter().enumerate() {
                 let original_cell = &grid[Line(i)][Column(j)];
                 if *original_cell != *cell {
