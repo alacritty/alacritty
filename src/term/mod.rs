@@ -1557,7 +1557,6 @@ impl ansi::Handler for Term {
     fn scroll_up(&mut self, lines: Line) {
         let whole_screen = Line(0)..self.grid.num_lines();
         if self.scroll_region == whole_screen {
-            println!("Perhaps we should just use the scrollback buffer?");
             let template = self.empty_cell;
             self.grid.insert_new_lines(lines, |c| c.reset(&template));
         } else {
