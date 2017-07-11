@@ -21,7 +21,7 @@ use serde::de::Error as SerdeError;
 use serde::de::{Visitor, MapVisitor, Unexpected};
 use notify::{Watcher as WatcherApi, RecommendedWatcher as FileWatcher, op};
 
-use glutin::winit::ModifiersState;
+use glutin::ModifiersState;
 
 use input::{Action, Binding, MouseBinding, KeyBinding};
 use index::{Line, Column};
@@ -435,10 +435,10 @@ impl de::Deserialize for ModeWrapper {
     }
 }
 
-struct MouseButton(::glutin::winit::MouseButton);
+struct MouseButton(::glutin::MouseButton);
 
 impl MouseButton {
-    fn into_inner(self) -> ::glutin::winit::MouseButton {
+    fn into_inner(self) -> ::glutin::MouseButton {
         self.0
     }
 }
@@ -460,12 +460,12 @@ impl de::Deserialize for MouseButton {
                 where E: de::Error,
             {
                 match value {
-                    "Left" => Ok(MouseButton(::glutin::winit::MouseButton::Left)),
-                    "Right" => Ok(MouseButton(::glutin::winit::MouseButton::Right)),
-                    "Middle" => Ok(MouseButton(::glutin::winit::MouseButton::Middle)),
+                    "Left" => Ok(MouseButton(::glutin::MouseButton::Left)),
+                    "Right" => Ok(MouseButton(::glutin::MouseButton::Right)),
+                    "Middle" => Ok(MouseButton(::glutin::MouseButton::Middle)),
                     _ => {
                         if let Ok(index) = u8::from_str(value) {
-                            Ok(MouseButton(::glutin::winit::MouseButton::Other(index)))
+                            Ok(MouseButton(::glutin::MouseButton::Other(index)))
                         } else {
                             Err(E::invalid_value(Unexpected::Str(value), &self))
                         }
@@ -481,8 +481,8 @@ impl de::Deserialize for MouseButton {
 /// Bindings are deserialized into a `RawBinding` before being parsed as a
 /// `KeyBinding` or `MouseBinding`.
 struct RawBinding {
-    key: Option<::glutin::winit::VirtualKeyCode>,
-    mouse: Option<::glutin::winit::MouseButton>,
+    key: Option<::glutin::VirtualKeyCode>,
+    mouse: Option<::glutin::MouseButton>,
     mods: ModifiersState,
     mode: TermMode,
     notmode: TermMode,
@@ -585,12 +585,12 @@ impl de::Deserialize for RawBinding {
                 where V: MapVisitor,
             {
                 let mut mods: Option<ModifiersState> = None;
-                let mut key: Option<::glutin::winit::VirtualKeyCode> = None;
+                let mut key: Option<::glutin::VirtualKeyCode> = None;
                 let mut chars: Option<String> = None;
                 let mut action: Option<::input::Action> = None;
                 let mut mode: Option<TermMode> = None;
                 let mut not_mode: Option<TermMode> = None;
-                let mut mouse: Option<::glutin::winit::MouseButton> = None;
+                let mut mouse: Option<::glutin::MouseButton> = None;
                 let mut command: Option<CommandWrapper> = None;
 
                 use ::serde::de::Error;
@@ -1643,8 +1643,8 @@ enum Key {
 }
 
 impl Key {
-    fn to_glutin_key(&self) -> ::glutin::winit::VirtualKeyCode {
-        use ::glutin::winit::VirtualKeyCode::*;
+    fn to_glutin_key(&self) -> ::glutin::VirtualKeyCode {
+        use ::glutin::VirtualKeyCode::*;
         // Thank you, vim macros!
         match *self {
             Key::Key1 => Key1,

@@ -24,8 +24,8 @@ use std::process::Command;
 use std::time::Instant;
 
 use copypasta::{Clipboard, Load, Buffer};
-use glutin::winit::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollDelta};
-use glutin::winit::ModifiersState;
+use glutin::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollDelta};
+use glutin::ModifiersState;
 
 use config;
 use event::{ClickState, Mouse};
@@ -512,8 +512,7 @@ mod tests {
     use std::borrow::Cow;
     use std::time::Duration;
 
-    use glutin::{VirtualKeyCode, Event, ElementState, MouseButton};
-    use winit::ModifiersState;
+    use glutin::{VirtualKeyCode, Event, ElementState, MouseButton, ModifiersState};
 
     use term::{SizeInfo, Term, TermMode, mode};
     use event::{Mouse, ClickState};

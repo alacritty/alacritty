@@ -17,15 +17,12 @@ use std::ops::Deref;
 use std::sync::{Mutex, Arc};
 
 use gl;
-use glutin::{self, ContextBuilder};
-use glutin::winit::{self, EventsLoop, WindowBuilder, Event, CursorState, ControlFlow};
+use glutin::{self, EventsLoop, WindowBuilder, Event, CursorState, ControlFlow, ContextBuilder};
+use glutin::GlContext;
 
 /// Window errors
 #[derive(Debug)]
 pub enum Error {
-    /// Error creating the window
-    WindowCreation(winit::CreationError),
-
     /// Error creating the window
     ContextCreation(glutin::CreationError),
 
@@ -41,14 +38,13 @@ type Result<T> = ::std::result::Result<T, Error>;
 /// Wraps the underlying windowing library to provide a stable API in Alacritty
 pub struct Window {
     event_loop: EventsLoop,
-    window: winit::Window,
-    pub context: glutin::Context,
+    window: glutin::GlWindow,
     cursor_visible: bool,
 }
 
 /// Threadsafe APIs for the window
 pub struct Proxy {
-    inner: winit::EventsLoopProxy,
+    inner: glutin::EventsLoopProxy,
 }
 
 /// Information about where the window is being displayed
@@ -142,7 +138,6 @@ impl<T: Display> Display for Points<T> {
 impl ::std::error::Error for Error {
     fn cause(&self) -> Option<&::std::error::Error> {
         match *self {
-            Error::WindowCreation(ref err) => Some(err),
             Error::ContextCreation(ref err) => Some(err),
             Error::Context(ref err) => Some(err),
         }
@@ -150,7 +145,6 @@ impl ::std::error::Error for Error {
 
     fn description(&self) -> &str {
         match *self {
-            Error::WindowCreation(ref _err) => "Error creating winit Window",
             Error::ContextCreation(ref _err) => "Error creating gl context",
             Error::Context(ref _err) => "Error operating on render context",
         }
@@ -160,9 +154,6 @@ impl ::std::error::Error for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            Error::WindowCreation(ref err) => {
-                write!(f, "Error creating Window; {}", err)
-            },
             Error::ContextCreation(ref err) => {
                 write!(f, "Error creating GL context; {}", err)
             },
@@ -170,12 +161,6 @@ impl Display for Error {
                 write!(f, "Error operating on render context; {}", err)
             },
         }
-    }
-}
-
-impl From<winit::CreationError> for Error {
-    fn from(val: winit::CreationError) -> Error {
-        Error::WindowCreation(val)
     }
 }
 
@@ -200,24 +185,22 @@ impl Window {
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
         let window = WindowBuilder::new()
-            .with_title(title)
-            .build(&event_loop)?;
+            .with_title(title);
         let context = ContextBuilder::new()
-            .with_vsync()
-            .build(&window)?;
+            .with_vsync(true);
+        let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
 
         /// Set OpenGL symbol loader
-        gl::load_with(|symbol| context.get_proc_address(symbol) as *const _);
+        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
         /// Make the context current so OpenGL operations can run
         unsafe {
-            context.make_current()?;
+            window.make_current()?;
         }
 
         let window = Window {
             event_loop: event_loop,
             window: window,
-            context: context,
             cursor_visible: true,
         };
 
@@ -256,7 +239,7 @@ impl Window {
 
     #[inline]
     pub fn swap_buffers(&self) -> Result<()> {
-        self.context
+        self.window
             .swap_buffers()
             .map_err(From::from)
     }
@@ -297,7 +280,7 @@ impl Window {
 
     #[cfg(not(target_os = "macos"))]
     pub fn get_window_id(&self) -> Option<usize> {
-        use glutin::winit::os::unix::WindowExt;
+        use glutin::os::unix::WindowExt;
 
         match self.window.get_xlib_window() {
             Some(xlib_window) => Some(xlib_window as usize),
@@ -321,7 +304,7 @@ impl OsExtensions for Window { }
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
 impl OsExtensions for Window {
     fn run_os_extensions(&self) {
-        use glutin::winit::os::unix::WindowExt;
+        use glutin::os::unix::WindowExt;
         use x11_dl::xlib::{self, XA_CARDINAL, PropModeReplace};
         use std::ffi::{CStr};
         use std::ptr;

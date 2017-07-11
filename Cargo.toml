@@ -50,8 +50,7 @@ bench = []
 gl_generator = "0.5"
 
 [dependencies.glutin]
-git = "https://github.com/mitchmindtree/glutin"
-branch = "redesign"
+version = "0.9"
 
 [profile.release]
 lto = true

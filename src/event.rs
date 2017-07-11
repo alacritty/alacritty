@@ -7,8 +7,7 @@ use std::time::{Instant};
 
 use serde_json as json;
 use parking_lot::MutexGuard;
-use glutin;
-use glutin::winit::{self, ModifiersState, Event, WindowEvent, ElementState};
+use glutin::{self, ModifiersState, Event, WindowEvent, ElementState};
 use copypasta::{Clipboard, Load, Store};
 
 use config::{self, Config};
@@ -246,7 +245,7 @@ impl<N: Notify> Processor<N> {
             // Pass on device events
             Event::DeviceEvent { .. } => (),
             Event::WindowEvent { event, .. } => {
-                use self::WindowEvent::*;
+                use glutin::WindowEvent::*;
                 match event {
                     Closed => {
                         if ref_test {
@@ -276,7 +275,7 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
-                        let self::winit::KeyboardInput { state, virtual_keycode, modifiers, .. } = input;
+                        let glutin::KeyboardInput { state, virtual_keycode, modifiers, .. } = input;
                         processor.process_key(state, virtual_keycode, &modifiers);
                         if state == ElementState::Pressed {
                             // Hide cursor while typing
@@ -360,7 +359,7 @@ impl<N: Notify> Processor<N> {
                 let pending_events = &mut self.pending_events;
                 window.wait_events(|e| {
                     pending_events.push(e);
-                    winit::ControlFlow::Break
+                    glutin::ControlFlow::Break
                 });
             }
 
