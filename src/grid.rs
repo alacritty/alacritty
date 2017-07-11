@@ -199,35 +199,40 @@ impl<T> Grid<T> {
     pub fn visible_region(&self) -> Range<AbsoluteLine> {
         let vr_end = self.total_lines_in_buffer() - self.scroll_back_amount;
         let visible_region = (vr_end-self.num_lines().to_absolute())..vr_end;
-        println!("{:?} of {:?}", visible_region, self.total_lines_in_buffer());
         visible_region
     }
 
     /// Moves the visible region up a relative amount.
     pub fn move_visible_region_up(&mut self, lines: AbsoluteLine) -> Result<(), MoveRegionError> {
-        if self.visible_region().start <= AbsoluteLine(0) {
-            return Err(MoveRegionError::AtTop);
+        if self.visible_region().start < lines {
+            // set the region to the top
+            self.scroll_back_amount = self.total_lines_in_buffer() - self.num_lines().to_absolute();
+            Err(MoveRegionError::AtTop)
+        } else {
+            self.scroll_back_amount += lines;
+            Ok(())
         }
-        self.scroll_back_amount += lines;
-        Ok(())
     }
 
     /// Moves the visible region down a relative amount.
     pub fn move_visible_region_down(&mut self, lines: AbsoluteLine) -> Result<(), MoveRegionError> {
-        if self.scroll_back_amount <= AbsoluteLine(0) {
-            return Err(MoveRegionError::AtBottom);
+        if self.scroll_back_amount < lines {
+            self.scroll_back_amount = AbsoluteLine(0);
+            Err(MoveRegionError::AtBottom)
+        } else {
+            self.scroll_back_amount -= lines;
+            Ok(())
         }
-        self.scroll_back_amount -= lines;
-        Ok(())
     }
 
     /// Moves the visible region to the very bottom. (eg: on new input)
     pub fn move_visible_region_to_bottom(&mut self) -> Result<(), MoveRegionError> {
-        if self.scroll_back_amount <= AbsoluteLine(0) {
-            return Err(MoveRegionError::AtBottom);
+        if self.scroll_back_amount == AbsoluteLine(0) {
+            Err(MoveRegionError::AtBottom)
+        } else {
+            self.scroll_back_amount = AbsoluteLine(0);
+            Ok(())
         }
-        self.scroll_back_amount = AbsoluteLine(0);
-        Ok(())
     }
 
     /// The number of visible lines in the terminal.
