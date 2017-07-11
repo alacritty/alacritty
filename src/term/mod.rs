@@ -95,7 +95,7 @@ impl<'a> selection::Dimensions for &'a Term {
 pub struct RenderableCellsIter<'a> {
     grid: &'a Grid<Cell>,
     visible_region: Range<AbsoluteLine>,
-    cursor: &'a Point,
+    cursor: Option<Point>,
     cursor_index: index::Linear,
     mode: TermMode,
     line: Line,
@@ -121,10 +121,24 @@ impl<'a> RenderableCellsIter<'a> {
         cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b> {
         let cursor_index = Linear(cursor.line.0 * grid.num_cols().0 + cursor.col.0);
+        let visible_region = grid.visible_region();
+        // we want to convert the cursor from 'active region' coords to 'visible region' coords
+        let cursor = {
+            let line = grid.active_to_absolute_line(cursor.line);
+            let should_display = mode.contains(mode::SHOW_CURSOR) &&
+                grid.contains(cursor) &&
+                visible_region.contains_(line);
+            if should_display {
+                let visible_line = line - visible_region.start;
+                Some(Point { line: Line(visible_line.0), col: cursor.col })
+            } else {
+                None
+            }
+        };
 
         RenderableCellsIter {
             grid: grid,
-            visible_region: grid.visible_region(),
+            visible_region: visible_region,
             cursor: cursor,
             cursor_index: cursor_index,
             mode: mode,
@@ -137,7 +151,7 @@ impl<'a> RenderableCellsIter<'a> {
         }.initialize(cursor_style)
     }
 
-    fn populate_block_cursor(&mut self) {
+    fn populate_block_cursor(&mut self, cursor: &Point) {
         let (text_color, cursor_color) = if self.config.custom_cursor_colors() {
             (
                 Color::Named(NamedColor::CursorText),
@@ -145,40 +159,40 @@ impl<'a> RenderableCellsIter<'a> {
             )
         } else {
             // Swap fg, bg
-            let cell = &self.grid[self.cursor];
+            let cell = &self.grid[cursor];
             (cell.bg, cell.fg)
         };
 
-        let mut cell_under_cursor = self.grid[self.cursor];
+        let mut cell_under_cursor = self.grid[cursor];
         cell_under_cursor.fg = text_color;
         cell_under_cursor.bg = cursor_color;
 
         self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
+            line: cursor.line,
+            column: cursor.col,
             inner: cell_under_cursor,
         });
 
-        if self.is_wide_cursor(&cell_under_cursor) {
+        if self.is_wide_cursor(&cell_under_cursor, cursor) {
             cell_under_cursor.c = ' ';
             self.cursor_cells.push_back(Indexed {
-                line: self.cursor.line,
-                column: self.cursor.col + 1,
+                line: cursor.line,
+                column: cursor.col + 1,
                 inner: cell_under_cursor,
             });
         }
     }
 
     #[inline]
-    fn is_wide_cursor(&self, cell: &Cell) -> bool {
-        cell.flags.contains(cell::WIDE_CHAR) && (self.cursor.col + 1) < self.grid.num_cols()
+    fn is_wide_cursor(&self, cell: &Cell, cursor: &Point) -> bool {
+        cell.flags.contains(cell::WIDE_CHAR) && (cursor.col + 1) < self.grid.num_cols()
     }
 
-    fn populate_beam_cursor(&mut self) {
-        let mut cursor_cell = self.grid[self.cursor];
+    fn populate_beam_cursor(&mut self, cursor: &Point) {
+        let mut cursor_cell = self.grid[cursor];
         self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
+            line: cursor.line,
+            column: cursor.col,
             inner: cursor_cell,
         });
 
@@ -186,26 +200,26 @@ impl<'a> RenderableCellsIter<'a> {
         cursor_cell.c = '▎';
         cursor_cell.fg = cursor_color;
         self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
+            line: cursor.line,
+            column: cursor.col,
             inner: cursor_cell,
         });
 
-        if self.is_wide_cursor(&cursor_cell) {
+        if self.is_wide_cursor(&cursor_cell, cursor) {
             cursor_cell.c = ' ';
             self.cursor_cells.push_back(Indexed {
-                line: self.cursor.line,
-                column: self.cursor.col + 1,
+                line: cursor.line,
+                column: cursor.col + 1,
                 inner: cursor_cell,
             });
         }
     }
 
-    fn populate_underline_cursor(&mut self) {
-        let mut cursor_cell = self.grid[self.cursor];
+    fn populate_underline_cursor(&mut self, cursor: &Point) {
+        let mut cursor_cell = self.grid[cursor];
         self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
+            line: cursor.line,
+            column: cursor.col,
             inner: cursor_cell,
         });
 
@@ -213,15 +227,15 @@ impl<'a> RenderableCellsIter<'a> {
         cursor_cell.c = '▁';
         cursor_cell.fg = cursor_color;
         self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
+            line: cursor.line,
+            column: cursor.col,
             inner: cursor_cell,
         });
 
-        if self.is_wide_cursor(&cursor_cell) {
+        if self.is_wide_cursor(&cursor_cell, cursor) {
             self.cursor_cells.push_back(Indexed {
-                line: self.cursor.line,
-                column: self.cursor.col + 1,
+                line: cursor.line,
+                column: cursor.col + 1,
                 inner: cursor_cell,
             });
         }
@@ -236,38 +250,32 @@ impl<'a> RenderableCellsIter<'a> {
         }
     }
 
-    /// Populates list of cursor cells with the original cell
+    /*/// Populates list of cursor cells with the original cell
     fn populate_no_cursor(&mut self) {
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
             column: self.cursor.col,
             inner: self.grid[self.cursor],
         });
-    }
+    }*/
 
     fn initialize(mut self, cursor_style: CursorStyle) -> Self {
-        if self.cursor_is_visible() {
+        if let Some(cursor) = self.cursor {
             match cursor_style {
                 CursorStyle::Block => {
-                    self.populate_block_cursor();
+                    self.populate_block_cursor(&cursor);
                 },
                 CursorStyle::Beam => {
-                    self.populate_beam_cursor();
+                    self.populate_beam_cursor(&cursor);
                 },
                 CursorStyle::Underline => {
-                    self.populate_underline_cursor();
+                    self.populate_underline_cursor(&cursor);
                 }
             }
         } else {
-            self.populate_no_cursor();
+            //self.populate_no_cursor();
         }
         self
-    }
-
-    /// Check if the cursor should be rendered.
-    #[inline]
-    fn cursor_is_visible(&self) -> bool {
-        self.mode.contains(mode::SHOW_CURSOR) && self.grid.contains(self.cursor)
     }
 
     fn compute_fg_rgb(&self, fg: &Color, cell: &Cell) -> Rgb {
@@ -346,8 +354,13 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 let cell = &self.grid.get_absolute_line(self.visible_region.start + line.to_absolute())[column];
 
                 let index = Linear(line.0 * self.grid.num_cols().0 + column.0);
-
-                let (cell, selected) = if index == self.cursor_index {
+                let mut cursor_cell = false;
+                if let Some(cursor) = self.cursor {
+                    if line == cursor.line && column == cursor.col {
+                        cursor_cell = true;
+                    }
+                }
+                let (cell, selected) = if /*index == self.cursor_index*/ cursor_cell {
                     // Cursor cell
                     let cell = self.cursor_cells.pop_front().unwrap();
 
@@ -1128,7 +1141,7 @@ impl Term {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_down_relative(&mut self, origin: Line, lines: Line) {
-        println!("scroll_down_relative: origin={}, lines={}", origin, lines);
+        trace!("scroll_down_relative: origin={}, lines={}", origin, lines);
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
@@ -1150,7 +1163,7 @@ impl Term {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_up_relative(&mut self, origin: Line, lines: Line) {
-        println !("scroll_up_relative: origin={}, lines={}", origin, lines);
+        trace!("scroll_up_relative: origin={}, lines={}", origin, lines);
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
@@ -1171,20 +1184,20 @@ impl Term {
     pub fn move_visible_region_up(&mut self, lines: AbsoluteLine) {
         match self.grid.move_visible_region_up(lines) {
             Ok(()) => self.dirty = true,
-            Err(e) => println!("Didn't scroll up because: {:?}", e)
+            Err(e) => trace!("move_visible_region_up: {:?}", e)
         }
     }
 
     pub fn move_visible_region_down(&mut self, lines: AbsoluteLine) {
         match self.grid.move_visible_region_down(lines) {
             Ok(()) => self.dirty = true,
-            Err(e) => println!("Didn't scroll down because: {:?}", e)
+            Err(e) => trace!("move_visible_region_down: {:?}", e)
         }
     }
 
     pub fn move_visible_region_to_bottom(&mut self) {
         if let Err(e) = self.grid.move_visible_region_to_bottom() {
-            println!("Didn't scroll to bottom because: {:?}", e);
+            trace!("move_visible_region_to_bottom: {:?}", e);
         }
     }
 
