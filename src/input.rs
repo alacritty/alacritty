@@ -362,6 +362,29 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
+        if let MouseScrollDelta::LineDelta(_columns, lines) = delta {
+            if lines != 0.0 {
+                let scroll_sensitivity = 5.0;
+                self.ctx.mouse_mut().scroll_line += lines * scroll_sensitivity;
+                if self.ctx.mouse_mut().scroll_line.abs() > 1.0 {
+                    // get and reset the counter
+                    let amount_float = self.ctx.mouse_mut().scroll_line;
+                    self.ctx.mouse_mut().scroll_line = 0.0;
+
+                    let amount = AbsoluteLine(amount_float.abs().round() as usize);
+                    println!("Scrolling by {}", amount.0);
+                    if amount_float > 0.0 {
+                        // scroll up
+                        self.ctx.move_visible_region_up(amount);
+                    } else {
+                        // scroll down
+                        self.ctx.move_visible_region_down(amount);
+                    }
+                    
+                }
+            }
+        }
+
         let modes = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION | mode::SGR_MOUSE;
         if !self.ctx.terminal_mode().intersects(modes) {
             return;
