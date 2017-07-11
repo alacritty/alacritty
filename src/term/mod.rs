@@ -1183,16 +1183,17 @@ impl Term {
     /// In other words, this is scrolling :D
     pub fn move_visible_region_up(&mut self, lines: AbsoluteLine) {
         match self.grid.move_visible_region_up(lines) {
-            Ok(()) => self.dirty = true,
+            Ok(()) => { self.dirty = true; trace!("move_visible_region_down: {}..{} of {}", self.grid.visible_region().start.0, self.grid.visible_region().end.0, self.grid.total_lines_in_buffer().0); },
             Err(e) => trace!("move_visible_region_up: {:?}", e)
         }
     }
 
     pub fn move_visible_region_down(&mut self, lines: AbsoluteLine) {
         match self.grid.move_visible_region_down(lines) {
-            Ok(()) => self.dirty = true,
+            Ok(()) => { self.dirty = true; trace!("move_visible_region_down: {}..{} of {}", self.grid.visible_region().start.0, self.grid.visible_region().end.0, self.grid.total_lines_in_buffer().0); },
             Err(e) => trace!("move_visible_region_down: {:?}", e)
         }
+        
     }
 
     pub fn move_visible_region_to_bottom(&mut self) {
