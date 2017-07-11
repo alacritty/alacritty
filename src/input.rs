@@ -580,7 +580,7 @@ mod tests {
     use term::{SizeInfo, Term, TermMode, mode};
     use event::{Mouse, ClickState};
     use config::{self, Config, ClickHandler};
-    use index::{Point, Side};
+    use index::{Point, Side, AbsoluteLine};
     use selection::Selection;
 
     use super::{Action, Binding, Processor};
@@ -643,19 +643,28 @@ mod tests {
         fn mouse_mut(&mut self) -> &mut Mouse {
             self.mouse
         }
+
         fn received_count(&mut self) -> &mut usize {
             &mut self.received_count
         }
+
         fn suppress_chars(&mut self) -> &mut bool {
             &mut self.suppress_chars
         }
+
         fn last_modifiers(&mut self) -> &mut ModifiersState {
             &mut self.last_modifiers
         }
-        fn change_font_size(&mut self, _delta: i8) {
-        }
-        fn reset_font_size(&mut self) {
-        }
+
+        fn change_font_size(&mut self, _delta: i8) {}
+
+        fn reset_font_size(&mut self) {}
+
+        fn move_visible_region_up(&mut self, lines: AbsoluteLine) {}
+
+        fn move_visible_region_down(&mut self, lines: AbsoluteLine) {}
+
+        fn jump_to_bottom(&mut self) {}
     }
 
     macro_rules! test_clickstate {
