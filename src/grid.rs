@@ -244,7 +244,7 @@ impl<T> Grid<T> {
 
     /// Converts a line in the terminal to an
     /// absolute index into the scrollback buffer.
-    fn active_to_absolute_line(&self, line: index::Line) -> AbsoluteLine {
+    pub fn active_to_absolute_line(&self, line: index::Line) -> AbsoluteLine {
         line.to_absolute() + self.active_region().start
     }
 
