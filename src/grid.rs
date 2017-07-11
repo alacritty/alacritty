@@ -339,6 +339,8 @@ impl<T: Default + Clone> Grid<T> {
     pub fn insert_new_lines<F>(&mut self, lines: index::Line, clear: F)
         where F: Fn(&mut T)
     {
+        trace!("insert_new_lines: lines={}", lines);
+
         let swap = self.total_lines_in_buffer() >= self.max_scrollback_lines;
         if swap {
             info!("max scrollback lines reached, swapping with old rows");
