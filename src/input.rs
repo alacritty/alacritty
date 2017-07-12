@@ -362,73 +362,74 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
-        if let MouseScrollDelta::LineDelta(_columns, lines) = delta {
-            if lines != 0.0 {
-                let scroll_sensitivity = 5.0;
-                self.ctx.mouse_mut().scroll_line += lines * scroll_sensitivity;
-                if self.ctx.mouse_mut().scroll_line.abs() > 1.0 {
-                    // get and reset the counter
-                    let amount_float = self.ctx.mouse_mut().scroll_line;
-                    self.ctx.mouse_mut().scroll_line = 0.0;
+        let mut line_delta: isize = 0;
 
-                    let amount = AbsoluteLine(amount_float.abs().round() as usize);
-                    if amount_float > 0.0 {
-                        // scroll up
-                        self.ctx.move_visible_region_up(amount);
-                    } else {
-                        // scroll down
-                        self.ctx.move_visible_region_down(amount);
-                    }
-                    
-                }
-            }
-        }
-
-        let modes = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION | mode::SGR_MOUSE;
-        if !self.ctx.terminal_mode().intersects(modes) {
-            return;
-        }
-
+        // handle scrolling
         match delta {
-            MouseScrollDelta::LineDelta(_columns, lines) => {
-                let to_scroll = self.ctx.mouse_mut().lines_scrolled + lines;
+            MouseScrollDelta::LineDelta(ref _columns, ref lines) => {
+                if *lines != 0.0 {
+                    line_delta = *lines as isize;
 
-                let code = if to_scroll > 0.0 {
-                    64
-                } else {
-                    65
-                };
+                    let scroll_sensitivity = 5.0;
+                    self.ctx.mouse_mut().scroll_line += lines * scroll_sensitivity;
+                    if self.ctx.mouse_mut().scroll_line.abs() > 1.0 {
+                        // get and reset the counter
+                        let amount_float = self.ctx.mouse_mut().scroll_line;
+                        self.ctx.mouse_mut().scroll_line = 0.0;
 
-                for _ in 0..(to_scroll.abs() as usize) {
-                    self.normal_mouse_report(code);
+                        let amount = AbsoluteLine(amount_float.abs().round() as usize);
+                        if amount_float > 0.0 {
+                            // scroll up
+                            self.ctx.move_visible_region_up(amount);
+                        } else {
+                            // scroll down
+                            self.ctx.move_visible_region_down(amount);
+                        }
+                    }
                 }
                 self.ctx.mouse_mut().lines_scrolled = to_scroll % 1.0;
             },
-            MouseScrollDelta::PixelDelta(_x, y) => {
+            MouseScrollDelta::PixelDelta(ref _x, ref y) => {
                 match phase {
                     TouchPhase::Started => {
                         // Reset offset to zero
                         self.ctx.mouse_mut().scroll_px = 0;
                     },
                     TouchPhase::Moved => {
-                        self.ctx.mouse_mut().scroll_px += y as i32;
+                        self.ctx.mouse_mut().scroll_px += *y as i32;
                         let height = self.ctx.size_info().cell_height as i32;
 
                         while self.ctx.mouse_mut().scroll_px.abs() >= height {
-                            let button = if self.ctx.mouse_mut().scroll_px > 0 {
+                            if self.ctx.mouse_mut().scroll_px > 0 {
+                                line_delta -= 1;
                                 self.ctx.mouse_mut().scroll_px -= height;
-                                64
+                                self.ctx.move_visible_region_up(AbsoluteLine(1));
                             } else {
+                                line_delta += 1;
                                 self.ctx.mouse_mut().scroll_px += height;
-                                65
+                                self.ctx.move_visible_region_down(AbsoluteLine(1));
                             };
-
-                            self.normal_mouse_report(button);
                         }
                     },
                     _ => (),
                 }
             }
+        }
+
+        // we'll only report information about mouse events if the terminal wants it.
+        let modes = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION | mode::SGR_MOUSE;
+        if !self.ctx.terminal_mode().intersects(modes) {
+            return;
+        }
+
+        let code = if line_delta > 0 {
+            64
+        } else {
+            65
+        };
+
+        for _ in 0..(line_delta.abs()) {
+            self.normal_mouse_report(code);
         }
     }
 
