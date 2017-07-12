@@ -51,6 +51,8 @@ gl_generator = "0.5"
 
 [dependencies.glutin]
 version = "0.9"
+git = "https://github.com/Determinant/glutin"
+branch = "master"
 
 [profile.release]
 lto = true
