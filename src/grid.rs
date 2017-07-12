@@ -204,10 +204,12 @@ impl<T> Grid<T> {
 
     /// Moves the visible region up a relative amount.
     pub fn move_visible_region_up(&mut self, lines: AbsoluteLine) -> Result<(), MoveRegionError> {
-        if self.visible_region().start < lines {
+        if self.visible_region().start == AbsoluteLine(0) {
+            Err(MoveRegionError::AtTop)
+        } else if self.visible_region().start < lines {
             // set the region to the top
             self.scroll_back_amount = self.total_lines_in_buffer() - self.num_lines().to_absolute();
-            Err(MoveRegionError::AtTop)
+            Ok(())
         } else {
             self.scroll_back_amount += lines;
             Ok(())
@@ -216,9 +218,11 @@ impl<T> Grid<T> {
 
     /// Moves the visible region down a relative amount.
     pub fn move_visible_region_down(&mut self, lines: AbsoluteLine) -> Result<(), MoveRegionError> {
-        if self.scroll_back_amount < lines {
-            self.scroll_back_amount = AbsoluteLine(0);
+        if self.scroll_back_amount == AbsoluteLine(0) {
             Err(MoveRegionError::AtBottom)
+        } else if self.scroll_back_amount < lines {
+            self.scroll_back_amount = AbsoluteLine(0);
+            Ok(())
         } else {
             self.scroll_back_amount -= lines;
             Ok(())
