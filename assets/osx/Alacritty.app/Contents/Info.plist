@@ -5,9 +5,9 @@
     <key>CFBundleDisplayName</key>
     <string>Alacritty</string>
     <key>CFBundleExecutable</key>
-    <string>launcher</string>
-    <!-- <key>CFBundleIdentifier</key> -->
-    <!-- <string>alacritty</string> -->
+    <string>alacritty</string>
+    <key>CFBundleIdentifier</key>
+    <string>io.alacritty</string>
     <key>CFBundleName</key>
     <string>Alacritty</string>
     <key>CFBundleIconFile</key>

@@ -26,6 +26,7 @@
 #[macro_use] extern crate clap;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
+#[macro_use] extern crate objc;
 #[macro_use] extern crate serde_derive;
 
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
@@ -61,6 +62,7 @@ pub mod event_loop;
 pub mod grid;
 pub mod index;
 pub mod input;
+pub mod locale;
 pub mod logging;
 pub mod meter;
 pub mod renderer;
