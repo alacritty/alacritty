@@ -71,10 +71,8 @@ pub struct Grid<T> {
     /// Number of lines.
     lines: index::Line,
 
-    /// The amount of lines the terminal is currently
-    /// scrolled back to. A value of `0` indicates that the
-    /// 'visible region' is equal to the current 'active region'.
-    scroll_back_amount: AbsoluteLine,
+    /// The starting index for the visible region
+    visible_region_start: AbsoluteLine,
 
     /// Maximum number of lines in the total scrollback buffer.
     /// Once this limit is reached, oldest elements will begin to be
@@ -107,7 +105,7 @@ impl<T: Clone> Grid<T> {
             raw: raw,
             cols: cols,
             lines: lines,
-            scroll_back_amount: Default::default(),
+            visible_region_start: AbsoluteLine(0),
             max_scrollback_lines: max_scrollback_lines
         }
     }
@@ -197,44 +195,43 @@ impl<T> Grid<T> {
     /// Returns the region that is currently visible to the user.
     #[inline]
     pub fn visible_region(&self) -> Range<AbsoluteLine> {
-        let vr_end = self.total_lines_in_buffer() - self.scroll_back_amount;
-        let visible_region = (vr_end-self.num_lines().to_absolute())..vr_end;
-        visible_region
+        let end = self.visible_region_start + self.num_lines().to_absolute();
+        self.visible_region_start..end
     }
 
     /// Moves the visible region up a relative amount.
     pub fn move_visible_region_up(&mut self, lines: AbsoluteLine) -> Result<(), MoveRegionError> {
-        if self.visible_region().start == AbsoluteLine(0) {
+        if self.visible_region_start == AbsoluteLine(0) {
             Err(MoveRegionError::AtTop)
-        } else if self.visible_region().start < lines {
+        } else if self.visible_region_start < lines {
             // set the region to the top
-            self.scroll_back_amount = self.total_lines_in_buffer() - self.num_lines().to_absolute();
+            self.visible_region_start = AbsoluteLine(0);
             Ok(())
         } else {
-            self.scroll_back_amount += lines;
+            self.visible_region_start -= lines;
             Ok(())
         }
     }
 
     /// Moves the visible region down a relative amount.
     pub fn move_visible_region_down(&mut self, lines: AbsoluteLine) -> Result<(), MoveRegionError> {
-        if self.scroll_back_amount == AbsoluteLine(0) {
+        if self.visible_region().end == self.total_lines_in_buffer() {
             Err(MoveRegionError::AtBottom)
-        } else if self.scroll_back_amount < lines {
-            self.scroll_back_amount = AbsoluteLine(0);
+        } else if self.visible_region().end + lines >= self.total_lines_in_buffer() {
+            self.visible_region_start = self.total_lines_in_buffer() - self.num_lines().to_absolute();
             Ok(())
         } else {
-            self.scroll_back_amount -= lines;
+            self.visible_region_start += lines;
             Ok(())
         }
     }
 
     /// Moves the visible region to the very bottom. (eg: on new input)
     pub fn move_visible_region_to_bottom(&mut self) -> Result<(), MoveRegionError> {
-        if self.scroll_back_amount == AbsoluteLine(0) {
+        if self.visible_region().end == self.total_lines_in_buffer() {
             Err(MoveRegionError::AtBottom)
         } else {
-            self.scroll_back_amount = AbsoluteLine(0);
+            self.visible_region_start = self.total_lines_in_buffer() - self.num_lines().to_absolute();
             Ok(())
         }
     }
@@ -297,7 +294,7 @@ impl<T> Grid<T> {
 
         unsafe {
             // check that src/dst are in bounds. Since index::Line newtypes usize,
-            // we can implassume values are positive.
+            // we can assume values are positive.
             if unlikely(src >= self.lines) {
                 panic!("swap_lines src out of bounds; len={}, src={}", self.raw.len(), src);
             }
@@ -344,10 +341,12 @@ impl<T: Default + Clone> Grid<T> {
         where F: Fn(&mut T)
     {
         trace!("insert_new_lines: lines={}", lines);
+        
+        let was_at_end = self.visible_region().end == self.total_lines_in_buffer();
 
         let swap = self.total_lines_in_buffer() >= self.max_scrollback_lines;
         if swap {
-            info!("max scrollback lines reached, swapping with old rows");
+            debug!("max scrollback lines reached, swapping with old rows");
             for _ in 0..lines.0 {
                 let mut old_row = self.raw.pop_front().expect("empty cell buffer");
                 for cell in &mut old_row {
@@ -355,11 +354,20 @@ impl<T: Default + Clone> Grid<T> {
                 }
                 self.raw.push_back(old_row);
             }
+            // After swapping lines, `visible_region_start` will be incorrect.
+            // Therefore we then need to update the visible_region of the grid.
+            // we don't care if it is already at the top, so we ignore the return value.
+            let _ = self.move_visible_region_up(lines.to_absolute());
         } else {
             let cols = self.num_cols();
             for _ in 0..lines.0 {
                 self.raw.push_back(Row::new(cols, &Default::default()));
             }
+        }
+
+        if was_at_end {
+            trace!("scrolling down on new line");
+            self.visible_region_start += AbsoluteLine(1);
         }
     }
 }
