@@ -25,18 +25,15 @@ use ::Rgb;
 
 // Parse color arguments
 //
-// Expect that color argument looks like "rgb:xx/xx/xx"
+// Expect that color argument looks like "rgb:xx/xx/xx" or "#xxxxxx"
 fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
     let mut iter = color.iter();
+
     macro_rules! next {
         () => {
             iter.next().map(|v| *v as char)
         }
     }
-    if next!() != Some('r') { return None; }
-    if next!() != Some('g') { return None; }
-    if next!() != Some('b') { return None; }
-    if next!() != Some(':') { return None; }
 
     macro_rules! parse_hex {
         () => {{
@@ -55,14 +52,30 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
         }}
     }
 
-    let r = parse_hex!();
-    let val = next!();
-    if val != Some('/') { println!("val={:?}", val); return None; }
-    let g = parse_hex!();
-    if next!() != Some('/') { return None; }
-    let b = parse_hex!();
+    match next!() {
+        Some('r') => {
+            if next!() != Some('g') { return None; }
+            if next!() != Some('b') { return None; }
+            if next!() != Some(':') { return None; }
 
-    Some(Rgb { r: r, g: g, b: b})
+            let r = parse_hex!();
+            let val = next!();
+            if val != Some('/') { println!("val={:?}", val); return None; }
+            let g = parse_hex!();
+            if next!() != Some('/') { return None; }
+            let b = parse_hex!();
+
+            Some(Rgb { r: r, g: g, b: b})
+        }
+        Some('#') => {
+            Some(Rgb {
+                r: parse_hex!(),
+                g: parse_hex!(),
+                b: parse_hex!(),
+            })
+        }
+        _ => None
+    }
 }
 
 /// The processor wraps a `vte::Parser` to ultimately call methods on a Handler
@@ -1456,5 +1469,10 @@ mod tests {
     #[test]
     fn parse_valid_rgb_color() {
         assert_eq!(parse_rgb_color(b"rgb:11/aa/ff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+    }
+
+    #[test]
+    fn parse_valid_rgb_color2() {
+        assert_eq!(parse_rgb_color(b"#11aaff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
     }
 }
