@@ -186,6 +186,7 @@ impl Action {
     fn execute<A: ActionContext>(&self, ctx: &mut A) {
         match *self {
             Action::Esc(ref s) => {
+                ctx.jump_to_bottom();
                 ctx.write_to_pty(s.clone().into_bytes())
             },
             Action::Copy => {
@@ -661,8 +662,8 @@ mod tests {
         fn change_font_size(&mut self, _delta: i8) {}
         fn reset_font_size(&mut self) {}
 
-        fn move_visible_region_up(&mut self, lines: AbsoluteLine) {}
-        fn move_visible_region_down(&mut self, lines: AbsoluteLine) {}
+        fn move_visible_region_up(&mut self, _: AbsoluteLine) {}
+        fn move_visible_region_down(&mut self, _: AbsoluteLine) {}
         fn jump_to_bottom(&mut self) {}
     }
 
