@@ -96,8 +96,8 @@ pub struct RenderableCellsIter<'a> {
     grid: &'a Grid<Cell>,
     visible_region: Range<AbsoluteLine>,
     cursor: Option<Point>,
-    cursor_index: index::Linear,
-    mode: TermMode,
+    //cursor_index: index::Linear,
+    //mode: TermMode,
     line: Line,
     column: Column,
     config: &'a Config,
@@ -113,35 +113,20 @@ impl<'a> RenderableCellsIter<'a> {
     /// cursor.
     fn new<'b>(
         grid: &'b Grid<Cell>,
-        cursor: &'b Point,
+        cursor: Option<Point>,
         colors: &'b color::List,
-        mode: TermMode,
+        //mode: TermMode,
         config: &'b Config,
         selection: Option<RangeInclusive<index::Linear>>,
         cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b> {
-        let cursor_index = Linear(cursor.line.0 * grid.num_cols().0 + cursor.col.0);
         let visible_region = grid.visible_region();
-        // we want to convert the cursor from 'active region' coords to 'visible region' coords
-        let cursor = {
-            let line = grid.active_to_absolute_line(cursor.line);
-            let should_display = mode.contains(mode::SHOW_CURSOR) &&
-                grid.contains(cursor) &&
-                visible_region.contains_(line);
-            if should_display {
-                let visible_line = line - visible_region.start;
-                Some(Point { line: Line(visible_line.0), col: cursor.col })
-            } else {
-                None
-            }
-        };
-
         RenderableCellsIter {
             grid: grid,
             visible_region: visible_region,
             cursor: cursor,
-            cursor_index: cursor_index,
-            mode: mode,
+            //cursor_index: cursor_index,
+            //mode: mode,
             line: Line(0),
             column: Column(0),
             selection: selection,
@@ -969,16 +954,36 @@ impl Term {
         let selection = selection.and_then(|s| s.to_span(self))
             .map(|span| span.to_range());
 
+        let cursor = self.cursor_visible();
+
         RenderableCellsIter::new(
             &self.grid,
-            &self.cursor.point,
+            cursor,
             &self.colors,
-            self.mode,
             config,
             selection,
             self.cursor_style
         )
     }
+
+    /// Determines if the cursor is visible, and if so, returns its location on screen.
+    fn cursor_visible(&self) -> Option<Point> {
+        let visible_region = self.grid.visible_region();
+        let cursor = self.cursor.point;
+
+        // we want to convert the cursor from 'active region' coords to 'visible region' coords
+        let line = self.grid.active_to_absolute_line(cursor.line);
+        let should_display = self.mode.contains(mode::SHOW_CURSOR) &&
+                self.grid.contains(&cursor) &&
+                visible_region.contains_(line);
+
+        if should_display {
+            let visible_line = line - visible_region.start;
+            Some(Point { line: Line(visible_line.0), col: cursor.col })
+        } else {
+            None
+        }
+    }   
 
     /// Resize terminal to new dimensions
     pub fn resize(&mut self, width: f32, height: f32) {
@@ -1156,8 +1161,9 @@ impl Term {
     }
 
     pub fn move_visible_region_to_bottom(&mut self) {
-        if let Err(e) = self.grid.move_visible_region_to_bottom() {
-            trace!("move_visible_region_to_bottom: {:?}", e);
+        if let Ok(()) = self.grid.move_visible_region_to_bottom() {
+            self.dirty = true;
+            debug!("move_visible_region_to_bottom: {:?}", self.grid.visible_region());
         }
     }
 

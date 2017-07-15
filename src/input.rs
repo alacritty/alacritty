@@ -175,6 +175,7 @@ impl Action {
     fn execute<A: ActionContext>(&self, ctx: &mut A) {
         match *self {
             Action::Esc(ref s) => {
+                ctx.jump_to_bottom();
                 ctx.write_to_pty(s.clone().into_bytes())
             },
             Action::Copy => {
@@ -640,7 +641,7 @@ mod tests {
 
         fn move_visible_region_up(&mut self, lines: AbsoluteLine) {}
 
-        fn move_visible_region_down(&mut self, lines: AbsoluteLine) {}
+        fn move_visible_region_down(&mut self, _: AbsoluteLine) {}
         
         fn jump_to_bottom(&mut self) {}
     }
