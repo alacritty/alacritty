@@ -65,7 +65,7 @@ makepkg -isr
    ```
 
 3. Make sure you have the right Rust compiler installed. Alacritty requires at
-   least 1.15. Run
+   least 1.18. Run
 
    ```sh
    rustup override set stable
