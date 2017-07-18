@@ -252,6 +252,11 @@ impl Window {
         self.event_loop.poll_events(func);
     }
 
+    #[inline]
+    pub fn resize(&self, width: u32, height: u32) {
+        self.window.resize(width, height);
+    }
+
     /// Block waiting for events
     #[inline]
     pub fn wait_events<F>(&mut self, func: F)

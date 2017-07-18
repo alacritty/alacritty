@@ -258,6 +258,7 @@ impl Display {
                 item.on_resize(size)
             }
 
+            self.window.resize(w, h);
             self.renderer.resize(w as i32, h as i32);
         }
 
