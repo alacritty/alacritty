@@ -14,7 +14,6 @@
 use std::convert::From;
 use std::fmt::{self, Display};
 use std::ops::Deref;
-use std::sync::{Mutex, Arc};
 
 use gl;
 use glutin::{self, EventsLoop, WindowBuilder, Event, CursorState, ControlFlow, ContextBuilder};

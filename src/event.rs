@@ -7,7 +7,7 @@ use std::time::{Instant};
 
 use serde_json as json;
 use parking_lot::MutexGuard;
-use glutin::{self, ModifiersState, Event, WindowEvent, ElementState};
+use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store};
 
 use config::{self, Config};
