@@ -274,11 +274,14 @@ impl Window {
     pub fn set_cursor_visible(&mut self, visible: bool) {
         if visible != self.cursor_visible {
             self.cursor_visible = visible;
-            self.window.set_cursor_state(if visible {
+            match self.window.set_cursor_state(if visible {
                 CursorState::Normal
             } else {
                 CursorState::Hide
-            }).unwrap();
+            }) {
+                Ok(()) => {},
+                Err(msg) => println!("Failed to set cursor visibility: {}", msg),
+            }
         }
     }
 
