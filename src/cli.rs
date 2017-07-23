@@ -22,6 +22,7 @@ const DEFAULT_TITLE: &'static str = "Alacritty";
 
 /// Options specified on the command line
 pub struct Options {
+    pub live_config_reload: Option<bool>,
     pub print_events: bool,
     pub ref_test: bool,
     pub dimensions: Option<Dimensions>,
@@ -35,6 +36,7 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Options {
         Options {
+            live_config_reload: None,
             print_events: false,
             ref_test: false,
             dimensions: None,
@@ -59,6 +61,11 @@ impl Options {
             .arg(Arg::with_name("ref-test")
                 .long("ref-test")
                 .help("Generates ref test"))
+            .arg(Arg::with_name("live-config-reload")
+                .long("live-config-reload")
+                .help("Live configuration reload")
+                .takes_value(true)
+                .use_delimiter(false))
             .arg(Arg::with_name("print-events")
                 .long("print-events"))
             .arg(Arg::with_name("dimensions")
@@ -105,6 +112,14 @@ impl Options {
 
         if matches.is_present("print-events") {
             options.print_events = true;
+        }
+
+        if let Some(val) = matches.value_of("live-config-reload") {
+            match val {
+                "y" | "yes" => options.live_config_reload = Some(true),
+                "n" | "no"  => options.live_config_reload = Some(false),
+                _           => options.live_config_reload = None,
+            }
         }
 
         if let Some(mut dimensions) = matches.values_of("dimensions") {

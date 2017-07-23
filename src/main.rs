@@ -148,8 +148,15 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     //
     // The monitor watches the config file for changes and reloads it. Pending
     // config changes are processed in the main loop.
-    let config_monitor = config.path()
-        .map(|path| config::Monitor::new(path, display.notifier()));
+    let config_monitor = match (options.live_config_reload, config.live_config_reload()) {
+        // Start monitor if CLI flag says yes
+        (Some(true), _) |
+        // Or if no CLI flag was passed and the config says yes
+        (None, true) => config.path()
+                .map(|path| config::Monitor::new(path, display.notifier())),
+        // Otherwise, don't start the monitor
+        _ => None,
+    };
 
     // Kick off the I/O thread
     let io_thread = event_loop.spawn(None);

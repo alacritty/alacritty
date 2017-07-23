@@ -277,6 +277,10 @@ pub struct Config {
     /// Hide cursor when typing
     #[serde(default)]
     hide_cursor_when_typing: bool,
+
+    /// Live config reload
+    #[serde(default)]
+    live_config_reload: bool,
 }
 
 fn default_padding() -> Delta {
@@ -329,6 +333,7 @@ impl Default for Config {
             visual_bell: Default::default(),
             env: Default::default(),
             hide_cursor_when_typing: Default::default(),
+            live_config_reload: Default::default(),
             padding: default_padding(),
         }
     }
@@ -1175,6 +1180,12 @@ impl Config {
     #[inline]
     pub fn hide_cursor_when_typing(&self) -> bool {
         self.hide_cursor_when_typing
+    }
+
+    /// Live config reload
+    #[inline]
+    pub fn live_config_reload(&self) -> bool {
+        self.live_config_reload
     }
 
     pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
