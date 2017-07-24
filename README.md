@@ -180,10 +180,8 @@ To build an application for macOS, run
 
 ```sh
 make app
+cp -r target/release/osx/Alacritty.app /Applications/Alacritty.app
 ```
-
-Then copy the app from `target/release/osx` to `/Applications`
-
 
 ## Configuration
 
