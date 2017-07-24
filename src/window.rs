@@ -14,7 +14,6 @@
 use std::convert::From;
 use std::fmt::{self, Display};
 use std::ops::Deref;
-use std::sync::{Mutex, Arc};
 
 use gl;
 use glutin::{self, EventsLoop, WindowBuilder, Event, CursorState, ControlFlow, ContextBuilder};
@@ -266,6 +265,11 @@ impl Window {
         where F: FnMut(Event)
     {
         self.event_loop.poll_events(func);
+    }
+
+    #[inline]
+    pub fn resize(&self, width: u32, height: u32) {
+        self.window.resize(width, height);
     }
 
     /// Block waiting for events

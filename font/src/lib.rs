@@ -36,7 +36,7 @@ extern crate libc;
 
 #[cfg(not(target_os = "macos"))]
 #[macro_use]
-extern crate ffi_util;
+extern crate foreign_types;
 
 #[macro_use]
 extern crate log;

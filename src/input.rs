@@ -513,7 +513,7 @@ mod tests {
     use std::borrow::Cow;
     use std::time::Duration;
 
-    use glutin::{VirtualKeyCode, Event, ElementState, MouseButton, ModifiersState};
+    use glutin::{VirtualKeyCode, Event, WindowEvent, ElementState, MouseButton, ModifiersState};
 
     use term::{SizeInfo, Term, TermMode, mode};
     use event::{Mouse, ClickState};
@@ -538,6 +538,9 @@ mod tests {
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
         pub last_action: MultiClick,
+        pub received_count: usize,
+        pub suppress_chars: bool,
+        pub last_modifiers: ModifiersState,
     }
 
     impl <'a>super::ActionContext for ActionContext<'a> {
@@ -578,6 +581,15 @@ mod tests {
         fn mouse_mut(&mut self) -> &mut Mouse {
             self.mouse
         }
+        fn received_count(&mut self) -> &mut usize {
+            &mut self.received_count
+        }
+        fn suppress_chars(&mut self) -> &mut bool {
+            &mut self.suppress_chars
+        }
+        fn last_modifiers(&mut self) -> &mut ModifiersState {
+            &mut self.last_modifiers
+        }
     }
 
     macro_rules! test_clickstate {
@@ -613,6 +625,9 @@ mod tests {
                     mouse: &mut mouse,
                     size_info: &size,
                     last_action: MultiClick::None,
+                    received_count: 0,
+                    suppress_chars: false,
+                    last_modifiers: ModifiersState::default(),
                 };
 
                 let mut processor = Processor {
@@ -629,8 +644,8 @@ mod tests {
                     mouse_bindings: &config.mouse_bindings()[..],
                 };
 
-                if let Event::MouseInput(state, input) = $input {
-                    processor.mouse_input(state, input);
+                if let Event::WindowEvent { event: WindowEvent::MouseInput { state, button, .. }, .. } = $input {
+                    processor.mouse_input(state, button);
                 };
 
                 assert!(match mouse.click_state {
@@ -663,7 +678,14 @@ mod tests {
     test_clickstate! {
         name: single_click,
         initial_state: ClickState::None,
-        input: Event::MouseInput(ElementState::Pressed, MouseButton::Left),
+        input: Event::WindowEvent {
+            event: WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                device_id: unsafe { ::std::mem::transmute_copy(&0) },
+            },
+            window_id: unsafe { ::std::mem::transmute_copy(&0) },
+        },
         end_state: ClickState::Click,
         last_action: MultiClick::None
     }
@@ -671,7 +693,14 @@ mod tests {
     test_clickstate! {
         name: double_click,
         initial_state: ClickState::Click,
-        input: Event::MouseInput(ElementState::Pressed, MouseButton::Left),
+        input: Event::WindowEvent {
+            event: WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                device_id: unsafe { ::std::mem::transmute_copy(&0) },
+            },
+            window_id: unsafe { ::std::mem::transmute_copy(&0) },
+        },
         end_state: ClickState::DoubleClick,
         last_action: MultiClick::DoubleClick
     }
@@ -679,7 +708,14 @@ mod tests {
     test_clickstate! {
         name: triple_click,
         initial_state: ClickState::DoubleClick,
-        input: Event::MouseInput(ElementState::Pressed, MouseButton::Left),
+        input: Event::WindowEvent {
+            event: WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                device_id: unsafe { ::std::mem::transmute_copy(&0) },
+            },
+            window_id: unsafe { ::std::mem::transmute_copy(&0) },
+        },
         end_state: ClickState::TripleClick,
         last_action: MultiClick::TripleClick
     }
@@ -710,7 +746,7 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_not_appcursor,
-        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: true, alt: true, logo: true }, action: Action::from("\x1b[D"), mode: mode::NONE, notmode: mode::APP_CURSOR },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }, action: Action::from("\x1b[D"), mode: mode::NONE, notmode: mode::APP_CURSOR },
         triggers: true,
         mode: mode::NONE,
         mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
@@ -718,7 +754,7 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_appcursormode_nomod_require_appcursor,
-        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: true, alt: true, logo: true }, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
         triggers: true,
         mode: mode::APP_CURSOR,
         mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
@@ -726,7 +762,7 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_appcursor,
-        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: true, alt: true, logo: true }, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
         triggers: false,
         mode: mode::NONE,
         mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
@@ -734,7 +770,7 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_appcursormode_appkeypadmode_nomod_require_appcursor,
-        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: true, alt: true, logo: true }, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
         triggers: true,
         mode: mode::APP_CURSOR | mode::APP_KEYPAD,
         mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }

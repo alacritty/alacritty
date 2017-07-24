@@ -182,10 +182,14 @@ visual_bell:
 # capitalization must match exactly, and piped items must not have whitespace
 # around them.
 #
-# Either an `action` or `chars` field must be present. `chars` writes the
-# specified string every time that binding is activated. These should generally
-# be escape sequences, but they can be configured to send arbitrary strings of
-# bytes. Possible values of `action` include `Paste` and `PasteSelection`.
+# Either an `action`, `chars`, or `command` field must be present.
+#   `action` must be one of `Paste`, `PasteSelection`, `Copy`, or `Quit`.
+#   `chars` writes the specified string every time that binding is activated.
+#     These should generally be escape sequences, but they can be configured to
+#     send arbitrary strings of bytes.
+#   `command` must be a map containing a `program` string, and `args` array of
+#     strings. For example:
+#     - { ... , command: { program: "alacritty", args: ["-e", "vttest"] } }
 key_bindings:
   - { key: V,        mods: Command, action: Paste                        }
   - { key: C,        mods: Command, action: Copy                         }

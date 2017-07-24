@@ -16,23 +16,31 @@ before the 1.0 release.
 
 Alacritty is focused on simplicity and performance. The performance goal means
 it should be faster than any other terminal emulator available. The simplicity
-goal means that it doesn't have many features like tabs or scroll back as in
-other terminals. Instead, it is expected that users of Alacritty make use of a
-terminal multiplexer such as [`tmux`](https://github.com/tmux/tmux).
+goal means that it doesn't have features such as tabs or splits (which can be
+better provided by a window manager or [terminal multiplexer][tmux]) nor
+niceties like a GUI config editor.
 
-This initial release should be considered to be **pre-alpha** software--it will
-have issues. Once Alacritty reaches an alpha level of readiness, precompiled
-binaries will be provided for supported operating systems.
+The software is considered to be at an **alpha** level of readiness--there are
+missing features and bugs to be fixed, but it is already used by many as a daily
+driver.
+
+Precompiled binaries will eventually be made available on supported platforms.
+This is minimally blocked on a stable config format. For now, Alacritty must be
+built from source.
 
 ## Further information
 
 - [Announcing Alacritty, a GPU-Accelerated Terminal Emulator](http://blog.jwilm.io/announcing-alacritty/) January 6, 2017
 - [A short talk about Alacritty at the Rust Meetup January 2017](https://air.mozilla.org/rust-meetup-january-2017/) (starts at 57:00)
 
-## Package Installation
+## Installation
 
-The only supported installation method at this time is from source. Proper
-installers will be added prior to the 1.0 release of Alacritty.
+Instructions are provided for macOS and many Linux variants to compile Alacritty
+from source. With the exception of Arch (which has a package in the AUR), please
+first read the [prerequisites](#prerequisites) section, then find the section
+for your OS, and finally go to [building](#building) and
+[configuration](#configuration).
+
 
 ### Arch Linux
 
@@ -57,7 +65,7 @@ makepkg -isr
    ```
 
 3. Make sure you have the right Rust compiler installed. Alacritty requires at
-   least 1.15. Run
+   least 1.18. Run
 
    ```sh
    rustup override set stable
@@ -128,6 +136,16 @@ missing, please open an issue.
 
 ```sh
 pkg install cmake freetype2 fontconfig xclip pkgconf
+```
+
+#### Solus
+
+On [Solus](https://solus-project.com/), you need a few extra libraries to build Alacritty. Here's a
+`eopkg` command that should install all of them. If something is still found
+to be missing, please open an issue.
+
+```sh
+sudo eopkg install freetype2-devel fontconfig-devel
 ```
 
 #### Other
@@ -210,6 +228,10 @@ Just Works.
   Contributors would be welcomed :).
 - _My arrow keys don't work_. It sounds like you deleted some key bindings from
   your config file. Please reference the default config file to restore them.
+- _Why doesn't it support scrollback?_ Alacritty's original purpose was to
+  provide a better experience when using [tmux] which already handled
+  scrollback. The scope of this project has since expanded, and [scrollback will
+  eventually be added](https://github.com/jwilm/alacritty/issues/124).
 
 ## IRC
 
@@ -220,3 +242,4 @@ Alacritty discussion can be found in `#alacritty` on freenode.
 Alacritty is released under the [Apache License, Version 2.0].
 
 [Apache License, Version 2.0]: https://github.com/jwilm/alacritty/blob/readme/LICENSE-APACHE
+[tmux]: https://github.com/tmux/tmux

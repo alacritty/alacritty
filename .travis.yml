@@ -8,7 +8,6 @@ os:
   - osx
 
 rust:
-  - 1.15.0
   - stable
   - nightly
 

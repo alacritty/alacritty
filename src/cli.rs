@@ -90,6 +90,7 @@ impl Options {
                  .takes_value(true)
                  .help("Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]"))
             .arg(Arg::with_name("command")
+                .long("command")
                 .short("e")
                 .multiple(true)
                 .takes_value(true)
