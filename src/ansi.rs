@@ -536,6 +536,8 @@ pub enum Attr {
     Hidden,
     /// Strikethrough text
     Strike,
+    /// Cancel bold
+    CancelBold,
     /// Cancel bold and dim
     CancelBoldDim,
     /// Cancel italic
@@ -872,6 +874,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                         7 => Attr::Reverse,
                         8 => Attr::Hidden,
                         9 => Attr::Strike,
+                        21 => Attr::CancelBold,
                         22 => Attr::CancelBoldDim,
                         23 => Attr::CancelItalic,
                         24 => Attr::CancelUnderline,

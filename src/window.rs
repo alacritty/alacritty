@@ -183,6 +183,22 @@ impl Window {
         title: &str
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
+
+        if cfg!(any(target_os = "linux", target_os = "freebsd",
+                    target_os = "dragonfly", target_os = "openbsd")) {
+            /// Set up env to make XIM work correctly
+            use x11_dl::xlib;
+            use libc::{setlocale, LC_CTYPE};
+            let xlib = xlib::Xlib::open().expect("get xlib");
+            unsafe {
+                /// Use empty c string to fallback to LC_CTYPE in environment variables
+                setlocale(LC_CTYPE, b"\0".as_ptr() as *const _);
+                /// Use empty c string for implementation dependent behavior,
+                /// which might be the XMODIFIERS set in env
+                (xlib.XSetLocaleModifiers)(b"\0".as_ptr() as *const _);
+            }
+        }
+
         let window = WindowBuilder::new()
             .with_title(title);
         let context = ContextBuilder::new()
@@ -280,6 +296,16 @@ impl Window {
                 CursorState::Hide
             }).unwrap();
         }
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
+    pub fn send_xim_spot(&self, x: i16, y: i16) {
+        use glutin::os::unix::WindowExt;
+        self.window.send_xim_spot(x, y);
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
+    pub fn send_xim_spot(&self, x: i16, y: i16) {
     }
 
     #[cfg(not(target_os = "macos"))]

@@ -490,7 +490,7 @@ impl IndexMut<CharsetIndex> for Charsets {
 #[derive(Default, Copy, Clone)]
 pub struct Cursor {
     /// The location of this cursor
-    point: Point,
+    pub point: Point,
 
     /// Template cell when using this cursor
     template: Cell,
@@ -640,7 +640,7 @@ pub struct Term {
     alt: bool,
 
     /// The cursor
-    cursor: Cursor,
+    pub cursor: Cursor,
 
     /// The graphic character set, out of `charsets`, which ASCII is currently
     /// being mapped to
@@ -1703,6 +1703,7 @@ impl ansi::Handler for Term {
             Attr::Reverse => self.cursor.template.flags.insert(cell::INVERSE),
             Attr::CancelReverse => self.cursor.template.flags.remove(cell::INVERSE),
             Attr::Bold => self.cursor.template.flags.insert(cell::BOLD),
+            Attr::CancelBold => self.cursor.template.flags.remove(cell::BOLD),
             Attr::Dim => self.cursor.template.flags.insert(cell::DIM),
             Attr::CancelBoldDim => self.cursor.template.flags.remove(cell::BOLD | cell::DIM),
             Attr::Italic => self.cursor.template.flags.insert(cell::ITALIC),
