@@ -582,13 +582,13 @@ mod tests {
 
         // Check to_font
         let fonts = list.iter()
-                        .map(|desc| desc.to_font(72.))
+                        .map(|desc| desc.to_font(72., false))
                         .collect::<Vec<_>>();
 
         for font in fonts {
             // Get a glyph
             for c in &['a', 'b', 'c', 'd'] {
-                let glyph = font.get_glyph(*c, 72.).unwrap();
+                let glyph = font.get_glyph(*c, 72., false).unwrap();
 
                 // Debug the glyph.. sigh
                 for row in 0..glyph.height {
