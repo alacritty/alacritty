@@ -1138,6 +1138,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "wayland-protocols"
+version = "0.9.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wayland-client 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wayland-scanner 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wayland-sys 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "wayland-scanner"
 version = "0.9.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1156,12 +1167,13 @@ dependencies = [
 
 [[package]]
 name = "wayland-window"
-version = "0.6.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "byteorder 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile 2.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "wayland-client 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wayland-protocols 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1177,7 +1189,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "winit"
 version = "0.7.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/tomaka/winit#cc89d56e43e89f43730c6f633d0ef801be79d86b"
 dependencies = [
  "android_glue 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cocoa 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1195,10 +1207,17 @@ dependencies = [
  "user32-sys 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "wayland-client 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "wayland-kbd 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wayland-window 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wayland-protocols 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wayland-window 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "x11-dl 2.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "winit"
+version = "0.7.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+replace = "winit 0.7.5 (git+https://github.com/tomaka/winit)"
 
 [[package]]
 name = "ws2_32-sys"
@@ -1372,11 +1391,13 @@ dependencies = [
 "checksum walkdir 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "c66c0b9792f0a765345452775f3adbd28dde9d33f30d13e5dcc5ae17cf6f3780"
 "checksum wayland-client 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)" = "15aaf730e0720ac3c25259bd8af44eacd509ae03e85a3ca64b0d4f7fe9d8da03"
 "checksum wayland-kbd 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "75485a10a894e48f4d21c15c8673ac84a073aef402e15060715fb3501416e58e"
+"checksum wayland-protocols 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)" = "a2c8838178028e9f2c561360ca20d56f1ecd577fa2808a1d6ced4e1cc0e7f70b"
 "checksum wayland-scanner 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)" = "0df992fcdb356c7bde978e7d2d8a407cfd8890370510e11dc0131bfd08cc064c"
 "checksum wayland-sys 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)" = "7b755ecdca8a7de5191b3ddbcbee1055ba4adfe74f6b0d9f299bf060a5e8c8dd"
-"checksum wayland-window 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4355498f67d61401169926daca72bf04db53c95bad863aa3e6c6e5e5ec20973c"
+"checksum wayland-window 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0f1a18db0c1132f8306c46b9319f6fd1b7d04b9a46115ed155e816033670451a"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
 "checksum winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2d315eee3b34aca4797b2da6b13ed88266e6d612562a0c46390af8299fc699bc"
+"checksum winit 0.7.5 (git+https://github.com/tomaka/winit)" = "<none>"
 "checksum winit 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)" = "698ba650b7118385bf776b13134d58793af062bcb95ea6f84f6f4d682e1ed590"
 "checksum ws2_32-sys 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d59cefebd0c892fa2dd6de581e937301d8552cb44489cdff035c6187cb63fa5e"
 "checksum x11-dl 2.14.0 (registry+https://github.com/rust-lang/crates.io-index)" = "326c500cdc166fd7c70dd8c8a829cd5c0ce7be5a5d98c25817de2b9bdc67faf8"

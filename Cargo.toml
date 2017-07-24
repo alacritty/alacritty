@@ -54,3 +54,6 @@ version = "0.9"
 [profile.release]
 lto = true
 debug = true
+
+[replace]
+"winit:0.7.5" = { git = "https://github.com/tomaka/winit", branch = "master" }

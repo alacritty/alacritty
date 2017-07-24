@@ -1411,9 +1411,10 @@ impl Monitor {
             _thread: ::util::thread::spawn_named("config watcher", move || {
                 let (tx, rx) = mpsc::channel();
                 let mut watcher = FileWatcher::new(tx).unwrap();
-                watcher.watch(&path).expect("watch alacritty yml");
+                let config_path = ::std::fs::canonicalize(path)
+                    .expect("canonicalize config path");
 
-                let config_path = path.as_path();
+                watcher.watch(&config_path).expect("watch alacritty yml");
 
                 loop {
                     let event = rx.recv().expect("watcher event");
