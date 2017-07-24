@@ -172,18 +172,8 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
 
         // Maybe draw the terminal
         if terminal.needs_draw() {
-            // Adjust the XIM editor position according to the new location of the cursor
-            use alacritty::index::{Point, Line, Column};
-            use alacritty::term::SizeInfo;
-            let Point{line: Line(row), col: Column(col)} = terminal.cursor.point;
-            let SizeInfo{cell_width: cw,
-                        cell_height: ch,
-                        padding_x: px,
-                        padding_y: py, ..} = *terminal.size_info();
-            let nspot_y = (py + (row + 1) as f32 * ch) as i16;
-            let nspot_x = (px + col as f32 * cw) as i16;
-            display.window().send_xim_spot(nspot_x, nspot_y);
-
+            // Try to update the position of the input method editor
+            display.update_ime_position(&terminal);
             // Handle pending resize events
             //
             // The second argument is a list of types that want to be notified

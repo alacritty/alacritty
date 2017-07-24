@@ -640,7 +640,7 @@ pub struct Term {
     alt: bool,
 
     /// The cursor
-    pub cursor: Cursor,
+    cursor: Cursor,
 
     /// The graphic character set, out of `charsets`, which ASCII is currently
     /// being mapped to
@@ -1052,6 +1052,11 @@ impl Term {
     #[inline]
     pub fn mode(&self) -> &TermMode {
         &self.mode
+    }
+
+    #[inline]
+    pub fn cursor(&self) -> &Cursor {
+        &self.cursor
     }
 
     pub fn swap_alt(&mut self) {
