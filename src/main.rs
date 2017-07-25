@@ -172,6 +172,8 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
 
         // Maybe draw the terminal
         if terminal.needs_draw() {
+            // Try to update the position of the input method editor
+            display.update_ime_position(&terminal);
             // Handle pending resize events
             //
             // The second argument is a list of types that want to be notified

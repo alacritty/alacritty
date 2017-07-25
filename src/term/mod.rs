@@ -490,7 +490,7 @@ impl IndexMut<CharsetIndex> for Charsets {
 #[derive(Default, Copy, Clone)]
 pub struct Cursor {
     /// The location of this cursor
-    point: Point,
+    pub point: Point,
 
     /// Template cell when using this cursor
     template: Cell,
@@ -1052,6 +1052,11 @@ impl Term {
     #[inline]
     pub fn mode(&self) -> &TermMode {
         &self.mode
+    }
+
+    #[inline]
+    pub fn cursor(&self) -> &Cursor {
+        &self.cursor
     }
 
     pub fn swap_alt(&mut self) {
