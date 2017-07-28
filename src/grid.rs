@@ -91,6 +91,15 @@ pub enum MoveRegionError {
     AtBottom
 }
 
+/// Represents a vertical movement within some abstract space
+/// ie: the contents of the terminal window inside the scroll pane.
+#[derive(Copy, Clone, Debug)]
+pub enum Movement<T: Copy> {
+    Up(T),
+    Down(T),
+    None
+}
+
 impl<T: Clone> Grid<T> {
     pub fn new(lines: index::Line, cols: index::Column, template: &T) -> Grid<T> {
         /// the number of lines
@@ -110,33 +119,51 @@ impl<T: Clone> Grid<T> {
         }
     }
 
-    pub fn resize(&mut self, lines: index::Line, cols: index::Column, template: &T) {
-        println!("Resizing {:?} {:?}", lines, cols);
-
-        // Check that there's actually work to do and return early if not
-        if lines == self.lines && cols == self.cols {
-            return;
-        }
-
-        match self.lines.cmp(&lines) {
-            Ordering::Less => self.grow_lines(lines, template),
-            Ordering::Greater => self.shrink_lines(lines),
-            Ordering::Equal => (),
-        }
-
+    /// Resizes the visible region to the given number of lines and columns.
+    pub fn resize(&mut self, lines: index::Line, cols: index::Column, template: &T) -> Movement<Line> {
         match self.cols.cmp(&cols) {
             Ordering::Less => self.grow_cols(cols, template),
             Ordering::Greater => self.shrink_cols(cols),
             Ordering::Equal => (),
         }
-    }
 
-    fn grow_lines(&mut self, lines: index::Line, template: &T) {
-        for _ in IndexRange(self.num_lines()..lines) {
-            self.raw.push_back(Row::new(self.cols, template));
+        match self.lines.cmp(&lines) {
+            Ordering::Less => self.grow_lines(lines, template),
+            Ordering::Greater => self.shrink_lines(lines),
+            Ordering::Equal => Movement::None,
+        }
+    }
+ 
+    /// Grows the active region/visible region to the given number of lines.
+    /// The algorithm this uses should mimic Gnome Terminal's at the moment.
+    /// That means that the contents bottom line of the screen should remain the same.
+    ///
+    /// The return value represents the direction and amount the 
+    /// active region has moved - this can be either discarded or
+    /// inspected ie: to keep the cursor in the right position.
+    fn grow_lines(&mut self, lines: index::Line, template: &T) -> Movement<Line> {
+        let old_start = self.active_region().start;
+        
+        // check if we actually need to add new lines
+        if self.total_lines_in_buffer() < lines.to_absolute() {
+            debug!("grow_lines: adding {} lines", lines.to_absolute() - self.total_lines_in_buffer());
+
+            while self.total_lines_in_buffer() < lines.to_absolute() {
+                self.raw.push_back(Row::new(self.cols, template));
+            }
         }
 
+        // move the start of the visible region up, so that the end
+        // of the visible region is the same as it was before.
+        let visible_shift = lines.to_absolute() - self.lines.to_absolute();
+        let _ = self.move_visible_region_up(visible_shift);
+    
         self.lines = lines;
+
+        // calculate how much (if at all) the active region has moved up during the resize
+        let new_start = self.active_region().start;
+        let active_shift = old_start - new_start;
+        Movement::Up(active_shift.to_relative())
     }
 
     fn grow_cols(&mut self, cols: index::Column, template: &T) {
@@ -316,12 +343,23 @@ impl<T> Grid<T> {
         self.clear_region(region, func);
     }
 
-    fn shrink_lines(&mut self, lines: index::Line) {
-        while index::Line(self.raw.len()) != lines {
-            self.raw.pop_back();
-        }
-
+    /// Shrinks the active region/visible region to the given number of lines.
+    /// The algorithm this uses should mimic Gnome Terminal's at the moment.
+    /// That means that the contents bottom line of the screen should remain the same.
+    ///
+    /// The return value represents the direction and amount the 
+    /// active region has moved - this can be either discarded or
+    /// inspected ie: to keep the cursor in the right position.
+    fn shrink_lines(&mut self, lines: index::Line) -> Movement<Line> {
+        let shift = self.lines.to_absolute() - lines.to_absolute();
+        
         self.lines = lines;
+
+        // move the start of the visible region down, so that the end
+        // of the visible region is the same as it was before.
+        let _ = self.move_visible_region_down(shift);
+
+        Movement::Down(shift.to_relative())
     }
 
     fn shrink_cols(&mut self, cols: index::Column) {
