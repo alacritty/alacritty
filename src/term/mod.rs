@@ -1132,7 +1132,7 @@ impl Term {
     }
 
     #[inline]
-    pub fn get_background_color(&self) -> Rgb {
+    pub fn background_color(&self) -> Rgb {
         self.colors[NamedColor::Background]
     }
 }

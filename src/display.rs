@@ -283,7 +283,7 @@ impl Display {
         let size_info = *terminal.size_info();
         let visual_bell_intensity = terminal.visual_bell.intensity();
 
-        let background_color = terminal.get_background_color();
+        let background_color = terminal.background_color();
         let background_color_changed = terminal.background_color_changed;
         if background_color_changed {
             terminal.background_color_changed = false;
