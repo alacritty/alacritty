@@ -97,6 +97,7 @@ pub struct Display {
     tx: mpsc::Sender<(u32, u32)>,
     meter: Meter,
     size_info: SizeInfo,
+    last_background_color: Rgb,
 }
 
 /// Can wakeup the render loop from other threads
@@ -223,6 +224,7 @@ impl Display {
             rx: rx,
             meter: Meter::new(),
             size_info: size_info,
+            last_background_color: background_color,
         })
     }
 
@@ -284,10 +286,8 @@ impl Display {
         let visual_bell_intensity = terminal.visual_bell.intensity();
 
         let background_color = terminal.background_color();
-        let background_color_changed = terminal.background_color_changed;
-        if background_color_changed {
-            terminal.background_color_changed = false;
-        }
+        let background_color_changed = background_color != self.last_background_color;
+        self.last_background_color = background_color;
 
         {
             let glyph_cache = &mut self.glyph_cache;

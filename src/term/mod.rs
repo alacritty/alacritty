@@ -680,8 +680,6 @@ pub struct Term {
     original_colors: color::List,
 
     cursor_style: CursorStyle,
-
-    pub background_color_changed: bool,
 }
 
 /// Terminal size info
@@ -782,7 +780,6 @@ impl Term {
             original_colors: color::List::from(config.colors()),
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
             cursor_style: CursorStyle::Block,
-            background_color_changed: false,
         }
     }
 
@@ -1622,9 +1619,6 @@ impl ansi::Handler for Term {
     fn set_color(&mut self, index: usize, color: Rgb) {
         trace!("set_color[{}] = {:?}", index, color);
         self.colors[index] = color;
-        if index == NamedColor::Background as usize {
-            self.background_color_changed = true;
-        }
     }
 
     /// Reset the indexed color to original value
@@ -1632,9 +1626,6 @@ impl ansi::Handler for Term {
     fn reset_color(&mut self, index: usize) {
         trace!("reset_color[{}]", index);
         self.colors[index] = self.original_colors[index];
-        if index == NamedColor::Background as usize {
-            self.background_color_changed = true;
-        }
     }
 
     #[inline]
