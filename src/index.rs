@@ -98,6 +98,12 @@ impl fmt::Display for AbsoluteLine {
     }
 }
 
+impl AbsoluteLine {
+    pub fn to_relative(self) -> Line {
+        Line(self.0)
+    }
+}
+
 /// A column
 ///
 /// Newtype to avoid passing values incorrectly
