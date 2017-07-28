@@ -186,6 +186,13 @@ sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
 cp Alacritty.desktop ~/.local/share/applications
 ```
 
+To build an application for macOS, run
+
+```sh
+make app
+cp -r target/release/osx/Alacritty.app /Applications/Alacritty.app
+```
+
 ## Configuration
 
 Although it's possible the default configuration would work on your system,
