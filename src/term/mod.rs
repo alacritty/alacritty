@@ -24,7 +24,7 @@ use unicode_width::UnicodeWidthChar;
 use owned_slice::TakeSlice;
 
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
+use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed, Movement};
 use index::{self, Point, Column, Line, AbsoluteLine, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{self, Span, Selection};
 use config::{Config, VisualBellAnimation};
@@ -1067,28 +1067,15 @@ impl Term {
             num_lines = Line(2);
         }
 
-        // Scroll up to keep cursor and as much context as possible in grid.
-        // This only runs when the lines decreases.
-        self.scroll_region = Line(0)..self.grid.num_lines();
-
-        // Scroll up to keep cursor in terminal
-        if self.cursor.point.line >= num_lines {
-            let lines = self.cursor.point.line - num_lines + 1;
-            self.grid.scroll_up(Line(0)..old_lines, lines);
-        }
-
-        // Scroll up alt grid as well
-        if self.cursor_save_alt.point.line >= num_lines {
-            let lines = self.cursor_save_alt.point.line - num_lines + 1;
-            self.alt_grid.scroll_up(Line(0)..old_lines, lines);
-        }
-
         debug!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         // Resize grids to new size
-        let template = Cell::default();
-        self.grid.resize(num_lines, num_cols, &template);
-        self.alt_grid.resize(num_lines, num_cols, &template);
+        let template = self.cursor.template;
+        let movement = self.grid.resize(num_lines, num_cols, &template);
+        let alt_movement = self.alt_grid.resize(num_lines, num_cols, &template);
+        adjust_point_after_resize(&mut self.cursor.point, movement);
+        adjust_point_after_resize(&mut self.cursor_save.point, movement);
+        adjust_point_after_resize(&mut self.cursor_save_alt.point, alt_movement);
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();
@@ -1105,14 +1092,6 @@ impl Term {
         self.tabs = IndexRange::from(Column(0)..self.grid.num_cols())
             .map(|i| (*i as usize) % TAB_SPACES == 0)
             .collect::<Vec<bool>>();
-
-        if num_lines > old_lines {
-            // Make sure bottom of terminal is clear
-            let template = self.cursor.template;
-            self.grid.clear_region((self.cursor.point.line + 1).., |c| c.reset(&template));
-            self.alt_grid.clear_region((self.cursor_save_alt.point.line + 1).., |c| c.reset(&template));
-        }
-
     }
 
     #[inline]
@@ -1563,7 +1542,7 @@ impl ansi::Handler for Term {
     fn scroll_up(&mut self, lines: Line) {
         let whole_screen = Line(0)..self.grid.num_lines();
         if self.scroll_region == whole_screen {
-            let template = self.empty_cell;
+            let template = self.cursor.template;
             self.grid.insert_new_lines(lines, |c| c.reset(&template));
         } else {
             let origin = self.scroll_region.start;
@@ -1930,6 +1909,27 @@ impl ansi::Handler for Term {
         trace!("set_cursor_style {:?}", style);
         self.cursor_style = style;
     }
+}
+
+/// This sneaky function compensates for a change in the height of the `active region`
+/// (which generally happens upon resizing), by applying the opposite of that movement to
+/// the given point. ie: if the region moved down, then the point will move up and vice-versa.
+fn adjust_point_after_resize(point: &mut Point, movement: Movement<Line>) {
+    match movement {
+        Movement::Up(amt) => {
+            trace!("Shifting {:?} down by {:?}", point, amt);
+            point.line += amt;
+        },
+        Movement::Down(amt) => {
+            trace!("Shifting {:?} up by {:?}", point, amt);
+            point.line = if point.line < amt {
+                Line(0)
+            } else {
+                point.line - amt
+            }
+        },
+        Movement::None => {}
+    };
 }
 
 #[cfg(test)]
