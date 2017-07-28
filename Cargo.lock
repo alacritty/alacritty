@@ -228,7 +228,7 @@ dependencies = [
 
 [[package]]
 name = "core-text"
-version = "5.0.0"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "core-foundation 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -309,7 +309,7 @@ dependencies = [
  "core-foundation 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation-sys 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-graphics 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "core-text 5.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "core-text 6.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "euclid 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "foreign-types 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "freetype-rs 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1284,7 +1284,7 @@ dependencies = [
 "checksum core-foundation-sys 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "41115a6aa5d3e1e5ef98148373f25971d1fad53818553f216495f9e67e90a624"
 "checksum core-foundation-sys 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "53f5f209da674a33b660333a4d15eda39d515ba847c3af13f5d838a7fe686c63"
 "checksum core-graphics 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a9f841e9637adec70838c537cae52cb4c751cc6514ad05669b51d107c2021c79"
-"checksum core-text 5.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "74ba2a7abdccb94fb6c00822addef48504182b285aa45a30e78286487888fcb4"
+"checksum core-text 6.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "16ce16d9ed00181016c11ff48e561314bec92bfbce9fe48f319366618d4e5de6"
 "checksum dlib 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "148bce4ce1c36c4509f29cb54e62c2bd265551a9b00b38070fad551a851866ec"
 "checksum dtoa 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "80c8b71fd71146990a9742fc06dcbbde19161a267e0ad4e572c35162f4578c90"
 "checksum dwmapi-sys 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "07c4c7cc7b396419bc0a4d90371d0cee16cb5053b53647d287c0b728000c41fe"
