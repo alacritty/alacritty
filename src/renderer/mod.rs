@@ -684,8 +684,7 @@ impl QuadRenderer {
 }
 
 impl<'a> RenderApi<'a> {
-    pub fn clear(&self) {
-        let color = self.config.colors().primary.background;
+    pub fn clear(&self, color: Rgb) {
         unsafe {
             gl::ClearColor(
                 (self.visual_bell_intensity + color.r as f32 / 255.0).min(1.0),

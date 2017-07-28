@@ -23,6 +23,61 @@ use index::{Column, Line, Contains};
 
 use ::Rgb;
 
+// Parse color arguments
+//
+// Expect that color argument looks like "rgb:xx/xx/xx" or "#xxxxxx"
+fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
+    let mut iter = color.iter();
+
+    macro_rules! next {
+        () => {
+            iter.next().map(|v| *v as char)
+        }
+    }
+
+    macro_rules! parse_hex {
+        () => {{
+            let mut digit: u8 = 0;
+            let next = next!().and_then(|v| v.to_digit(16));
+            if let Some(value) = next {
+                digit = value as u8;
+            }
+
+            let next = next!().and_then(|v| v.to_digit(16));
+            if let Some(value) = next {
+                digit <<= 4;
+                digit += value as u8;
+            }
+            digit
+        }}
+    }
+
+    match next!() {
+        Some('r') => {
+            if next!() != Some('g') { return None; }
+            if next!() != Some('b') { return None; }
+            if next!() != Some(':') { return None; }
+
+            let r = parse_hex!();
+            let val = next!();
+            if val != Some('/') { println!("val={:?}", val); return None; }
+            let g = parse_hex!();
+            if next!() != Some('/') { return None; }
+            let b = parse_hex!();
+
+            Some(Rgb { r: r, g: g, b: b})
+        }
+        Some('#') => {
+            Some(Rgb {
+                r: parse_hex!(),
+                g: parse_hex!(),
+                b: parse_hex!(),
+            })
+        }
+        _ => None
+    }
+}
+
 /// The processor wraps a `vte::Parser` to ultimately call methods on a Handler
 pub struct Processor {
     state: ProcessorState,
@@ -259,6 +314,9 @@ pub trait Handler {
 
     /// Set an indexed color value
     fn set_color(&mut self, usize, Rgb) {}
+
+    /// Reset an indexed color to original value
+    fn reset_color(&mut self, usize) {}
 
     /// Run the dectest routine
     fn dectest(&mut self) {}
@@ -651,9 +709,9 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             return;
         }
 
-        match params[0][0] {
+        match params[0] {
             // Set window title
-            b'0' | b'2' => {
+            b"0" | b"2" => {
                 if params.len() < 2 {
                     return unhandled!();
                 }
@@ -665,10 +723,10 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
 
             // Set icon name
             // This is ignored, since alacritty has no concept of tabs
-            b'1' => return,
+            b"1" => return,
 
             // Set color index
-            b'4' => {
+            b"4" => {
                 if params.len() < 3 {
                     return unhandled!();
                 }
@@ -696,51 +754,49 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     return unhandled!();
                 }
 
-                // Parse color arguments
-                //
-                // Expect that color argument looks like "rgb:xx/xx/xx"
-                let color = {
-                    let raw = params[2];
-                    let mut iter = raw.iter();
-                    macro_rules! next {
-                        () => {
-                            iter.next().map(|v| *v as char)
-                        }
-                    }
-                    if next!() != Some('r') { return unhandled!(); }
-                    if next!() != Some('g') { return unhandled!(); }
-                    if next!() != Some('b') { return unhandled!(); }
-                    if next!() != Some(':') { return unhandled!(); }
-
-                    macro_rules! parse_hex {
-                        () => {{
-                            let mut digit: u8 = 0;
-                            let next = next!().and_then(|v| v.to_digit(16));
-                            if let Some(value) = next {
-                                digit = value as u8;
-                            }
-
-                            let next = next!().and_then(|v| v.to_digit(16));
-                            if let Some(value) = next {
-                                digit <<= 4;
-                                digit += value as u8;
-                            }
-                            digit
-                        }}
-                    }
-
-                    let r = parse_hex!();
-                    let val = next!();
-                    if val != Some('/') { println!("val={:?}", val); return unhandled!(); }
-                    let g = parse_hex!();
-                    if next!() != Some('/') { return unhandled!(); }
-                    let b = parse_hex!();
-
-                    Rgb { r: r, g: g, b: b}
-                };
-
-                self.handler.set_color(index as usize, color);
+                if let Some(color) = parse_rgb_color(params[2]) {
+                    self.handler.set_color(index as usize, color);
+                } else {
+                    unhandled!();
+                }
             }
+
+            // Set foreground color
+            b"10" => {
+                if params.len() < 2 {
+                    return unhandled!();
+                }
+
+                if let Some(color) = parse_rgb_color(params[1]) {
+                    self.handler.set_color(NamedColor::Foreground as usize, color);
+                } else {
+                    unhandled!()
+                }
+            }
+
+            // Set background color
+            b"11" => {
+                if params.len() < 2 {
+                    return unhandled!();
+                }
+
+                if let Some(color) = parse_rgb_color(params[1]) {
+                    self.handler.set_color(NamedColor::Background as usize, color);
+                } else {
+                    unhandled!()
+                }
+            }
+
+            // Reset foreground color
+            b"110" => {
+                self.handler.reset_color(NamedColor::Foreground as usize);
+            }
+
+            // Reset background color
+            b"111" => {
+                self.handler.reset_color(NamedColor::Background as usize);
+            }
+
             _ => {
                 unhandled!();
             }
@@ -1241,7 +1297,7 @@ pub mod C1 {
 mod tests {
     use std::io;
     use index::{Line, Column};
-    use super::{Processor, Handler, Attr, TermInfo, Color, StandardCharset, CharsetIndex};
+    use super::{Processor, Handler, Attr, TermInfo, Color, StandardCharset, CharsetIndex, parse_rgb_color};
     use ::Rgb;
 
     /// The /dev/null of io::Write
@@ -1408,5 +1464,15 @@ mod tests {
         parser.advance(&mut handler, BYTES[3], &mut Void);
 
         assert_eq!(handler.index, CharsetIndex::G1);
+    }
+
+    #[test]
+    fn parse_valid_rgb_color() {
+        assert_eq!(parse_rgb_color(b"rgb:11/aa/ff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+    }
+
+    #[test]
+    fn parse_valid_rgb_color2() {
+        assert_eq!(parse_rgb_color(b"#11aaff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
     }
 }

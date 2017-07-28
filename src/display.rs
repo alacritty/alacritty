@@ -97,6 +97,7 @@ pub struct Display {
     tx: mpsc::Sender<(u32, u32)>,
     meter: Meter,
     size_info: SizeInfo,
+    last_background_color: Rgb,
 }
 
 /// Can wakeup the render loop from other threads
@@ -209,7 +210,10 @@ impl Display {
         let (tx, rx) = mpsc::channel();
 
         // Clear screen
-        renderer.with_api(config, &size_info, 0. /* visual bell intensity */, |api| api.clear());
+        let background_color = config.colors().primary.background;
+        renderer.with_api(config, &size_info, 0. /* visual bell intensity */, |api| {
+            api.clear(background_color);
+        });
 
         Ok(Display {
             window: window,
@@ -220,6 +224,7 @@ impl Display {
             rx: rx,
             meter: Meter::new(),
             size_info: size_info,
+            last_background_color: background_color,
         })
     }
 
@@ -280,6 +285,10 @@ impl Display {
         let size_info = *terminal.size_info();
         let visual_bell_intensity = terminal.visual_bell.intensity();
 
+        let background_color = terminal.background_color();
+        let background_color_changed = background_color != self.last_background_color;
+        self.last_background_color = background_color;
+
         {
             let glyph_cache = &mut self.glyph_cache;
 
@@ -293,6 +302,11 @@ impl Display {
                 // TODO I wonder if the renderable cells iter could avoid the
                 // mutable borrow
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                    // Clear screen to update whole background with new color
+                    if background_color_changed {
+                        api.clear(background_color);
+                    }
+
                     // Draw the grid
                     api.render_cells(terminal.renderable_cells(config, selection), glyph_cache);
                 });
@@ -324,7 +338,7 @@ impl Display {
         // issue of glClear being slow, less time is available for input
         // handling and rendering.
         self.renderer.with_api(config, &size_info, visual_bell_intensity, |api| {
-            api.clear();
+            api.clear(background_color);
         });
     }
 
