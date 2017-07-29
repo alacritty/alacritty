@@ -232,11 +232,9 @@ impl Action {
             Action::ResetFontSize => {
                ctx.reset_font_size();
             Action::ScrollUp => {
-                println!("Scrolling up!!! :D");
                 ctx.move_visible_region_up(AbsoluteLine(1));
             },
             Action::ScrollDown => {
-                println!("Scrolling down!!! :D");
                 ctx.move_visible_region_down(AbsoluteLine(1));
             }
         }
