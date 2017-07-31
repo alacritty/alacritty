@@ -409,6 +409,8 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Paste" => Action::Paste,
                     "Copy" => Action::Copy,
                     "PasteSelection" => Action::PasteSelection,
+                    "IncreaseFontSize" => Action::IncreaseFontSize,
+                    "DecreaseFontSize" => Action::DecreaseFontSize,
                     "Quit" => Action::Quit,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
@@ -1295,7 +1297,7 @@ impl DeserializeFromF32 for Size {
 /// field in this struct. It might be nice in the future to have defaults for
 /// each value independently. Alternatively, maybe erroring when the user
 /// doesn't provide complete config is Ok.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Font {
     /// Font family
     pub normal: FontDescription,
@@ -1308,7 +1310,7 @@ pub struct Font {
 
     // Font size in points
     #[serde(deserialize_with="DeserializeFromF32::deserialize_from_f32")]
-    size: Size,
+    pub size: Size,
 
     /// Extra spacing per character
     offset: Delta,
@@ -1330,7 +1332,7 @@ fn default_italic_desc() -> FontDescription {
 }
 
 /// Description of a single font
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct FontDescription {
     pub family: String,
     pub style: Option<String>,
@@ -1362,6 +1364,18 @@ impl Font {
     #[inline]
     pub fn glyph_offset(&self) -> &Delta {
         &self.glyph_offset
+    }
+
+    /// Get a font clone with a size modification
+    pub fn with_size_delta(self, delta: f32) -> Font {
+        let mut new_size = self.size.as_f32_pts() + delta;
+        if new_size < 1.0 {
+            new_size = 1.0;
+        }
+        Font {
+            size : Size::new(new_size),
+            .. self
+        }
     }
 }
 

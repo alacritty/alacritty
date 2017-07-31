@@ -29,7 +29,7 @@ use gl;
 use index::{Line, Column, RangeInclusive};
 use notify::{Watcher, watcher, RecursiveMode, DebouncedEvent};
 
-use config::{self, Config, Delta};
+use config::{self, Config, Font, Delta};
 use term::{self, cell, RenderableCell};
 use window::{Size, Pixels};
 
@@ -170,12 +170,11 @@ pub struct GlyphCache {
 impl GlyphCache {
     pub fn new<L>(
         mut rasterizer: Rasterizer,
-        config: &Config,
+        font: &Font,
         loader: &mut L
     ) -> Result<GlyphCache, font::Error>
         where L: LoadGlyph
     {
-        let font = config.font();
         let size = font.size();
         let glyph_offset = *font.glyph_offset();
 
