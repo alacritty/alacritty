@@ -63,6 +63,7 @@ pub trait ActionContext {
     fn suppress_chars(&mut self) -> &mut bool;
     fn last_modifiers(&mut self) -> &mut ModifiersState;
     fn change_font_size(&mut self, delta: i8);
+    fn reset_font_size(&mut self);
 }
 
 /// Describes a state and action to take in that state
@@ -161,6 +162,9 @@ pub enum Action {
     /// Decrease font size
     DecreaseFontSize,
 
+    /// Reset font size to the config value
+    ResetFontSize,
+
     /// Run given command
     Command(String, Vec<String>),
 
@@ -214,6 +218,9 @@ impl Action {
             },
             Action::DecreaseFontSize => {
                ctx.change_font_size(-1);
+            }
+            Action::ResetFontSize => {
+               ctx.reset_font_size();
             }
         }
     }
@@ -607,6 +614,8 @@ mod tests {
             &mut self.last_modifiers
         }
         fn change_font_size(&mut self, _delta: i8) {
+        }
+        fn reset_font_size(&mut self) {
         }
     }
 

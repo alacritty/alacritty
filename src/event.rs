@@ -111,6 +111,10 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.change_font_size(delta);
     }
 
+    fn reset_font_size(&mut self) {
+        self.terminal.reset_font_size();
+    }
+
     #[inline]
     fn mouse_mut(&mut self) -> &mut Mouse {
         self.mouse

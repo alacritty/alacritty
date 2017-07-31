@@ -794,6 +794,11 @@ impl Term {
         }
     }
 
+    pub fn reset_font_size(&mut self) {
+        self.font_size_modifier = 0;
+        self.dirty = true;
+    }
+
     pub fn update_config(&mut self, config: &Config) {
         self.semantic_escape_chars = config.selection().semantic_escape_chars.clone();
         self.original_colors.fill_named(config.colors());
