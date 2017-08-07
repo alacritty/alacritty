@@ -210,19 +210,6 @@ pub mod fc {
         }
     }
 
-    macro_rules! pattern_add_int {
-        ($($name:ident => $object:expr),*) => {
-            $(
-                #[inline]
-                pub fn $name(&mut self, value: &str) -> bool {
-                    unsafe {
-                        self.add_string($object, value)
-                    }
-                }
-            )*
-        }
-    }
-
     impl Pattern {
         pub fn new() -> Pattern {
             Pattern(unsafe { FcPatternCreate() })
@@ -254,23 +241,6 @@ pub mod fc {
                 pub fn $method(&self, id: isize) -> Option<String> {
                     unsafe {
                         self.get_string($property, id)
-                    }
-                }
-            )+
-        };
-    }
-
-    macro_rules! pattern_add_integer {
-        ($($method:ident() => $property:expr),+) => {
-            $(
-                pub fn $method(&self, int: isize) -> bool {
-                    unsafe {
-                        FcPatternAddInteger(
-                            self.as_ptr(),
-                            $property.as_ptr() as *mut c_char,
-                            int as c_int,
-                            &mut index
-                        ) == 1
                     }
                 }
             )+
