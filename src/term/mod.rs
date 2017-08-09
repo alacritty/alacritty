@@ -658,9 +658,6 @@ pub struct Term {
     /// Size
     size_info: SizeInfo,
 
-    /// Empty cell
-    empty_cell: Cell,
-
     pub dirty: bool,
 
     pub visual_bell: VisualBell,
@@ -775,7 +772,6 @@ impl Term {
             mode: Default::default(),
             scroll_region: scroll_region,
             size_info: size,
-            empty_cell: template,
             colors: color::List::from(config.colors()),
             original_colors: color::List::from(config.colors()),
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
@@ -1019,7 +1015,7 @@ impl Term {
         debug!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         // Resize grids to new size
-        let template = self.empty_cell;
+        let template = self.cursor.template;
         self.grid.resize(num_lines, num_cols, &template);
         self.alt_grid.resize(num_lines, num_cols, &template);
 
@@ -1041,7 +1037,7 @@ impl Term {
 
         if num_lines > old_lines {
             // Make sure bottom of terminal is clear
-            let template = self.empty_cell;
+            let template = self.cursor.template;
             self.grid.clear_region((self.cursor.point.line + 1).., |c| c.reset(&template));
             self.alt_grid.clear_region((self.cursor_save_alt.point.line + 1).., |c| c.reset(&template));
         }
@@ -1065,8 +1061,8 @@ impl Term {
 
     pub fn swap_alt(&mut self) {
         if self.alt {
-            let template = self.empty_cell;
-            self.grid.clear(|c| c.reset(&template));
+            let template = &self.cursor.template;
+            self.grid.clear(|c| c.reset(template));
         }
 
         self.alt = !self.alt;
@@ -1083,7 +1079,7 @@ impl Term {
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
-        let template = self.empty_cell;
+        let template = self.cursor.template;
 
         // Clear `lines` lines at bottom of area
         {
@@ -1105,7 +1101,7 @@ impl Term {
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
-        let template = self.empty_cell;
+        let template = self.cursor.template;
 
         // Clear `lines` lines starting from origin to origin + lines
         {
@@ -1124,7 +1120,7 @@ impl Term {
         self.set_scrolling_region(scroll_region);
 
         // Clear grid
-        let template = self.empty_cell;
+        let template = self.cursor.template;
         self.grid.clear(|c| c.reset(&template));
     }
 
@@ -1530,7 +1526,7 @@ impl ansi::Handler for Term {
 
         // Clear last `count` cells in line. If deleting 1 char, need to delete
         // 1 cell.
-        let template = self.empty_cell;
+        let template = self.cursor.template;
         let end = self.size_info.cols() - count;
         for c in &mut line[end..] {
             c.reset(&template);
