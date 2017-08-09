@@ -313,7 +313,7 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
-    pub fn send_xim_spot(&self, x: i16, y: i16) {
+    pub fn send_xim_spot(&self, _x: i16, _y: i16) {
     }
 
     #[cfg(not(target_os = "macos"))]
