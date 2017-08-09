@@ -1557,25 +1557,25 @@ impl ansi::Handler for Term {
     #[inline]
     fn save_cursor_position(&mut self) {
         trace!("CursorSave");
-        let mut holder = if self.alt {
+        let mut cursor = if self.alt {
             &mut self.cursor_save_alt
         } else {
             &mut self.cursor_save
         };
 
-        *holder = self.cursor;
+        *cursor = self.cursor;
     }
 
     #[inline]
     fn restore_cursor_position(&mut self) {
         trace!("CursorRestore");
-        let holder = if self.alt {
+        let source = if self.alt {
             &self.cursor_save_alt
         } else {
             &self.cursor_save
         };
 
-        self.cursor = *holder;
+        self.cursor = *source;
         self.cursor.point.line = min(self.cursor.point.line, self.grid.num_lines() - 1);
         self.cursor.point.col = min(self.cursor.point.col, self.grid.num_cols() - 1);
     }
