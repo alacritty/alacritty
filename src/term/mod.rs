@@ -1736,7 +1736,9 @@ impl ansi::Handler for Term {
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 self.save_cursor_position();
-                self.swap_alt();
+                if !self.alt {
+                    self.swap_alt();
+                }
                 self.save_cursor_position();
             },
             ansi::Mode::ShowCursor => self.mode.insert(mode::SHOW_CURSOR),
@@ -1763,7 +1765,9 @@ impl ansi::Handler for Term {
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 self.restore_cursor_position();
-                self.swap_alt();
+                if self.alt {
+                    self.swap_alt();
+                }
                 self.restore_cursor_position();
             },
             ansi::Mode::ShowCursor => self.mode.remove(mode::SHOW_CURSOR),
