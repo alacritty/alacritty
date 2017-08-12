@@ -56,7 +56,7 @@ makepkg -isr
 
 ### Prerequisites
 
-1. Alacritty requires Rust compiler of **at least v1.18**. If your distribution provides it as a package (e.g. `rust` on Arch Linux), install it with the package manager. Alternatively see below on how to install it with `rustup`.
+1. Alacritty requires most recent stable Rust compiler. If your distribution provides it as a package (e.g. `rust` on Arch Linux), install it with the package manager. Alternatively see below on how to install it with `rustup`.
 
     Note: **DO NOT** use the Homebrew Rust compiler on macOS (see FAQ for explanation).
 
