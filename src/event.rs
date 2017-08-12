@@ -145,7 +145,8 @@ pub struct Mouse {
     pub scroll_px: i32,
     pub line: Line,
     pub column: Column,
-    pub cell_side: Side
+    pub cell_side: Side,
+    pub lines_scrolled: f32,
 }
 
 impl Default for Mouse {
@@ -160,6 +161,7 @@ impl Default for Mouse {
             line: Line(0),
             column: Column(0),
             cell_side: Side::Left,
+            lines_scrolled: 0.0,
         }
     }
 }
