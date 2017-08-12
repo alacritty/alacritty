@@ -56,8 +56,13 @@ makepkg -isr
 
 ### Prerequisites
 
-1. Install [`rustup.rs`](https://rustup.rs/). **DO NOT** use the Homebrew Rust
-   compiler on macOS (see FAQ for explanation).
+1. Alacritty requires Rust compiler of **at least v1.18**. If your distribution provides it as a package (e.g. `rust` on Arch Linux), install it with the package manager. Alternatively see below on how to install it with `rustup`.
+
+    Note: **DO NOT** use the Homebrew Rust compiler on macOS (see FAQ for explanation).
+
+#### Installing Rust compiler with `rustup`
+
+1. Install [`rustup.rs`](https://rustup.rs/). 
 
 2. Clone the source code:
 
@@ -66,8 +71,7 @@ makepkg -isr
    cd alacritty
    ```
 
-3. Make sure you have the right Rust compiler installed. Alacritty requires at
-   least 1.18. Run
+3. Make sure you have the right Rust compiler installed. Run
 
    ```sh
    rustup override set stable
@@ -91,7 +95,7 @@ On Arch Linux, you need a few extra libraries to build Alacritty. Here's a
 to be missing, please open an issue.
 
 ```sh
-pacman -S cmake freetype2 fontconfig pkg-config make xclip rust
+pacman -S cmake freetype2 fontconfig pkg-config make xclip
 ```
 
 #### Fedora
