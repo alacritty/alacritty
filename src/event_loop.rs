@@ -7,11 +7,13 @@ use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
 
 use mio::{self, Events, PollOpt, Ready};
+use mio::timer::{self, Timer, Timeout};
 use mio::unix::EventedFd;
 
 use ansi;
 use display;
 use event;
+use config::Config;
 use term::Term;
 use util::thread;
 use sync::FairMutex;
@@ -23,7 +25,11 @@ pub enum Msg {
     Input(Cow<'static, [u8]>),
 
     /// Indicates that the `EventLoop` should shut down, as Alacritty is shutting down
-    Shutdown
+    Shutdown,
+
+    /// Enable or disable blinking events. Passing true will enable them, and
+    /// false will disable them.
+    Blink(bool),
 }
 
 /// The main event!.. loop.
@@ -35,6 +41,8 @@ pub struct EventLoop<Io> {
     pty: Io,
     rx: mio::channel::Receiver<Msg>,
     tx: mio::channel::Sender<Msg>,
+    timer: Timer<()>,
+    blink_timeout: Option<Timeout>,
     terminal: Arc<FairMutex<Term>>,
     display: display::Notifier,
     ref_test: bool,
@@ -164,20 +172,41 @@ const CHANNEL: mio::Token = mio::Token(0);
 /// `mio::Token` for the pty file descriptor
 const PTY: mio::Token = mio::Token(1);
 
+/// `mio::Token` for timers
+const TIMER: mio::Token = mio::Token(2);
+
 impl<Io> EventLoop<Io>
     where Io: io::Read + io::Write + Send + AsRawFd + 'static
 {
     /// Create a new event loop
     pub fn new(
         terminal: Arc<FairMutex<Term>>,
+        config: &Config,
         display: display::Notifier,
         pty: Io,
         ref_test: bool,
     ) -> EventLoop<Io> {
         let (tx, rx) = ::mio::channel::channel();
+        let mut timer = timer::Builder::default()
+            .capacity(2)
+            .num_slots(2)
+            .build();
+        let timeout = {
+            let term = terminal.lock();
+            if term.mode().contains(::term::mode::CURSOR_BLINK) {
+                println!("setup blink");
+                let timeout = timer.set_timeout(term.cursor_blink_interval, ()).unwrap();
+                Some(timeout)
+            } else {
+                println!("no setup blink");
+                None
+            }
+        };
         EventLoop {
             poll: mio::Poll::new().expect("create mio Poll"),
             pty: pty,
+            timer: timer,
+            blink_timeout: timeout,
             tx: tx,
             rx: rx,
             terminal: terminal,
@@ -194,13 +223,27 @@ impl<Io> EventLoop<Io>
     //
     // Returns a `DrainResult` indicating the result of receiving from the channe;
     //
-    fn drain_recv_channel(&self, state: &mut State) -> DrainResult {
+    fn drain_recv_channel(&mut self, state: &mut State) -> DrainResult {
         let mut received_item = false;
         while let Ok(msg) = self.rx.try_recv() {
             received_item = true;
             match msg {
                 Msg::Input(input) => {
                     state.write_list.push_back(input);
+                },
+                Msg::Blink(true) => {
+                    // Set timeout if it's not running
+                    if self.blink_timeout.is_none() {
+                        let mut terminal = self.terminal.lock();
+                        let interval = terminal.cursor_blink_interval;
+                        self.blink_timeout = Some(self.timer.set_timeout(interval, ()).unwrap());
+                    }
+                },
+                Msg::Blink(false) => {
+                    // Cancel timeout if it's running
+                    if let Some(timeout) = self.blink_timeout.take() {
+                        self.timer.cancel_timeout(&timeout);
+                    }
                 },
                 Msg::Shutdown => {
                     return DrainResult::Shutdown;
@@ -342,6 +385,25 @@ impl<Io> EventLoop<Io>
         Ok(())
     }
 
+    fn handle_timers(&mut self) {
+        if self.timer.poll().is_some() {
+            println!("timers!");
+            // Dispatch blink
+            let mut terminal = self.terminal.lock();
+            terminal.toggle_blink_state();
+            if !terminal.dirty {
+                self.display.notify();
+                terminal.dirty = true;
+            }
+
+            // Reregister timer
+            println!("set_timeout {:?}", terminal.cursor_blink_interval);
+            self.timer.set_timeout(terminal.cursor_blink_interval, ()).unwrap();
+        } else {
+            println!("timers :(");
+        }
+    }
+
     pub fn spawn(
         mut self,
         state: Option<State>
@@ -357,6 +419,7 @@ impl<Io> EventLoop<Io>
 
             self.poll.register(&self.rx, CHANNEL, Ready::readable(), poll_opts).unwrap();
             self.poll.register(&fd, PTY, Ready::readable(), poll_opts).unwrap();
+            self.poll.register(&self.timer, TIMER, Ready::readable(), poll_opts).unwrap();
 
             let mut events = Events::with_capacity(1024);
 
@@ -382,6 +445,13 @@ impl<Io> EventLoop<Io>
                             if !self.channel_event(&mut state) {
                                 break 'event_loop;
                             }
+                        },
+                        TIMER => {
+                            self.handle_timers();
+                            println!("reregister timer");
+                            self.poll
+                                .reregister(&self.timer, TIMER, Ready::readable(), poll_opts)
+                                .expect("reregister timer");
                         },
                         PTY => {
                             let kind = event.kind();

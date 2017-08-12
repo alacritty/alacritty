@@ -173,6 +173,7 @@ impl<'a> Shell<'a> {
     }
 }
 
+
 /// Top-level config type
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -203,6 +204,11 @@ pub struct Config {
     /// Should use custom cursor colors
     #[serde(default)]
     custom_cursor_colors: bool,
+
+    // TODO these should be optional
+    #[serde(deserialize_with="deserialize_duration_ms")]
+    cursor_blink_interval: Duration,
+    cursor_blink: bool,
 
     /// Should draw bold text with brighter colors intead of bold font
     #[serde(default="true_bool")]
@@ -280,6 +286,8 @@ impl Default for Config {
             font: Default::default(),
             render_timer: Default::default(),
             custom_cursor_colors: false,
+            cursor_blink: true,
+            cursor_blink_interval: Duration::from_millis(300),
             colors: Default::default(),
             key_bindings: Vec::new(),
             mouse_bindings: Vec::new(),
@@ -1142,6 +1150,14 @@ impl Config {
         }
 
         Ok(contents)
+    }
+
+    pub fn cursor_blink_interval(&self) -> Duration {
+        self.cursor_blink_interval
+    }
+
+    pub fn blink_enabled(&self) -> bool {
+        self.cursor_blink
     }
 }
 
