@@ -230,12 +230,14 @@ impl FreeTypeRasterizer {
         let pitch = bitmap.pitch().abs() as usize;
         match bitmap.pixel_mode()? {
             PixelMode::Lcd => {
-                for i in 0..bitmap.rows() {
-                    let start = (i as usize) * pitch;
-                    let stop = start + bitmap.width() as usize;
-                    packed.extend_from_slice(&buf[start..stop]);
+                for x in 0..(bitmap.width() / 3) {
+                    let start = (y as usize * pitch) + (x as usize * 3);
+                    packed.extend_from_slice(&buf[start..start + 3]);
+                    // Append an alpha channel for this pixel.
+                    packed.push(255);
                 }
                 Ok((bitmap.width() / 3, packed))
+
             },
             // Mono data is stored in a packed format using 1 bit per pixel.
             PixelMode::Mono => {

@@ -46,7 +46,7 @@ use super::{FontDesc, RasterizedGlyph, Metrics, FontKey, GlyphKey};
 
 pub mod byte_order;
 use self::byte_order::kCGBitmapByteOrder32Host;
-use self::byte_order::extract_rgb;
+use self::byte_order::extract_rgba;
 
 use super::Size;
 
@@ -487,7 +487,7 @@ impl Font {
             kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host
         );
 
-        // Give the context an opaque, black background
+        // Give the context a clear, black background
         cg_context.set_rgb_fill_color(0.0, 0.0, 0.0, 1.0);
         let context_rect = CGRect::new(
             &CGPoint::new(0.0, 0.0),
@@ -525,7 +525,7 @@ impl Font {
 
         let rasterized_pixels = cg_context.data().to_vec();
 
-        let buf = extract_rgb(rasterized_pixels);
+        let buf = extract_rgba(rasterized_pixels);
 
         Ok(RasterizedGlyph {
             c: character,
