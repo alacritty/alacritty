@@ -117,6 +117,8 @@ pub struct ShaderProgram {
     /// Rendering is split into two passes; 1 for backgrounds, and one for text
     u_background: GLint,
 
+    u_bg_opacity: GLint,
+
     padding_x: f32,
     padding_y: f32,
 }
@@ -604,6 +606,7 @@ impl QuadRenderer {
             self.program.activate();
             self.program.set_term_uniforms(props);
             self.program.set_visual_bell(visual_bell_intensity as _);
+            self.program.set_bg_opacity(config.background_opacity().get());
 
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
@@ -685,12 +688,13 @@ impl QuadRenderer {
 
 impl<'a> RenderApi<'a> {
     pub fn clear(&self, color: Rgb) {
+        let alpha = self.config.background_opacity().get();
         unsafe {
             gl::ClearColor(
                 (self.visual_bell_intensity + color.r as f32 / 255.0).min(1.0),
                 (self.visual_bell_intensity + color.g as f32 / 255.0).min(1.0),
                 (self.visual_bell_intensity + color.b as f32 / 255.0).min(1.0),
-                1.0
+                alpha
                 );
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
@@ -916,13 +920,14 @@ impl ShaderProgram {
         }
 
         // get uniform locations
-        let (projection, term_dim, cell_dim, visual_bell, background) = unsafe {
+        let (projection, term_dim, cell_dim, visual_bell, background, bg_opacity) = unsafe {
             (
                 gl::GetUniformLocation(program, cptr!(b"projection\0")),
                 gl::GetUniformLocation(program, cptr!(b"termDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"cellDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"visualBell\0")),
                 gl::GetUniformLocation(program, cptr!(b"backgroundPass\0")),
+                gl::GetUniformLocation(program, cptr!(b"bgOpacity\0")),
             )
         };
 
@@ -935,6 +940,7 @@ impl ShaderProgram {
             u_cell_dim: cell_dim,
             u_visual_bell: visual_bell,
             u_background: background,
+            u_bg_opacity: bg_opacity,
             padding_x: config.padding().x.floor(),
             padding_y: config.padding().y.floor(),
         };
@@ -994,6 +1000,12 @@ impl ShaderProgram {
 
         unsafe {
             gl::Uniform1i(self.u_background, value);
+        }
+    }
+
+    fn set_bg_opacity(&self, bg_opacity: f32) {
+        unsafe {
+            gl::Uniform1f(self.u_bg_opacity, bg_opacity);
         }
     }
 
@@ -1222,11 +1234,11 @@ impl Atlas {
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGB as i32,
+                gl::RGBA as i32,
                 size,
                 size,
                 0,
-                gl::RGB,
+                gl::RGBA,
                 gl::UNSIGNED_BYTE,
                 ptr::null()
             );
@@ -1295,7 +1307,7 @@ impl Atlas {
                 offset_y,
                 width,
                 height,
-                gl::RGB,
+                gl::RGBA,
                 gl::UNSIGNED_BYTE,
                 glyph.buf.as_ptr() as *const _
             );
