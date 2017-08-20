@@ -173,6 +173,40 @@ impl<'a> Shell<'a> {
     }
 }
 
+/// Wrapper around f32 that represents an alpha value between 0.0 and 1.0
+#[derive(Clone, Copy, Debug)]
+pub struct Alpha(f32);
+
+impl Alpha {
+    pub fn new(value: f32) -> Self {
+        Alpha(Self::clamp_to_valid_range(value))
+    }
+
+    pub fn set(&mut self, value: f32) {
+        self.0 = Self::clamp_to_valid_range(value);
+    }
+
+    pub fn get(&self) -> f32 {
+        self.0
+    }
+
+    fn clamp_to_valid_range(value: f32) -> f32 {
+        if value < 0.0 {
+            0.0
+        } else if value > 1.0 {
+            1.0
+        } else {
+            value
+        }
+    }
+}
+
+impl Default for Alpha {
+    fn default() -> Self {
+        Alpha(1.0)
+    }
+}
+
 /// Top-level config type
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -210,6 +244,10 @@ pub struct Config {
 
     #[serde(default)]
     colors: Colors,
+
+    /// Background opacity from 0.0 to 1.0
+    #[serde(default)]
+    background_opacity: Alpha,
 
     /// Keybindings
     #[serde(default="default_key_bindings")]
@@ -281,6 +319,7 @@ impl Default for Config {
             render_timer: Default::default(),
             custom_cursor_colors: false,
             colors: Default::default(),
+            background_opacity: Default::default(),
             key_bindings: Vec::new(),
             mouse_bindings: Vec::new(),
             selection: Default::default(),
@@ -696,6 +735,16 @@ impl de::Deserialize for RawBinding {
     }
 }
 
+
+impl de::Deserialize for Alpha {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+        where D: de::Deserializer
+    {
+        let value = f32::deserialize(deserializer)?;
+        Ok(Alpha::new(value))
+    }
+}
+
 impl de::Deserialize for MouseBinding {
     fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
         where D: de::Deserializer
@@ -1036,6 +1085,10 @@ impl Config {
     /// array for performance.
     pub fn colors(&self) -> &Colors {
         &self.colors
+    }
+
+    pub fn background_opacity(&self) -> Alpha {
+        self.background_opacity
     }
 
     pub fn key_bindings(&self) -> &[KeyBinding] {
