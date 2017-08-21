@@ -194,6 +194,7 @@ pub struct Processor<N> {
 impl<N> OnResize for Processor<N> {
     fn on_resize(&mut self, size: &SizeInfo) {
         self.size_info = size.to_owned();
+        self.selection = None;
     }
 }
 
