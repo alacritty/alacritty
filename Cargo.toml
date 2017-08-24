@@ -56,4 +56,4 @@ lto = true
 debug = true
 
 [replace]
-"winit:0.7.5" = { git = "https://github.com/tomaka/winit", branch = "master" }
+"winit:0.7.5" = { git = "https://github.com/mrmekon/winit.git", branch = "macos_dead_key" }

@@ -161,6 +161,16 @@ visual_bell:
 # Background opacity
 background_opacity: 1.0
 
+# Internationalization
+#
+# Set 'altgr' to true if your keyboard has an AltGr key, or if you want to use
+# the Right Alt/Option key as AltGr instead.  This is commonly desired on Macs,
+# even for U.S. keyboard layouts.  If enabled, the Right Alt/Option will not be
+# used for key bindings.
+#
+# internationalization:
+#   altgr: true
+
 # Key bindings
 #
 # Each binding is defined as an object with some properties. Most of the

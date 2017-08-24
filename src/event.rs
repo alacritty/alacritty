@@ -7,7 +7,7 @@ use std::time::{Instant};
 
 use serde_json as json;
 use parking_lot::MutexGuard;
-use glutin::{self, ModifiersState, Event, ElementState};
+use glutin::{self, ModifiersState, Event, ElementState, VirtualKeyCode};
 use copypasta::{Clipboard, Load, Store};
 
 use config::{self, Config};
@@ -39,7 +39,9 @@ pub struct ActionContext<'a, N: 'a> {
     pub selection_modified: bool,
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
+    pub suppress_alt: &'a mut bool,
     pub last_modifiers: &'a mut ModifiersState,
+    pub last_virtual_key: &'a mut Option<VirtualKeyCode>,
 }
 
 impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
@@ -123,8 +125,18 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     #[inline]
+    fn suppress_alt(&mut self) -> &mut bool {
+        &mut self.suppress_alt
+    }
+
+    #[inline]
     fn last_modifiers(&mut self) -> &mut ModifiersState {
         &mut self.last_modifiers
+    }
+
+    #[inline]
+    fn last_virtual_key(&mut self) -> &mut Option<VirtualKeyCode> {
+        &mut self.last_virtual_key
     }
 }
 
@@ -172,6 +184,7 @@ pub struct Processor<N> {
     key_bindings: Vec<KeyBinding>,
     mouse_bindings: Vec<MouseBinding>,
     mouse_config: config::Mouse,
+    international_config: config::InternationalizationConfig,
     print_events: bool,
     wait_for_event: bool,
     notifier: N,
@@ -184,7 +197,9 @@ pub struct Processor<N> {
     hide_cursor: bool,
     received_count: usize,
     suppress_chars: bool,
+    suppress_alt: bool,
     last_modifiers: ModifiersState,
+    last_virtual_key: Option<VirtualKeyCode>,
     pending_events: Vec<Event>,
 }
 
@@ -215,6 +230,7 @@ impl<N: Notify> Processor<N> {
             key_bindings: config.key_bindings().to_vec(),
             mouse_bindings: config.mouse_bindings().to_vec(),
             mouse_config: config.mouse().to_owned(),
+            international_config: config.internationalization().to_owned(),
             print_events: options.print_events,
             wait_for_event: true,
             notifier: notifier,
@@ -227,7 +243,9 @@ impl<N: Notify> Processor<N> {
             hide_cursor: false,
             received_count: 0,
             suppress_chars: false,
+            suppress_alt: false,
             last_modifiers: Default::default(),
+            last_virtual_key: None,
             pending_events: Vec::with_capacity(4),
         }
     }
@@ -375,7 +393,9 @@ impl<N: Notify> Processor<N> {
                 selection_modified: false,
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
+                suppress_alt: &mut self.suppress_alt,
                 last_modifiers: &mut self.last_modifiers,
+                last_virtual_key: &mut self.last_virtual_key,
             };
 
             processor = input::Processor {
@@ -383,6 +403,7 @@ impl<N: Notify> Processor<N> {
                 mouse_config: &self.mouse_config,
                 key_bindings: &self.key_bindings[..],
                 mouse_bindings: &self.mouse_bindings[..],
+                international_config: &self.international_config,
             };
 
             // Scope needed to that hide_cursor isn't borrowed after the scope

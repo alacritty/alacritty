@@ -44,6 +44,7 @@ pub struct Processor<'a, A: 'a> {
     pub key_bindings: &'a [KeyBinding],
     pub mouse_bindings: &'a [MouseBinding],
     pub mouse_config: &'a config::Mouse,
+    pub international_config: &'a config::InternationalizationConfig,
     pub ctx: A,
 }
 
@@ -61,7 +62,9 @@ pub trait ActionContext {
     fn mouse_coords(&self) -> Option<Point>;
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
+    fn suppress_alt(&mut self) -> &mut bool;
     fn last_modifiers(&mut self) -> &mut ModifiersState;
+    fn last_virtual_key(&mut self) -> &mut Option<VirtualKeyCode>;
 }
 
 /// Describes a state and action to take in that state
@@ -439,12 +442,27 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 *self.ctx.last_modifiers() = *mods;
                 *self.ctx.received_count() = 0;
                 *self.ctx.suppress_chars() = false;
+                *self.ctx.last_virtual_key() = Some(key);
 
+                // Allow right-alt to be mapped to AltGr
+                if key == VirtualKeyCode::RAlt && self.international_config.altgr() {
+                    *self.ctx.suppress_alt() = true;
+                }
+                // If AltGr is pressed, don't treat it as 'alt'
+                if *self.ctx.suppress_alt() {
+                    (*self.ctx.last_modifiers()).alt = false;
+                }
                 if self.process_key_bindings(&mods, key) {
                     *self.ctx.suppress_chars() = true;
                 }
             },
-            (_, ElementState::Released) => *self.ctx.suppress_chars() = false,
+            (key, ElementState::Released) => {
+                *self.ctx.suppress_chars() = false;
+                *self.ctx.last_virtual_key() = key;
+                if key == Some(VirtualKeyCode::RAlt) {
+                    *self.ctx.suppress_alt() = false;
+                }
+            },
             _ => ()
         }
     }
@@ -466,6 +484,18 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             }
 
             self.ctx.write_to_pty(bytes);
+
+            match *self.ctx.last_virtual_key() {
+                Some(VirtualKeyCode::DeadKeyPlaceholder) => {
+                    // Go back one character after printing dead-key to keep it highlighted
+                    self.ctx.write_to_pty(b"\x1b[D".to_vec());
+                },
+                Some(VirtualKeyCode::DeadKeyGlyph) => {
+                    // Delete temporary dead-key placeholder
+                    self.ctx.write_to_pty(b"\x1b[3~".to_vec());
+                },
+                _ => {}
+            }
 
             *self.ctx.received_count() += 1;
         }
@@ -540,7 +570,9 @@ mod tests {
         pub last_action: MultiClick,
         pub received_count: usize,
         pub suppress_chars: bool,
+        pub suppress_alt: bool,
         pub last_modifiers: ModifiersState,
+        pub last_virtual_key: Option<VirtualKeyCode>,
     }
 
     impl <'a>super::ActionContext for ActionContext<'a> {
@@ -587,8 +619,14 @@ mod tests {
         fn suppress_chars(&mut self) -> &mut bool {
             &mut self.suppress_chars
         }
+        fn suppress_alt(&mut self) -> &mut bool {
+            &mut self.suppress_alt
+        }
         fn last_modifiers(&mut self) -> &mut ModifiersState {
             &mut self.last_modifiers
+        }
+        fn last_virtual_key(&mut self) -> &mut Option<VirtualKeyCode> {
+            &mut self.last_virtual_key
         }
     }
 
@@ -627,7 +665,9 @@ mod tests {
                     last_action: MultiClick::None,
                     received_count: 0,
                     suppress_chars: false,
+                    suppress_alt: false,
                     last_modifiers: ModifiersState::default(),
+                    last_virtual_key: None,
                 };
 
                 let mut processor = Processor {
