@@ -671,7 +671,10 @@ pub struct Term {
     semantic_escape_chars: String,
 
     /// Colors used for rendering
-    pub colors: color::List,
+    colors: color::List,
+
+    /// Is color in `colors` modified or not
+    color_modified: [bool; color::COUNT],
 
     /// Original colors from config
     original_colors: color::List,
@@ -773,6 +776,7 @@ impl Term {
             scroll_region: scroll_region,
             size_info: size,
             colors: color::List::from(config.colors()),
+            color_modified: [false; color::COUNT],
             original_colors: color::List::from(config.colors()),
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
             cursor_style: CursorStyle::Block,
@@ -782,6 +786,11 @@ impl Term {
     pub fn update_config(&mut self, config: &Config) {
         self.semantic_escape_chars = config.selection().semantic_escape_chars.clone();
         self.original_colors.fill_named(config.colors());
+        for i in 0..color::COUNT {
+            if !self.color_modified[i] {
+                self.colors[i] = self.original_colors[i];
+            }
+        }
         self.visual_bell.update_config(config);
     }
 
@@ -1615,6 +1624,7 @@ impl ansi::Handler for Term {
     fn set_color(&mut self, index: usize, color: Rgb) {
         trace!("set_color[{}] = {:?}", index, color);
         self.colors[index] = color;
+        self.color_modified[index] = true;
     }
 
     /// Reset the indexed color to original value
@@ -1622,6 +1632,7 @@ impl ansi::Handler for Term {
     fn reset_color(&mut self, index: usize) {
         trace!("reset_color[{}]", index);
         self.colors[index] = self.original_colors[index];
+        self.color_modified[index] = false;
     }
 
     #[inline]

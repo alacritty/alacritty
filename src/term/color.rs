@@ -4,6 +4,8 @@ use std::fmt;
 use {Rgb, ansi};
 use config::Colors;
 
+pub const COUNT: usize = 268;
+
 /// List of indexed colors
 ///
 /// The first 16 entries are the standard ansi named colors. Items 16..232 are
@@ -11,7 +13,7 @@ use config::Colors;
 /// the configured foreground color, item 257 is the configured background
 /// color, item 258 is the cursor foreground color, item 259 is the cursor
 /// background color. Following that are 8 positions for dim colors.
-pub struct List([Rgb; 268]);
+pub struct List([Rgb; COUNT]);
 
 impl<'a> From<&'a Colors> for List {
     fn from(colors: &Colors) -> List {
