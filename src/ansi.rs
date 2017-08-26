@@ -787,6 +787,19 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                 }
             }
 
+            // Set text cursor color
+            b"12" => {
+                if params.len() < 2 {
+                    return unhandled!();
+                }
+
+                if let Some(color) = parse_rgb_color(params[1]) {
+                    self.handler.set_color(NamedColor::Cursor as usize, color);
+                } else {
+                    unhandled!()
+                }
+            }
+
             // Reset foreground color
             b"110" => {
                 self.handler.reset_color(NamedColor::Foreground as usize);
@@ -795,6 +808,11 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             // Reset background color
             b"111" => {
                 self.handler.reset_color(NamedColor::Background as usize);
+            }
+
+            // Reset text cursor color
+            b"112" => {
+                self.handler.reset_color(NamedColor::Cursor as usize);
             }
 
             _ => {
