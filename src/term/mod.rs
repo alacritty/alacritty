@@ -330,7 +330,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
             while self.column < self.grid.num_cols() {
                 // Grab current state for this iteration
                 let line = self.line;
-                let column = self.column;
+                let mut column = self.column;
                 let cell = &self.grid[line][column];
 
                 let index = Linear(line.0 * self.grid.num_cols().0 + column.0);
@@ -338,6 +338,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 let (cell, selected) = if index == self.cursor_index {
                     // Cursor cell
                     let cell = self.cursor_cells.pop_front().unwrap();
+                    column = cell.column;
 
                     // Since there may be multiple cursor cells (for a wide
                     // char), only update iteration position after all cursor
