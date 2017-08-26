@@ -78,6 +78,23 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
     }
 }
 
+fn parse_number(input: &[u8]) -> Option<u8> {
+    if input.is_empty() {
+        return None;
+    }
+    let mut index: u8 = 0;
+    for c in input {
+        let c = *c as char;
+        if let Some(digit) = c.to_digit(10) {
+            index *= 10;
+            index += digit as u8;
+        } else {
+            return None;
+        }
+    }
+    Some(index)
+}
+
 /// The processor wraps a `vte::Parser` to ultimately call methods on a Handler
 pub struct Processor {
     state: ProcessorState,
@@ -731,31 +748,12 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     return unhandled!();
                 }
 
-                // Parse index
-                let index = {
-                    let raw = params[1];
-                    if raw.len() > 3 {
-                        return unhandled!();
+                if let Some(index) = parse_number(params[1]) {
+                    if let Some(color) = parse_rgb_color(params[2]) {
+                        self.handler.set_color(index as usize, color);
+                    } else {
+                        unhandled!();
                     }
-                    let mut index: u8 = 0;
-                    for c in raw {
-                        let c = *c as char;
-                        if let Some(digit) = c.to_digit(10) {
-                            index *= 10;
-                            index += digit as u8;
-                        }
-                    }
-
-                    index
-                };
-
-                // Check that index is a valid u8
-                if index & 0xff != index {
-                    return unhandled!();
-                }
-
-                if let Some(color) = parse_rgb_color(params[2]) {
-                    self.handler.set_color(index as usize, color);
                 } else {
                     unhandled!();
                 }
@@ -797,6 +795,25 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     self.handler.set_color(NamedColor::Cursor as usize, color);
                 } else {
                     unhandled!()
+                }
+            }
+
+            // Reset color index
+            b"104" => {
+                // Reset all color indexes when no parameters are given
+                if params.len() == 1 {
+                    for i in 0..256 {
+                        self.handler.reset_color(i);
+                    }
+                    return;
+                }
+
+                // Reset color indexes given as parameters
+                for param in &params[1..] {
+                    match parse_number(param) {
+                        Some(index) => self.handler.reset_color(index as usize),
+                        None => unhandled!(),
+                    }
                 }
             }
 
