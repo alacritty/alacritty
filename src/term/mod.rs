@@ -134,7 +134,7 @@ impl<'a> RenderableCellsIter<'a> {
         }.initialize(cursor_style)
     }
 
-    fn push_cursor_cell(&mut self, cursor_cell: Cell, wide_cell: Cell) {
+    fn push_cursor_cells(&mut self, cursor_cell: Cell, wide_cell: Cell) {
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
             column: self.cursor.col,
@@ -169,33 +169,32 @@ impl<'a> RenderableCellsIter<'a> {
         let mut wide_cell = cursor_cell;
         wide_cell.c = ' ';
 
-        self.push_cursor_cell(cursor_cell, wide_cell);
+        self.push_cursor_cells(cursor_cell, wide_cell);
+    }
+
+    fn populate_char_cursor(&mut self, cursor_cell_char: char, wide_cell_char: char) {
+        let mut cursor_cell = self.grid[self.cursor];
+        let cursor_color = self.text_cursor_color(&cursor_cell);
+        cursor_cell.c = cursor_cell_char;
+        cursor_cell.fg = cursor_color;
+
+        let mut wide_cell = cursor_cell;
+        wide_cell.c = wide_cell_char;
+
+        self.push_cursor_cells(cursor_cell, wide_cell);
+    }
+
+    fn populate_beam_cursor(&mut self) {
+        self.populate_char_cursor('▎', ' ');
+    }
+
+    fn populate_underline_cursor(&mut self) {
+        self.populate_char_cursor('▁', '▁');
     }
 
     #[inline]
     fn is_wide_cursor(&self, cell: &Cell) -> bool {
         cell.flags.contains(cell::WIDE_CHAR) && (self.cursor.col + 1) < self.grid.num_cols()
-    }
-
-    fn populate_beam_cursor(&mut self) {
-        let mut cursor_cell = self.grid[self.cursor];
-        let cursor_color = self.text_cursor_color(&cursor_cell);
-        cursor_cell.c = '▎';
-        cursor_cell.fg = cursor_color;
-
-        let mut wide_cell = cursor_cell;
-        wide_cell.c = ' ';
-
-        self.push_cursor_cell(cursor_cell, wide_cell);
-    }
-
-    fn populate_underline_cursor(&mut self) {
-        let mut cursor_cell = self.grid[self.cursor];
-        let cursor_color = self.text_cursor_color(&cursor_cell);
-        cursor_cell.c = '▁';
-        cursor_cell.fg = cursor_color;
-
-        self.push_cursor_cell(cursor_cell, cursor_cell);
     }
 
     fn text_cursor_color(&self, cell: &Cell) -> Color {
