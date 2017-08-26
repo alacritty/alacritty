@@ -134,6 +134,22 @@ impl<'a> RenderableCellsIter<'a> {
         }.initialize(cursor_style)
     }
 
+    fn push_cursor_cell(&mut self, cursor_cell: Cell, wide_cell: Cell) {
+        self.cursor_cells.push_back(Indexed {
+            line: self.cursor.line,
+            column: self.cursor.col,
+            inner: cursor_cell,
+        });
+
+        if self.is_wide_cursor(&cursor_cell) {
+            self.cursor_cells.push_back(Indexed {
+                line: self.cursor.line,
+                column: self.cursor.col + 1,
+                inner: wide_cell,
+            });
+        }
+    }
+
     fn populate_block_cursor(&mut self) {
         let (text_color, cursor_color) = if self.config.custom_cursor_colors() {
             (
@@ -146,24 +162,14 @@ impl<'a> RenderableCellsIter<'a> {
             (cell.bg, cell.fg)
         };
 
-        let mut cell_under_cursor = self.grid[self.cursor];
-        cell_under_cursor.fg = text_color;
-        cell_under_cursor.bg = cursor_color;
+        let mut cursor_cell = self.grid[self.cursor];
+        cursor_cell.fg = text_color;
+        cursor_cell.bg = cursor_color;
 
-        self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
-            inner: cell_under_cursor,
-        });
+        let mut wide_cell = cursor_cell;
+        wide_cell.c = ' ';
 
-        if self.is_wide_cursor(&cell_under_cursor) {
-            cell_under_cursor.c = ' ';
-            self.cursor_cells.push_back(Indexed {
-                line: self.cursor.line,
-                column: self.cursor.col + 1,
-                inner: cell_under_cursor,
-            });
-        }
+        self.push_cursor_cell(cursor_cell, wide_cell);
     }
 
     #[inline]
@@ -173,55 +179,23 @@ impl<'a> RenderableCellsIter<'a> {
 
     fn populate_beam_cursor(&mut self) {
         let mut cursor_cell = self.grid[self.cursor];
-        self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
-            inner: cursor_cell,
-        });
-
         let cursor_color = self.text_cursor_color(&cursor_cell);
         cursor_cell.c = '▎';
         cursor_cell.fg = cursor_color;
-        self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
-            inner: cursor_cell,
-        });
 
-        if self.is_wide_cursor(&cursor_cell) {
-            cursor_cell.c = ' ';
-            self.cursor_cells.push_back(Indexed {
-                line: self.cursor.line,
-                column: self.cursor.col + 1,
-                inner: cursor_cell,
-            });
-        }
+        let mut wide_cell = cursor_cell;
+        wide_cell.c = ' ';
+
+        self.push_cursor_cell(cursor_cell, wide_cell);
     }
 
     fn populate_underline_cursor(&mut self) {
         let mut cursor_cell = self.grid[self.cursor];
-        self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
-            inner: cursor_cell,
-        });
-
         let cursor_color = self.text_cursor_color(&cursor_cell);
         cursor_cell.c = '▁';
         cursor_cell.fg = cursor_color;
-        self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
-            inner: cursor_cell,
-        });
 
-        if self.is_wide_cursor(&cursor_cell) {
-            self.cursor_cells.push_back(Indexed {
-                line: self.cursor.line,
-                column: self.cursor.col + 1,
-                inner: cursor_cell,
-            });
-        }
+        self.push_cursor_cell(cursor_cell, cursor_cell);
     }
 
     fn text_cursor_color(&self, cell: &Cell) -> Color {
