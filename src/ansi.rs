@@ -744,18 +744,20 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
 
             // Set color index
             b"4" => {
-                if params.len() < 3 {
+                if params.len() == 1 || params.len() % 2 == 0 {
                     return unhandled!();
                 }
 
-                if let Some(index) = parse_number(params[1]) {
-                    if let Some(color) = parse_rgb_color(params[2]) {
-                        self.handler.set_color(index as usize, color);
+                for chunk in params[1..].chunks(2) {
+                    if let Some(index) = parse_number(chunk[0]) {
+                        if let Some(color) = parse_rgb_color(chunk[1]) {
+                            self.handler.set_color(index as usize, color);
+                        } else {
+                            unhandled!();
+                        }
                     } else {
                         unhandled!();
                     }
-                } else {
-                    unhandled!();
                 }
             }
 
