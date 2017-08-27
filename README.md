@@ -162,6 +162,22 @@ The following command can be used to get a shell with all development dependenci
 nix-shell -A alacritty '<nixpkgs>'
 ```
 
+#### Gentoo
+
+On Gentoo, there's a portage overlay available. Make sure `layman` is installed
+and run:
+```
+sudo layman -a slyfox
+```
+Then, add `x11-terms/alacritty **` to `/etc/portage/package.accept_keywords` 
+and emerge alacritty:
+```
+sudo emerge alacritty
+```
+It might be handy to mask all other packages provided in the `slyfox` overlay by
+adding `*/*::slyfox` to `/etc/portage/package.mask` and adding
+`x11-terms/alacritty::slyfox` to `/etc/portage/package.unmask`.
+
 #### Other
 
 If you build Alacritty on another distribution, we would love some help
