@@ -63,9 +63,11 @@ impl Options {
                 .help("Generates ref test"))
             .arg(Arg::with_name("live-config-reload")
                 .long("live-config-reload")
-                .help("Live configuration reload")
-                .takes_value(true)
-                .use_delimiter(false))
+                .help("Enable automatic config reloading"))
+            .arg(Arg::with_name("no-live-config-reload")
+                 .long("no-live-config-reload")
+                 .help("Disable automatic config reloading")
+                 .conflicts_with("live-config-reload"))
             .arg(Arg::with_name("print-events")
                 .long("print-events"))
             .arg(Arg::with_name("dimensions")
@@ -114,12 +116,10 @@ impl Options {
             options.print_events = true;
         }
 
-        if let Some(val) = matches.value_of("live-config-reload") {
-            match val {
-                "y" | "yes" => options.live_config_reload = Some(true),
-                "n" | "no"  => options.live_config_reload = Some(false),
-                _           => options.live_config_reload = None,
-            }
+        if matches.is_present("live-config-reload") {
+            options.live_config_reload = Some(true);
+        } else if matches.is_present("no-live-config-reload") {
+            options.live_config_reload = Some(false);
         }
 
         if let Some(mut dimensions) = matches.values_of("dimensions") {
