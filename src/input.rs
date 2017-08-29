@@ -178,7 +178,13 @@ pub enum Action {
     ScrollUp,
 
     /// Scrolls down
-    ScrollDown
+    ScrollDown,
+
+    /// Scrolls a page up
+    PageUp,
+
+    /// Scrolls a page down
+    PageDown
 }
 
 impl Action {
@@ -237,6 +243,14 @@ impl Action {
             },
             Action::ScrollDown => {
                 ctx.move_visible_region_down(AbsoluteLine(1));
+            },
+            Action::PageUp => {
+                let height = ctx.size_info().lines();
+                ctx.move_visible_region_up(height.to_absolute());
+            },
+            Action::PageDown => {
+                let height = ctx.size_info().lines();
+                ctx.move_visible_region_down(height.to_absolute());
             }
         }
     }

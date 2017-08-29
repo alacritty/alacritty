@@ -406,7 +406,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
             type Value = ActionWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                f.write_str("Paste, Copy, PasteSelection, IncreaseFontSize, ScrollUp, ScrollDown, DecreaseFontSize, ResetFontSize, or Quit")
+                f.write_str("Paste, Copy, PasteSelection, IncreaseFontSize, ScrollUp, ScrollDown, PageUp, PageDown, DecreaseFontSize, ResetFontSize, or Quit")
             }
 
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<ActionWrapper, E>
@@ -422,6 +422,8 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Quit" => Action::Quit,
                     "ScrollUp" => Action::ScrollUp,
                     "ScrollDown" => Action::ScrollDown,
+                    "PageUp" => Action::PageUp,
+                    "PageDown" => Action::PageDown,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
             }
