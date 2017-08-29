@@ -185,24 +185,24 @@ impl Window {
         let event_loop = EventsLoop::new();
 
         Window::platform_window_init();
-        let window = WindowBuilder::new()
+        let builder = WindowBuilder::new()
             .with_title(title)
             .with_transparency(true);
         let context = ContextBuilder::new()
             .with_vsync(true);
-        let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
+        let glwindow = ::glutin::GlWindow::new(builder, context, &event_loop)?;
 
         /// Set OpenGL symbol loader
-        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
+        gl::load_with(|symbol| glwindow.get_proc_address(symbol) as *const _);
 
         /// Make the context current so OpenGL operations can run
         unsafe {
-            window.make_current()?;
+            glwindow.make_current()?;
         }
 
         let window = Window {
             event_loop: event_loop,
-            window: window,
+            window: glwindow,
             cursor_visible: true,
         };
 
