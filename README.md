@@ -42,7 +42,6 @@ from source. With the exception of Arch (which has a package in the AUR) and
 [prerequisites](#prerequisites) section, then find the section for your OS, and
 finally go to [building](#building) and [configuration](#configuration).
 
-
 ### Arch Linux
 
 ```sh
@@ -51,18 +50,19 @@ cd alacritty-git
 makepkg -isr
 ```
 
-
 ## Manual Installation
 
 ### Prerequisites
 
-1. Alacritty requires most recent stable Rust compiler. If your distribution provides it as a package (e.g. `rust` on Arch Linux), install it with the package manager. Alternatively see below on how to install it with `rustup`.
+1. Alacritty requires most recent stable Rust compiler; it can be installed with
+   `rustup`.
 
-    Note: **DO NOT** use the Homebrew Rust compiler on macOS (see FAQ for explanation).
+    Note: **DO NOT** use the Homebrew Rust compiler on macOS (see FAQ for
+    explanation).
 
 #### Installing Rust compiler with `rustup`
 
-1. Install [`rustup.rs`](https://rustup.rs/). 
+1. Install [`rustup.rs`](https://rustup.rs/).
 
 2. Clone the source code:
 
@@ -146,9 +146,9 @@ pkg install cmake freetype2 fontconfig xclip pkgconf
 
 #### Solus
 
-On [Solus](https://solus-project.com/), you need a few extra libraries to build Alacritty. Here's a
-`eopkg` command that should install all of them. If something is still found
-to be missing, please open an issue.
+On [Solus](https://solus-project.com/), you need a few extra libraries to build
+Alacritty. Here's a `eopkg` command that should install all of them. If
+something is still found to be missing, please open an issue.
 
 ```sh
 sudo eopkg install freetype2-devel fontconfig-devel
@@ -156,9 +156,10 @@ sudo eopkg install freetype2-devel fontconfig-devel
 
 ### NixOS/Nixpkgs
 
-The following command can be used to get a shell with all development dependencies on [NixOS](https://nixos.org).
+The following command can be used to get a shell with all development
+dependencies on [NixOS](https://nixos.org).
 
-```
+```sh
 nix-shell -A alacritty '<nixpkgs>'
 ```
 
@@ -166,14 +167,18 @@ nix-shell -A alacritty '<nixpkgs>'
 
 On Gentoo, there's a portage overlay available. Make sure `layman` is installed
 and run:
-```
+
+```sh
 sudo layman -a slyfox
 ```
-Then, add `x11-terms/alacritty **` to `/etc/portage/package.accept_keywords` 
-and emerge alacritty:
-```
+
+Then, add `x11-terms/alacritty **` to `/etc/portage/package.accept_keywords` and
+emerge alacritty:
+
+```sh
 sudo emerge alacritty
 ```
+
 It might be handy to mask all other packages provided in the `slyfox` overlay by
 adding `*/*::slyfox` to `/etc/portage/package.mask` and adding
 `x11-terms/alacritty::slyfox` to `/etc/portage/package.unmask`.
@@ -225,9 +230,10 @@ configuration file as the following paths:
 3. `$HOME/.config/alacritty/alacritty.yml`
 4. `$HOME/.alacritty.yml`
 
-If neither of these paths are found then `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
-is created once alacritty is first run. On most systems this often defaults
-to `$HOME/.config/alacritty/alacritty.yml`.
+If neither of these paths are found then
+`$XDG_CONFIG_HOME/alacritty/alacritty.yml` is created once alacritty is first
+run. On most systems this often defaults to
+`$HOME/.config/alacritty/alacritty.yml`.
 
 Many configuration options will take effect immediately upon saving changes to
 the config file. The only exception is the `font`, `dimensions` and `dpi`
@@ -257,8 +263,7 @@ Just Works.
   on another machine which is connected to Alacritty via SSH, this issue
   disappears. Actual throughput and rendering performance are still better in
   Alacritty.
-- _Is wayland supported?_ Not yet. Alacritty is currently on a fork of glutin
-  that needs some updates to work with Wayland. To stop glutin from detecting
+- _Is wayland supported?_ Sort of, but not everything works.  To prefer X11 over
   Wayland (e.g. for use on XWayland) launch Alacritty like this:
   `env WAYLAND_DISPLAY= alacritty`
 - _When will Windows support be available?_ When someone has time to work on it.
