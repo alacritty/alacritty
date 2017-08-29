@@ -1051,17 +1051,6 @@ impl Term {
         self.tabs = IndexRange::from(Column(0)..self.grid.num_cols())
             .map(|i| (*i as usize) % TAB_SPACES == 0)
             .collect::<Vec<bool>>();
-<<<<<<< HEAD
-
-        if num_lines > old_lines {
-            // Make sure bottom of terminal is clear
-            let template = self.cursor.template;
-            self.grid.clear_region((self.cursor.point.line + 1).., |c| c.reset(&template));
-            self.alt_grid.clear_region((self.cursor_save_alt.point.line + 1).., |c| c.reset(&template));
-        }
-
-=======
->>>>>>> Fixed crashes on resizing, nicer resizing behaviour.
     }
 
     #[inline]
