@@ -280,7 +280,7 @@ pub struct Config {
 
     /// Position new windows in same place last window closed
     #[serde(default)]
-    remember_position: bool,
+    pub remember_position: bool,
 }
 
 fn default_padding() -> Delta {
@@ -1222,6 +1222,7 @@ pub struct WindowPosition {
 }
 
 impl WindowPosition {
+    // TODO refactor this to share code with the function to load config files
     fn find_path_to_remembered_position() -> Option<PathBuf> {
         // Try using XDG location by default
         ::xdg::BaseDirectories::with_prefix("alacritty")
@@ -1259,6 +1260,10 @@ impl WindowPosition {
             }
         }
         None
+    }
+
+    pub fn save(x: i32, y: i32) {
+        // TODO serialize
     }
 }
 

@@ -10,7 +10,7 @@ use parking_lot::MutexGuard;
 use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store};
 
-use config::{self, Config};
+use config::{self, Config, WindowPosition};
 use cli::Options;
 use display::OnResize;
 use index::{Line, Column, Side, Point};
@@ -35,6 +35,8 @@ pub struct ActionContext<'a, N: 'a> {
     pub terminal: &'a mut Term,
     pub selection: &'a mut Option<Selection>,
     pub size_info: &'a SizeInfo,
+    pub remember_position: bool,
+    pub position: Option<(i32, i32)>,
     pub mouse: &'a mut Mouse,
     pub selection_modified: bool,
     pub received_count: &'a mut usize,
@@ -182,6 +184,7 @@ pub struct Processor<N> {
     pub selection: Option<Selection>,
     hide_cursor_when_typing: bool,
     hide_cursor: bool,
+    remember_position: bool,
     received_count: usize,
     suppress_chars: bool,
     last_modifiers: ModifiersState,
@@ -225,6 +228,7 @@ impl<N: Notify> Processor<N> {
             size_info: size_info,
             hide_cursor_when_typing: config.hide_cursor_when_typing(),
             hide_cursor: false,
+            remember_position: config.remember_position,
             received_count: 0,
             suppress_chars: false,
             last_modifiers: Default::default(),
@@ -266,6 +270,13 @@ impl<N: Notify> Processor<N> {
                             File::create("./size.json")
                                 .and_then(|mut f| f.write_all(serialized_size.as_bytes()))
                                 .expect("write size.json");
+                        }
+
+                        if processor.ctx.remember_position {
+                            let f = File::create("/Users/bryce/.config/alacritty/.remembered_position.yml");
+                            if let Some((x, y)) = processor.ctx.position {
+                                let _ = WindowPosition::save(x, y);
+                            }
                         }
 
                         // FIXME should do a more graceful shutdown
@@ -372,6 +383,8 @@ impl<N: Notify> Processor<N> {
                 selection: &mut self.selection,
                 mouse: &mut self.mouse,
                 size_info: &self.size_info,
+                remember_position: self.remember_position;
+                position: window.get_position(),
                 selection_modified: false,
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
@@ -427,5 +440,6 @@ impl<N: Notify> Processor<N> {
         self.key_bindings = config.key_bindings().to_vec();
         self.mouse_bindings = config.mouse_bindings().to_vec();
         self.mouse_config = config.mouse().to_owned();
+        self.remember_position = config.remember_position;
     }
 }

@@ -279,6 +279,12 @@ impl Window {
         self.window.set_title(title);
     }
 
+    /// Get the window position
+    #[inline]
+    pub fn get_position(&self) -> Option<(i32, i32)> {
+        self.window.get_position()
+    }
+
     /// Set cursor visible
     pub fn set_cursor_visible(&mut self, visible: bool) {
         if visible != self.cursor_visible {
