@@ -72,12 +72,17 @@ pub struct Grid<T> {
     lines: index::Line,
 
     /// The starting index for the visible region
-    visible_region_start: AbsoluteLine,
+    visible_region_start: index::AbsoluteLine,
 
     /// Maximum number of lines in the total scrollback buffer.
     /// Once this limit is reached, oldest elements will begin to be
     /// removed from the `VecDeque` using `pop_front`
+    #[serde(default = "default_max_scrollback_lines")]
     max_scrollback_lines: index::AbsoluteLine,
+}
+
+fn default_max_scrollback_lines() -> index::AbsoluteLine {
+    AbsoluteLine(10000)
 }
 
 pub struct GridIterator<'a, T: 'a> {
