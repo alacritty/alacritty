@@ -136,9 +136,10 @@ impl Display {
         let font = config.font();
         let dpi = config.dpi();
         let render_timer = config.render_timer();
+        let position = config.initial_position();
 
         // Create the window where Alacritty will be displayed
-        let mut window = Window::new(&options.title)?;
+        let mut window = Window::new(&options.title, position)?;
 
         // get window properties for initializing the other subsytems
         let size = window.inner_size_pixels()

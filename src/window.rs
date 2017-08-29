@@ -19,6 +19,8 @@ use gl;
 use glutin::{self, EventsLoop, WindowBuilder, Event, CursorState, ControlFlow, ContextBuilder};
 use glutin::GlContext;
 
+use config::WindowPosition;
+
 /// Window errors
 #[derive(Debug)]
 pub enum Error {
@@ -180,29 +182,33 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
-        title: &str
+        title: &str,
+        position: Option<WindowPosition>
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
         Window::platform_window_init();
-        let window = WindowBuilder::new()
+        let builder = WindowBuilder::new()
             .with_title(title)
             .with_transparency(true);
         let context = ContextBuilder::new()
             .with_vsync(true);
-        let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
+        let glwindow = ::glutin::GlWindow::new(builder, context, &event_loop)?;
+        if let Some(WindowPosition{x, y}) = position {
+            glwindow.set_position(x, y)
+        }
 
         /// Set OpenGL symbol loader
-        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
+        gl::load_with(|symbol| glwindow.get_proc_address(symbol) as *const _);
 
         /// Make the context current so OpenGL operations can run
         unsafe {
-            window.make_current()?;
+            glwindow.make_current()?;
         }
 
         let window = Window {
             event_loop: event_loop,
-            window: window,
+            window: glwindow,
             cursor_visible: true,
         };
 
@@ -271,6 +277,12 @@ impl Window {
     #[inline]
     pub fn set_title(&self, title: &str) {
         self.window.set_title(title);
+    }
+
+    /// Get the window position
+    #[inline]
+    pub fn get_position(&self) -> Option<(i32, i32)> {
+        self.window.get_position()
     }
 
     /// Set cursor visible
