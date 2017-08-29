@@ -277,6 +277,10 @@ pub struct Config {
     /// Hide cursor when typing
     #[serde(default)]
     hide_cursor_when_typing: bool,
+
+    /// Position new windows in same place last window closed
+    #[serde(default)]
+    remember_position: bool,
 }
 
 fn default_padding() -> Delta {
@@ -329,6 +333,7 @@ impl Default for Config {
             visual_bell: Default::default(),
             env: Default::default(),
             hide_cursor_when_typing: Default::default(),
+            remember_position: false,
             padding: default_padding(),
         }
     }
@@ -1128,6 +1133,14 @@ impl Config {
         self.dimensions
     }
 
+    /// Get last window position, if any
+    pub fn initial_position(&self) -> Option<WindowPosition> {
+        if self.remember_position {
+            return WindowPosition::load();
+        }
+        None
+    }
+
     /// Get dpi config
     #[inline]
     pub fn dpi(&self) -> &Dpi {
@@ -1195,6 +1208,57 @@ impl Config {
         }
 
         Ok(contents)
+    }
+}
+
+/// Window Position
+///
+/// Reader/writer of previous window positions on disk so that new
+/// windows can optionally appear where windows were last closed.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct WindowPosition {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl WindowPosition {
+    fn find_path_to_remembered_position() -> Option<PathBuf> {
+        // Try using XDG location by default
+        ::xdg::BaseDirectories::with_prefix("alacritty")
+            .ok()
+            .and_then(|xdg| xdg.find_config_file(".remembered_position.yml"))
+            .or_else(|| {
+                ::xdg::BaseDirectories::new().ok().and_then(|fallback| {
+                    fallback.find_config_file(".alacritty.remembered_position.yml")
+                })
+            })
+            .or_else(|| {
+                if let Ok(home) = env::var("HOME") {
+                    // Fallback path: $HOME/.config/alacritty/alacritty.yml
+                    let fallback = PathBuf::from(&home).join(".config/alacritty/.remembered_position.yml");
+                    if fallback.exists() {
+                        return Some(fallback);
+                    }
+                    // Fallback path: $HOME/.alacritty.yml
+                    let fallback = PathBuf::from(&home).join(".alacritty.remembered_position.yml");
+                    if fallback.exists() {
+                        return Some(fallback);
+                    }
+                }
+                None
+            })
+            .map(|path| path.into())
+    }
+
+    pub fn load() -> Option<WindowPosition> {
+        if let Some(path) = WindowPosition::find_path_to_remembered_position() {
+            if let Ok(mut f) = fs::File::open(path) {
+                if let Ok(mut position) = serde_yaml::from_reader(f) {
+                    return Some(position);
+                }
+            }
+        }
+        None
     }
 }
 

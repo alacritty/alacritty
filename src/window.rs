@@ -19,6 +19,8 @@ use gl;
 use glutin::{self, EventsLoop, WindowBuilder, Event, CursorState, ControlFlow, ContextBuilder};
 use glutin::GlContext;
 
+use config::WindowPosition;
+
 /// Window errors
 #[derive(Debug)]
 pub enum Error {
@@ -180,7 +182,8 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
-        title: &str
+        title: &str,
+        position: Option<WindowPosition>
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
@@ -191,6 +194,9 @@ impl Window {
         let context = ContextBuilder::new()
             .with_vsync(true);
         let glwindow = ::glutin::GlWindow::new(builder, context, &event_loop)?;
+        if let Some(WindowPosition{x, y}) = position {
+            glwindow.set_position(x, y)
+        }
 
         /// Set OpenGL symbol loader
         gl::load_with(|symbol| glwindow.get_proc_address(symbol) as *const _);
