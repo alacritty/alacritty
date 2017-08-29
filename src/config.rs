@@ -279,7 +279,7 @@ pub struct Config {
     hide_cursor_when_typing: bool,
 
     /// Live config reload
-    #[serde(default)]
+    #[serde(default="true_bool")]
     live_config_reload: bool,
 }
 
