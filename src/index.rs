@@ -89,7 +89,7 @@ impl One for Line {
 /// A line
 ///
 /// Newtype to avoid passing values incorrectly
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct AbsoluteLine(pub usize);
 
 impl fmt::Display for AbsoluteLine {
