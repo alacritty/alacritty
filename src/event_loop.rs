@@ -7,7 +7,10 @@ use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
 
 use mio::{self, Events, PollOpt, Ready};
+#[cfg(unix)]
+use mio::unix::UnixReady;
 use mio::unix::EventedFd;
+use mio_more::channel::{self, Sender, Receiver};
 
 use ansi;
 use display;
@@ -33,8 +36,8 @@ pub enum Msg {
 pub struct EventLoop<Io> {
     poll: mio::Poll,
     pty: Io,
-    rx: mio::channel::Receiver<Msg>,
-    tx: mio::channel::Sender<Msg>,
+    rx: Receiver<Msg>,
+    tx: Sender<Msg>,
     terminal: Arc<FairMutex<Term>>,
     display: display::Notifier,
     ref_test: bool,
@@ -76,7 +79,7 @@ pub struct State {
     parser: ansi::Processor,
 }
 
-pub struct Notifier(pub ::mio::channel::Sender<Msg>);
+pub struct Notifier(pub Sender<Msg>);
 
 impl event::Notify for Notifier {
     fn notify<B>(&mut self, bytes: B)
@@ -174,7 +177,7 @@ impl<Io> EventLoop<Io>
         pty: Io,
         ref_test: bool,
     ) -> EventLoop<Io> {
-        let (tx, rx) = ::mio::channel::channel();
+        let (tx, rx) = channel::channel();
         EventLoop {
             poll: mio::Poll::new().expect("create mio Poll"),
             pty: pty,
@@ -186,7 +189,7 @@ impl<Io> EventLoop<Io>
         }
     }
 
-    pub fn channel(&self) -> mio::channel::Sender<Msg> {
+    pub fn channel(&self) -> Sender<Msg> {
         self.tx.clone()
     }
 
@@ -384,13 +387,15 @@ impl<Io> EventLoop<Io>
                             }
                         },
                         PTY => {
-                            let kind = event.kind();
+                            let ready = event.readiness();
 
-                            if kind.is_hup() {
-                                break 'event_loop;
+                            #[cfg(unix)] {
+                                if UnixReady::from(ready).is_hup() {
+                                    break 'event_loop;
+                                }
                             }
 
-                            if kind.is_readable() {
+                            if ready.is_readable() {
                                 if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut()) {
                                     error!("Event loop exitting due to error: {} [{}:{}]",
                                            err, file!(), line!());
@@ -402,7 +407,7 @@ impl<Io> EventLoop<Io>
                                 }
                             }
 
-                            if kind.is_writable() {
+                            if ready.is_writable() {
                                 if let Err(err) = self.pty_write(&mut state) {
                                     error!("Event loop exitting due to error: {} [{}:{}]",
                                            err, file!(), line!());

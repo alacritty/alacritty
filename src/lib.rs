@@ -39,6 +39,7 @@ extern crate font;
 extern crate glutin;
 extern crate libc;
 extern crate mio;
+extern crate mio_more;
 extern crate notify;
 extern crate parking_lot;
 extern crate serde;
