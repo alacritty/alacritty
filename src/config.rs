@@ -19,7 +19,7 @@ use serde_yaml;
 use serde::{self, de, Deserialize};
 use serde::de::Error as SerdeError;
 use serde::de::{Visitor, MapAccess, Unexpected};
-use notify::{Watcher as WatcherApi, RecommendedWatcher as FileWatcher, op};
+use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
 
 use glutin::ModifiersState;
 
@@ -1474,34 +1474,20 @@ impl Monitor {
         Monitor {
             _thread: ::util::thread::spawn_named("config watcher", move || {
                 let (tx, rx) = mpsc::channel();
-                let mut watcher = FileWatcher::new(tx).unwrap();
+                let mut watcher = watcher(tx, Duration::from_millis(500)).unwrap();
                 let config_path = ::std::fs::canonicalize(path)
                     .expect("canonicalize config path");
 
-                watcher.watch(&config_path).expect("watch alacritty yml");
+                watcher.watch(&config_path, RecursiveMode::NonRecursive).expect("watch alacritty yml");
 
                 loop {
                     let event = rx.recv().expect("watcher event");
-                    let ::notify::Event { path, op } = event;
 
-                    if let Ok(op) = op {
-                        // Skip events that are just a rename
-                        if op.contains(op::RENAME) && !op.contains(op::WRITE) {
-                            continue;
-                        }
-
-                        // Need to handle ignore for linux
-                        if op.contains(op::IGNORED) {
-                            if let Some(path) = path.as_ref() {
-                                if let Err(err) = watcher.watch(&path) {
-                                    err_println!("failed to establish watch on {:?}: {:?}",
-                                                 path, err);
-                                }
-                            }
-                        }
-
-                        // Reload file
-                        path.map(|path| {
+                    match event {
+                        DebouncedEvent::Rename(_, _) => continue,
+                        DebouncedEvent::Write(path) | DebouncedEvent::Create(path)
+                         | DebouncedEvent::Chmod(path) => {
+                            // Reload file
                             if path == config_path {
                                 match Config::load_from(path) {
                                     Ok(config) => {
@@ -1510,8 +1496,9 @@ impl Monitor {
                                     },
                                     Err(err) => err_println!("Ignoring invalid config: {}", err),
                                 }
-                            }
-                        });
+                             }
+                        }
+                        _ => {}
                     }
                 }
             }),
