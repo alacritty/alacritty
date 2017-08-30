@@ -19,6 +19,7 @@ use std::mem::size_of;
 use std::path::{PathBuf};
 use std::ptr;
 use std::sync::mpsc;
+use std::time::Duration;
 
 use cgmath;
 use fnv::FnvHasher;
@@ -26,7 +27,7 @@ use font::{self, Rasterizer, Rasterize, RasterizedGlyph, FontDesc, GlyphKey, Fon
 use gl::types::*;
 use gl;
 use index::{Line, Column, RangeInclusive};
-use notify::{Watcher as WatcherApi, RecommendedWatcher as Watcher, op};
+use notify::{Watcher, watcher, RecursiveMode, DebouncedEvent};
 
 use config::{self, Config, Delta};
 use term::{self, cell, RenderableCell};
@@ -536,29 +537,21 @@ impl QuadRenderer {
         if cfg!(feature = "live-shader-reload") {
             ::std::thread::spawn(move || {
                 let (tx, rx) = ::std::sync::mpsc::channel();
-                let mut watcher = Watcher::new(tx).expect("create file watcher");
-                watcher.watch(TEXT_SHADER_F_PATH).expect("watch fragment shader");
-                watcher.watch(TEXT_SHADER_V_PATH).expect("watch vertex shader");
+                let mut watcher = watcher(tx, Duration::from_millis(500)).expect("create file watcher");
+                watcher.watch(TEXT_SHADER_F_PATH, RecursiveMode::NonRecursive)
+                       .expect("watch fragment shader");
+                watcher.watch(TEXT_SHADER_V_PATH, RecursiveMode::NonRecursive)
+                       .expect("watch vertex shader");
 
                 loop {
                     let event = rx.recv().expect("watcher event");
-                    let ::notify::Event { path, op } = event;
 
-                    if let Ok(op) = op {
-                        if op.contains(op::RENAME) {
-                            continue;
+                    match event {
+                        DebouncedEvent::Rename(_, _) => continue,
+                        DebouncedEvent::Create(_) | DebouncedEvent::Write(_) | DebouncedEvent::Chmod(_) => {
+                            msg_tx.send(Msg::ShaderReload).expect("msg send ok");
                         }
-
-                        if op.contains(op::IGNORED) {
-                            if let Some(path) = path.as_ref() {
-                                if let Err(err) = watcher.watch(path) {
-                                    warn!("failed to establish watch on {:?}: {:?}", path, err);
-                                }
-                            }
-
-                            msg_tx.send(Msg::ShaderReload)
-                                .expect("msg send ok");
-                        }
+                        _ => {}
                     }
                 }
             });

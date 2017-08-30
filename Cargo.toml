@@ -14,7 +14,7 @@ name = "alacritty"
 [dependencies]
 libc = "0.2.30"
 cgmath = "0.15"
-notify = "2.6"
+notify = "4"
 bitflags = "0.9.1"
 font = { path = "./font" }
 errno = "0.2.3"
