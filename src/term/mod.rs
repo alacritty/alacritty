@@ -390,21 +390,21 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 
 pub mod mode {
     bitflags! {
-        pub flags TermMode: u16 {
-            const SHOW_CURSOR         = 0b000000000001,
-            const APP_CURSOR          = 0b000000000010,
-            const APP_KEYPAD          = 0b000000000100,
-            const MOUSE_REPORT_CLICK  = 0b000000001000,
-            const BRACKETED_PASTE     = 0b000000010000,
-            const SGR_MOUSE           = 0b000000100000,
-            const MOUSE_MOTION        = 0b000001000000,
-            const LINE_WRAP           = 0b000010000000,
-            const LINE_FEED_NEW_LINE  = 0b000100000000,
-            const ORIGIN              = 0b001000000000,
-            const INSERT              = 0b010000000000,
-            const FOCUS_IN_OUT        = 0b100000000000,
-            const ANY                 = 0b111111111111,
-            const NONE                = 0,
+        pub struct TermMode: u16 {
+            const SHOW_CURSOR         = 0b000000000001;
+            const APP_CURSOR          = 0b000000000010;
+            const APP_KEYPAD          = 0b000000000100;
+            const MOUSE_REPORT_CLICK  = 0b000000001000;
+            const BRACKETED_PASTE     = 0b000000010000;
+            const SGR_MOUSE           = 0b000000100000;
+            const MOUSE_MOTION        = 0b000001000000;
+            const LINE_WRAP           = 0b000010000000;
+            const LINE_FEED_NEW_LINE  = 0b000100000000;
+            const ORIGIN              = 0b001000000000;
+            const INSERT              = 0b010000000000;
+            const FOCUS_IN_OUT        = 0b100000000000;
+            const ANY                 = 0b111111111111;
+            const NONE                = 0;
         }
     }
 
