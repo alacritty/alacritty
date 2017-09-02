@@ -82,17 +82,17 @@ fn parse_number(input: &[u8]) -> Option<u8> {
     if input.is_empty() {
         return None;
     }
-    let mut index: u8 = 0;
+    let mut num: u8 = 0;
     for c in input {
         let c = *c as char;
         if let Some(digit) = c.to_digit(10) {
-            index *= 10;
-            index += digit as u8;
+            num *= 10;
+            num += digit as u8;
         } else {
             return None;
         }
     }
-    Some(index)
+    Some(num)
 }
 
 /// The processor wraps a `vte::Parser` to ultimately call methods on a Handler
