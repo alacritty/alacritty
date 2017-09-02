@@ -86,8 +86,10 @@ fn parse_number(input: &[u8]) -> Option<u8> {
     for c in input {
         let c = *c as char;
         if let Some(digit) = c.to_digit(10) {
-            num *= 10;
-            num += digit as u8;
+            num = match num.checked_mul(10).and_then(|v| v.checked_add(digit as u8)) {
+                Some(v) => v,
+                None => return None,
+            }
         } else {
             return None;
         }
@@ -1334,7 +1336,7 @@ pub mod C1 {
 mod tests {
     use std::io;
     use index::{Line, Column};
-    use super::{Processor, Handler, Attr, TermInfo, Color, StandardCharset, CharsetIndex, parse_rgb_color};
+    use super::{Processor, Handler, Attr, TermInfo, Color, StandardCharset, CharsetIndex, parse_rgb_color, parse_number};
     use ::Rgb;
 
     /// The /dev/null of io::Write
@@ -1511,5 +1513,20 @@ mod tests {
     #[test]
     fn parse_valid_rgb_color2() {
         assert_eq!(parse_rgb_color(b"#11aaff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+    }
+
+    #[test]
+    fn parse_invalid_number() {
+        assert_eq!(parse_number(b"1abc"), None);
+    }
+
+    #[test]
+    fn parse_valid_number() {
+        assert_eq!(parse_number(b"123"), Some(123));
+    }
+
+    #[test]
+    fn parse_number_too_large() {
+        assert_eq!(parse_number(b"321"), None);
     }
 }
