@@ -55,6 +55,47 @@ impl<T> Deref for Indexed<T> {
     }
 }
 
+
+#[derive(Debug)]
+pub enum MoveRegionError {
+    AtTop,
+    AtBottom
+}
+
+/// Represents a vertical movement within some abstract space
+/// ie: the contents of the terminal window inside the scroll pane.
+#[derive(Copy, Clone, Debug)]
+pub enum Movement<T: Copy> {
+    Up(T),
+    Down(T),
+    None
+}
+
+/// The scrollback system used for the grid. At the moment, there is either no
+/// scrollback, or scrollback with a capped max number of lines. In the future,
+/// this could be expanded to offer eg: unlimited scrollback.
+#[derive(Copy, Clone, Debug)]
+pub enum Scrollback {
+    Disabled,
+    MaxLines(index::AbsoluteLine)
+}
+
+// Internal struct used to keep track of scrollback state.
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct ScrollbackState {
+    // Whether scrollback is enabled at all.. When disabled,
+    // `max_lines` will be kept in sync with `lines` in the grid.
+    enabled: bool,
+    // Maximum number of lines in the total scrollback buffer.
+    // Once this limit is reached, oldest elements will begin to be
+    // removed from the `VecDeque` using `pop_front`
+    max_lines: index::AbsoluteLine
+}
+
+fn default_scrollback_state() -> ScrollbackState {
+    ScrollbackState { enabled: true, max_lines: AbsoluteLine(10000) }
+}
+
 /// Represents the terminal display contents
 /// The grid itself has no knowledge of what our current scroll
 /// position is. Instead, it just handles changes to the 'active region'
@@ -73,16 +114,10 @@ pub struct Grid<T> {
 
     /// The starting index for the visible region
     visible_region_start: index::AbsoluteLine,
-
-    /// Maximum number of lines in the total scrollback buffer.
-    /// Once this limit is reached, oldest elements will begin to be
-    /// removed from the `VecDeque` using `pop_front`
-    #[serde(default = "default_max_scrollback_lines")]
-    max_scrollback_lines: index::AbsoluteLine,
-}
-
-fn default_max_scrollback_lines() -> index::AbsoluteLine {
-    AbsoluteLine(10000)
+    
+    /// Scrollback config, ie: is it enabled, if so, how many lines
+    #[serde(default = "default_scrollback_state")]
+    scrollback: ScrollbackState,
 }
 
 pub struct GridIterator<'a, T: 'a> {
@@ -90,37 +125,24 @@ pub struct GridIterator<'a, T: 'a> {
     pub cur: Point,
 }
 
-#[derive(Debug)]
-pub enum MoveRegionError {
-    AtTop,
-    AtBottom
-}
-
-/// Represents a vertical movement within some abstract space
-/// ie: the contents of the terminal window inside the scroll pane.
-#[derive(Copy, Clone, Debug)]
-pub enum Movement<T: Copy> {
-    Up(T),
-    Down(T),
-    None
-}
-
 impl<T: Clone> Grid<T> {
-    pub fn new(lines: index::Line, cols: index::Column, template: &T) -> Grid<T> {
-        /// the number of lines
-        let max_scrollback_lines = AbsoluteLine(10000);
-        
+    pub fn new(lines: index::Line, cols: index::Column, scrollback: Scrollback, template: &T) -> Grid<T> {
         let mut raw = VecDeque::with_capacity(*lines);
         for _ in IndexRange(index::Line(0)..lines) {
             raw.push_back(Row::new(cols, template));
         }
+
+        let scrollback_state = match scrollback {
+            Scrollback::Disabled => ScrollbackState { enabled: false, max_lines: lines.to_absolute() },
+            Scrollback::MaxLines(l) => ScrollbackState { enabled: true, max_lines: l }
+        };
 
         Grid {
             raw: raw,
             cols: cols,
             lines: lines,
             visible_region_start: AbsoluteLine(0),
-            max_scrollback_lines: max_scrollback_lines
+            scrollback: scrollback_state
         }
     }
 
@@ -387,7 +409,7 @@ impl<T: Default + Clone> Grid<T> {
         
         let was_at_end = self.visible_region().end == self.total_lines_in_buffer();
 
-        let swap = self.total_lines_in_buffer() >= self.max_scrollback_lines;
+        let swap = self.total_lines_in_buffer() >= self.scrollback.max_lines;
         if swap {
             debug!("max scrollback lines reached, swapping with old rows");
             for _ in 0..lines.0 {
@@ -409,8 +431,8 @@ impl<T: Default + Clone> Grid<T> {
         }
 
         if was_at_end {
-            trace!("scrolling down on new line");
-            self.visible_region_start += AbsoluteLine(1);
+            trace!("keeping the visible region at the bottom");
+            let _ = self.move_visible_region_to_bottom();
         }
     }
 }
@@ -587,7 +609,7 @@ impl<'a, T> IntoIterator for &'a mut Row<T> {
     type IntoIter = slice::IterMut<'a, T>;
 
     #[inline]
-    fn into_iter(mut self) -> slice::IterMut<'a, T> {
+    fn into_iter(self) -> slice::IterMut<'a, T> {
         self.iter_mut()
     }
 }
@@ -814,11 +836,11 @@ clear_region_impl!(index_range_from_mut, RangeFrom<index::Line>);
 
 #[cfg(test)]
 mod tests {
-    use super::{Grid, BidirectionalIterator};
+    use super::{Grid, Scrollback, BidirectionalIterator};
     use index::{Point, Line, Column};
     #[test]
     fn grid_swap_lines_ok() {
-        let mut grid = Grid::new(Line(10), Column(1), &0);
+        let mut grid = Grid::new(Line(10), Column(1), Scrollback::Disabled, &0);
         info!("");
 
         // swap test ends
@@ -853,21 +875,21 @@ mod tests {
     #[test]
     #[should_panic]
     fn grid_swap_lines_oob1() {
-        let mut grid = Grid::new(Line(10), Column(1), &0);
+        let mut grid = Grid::new(Line(10), Column(1), Scrollback::Disabled, &0);
         grid.swap_lines(Line(0), Line(10));
     }
 
     #[test]
     #[should_panic]
     fn grid_swap_lines_oob2() {
-        let mut grid = Grid::new(Line(10), Column(1), &0);
+        let mut grid = Grid::new(Line(10), Column(1), Scrollback::Disabled, &0);
         grid.swap_lines(Line(10), Line(0));
     }
 
     #[test]
     #[should_panic]
     fn grid_swap_lines_oob3() {
-        let mut grid = Grid::new(Line(10), Column(1), &0);
+        let mut grid = Grid::new(Line(10), Column(1), Scrollback::Disabled, &0);
         grid.swap_lines(Line(10), Line(10));
     }
 
@@ -876,7 +898,7 @@ mod tests {
     fn scroll_up() {
         info!("");
 
-        let mut grid = Grid::new(Line(10), Column(1), &0);
+        let mut grid = Grid::new(Line(10), Column(1), Scrollback::Disabled, &0);
         for i in 0..10 {
             grid[Line(i)][Column(0)] = i;
         }
@@ -887,7 +909,7 @@ mod tests {
 
         info!("grid: {:?}", grid);
 
-        let mut other = Grid::new(Line(10), Column(1), &9);
+        let mut other = Grid::new(Line(10), Column(1), Scrollback::Disabled, &9);
 
         other[Line(0)][Column(0)] = 2;
         other[Line(1)][Column(0)] = 3;
@@ -910,7 +932,7 @@ mod tests {
     fn scroll_down() {
         info!("");
 
-        let mut grid = Grid::new(Line(10), Column(1), &0);
+        let mut grid = Grid::new(Line(10), Column(1), Scrollback::Disabled, &0);
         for i in 0..10 {
             grid[Line(i)][Column(0)] = i;
         }
@@ -921,7 +943,7 @@ mod tests {
 
         info!("grid: {:?}", grid);
 
-        let mut other = Grid::new(Line(10), Column(1), &9);
+        let mut other = Grid::new(Line(10), Column(1), Scrollback::Disabled, &9);
 
         other[Line(0)][Column(0)] = 8;
         other[Line(1)][Column(0)] = 9;
@@ -944,7 +966,7 @@ mod tests {
     fn test_iter() {
         info!("");
 
-        let mut grid = Grid::new(Line(5), Column(5), &0);
+        let mut grid = Grid::new(Line(5), Column(5), Scrollback::Disabled, &0);
         for i in 0..5 {
             for j in 0..5 {
                 grid[Line(i)][Column(j)] = i*5 + j;
