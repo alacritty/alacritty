@@ -352,15 +352,18 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
-                let code = if lines > 0.0 {
+                let to_scroll = self.ctx.mouse_mut().lines_scrolled + lines;
+
+                let code = if to_scroll > 0.0 {
                     64
                 } else {
                     65
                 };
 
-                for _ in 0..(lines.abs() as usize) {
+                for _ in 0..(to_scroll.abs() as usize) {
                     self.normal_mouse_report(code);
                 }
+                self.ctx.mouse_mut().lines_scrolled = to_scroll % 1.0;
             },
             MouseScrollDelta::PixelDelta(_x, y) => {
                 match phase {
