@@ -24,7 +24,7 @@ use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
 use glutin::ModifiersState;
 
 use input::{Action, Binding, MouseBinding, KeyBinding};
-use index::{Line, Column};
+use index::{Absolute, Line, Column};
 use ansi::CursorStyle;
 
 use util::fmt::Yellow;
@@ -220,6 +220,10 @@ pub struct Config {
     #[serde(default)]
     dimensions: Dimensions,
 
+    /// Maximum size of the scrollback buffer
+    #[serde(default)]
+    scrollback: Scrollback,
+
     /// Pixel padding
     #[serde(default="default_padding")]
     padding: Delta,
@@ -320,6 +324,8 @@ impl Default for Config {
         Config {
             draw_bold_text_with_bright_colors: true,
             dimensions: Default::default(),
+            scrollback: Default::default(),
+            dpi: Default::default(),
             font: Default::default(),
             render_timer: Default::default(),
             custom_cursor_colors: false,
@@ -339,6 +345,25 @@ impl Default for Config {
             padding: default_padding(),
         }
     }
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+pub struct Scrollback {
+    pub enabled: bool,
+    #[serde(default="default_max_scrollback_lines")]
+    pub max_lines: AbsoluteLine
+}
+
+impl Default for Scrollback {
+    fn default() -> Scrollback {
+        Scrollback {
+            enabled: true,
+            max_lines: default_max_scrollback_lines()
+        }
+    }
+}
+fn default_max_scrollback_lines() -> AbsoluteLine {
+    AbsoluteLine(10000)
 }
 
 /// Newtype for implementing deserialize on glutin Mods
@@ -1107,6 +1132,10 @@ impl Config {
     #[inline]
     pub fn background_opacity(&self) -> Alpha {
         self.background_opacity
+    }
+
+    pub fn scrollback(&self) -> Scrollback {
+        self.scrollback
     }
 
     pub fn key_bindings(&self) -> &[KeyBinding] {
