@@ -134,13 +134,28 @@ impl<'a> RenderableCellsIter<'a> {
         }.initialize(cursor_style)
     }
 
-    fn push_cursor_cells(&mut self, cursor_cell: Cell, wide_cell: Cell) {
+    fn push_cursor_cells(
+        &mut self,
+        original_cell: Cell,
+        cursor_cell: Cell,
+        wide_cell: Cell,
+    ) {
+        // Prints the char under the cell if cursor is situated on a non-empty cell
+        self.cursor_cells.push_back(Indexed {
+            line: self.cursor.line,
+            column: self.cursor.col,
+            inner: original_cell,
+        });
+
+        // Prints the cursor
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
             column: self.cursor.col,
             inner: cursor_cell,
         });
 
+        // If cursor is over a wide (2 cell size) character,
+        // print the second cursor cell
         if self.is_wide_cursor(&cursor_cell) {
             self.cursor_cells.push_back(Indexed {
                 line: self.cursor.line,
@@ -162,6 +177,8 @@ impl<'a> RenderableCellsIter<'a> {
             (cell.bg, cell.fg)
         };
 
+        let original_cell = self.grid[self.cursor];
+
         let mut cursor_cell = self.grid[self.cursor];
         cursor_cell.fg = text_color;
         cursor_cell.bg = cursor_color;
@@ -169,10 +186,12 @@ impl<'a> RenderableCellsIter<'a> {
         let mut wide_cell = cursor_cell;
         wide_cell.c = ' ';
 
-        self.push_cursor_cells(cursor_cell, wide_cell);
+        self.push_cursor_cells(original_cell, cursor_cell, wide_cell);
     }
 
     fn populate_char_cursor(&mut self, cursor_cell_char: char, wide_cell_char: char) {
+        let original_cell = self.grid[self.cursor];
+
         let mut cursor_cell = self.grid[self.cursor];
         let cursor_color = self.text_cursor_color(&cursor_cell);
         cursor_cell.c = cursor_cell_char;
@@ -181,7 +200,7 @@ impl<'a> RenderableCellsIter<'a> {
         let mut wide_cell = cursor_cell;
         wide_cell.c = wide_cell_char;
 
-        self.push_cursor_cells(cursor_cell, wide_cell);
+        self.push_cursor_cells(original_cell, cursor_cell, wide_cell);
     }
 
     fn populate_beam_cursor(&mut self) {
