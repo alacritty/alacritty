@@ -537,6 +537,7 @@ impl QuadRenderer {
         if cfg!(feature = "live-shader-reload") {
             ::std::thread::spawn(move || {
                 let (tx, rx) = ::std::sync::mpsc::channel();
+                // The Duration argument is a debouncing period.
                 let mut watcher = watcher(tx, Duration::from_millis(10)).expect("create file watcher");
                 watcher.watch(TEXT_SHADER_F_PATH, RecursiveMode::NonRecursive)
                        .expect("watch fragment shader");

@@ -1474,6 +1474,7 @@ impl Monitor {
         Monitor {
             _thread: ::util::thread::spawn_named("config watcher", move || {
                 let (tx, rx) = mpsc::channel();
+                // The Duration argument is a debouncing period.
                 let mut watcher = watcher(tx, Duration::from_millis(10)).unwrap();
                 let config_path = ::std::fs::canonicalize(path)
                     .expect("canonicalize config path");
