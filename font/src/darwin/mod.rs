@@ -149,7 +149,7 @@ impl ::Rasterize for Rasterizer {
         Ok(font.metrics())
     }
 
-    fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
+    fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<(FontKey, Size), Error> {
         self.keys
             .get(&(desc.to_owned(), size))
             .map(|k| Ok(*k))
@@ -176,7 +176,7 @@ impl ::Rasterize for Rasterizer {
                 self.fonts.insert(key, font);
                 self.keys.insert((desc.clone(), size), key);
 
-                Ok(key)
+                Ok((key, size))
             })
     }
 

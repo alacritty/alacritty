@@ -195,38 +195,38 @@ impl GlyphCache {
         // Load regular font
         let regular_desc = make_desc(&font.normal, font::Slant::Normal, font::Weight::Normal);
 
-        let regular = rasterizer
+        let (regular, font_size) = rasterizer
             .load_font(&regular_desc, size)?;
 
         // helper to load a description if it is not the regular_desc
         let load_or_regular = |desc:FontDesc, rasterizer: &mut Rasterizer| {
             if desc == regular_desc {
-                regular
+                (regular, font_size)
             } else {
-                rasterizer.load_font(&desc, size).unwrap_or_else(|_| regular)
+                rasterizer.load_font(&desc, size).unwrap_or_else(|_| (regular, font_size))
             }
         };
 
         // Load bold font
         let bold_desc = make_desc(&font.bold, font::Slant::Normal, font::Weight::Bold);
 
-        let bold = load_or_regular(bold_desc, &mut rasterizer);
+        let (bold, _) = load_or_regular(bold_desc, &mut rasterizer);
 
         // Load italic font
         let italic_desc = make_desc(&font.italic, font::Slant::Italic, font::Weight::Normal);
 
-        let italic = load_or_regular(italic_desc, &mut rasterizer);
+        let (italic, _) = load_or_regular(italic_desc, &mut rasterizer);
 
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font_size })?;
         let metrics = rasterizer.metrics(regular)?;
 
         let mut cache = GlyphCache {
             cache: HashMap::default(),
             rasterizer: rasterizer,
-            font_size: font.size(),
+            font_size: font_size,
             font_key: regular,
             bold_key: bold,
             italic_key: italic,
@@ -240,7 +240,7 @@ impl GlyphCache {
                     cache.get(&GlyphKey {
                         font_key: $font,
                         c: i as char,
-                        size: font.size()
+                        size: font_size,
                     }, loader);
                 }
             }

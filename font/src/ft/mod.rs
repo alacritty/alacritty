@@ -24,9 +24,23 @@ mod list_fonts;
 use self::list_fonts::fc;
 use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight, Slant, Style};
 
+#[derive(Clone)]
+enum Scalability {
+    Scalable,
+    NonScalable,
+}
+
+impl Scalability {
+    fn from_property(value: Option<bool>) -> Self {
+        use self::Scalability::*;
+
+        value.map(|x| if x { Scalable } else { NonScalable } ).unwrap_or(Scalable)
+    }
+}
+
 /// Rasterizes glyphs for a single font face.
 pub struct FreeTypeRasterizer {
-    faces: HashMap<FontKey, Face<'static>>,
+    faces: HashMap<FontKey, (Face<'static>, Scalability)>,
     library: Library,
     keys: HashMap<::std::path::PathBuf, FontKey>,
     dpi_x: u32,
@@ -60,7 +74,7 @@ impl ::Rasterize for FreeTypeRasterizer {
             .get(&key)
             .ok_or(Error::FontNotLoaded)?;
 
-        let size_metrics = face.size_metrics()
+        let size_metrics = face.0.size_metrics()
             .ok_or(Error::MissingSizeMetrics)?;
 
         let width = (size_metrics.max_advance / 64) as f64;
@@ -74,11 +88,11 @@ impl ::Rasterize for FreeTypeRasterizer {
         })
     }
 
-    fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Error> {
-        let face = self.get_face(desc)?;
+    fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<(FontKey, Size), Error> {
+        let (face, size, scalability) = self.get_face(desc, size)?;
         let key = FontKey::next();
-        self.faces.insert(key, face);
-        Ok(key)
+        self.faces.insert(key, (face, scalability));
+        Ok((key, size))
     }
 
     fn get_glyph(&mut self, glyph_key: &GlyphKey) -> Result<RasterizedGlyph, Error> {
@@ -116,15 +130,15 @@ impl IntoFontconfigType for Weight {
 
 impl FreeTypeRasterizer {
     /// Load a font face accoring to `FontDesc`
-    fn get_face(&mut self, desc: &FontDesc) -> Result<Face<'static>, Error> {
+    fn get_face(&mut self, desc: &FontDesc, size: Size) -> Result<(Face<'static>, Size, Scalability), Error> {
         match desc.style {
             Style::Description { slant, weight } => {
                 // Match nearest font
-                self.get_matching_face(&desc, slant, weight)
+                self.get_matching_face(&desc, size, slant, weight)
             }
             Style::Specific(ref style) => {
                 // If a name was specified, try and load specifically that font.
-                self.get_specific_face(&desc, &style)
+                self.get_specific_face(&desc, size, &style)
             }
         }
     }
@@ -132,19 +146,23 @@ impl FreeTypeRasterizer {
     fn get_matching_face(
         &mut self,
         desc: &FontDesc,
+        size: Size,
         slant: Slant,
         weight: Weight
-    ) -> Result<Face<'static>, Error> {
+    ) -> Result<(Face<'static>, Size, Scalability), Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.set_weight(weight.into_fontconfig_type());
         pattern.set_slant(slant.into_fontconfig_type());
+        pattern.set_pixelsize(size.as_f32_pts() as f64);
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
+        let ret_size = font.pixelsize(0).map(|x| Size::new(x as f32)).unwrap_or(size);
+        let scalability = Scalability::from_property(font.scalable(0));
 
         if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
-            return Ok(self.library.new_face(path, index)?);
+            return Ok((self.library.new_face(path, index)?, ret_size, scalability));
         }
 
         Err(Error::MissingFont(desc.to_owned()))
@@ -153,17 +171,22 @@ impl FreeTypeRasterizer {
     fn get_specific_face(
         &mut self,
         desc: &FontDesc,
+        size: Size,
         style: &str
-    ) -> Result<Face<'static>, Error> {
+    ) -> Result<(Face<'static>, Size, Scalability), Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.add_style(style);
+        pattern.set_pixelsize(size.as_f32_pts() as f64);
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
+        let ret_size = font.pixelsize(0).map(|x| Size::new(x as f32)).unwrap_or(size);
+        let scalability = Scalability::from_property(font.scalable(0));
+
         if let (Some(path), Some(index)) = (font.file(0), font.index(0)) {
             println!("got font path={:?}", path);
-            Ok(self.library.new_face(path, index)?)
+            Ok((self.library.new_face(path, index)?, ret_size, scalability))
         }
         else {
             Err(Error::MissingFont(desc.to_owned()))
@@ -180,8 +203,16 @@ impl FreeTypeRasterizer {
         let size = glyph_key.size.as_f32_pts() * self.dpr;
         let c = glyph_key.c;
 
-        face.set_char_size(to_freetype_26_6(size), 0, self.dpi_x, self.dpi_y)?;
-        let index = face.get_char_index(c as usize);
+        match face.1 {
+            Scalability::Scalable => {
+                face.0.set_char_size(to_freetype_26_6(size), 0, self.dpi_x, self.dpi_y)
+            }
+            Scalability::NonScalable => {
+                face.0.set_char_size(to_freetype_26_6(size), 0, self.dpi_x * 72 / self.dpi_y, 72)
+            }
+        }?;
+
+        let index = face.0.get_char_index(c as usize);
 
         if index == 0 && have_recursed == false {
             let key = self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key);
@@ -194,8 +225,8 @@ impl FreeTypeRasterizer {
             return self.get_rendered_glyph(&new_glyph_key, true);
         }
 
-        face.load_glyph(index as u32, freetype::face::TARGET_LIGHT)?;
-        let glyph = face.glyph();
+        face.0.load_glyph(index as u32, freetype::face::TARGET_LIGHT)?;
+        let glyph = face.0.glyph();
         glyph.render_glyph(freetype::render_mode::RenderMode::Lcd)?;
 
         unsafe {
@@ -307,7 +338,8 @@ impl FreeTypeRasterizer {
                             debug!("Miss for font {:?}", path);
                             let face = self.library.new_face(&path, index)?;
                             let key = FontKey::next();
-                            self.faces.insert(key, face);
+                            let scalability = Scalability::from_property(font.scalable(0));
+                            self.faces.insert(key, (face, scalability));
                             self.keys.insert(path, key);
                             Ok(key)
                         }
