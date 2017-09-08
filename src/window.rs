@@ -16,7 +16,7 @@ use std::fmt::{self, Display};
 use std::ops::Deref;
 
 use gl;
-use glutin::{self, EventsLoop, WindowBuilder, Event, CursorState, ControlFlow, ContextBuilder};
+use glutin::{self, EventsLoop, WindowBuilder, Event, MouseCursor, CursorState, ControlFlow, ContextBuilder};
 use glutin::GlContext;
 
 /// Window errors
@@ -192,10 +192,13 @@ impl Window {
             .with_vsync(true);
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
 
-        /// Set OpenGL symbol loader
+        // Text cursor
+        window.set_cursor(MouseCursor::Text);
+
+        // Set OpenGL symbol loader
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
-        /// Make the context current so OpenGL operations can run
+        // Make the context current so OpenGL operations can run
         unsafe {
             window.make_current()?;
         }
