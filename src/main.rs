@@ -85,6 +85,9 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     logging::initialize(&options)?;
 
     info!("Welcome to Alacritty.");
+    config.path().map(|config_path| {
+        info!("Configuration loaded from {}", config_path.display());
+    });
 
     // Create a display.
     //
