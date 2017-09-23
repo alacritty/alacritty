@@ -97,9 +97,6 @@ fn default_scrollback_state() -> ScrollbackState {
 }
 
 /// Represents the terminal display contents
-/// The grid itself has no knowledge of what our current scroll
-/// position is. Instead, it just handles changes to the 'active region'
-/// of the buffer (which is always the last `self.num_lines()` lines).
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Grid<T> {
     /// Lines in the grid. Each row holds a list of cells corresponding to the
@@ -111,6 +108,17 @@ pub struct Grid<T> {
 
     /// Number of lines.
     lines: index::Line,
+
+    /// An `AbsoluteLine`, despite its name, doesn't translate directly into
+    /// an index into the raw buffer. It was implemented this way, because when
+    /// an old row is removed from the front of the buffer, all indices must be
+    /// decremented by one.
+    /// Instead of decrementing all `AbsoluteLine`s throughout all of the rest
+    /// of the codebase, we keep track of the number of times we've swapped out
+    /// an old row, and use that internally. To consumers outside of this module, then,
+    /// it appears as if their absolute lines are constantly increasing, even if the raw
+    /// buffer is capped at a certain size.
+    pub absolute_line_offset: index::AbsoluteLine,
 
     /// The starting index for the visible region
     visible_region_start: index::AbsoluteLine,
@@ -141,6 +149,7 @@ impl<T: Clone> Grid<T> {
             raw: raw,
             cols: cols,
             lines: lines,
+            absolute_line_offset: AbsoluteLine(0),
             visible_region_start: AbsoluteLine(0),
             scrollback: scrollback_state
         }
@@ -255,11 +264,11 @@ impl<T> Grid<T> {
 
     /// Moves the visible region up a relative amount.
     pub fn move_visible_region_up(&mut self, lines: AbsoluteLine) -> Result<(), MoveRegionError> {
-        if self.visible_region_start == AbsoluteLine(0) {
+        if self.visible_region_start == self.absolute_line_offset {
             Err(MoveRegionError::AtTop)
-        } else if self.visible_region_start < lines {
+        } else if self.visible_region_start < self.absolute_line_offset + lines {
             // set the region to the top
-            self.visible_region_start = AbsoluteLine(0);
+            self.visible_region_start = self.absolute_line_offset;
             Ok(())
         } else {
             self.visible_region_start -= lines;
@@ -290,11 +299,12 @@ impl<T> Grid<T> {
         }
     }
 
-    /// The number of visible lines in the terminal.
-    /// This is effectively the height of the terminal window.
+    /// The highest `AbsoluteLine` that is valid. This should be equal to the number
+    /// of lines that were ever emitted, including those that have since been
+    /// discarded because the buffer was full.
     #[inline]
     pub fn total_lines_in_buffer(&self) -> AbsoluteLine {
-        AbsoluteLine(self.raw.len())
+        self.absolute_line_offset + AbsoluteLine(self.raw.len())
     }
 
     /// TODO: Isn't this unused??
@@ -304,8 +314,22 @@ impl<T> Grid<T> {
 
     /// Converts a line in the terminal to an
     /// absolute index into the scrollback buffer.
-    pub fn active_to_absolute_line(&self, line: index::Line) -> AbsoluteLine {
+    #[inline]
+    pub fn active_to_absolute_line(&self, line: Line) -> AbsoluteLine {
         line.to_absolute() + self.active_region().start
+    }
+
+    /// All `AbsoluteLine`s must be converted here before being used as
+    /// a raw index into the buffer.
+    #[inline]
+    fn absolute_to_raw_index(&self, line: AbsoluteLine) -> usize {
+        (line - self.absolute_line_offset).0
+    }
+
+    /// Shortcut to convert a line in the active region straight to a raw index
+    #[inline]
+    fn active_to_raw_index(&self, line: Line) -> usize {
+        self.absolute_to_raw_index(self.active_to_absolute_line(line))
     }
 
     /// An iterator with a point relative to the current viewable 'window'
@@ -341,8 +365,8 @@ impl<T> Grid<T> {
     /// better error messages by doing the bounds checking ourselves.
     #[inline]
     pub fn swap_lines(&mut self, src: index::Line, dst: index::Line) {
-        let src = self.active_to_absolute_line(src).0;
-        let dst = self.active_to_absolute_line(dst).0;
+        let src = self.active_to_raw_index(src);
+        let dst = self.active_to_raw_index(dst);
         self.raw.swap(src, dst);
         /*use util::unlikely;
 
@@ -404,14 +428,11 @@ impl<T: Default + Clone> Grid<T> {
     /// then it will reuse old rows.
     pub fn insert_new_lines<F>(&mut self, lines: index::Line, clear: F)
         where F: Fn(&mut T)
-    {
-        trace!("insert_new_lines: lines={}", lines);
-        
+    {        
         let was_at_end = self.visible_region().end == self.total_lines_in_buffer();
 
-        let swap = self.total_lines_in_buffer() >= self.scrollback.max_lines;
+        let swap = self.raw.len() >= self.scrollback.max_lines.0;
         if swap {
-            debug!("max scrollback lines reached, swapping with old rows");
             for _ in 0..lines.0 {
                 let mut old_row = self.raw.pop_front().expect("empty cell buffer");
                 for cell in &mut old_row {
@@ -419,10 +440,10 @@ impl<T: Default + Clone> Grid<T> {
                 }
                 self.raw.push_back(old_row);
             }
-            // After swapping lines, `visible_region_start` will be incorrect.
-            // Therefore we then need to update the visible_region of the grid.
-            // we don't care if it is already at the top, so we ignore the return value.
-            let _ = self.move_visible_region_up(lines.to_absolute());
+            self.absolute_line_offset += lines.0;
+            if self.visible_region_start < self.absolute_line_offset {
+                self.visible_region_start = self.absolute_line_offset;
+            }
         } else {
             let cols = self.num_cols();
             for _ in 0..lines.0 {
@@ -486,7 +507,7 @@ impl<T> Index<index::Line> for Grid<T> {
 
     #[inline]
     fn index(&self, index: index::Line) -> &Row<T> {
-        let index = self.active_to_absolute_line(index).0;
+        let index = self.active_to_raw_index(index);
         &self.raw[index]
     }
 }
@@ -494,7 +515,7 @@ impl<T> Index<index::Line> for Grid<T> {
 impl<T> IndexMut<index::Line> for Grid<T> {
     #[inline]
     fn index_mut(&mut self, index: index::Line) -> &mut Row<T> {
-        let index = self.active_to_absolute_line(index).0;
+        let index = self.active_to_raw_index(index);
         &mut self.raw[index]
     }
 }
@@ -517,7 +538,8 @@ impl<T> Grid<T> {
     /// presumably for rendering purposes - the scrollback-area of the buffer
     /// should never be modified. 
     pub fn get_absolute_region(&self, region: Range<AbsoluteLine>) -> owned_slice::Slice<VecDeque<Row<T>>, usize, Row<T>> {
-        owned_slice::Slice::new(&self.raw, region.start.0..region.end.0)
+        let region = self.absolute_to_raw_index(region.start)..self.absolute_to_raw_index(region.end);
+        owned_slice::Slice::new(&self.raw, region)
     }
 
     /// This function allows access to a specific line in the buffer, indexed by an `AbsoluteLine`
@@ -525,7 +547,12 @@ impl<T> Grid<T> {
     /// presumably for rendering purposes - the scrollback-area of the buffer
     /// should never be modified.
     pub fn get_absolute_line(&self, line: AbsoluteLine) -> &Row<T> {
-        &self.raw[line.0]
+        &self.raw[self.absolute_to_raw_index(line)]
+    }
+
+    pub fn get_visible_line(&self, line: Line) -> &Row<T> {
+        let idx = self.absolute_to_raw_index(self.visible_region_start + line.to_absolute());
+        &self.raw[idx]
     }
 }
 
@@ -670,95 +697,6 @@ row_index_range!(Range<usize>);
 row_index_range!(RangeTo<usize>);
 row_index_range!(RangeFrom<usize>);
 row_index_range!(RangeFull);
-
-// -----------------------------------------------------------------------------
-// Row ranges for Grid
-// -----------------------------------------------------------------------------
-
-/*type GridSlice<'a, T> = owned_slice::Slice<'a, VecDeque<Row<T>>, Row<T>>;
-type GridSliceMut<'a, T> = owned_slice::SliceMut<'a, VecDeque<Row<T>>, Row<T>>;
-
-impl<T> Grid<T> {
-    pub fn index_range(&self, index: Range<Line>) -> GridSlice<T> {
-        owned_slice::Slice::new(
-            &self.raw,
-            self.active_to_absolute_range(index)
-        )
-    }
-
-    pub fn index_range_mut(&mut self, index: Range<Line>) -> GridSliceMut<T> {
-        owned_slice::SliceMut::new(
-            &mut self,
-            self.active_to_absolute_range(index)
-        )
-    }
-
-    pub fn index_range_to(&self, index: RangeTo<Line>) -> GridSlice<T> {
-        self.index_range(Line(0)..index.end)
-    }
-
-    pub fn index_range_to_mut(&mut self, index: RangeTo<Line>) -> GridSliceMut<T> {
-        self.index_range_mut(Line(0)..index.end)
-    }
-
-    pub fn index_range_from(&self, index: RangeFrom<Line>) -> GridSlice<T> {
-        let len = self.num_lines();
-        self.index_range(index.start..len)
-    }
-
-    pub fn index_range_from_mut(&mut self, index: RangeFrom<Line>) -> GridSliceMut<T> {
-        let len = self.num_lines();
-        self.index_range_mut(index.start..len)
-    }
-}*/
-
-/*impl<T> Index<Range<index::Line>> for Grid<T> {
-    type Output = [Row<T>];
-
-    #[inline]
-    fn index(&self, index: Range<index::Line>) -> &[Row<T>] {
-        &self.raw[(index.start.0)..(index.end.0)]
-    }
-}
-
-impl<T> IndexMut<Range<index::Line>> for Grid<T> {
-    #[inline]
-    fn index_mut(&mut self, index: Range<index::Line>) -> &mut [Row<T>] {
-        &mut self.raw[(index.start.0)..(index.end.0)]
-    }
-}
-
-impl<T> Index<RangeTo<index::Line>> for Grid<T> {
-    type Output = [Row<T>];
-
-    #[inline]
-    fn index(&self, index: RangeTo<index::Line>) -> &[Row<T>] {
-        &self.raw[..(index.end.0)]
-    }
-}
-
-impl<T> IndexMut<RangeTo<index::Line>> for Grid<T> {
-    #[inline]
-    fn index_mut(&mut self, index: RangeTo<index::Line>) -> &mut [Row<T>] {
-        &mut self.raw[..(index.end.0)]
-    }
-}
-
-impl<T> Index<RangeFrom<index::Line>> for Grid<T> {
-    type Output = [Row<T>];
-
-    #[inline]
-    fn index(&self, index: RangeFrom<index::Line>) -> &[Row<T>] {
-        &self.raw[(index.start.0)..]
-    }
-}
-
-impl<T> IndexMut<RangeFrom<index::Line>> for Grid<T> {
-    #[inline]
-    fn index_mut(&mut self, index: RangeFrom<index::Line>) -> &mut [Row<T>] {
-        &mut self.raw[(index.start.0)..]
-    }
-}*/
 
 // -----------------------------------------------------------------------------
 // Column ranges for Row
