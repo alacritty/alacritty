@@ -20,7 +20,7 @@
 //! also be cleared if the user clicks off of the selection.
 use std::cmp::{min, max};
 
-use index::{Point, Column, RangeInclusive, Side, Linear, Line};
+use index::{Point, AbsolutePoint, Column, RangeInclusive, Side, Linear, Line, AbsoluteLine};
 use grid::ToRange;
 
 /// Describes a region of a 2-dimensional area
@@ -32,8 +32,8 @@ use grid::ToRange;
 ///
 /// Calls to [`update`] operate different based on the selection kind. The [`simple`] mode does
 /// nothing special, simply tracks points and sides. [`semantic`] will continue to expand out to
-/// semantic boundaries as the selection point changes. Similarly, [`lines`] will always expand the
-/// new point to encompass entire lines.
+/// semantic boundaries as the selection AbsolutePoint changes. Similarly, [`lines`] will always expand the
+/// new AbsolutePoint to encompass entire lines.
 ///
 /// [`simple`]: enum.Selection.html#method.simple
 /// [`semantic`]: enum.Selection.html#method.semantic
@@ -45,20 +45,20 @@ pub enum Selection {
     },
     Semantic {
         /// The region representing start and end of cursor movement
-        region: Region<Point>,
+        region: Region<AbsolutePoint>,
 
         /// When beginning a semantic selection, the grid is searched around the
-        /// initial point to find semantic escapes, and this initial expansion
+        /// initial AbsolutePoint to find semantic escapes, and this initial expansion
         /// marks those points.
-        initial_expansion: Region<Point>
+        initial_expansion: Region<AbsolutePoint>
     },
     Lines {
         /// The region representing start and end of cursor movement
-        region: Region<Point>,
+        region: Region<AbsolutePoint>,
 
-        /// The line under the initial point. This is always selected regardless
+        /// The line under the initial AbsolutePoint. This is always selected regardless
         /// of which way the cursor is moved.
-        initial_line: Line
+        initial_line: AbsoluteLine
     }
 }
 
@@ -67,27 +67,27 @@ pub struct Region<T> {
     end: T
 }
 
-/// A Point and side within that point.
+/// A AbsolutePoint and side within that AbsolutePoint.
 pub struct Anchor {
-    point: Point,
+    point: AbsolutePoint,
     side: Side,
 }
 
 impl Anchor {
-    fn new(point: Point, side: Side) -> Anchor {
+    fn new(point: AbsolutePoint, side: Side) -> Anchor {
         Anchor { point: point, side: side }
     }
 }
 
-/// A type that can expand a given point to a region
+/// A type that can expand a given AbsolutePoint to a region
 ///
 /// Usually this is implemented for some 2-D array type since
 /// points are two dimensional indices.
 pub trait SemanticSearch {
-    /// Find the nearest semantic boundary _to the left_ of provided point.
-    fn semantic_search_left(&self, _: Point) -> Point;
-    /// Find the nearest semantic boundary _to the point_ of provided point.
-    fn semantic_search_right(&self, _: Point) -> Point;
+    /// Find the nearest semantic boundary _to the left_ of provided AbsolutePoint.
+    fn semantic_search_left(&self, _: AbsolutePoint) -> AbsolutePoint;
+    /// Find the nearest semantic boundary _to the point_ of provided AbsolutePoint.
+    fn semantic_search_right(&self, _: AbsolutePoint) -> AbsolutePoint;
 }
 
 /// A type that has 2-dimensional boundaries
@@ -97,7 +97,7 @@ pub trait Dimensions {
 }
 
 impl Selection {
-    pub fn simple(location: Point, side: Side) -> Selection {
+    pub fn simple(location: AbsolutePoint, side: Side) -> Selection {
         Selection::Simple {
             region: Region {
                 start: Anchor::new(location, side),
@@ -106,7 +106,7 @@ impl Selection {
         }
     }
 
-    pub fn semantic<G: SemanticSearch>(point: Point, grid: G) -> Selection {
+    pub fn semantic<G: SemanticSearch>(point: AbsolutePoint, grid: G) -> Selection {
         let (start, end) = (grid.semantic_search_left(point), grid.semantic_search_right(point));
         Selection::Semantic {
             region: Region {
@@ -120,7 +120,7 @@ impl Selection {
         }
     }
 
-    pub fn lines(point: Point) -> Selection {
+    pub fn lines(point: AbsolutePoint) -> Selection {
         Selection::Lines {
             region: Region {
                 start: point,
@@ -130,7 +130,7 @@ impl Selection {
         }
     }
 
-    pub fn update(&mut self, location: Point, side: Side) {
+    pub fn update(&mut self, location: AbsolutePoint, side: Side) {
         // Always update the `end`; can normalize later during span generation.
         match *self {
             Selection::Simple { ref mut region } => {
@@ -161,7 +161,7 @@ impl Selection {
     fn span_semantic<G>(
         grid: &G,
         region: &Region<Point>,
-        initial_expansion: &Region<Point>
+        initial_expansion: &Region<AbsolutePoint>
     ) -> Option<Span>
         where G: SemanticSearch + Dimensions
     {
@@ -193,16 +193,16 @@ impl Selection {
         })
     }
 
-    fn span_lines<G>(grid: &G, region: &Region<Point>, initial_line: &Line) -> Option<Span>
+    fn span_lines<G>(grid: &G, region: &Region<AbsolutePoint>, initial_line: &AbsoluteLine) -> Option<Span>
         where G: Dimensions
     {
         // First, create start and end points based on initial line and the grid
         // dimensions.
-        let mut start = Point {
+        let mut start = AbsolutePoint {
             col: Column(0),
             line: *initial_line
         };
-        let mut end = Point {
+        let mut end = AbsolutePoint {
             col: grid.dimensions().col - 1,
             line: *initial_line
         };
@@ -316,8 +316,8 @@ pub enum SpanType {
 /// Represents a span of selected cells
 #[derive(Debug, Eq, PartialEq)]
 pub struct Span {
-    front: Point,
-    tail: Point,
+    front: AbsolutePoint,
+    tail: AbsolutePoint,
     cols: Column,
 
     /// The type says whether ends are included or not.
@@ -325,7 +325,7 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn to_locations(&self) -> (Point, Point) {
+    pub fn to_locations(&self) -> (AbsolutePoint, AbsolutePoint) {
         match self.ty {
             SpanType::Inclusive => (self.front, self.tail),
             SpanType::Exclusive => {
@@ -336,9 +336,9 @@ impl Span {
         }
     }
 
-    fn wrap_start(mut start: Point, cols: Column) -> Point {
+    fn wrap_start(mut start: AbsolutePoint, cols: Column) -> AbsolutePoint {
         if start.col == cols - 1 {
-            Point {
+            AbsolutePoint {
                 line: start.line + 1,
                 col: Column(0),
             }
@@ -348,14 +348,14 @@ impl Span {
         }
     }
 
-    fn wrap_end(end: Point, cols: Column) -> Point {
-        if end.col == Column(0) && end.line != Line(0) {
-            Point {
+    fn wrap_end(end: AbsolutePoint, cols: Column) -> AbsolutePoint {
+        if end.col == Column(0) && end.line != AbsoluteLine(0) {
+            AbsolutePoint {
                 line: end.line - 1,
                 col: cols
             }
         } else {
-            Point {
+            AbsolutePoint {
                 line: end.line,
                 col: end.col - 1
             }
@@ -405,19 +405,19 @@ impl ToRange for Span {
 /// look like [ B] and [E ].
 #[cfg(test)]
 mod test {
-    use index::{Line, Column, Side, Point};
+    use index::{Line, Column, Side, AbsolutePoint};
     use super::{Selection, Span, SpanType};
 
-    struct Dimensions(Point);
+    struct Dimensions(AbsolutePoint);
     impl<'a> super::Dimensions for &'a Dimensions {
-        fn dimensions(&self) -> Point {
+        fn dimensions(&self) -> AbsolutePoint {
             self.0
         }
     }
 
     impl Dimensions {
         pub fn new(line: usize, col: usize) -> Self {
-            Dimensions(Point {
+            Dimensions(AbsolutePoint {
                 line: Line(line),
                 col: Column(col)
             })
@@ -425,8 +425,8 @@ mod test {
     }
 
     impl<'a> super::SemanticSearch for &'a Dimensions {
-        fn semantic_search_left(&self, _: Point) -> Point { unimplemented!(); }
-        fn semantic_search_right(&self, _: Point) -> Point { unimplemented!(); }
+        fn semantic_search_left(&self, _: AbsolutePoint) -> AbsolutePoint { unimplemented!(); }
+        fn semantic_search_right(&self, _: AbsolutePoint) -> AbsolutePoint { unimplemented!(); }
     }
 
     /// Test case of single cell selection
@@ -436,7 +436,7 @@ mod test {
     /// 3. [BE]
     #[test]
     fn single_cell_left_to_right() {
-        let location = Point { line: Line(0), col: Column(0) };
+        let location = AbsolutePoint { line: Line(0), col: Column(0) };
         let mut selection = Selection::simple(location, Side::Left);
         selection.update(location, Side::Right);
 
@@ -455,7 +455,7 @@ mod test {
     /// 3. [EB]
     #[test]
     fn single_cell_right_to_left() {
-        let location = Point { line: Line(0), col: Column(0) };
+        let location = AbsolutePoint { line: Line(0), col: Column(0) };
         let mut selection = Selection::simple(location, Side::Right);
         selection.update(location, Side::Left);
 
@@ -474,8 +474,8 @@ mod test {
     /// 3. [ B][E ]
     #[test]
     fn between_adjacent_cells_left_to_right() {
-        let mut selection = Selection::simple(Point::new(Line(0), Column(0)), Side::Right);
-        selection.update(Point::new(Line(0), Column(1)), Side::Left);
+        let mut selection = Selection::simple(AbsolutePoint::new(Line(0), Column(0)), Side::Right);
+        selection.update(AbsolutePoint::new(Line(0), Column(1)), Side::Left);
 
         assert_eq!(selection.to_span(&Dimensions::new(1, 2)), None);
     }
@@ -487,8 +487,8 @@ mod test {
     /// 3. [ E][B ]
     #[test]
     fn between_adjacent_cells_right_to_left() {
-        let mut selection = Selection::simple(Point::new(Line(0), Column(1)), Side::Left);
-        selection.update(Point::new(Line(0), Column(0)), Side::Right);
+        let mut selection = Selection::simple(AbsolutePoint::new(Line(0), Column(1)), Side::Left);
+        selection.update(AbsolutePoint::new(Line(0), Column(0)), Side::Right);
 
         assert_eq!(selection.to_span(&Dimensions::new(1, 2)), None);
     }
@@ -504,13 +504,13 @@ mod test {
     ///     [XX][XB][  ][  ][  ]
     #[test]
     fn across_adjacent_lines_upward_final_cell_exclusive() {
-        let mut selection = Selection::simple(Point::new(Line(1), Column(1)), Side::Right);
-        selection.update(Point::new(Line(0), Column(1)), Side::Right);
+        let mut selection = Selection::simple(AbsolutePoint::new(Line(1), Column(1)), Side::Right);
+        selection.update(AbsolutePoint::new(Line(0), Column(1)), Side::Right);
 
         assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
             cols: Column(5),
-            front: Point::new(Line(0), Column(1)),
-            tail: Point::new(Line(1), Column(1)),
+            front: AbsolutePoint::new(Line(0), Column(1)),
+            tail: AbsolutePoint::new(Line(1), Column(1)),
             ty: SpanType::ExcludeFront
         });
     }
@@ -528,14 +528,14 @@ mod test {
     ///     [XE][  ][  ][  ][  ]
     #[test]
     fn selection_bigger_then_smaller() {
-        let mut selection = Selection::simple(Point::new(Line(0), Column(1)), Side::Right);
-        selection.update(Point::new(Line(1), Column(1)), Side::Right);
-        selection.update(Point::new(Line(1), Column(0)), Side::Right);
+        let mut selection = Selection::simple(AbsolutePoint::new(Line(0), Column(1)), Side::Right);
+        selection.update(AbsolutePoint::new(Line(1), Column(1)), Side::Right);
+        selection.update(AbsolutePoint::new(Line(1), Column(0)), Side::Right);
 
         assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
             cols: Column(5),
-            front: Point::new(Line(0), Column(1)),
-            tail: Point::new(Line(1), Column(0)),
+            front: AbsolutePoint::new(Line(0), Column(1)),
+            tail: AbsolutePoint::new(Line(1), Column(0)),
             ty: SpanType::ExcludeFront
         });
     }

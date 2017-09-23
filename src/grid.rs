@@ -27,7 +27,7 @@ use std::ops::{Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull, Index, Ind
 use std::slice;
 use std::collections::vec_deque::{self, VecDeque};
 
-use index::{self, Point, AbsoluteLine, Line, Column, IndexRange, RangeInclusive};
+use index::{self, Point, AbsolutePoint, Line, AbsoluteLine, Column, IndexRange, RangeInclusive};
 use owned_slice::{self, TakeSlice};
 
 /// Convert a type to a linear index range.
@@ -130,7 +130,7 @@ pub struct Grid<T> {
 
 pub struct GridIterator<'a, T: 'a> {
     grid: &'a Grid<T>,
-    pub cur: Point,
+    pub cur: AbsolutePoint,
 }
 
 impl<T: Clone> Grid<T> {
@@ -319,6 +319,13 @@ impl<T> Grid<T> {
         line.to_absolute() + self.active_region().start
     }
 
+    /// Converts a line in the terminal to an
+    /// absolute index into the scrollback buffer.
+    #[inline]
+    pub fn visible_to_absolute_line(&self, line: Line) -> AbsoluteLine {
+        line.to_absolute() + self.visible_region().start
+    }
+
     /// All `AbsoluteLine`s must be converted here before being used as
     /// a raw index into the buffer.
     #[inline]
@@ -333,7 +340,7 @@ impl<T> Grid<T> {
     }
 
     /// An iterator with a point relative to the current viewable 'window'
-    pub fn iter_from(&self, point: Point) -> GridIterator<T> {
+    pub fn iter_from(&self, point: AbsolutePoint) -> GridIterator<T> {
         GridIterator {
             grid: self,
             cur: point,
@@ -462,21 +469,21 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let last_line = self.grid.num_lines() - Line(1);
+        let last_line = self.grid.total_lines_in_buffer() - AbsoluteLine(1);
         let last_col = self.grid.num_cols() - Column(1);
         match self.cur {
-            Point { line, col } if
+            AbsolutePoint { line, col } if
                 (line == last_line) &&
                 (col == last_col) => None,
-            Point { col, .. } if
+            AbsolutePoint { col, .. } if
                 (col == last_col) => {
-                self.cur.line += Line(1);
+                self.cur.line += AbsoluteLine(1);
                 self.cur.col = Column(0);
-                Some(&self.grid[self.cur.line][self.cur.col])
+                Some(&self.grid.get_absolute_line(self.cur.line)[self.cur.col])
             },
             _ => {
                 self.cur.col += Column(1);
-                Some(&self.grid[self.cur.line][self.cur.col])
+                Some(&self.grid.get_absolute_line(self.cur.line)[self.cur.col])
             }
         }
     }
@@ -487,15 +494,15 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
         let num_cols = self.grid.num_cols();
 
         match self.cur {
-            Point { line: Line(0), col: Column(0) } => None,
-            Point { col: Column(0), .. } => {
-                self.cur.line -= Line(1);
+            AbsolutePoint { line: AbsoluteLine(0), col: Column(0) } => None,
+            AbsolutePoint { col: Column(0), .. } => {
+                self.cur.line -= AbsoluteLine(1);
                 self.cur.col = num_cols - Column(1);
-                Some(&self.grid[self.cur.line][self.cur.col])
+                Some(&self.grid.get_absolute_line(self.cur.line)[self.cur.col])
             },
             _ => {
                 self.cur.col -= Column(1);
-                Some(&self.grid[self.cur.line][self.cur.col])
+                Some(&self.grid.get_absolute_line(self.cur.line)[self.cur.col])
             }
         }
     }
@@ -938,8 +945,8 @@ mod tests {
 
 
         // test that iter ends at end of grid
-        let mut final_iter = grid.iter_from(Point {
-            line: Line(4),
+        let mut final_iter = grid.iter_from(AbsolutePoint {
+            line: AbsoluteLine(4),
             col: Column(4),
         });
         assert_eq!(None, final_iter.next());
