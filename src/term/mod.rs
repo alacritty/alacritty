@@ -25,7 +25,7 @@ use owned_slice::TakeSlice;
 
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
 use grid::{BidirectionalIterator, Scrollback, Grid, ClearRegion, ToRange, Indexed, Movement};
-use index::{self, Point, Column, Line, AbsoluteLine, Linear, IndexRange, Contains, RangeInclusive};
+use index::{self, Point, AbsolutePoint, Column, Line, AbsoluteLine, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{self, Span, Selection};
 use config::{Config, VisualBellAnimation};
 use Rgb;
@@ -94,7 +94,6 @@ impl<'a> selection::Dimensions for &'a Term {
 /// draw it, and reverted after drawing to maintain state.
 pub struct RenderableCellsIter<'a> {
     grid: &'a Grid<Cell>,
-    visible_region: Range<AbsoluteLine>,
     cursor: Option<Point>,
     //cursor_index: index::Linear,
     //mode: TermMode,
@@ -120,10 +119,8 @@ impl<'a> RenderableCellsIter<'a> {
         selection: Option<RangeInclusive<index::Linear>>,
         cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b> {
-        let visible_region = grid.visible_region();
         RenderableCellsIter {
             grid: grid,
-            visible_region: visible_region,
             cursor: cursor,
             //cursor_index: cursor_index,
             //mode: mode,
@@ -336,7 +333,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 // Grab current state for this iteration
                 let line = self.line;
                 let column = self.column;
-                let cell = &self.grid.get_absolute_line(self.visible_region.start + line.to_absolute())[column];
+                let cell = &self.grid.get_visible_line(self.line)[column];
 
                 let index = Linear(line.0 * self.grid.num_cols().0 + column.0);
                 let mut cursor_cell = false;
