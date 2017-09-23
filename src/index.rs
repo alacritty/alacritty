@@ -53,6 +53,32 @@ impl Ord for Point {
     }
 }
 
+/// An absolute index in the grid using row, column notation
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
+pub struct AbsolutePoint {
+    pub line: AbsoluteLine,
+    pub col: Column,
+}
+
+impl AbsolutePoint {
+    pub fn new(line: AbsoluteLine, col: Column) -> AbsolutePoint {
+        AbsolutePoint { line: line, col: col }
+    }
+}
+
+impl Ord for AbsolutePoint {
+    fn cmp(&self, other: &AbsolutePoint) -> Ordering {
+        use std::cmp::Ordering::*;
+        match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
+            (Equal,   Equal) => Equal,
+            (Equal,   ord) |
+            (ord,     Equal) => ord,
+            (Less,    _)     => Less,
+            (Greater, _)     => Greater,
+        }
+    }
+}
+
 /// A line
 ///
 /// Newtype to avoid passing values incorrectly
@@ -89,7 +115,7 @@ impl One for Line {
 /// A line
 ///
 /// Newtype to avoid passing values incorrectly
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct AbsoluteLine(pub usize);
 
 impl fmt::Display for AbsoluteLine {

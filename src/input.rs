@@ -419,7 +419,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                         }
                     }
                 }
-                self.ctx.mouse_mut().lines_scrolled = to_scroll % 1.0;
             },
             MouseScrollDelta::PixelDelta(ref _x, ref y) => {
                 match phase {
