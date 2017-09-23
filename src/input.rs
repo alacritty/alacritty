@@ -29,7 +29,7 @@ use glutin::ModifiersState;
 
 use config;
 use event::{ClickState, Mouse};
-use index::{Line, AbsoluteLine, Column, Side, Point};
+use index::{Line, AbsoluteLine, Column, Side, Point, AbsolutePoint};
 use term::SizeInfo;
 use term::mode::{self, TermMode};
 use util::fmt::Red;
@@ -53,12 +53,13 @@ pub trait ActionContext {
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&self, Buffer);
     fn clear_selection(&mut self);
-    fn update_selection(&mut self, point: Point, side: Side);
-    fn simple_selection(&mut self, point: Point, side: Side);
-    fn semantic_selection(&mut self, point: Point);
-    fn line_selection(&mut self, point: Point);
+    fn update_selection(&mut self, point: AbsolutePoint, side: Side);
+    fn simple_selection(&mut self, point: AbsolutePoint, side: Side);
+    fn semantic_selection(&mut self, point: AbsolutePoint);
+    fn line_selection(&mut self, point: AbsolutePoint);
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse_coords(&self) -> Option<Point>;
+    fn visible_to_absolute(&self, point: Point) -> AbsolutePoint;
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
     fn last_modifiers(&mut self) -> &mut ModifiersState;
@@ -283,6 +284,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             let prev_line = mem::replace(&mut self.ctx.mouse_mut().line, point.line);
             let prev_col = mem::replace(&mut self.ctx.mouse_mut().column, point.col);
 
+            let point = self.ctx.visible_to_absolute(point);
+
             let cell_x = (x as usize - size_info.padding_x as usize) % size_info.cell_width as usize;
             let half_cell_width = (size_info.cell_width / 2.0) as usize;
 
@@ -296,10 +299,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
                 let report_mode = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION;
                 if !self.ctx.terminal_mode().intersects(report_mode) {
-                    self.ctx.update_selection(Point {
-                        line: point.line,
-                        col: point.col
-                    }, cell_side);
+                    self.ctx.update_selection(point, cell_side);
                 } else if self.ctx.terminal_mode().contains(mode::MOUSE_MOTION)
                         // Only report motion when changing cells
                         && (
@@ -348,12 +348,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     pub fn on_mouse_double_click(&mut self) {
         if let Some(point) = self.ctx.mouse_coords() {
+            let point = self.ctx.visible_to_absolute(point);
             self.ctx.semantic_selection(point);
         }
     }
 
     pub fn on_mouse_triple_click(&mut self) {
         if let Some(point) = self.ctx.mouse_coords() {
+            let point = self.ctx.visible_to_absolute(point);
             self.ctx.line_selection(point);
         }
     }

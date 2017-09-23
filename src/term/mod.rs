@@ -36,7 +36,7 @@ pub use self::cell::Cell;
 use self::cell::LineLength;
 
 impl<'a> selection::SemanticSearch for &'a Term {
-    fn semantic_search_left(&self, mut point: Point) -> Point {
+    fn semantic_search_left(&self, mut point: AbsolutePoint) -> AbsolutePoint {
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
 
@@ -55,7 +55,7 @@ impl<'a> selection::SemanticSearch for &'a Term {
         point
     }
 
-    fn semantic_search_right(&self, mut point: Point) -> Point {
+    fn semantic_search_right(&self, mut point: AbsolutePoint) -> AbsolutePoint {
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
 
@@ -335,7 +335,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 let column = self.column;
                 let cell = &self.grid.get_visible_line(self.line)[column];
 
-                let index = Linear(line.0 * self.grid.num_cols().0 + column.0);
+                let index = Linear(self.grid.visible_to_absolute_line(line).0 * self.grid.num_cols().0 + column.0);
                 let mut cursor_cell = false;
                 if let Some(cursor) = self.cursor {
                     if line == cursor.line && column == cursor.col {
@@ -856,8 +856,8 @@ impl Term {
         /// Need a generic push() for the Append trait
         trait PushChar {
             fn push_char(&mut self, c: char);
-            fn maybe_newline(&mut self, grid: &Grid<Cell>, line: Line, ending: Column) {
-                if ending != Column(0) && !grid[line][ending - 1].flags.contains(cell::WRAPLINE) {
+            fn maybe_newline(&mut self, grid: &Grid<Cell>, line: AbsoluteLine, ending: Column) {
+                if ending != Column(0) && !grid.get_absolute_line(line)[ending - 1].flags.contains(cell::WRAPLINE) {
                     self.push_char('\n');
                 }
             }
@@ -870,7 +870,7 @@ impl Term {
             }
         }
         trait Append<T> : PushChar {
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: T) -> Option<Range<Column>>;
+            fn append(&mut self, grid: &Grid<Cell>, line: AbsoluteLine, cols: T) -> Option<Range<Column>>;
         }
 
         use std::ops::{Range, RangeTo, RangeFrom, RangeFull};
@@ -879,10 +879,10 @@ impl Term {
             fn append(
                 &mut self,
                 grid: &Grid<Cell>,
-                line: Line,
+                line: AbsoluteLine,
                 cols: Range<Column>
             ) -> Option<Range<Column>> {
-                let line = &grid[line];
+                let line = &grid.get_absolute_line(line);
                 let line_length = line.line_length();
                 let line_end = min(line_length, cols.end + 1);
 
@@ -902,7 +902,7 @@ impl Term {
 
         impl Append<RangeTo<Column>> for String {
             #[inline]
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: RangeTo<Column>) -> Option<Range<Column>> {
+            fn append(&mut self, grid: &Grid<Cell>, line: AbsoluteLine, cols: RangeTo<Column>) -> Option<Range<Column>> {
                 self.append(grid, line, Column(0)..cols.end)
             }
         }
@@ -912,7 +912,7 @@ impl Term {
             fn append(
                 &mut self,
                 grid: &Grid<Cell>,
-                line: Line,
+                line: AbsoluteLine,
                 cols: RangeFrom<Column>
             ) -> Option<Range<Column>> {
                 let range = self.append(grid, line, cols.start..Column(usize::max_value() - 1));
@@ -927,7 +927,7 @@ impl Term {
             fn append(
                 &mut self,
                 grid: &Grid<Cell>,
-                line: Line,
+                line: AbsoluteLine,
                 _: RangeFull
             ) -> Option<Range<Column>> {
                 let range = self.append(grid, line, Column(0)..Column(usize::max_value() - 1));
@@ -944,12 +944,12 @@ impl Term {
 
         match line_count {
             // Selection within single line
-            Line(0) => {
+            AbsoluteLine(0) => {
                 res.append(&self.grid, start.line, start.col..end.col);
             },
 
             // Selection ends on line following start
-            Line(1) => {
+            AbsoluteLine(1) => {
                 // Starting line
                 res.append(&self.grid, start.line, start.col..);
 
