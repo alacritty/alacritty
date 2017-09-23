@@ -13,7 +13,7 @@ use copypasta::{Clipboard, Load, Store};
 use config::{self, Config};
 use cli::Options;
 use display::OnResize;
-use index::{Line, AbsoluteLine, Column, Side, Point};
+use index::{Line, AbsoluteLine, Column, Side, Point, AbsolutePoint};
 use input::{self, MouseBinding, KeyBinding};
 use selection::Selection;
 use sync::FairMutex;
@@ -76,7 +76,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.selection_modified = true;
     }
 
-    fn update_selection(&mut self, point: Point, side: Side) {
+    fn update_selection(&mut self, point: AbsolutePoint, side: Side) {
         self.selection_modified = true;
         // Update selection if one exists
         if let &mut Some(ref mut selection) = self.selection {
@@ -88,23 +88,30 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.simple_selection(point, side);
     }
 
-    fn simple_selection(&mut self, point: Point, side: Side) {
+    fn simple_selection(&mut self, point: AbsolutePoint, side: Side) {
         *self.selection = Some(Selection::simple(point, side));
         self.selection_modified = true;
     }
 
-    fn semantic_selection(&mut self, point: Point) {
+    fn semantic_selection(&mut self, point: AbsolutePoint) {
         *self.selection = Some(Selection::semantic(point, self.terminal as &Term));
         self.selection_modified = true;
     }
 
-    fn line_selection(&mut self, point: Point) {
+    fn line_selection(&mut self, point: AbsolutePoint) {
         *self.selection = Some(Selection::lines(point));
         self.selection_modified = true;
     }
 
     fn mouse_coords(&self) -> Option<Point> {
         self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
+    }
+
+    fn visible_to_absolute(&self, point: Point) -> AbsolutePoint {
+        AbsolutePoint {
+            line: self.terminal.grid().visible_to_absolute_line(point.line),
+            col: point.col
+        }
     }
 
     #[inline]
