@@ -595,7 +595,7 @@ mod tests {
     use term::{SizeInfo, Term, TermMode, mode};
     use event::{Mouse, ClickState};
     use config::{self, Config, ClickHandler};
-    use index::{Point, Side, AbsoluteLine};
+    use index::{Point, AbsolutePoint, Side, AbsoluteLine};
     use selection::Selection;
 
     use super::{Action, Binding, Processor};
@@ -638,20 +638,27 @@ mod tests {
         }
 
         fn clear_selection(&mut self) {}
-        fn update_selection(&mut self, _point: Point, _side: Side) {}
-        fn simple_selection(&mut self, _point: Point, _side: Side) {}
+        fn update_selection(&mut self, _point: AbsolutePoint, _side: Side) {}
+        fn simple_selection(&mut self, _point: AbsolutePoint, _side: Side) {}
 
-        fn semantic_selection(&mut self, _point: Point) {
+        fn semantic_selection(&mut self, _point: AbsolutePoint) {
             // set something that we can check for here
             self.last_action = MultiClick::DoubleClick;
         }
 
-        fn line_selection(&mut self, _point: Point) {
+        fn line_selection(&mut self, _point: AbsolutePoint) {
             self.last_action = MultiClick::TripleClick;
         }
 
         fn mouse_coords(&self) -> Option<Point> {
             self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
+        }
+
+        fn visible_to_absolute(&self, point: Point) -> AbsolutePoint {
+            AbsolutePoint {
+                line: point.line.to_absolute(),
+                col: point.col
+            }
         }
 
         #[inline]

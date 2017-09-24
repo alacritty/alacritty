@@ -1950,7 +1950,7 @@ mod tests {
     use term::cell;
 
     use grid::{Grid, Scrollback};
-    use index::{Point, Line, Column};
+    use index::{AbsolutePoint, Point, AbsoluteLine, Line, Column};
     use ansi::{Handler, CharsetIndex, StandardCharset};
     use selection::Selection;
     use std::mem;
@@ -1983,17 +1983,17 @@ mod tests {
         mem::swap(&mut term.semantic_escape_chars, &mut escape_chars);
 
         {
-            let selection = Selection::semantic(Point { line: Line(0), col: Column(1) }, &term);
+            let selection = Selection::semantic(AbsolutePoint { line: AbsoluteLine(0), col: Column(1) }, &term);
             assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aa");
         }
 
         {
-            let selection = Selection::semantic(Point { line: Line(0), col: Column(4) }, &term);
+            let selection = Selection::semantic(AbsolutePoint { line: AbsoluteLine(0), col: Column(4) }, &term);
             assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aaa");
         }
 
         {
-            let selection = Selection::semantic(Point { line: Line(1), col: Column(1) }, &term);
+            let selection = Selection::semantic(AbsolutePoint { line: AbsoluteLine(1), col: Column(1) }, &term);
             assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aaa");
         }
     }
@@ -2019,7 +2019,7 @@ mod tests {
 
         mem::swap(&mut term.grid, &mut grid);
 
-        let selection = Selection::lines(Point { line: Line(0), col: Column(3) });
+        let selection = Selection::lines(AbsolutePoint { line: AbsoluteLine(0), col: Column(3) });
         match selection.to_span(&term) {
             Some(span) => assert_eq!(term.string_from_selection(&span), "\"aa\"a"),
             _ => ()

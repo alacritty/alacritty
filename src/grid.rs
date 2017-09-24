@@ -782,7 +782,7 @@ clear_region_impl!(index_range_from_mut, RangeFrom<index::Line>);
 #[cfg(test)]
 mod tests {
     use super::{Grid, Scrollback, BidirectionalIterator};
-    use index::{Point, Line, Column};
+    use index::{AbsolutePoint, AbsoluteLine, Line, Column};
     #[test]
     fn grid_swap_lines_ok() {
         let mut grid = Grid::new(Line(10), Column(1), Scrollback::Disabled, &0);
@@ -920,15 +920,15 @@ mod tests {
 
         info!("grid: {:?}", grid);
 
-        let mut iter = grid.iter_from(Point {
-            line: Line(0),
+        let mut iter = grid.iter_from(AbsolutePoint {
+            line: AbsoluteLine(0),
             col: Column(0),
         });
 
         assert_eq!(None, iter.prev());
         assert_eq!(Some(&1), iter.next());
         assert_eq!(Column(1), iter.cur.col);
-        assert_eq!(Line(0), iter.cur.line);
+        assert_eq!(AbsoluteLine(0), iter.cur.line);
 
         assert_eq!(Some(&2), iter.next());
         assert_eq!(Some(&3), iter.next());
@@ -937,11 +937,11 @@ mod tests {
         // test linewrapping
         assert_eq!(Some(&5), iter.next());
         assert_eq!(Column(0), iter.cur.col);
-        assert_eq!(Line(1), iter.cur.line);
+        assert_eq!(AbsoluteLine(1), iter.cur.line);
 
         assert_eq!(Some(&4), iter.prev());
         assert_eq!(Column(4), iter.cur.col);
-        assert_eq!(Line(0), iter.cur.line);
+        assert_eq!(AbsoluteLine(0), iter.cur.line);
 
 
         // test that iter ends at end of grid

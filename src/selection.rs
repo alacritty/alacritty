@@ -20,7 +20,7 @@
 //! also be cleared if the user clicks off of the selection.
 use std::cmp::{min, max};
 
-use index::{Point, AbsolutePoint, Column, RangeInclusive, Side, Linear, Line, AbsoluteLine};
+use index::{Point, AbsolutePoint, Column, RangeInclusive, Side, Linear, AbsoluteLine};
 use grid::ToRange;
 
 /// Describes a region of a 2-dimensional area
@@ -405,19 +405,19 @@ impl ToRange for Span {
 /// look like [ B] and [E ].
 #[cfg(test)]
 mod test {
-    use index::{Line, Column, Side, AbsolutePoint};
+    use index::{AbsoluteLine, Line, Column, Side, Point, AbsolutePoint};
     use super::{Selection, Span, SpanType};
 
-    struct Dimensions(AbsolutePoint);
+    struct Dimensions(Point);
     impl<'a> super::Dimensions for &'a Dimensions {
-        fn dimensions(&self) -> AbsolutePoint {
+        fn dimensions(&self) -> Point {
             self.0
         }
     }
 
     impl Dimensions {
         pub fn new(line: usize, col: usize) -> Self {
-            Dimensions(AbsolutePoint {
+            Dimensions(Point {
                 line: Line(line),
                 col: Column(col)
             })
@@ -436,7 +436,7 @@ mod test {
     /// 3. [BE]
     #[test]
     fn single_cell_left_to_right() {
-        let location = AbsolutePoint { line: Line(0), col: Column(0) };
+        let location = AbsolutePoint { line: AbsoluteLine(0), col: Column(0) };
         let mut selection = Selection::simple(location, Side::Left);
         selection.update(location, Side::Right);
 
@@ -455,7 +455,7 @@ mod test {
     /// 3. [EB]
     #[test]
     fn single_cell_right_to_left() {
-        let location = AbsolutePoint { line: Line(0), col: Column(0) };
+        let location = AbsolutePoint { line: AbsoluteLine(0), col: Column(0) };
         let mut selection = Selection::simple(location, Side::Right);
         selection.update(location, Side::Left);
 
@@ -474,8 +474,8 @@ mod test {
     /// 3. [ B][E ]
     #[test]
     fn between_adjacent_cells_left_to_right() {
-        let mut selection = Selection::simple(AbsolutePoint::new(Line(0), Column(0)), Side::Right);
-        selection.update(AbsolutePoint::new(Line(0), Column(1)), Side::Left);
+        let mut selection = Selection::simple(AbsolutePoint::new(AbsoluteLine(0), Column(0)), Side::Right);
+        selection.update(AbsolutePoint::new(AbsoluteLine(0), Column(1)), Side::Left);
 
         assert_eq!(selection.to_span(&Dimensions::new(1, 2)), None);
     }
@@ -487,8 +487,8 @@ mod test {
     /// 3. [ E][B ]
     #[test]
     fn between_adjacent_cells_right_to_left() {
-        let mut selection = Selection::simple(AbsolutePoint::new(Line(0), Column(1)), Side::Left);
-        selection.update(AbsolutePoint::new(Line(0), Column(0)), Side::Right);
+        let mut selection = Selection::simple(AbsolutePoint::new(AbsoluteLine(0), Column(1)), Side::Left);
+        selection.update(AbsolutePoint::new(AbsoluteLine(0), Column(0)), Side::Right);
 
         assert_eq!(selection.to_span(&Dimensions::new(1, 2)), None);
     }
@@ -504,13 +504,13 @@ mod test {
     ///     [XX][XB][  ][  ][  ]
     #[test]
     fn across_adjacent_lines_upward_final_cell_exclusive() {
-        let mut selection = Selection::simple(AbsolutePoint::new(Line(1), Column(1)), Side::Right);
-        selection.update(AbsolutePoint::new(Line(0), Column(1)), Side::Right);
+        let mut selection = Selection::simple(AbsolutePoint::new(AbsoluteLine(1), Column(1)), Side::Right);
+        selection.update(AbsolutePoint::new(AbsoluteLine(0), Column(1)), Side::Right);
 
         assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
             cols: Column(5),
-            front: AbsolutePoint::new(Line(0), Column(1)),
-            tail: AbsolutePoint::new(Line(1), Column(1)),
+            front: AbsolutePoint::new(AbsoluteLine(0), Column(1)),
+            tail: AbsolutePoint::new(AbsoluteLine(1), Column(1)),
             ty: SpanType::ExcludeFront
         });
     }
@@ -528,14 +528,14 @@ mod test {
     ///     [XE][  ][  ][  ][  ]
     #[test]
     fn selection_bigger_then_smaller() {
-        let mut selection = Selection::simple(AbsolutePoint::new(Line(0), Column(1)), Side::Right);
-        selection.update(AbsolutePoint::new(Line(1), Column(1)), Side::Right);
-        selection.update(AbsolutePoint::new(Line(1), Column(0)), Side::Right);
+        let mut selection = Selection::simple(AbsolutePoint::new(AbsoluteLine(0), Column(1)), Side::Right);
+        selection.update(AbsolutePoint::new(AbsoluteLine(1), Column(1)), Side::Right);
+        selection.update(AbsolutePoint::new(AbsoluteLine(1), Column(0)), Side::Right);
 
         assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
             cols: Column(5),
-            front: AbsolutePoint::new(Line(0), Column(1)),
-            tail: AbsolutePoint::new(Line(1), Column(0)),
+            front: AbsolutePoint::new(AbsoluteLine(0), Column(1)),
+            tail: AbsolutePoint::new(AbsoluteLine(1), Column(0)),
             ty: SpanType::ExcludeFront
         });
     }
