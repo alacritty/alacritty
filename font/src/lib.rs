@@ -30,8 +30,9 @@ extern crate core_foundation;
 extern crate core_foundation_sys;
 #[cfg(target_os = "macos")]
 extern crate core_graphics;
-
+#[cfg(target_os = "macos")]
 extern crate euclid;
+
 extern crate libc;
 
 #[cfg(not(target_os = "macos"))]
