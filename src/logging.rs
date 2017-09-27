@@ -43,11 +43,9 @@ impl<T: Send + io::Write> log::Log for Logger<T> {
     }
 
     fn log(&self, record: &log::LogRecord) {
-        if self.enabled(record.metadata()) {
-            if record.target().starts_with("alacritty") {
-                if let Ok(ref mut writer) = self.output.lock() {
-                    let _ = writer.write(format!("{}\n", record.args()).as_ref());
-                }
+        if self.enabled(record.metadata()) && record.target().starts_with("alacritty") {
+            if let Ok(ref mut writer) = self.output.lock() {
+                writer.write_all(format!("{}\n", record.args()).as_ref()).expect("Error while logging!");
             }
         }
     }

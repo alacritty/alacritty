@@ -1566,7 +1566,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn save_cursor_position(&mut self) {
         trace!("CursorSave");
-        let mut cursor = if self.alt {
+        let cursor = if self.alt {
             &mut self.cursor_save_alt
         } else {
             &mut self.cursor_save
