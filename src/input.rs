@@ -176,7 +176,7 @@ impl Action {
                     .and_then(|clipboard| clipboard.load_primary() )
                     .map(|contents| { self.paste(ctx, contents) })
                     .unwrap_or_else(|err| {
-                        err_println!("Error loading data from clipboard. {}", Red(err));
+                        eprintln!("Error loading data from clipboard. {}", Red(err));
                     });
             },
             Action::PasteSelection => {

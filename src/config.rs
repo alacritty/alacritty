@@ -374,7 +374,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
                         "Shift" => res.shift = true,
                         "Alt" | "Option" => res.alt = true,
                         "Control" => res.ctrl = true,
-                        _ => err_println!("unknown modifier {:?}", modifier),
+                        _ => eprintln!("unknown modifier {:?}", modifier),
                     }
                 }
 
@@ -468,7 +468,7 @@ impl<'a> de::Deserialize<'a> for ModeWrapper {
                         "~AppCursor" => res.not_mode |= mode::APP_CURSOR,
                         "AppKeypad" => res.mode |= mode::APP_KEYPAD,
                         "~AppKeypad" => res.not_mode |= mode::APP_KEYPAD,
-                        _ => err_println!("unknown omde {:?}", modifier),
+                        _ => eprintln!("unknown omde {:?}", modifier),
                     }
                 }
 
@@ -1495,7 +1495,7 @@ impl Monitor {
                                         let _ = config_tx.send(config);
                                         handler.on_config_reload();
                                     },
-                                    Err(err) => err_println!("Ignoring invalid config: {}", err),
+                                    Err(err) => eprintln!("Ignoring invalid config: {}", err),
                                 }
                              }
                         }
