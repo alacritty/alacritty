@@ -909,7 +909,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             'm' => {
                 // Sometimes a C-style for loop is just what you need
                 let mut i = 0; // C-for initializer
-                if args.len() == 0 {
+                if args.is_empty() {
                     handler.terminal_attribute(Attr::Reset);
                     return;
                 }

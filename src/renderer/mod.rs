@@ -588,7 +588,7 @@ impl QuadRenderer {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::ShaderReload => {
-                    self.reload_shaders(&config, Size {
+                    self.reload_shaders(config, Size {
                         width: Pixels(props.width as u32),
                         height: Pixels(props.height as u32)
                     });

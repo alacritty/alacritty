@@ -125,7 +125,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // synchronized since the I/O loop updates the state, and the display
     // consumes it periodically.
     let event_loop = EventLoop::new(
-        terminal.clone(),
+        Arc::clone(&terminal),
         display.notifier(),
         pty.reader(),
         options.ref_test,

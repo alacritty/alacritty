@@ -15,7 +15,6 @@
 //! Alacritty - The GPU Enhanced Terminal
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
-#![cfg_attr(feature = "clippy", deny(clippy))]
 #![cfg_attr(feature = "clippy", deny(enum_glob_use))]
 #![cfg_attr(feature = "clippy", deny(if_not_else))]
 #![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
@@ -103,6 +102,7 @@ impl Mul<f32> for Rgb {
 
 #[cfg_attr(feature = "clippy", allow(too_many_arguments))]
 #[cfg_attr(feature = "clippy", allow(doc_markdown))]
+#[cfg_attr(feature = "clippy", allow(unreadable_literal))]
 pub mod gl {
     #![allow(non_upper_case_globals)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));

@@ -192,10 +192,10 @@ impl Window {
             .with_vsync(true);
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
 
-        /// Set OpenGL symbol loader
+        // Set OpenGL symbol loader
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
-        /// Make the context current so OpenGL operations can run
+        // Make the context current so OpenGL operations can run
         unsafe {
             window.make_current()?;
         }
@@ -294,10 +294,10 @@ impl Window {
         use libc::{setlocale, LC_CTYPE};
         let xlib = xlib::Xlib::open().expect("get xlib");
         unsafe {
-            /// Use empty c string to fallback to LC_CTYPE in environment variables
+            // Use empty c string to fallback to LC_CTYPE in environment variables
             setlocale(LC_CTYPE, b"\0".as_ptr() as *const _);
-            /// Use empty c string for implementation dependent behavior,
-            /// which might be the XMODIFIERS set in env
+            // Use empty c string for implementation dependent behavior,
+            // which might be the XMODIFIERS set in env
             (xlib.XSetLocaleModifiers)(b"\0".as_ptr() as *const _);
         }
     }
