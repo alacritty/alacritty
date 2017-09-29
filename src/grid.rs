@@ -118,7 +118,7 @@ pub struct Grid<T> {
     /// an old row, and use that internally. To consumers outside of this module, then,
     /// it appears as if their absolute lines are constantly increasing, even if the raw
     /// buffer is capped at a certain size.
-    pub absolute_line_offset: index::AbsoluteLine,
+    absolute_line_offset: index::AbsoluteLine,
 
     /// The starting index for the visible region
     visible_region_start: index::AbsoluteLine,
@@ -307,6 +307,12 @@ impl<T> Grid<T> {
         self.absolute_line_offset + AbsoluteLine(self.raw.len())
     }
 
+    /// The smallest AbsoluteLine that is valid index right now.
+    #[inline]
+    pub fn min_line(&self) -> AbsoluteLine {
+        self.absolute_line_offset
+    }
+
     /// TODO: Isn't this unused??
     /*pub fn iter_rows(&self) -> VDIter<Row<T>> {
         self.raw.iter()
@@ -328,6 +334,7 @@ impl<T> Grid<T> {
 
     /// All `AbsoluteLine`s must be converted here before being used as
     /// a raw index into the buffer.
+    /// Care must be taken that this is line is not too low - this will cause an subtraction underflow.
     #[inline]
     fn absolute_to_raw_index(&self, line: AbsoluteLine) -> usize {
         (line - self.absolute_line_offset).0
@@ -340,11 +347,15 @@ impl<T> Grid<T> {
     }
 
     /// An iterator with a point relative to the current viewable 'window'
-    pub fn iter_from(&self, point: AbsolutePoint) -> GridIterator<T> {
-        GridIterator {
-            grid: self,
-            cur: point,
-        }
+    pub fn iter_from(&self, point: AbsolutePoint) -> Option<GridIterator<T>> {
+        if point.line < self.absolute_line_offset {
+            None
+        } else {
+            Some(GridIterator {
+                grid: self,
+                cur: point,
+            })
+        } 
     }
 
     #[inline]
@@ -479,11 +490,11 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
                 (col == last_col) => {
                 self.cur.line += AbsoluteLine(1);
                 self.cur.col = Column(0);
-                Some(&self.grid.get_absolute_line(self.cur.line)[self.cur.col])
+                Some(&self.grid.get_absolute_line_unchecked(self.cur.line)[self.cur.col])
             },
             _ => {
                 self.cur.col += Column(1);
-                Some(&self.grid.get_absolute_line(self.cur.line)[self.cur.col])
+                Some(&self.grid.get_absolute_line_unchecked(self.cur.line)[self.cur.col])
             }
         }
     }
@@ -491,18 +502,19 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
 
 impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     fn prev(&mut self) -> Option<Self::Item> {
+        let min_line = self.grid.min_line();
         let num_cols = self.grid.num_cols();
 
         match self.cur {
-            AbsolutePoint { line: AbsoluteLine(0), col: Column(0) } => None,
+            AbsolutePoint { line, col: Column(0) } if line == min_line => None,
             AbsolutePoint { col: Column(0), .. } => {
                 self.cur.line -= AbsoluteLine(1);
                 self.cur.col = num_cols - Column(1);
-                Some(&self.grid.get_absolute_line(self.cur.line)[self.cur.col])
+                Some(&self.grid.get_absolute_line_unchecked(self.cur.line)[self.cur.col])
             },
             _ => {
                 self.cur.col -= Column(1);
-                Some(&self.grid.get_absolute_line(self.cur.line)[self.cur.col])
+                Some(&self.grid.get_absolute_line_unchecked(self.cur.line)[self.cur.col])
             }
         }
     }
@@ -553,7 +565,15 @@ impl<T> Grid<T> {
     /// (ie: 0 means the very oldest line of scrollback). Note that this is read-only access,
     /// presumably for rendering purposes - the scrollback-area of the buffer
     /// should never be modified.
-    pub fn get_absolute_line(&self, line: AbsoluteLine) -> &Row<T> {
+    pub fn get_absolute_line(&self, line: AbsoluteLine) -> Option<&Row<T>> {
+        if line < self.absolute_line_offset {
+            None
+        } else {
+            Some(&self.raw[self.absolute_to_raw_index(line)])
+        }
+    }
+
+    fn get_absolute_line_unchecked(&self, line: AbsoluteLine) -> &Row<T> {
         &self.raw[self.absolute_to_raw_index(line)]
     }
 
@@ -923,7 +943,7 @@ mod tests {
         let mut iter = grid.iter_from(AbsolutePoint {
             line: AbsoluteLine(0),
             col: Column(0),
-        });
+        }).unwrap();
 
         assert_eq!(None, iter.prev());
         assert_eq!(Some(&1), iter.next());
@@ -948,7 +968,7 @@ mod tests {
         let mut final_iter = grid.iter_from(AbsolutePoint {
             line: AbsoluteLine(4),
             col: Column(4),
-        });
+        }).unwrap();
         assert_eq!(None, final_iter.next());
         assert_eq!(Some(&23), final_iter.prev());
     }
