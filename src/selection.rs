@@ -156,7 +156,7 @@ impl Selection {
             Selection::Lines { ref region, ref initial_line } => {
                 Selection::span_lines(grid, region, initial_line)
             }
-        }
+        }  
     }
     fn span_semantic<G>(
         grid: G,
@@ -325,15 +325,28 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn to_locations(&self) -> (AbsolutePoint, AbsolutePoint) {
-        match self.ty {
+    pub fn to_locations(&self, min_line: AbsoluteLine) -> (AbsolutePoint, AbsolutePoint) {
+        let mut locations = match self.ty {
             SpanType::Inclusive => (self.front, self.tail),
             SpanType::Exclusive => {
                 (Span::wrap_start(self.front, self.cols), Span::wrap_end(self.tail, self.cols))
             },
             SpanType::ExcludeFront => (Span::wrap_start(self.front, self.cols), self.tail),
             SpanType::ExcludeTail => (self.front, Span::wrap_end(self.tail, self.cols))
-        }
+        };
+
+        // clip the locations
+        if locations.0.line < min_line {
+            locations.0.line = min_line;
+            locations.0.col = Column(0);
+        };
+
+        if locations.1.line < min_line {
+            locations.1.line = min_line;
+            locations.1.col = Column(0);
+        };
+
+        locations
     }
 
     fn wrap_start(mut start: AbsolutePoint, cols: Column) -> AbsolutePoint {

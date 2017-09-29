@@ -37,7 +37,7 @@ use self::cell::LineLength;
 
 impl<'a> selection::SemanticSearch for &'a Term {
     fn semantic_search_left(&self, mut point: AbsolutePoint) -> AbsolutePoint {
-        let mut iter = self.grid.iter_from(point);
+        let mut iter = self.grid.iter_from(point).expect("invalid iterator start point");
         let last_col = self.grid.num_cols() - Column(1);
 
         while let Some(cell) = iter.prev() {
@@ -56,7 +56,7 @@ impl<'a> selection::SemanticSearch for &'a Term {
     }
 
     fn semantic_search_right(&self, mut point: AbsolutePoint) -> AbsolutePoint {
-        let mut iter = self.grid.iter_from(point);
+        let mut iter = self.grid.iter_from(point).expect("invalid iterator start point");
         let last_col = self.grid.num_cols() - Column(1);
 
         while let Some(cell) = iter.next() {
@@ -808,7 +808,8 @@ impl Term {
         trait PushChar {
             fn push_char(&mut self, c: char);
             fn maybe_newline(&mut self, grid: &Grid<Cell>, line: AbsoluteLine, ending: Column) {
-                if ending != Column(0) && !grid.get_absolute_line(line)[ending - 1].flags.contains(cell::WRAPLINE) {
+                let line = grid.get_absolute_line(line).expect("invalid line");
+                if ending != Column(0) && !line[ending - 1].flags.contains(cell::WRAPLINE) {
                     self.push_char('\n');
                 }
             }
@@ -833,7 +834,7 @@ impl Term {
                 line: AbsoluteLine,
                 cols: Range<Column>
             ) -> Option<Range<Column>> {
-                let line = &grid.get_absolute_line(line);
+                let line = &grid.get_absolute_line(line).expect("invalid line");
                 let line_length = line.line_length();
                 let line_end = min(line_length, cols.end + 1);
 
@@ -890,8 +891,11 @@ impl Term {
 
         let mut res = String::new();
 
-        let (start, end) = span.to_locations();
+        // convert the span to two points on the screen,
+        // whilst clipping them to make sure they are valid line indices.
+        let (start, end) = span.to_locations(self.grid.min_line());
         let line_count = end.line - start.line;
+        
 
         match line_count {
             // Selection within single line
