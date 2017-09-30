@@ -27,6 +27,7 @@ macro_rules! ref_tests {
 }
 
 ref_tests! {
+    csi_rep
     fish_cc
     indexed_256_colors
     ll
