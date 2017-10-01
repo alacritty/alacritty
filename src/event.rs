@@ -13,7 +13,7 @@ use copypasta::{Clipboard, Load, Store};
 use config::{self, Config};
 use cli::Options;
 use display::OnResize;
-use index::{Line, Column, Side, Point};
+use index::{Line, AbsoluteLine, Column, Side, Point, AbsolutePoint};
 use input::{self, MouseBinding, KeyBinding};
 use selection::Selection;
 use sync::FairMutex;
@@ -76,7 +76,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.selection_modified = true;
     }
 
-    fn update_selection(&mut self, point: Point, side: Side) {
+    fn update_selection(&mut self, point: AbsolutePoint, side: Side) {
         self.selection_modified = true;
         // Update selection if one exists
         if let &mut Some(ref mut selection) = self.selection {
@@ -88,23 +88,30 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.simple_selection(point, side);
     }
 
-    fn simple_selection(&mut self, point: Point, side: Side) {
+    fn simple_selection(&mut self, point: AbsolutePoint, side: Side) {
         *self.selection = Some(Selection::simple(point, side));
         self.selection_modified = true;
     }
 
-    fn semantic_selection(&mut self, point: Point) {
+    fn semantic_selection(&mut self, point: AbsolutePoint) {
         *self.selection = Some(Selection::semantic(point, self.terminal as &Term));
         self.selection_modified = true;
     }
 
-    fn line_selection(&mut self, point: Point) {
+    fn line_selection(&mut self, point: AbsolutePoint) {
         *self.selection = Some(Selection::lines(point));
         self.selection_modified = true;
     }
 
     fn mouse_coords(&self) -> Option<Point> {
         self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
+    }
+
+    fn visible_to_absolute(&self, point: Point) -> AbsolutePoint {
+        AbsolutePoint {
+            line: self.terminal.grid().visible_to_absolute_line(point.line),
+            col: point.col
+        }
     }
 
     #[inline]
@@ -126,6 +133,20 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     fn last_modifiers(&mut self) -> &mut ModifiersState {
         &mut self.last_modifiers
     }
+    
+    fn move_visible_region_up(&mut self, lines: AbsoluteLine) {
+        self.terminal.move_visible_region_up(lines);
+    }
+
+    #[inline]
+    fn move_visible_region_down(&mut self, lines: AbsoluteLine) {
+        self.terminal.move_visible_region_down(lines);
+    }
+
+    #[inline]
+    fn jump_to_bottom(&mut self) {
+        self.terminal.move_visible_region_to_bottom();
+    }
 }
 
 pub enum ClickState {
@@ -143,6 +164,7 @@ pub struct Mouse {
     pub last_click_timestamp: Instant,
     pub click_state: ClickState,
     pub scroll_px: i32,
+    pub scroll_line: f32,
     pub line: Line,
     pub column: Column,
     pub cell_side: Side,
@@ -158,6 +180,7 @@ impl Default for Mouse {
             left_button_state: ElementState::Released,
             click_state: ClickState::None,
             scroll_px: 0,
+            scroll_line: 0.0,
             line: Line(0),
             column: Column(0),
             cell_side: Side::Left,

@@ -16,12 +16,16 @@ use std::cmp;
 #[cfg(not(feature = "nightly"))]
 #[inline(always)]
 #[cfg_attr(feature = "clippy", allow(inline_always))]
-pub unsafe fn unlikely(x: bool) -> bool {
+pub fn unlikely(x: bool) -> bool {
     x
 }
 
 #[cfg(feature = "nightly")]
-pub use ::std::intrinsics::unlikely;
+#[inline(always)]
+#[cfg_attr(feature = "clippy", allow(inline_always))]
+pub fn unlikely(x: bool) -> bool {
+    unsafe { ::std::intrinsics::unlikely(x) }
+}
 
 /// Threading utilities
 pub mod thread {

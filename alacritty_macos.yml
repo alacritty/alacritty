@@ -19,6 +19,11 @@ dimensions:
   columns: 80
   lines: 24
 
+# Scrollback buffer
+scrollback:
+  enabled: true
+  max_lines: 10000
+
 # Adds this many blank pixels of padding around the window
 # Units are physical pixels; this is not DPI aware.
 # (change requires restart)

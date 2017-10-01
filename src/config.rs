@@ -24,9 +24,11 @@ use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
 use glutin::ModifiersState;
 
 use input::{Action, Binding, MouseBinding, KeyBinding};
-use index::{Line, Column};
+use index::{AbsoluteLine, Line, Column};
 
 use util::fmt::Yellow;
+
+use regex::{Regex, Captures};
 
 /// Function that returns true for serde default
 fn true_bool() -> bool {
@@ -218,6 +220,10 @@ pub struct Config {
     #[serde(default)]
     dimensions: Dimensions,
 
+    /// Maximum size of the scrollback buffer
+    #[serde(default)]
+    scrollback: Scrollback,
+
     /// Pixel padding
     #[serde(default="default_padding")]
     padding: Delta,
@@ -318,6 +324,7 @@ impl Default for Config {
         Config {
             draw_bold_text_with_bright_colors: true,
             dimensions: Default::default(),
+            scrollback: Default::default(),
             dpi: Default::default(),
             font: Default::default(),
             render_timer: Default::default(),
@@ -337,6 +344,25 @@ impl Default for Config {
             padding: default_padding(),
         }
     }
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+pub struct Scrollback {
+    pub enabled: bool,
+    #[serde(default="default_max_scrollback_lines")]
+    pub max_lines: AbsoluteLine
+}
+
+impl Default for Scrollback {
+    fn default() -> Scrollback {
+        Scrollback {
+            enabled: true,
+            max_lines: default_max_scrollback_lines()
+        }
+    }
+}
+fn default_max_scrollback_lines() -> AbsoluteLine {
+    AbsoluteLine(10000)
 }
 
 /// Newtype for implementing deserialize on glutin Mods
@@ -404,7 +430,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
             type Value = ActionWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                f.write_str("Paste, Copy, PasteSelection, or Quit")
+                f.write_str("Paste, Copy, PasteSelection, Quit, ScrollUp, ScrollDown, PageUp or PageDown")
             }
 
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<ActionWrapper, E>
@@ -415,6 +441,10 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Copy" => Action::Copy,
                     "PasteSelection" => Action::PasteSelection,
                     "Quit" => Action::Quit,
+                    "ScrollUp" => Action::ScrollUp,
+                    "ScrollDown" => Action::ScrollDown,
+                    "PageUp" => Action::PageUp,
+                    "PageDown" => Action::PageDown,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
             }
@@ -1096,6 +1126,10 @@ impl Config {
         self.background_opacity
     }
 
+    pub fn scrollback(&self) -> Scrollback {
+        self.scrollback
+    }
+
     pub fn key_bindings(&self) -> &[KeyBinding] {
         &self.key_bindings[..]
     }
@@ -1188,10 +1222,35 @@ impl Config {
         self.live_config_reload
     }
 
+    // TODO: filepathを相対にしたいので、configを読み込むディレクトリ名がほしい
+    pub fn expand_config(config_raw: &String) -> Result<String> {
+        let includes_cap: Regex = Regex::new(r"(?m)^\{%\s*include\s*([a-z|A-Z|0-9|/|\.]+:?)\s*%\}").unwrap();
+        let caps = includes_cap.captures(&config_raw).unwrap();
+
+        let mut ret: String = config_raw.clone();
+        let mut iter = caps.iter();
+        let _ = iter.next();
+        while let Some(item) = iter.next() {
+            let ipath_str = item.map_or("", |m| m.as_str());
+            let ipath = Path::new(ipath_str);
+            let content = Config::read_file(ipath)?;
+            let replace_locate = format!("{}{}{}{}", "(?m)", "^\\{%\\sinclude\\s",  ipath_str, "\\s%\\}")
+
+            let include_rep: Regex = Regex::new(replace_locate).unwrap();
+            ret = include_rep.replace(&ret, |_caps: &Captures| {
+                format!("{}", content)
+            }).to_string();
+        }
+
+        Ok(ret)
+    }
+
     pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
         let path = path.into();
         let raw = Config::read_file(path.as_path())?;
-        let mut config: Config = serde_yaml::from_str(&raw)?;
+        let expanded_raw = Config::expand_config(&raw)?;
+        let mut config: Config = serde_yaml::from_str(&expanded_raw)?;
+        // let mut config: Config = serde_yaml::from_str(&raw)?;
         config.config_path = Some(path);
 
         Ok(config)
