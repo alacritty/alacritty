@@ -28,6 +28,8 @@ use index::{AbsoluteLine, Line, Column};
 
 use util::fmt::Yellow;
 
+use regex::{Regex, Captures};
+
 /// Function that returns true for serde default
 fn true_bool() -> bool {
     true
@@ -1220,10 +1222,35 @@ impl Config {
         self.live_config_reload
     }
 
+    // TODO: filepathを相対にしたいので、configを読み込むディレクトリ名がほしい
+    pub fn expand_config(config_raw: &String) -> Result<String> {
+        let includes_cap: Regex = Regex::new(r"(?m)^\{%\s*include\s*([a-z|A-Z|0-9|/|\.]+:?)\s*%\}").unwrap();
+        let caps = includes_cap.captures(&config_raw).unwrap();
+
+        let mut ret: String = config_raw.clone();
+        let mut iter = caps.iter();
+        let _ = iter.next();
+        while let Some(item) = iter.next() {
+            let ipath_str = item.map_or("", |m| m.as_str());
+            let ipath = Path::new(ipath_str);
+            let content = Config::read_file(ipath)?;
+            let replace_locate = format!("{}{}{}{}", "(?m)", "^\\{%\\sinclude\\s",  ipath_str, "\\s%\\}")
+
+            let include_rep: Regex = Regex::new(replace_locate).unwrap();
+            ret = include_rep.replace(&ret, |_caps: &Captures| {
+                format!("{}", content)
+            }).to_string();
+        }
+
+        Ok(ret)
+    }
+
     pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
         let path = path.into();
         let raw = Config::read_file(path.as_path())?;
-        let mut config: Config = serde_yaml::from_str(&raw)?;
+        let expanded_raw = Config::expand_config(&raw)?;
+        let mut config: Config = serde_yaml::from_str(&expanded_raw)?;
+        // let mut config: Config = serde_yaml::from_str(&raw)?;
         config.config_path = Some(path);
 
         Ok(config)
