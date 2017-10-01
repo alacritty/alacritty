@@ -123,8 +123,8 @@ impl Options {
         }
 
         if let Some(mut dimensions) = matches.values_of("dimensions") {
-            let width = dimensions.next().map(|w| w.parse().map(|w| Column(w)));
-            let height = dimensions.next().map(|h| h.parse().map(|h| Line(h)));
+            let width = dimensions.next().map(|w| w.parse().map(Column));
+            let height = dimensions.next().map(|h| h.parse().map(Line));
             if let (Some(Ok(width)), Some(Ok(height))) = (width, height) {
                 options.dimensions = Some(Dimensions::new(width, height));
             }

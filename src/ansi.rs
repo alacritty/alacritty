@@ -85,7 +85,9 @@ pub struct Processor {
 }
 
 /// Internal state for VTE processor
-struct ProcessorState;
+struct ProcessorState {
+    preceding_char: Option<char>
+}
 
 /// Helper type that implements `vte::Perform`.
 ///
@@ -116,7 +118,7 @@ impl<'a, H: Handler + TermInfo + 'a, W: io::Write> Performer<'a, H, W> {
 impl Default for Processor {
     fn default() -> Processor {
         Processor {
-            state: ProcessorState,
+            state: ProcessorState { preceding_char: None },
             parser: vte::Parser::new(),
         }
     }
@@ -652,6 +654,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
     #[inline]
     fn print(&mut self, c: char) {
         self.handler.input(c);
+        self._state.preceding_char = Some(c);
     }
 
     #[inline]
@@ -841,6 +844,16 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             'A' => {
                 handler.move_up(Line(arg_or_default!(idx: 0, default: 1) as usize));
             },
+            'b' => {
+                if let Some(c) = self._state.preceding_char {
+                    for _ in 0..arg_or_default!(idx: 0, default: 1) {
+                        handler.input(c);
+                    }
+                }
+                else {
+                    warn!("tried to repeat with no preceding char");
+                }
+            },
             'B' | 'e' => handler.move_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             'c' => handler.identify_terminal(writer),
             'C' | 'a' => handler.move_forward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
@@ -909,7 +922,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             'm' => {
                 // Sometimes a C-style for loop is just what you need
                 let mut i = 0; // C-for initializer
-                if args.len() == 0 {
+                if args.is_empty() {
                     handler.terminal_attribute(Attr::Reset);
                     return;
                 }

@@ -137,7 +137,7 @@ impl Clipboard {
             .stdin(Stdio::piped())
             .spawn()?;
 
-        if let Some(mut stdin) = child.stdin.as_mut() {
+        if let Some(stdin) = child.stdin.as_mut() {
             stdin.write_all(contents.as_bytes())?;
         }
 

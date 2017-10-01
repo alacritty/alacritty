@@ -297,9 +297,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         if line < Line(223) && column < Column(223) {
             let msg = vec![
-                '\x1b' as u8,
-                '[' as u8,
-                'M' as u8,
+                b'\x1b',
+                b'[',
+                b'M',
                 32 + button,
                 32 + 1 + column.0 as u8,
                 32 + 1 + line.0 as u8,
@@ -497,7 +497,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 *self.ctx.received_count() = 0;
                 *self.ctx.suppress_chars() = false;
 
-                if self.process_key_bindings(&mods, key) {
+                if self.process_key_bindings(mods, key) {
                     *self.ctx.suppress_chars() = true;
                 }
             },

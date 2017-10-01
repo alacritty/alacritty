@@ -259,7 +259,7 @@ impl Display {
             terminal.resize(w as f32, h as f32);
             let size = terminal.size_info();
 
-            for mut item in items {
+            for item in items {
                 item.on_resize(size)
             }
 

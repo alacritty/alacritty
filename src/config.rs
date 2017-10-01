@@ -79,7 +79,7 @@ impl Default for Mouse {
     }
 }
 
-/// VisulBellAnimations are modeled after a subset of CSS transitions and Robert
+/// `VisualBellAnimations` are modeled after a subset of CSS transitions and Robert
 /// Penner's Easing Functions.
 #[derive(Clone, Copy, Debug, Deserialize)]
 pub enum VisualBellAnimation {
