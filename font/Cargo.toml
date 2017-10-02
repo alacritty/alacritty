@@ -6,17 +6,17 @@ description = "Font rendering using the best available solution per platform"
 license = "Apache-2.0"
 
 [dependencies]
-euclid = "0.12.0"
+euclid = "0.13"
 libc = "0.2"
-foreign-types = "0.2.0"
+foreign-types = "0.3"
 log = "0.3"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig", branch = "updated-2017-10-8" }
-freetype-rs = "0.13.0"
+freetype-rs = "0.13"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-core-foundation = "0.3.0"
-core-text = "6.1.0"
-core-graphics = "0.8.1"
-core-foundation-sys = "0.3.1"
+core-foundation = "0.4"
+core-text = "8"
+core-graphics = "0.12"
+core-foundation-sys = "0.4"
