@@ -39,6 +39,9 @@ pub struct Window {
     event_loop: EventsLoop,
     window: glutin::GlWindow,
     cursor_visible: bool,
+
+    /// Whether or not the window is the focused window.
+    pub is_focused: bool,
 }
 
 /// Threadsafe APIs for the window
@@ -204,6 +207,7 @@ impl Window {
             event_loop: event_loop,
             window: window,
             cursor_visible: true,
+            is_focused: true,
         };
 
         window.run_os_extensions();
