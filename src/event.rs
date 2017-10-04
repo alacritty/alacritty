@@ -256,6 +256,7 @@ impl<N: Notify> Processor<N> {
         match event {
             // Pass on device events
             Event::DeviceEvent { .. } => (),
+            Event::Suspended { .. } => (),
             Event::WindowEvent { event, .. } => {
                 use glutin::WindowEvent::*;
                 match event {
