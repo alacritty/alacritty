@@ -312,6 +312,43 @@ impl Window {
     }
 
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
+    pub fn set_urgent(&self, is_urgent: bool) {
+        use glutin::os::unix::WindowExt;
+        use std::os::raw;
+        use x11_dl::xlib::{self, XUrgencyHint};
+
+        let xlib_display = self.window.get_xlib_display();
+        let xlib_window = self.window.get_xlib_window();
+
+        if let (Some(xlib_window), Some(xlib_display)) = (xlib_window, xlib_display) {
+            let xlib = xlib::Xlib::open().expect("get xlib");
+
+            unsafe {
+                let mut hints = (xlib.XGetWMHints)(xlib_display as _, xlib_window as _);
+
+                if hints.is_null() {
+                    hints = (xlib.XAllocWMHints)();
+                }
+
+                if is_urgent {
+                    (*hints).flags |= XUrgencyHint;
+                } else {
+                    (*hints).flags &= !XUrgencyHint;
+                 }
+
+                (xlib.XSetWMHints)(xlib_display as _, xlib_window as _, hints);
+
+                (xlib.XFree)(hints as *mut raw::c_void);
+            }
+        }
+
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
+    pub fn set_urgent(&self, is_urgent: bool) {
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
     pub fn send_xim_spot(&self, x: i16, y: i16) {
         use glutin::os::unix::WindowExt;
         self.window.send_xim_spot(x, y);

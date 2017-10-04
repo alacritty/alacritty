@@ -319,6 +319,7 @@ impl<N: Notify> Processor<N> {
 
                         if is_focused {
                             processor.ctx.terminal.dirty = true;
+                            processor.ctx.terminal.next_is_urgent = Some(false);
                         } else {
                             *hide_cursor = false;
                         }
