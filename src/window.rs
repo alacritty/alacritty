@@ -256,6 +256,9 @@ impl Window {
 
     #[inline]
     pub fn resize(&self, width: u32, height: u32) {
+        // resize the window
+        self.window.set_inner_size(width, height);
+        // resize the gl context (needed on some platforms)
         self.window.resize(width, height);
     }
 
@@ -331,6 +334,20 @@ impl Window {
     pub fn get_window_id(&self) -> Option<usize> {
         None
     }
+
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
+    #[inline]
+    pub fn drawing_ready(&self) -> bool {
+        // needed for wayland support while glutin does not manage it itself
+        use glutin::os::unix::WindowExt;
+        self.window.is_ready()
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd")))]
+    #[inline]
+    pub fn drawing_ready(&self) -> bool {
+        true
+    }
 }
 
 pub trait OsExtensions {
@@ -394,6 +411,9 @@ pub trait SetInnerSize<T> {
 impl SetInnerSize<Pixels<u32>> for Window {
     fn set_inner_size<T: ToPoints>(&mut self, size: &T) {
         let size = size.to_points(self.hidpi_factor());
+        // resize the window
         self.window.set_inner_size(*size.width as _, *size.height as _);
+        // resize the gl context (needed on some platforms)
+        self.window.resize(*size.width as _, *size.height as _);
     }
 }
