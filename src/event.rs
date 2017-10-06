@@ -327,9 +327,6 @@ impl<N: Notify> Processor<N> {
             },
             Event::Awakened => {
                 processor.ctx.terminal.dirty = true;
-            },
-            Event::Suspended(_) => {
-                // Only relevant on mobile devices
             }
         }
     }
