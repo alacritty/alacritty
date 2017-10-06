@@ -15,19 +15,25 @@
 //! Rasterization powered by FreeType and FontConfig
 use std::collections::HashMap;
 use std::cmp::min;
+use std::path::PathBuf;
 
-use freetype::{self, Library, Face};
+use freetype::{self, Library};
 
 
 pub mod fc;
 
 use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight, Slant, Style};
 
+struct Face {
+    ft_face: freetype::Face<'static>,
+    key: FontKey,
+}
+
 /// Rasterizes glyphs for a single font face.
 pub struct FreeTypeRasterizer {
-    faces: HashMap<FontKey, Face<'static>>,
+    faces: HashMap<FontKey, Face>,
     library: Library,
-    keys: HashMap<::std::path::PathBuf, FontKey>,
+    keys: HashMap<PathBuf, FontKey>,
     dpi_x: u32,
     dpi_y: u32,
     dpr: f32,
@@ -59,7 +65,7 @@ impl ::Rasterize for FreeTypeRasterizer {
             .get(&key)
             .ok_or(Error::FontNotLoaded)?;
 
-        let size_metrics = face.size_metrics()
+        let size_metrics = face.ft_face.size_metrics()
             .ok_or(Error::MissingSizeMetrics)?;
 
         let width = (size_metrics.max_advance / 64) as f64;
@@ -74,14 +80,17 @@ impl ::Rasterize for FreeTypeRasterizer {
     }
 
     fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Error> {
-        let face = self.get_face(desc)?;
-        let key = FontKey::next();
+        let face = Face {
+            ft_face: self.get_face(desc)?,
+            key: FontKey::next(),
+        };
+        let key = face.key;
         self.faces.insert(key, face);
         Ok(key)
     }
 
     fn get_glyph(&mut self, glyph_key: &GlyphKey) -> Result<RasterizedGlyph, Error> {
-        self.get_rendered_glyph(glyph_key, false)
+        self.get_rendered_glyph(glyph_key)
     }
 
 }
@@ -115,7 +124,7 @@ impl IntoFontconfigType for Weight {
 
 impl FreeTypeRasterizer {
     /// Load a font face accoring to `FontDesc`
-    fn get_face(&mut self, desc: &FontDesc) -> Result<Face<'static>, Error> {
+    fn get_face(&mut self, desc: &FontDesc) -> Result<freetype::Face<'static>, Error> {
         match desc.style {
             Style::Description { slant, weight } => {
                 // Match nearest font
@@ -133,7 +142,7 @@ impl FreeTypeRasterizer {
         desc: &FontDesc,
         slant: Slant,
         weight: Weight
-    ) -> Result<Face<'static>, Error> {
+    ) -> Result<freetype::Face<'static>, Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.set_weight(weight.into_fontconfig_type());
@@ -153,7 +162,7 @@ impl FreeTypeRasterizer {
         &mut self,
         desc: &FontDesc,
         style: &str
-    ) -> Result<Face<'static>, Error> {
+    ) -> Result<freetype::Face<'static>, Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.add_style(style);
@@ -169,32 +178,42 @@ impl FreeTypeRasterizer {
         }
     }
 
-    fn get_rendered_glyph(&mut self, glyph_key: &GlyphKey, have_recursed: bool)
-                          -> Result<RasterizedGlyph, Error> {
-        let faces = self.faces.clone();
-        let face = faces
-            .get(&glyph_key.font_key)
-            .ok_or(Error::FontNotLoaded)?;
-
+    fn face_for_glyph(&mut self, glyph_key: &GlyphKey, have_recursed: bool) -> Result<FontKey, Error> {
         let size = glyph_key.size.as_f32_pts() * self.dpr;
         let c = glyph_key.c;
 
-        face.set_char_size(to_freetype_26_6(size), 0, self.dpi_x, self.dpi_y)?;
-        let index = face.get_char_index(c as usize);
+        let use_initial_face = if self.faces.contains_key(&glyph_key.font_key) {
+            // Get face and unwrap since we just checked for presence.
+            let face = self.faces.get(&glyph_key.font_key).unwrap();
 
-        if index == 0 && have_recursed == false {
+            face.ft_face.set_char_size(to_freetype_26_6(size), 0, self.dpi_x, self.dpi_y)?;
+            let index = face.ft_face.get_char_index(c as usize);
+
+            if index != 0 || have_recursed {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if use_initial_face {
+            Ok(glyph_key.font_key)
+        } else {
             let key = self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key);
-            let new_glyph_key = GlyphKey {
-                c: glyph_key.c,
-                font_key: key,
-                size: glyph_key.size
-            };
-
-            return self.get_rendered_glyph(&new_glyph_key, true);
+            Ok(key)
         }
+    }
 
-        face.load_glyph(index as u32, freetype::face::TARGET_LIGHT)?;
-        let glyph = face.glyph();
+    fn get_rendered_glyph(&mut self, glyph_key: &GlyphKey)
+                          -> Result<RasterizedGlyph, Error> {
+        let font_key = self.face_for_glyph(glyph_key, false)?;
+        let face = self.faces.get(&font_key).unwrap();
+        let index = face.ft_face.get_char_index(glyph_key.c as usize);
+
+        face.ft_face.load_glyph(index as u32, freetype::face::TARGET_LIGHT)?;
+        let glyph = face.ft_face.glyph();
         glyph.render_glyph(freetype::render_mode::RenderMode::Lcd)?;
 
         unsafe {
@@ -208,7 +227,7 @@ impl FreeTypeRasterizer {
         let (pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;
 
         Ok(RasterizedGlyph {
-            c: c,
+            c: glyph_key.c,
             top: glyph.bitmap_top(),
             left: glyph.bitmap_left(),
             width: pixel_width,
@@ -216,7 +235,6 @@ impl FreeTypeRasterizer {
             buf: buf,
         })
     }
-
 
     /// Given a FreeType `Bitmap`, returns packed buffer with 1 byte per LCD channel.
     ///
@@ -284,7 +302,10 @@ impl FreeTypeRasterizer {
         }
     }
 
-    fn load_face_with_glyph(&mut self, glyph: char) -> Result<FontKey, Error> {
+    fn load_face_with_glyph(
+        &mut self,
+        glyph: char,
+    ) -> Result<FontKey, Error> {
         let mut charset = fc::CharSet::new();
         charset.add(glyph);
         let mut pattern = fc::Pattern::new();
@@ -304,8 +325,11 @@ impl FreeTypeRasterizer {
 
                         None => {
                             debug!("Miss for font {:?}", path);
-                            let face = self.library.new_face(&path, index)?;
-                            let key = FontKey::next();
+                            let face = Face {
+                                ft_face: self.library.new_face(&path, index)?,
+                                key: FontKey::next(),
+                            };
+                            let key = face.key;
                             self.faces.insert(key, face);
                             self.keys.insert(path, key);
                             Ok(key)
