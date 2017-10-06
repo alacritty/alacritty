@@ -278,8 +278,10 @@ impl Display {
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
 
-        if let Some(title) = terminal.get_next_title() {
-            self.window.set_title(&title);
+        if config.dynamic_title() {
+            if let Some(title) = terminal.get_next_title() {
+                self.window.set_title(&title);
+            }
         }
 
         let size_info = *terminal.size_info();
