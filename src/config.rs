@@ -274,6 +274,10 @@ pub struct Config {
     #[serde(default)]
     visual_bell: VisualBellConfig,
 
+    /// Use dynamic title
+    #[serde(default="true_bool")]
+    dynamic_title: bool,
+
     /// Hide cursor when typing
     #[serde(default)]
     hide_cursor_when_typing: bool,
@@ -281,10 +285,6 @@ pub struct Config {
     /// Live config reload
     #[serde(default="true_bool")]
     live_config_reload: bool,
-
-    /// Use dynamic title
-    #[serde(default="true_bool")]
-    dynamic_title: bool,
 }
 
 fn default_padding() -> Delta {
