@@ -80,6 +80,8 @@ font:
   # false.
   use_thin_strokes: true
 
+  use_anti_alias: true
+
 # Should display the render timer
 render_timer: false
 

@@ -229,7 +229,7 @@ pub trait Rasterize {
     type Err: ::std::error::Error + Send + Sync + 'static;
 
     /// Create a new Rasterize
-    fn new(dpi_x: f32, dpi_y: f32, device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
+    fn new(dpi_x: f32, dpi_y: f32, device_pixel_ratio: f32, use_thin_strokes: bool, use_anti_alias: bool) -> Result<Self, Self::Err>
         where Self: Sized;
 
     /// Get `Metrics` for the given `FontKey`
