@@ -161,7 +161,7 @@ Alacritty. Here's a `eopkg` command that should install all of them. If
 something is still found to be missing, please open an issue.
 
 ```sh
-sudo eopkg install freetype2-devel fontconfig-devel
+sudo eopkg install fontconfig-devel
 ```
 
 ### NixOS/Nixpkgs
