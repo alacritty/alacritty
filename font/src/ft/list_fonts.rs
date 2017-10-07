@@ -21,12 +21,14 @@ pub mod fc {
 
     use foreign_types::{ForeignType, ForeignTypeRef};
 
-    use libc::{c_char, c_int};
+    use libc::{c_char, c_int, c_double};
     use fontconfig::fontconfig as ffi;
 
     use self::ffi::{FcConfigGetCurrent, FcConfigGetFonts, FcSetSystem, FcSetApplication};
     use self::ffi::{FcPatternGetString, FcPatternCreate, FcPatternAddString};
     use self::ffi::{FcPatternGetInteger, FcPatternAddInteger};
+    use self::ffi::{FcPatternGetDouble, FcPatternAddDouble};
+    use self::ffi::{FcPatternGetBool};
     use self::ffi::{FcObjectSetCreate, FcObjectSetAdd};
     use self::ffi::{FcResultMatch, FcResultNoMatch, FcFontSetList};
     use self::ffi::{FcChar8, FcConfig, FcPattern, FcFontSet, FcObjectSet};
@@ -271,6 +273,54 @@ pub mod fc {
         };
     }
 
+    macro_rules! pattern_get_double {
+        ($($method:ident() => $property:expr),+) => {
+            $(
+                pub fn $method(&self, id: isize) -> Option<f64> {
+                    let mut value = 0 as c_double;
+                    unsafe {
+                        let result = FcPatternGetDouble(
+                            self.as_ptr(),
+                            $property.as_ptr() as *mut c_char,
+                            id as c_int,
+                            &mut value
+                        );
+
+                        if result == FcResultMatch {
+                            Some(value as f64)
+                        } else {
+                            None
+                        }
+                    }
+                }
+            )+
+        };
+    }
+
+    macro_rules! pattern_get_bool {
+        ($($method:ident() => $property:expr),+) => {
+            $(
+                pub fn $method(&self, id: isize) -> Option<bool> {
+                    let mut value = 0 as c_int;
+                    unsafe {
+                        let result = FcPatternGetBool(
+                            self.as_ptr(),
+                            $property.as_ptr() as *mut c_char,
+                            id as c_int,
+                            &mut value
+                        );
+
+                        if result == FcResultMatch {
+                            Some(value as isize != 0)
+                        } else {
+                            None
+                        }
+                    }
+                }
+            )+
+        };
+    }
+
     #[derive(Debug, Copy, Clone)]
     pub enum Slant {
         Italic = FC_SLANT_ITALIC as isize,
@@ -338,6 +388,14 @@ pub mod fc {
             ) == 1
         }
 
+        unsafe fn add_double(&self, object: &[u8], v: f64) -> bool {
+            FcPatternAddDouble(
+                self.as_ptr(),
+                object.as_ptr() as *mut c_char,
+                v as c_double
+            ) == 1
+        }
+
         unsafe fn get_string(&self, object: &[u8], index: isize) -> Option<String> {
             let mut format: *mut FcChar8 = ptr::null_mut();
 
@@ -358,6 +416,12 @@ pub mod fc {
         pattern_add_string! {
             add_family => b"family\0",
             add_style => b"style\0"
+        }
+
+        pub fn set_pixelsize(&mut self, pixelsize: f64) -> bool {
+            unsafe {
+                self.add_double(b"pixelsize\0", pixelsize)
+            }
         }
 
         pub fn set_slant(&mut self, slant: Slant) -> bool {
@@ -403,6 +467,14 @@ pub mod fc {
 
         pattern_get_integer! {
             index() => b"index\0"
+        }
+
+        pattern_get_double! {
+            pixelsize() => b"pixelsize\0"
+        }
+
+        pattern_get_bool! {
+            scalable() => b"scalable\0"
         }
 
         pub fn config_subsitute(&mut self, config: &ConfigRef, kind: MatchKind) {
