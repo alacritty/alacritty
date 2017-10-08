@@ -33,6 +33,7 @@ extern crate arraydeque;
 extern crate cgmath;
 extern crate copypasta;
 extern crate errno;
+extern crate env_logger;
 extern crate fnv;
 extern crate font;
 extern crate glutin;
