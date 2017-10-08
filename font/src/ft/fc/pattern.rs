@@ -24,7 +24,7 @@ use foreign_types::{ForeignType, ForeignTypeRef};
 use super::ffi::FcResultMatch;
 use super::ffi::{FcPatternDestroy, FcPatternAddCharSet};
 use super::ffi::{FcPatternGetString, FcPatternCreate, FcPatternAddString};
-use super::ffi::{FcPatternGetInteger, FcPatternAddInteger};
+use super::ffi::{FcPatternGetInteger, FcPatternAddInteger, FcPatternPrint};
 use super::ffi::{FcChar8, FcPattern, FcDefaultSubstitute, FcConfigSubstitute};
 use super::ffi::{FcFontRenderPrepare, FcPatternGetBool, FcBool};
 
@@ -373,6 +373,17 @@ macro_rules! boolean_getter {
 }
 
 impl PatternRef {
+    // Prints the pattern to stdout
+    //
+    // FontConfig doesn't expose a way to iterate over all members of a pattern;
+    // instead, we just defer to FcPatternPrint. Otherwise, this could have been
+    // a `fmt::Debug` impl.
+    pub fn print(&self) {
+        unsafe {
+            FcPatternPrint(self.as_ptr())
+        }
+    }
+
     /// Add a string value to the pattern
     ///
     /// If the returned value is `true`, the value is added at the end of
