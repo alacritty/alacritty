@@ -44,6 +44,8 @@ pub mod pattern;
 pub use self::pattern::{Pattern, PatternRef};
 
 /// Find the font closest matching the provided pattern.
+///
+/// The returned pattern is the result of Pattern::render_prepare.
 pub fn font_match(
     config: &ConfigRef,
     pattern: &mut PatternRef,

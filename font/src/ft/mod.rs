@@ -16,8 +16,10 @@
 use std::collections::HashMap;
 use std::cmp::min;
 use std::path::PathBuf;
+use std::fmt;
 
 use freetype::{self, Library};
+use libc::c_uint;
 
 
 pub mod fc;
@@ -27,6 +29,28 @@ use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight,
 struct Face {
     ft_face: freetype::Face<'static>,
     key: FontKey,
+    load_flags: freetype::face::LoadFlag,
+    render_mode: freetype::RenderMode,
+    lcd_filter: c_uint,
+}
+
+impl fmt::Debug for Face {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Face")
+            .field("ft_face", &self.ft_face)
+            .field("key", &self.key)
+            .field("load_flags", &self.load_flags)
+            .field("render_mode", &match self.render_mode {
+                freetype::RenderMode::Normal => "Normal",
+                freetype::RenderMode::Light => "Light",
+                freetype::RenderMode::Mono => "Mono",
+                freetype::RenderMode::Lcd => "Lcd",
+                freetype::RenderMode::LcdV => "LcdV",
+                freetype::RenderMode::Max => "Max",
+            })
+            .field("lcd_filter", &self.lcd_filter)
+            .finish()
+    }
 }
 
 /// Rasterizes glyphs for a single font face.
@@ -80,10 +104,7 @@ impl ::Rasterize for FreeTypeRasterizer {
     }
 
     fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Error> {
-        let face = Face {
-            ft_face: self.get_face(desc)?,
-            key: FontKey::next(),
-        };
+        let face = self.get_face(desc)?;
         let key = face.key;
         self.faces.insert(key, face);
         Ok(key)
@@ -124,7 +145,7 @@ impl IntoFontconfigType for Weight {
 
 impl FreeTypeRasterizer {
     /// Load a font face accoring to `FontDesc`
-    fn get_face(&mut self, desc: &FontDesc) -> Result<freetype::Face<'static>, Error> {
+    fn get_face(&mut self, desc: &FontDesc) -> Result<Face, Error> {
         match desc.style {
             Style::Description { slant, weight } => {
                 // Match nearest font
@@ -142,7 +163,7 @@ impl FreeTypeRasterizer {
         desc: &FontDesc,
         slant: Slant,
         weight: Weight
-    ) -> Result<freetype::Face<'static>, Error> {
+    ) -> Result<Face, Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.set_weight(weight.into_fontconfig_type());
@@ -151,30 +172,50 @@ impl FreeTypeRasterizer {
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
 
-        if let (Some(path), Some(index)) = (font.file(0), font.index().nth(0)) {
-            return Ok(self.library.new_face(path, index)?);
-        }
-
-        Err(Error::MissingFont(desc.to_owned()))
+        self.face_from_pattern(&font)
+            .and_then(|pattern| {
+                pattern
+                    .map(Ok)
+                    .unwrap_or_else(|| Err(Error::MissingFont(desc.to_owned())))
+            })
     }
 
     fn get_specific_face(
         &mut self,
         desc: &FontDesc,
         style: &str
-    ) -> Result<freetype::Face<'static>, Error> {
+    ) -> Result<Face, Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.add_style(style);
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
-        if let (Some(path), Some(index)) = (font.file(0), font.index().nth(0)) {
-            println!("got font path={:?}", path);
-            Ok(self.library.new_face(path, index)?)
-        }
-        else {
-            Err(Error::MissingFont(desc.to_owned()))
+        self.face_from_pattern(&font)
+            .and_then(|pattern| {
+                pattern
+                    .map(Ok)
+                    .unwrap_or_else(|| Err(Error::MissingFont(desc.to_owned())))
+            })
+    }
+
+    fn face_from_pattern(&self, pattern: &fc::Pattern) -> Result<Option<Face>, Error> {
+        if let (Some(path), Some(index)) = (pattern.file(0), pattern.index().nth(0)) {
+            trace!("got font path={:?}", path);
+            let ft_face = self.library.new_face(path, index)?;
+            let face = Face {
+                ft_face: ft_face,
+                key: FontKey::next(),
+                load_flags: Self::ft_load_flags(pattern),
+                render_mode: Self::ft_render_mode(pattern),
+                lcd_filter: Self::ft_lcd_filter(pattern),
+            };
+
+            debug!("Loaded Face {:?}", face);
+
+            Ok(Some(face))
+        } else {
+            Ok(None)
         }
     }
 
@@ -212,17 +253,14 @@ impl FreeTypeRasterizer {
         let face = self.faces.get(&font_key).unwrap();
         let index = face.ft_face.get_char_index(glyph_key.c as usize);
 
-        face.ft_face.load_glyph(index as u32, freetype::face::TARGET_LIGHT)?;
-        let glyph = face.ft_face.glyph();
-        glyph.render_glyph(freetype::render_mode::RenderMode::Lcd)?;
-
         unsafe {
             let ft_lib = self.library.raw();
-            freetype::ffi::FT_Library_SetLcdFilter(
-                ft_lib,
-                freetype::ffi::FT_LCD_FILTER_DEFAULT
-            );
+            freetype::ffi::FT_Library_SetLcdFilter(ft_lib, face.lcd_filter);
         }
+
+        face.ft_face.load_glyph(index as u32, face.load_flags)?;
+        let glyph = face.ft_face.glyph();
+        glyph.render_glyph(face.render_mode)?;
 
         let (pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;
 
@@ -234,6 +272,70 @@ impl FreeTypeRasterizer {
             height: glyph.bitmap().rows(),
             buf: buf,
         })
+    }
+
+    fn ft_load_flags(pat: &fc::Pattern) -> freetype::face::LoadFlag {
+        let antialias = pat.antialias().next().unwrap_or(true);
+        let hinting = pat.hintstyle().next().unwrap_or(fc::HintStyle::Slight);
+        let rgba = pat.rgba().next().unwrap_or(fc::Rgba::Unknown);
+
+        use freetype::face::*;
+
+        match (antialias, hinting, rgba) {
+            (false, fc::HintStyle::None, _) => NO_HINTING | MONOCHROME,
+            (false, _, _) => TARGET_MONO | MONOCHROME,
+            (true, fc::HintStyle::None, _) => NO_HINTING | TARGET_NORMAL,
+            // hintslight does *not* use LCD hinting even when a subpixel mode
+            // is selected.
+            //
+            // According to the FreeType docs,
+            //
+            // > You can use a hinting algorithm that doesn't correspond to the
+            // > same rendering mode.  As an example, it is possible to use the
+            // > ‘light’ hinting algorithm and have the results rendered in
+            // > horizontal LCD pixel mode.
+            //
+            // In practice, this means we can have `FT_LOAD_TARGET_LIGHT` with
+            // subpixel render modes like `FT_RENDER_MODE_LCD`. Libraries like
+            // cairo take the same approach and consider `hintslight` to always
+            // prefer `FT_LOAD_TARGET_LIGHT`
+            (true, fc::HintStyle::Slight, _) => TARGET_LIGHT,
+            // If LCD hinting is to be used, must select hintmedium or hintfull,
+            // have AA enabled, and select a subpixel mode.
+            (true, _, fc::Rgba::Rgb) |
+            (true, _, fc::Rgba::Bgr) => TARGET_LCD,
+            (true, _, fc::Rgba::Vrgb) |
+            (true, _, fc::Rgba::Vbgr) => TARGET_LCD_V,
+            // For non-rgba modes with either Medium or Full hinting, just use
+            // the default hinting algorithm.
+            //
+            // TODO should Medium/Full control whether to use the auto hinter?
+            (true, _, fc::Rgba::Unknown) => TARGET_NORMAL,
+            (true, _, fc::Rgba::None) => TARGET_NORMAL,
+        }
+    }
+
+    fn ft_render_mode(pat: &fc::Pattern) -> freetype::RenderMode {
+        let antialias = pat.antialias().next().unwrap_or(true);
+        let rgba = pat.rgba().next().unwrap_or(fc::Rgba::Unknown);
+
+        match (antialias, rgba) {
+            (false, _) => freetype::RenderMode::Mono,
+            (_, fc::Rgba::Rgb) |
+            (_, fc::Rgba::Bgr) => freetype::RenderMode::Lcd,
+            (_, fc::Rgba::Vrgb) |
+            (_, fc::Rgba::Vbgr) => freetype::RenderMode::LcdV,
+            (true, _) => freetype::RenderMode::Normal,
+        }
+    }
+
+    fn ft_lcd_filter(pat: &fc::Pattern) -> c_uint {
+        match pat.lcdfilter().next().unwrap_or(fc::LcdFilter::Default) {
+            fc::LcdFilter::None => freetype::ffi::FT_LCD_FILTER_NONE,
+            fc::LcdFilter::Default => freetype::ffi::FT_LCD_FILTER_DEFAULT,
+            fc::LcdFilter::Light => freetype::ffi::FT_LCD_FILTER_LIGHT,
+            fc::LcdFilter::Legacy => freetype::ffi::FT_LCD_FILTER_LEGACY,
+        }
     }
 
     /// Given a FreeType `Bitmap`, returns packed buffer with 1 byte per LCD channel.
@@ -313,22 +415,21 @@ impl FreeTypeRasterizer {
 
         let config = fc::Config::get_current();
         match fc::font_match(config, &mut pattern) {
-            Some(font) => {
-                if let (Some(path), Some(index)) = (font.file(0), font.index().nth(0)) {
+            Some(pattern) => {
+                if let (Some(path), Some(_)) = (pattern.file(0), pattern.index().nth(0)) {
                     match self.keys.get(&path) {
                         // We've previously loaded this font, so don't
                         // load it again.
                         Some(&key) => {
-                            debug!("Hit for font {:?}", path);
+                            debug!("Hit for font {:?}; no need to load.", path);
                             Ok(key)
                         },
 
                         None => {
-                            debug!("Miss for font {:?}", path);
-                            let face = Face {
-                                ft_face: self.library.new_face(&path, index)?,
-                                key: FontKey::next(),
-                            };
+                            debug!("Miss for font {:?}; loading now.", path);
+                            // Safe to unwrap the option since we've already checked for the path
+                            // and index above.
+                            let face = self.face_from_pattern(&pattern)?.unwrap();
                             let key = face.key;
                             self.faces.insert(key, face);
                             self.keys.insert(path, key);
