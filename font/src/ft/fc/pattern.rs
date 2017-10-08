@@ -18,15 +18,15 @@ use std::path::PathBuf;
 use std::str;
 use std::mem;
 
-use libc::{c_char, c_int};
+use libc::{c_char, c_int, c_double};
 use foreign_types::{ForeignType, ForeignTypeRef};
 
 use super::ffi::FcResultMatch;
 use super::ffi::{FcPatternDestroy, FcPatternAddCharSet};
-use super::ffi::{FcPatternGetString, FcPatternCreate, FcPatternAddString};
+use super::ffi::{FcPatternGetString, FcPatternCreate, FcPatternAddString, FcPatternAddDouble};
 use super::ffi::{FcPatternGetInteger, FcPatternAddInteger, FcPatternPrint};
 use super::ffi::{FcChar8, FcPattern, FcDefaultSubstitute, FcConfigSubstitute};
-use super::ffi::{FcFontRenderPrepare, FcPatternGetBool, FcBool};
+use super::ffi::{FcFontRenderPrepare, FcPatternGetBool, FcBool, FcPatternGetDouble};
 
 use super::{MatchKind, ConfigRef, CharSetRef, Weight, Slant, Width, Rgba, HintStyle, LcdFilter};
 
@@ -114,7 +114,6 @@ pub struct IntPropertyIter<'a> {
     object: &'a [u8],
     index: usize
 }
-
 
 impl<'a> IntPropertyIter<'a> {
     fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> IntPropertyIter<'b> {
@@ -227,6 +226,42 @@ impl<'a> LcdFilterPropertyIter<'a> {
     }
 }
 
+/// Iterator over interger properties
+pub struct DoublePropertyIter<'a> {
+    pattern: &'a PatternRef,
+    object: &'a [u8],
+    index: usize
+}
+
+impl<'a> DoublePropertyIter<'a> {
+    fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> DoublePropertyIter<'b> {
+        DoublePropertyIter {
+            pattern: pattern,
+            object: object,
+            index: 0
+        }
+    }
+
+    fn get_value(&self, index: usize) -> Option<f64> {
+        let mut value = 0 as c_double;
+
+        let result = unsafe {
+            FcPatternGetDouble(
+                self.pattern.as_ptr(),
+                self.object.as_ptr() as *mut c_char,
+                index as c_int,
+                &mut value
+            )
+        };
+
+        if result == FcResultMatch {
+            Some(value as f64)
+        } else {
+            None
+        }
+    }
+}
+
 /// Implement debug for a property iterator
 macro_rules! impl_property_iter_debug {
     ($iter:ty => $item:ty) => {
@@ -305,6 +340,7 @@ macro_rules! impl_derived_property_iter {
 impl_property_iter! {
     StringPropertyIter<'a> => &'a str,
     IntPropertyIter<'a> => isize,
+    DoublePropertyIter<'a> => f64,
     BooleanPropertyIter<'a> => bool
 }
 
@@ -322,7 +358,7 @@ foreign_type! {
     pub struct PatternRef;
 }
 
-macro_rules! pattern_string_accessors {
+macro_rules! string_accessor {
     ($([$getter:ident, $setter:ident] => $object_name:expr),*) => {
         $(
             #[inline]
@@ -372,6 +408,18 @@ macro_rules! boolean_getter {
     }
 }
 
+macro_rules! double_getter {
+    ($($method:ident() => $property:expr),*) => {
+        $(
+            pub fn $method(&self) -> DoublePropertyIter {
+                unsafe {
+                    self.get_double($property)
+                }
+            }
+        )*
+    }
+}
+
 impl PatternRef {
     // Prints the pattern to stdout
     //
@@ -411,12 +459,24 @@ impl PatternRef {
         ) == 1
     }
 
+    unsafe fn add_double(&self, object: &[u8], value: f64) -> bool {
+        FcPatternAddDouble(
+            self.as_ptr(),
+            object.as_ptr() as *mut c_char,
+            value as c_double
+        ) == 1
+    }
+
     unsafe fn get_string<'a>(&'a self, object: &'a [u8]) -> StringPropertyIter<'a> {
         StringPropertyIter::new(self, object)
     }
 
     unsafe fn get_integer<'a>(&'a self, object: &'a [u8]) -> IntPropertyIter<'a> {
         IntPropertyIter::new(self, object)
+    }
+
+    unsafe fn get_double<'a>(&'a self, object: &'a [u8]) -> DoublePropertyIter<'a> {
+        DoublePropertyIter::new(self, object)
     }
 
     unsafe fn get_boolean<'a>(&'a self, object: &'a [u8]) -> BooleanPropertyIter<'a> {
@@ -446,7 +506,15 @@ impl PatternRef {
         decorative() => b"decorative\0"
     }
 
-    pattern_string_accessors! {
+    double_getter! {
+        size() => b"size\0",
+        aspect() => b"aspect\0",
+        pixelsize() => b"pixelsize\0",
+        scale() => b"scale\0",
+        dpi() => b"dpi\0"
+    }
+
+    string_accessor! {
         [family, add_family] => b"family\0",
         [familylang, add_familylang] => b"familylang\0",
         [style, add_style] => b"style\0",
@@ -464,6 +532,12 @@ impl PatternRef {
     pub fn set_slant(&mut self, slant: Slant) -> bool {
         unsafe {
             self.add_integer(b"slant\0", slant as isize)
+        }
+    }
+
+    pub fn add_pixelsize(&mut self, size: f64) -> bool {
+        unsafe {
+            self.add_double(b"pixelsize\0", size)
         }
     }
 

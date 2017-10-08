@@ -26,12 +26,17 @@ pub mod fc;
 
 use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight, Slant, Style};
 
+struct FixedSize {
+    pixelsize: f64,
+}
+
 struct Face {
     ft_face: freetype::Face<'static>,
     key: FontKey,
     load_flags: freetype::face::LoadFlag,
     render_mode: freetype::RenderMode,
     lcd_filter: c_uint,
+    non_scalable: Option<FixedSize>
 }
 
 impl fmt::Debug for Face {
@@ -103,8 +108,8 @@ impl ::Rasterize for FreeTypeRasterizer {
         })
     }
 
-    fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Error> {
-        let face = self.get_face(desc)?;
+    fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
+        let face = self.get_face(desc, size)?;
         let key = face.key;
         self.faces.insert(key, face);
         Ok(key)
@@ -145,15 +150,19 @@ impl IntoFontconfigType for Weight {
 
 impl FreeTypeRasterizer {
     /// Load a font face accoring to `FontDesc`
-    fn get_face(&mut self, desc: &FontDesc) -> Result<Face, Error> {
+    fn get_face(&mut self, desc: &FontDesc, size: Size) -> Result<Face, Error> {
+        // Adjust for DPI
+        let scale = self.dpi_x as f32 / 72.;
+        let size = Size::new(size.as_f32_pts() * scale);
+
         match desc.style {
             Style::Description { slant, weight } => {
                 // Match nearest font
-                self.get_matching_face(&desc, slant, weight)
+                self.get_matching_face(&desc, slant, weight, size)
             }
             Style::Specific(ref style) => {
                 // If a name was specified, try and load specifically that font.
-                self.get_specific_face(&desc, &style)
+                self.get_specific_face(&desc, &style, size)
             }
         }
     }
@@ -162,12 +171,14 @@ impl FreeTypeRasterizer {
         &mut self,
         desc: &FontDesc,
         slant: Slant,
-        weight: Weight
+        weight: Weight,
+        size: Size,
     ) -> Result<Face, Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.set_weight(weight.into_fontconfig_type());
         pattern.set_slant(slant.into_fontconfig_type());
+        pattern.add_pixelsize(size.as_f32_pts() as _);
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
@@ -183,11 +194,13 @@ impl FreeTypeRasterizer {
     fn get_specific_face(
         &mut self,
         desc: &FontDesc,
-        style: &str
+        style: &str,
+        size: Size,
     ) -> Result<Face, Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.add_style(style);
+        pattern.add_pixelsize(size.as_f32_pts() as _);
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
@@ -203,16 +216,29 @@ impl FreeTypeRasterizer {
         if let (Some(path), Some(index)) = (pattern.file(0), pattern.index().nth(0)) {
             trace!("got font path={:?}", path);
             let ft_face = self.library.new_face(path, index)?;
+
+            // Get available pixel sizes if font isn't scalable.
+            let non_scalable = if !pattern.scalable().next().unwrap_or(true) {
+                let mut pixelsize = pattern.pixelsize();
+                debug!("pixelsizes: {:?}", pixelsize);
+
+                Some(FixedSize {
+                    pixelsize: pixelsize.next().expect("has 1+ pixelsize"),
+                })
+            } else {
+                None
+            };
+
             let face = Face {
                 ft_face: ft_face,
                 key: FontKey::next(),
                 load_flags: Self::ft_load_flags(pattern),
                 render_mode: Self::ft_render_mode(pattern),
                 lcd_filter: Self::ft_lcd_filter(pattern),
+                non_scalable: non_scalable,
             };
 
             debug!("Loaded Face {:?}", face);
-
             Ok(Some(face))
         } else {
             Ok(None)
@@ -220,14 +246,11 @@ impl FreeTypeRasterizer {
     }
 
     fn face_for_glyph(&mut self, glyph_key: &GlyphKey, have_recursed: bool) -> Result<FontKey, Error> {
-        let size = glyph_key.size.as_f32_pts() * self.dpr;
         let c = glyph_key.c;
 
         let use_initial_face = if self.faces.contains_key(&glyph_key.font_key) {
             // Get face and unwrap since we just checked for presence.
             let face = self.faces.get(&glyph_key.font_key).unwrap();
-
-            face.ft_face.set_char_size(to_freetype_26_6(size), 0, self.dpi_x, self.dpi_y)?;
             let index = face.ft_face.get_char_index(c as usize);
 
             if index != 0 || have_recursed {
@@ -252,6 +275,12 @@ impl FreeTypeRasterizer {
         let font_key = self.face_for_glyph(glyph_key, false)?;
         let face = self.faces.get(&font_key).unwrap();
         let index = face.ft_face.get_char_index(glyph_key.c as usize);
+
+        let size = face.non_scalable.as_ref()
+            .map(|v| v.pixelsize as f32)
+            .unwrap_or_else(|| glyph_key.size.as_f32_pts() * self.dpi_x as f32 / 72.);
+
+        face.ft_face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
 
         unsafe {
             let ft_lib = self.library.raw();
