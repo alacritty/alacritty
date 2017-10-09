@@ -373,7 +373,7 @@ dependencies = [
  "freetype-rs 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "servo-fontconfig 0.2.0 (git+https://github.com/jwilm/rust-fontconfig)",
+ "servo-fontconfig 0.4.0 (git+https://github.com/jwilm/rust-fontconfig?branch=updated-2017-10-8)",
 ]
 
 [[package]]
@@ -1008,17 +1008,17 @@ dependencies = [
 
 [[package]]
 name = "servo-fontconfig"
-version = "0.2.0"
-source = "git+https://github.com/jwilm/rust-fontconfig#419135e5e1106ec0973dd4923bd9c70d8e438cc8"
+version = "0.4.0"
+source = "git+https://github.com/jwilm/rust-fontconfig?branch=updated-2017-10-8#be2b94de833ec69cf767186262a5fb8360fa5b45"
 dependencies = [
  "libc 0.2.30 (registry+https://github.com/rust-lang/crates.io-index)",
- "servo-fontconfig-sys 2.11.3 (git+https://github.com/jwilm/libfontconfig)",
+ "servo-fontconfig-sys 4.0.3 (git+https://github.com/jwilm/libfontconfig?branch=updated-2017-10-8)",
 ]
 
 [[package]]
 name = "servo-fontconfig-sys"
-version = "2.11.3"
-source = "git+https://github.com/jwilm/libfontconfig#618a52973d46e5cce4f054f6ee3bd2682167eee4"
+version = "4.0.3"
+source = "git+https://github.com/jwilm/libfontconfig?branch=updated-2017-10-8#5c1845e1bffa11cf4d3e6fb27f456bf5c814ce1b"
 dependencies = [
  "expat-sys 2.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "freetype-sys 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1500,8 +1500,8 @@ dependencies = [
 "checksum serde_json 0.9.10 (registry+https://github.com/rust-lang/crates.io-index)" = "ad8bcf487be7d2e15d3d543f04312de991d631cfe1b43ea0ade69e6a8a5b16a1"
 "checksum serde_json 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "48b04779552e92037212c3615370f6bd57a40ebba7f20e554ff9f55e41a69a7b"
 "checksum serde_yaml 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "49d983aa39d2884a4b422bb11bb38f4f48fa05186e17469bc31e47d01e381111"
-"checksum servo-fontconfig 0.2.0 (git+https://github.com/jwilm/rust-fontconfig)" = "<none>"
-"checksum servo-fontconfig-sys 2.11.3 (git+https://github.com/jwilm/libfontconfig)" = "<none>"
+"checksum servo-fontconfig 0.4.0 (git+https://github.com/jwilm/rust-fontconfig?branch=updated-2017-10-8)" = "<none>"
+"checksum servo-fontconfig-sys 4.0.3 (git+https://github.com/jwilm/libfontconfig?branch=updated-2017-10-8)" = "<none>"
 "checksum shared_library 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "7822f9d0814224552cfd7e4ac72cd511740ccec0b811d1c0f9fa2a84c6509cee"
 "checksum shell32-sys 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "72f20b8f3c060374edb8046591ba28f62448c369ccbdc7b02075103fb3a9e38d"
 "checksum siphasher 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "0df90a788073e8d0235a67e50441d47db7c8ad9debd91cbf43736a2a92d36537"
