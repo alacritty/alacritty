@@ -134,7 +134,6 @@ impl Display {
     ) -> Result<Display, Error> {
         // Extract some properties from config
         let font = config.font();
-        let dpi = config.dpi();
         let render_timer = config.render_timer();
 
         // Create the window where Alacritty will be displayed
@@ -147,7 +146,7 @@ impl Display {
 
         info!("device_pixel_ratio: {}", dpr);
 
-        let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr, config.use_thin_strokes())?;
+        let rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
 
         // Create renderer
         let mut renderer = QuadRenderer::new(&config, size)?;

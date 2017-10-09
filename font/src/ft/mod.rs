@@ -63,9 +63,7 @@ pub struct FreeTypeRasterizer {
     faces: HashMap<FontKey, Face>,
     library: Library,
     keys: HashMap<PathBuf, FontKey>,
-    dpi_x: u32,
-    dpi_y: u32,
-    dpr: f32,
+    device_pixel_ratio: f32,
 }
 
 #[inline]
@@ -76,16 +74,14 @@ fn to_freetype_26_6(f: f32) -> isize {
 impl ::Rasterize for FreeTypeRasterizer {
     type Err = Error;
 
-    fn new(dpi_x: f32, dpi_y: f32, device_pixel_ratio: f32, _: bool) -> Result<FreeTypeRasterizer, Error> {
+    fn new(device_pixel_ratio: f32, _: bool) -> Result<FreeTypeRasterizer, Error> {
         let library = Library::init()?;
 
         Ok(FreeTypeRasterizer {
             faces: HashMap::new(),
             keys: HashMap::new(),
             library: library,
-            dpi_x: dpi_x as u32,
-            dpi_y: dpi_y as u32,
-            dpr: device_pixel_ratio,
+            device_pixel_ratio: device_pixel_ratio,
         })
     }
 
@@ -152,8 +148,7 @@ impl FreeTypeRasterizer {
     /// Load a font face accoring to `FontDesc`
     fn get_face(&mut self, desc: &FontDesc, size: Size) -> Result<Face, Error> {
         // Adjust for DPI
-        let scale = self.dpi_x as f32 / 72.;
-        let size = Size::new(size.as_f32_pts() * scale);
+        let size = Size::new(size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
 
         match desc.style {
             Style::Description { slant, weight } => {
@@ -278,7 +273,7 @@ impl FreeTypeRasterizer {
 
         let size = face.non_scalable.as_ref()
             .map(|v| v.pixelsize as f32)
-            .unwrap_or_else(|| glyph_key.size.as_f32_pts() * self.dpi_x as f32 / 72.);
+            .unwrap_or_else(|| glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
 
         face.ft_face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
 
