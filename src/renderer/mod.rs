@@ -828,9 +828,9 @@ impl<'a> RenderApi<'a> {
             // Get font key for cell
             // FIXME this is super inefficient.
             let mut font_key = glyph_cache.font_key;
-            if cell.flags.contains(cell::BOLD) {
+            if cell.flags.contains(cell::Flags::BOLD) {
                 font_key = glyph_cache.bold_key;
-            } else if cell.flags.contains(cell::ITALIC) {
+            } else if cell.flags.contains(cell::Flags::ITALIC) {
                 font_key = glyph_cache.italic_key;
             }
 
@@ -849,7 +849,7 @@ impl<'a> RenderApi<'a> {
             // FIXME This is a super hacky way to do underlined text. During
             //       a time crunch to release 0.1, this seemed like a really
             //       easy, clean hack.
-            if cell.flags.contains(cell::UNDERLINE) {
+            if cell.flags.contains(cell::Flags::UNDERLINE) {
                 let glyph_key = GlyphKey {
                     font_key: font_key,
                     size: glyph_cache.font_size,
