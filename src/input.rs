@@ -226,7 +226,7 @@ impl Action {
     }
 
     fn paste<A: ActionContext>(&self, ctx: &mut A, contents: String) {
-        if ctx.terminal_mode().contains(mode::BRACKETED_PASTE) {
+        if ctx.terminal_mode().contains(mode::TermMode::BRACKETED_PASTE) {
             ctx.write_to_pty(&b"\x1b[200~"[..]);
             ctx.write_to_pty(contents.into_bytes());
             ctx.write_to_pty(&b"\x1b[201~"[..]);
@@ -264,13 +264,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.ctx.mouse_mut().cell_side = cell_side;
 
             if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
-                let report_mode = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION;
+                let report_mode = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
                 if !self.ctx.terminal_mode().intersects(report_mode) {
                     self.ctx.update_selection(Point {
                         line: point.line,
                         col: point.col
                     }, cell_side);
-                } else if self.ctx.terminal_mode().contains(mode::MOUSE_MOTION)
+                } else if self.ctx.terminal_mode().contains(mode::TermMode::MOUSE_MOTION)
                         // Only report motion when changing cells
                         && (
                             prev_line != self.ctx.mouse_mut().line
@@ -308,7 +308,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn mouse_report(&mut self, button: u8) {
-        if self.ctx.terminal_mode().contains(mode::SGR_MOUSE) {
+        if self.ctx.terminal_mode().contains(mode::TermMode::SGR_MOUSE) {
             let release = self.ctx.mouse_mut().left_button_state != ElementState::Pressed;
             self.sgr_mouse_report(button, release);
         } else {
@@ -343,7 +343,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 ClickState::TripleClick
             },
             _ => {
-                let report_modes = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION;
+                let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
                 if self.ctx.terminal_mode().intersects(report_modes) {
                     self.mouse_report(0);
                     return;
@@ -356,7 +356,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_release(&mut self) {
-        if self.ctx.terminal_mode().intersects(mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION) {
+        if self.ctx.terminal_mode().intersects(mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION) {
             self.mouse_report(3);
             return;
         }
@@ -365,7 +365,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
-        let modes = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION | mode::SGR_MOUSE;
+        let modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION | mode::TermMode::SGR_MOUSE;
         if !self.ctx.terminal_mode().intersects(modes) {
             return;
         }
@@ -414,7 +414,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_focus_change(&mut self, is_focused: bool) {
-        if self.ctx.terminal_mode().contains(mode::FOCUS_IN_OUT) {
+        if self.ctx.terminal_mode().contains(mode::TermMode::FOCUS_IN_OUT) {
             let chr = if is_focused {
                 "I"
             } else {
@@ -749,65 +749,65 @@ mod tests {
 
     test_process_binding! {
         name: process_binding_nomode_shiftmod_require_shift,
-        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: false, alt: false, logo: false }, action: Action::from("\x1b[1;2D"), mode: mode::NONE, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: false, alt: false, logo: false }, action: Action::from("\x1b[1;2D"), mode: mode::TermMode::NONE, notmode: mode::TermMode::NONE },
         triggers: true,
-        mode: mode::NONE,
+        mode: mode::TermMode::NONE,
         mods: ModifiersState { shift: true, ctrl: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_shift,
-        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: false, alt: false, logo: false }, action: Action::from("\x1b[1;2D"), mode: mode::NONE, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: true, ctrl: false, alt: false, logo: false }, action: Action::from("\x1b[1;2D"), mode: mode::TermMode::NONE, notmode: mode::TermMode::NONE },
         triggers: false,
-        mode: mode::NONE,
+        mode: mode::TermMode::NONE,
         mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_nomode_controlmod,
-        binding: Binding { trigger: KEY, mods: ModifiersState { ctrl: true, shift: false, alt: false, logo: false }, action: Action::from("\x1b[1;5D"), mode: mode::NONE, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { ctrl: true, shift: false, alt: false, logo: false }, action: Action::from("\x1b[1;5D"), mode: mode::TermMode::NONE, notmode: mode::TermMode::NONE },
         triggers: true,
-        mode: mode::NONE,
+        mode: mode::TermMode::NONE,
         mods: ModifiersState { ctrl: true, shift: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_not_appcursor,
-        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }, action: Action::from("\x1b[D"), mode: mode::NONE, notmode: mode::APP_CURSOR },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }, action: Action::from("\x1b[D"), mode: mode::TermMode::NONE, notmode: mode::TermMode::APP_CURSOR },
         triggers: true,
-        mode: mode::NONE,
+        mode: mode::TermMode::NONE,
         mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_appcursormode_nomod_require_appcursor,
-        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }, action: Action::from("\x1bOD"), mode: mode::TermMode::APP_CURSOR, notmode: mode::TermMode::NONE },
         triggers: true,
-        mode: mode::APP_CURSOR,
+        mode: mode::TermMode::APP_CURSOR,
         mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_nomode_nomod_require_appcursor,
-        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }, action: Action::from("\x1bOD"), mode: mode::TermMode::APP_CURSOR, notmode: mode::TermMode::NONE },
         triggers: false,
-        mode: mode::NONE,
+        mode: mode::TermMode::NONE,
         mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_appcursormode_appkeypadmode_nomod_require_appcursor,
-        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }, action: Action::from("\x1bOD"), mode: mode::APP_CURSOR, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }, action: Action::from("\x1bOD"), mode: mode::TermMode::APP_CURSOR, notmode: mode::TermMode::NONE },
         triggers: true,
-        mode: mode::APP_CURSOR | mode::APP_KEYPAD,
+        mode: mode::TermMode::APP_CURSOR | mode::TermMode::APP_KEYPAD,
         mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: false }
     }
 
     test_process_binding! {
         name: process_binding_fail_with_extra_mods,
-        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: true }, action: Action::from("arst"), mode: mode::NONE, notmode: mode::NONE },
+        binding: Binding { trigger: KEY, mods: ModifiersState { shift: false, ctrl: false, alt: false, logo: true }, action: Action::from("arst"), mode: mode::TermMode::NONE, notmode: mode::TermMode::NONE },
         triggers: false,
-        mode: mode::NONE,
+        mode: mode::TermMode::NONE,
         mods: ModifiersState { shift: false, ctrl: false, alt: true, logo: true }
     }
 }

@@ -15,7 +15,7 @@ name = "alacritty"
 libc = "0.2"
 cgmath = "0.15"
 notify = "4"
-bitflags = "0.9"
+bitflags = "1"
 font = { path = "./font" }
 errno = "0.2"
 parking_lot = "0.5"
