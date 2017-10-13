@@ -19,6 +19,7 @@
 //! when text is added/removed/scrolled on the screen. The selection should
 //! also be cleared if the user clicks off of the selection.
 use std::cmp::{min, max};
+use std::ops::Range;
 
 use index::{Point, Column, RangeInclusive, Side, Linear, Line};
 use grid::ToRange;
@@ -41,30 +42,25 @@ use grid::ToRange;
 pub enum Selection {
     Simple {
         /// The region representing start and end of cursor movement
-        region: Region<Anchor>,
+        region: Range<Anchor>,
     },
     Semantic {
         /// The region representing start and end of cursor movement
-        region: Region<Point>,
+        region: Range<Point>,
 
         /// When beginning a semantic selection, the grid is searched around the
         /// initial point to find semantic escapes, and this initial expansion
         /// marks those points.
-        initial_expansion: Region<Point>
+        initial_expansion: Range<Point>
     },
     Lines {
         /// The region representing start and end of cursor movement
-        region: Region<Point>,
+        region: Range<Point>,
 
         /// The line under the initial point. This is always selected regardless
         /// of which way the cursor is moved.
         initial_line: Line
     }
-}
-
-pub struct Region<T> {
-    start: T,
-    end: T
 }
 
 /// A Point and side within that point.
@@ -99,7 +95,7 @@ pub trait Dimensions {
 impl Selection {
     pub fn simple(location: Point, side: Side) -> Selection {
         Selection::Simple {
-            region: Region {
+            region: Range {
                 start: Anchor::new(location, side),
                 end: Anchor::new(location, side)
             }
@@ -109,20 +105,20 @@ impl Selection {
     pub fn semantic<G: SemanticSearch>(point: Point, grid: &G) -> Selection {
         let (start, end) = (grid.semantic_search_left(point), grid.semantic_search_right(point));
         Selection::Semantic {
-            region: Region {
+            region: Range {
                 start: point,
                 end: point,
             },
-            initial_expansion: Region {
-                start,
-                end,
+            initial_expansion: Range {
+                start: start,
+                end: end
             }
         }
     }
 
     pub fn lines(point: Point) -> Selection {
         Selection::Lines {
-            region: Region {
+            region: Range {
                 start: point,
                 end: point
             },
@@ -159,8 +155,8 @@ impl Selection {
     }
     fn span_semantic<G>(
         grid: &G,
-        region: &Region<Point>,
-        initial_expansion: &Region<Point>
+        region: &Range<Point>,
+        initial_expansion: &Range<Point>
     ) -> Option<Span>
         where G: SemanticSearch + Dimensions
     {
@@ -192,7 +188,7 @@ impl Selection {
         })
     }
 
-    fn span_lines<G>(grid: &G, region: &Region<Point>, initial_line: &Line) -> Option<Span>
+    fn span_lines<G>(grid: &G, region: &Range<Point>, initial_line: &Line) -> Option<Span>
         where G: Dimensions
     {
         // First, create start and end points based on initial line and the grid
@@ -225,7 +221,7 @@ impl Selection {
         })
     }
 
-    fn span_simple<G: Dimensions>(grid: &G, region: &Region<Anchor>) -> Option<Span> {
+    fn span_simple<G: Dimensions>(grid: &G, region: &Range<Anchor>) -> Option<Span> {
         let start = region.start.point;
         let start_side = region.start.side;
         let end = region.end.point;
