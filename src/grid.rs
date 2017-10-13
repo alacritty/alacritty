@@ -22,9 +22,10 @@
 
 use std::borrow::ToOwned;
 use std::cmp::Ordering;
+use std::collections::{VecDeque, vec_deque};
 use std::iter::IntoIterator;
 use std::ops::{Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull, Index, IndexMut};
-use std::slice::{self, Iter, IterMut};
+use std::slice;
 
 use index::{self, Point, Line, Column, IndexRange, RangeInclusive};
 
@@ -58,7 +59,7 @@ impl<T> Deref for Indexed<T> {
 pub struct Grid<T> {
     /// Lines in the grid. Each row holds a list of cells corresponding to the
     /// columns in that row.
-    raw: Vec<Row<T>>,
+    raw: VecDeque<Row<T>>,
 
     /// Number of columns
     cols: index::Column,
@@ -76,9 +77,9 @@ pub struct GridIterator<'a, T: 'a> {
 
 impl<T: Clone> Grid<T> {
     pub fn new(lines: index::Line, cols: index::Column, template: &T) -> Grid<T> {
-        let mut raw = Vec::with_capacity(*lines);
+        let mut raw = VecDeque::with_capacity(*lines);
         for _ in IndexRange(index::Line(0)..lines) {
-            raw.push(Row::new(cols, template));
+            raw.push_back(Row::new(cols, template));
         }
 
         Grid {
@@ -109,7 +110,7 @@ impl<T: Clone> Grid<T> {
 
     fn grow_lines(&mut self, lines: index::Line, template: &T) {
         for _ in IndexRange(self.num_lines()..lines) {
-            self.raw.push(Row::new(self.cols, template));
+            self.raw.push_back(Row::new(self.cols, template));
         }
 
         self.lines = lines;
@@ -125,14 +126,168 @@ impl<T: Clone> Grid<T> {
 
 }
 
+
+/// A subset of lines in the grid
+///
+/// May be constructed using Grid::region(..)
+pub struct Region<'a, T: 'a> {
+    start: Line,
+    end: Line,
+    raw: &'a VecDeque<Row<T>>,
+}
+
+/// A mutable subset of lines in the grid
+///
+/// May be constructed using Grid::region_mut(..)
+pub struct RegionMut<'a, T: 'a> {
+    start: Line,
+    end: Line,
+    raw: &'a mut VecDeque<Row<T>>,
+}
+
+pub trait IndexRegion<I, T> {
+    /// Get an immutable region of Self
+    fn region<'a>(&'a self, _: I) -> Region<'a, T>;
+
+    /// Get a mutable region of Self
+    fn region_mut<'a>(&'a mut self, _: I) -> RegionMut<'a, T>;
+}
+
+impl<T> IndexRegion<Range<Line>, T> for Grid<T> {
+    fn region(&self, index: Range<Line>) -> Region<T> {
+        assert!(index.start < self.num_lines());
+        assert!(index.end <= self.num_lines());
+        assert!(index.start <= index.end);
+        Region {
+            start: index.start,
+            end: index.end,
+            raw: &self.raw
+        }
+    }
+    fn region_mut(&mut self, index: Range<Line>) -> RegionMut<T> {
+        assert!(index.start < self.num_lines());
+        assert!(index.end <= self.num_lines());
+        assert!(index.start <= index.end);
+        RegionMut {
+            start: index.start,
+            end: index.end,
+            raw: &mut self.raw
+        }
+    }
+}
+
+impl<T> IndexRegion<RangeTo<Line>, T> for Grid<T> {
+    fn region(&self, index: RangeTo<Line>) -> Region<T> {
+        assert!(index.end <= self.num_lines());
+        Region {
+            start: Line(0),
+            end: index.end,
+            raw: &self.raw
+        }
+    }
+    fn region_mut(&mut self, index: RangeTo<Line>) -> RegionMut<T> {
+        assert!(index.end <= self.num_lines());
+        RegionMut {
+            start: Line(0),
+            end: index.end,
+            raw: &mut self.raw
+        }
+    }
+}
+
+impl<T> IndexRegion<RangeFrom<Line>, T> for Grid<T> {
+    fn region(&self, index: RangeFrom<Line>) -> Region<T> {
+        assert!(index.start < self.num_lines());
+        Region {
+            start: index.start,
+            end: self.num_lines(),
+            raw: &self.raw
+        }
+    }
+    fn region_mut(&mut self, index: RangeFrom<Line>) -> RegionMut<T> {
+        assert!(index.start < self.num_lines());
+        RegionMut {
+            start: index.start,
+            end: self.num_lines(),
+            raw: &mut self.raw
+        }
+    }
+}
+
+pub struct RegionIter<'a, T: 'a> {
+    end: Line,
+    cur: Line,
+    raw: &'a VecDeque<Row<T>>,
+}
+
+pub struct RegionIterMut<'a, T: 'a> {
+    end: Line,
+    cur: Line,
+    raw: &'a mut VecDeque<Row<T>>,
+}
+
+impl<'a, T> IntoIterator for Region<'a, T> {
+    type Item = &'a Row<T>;
+    type IntoIter = RegionIter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        RegionIter {
+            end: self.end,
+            cur: self.start,
+            raw: self.raw
+        }
+    }
+}
+
+impl<'a, T> IntoIterator for RegionMut<'a, T> {
+    type Item = &'a mut Row<T>;
+    type IntoIter = RegionIterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        RegionIterMut {
+            end: self.end,
+            cur: self.start,
+            raw: self.raw
+        }
+    }
+}
+
+impl<'a, T> Iterator for RegionIter<'a, T> {
+    type Item = &'a Row<T>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cur < self.end {
+            let index = self.cur;
+            self.cur += 1;
+            Some(&self.raw[*index])
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a, T> Iterator for RegionIterMut<'a, T> {
+    type Item = &'a mut Row<T>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cur < self.end {
+            let index = self.cur;
+            self.cur += 1;
+            unsafe {
+                Some(&mut *(&mut self.raw[index.0] as *mut _))
+            }
+        } else {
+            None
+        }
+    }
+}
+
 impl<T> Grid<T> {
     #[inline]
-    pub fn lines(&self) -> Iter<Row<T>> {
+    pub fn lines(&self) -> vec_deque::Iter<Row<T>> {
         self.raw.iter()
     }
 
     #[inline]
-    pub fn lines_mut(&mut self) -> IterMut<Row<T>> {
+    pub fn lines_mut(&mut self) -> vec_deque::IterMut<Row<T>> {
         self.raw.iter_mut()
     }
 
@@ -146,21 +301,35 @@ impl<T> Grid<T> {
         self.cols
     }
 
-    pub fn iter_rows(&self) -> slice::Iter<Row<T>> {
-        self.raw.iter()
-    }
-
     #[inline]
     pub fn scroll_down(&mut self, region: &Range<index::Line>, positions: index::Line) {
-        for line in IndexRange((region.start + positions)..region.end).rev() {
-            self.swap_lines(line, line - positions);
+        if region.start == Line(0) && region.end == self.num_lines() {
+            // Full rotation
+            for _ in 0..positions.0 {
+                let item = self.raw.pop_back().unwrap();
+                self.raw.push_front(item);
+            }
+        } else {
+            // Subregion rotation
+            for line in IndexRange((region.start + positions)..region.end).rev() {
+                self.swap_lines(line, line - positions);
+            }
         }
     }
 
     #[inline]
     pub fn scroll_up(&mut self, region: &Range<index::Line>, positions: index::Line) {
-        for line in IndexRange(region.start..(region.end - positions)) {
-            self.swap_lines(line, line + positions);
+        if region.start == Line(0) && region.end == self.num_lines() {
+            // Full rotation
+            for _ in 0..positions.0 {
+                let item = self.raw.pop_front().unwrap();
+                self.raw.push_back(item);
+            }
+        } else {
+            // Subregion rotation
+            for line in IndexRange(region.start..(region.end - positions)) {
+                self.swap_lines(line, line + positions);
+            }
         }
     }
 
@@ -182,24 +351,7 @@ impl<T> Grid<T> {
     /// better error messages by doing the bounds checking ourselves.
     #[inline]
     pub fn swap_lines(&mut self, src: index::Line, dst: index::Line) {
-        use util::unlikely;
-
-        unsafe {
-            // check that src/dst are in bounds. Since index::Line newtypes usize,
-            // we can assume values are positive.
-            if unlikely(src >= self.lines) {
-                panic!("swap_lines src out of bounds; len={}, src={}", self.raw.len(), src);
-            }
-
-            if unlikely(dst >= self.lines) {
-                panic!("swap_lines dst out of bounds; len={}, dst={}", self.raw.len(), dst);
-            }
-
-            let src: *mut _ = self.raw.get_unchecked_mut(src.0);
-            let dst: *mut _ = self.raw.get_unchecked_mut(dst.0);
-
-            ::std::ptr::swap(src, dst);
-        }
+        self.raw.swap(*src, *dst);
     }
 
     #[inline]
@@ -210,7 +362,7 @@ impl<T> Grid<T> {
 
     fn shrink_lines(&mut self, lines: index::Line) {
         while index::Line(self.raw.len()) != lines {
-            self.raw.pop();
+            self.raw.pop_back();
         }
 
         self.lines = lines;
@@ -324,22 +476,22 @@ impl<T> Row<T> {
     }
 
     #[inline]
-    pub fn cells(&self) -> Iter<T> {
+    pub fn cells(&self) -> slice::Iter<T> {
         self.0.iter()
     }
 
     #[inline]
-    pub fn cells_mut(&mut self) -> IterMut<T> {
+    pub fn cells_mut(&mut self) -> slice::IterMut<T> {
         self.0.iter_mut()
     }
 }
 
 impl<'a, T> IntoIterator for &'a Grid<T> {
     type Item = &'a Row<T>;
-    type IntoIter = slice::Iter<'a, Row<T>>;
+    type IntoIter = vec_deque::Iter<'a, Row<T>>;
 
     #[inline]
-    fn into_iter(self) -> slice::Iter<'a, Row<T>> {
+    fn into_iter(self) -> vec_deque::Iter<'a, Row<T>> {
         self.raw.iter()
     }
 }
@@ -422,58 +574,6 @@ row_index_range!(RangeFrom<usize>);
 row_index_range!(RangeFull);
 
 // -----------------------------------------------------------------------------
-// Row ranges for Grid
-// -----------------------------------------------------------------------------
-
-impl<T> Index<Range<index::Line>> for Grid<T> {
-    type Output = [Row<T>];
-
-    #[inline]
-    fn index(&self, index: Range<index::Line>) -> &[Row<T>] {
-        &self.raw[(index.start.0)..(index.end.0)]
-    }
-}
-
-impl<T> IndexMut<Range<index::Line>> for Grid<T> {
-    #[inline]
-    fn index_mut(&mut self, index: Range<index::Line>) -> &mut [Row<T>] {
-        &mut self.raw[(index.start.0)..(index.end.0)]
-    }
-}
-
-impl<T> Index<RangeTo<index::Line>> for Grid<T> {
-    type Output = [Row<T>];
-
-    #[inline]
-    fn index(&self, index: RangeTo<index::Line>) -> &[Row<T>] {
-        &self.raw[..(index.end.0)]
-    }
-}
-
-impl<T> IndexMut<RangeTo<index::Line>> for Grid<T> {
-    #[inline]
-    fn index_mut(&mut self, index: RangeTo<index::Line>) -> &mut [Row<T>] {
-        &mut self.raw[..(index.end.0)]
-    }
-}
-
-impl<T> Index<RangeFrom<index::Line>> for Grid<T> {
-    type Output = [Row<T>];
-
-    #[inline]
-    fn index(&self, index: RangeFrom<index::Line>) -> &[Row<T>] {
-        &self.raw[(index.start.0)..]
-    }
-}
-
-impl<T> IndexMut<RangeFrom<index::Line>> for Grid<T> {
-    #[inline]
-    fn index_mut(&mut self, index: RangeFrom<index::Line>) -> &mut [Row<T>] {
-        &mut self.raw[(index.start.0)..]
-    }
-}
-
-// -----------------------------------------------------------------------------
 // Column ranges for Row
 // -----------------------------------------------------------------------------
 
@@ -533,7 +633,7 @@ macro_rules! clear_region_impl {
     ($range:ty) => {
         impl<T> ClearRegion<$range, T> for Grid<T> {
             fn clear_region<F: Fn(&mut T)>(&mut self, region: $range, func: F) {
-                for row in self[region].iter_mut() {
+                for row in self.region_mut(region) {
                     for cell in row {
                         func(cell);
                     }
