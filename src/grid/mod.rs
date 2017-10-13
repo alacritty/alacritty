@@ -122,7 +122,7 @@ impl<T: Clone> Grid<T> {
     }
 
     fn grow_cols(&mut self, cols: index::Column, template: &T) {
-        for row in self.lines_mut() {
+        for row in self.raw.iter_mut() {
             row.grow(cols, template);
         }
 
@@ -131,19 +131,7 @@ impl<T: Clone> Grid<T> {
 
 }
 
-
-
 impl<T> Grid<T> {
-    #[inline]
-    pub fn lines(&self) -> vec_deque::Iter<Row<T>> {
-        self.raw.iter()
-    }
-
-    #[inline]
-    pub fn lines_mut(&mut self) -> vec_deque::IterMut<Row<T>> {
-        self.raw.iter_mut()
-    }
-
     #[inline]
     pub fn num_lines(&self) -> index::Line {
         self.lines
@@ -216,7 +204,7 @@ impl<T> Grid<T> {
     }
 
     fn shrink_cols(&mut self, cols: index::Column) {
-        for row in self.lines_mut() {
+        for row in self.raw.iter_mut() {
             row.shrink(cols);
         }
 
