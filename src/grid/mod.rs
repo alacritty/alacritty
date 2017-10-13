@@ -23,7 +23,7 @@
 use std::cmp::Ordering;
 use std::collections::{VecDeque, vec_deque};
 use std::iter::IntoIterator;
-use std::ops::{Deref, Range, RangeTo, RangeFrom, Index, IndexMut};
+use std::ops::{Deref, Range, RangeTo, RangeFrom, RangeFull, Index, IndexMut};
 
 use index::{self, Point, Line, Column, IndexRange, RangeInclusive};
 
@@ -207,12 +207,6 @@ impl<T> Grid<T> {
         self.raw.swap(*src, *dst);
     }
 
-    #[inline]
-    pub fn clear<F: Fn(&mut T)>(&mut self, func: F) {
-        let region = index::Line(0)..self.num_lines();
-        self.clear_region(region, func);
-    }
-
     fn shrink_lines(&mut self, lines: index::Line) {
         while index::Line(self.raw.len()) != lines {
             self.raw.pop_back();
@@ -315,28 +309,6 @@ impl<'a, T> IntoIterator for &'a Grid<T> {
     }
 }
 
-pub trait ClearRegion<R, T> {
-    fn clear_region<F: Fn(&mut T)>(&mut self, region: R, func: F);
-}
-
-macro_rules! clear_region_impl {
-    ($range:ty) => {
-        impl<T> ClearRegion<$range, T> for Grid<T> {
-            fn clear_region<F: Fn(&mut T)>(&mut self, region: $range, func: F) {
-                for row in self.region_mut(region) {
-                    for cell in row {
-                        func(cell);
-                    }
-                }
-            }
-        }
-    }
-}
-
-clear_region_impl!(Range<index::Line>);
-clear_region_impl!(RangeTo<index::Line>);
-clear_region_impl!(RangeFrom<index::Line>);
-
 // =================================================================================================
 // Regions =========================================================================================
 // =================================================================================================
@@ -357,6 +329,17 @@ pub struct RegionMut<'a, T: 'a> {
     start: Line,
     end: Line,
     raw: &'a mut VecDeque<Row<T>>,
+}
+
+impl<'a, T> RegionMut<'a, T> {
+    /// Call the provided function for every item in this region
+    pub fn each<F: Fn(&mut T)>(self, func: F) {
+        for row in self {
+            for item in row {
+                func(item)
+            }
+        }
+    }
 }
 
 pub trait IndexRegion<I, T> {
@@ -422,6 +405,24 @@ impl<T> IndexRegion<RangeFrom<Line>, T> for Grid<T> {
         assert!(index.start < self.num_lines());
         RegionMut {
             start: index.start,
+            end: self.num_lines(),
+            raw: &mut self.raw
+        }
+    }
+}
+
+impl<T> IndexRegion<RangeFull, T> for Grid<T> {
+    fn region(&self, _: RangeFull) -> Region<T> {
+        Region {
+            start: Line(0),
+            end: self.num_lines(),
+            raw: &self.raw
+        }
+    }
+
+    fn region_mut(&mut self, _: RangeFull) -> RegionMut<T> {
+        RegionMut {
+            start: Line(0),
             end: self.num_lines(),
             raw: &mut self.raw
         }
