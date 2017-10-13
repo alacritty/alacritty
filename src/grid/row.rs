@@ -108,33 +108,8 @@ impl<T> IndexMut<Column> for Row<T> {
     }
 }
 
-macro_rules! row_index_range {
-    ($range:ty) => {
-        impl<T> Index<$range> for Row<T> {
-            type Output = [T];
-
-            #[inline]
-            fn index(&self, index: $range) -> &[T] {
-                &self.0[index]
-            }
-        }
-
-        impl<T> IndexMut<$range> for Row<T> {
-            #[inline]
-            fn index_mut(&mut self, index: $range) -> &mut [T] {
-                &mut self.0[index]
-            }
-        }
-    }
-}
-
-row_index_range!(Range<usize>);
-row_index_range!(RangeTo<usize>);
-row_index_range!(RangeFrom<usize>);
-row_index_range!(RangeFull);
-
 // -----------------------------------------------------------------------------
-// Column ranges for Row
+// Index ranges of columns
 // -----------------------------------------------------------------------------
 
 impl<T> Index<Range<Column>> for Row<T> {
@@ -182,5 +157,21 @@ impl<T> IndexMut<RangeFrom<Column>> for Row<T> {
     #[inline]
     fn index_mut(&mut self, index: RangeFrom<Column>) -> &mut [T] {
         &mut self.0[(index.start.0)..]
+    }
+}
+
+impl<T> Index<RangeFull> for Row<T> {
+    type Output = [T];
+
+    #[inline]
+    fn index(&self, _: RangeFull) -> &[T] {
+        &self.0[..]
+    }
+}
+
+impl<T> IndexMut<RangeFull> for Row<T> {
+    #[inline]
+    fn index_mut(&mut self, _: RangeFull) -> &mut [T] {
+        &mut self.0[..]
     }
 }
