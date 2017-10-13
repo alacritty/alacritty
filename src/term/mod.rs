@@ -24,7 +24,7 @@ use unicode_width::UnicodeWidthChar;
 
 use font::{self, Size};
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
+use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed, IndexRegion};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{self, Span, Selection};
 use config::{Config, VisualBellAnimation};
@@ -1708,7 +1708,7 @@ impl ansi::Handler for Term {
                     cell.reset(&template);
                 }
                 if self.cursor.point.line < self.grid.num_lines() - 1 {
-                    for row in &mut self.grid[(self.cursor.point.line + 1)..] {
+                    for row in self.grid.region_mut((self.cursor.point.line + 1)..) {
                         for cell in row {
                             cell.reset(&template);
                         }
@@ -1722,7 +1722,7 @@ impl ansi::Handler for Term {
                 // If clearing more than one line
                 if self.cursor.point.line > Line(1) {
                     // Fully clear all lines before the current line
-                    for row in &mut self.grid[..self.cursor.point.line] {
+                    for row in self.grid.region_mut(..self.cursor.point.line) {
                         for cell in row {
                             cell.reset(&template);
                         }
