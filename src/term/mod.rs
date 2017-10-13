@@ -24,7 +24,7 @@ use unicode_width::UnicodeWidthChar;
 
 use font::{self, Size};
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed, IndexRegion};
+use grid::{BidirectionalIterator, Grid, ToRange, Indexed, IndexRegion};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{self, Span, Selection};
 use config::{Config, VisualBellAnimation};
@@ -1089,8 +1089,12 @@ impl Term {
         if num_lines > old_lines {
             // Make sure bottom of terminal is clear
             let template = self.cursor.template;
-            self.grid.clear_region((self.cursor.point.line + 1).., |c| c.reset(&template));
-            self.alt_grid.clear_region((self.cursor_save_alt.point.line + 1).., |c| c.reset(&template));
+            self.grid
+                .region_mut((self.cursor.point.line + 1)..)
+                .each(|c| c.reset(&template));
+            self.alt_grid
+                .region_mut((self.cursor_save_alt.point.line + 1)..)
+                .each(|c| c.reset(&template));
         }
 
     }
@@ -1113,7 +1117,7 @@ impl Term {
     pub fn swap_alt(&mut self) {
         if self.alt {
             let template = &self.cursor.template;
-            self.grid.clear(|c| c.reset(template));
+            self.grid.region_mut(..).each(|c| c.reset(template));
         }
 
         self.alt = !self.alt;
@@ -1135,7 +1139,9 @@ impl Term {
         // Clear `lines` lines at bottom of area
         {
             let start = max(origin, Line(self.scroll_region.end.0.saturating_sub(lines.0)));
-            self.grid.clear_region(start..self.scroll_region.end, |c| c.reset(&template));
+            self.grid
+                .region_mut(start..self.scroll_region.end)
+                .each(|c| c.reset(&template));
         }
 
         // Scroll between origin and bottom
@@ -1157,7 +1163,7 @@ impl Term {
         // Clear `lines` lines starting from origin to origin + lines
         {
             let end = min(origin + lines, self.scroll_region.end);
-            self.grid.clear_region(origin..end, |c| c.reset(&template));
+            self.grid.region_mut(origin..end).each(|c| c.reset(&template));
         }
 
         // Scroll from origin to bottom less number of lines
@@ -1172,7 +1178,7 @@ impl Term {
 
         // Clear grid
         let template = self.cursor.template;
-        self.grid.clear(|c| c.reset(&template));
+        self.grid.region_mut(..).each(|c| c.reset(&template));
     }
 
     #[inline]
@@ -1708,25 +1714,19 @@ impl ansi::Handler for Term {
                     cell.reset(&template);
                 }
                 if self.cursor.point.line < self.grid.num_lines() - 1 {
-                    for row in self.grid.region_mut((self.cursor.point.line + 1)..) {
-                        for cell in row {
-                            cell.reset(&template);
-                        }
-                    }
+                    self.grid.region_mut((self.cursor.point.line + 1)..)
+                        .each(|cell| cell.reset(&template));
                 }
             },
             ansi::ClearMode::All => {
-                self.grid.clear(|c| c.reset(&template));
+                self.grid.region_mut(..).each(|c| c.reset(&template));
             },
             ansi::ClearMode::Above => {
                 // If clearing more than one line
                 if self.cursor.point.line > Line(1) {
                     // Fully clear all lines before the current line
-                    for row in self.grid.region_mut(..self.cursor.point.line) {
-                        for cell in row {
-                            cell.reset(&template);
-                        }
-                    }
+                    self.grid.region_mut(..self.cursor.point.line)
+                        .each(|cell| cell.reset(&template));
                 }
                 // Clear up to the current column in the current line
                 let end = min(self.cursor.point.col + 1, self.grid.num_cols());
