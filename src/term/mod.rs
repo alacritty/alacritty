@@ -1299,11 +1299,8 @@ impl ansi::Handler for Term {
         let mut template = self.cursor.template;
         template.c = 'E';
 
-        for row in &mut self.grid.lines_mut() {
-            for cell in row {
-                cell.reset(&template);
-            }
-        }
+        self.grid.region_mut(..)
+            .each(|c| c.reset(&template));
     }
 
     #[inline]
