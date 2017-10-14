@@ -1312,6 +1312,9 @@ pub struct Font {
     #[serde(default="default_bold_desc")]
     pub bold: FontDescription,
 
+    #[serde(default="default_non_ascii_desc")]
+    pub non_ascii: FontDescription,
+
     // Font size in points
     #[serde(deserialize_with="DeserializeFromF32::deserialize_from_f32")]
     pub size: Size,
@@ -1333,6 +1336,10 @@ fn default_bold_desc() -> FontDescription {
 
 fn default_italic_desc() -> FontDescription {
     Font::default().italic
+}
+
+fn default_non_ascii_desc() -> FontDescription {
+    Font::default().non_ascii
 }
 
 /// Description of a single font
@@ -1390,6 +1397,7 @@ impl Default for Font {
             normal: FontDescription::new_with_family("Menlo"),
             bold: FontDescription::new_with_family("Menlo"),
             italic: FontDescription::new_with_family("Menlo"),
+            non_ascii: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
             use_thin_strokes: true,
             offset: Default::default(),
@@ -1405,6 +1413,7 @@ impl Default for Font {
             normal: FontDescription::new_with_family("monospace"),
             bold: FontDescription::new_with_family("monospace"),
             italic: FontDescription::new_with_family("monospace"),
+            non_ascii: FontDescription::new_with_family("monospace"),
             size: Size::new(11.0),
             use_thin_strokes: false,
             offset: Default::default(),
