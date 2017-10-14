@@ -1024,7 +1024,7 @@ impl Term {
         debug!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         // Resize grids to new size
-        let template = self.cursor.template;
+        let template = Cell::default();
         self.grid.resize(num_lines, num_cols, &template);
         self.alt_grid.resize(num_lines, num_cols, &template);
 
