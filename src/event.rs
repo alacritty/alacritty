@@ -107,6 +107,14 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
     }
 
+    fn change_font_size(&mut self, delta: i8) {
+        self.terminal.change_font_size(delta);
+    }
+
+    fn reset_font_size(&mut self) {
+        self.terminal.reset_font_size();
+    }
+
     #[inline]
     fn mouse_mut(&mut self) -> &mut Mouse {
         self.mouse

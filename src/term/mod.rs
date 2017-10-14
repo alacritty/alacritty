@@ -655,6 +655,9 @@ pub struct Term {
     /// Scroll region
     scroll_region: Range<Line>,
 
+    /// Font size modifier
+    pub font_size_modifier: i8,
+
     /// Size
     size_info: SizeInfo,
 
@@ -767,6 +770,7 @@ impl Term {
             grid: grid,
             alt_grid: alt,
             alt: false,
+            font_size_modifier: 0,
             active_charset: Default::default(),
             cursor: Default::default(),
             cursor_save: Default::default(),
@@ -781,6 +785,18 @@ impl Term {
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
             cursor_style: CursorStyle::Block,
         }
+    }
+
+    pub fn change_font_size(&mut self, delta: i8) {
+        if let Some(sum) = self.font_size_modifier.checked_add(delta) {
+            self.font_size_modifier = sum;
+            self.dirty = true;
+        }
+    }
+
+    pub fn reset_font_size(&mut self) {
+        self.font_size_modifier = 0;
+        self.dirty = true;
     }
 
     pub fn update_config(&mut self, config: &Config) {
@@ -965,30 +981,22 @@ impl Term {
     }
 
     /// Resize terminal to new dimensions
-    pub fn resize(&mut self, width: f32, height: f32) {
+    pub fn resize(&mut self, size : &SizeInfo) {
         debug!("Term::resize");
+
         // Bounds check; lots of math assumes width and height are > 0
-        if width as usize <= 2 * self.size_info.padding_x as usize ||
-            height as usize <= 2 * self.size_info.padding_y as usize
+        if size.width as usize <= 2 * self.size_info.padding_x as usize ||
+            size.height as usize <= 2 * self.size_info.padding_y as usize
         {
             return;
         }
-
-        let size = SizeInfo {
-            width: width,
-            height: height,
-            cell_width: self.size_info.cell_width,
-            cell_height: self.size_info.cell_height,
-            padding_x: self.size_info.padding_x,
-            padding_y: self.size_info.padding_y,
-        };
 
         let old_cols = self.grid.num_cols();
         let old_lines = self.grid.num_lines();
         let mut num_cols = size.cols();
         let mut num_lines = size.lines();
 
-        self.size_info = size;
+        self.size_info = *size;
 
         if old_cols == num_cols && old_lines == num_lines {
             debug!("Term::resize dimensions unchanged");

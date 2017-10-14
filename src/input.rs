@@ -62,6 +62,8 @@ pub trait ActionContext {
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
     fn last_modifiers(&mut self) -> &mut ModifiersState;
+    fn change_font_size(&mut self, delta: i8);
+    fn reset_font_size(&mut self);
 }
 
 /// Describes a state and action to take in that state
@@ -154,6 +156,15 @@ pub enum Action {
     /// Paste contents of selection buffer
     PasteSelection,
 
+    /// Increase font size
+    IncreaseFontSize,
+
+    /// Decrease font size
+    DecreaseFontSize,
+
+    /// Reset font size to the config value
+    ResetFontSize,
+
     /// Run given command
     Command(String, Vec<String>),
 
@@ -202,6 +213,15 @@ impl Action {
                 // FIXME should do a more graceful shutdown
                 ::std::process::exit(0);
             },
+            Action::IncreaseFontSize => {
+               ctx.change_font_size(1);
+            },
+            Action::DecreaseFontSize => {
+               ctx.change_font_size(-1);
+            }
+            Action::ResetFontSize => {
+               ctx.reset_font_size();
+            }
         }
     }
 
@@ -592,6 +612,10 @@ mod tests {
         }
         fn last_modifiers(&mut self) -> &mut ModifiersState {
             &mut self.last_modifiers
+        }
+        fn change_font_size(&mut self, _delta: i8) {
+        }
+        fn reset_font_size(&mut self) {
         }
     }
 
