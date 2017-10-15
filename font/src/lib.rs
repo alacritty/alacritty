@@ -172,6 +172,14 @@ impl Size {
     }
 }
 
+impl ::std::ops::Add for Size {
+    type Output = Size;
+
+    fn add(self, other: Size) -> Size {
+        Size(self.0.saturating_add(other.0))
+    }
+}
+
 pub struct RasterizedGlyph {
     pub c: char,
     pub width: i32,

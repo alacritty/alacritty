@@ -15,6 +15,7 @@
 //! Alacritty - The GPU Enhanced Terminal
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 #![cfg_attr(feature = "clippy", feature(plugin))]
+#![feature(alloc_system)] extern crate alloc_system;
 
 #[macro_use]
 extern crate alacritty;
