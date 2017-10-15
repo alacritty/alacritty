@@ -149,11 +149,7 @@ impl ::Rasterize for Rasterizer {
         Ok(font.metrics())
     }
 
-    fn load_font(
-        &mut self,
-        desc: &FontDesc,
-        size: Size
-    ) -> Result<FontKey, Error> {
+    fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
         self.keys
             .get(&(desc.to_owned(), size))
             .map(|k| Ok(*k))
@@ -207,17 +203,6 @@ impl Rasterizer {
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))
     }
 
-    fn get_specific_descriptor(
-        &mut self,
-        desc: &FontDesc,
-        style: &str,
-    ) -> Result<Descriptor, Error> {
-        self.find_descriptor(
-            desc,
-            |descriptor| descriptor.style_name == style,
-        )
-    }
-
     fn get_matching_descriptor(
         &mut self,
         desc: &FontDesc,
@@ -236,7 +221,7 @@ impl Rasterizer {
         self.find_descriptor(
             desc,
             |descriptor| {
-                let font = descriptor.to_font(scaled_size, None);
+                let font = descriptor.to_font(scaled_size);
                 font.is_bold() == bold && font.is_italic() == italic
             },
         )
@@ -245,7 +230,7 @@ impl Rasterizer {
     fn get_descriptor(&mut self, desc: &FontDesc, scaled_size: f64) -> Result<Descriptor, Error> {
         match desc.style {
             Style::Specific(ref style) =>
-                self.get_specific_descriptor(desc, style),
+                self.find_descriptor(desc, |descriptor| &descriptor.style_name == style),
             Style::Description { slant, weight } =>
                 self.get_matching_descriptor(desc, slant, weight, scaled_size),
         }
@@ -277,15 +262,12 @@ impl Rasterizer {
                      println!("{}", desc.font_name);
                      desc
                  })
-                 .map(|desc| desc.to_font(scaled_size, None))
+                 .map(|desc| desc.to_font(scaled_size))
                  .collect()
             )
     }
 
-    fn get_modified_fallbacks(
-        &mut self,
-        scaled_size: f64,
-    ) -> Result<Vec<Font>, Error> {
+    fn get_modified_fallbacks(&mut self, scaled_size: f64,) -> Result<Vec<Font>, Error> {
 
         let mut fallbacks = self.get_fallbacks(scaled_size)?;
 
@@ -293,7 +275,7 @@ impl Rasterizer {
             let fallback_style =
                 Style::Description {slant:Slant::Normal, weight:Weight::Normal};
             let d = FontDesc::new(name, fallback_style);
-            Ok(self.get_descriptor(&d, scaled_size)?.to_font(scaled_size, None))
+            Ok(self.get_descriptor(&d, scaled_size)?.to_font(scaled_size))
         };
 
         // Insert Menlo first before the fallbacks (that are based on Menlo).
@@ -307,17 +289,13 @@ impl Rasterizer {
         Ok(fallbacks)
     }
 
-    fn get_font(
-        &mut self,
-        desc: &FontDesc,
-        size: Size,
-    ) -> Result<Font, Error> {
+    fn get_font(&mut self, desc: &FontDesc, size: Size,) -> Result<Font, Error> {
         let scaled_size = size.as_f32_pts() as f64 * self.device_pixel_ratio as f64;
         let fallbacks = self.get_modified_fallbacks(scaled_size)?;
         self.get_descriptor(desc, scaled_size)
-        .map(|descriptor| {
-            descriptor.to_font(scaled_size, Some(fallbacks))
-        })
+            .map(|descriptor| {
+                descriptor.to_font_with_fallbacks(scaled_size, fallbacks)
+            })
     }
 
     // Helper to try and get a glyph for a given font. Used for font fallback.
@@ -428,14 +406,18 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
 
 impl Descriptor {
     /// Create a Font from this descriptor
-    pub fn to_font(&self, size: f64, fallbacks:Option<Vec<Font>>) -> Font {
+    pub fn to_font(&self, size: f64) -> Font {
+        self.to_font_with_fallbacks(size, vec![])
+    }
+
+    pub fn to_font_with_fallbacks(&self, size: f64, fallbacks:Vec<Font>) -> Font {
         let ct_font = ct_new_from_descriptor(&self.ct_descriptor, size);
         let cg_font = ct_font.copy_to_CGFont();
 
         Font {
-            ct_font: ct_font,
-            cg_font: cg_font,
-            fallbacks: fallbacks.unwrap_or_else(|| vec![]),
+            ct_font,
+            cg_font,
+            fallbacks,
         }
     }
 }
@@ -585,6 +567,7 @@ impl Font {
         // and use the utf-16 buffer to get the index
         self.glyph_index_utf16(encoded)
     }
+
     fn glyph_index_utf16(&self, encoded: &[u16]) -> Option<u32> {
 
         // output buffer for the glyph. for non-BMP glyphs, like
@@ -623,7 +606,7 @@ mod tests {
 
         // Check to_font
         let fonts = list.iter()
-                        .map(|desc| desc.to_font(72., false))
+                        .map(|desc| desc.to_font(72.))
                         .collect::<Vec<_>>();
 
         for font in fonts {
