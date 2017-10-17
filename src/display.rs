@@ -247,8 +247,8 @@ impl Display {
         });
 
         let metrics = cache.font_metrics();
-        self.size_info.cell_width = (metrics.average_advance + config.font().offset().x as f64) as f32;
-        self.size_info.cell_height = (metrics.line_height + config.font().offset().y as f64) as f32;
+        self.size_info.cell_width = ((metrics.average_advance + config.font().offset().x as f64) as f32).floor();
+        self.size_info.cell_height = ((metrics.line_height + config.font().offset().y as f64) as f32).floor();
     }
 
     #[inline]
