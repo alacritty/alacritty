@@ -1316,6 +1316,10 @@ pub struct Font {
     #[serde(deserialize_with="DeserializeFromF32::deserialize_from_f32")]
     pub size: Size,
 
+    // Fallback Font size in points
+    #[serde(deserialize_with="DeserializeFromF32::deserialize_from_f32")]
+    pub fallback_size: Size,
+
     /// Extra spacing per character
     offset: Delta,
 
@@ -1358,6 +1362,12 @@ impl Font {
         self.size
     }
 
+    /// Get the fallback font size in points
+    #[inline]
+    pub fn fallback_size(&self) -> Size {
+        self.fallback_size
+    }
+
     /// Get offsets to font metrics
     #[inline]
     pub fn offset(&self) -> &Delta {
@@ -1373,11 +1383,16 @@ impl Font {
     /// Get a font clone with a size modification
     pub fn with_size_delta(self, delta: f32) -> Font {
         let mut new_size = self.size.as_f32_pts() + delta;
+        let mut new_fallback_size = self.fallback_size.as_f32_pts() + delta;
         if new_size < 1.0 {
             new_size = 1.0;
         }
+        if new_fallback_size < 1.0 {
+            new_fallback_size = 1.0;
+        }
         Font {
             size : Size::new(new_size),
+            fallback_size : Size::new(new_fallback_size),
             .. self
         }
     }
@@ -1391,6 +1406,7 @@ impl Default for Font {
             bold: FontDescription::new_with_family("Menlo"),
             italic: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
+            fallback_size: Size::new(11.0),
             use_thin_strokes: true,
             offset: Default::default(),
             glyph_offset: Default::default()
@@ -1406,6 +1422,7 @@ impl Default for Font {
             bold: FontDescription::new_with_family("monospace"),
             italic: FontDescription::new_with_family("monospace"),
             size: Size::new(11.0),
+            fallback_size: Size::new(11.0),
             use_thin_strokes: false,
             offset: Default::default(),
             glyph_offset: Default::default()

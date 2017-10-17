@@ -149,12 +149,12 @@ impl ::Rasterize for Rasterizer {
         Ok(font.metrics())
     }
 
-    fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
+    fn load_font(&mut self, desc: &FontDesc, size: Size, fallback_size: Size) -> Result<FontKey, Error> {
         self.keys
             .get(&(desc.to_owned(), size))
             .map(|k| Ok(*k))
             .unwrap_or_else(|| {
-                let font = self.get_font(desc, size)?;
+                let font = self.get_font(desc, size, fallback_size)?;
 
                 let key = FontKey::next();
 
@@ -289,9 +289,11 @@ impl Rasterizer {
         Ok(fallbacks)
     }
 
-    fn get_font(&mut self, desc: &FontDesc, size: Size,) -> Result<Font, Error> {
+    fn get_font(&mut self, desc: &FontDesc, size: Size, fallback_size: Size) -> Result<Font, Error> {
         let scaled_size = size.as_f32_pts() as f64 * self.device_pixel_ratio as f64;
-        let fallbacks = self.get_modified_fallbacks(scaled_size)?;
+        let fallback_scaled_size = fallback_size.as_f32_pts() as f64 * self.device_pixel_ratio as f64;
+
+        let fallbacks = self.get_modified_fallbacks(fallback_scaled_size)?;
         self.get_descriptor(desc, scaled_size)
             .map(|descriptor| {
                 descriptor.to_font_with_fallbacks(scaled_size, fallbacks)

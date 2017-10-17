@@ -227,19 +227,20 @@ impl GlyphCache {
         rasterizer: &mut Rasterizer
     ) -> Result<(FontKey, FontKey, FontKey), font::Error> {
         let size = font.size();
+        let fallback_size = font.fallback_size();
 
         // Load regular font
         let regular_desc = Self::make_desc(&font.normal, font::Slant::Normal, font::Weight::Normal);
 
         let regular = rasterizer
-            .load_font(&regular_desc, size)?;
+            .load_font(&regular_desc, size, fallback_size)?;
 
         // helper to load a description if it is not the regular_desc
         let mut load_or_regular = |desc:FontDesc| {
             if desc == regular_desc {
                 regular
             } else {
-                rasterizer.load_font(&desc, size).unwrap_or_else(|_| regular)
+                rasterizer.load_font(&desc, size, fallback_size).unwrap_or_else(|_| regular)
             }
         };
 
@@ -307,6 +308,7 @@ impl GlyphCache {
         // Recompute font keys
         let font = font.to_owned().with_size_delta(delta as _);
         println!("{:?}", font.size);
+        println!("{:?}", font.fallback_size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
         self.rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular)?;
