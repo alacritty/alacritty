@@ -14,7 +14,7 @@
 #version 330 core
 in vec2 TexCoords;
 in vec3 fg;
-in vec3 bg;
+in vec4 bg;
 flat in float vb;
 flat in int background;
 
@@ -27,8 +27,11 @@ uniform sampler2D mask;
 void main()
 {
     if (background != 0) {
+        if (bg.a == 0.0)
+            discard;
+
         alphaMask = vec4(1.0);
-        color = vec4(bg + vb, 1.0) * bgOpacity;
+        color = vec4(bg.rgb + vb, 1.0);
     } else {
         vec3 textColor = texture(mask, TexCoords).rgb;
         alphaMask = vec4(textColor, textColor.r);

@@ -102,6 +102,7 @@ pub struct RenderableCellsIter<'a> {
     colors: &'a color::List,
     selection: Option<RangeInclusive<index::Linear>>,
     cursor_cells: ArrayDeque<[Indexed<Cell>; 3]>,
+    bg_color: Rgb,
 }
 
 impl<'a> RenderableCellsIter<'a> {
@@ -117,6 +118,7 @@ impl<'a> RenderableCellsIter<'a> {
         config: &'b Config,
         selection: Option<RangeInclusive<index::Linear>>,
         cursor_style: CursorStyle,
+        bg_color: Rgb,
     ) -> RenderableCellsIter<'b> {
         let cursor_index = Linear(cursor.line.0 * grid.num_cols().0 + cursor.col.0);
 
@@ -131,6 +133,7 @@ impl<'a> RenderableCellsIter<'a> {
             config: config,
             colors: colors,
             cursor_cells: ArrayDeque::new(),
+            bg_color: bg_color,
         }.initialize(cursor_style)
     }
 
@@ -314,6 +317,7 @@ pub struct RenderableCell {
     pub c: char,
     pub fg: Rgb,
     pub bg: Rgb,
+    pub bg_alpha: f32,
     pub flags: cell::Flags,
 }
 
@@ -369,6 +373,14 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     (self.compute_fg_rgb(&cell.fg, &cell), self.compute_bg_rgb(&cell.bg))
                 };
 
+                let bg_alpha = if bg == self.bg_color {
+                    // Don't draw background when it matches default background
+                    0.0
+                } else {
+                    // Otherwise, make it fully opaque.
+                    1.0
+                };
+
                 return Some(RenderableCell {
                     line: line,
                     column: column,
@@ -376,6 +388,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     c: cell.c,
                     fg: fg,
                     bg: bg,
+                    bg_alpha: bg_alpha,
                 })
             }
 
@@ -976,7 +989,8 @@ impl Term {
             self.mode,
             config,
             selection,
-            self.cursor_style
+            self.cursor_style,
+            self.colors[NamedColor::Background],
         )
     }
 
