@@ -1454,12 +1454,16 @@ impl Monitor {
                 let config_path = ::std::fs::canonicalize(path)
                     .expect("canonicalize config path");
 
-                watcher.watch(&config_path, RecursiveMode::NonRecursive).expect("watch alacritty yml");
+                // Get directory of config
+                let mut parent = config_path.clone();
+                parent.pop();
+
+                // Watch directory
+                watcher.watch(&parent, RecursiveMode::NonRecursive)
+                    .expect("watch alacritty.yml dir");
 
                 loop {
-                    let event = rx.recv().expect("watcher event");
-
-                    match event {
+                    match rx.recv().expect("watcher event") {
                         DebouncedEvent::Rename(_, _) => continue,
                         DebouncedEvent::Write(path) | DebouncedEvent::Create(path)
                          | DebouncedEvent::Chmod(path) => {
