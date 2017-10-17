@@ -328,7 +328,7 @@ impl Default for Config {
             visual_bell: Default::default(),
             env: Default::default(),
             hide_cursor_when_typing: Default::default(),
-            live_config_reload: Default::default(),
+            live_config_reload: true,
             padding: default_padding(),
         }
     }
