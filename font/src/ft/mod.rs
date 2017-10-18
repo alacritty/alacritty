@@ -104,7 +104,12 @@ impl ::Rasterize for FreeTypeRasterizer {
         })
     }
 
-    fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
+    fn load_font(
+        &mut self,
+        desc: &FontDesc,
+        size: Size,
+        _fallback_size: Size
+    ) -> Result<FontKey, Error> {
         self.get_face(desc, size)
     }
 
