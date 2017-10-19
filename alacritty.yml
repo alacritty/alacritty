@@ -15,6 +15,7 @@ env:
   TERM: xterm-256color
 
 # Window dimensions in character columns and lines
+# Falls back to size specified by window manager if set to 0x0.
 # (changes require restart)
 dimensions:
   columns: 80

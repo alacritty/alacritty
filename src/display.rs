@@ -139,33 +139,38 @@ impl Display {
         // Create the window where Alacritty will be displayed
         let mut window = Window::new(&options.title)?;
 
-        // get window properties for initializing the other subsystems
-        let size = window.inner_size_pixels()
+        // get window properties for initializing the other subsytems
+        let mut viewport_size = window.inner_size_pixels()
             .expect("glutin returns window size");
         let dpr = window.hidpi_factor();
 
         info!("device_pixel_ratio: {}", dpr);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(&config, size)?;
+        let mut renderer = QuadRenderer::new(&config, viewport_size)?;
 
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(&window, &mut renderer, config, 0)?;
 
-        // Resize window to specified dimensions
+
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
-        let width = cell_width as u32 * dimensions.columns_u32();
-        let height = cell_height as u32 * dimensions.lines_u32();
-        let size = Size { width: Pixels(width), height: Pixels(height) };
-        info!("set_inner_size: {}", size);
+        
+        // Resize window to specified dimensions unless one or both dimensions are 0
+        if dimensions.columns_u32() > 0 && dimensions.lines_u32() > 0 {
+            let width = cell_width as u32 * dimensions.columns_u32();
+            let height = cell_height as u32 * dimensions.lines_u32();
+            
+            let new_viewport_size = Size {
+                width: Pixels(width + 2 * config.padding().x as u32),
+                height: Pixels(height + 2 * config.padding().y as u32),
+            };
+            
+            window.set_inner_size(&new_viewport_size);
+            renderer.resize(new_viewport_size.width.0 as _, new_viewport_size.height.0 as _);
+            viewport_size = new_viewport_size
+        }
 
-        let viewport_size = Size {
-            width: Pixels(width + 2 * config.padding().x as u32),
-            height: Pixels(height + 2 * config.padding().y as u32),
-        };
-        window.set_inner_size(&viewport_size);
-        renderer.resize(viewport_size.width.0 as _, viewport_size.height.0 as _);
         info!("Cell Size: ({} x {})", cell_width, cell_height);
 
         let size_info = SizeInfo {
