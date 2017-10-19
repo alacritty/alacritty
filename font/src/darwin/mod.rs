@@ -38,9 +38,7 @@ use core_text::font_descriptor::kCTFontVerticalOrientation;
 use core_text::font_descriptor::{CTFontDescriptor, CTFontDescriptorRef, CTFontOrientation};
 use core_text::font_descriptor::SymbolicTraitAccessors;
 
-use euclid::point::Point2D;
-use euclid::rect::Rect;
-use euclid::size::Size2D;
+use euclid::{Point2D, Rect, Size2D};
 
 use super::{FontDesc, RasterizedGlyph, Metrics, FontKey, GlyphKey};
 
@@ -309,7 +307,7 @@ fn cascade_list_for_languages(
 ) -> Vec<Descriptor> {
 
     // convert language type &Vec<String> -> CFArray
-    let langarr:CFArray = {
+    let langarr:CFArray<CFString> = {
         let tmp:Vec<CFString> = languages.iter()
             .map(|language| CFString::new(&language))
             .collect();
@@ -317,7 +315,7 @@ fn cascade_list_for_languages(
     };
 
     // CFArray of CTFontDescriptorRef (again)
-    let list = ct_cascade_list_for_languages(ct_font, &langarr);
+    let list = ct_cascade_list_for_languages(ct_font, &langarr.as_untyped());
 
     // convert CFArray to Vec<Descriptor>
     list.into_iter()
