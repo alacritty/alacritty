@@ -6,7 +6,7 @@ description = "Font rendering using the best available solution per platform"
 license = "Apache-2.0"
 
 [dependencies]
-euclid = "0.13"
+euclid = "0.16"
 libc = "0.2"
 foreign-types = "0.3"
 log = "0.3"
