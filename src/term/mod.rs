@@ -102,7 +102,6 @@ pub struct RenderableCellsIter<'a> {
     colors: &'a color::List,
     selection: Option<RangeInclusive<index::Linear>>,
     cursor_cells: ArrayDeque<[Indexed<Cell>; 3]>,
-    bg_color: Rgb,
 }
 
 impl<'a> RenderableCellsIter<'a> {
@@ -118,7 +117,6 @@ impl<'a> RenderableCellsIter<'a> {
         config: &'b Config,
         selection: Option<RangeInclusive<index::Linear>>,
         cursor_style: CursorStyle,
-        bg_color: Rgb,
     ) -> RenderableCellsIter<'b> {
         let cursor_index = Linear(cursor.line.0 * grid.num_cols().0 + cursor.col.0);
 
@@ -133,7 +131,6 @@ impl<'a> RenderableCellsIter<'a> {
             config: config,
             colors: colors,
             cursor_cells: ArrayDeque::new(),
-            bg_color: bg_color,
         }.initialize(cursor_style)
     }
 
@@ -302,6 +299,14 @@ impl<'a> RenderableCellsIter<'a> {
         }
     }
 
+    #[inline]
+    fn compute_bg_alpha(&self, bg: &Color) -> f32 {
+        match *bg {
+            Color::Named(NamedColor::Background) => 0.0,
+            _ => 1.0
+        }
+    }
+
     fn compute_bg_rgb(&self, bg: &Color) -> Rgb {
         match *bg {
             Color::Spec(rgb) => rgb,
@@ -367,18 +372,19 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 };
 
                 // Apply inversion and lookup RGB values
-                let (fg, bg) = if selected || cell.inverse() {
-                    (self.compute_bg_rgb(&cell.bg), self.compute_fg_rgb(&cell.fg, &cell))
+                let (fg, bg, bg_alpha) = if selected || cell.inverse() {
+                    // Swap fg and bg
+                    (
+                        self.compute_bg_rgb(&cell.bg),
+                        self.compute_fg_rgb(&cell.fg, &cell),
+                        self.compute_bg_alpha(&cell.fg),
+                    )
                 } else {
-                    (self.compute_fg_rgb(&cell.fg, &cell), self.compute_bg_rgb(&cell.bg))
-                };
-
-                let bg_alpha = if bg == self.bg_color {
-                    // Don't draw background when it matches default background
-                    0.0
-                } else {
-                    // Otherwise, make it fully opaque.
-                    1.0
+                    (
+                        self.compute_fg_rgb(&cell.fg, &cell),
+                        self.compute_bg_rgb(&cell.bg),
+                        self.compute_bg_alpha(&cell.bg),
+                    )
                 };
 
                 return Some(RenderableCell {
@@ -990,7 +996,6 @@ impl Term {
             config,
             selection,
             self.cursor_style,
-            self.colors[NamedColor::Background],
         )
     }
 
