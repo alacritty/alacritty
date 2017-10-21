@@ -322,6 +322,14 @@ impl Display {
             self.window.set_title(&title);
         }
 
+        if let Some(is_urgent) = terminal.next_is_urgent.take() {
+            // We don't need to set the urgent flag if we already have the
+            // user's attention.
+            if !is_urgent || !self.window.is_focused {
+                self.window.set_urgent(is_urgent);
+            }
+        }
+
         let size_info = *terminal.size_info();
         let visual_bell_intensity = terminal.visual_bell.intensity();
 

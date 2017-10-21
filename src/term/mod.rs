@@ -689,6 +689,7 @@ pub struct Term {
     pub dirty: bool,
 
     pub visual_bell: VisualBell,
+    pub next_is_urgent: Option<bool>,
 
     /// Saved cursor from main grid
     cursor_save: Cursor,
@@ -791,6 +792,7 @@ impl Term {
             next_title: None,
             dirty: false,
             visual_bell: VisualBell::new(config),
+            next_is_urgent: None,
             input_needs_wrap: false,
             grid: grid,
             alt_grid: alt,
@@ -1459,6 +1461,7 @@ impl ansi::Handler for Term {
     fn bell(&mut self) {
         trace!("bell");
         self.visual_bell.ring();
+        self.next_is_urgent = Some(true);
     }
 
     #[inline]
