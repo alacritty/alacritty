@@ -26,11 +26,11 @@ layout (location = 3) in vec4 uv;
 // text fg color
 layout (location = 4) in vec3 textColor;
 // Background color
-layout (location = 5) in vec3 backgroundColor;
+layout (location = 5) in vec4 backgroundColor;
 
 out vec2 TexCoords;
 out vec3 fg;
-out vec3 bg;
+out vec4 bg;
 
 // Terminal properties
 uniform vec2 termDim;
@@ -63,7 +63,6 @@ void main()
         gl_Position = projection * vec4(finalPosition.xy, 0.0, 1.0);
         TexCoords = vec2(0, 0);
     } else {
-
         // Glyphs are offset within their cell; account for y-flip
         vec2 cellOffset = vec2(glyphOffset.x, glyphOffset.y - glyphSize.y);
 
@@ -76,6 +75,6 @@ void main()
 
     vb = visualBell;
     background = backgroundPass;
-    bg = backgroundColor / vec3(255.0, 255.0, 255.0);
+    bg = vec4(backgroundColor.rgb / 255.0, backgroundColor.a);
     fg = textColor / vec3(255.0, 255.0, 255.0);
 }

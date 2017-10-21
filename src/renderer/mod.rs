@@ -125,8 +125,6 @@ pub struct ShaderProgram {
 
     padding_x: f32,
     padding_y: f32,
-
-    u_bg_opacity: GLint,
 }
 
 
@@ -351,6 +349,7 @@ struct InstanceData {
     bg_r: f32,
     bg_g: f32,
     bg_b: f32,
+    bg_a: f32,
 }
 
 #[derive(Debug)]
@@ -436,6 +435,7 @@ impl Batch {
             bg_r: cell.bg.r as f32,
             bg_g: cell.bg.g as f32,
             bg_b: cell.bg.b as f32,
+            bg_a: cell.bg_alpha,
         });
     }
 
@@ -568,7 +568,7 @@ impl QuadRenderer {
             gl::EnableVertexAttribArray(4);
             gl::VertexAttribDivisor(4, 1);
             // color
-            gl::VertexAttribPointer(5, 3,
+            gl::VertexAttribPointer(5, 4,
                                     gl::FLOAT, gl::FALSE,
                                     size_of::<InstanceData>() as i32,
                                     (13 * size_of::<f32>()) as *const _);
@@ -648,7 +648,6 @@ impl QuadRenderer {
             self.program.activate();
             self.program.set_term_uniforms(props);
             self.program.set_visual_bell(visual_bell_intensity as _);
-            self.program.set_bg_opacity(config.background_opacity().get());
 
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
@@ -692,17 +691,22 @@ impl QuadRenderer {
     }
 
     pub fn reload_shaders(&mut self, config: &Config, size: Size<Pixels<u32>>) {
-        info!("Reloading shaders");
+        warn!("Reloading shaders ...");
         let program = match ShaderProgram::new(config, size) {
-            Ok(program) => program,
+            Ok(program) => {
+                warn!(" ... OK");
+                program
+            },
             Err(err) => {
                 match err {
                     ShaderCreationError::Io(err) => {
                         error!("Error reading shader file: {}", err);
                     },
                     ShaderCreationError::Compile(path, log) => {
-                        error!("Error compiling shader at {:?}", path);
-                        let _ = io::copy(&mut log.as_bytes(), &mut io::stdout());
+                        error!("Error compiling shader at {:?}\n{}", path, log);
+                    }
+                    ShaderCreationError::Link(log) => {
+                        error!("Error reloading shaders: {}", log);
                     }
                 }
 
@@ -791,6 +795,7 @@ impl<'a> RenderApi<'a> {
                 bg: color,
                 fg: Rgb { r: 0, g: 0, b: 0 },
                 flags: cell::Flags::empty(),
+                bg_alpha: 1.0
             })
             .collect::<Vec<_>>();
 
@@ -957,7 +962,7 @@ impl ShaderProgram {
             gl::FRAGMENT_SHADER,
             frag_source
         )?;
-        let program = ShaderProgram::create_program(vertex_shader, fragment_shader);
+        let program = ShaderProgram::create_program(vertex_shader, fragment_shader)?;
 
         unsafe {
             gl::DeleteShader(vertex_shader);
@@ -980,14 +985,13 @@ impl ShaderProgram {
         }
 
         // get uniform locations
-        let (projection, term_dim, cell_dim, visual_bell, background, bg_opacity) = unsafe {
+        let (projection, term_dim, cell_dim, visual_bell, background) = unsafe {
             (
                 gl::GetUniformLocation(program, cptr!(b"projection\0")),
                 gl::GetUniformLocation(program, cptr!(b"termDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"cellDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"visualBell\0")),
                 gl::GetUniformLocation(program, cptr!(b"backgroundPass\0")),
-                gl::GetUniformLocation(program, cptr!(b"bgOpacity\0")),
             )
         };
 
@@ -1002,7 +1006,6 @@ impl ShaderProgram {
             u_background: background,
             padding_x: config.padding().x.floor(),
             padding_y: config.padding().y.floor(),
-            u_bg_opacity: bg_opacity,
         };
 
         shader.update_projection(*size.width as f32, *size.height as f32);
@@ -1063,13 +1066,7 @@ impl ShaderProgram {
         }
     }
 
-    fn set_bg_opacity(&self, bg_opacity: f32) {
-        unsafe {
-            gl::Uniform1f(self.u_bg_opacity, bg_opacity);
-        }
-    }
-
-    fn create_program(vertex: GLuint, fragment: GLuint) -> GLuint {
+    fn create_program(vertex: GLuint, fragment: GLuint) -> Result<GLuint, ShaderCreationError> {
         unsafe {
             let program = gl::CreateProgram();
             gl::AttachShader(program, vertex);
@@ -1080,10 +1077,10 @@ impl ShaderProgram {
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
 
             if success != (gl::TRUE as GLint) {
-                error!("{}", get_program_info_log(program));
-                panic!("failed to link shader program");
+                Err(ShaderCreationError::Link(get_program_info_log(program)))
+            } else {
+                Ok(program)
             }
-            program
         }
     }
 
@@ -1198,13 +1195,16 @@ pub enum ShaderCreationError {
 
     /// Error compiling shader
     Compile(PathBuf, String),
+
+    /// Problem linking
+    Link(String),
 }
 
 impl ::std::error::Error for ShaderCreationError {
     fn cause(&self) -> Option<&::std::error::Error> {
         match *self {
             ShaderCreationError::Io(ref err) => Some(err),
-            ShaderCreationError::Compile(_, _) => None,
+            _ => None,
         }
     }
 
@@ -1212,6 +1212,7 @@ impl ::std::error::Error for ShaderCreationError {
         match *self {
             ShaderCreationError::Io(ref err) => err.description(),
             ShaderCreationError::Compile(ref _path, ref s) => s.as_str(),
+            ShaderCreationError::Link(ref s) => s.as_str(),
         }
     }
 }
@@ -1222,6 +1223,9 @@ impl ::std::fmt::Display for ShaderCreationError {
             ShaderCreationError::Io(ref err) => write!(f, "couldn't read shader: {}", err),
             ShaderCreationError::Compile(ref _path, ref s) => {
                 write!(f, "failed compiling shader: {}", s)
+            },
+            ShaderCreationError::Link(ref s) => {
+                write!(f, "failed linking shader: {}", s)
             },
         }
     }

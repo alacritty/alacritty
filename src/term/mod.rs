@@ -299,6 +299,14 @@ impl<'a> RenderableCellsIter<'a> {
         }
     }
 
+    #[inline]
+    fn compute_bg_alpha(&self, bg: &Color) -> f32 {
+        match *bg {
+            Color::Named(NamedColor::Background) => 0.0,
+            _ => 1.0
+        }
+    }
+
     fn compute_bg_rgb(&self, bg: &Color) -> Rgb {
         match *bg {
             Color::Spec(rgb) => rgb,
@@ -314,6 +322,7 @@ pub struct RenderableCell {
     pub c: char,
     pub fg: Rgb,
     pub bg: Rgb,
+    pub bg_alpha: f32,
     pub flags: cell::Flags,
 }
 
@@ -363,19 +372,35 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 };
 
                 // Apply inversion and lookup RGB values
-                let (fg, bg) = if selected || cell.inverse() {
-                    (self.compute_bg_rgb(&cell.bg), self.compute_fg_rgb(&cell.fg, &cell))
+                let mut bg_alpha = 1.0;
+                let fg_rgb;
+                let bg_rgb;
+
+                let invert = selected ^ cell.inverse();
+
+                if invert {
+                    if cell.fg == cell.bg {
+                        bg_rgb = self.colors[NamedColor::Foreground];
+                        fg_rgb = self.colors[NamedColor::Background];
+                        bg_alpha = 1.0
+                    } else {
+                        bg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
+                        fg_rgb = self.compute_bg_rgb(&cell.bg);
+                    }
                 } else {
-                    (self.compute_fg_rgb(&cell.fg, &cell), self.compute_bg_rgb(&cell.bg))
-                };
+                    fg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
+                    bg_rgb = self.compute_bg_rgb(&cell.bg);
+                    bg_alpha = self.compute_bg_alpha(&cell.bg);
+                }
 
                 return Some(RenderableCell {
                     line: line,
                     column: column,
                     flags: cell.flags,
                     c: cell.c,
-                    fg: fg,
-                    bg: bg,
+                    fg: fg_rgb,
+                    bg: bg_rgb,
+                    bg_alpha: bg_alpha,
                 })
             }
 
@@ -976,7 +1001,7 @@ impl Term {
             self.mode,
             config,
             selection,
-            self.cursor_style
+            self.cursor_style,
         )
     }
 

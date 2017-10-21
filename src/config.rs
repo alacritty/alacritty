@@ -186,6 +186,7 @@ impl Alpha {
         self.0 = Self::clamp_to_valid_range(value);
     }
 
+    #[inline(always)]
     pub fn get(&self) -> f32 {
         self.0
     }
@@ -1093,6 +1094,7 @@ impl Config {
         &self.colors
     }
 
+    #[inline]
     pub fn background_opacity(&self) -> Alpha {
         self.background_opacity
     }
