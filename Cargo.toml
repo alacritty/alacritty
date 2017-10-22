@@ -41,10 +41,9 @@ env_logger = "0.4"
 x11-dl = "2"
 
 [features]
-default = ["err-println"]
+default = []
 # Enabling this feature makes shaders automatically reload when changed
 live-shader-reload = []
-err-println = []
 nightly = []
 bench = []
 
