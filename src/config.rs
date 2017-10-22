@@ -467,7 +467,7 @@ impl<'a> de::Deserialize<'a> for ModeWrapper {
                         "~AppCursor" => res.not_mode |= mode::APP_CURSOR,
                         "AppKeypad" => res.mode |= mode::APP_KEYPAD,
                         "~AppKeypad" => res.not_mode |= mode::APP_KEYPAD,
-                        _ => eprintln!("unknown omde {:?}", modifier),
+                        _ => eprintln!("unknown mode {:?}", modifier),
                     }
                 }
 
