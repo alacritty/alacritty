@@ -68,7 +68,7 @@ fn load_config(options: &cli::Options) -> Config {
                 die!("Config file not found at: {}", config_path.display());
             },
             config::Error::Empty => {
-                err_println!("Empty config; Loading defaults");
+                eprintln!("Empty config; Loading defaults");
                 Config::default()
             },
             _ => die!("{}", err),
@@ -85,6 +85,9 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     logging::initialize(&options)?;
 
     info!("Welcome to Alacritty.");
+    config.path().map(|config_path| {
+        info!("Configuration loaded from {}", config_path.display());
+    });
 
     // Create a display.
     //
@@ -122,7 +125,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // synchronized since the I/O loop updates the state, and the display
     // consumes it periodically.
     let event_loop = EventLoop::new(
-        terminal.clone(),
+        Arc::clone(&terminal),
         display.notifier(),
         pty.reader(),
         options.ref_test,
@@ -185,7 +188,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
-            display.handle_resize(&mut terminal, &mut [&mut pty, &mut processor]);
+            display.handle_resize(&mut terminal, &config, &mut [&mut pty, &mut processor]);
 
             // Draw the current state of the terminal
             display.draw(terminal, &config, processor.selection.as_ref());

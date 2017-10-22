@@ -79,7 +79,7 @@ impl Default for Mouse {
     }
 }
 
-/// VisulBellAnimations are modeled after a subset of CSS transitions and Robert
+/// `VisualBellAnimations` are modeled after a subset of CSS transitions and Robert
 /// Penner's Easing Functions.
 #[derive(Clone, Copy, Debug, Deserialize)]
 pub enum VisualBellAnimation {
@@ -186,6 +186,7 @@ impl Alpha {
         self.0 = Self::clamp_to_valid_range(value);
     }
 
+    #[inline(always)]
     pub fn get(&self) -> f32 {
         self.0
     }
@@ -221,10 +222,6 @@ pub struct Config {
     /// Pixel padding
     #[serde(default="default_padding")]
     padding: Delta,
-
-    /// Pixels per inch
-    #[serde(default)]
-    dpi: Dpi,
 
     /// Font configuration
     #[serde(default)]
@@ -318,7 +315,6 @@ impl Default for Config {
         Config {
             draw_bold_text_with_bright_colors: true,
             dimensions: Default::default(),
-            dpi: Default::default(),
             font: Default::default(),
             render_timer: Default::default(),
             custom_cursor_colors: false,
@@ -333,7 +329,7 @@ impl Default for Config {
             visual_bell: Default::default(),
             env: Default::default(),
             hide_cursor_when_typing: Default::default(),
-            live_config_reload: Default::default(),
+            live_config_reload: true,
             padding: default_padding(),
         }
     }
@@ -374,7 +370,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
                         "Shift" => res.shift = true,
                         "Alt" | "Option" => res.alt = true,
                         "Control" => res.ctrl = true,
-                        _ => err_println!("unknown modifier {:?}", modifier),
+                        _ => eprintln!("unknown modifier {:?}", modifier),
                     }
                 }
 
@@ -404,7 +400,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
             type Value = ActionWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                f.write_str("Paste, Copy, PasteSelection, or Quit")
+                f.write_str("Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, ResetFontSize, or Quit")
             }
 
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<ActionWrapper, E>
@@ -414,6 +410,9 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Paste" => Action::Paste,
                     "Copy" => Action::Copy,
                     "PasteSelection" => Action::PasteSelection,
+                    "IncreaseFontSize" => Action::IncreaseFontSize,
+                    "DecreaseFontSize" => Action::DecreaseFontSize,
+                    "ResetFontSize" => Action::ResetFontSize,
                     "Quit" => Action::Quit,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
@@ -468,7 +467,7 @@ impl<'a> de::Deserialize<'a> for ModeWrapper {
                         "~AppCursor" => res.not_mode |= mode::APP_CURSOR,
                         "AppKeypad" => res.mode |= mode::APP_KEYPAD,
                         "~AppKeypad" => res.not_mode |= mode::APP_KEYPAD,
-                        _ => err_println!("unknown omde {:?}", modifier),
+                        _ => eprintln!("unknown mode {:?}", modifier),
                     }
                 }
 
@@ -970,8 +969,11 @@ impl FromStr for Rgb {
             }
         }
 
-        if chars.next().unwrap() != '0' { return Err(()); }
-        if chars.next().unwrap() != 'x' { return Err(()); }
+        match chars.next().unwrap() {
+            '0' => if chars.next().unwrap() != 'x' { return Err(()); },
+            '#' => (),
+            _ => return Err(()),
+        }
 
         component!(r, g, b);
 
@@ -1092,6 +1094,7 @@ impl Config {
         &self.colors
     }
 
+    #[inline]
     pub fn background_opacity(&self) -> Alpha {
         self.background_opacity
     }
@@ -1131,12 +1134,6 @@ impl Config {
     #[inline]
     pub fn dimensions(&self) -> Dimensions {
         self.dimensions
-    }
-
-    /// Get dpi config
-    #[inline]
-    pub fn dpi(&self) -> &Dpi {
-        &self.dpi
     }
 
     /// Get visual bell config
@@ -1248,38 +1245,6 @@ impl Dimensions {
     }
 }
 
-/// Pixels per inch
-///
-/// This is only used on `FreeType` systems
-#[derive(Debug, Deserialize)]
-pub struct Dpi {
-    /// Horizontal dpi
-    x: f32,
-
-    /// Vertical dpi
-    y: f32,
-}
-
-impl Default for Dpi {
-    fn default() -> Dpi {
-        Dpi { x: 96.0, y: 96.0 }
-    }
-}
-
-impl Dpi {
-    /// Get horizontal dpi
-    #[inline]
-    pub fn x(&self) -> f32 {
-        self.x
-    }
-
-    /// Get vertical dpi
-    #[inline]
-    pub fn y(&self) -> f32 {
-        self.y
-    }
-}
-
 /// A delta for a point in a 2 dimensional plane
 #[derive(Clone, Copy, Debug, Deserialize)]
 pub struct Delta {
@@ -1338,7 +1303,7 @@ impl DeserializeFromF32 for Size {
 /// field in this struct. It might be nice in the future to have defaults for
 /// each value independently. Alternatively, maybe erroring when the user
 /// doesn't provide complete config is Ok.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Font {
     /// Font family
     pub normal: FontDescription,
@@ -1351,7 +1316,7 @@ pub struct Font {
 
     // Font size in points
     #[serde(deserialize_with="DeserializeFromF32::deserialize_from_f32")]
-    size: Size,
+    pub size: Size,
 
     /// Extra spacing per character
     offset: Delta,
@@ -1373,7 +1338,7 @@ fn default_italic_desc() -> FontDescription {
 }
 
 /// Description of a single font
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct FontDescription {
     pub family: String,
     pub style: Option<String>,
@@ -1405,6 +1370,18 @@ impl Font {
     #[inline]
     pub fn glyph_offset(&self) -> &Delta {
         &self.glyph_offset
+    }
+
+    /// Get a font clone with a size modification
+    pub fn with_size_delta(self, delta: f32) -> Font {
+        let mut new_size = self.size.as_f32_pts() + delta;
+        if new_size < 1.0 {
+            new_size = 1.0;
+        }
+        Font {
+            size : Size::new(new_size),
+            .. self
+        }
     }
 }
 
@@ -1479,12 +1456,16 @@ impl Monitor {
                 let config_path = ::std::fs::canonicalize(path)
                     .expect("canonicalize config path");
 
-                watcher.watch(&config_path, RecursiveMode::NonRecursive).expect("watch alacritty yml");
+                // Get directory of config
+                let mut parent = config_path.clone();
+                parent.pop();
+
+                // Watch directory
+                watcher.watch(&parent, RecursiveMode::NonRecursive)
+                    .expect("watch alacritty.yml dir");
 
                 loop {
-                    let event = rx.recv().expect("watcher event");
-
-                    match event {
+                    match rx.recv().expect("watcher event") {
                         DebouncedEvent::Rename(_, _) => continue,
                         DebouncedEvent::Write(path) | DebouncedEvent::Create(path)
                          | DebouncedEvent::Chmod(path) => {
@@ -1495,7 +1476,7 @@ impl Monitor {
                                         let _ = config_tx.send(config);
                                         handler.on_config_reload();
                                     },
-                                    Err(err) => err_println!("Ignoring invalid config: {}", err),
+                                    Err(err) => eprintln!("Ignoring invalid config: {}", err),
                                 }
                              }
                         }
