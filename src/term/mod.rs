@@ -27,7 +27,7 @@ use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{self, Span, Selection};
 use config::{Config, VisualBellAnimation};
-use Rgb;
+use {MouseCursor, Rgb};
 
 pub mod cell;
 pub mod color;
@@ -658,6 +658,9 @@ pub struct Term {
     /// Would be nice to avoid the allocation...
     next_title: Option<String>,
 
+    /// Got a request to set the mouse cursor; it's buffered here until the next draw
+    next_mouse_cursor: Option<MouseCursor>,
+
     /// Alternate grid
     alt_grid: Grid<Cell>,
 
@@ -773,6 +776,11 @@ impl Term {
         self.next_title.take()
     }
 
+    #[inline]
+    pub fn get_next_mouse_cursor(&mut self) -> Option<MouseCursor> {
+        self.next_mouse_cursor.take()
+    }
+
     pub fn new(config : &Config, size: SizeInfo) -> Term {
         let template = Cell::default();
 
@@ -790,6 +798,7 @@ impl Term {
 
         Term {
             next_title: None,
+            next_mouse_cursor: None,
             dirty: false,
             visual_bell: VisualBell::new(config),
             next_is_urgent: None,
@@ -1191,6 +1200,12 @@ impl ansi::Handler for Term {
     #[inline]
     fn set_title(&mut self, title: &str) {
         self.next_title = Some(title.to_owned());
+    }
+
+    /// Set the mouse cursor
+    #[inline]
+    fn set_mouse_cursor(&mut self, cursor: MouseCursor) {
+        self.next_mouse_cursor = Some(cursor);
     }
 
     /// A character to be displayed
@@ -1788,10 +1803,17 @@ impl ansi::Handler for Term {
                 }
                 self.save_cursor_position();
             },
+            ansi::Mode::ReportMouseClicks => {
+                self.mode.insert(mode::MOUSE_REPORT_CLICK);
+                self.set_mouse_cursor(MouseCursor::Arrow);
+            },
+            ansi::Mode::ReportCellMouseMotion |
+            ansi::Mode::ReportAllMouseMotion => {
+                self.mode.insert(mode::MOUSE_MOTION);
+                self.set_mouse_cursor(MouseCursor::Arrow);
+            },
             ansi::Mode::ShowCursor => self.mode.insert(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.insert(mode::APP_CURSOR),
-            ansi::Mode::ReportMouseClicks => self.mode.insert(mode::MOUSE_REPORT_CLICK),
-            ansi::Mode::ReportMouseMotion => self.mode.insert(mode::MOUSE_MOTION),
             ansi::Mode::ReportFocusInOut => self.mode.insert(mode::FOCUS_IN_OUT),
             ansi::Mode::BracketedPaste => self.mode.insert(mode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.insert(mode::SGR_MOUSE),
@@ -1817,10 +1839,17 @@ impl ansi::Handler for Term {
                 }
                 self.restore_cursor_position();
             },
+            ansi::Mode::ReportMouseClicks => {
+                self.mode.remove(mode::MOUSE_REPORT_CLICK);
+                self.set_mouse_cursor(MouseCursor::Text);
+            },
+            ansi::Mode::ReportCellMouseMotion |
+            ansi::Mode::ReportAllMouseMotion => {
+                self.mode.remove(mode::MOUSE_MOTION);
+                self.set_mouse_cursor(MouseCursor::Text);
+            },
             ansi::Mode::ShowCursor => self.mode.remove(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.remove(mode::APP_CURSOR),
-            ansi::Mode::ReportMouseClicks => self.mode.remove(mode::MOUSE_REPORT_CLICK),
-            ansi::Mode::ReportMouseMotion => self.mode.remove(mode::MOUSE_MOTION),
             ansi::Mode::ReportFocusInOut => self.mode.remove(mode::FOCUS_IN_OUT),
             ansi::Mode::BracketedPaste => self.mode.remove(mode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.remove(mode::SGR_MOUSE),
