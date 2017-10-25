@@ -348,7 +348,7 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
-    pub fn set_urgent(&self, is_urgent: bool) {
+    pub fn set_urgent(&self, _: bool) {
     }
 
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
