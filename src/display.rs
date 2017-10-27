@@ -212,7 +212,11 @@ impl Display {
     {
         let font = config.font().clone().with_size_delta(font_size_delta as f32);
         let dpr = window.hidpi_factor();
-        let rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
+        let rasterizer = font::Rasterizer::new(
+                font.options.clone(),
+                dpr,
+                config.use_thin_strokes()
+            )?;
 
         // Initialize glyph cache
         let glyph_cache = {

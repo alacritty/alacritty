@@ -5,11 +5,16 @@ authors = ["Joe Wilm <joe@jwilm.com>"]
 description = "Font rendering using the best available solution per platform"
 license = "Apache-2.0"
 
+[features]
+with-serde = ["serde", "serde_derive"]
+
 [dependencies]
 euclid = "0.12.0"
 libc = "0.2"
 foreign-types = "0.2.0"
 log = "0.3"
+serde = { version = "1", optional = true }
+serde_derive = { version = "1", optional = true }
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig", branch = "updated-2017-10-8" }
@@ -20,3 +25,4 @@ core-foundation = "0.3.0"
 core-text = "6.1.0"
 core-graphics = "0.8.1"
 core-foundation-sys = "0.3.1"
+

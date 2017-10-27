@@ -230,26 +230,26 @@ impl GlyphCache {
         let regular_desc = Self::make_desc(&font.normal, font::Slant::Normal, font::Weight::Normal);
 
         let regular = rasterizer
-            .load_font(&regular_desc, size)?;
+            .load_font(&regular_desc, size, &font.normal.options)?;
 
         // helper to load a description if it is not the regular_desc
-        let mut load_or_regular = |desc:FontDesc| {
+        let mut load_or_regular = |desc:FontDesc, options:&font::Options| {
             if desc == regular_desc {
                 regular
             } else {
-                rasterizer.load_font(&desc, size).unwrap_or_else(|_| regular)
+                rasterizer.load_font(&desc, size, options).unwrap_or_else(|_| regular)
             }
         };
 
         // Load bold font
         let bold_desc = Self::make_desc(&font.bold, font::Slant::Normal, font::Weight::Bold);
 
-        let bold = load_or_regular(bold_desc);
+        let bold = load_or_regular(bold_desc, &font.bold.options);
 
         // Load italic font
         let italic_desc = Self::make_desc(&font.italic, font::Slant::Italic, font::Weight::Normal);
 
-        let italic = load_or_regular(italic_desc);
+        let italic = load_or_regular(italic_desc, &font.italic.options);
 
         Ok((regular, bold, italic))
     }

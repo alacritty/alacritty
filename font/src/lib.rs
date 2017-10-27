@@ -33,6 +33,12 @@ extern crate core_graphics;
 #[cfg(target_os = "macos")]
 extern crate euclid;
 
+#[cfg(feature = "with-serde")]
+extern crate serde;
+#[cfg_attr(feature = "with-serde", macro_use)]
+#[cfg(feature = "with-serde")]
+extern crate serde_derive;
+
 extern crate libc;
 
 #[cfg(not(target_os = "macos"))]
@@ -57,6 +63,12 @@ pub use ft::{FreeTypeRasterizer as Rasterizer, Error};
 mod darwin;
 #[cfg(target_os = "macos")]
 pub use darwin::*;
+
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(feature="with-serde", derive(Deserialize))]
+pub struct Options {
+    antialias: Option<bool>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FontDesc {
@@ -237,15 +249,26 @@ pub trait Rasterize {
     type Err: ::std::error::Error + Send + Sync + 'static;
 
     /// Create a new Rasterize
-    fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
+    fn new(_: Options, device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
         where Self: Sized;
 
     /// Get `Metrics` for the given `FontKey`
     fn metrics(&self, FontKey) -> Result<Metrics, Self::Err>;
 
     /// Load the font described by `FontDesc` and `Size`
-    fn load_font(&mut self, &FontDesc, Size) -> Result<FontKey, Self::Err>;
+    fn load_font(&mut self, &FontDesc, Size, &Options) -> Result<FontKey, Self::Err>;
 
     /// Rasterize the glyph described by `GlyphKey`.
     fn get_glyph(&mut self, &GlyphKey) -> Result<RasterizedGlyph, Self::Err>;
+}
+
+impl Options {
+    /// Merge options from other into self. Values defined in both self and
+    /// other will prefer other.
+    pub fn merge(mut self, other: &Options) -> Self {
+        let default = self.antialias.take();
+        self.antialias = other.antialias.or(default);
+
+        self
+    }
 }

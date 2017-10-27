@@ -14,7 +14,7 @@ use std::time::Duration;
 use std::collections::HashMap;
 
 use ::Rgb;
-use font::Size;
+use font::{self, Size};
 use serde_yaml;
 use serde::{self, de, Deserialize};
 use serde::de::Error as SerdeError;
@@ -1305,6 +1305,10 @@ impl DeserializeFromF32 for Size {
 /// doesn't provide complete config is Ok.
 #[derive(Debug, Deserialize, Clone)]
 pub struct Font {
+    /// Default font rasterization options
+    #[serde(default)]
+    pub options: font::Options,
+
     /// Font family
     pub normal: FontDescription,
 
@@ -1342,6 +1346,9 @@ fn default_italic_desc() -> FontDescription {
 pub struct FontDescription {
     pub family: String,
     pub style: Option<String>,
+    /// Rasterization options for this font.
+    #[serde(default)]
+    pub options: font::Options,
 }
 
 impl FontDescription {
@@ -1349,6 +1356,7 @@ impl FontDescription {
         FontDescription {
             family: family.into(),
             style: None,
+            options: Default::default(),
         }
     }
 }
@@ -1389,6 +1397,7 @@ impl Font {
 impl Default for Font {
     fn default() -> Font {
         Font {
+            options: Default::default(),
             normal: FontDescription::new_with_family("Menlo"),
             bold: FontDescription::new_with_family("Menlo"),
             italic: FontDescription::new_with_family("Menlo"),
@@ -1404,6 +1413,7 @@ impl Default for Font {
 impl Default for Font {
     fn default() -> Font {
         Font {
+            options: Default::default(),
             normal: FontDescription::new_with_family("monospace"),
             bold: FontDescription::new_with_family("monospace"),
             italic: FontDescription::new_with_family("monospace"),

@@ -34,6 +34,13 @@ draw_bold_text_with_bright_colors: true
 
 # Font configuration (changes require restart)
 font:
+  # Default rasterization options
+  #
+  # These settings are used for fallback fonts *and* for normal/bold/italic
+  # fonts when they don't specify their own `options`.
+  options:
+    antialias: true
+
   # The normal (roman) font face to use.
   normal:
     family: Menlo

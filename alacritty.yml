@@ -53,21 +53,31 @@ draw_bold_text_with_bright_colors: true
 # * https://wiki.archlinux.org/index.php/font_configuration#Fontconfig_configuration
 # * file:///usr/share/doc/fontconfig/fontconfig-user.html
 font:
+  # Default rasterization options
+  #
+  # These settings are used for fallback fonts *and* for normal/bold/italic
+  # fonts when they don't specify their own `options`.
+  #
+  # If you prefer to respect fontconfig settings, set the value of these
+  # properties to ~.
+  options:
+    antialias: true
+
   # The normal (roman) font face to use.
   normal:
-    family: monospace # should be "Menlo" or something on macOS.
+    family: monospace
     # Style can be specified to pick a specific face.
     # style: Regular
 
   # The bold font face
   bold:
-    family: monospace # should be "Menlo" or something on macOS.
+    family: monospace
     # Style can be specified to pick a specific face.
     # style: Bold
 
   # The italic font face
   italic:
-    family: monospace # should be "Menlo" or something on macOS.
+    family: monospace
     # Style can be specified to pick a specific face.
     # style: Italic
 

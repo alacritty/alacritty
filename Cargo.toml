@@ -16,7 +16,7 @@ libc = "0.2.30"
 cgmath = "0.15"
 notify = "4"
 bitflags = "0.9.1"
-font = { path = "./font" }
+font = { path = "./font", features = ["with-serde"] }
 errno = "0.2.3"
 parking_lot = "0.4.5"
 serde = "1"

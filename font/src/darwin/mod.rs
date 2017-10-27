@@ -43,6 +43,7 @@ use euclid::rect::Rect;
 use euclid::size::Size2D;
 
 use super::{FontDesc, RasterizedGlyph, Metrics, FontKey, GlyphKey};
+use ::Options;
 
 pub mod byte_order;
 use self::byte_order::kCGBitmapByteOrder32Host;
@@ -85,6 +86,7 @@ pub struct Rasterizer {
     keys: HashMap<(FontDesc, Size), FontKey>,
     device_pixel_ratio: f32,
     use_thin_strokes: bool,
+    options: ::Options,
 }
 
 /// Errors occurring when using the core text rasterizer
@@ -130,13 +132,18 @@ impl ::std::fmt::Display for Error {
 impl ::Rasterize for Rasterizer {
     type Err = Error;
 
-    fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {
+    fn new(
+        options: Options,
+        device_pixel_ratio: f32,
+        use_thin_strokes: bool
+    ) -> Result<Rasterizer, Error> {
         info!("device_pixel_ratio: {}", device_pixel_ratio);
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
             device_pixel_ratio: device_pixel_ratio,
             use_thin_strokes: use_thin_strokes,
+            options: options,
         })
     }
 
@@ -149,12 +156,18 @@ impl ::Rasterize for Rasterizer {
         Ok(font.metrics())
     }
 
-    fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
+    fn load_font(
+        &mut self,
+        desc: &FontDesc,
+        size: Size,
+        font_options: &Options,
+    ) -> Result<FontKey, Error> {
         self.keys
             .get(&(desc.to_owned(), size))
             .map(|k| Ok(*k))
             .unwrap_or_else(|| {
-                let mut font = self.get_font(desc, size)?;
+                let options = self.options.clone().merge(&font_options);
+                let mut font = self.get_font(desc, size, options)?;
 
                 // TODO, we can't use apple's proposed
                 // .Apple Symbol Fallback (filtered out below),
@@ -166,7 +179,8 @@ impl ::Rasterize for Rasterizer {
                     let symbols = {
                         let fallback_style = Style::Description { slant:Slant::Normal, weight:Weight::Normal  } ;
                         let d = FontDesc::new("Apple Symbols".to_owned(), fallback_style);
-                        self.get_font(&d, size)?
+                        let options = self.options.clone();
+                        self.get_font(&d, size, options)?
                     };
                     font.fallbacks.push(symbols);
                 }
@@ -209,14 +223,16 @@ impl Rasterizer {
         &mut self,
         desc: &FontDesc,
         style: &str,
-        size: Size
+        size: Size,
+        options: Options,
     ) -> Result<Font, Error> {
         let descriptors = descriptors_for_family(&desc.name[..]);
         for descriptor in descriptors {
             if descriptor.style_name == style {
                 // Found the font we want
                 let scaled_size = size.as_f32_pts() as f64 * self.device_pixel_ratio as f64;
-                let font = descriptor.to_font(scaled_size, true);
+                let mut font = descriptor.to_font(scaled_size, options);
+                font.load_fallbacks(scaled_size, &self.options);
                 return Ok(font);
             }
         }
@@ -229,7 +245,8 @@ impl Rasterizer {
         desc: &FontDesc,
         slant: Slant,
         weight: Weight,
-        size: Size
+        size: Size,
+        options: Options,
     ) -> Result<Font, Error> {
         let bold = match weight {
             Weight::Bold => true,
@@ -243,7 +260,8 @@ impl Rasterizer {
 
         let descriptors = descriptors_for_family(&desc.name[..]);
         for descriptor in descriptors {
-            let font = descriptor.to_font(scaled_size, true);
+            let mut font = descriptor.to_font(scaled_size, options.clone());
+            font.load_fallbacks(scaled_size, &self.options);
             if font.is_bold() == bold && font.is_italic() == italic {
                 // Found the font we want
                 return Ok(font);
@@ -253,11 +271,11 @@ impl Rasterizer {
         Err(Error::MissingFont(desc.to_owned()))
     }
 
-    fn get_font(&mut self, desc: &FontDesc, size: Size) -> Result<Font, Error> {
+    fn get_font(&mut self, desc: &FontDesc, size: Size, options: Options) -> Result<Font, Error> {
         match desc.style {
-            Style::Specific(ref style) => self.get_specific_face(desc, style, size),
+            Style::Specific(ref style) => self.get_specific_face(desc, style, size, options),
             Style::Description { slant, weight } => {
-                self.get_matching_face(desc, slant, weight, size)
+                self.get_matching_face(desc, slant, weight, size, options)
             },
         }
     }
@@ -299,6 +317,7 @@ pub struct Font {
     ct_font: CTFont,
     cg_font: CGFont,
     fallbacks: Vec<Font>,
+    antialias: bool,
 }
 
 unsafe impl Send for Font {}
@@ -370,31 +389,15 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
 
 impl Descriptor {
     /// Create a Font from this descriptor
-    pub fn to_font(&self, size: f64, load_fallbacks:bool) -> Font {
+    pub fn to_font(&self, size: f64, options: Options) -> Font {
         let ct_font = ct_new_from_descriptor(&self.ct_descriptor, size);
         let cg_font = ct_font.copy_to_CGFont();
-
-        let fallbacks = if load_fallbacks {
-            // TODO fixme, hardcoded en for english
-            cascade_list_for_languages(&ct_font, &vec!["en".to_owned()])
-                .into_iter()
-                // the system lists contains (at least) two strange fonts:
-                // .Apple Symbol Fallback
-                // .Noto Sans Universal
-                // both have a .-prefix (to indicate they are internal?)
-                // neither work very well. the latter even breaks things because
-                // it defines code points with just [?] glyphs.
-                .filter(|desc| desc.font_path != "")
-                .map(|desc| desc.to_font(size, false))
-                .collect()
-        } else {
-            vec![]
-        };
 
         Font {
             ct_font: ct_font,
             cg_font: cg_font,
-            fallbacks: fallbacks,
+            fallbacks: Vec::new(),
+            antialias: options.antialias.unwrap_or(true),
         }
     }
 }
@@ -505,12 +508,12 @@ impl Font {
 
         cg_context.set_allows_font_smoothing(true);
         cg_context.set_should_smooth_fonts(true);
-        cg_context.set_allows_font_subpixel_quantization(true);
-        cg_context.set_should_subpixel_quantize_fonts(true);
-        cg_context.set_allows_font_subpixel_positioning(true);
-        cg_context.set_should_subpixel_position_fonts(true);
-        cg_context.set_allows_antialiasing(true);
-        cg_context.set_should_antialias(true);
+        cg_context.set_allows_font_subpixel_quantization(self.antialias);
+        cg_context.set_should_subpixel_quantize_fonts(self.antialias);
+        cg_context.set_allows_font_subpixel_positioning(self.antialias);
+        cg_context.set_should_subpixel_position_fonts(self.antialias);
+        cg_context.set_allows_antialiasing(self.antialias);
+        cg_context.set_should_antialias(self.antialias);
 
         // Set fill color to white for drawing the glyph
         cg_context.set_rgb_fill_color(1.0, 1.0, 1.0, 1.0);
@@ -563,6 +566,21 @@ impl Font {
             None
         }
     }
+
+    pub fn load_fallbacks(&mut self, size: f64, options: &Options) {
+        // TODO fixme, hardcoded en for english
+        self.fallbacks = cascade_list_for_languages(&self.ct_font, &vec!["en".to_owned()])
+            .into_iter()
+            // the system lists contains (at least) two strange fonts:
+            // .Apple Symbol Fallback
+            // .Noto Sans Universal
+            // both have a .-prefix (to indicate they are internal?)
+            // neither work very well. the latter even breaks things because
+            // it defines code points with just [?] glyphs.
+            .filter(|desc| desc.font_path != "")
+            .map(|desc| desc.to_font(size, options.clone()))
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -582,7 +600,7 @@ mod tests {
 
         // Check to_font
         let fonts = list.iter()
-                        .map(|desc| desc.to_font(72., false))
+                        .map(|desc| desc.to_font(72., &Default::default()))
                         .collect::<Vec<_>>();
 
         for font in fonts {
