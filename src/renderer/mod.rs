@@ -900,10 +900,12 @@ impl<'a> LoadGlyph for RenderApi<'a> {
         match self.atlas[*self.current_atlas].insert(rasterized, &mut self.active_tex) {
             Ok(glyph) => glyph,
             Err(_) => {
-                let atlas = Atlas::new(ATLAS_SIZE);
-                *self.active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
-                *self.current_atlas = 0;
-                self.atlas.push(atlas);
+                *self.current_atlas += 1;
+                if *self.current_atlas == self.atlas.len() {
+                    let atlas = Atlas::new(ATLAS_SIZE);
+                    *self.active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
+                    self.atlas.push(atlas);
+                }
                 self.load_glyph(rasterized)
             }
         }
