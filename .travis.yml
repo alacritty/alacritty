@@ -19,6 +19,7 @@ matrix:
 jobs:
   include:
     - stage: lint
+      rust: nightly
       script: cargo install clippy; cargo clippy
     - stage: test
       script: cargo test --no-default-features
