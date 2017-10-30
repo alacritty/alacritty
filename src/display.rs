@@ -139,7 +139,7 @@ impl Display {
         // Create the window where Alacritty will be displayed
         let mut window = Window::new(&options.title)?;
 
-        // get window properties for initializing the other subsytems
+        // get window properties for initializing the other subsystems
         let size = window.inner_size_pixels()
             .expect("glutin returns window size");
         let dpr = window.hidpi_factor();

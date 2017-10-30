@@ -142,7 +142,7 @@ impl IntoFontconfigType for Weight {
 }
 
 impl FreeTypeRasterizer {
-    /// Load a font face accoring to `FontDesc`
+    /// Load a font face according to `FontDesc`
     fn get_face(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
         // Adjust for DPI
         let size = Size::new(size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);

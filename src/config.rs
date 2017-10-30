@@ -235,7 +235,7 @@ pub struct Config {
     #[serde(default)]
     custom_cursor_colors: bool,
 
-    /// Should draw bold text with brighter colors intead of bold font
+    /// Should draw bold text with brighter colors instead of bold font
     #[serde(default="true_bool")]
     draw_bold_text_with_bright_colors: bool,
 
