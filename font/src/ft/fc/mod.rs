@@ -50,7 +50,7 @@ pub fn font_match(
     config: &ConfigRef,
     pattern: &mut PatternRef,
 ) -> Option<Pattern> {
-    pattern.config_subsitute(config, MatchKind::Pattern);
+    pattern.config_substitute(config, MatchKind::Pattern);
     pattern.default_substitute();
 
     unsafe {
@@ -77,7 +77,7 @@ pub fn font_sort(
     config: &ConfigRef,
     pattern: &mut PatternRef,
 ) -> Option<FontSet> {
-    pattern.config_subsitute(config, MatchKind::Pattern);
+    pattern.config_substitute(config, MatchKind::Pattern);
     pattern.default_substitute();
 
     unsafe {
@@ -110,7 +110,7 @@ pub fn font_list(
     pattern: &mut PatternRef,
     objects: &ObjectSetRef,
 ) -> Option<FontSet> {
-    pattern.config_subsitute(config, MatchKind::Pattern);
+    pattern.config_substitute(config, MatchKind::Pattern);
     pattern.default_substitute();
 
     unsafe {
