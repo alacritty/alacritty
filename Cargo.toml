@@ -7,9 +7,8 @@ build = "build.rs"
 description = "GPU-accelerated terminal emulator"
 
 [[bin]]
-doc = false
-path = "src/main.rs"
 name = "alacritty"
+doc = false
 
 [dependencies]
 libc = "0.2"
