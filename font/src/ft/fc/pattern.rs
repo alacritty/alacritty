@@ -604,7 +604,7 @@ impl PatternRef {
         index() => b"index\0"
     }
 
-    pub fn config_subsitute(&mut self, config: &ConfigRef, kind: MatchKind) {
+    pub fn config_substitute(&mut self, config: &ConfigRef, kind: MatchKind) {
         unsafe {
             FcConfigSubstitute(config.as_ptr(), self.as_ptr(), kind as u32);
         }
