@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![cfg(target_os = "macos")]
 use std::os::raw::c_char;
 use std::slice;
 use std::str;
@@ -18,7 +19,6 @@ use std::env;
 
 use objc::runtime::{Class, Object};
 
-#[cfg(target_os = "macos")]
 pub fn set_locale_environment() {
     let locale_id = unsafe {
         let locale_class = Class::get("NSLocale").unwrap();
@@ -45,4 +45,3 @@ unsafe fn nsstring_as_str<'a>(nsstring: *const Object) -> &'a str {
 
 #[cfg(not(target_os = "macos"))]
 pub fn set_locale_environment() {}
-

@@ -31,6 +31,7 @@ use alacritty::config::{self, Config};
 use alacritty::display::Display;
 use alacritty::event;
 use alacritty::event_loop::{self, EventLoop, Msg};
+#[cfg(target_os = "macos")]
 use alacritty::locale;
 use alacritty::logging;
 use alacritty::sync::FairMutex;
@@ -45,6 +46,7 @@ fn main() {
 
     // Switch to home directory
     env::set_current_dir(env::home_dir().unwrap()).unwrap();
+    #[cfg(target_os = "macos")]
     locale::set_locale_environment();
 
     // Run alacritty
