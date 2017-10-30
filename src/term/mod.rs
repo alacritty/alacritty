@@ -559,7 +559,7 @@ impl VisualBell {
         self.intensity_at_instant(now)
     }
 
-    /// Get the currenty intensity of the visual bell. The bell's intensity
+    /// Get the currently intensity of the visual bell. The bell's intensity
     /// ramps down from 1.0 to 0.0 at a rate determined by the bell's duration.
     pub fn intensity(&self) -> f64 {
         self.intensity_at_instant(Instant::now())
@@ -650,7 +650,7 @@ pub struct Term {
     /// This is true after the last column is set with the input function. Any function that
     /// implicitly sets the line or column needs to set this to false to avoid wrapping twice.
     /// input_needs_wrap ensures that cursor.col is always valid for use into indexing into
-    /// arrays. Without it we wold have to sanitize cursor.col every time we used it.
+    /// arrays. Without it we would have to sanitize cursor.col every time we used it.
     input_needs_wrap: bool,
 
     /// Got a request to set title; it's buffered here until next draw.
@@ -1474,13 +1474,13 @@ impl ansi::Handler for Term {
     /// LF/NL mode has some interesting history. According to ECMA-48 4th
     /// edition, in LINE FEED mode,
     ///
-    /// > The execution of the formator functions LINE FEED (LF), FORM FEED
+    /// > The execution of the formatter functions LINE FEED (LF), FORM FEED
     /// (FF), LINE TABULATION (VT) cause only movement of the active position in
     /// the direction of the line progression.
     ///
     /// In NEW LINE mode,
     ///
-    /// > The execution of the formator functions LINE FEED (LF), FORM FEED
+    /// > The execution of the formatter functions LINE FEED (LF), FORM FEED
     /// (FF), LINE TABULATION (VT) cause movement to the line home position on
     /// the following line, the following form, etc. In the case of LF this is
     /// referred to as the New Line (NL) option.

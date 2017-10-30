@@ -299,12 +299,12 @@ pub trait Handler {
     /// DECKPAM - Set keypad to applications mode (ESCape instead of digits)
     fn set_keypad_application_mode(&mut self) {}
 
-    /// DECKPNM - Set keypad to numeric mode (digits intead of ESCape seq)
+    /// DECKPNM - Set keypad to numeric mode (digits instead of ESCape seq)
     fn unset_keypad_application_mode(&mut self) {}
 
     /// Set one of the graphic character sets, G0 to G3, as the active charset.
     ///
-    /// 'Invoke' one of G0 to G3 in the GL area. Also refered to as shift in,
+    /// 'Invoke' one of G0 to G3 in the GL area. Also referred to as shift in,
     /// shift out and locking shift depending on the set being activated
     fn set_active_charset(&mut self, CharsetIndex) {}
 
@@ -1234,7 +1234,7 @@ pub mod C0 {
 ///
 /// 0x80 (@), 0x81 (A), 0x82 (B), 0x83 (C) are reserved
 /// 0x98 (X), 0x99 (Y) are reserved
-/// 0x9a (Z) is resezved, but causes DEC terminals to respond with DA codes
+/// 0x9a (Z) is 'reserved', but causes DEC terminals to respond with DA codes
 #[allow(non_snake_case)]
 pub mod C1 {
     /// Reserved
@@ -1249,7 +1249,7 @@ pub mod C1 {
     pub const IND: u8 = 0x84;
     /// New line, moves done one line and to first column (CR+LF)
     pub const NEL: u8 = 0x85;
-    /// Start of Selected Area to be  as charsent to auxiliary output device
+    /// Start of Selected Area to be sent to auxiliary output device
     pub const SSA: u8 = 0x86;
     /// End of Selected Area to be sent to auxiliary output device
     pub const ESA: u8 = 0x87;
@@ -1291,7 +1291,7 @@ pub mod C1 {
     pub const SGCI: u8 = 0x99;
     /// DECID - Identify Terminal
     pub const DECID: u8 = 0x9a;
-    /// Control Sequence Introducer (described in a seperate table)
+    /// Control Sequence Introducer
     pub const CSI: u8 = 0x9B;
     /// String Terminator (VT125 exits graphics)
     pub const ST: u8 = 0x9C;

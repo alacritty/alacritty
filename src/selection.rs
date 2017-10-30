@@ -47,7 +47,7 @@ pub enum Selection {
         /// The region representing start and end of cursor movement
         region: Region<Point>,
 
-        /// When begining a semantic selection, the grid is searched around the
+        /// When beginning a semantic selection, the grid is searched around the
         /// initial point to find semantic escapes, and this initial expansion
         /// marks those points.
         initial_expansion: Region<Point>
@@ -398,7 +398,7 @@ impl ToRange for Span {
 ///
 /// There are comments on all of the tests describing the selection. Pictograms
 /// are used to avoid ambiguity. Grid cells are represented by a [  ]. Only
-/// cells that are comletely covered are counted in a selection. Ends are
+/// cells that are completely covered are counted in a selection. Ends are
 /// represented by `B` and `E` for begin and end, respectively.  A selected cell
 /// looks like [XX], [BX] (at the start), [XB] (at the end), [XE] (at the end),
 /// and [EX] (at the start), or [BE] for a single cell. Partially selected cells
