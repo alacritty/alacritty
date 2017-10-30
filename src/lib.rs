@@ -24,11 +24,14 @@
 #[macro_use] extern crate bitflags;
 #[macro_use] extern crate clap;
 #[macro_use] extern crate log;
-#[macro_use] extern crate objc;
 #[macro_use] extern crate serde_derive;
 
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
 extern crate x11_dl;
+
+#[cfg(target_os = "macos")]
+#[macro_use]
+extern crate objc;
 
 extern crate arraydeque;
 extern crate cgmath;
