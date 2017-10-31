@@ -57,7 +57,7 @@ makepkg -isr
 1. Alacritty requires the most recent stable Rust compiler; it can be installed with
    `rustup`.
 
-    Note: **DO NOT** use the Homebrew Rust compiler on macOS (see FAQ for
+    Note: **DO NOT** use the Homebrew Rust compiler on macOS (see [FAQ][faq] for
     explanation).
 
 #### Installing Rust compiler with `rustup`
@@ -304,5 +304,6 @@ the [Wayland meta issue] on the _winit_ project to see how you may contribute.
 Alacritty is released under the [Apache License, Version 2.0].
 
 [Apache License, Version 2.0]: https://github.com/jwilm/alacritty/blob/readme/LICENSE-APACHE
+[faq]: https://github.com/jwilm/alacritty#faq
 [tmux]: https://github.com/tmux/tmux
 [Wayland meta issue]: https://github.com/tomaka/winit/issues/306
