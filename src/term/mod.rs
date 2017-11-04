@@ -1452,7 +1452,9 @@ impl ansi::Handler for Term {
         if (self.cursor.point.line + 1) == self.scroll_region.end {
             self.scroll_up(Line(1));
         } else {
-            self.cursor.point.line += 1;
+            if (self.cursor.point.line + 1) < self.scroll_region.end {
+                self.cursor.point.line += 1;
+            }
         }
     }
 
