@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+extern crate built;
 extern crate gl_generator;
 
 use gl_generator::{Registry, Api, Profile, Fallbacks, GlobalGenerator};
@@ -27,4 +28,6 @@ fn main() {
         ])
         .write_bindings(GlobalGenerator, &mut file)
         .unwrap();
+
+    built::write_built_file().unwrap();
 }
