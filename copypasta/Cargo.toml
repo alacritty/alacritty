@@ -12,3 +12,6 @@ keywords = ["clipboard", "copy", "paste"]
 objc = "0.2"
 objc_id = "0.1"
 objc-foundation = "0.1"
+
+[target.'cfg(windows)'.dependencies]
+clipboard = "0.4.2"
