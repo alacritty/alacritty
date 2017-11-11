@@ -1260,28 +1260,28 @@ impl Default for Delta {
     }
 }
 
-trait DeserializeFromF32 : Sized {
-    fn deserialize_from_f32<'a, D>(D) -> ::std::result::Result<Self, D::Error>
+trait DeserializeSize : Sized {
+    fn deserialize<'a, D>(D) -> ::std::result::Result<Self, D::Error>
         where D: serde::de::Deserializer<'a>;
 }
 
-impl DeserializeFromF32 for Size {
-    fn deserialize_from_f32<'a, D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+impl DeserializeSize for Size {
+    fn deserialize<'a, D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
         where D: serde::de::Deserializer<'a>
     {
         use std::marker::PhantomData;
 
-        struct FloatVisitor<__D> {
+        struct NumVisitor<__D> {
             _marker: PhantomData<__D>,
         }
 
-        impl<'a, __D> Visitor<'a> for FloatVisitor<__D>
+        impl<'a, __D> Visitor<'a> for NumVisitor<__D>
             where __D: serde::de::Deserializer<'a>
         {
             type Value = f64;
 
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                f.write_str("f64")
+                f.write_str("f64 or u64")
             }
 
             fn visit_f64<E>(self, value: f64) -> ::std::result::Result<Self::Value, E>
@@ -1289,10 +1289,16 @@ impl DeserializeFromF32 for Size {
             {
                 Ok(value)
             }
+
+            fn visit_u64<E>(self, value: u64) -> ::std::result::Result<Self::Value, E>
+                where E: ::serde::de::Error
+            {
+                Ok(value as f64)
+            }
         }
 
         deserializer
-            .deserialize_f64(FloatVisitor::<D>{ _marker: PhantomData })
+            .deserialize_any(NumVisitor::<D>{ _marker: PhantomData })
             .map(|v| Size::new(v as _))
     }
 }
@@ -1315,7 +1321,7 @@ pub struct Font {
     pub bold: FontDescription,
 
     // Font size in points
-    #[serde(deserialize_with="DeserializeFromF32::deserialize_from_f32")]
+    #[serde(deserialize_with="DeserializeSize::deserialize")]
     pub size: Size,
 
     /// Extra spacing per character
