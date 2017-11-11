@@ -1449,12 +1449,11 @@ impl ansi::Handler for Term {
     #[inline]
     fn linefeed(&mut self) {
         trace!("linefeed");
-        if (self.cursor.point.line + 1) == self.scroll_region.end {
+        let next = self.cursor.point.line + 1;
+        if next == self.scroll_region.end {
             self.scroll_up(Line(1));
-        } else {
-            if (self.cursor.point.line + 1) < self.scroll_region.end {
-                self.cursor.point.line += 1;
-            }
+        } else if next < self.grid.num_lines() {
+            self.cursor.point.line += 1;
         }
     }
 
