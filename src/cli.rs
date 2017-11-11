@@ -74,7 +74,8 @@ impl Options {
                 .long("dimensions")
                 .short("d")
                 .value_names(&["columns", "lines"])
-                 .help("Defines the window dimensions. Falls back to size specified by window manager if set to 0x0 [default: 80x24]"))
+                .help("Defines the window dimensions. Falls back to size specified by \
+                       window manager if set to 0x0 [default: 80x24]"))
             .arg(Arg::with_name("title")
                 .long("title")
                 .short("t")
@@ -97,7 +98,8 @@ impl Options {
             .arg(Arg::with_name("config-file")
                  .long("config-file")
                  .takes_value(true)
-                 .help("Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]"))
+                 .help("Specify alternative configuration file \
+                       [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]"))
             .arg(Arg::with_name("command")
                 .long("command")
                 .short("e")
