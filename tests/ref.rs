@@ -30,6 +30,7 @@ ref_tests! {
     csi_rep
     fish_cc
     indexed_256_colors
+    issue_855
     ll
     newline_with_cursor_beyond_scroll_region
     tab_rendering
