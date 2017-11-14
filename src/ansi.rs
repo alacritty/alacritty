@@ -78,6 +78,25 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
     }
 }
 
+fn parse_number(input: &[u8]) -> Option<u8> {
+    if input.is_empty() {
+        return None;
+    }
+    let mut num: u8 = 0;
+    for c in input {
+        let c = *c as char;
+        if let Some(digit) = c.to_digit(10) {
+            num = match num.checked_mul(10).and_then(|v| v.checked_add(digit as u8)) {
+                Some(v) => v,
+                None => return None,
+            }
+        } else {
+            return None;
+        }
+    }
+    Some(num)
+}
+
 /// The processor wraps a `vte::Parser` to ultimately call methods on a Handler
 pub struct Processor {
     state: ProcessorState,
@@ -299,12 +318,12 @@ pub trait Handler {
     /// DECKPAM - Set keypad to applications mode (ESCape instead of digits)
     fn set_keypad_application_mode(&mut self) {}
 
-    /// DECKPNM - Set keypad to numeric mode (digits intead of ESCape seq)
+    /// DECKPNM - Set keypad to numeric mode (digits instead of ESCape seq)
     fn unset_keypad_application_mode(&mut self) {}
 
     /// Set one of the graphic character sets, G0 to G3, as the active charset.
     ///
-    /// 'Invoke' one of G0 to G3 in the GL area. Also refered to as shift in,
+    /// 'Invoke' one of G0 to G3 in the GL area. Also referred to as shift in,
     /// shift out and locking shift depending on the set being activated
     fn set_active_charset(&mut self, CharsetIndex) {}
 
@@ -730,37 +749,20 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
 
             // Set color index
             b"4" => {
-                if params.len() < 3 {
+                if params.len() == 1 || params.len() % 2 == 0 {
                     return unhandled!();
                 }
 
-                // Parse index
-                let index = {
-                    let raw = params[1];
-                    if raw.len() > 3 {
-                        return unhandled!();
-                    }
-                    let mut index: u8 = 0;
-                    for c in raw {
-                        let c = *c as char;
-                        if let Some(digit) = c.to_digit(10) {
-                            index *= 10;
-                            index += digit as u8;
+                for chunk in params[1..].chunks(2) {
+                    if let Some(index) = parse_number(chunk[0]) {
+                        if let Some(color) = parse_rgb_color(chunk[1]) {
+                            self.handler.set_color(index as usize, color);
+                        } else {
+                            unhandled!();
                         }
+                    } else {
+                        unhandled!();
                     }
-
-                    index
-                };
-
-                // Check that index is a valid u8
-                if index & 0xff != index {
-                    return unhandled!();
-                }
-
-                if let Some(color) = parse_rgb_color(params[2]) {
-                    self.handler.set_color(index as usize, color);
-                } else {
-                    unhandled!();
                 }
             }
 
@@ -790,6 +792,38 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                 }
             }
 
+            // Set text cursor color
+            b"12" => {
+                if params.len() < 2 {
+                    return unhandled!();
+                }
+
+                if let Some(color) = parse_rgb_color(params[1]) {
+                    self.handler.set_color(NamedColor::Cursor as usize, color);
+                } else {
+                    unhandled!()
+                }
+            }
+
+            // Reset color index
+            b"104" => {
+                // Reset all color indexes when no parameters are given
+                if params.len() == 1 {
+                    for i in 0..256 {
+                        self.handler.reset_color(i);
+                    }
+                    return;
+                }
+
+                // Reset color indexes given as parameters
+                for param in &params[1..] {
+                    match parse_number(param) {
+                        Some(index) => self.handler.reset_color(index as usize),
+                        None => unhandled!(),
+                    }
+                }
+            }
+
             // Reset foreground color
             b"110" => {
                 self.handler.reset_color(NamedColor::Foreground as usize);
@@ -798,6 +832,11 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             // Reset background color
             b"111" => {
                 self.handler.reset_color(NamedColor::Background as usize);
+            }
+
+            // Reset text cursor color
+            b"112" => {
+                self.handler.reset_color(NamedColor::Cursor as usize);
             }
 
             _ => {
@@ -1234,7 +1273,7 @@ pub mod C0 {
 ///
 /// 0x80 (@), 0x81 (A), 0x82 (B), 0x83 (C) are reserved
 /// 0x98 (X), 0x99 (Y) are reserved
-/// 0x9a (Z) is resezved, but causes DEC terminals to respond with DA codes
+/// 0x9a (Z) is 'reserved', but causes DEC terminals to respond with DA codes
 #[allow(non_snake_case)]
 pub mod C1 {
     /// Reserved
@@ -1249,7 +1288,7 @@ pub mod C1 {
     pub const IND: u8 = 0x84;
     /// New line, moves done one line and to first column (CR+LF)
     pub const NEL: u8 = 0x85;
-    /// Start of Selected Area to be  as charsent to auxiliary output device
+    /// Start of Selected Area to be sent to auxiliary output device
     pub const SSA: u8 = 0x86;
     /// End of Selected Area to be sent to auxiliary output device
     pub const ESA: u8 = 0x87;
@@ -1291,7 +1330,7 @@ pub mod C1 {
     pub const SGCI: u8 = 0x99;
     /// DECID - Identify Terminal
     pub const DECID: u8 = 0x9a;
-    /// Control Sequence Introducer (described in a seperate table)
+    /// Control Sequence Introducer
     pub const CSI: u8 = 0x9B;
     /// String Terminator (VT125 exits graphics)
     pub const ST: u8 = 0x9C;
@@ -1310,7 +1349,7 @@ pub mod C1 {
 mod tests {
     use std::io;
     use index::{Line, Column};
-    use super::{Processor, Handler, Attr, TermInfo, Color, StandardCharset, CharsetIndex, parse_rgb_color};
+    use super::{Processor, Handler, Attr, TermInfo, Color, StandardCharset, CharsetIndex, parse_rgb_color, parse_number};
     use ::Rgb;
 
     /// The /dev/null of io::Write
@@ -1487,5 +1526,20 @@ mod tests {
     #[test]
     fn parse_valid_rgb_color2() {
         assert_eq!(parse_rgb_color(b"#11aaff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+    }
+
+    #[test]
+    fn parse_invalid_number() {
+        assert_eq!(parse_number(b"1abc"), None);
+    }
+
+    #[test]
+    fn parse_valid_number() {
+        assert_eq!(parse_number(b"123"), Some(123));
+    }
+
+    #[test]
+    fn parse_number_too_large() {
+        assert_eq!(parse_number(b"321"), None);
     }
 }

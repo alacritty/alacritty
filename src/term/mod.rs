@@ -299,6 +299,14 @@ impl<'a> RenderableCellsIter<'a> {
         }
     }
 
+    #[inline]
+    fn compute_bg_alpha(&self, bg: &Color) -> f32 {
+        match *bg {
+            Color::Named(NamedColor::Background) => 0.0,
+            _ => 1.0
+        }
+    }
+
     fn compute_bg_rgb(&self, bg: &Color) -> Rgb {
         match *bg {
             Color::Spec(rgb) => rgb,
@@ -314,6 +322,7 @@ pub struct RenderableCell {
     pub c: char,
     pub fg: Rgb,
     pub bg: Rgb,
+    pub bg_alpha: f32,
     pub flags: cell::Flags,
 }
 
@@ -363,19 +372,35 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 };
 
                 // Apply inversion and lookup RGB values
-                let (fg, bg) = if selected || cell.inverse() {
-                    (self.compute_bg_rgb(&cell.bg), self.compute_fg_rgb(&cell.fg, &cell))
+                let mut bg_alpha = 1.0;
+                let fg_rgb;
+                let bg_rgb;
+
+                let invert = selected ^ cell.inverse();
+
+                if invert {
+                    if cell.fg == cell.bg {
+                        bg_rgb = self.colors[NamedColor::Foreground];
+                        fg_rgb = self.colors[NamedColor::Background];
+                        bg_alpha = 1.0
+                    } else {
+                        bg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
+                        fg_rgb = self.compute_bg_rgb(&cell.bg);
+                    }
                 } else {
-                    (self.compute_fg_rgb(&cell.fg, &cell), self.compute_bg_rgb(&cell.bg))
-                };
+                    fg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
+                    bg_rgb = self.compute_bg_rgb(&cell.bg);
+                    bg_alpha = self.compute_bg_alpha(&cell.bg);
+                }
 
                 return Some(RenderableCell {
                     line: line,
                     column: column,
                     flags: cell.flags,
                     c: cell.c,
-                    fg: fg,
-                    bg: bg,
+                    fg: fg_rgb,
+                    bg: bg_rgb,
+                    bg_alpha: bg_alpha,
                 })
             }
 
@@ -534,7 +559,7 @@ impl VisualBell {
         self.intensity_at_instant(now)
     }
 
-    /// Get the currenty intensity of the visual bell. The bell's intensity
+    /// Get the currently intensity of the visual bell. The bell's intensity
     /// ramps down from 1.0 to 0.0 at a rate determined by the bell's duration.
     pub fn intensity(&self) -> f64 {
         self.intensity_at_instant(Instant::now())
@@ -625,7 +650,7 @@ pub struct Term {
     /// This is true after the last column is set with the input function. Any function that
     /// implicitly sets the line or column needs to set this to false to avoid wrapping twice.
     /// input_needs_wrap ensures that cursor.col is always valid for use into indexing into
-    /// arrays. Without it we wold have to sanitize cursor.col every time we used it.
+    /// arrays. Without it we would have to sanitize cursor.col every time we used it.
     input_needs_wrap: bool,
 
     /// Got a request to set title; it's buffered here until next draw.
@@ -664,6 +689,7 @@ pub struct Term {
     pub dirty: bool,
 
     pub visual_bell: VisualBell,
+    pub next_is_urgent: Option<bool>,
 
     /// Saved cursor from main grid
     cursor_save: Cursor,
@@ -766,6 +792,7 @@ impl Term {
             next_title: None,
             dirty: false,
             visual_bell: VisualBell::new(config),
+            next_is_urgent: None,
             input_needs_wrap: false,
             grid: grid,
             alt_grid: alt,
@@ -976,7 +1003,7 @@ impl Term {
             self.mode,
             config,
             selection,
-            self.cursor_style
+            self.cursor_style,
         )
     }
 
@@ -1422,9 +1449,10 @@ impl ansi::Handler for Term {
     #[inline]
     fn linefeed(&mut self) {
         trace!("linefeed");
-        if (self.cursor.point.line + 1) == self.scroll_region.end {
+        let next = self.cursor.point.line + 1;
+        if next == self.scroll_region.end {
             self.scroll_up(Line(1));
-        } else {
+        } else if next < self.grid.num_lines() {
             self.cursor.point.line += 1;
         }
     }
@@ -1434,6 +1462,7 @@ impl ansi::Handler for Term {
     fn bell(&mut self) {
         trace!("bell");
         self.visual_bell.ring();
+        self.next_is_urgent = Some(true);
     }
 
     #[inline]
@@ -1446,13 +1475,13 @@ impl ansi::Handler for Term {
     /// LF/NL mode has some interesting history. According to ECMA-48 4th
     /// edition, in LINE FEED mode,
     ///
-    /// > The execution of the formator functions LINE FEED (LF), FORM FEED
+    /// > The execution of the formatter functions LINE FEED (LF), FORM FEED
     /// (FF), LINE TABULATION (VT) cause only movement of the active position in
     /// the direction of the line progression.
     ///
     /// In NEW LINE mode,
     ///
-    /// > The execution of the formator functions LINE FEED (LF), FORM FEED
+    /// > The execution of the formatter functions LINE FEED (LF), FORM FEED
     /// (FF), LINE TABULATION (VT) cause movement to the line home position on
     /// the following line, the following form, etc. In the case of LF this is
     /// referred to as the New Line (NL) option.

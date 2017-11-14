@@ -15,28 +15,8 @@
 #[macro_export]
 macro_rules! die {
     ($($arg:tt)*) => {{
-        err_println!($($arg)*);
+        eprintln!($($arg)*);
         ::std::process::exit(1);
-    }}
-}
-
-#[macro_export]
-macro_rules! err_println {
-    ($($arg:tt)*) => {{
-        if cfg!(feature = "err-println") {
-            use std::io::Write;
-            (writeln!(&mut ::std::io::stderr(), $($arg)*)).expect("stderr");
-        }
-    }}
-}
-
-#[macro_export]
-macro_rules! err_print {
-    ($($arg:tt)*) => {{
-        if cfg!(feature = "err-println") {
-            use std::io::Write;
-            (write!(&mut ::std::io::stderr(), $($arg)*)).expect("stderr");
-        }
     }}
 }
 

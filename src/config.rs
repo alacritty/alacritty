@@ -186,6 +186,7 @@ impl Alpha {
         self.0 = Self::clamp_to_valid_range(value);
     }
 
+    #[inline(always)]
     pub fn get(&self) -> f32 {
         self.0
     }
@@ -234,7 +235,7 @@ pub struct Config {
     #[serde(default)]
     custom_cursor_colors: bool,
 
-    /// Should draw bold text with brighter colors intead of bold font
+    /// Should draw bold text with brighter colors instead of bold font
     #[serde(default="true_bool")]
     draw_bold_text_with_bright_colors: bool,
 
@@ -328,7 +329,7 @@ impl Default for Config {
             visual_bell: Default::default(),
             env: Default::default(),
             hide_cursor_when_typing: Default::default(),
-            live_config_reload: Default::default(),
+            live_config_reload: true,
             padding: default_padding(),
         }
     }
@@ -369,7 +370,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
                         "Shift" => res.shift = true,
                         "Alt" | "Option" => res.alt = true,
                         "Control" => res.ctrl = true,
-                        _ => err_println!("unknown modifier {:?}", modifier),
+                        _ => eprintln!("unknown modifier {:?}", modifier),
                     }
                 }
 
@@ -399,7 +400,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
             type Value = ActionWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                f.write_str("Paste, Copy, PasteSelection, or Quit")
+                f.write_str("Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, ResetFontSize, or Quit")
             }
 
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<ActionWrapper, E>
@@ -466,7 +467,7 @@ impl<'a> de::Deserialize<'a> for ModeWrapper {
                         "~AppCursor" => res.not_mode |= mode::APP_CURSOR,
                         "AppKeypad" => res.mode |= mode::APP_KEYPAD,
                         "~AppKeypad" => res.not_mode |= mode::APP_KEYPAD,
-                        _ => err_println!("unknown omde {:?}", modifier),
+                        _ => eprintln!("unknown mode {:?}", modifier),
                     }
                 }
 
@@ -1093,6 +1094,7 @@ impl Config {
         &self.colors
     }
 
+    #[inline]
     pub fn background_opacity(&self) -> Alpha {
         self.background_opacity
     }
@@ -1258,28 +1260,28 @@ impl Default for Delta {
     }
 }
 
-trait DeserializeFromF32 : Sized {
-    fn deserialize_from_f32<'a, D>(D) -> ::std::result::Result<Self, D::Error>
+trait DeserializeSize : Sized {
+    fn deserialize<'a, D>(D) -> ::std::result::Result<Self, D::Error>
         where D: serde::de::Deserializer<'a>;
 }
 
-impl DeserializeFromF32 for Size {
-    fn deserialize_from_f32<'a, D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+impl DeserializeSize for Size {
+    fn deserialize<'a, D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
         where D: serde::de::Deserializer<'a>
     {
         use std::marker::PhantomData;
 
-        struct FloatVisitor<__D> {
+        struct NumVisitor<__D> {
             _marker: PhantomData<__D>,
         }
 
-        impl<'a, __D> Visitor<'a> for FloatVisitor<__D>
+        impl<'a, __D> Visitor<'a> for NumVisitor<__D>
             where __D: serde::de::Deserializer<'a>
         {
             type Value = f64;
 
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                f.write_str("f64")
+                f.write_str("f64 or u64")
             }
 
             fn visit_f64<E>(self, value: f64) -> ::std::result::Result<Self::Value, E>
@@ -1287,10 +1289,16 @@ impl DeserializeFromF32 for Size {
             {
                 Ok(value)
             }
+
+            fn visit_u64<E>(self, value: u64) -> ::std::result::Result<Self::Value, E>
+                where E: ::serde::de::Error
+            {
+                Ok(value as f64)
+            }
         }
 
         deserializer
-            .deserialize_f64(FloatVisitor::<D>{ _marker: PhantomData })
+            .deserialize_any(NumVisitor::<D>{ _marker: PhantomData })
             .map(|v| Size::new(v as _))
     }
 }
@@ -1313,11 +1321,11 @@ pub struct Font {
     pub bold: FontDescription,
 
     // Font size in points
-    #[serde(deserialize_with="DeserializeFromF32::deserialize_from_f32")]
+    #[serde(deserialize_with="DeserializeSize::deserialize")]
     pub size: Size,
 
     // Fallback Font size in points
-    #[serde(deserialize_with="DeserializeFromF32::deserialize_from_f32")]
+    #[serde(deserialize_with="DeserializeSize::deserialize")]
     pub fallback_size: Size,
 
     /// Extra spacing per character
@@ -1471,12 +1479,16 @@ impl Monitor {
                 let config_path = ::std::fs::canonicalize(path)
                     .expect("canonicalize config path");
 
-                watcher.watch(&config_path, RecursiveMode::NonRecursive).expect("watch alacritty yml");
+                // Get directory of config
+                let mut parent = config_path.clone();
+                parent.pop();
+
+                // Watch directory
+                watcher.watch(&parent, RecursiveMode::NonRecursive)
+                    .expect("watch alacritty.yml dir");
 
                 loop {
-                    let event = rx.recv().expect("watcher event");
-
-                    match event {
+                    match rx.recv().expect("watcher event") {
                         DebouncedEvent::Rename(_, _) => continue,
                         DebouncedEvent::Write(path) | DebouncedEvent::Create(path)
                          | DebouncedEvent::Chmod(path) => {
@@ -1487,7 +1499,7 @@ impl Monitor {
                                         let _ = config_tx.send(config);
                                         handler.on_config_reload();
                                     },
-                                    Err(err) => err_println!("Ignoring invalid config: {}", err),
+                                    Err(err) => eprintln!("Ignoring invalid config: {}", err),
                                 }
                              }
                         }

@@ -68,7 +68,7 @@ fn load_config(options: &cli::Options) -> Config {
                 die!("Config file not found at: {}", config_path.display());
             },
             config::Error::Empty => {
-                err_println!("Empty config; Loading defaults");
+                eprintln!("Empty config; Loading defaults");
                 Config::default()
             },
             _ => die!("{}", err),

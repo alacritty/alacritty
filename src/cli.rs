@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 extern crate log;
+use built_info;
 use clap::{Arg, App};
 use index::{Line, Column};
 use config::{Dimensions, Shell};
@@ -19,6 +20,14 @@ use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 
 const DEFAULT_TITLE: &'static str = "Alacritty";
+
+fn crate_long_version() -> String {
+    format!("{} (git commit {}) [{} build using {}])",
+        built_info::PKG_VERSION,
+        built_info::GIT_VERSION.unwrap_or(""),
+        built_info::PROFILE,
+        built_info::RUSTC_VERSION)
+}
 
 /// Options specified on the command line
 pub struct Options {
@@ -56,6 +65,7 @@ impl Options {
 
         let matches = App::new(crate_name!())
             .version(crate_version!())
+            .long_version(crate_long_version().as_str())
             .author(crate_authors!("\n"))
             .about(crate_description!())
             .arg(Arg::with_name("ref-test")
@@ -74,7 +84,8 @@ impl Options {
                 .long("dimensions")
                 .short("d")
                 .value_names(&["columns", "lines"])
-                .help("Defines the window dimensions [default: 80x24]"))
+                .help("Defines the window dimensions. Falls back to size specified by \
+                       window manager if set to 0x0 [default: 80x24]"))
             .arg(Arg::with_name("title")
                 .long("title")
                 .short("t")
@@ -97,7 +108,8 @@ impl Options {
             .arg(Arg::with_name("config-file")
                  .long("config-file")
                  .takes_value(true)
-                 .help("Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]"))
+                 .help("Specify alternative configuration file \
+                       [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]"))
             .arg(Arg::with_name("command")
                 .long("command")
                 .short("e")

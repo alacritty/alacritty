@@ -57,7 +57,7 @@ makepkg -isr
 1. Alacritty requires the most recent stable Rust compiler; it can be installed with
    `rustup`.
 
-    Note: **DO NOT** use the Homebrew Rust compiler on macOS (see FAQ for
+    Note: **DO NOT** use the Homebrew Rust compiler on macOS (see [FAQ][faq] for
     explanation).
 
 #### Installing Rust compiler with `rustup`
@@ -240,7 +240,7 @@ configuration file as the following paths:
 3. `$HOME/.config/alacritty/alacritty.yml`
 4. `$HOME/.alacritty.yml`
 
-If neither of these paths are found then
+If none of these paths are found then
 `$XDG_CONFIG_HOME/alacritty/alacritty.yml` is created once alacritty is first
 run. On most systems this often defaults to
 `$HOME/.config/alacritty/alacritty.yml`.
@@ -273,9 +273,6 @@ Just Works.
   on another machine which is connected to Alacritty via SSH, this issue
   disappears. Actual throughput and rendering performance are still better in
   Alacritty.
-- _Is wayland supported?_ Sort of, but not everything works.  To prefer X11 over
-  Wayland (e.g. for use on XWayland) launch Alacritty like this:
-  `env WAYLAND_DISPLAY= alacritty`
 - _When will Windows support be available?_ When someone has time to work on it.
   Contributors would be welcomed :).
 - _My arrow keys don't work_. It sounds like you deleted some key bindings from
@@ -289,9 +286,24 @@ Just Works.
 
 Alacritty discussion can be found in `#alacritty` on freenode.
 
+## Wayland
+
+Wayland support is available, but not everything works as expected. Many people
+have found a better experience using XWayland which can be achieved launching
+Alacritty with the `WAYLAND_DISPLAY` environment variable cleared:
+
+```sh
+env WAYLAND_DISPLAY= alacritty
+```
+
+If you're interested in seeing our Wayland support improve, please head over to
+the [Wayland meta issue] on the _winit_ project to see how you may contribute.
+
 ## License
 
 Alacritty is released under the [Apache License, Version 2.0].
 
 [Apache License, Version 2.0]: https://github.com/jwilm/alacritty/blob/readme/LICENSE-APACHE
+[faq]: https://github.com/jwilm/alacritty#faq
 [tmux]: https://github.com/tmux/tmux
+[Wayland meta issue]: https://github.com/tomaka/winit/issues/306

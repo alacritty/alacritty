@@ -71,7 +71,7 @@ impl<'a> StringPropertyIter<'a> {
     }
 }
 
-/// Iterator over interger properties
+/// Iterator over integer properties
 pub struct BooleanPropertyIter<'a> {
     pattern: &'a PatternRef,
     object: &'a [u8],
@@ -108,7 +108,7 @@ impl<'a> BooleanPropertyIter<'a> {
     }
 }
 
-/// Iterator over interger properties
+/// Iterator over integer properties
 pub struct IntPropertyIter<'a> {
     pattern: &'a PatternRef,
     object: &'a [u8],
@@ -226,7 +226,7 @@ impl<'a> LcdFilterPropertyIter<'a> {
     }
 }
 
-/// Iterator over interger properties
+/// Iterator over integer properties
 pub struct DoublePropertyIter<'a> {
     pattern: &'a PatternRef,
     object: &'a [u8],
@@ -604,7 +604,7 @@ impl PatternRef {
         index() => b"index\0"
     }
 
-    pub fn config_subsitute(&mut self, config: &ConfigRef, kind: MatchKind) {
+    pub fn config_substitute(&mut self, config: &ConfigRef, kind: MatchKind) {
         unsafe {
             FcConfigSubstitute(config.as_ptr(), self.as_ptr(), kind as u32);
         }
