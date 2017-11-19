@@ -190,7 +190,8 @@ impl Window {
         Window::platform_window_init();
         let window = WindowBuilder::new()
             .with_title(title)
-            .with_transparency(true);
+            .with_transparency(true)
+            .with_visibility(false);
         let context = ContextBuilder::new()
             .with_vsync(true);
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
@@ -264,6 +265,10 @@ impl Window {
     #[inline]
     pub fn resize(&self, width: u32, height: u32) {
         self.window.resize(width, height);
+    }
+
+    pub fn show(&self) {
+        self.window.show();
     }
 
     /// Block waiting for events
