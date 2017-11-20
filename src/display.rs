@@ -197,9 +197,6 @@ impl Display {
             api.clear(background_color);
         });
 
-        // Show the window now that it's been initialized
-        window.show();
-
         Ok(Display {
             window: window,
             renderer: renderer,
