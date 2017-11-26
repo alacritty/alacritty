@@ -1354,11 +1354,11 @@ impl Atlas {
     }
 
     /// Insert a RasterizedGlyph into the texture atlas
-    pub fn insert(&mut self,
-                  glyph: &RasterizedGlyph,
-                  active_tex: &mut u32)
-                  -> Result<Glyph, AtlasInsertError>
-    {
+    pub fn insert(
+        &mut self,
+        glyph: &RasterizedGlyph,
+        active_tex: &mut u32
+    ) -> Result<Glyph, AtlasInsertError> {
         if glyph.width > self.width || glyph.height > self.height {
             return Err(AtlasInsertError::GlyphTooLarge);
         }
@@ -1382,11 +1382,7 @@ impl Atlas {
     /// Internal function for use once atlas has been checked for space. GL
     /// errors could still occur at this point if we were checking for them;
     /// hence, the Result.
-    fn insert_inner(&mut self,
-                    glyph: &RasterizedGlyph,
-                    active_tex: &mut u32)
-                    -> Glyph
-    {
+    fn insert_inner(&mut self, glyph: &RasterizedGlyph, active_tex: &mut u32) -> Glyph {
         let offset_y = self.row_baseline;
         let offset_x = self.row_extent;
         let height = glyph.height as i32;
