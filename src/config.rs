@@ -731,7 +731,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
             }
         }
 
-        const FIELDS: &'static [&'static str] = &[
+        const FIELDS: &[&str] = &[
             "key", "mods", "mode", "action", "chars", "mouse", "command",
         ];
 
