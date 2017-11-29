@@ -42,7 +42,7 @@ fn main() {
     let config = load_config(&options);
 
     // Run alacritty
-    if let Err(err) = run(config, options) {
+    if let Err(err) = run(config, &options) {
         die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
     }
 
@@ -80,9 +80,9 @@ fn load_config(options: &cli::Options) -> Config {
 ///
 /// Creates a window, the terminal state, pty, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
+fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // Initialize the logger first as to capture output from other subsystems
-    logging::initialize(&options)?;
+    logging::initialize(options)?;
 
     info!("Welcome to Alacritty.");
     config.path().map(|config_path| {
@@ -92,7 +92,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // Create a display.
     //
     // The display manages a window and can draw the terminal
-    let mut display = Display::new(&config, &options)?;
+    let mut display = Display::new(&config, options)?;
 
     info!(
         "PTY Dimensions: {:?} x {:?}",
@@ -116,7 +116,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // The pty forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-    let mut pty = tty::new(&config, &options, display.size(), window_id);
+    let mut pty = tty::new(&config, options, display.size(), window_id);
 
     // Create the pseudoterminal I/O loop
     //
@@ -141,7 +141,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     let mut processor = event::Processor::new(
         event_loop::Notifier(event_loop.channel()),
         display.resize_channel(),
-        &options,
+        options,
         &config,
         options.ref_test,
         display.size().to_owned(),
