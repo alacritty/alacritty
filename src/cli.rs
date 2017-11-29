@@ -19,7 +19,7 @@ use config::{Dimensions, Shell};
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 
-const DEFAULT_TITLE: &'static str = "Alacritty";
+const DEFAULT_TITLE: &str = "Alacritty";
 
 fn crate_long_version() -> String {
     format!("{} (git commit {}) [{} build using {}])",
