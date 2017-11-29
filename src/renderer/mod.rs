@@ -1078,10 +1078,10 @@ impl ShaderProgram {
             let mut success: GLint = 0;
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
 
-            if success != (gl::TRUE as GLint) {
-                Err(ShaderCreationError::Link(get_program_info_log(program)))
-            } else {
+            if success == (gl::TRUE as GLint) {
                 Ok(program)
+            } else {
+                Err(ShaderCreationError::Link(get_program_info_log(program)))
             }
         }
     }
