@@ -1198,7 +1198,7 @@ impl Config {
         let mut f = fs::File::open(path)?;
         let mut contents = String::new();
         f.read_to_string(&mut contents)?;
-        if contents.len() == 0 {
+        if contents.is_empty() {
             return Err(Error::Empty);
         }
 
