@@ -262,7 +262,7 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T, window_id:
             }
 
             let pty = Pty { fd: master };
-            pty.resize(size);
+            pty.resize(&size);
             pty
         },
         Err(err) => {
@@ -289,7 +289,7 @@ impl Pty {
     ///
     /// Tells the kernel that the window size changed with the new pixel
     /// dimensions and line/column counts.
-    pub fn resize<T: ToWinsize>(&self, size: T) {
+    pub fn resize<T: ToWinsize>(&self, size: &T) {
         let win = size.to_winsize();
 
         let res = unsafe {
@@ -321,7 +321,7 @@ impl<'a> ToWinsize for &'a SizeInfo {
 
 impl OnResize for Pty {
     fn on_resize(&mut self, size: &SizeInfo) {
-        self.resize(size);
+        self.resize(&size);
     }
 }
 

@@ -147,7 +147,7 @@ impl Display {
         info!("device_pixel_ratio: {}", dpr);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(&config, viewport_size)?;
+        let mut renderer = QuadRenderer::new(config, viewport_size)?;
 
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(&window, &mut renderer, config, 0)?;
