@@ -361,7 +361,7 @@ impl Window {
     pub fn send_xim_spot(&self, _x: i16, _y: i16) {
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(macos, windows)))]
     pub fn get_window_id(&self) -> Option<usize> {
         use glutin::os::unix::WindowExt;
 
@@ -372,6 +372,11 @@ impl Window {
     }
 
     #[cfg(target_os = "macos")]
+    pub fn get_window_id(&self) -> Option<usize> {
+        None
+    }
+
+    #[cfg(windows)]
     pub fn get_window_id(&self) -> Option<usize> {
         None
     }

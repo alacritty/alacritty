@@ -1,0 +1,11 @@
+[package]
+name = "winpty"
+version = "0.1.0"
+authors = ["Zac Pullar-Strecker <zacmps@gmail.com>"]
+license = "MIT"
+description = "Safe rust bindings for winpty"
+
+[dependencies]
+winpty-sys = { path = "../../../c++/winpty" }
+bitflags = "1.0"
+libc = "0.2"

@@ -26,7 +26,6 @@ serde_yaml = "0.7.1"
 vte = "0.3.2"
 mio = "0.6.10"
 mio-more = "0.1.0"
-copypasta = { path = "./copypasta" }
 xdg = "2"
 log = "0.3.8"
 clap = "2"
@@ -36,9 +35,17 @@ arraydeque = "0.2.3"
 glutin = "0.9.2"
 clippy = { version = "*", optional = true }
 env_logger = "0.4"
+copypasta = { path = "./copypasta" }
+crossbeam = "0.3"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
+
+[target.'cfg(windows)'.dependencies]
+# TODO: Replace with git dep
+winpty = { path = "./winpty" }
+mio-named-pipes = "0.1"
+winapi = "0.2"
 
 [features]
 default = []

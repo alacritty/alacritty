@@ -184,7 +184,7 @@ impl Action {
             },
             Action::Paste => {
                 Clipboard::new()
-                    .and_then(|clipboard| clipboard.load_primary() )
+                    .and_then(|mut clipboard| clipboard.load_primary() )
                     .map(|contents| { self.paste(ctx, contents) })
                     .unwrap_or_else(|err| {
                         eprintln!("Error loading data from clipboard. {}", Red(err));
@@ -192,7 +192,7 @@ impl Action {
             },
             Action::PasteSelection => {
                 Clipboard::new()
-                    .and_then(|clipboard| clipboard.load_selection() )
+                    .and_then(|mut clipboard| clipboard.load_selection() )
                     .map(|contents| { self.paste(ctx, contents) })
                     .unwrap_or_else(|err| {
                         warn!("Error loading data from clipboard. {}", Red(err));
