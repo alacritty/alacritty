@@ -284,10 +284,12 @@ fn default_padding() -> Delta {
     Delta { x: 2., y: 2. }
 }
 
-#[cfg(not(target_os="macos"))]
+#[cfg(not(any(windows, target_os="macos")))]
 static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty.yml");
 #[cfg(target_os="macos")]
 static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty_macos.yml");
+#[cfg(windows)]
+static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty_windows.yml");
 
 fn default_config() -> Config {
     serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG)
@@ -1050,6 +1052,7 @@ impl Config {
     /// 2. $XDG_CONFIG_HOME/alacritty.yml
     /// 3. $HOME/.config/alacritty/alacritty.yml
     /// 4. $HOME/.alacritty.yml
+    #[cfg(not(windows))]
     pub fn installed_config() -> Option<Cow<'static, Path>> {
         // Try using XDG location by default
         ::xdg::BaseDirectories::with_prefix("alacritty")
@@ -1078,10 +1081,30 @@ impl Config {
             .map(|path| path.into())
     }
 
+    #[cfg(windows)]
+    pub fn installed_config() -> Option<Cow<'static, Path>> {
+        if let Some(mut path) = ::std::env::home_dir() {
+            path.push("alacritty");
+            path.set_extension("yml");
+            return Some(path.into());
+        }
+        None
+    }
+
+    #[cfg(not(windows))]
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
         let path = ::xdg::BaseDirectories::with_prefix("alacritty")
             .map_err(|err| io::Error::new(io::ErrorKind::NotFound, ::std::error::Error::description(&err)))
-            .and_then(|p| p.place_config_file("alacritty.yml"))?;
+            .and_then(|mut p| p.place_config_file("alacritty.yml"))?;
+        File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
+        Ok(path.into())
+    }
+
+    #[cfg(windows)]
+    pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
+        let path = ::std::env::home_dir()
+            .ok_or(io::Error::new(io::ErrorKind::NotFound, "could not find profile directory"))
+            .and_then(|mut p| {p.push("alacritty"); p.set_extension("yml"); Ok(p)})?;
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
         Ok(path.into())
     }
@@ -1407,6 +1430,21 @@ impl Default for Font {
             normal: FontDescription::new_with_family("monospace"),
             bold: FontDescription::new_with_family("monospace"),
             italic: FontDescription::new_with_family("monospace"),
+            size: Size::new(11.0),
+            use_thin_strokes: false,
+            offset: Default::default(),
+            glyph_offset: Default::default()
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Default for Font {
+    fn default() -> Font {
+        Font {
+            normal: FontDescription::new_with_family("Consolas"),
+            bold: FontDescription::new_with_family("Consolas"),
+            italic: FontDescription::new_with_family("Consolas"),
             size: Size::new(11.0),
             use_thin_strokes: false,
             offset: Default::default(),

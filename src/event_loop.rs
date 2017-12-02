@@ -3,18 +3,22 @@ use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::io::{self, ErrorKind, Write};
 use std::fs::File;
+#[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
+use std::marker::{PhantomData, Send};
 
 use mio::{self, Events, PollOpt, Ready};
+use mio_more::channel::{self, Receiver, Sender};
 #[cfg(unix)]
 use mio::unix::UnixReady;
+#[cfg(unix)]
 use mio::unix::EventedFd;
-use mio_more::channel::{self, Sender, Receiver};
 
 use ansi;
 use display;
 use event;
+use tty;
 use term::Term;
 use util::thread;
 use sync::FairMutex;
@@ -26,17 +30,31 @@ pub enum Msg {
     Input(Cow<'static, [u8]>),
 
     /// Indicates that the `EventLoop` should shut down, as Alacritty is shutting down
-    Shutdown
+    Shutdown,
 }
 
 /// The main event!.. loop.
 ///
 /// Handles all the pty I/O and runs the pty parser which updates terminal
 /// state.
-pub struct EventLoop<Io> {
+#[cfg(windows)]
+pub struct EventLoop<R: io::Read + Send, W: io::Write + Send, T: tty::EventedRW<R, W>> {
     poll: mio::Poll,
-    pty: Io,
+    pty: T,
     rx: Receiver<Msg>,
+    tx: Sender<Msg>,
+    terminal: Arc<FairMutex<Term>>,
+    display: display::Notifier,
+    ref_test: bool,
+    // FIXME: A possibly better solution is to change the trait (PTY?) to use an associated type
+    _r: PhantomData<R>,
+    _w: PhantomData<W>,
+}
+#[cfg(not(windows))]
+pub struct EventLoop<R: io::Read, W: io::Write, T: tty::PTY<R, W>> {
+    poll: mio::Poll,
+    pty: T,
+    rx: Reciever<Msg>,
     tx: Sender<Msg>,
     terminal: Arc<FairMutex<Term>>,
     display: display::Notifier,
@@ -57,14 +75,14 @@ enum DrainResult {
     /// Nothing was available to receive
     Empty,
     /// A shutdown message was received
-    Shutdown
+    Shutdown,
 }
 
 impl DrainResult {
     pub fn is_shutdown(&self) -> bool {
         match *self {
             DrainResult::Shutdown => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -83,12 +101,13 @@ pub struct Notifier(pub Sender<Msg>);
 
 impl event::Notify for Notifier {
     fn notify<B>(&mut self, bytes: B)
-        where B: Into<Cow<'static, [u8]>>
+    where
+        B: Into<Cow<'static, [u8]>>,
     {
         let bytes = bytes.into();
         // terminal hangs if we send 0 bytes through.
         if bytes.len() == 0 {
-            return
+            return;
         }
         match self.0.send(Msg::Input(bytes)) {
             Ok(_) => (),
@@ -118,9 +137,7 @@ impl State {
 
     #[inline]
     fn goto_next(&mut self) {
-        self.writing = self.write_list
-            .pop_front()
-            .map(Writing::new);
+        self.writing = self.write_list.pop_front().map(Writing::new);
     }
 
     #[inline]
@@ -142,7 +159,10 @@ impl State {
 impl Writing {
     #[inline]
     fn new(c: Cow<'static, [u8]>) -> Writing {
-        Writing { source: c, written: 0 }
+        Writing {
+            source: c,
+            written: 0,
+        }
     }
 
     #[inline]
@@ -164,19 +184,19 @@ impl Writing {
 /// `mio::Token` for the event loop channel
 const CHANNEL: mio::Token = mio::Token(0);
 
-/// `mio::Token` for the pty file descriptor
-const PTY: mio::Token = mio::Token(1);
-
-impl<Io> EventLoop<Io>
-    where Io: io::Read + io::Write + Send + AsRawFd + 'static
+impl<R, W, T> EventLoop<R, W, T>
+where
+    R: io::Read + Send + 'static,
+    W: io::Write + Send + 'static,
+    T: tty::EventedRW<R, W> + Send + 'static,
 {
     /// Create a new event loop
     pub fn new(
         terminal: Arc<FairMutex<Term>>,
         display: display::Notifier,
-        pty: Io,
+        pty: T,
         ref_test: bool,
-    ) -> EventLoop<Io> {
+    ) -> EventLoop<R, W, T> {
         let (tx, rx) = channel::channel();
         EventLoop {
             poll: mio::Poll::new().expect("create mio Poll"),
@@ -186,6 +206,8 @@ impl<Io> EventLoop<Io>
             terminal: terminal,
             display: display,
             ref_test: ref_test,
+            _r: PhantomData,
+            _w: PhantomData,
         }
     }
 
@@ -204,7 +226,7 @@ impl<Io> EventLoop<Io>
             match msg {
                 Msg::Input(input) => {
                     state.write_list.push_back(input);
-                },
+                }
                 Msg::Shutdown => {
                     return DrainResult::Shutdown;
                 }
@@ -225,39 +247,33 @@ impl<Io> EventLoop<Io>
             return false;
         }
 
-        self.poll.reregister(
-            &self.rx, CHANNEL,
-            Ready::readable(),
-            PollOpt::edge() | PollOpt::oneshot()
-        ).expect("reregister channel");
-
+        let mut interest = Ready::readable();
         if state.needs_write() {
-            self.poll.reregister(
-                &EventedFd(&self.pty.as_raw_fd()),
-                PTY,
-                Ready::readable() | Ready::writable(),
-                PollOpt::edge() | PollOpt::oneshot()
-            ).expect("reregister fd after channel recv");
+            interest.insert(Ready::writable());
         }
+        self.pty
+            .reregister(&self.poll, interest, PollOpt::edge() | PollOpt::oneshot());
+        // .expect("reregister channel");
 
         true
     }
 
     #[inline]
-    fn pty_read<W>(
+    fn pty_read<X>(
         &mut self,
         state: &mut State,
         buf: &mut [u8],
-        mut writer: Option<&mut W>
+        mut writer: Option<&mut X>,
     ) -> io::Result<()>
-        where W: Write
+    where
+        X: Write,
     {
         const MAX_READ: usize = 65_536;
         let mut processed = 0;
         let mut terminal = None;
 
         loop {
-            match self.pty.read(&mut buf[..]) {
+            match self.pty.reader().read(&mut buf[..]) {
                 Ok(0) => break,
                 Ok(got) => {
                     // Record bytes read; used to limit time spent in pty_read.
@@ -280,23 +296,22 @@ impl<Io> EventLoop<Io>
 
                     // Run the parser
                     for byte in &buf[..got] {
-                        state.parser.advance(&mut **terminal, *byte, &mut self.pty);
+                        state
+                            .parser
+                            .advance(&mut **terminal, *byte, &mut self.pty.writer());
                     }
 
                     // Exit if we've processed enough bytes
                     if processed > MAX_READ {
                         break;
                     }
-                },
-                Err(err) => {
-                    match err.kind() {
-                        ErrorKind::Interrupted |
-                        ErrorKind::WouldBlock => {
-                            break;
-                        },
-                        _ => return Err(err),
-                    }
                 }
+                Err(err) => match err.kind() {
+                    ErrorKind::Interrupted | ErrorKind::WouldBlock => {
+                        break;
+                    }
+                    _ => return Err(err),
+                },
             }
         }
 
@@ -317,55 +332,63 @@ impl<Io> EventLoop<Io>
 
         'write_many: while let Some(mut current) = state.take_current() {
             'write_one: loop {
-                match self.pty.write(current.remaining_bytes()) {
+                match self.pty.writer().write(current.remaining_bytes()) {
                     Ok(0) => {
                         state.set_current(Some(current));
                         break 'write_many;
-                    },
+                    }
                     Ok(n) => {
                         current.advance(n);
                         if current.finished() {
                             state.goto_next();
                             break 'write_one;
                         }
-                    },
+                    }
                     Err(err) => {
                         state.set_current(Some(current));
                         match err.kind() {
-                            ErrorKind::Interrupted |
-                            ErrorKind::WouldBlock => break 'write_many,
+                            ErrorKind::Interrupted | ErrorKind::WouldBlock => break 'write_many,
                             _ => return Err(err),
                         }
                     }
                 }
-
             }
         }
 
         Ok(())
     }
 
-    pub fn spawn(
-        mut self,
-        state: Option<State>
-    ) -> thread::JoinHandle<(EventLoop<Io>, State)> {
+    pub fn spawn(mut self, state: Option<State>) -> thread::JoinHandle<(Self, State)> {
         thread::spawn_named("pty reader", move || {
             let mut state = state.unwrap_or_else(Default::default);
             let mut buf = [0u8; 4096];
 
-            let fd = self.pty.as_raw_fd();
-            let fd = EventedFd(&fd);
-
             let poll_opts = PollOpt::edge() | PollOpt::oneshot();
+            let tokens: [usize; 2] = [1, 2];
 
-            self.poll.register(&self.rx, CHANNEL, Ready::readable(), poll_opts).unwrap();
-            self.poll.register(&fd, PTY, Ready::readable(), poll_opts).unwrap();
+            self.poll
+                .register(&self.rx, CHANNEL, Ready::readable(), poll_opts)
+                .unwrap();
+
+            // Unix uses a single fd for r/w, Windows uses two named pipes.
+            #[cfg(not(windows))]
+            let fd = {
+                let fd = self.pty.as_raw_fd();
+                let fd = EventedFd(&fd);
+                self.poll
+                    .register(fd, PTY, Ready::readable(), poll_opts)
+                    .unwrap();
+                fd
+            };
+
+            self.pty
+                .register(&self.poll, &mut tokens.iter(), Ready::readable(), poll_opts);
 
             let mut events = Events::with_capacity(1024);
 
             let mut pipe = if self.ref_test {
-                let file = File::create("./alacritty.recording")
-                    .expect("create alacritty recording");
+                let file =
+                    File::create("./alacritty.recording").expect("create alacritty recording");
                 Some(file)
             } else {
                 None
@@ -375,30 +398,31 @@ impl<Io> EventLoop<Io>
                 if let Err(err) = self.poll.poll(&mut events, None) {
                     match err.kind() {
                         ErrorKind::Interrupted => continue,
-                        _ => panic!("EventLoop polling error: {:?}", err)
+                        _ => panic!("EventLoop polling error: {:?}", err),
                     }
                 }
 
                 for event in events.iter() {
                     match event.token() {
-                        CHANNEL =>  {
-                            if !self.channel_event(&mut state) {
-                                break 'event_loop;
-                            }
+                        CHANNEL => if !self.channel_event(&mut state) {
+                            break 'event_loop;
                         },
-                        PTY => {
-                            let ready = event.readiness();
-
-                            #[cfg(unix)] {
-                                if UnixReady::from(ready).is_hup() {
+                        read_token if read_token == self.pty.read_token() => {
+                            #[cfg(unix)]
+                            {
+                                if UnixReady::from(event.readiness()).is_hup() {
                                     break 'event_loop;
                                 }
                             }
-
-                            if ready.is_readable() {
-                                if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut()) {
-                                    error!("Event loop exitting due to error: {} [{}:{}]",
-                                           err, file!(), line!());
+                            if event.readiness().is_readable() {
+                                if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut())
+                                {
+                                    error!(
+                                        "Event loop exitting due to error: {} [{}:{}]",
+                                        err,
+                                        file!(),
+                                        line!()
+                                    );
                                     break 'event_loop;
                                 }
 
@@ -406,33 +430,42 @@ impl<Io> EventLoop<Io>
                                     break 'event_loop;
                                 }
                             }
-
-                            if ready.is_writable() {
-                                if let Err(err) = self.pty_write(&mut state) {
-                                    error!("Event loop exitting due to error: {} [{}:{}]",
-                                           err, file!(), line!());
+                        }
+                        write_token if write_token == self.pty.write_token() => {
+                            #[cfg(unix)]
+                            {
+                                if UnixReady::from(event.readiness()).is_hup() {
                                     break 'event_loop;
                                 }
                             }
-
-                            // Figure out pty interest
-                            let mut interest = Ready::readable();
-                            if state.needs_write() {
-                                interest.insert(Ready::writable());
+                            if event.readiness().is_writable() {
+                                if let Err(err) = self.pty_write(&mut state) {
+                                    error!(
+                                        "Event loop exitting due to error: {} [{}:{}]",
+                                        err,
+                                        file!(),
+                                        line!()
+                                    );
+                                    break 'event_loop;
+                                }
                             }
-
-                            // Reregister pty
-                            self.poll
-                                .reregister(&fd, PTY, interest, poll_opts)
-                                .expect("register fd after read/write");
-                        },
+                        }
                         _ => (),
                     }
+
+                    // Register write interest if necessary
+                    let mut interest = Ready::readable();
+                    if state.needs_write() {
+                        interest.insert(Ready::writable());
+                    }
+                    // Reregister with new interest
+                    self.pty.reregister(&self.poll, interest, poll_opts);
                 }
             }
 
+            // The evented instances are not dropped here so deregister them explicitly
             let _ = self.poll.deregister(&self.rx);
-            let _ = self.poll.deregister(&fd);
+            self.pty.deregister(&self.poll);
 
             (self, state)
         })

@@ -13,24 +13,60 @@
 // limitations under the License.
 //
 //! tty related functionality
-//!
-use std::ffi::CStr;
-use std::fs::File;
-use std::os::unix::io::FromRawFd;
-use std::os::unix::process::CommandExt;
-use std::ptr;
-use std::process::{Command, Stdio};
-
-use libc::{self, winsize, c_int, pid_t, WNOHANG, SIGCHLD, TIOCSCTTY};
 
 use term::SizeInfo;
 use display::OnResize;
 use config::{Config, Shell};
 use cli::Options;
+use mio;
+
+#[cfg(windows)]
+use winapi;
+#[cfg(windows)]
+use mio_named_pipes::NamedPipe;
+#[cfg(windows)]
+use winpty::{ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
+#[cfg(windows)]
+use winpty::Config as WinptyConfig;
+#[cfg(windows)]
+use std::io;
+#[cfg(windows)]
+use std::os::windows::io::{FromRawHandle, IntoRawHandle};
+#[cfg(windows)]
+use std::fs::OpenOptions;
+#[cfg(windows)]
+use std::os::windows::fs::OpenOptionsExt;
+#[cfg(windows)]
+use mio::Evented;
+#[cfg(windows)]
+use std::env;
+#[cfg(windows)]
+use std::cell::UnsafeCell;
+
+#[cfg(not(windows))]
+use std::os::unix::io::FromRawFd;
+#[cfg(not(windows))]
+use std::fs::File;
+#[cfg(not(windows))]
+use std::os::unix::process::CommandExt;
+#[cfg(not(windows))]
+use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
+#[cfg(not(windows))]
+use std::process::{Command, Stdio};
+#[cfg(not(windows))]
+use std::ffi::CStr;
+#[cfg(not(windows))]
+use std::ptr;
+
+// How long the agent should wait for any RPC request
+// This is a placeholder value until we see how often long responses happen
+#[cfg(windows)]
+const AGENT_TIMEOUT: u32 = 1000;
 
 /// Process ID of child process
 ///
 /// Necessary to put this in static storage for `sigchld` to have access
+#[cfg(not(windows))]
 static mut PID: pid_t = 0;
 
 /// Exit flag
@@ -40,6 +76,7 @@ static mut PID: pid_t = 0;
 /// checked via `process_should_exit`.
 static mut SHOULD_EXIT: bool = false;
 
+#[cfg(not(windows))]
 extern "C" fn sigchld(_a: c_int) {
     let mut status: c_int = 0;
     unsafe {
@@ -59,6 +96,7 @@ pub fn process_should_exit() -> bool {
 }
 
 /// Get the current value of errno
+#[cfg(not(windows))]
 fn errno() -> c_int {
     ::errno::errno().0
 }
@@ -76,9 +114,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
         ws_ypixel: 0,
     };
 
-    let res = unsafe {
-        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null(), &win)
-    };
+    let res = unsafe { libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null(), &win) };
 
     if res < 0 {
         die!("openpty failed");
@@ -87,7 +123,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     (master, slave)
 }
 
-#[cfg(any(target_os = "macos",target_os = "freebsd"))]
+#[cfg(any(target_os = "macos", target_os = "freebsd"))]
 fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     let mut master: c_int = 0;
     let mut slave: c_int = 0;
@@ -100,7 +136,13 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     };
 
     let res = unsafe {
-        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null_mut(), &mut win)
+        libc::openpty(
+            &mut master,
+            &mut slave,
+            ptr::null_mut(),
+            ptr::null_mut(),
+            &mut win,
+        )
     };
 
     if res < 0 {
@@ -111,16 +153,16 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
 }
 
 /// Really only needed on BSD, but should be fine elsewhere
+#[cfg(not(windows))]
 fn set_controlling_terminal(fd: c_int) {
-    let res = unsafe {
-        libc::ioctl(fd, TIOCSCTTY as _, 0)
-    };
+    let res = unsafe { libc::ioctl(fd, TIOCSCTTY as _, 0) };
 
     if res < 0 {
         die!("ioctl TIOCSCTTY failed: {}", errno());
     }
 }
 
+#[cfg(not(windows))]
 #[derive(Debug)]
 struct Passwd<'a> {
     name: &'a str,
@@ -137,6 +179,7 @@ struct Passwd<'a> {
 /// # Unsafety
 ///
 /// If `buf` is changed while `Passwd` is alive, bad thing will almost certainly happen.
+#[cfg(not(windows))]
 fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
     // Create zeroed passwd struct
     let mut entry: libc::passwd = unsafe { ::std::mem::uninitialized() };
@@ -146,7 +189,13 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
     // Try and read the pw file.
     let uid = unsafe { libc::getuid() };
     let status = unsafe {
-        libc::getpwuid_r(uid, &mut entry, buf.as_mut_ptr() as *mut _, buf.len(), &mut res)
+        libc::getpwuid_r(
+            uid,
+            &mut entry,
+            buf.as_mut_ptr() as *mut _,
+            buf.len(),
+            &mut res,
+        )
     };
 
     if status < 0 {
@@ -174,7 +223,15 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
 }
 
 /// Create a new tty and return a handle to interact with it.
-pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T, window_id: Option<usize>) -> Pty {
+///
+/// On windows this starts the winpty agent to interact with the console
+#[cfg(not(windows))]
+pub fn new<T: ToWinsize>(
+    config: &Config,
+    options: &Options,
+    size: T,
+    window_id: Option<usize>,
+) -> Pty {
     let win = size.to_winsize();
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
@@ -182,8 +239,7 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T, window_id:
     let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
 
     let default_shell = &Shell::new(pw.shell);
-    let shell = config.shell()
-        .unwrap_or(default_shell);
+    let shell = config.shell().unwrap_or(default_shell);
 
     let initial_command = options.command().unwrap_or(shell);
 
@@ -264,50 +320,239 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T, window_id:
             let pty = Pty { fd: master };
             pty.resize(size);
             pty
-        },
+        }
         Err(err) => {
             die!("Command::spawn() failed: {}", err);
         }
     }
 }
+#[cfg(windows)]
+pub fn new<'a>(
+    config: &Config,
+    options: &Options,
+    size: SizeInfo,
+    _window_id: Option<usize>,
+) -> Pty<'a, NamedPipe, NamedPipe> {
+    // Create config
+    let mut wconfig = WinptyConfig::new(ConfigFlags::empty()).unwrap();
+    wconfig.set_initial_size(size.cols().0 as i32, size.lines().0 as i32);
+    wconfig.set_mouse_mode(MouseMode::Auto);
+    wconfig.set_agent_timeout(AGENT_TIMEOUT);
 
+    // Start agent
+    let mut winpty = Winpty::open(&wconfig).unwrap();
+    let (conin, conout) = (winpty.conin_name(), winpty.conout_name());
+
+    // Get process commandline
+    let default_shell = &Shell::new(env::var("COMSPEC").unwrap_or("cmd".into()));
+    let shell = config.shell().unwrap_or(default_shell);
+    let initial_command = options.command().unwrap_or(shell);
+    let mut cmdline = initial_command.args().to_vec();
+    cmdline.insert(0, initial_command.program().into());
+
+    // Spawn process
+    let spawnconfig = SpawnConfig::new(
+        // This may be problematic if we can't tell immediately when the process shut down
+        SpawnFlags::AUTO_SHUTDOWN | SpawnFlags::EXIT_AFTER_SHUTDOWN,
+        None, // appname
+        Some(&cmdline.join(" ")),
+        None, // cwd
+        None, // Env
+    ).unwrap();
+
+    let default_opts = &mut OpenOptions::new();
+    default_opts
+        .share_mode(0)
+        .custom_flags(winapi::FILE_FLAG_OVERLAPPED);
+
+    let (conout_pipe, conin_pipe);
+    unsafe {
+        conout_pipe = NamedPipe::from_raw_handle(
+            default_opts
+                .clone()
+                .read(true)
+                .open(conout)
+                .unwrap()
+                .into_raw_handle(),
+        );
+        conin_pipe = NamedPipe::from_raw_handle(
+            default_opts
+                .clone()
+                .write(true)
+                .open(conin)
+                .unwrap()
+                .into_raw_handle(),
+        );
+    }
+
+    conout_pipe.connect().unwrap();
+    assert!(conout_pipe.take_error().unwrap().is_none());
+    conin_pipe.connect().unwrap();
+    assert!(conin_pipe.take_error().unwrap().is_none());
+
+    winpty.spawn(&spawnconfig, None, None).unwrap(); // Process handle, thread handle
+
+    Pty {
+        winpty: UnsafeCell::new(winpty),
+        conout: conout_pipe,
+        conin: conin_pipe,
+        read_token: 0.into(),
+        write_token: 0.into(),
+    }
+}
+
+#[cfg(not(windows))]
 pub struct Pty {
     fd: c_int,
 }
+#[cfg(windows)]
+pub struct Pty<'a, R: io::Read + Evented + Send, W: io::Write + Evented + Send> {
+    // TODO: Provide methods for accessing this safely
+    pub winpty: UnsafeCell<Winpty<'a>>,
 
+    conout: R,
+    conin: W,
+    // conerr: T,
+    read_token: mio::Token,
+    write_token: mio::Token,
+}
+
+#[cfg(not(windows))]
 impl Pty {
     /// Get reader for the TTY
     ///
     /// XXX File is a bad abstraction here; it closes the fd on drop
     pub fn reader(&self) -> File {
-        unsafe {
-            File::from_raw_fd(self.fd)
-        }
+        unsafe { File::from_raw_fd(self.fd) }
     }
 
     /// Resize the pty
     ///
     /// Tells the kernel that the window size changed with the new pixel
     /// dimensions and line/column counts.
+    ///
+    /// On windows only line/column counts are used.
     pub fn resize<T: ToWinsize>(&self, size: T) {
         let win = size.to_winsize();
 
-        let res = unsafe {
-            libc::ioctl(self.fd, libc::TIOCSWINSZ, &win as *const _)
-        };
+        let res = unsafe { libc::ioctl(self.fd, libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
             die!("ioctl TIOCSWINSZ failed: {}", errno());
         }
     }
 }
+#[cfg(windows)]
+impl<'a> EventedRW<NamedPipe, NamedPipe> for Pty<'a, NamedPipe, NamedPipe> {
+    fn register(
+        &mut self,
+        poll: &mio::Poll,
+        token: &mut Iterator<Item = &usize>,
+        interest: mio::Ready,
+        poll_opts: mio::PollOpt,
+    ) {
+        self.read_token = (*token.next().unwrap()).into();
+        self.write_token = (*token.next().unwrap()).into();
+        if interest.is_readable() {
+            poll.register(
+                &self.conout,
+                self.read_token,
+                mio::Ready::readable(),
+                poll_opts,
+            ).unwrap();
+        } else {
+            poll.register(
+                &self.conout,
+                self.read_token,
+                mio::Ready::empty(),
+                poll_opts,
+            ).unwrap();
+        }
+        if interest.is_writable() {
+            poll.register(&self.conin, self.write_token, interest, poll_opts)
+                .unwrap();
+        } else {
+            poll.register(&self.conin, self.write_token, interest, poll_opts)
+                .unwrap();
+        }
+    }
+    fn reregister(&mut self, poll: &mio::Poll, interest: mio::Ready, poll_opts: mio::PollOpt) {
+        if interest.is_readable() {
+            poll.reregister(
+                &self.conout,
+                self.read_token,
+                mio::Ready::readable(),
+                poll_opts,
+            ).unwrap();
+        } else {
+            poll.reregister(
+                &self.conout,
+                self.write_token,
+                mio::Ready::empty(),
+                poll_opts,
+            ).unwrap();
+        }
+        if interest.is_writable() {
+            poll.reregister(&self.conin, self.read_token, interest, poll_opts)
+                .unwrap();
+        } else {
+            poll.reregister(&self.conin, self.write_token, interest, poll_opts)
+                .unwrap();
+        }
+    }
+    fn deregister(&mut self, poll: &mio::Poll) {
+        poll.deregister(&self.conout).unwrap();
+        poll.deregister(&self.conin).unwrap();
+    }
+
+    fn reader(&mut self) -> &mut NamedPipe {
+        &mut self.conout
+    }
+    fn read_token(&self) -> mio::Token {
+        self.read_token
+    }
+    fn writer(&mut self) -> &mut NamedPipe {
+        &mut self.conin
+    }
+    fn write_token(&self) -> mio::Token {
+        self.write_token
+    }
+}
+#[cfg(not(windows))]
+impl PTY<RawFd, RawFd> for Pty {
+    fn register(&mut self, poll: mio::Poll, interest: mio::Ready) {}
+    fn reregister(&mut self, poll: mio::Poll, interest: mio::Ready) {}
+    fn deregister(&mut self, poll: mio::Poll) {}
+
+    fn reader(&mut self) -> (mio::Token, &mut RawFd) {}
+    fn writer(&mut self) -> (mio::Token, &mut RawFd) {}
+    fn resize(&self, sizeinfo: &SizeInfo) {}
+}
+
+/// This trait defines the behaviour needed to read and/or write to a stream.
+/// It defines an abstraction over mio's interface in order to allow either one
+/// read/write object or a seperate read and write object.
+// TODO: Maybe return results here instead of panicing
+// FIXME: There's probably a much more elegant way to do this
+pub trait EventedRW<R: io::Read, W: io::Write> {
+    fn register(&mut self, &mio::Poll, &mut Iterator<Item = &usize>, mio::Ready, mio::PollOpt);
+    fn reregister(&mut self, &mio::Poll, mio::Ready, mio::PollOpt);
+    fn deregister(&mut self, &mio::Poll);
+
+    fn reader(&mut self) -> &mut R;
+    fn read_token(&self) -> mio::Token;
+    fn writer(&mut self) -> &mut W;
+    fn write_token(&self) -> mio::Token;
+}
 
 /// Types that can produce a `libc::winsize`
+#[cfg(not(windows))]
 pub trait ToWinsize {
     /// Get a `libc::winsize`
     fn to_winsize(&self) -> winsize;
 }
 
+#[cfg(not(windows))]
 impl<'a> ToWinsize for &'a SizeInfo {
     fn to_winsize(&self) -> winsize {
         winsize {
@@ -319,14 +564,25 @@ impl<'a> ToWinsize for &'a SizeInfo {
     }
 }
 
+#[cfg(windows)]
+impl<'a> OnResize for Winpty<'a> {
+    fn on_resize(&mut self, sizeinfo: &SizeInfo) {
+        self.set_size(sizeinfo.cols().0, sizeinfo.lines().0)
+            .unwrap_or_else(|_| {
+                die!("winpty_set_size failed");
+            });
+    }
+}
+#[cfg(not(windows))]
 impl OnResize for Pty {
     fn on_resize(&mut self, size: &SizeInfo) {
         self.resize(size);
     }
 }
 
+#[cfg(not(windows))]
 unsafe fn set_nonblocking(fd: c_int) {
-    use libc::{fcntl, F_SETFL, F_GETFL, O_NONBLOCK};
+    use libc::{fcntl, F_GETFL, F_SETFL, O_NONBLOCK};
 
     let res = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
     assert_eq!(res, 0);

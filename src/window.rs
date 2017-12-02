@@ -16,7 +16,8 @@ use std::fmt::{self, Display};
 use std::ops::Deref;
 
 use gl;
-use glutin::{self, EventsLoop, WindowBuilder, Event, MouseCursor, CursorState, ControlFlow, ContextBuilder};
+use glutin::{self, ContextBuilder, ControlFlow, CursorState, Event, EventsLoop, MouseCursor,
+             WindowBuilder};
 use glutin::GlContext;
 
 /// Window errors
@@ -96,7 +97,7 @@ impl ToPoints for Size<Pixels<u32>> {
 
         Size {
             width: Points(width_pts),
-            height: Points(height_pts)
+            height: Points(height_pts),
         }
     }
 }
@@ -156,12 +157,8 @@ impl ::std::error::Error for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            Error::ContextCreation(ref err) => {
-                write!(f, "Error creating GL context; {}", err)
-            },
-            Error::Context(ref err) => {
-                write!(f, "Error operating on render context; {}", err)
-            },
+            Error::ContextCreation(ref err) => write!(f, "Error creating GL context; {}", err),
+            Error::Context(ref err) => write!(f, "Error operating on render context; {}", err),
         }
     }
 }
@@ -182,17 +179,14 @@ impl Window {
     /// Create a new window
     ///
     /// This creates a window and fully initializes a window.
-    pub fn new(
-        title: &str
-    ) -> Result<Window> {
+    pub fn new(title: &str) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
         Window::platform_window_init();
         let window = WindowBuilder::new()
             .with_title(title)
             .with_transparency(true);
-        let context = ContextBuilder::new()
-            .with_vsync(true);
+        let context = ContextBuilder::new().with_vsync(true);
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
 
         // Text cursor
@@ -229,9 +223,12 @@ impl Window {
     }
 
     pub fn inner_size_pixels(&self) -> Option<Size<Pixels<u32>>> {
-        self.window
-            .get_inner_size_pixels()
-            .map(|(w, h)| Size { width: Pixels(w), height: Pixels(h) })
+        self.window.get_inner_size_pixels().map(|(w, h)| {
+            Size {
+                width: Pixels(w),
+                height: Pixels(h),
+            }
+        })
     }
 
     #[inline]
@@ -248,15 +245,14 @@ impl Window {
 
     #[inline]
     pub fn swap_buffers(&self) -> Result<()> {
-        self.window
-            .swap_buffers()
-            .map_err(From::from)
+        self.window.swap_buffers().map_err(From::from)
     }
 
     /// Poll for any available events
     #[inline]
     pub fn poll_events<F>(&mut self, func: F)
-        where F: FnMut(Event)
+    where
+        F: FnMut(Event),
     {
         self.event_loop.poll_events(func);
     }
@@ -269,7 +265,8 @@ impl Window {
     /// Block waiting for events
     #[inline]
     pub fn wait_events<F>(&mut self, func: F)
-        where F: FnMut(Event) -> ControlFlow
+    where
+        F: FnMut(Event) -> ControlFlow,
     {
         self.event_loop.run_forever(func);
     }
@@ -294,7 +291,8 @@ impl Window {
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
+              target_os = "openbsd"))]
     pub fn platform_window_init() {
         /// Set up env to make XIM work correctly
         use x11_dl::xlib;
@@ -310,11 +308,12 @@ impl Window {
     }
 
     /// TODO: change this directive when adding functions for other platforms
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
-    pub fn platform_window_init() {
-    }
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
+                  target_os = "openbsd")))]
+    pub fn platform_window_init() {}
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
+              target_os = "openbsd"))]
     pub fn set_urgent(&self, is_urgent: bool) {
         use glutin::os::unix::WindowExt;
         use std::os::raw;
@@ -337,41 +336,46 @@ impl Window {
                     (*hints).flags |= XUrgencyHint;
                 } else {
                     (*hints).flags &= !XUrgencyHint;
-                 }
+                }
 
                 (xlib.XSetWMHints)(xlib_display as _, xlib_window as _, hints);
 
                 (xlib.XFree)(hints as *mut raw::c_void);
             }
         }
-
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
-    pub fn set_urgent(&self, _: bool) {
-    }
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
+                  target_os = "openbsd")))]
+    pub fn set_urgent(&self, _: bool) {}
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
+              target_os = "openbsd"))]
     pub fn send_xim_spot(&self, x: i16, y: i16) {
         use glutin::os::unix::WindowExt;
         self.window.send_xim_spot(x, y);
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
-    pub fn send_xim_spot(&self, _x: i16, _y: i16) {
-    }
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
+                  target_os = "openbsd")))]
+    pub fn send_xim_spot(&self, _x: i16, _y: i16) {}
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(macos, windows)))]
     pub fn get_window_id(&self) -> Option<usize> {
         use glutin::os::unix::WindowExt;
 
         match self.window.get_xlib_window() {
             Some(xlib_window) => Some(xlib_window as usize),
-            None => None
+            None => None,
         }
     }
 
     #[cfg(target_os = "macos")]
+    pub fn get_window_id(&self) -> Option<usize> {
+        None
+    }
+
+    #[cfg(windows)]
     pub fn get_window_id(&self) -> Option<usize> {
         None
     }
@@ -381,15 +385,17 @@ pub trait OsExtensions {
     fn run_os_extensions(&self) {}
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd")))]
-impl OsExtensions for Window { }
+#[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
+              target_os = "openbsd")))]
+impl OsExtensions for Window {}
 
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
+          target_os = "openbsd"))]
 impl OsExtensions for Window {
     fn run_os_extensions(&self) {
         use glutin::os::unix::WindowExt;
-        use x11_dl::xlib::{self, XA_CARDINAL, PropModeReplace};
-        use std::ffi::{CStr};
+        use x11_dl::xlib::{self, PropModeReplace, XA_CARDINAL};
+        use std::ffi::CStr;
         use std::ptr;
         use libc::getpid;
 
@@ -405,17 +411,32 @@ impl OsExtensions for Window {
                 let atom = (xlib.XInternAtom)(xlib_display as *mut _, _net_wm_pid.as_ptr(), 0);
                 let pid = getpid();
 
-                (xlib.XChangeProperty)(xlib_display as _, xlib_window as _, atom,
-                    XA_CARDINAL, 32, PropModeReplace, &pid as *const i32 as *const u8, 1);
-
+                (xlib.XChangeProperty)(
+                    xlib_display as _,
+                    xlib_window as _,
+                    atom,
+                    XA_CARDINAL,
+                    32,
+                    PropModeReplace,
+                    &pid as *const i32 as *const u8,
+                    1,
+                );
             }
             // Although this call doesn't actually pass any data, it does cause
             // WM_CLIENT_MACHINE to be set. WM_CLIENT_MACHINE MUST be set if _NET_WM_PID is set
             // (which we do above).
             unsafe {
-                (xlib.XSetWMProperties)(xlib_display as _, xlib_window as _, ptr::null_mut(),
-                    ptr::null_mut(), ptr::null_mut(), 0, ptr::null_mut(), ptr::null_mut(),
-                    ptr::null_mut());
+                (xlib.XSetWMProperties)(
+                    xlib_display as _,
+                    xlib_window as _,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    0,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                );
             }
         }
     }
@@ -438,6 +459,7 @@ pub trait SetInnerSize<T> {
 impl SetInnerSize<Pixels<u32>> for Window {
     fn set_inner_size<T: ToPoints>(&mut self, size: &T) {
         let size = size.to_points(self.hidpi_factor());
-        self.window.set_inner_size(*size.width as _, *size.height as _);
+        self.window
+            .set_inner_size(*size.width as _, *size.height as _);
     }
 }

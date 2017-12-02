@@ -21,19 +21,31 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
-#[macro_use] extern crate bitflags;
-#[macro_use] extern crate clap;
-#[macro_use] extern crate log;
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate bitflags;
+#[macro_use]
+extern crate clap;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate serde_derive;
 
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
+          target_os = "openbsd"))]
 extern crate x11_dl;
+
+#[cfg(windows)]
+extern crate mio_named_pipes;
+#[cfg(windows)]
+extern crate winapi;
+#[cfg(windows)]
+extern crate winpty;
 
 extern crate arraydeque;
 extern crate cgmath;
 extern crate copypasta;
-extern crate errno;
 extern crate env_logger;
+extern crate errno;
 extern crate fnv;
 extern crate font;
 extern crate glutin;
@@ -91,7 +103,7 @@ impl Mul<f32> for Rgb {
         let result = Rgb {
             r: (self.r as f32 * rhs).max(0.0).min(255.0) as u8,
             g: (self.g as f32 * rhs).max(0.0).min(255.0) as u8,
-            b: (self.b as f32 * rhs).max(0.0).min(255.0) as u8
+            b: (self.b as f32 * rhs).max(0.0).min(255.0) as u8,
         };
 
         trace!("Scaling RGB by {} from {:?} to {:?}", rhs, self, result);
