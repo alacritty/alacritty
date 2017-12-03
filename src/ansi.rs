@@ -179,7 +179,7 @@ pub trait Handler {
     fn set_title(&mut self, &str) {}
 
     /// Set the cursor style
-    fn set_cursor_style(&mut self, _: CursorStyle) {}
+    fn set_cursor_style(&mut self, _: Option<CursorStyle>) {}
 
     /// A character to be displayed
     fn input(&mut self, _c: char) {}
@@ -1076,9 +1076,10 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             'u' => handler.restore_cursor_position(),
             'q' => {
                 let style = match arg_or_default!(idx: 0, default: 0) {
-                    0 ... 2 => CursorStyle::Block,
-                    3 | 4 => CursorStyle::Underline,
-                    5 | 6 => CursorStyle::Beam,
+                    0 => None,
+                    1 | 2 => Some(CursorStyle::Block),
+                    3 | 4 => Some(CursorStyle::Underline),
+                    5 | 6 => Some(CursorStyle::Beam),
                     _ => unhandled!()
                 };
 
