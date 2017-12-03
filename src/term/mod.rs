@@ -709,7 +709,7 @@ pub struct Term {
     original_colors: color::List,
 
     /// Current style of the cursor
-    cursor_style: CursorStyle,
+    cursor_style: Option<CursorStyle>,
 
     /// Default style for resetting the cursor
     default_cursor_style: CursorStyle,
@@ -814,7 +814,7 @@ impl Term {
             color_modified: [false; color::COUNT],
             original_colors: color::List::from(config.colors()),
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
-            cursor_style: config.cursor_style(),
+            cursor_style: None,
             default_cursor_style: config.cursor_style(),
         }
     }
@@ -840,6 +840,7 @@ impl Term {
             }
         }
         self.visual_bell.update_config(config);
+        self.default_cursor_style = config.cursor_style();
     }
 
     #[inline]
@@ -1008,7 +1009,7 @@ impl Term {
             self.mode,
             config,
             selection,
-            self.cursor_style,
+            self.cursor_style.unwrap_or(self.default_cursor_style),
         )
     }
 
@@ -1876,11 +1877,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn set_cursor_style(&mut self, style: Option<CursorStyle>) {
         trace!("set_cursor_style {:?}", style);
-        self.cursor_style = if let Some(cursor_style) = style {
-            cursor_style
-        } else {
-            self.default_cursor_style
-        };
+        self.cursor_style = style;
     }
 }
 
