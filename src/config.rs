@@ -25,6 +25,7 @@ use glutin::ModifiersState;
 
 use input::{Action, Binding, MouseBinding, KeyBinding};
 use index::{Line, Column};
+use ansi::CursorStyle;
 
 use util::fmt::Yellow;
 
@@ -275,6 +276,10 @@ pub struct Config {
     #[serde(default)]
     hide_cursor_when_typing: bool,
 
+    /// Style of the cursor
+    #[serde(default)]
+    cursor_style: CursorStyle,
+
     /// Live config reload
     #[serde(default="true_bool")]
     live_config_reload: bool,
@@ -329,6 +334,7 @@ impl Default for Config {
             visual_bell: Default::default(),
             env: Default::default(),
             hide_cursor_when_typing: Default::default(),
+            cursor_style: Default::default(),
             live_config_reload: true,
             padding: default_padding(),
         }
@@ -1177,6 +1183,12 @@ impl Config {
     #[inline]
     pub fn hide_cursor_when_typing(&self) -> bool {
         self.hide_cursor_when_typing
+    }
+
+    /// Style of the cursor
+    #[inline]
+    pub fn cursor_style(&self) -> CursorStyle {
+        self.cursor_style
     }
 
     /// Live config reload

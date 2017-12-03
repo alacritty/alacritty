@@ -773,7 +773,7 @@ impl Term {
         self.next_title.take()
     }
 
-    pub fn new(config : &Config, size: SizeInfo) -> Term {
+    pub fn new(config: &Config, size: SizeInfo) -> Term {
         let template = Cell::default();
 
         let num_cols = size.cols();
@@ -810,7 +810,7 @@ impl Term {
             color_modified: [false; color::COUNT],
             original_colors: color::List::from(config.colors()),
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
-            cursor_style: CursorStyle::Block,
+            cursor_style: config.cursor_style(),
         }
     }
 

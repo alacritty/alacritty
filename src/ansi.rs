@@ -344,7 +344,7 @@ pub trait Handler {
 }
 
 /// Describes shape of cursor
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize)]
 pub enum CursorStyle {
     /// Cursor is a block like `▒`
     Block,
@@ -354,6 +354,12 @@ pub enum CursorStyle {
 
     /// Cursor is a vertical bar `⎸`
     Beam,
+}
+
+impl Default for CursorStyle {
+    fn default() -> CursorStyle {
+        CursorStyle::Block
+    }
 }
 
 /// Terminal modes

@@ -201,6 +201,14 @@ selection:
 
 hide_cursor_when_typing: false
 
+# Style of the cursor (changes require restart)
+#
+# Values for 'cursor_style':
+# - Block
+# - Underline
+# - Beam
+cursor_style: Block
+
 # Live config reload (changes require restart)
 live_config_reload: true
 
