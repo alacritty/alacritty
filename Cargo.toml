@@ -48,7 +48,7 @@ nightly = []
 bench = []
 
 [build-dependencies]
-built = "0.2.0"
+built = "0.2.1"
 gl_generator = "0.5.5"
 
 [profile.release]
