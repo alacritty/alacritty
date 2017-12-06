@@ -22,6 +22,7 @@ use std::time::{Duration, Instant};
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
 
+use font;
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
 use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
@@ -208,7 +209,7 @@ impl<'a> RenderableCellsIter<'a> {
 
         let cursor_color = self.text_cursor_color(&cursor_cell);
         // This is part of the private use area and shouldn't be used by any font
-        cursor_cell.c = '􊏢';
+        cursor_cell.c = font::UNDERLINE_CURSOR_CHAR;
         cursor_cell.fg = cursor_color;
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,

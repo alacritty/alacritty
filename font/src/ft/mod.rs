@@ -24,7 +24,7 @@ use libc::c_uint;
 
 pub mod fc;
 
-use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight, Slant, Style};
+use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight, Slant, Style, UNDERLINE_CURSOR_CHAR};
 
 struct FixedSize {
     pixelsize: f64,
@@ -295,7 +295,7 @@ impl FreeTypeRasterizer {
         let (pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;
 
         // Render a custom symbol for the underline cursor
-        if glyph_key.c == '􊏢' {
+        if glyph_key.c == UNDERLINE_CURSOR_CHAR {
             // Get the bottom of the bounding box
             let size_metrics = face.ft_face.size_metrics()
                 .ok_or(Error::MissingSizeMetrics)?;
