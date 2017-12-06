@@ -294,6 +294,29 @@ impl FreeTypeRasterizer {
 
         let (pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;
 
+        // Render a custom symbol for the underline cursor
+        if glyph_key.c == '􊏢' {
+            // Get the bottom of the bounding box
+            let size_metrics = face.ft_face.size_metrics()
+                .ok_or(Error::MissingSizeMetrics)?;
+            let descent = (size_metrics.descender / 64) as f32;
+
+            // Create a new rectangle, the height is half the distance between
+            // bounding box bottom and the baseline
+            let height = f32::abs(descent / 2.) as i32;
+            let buf = vec![255u8; (pixel_width * height * 3) as usize];
+
+            // Create a custom glyph with the rectangle data attached to it
+            return Ok(RasterizedGlyph {
+                c: glyph_key.c,
+                top: descent as i32 + height,
+                left: glyph.bitmap_left(),
+                height,
+                width: pixel_width,
+                buf: buf,
+            });
+        }
+
         Ok(RasterizedGlyph {
             c: glyph_key.c,
             top: glyph.bitmap_top(),
