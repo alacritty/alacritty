@@ -58,6 +58,12 @@ mod darwin;
 #[cfg(target_os = "macos")]
 pub use darwin::*;
 
+/// Character used for the underline cursor
+#[cfg(not(target_os = "macos"))]
+pub const UNDERLINE_CURSOR_CHAR: char = '􊏢';
+#[cfg(target_os = "macos")]
+pub const UNDERLINE_CURSOR_CHAR: char = '▁';
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FontDesc {
     name: String,
