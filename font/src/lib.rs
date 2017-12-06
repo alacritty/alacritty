@@ -61,7 +61,7 @@ pub use darwin::*;
 /// Character used for the underline cursor
 #[cfg(not(target_os = "macos"))]
 // This is part of the private use area and should not conflict with any font
-pub const UNDERLINE_CURSOR_CHAR: char = '􊏢';
+pub const UNDERLINE_CURSOR_CHAR: char = '\u{10a3e2}';
 #[cfg(target_os = "macos")]
 pub const UNDERLINE_CURSOR_CHAR: char = '▁';
 
