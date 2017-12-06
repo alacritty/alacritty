@@ -208,7 +208,6 @@ impl<'a> RenderableCellsIter<'a> {
         });
 
         let cursor_color = self.text_cursor_color(&cursor_cell);
-        // This is part of the private use area and shouldn't be used by any font
         cursor_cell.c = font::UNDERLINE_CURSOR_CHAR;
         cursor_cell.fg = cursor_color;
         self.cursor_cells.push_back(Indexed {
