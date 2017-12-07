@@ -181,7 +181,7 @@ impl<'a> RenderableCellsIter<'a> {
         });
 
         let cursor_color = self.text_cursor_color(&cursor_cell);
-        cursor_cell.c = '▎';
+        cursor_cell.c = font::BEAM_CURSOR_CHAR;
         cursor_cell.fg = cursor_color;
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
