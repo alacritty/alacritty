@@ -24,7 +24,7 @@ use libc::c_uint;
 
 pub mod fc;
 
-use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight, Slant, Style, UNDERLINE_CURSOR_CHAR};
+use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight, Slant, Style};
 
 struct FixedSize {
     pixelsize: f64,
@@ -294,37 +294,50 @@ impl FreeTypeRasterizer {
 
         let (pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;
 
-        // Render a custom symbol for the underline cursor
-        if glyph_key.c == UNDERLINE_CURSOR_CHAR {
-            // Get the bottom of the bounding box
-            let size_metrics = face.ft_face.size_metrics()
-                .ok_or(Error::MissingSizeMetrics)?;
-            let descent = (size_metrics.descender / 64) as f32;
+        // Render a custom symbol for the underline and beam cursor
+        match glyph_key.c {
+            super::UNDERLINE_CURSOR_CHAR => {
+                // Get the bottom of the bounding box
+                let size_metrics = face.ft_face.size_metrics()
+                    .ok_or(Error::MissingSizeMetrics)?;
+                let descent = (size_metrics.descender / 64) as i32;
 
-            // Create a new rectangle, the height is half the distance between
-            // bounding box bottom and the baseline
-            let height = f32::abs(descent / 2.) as i32;
-            let buf = vec![255u8; (pixel_width * height * 3) as usize];
+                // Get the width of the cell
+                let metrics = glyph.metrics();
+                let width = (metrics.vertAdvance as f32 / 128.).round() as i32;
 
-            // Create a custom glyph with the rectangle data attached to it
-            return Ok(RasterizedGlyph {
-                c: glyph_key.c,
-                top: descent as i32 + height,
-                left: glyph.bitmap_left(),
-                height,
-                width: pixel_width,
-                buf: buf,
-            });
+                // Return the new custom glyph
+                super::get_underline_cursor_glyph(descent, width)
+            },
+            super::BEAM_CURSOR_CHAR => {
+                // Get the top of the bounding box
+                let size_metrics = face.ft_face.size_metrics()
+                    .ok_or(Error::MissingSizeMetrics)?;
+                let ascent = (size_metrics.ascender / 64) as i32 - 1;
+
+                // Get the height of the cell
+                let descent = (size_metrics.descender / 64) as i32;
+                let height = ascent - descent;
+
+                // Get the width of the cell
+                let metrics = glyph.metrics();
+                let width = (metrics.vertAdvance as f32 / 128.).round() as i32;
+
+                // Return the new custom glyph
+                super::get_beam_cursor_glyph(ascent, height, width)
+            },
+            _ => {
+                // If it's not a special char, return the normal glyph
+                Ok(RasterizedGlyph {
+                    c: glyph_key.c,
+                    top: glyph.bitmap_top(),
+                    left: glyph.bitmap_left(),
+                    width: pixel_width,
+                    height: glyph.bitmap().rows(),
+                    buf: buf,
+                })
+            }
         }
-
-        Ok(RasterizedGlyph {
-            c: glyph_key.c,
-            top: glyph.bitmap_top(),
-            left: glyph.bitmap_left(),
-            width: pixel_width,
-            height: glyph.bitmap().rows(),
-            buf: buf,
-        })
     }
 
     fn ft_load_flags(pat: &fc::Pattern) -> freetype::face::LoadFlag {
