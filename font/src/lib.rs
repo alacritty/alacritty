@@ -43,7 +43,7 @@ extern crate foreign_types;
 extern crate log;
 
 use std::hash::{Hash, Hasher};
-use std::fmt;
+use std::{fmt, cmp};
 use std::sync::atomic::{AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
 
 // If target isn't macos, reexport everything from ft
@@ -65,6 +65,8 @@ pub const UNDERLINE_CURSOR_CHAR: char = '\u{10a3e2}';
 /// Character used for the beam cursor
 // This is part of the private use area and should not conflict with any font
 pub const BEAM_CURSOR_CHAR: char = '\u{10a3e3}';
+/// Width of the beam cursor relative to the font width
+pub const BEAM_CURSOR_WIDTH_PERCENTAGE: i32 = 15;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FontDesc {
@@ -211,11 +213,10 @@ impl Default for RasterizedGlyph {
 }
 
 // Returns a custom underline cursor character
-// TODO: Make sure this works with positive/0 descent -> small fonts
 pub fn get_underline_cursor_glyph(descent: i32, width: i32) -> Result<RasterizedGlyph, Error> {
     // Create a new rectangle, the height is half the distance between
     // bounding box bottom and the baseline
-    let height = i32::abs(descent / 2);
+    let height = cmp::max(i32::abs(descent / 2), 1);
     let buf = vec![255u8; (width * height * 3) as usize];
 
     // Create a custom glyph with the rectangle data attached to it
@@ -230,10 +231,13 @@ pub fn get_underline_cursor_glyph(descent: i32, width: i32) -> Result<Rasterized
 }
 
 // Returns a custom beam cursor character
-// TODO: Make sure this works with positive/0 descent -> small fonts
-pub fn get_beam_cursor_glyph(ascent: i32, height: i32, width: i32) -> Result<RasterizedGlyph, Error> {
-    // Create a new rectangle
-    let beam_width = (f64::from(width) / 5.) as i32;
+pub fn get_beam_cursor_glyph(
+    ascent: i32,
+    height: i32,
+    width: i32,
+) -> Result<RasterizedGlyph, Error> {
+    // Create a new rectangle that is at least one pixel wide
+    let beam_width = cmp::max(width * BEAM_CURSOR_WIDTH_PERCENTAGE / 100, 1);
     let buf = vec![255u8; (beam_width * height * 3) as usize];
 
     // Create a custom glyph with the rectangle data attached to it

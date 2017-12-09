@@ -298,7 +298,8 @@ impl FreeTypeRasterizer {
         match glyph_key.c {
             super::UNDERLINE_CURSOR_CHAR => {
                 // Get the bottom of the bounding box
-                let size_metrics = face.ft_face.size_metrics()
+                let size_metrics = face.ft_face
+                    .size_metrics()
                     .ok_or(Error::MissingSizeMetrics)?;
                 let descent = (size_metrics.descender / 64) as i32;
 
@@ -308,10 +309,11 @@ impl FreeTypeRasterizer {
 
                 // Return the new custom glyph
                 super::get_underline_cursor_glyph(descent, width)
-            },
+            }
             super::BEAM_CURSOR_CHAR => {
                 // Get the top of the bounding box
-                let size_metrics = face.ft_face.size_metrics()
+                let size_metrics = face.ft_face
+                    .size_metrics()
                     .ok_or(Error::MissingSizeMetrics)?;
                 let ascent = (size_metrics.ascender / 64) as i32 - 1;
 
@@ -325,7 +327,7 @@ impl FreeTypeRasterizer {
 
                 // Return the new custom glyph
                 super::get_beam_cursor_glyph(ascent, height, width)
-            },
+            }
             _ => {
                 // If it's not a special char, return the normal glyph
                 Ok(RasterizedGlyph {
