@@ -461,6 +461,19 @@ impl Font {
     }
 
     pub fn get_glyph(&self, character: char, _size: f64, use_thin_strokes: bool) -> Result<RasterizedGlyph, Error> {
+        // Render custom symbols for underline and beam cursor
+        if character == super::UNDERLINE_CURSOR_CHAR {
+            let descent = -(self.ct_font.descent() as i32);
+            let width = self.glyph_advance('0') as i32;
+            return super::get_underline_cursor_glyph(descent, width);
+        } else if character == super::BEAM_CURSOR_CHAR {
+            let metrics = self.metrics();
+            let height = metrics.line_height;
+            let ascent = height - self.ct_font.descent() + 1.;
+            let width = self.glyph_advance('0') as i32;
+            return super::get_beam_cursor_glyph(ascent as i32, height as i32, width);
+        };
+
         let glyph_index = self.glyph_index(character)
             .ok_or(Error::MissingGlyph(character))?;
 
