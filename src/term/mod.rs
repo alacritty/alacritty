@@ -118,6 +118,7 @@ impl<'a> RenderableCellsIter<'a> {
         config: &'b Config,
         selection: Option<RangeInclusive<index::Linear>>,
         cursor_style: CursorStyle,
+        window_focused: bool,
     ) -> RenderableCellsIter<'b> {
         let cursor_index = Linear(cursor.line.0 * grid.num_cols().0 + cursor.col.0);
 
@@ -132,10 +133,15 @@ impl<'a> RenderableCellsIter<'a> {
             config: config,
             colors: colors,
             cursor_cells: ArrayDeque::new(),
-        }.initialize(cursor_style)
+        }.initialize(cursor_style, window_focused)
     }
 
-    fn populate_block_cursor(&mut self) {
+    fn populate_block_cursor(&mut self, window_focused: bool) {
+        if !window_focused {
+            self.populate_cursor(font::BOX_CURSOR_CHAR, ' ');
+            return;
+        }
+
         let (text_color, cursor_color) = if self.config.custom_cursor_colors() {
             (
                 Color::Named(NamedColor::CursorText),
@@ -173,33 +179,14 @@ impl<'a> RenderableCellsIter<'a> {
     }
 
     fn populate_beam_cursor(&mut self) {
-        let mut cursor_cell = self.grid[self.cursor];
-        self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
-            inner: cursor_cell,
-        });
-
-        let cursor_color = self.text_cursor_color(&cursor_cell);
-        cursor_cell.c = font::BEAM_CURSOR_CHAR;
-        cursor_cell.fg = cursor_color;
-        self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
-            inner: cursor_cell,
-        });
-
-        if self.is_wide_cursor(&cursor_cell) {
-            cursor_cell.c = ' ';
-            self.cursor_cells.push_back(Indexed {
-                line: self.cursor.line,
-                column: self.cursor.col + 1,
-                inner: cursor_cell,
-            });
-        }
+        self.populate_cursor(font::BEAM_CURSOR_CHAR, ' ');
     }
 
     fn populate_underline_cursor(&mut self) {
+        self.populate_cursor(font::UNDERLINE_CURSOR_CHAR, font::UNDERLINE_CURSOR_CHAR);
+    }
+
+    fn populate_cursor(&mut self, cursor: char, wide_cursor: char) {
         let mut cursor_cell = self.grid[self.cursor];
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
@@ -208,7 +195,7 @@ impl<'a> RenderableCellsIter<'a> {
         });
 
         let cursor_color = self.text_cursor_color(&cursor_cell);
-        cursor_cell.c = font::UNDERLINE_CURSOR_CHAR;
+        cursor_cell.c = cursor;
         cursor_cell.fg = cursor_color;
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
@@ -217,6 +204,7 @@ impl<'a> RenderableCellsIter<'a> {
         });
 
         if self.is_wide_cursor(&cursor_cell) {
+            cursor_cell.c = wide_cursor;
             self.cursor_cells.push_back(Indexed {
                 line: self.cursor.line,
                 column: self.cursor.col + 1,
@@ -243,11 +231,11 @@ impl<'a> RenderableCellsIter<'a> {
         });
     }
 
-    fn initialize(mut self, cursor_style: CursorStyle) -> Self {
+    fn initialize(mut self, cursor_style: CursorStyle, window_focused: bool) -> Self {
         if self.cursor_is_visible() {
             match cursor_style {
                 CursorStyle::Block => {
-                    self.populate_block_cursor();
+                    self.populate_block_cursor(window_focused);
                 },
                 CursorStyle::Beam => {
                     self.populate_beam_cursor();
@@ -971,6 +959,7 @@ impl Term {
         &'b self,
         config: &'b Config,
         selection: Option<&'b Selection>,
+        window_focused: bool,
     ) -> RenderableCellsIter {
         let selection = selection.and_then(|s| s.to_span(self))
             .map(|span| span.to_range());
@@ -983,6 +972,7 @@ impl Term {
             config,
             selection,
             self.cursor_style.unwrap_or(self.default_cursor_style),
+            window_focused,
         )
     }
 

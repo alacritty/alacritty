@@ -470,8 +470,8 @@ impl Font {
                 let width = self.glyph_advance('0') as i32;
                 // Return the new custom glyph
                 return super::get_underline_cursor_glyph(descent, width);
-            },
-            super::BEAM_CURSOR_CHAR => {
+            }
+            super::BEAM_CURSOR_CHAR | super::BOX_CURSOR_CHAR => {
                 // Get the top of the bounding box
                 let metrics = self.metrics();
                 let height = metrics.line_height;
@@ -483,9 +483,13 @@ impl Font {
                 // Get the width of the cell
                 let width = self.glyph_advance('0') as i32;
                 // Return the new custom glyph
-                return super::get_beam_cursor_glyph(ascent as i32, height as i32, width);
-            },
-            _ => (),
+                if character == super::BEAM_CURSOR_CHAR {
+                    return super::get_beam_cursor_glyph(ascent as i32, height as i32, width);
+                } else {
+                    return super::get_box_cursor_glyph(ascent as i32, height as i32, width);
+                }
+            }
+            _ => ()
         }
 
         let glyph_index = self.glyph_index(character)
