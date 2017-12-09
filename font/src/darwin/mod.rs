@@ -462,17 +462,31 @@ impl Font {
 
     pub fn get_glyph(&self, character: char, _size: f64, use_thin_strokes: bool) -> Result<RasterizedGlyph, Error> {
         // Render custom symbols for underline and beam cursor
-        if character == super::UNDERLINE_CURSOR_CHAR {
-            let descent = -(self.ct_font.descent() as i32);
-            let width = self.glyph_advance('0') as i32;
-            return super::get_underline_cursor_glyph(descent, width);
-        } else if character == super::BEAM_CURSOR_CHAR {
-            let metrics = self.metrics();
-            let height = metrics.line_height;
-            let ascent = height - self.ct_font.descent() + 1.;
-            let width = self.glyph_advance('0') as i32;
-            return super::get_beam_cursor_glyph(ascent as i32, height as i32, width);
-        };
+        match character {
+            super::UNDERLINE_CURSOR_CHAR => {
+                // Get the bottom of the bounding box
+                let descent = -(self.ct_font.descent() as i32);
+                // Get the width of the cell
+                let width = self.glyph_advance('0') as i32;
+                // Return the new custom glyph
+                return super::get_underline_cursor_glyph(descent, width);
+            },
+            super::BEAM_CURSOR_CHAR => {
+                // Get the top of the bounding box
+                let metrics = self.metrics();
+                let height = metrics.line_height;
+                let mut ascent = height - self.ct_font.descent() + 1.;
+                if ascent.floor() == ascent {
+                    // Fix off-by-one with an exact X.0 ascent
+                    ascent -= 1.;
+                }
+                // Get the width of the cell
+                let width = self.glyph_advance('0') as i32;
+                // Return the new custom glyph
+                return super::get_beam_cursor_glyph(ascent as i32, height as i32, width);
+            },
+            _ => (),
+        }
 
         let glyph_index = self.glyph_index(character)
             .ok_or(Error::MissingGlyph(character))?;
