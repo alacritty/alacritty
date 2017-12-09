@@ -59,18 +59,12 @@ mod darwin;
 pub use darwin::*;
 
 /// Character used for the underline cursor
-#[cfg(not(target_os = "macos"))]
 // This is part of the private use area and should not conflict with any font
 pub const UNDERLINE_CURSOR_CHAR: char = '\u{10a3e2}';
-#[cfg(target_os = "macos")]
-pub const UNDERLINE_CURSOR_CHAR: char = '▁';
 
 /// Character used for the beam cursor
-#[cfg(not(target_os = "macos"))]
 // This is part of the private use area and should not conflict with any font
 pub const BEAM_CURSOR_CHAR: char = '\u{10a3e3}';
-#[cfg(target_os = "macos")]
-pub const BEAM_CURSOR_CHAR: char = '▎';
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FontDesc {
@@ -217,6 +211,7 @@ impl Default for RasterizedGlyph {
 }
 
 // Returns a custom underline cursor character
+// TODO: Make sure this works with positive/0 descent -> small fonts
 pub fn get_underline_cursor_glyph(descent: i32, width: i32) -> Result<RasterizedGlyph, Error> {
     // Create a new rectangle, the height is half the distance between
     // bounding box bottom and the baseline
@@ -235,6 +230,7 @@ pub fn get_underline_cursor_glyph(descent: i32, width: i32) -> Result<Rasterized
 }
 
 // Returns a custom beam cursor character
+// TODO: Make sure this works with positive/0 descent -> small fonts
 pub fn get_beam_cursor_glyph(ascent: i32, height: i32, width: i32) -> Result<RasterizedGlyph, Error> {
     // Create a new rectangle
     let beam_width = (f64::from(width) / 5.) as i32;
