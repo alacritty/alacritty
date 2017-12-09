@@ -354,6 +354,7 @@ impl Display {
                 //
                 // TODO I wonder if the renderable cells iter could avoid the
                 // mutable borrow
+                let window_focused = self.window.is_focused;
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
                     // Clear screen to update whole background with new color
                     if background_color_changed {
@@ -361,7 +362,10 @@ impl Display {
                     }
 
                     // Draw the grid
-                    api.render_cells(terminal.renderable_cells(config, selection), glyph_cache);
+                    api.render_cells(
+                        terminal.renderable_cells(config, selection, window_focused),
+                        glyph_cache,
+                    );
                 });
             }
 
