@@ -63,9 +63,6 @@ xbps-install alacritty
 1. Alacritty requires the most recent stable Rust compiler; it can be installed with
    `rustup`.
 
-    Note: **DO NOT** use the Homebrew Rust compiler on macOS (see [FAQ][faq] for
-    explanation).
-
 #### Installing Rust compiler with `rustup`
 
 1. Install [`rustup.rs`](https://rustup.rs/).
@@ -214,8 +211,7 @@ cargo build --release
 
 If all goes well, this should place a binary at `target/release/alacritty`.
 **BEFORE YOU RUN IT:** Install the config file as described below; otherwise,
-many things (such as arrow keys) will not work. If you're on macOS, you'll need
-to change the `monospace` font family to something like `Menlo`.
+many things (such as arrow keys) will not work.
 
 ### Desktop Entry
 
@@ -266,9 +262,6 @@ Just Works.
 
 ## FAQ
 
-- _proc-macro derive panicked during macOS build; what's wrong?_ There's an
-  issue with the Rust compiler from Homebrew. Please follow the instructions
-  and use `rustup`.
 - _Is it really the fastest terminal emulator?_ In the terminals I've
   benchmarked against, alacritty is either faster, WAY faster, or at least
   neutral. There are no benchmarks in which I've found Alacritty to be slower.
