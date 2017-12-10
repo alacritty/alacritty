@@ -475,13 +475,11 @@ impl Font {
                 // Get the top of the bounding box
                 let metrics = self.metrics();
                 let height = metrics.line_height;
-                let mut ascent = height - self.ct_font.descent() + 1.;
-                if ascent.floor() == ascent {
-                    // Fix off-by-one with an exact X.0 ascent
-                    ascent -= 1.;
-                }
+                let ascent = (height - self.ct_font.descent()).ceil();
+
                 // Get the width of the cell
                 let width = self.glyph_advance('0') as i32;
+
                 // Return the new custom glyph
                 if character == super::BEAM_CURSOR_CHAR {
                     return super::get_beam_cursor_glyph(ascent as i32, height as i32, width);
