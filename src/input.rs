@@ -238,6 +238,7 @@ impl Action {
             }
             Action::ResetFontSize => {
                ctx.reset_font_size();
+            },
             Action::ScrollUp => {
                 ctx.move_visible_region_up(AbsoluteLine(1));
             },
