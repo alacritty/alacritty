@@ -33,7 +33,7 @@ clap = "2"
 fnv = "1"
 unicode-width = "0.1"
 arraydeque = "0.2"
-glutin = "0.10"
+glutin = "0.11"
 clippy = { version = "*", optional = true }
 env_logger = "0.4"
 
@@ -52,7 +52,7 @@ bench = []
 
 [build-dependencies]
 built = "0.2"
-gl_generator = "0.6"
+gl_generator = "0.7"
 
 [profile.release]
 lto = true
