@@ -156,7 +156,7 @@ impl Selection {
             Selection::Lines { ref region, ref initial_line } => {
                 Selection::span_lines(&grid, region, initial_line)
             }
-        }
+        }  
     }
     fn span_semantic<G>(
         grid: &G,

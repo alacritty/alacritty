@@ -266,12 +266,12 @@ live_config_reload: true
 key_bindings:
   - { key: V,        mods: Control|Shift,    action: Paste               }
   - { key: C,        mods: Control|Shift,    action: Copy                }
-  - { key: Q,        mods: Command, action: Quit                         }
-  - { key: W,        mods: Command, action: Quit                         }
-  - { key: Insert,   mods: Shift,   action: PasteSelection               }
-  - { key: Key0,     mods: Control, action: ResetFontSize                }
-  - { key: Equals,   mods: Control, action: IncreaseFontSize             }
-  - { key: Subtract, mods: Control, action: DecreaseFontSize             }
+  - { key: Q,        mods: Command,          action: Quit                }
+  - { key: W,        mods: Command,          action: Quit                }
+  - { key: Insert,   mods: Shift,            action: PasteSelection      }
+  - { key: Key0,     mods: Control,          action: ResetFontSize       }
+  - { key: Equals,   mods: Control,          action: IncreaseFontSize    }
+  - { key: Subtract, mods: Control,          action: DecreaseFontSize    }
   - { key: Up,       mods: Control|Shift,    action: ScrollUp            }
   - { key: Down,     mods: Control|Shift,    action: ScrollDown          }
   - { key: PageUp,   mods: Shift,            action: PageUp              }
