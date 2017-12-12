@@ -96,6 +96,10 @@ fn default_scrollback_state() -> ScrollbackState {
     ScrollbackState { enabled: true, max_lines: AbsoluteLine(10000) }
 }
 
+fn default_absolute_line_zero() -> index::AbsoluteLine {
+    AbsoluteLine(0)
+}
+
 /// Represents the terminal display contents
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Grid<T> {
@@ -118,9 +122,11 @@ pub struct Grid<T> {
     /// an old row, and use that internally. To consumers outside of this module, then,
     /// it appears as if their absolute lines are constantly increasing, even if the raw
     /// buffer is capped at a certain size.
+    #[serde(default = "default_absolute_line_zero")]
     absolute_line_offset: index::AbsoluteLine,
 
     /// The starting index for the visible region
+    #[serde(default = "default_absolute_line_zero")]
     visible_region_start: index::AbsoluteLine,
     
     /// Scrollback config, ie: is it enabled, if so, how many lines
@@ -233,6 +239,12 @@ impl<T> Grid<T> {
         self.raw.iter_mut()
     }
 
+    /// Returns a reference to the raw grid Vector.
+    #[inline]
+    pub fn raw(&self) -> &VecDeque<Row<T>> {
+        &self.raw
+    }
+
     /// The number of lines in the 'active region' of the terminal.
     /// This is effectively the height of the terminal window.
     #[inline]
@@ -313,11 +325,6 @@ impl<T> Grid<T> {
         self.absolute_line_offset
     }
 
-    /// TODO: Isn't this unused??
-    /*pub fn iter_rows(&self) -> VDIter<Row<T>> {
-        self.raw.iter()
-    }*/
-
     /// Converts a line in the terminal to an
     /// absolute index into the scrollback buffer.
     #[inline]
@@ -336,7 +343,7 @@ impl<T> Grid<T> {
     /// a raw index into the buffer.
     /// Care must be taken that this is line is not too low - this will cause an subtraction underflow.
     #[inline]
-    fn absolute_to_raw_index(&self, line: AbsoluteLine) -> usize {
+    pub fn absolute_to_raw_index(&self, line: AbsoluteLine) -> usize {
         (line - self.absolute_line_offset).0
     }
 
