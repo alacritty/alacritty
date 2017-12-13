@@ -136,12 +136,7 @@ impl<'a> RenderableCellsIter<'a> {
         }.initialize(cursor_style, window_focused)
     }
 
-    fn populate_block_cursor(&mut self, window_focused: bool) {
-        if !window_focused {
-            self.populate_cursor(font::BOX_CURSOR_CHAR, ' ');
-            return;
-        }
-
+    fn populate_block_cursor(&mut self) {
         let (text_color, cursor_color) = if self.config.custom_cursor_colors() {
             (
                 Color::Named(NamedColor::CursorText),
@@ -233,15 +228,20 @@ impl<'a> RenderableCellsIter<'a> {
 
     fn initialize(mut self, cursor_style: CursorStyle, window_focused: bool) -> Self {
         if self.cursor_is_visible() {
-            match cursor_style {
-                CursorStyle::Block => {
-                    self.populate_block_cursor(window_focused);
-                },
-                CursorStyle::Beam => {
-                    self.populate_beam_cursor();
-                },
-                CursorStyle::Underline => {
-                    self.populate_underline_cursor();
+            if !window_focused {
+                // Render the box cursor if the window is not focused
+                self.populate_cursor(font::BOX_CURSOR_CHAR, ' ');
+            } else {
+                match cursor_style {
+                    CursorStyle::Block => {
+                        self.populate_block_cursor();
+                    },
+                    CursorStyle::Beam => {
+                        self.populate_beam_cursor();
+                    },
+                    CursorStyle::Underline => {
+                        self.populate_underline_cursor();
+                    }
                 }
             }
         } else {
