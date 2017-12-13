@@ -228,10 +228,6 @@ pub struct Config {
     #[serde(default="default_padding")]
     padding: Delta,
 
-    /// Pixels per inch
-    #[serde(default)]
-    dpi: Dpi,
-
     /// Font configuration
     #[serde(default)]
     font: Font,
@@ -329,7 +325,6 @@ impl Default for Config {
             draw_bold_text_with_bright_colors: true,
             dimensions: Default::default(),
             scrollback: Default::default(),
-            dpi: Default::default(),
             font: Default::default(),
             render_timer: Default::default(),
             custom_cursor_colors: false,
@@ -1291,38 +1286,6 @@ impl Dimensions {
     #[inline]
     pub fn columns_u32(&self) -> u32 {
         self.columns.0 as u32
-    }
-}
-
-/// Pixels per inch
-///
-/// This is only used on `FreeType` systems
-#[derive(Debug, Deserialize)]
-pub struct Dpi {
-    /// Horizontal dpi
-    x: f32,
-
-    /// Vertical dpi
-    y: f32,
-}
-
-impl Default for Dpi {
-    fn default() -> Dpi {
-        Dpi { x: 96.0, y: 96.0 }
-    }
-}
-
-impl Dpi {
-    /// Get horizontal dpi
-    #[inline]
-    pub fn x(&self) -> f32 {
-        self.x
-    }
-
-    /// Get vertical dpi
-    #[inline]
-    pub fn y(&self) -> f32 {
-        self.y
     }
 }
 

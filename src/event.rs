@@ -114,13 +114,6 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     fn reset_font_size(&mut self) {
         self.terminal.reset_font_size();
     }
-    
-    fn visible_to_absolute(&self, point: Point) -> AbsolutePoint {
-        AbsolutePoint {
-            line: self.terminal.grid().visible_to_absolute_line(point.line),
-            col: point.col
-        }
-    }
 
     fn visible_to_absolute(&self, point: Point) -> AbsolutePoint {
         AbsolutePoint {
