@@ -147,7 +147,7 @@ impl Display {
         info!("device_pixel_ratio: {}", dpr);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(&config, viewport_size)?;
+        let mut renderer = QuadRenderer::new(config, viewport_size)?;
 
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(&window, &mut renderer, config, 0)?;
@@ -242,7 +242,7 @@ impl Display {
         let cell_width = (metrics.average_advance + font.offset().x as f64) as u32;
         let cell_height = (metrics.line_height + font.offset().y as f64) as u32;
 
-        return Ok((glyph_cache, cell_width as f32, cell_height as f32));
+        Ok((glyph_cache, cell_width as f32, cell_height as f32))
     }
 
     pub fn update_glyph_cache(&mut self, config: &Config, font_size_delta: i8) {

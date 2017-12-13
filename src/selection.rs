@@ -148,18 +148,18 @@ impl Selection {
     pub fn to_span<G: SemanticSearch + Dimensions>(&self, grid: G) -> Option<Span> {
         match *self {
             Selection::Simple { ref region } => {
-                Selection::span_simple(grid, region)
+                Selection::span_simple(&grid, region)
             },
             Selection::Semantic { ref region, ref initial_expansion } => {
-                Selection::span_semantic(grid, region, initial_expansion)
+                Selection::span_semantic(&grid, region, initial_expansion)
             },
             Selection::Lines { ref region, ref initial_line } => {
-                Selection::span_lines(grid, region, initial_line)
+                Selection::span_lines(&grid, region, initial_line)
             }
         }
     }
     fn span_semantic<G>(
-        grid: G,
+        grid: &G,
         region: &Region<Point>,
         initial_expansion: &Region<Point>
     ) -> Option<Span>
@@ -193,7 +193,7 @@ impl Selection {
         })
     }
 
-    fn span_lines<G>( grid: G, region: &Region<Point>, initial_line: &Line) -> Option<Span>
+    fn span_lines<G>(grid: &G, region: &Region<Point>, initial_line: &Line) -> Option<Span>
         where G: Dimensions
     {
         // First, create start and end points based on initial line and the grid
@@ -226,7 +226,7 @@ impl Selection {
         })
     }
 
-    fn span_simple<G: Dimensions>(grid: G, region: &Region<Anchor>) -> Option<Span> {
+    fn span_simple<G: Dimensions>(grid: &G, region: &Region<Anchor>) -> Option<Span> {
         let start = region.start.point;
         let start_side = region.start.side;
         let end = region.end.point;

@@ -708,7 +708,11 @@ pub struct Term {
     /// Original colors from config
     original_colors: color::List,
 
-    cursor_style: CursorStyle,
+    /// Current style of the cursor
+    cursor_style: Option<CursorStyle>,
+
+    /// Default style for resetting the cursor
+    default_cursor_style: CursorStyle,
 }
 
 /// Terminal size info
@@ -773,7 +777,7 @@ impl Term {
         self.next_title.take()
     }
 
-    pub fn new(config : &Config, size: SizeInfo) -> Term {
+    pub fn new(config: &Config, size: SizeInfo) -> Term {
         let template = Cell::default();
 
         let num_cols = size.cols();
@@ -810,7 +814,8 @@ impl Term {
             color_modified: [false; color::COUNT],
             original_colors: color::List::from(config.colors()),
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
-            cursor_style: CursorStyle::Block,
+            cursor_style: None,
+            default_cursor_style: config.cursor_style(),
         }
     }
 
@@ -835,6 +840,7 @@ impl Term {
             }
         }
         self.visual_bell.update_config(config);
+        self.default_cursor_style = config.cursor_style();
     }
 
     #[inline]
@@ -1003,7 +1009,7 @@ impl Term {
             self.mode,
             config,
             selection,
-            self.cursor_style,
+            self.cursor_style.unwrap_or(self.default_cursor_style),
         )
     }
 
@@ -1869,7 +1875,7 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn set_cursor_style(&mut self, style: CursorStyle) {
+    fn set_cursor_style(&mut self, style: Option<CursorStyle>) {
         trace!("set_cursor_style {:?}", style);
         self.cursor_style = style;
     }

@@ -25,6 +25,7 @@ use glutin::ModifiersState;
 
 use input::{Action, Binding, MouseBinding, KeyBinding};
 use index::{Line, Column};
+use ansi::CursorStyle;
 
 use util::fmt::Yellow;
 
@@ -275,6 +276,10 @@ pub struct Config {
     #[serde(default)]
     hide_cursor_when_typing: bool,
 
+    /// Style of the cursor
+    #[serde(default)]
+    cursor_style: CursorStyle,
+
     /// Live config reload
     #[serde(default="true_bool")]
     live_config_reload: bool,
@@ -329,6 +334,7 @@ impl Default for Config {
             visual_bell: Default::default(),
             env: Default::default(),
             hide_cursor_when_typing: Default::default(),
+            cursor_style: Default::default(),
             live_config_reload: true,
             padding: default_padding(),
         }
@@ -731,7 +737,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
             }
         }
 
-        const FIELDS: &'static [&'static str] = &[
+        const FIELDS: &[&str] = &[
             "key", "mods", "mode", "action", "chars", "mouse", "command",
         ];
 
@@ -1179,6 +1185,12 @@ impl Config {
         self.hide_cursor_when_typing
     }
 
+    /// Style of the cursor
+    #[inline]
+    pub fn cursor_style(&self) -> CursorStyle {
+        self.cursor_style
+    }
+
     /// Live config reload
     #[inline]
     pub fn live_config_reload(&self) -> bool {
@@ -1198,7 +1210,7 @@ impl Config {
         let mut f = fs::File::open(path)?;
         let mut contents = String::new();
         f.read_to_string(&mut contents)?;
-        if contents.len() == 0 {
+        if contents.is_empty() {
             return Err(Error::Empty);
         }
 

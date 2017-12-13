@@ -283,7 +283,7 @@ impl GlyphCache {
         self.cache
             .entry(*glyph_key)
             .or_insert_with(|| {
-                let mut rasterized = rasterizer.get_glyph(&glyph_key)
+                let mut rasterized = rasterizer.get_glyph(glyph_key)
                     .unwrap_or_else(|_| Default::default());
 
                 rasterized.left += glyph_offset.x as i32;
@@ -1080,10 +1080,10 @@ impl ShaderProgram {
             let mut success: GLint = 0;
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
 
-            if success != (gl::TRUE as GLint) {
-                Err(ShaderCreationError::Link(get_program_info_log(program)))
-            } else {
+            if success == (gl::TRUE as GLint) {
                 Ok(program)
+            } else {
+                Err(ShaderCreationError::Link(get_program_info_log(program)))
             }
         }
     }
