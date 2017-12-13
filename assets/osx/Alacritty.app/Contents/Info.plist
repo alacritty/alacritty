@@ -30,5 +30,7 @@
   <string></string>
   <key>NSSupportsAutomaticGraphicsSwitching</key>
   <true/>
+  <key>CFBundleDisplayName</key>
+  <string>Alacritty</string>
 </dict>
 </plist>

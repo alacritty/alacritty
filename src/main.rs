@@ -24,12 +24,15 @@ extern crate log;
 
 use std::error::Error;
 use std::sync::Arc;
+use std::env;
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
 use alacritty::display::Display;
 use alacritty::event;
 use alacritty::event_loop::{self, EventLoop, Msg};
+#[cfg(target_os = "macos")]
+use alacritty::locale;
 use alacritty::logging;
 use alacritty::sync::FairMutex;
 use alacritty::term::{Term};
@@ -40,6 +43,11 @@ fn main() {
     // Load command line options and config
     let options = cli::Options::load();
     let config = load_config(&options);
+
+    // Switch to home directory
+    env::set_current_dir(env::home_dir().unwrap()).unwrap();
+    #[cfg(target_os = "macos")]
+    locale::set_locale_environment();
 
     // Run alacritty
     if let Err(err) = run(config, &options) {
