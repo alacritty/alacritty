@@ -255,7 +255,7 @@ pub fn get_beam_cursor_glyph(
     });
 }
 
-// Returns a custom beam cursor character
+// Returns a custom box cursor character
 pub fn get_box_cursor_glyph(
     ascent: i32,
     height: i32,
