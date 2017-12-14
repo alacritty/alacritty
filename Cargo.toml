@@ -42,6 +42,9 @@ num = "0.1.37"
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2.2"
+
 [features]
 default = []
 # Enabling this feature makes shaders automatically reload when changed
