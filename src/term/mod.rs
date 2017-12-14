@@ -1838,6 +1838,9 @@ impl ansi::Handler for Term {
                     self.swap_alt();
                 }
                 self.save_cursor_position();
+
+                // Disable scrolling in the alternate buffer
+                self.grid.set_scrollback_enabled(false);
             },
             ansi::Mode::ShowCursor => self.mode.insert(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.insert(mode::APP_CURSOR),
@@ -1867,6 +1870,9 @@ impl ansi::Handler for Term {
                     self.swap_alt();
                 }
                 self.restore_cursor_position();
+
+                // Enable scrolling in the normal buffer
+                self.grid.set_scrollback_enabled(false);
             },
             ansi::Mode::ShowCursor => self.mode.remove(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.remove(mode::APP_CURSOR),

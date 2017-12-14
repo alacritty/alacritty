@@ -86,6 +86,8 @@ struct ScrollbackState {
     // Whether scrollback is enabled at all.. When disabled,
     // `max_lines` will be kept in sync with `lines` in the grid.
     enabled: bool,
+    // Whether scrollback is currently active or not.
+    currently_enabled: bool,
     // Maximum number of lines in the total scrollback buffer.
     // Once this limit is reached, oldest elements will begin to be
     // removed from the `VecDeque` using `pop_front`
@@ -93,7 +95,11 @@ struct ScrollbackState {
 }
 
 fn default_scrollback_state() -> ScrollbackState {
-    ScrollbackState { enabled: true, max_lines: AbsoluteLine(10000) }
+    ScrollbackState {
+        enabled: true,
+        currently_enabled: true,
+        max_lines: AbsoluteLine(10000),
+    }
 }
 
 fn default_absolute_line_zero() -> index::AbsoluteLine {
@@ -147,8 +153,16 @@ impl<T: Clone> Grid<T> {
         }
 
         let scrollback_state = match scrollback {
-            Scrollback::Disabled => ScrollbackState { enabled: false, max_lines: lines.to_absolute() },
-            Scrollback::MaxLines(l) => ScrollbackState { enabled: true, max_lines: l }
+            Scrollback::Disabled => ScrollbackState {
+                enabled: false,
+                currently_enabled: false,
+                max_lines: lines.to_absolute()
+            },
+            Scrollback::MaxLines(l) => ScrollbackState {
+                enabled: true,
+                currently_enabled: true,
+                max_lines: l
+            }
         };
 
         Grid {
@@ -276,6 +290,11 @@ impl<T> Grid<T> {
 
     /// Moves the visible region up a relative amount.
     pub fn move_visible_region_up(&mut self, lines: AbsoluteLine) -> Result<(), MoveRegionError> {
+        // Don't scroll when scrolling is disabled
+        if !self.scrollback.currently_enabled {
+            return Ok(());
+        }
+
         if self.visible_region_start == self.absolute_line_offset {
             Err(MoveRegionError::AtTop)
         } else if self.visible_region_start < self.absolute_line_offset + lines {
@@ -290,6 +309,11 @@ impl<T> Grid<T> {
 
     /// Moves the visible region down a relative amount.
     pub fn move_visible_region_down(&mut self, lines: AbsoluteLine) -> Result<(), MoveRegionError> {
+        // Don't scroll when scrolling is disabled
+        if !self.scrollback.currently_enabled {
+            return Ok(());
+        }
+
         if self.visible_region().end == self.total_lines_in_buffer() {
             Err(MoveRegionError::AtBottom)
         } else if self.visible_region().end + lines >= self.total_lines_in_buffer() {
@@ -587,6 +611,11 @@ impl<T> Grid<T> {
     pub fn get_visible_line(&self, line: Line) -> &Row<T> {
         let idx = self.absolute_to_raw_index(self.visible_region_start + line.to_absolute());
         &self.raw[idx]
+    }
+
+    /// Enable or disable scrollback temporarily
+    pub fn set_scrollback_enabled(&mut self, enabled: bool) {
+        self.scrollback.currently_enabled = enabled;
     }
 }
 
