@@ -1,0 +1,125 @@
+[1m[7m%[27m[1m[0m                              [0m[27m[24m[J[39m[0m[49m[101m [30mUL [100m[91m [37m[39m [37m…/tests/ref [101m[90m [30m [39m [30mscrollback   [49m[91m[39m [K[20C[39m[0m[49m[00m[20D[?2004ht[90mmux[39mt[39mm[39mu[39mx[?2004l
+[?1049h[?1h=[H[2J[?12l[?25h[?1000l[?1002l[?1006l[?1005l[c(B[m[?12;25h[?12l[?25h[?1003l[?1006l[?2004l[1;1H[1;38r]112[1;1H[?25l[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[30m[42m                              (B[m[1;1H[?12l[?25h(B[m[?12;25h[?12l[?25h[?1003l[?1006l[?2004l[1;1H[1;38r[1;1H[?25l[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[30m[42m                              (B[m[1;1H[?12l[?25h[31mWARNING![39m Your terminal appears to support less than 256 colors!
+If your terminal supports 256 colors, please export the appropriate environment variable
+_before_ loading this theme in your ~/.zshrc. In most terminal emulators, putting
+[34mexport TERM="xterm-256color"[39m at the top of your ~/.zshrc is sufficient.
+[1m[7m%(B[m                             [13;1H [1;37r[14;37r[24S[13;1H[K [30mUL [39m [37m[39m [37m…/tests/ref [39m [30m [39m [30mscrollback   [39m [K[1;38r[14;10H[?2004hhtop[3D[C[C[C
+[?2004l[?25l[H[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K[H[?1006h[?1000h[1;37r[2;37r[36S[1;1H[K
+  [36m1  [39m[1m[[30m  0.0[39m](B[m   [36mTasks: [1m41(B[m[36m, [32m[1m175(B[m[32m [3;3H[36m2  [39m[1m[[30m  0.0[39m](B[m   [36mLoad average: [39m[1m0[4;3H(B[m[36m3  [39m[1m[[30m  0.0[39m](B[m   [36mUptime: [1m00:10:3[5;3H(B[m[36m4  [39m[1m[[30m  0.0[39m][1;38r[6;3H(B[m[36mMem[39m[1m[(B[m[32m7[34m4[33m5[30m[1mM/[39m][7;3H(B[m[36mSwp[39m[1m[[30m0K/4.[39m][9;1H(B[m[30m[42m  PID USER      PRI  NI  VIRT [10;1H[46m    1 root       20   0 74740 [11;3H[39m[49m212 [30m[1mroot      (B[m 20   0 [36m69[39m876[12;3H228 [30m[1mroot      (B[m 20   0 [36m86[39m600[13;3H365 [30m[1mroot      (B[m 20   0 [36m70[39m264[14;3H368 [30m[1mdbus      (B[m 20   0 [36m38[39m868[15;3H374 [30m[1mroot      (B[m 20   0 [36m13[39m308[16;3H380 [30m[1mroot      (B[m 20   0 [36m77[39m504[17;3H394 undeadlee  20   0 [36m82[39m716[18;3H395 undeadlee  20   0 [36m 132M [19;3H[39m431 undeadlee  20   0 [36m15[39m832[20;3H455 undeadlee  20   0 [36m16[39m024[21;3H457 undeadlee  20   0 [36m 309M [22;3H[39m461 undeadlee  20   0 [36m 309M [23;3H[39m456 undeadlee  20   0 [36m 309M [24;3H[39m458 [30m[1mroot      (B[m 20   0 [36m 4[39m272[25;3H462 undeadlee  20   0 [36m 112M [26;3H[39m467 undeadlee  20   0 [36m13[39m468[27;3H473 undeadlee  20   0 [36m 144M [28;3H[39m475 undeadlee  20   0 [36m29[39m252[29;3H501 undeadlee  20   0 [36m 153M [30;3H[39m502 undeadlee  20   0 [36m 153M [31;3H(B[m503 undeadlee  20   0 [36m 153M [32;3H[39m504 undeadlee  20   0 [36m 153M [33;3H[39m507 undeadlee  20   0 [36m 153M [34;3H[39m508 undeadlee  20   0 [36m 153M [35;3H[39m509 undeadlee  20   0 [36m 153M [36;3H[39m510 undeadlee  20   0 [36m 153M [37;1H[39mF1[30m[46mHelp  [39m[49mF2[30m[46mSetup [39m[49mF3[30m[46mSearch[39m[49mF4[30m[46mFilt[39m[1@[30ml[H(B[m[9B[10;36r[10;1H[3L[2;7H[32m|[31m|[30m[1m4[3;7H(B[m[32m|[30m[1m 1.3[4;7H(B[m[32m|[31m|[30m[1m2.6[5;7H(B[m[32m|[31m|[30m[1m2[6;9H(B[m[33m7[10;1H[30m[46m 1144 undeadlee  20   0 1689M [11;2H[39m[49m6562 undeadlee  20   0 [36m23[39m028
+ 6412 undeadlee  20   0 [36m 202M [13;1H[39m    1 [30m[1mroot      (B[m 20   0 [36m74[39m740 [13;1H[1;38r[1;1H[9B 1144 undeadlee  20   0 [36m1689M [11;1H[30m[46m 6562 undeadlee  20   0 23028 [1;1H(B[m[10B 6562 undeadlee  20   0 [36m23[39m028 [12;1H[30m[46m 6412 undeadlee  20   0  202M [1;1H(B[m[11B 6412 undeadlee  20   0 [36m 202M [13;1H[30m[46m    1 root       20   0 74740 [1;1H(B[m[12B    1 [30m[1mroot      (B[m 20   0 [36m74[39m740 [14;1H[30m[46m  212 root       20   0 69876 [1;1H(B[m[13B  212 [30m[1mroot      (B[m 20   0 [36m69[39m876 [15;1H[30m[46m  228 root       20   0 86600 [1;1H(B[m[14B  228 [30m[1mroot      (B[m 20   0 [36m86[39m600 [16;1H[30m[46m  365 root       20   0 70264 [1;1H(B[m[15B  365 [30m[1mroot      (B[m 20   0 [36m70[39m264 [17;1H[30m[46m  368 dbus       20   0 38868 [1;1H(B[m[16B  368 [30m[1mdbus      (B[m 20   0 [36m38[39m868 [18;1H[30m[46m  374 root       20   0 13308 [1;1H(B[m[17B  374 [30m[1mroot      (B[m 20   0 [36m13[39m308 [19;1H[30m[46m  380 root       20   0 77504 [1;1H(B[m[18B  380 [30m[1mroot      (B[m 20   0 [36m77[39m504 [20;1H[30m[46m  394 undeadlee  20   0 82716 [1;1H(B[m[20d  394 undeadlee  20   0 [36m82[39m716 [21;1H[30m[46m  395 undeadlee  20   0  132M [1;1H(B[m[21d  395 undeadlee  20   0 [36m 132M [22;1H[30m[46m  431 undeadlee  20   0 15832 [1;1H(B[m[22d  431 undeadlee  20   0 [36m15[39m832 [23;1H[30m[46m  455 undeadlee  20   0 16024 [1;1H(B[m[23d  455 undeadlee  20   0 [36m16[39m024 [24;1H[30m[46m  457 undeadlee  20   0  309M [1;1H(B[m[24d  457 undeadlee  20   0 [36m 309M [25;1H[30m[46m  461 undeadlee  20   0  309M [1;1H(B[m[25d  461 undeadlee  20   0 [36m 309M [26;1H[30m[46m  456 undeadlee  20   0  309M [1;1H(B[m[26d  456 undeadlee  20   0 [36m 309M [27;1H[30m[46m  458 root       20   0  4272 [1;1H(B[m[27d  458 [30m[1mroot      (B[m 20   0 [36m 4[39m272 [28;1H[30m[46m  462 undeadlee  20   0  112M [1;1H(B[m[28d  462 undeadlee  20   0 [36m 112M [29;1H[30m[46m  467 undeadlee  20   0 13468 [1;1H(B[m[29d  467 undeadlee  20   0 [36m13[39m468 [30;1H[30m[46m  473 undeadlee  20   0  144M [1;1H(B[m[30d  473 undeadlee  20   0 [36m 144M [31;1H[30m[46m  475 undeadlee  20   0 29252 [1;1H(B[m[31d  475 undeadlee  20   0 [36m29[39m252 [32;1H[30m[46m  501 undeadlee  20   0  153M [1;1H(B[m[2;9H[30m[1m3.4[3;8H(B[m[31m|[30m[1m3.9[4;9H4[5;9H(B[m[30m[1m6.6[32;1H(B[m  501 undeadlee  20   0 [36m 153M [33;1H[30m[46m  502 undeadlee  20   0  153M [1;1H(B[m[33d  502 undeadlee  20   0 [36m 153M [34;1H[30m[46m  503 undeadlee  20   0  153M [1;1H(B[m[34d  503 undeadlee  20   0 [36m 153M [35;1H[30m[46m  504 undeadlee  20   0  153M [1;1H(B[m[35d  504 undeadlee  20   0 [36m 153M [36;1H[30m[46m  507 undeadlee  20   0  153M [1;1H(B[m[10;36r[36;30H
+[35;1H  507 undeadlee  20   0 [36m 153M [36;1H[30m[46m  508 undeadlee  20   0  153M [36;1H[1;38r[1;1H(B[m[10;36r[36;30H
+[35;1H  508 undeadlee  20   0 [36m 153M [36;1H[30m[46m  509 undeadlee  20   0  153M [36;1H[1;38r[1;1H(B[m[10;36r[36;30H
+[35;1H  509 undeadlee  20   0 [36m 153M [36;1H[30m[46m  510 undeadlee  20   0  153M [36;1H[1;38r[1;1H(B[m[10;36r[36;30H
+[35;1H  510 undeadlee  20   0 [36m 153M [35;1H[1;38r[36;1H(B[m[30m[46m  511 undeadlee  20   0  153M [1;1H(B[m[10;36r[36;30H
+[35;1H  511 undeadlee  20   0 [36m 153M [36;1H[30m[46m  512 undeadlee  20   0  153M [36;1H[1;38r[1;1H(B[m[10;36r[36;30H
+[35;1H  512 undeadlee  20   0 [36m 153M [36;1H[30m[46m  513 undeadlee  20   0  153M [36;1H[1;38r[1;1H(B[m[2;9H[30m[1m6.3[17C[32m7[3;7H(B[m[34m|[32m|[31m4[30m[1m.2[5;9H3.3[6;8H(B[m[34m5[33m5[H(B[m

@@ -1,0 +1,100 @@
+[1m[7m%[27m[1m[0m                              [0m[27m[24m[J[39m[0m[49m[101m [30mUL [100m[91m [37m[39m [37m…/tests/ref [101m[90m [30m [39m [30mscrollback   [49m[91m[39m [K[20C[39m[0m[49m[00m[20D[?2004ht[90mmux[39mt[39mm[39mu[39mx[?2004l
+[?1049h[?1h=[H[2J[?12l[?25h[?1000l[?1002l[?1006l[?1005l[c(B[m[?12;25h[?12l[?25h[?1003l[?1006l[?2004l[1;1H[1;38r]112[1;1H[?25l[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[30m[42m                              (B[m[1;1H[?12l[?25h(B[m[?12;25h[?12l[?25h[?1003l[?1006l[?2004l[1;1H[1;38r[1;1H[?25l[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[30m[42m                              (B[m[1;1H[?12l[?25h[31mWARNING![39m Your terminal appears to support less than 256 colors!
+If your terminal supports 256 colors, please export the appropriate environment variable
+_before_ loading this theme in your ~/.zshrc. In most terminal emulators, putting
+[34mexport TERM="xterm-256color"[39m at the top of your ~/.zshrc is sufficient.
+[1m[7m%(B[m                             [13;1H [1;37r[14;37r[24S[13;1H[K [30mUL [39m [37m[39m [37m…/tests/ref [39m [30m [39m [30mscrollback   [39m [K[1;38r[14;10H[?2004hgit status[9D[C[C[Clog   [5D[C[C
+[?2004l[33mcommit 7fa91b7fb629a6e88652816[39m [33md5fa5d3c54b2088e1 ([36m[1mHEAD -> [32mscr(B[m [32m[1mollback(B[m[33m, [31m[1morigin/scrollback(B[m[33m)
+[39mAuthor: Christian Dü[1;37r[11S[7;21Hrr <contac t@christianduerr.com>
+Date:   Wed Dec 13 13:26:34 20 17 +0100[12;1H    Remove DPI and duplicate m ethods[15;1H[33mcommit 856256248293fffe08a0c05[39m [33m31cd6b6404a067fa5
+[39mMerge: af853b4 3302dc5
+Author: Christian Duerr <chris duerr@users.noreply.github.com >
+Date:   Wed Dec 13 11:33:38 20 17 +0000[24;1H    Merge branch 'master' into  scrollback[27;1H[33mcommit af853b4c1573b6e196ba8f2[39m [33mfa329ad4ce3db0e6b
+[39mMerge: bad5a5d 3302dc5
+Author: Christian Duerr <chris duerr@users.noreply.github.com >
+Date:   Wed Dec 13 11:29:01 20 17 +0000[36;1H    Merge branch 'master' into  scrollback[1;38r[37;12H[1;37r[3S[36;1H[33mcommit 3302dc5a0b171f7ba013999[39m :[K[1;38r[37;2H[K[1;37r[37S[1;1He variant, and the index of th e variant in the
+    file. This info should be  enough to get freetype to actu ally load a
+    font.[8;1H[33mcommit 2a7dc1deb825f9f1db6de8b[39m [33m50656ef420ff41a44
+[39mAuthor: Joe Wilm <joe@jwilm.co m>
+Date:   Sun Feb 21 15:20:03 20 16 -0800[15;1H    Add function for listing f ont names on linux
+    
+    This function isn't exactl y useful, but it's working ffi  with the
+    fontconfig library. Woo! N ext step will be returning som e objects with
+    more information (like fon t path so we can start renderi ng glyphs!).[28;1H[33mcommit 621776cd94890936b24f3ab[39m [33mb8b7ec1f36dad9150
+[39mAuthor: Joe Wilm <joe@jwilm.co m>
+Date:   Sun Feb 21 08:15:41 20 16 -0800[35;1H    Initialize new cargo binar y project
+[37m[100m(END)[39m[49m[K[1;38r[37;6H[K [KESC[2GESC[KOO[K[K[1;37r[1;1HM    style, the filepath for th[37;1H[K:[K[1;38r[37;2H[K [KESC[2GESC[KOO[K[K[1;37r[1;1HMe variant's[37;1H[K:[K[1;38r[37;2H[K [KESC[2GESC[KOO[K[K[1;37r[1;1HMrned. Each variant contains th[37;1H:[K[1;38r[37;2H[K [K::

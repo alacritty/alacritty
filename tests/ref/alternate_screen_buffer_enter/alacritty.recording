@@ -1,0 +1,32 @@
+[1m[7m%[27m[1m[0m                              [0m[27m[24m[J[39m[0m[49m[101m [30mUL [100m[91m [37m[39m [37m…/tests/ref [101m[90m [30m [39m [30mscrollback   [49m[91m[39m [K[20C[39m[0m[49m[00m[20D[?2004hl[90ms[39ml[39ms [90m-lah[39m[39m-[39ml[39ma[90ma[39m[39ma[39mh[?2004l
+total 204K
+drwxr-xr-x 25 undeadleech undeadleech 4.0K Dec 15 11:16 [0m[34m.[0m
+drwxr-xr-x  3 undeadleech undeadleech 4.0K Dec 15 10:07 [34m..[0m
+-rw-r--r--  1 undeadleech undeadleech  347 Dec 15 11:16 [32malacritty.recording[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 12:37 [34mcsi_rep[0m
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mfish_cc[0m
+-rw-r--r--  1 undeadleech undeadleech  95K Dec 15 11:16 [32mgrid.json[0m
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mindexed_256_colors[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 12:37 [34missue_855[0m
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mll[0m
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 15 08:33 [34mll_scrollback[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 12:37 [34mnewline_with_cursor_beyond_scroll_region[0m[K
+-rw-r--r--  1 undeadleech undeadleech   99 Dec 15 11:16 [32msize.json[0m
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mtab_rendering[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mtmux_git_log[0m
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 15 11:11 [34mtmux_git_log_scrollback[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mtmux_htop[0m
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 15 11:12 [34mtmux_htop_scrollback[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mvim_24bitcolors_bce[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mvim_large_window_scroll[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 15 11:10 [34mvim_scrollback_scrolling_disabled[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mvim_simple_edit[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mvttest_cursor_movement_1[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mvttest_insert[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mvttest_origin_mode_1[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mvttest_origin_mode_2[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mvttest_scroll[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mvttest_tab_clear_set[0m[K
+drwxr-xr-x  2 undeadleech undeadleech 4.0K Dec 13 13:22 [34mzsh_tab_completion[0m[K
+[1m[7m%[27m[1m[0m                              [0m[27m[24m[J[39m[0m[49m[101m [30mUL [100m[91m [37m[39m [37m…/tests/ref [101m[90m [30m [39m [30mscrollback   [49m[91m[39m [K[20C[39m[0m[49m[00m[20D[?2004hp[90mrintf '\e[?1049h]'[39m[18Dp[39mr[39mi[39mn[39mt[39mf[39m [39m'[39m\[39me[39m[[39m?[39m1[39m0[39m4[39m9[39mh[39m][39m'[?2004l
+[?1049h][1m[7m%[27m[1m[0m                              [0m[27m[24m[J[39m[0m[49m[101m [30mUL [100m[91m [37m[39m [37m…/tests/ref [101m[90m [30m [39m [30mscrollback   [49m[91m[39m [K[20C[39m[0m[49m[00m[20D[?2004h

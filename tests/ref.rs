@@ -30,13 +30,17 @@ ref_tests! {
     indexed_256_colors
     issue_855
     ll
+    ll_scrollback
     newline_with_cursor_beyond_scroll_region
     tab_rendering
     tmux_git_log
+    tmux_git_log_scrollback
     tmux_htop
+    tmux_htop_scrollback
     vim_24bitcolors_bce
     vim_large_window_scroll
     vim_simple_edit
+    vim_scrollback_scrolling_disabled
     vttest_cursor_movement_1
     vttest_insert
     vttest_origin_mode_1
@@ -44,6 +48,8 @@ ref_tests! {
     vttest_scroll
     vttest_tab_clear_set
     zsh_tab_completion
+    alternate_screen_buffer_enter
+    alternate_screen_buffer_exit
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
@@ -84,7 +90,7 @@ fn ref_test(dir: &Path) {
     // Detect if this ref test is from before scrollback
     let visible_region = grid.visible_region();
     let end = grid.absolute_to_raw_index(visible_region.end);
-    if end >= grid.raw().len() {
+    if end > grid.raw().len() {
         ref_test_no_scrollback(grid, terminal.grid());
         return;
     }
