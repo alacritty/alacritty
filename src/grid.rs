@@ -86,14 +86,38 @@ struct ScrollbackState {
     // Whether scrollback is enabled at all.. When disabled,
     // `max_lines` will be kept in sync with `lines` in the grid.
     enabled: bool,
+    // Whether scrollback is currently active or not.
+    currently_enabled: bool,
     // Maximum number of lines in the total scrollback buffer.
     // Once this limit is reached, oldest elements will begin to be
     // removed from the `VecDeque` using `pop_front`
     max_lines: index::AbsoluteLine
 }
 
+impl ScrollbackState {
+    fn enabled(max_lines: index::AbsoluteLine) -> Self {
+        ScrollbackState {
+            enabled: true,
+            currently_enabled: true,
+            max_lines
+        }
+    }
+
+    fn disabled(lines: index::Line) -> Self {
+        ScrollbackState {
+            enabled: false,
+            currently_enabled: false,
+            max_lines: lines.to_absolute()
+        }
+    }
+}
+
 fn default_scrollback_state() -> ScrollbackState {
-    ScrollbackState { enabled: true, max_lines: AbsoluteLine(10000) }
+    ScrollbackState {
+        enabled: true,
+        currently_enabled: true,
+        max_lines: AbsoluteLine(10000),
+    }
 }
 
 fn default_absolute_line_zero() -> index::AbsoluteLine {
@@ -128,7 +152,7 @@ pub struct Grid<T> {
     /// The starting index for the visible region
     #[serde(default = "default_absolute_line_zero")]
     visible_region_start: index::AbsoluteLine,
-    
+
     /// Scrollback config, ie: is it enabled, if so, how many lines
     #[serde(default = "default_scrollback_state")]
     scrollback: ScrollbackState,
@@ -147,8 +171,8 @@ impl<T: Clone> Grid<T> {
         }
 
         let scrollback_state = match scrollback {
-            Scrollback::Disabled => ScrollbackState { enabled: false, max_lines: lines.to_absolute() },
-            Scrollback::MaxLines(l) => ScrollbackState { enabled: true, max_lines: l }
+            Scrollback::Disabled => ScrollbackState::disabled(lines),
+            Scrollback::MaxLines(l) => ScrollbackState::enabled(l)
         };
 
         Grid {
@@ -175,17 +199,17 @@ impl<T: Clone> Grid<T> {
             Ordering::Equal => Movement::None,
         }
     }
- 
+
     /// Grows the active region/visible region to the given number of lines.
     /// The algorithm this uses should mimic Gnome Terminal's at the moment.
     /// That means that the contents bottom line of the screen should remain the same.
     ///
-    /// The return value represents the direction and amount the 
+    /// The return value represents the direction and amount the
     /// active region has moved - this can be either discarded or
     /// inspected ie: to keep the cursor in the right position.
     fn grow_lines(&mut self, lines: index::Line, template: &T) -> Movement<Line> {
         let old_start = self.active_region().start;
-        
+
         // check if we actually need to add new lines
         if self.total_lines_in_buffer() < lines.to_absolute() {
             debug!("grow_lines: adding {} lines", lines.to_absolute() - self.total_lines_in_buffer());
@@ -199,7 +223,7 @@ impl<T: Clone> Grid<T> {
         // of the visible region is the same as it was before.
         let visible_shift = lines.to_absolute() - self.lines.to_absolute();
         let _ = self.move_visible_region_up(visible_shift);
-    
+
         self.lines = lines;
 
         // calculate how much (if at all) the active region has moved up during the resize
@@ -276,6 +300,11 @@ impl<T> Grid<T> {
 
     /// Moves the visible region up a relative amount.
     pub fn move_visible_region_up(&mut self, lines: AbsoluteLine) -> Result<(), MoveRegionError> {
+        // Don't scroll when scrolling is disabled
+        if !self.scrollback.currently_enabled {
+            return Ok(());
+        }
+
         if self.visible_region_start == self.absolute_line_offset {
             Err(MoveRegionError::AtTop)
         } else if self.visible_region_start < self.absolute_line_offset + lines {
@@ -290,6 +319,11 @@ impl<T> Grid<T> {
 
     /// Moves the visible region down a relative amount.
     pub fn move_visible_region_down(&mut self, lines: AbsoluteLine) -> Result<(), MoveRegionError> {
+        // Don't scroll when scrolling is disabled
+        if !self.scrollback.currently_enabled {
+            return Ok(());
+        }
+
         if self.visible_region().end == self.total_lines_in_buffer() {
             Err(MoveRegionError::AtBottom)
         } else if self.visible_region().end + lines >= self.total_lines_in_buffer() {
@@ -362,7 +396,7 @@ impl<T> Grid<T> {
                 grid: self,
                 cur: point,
             })
-        } 
+        }
     }
 
     #[inline]
@@ -423,12 +457,12 @@ impl<T> Grid<T> {
     /// The algorithm this uses should mimic Gnome Terminal's at the moment.
     /// That means that the contents bottom line of the screen should remain the same.
     ///
-    /// The return value represents the direction and amount the 
+    /// The return value represents the direction and amount the
     /// active region has moved - this can be either discarded or
     /// inspected ie: to keep the cursor in the right position.
     fn shrink_lines(&mut self, lines: index::Line) -> Movement<Line> {
         let shift = self.lines.to_absolute() - lines.to_absolute();
-        
+
         self.lines = lines;
 
         // move the start of the visible region down, so that the end
@@ -453,7 +487,7 @@ impl<T: Default + Clone> Grid<T> {
     /// then it will reuse old rows.
     pub fn insert_new_lines<F>(&mut self, lines: index::Line, clear: F)
         where F: Fn(&mut T)
-    {        
+    {
         let was_at_end = self.visible_region().end == self.total_lines_in_buffer();
 
         let swap = self.raw.len() >= self.scrollback.max_lines.0;
@@ -562,7 +596,7 @@ impl<T> Grid<T> {
     /// This function allows access to a region in the buffer, indexed by an `AbsoluteLine`
     /// (ie: 0 means the very oldest line of scrollback). Note that this is read-only access,
     /// presumably for rendering purposes - the scrollback-area of the buffer
-    /// should never be modified. 
+    /// should never be modified.
     pub fn get_absolute_region(&self, region: Range<AbsoluteLine>) -> owned_slice::Slice<VecDeque<Row<T>>, usize, Row<T>> {
         let region = self.absolute_to_raw_index(region.start)..self.absolute_to_raw_index(region.end);
         owned_slice::Slice::new(&self.raw, region)
@@ -587,6 +621,11 @@ impl<T> Grid<T> {
     pub fn get_visible_line(&self, line: Line) -> &Row<T> {
         let idx = self.absolute_to_raw_index(self.visible_region_start + line.to_absolute());
         &self.raw[idx]
+    }
+
+    /// Enable or disable scrollback temporarily
+    pub fn set_scrollback_enabled(&mut self, enabled: bool) {
+        self.scrollback.currently_enabled = self.scrollback.enabled && enabled;
     }
 }
 

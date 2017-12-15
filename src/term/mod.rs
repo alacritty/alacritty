@@ -944,7 +944,7 @@ impl Term {
         // whilst clipping them to make sure they are valid line indices.
         let (start, end) = span.to_locations(self.grid.min_line());
         let line_count = end.line - start.line;
-        
+
 
         match line_count {
             // Selection within single line
@@ -1039,7 +1039,7 @@ impl Term {
         } else {
             None
         }
-    }   
+    }
 
     /// Resize terminal to new dimensions
     pub fn resize(&mut self, size : &SizeInfo) {
@@ -1191,7 +1191,7 @@ impl Term {
             Ok(()) => { self.dirty = true; trace!("move_visible_region_down: {}..{} of {}", self.grid.visible_region().start.0, self.grid.visible_region().end.0, self.grid.total_lines_in_buffer().0); },
             Err(e) => trace!("move_visible_region_down: {:?}", e)
         }
-        
+
     }
 
     pub fn move_visible_region_to_bottom(&mut self) {
@@ -1838,6 +1838,9 @@ impl ansi::Handler for Term {
                     self.swap_alt();
                 }
                 self.save_cursor_position();
+
+                // Disable scrolling in the alternate buffer
+                self.grid.set_scrollback_enabled(false);
             },
             ansi::Mode::ShowCursor => self.mode.insert(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.insert(mode::APP_CURSOR),
@@ -1867,6 +1870,9 @@ impl ansi::Handler for Term {
                     self.swap_alt();
                 }
                 self.restore_cursor_position();
+
+                // Enable scrolling in the normal buffer
+                self.grid.set_scrollback_enabled(true);
             },
             ansi::Mode::ShowCursor => self.mode.remove(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.remove(mode::APP_CURSOR),
