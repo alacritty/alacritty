@@ -22,6 +22,16 @@ use util::limit;
 use util::fmt::Red;
 use window::Window;
 
+#[cfg(target_os="macos")]
+use std::os::raw::c_void;
+
+#[cfg(target_os="macos")]
+#[link(name = "Carbon", kind = "framework")]
+extern {
+  fn TISCopyCurrentKeyboardInputSource() -> *mut c_void;
+  fn TISSelectInputSource(s : *mut  c_void);
+}
+
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
     /// Notify that an escape sequence should be written to the pty
@@ -40,6 +50,8 @@ pub struct ActionContext<'a, N: 'a> {
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
     pub last_modifiers: &'a mut ModifiersState,
+    #[cfg(target_os="macos")]
+    pub macos_input_source: *mut c_void,
 }
 
 impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
@@ -196,6 +208,8 @@ pub struct Processor<N> {
     suppress_chars: bool,
     last_modifiers: ModifiersState,
     pending_events: Vec<Event>,
+    #[cfg(target_os="macos")]
+    macos_input_source: *mut c_void,
 }
 
 /// Notify that the terminal was resized
@@ -239,6 +253,8 @@ impl<N: Notify> Processor<N> {
             suppress_chars: false,
             last_modifiers: Default::default(),
             pending_events: Vec::with_capacity(4),
+            #[cfg(target_os="macos")]
+            macos_input_source: unsafe { TISCopyCurrentKeyboardInputSource() }
         }
     }
 
@@ -332,6 +348,15 @@ impl<N: Notify> Processor<N> {
                             *hide_cursor = false;
                         }
 
+                        if cfg!(target_os="macos") {
+                            if is_focused {
+                                unsafe { TISSelectInputSource(processor.ctx.macos_input_source) };
+                            }
+                            else {
+                                processor.ctx.macos_input_source = unsafe { TISCopyCurrentKeyboardInputSource() };
+                            }
+                        }
+
                         processor.on_focus_change(is_focused);
                     }
                     _ => (),
@@ -390,6 +415,8 @@ impl<N: Notify> Processor<N> {
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
                 last_modifiers: &mut self.last_modifiers,
+                #[cfg(target_os="macos")]
+                macos_input_source: self.macos_input_source,
             };
 
             processor = input::Processor {
@@ -425,7 +452,9 @@ impl<N: Notify> Processor<N> {
 
                 window.poll_events(process);
             }
-
+            if cfg!(target_os = "macos") {
+                self.macos_input_source = processor.ctx.macos_input_source;
+            }
             if self.hide_cursor_when_typing {
                 window.set_cursor_visible(!self.hide_cursor);
             }
