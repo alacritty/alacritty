@@ -1,0 +1,130 @@
+[1m[7m%[27m[1m[0m                              [0m[27m[24m[J[39m[0m[49m[101m [30mUL [100m[91m [37m[39m [37m…/tests/ref [101m[90m [30m [39m [30mscrollback   [49m[91m[39m [K[20C[39m[0m[49m[00m[20D[?2004h[A[0m[27m[24m[J[39m[0m[49m[101m [30mUL [100m[91m [37m[39m [37m…/tests/ref [101m[90m [30m [39m [30mscrollback   [49m[91m[39m [K[22C[39m[0m[49m[00m[22Dv[90mim vim_scrollback_scro[90ml[90mling_disabled/alacritty.recording[39m[K[A[6Cv[39mi[39mm[39m [39ma[90ml[90ma[90mc[90mr[90mi[90mt[90mt[90my[90m.[90mr[90me[90mc[90mo[90mr[90md[90mi[90mn[90mg[39m [K[A[43C[39ml[39ma[39mc[39mr[39mi[39mt[39mt[39my[39m.[39mr[39me[39mc[39mo[39mr[39md[39mi[39mn[39mg[1m [0m[K[A[61C[90mg[39m [A[60C[90mn[90mi[90md[90mr[90mo[90mc[90me[90mr[90m.[90my[90mt[90mt[90mi[90mr[90mc[90ma[90ml[90mv[90mi[90mm[90m_[90ms[90mc[90mr[90mo[90ml[90ml[90mb[90ma[90mc[90mk[90m_[90ms[90mc[90mr[90mo[90ml[90ml[90mi[90mn[90mg[90m_[90md[90mi[90ms[90ma[90mb[90ml[90me[90md[90m/[90ma[90ml[90ma[90mc[90mr[90mi[90mt[90mt[90my[90m.[90mr[90me[90mc[90mo[90mr[90md[90mi[90mn[90mg[39m[A[9C[39m.[90m.[90m/[90mr[90me[90mf[90m.[90mr[90ms[39m[K[9C[39m[0m[49m[00m[1B[K[A[44C[39m.[39ml[39m [39m [39m [39m [39m [39m [90m/[90mref.rs[39m[39m/[39mr[39me[39mf[39m.[39mr[39ms[?2004l[1B[?1049h[?1h=[H[2J[?2004h[?1004h[8;38;62t[r[1;1H(B[m[97m[H[2J[?25h[?25l[2 q[2 q[H[2J[37B(B[m[97m"../ref.rs"[?25h[?25l[C131L,[C3821C[?25h[?25l[?25h[?25l[H(B[m[37m[40m 14 [16C(B[m[34mif[C(B[m[36m*(B[m[97moriginal_cell[C(B[m[34m!=[C(B[m[36m*(B[m[97mcell[C{
+(B[m[37m[40m 13 [20C(B[m[34mprintln!(B[m[97m((B[m[33m"[{i}][{j}] {original:?} => {
+(B[m[37m[40m    (B[m[33mnow:?}"(B[m[97m,
+(B[m[37m[40m 12 [29C(B[m[97mi(B[m[34m=(B[m[97mi,[Cj(B[m[34m=(B[m[97mj,[Coriginal(B[m[34m=(B[m[31mGreen(B[m[97m(orig
+(B[m[37m[40m    (B[m[97minal_cell),[Cnow(B[m[34m=(B[m[31mRed(B[m[97m(cell));
+(B[m[37m[40m 11 [16C(B[m[97m}
+(B[m[37m[40m 10 [12C(B[m[97m}
+(B[m[37m[40m  9 [8C(B[m[97m}
+(B[m[37m[40m  8 
+  7 [8C(B[m[34mpanic!(B[m[97m((B[m[33m"Ref test failed; grid doesn't match"(B[m[97m);
+(B[m[37m[40m  6 [4C(B[m[97m}
+(B[m[37m[40m  5 
+  4 [4C(B[m[34massert_eq!(B[m[97m(grid,[C(B[m[36m*(B[m[97mterminal.(B[m[31mgrid(B[m[97m());
+(B[m[37m[40m  3 (B[m[97m}
+(B[m[37m[40m  2 
+  1 (B[m[34mfn[C(B[m[31mref_test_no_scrollback(B[m[97m(ref_grid:[CGrid(B[m[34m<(B[m[97mCell(B[m[34m>(B[m[97m,[Ctest_grid:
+(B[m[37m[40m    [C(B[m[36m&(B[m[97mGrid(B[m[34m<(B[m[97mCell(B[m[34m>(B[m[97m)[C{
+(B[m[97m[40m  0 [4C(B[m[37m// Remove scrollback from the test grid
+(B[m[37m[40m  1 [4C(B[m[34mlet[C(B[m[97mvisible_region[C(B[m[34m=[C(B[m[97mtest_grid.(B[m[31mvisible_region(B[m[97m();
+(B[m[37m[40m  2 [4C(B[m[34mlet[C(B[m[97mraw_index_start[C(B[m[34m=[C(B[m[97mtest_grid.(B[m[31mabsolute_to_raw_index(B[m[97m(
+(B[m[37m[40m    (B[m[97mvisible_region.start);
+(B[m[37m[40m  3 [4C(B[m[34mlet[C(B[m[97mraw_index_end[C(B[m[34m=[C(B[m[97mtest_grid.(B[m[31mabsolute_to_raw_index(B[m[97m(vi
+(B[m[37m[40m    (B[m[97msible_region.end)[C(B[m[34m-[C(B[m[97mraw_index_start;
+(B[m[37m[40m  4 [4C(B[m[34mlet[C(B[m[97mtest_grid_iter[C(B[m[34m=[C(B[m[97mtest_grid.(B[m[31mraw(B[m[97m().(B[m[31miter(B[m[97m().(B[m[31mskip(B[m[97m(raw_i
+(B[m[37m[40m    (B[m[97mndex_start).(B[m[31mtake(B[m[97m(raw_index_end);
+(B[m[37m[40m  5 
+  6 [4C(B[m[37m// Compare every cell
+(B[m[37m[40m  7 [4C(B[m[34mfor[C(B[m[97m(i,[Crow)[C(B[m[34min[C(B[m[97mtest_grid_iter.(B[m[31menumerate(B[m[97m()[C{
+(B[m[37m[40m  8 [8C(B[m[34mfor[C(B[m[97m(j,[Ccell)[C(B[m[34min[C(B[m[97mrow.(B[m[31miter(B[m[97m().(B[m[31menumerate(B[m[97m()[C{
+(B[m[37m[40m  9 [12C(B[m[34mlet[C(B[m[97mref_cell[C(B[m[34m=[C(B[m[97mref_grid.(B[m[31mraw(B[m[97m().(B[m[31mget(B[m[97m(i).(B[m[31mand_then(B[m[97m(
+(B[m[37m[40m    (B[m[34m|(B[m[97mrow(B[m[34m|[C(B[m[97mrow.(B[m[31mget(B[m[97m(j))
+(B[m[37m[40m 10 [28C(B[m[97m.(B[m[31mexpect(B[m[97m((B[m[33m"Ref test failed; grid
+(B[m[37m[40m    (B[m[33m size doesn't match"(B[m[97m);
+(B[m[37m[40m 11 [12C(B[m[34mif[C(B[m[97mcell[C(B[m[34m!=[C(B[m[97mref_cell[C{
+(B[m[37m[40m 12 [16C(B[m[34mpanic!(B[m[97m((B[m[33m"Ref test failed; grid doesn't matc
+(B[m[37m[40m    (B[m[33mh"(B[m[97m);
+(B[m[30m[101m (B[0;1m[30m[101mN…(B[m[30m[101m (B[m[37m[100m (B[0;1m[97m[100m ref.rs  (B[m[37m[100m                                rus… (B[m[30m[101m 115/131 5 [18;9H[?25h[?25l[1;2H(B[m[37m[40m  14 [14C(B[m[97m  (B[m[34mif(B[m[97m (B[m[36m*(B[m[97mor[Cginal_cell (B[m[34m!=(B[m[97m (B[m[36m*(B[m[97mcell[C{[2;2H(B[m[37m[40m  13 [18C(B[m[97m  (B[m[34mprintln!(B[m[97m((B[m[33m"[{i}][{j}] {or[Cginal:?} =>
+[4C(B[m[37m[40m  (B[m[33m {now:?}"(B[m[97m,[4;2H(B[m[37m[40m  12 [27C(B[m[97m  [C(B[m[34m=(B[m[97mi, [C(B[m[34m=(B[m[97mj, or[Cginal(B[m[34m=(B[m[31mGreen(B[m[97m(or
+[4C(B[m[37m[40m  (B[m[97migina[C_cell), now(B[m[34m=(B[m[31mRed(B[m[97m(cell));[6;2H(B[m[37m[40m  11 [14C(B[m[97m [C}[7;2H(B[m[37m[40m  10 [10C(B[m[97m [C}[8;3H(B[m[37m[40m [C9 [6C(B[m[97m [C}[9;3H(B[m[37m[40m [C8 [10;3H [C7 [6C(B[m[97m  (B[m[34mpanic!(B[m[97m((B[m[33m"Ref test failed; gri[C doesn't match"(B[m[97m);[11;3H(B[m[37m[40m [C6 [C[C(B[m[97m [C}[12;3H(B[m[37m[40m [C5 [13;3H [C4 [C[C(B[m[97m  (B[m[34massert_eq!(B[m[97m(grid, (B[m[36m*(B[m[97mterminal.(B[m[31mgrid(B[m[97m());[14;3H(B[m[37m[40m [C3 (B[m[97m}[15;3H(B[m[37m[40m [C2 [16;3H [C1 (B[m[34mfn(B[m[97m (B[m[31mref_test_no_scrollback(B[m[97m(ref_grid: Grid(B[m[34m<(B[m[97mCell(B[m[34m>(B[m[97m, test_gri
+[4C(B[m[37m[40m  (B[m[97md: (B[m[36m&(B[m[97mGrid(B[m[34m<(B[m[97mCell(B[m[34m>(B[m[97m)[C{
+(B[m[37m[40m  (B[m[97m[40m [C0 [C[C(B[m[97m  (B[m[37m// Remove scrollback from the test grid[19;3H(B[m[37m[40m [C1 [C[C(B[m[97m  (B[m[34mlet(B[m[97m v[Csible_region[C(B[m[34m=(B[m[97m test_grid.(B[m[31mv[Csible_region(B[m[97m();[20;3H(B[m[37m[40m [C2 [C[C(B[m[97m  (B[m[34mlet(B[m[97m raw_index_start[C(B[m[34m=(B[m[97m test_grid.(B[m[31mabsolute_to_raw_inde
+[4C(B[m[37m[40m  (B[m[31mx(B[m[97m(visible_region.start);[22;3H(B[m[37m[40m [C3 [C[C(B[m[97m  (B[m[34mlet(B[m[97m raw_index_end[C(B[m[34m=(B[m[97m test_grid.(B[m[31mabsolute_to_raw_index(B[m[97m(
+[4C(B[m[37m[40m  (B[m[97mvisible_region.end) (B[m[34m-(B[m[97m raw_index_start;[24;3H(B[m[37m[40m [C4 [C[C(B[m[97m  (B[m[34mlet(B[m[97m test_grid_iter[C(B[m[34m=(B[m[97m test_grid.(B[m[31mraw(B[m[97m().(B[m[31miter(B[m[97m().(B[m[31mskip(B[m[97m(raw
+[4C(B[m[37m[40m  (B[m[97m_index_start).(B[m[31mtake(B[m[97m(raw_index_end);[26;3H(B[m[37m[40m [C5 [27;3H [C6 [C[C(B[m[97m  (B[m[37m// Compar[C [Cvery cell[28;3H(B[m[37m[40m [C7 [C[C(B[m[97m  (B[m[34mfor(B[m[97m (i, row) (B[m[34min(B[m[97m test_grid_iter.(B[m[31menumerate(B[m[97m()[C{[29;3H(B[m[37m[40m [C8 [6C(B[m[97m  (B[m[34mfor(B[m[97m (j, cell) (B[m[34min(B[m[97m row.(B[m[31miter(B[m[97m().(B[m[31menumerate(B[m[97m()[C{[30;3H(B[m[37m[40m [C9 [10C(B[m[97m  (B[m[34mlet(B[m[97m ref_cell[C(B[m[34m=(B[m[97m ref_grid.(B[m[31mraw(B[m[97m().(B[m[31mget(B[m[97m(i).(B[m[31mand_the
+[4C(B[m[37m[40m  (B[m[31mn(B[m[97m([Crow(B[m[34m|(B[m[97m row.(B[m[31mget(B[m[97m(j))[32;2H(B[m[37m[40m  10 [26C(B[m[97m  .(B[m[31mexpect(B[m[97m((B[m[33m"Ref test failed; gr
+[4C(B[m[37m[40m  [C(B[m[33md siz[C doesn'[C match"(B[m[97m);[34;2H(B[m[37m[40m  11 [10C(B[m[97m  (B[m[34mif(B[m[97m cell (B[m[34m!=(B[m[97m ref_cell[C{[35;2H(B[m[37m[40m  12 [14C(B[m[97m  (B[m[34mpanic!(B[m[97m((B[m[33m"Ref test failed; gri[C doesn't ma
+[4C(B[m[37m[40m  (B[m[33mtch"(B[m[97m);[18;11H[?25h[?25l[20Bref.[Cs (B[m[97m[K[?25h[?25l[18;11H[?25h[?25l[20B(B[m[97mLanguage[Cclient[Chas[Calready[Cstarted.[?25h[?25l[18;11H[?25h[?25l[20B(B[m[97m[J[?25h[?25l[18;11H[?25h[?25l[38;52H(B[m[97m:[18;11H[?25h[?25l[38;52H(B[m[97m[K[38;1H(B[m[97m:[2 q[?25h[?25lq[?25h[?25l[38;1H[?25h[?25l[2 q[2 q(B[m[?25h[?1l>[?1049l[?2004l[?1004l[?25h[1m[7m%[27m[1m[0m                                                              [0m[27m[24m[J[39m[0m[49m[101m [30mUL [100m[91m [37m[39m [37m…/tests/ref [101m[90m [30m [39m [30mscrollback   [49m[91m[39m [K[22C[39m[0m[49m[00m[22D[?2004hv[90mim ../ref.rs[39m[12Dv[39mi[39mm[39m [39m.[39m.[39m/[39mr[39me[39mf[39m.[39mr[39ms[?2004l
+[?1049h[?1h=[H[2J[?2004h[?1004h[8;38;62t[r[1;1H(B[m[97m[H[2J[?25h[?25l[2 q[2 q[H[2J[37B(B[m[97m"../ref.rs"[?25h[?25l[C131L,[C3821C[?25h[?25l[?25h[?25l[H(B[m[37m[40m 14 [16C(B[m[34mif[C(B[m[36m*(B[m[97moriginal_cell[C(B[m[34m!=[C(B[m[36m*(B[m[97mcell[C{
+(B[m[37m[40m 13 [20C(B[m[34mprintln!(B[m[97m((B[m[33m"[{i}][{j}] {original:?} => {
+(B[m[37m[40m    (B[m[33mnow:?}"(B[m[97m,
+(B[m[37m[40m 12 [29C(B[m[97mi(B[m[34m=(B[m[97mi,[Cj(B[m[34m=(B[m[97mj,[Coriginal(B[m[34m=(B[m[31mGreen(B[m[97m(orig
+(B[m[37m[40m    (B[m[97minal_cell),[Cnow(B[m[34m=(B[m[31mRed(B[m[97m(cell));
+(B[m[37m[40m 11 [16C(B[m[97m}
+(B[m[37m[40m 10 [12C(B[m[97m}
+(B[m[37m[40m  9 [8C(B[m[97m}
+(B[m[37m[40m  8 
+  7 [8C(B[m[34mpanic!(B[m[97m((B[m[33m"Ref test failed; grid doesn't match"(B[m[97m);
+(B[m[37m[40m  6 [4C(B[m[97m}
+(B[m[37m[40m  5 
+  4 [4C(B[m[34massert_eq!(B[m[97m(grid,[C(B[m[36m*(B[m[97mterminal.(B[m[31mgrid(B[m[97m());
+(B[m[37m[40m  3 (B[m[97m}
+(B[m[37m[40m  2 
+  1 (B[m[34mfn[C(B[m[31mref_test_no_scrollback(B[m[97m(ref_grid:[CGrid(B[m[34m<(B[m[97mCell(B[m[34m>(B[m[97m,[Ctest_grid:
+(B[m[37m[40m    [C(B[m[36m&(B[m[97mGrid(B[m[34m<(B[m[97mCell(B[m[34m>(B[m[97m)[C{
+(B[m[97m[40m  0 [4C(B[m[37m// Remove scrollback from the test grid
+(B[m[37m[40m  1 [4C(B[m[34mlet[C(B[m[97mvisible_region[C(B[m[34m=[C(B[m[97mtest_grid.(B[m[31mvisible_region(B[m[97m();
+(B[m[37m[40m  2 [4C(B[m[34mlet[C(B[m[97mraw_index_start[C(B[m[34m=[C(B[m[97mtest_grid.(B[m[31mabsolute_to_raw_index(B[m[97m(
+(B[m[37m[40m    (B[m[97mvisible_region.start);
+(B[m[37m[40m  3 [4C(B[m[34mlet[C(B[m[97mraw_index_end[C(B[m[34m=[C(B[m[97mtest_grid.(B[m[31mabsolute_to_raw_index(B[m[97m(vi
+(B[m[37m[40m    (B[m[97msible_region.end)[C(B[m[34m-[C(B[m[97mraw_index_start;
+(B[m[37m[40m  4 [4C(B[m[34mlet[C(B[m[97mtest_grid_iter[C(B[m[34m=[C(B[m[97mtest_grid.(B[m[31mraw(B[m[97m().(B[m[31miter(B[m[97m().(B[m[31mskip(B[m[97m(raw_i
+(B[m[37m[40m    (B[m[97mndex_start).(B[m[31mtake(B[m[97m(raw_index_end);
+(B[m[37m[40m  5 
+  6 [4C(B[m[37m// Compare every cell
+(B[m[37m[40m  7 [4C(B[m[34mfor[C(B[m[97m(i,[Crow)[C(B[m[34min[C(B[m[97mtest_grid_iter.(B[m[31menumerate(B[m[97m()[C{
+(B[m[37m[40m  8 [8C(B[m[34mfor[C(B[m[97m(j,[Ccell)[C(B[m[34min[C(B[m[97mrow.(B[m[31miter(B[m[97m().(B[m[31menumerate(B[m[97m()[C{
+(B[m[37m[40m  9 [12C(B[m[34mlet[C(B[m[97mref_cell[C(B[m[34m=[C(B[m[97mref_grid.(B[m[31mraw(B[m[97m().(B[m[31mget(B[m[97m(i).(B[m[31mand_then(B[m[97m(
+(B[m[37m[40m    (B[m[34m|(B[m[97mrow(B[m[34m|[C(B[m[97mrow.(B[m[31mget(B[m[97m(j))
+(B[m[37m[40m 10 [28C(B[m[97m.(B[m[31mexpect(B[m[97m((B[m[33m"Ref test failed; grid
+(B[m[37m[40m    (B[m[33m size doesn't match"(B[m[97m);
+(B[m[37m[40m 11 [12C(B[m[34mif[C(B[m[97mcell[C(B[m[34m!=[C(B[m[97mref_cell[C{
+(B[m[37m[40m 12 [16C(B[m[34mpanic!(B[m[97m((B[m[33m"Ref test failed; grid doesn't matc
+(B[m[37m[40m    (B[m[33mh"(B[m[97m);
+(B[m[30m[101m (B[0;1m[30m[101mN…(B[m[30m[101m (B[m[37m[100m (B[0;1m[97m[100m ref.rs  (B[m[37m[100m                                rus… (B[m[30m[101m 115/131 5 [18;9H[?25h[?25l[1;2H(B[m[37m[40m  14 [14C(B[m[97m  (B[m[34mif(B[m[97m (B[m[36m*(B[m[97mor[Cginal_cell (B[m[34m!=(B[m[97m (B[m[36m*(B[m[97mcell[C{[2;2H(B[m[37m[40m  13 [18C(B[m[97m  (B[m[34mprintln!(B[m[97m((B[m[33m"[{i}][{j}] {or[Cginal:?} =>
+[4C(B[m[37m[40m  (B[m[33m {now:?}"(B[m[97m,[4;2H(B[m[37m[40m  12 [27C(B[m[97m  [C(B[m[34m=(B[m[97mi, [C(B[m[34m=(B[m[97mj, or[Cginal(B[m[34m=(B[m[31mGreen(B[m[97m(or
+[4C(B[m[37m[40m  (B[m[97migina[C_cell), now(B[m[34m=(B[m[31mRed(B[m[97m(cell));[6;2H(B[m[37m[40m  11 [14C(B[m[97m [C}[7;2H(B[m[37m[40m  10 [10C(B[m[97m [C}[8;3H(B[m[37m[40m [C9 [6C(B[m[97m [C}[9;3H(B[m[37m[40m [C8 [10;3H [C7 [6C(B[m[97m  (B[m[34mpanic!(B[m[97m((B[m[33m"Ref test failed; gri[C doesn't match"(B[m[97m);[11;3H(B[m[37m[40m [C6 [C[C(B[m[97m [C}[12;3H(B[m[37m[40m [C5 [13;3H [C4 [C[C(B[m[97m  (B[m[34massert_eq!(B[m[97m(grid, (B[m[36m*(B[m[97mterminal.(B[m[31mgrid(B[m[97m());[14;3H(B[m[37m[40m [C3 (B[m[97m}[15;3H(B[m[37m[40m [C2 [16;3H [C1 (B[m[34mfn(B[m[97m (B[m[31mref_test_no_scrollback(B[m[97m(ref_grid: Grid(B[m[34m<(B[m[97mCell(B[m[34m>(B[m[97m, test_gri
+[4C(B[m[37m[40m  (B[m[97md: (B[m[36m&(B[m[97mGrid(B[m[34m<(B[m[97mCell(B[m[34m>(B[m[97m)[C{
+(B[m[37m[40m  (B[m[97m[40m [C0 [C[C(B[m[97m  (B[m[37m// Remove scrollback from the test grid[19;3H(B[m[37m[40m [C1 [C[C(B[m[97m  (B[m[34mlet(B[m[97m v[Csible_region[C(B[m[34m=(B[m[97m test_grid.(B[m[31mv[Csible_region(B[m[97m();[20;3H(B[m[37m[40m [C2 [C[C(B[m[97m  (B[m[34mlet(B[m[97m raw_index_start[C(B[m[34m=(B[m[97m test_grid.(B[m[31mabsolute_to_raw_inde
+[4C(B[m[37m[40m  (B[m[31mx(B[m[97m(visible_region.start);[22;3H(B[m[37m[40m [C3 [C[C(B[m[97m  (B[m[34mlet(B[m[97m raw_index_end[C(B[m[34m=(B[m[97m test_grid.(B[m[31mabsolute_to_raw_index(B[m[97m(
+[4C(B[m[37m[40m  (B[m[97mvisible_region.end) (B[m[34m-(B[m[97m raw_index_start;[24;3H(B[m[37m[40m [C4 [C[C(B[m[97m  (B[m[34mlet(B[m[97m test_grid_iter[C(B[m[34m=(B[m[97m test_grid.(B[m[31mraw(B[m[97m().(B[m[31miter(B[m[97m().(B[m[31mskip(B[m[97m(raw
+[4C(B[m[37m[40m  (B[m[97m_index_start).(B[m[31mtake(B[m[97m(raw_index_end);[26;3H(B[m[37m[40m [C5 [27;3H [C6 [C[C(B[m[97m  (B[m[37m// Compar[C [Cvery cell[28;3H(B[m[37m[40m [C7 [C[C(B[m[97m  (B[m[34mfor(B[m[97m (i, row) (B[m[34min(B[m[97m test_grid_iter.(B[m[31menumerate(B[m[97m()[C{[29;3H(B[m[37m[40m [C8 [6C(B[m[97m  (B[m[34mfor(B[m[97m (j, cell) (B[m[34min(B[m[97m row.(B[m[31miter(B[m[97m().(B[m[31menumerate(B[m[97m()[C{[30;3H(B[m[37m[40m [C9 [10C(B[m[97m  (B[m[34mlet(B[m[97m ref_cell[C(B[m[34m=(B[m[97m ref_grid.(B[m[31mraw(B[m[97m().(B[m[31mget(B[m[97m(i).(B[m[31mand_the
+[4C(B[m[37m[40m  (B[m[31mn(B[m[97m([Crow(B[m[34m|(B[m[97m row.(B[m[31mget(B[m[97m(j))[32;2H(B[m[37m[40m  10 [26C(B[m[97m  .(B[m[31mexpect(B[m[97m((B[m[33m"Ref test failed; gr
+[4C(B[m[37m[40m  [C(B[m[33md siz[C doesn'[C match"(B[m[97m);[34;2H(B[m[37m[40m  11 [10C(B[m[97m  (B[m[34mif(B[m[97m cell (B[m[34m!=(B[m[97m ref_cell[C{[35;2H(B[m[37m[40m  12 [14C(B[m[97m  (B[m[34mpanic!(B[m[97m((B[m[33m"Ref test failed; gri[C doesn't ma
+[4C(B[m[37m[40m  (B[m[33mtch"(B[m[97m);[18;11H[?25h[?25l[20Bref.[Cs (B[m[97m[K[?25h[?25l[18;11H[?25h[?25l[20B(B[m[97mLanguage[Cclient[Chas[Calready[Cstarted.[?25h[?25l[18;11H[?25h[?25l[20B(B[m[97m[J[?25h[?25l[18;11H[?25h[?25l[38;52H(B[m[97mg[18;11H[?25h[?25l[38;52H [18;11H[?25h[?25l[38;52Hgg[18;11H[?25h[?25l[38;52H  [1;7H(B[m[97m[H[2J[6C[H(B[m[37m[40m  (B[m[97m[40m  0 (B[m[34mextern[Ccrate[C(B[m[36malacritty(B[m[97m;
+(B[m[37m[40m    1 (B[m[34mextern[Ccrate[C(B[m[36mserde_json[C(B[m[34mas[C(B[m[97mjson;
+(B[m[37m[40m    2 
+    3 (B[m[34muse[Cstd(B[m[37m::(B[m[34mfs(B[m[37m::(B[m[97mFile;
+(B[m[37m[40m    4 (B[m[34muse[Cstd(B[m[37m::(B[m[34mio(B[m[37m::(B[m[97m{(B[m[35mself(B[m[97m,[CRead};
+(B[m[37m[40m    5 (B[m[34muse[Cstd(B[m[37m::(B[m[34mpath(B[m[37m::(B[m[97mPath;
+(B[m[37m[40m    6 
+    7 (B[m[34muse[Calacritty(B[m[37m::(B[m[97m{Grid,[CTerm,[Cansi};
+(B[m[37m[40m    8 (B[m[34muse[Calacritty(B[m[37m::(B[m[34mindex(B[m[37m::(B[m[97m{Line,[CColumn};
+(B[m[37m[40m    9 (B[m[34muse[Calacritty(B[m[37m::(B[m[34mterm(B[m[37m::(B[m[97mCell;
+(B[m[37m[40m   10 (B[m[34muse[Calacritty(B[m[37m::(B[m[34mterm(B[m[37m::(B[m[97mSizeInfo;
+(B[m[37m[40m   11 (B[m[34muse[Calacritty(B[m[37m::(B[m[34mutil(B[m[37m::(B[m[34mfmt(B[m[37m::(B[m[97m{Red,[CGreen};
+(B[m[37m[40m   12 
+   13 (B[m[34mmacro_rules![C(B[m[97mref_tests[C{
+(B[m[37m[40m   14 [4C(B[m[97m((B[m[34m$($name(B[m[97m:ident(B[m[34m)*(B[m[97m)[C(B[m[34m=>[C(B[m[97m{
+(B[m[37m[40m   15 [8C(B[m[34m$(
+(B[m[37m[40m   16 [12C(B[m[34m#[test]
+(B[m[37m[40m   17 [12C(B[m[34mfn[C$name(B[m[97m()[C{
+(B[m[37m[40m   18 [16C(B[m[34mlet[C(B[m[97mtest_dir[C(B[m[34m=[CPath(B[m[37m::(B[m[31mnew(B[m[97m((B[m[34mconcat!(B[m[97m((B[m[34menv!(B[m[97m((B[m[33m"C
+(B[m[37m[40m      (B[m[33mARGO_MANIFEST_DIR"(B[m[97m),[C(B[m[33m"/tests/ref"(B[m[97m));
+(B[m[37m[40m   19 [16C(B[m[34mlet[C(B[m[97mtest_path[C(B[m[34m=[C(B[m[97mtest_dir.(B[m[31mjoin(B[m[97m((B[m[34mstringify!
+(B[m[37m[40m      (B[m[97m((B[m[34m$name(B[m[97m));
+(B[m[37m[40m   20 [16C(B[m[31mref_test(B[m[97m((B[m[36m&(B[m[97mtest_path);
+(B[m[37m[40m   21 [12C(B[m[97m}
+(B[m[37m[40m   22 [8C(B[m[34m)*
+(B[m[37m[40m   23 [4C(B[m[97m}
+(B[m[37m[40m   24 (B[m[97m}
+(B[m[37m[40m   25 
+   26 (B[m[34mref_tests![C(B[m[97m{
+(B[m[37m[40m   27 [4C(B[m[97mcsi_rep
+(B[m[37m[40m   28 [4C(B[m[97mfish_cc
+(B[m[37m[40m   29 [4C(B[m[97mindexed_256_colors
+(B[m[37m[40m   30 [4C(B[m[97missue_855
+(B[m[37m[40m   31 [4C(B[m[97mll
+(B[m[32m[40m+ (B[m[37m[40m 32 [4C(B[m[97mll_scrollback
+(B[m[37m[40m   33 [4C(B[m[97mnewline_with_cursor_beyond_scroll_region
+(B[m[30m[101m (B[0;1m[30m[101mN…(B[m[30m[101m (B[m[37m[100m (B[0;1m[97m[100m ref.rs  (B[m[37m[100m                                  rus… (B[m[30m[101m 1/131 1 [1;7H[?25h[?25l[37B(B[m[97mref.rs[?25h[?25l[37A[?25h

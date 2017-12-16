@@ -1,0 +1,24 @@
+[1m[7m%[27m[1m[0m                              [0m[27m[24m[J[39m[0m[49m[101m [30mUL [100m[91m [37m[39m [37m…/rust/alacritty [44m[90m [30m [39m [30mscrollback  [49m[34m[39m [K[17C[39m[0m[49m[00m[17D[?2004h[A[0m[27m[24m[J[39m[0m[49m[101m [30mUL [100m[91m [37m[39m [37m…/rust/alacritty [44m[90m [30m [39m [30mscrollback  [49m[34m[39m [K[19C[39m[0m[49m[00m[19Dl[90ms -lh[39ml[39ms[39m [39m-[39ml[39mh[?2004l
+total 200K
+-rwxr-xr-x 1 undeadleech undeadleech  328 Dec 13 12:37 [0m[31mAlacritty.desktop[0m
+-rw-r--r-- 1 undeadleech undeadleech  139 Dec 13 12:37 [32malacritty.info[0m
+-rw-r--r-- 1 undeadleech undeadleech  14K Dec 13 13:22 [32malacritty_macos.yml[0m
+-rw-r--r-- 1 undeadleech undeadleech  512 Dec 15 08:33 [32malacritty.recording[0m
+-rw-r--r-- 1 undeadleech undeadleech  16K Dec 13 13:22 [32malacritty.yml[0m
+drwxr-xr-x 3 undeadleech undeadleech 4.0K Dec 13 12:37 [34massets[0m
+-rw-r--r-- 1 undeadleech undeadleech 1.2K Dec 13 12:37 [32mbuild.rs[0m
+-rw-r--r-- 1 undeadleech undeadleech  80K Dec 13 13:22 [32mCargo.lock[0m
+-rw-r--r-- 1 undeadleech undeadleech 1.2K Dec 13 13:22 [32mCargo.toml[0m
+drwxr-xr-x 3 undeadleech undeadleech 4.0K Dec 13 12:37 [34mcopypasta[0m
+drwxr-xr-x 2 undeadleech undeadleech 4.0K Dec 13 12:37 [34mdocs[0m
+drwxr-xr-x 3 undeadleech undeadleech 4.0K Dec 13 12:37 [34mfont[0m
+-rw-r--r-- 1 undeadleech undeadleech  11K Dec 13 12:37 [32mLICENSE-APACHE[0m
+-rw-r--r-- 1 undeadleech undeadleech 1.4K Dec 13 12:37 [32mMakefile[0m
+-rw-r--r-- 1 undeadleech undeadleech  11K Dec 13 12:37 [32mREADME.md[0m
+drwxr-xr-x 2 undeadleech undeadleech 4.0K Dec 13 12:37 [34mres[0m
+drwxr-xr-x 2 undeadleech undeadleech 4.0K Dec 13 12:37 [34mscripts[0m
+drwxr-xr-x 2 undeadleech undeadleech 4.0K Dec 13 12:37 [34msnap[0m
+drwxr-xr-x 4 undeadleech undeadleech 4.0K Dec 13 13:22 [34msrc[0m
+drwxr-xr-x 3 undeadleech undeadleech 4.0K Dec 13 12:38 [34mtarget[0m
+drwxr-xr-x 3 undeadleech undeadleech 4.0K Dec 13 13:22 [34mtests[0m
+[1m[7m%[27m[1m[0m                                                              [0m[27m[24m[J[39m[0m[49m[101m [30mUL [100m[91m [37m[39m [37m…/rust/alacritty [44m[90m [30m [39m [30mscrollback  [49m[34m[39m [K[19C[39m[0m[49m[00m[19D[?2004h
