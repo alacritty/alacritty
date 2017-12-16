@@ -365,7 +365,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
-        let modes = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION | mode::SGR_MOUSE;
+        let modes = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION | mode::SGR_MOUSE | mode::ALT_SCREEN_BUF;
         if !self.ctx.terminal_mode().intersects(modes) {
             return;
         }
@@ -373,6 +373,18 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let to_scroll = self.ctx.mouse_mut().lines_scrolled + lines;
+
+                // Faux scrolling
+                if self.ctx.terminal_mode().intersects(mode::ALT_SCREEN_BUF) {
+                    if to_scroll > 0. {
+                        // Scroll up three lines
+                        self.ctx.write_to_pty("\x1bOA\x1bOA\x1bOA".as_bytes());
+                    } else {
+                        // Scroll down three lines
+                        self.ctx.write_to_pty("\x1bOB\x1bOB\x1bOB".as_bytes());
+                    }
+                    return;
+                }
 
                 let code = if to_scroll > 0.0 {
                     64
@@ -396,15 +408,26 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                         let height = self.ctx.size_info().cell_height as i32;
 
                         while self.ctx.mouse_mut().scroll_px.abs() >= height {
-                            let button = if self.ctx.mouse_mut().scroll_px > 0 {
-                                self.ctx.mouse_mut().scroll_px -= height;
-                                64
+                            if self.ctx.terminal_mode().intersects(mode::ALT_SCREEN_BUF) {
+                                // Faux scrolling
+                                if self.ctx.mouse_mut().scroll_px > 0 {
+                                    // Scroll up three lines
+                                    self.ctx.write_to_pty("\x1bOA\x1bOA\x1bOA".as_bytes());
+                                } else {
+                                    // Scroll down three lines
+                                    self.ctx.write_to_pty("\x1bOB\x1bOB\x1bOB".as_bytes());
+                                }
                             } else {
-                                self.ctx.mouse_mut().scroll_px += height;
-                                65
-                            };
+                                let button = if self.ctx.mouse_mut().scroll_px > 0 {
+                                    self.ctx.mouse_mut().scroll_px -= height;
+                                    64
+                                } else {
+                                    self.ctx.mouse_mut().scroll_px += height;
+                                    65
+                                };
 
-                            self.normal_mouse_report(button);
+                                self.normal_mouse_report(button);
+                            }
                         }
                     },
                     _ => (),

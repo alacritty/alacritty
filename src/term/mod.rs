@@ -416,19 +416,20 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 pub mod mode {
     bitflags! {
         pub struct TermMode: u16 {
-            const SHOW_CURSOR         = 0b000000000001;
-            const APP_CURSOR          = 0b000000000010;
-            const APP_KEYPAD          = 0b000000000100;
-            const MOUSE_REPORT_CLICK  = 0b000000001000;
-            const BRACKETED_PASTE     = 0b000000010000;
-            const SGR_MOUSE           = 0b000000100000;
-            const MOUSE_MOTION        = 0b000001000000;
-            const LINE_WRAP           = 0b000010000000;
-            const LINE_FEED_NEW_LINE  = 0b000100000000;
-            const ORIGIN              = 0b001000000000;
-            const INSERT              = 0b010000000000;
-            const FOCUS_IN_OUT        = 0b100000000000;
-            const ANY                 = 0b111111111111;
+            const SHOW_CURSOR         = 0b0000000000001;
+            const APP_CURSOR          = 0b0000000000010;
+            const APP_KEYPAD          = 0b0000000000100;
+            const MOUSE_REPORT_CLICK  = 0b0000000001000;
+            const BRACKETED_PASTE     = 0b0000000010000;
+            const SGR_MOUSE           = 0b0000000100000;
+            const MOUSE_MOTION        = 0b0000001000000;
+            const LINE_WRAP           = 0b0000010000000;
+            const LINE_FEED_NEW_LINE  = 0b0000100000000;
+            const ORIGIN              = 0b0001000000000;
+            const INSERT              = 0b0010000000000;
+            const FOCUS_IN_OUT        = 0b0100000000000;
+            const ALT_SCREEN_BUF      = 0b1000000000000;
+            const ANY                 = 0b1111111111111;
             const NONE                = 0;
         }
     }
@@ -1789,6 +1790,7 @@ impl ansi::Handler for Term {
         trace!("set_mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
+                self.mode.insert(mode::ALT_SCREEN_BUF);
                 self.save_cursor_position();
                 if !self.alt {
                     self.swap_alt();
@@ -1818,6 +1820,7 @@ impl ansi::Handler for Term {
         trace!("unset_mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
+                self.mode.remove(mode::ALT_SCREEN_BUF);
                 self.restore_cursor_position();
                 if self.alt {
                     self.swap_alt();
