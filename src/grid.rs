@@ -115,7 +115,7 @@ impl ScrollbackState {
 
 fn default_scrollback_state() -> ScrollbackState {
     ScrollbackState {
-        enabled: true,
+        enabled: false,
         currently_enabled: true,
         max_lines: AbsoluteLine(10000),
     }
@@ -633,9 +633,10 @@ impl<T> Grid<T> {
         self.scrollback.currently_enabled = self.scrollback.enabled && enabled;
     }
 
-    /// Get whether scrollback is tempororily disabled or not
-    pub fn get_scrollback_enabled(&self) -> bool {
-        self.scrollback.currently_enabled
+    // Check for something impossible to make sure it's loading default Scrollback
+    pub fn is_old_ref_test(&self) -> bool {
+        self.scrollback.enabled == false &&
+        self.scrollback.currently_enabled == true
     }
 }
 
