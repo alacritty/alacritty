@@ -1,3 +1,26 @@
-[1m[7m%[27m[1m[0m                                                           [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~ [0m [K[?2004h[0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~ [0m p[90mrintf '\e[?1049h'[39m[17Dp[39mr[39mi[39mn[39mt[39mf[39m [39m'[39m\[39me[39m[[39m?[39m1[39m0[39m4[39m9[39mh[39m'[?2004l
-[?1049h[1m[7m%[27m[1m[0m                                                                                                                                                                                          [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~ [0m [K[?2004hprintf '\e[?1049h'[90m'[39m[90mh[39m[39ml[39m '[?2004l
-[?1049l[1m[7m%[27m[1m[0m                                                                                                                                                                                          [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~ [0m [K[?2004h
+[1m[7m%[27m[1m[0m                                                                                                                                                                                                                                                          [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~ [0m [K[?2004hc[90margo run -- --ref-test[39m[22Dc[39md[90m [90mp[90mr[90mo[90mg[90mr[90ma[90mm[90mm[90mi[90mn[90mg[90m/[90mr[90mu[90ms[90mt[90m/[90ma[90ml[90ma[90mcritty[39m[27D[39m [39mp[39mr[39mo[39mg[39mr[39ma[39mm[39mm[39mi[39mn[39mg[39m/[39mr[39mu[39ms[39mt[39m/[39ma[39ml[39ma[39mc[39mr[39mi[39mt[39mt[39my[?2004l
+[1m[7m%[27m[1m[0m                                                                                                                                                                                                                                                          [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~/programming/rust/alacritty [0m[0;30;101m scrollback [0m [K[?2004hl[90ms[39ml[39ms [90m-lh[39m[39m-[39ml[39mh[?2004l
+total 196K
+-rwxr-xr-x 1 undeadleech undeadleech  328 Dec  6 22:22 [0m[31mAlacritty.desktop[0m
+-rw-r--r-- 1 undeadleech undeadleech  139 Dec  6 22:22 [32malacritty.info[0m
+-rw-r--r-- 1 undeadleech undeadleech  14K Dec 13 18:28 [32malacritty_macos.yml[0m
+-rw-r--r-- 1 undeadleech undeadleech  16K Dec 13 18:28 [32malacritty.yml[0m
+drwxr-xr-x 3 undeadleech undeadleech 4.0K Dec  6 22:22 [34massets[0m
+-rw-r--r-- 1 undeadleech undeadleech 1.2K Dec 10 15:46 [32mbuild.rs[0m
+-rw-r--r-- 1 undeadleech undeadleech  80K Dec 14 22:50 [32mCargo.lock[0m
+-rw-r--r-- 1 undeadleech undeadleech 1.3K Dec 14 22:44 [32mCargo.toml[0m
+drwxr-xr-x 3 undeadleech undeadleech 4.0K Dec  6 22:22 [34mcopypasta[0m
+drwxr-xr-x 2 undeadleech undeadleech 4.0K Dec 10 15:46 [34mdocs[0m
+drwxr-xr-x 4 undeadleech undeadleech 4.0K Dec 10 15:46 [34mfont[0m
+-rw-r--r-- 1 undeadleech undeadleech  11K Dec  6 22:22 [32mLICENSE-APACHE[0m
+-rw-r--r-- 1 undeadleech undeadleech 1.4K Dec  6 22:22 [32mMakefile[0m
+-rw-r--r-- 1 undeadleech undeadleech  11K Dec 10 15:46 [32mREADME.md[0m
+drwxr-xr-x 2 undeadleech undeadleech 4.0K Dec 10 15:46 [34mres[0m
+drwxr-xr-x 2 undeadleech undeadleech 4.0K Dec 10 15:46 [34mscripts[0m
+drwxr-xr-x 2 undeadleech undeadleech 4.0K Dec  6 22:22 [34msnap[0m
+drwxr-xr-x 4 undeadleech undeadleech 4.0K Dec 16 12:41 [34msrc[0m
+drwxr-xr-x 6 undeadleech undeadleech 4.0K Dec 10 17:34 [34mtarget[0m
+drwxr-xr-x 3 undeadleech undeadleech 4.0K Dec 16 12:51 [34mtests[0m
+[1m[7m%[27m[1m[0m                                                                                                                                                                                                                                                          [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~/programming/rust/alacritty [0m[0;30;101m scrollback [0m [K[?2004hc[90md programming/rust/alacritty[39m[28Dc[39ma[90mr[90mg[90mo[90m [90mr[90mu[90mn[90m [90m-[90m-[90m [90m-[90m-[90mr[90me[90mf[90m-[90mt[90me[90ms[90mt[39m[39m [39m [39m [39m [39m [39m [27D[39mr[39mg[90mg[90mr[39mc[90md[90m [90mp[90mr[90mo[90mg[90mr[90ma[90mm[90mm[90mi[90mn[90mg[90m/[90mr[90mu[90ms[90mt[90m/[90ma[90ml[90ma[90mcritty[39m[28D [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [39m [29Dp[90mrintf '\e[?1049l'[39m[17Dp[39mr[39mi[39mn[39mt[39mf[39m [39m'[39m\[39me[39m[[39m?[39m1[39m0[39m4[39m9[39ml[39m'[90m'[39m[90ml[39m[39mh[39m'[?2004l
+[?1049h[1m[7m%[27m[1m[0m                                                                                                                                                                                                                                                          [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~/programming/rust/alacritty [0m[0;30;101m scrollback [0m [K[?2004hp[90mrintf '\e[?1049h'[39m[17Dp[39mr[39mi[39mn[39mt[39mf[39m [39m'[39m\[39me[39m[[39m?[39m1[39m0[39m4[39m9[39mh[39m'[90m'[39m[90mh[39m[39ml[39m'[?2004l
+[?1049l[1m[7m%[27m[1m[0m                                                                                                                                                                                                                                                          [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~/programming/rust/alacritty [0m[0;30;101m scrollback [0m [K[?2004h

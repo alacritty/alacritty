@@ -88,8 +88,6 @@ fn ref_test(dir: &Path) {
     }
 
     // Detect if this ref test is from before scrollback
-    let visible_region = grid.visible_region();
-    let end = grid.absolute_to_raw_index(visible_region.end);
     if grid.is_old_ref_test() {
         ref_test_no_scrollback(grid, terminal.grid());
         return;
