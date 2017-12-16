@@ -78,7 +78,7 @@ fn ref_test(dir: &Path) {
     let serialized_grid = read_string(dir.join("grid.json"));
 
     let size: SizeInfo = json::from_str(&serialized_size).unwrap();
-    let grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
+    let mut grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
 
     let mut terminal = Term::new(&Default::default(), size);
     let mut parser = ansi::Processor::new();
@@ -94,6 +94,9 @@ fn ref_test(dir: &Path) {
         ref_test_no_scrollback(grid, terminal.grid());
         return;
     }
+
+    // Ignore currently_enabled
+    grid.set_scrollback_enabled(terminal.grid().get_scrollback_enabled());
 
     // Compare complete grid with scrollback
     if grid != *terminal.grid() {

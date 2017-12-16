@@ -87,6 +87,7 @@ struct ScrollbackState {
     // `max_lines` will be kept in sync with `lines` in the grid.
     enabled: bool,
     // Whether scrollback is currently active or not.
+    #[serde(default = "default_false")]
     currently_enabled: bool,
     // Maximum number of lines in the total scrollback buffer.
     // Once this limit is reached, oldest elements will begin to be
@@ -122,6 +123,10 @@ fn default_scrollback_state() -> ScrollbackState {
 
 fn default_absolute_line_zero() -> index::AbsoluteLine {
     AbsoluteLine(0)
+}
+
+fn default_false() -> bool {
+    false
 }
 
 /// Represents the terminal display contents
@@ -626,6 +631,11 @@ impl<T> Grid<T> {
     /// Enable or disable scrollback temporarily
     pub fn set_scrollback_enabled(&mut self, enabled: bool) {
         self.scrollback.currently_enabled = self.scrollback.enabled && enabled;
+    }
+
+    /// Get whether scrollback is tempororily disabled or not
+    pub fn get_scrollback_enabled(&self) -> bool {
+        self.scrollback.currently_enabled
     }
 }
 
