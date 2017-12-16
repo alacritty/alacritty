@@ -348,7 +348,9 @@ impl<N: Notify> Processor<N> {
                             *hide_cursor = false;
                         }
 
-                        if cfg!(target_os="macos") {
+
+                        #[cfg(target_os="macos")]
+                        {
                             if is_focused {
                                 unsafe { TISSelectInputSource(processor.ctx.macos_input_source) };
                             }
@@ -452,7 +454,9 @@ impl<N: Notify> Processor<N> {
 
                 window.poll_events(process);
             }
-            if cfg!(target_os = "macos") {
+
+            #[cfg(target_os="macos")]
+            {
                 self.macos_input_source = processor.ctx.macos_input_source;
             }
             if self.hide_cursor_when_typing {
