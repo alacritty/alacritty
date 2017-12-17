@@ -297,33 +297,37 @@ impl FreeTypeRasterizer {
         // Render a custom symbol for the underline and beam cursor
         match glyph_key.c {
             super::UNDERLINE_CURSOR_CHAR => {
-                // Get the bottom of the bounding box
+                // Get the primary face metrics
+                let face = self.faces.get(&FontKey { token: 0 }).unwrap();
                 let size_metrics = face.ft_face
                     .size_metrics()
                     .ok_or(Error::MissingSizeMetrics)?;
+
+                // Get the bottom of the bounding box
                 let descent = (size_metrics.descender / 64) as i32;
 
                 // Get the width of the cell
-                let metrics = glyph.metrics();
-                let width = (metrics.vertAdvance as f32 / 128.).round() as i32;
+                let width = (size_metrics.max_advance / 64) as i32;
 
                 // Return the new custom glyph
                 super::get_underline_cursor_glyph(descent, width)
             }
             super::BEAM_CURSOR_CHAR | super::BOX_CURSOR_CHAR => {
-                // Get the top of the bounding box
+                // Get the primary face metrics
+                let face = self.faces.get(&FontKey { token: 0 }).unwrap();
                 let size_metrics = face.ft_face
                     .size_metrics()
                     .ok_or(Error::MissingSizeMetrics)?;
-                let ascent = (size_metrics.ascender / 64) as i32 - 1;
 
                 // Get the height of the cell
+                let height = (size_metrics.height / 64) as i32;
+
+                // Get the top of the bounding box
                 let descent = (size_metrics.descender / 64) as i32;
-                let height = ascent - descent;
+                let ascent = height + descent;
 
                 // Get the width of the cell
-                let metrics = glyph.metrics();
-                let width = (metrics.vertAdvance as f32 / 128.).round() as i32;
+                let width = (size_metrics.max_advance / 64) as i32;
 
                 // Return the new custom glyph
                 if glyph_key.c == super::BEAM_CURSOR_CHAR {
