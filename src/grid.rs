@@ -82,17 +82,16 @@ pub enum Scrollback {
 
 // Internal struct used to keep track of scrollback state.
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
-struct ScrollbackState {
+pub struct ScrollbackState {
     // Whether scrollback is enabled at all.. When disabled,
     // `max_lines` will be kept in sync with `lines` in the grid.
     enabled: bool,
     // Whether scrollback is currently active or not.
-    #[serde(default = "default_false")]
     currently_enabled: bool,
     // Maximum number of lines in the total scrollback buffer.
     // Once this limit is reached, oldest elements will begin to be
     // removed from the `VecDeque` using `pop_front`
-    max_lines: index::AbsoluteLine
+    pub max_lines: index::AbsoluteLine
 }
 
 impl ScrollbackState {
@@ -111,22 +110,6 @@ impl ScrollbackState {
             max_lines: lines.to_absolute()
         }
     }
-}
-
-fn default_scrollback_state() -> ScrollbackState {
-    ScrollbackState {
-        enabled: false,
-        currently_enabled: true,
-        max_lines: AbsoluteLine(10000),
-    }
-}
-
-fn default_absolute_line_zero() -> index::AbsoluteLine {
-    AbsoluteLine(0)
-}
-
-fn default_false() -> bool {
-    false
 }
 
 /// Represents the terminal display contents
@@ -151,16 +134,13 @@ pub struct Grid<T> {
     /// an old row, and use that internally. To consumers outside of this module, then,
     /// it appears as if their absolute lines are constantly increasing, even if the raw
     /// buffer is capped at a certain size.
-    #[serde(default = "default_absolute_line_zero")]
     absolute_line_offset: index::AbsoluteLine,
 
     /// The starting index for the visible region
-    #[serde(default = "default_absolute_line_zero")]
     visible_region_start: index::AbsoluteLine,
 
     /// Scrollback config, ie: is it enabled, if so, how many lines
-    #[serde(default = "default_scrollback_state")]
-    scrollback: ScrollbackState,
+    pub scrollback: ScrollbackState,
 }
 
 pub struct GridIterator<'a, T: 'a> {
@@ -633,10 +613,9 @@ impl<T> Grid<T> {
         self.scrollback.currently_enabled = self.scrollback.enabled && enabled;
     }
 
-    // Check for something impossible to make sure it's loading default Scrollback
-    pub fn is_old_ref_test(&self) -> bool {
-        self.scrollback.enabled == false &&
-        self.scrollback.currently_enabled == true
+    /// Check whether scrollback is enabled
+    pub fn get_scrollback_enabled(&self) -> bool {
+        self.scrollback.enabled
     }
 }
 

@@ -1137,6 +1137,10 @@ impl Config {
         self.scrollback
     }
 
+    pub fn disable_scrollback(&mut self) {
+        self.scrollback.enabled = false;
+    }
+
     pub fn key_bindings(&self) -> &[KeyBinding] {
         &self.key_bindings[..]
     }
