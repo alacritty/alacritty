@@ -511,7 +511,6 @@ impl<T: Default + Clone> Grid<T> {
         }
 
         if was_at_end {
-            trace!("keeping the visible region at the bottom");
             let _ = self.move_visible_region_to_bottom();
         }
     }
