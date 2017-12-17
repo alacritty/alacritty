@@ -248,12 +248,6 @@ impl<T> Grid<T> {
         self.raw.iter_mut()
     }
 
-    /// Returns a reference to the raw grid Vector.
-    #[inline]
-    pub fn raw(&self) -> &VecDeque<Row<T>> {
-        &self.raw
-    }
-
     /// The number of lines in the 'active region' of the terminal.
     /// This is effectively the height of the terminal window.
     #[inline]
@@ -362,7 +356,7 @@ impl<T> Grid<T> {
     /// a raw index into the buffer.
     /// Care must be taken that this is line is not too low - this will cause an subtraction underflow.
     #[inline]
-    pub fn absolute_to_raw_index(&self, line: AbsoluteLine) -> usize {
+    fn absolute_to_raw_index(&self, line: AbsoluteLine) -> usize {
         (line - self.absolute_line_offset).0
     }
 
