@@ -183,14 +183,16 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
-        title: &str
+        title: &str,
+        borderless: bool
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
         Window::platform_window_init();
         let window = WindowBuilder::new()
             .with_title(title)
-            .with_transparency(true);
+            .with_transparency(true)
+            .with_decorations(!borderless);
         let context = ContextBuilder::new()
             .with_vsync(true);
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;

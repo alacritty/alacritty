@@ -247,6 +247,10 @@ pub struct Config {
     #[serde(default)]
     background_opacity: Alpha,
 
+    /// Should draw window without borders
+    #[serde(default)]
+    borderless: bool,
+
     /// Keybindings
     #[serde(default="default_key_bindings")]
     key_bindings: Vec<KeyBinding>,
@@ -337,6 +341,7 @@ impl Default for Config {
             cursor_style: Default::default(),
             live_config_reload: true,
             padding: default_padding(),
+            borderless: false,
         }
     }
 }
@@ -1103,6 +1108,11 @@ impl Config {
     #[inline]
     pub fn background_opacity(&self) -> Alpha {
         self.background_opacity
+    }
+
+    #[inline]
+    pub fn borderless(&self) -> bool {
+        self.borderless
     }
 
     pub fn key_bindings(&self) -> &[KeyBinding] {
