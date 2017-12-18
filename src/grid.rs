@@ -140,7 +140,7 @@ pub struct Grid<T> {
     visible_region_start: index::AbsoluteLine,
 
     /// Scrollback config, ie: is it enabled, if so, how many lines
-    pub scrollback: ScrollbackState,
+    scrollback: ScrollbackState,
 }
 
 pub struct GridIterator<'a, T: 'a> {
