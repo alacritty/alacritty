@@ -469,10 +469,10 @@ impl<'a> de::Deserialize<'a> for ModeWrapper {
 
                 for modifier in value.split('|') {
                     match modifier.trim() {
-                        "AppCursor" => res.mode |= mode::APP_CURSOR,
-                        "~AppCursor" => res.not_mode |= mode::APP_CURSOR,
-                        "AppKeypad" => res.mode |= mode::APP_KEYPAD,
-                        "~AppKeypad" => res.not_mode |= mode::APP_KEYPAD,
+                        "AppCursor" => res.mode |= mode::TermMode::APP_CURSOR,
+                        "~AppCursor" => res.not_mode |= mode::TermMode::APP_CURSOR,
+                        "AppKeypad" => res.mode |= mode::TermMode::APP_KEYPAD,
+                        "~AppKeypad" => res.not_mode |= mode::TermMode::APP_KEYPAD,
                         _ => eprintln!("unknown mode {:?}", modifier),
                     }
                 }

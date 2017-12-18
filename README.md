@@ -289,12 +289,8 @@ Alacritty discussion can be found in `#alacritty` on freenode.
 ## Wayland
 
 Wayland support is available, but not everything works as expected. Many people
-have found a better experience using XWayland which can be achieved launching
-Alacritty with the `WAYLAND_DISPLAY` environment variable cleared:
-
-```sh
-env WAYLAND_DISPLAY= alacritty
-```
+have found a better experience using XWayland which can be achieved by adding
+`WINIT_UNIX_BACKEND=x11` to your environment.
 
 If you're interested in seeing our Wayland support improve, please head over to
 the [Wayland meta issue] on the _winit_ project to see how you may contribute.
