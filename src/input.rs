@@ -373,19 +373,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let to_scroll = self.ctx.mouse_mut().lines_scrolled + lines;
-
-                // Faux scrolling
-                if self.ctx.terminal_mode().intersects(mode::ALT_SCREEN_BUF) {
-                    if to_scroll > 0. {
-                        // Scroll up three lines
-                        self.ctx.write_to_pty("\x1bOA\x1bOA\x1bOA".as_bytes());
-                    } else {
-                        // Scroll down three lines
-                        self.ctx.write_to_pty("\x1bOB\x1bOB\x1bOB".as_bytes());
-                    }
-                    return;
-                }
-
                 let code = if to_scroll > 0.0 {
                     64
                 } else {
@@ -393,8 +380,20 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 };
 
                 for _ in 0..(to_scroll.abs() as usize) {
-                    self.normal_mouse_report(code);
+                    if self.ctx.terminal_mode().intersects(mode::ALT_SCREEN_BUF) {
+                        // Faux scrolling
+                        if code == 64 {
+                            // Scroll up one line
+                            self.ctx.write_to_pty("\x1bOA".as_bytes());
+                        } else {
+                            // Scroll down one line
+                            self.ctx.write_to_pty("\x1bOB".as_bytes());
+                        }
+                    } else {
+                        self.normal_mouse_report(code);
+                    }
                 }
+
                 self.ctx.mouse_mut().lines_scrolled = to_scroll % 1.0;
             },
             MouseScrollDelta::PixelDelta(_x, y) => {
