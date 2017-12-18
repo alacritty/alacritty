@@ -7,6 +7,7 @@ use std::path::Path;
 
 use alacritty::{Grid, Term, ansi};
 use alacritty::index::{Line, Column};
+use alacritty::config::Config;
 use alacritty::term::Cell;
 use alacritty::term::SizeInfo;
 use alacritty::util::fmt::{Red, Green};
@@ -80,19 +81,18 @@ fn ref_test(dir: &Path) {
     let size: SizeInfo = json::from_str(&serialized_size).unwrap();
     let grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
 
-    let mut terminal = Term::new(&Default::default(), size);
+    let mut config = Config::default();
+    // Disable scrollback if the ref test has it disabled
+    if !grid.get_scrollback_enabled() {
+        config.disable_scrollback();
+    }
+
+    // Create new terminal
+    let mut terminal = Term::new(&config, size);
     let mut parser = ansi::Processor::new();
 
     for byte in recording {
         parser.advance(&mut terminal, byte, &mut io::sink());
-    }
-
-    // Detect if this ref test is from before scrollback
-    let visible_region = grid.visible_region();
-    let end = grid.absolute_to_raw_index(visible_region.end);
-    if end > grid.raw().len() {
-        ref_test_no_scrollback(grid, terminal.grid());
-        return;
     }
 
     // Compare complete grid with scrollback
@@ -111,23 +111,4 @@ fn ref_test(dir: &Path) {
     }
 
     assert_eq!(grid, *terminal.grid());
-}
-
-fn ref_test_no_scrollback(ref_grid: Grid<Cell>, test_grid: &Grid<Cell>) {
-    // Remove scrollback from the test grid
-    let visible_region = test_grid.visible_region();
-    let raw_index_start = test_grid.absolute_to_raw_index(visible_region.start);
-    let raw_index_end = test_grid.absolute_to_raw_index(visible_region.end) - raw_index_start;
-    let test_grid_iter = test_grid.raw().iter().skip(raw_index_start).take(raw_index_end);
-
-    // Compare every cell
-    for (i, row) in test_grid_iter.enumerate() {
-        for (j, cell) in row.iter().enumerate() {
-            let ref_cell = ref_grid.raw().get(i).and_then(|row| row.get(j))
-                            .expect("Ref test failed; grid size doesn't match");
-            if cell != ref_cell {
-                panic!("Ref test failed; grid doesn't match");
-            }
-        }
-    }
 }
