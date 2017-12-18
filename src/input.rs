@@ -407,24 +407,24 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                         let height = self.ctx.size_info().cell_height as i32;
 
                         while self.ctx.mouse_mut().scroll_px.abs() >= height {
+                            let button = if self.ctx.mouse_mut().scroll_px > 0 {
+                                self.ctx.mouse_mut().scroll_px -= height;
+                                64
+                            } else {
+                                self.ctx.mouse_mut().scroll_px += height;
+                                65
+                            };
+
                             if self.ctx.terminal_mode().intersects(mode::ALT_SCREEN_BUF) {
                                 // Faux scrolling
-                                if self.ctx.mouse_mut().scroll_px > 0 {
-                                    // Scroll up three lines
-                                    self.ctx.write_to_pty("\x1bOA\x1bOA\x1bOA".as_bytes());
+                                if button == 64 {
+                                    // Scroll up one line
+                                    self.ctx.write_to_pty("\x1bOA".as_bytes());
                                 } else {
-                                    // Scroll down three lines
-                                    self.ctx.write_to_pty("\x1bOB\x1bOB\x1bOB".as_bytes());
+                                    // Scroll down one line
+                                    self.ctx.write_to_pty("\x1bOB".as_bytes());
                                 }
                             } else {
-                                let button = if self.ctx.mouse_mut().scroll_px > 0 {
-                                    self.ctx.mouse_mut().scroll_px -= height;
-                                    64
-                                } else {
-                                    self.ctx.mouse_mut().scroll_px += height;
-                                    65
-                                };
-
                                 self.normal_mouse_report(button);
                             }
                         }
