@@ -876,7 +876,7 @@ impl<'a> LoadGlyph for LoaderApi<'a> {
                 let atlas = Atlas::new(ATLAS_SIZE);
                 *self.active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
                 *self.current_atlas = 0;
-                self.atlas.push(atlas);
+                self.atlas.insert(0, atlas);
                 self.load_glyph(rasterized)
             }
         }
