@@ -29,6 +29,7 @@ use std::collections::vec_deque::{self, VecDeque};
 
 use index::{self, Point, AbsolutePoint, Line, AbsoluteLine, Column, IndexRange, RangeInclusive};
 use owned_slice::{self, TakeSlice};
+use util::unlikely;
 
 /// Convert a type to a linear index range.
 pub trait ToRange {
