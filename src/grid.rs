@@ -197,12 +197,11 @@ impl<T: Clone> Grid<T> {
     fn grow_lines(&mut self, lines: index::Line, template: &T) -> Movement<Line> {
         let old_start = self.active_region().start;
 
-        let num_lines_in_buffer = self.raw.len();
         // check if we actually need to add new lines
-        if num_lines_in_buffer < lines.0 {
-            debug!("grow_lines: adding {} lines", lines.0 - num_lines_in_buffer);
+        if self.raw.len() < lines.0 {
+            debug!("grow_lines: adding {} lines", lines.0 - self.raw.len());
 
-            while num_lines_in_buffer < lines.0 {
+            while self.raw.len() < lines.0 {
                 self.raw.push_back(Row::new(self.cols, template));
             }
         }
@@ -301,11 +300,6 @@ impl<T> Grid<T> {
 
     /// Moves the visible region down a relative amount.
     pub fn move_visible_region_down(&mut self, lines: AbsoluteLine) -> Result<(), MoveRegionError> {
-        // Don't scroll when scrolling is disabled
-        if !self.scrollback.currently_enabled {
-            return Ok(());
-        }
-
         if self.visible_region().end == self.num_absolute_lines() {
             Err(MoveRegionError::AtBottom)
         } else if self.visible_region().end + lines >= self.num_absolute_lines() {
