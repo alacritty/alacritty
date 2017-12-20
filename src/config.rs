@@ -209,6 +209,25 @@ impl Default for Alpha {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct WindowConfig {
+    decorations: bool,
+}
+
+impl WindowConfig {
+    pub fn decorations(&self) -> bool {
+        self.decorations
+    }
+}
+
+impl Default for WindowConfig {
+    fn default() -> Self {
+        WindowConfig{
+            decorations: true,
+        }
+    }
+}
+
 /// Top-level config type
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -247,9 +266,9 @@ pub struct Config {
     #[serde(default)]
     background_opacity: Alpha,
 
-    /// Should draw window without borders
+    /// Window configuration
     #[serde(default)]
-    borderless: bool,
+    window: WindowConfig,
 
     /// Keybindings
     #[serde(default="default_key_bindings")]
@@ -341,7 +360,7 @@ impl Default for Config {
             cursor_style: Default::default(),
             live_config_reload: true,
             padding: default_padding(),
-            borderless: false,
+            window: Default::default(),
         }
     }
 }
@@ -1110,11 +1129,6 @@ impl Config {
         self.background_opacity
     }
 
-    #[inline]
-    pub fn borderless(&self) -> bool {
-        self.borderless
-    }
-
     pub fn key_bindings(&self) -> &[KeyBinding] {
         &self.key_bindings[..]
     }
@@ -1150,6 +1164,12 @@ impl Config {
     #[inline]
     pub fn dimensions(&self) -> Dimensions {
         self.dimensions
+    }
+
+    /// Get window config
+    #[inline]
+    pub fn window(&self) -> &WindowConfig {
+        &self.window
     }
 
     /// Get visual bell config
