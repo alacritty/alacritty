@@ -1189,7 +1189,7 @@ impl Term {
     /// In other words, this is scrolling :D
     pub fn move_visible_region_up(&mut self, lines: AbsoluteLine) {
         // Don't scroll when scrolling is disabled
-        if !self.grid.get_scrollback_enabled() { return; }
+        if !self.grid.scrollback_currently_enabled() { return; }
         match self.grid.move_visible_region_up(lines) {
             Ok(()) => { self.dirty = true; trace!("move_visible_region_down: {}..{} of {}", self.grid.visible_region().start.0, self.grid.visible_region().end.0, self.grid.num_absolute_lines().0); },
             Err(e) => trace!("move_visible_region_up: {:?}", e)
@@ -1198,7 +1198,7 @@ impl Term {
 
     pub fn move_visible_region_down(&mut self, lines: AbsoluteLine) {
         // Don't scroll when scrolling is disabled
-        if !self.grid.get_scrollback_enabled() { return; }
+        if !self.grid.scrollback_currently_enabled() { return; }
         match self.grid.move_visible_region_down(lines) {
             Ok(()) => { self.dirty = true; trace!("move_visible_region_down: {}..{} of {}", self.grid.visible_region().start.0, self.grid.visible_region().end.0, self.grid.num_absolute_lines().0); },
             Err(e) => trace!("move_visible_region_down: {:?}", e)
@@ -1852,7 +1852,7 @@ impl ansi::Handler for Term {
                 self.save_cursor_position();
 
                 // Disable scrolling in the alternate buffer
-                self.grid.set_scrollback_enabled(false);
+                self.grid.set_scrollback_currently_enabled(false);
             },
             ansi::Mode::ShowCursor => self.mode.insert(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.insert(mode::APP_CURSOR),
@@ -1884,7 +1884,7 @@ impl ansi::Handler for Term {
                 self.restore_cursor_position();
 
                 // Enable scrolling in the normal buffer
-                self.grid.set_scrollback_enabled(true);
+                self.grid.set_scrollback_currently_enabled(true);
             },
             ansi::Mode::ShowCursor => self.mode.remove(mode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.remove(mode::APP_CURSOR),
