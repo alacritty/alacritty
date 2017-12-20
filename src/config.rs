@@ -209,8 +209,19 @@ impl Default for Alpha {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Copy, Clone, Deserialize)]
 pub struct WindowConfig {
+
+    /// Initial dimensions
+    #[serde(default)]
+    dimensions: Dimensions,
+
+    /// Pixel padding
+    #[serde(default="default_padding")]
+    padding: Delta,
+
+    /// Draw the window with title bar / borders
+    #[serde(default)]
     decorations: bool,
 }
 
@@ -223,6 +234,8 @@ impl WindowConfig {
 impl Default for WindowConfig {
     fn default() -> Self {
         WindowConfig{
+            dimensions: Default::default(),
+            padding: default_padding(),
             decorations: true,
         }
     }
@@ -234,14 +247,6 @@ pub struct Config {
     /// TERM env variable
     #[serde(default)]
     env: HashMap<String, String>,
-
-    /// Initial dimensions
-    #[serde(default)]
-    dimensions: Dimensions,
-
-    /// Pixel padding
-    #[serde(default="default_padding")]
-    padding: Delta,
 
     /// Font configuration
     #[serde(default)]
@@ -342,7 +347,6 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             draw_bold_text_with_bright_colors: true,
-            dimensions: Default::default(),
             font: Default::default(),
             render_timer: Default::default(),
             custom_cursor_colors: false,
@@ -359,7 +363,6 @@ impl Default for Config {
             hide_cursor_when_typing: Default::default(),
             cursor_style: Default::default(),
             live_config_reload: true,
-            padding: default_padding(),
             window: Default::default(),
         }
     }
@@ -1146,7 +1149,7 @@ impl Config {
     }
 
     pub fn padding(&self) -> &Delta {
-        &self.padding
+        &self.window.padding
     }
 
     #[inline]
@@ -1163,7 +1166,7 @@ impl Config {
     /// Get window dimensions
     #[inline]
     pub fn dimensions(&self) -> Dimensions {
-        self.dimensions
+        self.window.dimensions
     }
 
     /// Get window config
