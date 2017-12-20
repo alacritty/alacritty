@@ -19,6 +19,8 @@ use gl;
 use glutin::{self, EventsLoop, WindowBuilder, Event, MouseCursor, CursorState, ControlFlow, ContextBuilder};
 use glutin::GlContext;
 
+use config::WindowConfig;
+
 /// Window errors
 #[derive(Debug)]
 pub enum Error {
@@ -184,7 +186,7 @@ impl Window {
     /// This creates a window and fully initializes a window.
     pub fn new(
         title: &str,
-        borderless: bool
+        window_config: &WindowConfig,
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
@@ -192,7 +194,7 @@ impl Window {
         let window = WindowBuilder::new()
             .with_title(title)
             .with_transparency(true)
-            .with_decorations(!borderless);
+            .with_decorations(window_config.decorations());
         let context = ContextBuilder::new()
             .with_vsync(true);
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
