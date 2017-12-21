@@ -1,0 +1,139 @@
+[1m[7m%[27m[1m[0m                                                           [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~ [0m [K[?2004h[0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~ [0m t[90mmux[39mt[39mm[39mu[39mx[?2004l
+[?1049h[?1h=[H[2J[?12l[?25h[?1000l[?1002l[?1006l[?1005l[c(B[m[?12;25h[?12l[?25h[?1003l[?1006l[?2004l[1;1H[1;52r]112[1;1H[?25l[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[30m[42m[2] 0:zsh*                                                                                                                                                        "archhq" 12:02 16-Dec-17(B[m[1;1H[?12l[?25h(B[m[?12;25h[?12l[?25h[?1003l[?1006l[?2004l[1;1H[1;52r[1;1H[?25l[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[30m[42m[2] 0:zsh*                                                                                                                                                        "archhq" 12:02 16-Dec-17(B[m[1;1H[?12l[?25h[1m[7m%(B[m                                                                                                                                                                                         [1;1H [H[1;51r[2;51r[50S[1;1H[K[30m[101m UL [37m[100m ~ [39m[49m [K[1;52r[1;9H[?2004hcargo run -- --ref-test[10Gcd programming/rust/alacritty[11G[C[26C
+[?2004l[1m[7m%(B[m                                                                                                                                                                                         [2;1H [1;51r[3;51r[49S[2;1H[K[30m[101m UL [37m[100m ~/programming/rust/alacritty [30m[101m scrollback [39m[49m [K[1;52r[2;48H[?2004hgit log[6D[C[C[C[C[C[C
+[?2004l[33mcommit 45bdf2447d402cf18479c2245ba8e3fcf2e6b926 ([36m[1mHEAD -> [32mscrollback(B[m[33m, [31m[1morigin/scrollback(B[m[33m)
+[39mAuthor: Christian Dürr <contact@christianduerr.com>
+Date:   Fri Dec 15 11:34:13 2017 +0100[7;1H    Add additional scrollback tests
+    
+    Added some additional tests. Most of these tests check the same thing as
+    the existing tests but take scrollback into account.
+    
+    The vim_scrollback_scrolling_disabled check makes sure the normal
+    scrollback is disabled inside of vim when the alternate screen buffer is
+    active.
+    
+    The alternate_screen_buffer_(enter|exit) make sure the grid changes to
+    the alternate buffer and back when the 1049 escape sequence is sent.[19;1H[33mcommit cb1ef5af5a559254d0610ad41036e8f686506c0c
+[39mAuthor: Christian Duerr <contact@christianduerr.com>
+Date:   Thu Dec 14 22:53:10 2017 +0100[23;1H    Update Cargo.lock file
+    
+    Seems like the current Cargo.lock fi[1;51r[2S[23;41Hle doesn't work. So here's the
+    updated version that should make everything work properly.[26;1H[33mcommit 578038b76d5c4b7e362b0ddb3853125990d89355
+[39mAuthor: Christian Duerr <contact@christianduerr.com>
+Date:   Thu Dec 14 22:42:08 2017 +0100[30;1H    Disable scrollback in the alternate buffer
+    
+    In the xterm specification the escape sequence 1049 is used to switch to
+    an alternate buffer and back. This is used by applications like `man` or
+    `less` for hijacking the scrollback.
+    
+    With this commit whenever 1049h is sent, scrollback is disabled. And
+    sending 1049l will then enable scrollback again and switch back to the
+    normal buffer.[40;1H[33mcommit f5f9dff1f7d9f3448ca7de9c7ddfcb05d9b33c33
+[39mMerge: 7fa91b7 d0fb4c5
+Author: Chris Chamberlain <c.chamberlain@iinet.net.au>
+Date:   Thu Dec 14 11:19:16 2017 +1100[45;1H    Merge branch 'master' into master[47;1H[33mcommit d0fb4c563f8fe9d995cdcaec7b2b16e77e19d1a2
+[39mAuthor: Andrew De Ponte <cyphactor@gmail.com>
+Date:   Wed Dec 13 13:30:27 2017 -0800[51;1H:[K[1;52r[51;2H[?25l
+[30m[42m[2] 0:git*                                                                                                                                                        "archhq" 12:02 16-Dec-17(B[m[51;2H[?12l[?25h

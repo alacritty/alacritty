@@ -18,6 +18,7 @@
 use std::cmp::{Ord, Ordering};
 use std::fmt;
 use std::ops::{self, Deref, Add, Range};
+use num::{Zero, One};
 
 /// The side of a cell
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -52,15 +53,80 @@ impl Ord for Point {
     }
 }
 
+/// An absolute index in the grid using row, column notation
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
+pub struct AbsolutePoint {
+    pub line: AbsoluteLine,
+    pub col: Column,
+}
+
+impl AbsolutePoint {
+    pub fn new(line: AbsoluteLine, col: Column) -> AbsolutePoint {
+        AbsolutePoint { line: line, col: col }
+    }
+}
+
+impl Ord for AbsolutePoint {
+    fn cmp(&self, other: &AbsolutePoint) -> Ordering {
+        use std::cmp::Ordering::*;
+        match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
+            (Equal,   Equal) => Equal,
+            (Equal,   ord) |
+            (ord,     Equal) => ord,
+            (Less,    _)     => Less,
+            (Greater, _)     => Greater,
+        }
+    }
+}
+
 /// A line
 ///
 /// Newtype to avoid passing values incorrectly
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Line(pub usize);
 
+impl Line {
+    pub fn to_absolute(self) -> AbsoluteLine {
+        AbsoluteLine(self.0)
+    }
+}
+
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl Zero for Line {
+    fn zero() -> Self {
+        Line(0)
+    }
+    fn is_zero(&self) -> bool {
+        *self == Line(0)
+    }
+}
+
+impl One for Line {
+    fn one() -> Self {
+        Line(1)
+    }
+}
+
+/// A line
+///
+/// Newtype to avoid passing values incorrectly
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct AbsoluteLine(pub usize);
+
+impl fmt::Display for AbsoluteLine {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl AbsoluteLine {
+    pub fn to_relative(self) -> Line {
+        Line(self.0)
     }
 }
 
@@ -327,6 +393,15 @@ macro_rules! ops {
         deref!($ty, usize);
         forward_ref_binop!(impl Add, add for $ty, $ty);
 
+        impl ops::Mul<$ty> for $ty {
+            type Output = $ty;
+
+            #[inline]
+            fn mul(self, rhs: $ty) -> $ty {
+                $construct(self.0 * rhs.0)
+            }
+        }
+
         impl $ty {
             #[inline]
             #[allow(trivial_numeric_casts)]
@@ -443,6 +518,7 @@ macro_rules! ops {
 }
 
 ops!(Line, Line);
+ops!(AbsoluteLine, AbsoluteLine);
 ops!(Column, Column);
 ops!(Linear, Linear);
 

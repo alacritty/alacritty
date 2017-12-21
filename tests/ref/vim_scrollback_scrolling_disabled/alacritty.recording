@@ -1,0 +1,116 @@
+[1m[7m%[27m[1m[0m                                                           [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~ [0m [K[?2004h[0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~ [0m c[90margo run -- --ref-test[39m[22Dc[39md[90m [90mp[90mr[90mo[90mg[90mr[90ma[90mm[90mm[90mi[90mn[90mg[90m/[90mr[90mu[90ms[90mt[90m/[90ma[90ml[90ma[90mcritty[39m[27D[39m [39mp[39mr[39mo[39mg[39mr[39ma[39mm[39mm[39mi[39mn[39mg[39m/[39mr[39mu[39ms[39mt[39m/[39ma[39ml[39ma[39mc[39mr[39mi[39mt[39mt[39my[?2004l
+[1m[7m%[27m[1m[0m                                                                                                                                                                                          [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~/programming/rust/alacritty [0m[0;30;101m scrollback [0m [K[?2004hv[90mim src/grid.rs[39m[14Dv[39mi[39mm[39m [39ma[90ml[90ma[90mc[90mr[90mi[90mt[90mt[90my[90m_[90mm[90macos.yml[39m[18D[39mlAl[39ma[39mc[39mr[39mi[39mt[39mt[39my[39m.[39md[39me[39ms[39mk[39mt[39mo[39mp[39m [39m 
+[J[7mAlacritty.desktop* [0m  [J[32malacritty.info[0m       [J[32malacritty_macos.yml[0m  [J[32malacritty.yml[0m      [J[A[0m[27m[24m[47Cvim Alacritty.desktop[K
+[7mAlacritty.desktop* [0m  [7mAlacritty.desktop* [0m  [A[0m[27m[24m[47Cvim Alacritty.desktop[K[17Da[9Cinfo   
+[21C[7malacritty.info     [0m  [31mAlacritty.desktop[0m*   [A[0m[27m[24m[47Cvim alacritty.info[K_macos.yml
+[42C[7malacritty_macos.yml[0m  [21C[32malacritty.info[0m       [A[0m[27m[24m[47Cvim alacritty_macos.yml[K[10D.yml      
+[63C[7malacritty.yml      [0m[42C[32malacritty_macos.yml[0m  [A[0m[27m[24m[47Cvim alacritty.yml[K
+[J[A[64C[1m [0m[0m [?2004l
+[J[?1049h[?1h=[H[2J[?2004h[?1004h[8;52;186t[r[1;1H(B[m[97m[H[2J[?25h[?25l[2 q[2 q[H[2J[51B(B[m[97m"alacritty.yml"[?25h[?25l[C373L,[C15602C[?25h[?25l[?25h[?25l[H(B[m[37m[40m 24 
+ 23 
+ 22 (B[m[37m# Any items in the `env` entry below will be added as
+(B[m[37m[40m 21 (B[m[37m# environment variables. Some entries may override variables
+(B[m[37m[40m 20 (B[m[37m# set by alacritty it self.
+(B[m[37m[40m 19 (B[m[36menv(B[m[97m:
+(B[m[37m[40m 18 [C[C(B[m[37m# TERM env customization.
+(B[m[37m[40m 17 [C[C(B[m[37m#
+(B[m[37m[40m 16 [C[C(B[m[37m# If this property is not set, alacritty will set it to xterm-256color.
+(B[m[37m[40m 15 [C[C(B[m[37m#
+(B[m[37m[40m 14 [C[C(B[m[37m# Note that some xterm terminfo databases don't declare support for italics.
+(B[m[37m[40m 13 [C[C(B[m[37m# You can verify this by checking for the presence of `smso` and `sitm` in
+(B[m[37m[40m 12 [C[C(B[m[37m# `infocmp xterm-256color`.
+(B[m[37m[40m 11 [C[C(B[m[36mTERM(B[m[97m:[Cxterm-256color
+(B[m[37m[40m 10 
+  9 (B[m[37m# Window dimensions in character columns and lines
+(B[m[37m[40m  8 (B[m[37m# Falls back to size specified by window manager if set to 0x0.
+(B[m[37m[40m  7 (B[m[37m# (changes require restart)
+(B[m[37m[40m  6 (B[m[36mdimensions(B[m[97m:
+(B[m[37m[40m  5 [C[C(B[m[36mcolumns(B[m[97m:[C80
+(B[m[37m[40m  4 [C[C(B[m[36mlines(B[m[97m:[C24
+(B[m[37m[40m  3 
+  2 (B[m[37m# Scrollback buffer
+(B[m[37m[40m  1 (B[m[36mscrollback(B[m[97m:
+(B[m[97m[40m  0 [C[C(B[m[36menabled(B[m[97m:[C(B[m[34mtrue
+(B[m[37m[40m  1 [C[C(B[m[36mmax_lines(B[m[97m:[C10000
+(B[m[37m[40m  2 
+  3 (B[m[37m# Adds this many blank pixels of padding around the window
+(B[m[37m[40m  4 (B[m[37m# Units are physical pixels; this is not DPI aware.
+(B[m[37m[40m  5 (B[m[37m# (change requires restart)
+(B[m[37m[40m  6 (B[m[36mpadding(B[m[97m:
+(B[m[37m[40m  7 [C[C(B[m[36mx(B[m[97m:[C2
+(B[m[37m[40m  8 [C[C(B[m[36my(B[m[97m:[C2
+(B[m[37m[40m  9 
+ 10 (B[m[37m# Display tabs using this many cells (changes require restart)
+(B[m[37m[40m 11 (B[m[36mtabspaces(B[m[97m:[C8
+(B[m[37m[40m 12 
+ 13 (B[m[37m# When true, bold text is drawn using the bright variant of colors.
+(B[m[37m[40m 14 (B[m[36mdraw_bold_text_with_bright_colors(B[m[97m:[C(B[m[34mtrue
+(B[m[37m[40m 15 
+ 16 (B[m[37m# Font configuration (changes require restart)
+(B[m[37m[40m 17 (B[m[37m#
+(B[m[37m[40m 18 (B[m[37m# Important font attributes like antialiasing, subpixel aa, and hinting can be
+(B[m[37m[40m 19 (B[m[37m# controlled through fontconfig. Specifically, the following attributes should
+(B[m[37m[40m 20 (B[m[37m# have an effect:
+(B[m[37m[40m 21 (B[m[37m#
+(B[m[37m[40m 22 (B[m[37m# * hintstyle
+(B[m[37m[40m 23 (B[m[37m# * antialias
+(B[m[37m[40m 24 (B[m[37m# * lcdfilter
+(B[m[37m[40m 25 (B[m[37m# * rgba
+(B[m[30m[101m (B[0;1m[30m[101mNORMAL(B[m[30m[101m (B[m[37m[100m (B[0;1m[97m[100m alacritty.yml  (B[m[37m[100m                                                                                                                                    yaml  utf-8[unix] (B[m[30m[101m 26/373 15 [25;19H[?25h[?25l[27B(B[m[97malacrit[Cy.yml (B[m[97m[K[?25h[?25l[25;19H[?25h[?25l[52;176H(B[m[97m:[25;19H[?25h[?25l[27B(B[m[97m[J(B[m[97m:[2 q[?25h[?25lq[?25h[?25l[52;1H[?25h[?25l[2 q[4 q[4 q(B[m[?25h[?1l>[?1049l[?2004l[?1004l[?25h[1m[7m%[27m[1m[0m                                                                                                                                                                                          [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~/programming/rust/alacritty [0m[0;30;101m scrollback [0m [K[?2004hv[90mim alacritty.yml[39m[16Dv[39mi[39mm[39m [39ma[39mlAl[39ma[39mc[39mr[39mi[39mt[39mt[39my[39m.[39md[39me[39msktop
+[J[7mAlacritty.desktop* [0m  [J[32malacritty.info[0m       [J[32malacritty_macos.yml[0m  [J[32malacritty.yml[0m      [J[A[0m[27m[24m[47Cvim Alacritty.desktop[K
+[7mAlacritty.desktop* [0m  [7mAlacritty.desktop* [0m  [A[0m[27m[24m[47Cvim Alacritty.desktop[K[17Da[9Cinfo   
+[21C[7malacritty.info     [0m  [31mAlacritty.desktop[0m*   [A[0m[27m[24m[47Cvim alacritty.info[K_macos.yml
+[42C[7malacritty_macos.yml[0m  [21C[32malacritty.info[0m       [A[0m[27m[24m[47Cvim alacritty_macos.yml[K[10D.yml      
+[63C[7malacritty.yml      [0m[42C[32malacritty_macos.yml[0m  [A[0m[27m[24m[47Cvim alacritty.yml[K
+[J[A[64C[1m [0m[0m [?2004l
+[J[?1049h[?1h=[H[2J[?2004h[?1004h[8;52;186t[r[1;1H(B[m[97m[H[2J[?25h[?25l[2 q[2 q[H[2J[51B(B[m[97m"alacritty.yml"[?25h[?25l[C373L,[C15602C[?25h[?25l[?25h[?25l[H(B[m[37m[40m 24 
+ 23 
+ 22 (B[m[37m# Any items in the `env` entry below will be added as
+(B[m[37m[40m 21 (B[m[37m# environment variables. Some entries may override variables
+(B[m[37m[40m 20 (B[m[37m# set by alacritty it self.
+(B[m[37m[40m 19 (B[m[36menv(B[m[97m:
+(B[m[37m[40m 18 [C[C(B[m[37m# TERM env customization.
+(B[m[37m[40m 17 [C[C(B[m[37m#
+(B[m[37m[40m 16 [C[C(B[m[37m# If this property is not set, alacritty will set it to xterm-256color.
+(B[m[37m[40m 15 [C[C(B[m[37m#
+(B[m[37m[40m 14 [C[C(B[m[37m# Note that some xterm terminfo databases don't declare support for italics.
+(B[m[37m[40m 13 [C[C(B[m[37m# You can verify this by checking for the presence of `smso` and `sitm` in
+(B[m[37m[40m 12 [C[C(B[m[37m# `infocmp xterm-256color`.
+(B[m[37m[40m 11 [C[C(B[m[36mTERM(B[m[97m:[Cxterm-256color
+(B[m[37m[40m 10 
+  9 (B[m[37m# Window dimensions in character columns and lines
+(B[m[37m[40m  8 (B[m[37m# Falls back to size specified by window manager if set to 0x0.
+(B[m[37m[40m  7 (B[m[37m# (changes require restart)
+(B[m[37m[40m  6 (B[m[36mdimensions(B[m[97m:
+(B[m[37m[40m  5 [C[C(B[m[36mcolumns(B[m[97m:[C80
+(B[m[37m[40m  4 [C[C(B[m[36mlines(B[m[97m:[C24
+(B[m[37m[40m  3 
+  2 (B[m[37m# Scrollback buffer
+(B[m[37m[40m  1 (B[m[36mscrollback(B[m[97m:
+(B[m[97m[40m  0 [C[C(B[m[36menabled(B[m[97m:[C(B[m[34mtrue
+(B[m[37m[40m  1 [C[C(B[m[36mmax_lines(B[m[97m:[C10000
+(B[m[37m[40m  2 
+  3 (B[m[37m# Adds this many blank pixels of padding around the window
+(B[m[37m[40m  4 (B[m[37m# Units are physical pixels; this is not DPI aware.
+(B[m[37m[40m  5 (B[m[37m# (change requires restart)
+(B[m[37m[40m  6 (B[m[36mpadding(B[m[97m:
+(B[m[37m[40m  7 [C[C(B[m[36mx(B[m[97m:[C2
+(B[m[37m[40m  8 [C[C(B[m[36my(B[m[97m:[C2
+(B[m[37m[40m  9 
+ 10 (B[m[37m# Display tabs using this many cells (changes require restart)
+(B[m[37m[40m 11 (B[m[36mtabspaces(B[m[97m:[C8
+(B[m[37m[40m 12 
+ 13 (B[m[37m# When true, bold text is drawn using the bright variant of colors.
+(B[m[37m[40m 14 (B[m[36mdraw_bold_text_with_bright_colors(B[m[97m:[C(B[m[34mtrue
+(B[m[37m[40m 15 
+ 16 (B[m[37m# Font configuration (changes require restart)
+(B[m[37m[40m 17 (B[m[37m#
+(B[m[37m[40m 18 (B[m[37m# Important font attributes like antialiasing, subpixel aa, and hinting can be
+(B[m[37m[40m 19 (B[m[37m# controlled through fontconfig. Specifically, the following attributes should
+(B[m[37m[40m 20 (B[m[37m# have an effect:
+(B[m[37m[40m 21 (B[m[37m#
+(B[m[37m[40m 22 (B[m[37m# * hintstyle
+(B[m[37m[40m 23 (B[m[37m# * antialias
+(B[m[37m[40m 24 (B[m[37m# * lcdfilter
+(B[m[37m[40m 25 (B[m[37m# * rgba
+(B[m[30m[101m (B[0;1m[30m[101mNORMAL(B[m[30m[101m (B[m[37m[100m (B[0;1m[97m[100m alacritty.yml  (B[m[37m[100m                                                                                                                                    yaml  utf-8[unix] (B[m[30m[101m 26/373 15 [25;19H[?25h[?25l[27B(B[m[97malacrit[Cy.yml (B[m[97m[K[?25h[?25l[25;19H[?25h
