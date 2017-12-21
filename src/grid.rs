@@ -83,7 +83,7 @@ pub enum Scrollback {
 
 // Internal struct used to keep track of scrollback state.
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
-pub struct ScrollbackState {
+struct ScrollbackState {
     // Whether scrollback is enabled at all.. When disabled,
     // `max_lines` will be kept in sync with `lines` in the grid.
     enabled: bool,
@@ -92,7 +92,7 @@ pub struct ScrollbackState {
     // Maximum number of lines in the total scrollback buffer.
     // Once this limit is reached, oldest elements will begin to be
     // removed from the `VecDeque` using `pop_front`
-    pub max_lines: index::AbsoluteLine
+    max_lines: index::AbsoluteLine
 }
 
 impl ScrollbackState {
@@ -141,7 +141,7 @@ pub struct Grid<T> {
     visible_region_start: index::AbsoluteLine,
 
     /// Scrollback config, ie: is it enabled, if so, how many lines
-    pub scrollback: ScrollbackState,
+    scrollback: ScrollbackState,
 }
 
 pub struct GridIterator<'a, T: 'a> {
@@ -502,13 +502,18 @@ impl<T> Grid<T> {
     }
 
     /// Enable or disable scrollback temporarily
-    pub fn set_scrollback_enabled(&mut self, enabled: bool) {
+    pub fn set_scrollback_currently_enabled(&mut self, enabled: bool) {
         self.scrollback.currently_enabled = self.scrollback.enabled && enabled;
     }
 
-    /// Check whether scrollback is enabled
-    pub fn get_scrollback_enabled(&self) -> bool {
+    /// Check whether scrollback is currently enabled
+    pub fn scrollback_currently_enabled(&self) -> bool {
         self.scrollback.currently_enabled
+    }
+
+    /// Check whether scrollback is enabled
+    pub fn scrollback_enabled(&self) -> bool {
+        self.scrollback.enabled
     }
 }
 

@@ -83,7 +83,7 @@ fn ref_test(dir: &Path) {
 
     let mut config = Config::default();
     // Disable scrollback if the ref test has it disabled
-    if !grid.get_scrollback_enabled() {
+    if !grid.scrollback_enabled() {
         config.disable_scrollback();
     }
 
