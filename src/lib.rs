@@ -113,8 +113,3 @@ pub mod gl {
     #![allow(non_upper_case_globals)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
-
-#[allow(dead_code)]
-mod built_info {
-    include!(concat!(env!("OUT_DIR"), "/built.rs"));
-}
