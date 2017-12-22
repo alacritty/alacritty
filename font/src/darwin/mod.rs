@@ -154,23 +154,7 @@ impl ::Rasterize for Rasterizer {
             .get(&(desc.to_owned(), size))
             .map(|k| Ok(*k))
             .unwrap_or_else(|| {
-                let mut font = self.get_font(desc, size)?;
-
-                // TODO, we can't use apple's proposed
-                // .Apple Symbol Fallback (filtered out below),
-                // but not having these makes us not able to render
-                // many chars. We add the symbols back in.
-                // Investigate if we can actually use the .-prefixed
-                // fallbacks somehow.
-                {
-                    let symbols = {
-                        let fallback_style = Style::Description { slant:Slant::Normal, weight:Weight::Normal  } ;
-                        let d = FontDesc::new("Apple Symbols".to_owned(), fallback_style);
-                        self.get_font(&d, size)?
-                    };
-                    font.fallbacks.push(symbols);
-                }
-
+                let font = self.get_font(desc, size)?;
                 let key = FontKey::next();
 
                 self.fonts.insert(key, font);
@@ -375,20 +359,48 @@ impl Descriptor {
         let cg_font = ct_font.copy_to_CGFont();
 
         let fallbacks = if load_fallbacks {
-            // TODO fixme, hardcoded en for english
-            cascade_list_for_languages(&ct_font, &vec!["en".to_owned()])
+            descriptors_for_family("Menlo")
                 .into_iter()
-                // the system lists contains (at least) two strange fonts:
-                // .Apple Symbol Fallback
-                // .Noto Sans Universal
-                // both have a .-prefix (to indicate they are internal?)
-                // neither work very well. the latter even breaks things because
-                // it defines code points with just [?] glyphs.
-                .filter(|desc| desc.font_path != "")
-                .map(|desc| desc.to_font(size, false))
-                .collect()
+                .filter(|d| d.family_name == "Menlo Regular")
+                .nth(0)
+                .map(|descriptor| {
+                    let menlo = ct_new_from_descriptor(&descriptor.ct_descriptor, size);
+
+                    // TODO fixme, hardcoded en for english
+                    let mut fallbacks = cascade_list_for_languages(&menlo, &vec!["en".to_owned()])
+                        .into_iter()
+                        .filter(|desc| desc.font_path != "")
+                        .map(|desc| {
+                            println!("{}", desc.display_name);
+                            desc.to_font(size, false)
+                        })
+                        .collect::<Vec<_>>();
+
+                    // TODO, we can't use apple's proposed
+                    // .Apple Symbol Fallback (filtered out below),
+                    // but not having these makes us not able to render
+                    // many chars. We add the symbols back in.
+                    // Investigate if we can actually use the .-prefixed
+                    // fallbacks somehow.
+                    descriptors_for_family("Apple Symbols")
+                        .into_iter()
+                        .next() // should only have one element; use it
+                        .map(|descriptor| {
+                            fallbacks.push(descriptor.to_font(size, false))
+                        });
+
+                    // Include Menlo in the fallback list as well
+                    fallbacks.insert(0, Font {
+                        cg_font: menlo.copy_to_CGFont(),
+                        ct_font: menlo,
+                        fallbacks: Vec::new()
+                    });
+
+                    fallbacks
+                })
+                .unwrap_or_else(Vec::new)
         } else {
-            vec![]
+            Vec::new()
         };
 
         Font {
