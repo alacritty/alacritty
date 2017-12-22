@@ -873,10 +873,10 @@ impl CursorOrPrimaryColors {
             },
             CursorOrPrimaryColors::Primary { foreground, background } => {
                 // Must print in config since logger isn't setup yet.
-                println!("{}",
-                    Yellow("You're using a deprecated form of cursor color config. Please update \
-                        your config to use `text` and `cursor` properties instead of `foreground` \
-                        and `background`. This will become an error in a future release.")
+                eprintln!("{}",
+                    Yellow("Config `colors.cursor.foreground` and `colors.cursor.background` \
+                            are deprecated. Please use `colors.cursor.text` and \
+                            `colors.cursor.cursor` instead.")
                 );
                 CursorColors {
                     text: foreground,
