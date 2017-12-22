@@ -428,7 +428,7 @@ pub mod mode {
             const ORIGIN              = 0b0001000000000;
             const INSERT              = 0b0010000000000;
             const FOCUS_IN_OUT        = 0b0100000000000;
-            const ALT_SCREEN_BUF      = 0b1000000000000;
+            const ALT_SCREEN          = 0b1000000000000;
             const ANY                 = 0b1111111111111;
             const NONE                = 0;
         }
@@ -1790,7 +1790,7 @@ impl ansi::Handler for Term {
         trace!("set_mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
-                self.mode.insert(mode::ALT_SCREEN_BUF);
+                self.mode.insert(mode::ALT_SCREEN);
                 self.save_cursor_position();
                 if !self.alt {
                     self.swap_alt();
@@ -1820,7 +1820,7 @@ impl ansi::Handler for Term {
         trace!("unset_mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
-                self.mode.remove(mode::ALT_SCREEN_BUF);
+                self.mode.remove(mode::ALT_SCREEN);
                 self.restore_cursor_position();
                 if self.alt {
                     self.swap_alt();

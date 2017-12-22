@@ -365,7 +365,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
-        let modes = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION | mode::SGR_MOUSE | mode::ALT_SCREEN_BUF;
+        let modes = mode::MOUSE_REPORT_CLICK | mode::MOUSE_MOTION | mode::SGR_MOUSE |
+            mode::ALT_SCREEN;
         if !self.ctx.terminal_mode().intersects(modes) {
             return;
         }
@@ -380,7 +381,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 };
 
                 for _ in 0..(to_scroll.abs() as usize) {
-                    if self.ctx.terminal_mode().intersects(mode::ALT_SCREEN_BUF) {
+                    if self.ctx.terminal_mode().intersects(mode::ALT_SCREEN) {
                         // Faux scrolling
                         if code == 64 {
                             // Scroll up one line
@@ -415,7 +416,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                                 65
                             };
 
-                            if self.ctx.terminal_mode().intersects(mode::ALT_SCREEN_BUF) {
+                            if self.ctx.terminal_mode().intersects(mode::ALT_SCREEN) {
                                 // Faux scrolling
                                 if button == 64 {
                                     // Scroll up one line
