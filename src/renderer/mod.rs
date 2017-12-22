@@ -865,59 +865,57 @@ impl<'a> RenderApi<'a> {
     }
 }
 
-impl<'a> LoadGlyph for LoaderApi<'a> {
-    /// Load a glyph into a texture atlas
-    ///
-    /// If the current atlas is full, a new one will be created.
-    fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
-        // At least one atlas is guaranteed to be in the `self.atlas` list; thus
-        // the unwrap should always be ok.
-        match self.atlas[*self.current_atlas].insert(rasterized, &mut self.active_tex) {
-            Ok(glyph) => glyph,
-            Err(_) => {
-                let atlas = Atlas::new(ATLAS_SIZE);
-                *self.active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
-                *self.current_atlas = 0;
-                self.atlas.push(atlas);
-                self.load_glyph(rasterized)
+/// Load a glyph into a texture atlas
+///
+/// If the current atlas is full, a new one will be created.
+#[inline]
+fn load_glyph(
+    active_tex: &mut GLuint,
+    atlas: &mut Vec<Atlas>,
+    current_atlas: &mut usize,
+    rasterized: &RasterizedGlyph
+) -> Glyph {
+    // At least one atlas is guaranteed to be in the `self.atlas` list; thus
+    // the unwrap.
+    match atlas[*current_atlas].insert(rasterized, active_tex) {
+        Ok(glyph) => glyph,
+        Err(_) => {
+            *current_atlas += 1;
+            if *current_atlas == atlas.len() {
+                let new = Atlas::new(ATLAS_SIZE);
+                *active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
+                atlas.push(new);
             }
+            load_glyph(active_tex, atlas, current_atlas, rasterized)
         }
+    }
+}
+
+#[inline]
+fn clear_atlas(atlas: &mut Vec<Atlas>, current_atlas: &mut usize) {
+    for atlas in atlas.iter_mut() {
+        atlas.clear();
+    }
+    *current_atlas = 0;
+}
+
+impl<'a> LoadGlyph for LoaderApi<'a> {
+    fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
+        load_glyph(self.active_tex, self.atlas, self.current_atlas, rasterized)
     }
 
     fn clear(&mut self) {
-        for atlas in self.atlas.iter_mut() {
-            atlas.clear();
-        }
-        *self.current_atlas = 0;
+        clear_atlas(self.atlas, self.current_atlas)
     }
 }
 
 impl<'a> LoadGlyph for RenderApi<'a> {
-    /// Load a glyph into a texture atlas
-    ///
-    /// If the current atlas is full, a new one will be created.
     fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
-        // At least one atlas is guaranteed to be in the `self.atlas` list; thus
-        // the unwrap.
-        match self.atlas[*self.current_atlas].insert(rasterized, &mut self.active_tex) {
-            Ok(glyph) => glyph,
-            Err(_) => {
-                *self.current_atlas += 1;
-                if *self.current_atlas == self.atlas.len() {
-                    let atlas = Atlas::new(ATLAS_SIZE);
-                    *self.active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
-                    self.atlas.push(atlas);
-                }
-                self.load_glyph(rasterized)
-            }
-        }
+        load_glyph(self.active_tex, self.atlas, self.current_atlas, rasterized)
     }
 
     fn clear(&mut self) {
-        for atlas in self.atlas.iter_mut() {
-            atlas.clear();
-        }
-        *self.current_atlas = 0;
+        clear_atlas(self.atlas, self.current_atlas)
     }
 }
 
