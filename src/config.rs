@@ -211,7 +211,6 @@ impl Default for Alpha {
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct WindowConfig {
-
     /// Initial dimensions
     #[serde(default)]
     dimensions: Dimensions,
@@ -244,6 +243,14 @@ impl Default for WindowConfig {
 /// Top-level config type
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    /// Initial dimensions
+    #[serde(default)]
+    dimensions: Option<Dimensions>,
+
+    /// Pixel padding
+    #[serde(default)]
+    padding: Option<Delta>,
+
     /// TERM env variable
     #[serde(default)]
     env: HashMap<String, String>,
@@ -347,6 +354,8 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             draw_bold_text_with_bright_colors: true,
+            dimensions: None,
+            padding: None,
             font: Default::default(),
             render_timer: Default::default(),
             custom_cursor_colors: false,
@@ -1149,7 +1158,8 @@ impl Config {
     }
 
     pub fn padding(&self) -> &Delta {
-        &self.window.padding
+        self.padding.as_ref()
+            .unwrap_or(&self.window.padding)
     }
 
     #[inline]
@@ -1166,7 +1176,7 @@ impl Config {
     /// Get window dimensions
     #[inline]
     pub fn dimensions(&self) -> Dimensions {
-        self.window.dimensions
+        self.dimensions.unwrap_or(self.window.dimensions)
     }
 
     /// Get window config
@@ -1235,6 +1245,7 @@ impl Config {
         let raw = Config::read_file(path.as_path())?;
         let mut config: Config = serde_yaml::from_str(&raw)?;
         config.config_path = Some(path);
+        config.print_deprecation_warnings();
 
         Ok(config)
     }
@@ -1248,6 +1259,19 @@ impl Config {
         }
 
         Ok(contents)
+    }
+
+    fn print_deprecation_warnings(&self) {
+        use ::util::fmt;
+        if self.dimensions.is_some() {
+            eprintln!("{}", fmt::Yellow("Config `dimensions` is deprecated. \
+                                        Please use `window.dimensions` instead."));
+        }
+
+        if self.padding.is_some() {
+            eprintln!("{}", fmt::Yellow("Config `padding` is deprecated. \
+                                        Please use `window.padding` instead."));
+        }
     }
 }
 
