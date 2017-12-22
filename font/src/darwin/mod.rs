@@ -149,27 +149,16 @@ impl ::Rasterize for Rasterizer {
         Ok(font.metrics())
     }
 
-    fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
+    fn load_font(
+        &mut self,
+        desc: &FontDesc,
+        size: Size
+    ) -> Result<FontKey, Error> {
         self.keys
             .get(&(desc.to_owned(), size))
             .map(|k| Ok(*k))
             .unwrap_or_else(|| {
-                let mut font = self.get_font(desc, size)?;
-
-                // TODO, we can't use apple's proposed
-                // .Apple Symbol Fallback (filtered out below),
-                // but not having these makes us not able to render
-                // many chars. We add the symbols back in.
-                // Investigate if we can actually use the .-prefixed
-                // fallbacks somehow.
-                {
-                    let symbols = {
-                        let fallback_style = Style::Description { slant:Slant::Normal, weight:Weight::Normal  } ;
-                        let d = FontDesc::new("Apple Symbols".to_owned(), fallback_style);
-                        self.get_font(&d, size)?
-                    };
-                    font.fallbacks.push(symbols);
-                }
+                let font = self.get_font(desc, size)?;
 
                 let key = FontKey::next();
 
@@ -205,32 +194,37 @@ impl ::Rasterize for Rasterizer {
 }
 
 impl Rasterizer {
-    fn get_specific_face(
+
+    fn find_descriptor<T>(
+        &mut self,
+        desc: &FontDesc,
+        matcher: T,
+    ) -> Result<Descriptor, Error>
+        where T: Fn(&Descriptor) -> bool
+    {
+        descriptors_for_family(&desc.name[..]).into_iter()
+            .find(matcher)
+            .ok_or_else(|| Error::MissingFont(desc.to_owned()))
+    }
+
+    fn get_specific_descriptor(
         &mut self,
         desc: &FontDesc,
         style: &str,
-        size: Size
-    ) -> Result<Font, Error> {
-        let descriptors = descriptors_for_family(&desc.name[..]);
-        for descriptor in descriptors {
-            if descriptor.style_name == style {
-                // Found the font we want
-                let scaled_size = size.as_f32_pts() as f64 * self.device_pixel_ratio as f64;
-                let font = descriptor.to_font(scaled_size, true);
-                return Ok(font);
-            }
-        }
-
-        Err(Error::MissingFont(desc.to_owned()))
+    ) -> Result<Descriptor, Error> {
+        self.find_descriptor(
+            desc,
+            |descriptor| descriptor.style_name == style,
+        )
     }
 
-    fn get_matching_face(
+    fn get_matching_descriptor(
         &mut self,
         desc: &FontDesc,
         slant: Slant,
         weight: Weight,
-        size: Size
-    ) -> Result<Font, Error> {
+        scaled_size: f64,
+    ) -> Result<Descriptor, Error> {
         let bold = match weight {
             Weight::Bold => true,
             _ => false
@@ -239,27 +233,91 @@ impl Rasterizer {
             Slant::Normal => false,
             _ => true,
         };
-        let scaled_size = size.as_f32_pts() as f64 * self.device_pixel_ratio as f64;
-
-        let descriptors = descriptors_for_family(&desc.name[..]);
-        for descriptor in descriptors {
-            let font = descriptor.to_font(scaled_size, true);
-            if font.is_bold() == bold && font.is_italic() == italic {
-                // Found the font we want
-                return Ok(font);
-            }
-        }
-
-        Err(Error::MissingFont(desc.to_owned()))
+        self.find_descriptor(
+            desc,
+            |descriptor| {
+                let font = descriptor.to_font(scaled_size, None);
+                font.is_bold() == bold && font.is_italic() == italic
+            },
+        )
     }
 
-    fn get_font(&mut self, desc: &FontDesc, size: Size) -> Result<Font, Error> {
+    fn get_descriptor(&mut self, desc: &FontDesc, scaled_size: f64) -> Result<Descriptor, Error> {
         match desc.style {
-            Style::Specific(ref style) => self.get_specific_face(desc, style, size),
-            Style::Description { slant, weight } => {
-                self.get_matching_face(desc, slant, weight, size)
-            },
+            Style::Specific(ref style) =>
+                self.get_specific_descriptor(desc, style),
+            Style::Description { slant, weight } =>
+                self.get_matching_descriptor(desc, slant, weight, scaled_size),
         }
+    }
+
+    fn get_fallbacks(&mut self, scaled_size: f64) -> Result<Vec<Font>, Error> {
+
+        // fallbacks are not perfect when basing off fonts like "Source Code Pro".
+        // for instance is the glyph "❯" not in any fallback. to ensure
+        // we get good fallbacks, we always base it on Menlo.
+        let normal = Style::Description {slant:Slant::Normal, weight:Weight::Normal};
+        let menlo_desc = FontDesc::new("Menlo", normal);
+
+        self.get_descriptor(&menlo_desc, scaled_size)
+            .map(|descriptor| {
+                ct_new_from_descriptor(&descriptor.ct_descriptor, scaled_size)
+            })
+            .map(|ct_font|
+                 // TODO fixme, hardcoded en for english
+                 cascade_list_for_languages(&ct_font, &vec!["en".to_owned()]).into_iter()
+                 // the system lists contains (at least) two strange fonts:
+                 // .Apple Symbol Fallback
+                 // .Noto Sans Universal
+                 // both have a .-prefix (to indicate they are internal?)
+                 // neither work very well. the latter even breaks things because
+                 // it defines code points with just [?] glyphs.
+                 .filter(|desc| desc.font_path != "")
+                 .map(|desc| {
+                     println!("{}", desc.font_name);
+                     desc
+                 })
+                 .map(|desc| desc.to_font(scaled_size, None))
+                 .collect()
+            )
+    }
+
+    fn get_modified_fallbacks(
+        &mut self,
+        scaled_size: f64,
+    ) -> Result<Vec<Font>, Error> {
+
+        let mut fallbacks = self.get_fallbacks(scaled_size)?;
+
+        let mut get_extra = |name:String| -> Result<Font, Error> {
+            let fallback_style =
+                Style::Description {slant:Slant::Normal, weight:Weight::Normal};
+            let d = FontDesc::new(name, fallback_style);
+            Ok(self.get_descriptor(&d, scaled_size)?.to_font(scaled_size, None))
+        };
+
+        // Insert Menlo first before the fallbacks (that are based on Menlo).
+        fallbacks.insert(0, get_extra("Menlo".to_owned())?);
+
+        // The glyph "ᚦ" is missing from ".Apple Symbols Fallback" and
+        // all others returned by the fallback. It is present in
+        // Apple Symbols.
+        fallbacks.push(get_extra("Apple Symbols".to_owned())?);
+
+        Ok(fallbacks)
+    }
+
+    fn get_font(
+        &mut self,
+        desc: &FontDesc,
+        size: Size,
+    ) -> Result<Font, Error> {
+        let scaled_size = size.as_f32_pts() as f64 * self.device_pixel_ratio as f64;
+        let fallbacks = self.get_modified_fallbacks(scaled_size)?;
+        self.get_descriptor(desc, scaled_size)
+        .map(|descriptor| {
+            descriptor.to_font(scaled_size, Some(fallbacks))
+        })
     }
 
     // Helper to try and get a glyph for a given font. Used for font fallback.
@@ -370,31 +428,14 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
 
 impl Descriptor {
     /// Create a Font from this descriptor
-    pub fn to_font(&self, size: f64, load_fallbacks:bool) -> Font {
+    pub fn to_font(&self, size: f64, fallbacks:Option<Vec<Font>>) -> Font {
         let ct_font = ct_new_from_descriptor(&self.ct_descriptor, size);
         let cg_font = ct_font.copy_to_CGFont();
-
-        let fallbacks = if load_fallbacks {
-            // TODO fixme, hardcoded en for english
-            cascade_list_for_languages(&ct_font, &vec!["en".to_owned()])
-                .into_iter()
-                // the system lists contains (at least) two strange fonts:
-                // .Apple Symbol Fallback
-                // .Noto Sans Universal
-                // both have a .-prefix (to indicate they are internal?)
-                // neither work very well. the latter even breaks things because
-                // it defines code points with just [?] glyphs.
-                .filter(|desc| desc.font_path != "")
-                .map(|desc| desc.to_font(size, false))
-                .collect()
-        } else {
-            vec![]
-        };
 
         Font {
             ct_font: ct_font,
             cg_font: cg_font,
-            fallbacks: fallbacks,
+            fallbacks: fallbacks.unwrap_or_else(|| vec![]),
         }
     }
 }
