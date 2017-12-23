@@ -22,7 +22,6 @@ dependencies = [
  "font 0.1.0",
  "gl_generator 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "half 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.34 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "mio 0.6.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -524,11 +523,6 @@ dependencies = [
  "winit 0.7.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "x11-dl 2.17.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
-
-[[package]]
-name = "half"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "heapsize"
@@ -1531,7 +1525,6 @@ dependencies = [
 "checksum gl_generator 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "75d69f914b49d9ff32fdf394cbd798f8c716d74fd19f9cc29da3e99797b2a78d"
 "checksum gleam 0.4.17 (registry+https://github.com/rust-lang/crates.io-index)" = "6f4f9148004bdc641f47173769e2625d8dec7aafd3f8d808309aab8f2d7c5ee0"
 "checksum glutin 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)" = "3cee1543cf7efce742534d31c024d8dd1aa0e8944d36ebdd7dfccdb80b84700d"
-"checksum half 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3e8c68f037ac990d590887da5c017491c5af2aa493c1036ce486b06330a6622d"
 "checksum heapsize 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "556cd479866cf85c3f671209c85e8a6990211c916d1002c2fcb2e9b7cf60bc36"
 "checksum idna 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "014b298351066f1512874135335d62a789ffe78a9974f94b43ed5621951eaf7d"
 "checksum if_chain 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "61bb90bdd39e3af69b0172dfc6130f6cd6332bf040fbb9bdd4401d37adbd48b8"

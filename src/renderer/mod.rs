@@ -28,7 +28,6 @@ use gl::types::*;
 use gl;
 use index::{Line, Column, RangeInclusive};
 use notify::{Watcher, watcher, RecursiveMode, DebouncedEvent};
-use half::f16;
 
 use config::{self, Config, Delta};
 use term::{self, cell, RenderableCell};
@@ -136,10 +135,10 @@ pub struct Glyph {
     left: i16,
     width: i16,
     height: i16,
-    uv_bot: f16,
-    uv_left: f16,
-    uv_width: f16,
-    uv_height: f16,
+    uv_bot: f32,
+    uv_left: f32,
+    uv_width: f32,
+    uv_height: f32,
 }
 
 /// Naïve glyph cache
@@ -341,11 +340,11 @@ struct InstanceData {
     width: i16,
     height: i16,
     // uv offset
-    uv_left: f16,
-    uv_bot: f16,
+    uv_left: f32,
+    uv_bot: f32,
     // uv scale
-    uv_width: f16,
-    uv_height: f16,
+    uv_width: f32,
+    uv_height: f32,
     // color
     r: u8,
     g: u8,
@@ -566,12 +565,12 @@ impl QuadRenderer {
 
             // uv
             gl::VertexAttribPointer(3, 4,
-                                    gl::HALF_FLOAT, gl::FALSE,
+                                    gl::FLOAT, gl::FALSE,
                                     size_of::<InstanceData>() as i32,
                                     size as *const _);
             gl::EnableVertexAttribArray(3);
             gl::VertexAttribDivisor(3, 1);
-            size += 4 * size_of::<f16>();
+            size += 4 * size_of::<f32>();
 
             // color
             gl::VertexAttribPointer(4, 3,
@@ -1439,10 +1438,10 @@ impl Atlas {
             width: width as i16,
             height: height as i16,
             left: glyph.left as i16,
-            uv_bot: f16::from_f32(uv_bot),
-            uv_left: f16::from_f32(uv_left),
-            uv_width: f16::from_f32(uv_width),
-            uv_height: f16::from_f32(uv_height),
+            uv_bot: uv_bot,
+            uv_left: uv_left,
+            uv_width: uv_width,
+            uv_height: uv_height,
         }
     }
 

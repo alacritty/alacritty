@@ -36,7 +36,6 @@ arraydeque = "0.2"
 glutin = "0.11"
 clippy = { version = "*", optional = true }
 env_logger = "0.4"
-half = "1"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
