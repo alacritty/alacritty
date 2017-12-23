@@ -370,10 +370,7 @@ impl Descriptor {
                     let mut fallbacks = cascade_list_for_languages(&menlo, &vec!["en".to_owned()])
                         .into_iter()
                         .filter(|desc| desc.font_path != "")
-                        .map(|desc| {
-                            println!("{}", desc.display_name);
-                            desc.to_font(size, false)
-                        })
+                        .map(|desc| desc.to_font(size, false))
                         .collect::<Vec<_>>();
 
                     // TODO, we can't use apple's proposed
