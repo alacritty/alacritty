@@ -12,48 +12,47 @@ path = "src/main.rs"
 name = "alacritty"
 
 [dependencies]
-libc = "0.2.23"
-cgmath = "0.7"
-notify = "2.6"
-bitflags = "0.7"
+libc = "0.2"
+cgmath = "0.15"
+notify = "4"
+bitflags = "1"
 font = { path = "./font" }
 errno = "0.2"
-parking_lot = "0.3.1"
-serde = "0.9"
-serde_yaml = "0.6"
-serde_derive = "0.9"
-vte = "0.3.0"
-mio = "=0.6.2"
-serde_json = "0.9"
+parking_lot = "0.5"
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
+serde_yaml = "0.7"
+vte = "0.3"
+mio = "0.6"
+mio-more = "0.1"
 copypasta = { path = "./copypasta" }
-xdg = "2.0.0"
+xdg = "2"
 log = "0.3"
-clap = "2.20"
-fnv = "1.0.5"
-unicode-width = "0.1.4"
+clap = "2"
+fnv = "1"
+unicode-width = "0.1"
 arraydeque = "0.2"
-clippy = { version = "0.0.104", optional = true }
+glutin = "0.11"
+clippy = { version = "*", optional = true }
+env_logger = "0.4"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
-x11-dl = "2.12.0"
+x11-dl = "2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2.2"
 
 [features]
-default = ["err-println"]
+default = []
 # Enabling this feature makes shaders automatically reload when changed
 live-shader-reload = []
-err-println = []
 nightly = []
 bench = []
 
 [build-dependencies]
-gl_generator = "0.5"
-
-[dependencies.glutin]
-version = "0.9"
+gl_generator = "0.7"
 
 [profile.release]
 lto = true
 debug = true
-
-[replace]
-"winit:0.7.5" = { git = "https://github.com/tomaka/winit", branch = "master" }

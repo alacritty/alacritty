@@ -30,8 +30,9 @@ extern crate core_foundation;
 extern crate core_foundation_sys;
 #[cfg(target_os = "macos")]
 extern crate core_graphics;
-
+#[cfg(target_os = "macos")]
 extern crate euclid;
+
 extern crate libc;
 
 #[cfg(not(target_os = "macos"))]
@@ -42,12 +43,12 @@ extern crate foreign_types;
 extern crate log;
 
 use std::hash::{Hash, Hasher};
-use std::fmt;
+use std::{fmt, cmp};
 use std::sync::atomic::{AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
 
 // If target isn't macos, reexport everything from ft
 #[cfg(not(target_os = "macos"))]
-mod ft;
+pub mod ft;
 #[cfg(not(target_os = "macos"))]
 pub use ft::{FreeTypeRasterizer as Rasterizer, Error};
 
@@ -56,6 +57,21 @@ pub use ft::{FreeTypeRasterizer as Rasterizer, Error};
 mod darwin;
 #[cfg(target_os = "macos")]
 pub use darwin::*;
+
+/// Width/Height of the cursor relative to the font width
+pub const CURSOR_WIDTH_PERCENTAGE: i32 = 15;
+
+/// Character used for the underline cursor
+// This is part of the private use area and should not conflict with any font
+pub const UNDERLINE_CURSOR_CHAR: char = '\u{10a3e2}';
+
+/// Character used for the beam cursor
+// This is part of the private use area and should not conflict with any font
+pub const BEAM_CURSOR_CHAR: char = '\u{10a3e3}';
+
+/// Character used for the empty box cursor
+// This is part of the private use area and should not conflict with any font
+pub const BOX_CURSOR_CHAR: char = '\u{10a3e4}';
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FontDesc {
@@ -171,6 +187,14 @@ impl Size {
     }
 }
 
+impl ::std::ops::Add for Size {
+    type Output = Size;
+
+    fn add(self, other: Size) -> Size {
+        Size(self.0.saturating_add(other.0))
+    }
+}
+
 pub struct RasterizedGlyph {
     pub c: char,
     pub width: i32,
@@ -191,6 +215,75 @@ impl Default for RasterizedGlyph {
             buf: Vec::new(),
         }
     }
+}
+
+// Returns a custom underline cursor character
+pub fn get_underline_cursor_glyph(descent: i32, width: i32) -> Result<RasterizedGlyph, Error> {
+    // Create a new rectangle, the height is relative to the font width
+    let height = cmp::max(width * CURSOR_WIDTH_PERCENTAGE / 100, 1);
+    let buf = vec![255u8; (width * height * 3) as usize];
+
+    // Create a custom glyph with the rectangle data attached to it
+    return Ok(RasterizedGlyph {
+        c: UNDERLINE_CURSOR_CHAR,
+        top: descent + height,
+        left: 0,
+        height,
+        width,
+        buf: buf,
+    });
+}
+
+// Returns a custom beam cursor character
+pub fn get_beam_cursor_glyph(
+    ascent: i32,
+    height: i32,
+    width: i32,
+) -> Result<RasterizedGlyph, Error> {
+    // Create a new rectangle that is at least one pixel wide
+    let beam_width = cmp::max(width * CURSOR_WIDTH_PERCENTAGE / 100, 1);
+    let buf = vec![255u8; (beam_width * height * 3) as usize];
+
+    // Create a custom glyph with the rectangle data attached to it
+    return Ok(RasterizedGlyph {
+        c: BEAM_CURSOR_CHAR,
+        top: ascent,
+        left: 0,
+        height,
+        width: beam_width,
+        buf: buf,
+    });
+}
+
+// Returns a custom box cursor character
+pub fn get_box_cursor_glyph(
+    ascent: i32,
+    height: i32,
+    width: i32,
+) -> Result<RasterizedGlyph, Error> {
+    // Create a new box outline rectangle
+    let border_width = cmp::max(width * CURSOR_WIDTH_PERCENTAGE / 100, 1);
+    let mut buf = Vec::with_capacity((width * height * 3) as usize);
+    for y in 0..height {
+        for x in 0..width {
+            if y < border_width || y >= height - border_width ||
+               x < border_width || x >= width - border_width {
+                buf.append(&mut vec![255u8; 3]);
+            } else {
+                buf.append(&mut vec![0u8; 3]);
+            }
+        }
+    }
+
+    // Create a custom glyph with the rectangle data attached to it
+    return Ok(RasterizedGlyph {
+        c: BOX_CURSOR_CHAR,
+        top: ascent,
+        left: 0,
+        height,
+        width,
+        buf: buf,
+    });
 }
 
 struct BufDebugger<'a>(&'a [u8]);
@@ -228,7 +321,7 @@ pub trait Rasterize {
     type Err: ::std::error::Error + Send + Sync + 'static;
 
     /// Create a new Rasterize
-    fn new(dpi_x: f32, dpi_y: f32, device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
+    fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
         where Self: Sized;
 
     /// Get `Metrics` for the given `FontKey`

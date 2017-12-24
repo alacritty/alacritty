@@ -11,21 +11,32 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+use foreign_types::{ForeignTypeRef};
 
-#[macro_export]
-macro_rules! die {
-    ($($arg:tt)*) => {{
-        eprintln!($($arg)*);
-        ::std::process::exit(1);
-    }}
+use super::ffi::{FcCharSet, FcCharSetDestroy, FcCharSetAddChar};
+use super::ffi::{FcCharSetCreate};
+
+foreign_type! {
+    type CType = FcCharSet;
+    fn drop = FcCharSetDestroy;
+    pub struct CharSet;
+    pub struct CharSetRef;
 }
 
-#[macro_export]
-macro_rules! maybe {
-    ($option:expr) => {
-        match $option {
-            Some(value) => value,
-            None => return None,
+impl CharSet {
+    pub fn new() -> CharSet {
+        CharSet(unsafe { FcCharSetCreate() })
+    }
+}
+
+impl CharSetRef {
+    pub fn add(&mut self, glyph: char) -> bool {
+        unsafe {
+            FcCharSetAddChar(
+                self.as_ptr(),
+                glyph as _
+            ) == 1
         }
     }
 }
+

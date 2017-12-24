@@ -359,7 +359,7 @@ impl<'a, T> IntoIterator for &'a mut Row<T> {
     type IntoIter = slice::IterMut<'a, T>;
 
     #[inline]
-    fn into_iter(mut self) -> slice::IterMut<'a, T> {
+    fn into_iter(self) -> slice::IterMut<'a, T> {
         self.iter_mut()
     }
 }

@@ -15,7 +15,6 @@
 //! Alacritty - The GPU Enhanced Terminal
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
-#![cfg_attr(feature = "clippy", deny(clippy))]
 #![cfg_attr(feature = "clippy", deny(enum_glob_use))]
 #![cfg_attr(feature = "clippy", deny(if_not_else))]
 #![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
@@ -30,15 +29,21 @@
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
 extern crate x11_dl;
 
+#[cfg(target_os = "macos")]
+#[macro_use]
+extern crate objc;
+
 extern crate arraydeque;
 extern crate cgmath;
 extern crate copypasta;
 extern crate errno;
+extern crate env_logger;
 extern crate fnv;
 extern crate font;
 extern crate glutin;
 extern crate libc;
 extern crate mio;
+extern crate mio_more;
 extern crate notify;
 extern crate parking_lot;
 extern crate serde;
@@ -60,6 +65,7 @@ pub mod event_loop;
 pub mod grid;
 pub mod index;
 pub mod input;
+pub mod locale;
 pub mod logging;
 pub mod meter;
 pub mod renderer;
@@ -74,6 +80,13 @@ use std::ops::Mul;
 
 pub use grid::Grid;
 pub use term::Term;
+
+/// Facade around [winit's MouseCursor](glutin::MouseCursor)
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum MouseCursor {
+    Arrow,
+    Text,
+}
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Default, Serialize, Deserialize)]
 pub struct Rgb {
@@ -102,6 +115,8 @@ impl Mul<f32> for Rgb {
 
 #[cfg_attr(feature = "clippy", allow(too_many_arguments))]
 #[cfg_attr(feature = "clippy", allow(doc_markdown))]
+#[cfg_attr(feature = "clippy", allow(unreadable_literal))]
+#[allow(unused_mut)]
 pub mod gl {
     #![allow(non_upper_case_globals)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));

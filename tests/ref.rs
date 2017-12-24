@@ -27,12 +27,16 @@ macro_rules! ref_tests {
 }
 
 ref_tests! {
+    csi_rep
     fish_cc
     indexed_256_colors
+    issue_855
     ll
+    newline_with_cursor_beyond_scroll_region
     tab_rendering
     tmux_git_log
     tmux_htop
+    vim_24bitcolors_bce
     vim_large_window_scroll
     vim_simple_edit
     vttest_cursor_movement_1

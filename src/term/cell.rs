@@ -17,16 +17,16 @@ use index::Column;
 
 bitflags! {
     #[derive(Serialize, Deserialize)]
-    pub flags Flags: u32 {
-        const INVERSE           = 0b00000001,
-        const BOLD              = 0b00000010,
-        const ITALIC            = 0b00000100,
-        const UNDERLINE         = 0b00001000,
-        const WRAPLINE          = 0b00010000,
-        const WIDE_CHAR         = 0b00100000,
-        const WIDE_CHAR_SPACER  = 0b01000000,
-        const DIM               = 0b10000000,
-        const DIM_BOLD          = 0b10000010,
+    pub struct Flags: u32 {
+        const INVERSE           = 0b00000001;
+        const BOLD              = 0b00000010;
+        const ITALIC            = 0b00000100;
+        const UNDERLINE         = 0b00001000;
+        const WRAPLINE          = 0b00010000;
+        const WIDE_CHAR         = 0b00100000;
+        const WIDE_CHAR_SPACER  = 0b01000000;
+        const DIM               = 0b10000000;
+        const DIM_BOLD          = 0b10000010;
     }
 }
 
@@ -59,7 +59,7 @@ impl LineLength for grid::Row<Cell> {
     fn line_length(&self) -> Column {
         let mut length = Column(0);
 
-        if self[Column(self.len() - 1)].flags.contains(WRAPLINE) {
+        if self[Column(self.len() - 1)].flags.contains(Flags::WRAPLINE) {
             return Column(self.len());
         }
 
@@ -77,17 +77,17 @@ impl LineLength for grid::Row<Cell> {
 impl Cell {
     #[inline]
     pub fn bold(&self) -> bool {
-        self.flags.contains(BOLD)
+        self.flags.contains(Flags::BOLD)
     }
 
     #[inline]
     pub fn inverse(&self) -> bool {
-        self.flags.contains(INVERSE)
+        self.flags.contains(Flags::INVERSE)
     }
 
     #[inline]
     pub fn dim(&self) -> bool {
-        self.flags.contains(DIM)
+        self.flags.contains(Flags::DIM)
     }
 
     pub fn new(c: char, fg: Color, bg: Color) -> Cell {
@@ -103,7 +103,7 @@ impl Cell {
     pub fn is_empty(&self) -> bool {
         self.c == ' ' &&
             self.bg == Color::Named(NamedColor::Background) &&
-            !self.flags.intersects(INVERSE | UNDERLINE)
+            !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE)
     }
 
     #[inline]
@@ -133,7 +133,7 @@ mod tests {
     fn line_length_works_with_wrapline() {
         let template = Cell::default();
         let mut row = Row::new(Column(10), &template);
-        row[Column(9)].flags.insert(super::WRAPLINE);
+        row[Column(9)].flags.insert(super::Flags::WRAPLINE);
 
         assert_eq!(row.line_length(), Column(10));
     }
