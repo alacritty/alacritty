@@ -102,7 +102,7 @@ pub struct RenderableCellsIter<'a> {
     config: &'a Config,
     colors: &'a color::List,
     selection: Option<RangeInclusive<index::Linear>>,
-    cursor_cells: ArrayDeque<[Indexed<Cell>; 3]>,
+    cursor_cells: ArrayDeque<[Indexed<Cell>; 4]>,
 }
 
 impl<'a> RenderableCellsIter<'a> {
@@ -136,6 +136,37 @@ impl<'a> RenderableCellsIter<'a> {
         }.initialize(cursor_style, window_focused)
     }
 
+    fn push_cursor_cells(
+        &mut self,
+        original_cell: Cell,
+        cursor_cell: Cell,
+        wide_cell: Cell,
+    ) {
+        // Prints the char under the cell if cursor is situated on a non-empty cell
+        self.cursor_cells.push_back(Indexed {
+            line: self.cursor.line,
+            column: self.cursor.col,
+            inner: original_cell,
+        });
+
+        // Prints the cursor
+        self.cursor_cells.push_back(Indexed {
+            line: self.cursor.line,
+            column: self.cursor.col,
+            inner: cursor_cell,
+        });
+
+        // If cursor is over a wide (2 cell size) character,
+        // print the second cursor cell
+        if self.is_wide_cursor(&cursor_cell) {
+            self.cursor_cells.push_back(Indexed {
+                line: self.cursor.line,
+                column: self.cursor.col + 1,
+                inner: wide_cell,
+            });
+        }
+    }
+
     fn populate_block_cursor(&mut self) {
         let (text_color, cursor_color) = if self.config.custom_cursor_colors() {
             (
@@ -148,64 +179,43 @@ impl<'a> RenderableCellsIter<'a> {
             (cell.bg, cell.fg)
         };
 
-        let mut cell_under_cursor = self.grid[self.cursor];
-        cell_under_cursor.fg = text_color;
-        cell_under_cursor.bg = cursor_color;
+        let original_cell = self.grid[self.cursor];
 
-        self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
-            inner: cell_under_cursor,
-        });
+        let mut cursor_cell = self.grid[self.cursor];
+        cursor_cell.fg = text_color;
+        cursor_cell.bg = cursor_color;
 
-        if self.is_wide_cursor(&cell_under_cursor) {
-            cell_under_cursor.c = ' ';
-            self.cursor_cells.push_back(Indexed {
-                line: self.cursor.line,
-                column: self.cursor.col + 1,
-                inner: cell_under_cursor,
-            });
-        }
+        let mut wide_cell = cursor_cell;
+        wide_cell.c = ' ';
+
+        self.push_cursor_cells(original_cell, cursor_cell, wide_cell);
+    }
+
+    fn populate_char_cursor(&mut self, cursor_cell_char: char, wide_cell_char: char) {
+        let original_cell = self.grid[self.cursor];
+
+        let mut cursor_cell = self.grid[self.cursor];
+        let cursor_color = self.text_cursor_color(&cursor_cell);
+        cursor_cell.c = cursor_cell_char;
+        cursor_cell.fg = cursor_color;
+
+        let mut wide_cell = cursor_cell;
+        wide_cell.c = wide_cell_char;
+
+        self.push_cursor_cells(original_cell, cursor_cell, wide_cell);
+    }
+
+    fn populate_underline_cursor(&mut self) {
+        self.populate_char_cursor(font::UNDERLINE_CURSOR_CHAR, font::UNDERLINE_CURSOR_CHAR);
+    }
+
+    fn populate_beam_cursor(&mut self) {
+        self.populate_char_cursor(font::BEAM_CURSOR_CHAR, ' ');
     }
 
     #[inline]
     fn is_wide_cursor(&self, cell: &Cell) -> bool {
         cell.flags.contains(cell::Flags::WIDE_CHAR) && (self.cursor.col + 1) < self.grid.num_cols()
-    }
-
-    fn populate_beam_cursor(&mut self) {
-        self.populate_cursor(font::BEAM_CURSOR_CHAR, ' ');
-    }
-
-    fn populate_underline_cursor(&mut self) {
-        self.populate_cursor(font::UNDERLINE_CURSOR_CHAR, font::UNDERLINE_CURSOR_CHAR);
-    }
-
-    fn populate_cursor(&mut self, cursor: char, wide_cursor: char) {
-        let mut cursor_cell = self.grid[self.cursor];
-        self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
-            inner: cursor_cell,
-        });
-
-        let cursor_color = self.text_cursor_color(&cursor_cell);
-        cursor_cell.c = cursor;
-        cursor_cell.fg = cursor_color;
-        self.cursor_cells.push_back(Indexed {
-            line: self.cursor.line,
-            column: self.cursor.col,
-            inner: cursor_cell,
-        });
-
-        if self.is_wide_cursor(&cursor_cell) {
-            cursor_cell.c = wide_cursor;
-            self.cursor_cells.push_back(Indexed {
-                line: self.cursor.line,
-                column: self.cursor.col + 1,
-                inner: cursor_cell,
-            });
-        }
     }
 
     fn text_cursor_color(&self, cell: &Cell) -> Color {
@@ -230,7 +240,7 @@ impl<'a> RenderableCellsIter<'a> {
         if self.cursor_is_visible() {
             if !window_focused {
                 // Render the box cursor if the window is not focused
-                self.populate_cursor(font::BOX_CURSOR_CHAR, ' ');
+                self.populate_char_cursor(font::BOX_CURSOR_CHAR, ' ');
             } else {
                 match cursor_style {
                     CursorStyle::Block => {
@@ -328,7 +338,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
             while self.column < self.grid.num_cols() {
                 // Grab current state for this iteration
                 let line = self.line;
-                let column = self.column;
+                let mut column = self.column;
                 let cell = &self.grid[line][column];
 
                 let index = Linear(line.0 * self.grid.num_cols().0 + column.0);
@@ -336,6 +346,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 let (cell, selected) = if index == self.cursor_index {
                     // Cursor cell
                     let cell = self.cursor_cells.pop_front().unwrap();
+                    column = cell.column;
 
                     // Since there may be multiple cursor cells (for a wide
                     // char), only update iteration position after all cursor
