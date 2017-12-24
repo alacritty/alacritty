@@ -877,7 +877,7 @@ fn load_glyph(
     // the unwrap.
     match atlas[*current_atlas].insert(rasterized, active_tex) {
         Ok(glyph) => glyph,
-        Err(_) => {
+        Err(AtlasInsertError::Full) => {
             *current_atlas += 1;
             if *current_atlas == atlas.len() {
                 let new = Atlas::new(ATLAS_SIZE);
@@ -885,6 +885,19 @@ fn load_glyph(
                 atlas.push(new);
             }
             load_glyph(active_tex, atlas, current_atlas, rasterized)
+        }
+        Err(AtlasInsertError::GlyphTooLarge) => {
+            Glyph {
+                tex_id: atlas[*current_atlas].id,
+                top: 0.0,
+                left: 0.0,
+                width: 0.0,
+                height: 0.0,
+                uv_bot: 0.0,
+                uv_left: 0.0,
+                uv_width: 0.0,
+                uv_height: 0.0,
+            }
         }
     }
 }
@@ -1286,6 +1299,9 @@ struct Atlas {
 enum AtlasInsertError {
     /// Texture atlas is full
     Full,
+
+    /// The glyph cannot fit within a single texture
+    GlyphTooLarge,
 }
 
 impl Atlas {
@@ -1337,6 +1353,10 @@ impl Atlas {
                   active_tex: &mut u32)
                   -> Result<Glyph, AtlasInsertError>
     {
+        if glyph.width > self.width || glyph.height > self.height {
+            return Err(AtlasInsertError::GlyphTooLarge);
+        }
+
         // If there's not enough room in current row, go onto next one
         if !self.room_in_row(glyph) {
             self.advance_row()?;
