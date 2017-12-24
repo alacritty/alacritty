@@ -282,7 +282,7 @@ impl GlyphCache {
         self.cache
             .entry(*glyph_key)
             .or_insert_with(|| {
-                let mut rasterized = rasterizer.get_glyph(&glyph_key)
+                let mut rasterized = rasterizer.get_glyph(glyph_key)
                     .unwrap_or_else(|_| Default::default());
 
                 rasterized.left += glyph_offset.x as i32;
@@ -828,9 +828,9 @@ impl<'a> RenderApi<'a> {
             // Get font key for cell
             // FIXME this is super inefficient.
             let mut font_key = glyph_cache.font_key;
-            if cell.flags.contains(cell::BOLD) {
+            if cell.flags.contains(cell::Flags::BOLD) {
                 font_key = glyph_cache.bold_key;
-            } else if cell.flags.contains(cell::ITALIC) {
+            } else if cell.flags.contains(cell::Flags::ITALIC) {
                 font_key = glyph_cache.italic_key;
             }
 
@@ -849,7 +849,7 @@ impl<'a> RenderApi<'a> {
             // FIXME This is a super hacky way to do underlined text. During
             //       a time crunch to release 0.1, this seemed like a really
             //       easy, clean hack.
-            if cell.flags.contains(cell::UNDERLINE) {
+            if cell.flags.contains(cell::Flags::UNDERLINE) {
                 let glyph_key = GlyphKey {
                     font_key: font_key,
                     size: glyph_cache.font_size,
@@ -863,57 +863,70 @@ impl<'a> RenderApi<'a> {
     }
 }
 
-impl<'a> LoadGlyph for LoaderApi<'a> {
-    /// Load a glyph into a texture atlas
-    ///
-    /// If the current atlas is full, a new one will be created.
-    fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
-        // At least one atlas is guaranteed to be in the `self.atlas` list; thus
-        // the unwrap should always be ok.
-        match self.atlas[*self.current_atlas].insert(rasterized, &mut self.active_tex) {
-            Ok(glyph) => glyph,
-            Err(_) => {
-                let atlas = Atlas::new(ATLAS_SIZE);
-                *self.active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
-                *self.current_atlas = 0;
-                self.atlas.push(atlas);
-                self.load_glyph(rasterized)
+/// Load a glyph into a texture atlas
+///
+/// If the current atlas is full, a new one will be created.
+#[inline]
+fn load_glyph(
+    active_tex: &mut GLuint,
+    atlas: &mut Vec<Atlas>,
+    current_atlas: &mut usize,
+    rasterized: &RasterizedGlyph
+) -> Glyph {
+    // At least one atlas is guaranteed to be in the `self.atlas` list; thus
+    // the unwrap.
+    match atlas[*current_atlas].insert(rasterized, active_tex) {
+        Ok(glyph) => glyph,
+        Err(AtlasInsertError::Full) => {
+            *current_atlas += 1;
+            if *current_atlas == atlas.len() {
+                let new = Atlas::new(ATLAS_SIZE);
+                *active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
+                atlas.push(new);
+            }
+            load_glyph(active_tex, atlas, current_atlas, rasterized)
+        }
+        Err(AtlasInsertError::GlyphTooLarge) => {
+            Glyph {
+                tex_id: atlas[*current_atlas].id,
+                top: 0.0,
+                left: 0.0,
+                width: 0.0,
+                height: 0.0,
+                uv_bot: 0.0,
+                uv_left: 0.0,
+                uv_width: 0.0,
+                uv_height: 0.0,
             }
         }
     }
+}
+
+#[inline]
+fn clear_atlas(atlas: &mut Vec<Atlas>, current_atlas: &mut usize) {
+    for atlas in atlas.iter_mut() {
+        atlas.clear();
+    }
+    *current_atlas = 0;
+}
+
+impl<'a> LoadGlyph for LoaderApi<'a> {
+    fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
+        load_glyph(self.active_tex, self.atlas, self.current_atlas, rasterized)
+    }
 
     fn clear(&mut self) {
-        for atlas in self.atlas.iter_mut() {
-            atlas.clear();
-        }
-        *self.current_atlas = 0;
+        clear_atlas(self.atlas, self.current_atlas)
     }
 }
 
 impl<'a> LoadGlyph for RenderApi<'a> {
-    /// Load a glyph into a texture atlas
-    ///
-    /// If the current atlas is full, a new one will be created.
     fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
-        // At least one atlas is guaranteed to be in the `self.atlas` list; thus
-        // the unwrap.
-        match self.atlas[*self.current_atlas].insert(rasterized, &mut self.active_tex) {
-            Ok(glyph) => glyph,
-            Err(_) => {
-                let atlas = Atlas::new(ATLAS_SIZE);
-                *self.active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
-                *self.current_atlas = 0;
-                self.atlas.push(atlas);
-                self.load_glyph(rasterized)
-            }
-        }
+        load_glyph(self.active_tex, self.atlas, self.current_atlas, rasterized)
     }
 
     fn clear(&mut self) {
-        for atlas in self.atlas.iter_mut() {
-            atlas.clear();
-        }
-        *self.current_atlas = 0;
+        clear_atlas(self.atlas, self.current_atlas)
     }
 }
 
@@ -1076,10 +1089,10 @@ impl ShaderProgram {
             let mut success: GLint = 0;
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
 
-            if success != (gl::TRUE as GLint) {
-                Err(ShaderCreationError::Link(get_program_info_log(program)))
-            } else {
+            if success == (gl::TRUE as GLint) {
                 Ok(program)
+            } else {
+                Err(ShaderCreationError::Link(get_program_info_log(program)))
             }
         }
     }
@@ -1286,6 +1299,9 @@ struct Atlas {
 enum AtlasInsertError {
     /// Texture atlas is full
     Full,
+
+    /// The glyph cannot fit within a single texture
+    GlyphTooLarge,
 }
 
 impl Atlas {
@@ -1337,6 +1353,10 @@ impl Atlas {
                   active_tex: &mut u32)
                   -> Result<Glyph, AtlasInsertError>
     {
+        if glyph.width > self.width || glyph.height > self.height {
+            return Err(AtlasInsertError::GlyphTooLarge);
+        }
+
         // If there's not enough room in current row, go onto next one
         if !self.room_in_row(glyph) {
             self.advance_row()?;

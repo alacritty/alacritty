@@ -22,6 +22,8 @@ use glutin::GlContext;
 
 use MouseCursor;
 
+use config::WindowConfig;
+
 /// Window errors
 #[derive(Debug)]
 pub enum Error {
@@ -186,14 +188,16 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
-        title: &str
+        title: &str,
+        window_config: &WindowConfig,
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
         Window::platform_window_init();
         let window = WindowBuilder::new()
             .with_title(title)
-            .with_transparency(true);
+            .with_transparency(true)
+            .with_decorations(window_config.decorations());
         let context = ContextBuilder::new()
             .with_vsync(true);
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
@@ -233,7 +237,7 @@ impl Window {
 
     pub fn inner_size_pixels(&self) -> Option<Size<Pixels<u32>>> {
         self.window
-            .get_inner_size_pixels()
+            .get_inner_size()
             .map(|(w, h)| Size { width: Pixels(w), height: Pixels(h) })
     }
 
@@ -359,7 +363,7 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
-    pub fn set_urgent(&self, is_urgent: bool) {
+    pub fn set_urgent(&self, _: bool) {
     }
 
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]

@@ -256,6 +256,7 @@ impl<N: Notify> Processor<N> {
         match event {
             // Pass on device events
             Event::DeviceEvent { .. } => (),
+            Event::Suspended { .. } => (),
             Event::WindowEvent { event, .. } => {
                 use glutin::WindowEvent::*;
                 match event {
@@ -302,7 +303,7 @@ impl<N: Notify> Processor<N> {
                         processor.mouse_input(state, button);
                         processor.ctx.terminal.dirty = true;
                     },
-                    MouseMoved { position: (x, y), .. } => {
+                    CursorMoved { position: (x, y), .. } => {
                         let x = x as i32;
                         let y = y as i32;
                         let x = limit(x, 0, processor.ctx.size_info.width as i32);
@@ -329,6 +330,7 @@ impl<N: Notify> Processor<N> {
                             processor.ctx.terminal.dirty = true;
                             processor.ctx.terminal.next_is_urgent = Some(false);
                         } else {
+                            processor.ctx.terminal.dirty = true;
                             *hide_cursor = false;
                         }
 

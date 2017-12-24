@@ -29,6 +29,10 @@
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
 extern crate x11_dl;
 
+#[cfg(target_os = "macos")]
+#[macro_use]
+extern crate objc;
+
 extern crate arraydeque;
 extern crate cgmath;
 extern crate copypasta;
@@ -61,6 +65,7 @@ pub mod event_loop;
 pub mod grid;
 pub mod index;
 pub mod input;
+pub mod locale;
 pub mod logging;
 pub mod meter;
 pub mod renderer;
@@ -111,6 +116,7 @@ impl Mul<f32> for Rgb {
 #[cfg_attr(feature = "clippy", allow(too_many_arguments))]
 #[cfg_attr(feature = "clippy", allow(doc_markdown))]
 #[cfg_attr(feature = "clippy", allow(unreadable_literal))]
+#[allow(unused_mut)]
 pub mod gl {
     #![allow(non_upper_case_globals)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));

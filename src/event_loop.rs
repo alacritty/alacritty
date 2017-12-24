@@ -195,7 +195,7 @@ impl<Io> EventLoop<Io>
 
     // Drain the channel
     //
-    // Returns a `DrainResult` indicating the result of receiving from the channe;
+    // Returns a `DrainResult` indicating the result of receiving from the channel
     //
     fn drain_recv_channel(&self, state: &mut State) -> DrainResult {
         let mut received_item = false;

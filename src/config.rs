@@ -25,6 +25,7 @@ use glutin::ModifiersState;
 
 use input::{Action, Binding, MouseBinding, KeyBinding};
 use index::{Line, Column};
+use ansi::CursorStyle;
 
 use util::fmt::Yellow;
 
@@ -208,13 +209,8 @@ impl Default for Alpha {
     }
 }
 
-/// Top-level config type
-#[derive(Debug, Deserialize)]
-pub struct Config {
-    /// TERM env variable
-    #[serde(default)]
-    env: HashMap<String, String>,
-
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub struct WindowConfig {
     /// Initial dimensions
     #[serde(default)]
     dimensions: Dimensions,
@@ -222,6 +218,42 @@ pub struct Config {
     /// Pixel padding
     #[serde(default="default_padding")]
     padding: Delta,
+
+    /// Draw the window with title bar / borders
+    #[serde(default)]
+    decorations: bool,
+}
+
+impl WindowConfig {
+    pub fn decorations(&self) -> bool {
+        self.decorations
+    }
+}
+
+impl Default for WindowConfig {
+    fn default() -> Self {
+        WindowConfig{
+            dimensions: Default::default(),
+            padding: default_padding(),
+            decorations: true,
+        }
+    }
+}
+
+/// Top-level config type
+#[derive(Debug, Deserialize)]
+pub struct Config {
+    /// Initial dimensions
+    #[serde(default)]
+    dimensions: Option<Dimensions>,
+
+    /// Pixel padding
+    #[serde(default)]
+    padding: Option<Delta>,
+
+    /// TERM env variable
+    #[serde(default)]
+    env: HashMap<String, String>,
 
     /// Font configuration
     #[serde(default)]
@@ -235,7 +267,7 @@ pub struct Config {
     #[serde(default)]
     custom_cursor_colors: bool,
 
-    /// Should draw bold text with brighter colors intead of bold font
+    /// Should draw bold text with brighter colors instead of bold font
     #[serde(default="true_bool")]
     draw_bold_text_with_bright_colors: bool,
 
@@ -245,6 +277,10 @@ pub struct Config {
     /// Background opacity from 0.0 to 1.0
     #[serde(default)]
     background_opacity: Alpha,
+
+    /// Window configuration
+    #[serde(default)]
+    window: WindowConfig,
 
     /// Keybindings
     #[serde(default="default_key_bindings")]
@@ -271,9 +307,17 @@ pub struct Config {
     #[serde(default)]
     visual_bell: VisualBellConfig,
 
+    /// Use dynamic title
+    #[serde(default="true_bool")]
+    dynamic_title: bool,
+
     /// Hide cursor when typing
     #[serde(default)]
     hide_cursor_when_typing: bool,
+
+    /// Style of the cursor
+    #[serde(default)]
+    cursor_style: CursorStyle,
 
     /// Live config reload
     #[serde(default="true_bool")]
@@ -314,7 +358,8 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             draw_bold_text_with_bright_colors: true,
-            dimensions: Default::default(),
+            dimensions: None,
+            padding: None,
             font: Default::default(),
             render_timer: Default::default(),
             custom_cursor_colors: false,
@@ -329,8 +374,10 @@ impl Default for Config {
             visual_bell: Default::default(),
             env: Default::default(),
             hide_cursor_when_typing: Default::default(),
+            cursor_style: Default::default(),
+            dynamic_title: Default::default(),
             live_config_reload: true,
-            padding: default_padding(),
+            window: Default::default(),
         }
     }
 }
@@ -463,10 +510,10 @@ impl<'a> de::Deserialize<'a> for ModeWrapper {
 
                 for modifier in value.split('|') {
                     match modifier.trim() {
-                        "AppCursor" => res.mode |= mode::APP_CURSOR,
-                        "~AppCursor" => res.not_mode |= mode::APP_CURSOR,
-                        "AppKeypad" => res.mode |= mode::APP_KEYPAD,
-                        "~AppKeypad" => res.not_mode |= mode::APP_KEYPAD,
+                        "AppCursor" => res.mode |= mode::TermMode::APP_CURSOR,
+                        "~AppCursor" => res.not_mode |= mode::TermMode::APP_CURSOR,
+                        "AppKeypad" => res.mode |= mode::TermMode::APP_KEYPAD,
+                        "~AppKeypad" => res.not_mode |= mode::TermMode::APP_KEYPAD,
                         _ => eprintln!("unknown mode {:?}", modifier),
                     }
                 }
@@ -731,7 +778,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
             }
         }
 
-        const FIELDS: &'static [&'static str] = &[
+        const FIELDS: &[&str] = &[
             "key", "mods", "mode", "action", "chars", "mouse", "command",
         ];
 
@@ -831,10 +878,10 @@ impl CursorOrPrimaryColors {
             },
             CursorOrPrimaryColors::Primary { foreground, background } => {
                 // Must print in config since logger isn't setup yet.
-                println!("{}",
-                    Yellow("You're using a deprecated form of cursor color config. Please update \
-                        your config to use `text` and `cursor` properties instead of `foreground` \
-                        and `background`. This will become an error in a future release.")
+                eprintln!("{}",
+                    Yellow("Config `colors.cursor.foreground` and `colors.cursor.background` \
+                            are deprecated. Please use `colors.cursor.text` and \
+                            `colors.cursor.cursor` instead.")
                 );
                 CursorColors {
                     text: foreground,
@@ -1116,7 +1163,8 @@ impl Config {
     }
 
     pub fn padding(&self) -> &Delta {
-        &self.padding
+        self.padding.as_ref()
+            .unwrap_or(&self.window.padding)
     }
 
     #[inline]
@@ -1133,7 +1181,13 @@ impl Config {
     /// Get window dimensions
     #[inline]
     pub fn dimensions(&self) -> Dimensions {
-        self.dimensions
+        self.dimensions.unwrap_or(self.window.dimensions)
+    }
+
+    /// Get window config
+    #[inline]
+    pub fn window(&self) -> &WindowConfig {
+        &self.window
     }
 
     /// Get visual bell config
@@ -1179,10 +1233,21 @@ impl Config {
         self.hide_cursor_when_typing
     }
 
+    /// Style of the cursor
+    #[inline]
+    pub fn cursor_style(&self) -> CursorStyle {
+        self.cursor_style
+    }
+
     /// Live config reload
     #[inline]
     pub fn live_config_reload(&self) -> bool {
         self.live_config_reload
+    }
+
+    #[inline]
+    pub fn dynamic_title(&self) -> bool {
+        self.dynamic_title
     }
 
     pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
@@ -1190,6 +1255,7 @@ impl Config {
         let raw = Config::read_file(path.as_path())?;
         let mut config: Config = serde_yaml::from_str(&raw)?;
         config.config_path = Some(path);
+        config.print_deprecation_warnings();
 
         Ok(config)
     }
@@ -1198,11 +1264,24 @@ impl Config {
         let mut f = fs::File::open(path)?;
         let mut contents = String::new();
         f.read_to_string(&mut contents)?;
-        if contents.len() == 0 {
+        if contents.is_empty() {
             return Err(Error::Empty);
         }
 
         Ok(contents)
+    }
+
+    fn print_deprecation_warnings(&self) {
+        use ::util::fmt;
+        if self.dimensions.is_some() {
+            eprintln!("{}", fmt::Yellow("Config `dimensions` is deprecated. \
+                                        Please use `window.dimensions` instead."));
+        }
+
+        if self.padding.is_some() {
+            eprintln!("{}", fmt::Yellow("Config `padding` is deprecated. \
+                                        Please use `window.padding` instead."));
+        }
     }
 }
 
@@ -1260,28 +1339,28 @@ impl Default for Delta {
     }
 }
 
-trait DeserializeFromF32 : Sized {
-    fn deserialize_from_f32<'a, D>(D) -> ::std::result::Result<Self, D::Error>
+trait DeserializeSize : Sized {
+    fn deserialize<'a, D>(D) -> ::std::result::Result<Self, D::Error>
         where D: serde::de::Deserializer<'a>;
 }
 
-impl DeserializeFromF32 for Size {
-    fn deserialize_from_f32<'a, D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+impl DeserializeSize for Size {
+    fn deserialize<'a, D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
         where D: serde::de::Deserializer<'a>
     {
         use std::marker::PhantomData;
 
-        struct FloatVisitor<__D> {
+        struct NumVisitor<__D> {
             _marker: PhantomData<__D>,
         }
 
-        impl<'a, __D> Visitor<'a> for FloatVisitor<__D>
+        impl<'a, __D> Visitor<'a> for NumVisitor<__D>
             where __D: serde::de::Deserializer<'a>
         {
             type Value = f64;
 
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                f.write_str("f64")
+                f.write_str("f64 or u64")
             }
 
             fn visit_f64<E>(self, value: f64) -> ::std::result::Result<Self::Value, E>
@@ -1289,10 +1368,16 @@ impl DeserializeFromF32 for Size {
             {
                 Ok(value)
             }
+
+            fn visit_u64<E>(self, value: u64) -> ::std::result::Result<Self::Value, E>
+                where E: ::serde::de::Error
+            {
+                Ok(value as f64)
+            }
         }
 
         deserializer
-            .deserialize_f64(FloatVisitor::<D>{ _marker: PhantomData })
+            .deserialize_any(NumVisitor::<D>{ _marker: PhantomData })
             .map(|v| Size::new(v as _))
     }
 }
@@ -1315,7 +1400,7 @@ pub struct Font {
     pub bold: FontDescription,
 
     // Font size in points
-    #[serde(deserialize_with="DeserializeFromF32::deserialize_from_f32")]
+    #[serde(deserialize_with="DeserializeSize::deserialize")]
     pub size: Size,
 
     /// Extra spacing per character

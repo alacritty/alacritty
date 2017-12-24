@@ -137,35 +137,40 @@ impl Display {
         let render_timer = config.render_timer();
 
         // Create the window where Alacritty will be displayed
-        let mut window = Window::new(&options.title)?;
+        let mut window = Window::new(&options.title, config.window())?;
 
-        // get window properties for initializing the other subsytems
-        let size = window.inner_size_pixels()
+        // get window properties for initializing the other subsystems
+        let mut viewport_size = window.inner_size_pixels()
             .expect("glutin returns window size");
         let dpr = window.hidpi_factor();
 
         info!("device_pixel_ratio: {}", dpr);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(&config, size)?;
+        let mut renderer = QuadRenderer::new(config, viewport_size)?;
 
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(&window, &mut renderer, config, 0)?;
 
-        // Resize window to specified dimensions
+
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
-        let width = cell_width as u32 * dimensions.columns_u32();
-        let height = cell_height as u32 * dimensions.lines_u32();
-        let size = Size { width: Pixels(width), height: Pixels(height) };
-        info!("set_inner_size: {}", size);
 
-        let viewport_size = Size {
-            width: Pixels(width + 2 * config.padding().x as u32),
-            height: Pixels(height + 2 * config.padding().y as u32),
-        };
-        window.set_inner_size(&viewport_size);
-        renderer.resize(viewport_size.width.0 as _, viewport_size.height.0 as _);
+        // Resize window to specified dimensions unless one or both dimensions are 0
+        if dimensions.columns_u32() > 0 && dimensions.lines_u32() > 0 {
+            let width = cell_width as u32 * dimensions.columns_u32();
+            let height = cell_height as u32 * dimensions.lines_u32();
+
+            let new_viewport_size = Size {
+                width: Pixels(width + 2 * config.padding().x as u32),
+                height: Pixels(height + 2 * config.padding().y as u32),
+            };
+
+            window.set_inner_size(&new_viewport_size);
+            renderer.resize(new_viewport_size.width.0 as _, new_viewport_size.height.0 as _);
+            viewport_size = new_viewport_size
+        }
+
         info!("Cell Size: ({} x {})", cell_width, cell_height);
 
         let size_info = SizeInfo {
@@ -237,7 +242,7 @@ impl Display {
         let cell_width = (metrics.average_advance + font.offset().x as f64) as u32;
         let cell_height = (metrics.line_height + font.offset().y as f64) as u32;
 
-        return Ok((glyph_cache, cell_width as f32, cell_height as f32));
+        Ok((glyph_cache, cell_width as f32, cell_height as f32))
     }
 
     pub fn update_glyph_cache(&mut self, config: &Config, font_size_delta: i8) {
@@ -353,6 +358,7 @@ impl Display {
                 //
                 // TODO I wonder if the renderable cells iter could avoid the
                 // mutable borrow
+                let window_focused = self.window.is_focused;
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
                     // Clear screen to update whole background with new color
                     if background_color_changed {
@@ -360,7 +366,10 @@ impl Display {
                     }
 
                     // Draw the grid
-                    api.render_cells(terminal.renderable_cells(config, selection), glyph_cache);
+                    api.render_cells(
+                        terminal.renderable_cells(config, selection, window_focused),
+                        glyph_cache,
+                    );
                 });
             }
 
