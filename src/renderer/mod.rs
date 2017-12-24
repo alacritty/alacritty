@@ -118,6 +118,9 @@ pub struct ShaderProgram {
     /// Visual bell
     u_visual_bell: GLint,
 
+    /// Visual bell color
+    u_visual_bell_color: GLint,
+
     /// Background pass flag
     ///
     /// Rendering is split into two passes; 1 for backgrounds, and one for text
@@ -644,10 +647,12 @@ impl QuadRenderer {
             }
         }
 
+        let visual_bell_color = config.visual_bell().color();
+
         unsafe {
             self.program.activate();
             self.program.set_term_uniforms(props);
-            self.program.set_visual_bell(visual_bell_intensity as _);
+            self.program.set_visual_bell(visual_bell_intensity as _, visual_bell_color);
 
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
@@ -734,16 +739,21 @@ impl QuadRenderer {
     }
 }
 
+fn mix(x: f32, y: f32, a: f32) -> f32 {
+    x * (1.0 - a) + y * a
+}
+
 impl<'a> RenderApi<'a> {
     pub fn clear(&self, color: Rgb) {
         let alpha = self.config.background_opacity().get();
+        let (flash, intensity) = (self.config.visual_bell().color(), self.visual_bell_intensity);
         unsafe {
             gl::ClearColor(
-                (self.visual_bell_intensity + f32::from(color.r) / 255.0).min(1.0) * alpha,
-                (self.visual_bell_intensity + f32::from(color.g) / 255.0).min(1.0) * alpha,
-                (self.visual_bell_intensity + f32::from(color.b) / 255.0).min(1.0) * alpha,
+                mix(color.r as f32 / 255.0, flash.r as f32 / 255.0, intensity).min(1.0) * alpha,
+                mix(color.g as f32 / 255.0, flash.g as f32 / 255.0, intensity).min(1.0) * alpha,
+                mix(color.b as f32 / 255.0, flash.b as f32 / 255.0, intensity).min(1.0) * alpha,
                 alpha
-                );
+            );
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
     }
@@ -998,12 +1008,13 @@ impl ShaderProgram {
         }
 
         // get uniform locations
-        let (projection, term_dim, cell_dim, visual_bell, background) = unsafe {
+        let (projection, term_dim, cell_dim, visual_bell, visual_bell_color, background) = unsafe {
             (
                 gl::GetUniformLocation(program, cptr!(b"projection\0")),
                 gl::GetUniformLocation(program, cptr!(b"termDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"cellDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"visualBell\0")),
+                gl::GetUniformLocation(program, cptr!(b"visualBellColor\0")),
                 gl::GetUniformLocation(program, cptr!(b"backgroundPass\0")),
             )
         };
@@ -1016,6 +1027,7 @@ impl ShaderProgram {
             u_term_dim: term_dim,
             u_cell_dim: cell_dim,
             u_visual_bell: visual_bell,
+            u_visual_bell_color: visual_bell_color,
             u_background: background,
             padding_x: config.padding().x.floor(),
             padding_y: config.padding().y.floor(),
@@ -1061,9 +1073,14 @@ impl ShaderProgram {
         }
     }
 
-    fn set_visual_bell(&self, visual_bell: f32) {
+    fn set_visual_bell(&self, visual_bell: f32, vb_color: Rgb) {
         unsafe {
             gl::Uniform1f(self.u_visual_bell, visual_bell);
+            gl::Uniform3f(self.u_visual_bell_color,
+                          vb_color.r as f32 / 255.,
+                          vb_color.g as f32 / 255.,
+                          vb_color.b as f32 / 255.
+            );
         }
     }
 

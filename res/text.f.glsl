@@ -15,6 +15,7 @@
 in vec2 TexCoords;
 in vec3 fg;
 in vec4 bg;
+in vec3 vbc;
 flat in float vb;
 flat in int background;
 
@@ -31,7 +32,11 @@ void main()
             discard;
 
         alphaMask = vec4(1.0);
-        color = vec4(bg.rgb + vb, 1.0);
+        if (vb == 0) {
+            color = vec4(bg.rgb, 1.0);
+        } else {
+            color = vec4(vbc, vb);
+        }
     } else {
         vec3 textColor = texture(mask, TexCoords).rgb;
         alphaMask = vec4(textColor, textColor.r);

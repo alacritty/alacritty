@@ -25,18 +25,21 @@ layout (location = 3) in vec4 uv;
 
 // text fg color
 layout (location = 4) in vec3 textColor;
+
 // Background color
 layout (location = 5) in vec4 backgroundColor;
 
 out vec2 TexCoords;
 out vec3 fg;
 out vec4 bg;
+out vec3 vbc;
 
 // Terminal properties
 uniform vec2 termDim;
 uniform vec2 cellDim;
 
 uniform float visualBell;
+uniform vec3 visualBellColor;
 uniform int backgroundPass;
 
 // Orthographic projection
@@ -74,6 +77,7 @@ void main()
     }
 
     vb = visualBell;
+    vbc = visualBellColor;
     background = backgroundPass;
     bg = vec4(backgroundColor.rgb / 255.0, backgroundColor.a);
     fg = textColor / vec3(255.0, 255.0, 255.0);
