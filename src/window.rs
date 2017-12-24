@@ -16,8 +16,11 @@ use std::fmt::{self, Display};
 use std::ops::Deref;
 
 use gl;
-use glutin::{self, EventsLoop, WindowBuilder, Event, MouseCursor, CursorState, ControlFlow, ContextBuilder};
+use glutin::{self, ContextBuilder, ControlFlow, CursorState, Event, EventsLoop,
+             MouseCursor as GlutinMouseCursor, WindowBuilder};
 use glutin::GlContext;
+
+use MouseCursor;
 
 use config::WindowConfig;
 
@@ -200,7 +203,7 @@ impl Window {
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
 
         // Text cursor
-        window.set_cursor(MouseCursor::Text);
+        window.set_cursor(GlutinMouseCursor::Text);
 
         // Set OpenGL symbol loader
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
@@ -282,6 +285,14 @@ impl Window {
     #[inline]
     pub fn set_title(&self, title: &str) {
         self.window.set_title(title);
+    }
+
+    #[inline]
+    pub fn set_mouse_cursor(&self, cursor: MouseCursor) {
+        self.window.set_cursor(match cursor {
+            MouseCursor::Arrow => GlutinMouseCursor::Arrow,
+            MouseCursor::Text => GlutinMouseCursor::Text,
+        });
     }
 
     /// Set cursor visible

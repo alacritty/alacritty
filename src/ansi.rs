@@ -21,7 +21,7 @@ use vte;
 
 use index::{Column, Line, Contains};
 
-use ::Rgb;
+use ::{MouseCursor, Rgb};
 
 // Parse color arguments
 //
@@ -177,6 +177,9 @@ pub trait TermInfo {
 pub trait Handler {
     /// OSC to set window title
     fn set_title(&mut self, &str) {}
+
+    /// Set the window's mouse cursor
+    fn set_mouse_cursor(&mut self, MouseCursor) {}
 
     /// Set the cursor style
     fn set_cursor_style(&mut self, _: Option<CursorStyle>) {}
@@ -402,7 +405,9 @@ pub enum Mode {
     /// ?1000
     ReportMouseClicks = 1000,
     /// ?1002
-    ReportMouseMotion = 1002,
+    ReportCellMouseMotion = 1002,
+    /// ?1003
+    ReportAllMouseMotion = 1003,
     /// ?1004
     ReportFocusInOut = 1004,
     /// ?1006
@@ -427,12 +432,16 @@ impl Mode {
                 12 => Mode::BlinkingCursor,
                 25 => Mode::ShowCursor,
                 1000 => Mode::ReportMouseClicks,
-                1002 => Mode::ReportMouseMotion,
+                1002 => Mode::ReportCellMouseMotion,
+                1003 => Mode::ReportAllMouseMotion,
                 1004 => Mode::ReportFocusInOut,
                 1006 => Mode::SgrMouse,
                 1049 => Mode::SwapScreenAndSetRestoreCursor,
                 2004 => Mode::BracketedPaste,
-                _ => return None
+                _ => {
+                    trace!("[unhandled] mode={:?}", num);
+                    return None
+                }
             })
         } else {
             Some(match num {

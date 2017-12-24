@@ -81,6 +81,13 @@ use std::ops::Mul;
 pub use grid::Grid;
 pub use term::Term;
 
+/// Facade around [winit's MouseCursor](glutin::MouseCursor)
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum MouseCursor {
+    Arrow,
+    Text,
+}
+
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Default, Serialize, Deserialize)]
 pub struct Rgb {
     pub r: u8,

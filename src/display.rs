@@ -327,6 +327,10 @@ impl Display {
             self.window.set_title(&title);
         }
 
+        if let Some(mouse_cursor) = terminal.get_next_mouse_cursor() {
+            self.window.set_mouse_cursor(mouse_cursor);
+        }
+
         if let Some(is_urgent) = terminal.next_is_urgent.take() {
             // We don't need to set the urgent flag if we already have the
             // user's attention.
