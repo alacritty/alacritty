@@ -1,3 +1,0 @@
-- background colors
-- fullscreen apps
-- resizing

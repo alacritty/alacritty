@@ -96,6 +96,7 @@ pub struct Display {
     rx: mpsc::Receiver<(u32, u32)>,
     tx: mpsc::Sender<(u32, u32)>,
     meter: Meter,
+    font_size_modifier: i8,
     size_info: SizeInfo,
     last_background_color: Rgb,
 }
@@ -133,62 +134,43 @@ impl Display {
         options: &cli::Options,
     ) -> Result<Display, Error> {
         // Extract some properties from config
-        let font = config.font();
-        let dpi = config.dpi();
         let render_timer = config.render_timer();
 
         // Create the window where Alacritty will be displayed
-        let mut window = Window::new(&options.title)?;
+        let mut window = Window::new(&options.title, config.window())?;
 
-        // get window properties for initializing the other subsytems
-        let size = window.inner_size_pixels()
+        // get window properties for initializing the other subsystems
+        let mut viewport_size = window.inner_size_pixels()
             .expect("glutin returns window size");
         let dpr = window.hidpi_factor();
 
         info!("device_pixel_ratio: {}", dpr);
 
-        let rasterizer = font::Rasterizer::new(dpi.x(), dpi.y(), dpr, config.use_thin_strokes())?;
-
         // Create renderer
-        let mut renderer = QuadRenderer::new(&config, size)?;
+        let mut renderer = QuadRenderer::new(config, viewport_size)?;
 
-        // Initialize glyph cache
-        let glyph_cache = {
-            info!("Initializing glyph cache");
-            let init_start = ::std::time::Instant::now();
+        let (glyph_cache, cell_width, cell_height) =
+            Self::new_glyph_cache(&window, &mut renderer, config, 0)?;
 
-            let cache = renderer.with_loader(|mut api| {
-                GlyphCache::new(rasterizer, config, &mut api)
-            })?;
 
-            let stop = init_start.elapsed();
-            let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;
-            info!("Finished initializing glyph cache in {}", stop_f);
-
-            cache
-        };
-
-        // Need font metrics to resize the window properly. This suggests to me the
-        // font metrics should be computed before creating the window in the first
-        // place so that a resize is not needed.
-        let metrics = glyph_cache.font_metrics();
-        let cell_width = (metrics.average_advance + font.offset().x as f64) as u32;
-        let cell_height = (metrics.line_height + font.offset().y as f64) as u32;
-
-        // Resize window to specified dimensions
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
-        let width = cell_width * dimensions.columns_u32();
-        let height = cell_height * dimensions.lines_u32();
-        let size = Size { width: Pixels(width), height: Pixels(height) };
-        info!("set_inner_size: {}", size);
 
-        let viewport_size = Size {
-            width: Pixels(width + 2 * config.padding().x as u32),
-            height: Pixels(height + 2 * config.padding().y as u32),
-        };
-        window.set_inner_size(&viewport_size);
-        renderer.resize(viewport_size.width.0 as _, viewport_size.height.0 as _);
+        // Resize window to specified dimensions unless one or both dimensions are 0
+        if dimensions.columns_u32() > 0 && dimensions.lines_u32() > 0 {
+            let width = cell_width as u32 * dimensions.columns_u32();
+            let height = cell_height as u32 * dimensions.lines_u32();
+
+            let new_viewport_size = Size {
+                width: Pixels(width + 2 * config.padding().x as u32),
+                height: Pixels(height + 2 * config.padding().y as u32),
+            };
+
+            window.set_inner_size(&new_viewport_size);
+            renderer.resize(new_viewport_size.width.0 as _, new_viewport_size.height.0 as _);
+            viewport_size = new_viewport_size
+        }
+
         info!("Cell Size: ({} x {})", cell_width, cell_height);
 
         let size_info = SizeInfo {
@@ -223,9 +205,55 @@ impl Display {
             tx: tx,
             rx: rx,
             meter: Meter::new(),
+            font_size_modifier: 0,
             size_info: size_info,
             last_background_color: background_color,
         })
+    }
+
+    fn new_glyph_cache(window : &Window, renderer : &mut QuadRenderer,
+                       config: &Config, font_size_delta: i8)
+        -> Result<(GlyphCache, f32, f32), Error>
+    {
+        let font = config.font().clone().with_size_delta(font_size_delta as f32);
+        let dpr = window.hidpi_factor();
+        let rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
+
+        // Initialize glyph cache
+        let glyph_cache = {
+            info!("Initializing glyph cache");
+            let init_start = ::std::time::Instant::now();
+
+            let cache = renderer.with_loader(|mut api| {
+                GlyphCache::new(rasterizer, &font, &mut api)
+            })?;
+
+            let stop = init_start.elapsed();
+            let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;
+            info!("Finished initializing glyph cache in {}", stop_f);
+
+            cache
+        };
+
+        // Need font metrics to resize the window properly. This suggests to me the
+        // font metrics should be computed before creating the window in the first
+        // place so that a resize is not needed.
+        let metrics = glyph_cache.font_metrics();
+        let cell_width = (metrics.average_advance + font.offset().x as f64) as u32;
+        let cell_height = (metrics.line_height + font.offset().y as f64) as u32;
+
+        Ok((glyph_cache, cell_width as f32, cell_height as f32))
+    }
+
+    pub fn update_glyph_cache(&mut self, config: &Config, font_size_delta: i8) {
+        let cache = &mut self.glyph_cache;
+        self.renderer.with_loader(|mut api| {
+            let _ = cache.update_font_size(config.font(), font_size_delta, &mut api);
+        });
+
+        let metrics = cache.font_metrics();
+        self.size_info.cell_width = ((metrics.average_advance + config.font().offset().x as f64) as f32).floor();
+        self.size_info.cell_height = ((metrics.line_height + config.font().offset().y as f64) as f32).floor();
     }
 
     #[inline]
@@ -241,6 +269,7 @@ impl Display {
     pub fn handle_resize(
         &mut self,
         terminal: &mut MutexGuard<Term>,
+        config: &Config,
         items: &mut [&mut OnResize]
     ) {
         // Resize events new_size and are handled outside the poll_events
@@ -253,11 +282,27 @@ impl Display {
             new_size = Some(sz);
         }
 
+        if terminal.font_size_modifier != self.font_size_modifier {
+            // Font size modification detected
+
+            self.font_size_modifier = terminal.font_size_modifier;
+            self.update_glyph_cache(config, terminal.font_size_modifier);
+
+            if new_size == None {
+                // Force a resize to refresh things
+                new_size = Some((self.size_info.width as u32,
+                                 self.size_info.height as u32));
+            }
+        }
+
         // Receive any resize events; only call gl::Viewport on last
         // available
         if let Some((w, h)) = new_size.take() {
-            terminal.resize(w as f32, h as f32);
-            let size = terminal.size_info();
+            self.size_info.width = w as f32;
+            self.size_info.height = h as f32;
+
+            let size = &self.size_info;
+            terminal.resize(size);
 
             for item in items {
                 item.on_resize(size)
@@ -284,6 +329,14 @@ impl Display {
             }
         }
 
+        if let Some(is_urgent) = terminal.next_is_urgent.take() {
+            // We don't need to set the urgent flag if we already have the
+            // user's attention.
+            if !is_urgent || !self.window.is_focused {
+                self.window.set_urgent(is_urgent);
+            }
+        }
+
         let size_info = *terminal.size_info();
         let visual_bell_intensity = terminal.visual_bell.intensity();
 
@@ -303,6 +356,7 @@ impl Display {
                 //
                 // TODO I wonder if the renderable cells iter could avoid the
                 // mutable borrow
+                let window_focused = self.window.is_focused;
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
                     // Clear screen to update whole background with new color
                     if background_color_changed {
@@ -310,7 +364,10 @@ impl Display {
                     }
 
                     // Draw the grid
-                    api.render_cells(terminal.renderable_cells(config, selection), glyph_cache);
+                    api.render_cells(
+                        terminal.renderable_cells(config, selection, window_focused),
+                        glyph_cache,
+                    );
                 });
             }
 

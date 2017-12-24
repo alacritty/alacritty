@@ -107,6 +107,14 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
     }
 
+    fn change_font_size(&mut self, delta: i8) {
+        self.terminal.change_font_size(delta);
+    }
+
+    fn reset_font_size(&mut self) {
+        self.terminal.reset_font_size();
+    }
+
     #[inline]
     fn mouse_mut(&mut self) -> &mut Mouse {
         self.mouse
@@ -243,10 +251,12 @@ impl<N: Notify> Processor<N> {
         ref_test: bool,
         resize_tx: &mpsc::Sender<(u32, u32)>,
         hide_cursor: &mut bool,
+        window_is_focused: &mut bool,
     ) {
         match event {
             // Pass on device events
             Event::DeviceEvent { .. } => (),
+            Event::Suspended { .. } => (),
             Event::WindowEvent { event, .. } => {
                 use glutin::WindowEvent::*;
                 match event {
@@ -293,7 +303,7 @@ impl<N: Notify> Processor<N> {
                         processor.mouse_input(state, button);
                         processor.ctx.terminal.dirty = true;
                     },
-                    MouseMoved { position: (x, y), .. } => {
+                    CursorMoved { position: (x, y), .. } => {
                         let x = x as i32;
                         let y = y as i32;
                         let x = limit(x, 0, processor.ctx.size_info.width as i32);
@@ -314,9 +324,13 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.terminal.dirty = true;
                     },
                     Focused(is_focused) => {
+                        *window_is_focused = is_focused;
+
                         if is_focused {
                             processor.ctx.terminal.dirty = true;
+                            processor.ctx.terminal.next_is_urgent = Some(false);
                         } else {
+                            processor.ctx.terminal.dirty = true;
                             *hide_cursor = false;
                         }
 
@@ -387,6 +401,8 @@ impl<N: Notify> Processor<N> {
                 mouse_bindings: &self.mouse_bindings[..],
             };
 
+            let mut window_is_focused = window.is_focused;
+
             // Scope needed to that hide_cursor isn't borrowed after the scope
             // ends.
             {
@@ -401,6 +417,7 @@ impl<N: Notify> Processor<N> {
                         ref_test,
                         resize_tx,
                         hide_cursor,
+                        &mut window_is_focused,
                     );
                 };
 
@@ -414,6 +431,8 @@ impl<N: Notify> Processor<N> {
             if self.hide_cursor_when_typing {
                 window.set_cursor_visible(!self.hide_cursor);
             }
+
+            window.is_focused = window_is_focused;
 
             if processor.ctx.selection_modified {
                 processor.ctx.terminal.dirty = true;

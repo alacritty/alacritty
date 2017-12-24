@@ -24,12 +24,15 @@ extern crate log;
 
 use std::error::Error;
 use std::sync::Arc;
+use std::env;
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
 use alacritty::display::Display;
 use alacritty::event;
 use alacritty::event_loop::{self, EventLoop, Msg};
+#[cfg(target_os = "macos")]
+use alacritty::locale;
 use alacritty::logging;
 use alacritty::sync::FairMutex;
 use alacritty::term::{Term};
@@ -41,8 +44,13 @@ fn main() {
     let options = cli::Options::load();
     let config = load_config(&options);
 
+    // Switch to home directory
+    env::set_current_dir(env::home_dir().unwrap()).unwrap();
+    #[cfg(target_os = "macos")]
+    locale::set_locale_environment();
+
     // Run alacritty
-    if let Err(err) = run(config, options) {
+    if let Err(err) = run(config, &options) {
         die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
     }
 
@@ -68,7 +76,7 @@ fn load_config(options: &cli::Options) -> Config {
                 die!("Config file not found at: {}", config_path.display());
             },
             config::Error::Empty => {
-                err_println!("Empty config; Loading defaults");
+                eprintln!("Empty config; Loading defaults");
                 Config::default()
             },
             _ => die!("{}", err),
@@ -80,9 +88,9 @@ fn load_config(options: &cli::Options) -> Config {
 ///
 /// Creates a window, the terminal state, pty, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
+fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // Initialize the logger first as to capture output from other subsystems
-    logging::initialize(&options)?;
+    logging::initialize(options)?;
 
     info!("Welcome to Alacritty.");
     config.path().map(|config_path| {
@@ -92,7 +100,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // Create a display.
     //
     // The display manages a window and can draw the terminal
-    let mut display = Display::new(&config, &options)?;
+    let mut display = Display::new(&config, options)?;
 
     info!(
         "PTY Dimensions: {:?} x {:?}",
@@ -116,7 +124,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     // The pty forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-    let mut pty = tty::new(&config, &options, display.size(), window_id);
+    let mut pty = tty::new(&config, options, display.size(), window_id);
 
     // Create the pseudoterminal I/O loop
     //
@@ -141,7 +149,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
     let mut processor = event::Processor::new(
         event_loop::Notifier(event_loop.channel()),
         display.resize_channel(),
-        &options,
+        options,
         &config,
         options.ref_test,
         display.size().to_owned(),
@@ -188,7 +196,7 @@ fn run(mut config: Config, options: cli::Options) -> Result<(), Box<Error>> {
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
-            display.handle_resize(&mut terminal, &mut [&mut pty, &mut processor]);
+            display.handle_resize(&mut terminal, &config, &mut [&mut pty, &mut processor]);
 
             // Draw the current state of the terminal
             display.draw(terminal, &config, processor.selection.as_ref());

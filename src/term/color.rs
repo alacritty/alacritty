@@ -20,7 +20,7 @@ impl<'a> From<&'a Colors> for List {
         // Type inference fails without this annotation
         let mut list: List = unsafe { ::std::mem::uninitialized() };
 
-        list.fill_named(&colors);
+        list.fill_named(colors);
         list.fill_cube();
         list.fill_gray_ramp();
 

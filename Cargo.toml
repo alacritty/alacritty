@@ -12,44 +12,46 @@ path = "src/main.rs"
 name = "alacritty"
 
 [dependencies]
-libc = "0.2.30"
+libc = "0.2"
 cgmath = "0.15"
 notify = "4"
-bitflags = "0.9.1"
+bitflags = "1"
 font = { path = "./font" }
-errno = "0.2.3"
-parking_lot = "0.4.5"
+errno = "0.2"
+parking_lot = "0.5"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
-serde_yaml = "0.7.1"
-vte = "0.3.2"
-mio = "0.6.10"
-mio-more = "0.1.0"
+serde_yaml = "0.7"
+vte = "0.3"
+mio = "0.6"
+mio-more = "0.1"
 copypasta = { path = "./copypasta" }
 xdg = "2"
-log = "0.3.8"
+log = "0.3"
 clap = "2"
 fnv = "1"
-unicode-width = "0.1.4"
-arraydeque = "0.2.3"
-glutin = "0.9.2"
+unicode-width = "0.1"
+arraydeque = "0.2"
+glutin = "0.11"
 clippy = { version = "*", optional = true }
-
+env_logger = "0.4"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2.2"
+
 [features]
-default = ["err-println"]
+default = []
 # Enabling this feature makes shaders automatically reload when changed
 live-shader-reload = []
-err-println = []
 nightly = []
 bench = []
 
 [build-dependencies]
-gl_generator = "0.5.5"
+gl_generator = "0.7"
 
 [profile.release]
 lto = true

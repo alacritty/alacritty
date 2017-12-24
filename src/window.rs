@@ -16,8 +16,10 @@ use std::fmt::{self, Display};
 use std::ops::Deref;
 
 use gl;
-use glutin::{self, EventsLoop, WindowBuilder, Event, CursorState, ControlFlow, ContextBuilder};
+use glutin::{self, EventsLoop, WindowBuilder, Event, MouseCursor, CursorState, ControlFlow, ContextBuilder};
 use glutin::GlContext;
+
+use config::WindowConfig;
 
 /// Window errors
 #[derive(Debug)]
@@ -39,6 +41,9 @@ pub struct Window {
     event_loop: EventsLoop,
     window: glutin::GlWindow,
     cursor_visible: bool,
+
+    /// Whether or not the window is the focused window.
+    pub is_focused: bool,
 }
 
 /// Threadsafe APIs for the window
@@ -180,17 +185,22 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
-        title: &str
+        title: &str,
+        window_config: &WindowConfig,
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
         Window::platform_window_init();
         let window = WindowBuilder::new()
             .with_title(title)
-            .with_transparency(true);
+            .with_transparency(true)
+            .with_decorations(window_config.decorations());
         let context = ContextBuilder::new()
             .with_vsync(true);
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
+
+        // Text cursor
+        window.set_cursor(MouseCursor::Text);
 
         // Set OpenGL symbol loader
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
@@ -204,6 +214,7 @@ impl Window {
             event_loop: event_loop,
             window: window,
             cursor_visible: true,
+            is_focused: true,
         };
 
         window.run_os_extensions();
@@ -223,7 +234,7 @@ impl Window {
 
     pub fn inner_size_pixels(&self) -> Option<Size<Pixels<u32>>> {
         self.window
-            .get_inner_size_pixels()
+            .get_inner_size()
             .map(|(w, h)| Size { width: Pixels(w), height: Pixels(h) })
     }
 
@@ -305,6 +316,43 @@ impl Window {
     /// TODO: change this directive when adding functions for other platforms
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
     pub fn platform_window_init() {
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
+    pub fn set_urgent(&self, is_urgent: bool) {
+        use glutin::os::unix::WindowExt;
+        use std::os::raw;
+        use x11_dl::xlib::{self, XUrgencyHint};
+
+        let xlib_display = self.window.get_xlib_display();
+        let xlib_window = self.window.get_xlib_window();
+
+        if let (Some(xlib_window), Some(xlib_display)) = (xlib_window, xlib_display) {
+            let xlib = xlib::Xlib::open().expect("get xlib");
+
+            unsafe {
+                let mut hints = (xlib.XGetWMHints)(xlib_display as _, xlib_window as _);
+
+                if hints.is_null() {
+                    hints = (xlib.XAllocWMHints)();
+                }
+
+                if is_urgent {
+                    (*hints).flags |= XUrgencyHint;
+                } else {
+                    (*hints).flags &= !XUrgencyHint;
+                 }
+
+                (xlib.XSetWMHints)(xlib_display as _, xlib_window as _, hints);
+
+                (xlib.XFree)(hints as *mut raw::c_void);
+            }
+        }
+
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
+    pub fn set_urgent(&self, _: bool) {
     }
 
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
