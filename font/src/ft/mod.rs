@@ -298,7 +298,8 @@ impl FreeTypeRasterizer {
         match glyph_key.c {
             super::UNDERLINE_CURSOR_CHAR => {
                 // Get the primary face metrics
-                let face = self.faces.get(&FontKey { token: 0 }).unwrap();
+                // This always loads the default face
+                let face = self.faces.get(glyph_key.font_key)?;
                 let size_metrics = face.ft_face
                     .size_metrics()
                     .ok_or(Error::MissingSizeMetrics)?;
@@ -314,7 +315,8 @@ impl FreeTypeRasterizer {
             }
             super::BEAM_CURSOR_CHAR | super::BOX_CURSOR_CHAR => {
                 // Get the primary face metrics
-                let face = self.faces.get(&FontKey { token: 0 }).unwrap();
+                // This always loads the default face
+                let face = self.faces.get(glyph_key.font_key)?;
                 let size_metrics = face.ft_face
                     .size_metrics()
                     .ok_or(Error::MissingSizeMetrics)?;
