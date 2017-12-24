@@ -323,10 +323,8 @@ impl Display {
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
 
-        if config.dynamic_title() {
-            if let Some(title) = terminal.get_next_title() {
-                self.window.set_title(&title);
-            }
+        if let Some(title) = terminal.get_next_title() {
+            self.window.set_title(&title);
         }
 
         if let Some(is_urgent) = terminal.next_is_urgent.take() {
