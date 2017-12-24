@@ -29,6 +29,7 @@ use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclus
 use selection::{self, Span, Selection};
 use config::{Config, VisualBellAnimation};
 use {MouseCursor, Rgb};
+use copypasta::{Clipboard, Load, Store};
 
 pub mod cell;
 pub mod color;
@@ -1671,6 +1672,17 @@ impl ansi::Handler for Term {
         trace!("reset_color[{}]", index);
         self.colors[index] = self.original_colors[index];
         self.color_modified[index] = false;
+    }
+
+    /// Set the clipboard
+    #[inline]
+    fn set_clipboard(&mut self, string: &str)
+    {
+        Clipboard::new()
+            .and_then(|mut clipboard| clipboard.store_primary(string))
+            .unwrap_or_else(|err| {
+                warn!("Error storing selection to clipboard. {}", err);
+            });
     }
 
     #[inline]
