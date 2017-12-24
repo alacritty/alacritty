@@ -204,6 +204,8 @@ mouse:
 selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>"
 
+dynamic_title: true
+
 hide_cursor_when_typing: false
 
 # Style of the cursor

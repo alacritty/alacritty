@@ -703,6 +703,8 @@ pub struct Term {
 
     /// Default style for resetting the cursor
     default_cursor_style: CursorStyle,
+
+    dynamic_title: bool,
 }
 
 /// Terminal size info
@@ -806,6 +808,7 @@ impl Term {
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
             cursor_style: None,
             default_cursor_style: config.cursor_style(),
+            dynamic_title: config.dynamic_title(),
         }
     }
 
@@ -831,6 +834,7 @@ impl Term {
         }
         self.visual_bell.update_config(config);
         self.default_cursor_style = config.cursor_style();
+        self.dynamic_title = config.dynamic_title();
     }
 
     #[inline]
@@ -1159,7 +1163,9 @@ impl ansi::Handler for Term {
     /// Set the window title
     #[inline]
     fn set_title(&mut self, title: &str) {
-        self.next_title = Some(title.to_owned());
+        if self.dynamic_title {
+            self.next_title = Some(title.to_owned());
+        }
     }
 
     /// A character to be displayed

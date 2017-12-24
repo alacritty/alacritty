@@ -307,6 +307,10 @@ pub struct Config {
     #[serde(default)]
     visual_bell: VisualBellConfig,
 
+    /// Use dynamic title
+    #[serde(default="true_bool")]
+    dynamic_title: bool,
+
     /// Hide cursor when typing
     #[serde(default)]
     hide_cursor_when_typing: bool,
@@ -371,6 +375,7 @@ impl Default for Config {
             env: Default::default(),
             hide_cursor_when_typing: Default::default(),
             cursor_style: Default::default(),
+            dynamic_title: Default::default(),
             live_config_reload: true,
             window: Default::default(),
         }
@@ -1238,6 +1243,11 @@ impl Config {
     #[inline]
     pub fn live_config_reload(&self) -> bool {
         self.live_config_reload
+    }
+
+    #[inline]
+    pub fn dynamic_title(&self) -> bool {
+        self.dynamic_title
     }
 
     pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
