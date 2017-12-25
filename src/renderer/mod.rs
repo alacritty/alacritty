@@ -903,14 +903,14 @@ fn load_glyph(
         Err(AtlasInsertError::GlyphTooLarge) => {
             Glyph {
                 tex_id: atlas[*current_atlas].id,
-                top: 0.0,
-                left: 0.0,
-                width: 0.0,
-                height: 0.0,
-                uv_bot: 0.0,
-                uv_left: 0.0,
-                uv_width: 0.0,
-                uv_height: 0.0,
+                top: 0 as _,
+                left: 0 as _,
+                width: 0 as _,
+                height: 0 as _,
+                uv_bot: 0 as _,
+                uv_left: 0 as _,
+                uv_width: 0 as _,
+                uv_height: 0 as _,
             }
         }
     }
