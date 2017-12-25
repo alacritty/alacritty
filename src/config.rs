@@ -65,6 +65,10 @@ fn deserialize_duration_ms<'a, D>(deserializer: D) -> ::std::result::Result<Dura
 pub struct Mouse {
     pub double_click: ClickHandler,
     pub triple_click: ClickHandler,
+
+    /// Send up/down arrow when scrolling in alt screen buffer
+    #[serde(default="true_bool")]
+    pub faux_scrollback: bool,
 }
 
 impl Default for Mouse {
@@ -75,7 +79,8 @@ impl Default for Mouse {
             },
             triple_click: ClickHandler {
                 threshold: Duration::from_millis(300),
-            }
+            },
+            faux_scrollback: true,
         }
     }
 }

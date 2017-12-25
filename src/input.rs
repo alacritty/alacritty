@@ -381,7 +381,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 };
 
                 for _ in 0..(to_scroll.abs() as usize) {
-                    if self.ctx.terminal_mode().intersects(mode::TermMode::ALT_SCREEN) {
+                    if self.mouse_config.faux_scrollback &&
+                        self.ctx.terminal_mode().intersects(mode::TermMode::ALT_SCREEN)
+                    {
                         // Faux scrolling
                         if code == 64 {
                             // Scroll up one line
@@ -416,7 +418,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                                 65
                             };
 
-                            if self.ctx.terminal_mode().intersects(mode::TermMode::ALT_SCREEN) {
+                            if self.mouse_config.faux_scrollback &&
+                                self.ctx.terminal_mode().intersects(mode::TermMode::ALT_SCREEN)
+                            {
                                 // Faux scrolling
                                 if button == 64 {
                                     // Scroll up one line
