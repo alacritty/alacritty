@@ -588,6 +588,7 @@ unsafe fn set_nonblocking(fd: c_int) {
     assert_eq!(res, 0);
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_get_pw_entry() {
     let mut buf: [i8; 1024] = [0; 1024];
