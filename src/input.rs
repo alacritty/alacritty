@@ -375,9 +375,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
-        let modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION | mode::TermMode::SGR_MOUSE |
-            mode::TermMode::ALT_SCREEN;
-        if !self.ctx.terminal_mode().intersects(modes) {
+        let mouse_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION | mode::TermMode::SGR_MOUSE;
+        if !self.ctx.terminal_mode().intersects(mouse_modes | mode::TermMode::ALT_SCREEN) {
             return;
         }
 
@@ -391,20 +390,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 };
 
                 for _ in 0..(to_scroll.abs() as usize) {
-                    if self.mouse_config.faux_scrollback &&
-                        self.ctx.terminal_mode().intersects(mode::TermMode::ALT_SCREEN)
-                    {
-                        // Faux scrolling
-                        if code == 64 {
-                            // Scroll up one line
-                            self.ctx.write_to_pty("\x1bOA".as_bytes());
-                        } else {
-                            // Scroll down one line
-                            self.ctx.write_to_pty("\x1bOB".as_bytes());
-                        }
-                    } else {
-                        self.normal_mouse_report(code);
-                    }
+                    self.scroll_terminal(mouse_modes, code)
                 }
 
                 self.ctx.mouse_mut().lines_scrolled = to_scroll % 1.0;
@@ -420,7 +406,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                         let height = self.ctx.size_info().cell_height as i32;
 
                         while self.ctx.mouse_mut().scroll_px.abs() >= height {
-                            let button = if self.ctx.mouse_mut().scroll_px > 0 {
+                            let code = if self.ctx.mouse_mut().scroll_px > 0 {
                                 self.ctx.mouse_mut().scroll_px -= height;
                                 64
                             } else {
@@ -428,24 +414,35 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                                 65
                             };
 
-                            if self.mouse_config.faux_scrollback &&
-                                self.ctx.terminal_mode().intersects(mode::TermMode::ALT_SCREEN)
-                            {
-                                // Faux scrolling
-                                if button == 64 {
-                                    // Scroll up one line
-                                    self.ctx.write_to_pty("\x1bOA".as_bytes());
-                                } else {
-                                    // Scroll down one line
-                                    self.ctx.write_to_pty("\x1bOB".as_bytes());
-                                }
-                            } else {
-                                self.normal_mouse_report(button);
-                            }
+                            self.scroll_terminal(mouse_modes, code)
                         }
                     },
                     _ => (),
                 }
+            }
+        }
+    }
+
+    fn scroll_terminal(&mut self, mouse_modes: TermMode, code: u8) {
+        let faux_scrollback_lines = self.mouse_config.faux_scrollback_lines;
+        if self.ctx.terminal_mode().intersects(mouse_modes) {
+            self.normal_mouse_report(code);
+        } else if faux_scrollback_lines > 0 {
+            // Faux scrolling
+            if code == 64 {
+                // Scroll up by `faux_scrollback_lines`
+                let mut content = String::with_capacity(faux_scrollback_lines * 3);
+                for _ in 0..faux_scrollback_lines {
+                    content = content + "\x1bOA";
+                }
+                self.ctx.write_to_pty(content.into_bytes());
+            } else {
+                // Scroll down by `faux_scrollback_lines`
+                let mut content = String::with_capacity(faux_scrollback_lines * 3);
+                for _ in 0..faux_scrollback_lines {
+                    content = content + "\x1bOB";
+                }
+                self.ctx.write_to_pty(content.into_bytes());
             }
         }
     }
@@ -702,7 +699,8 @@ mod tests {
                         },
                         triple_click: ClickHandler {
                             threshold: Duration::from_millis(1000),
-                        }
+                        },
+                        faux_scrollback_lines: 1,
                     },
                     key_bindings: &config.key_bindings()[..],
                     mouse_bindings: &config.mouse_bindings()[..],

@@ -66,9 +66,13 @@ pub struct Mouse {
     pub double_click: ClickHandler,
     pub triple_click: ClickHandler,
 
-    /// Send up/down arrow when scrolling in alt screen buffer
-    #[serde(default="true_bool")]
-    pub faux_scrollback: bool,
+    /// up/down arrows sent when scrolling in alt screen buffer
+    #[serde(default="default_faux_scrollback_lines")]
+    pub faux_scrollback_lines: usize,
+}
+
+fn default_faux_scrollback_lines() -> usize {
+    1
 }
 
 impl Default for Mouse {
@@ -80,7 +84,7 @@ impl Default for Mouse {
             triple_click: ClickHandler {
                 threshold: Duration::from_millis(300),
             },
-            faux_scrollback: true,
+            faux_scrollback_lines: 1,
         }
     }
 }
