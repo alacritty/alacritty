@@ -25,8 +25,7 @@ use std::time::Instant;
 use std::os::unix::process::CommandExt;
 
 use copypasta::{Clipboard, Load, Buffer};
-use glutin::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollDelta};
-use glutin::ModifiersState;
+use glutin::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState};
 
 use config;
 use event::{ClickState, Mouse};
@@ -254,7 +253,7 @@ impl From<&'static str> for Action {
 
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     #[inline]
-    pub fn mouse_moved(&mut self, x: u32, y: u32) {
+    pub fn mouse_moved(&mut self, x: u32, y: u32, modifiers: ModifiersState) {
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
@@ -275,7 +274,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
             if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
                 let report_mode = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
-                if !self.ctx.terminal_mode().intersects(report_mode) {
+                if modifiers.shift || !self.ctx.terminal_mode().intersects(report_mode) {
                     self.ctx.update_selection(Point {
                         line: point.line,
                         col: point.col
@@ -338,7 +337,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn on_mouse_press(&mut self) {
+    pub fn on_mouse_press(&mut self, modifiers: ModifiersState) {
         let now = Instant::now();
         let elapsed = self.ctx.mouse_mut().last_click_timestamp.elapsed();
         self.ctx.mouse_mut().last_click_timestamp = now;
@@ -354,7 +353,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             },
             _ => {
                 let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
-                if self.ctx.terminal_mode().intersects(report_modes) {
+                if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes) {
                     self.mouse_report(0);
                     return;
                 }
@@ -365,8 +364,10 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         };
     }
 
-    pub fn on_mouse_release(&mut self) {
-        if self.ctx.terminal_mode().intersects(mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION) {
+    pub fn on_mouse_release(&mut self, modifiers: ModifiersState) {
+        let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
+        if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes)
+        {
             self.mouse_report(3);
             return;
         }
@@ -455,16 +456,16 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
+    pub fn mouse_input(&mut self, state: ElementState, button: MouseButton, modifiers: ModifiersState) {
         if let MouseButton::Left = button {
             let state = mem::replace(&mut self.ctx.mouse_mut().left_button_state, state);
             if self.ctx.mouse_mut().left_button_state != state {
                 match self.ctx.mouse_mut().left_button_state {
                     ElementState::Pressed => {
-                        self.on_mouse_press();
+                        self.on_mouse_press(modifiers);
                     },
                     ElementState::Released => {
-                        self.on_mouse_release();
+                        self.on_mouse_release(modifiers);
                     }
                 }
             }
@@ -701,8 +702,8 @@ mod tests {
                     mouse_bindings: &config.mouse_bindings()[..],
                 };
 
-                if let Event::WindowEvent { event: WindowEvent::MouseInput { state, button, .. }, .. } = $input {
-                    processor.mouse_input(state, button);
+                if let Event::WindowEvent { event: WindowEvent::MouseInput { state, button, modifiers, .. }, .. } = $input {
+                    processor.mouse_input(state, button, modifiers);
                 };
 
                 assert!(match mouse.click_state {
@@ -740,6 +741,12 @@ mod tests {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 device_id: unsafe { ::std::mem::transmute_copy(&0) },
+                modifiers: ModifiersState {
+                    shift: false,
+                    ctrl: false,
+                    alt: false,
+                    logo: false,
+                },
             },
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
@@ -755,6 +762,12 @@ mod tests {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 device_id: unsafe { ::std::mem::transmute_copy(&0) },
+                modifiers: ModifiersState {
+                    shift: false,
+                    ctrl: false,
+                    alt: false,
+                    logo: false,
+                },
             },
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
@@ -770,6 +783,12 @@ mod tests {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 device_id: unsafe { ::std::mem::transmute_copy(&0) },
+                modifiers: ModifiersState {
+                    shift: false,
+                    ctrl: false,
+                    alt: false,
+                    logo: false,
+                },
             },
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
