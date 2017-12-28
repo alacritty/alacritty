@@ -228,7 +228,7 @@ impl Display {
             })?;
 
             let stop = init_start.elapsed();
-            let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;
+            let stop_f = stop.as_secs() as f64 + f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
             info!("Finished initializing glyph cache in {}", stop_f);
 
             cache
@@ -238,8 +238,8 @@ impl Display {
         // font metrics should be computed before creating the window in the first
         // place so that a resize is not needed.
         let metrics = glyph_cache.font_metrics();
-        let cell_width = (metrics.average_advance + font.offset().x as f64) as u32;
-        let cell_height = (metrics.line_height + font.offset().y as f64) as u32;
+        let cell_width = (metrics.average_advance + f64::from(font.offset().x)) as u32;
+        let cell_height = (metrics.line_height + f64::from(font.offset().y)) as u32;
 
         Ok((glyph_cache, cell_width as f32, cell_height as f32))
     }
@@ -252,8 +252,8 @@ impl Display {
         });
 
         let metrics = cache.font_metrics();
-        self.size_info.cell_width = ((metrics.average_advance + config.font().offset().x as f64) as f32).floor();
-        self.size_info.cell_height = ((metrics.line_height + config.font().offset().y as f64) as f32).floor();
+        self.size_info.cell_width = ((metrics.average_advance + f64::from(config.font().offset().x)) as f32).floor();
+        self.size_info.cell_height = ((metrics.line_height + f64::from(config.font().offset().y)) as f32).floor();
     }
 
     #[inline]

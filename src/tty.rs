@@ -70,8 +70,8 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     let mut slave: c_int = 0;
 
     let win = winsize {
-        ws_row: rows as libc::c_ushort,
-        ws_col: cols as libc::c_ushort,
+        ws_row: u16::from(rows),
+        ws_col: u16::from(cols),
         ws_xpixel: 0,
         ws_ypixel: 0,
     };
@@ -174,7 +174,7 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
 }
 
 /// Create a new tty and return a handle to interact with it.
-pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T, window_id: Option<usize>) -> Pty {
+pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id: Option<usize>) -> Pty {
     let win = size.to_winsize();
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
@@ -262,7 +262,7 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T, window_id:
             }
 
             let pty = Pty { fd: master };
-            pty.resize(&size);
+            pty.resize(size);
             pty
         },
         Err(err) => {

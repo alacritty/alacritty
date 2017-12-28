@@ -18,15 +18,15 @@ use index::Column;
 bitflags! {
     #[derive(Serialize, Deserialize)]
     pub struct Flags: u32 {
-        const INVERSE           = 0b00000001;
-        const BOLD              = 0b00000010;
-        const ITALIC            = 0b00000100;
-        const UNDERLINE         = 0b00001000;
-        const WRAPLINE          = 0b00010000;
-        const WIDE_CHAR         = 0b00100000;
-        const WIDE_CHAR_SPACER  = 0b01000000;
-        const DIM               = 0b10000000;
-        const DIM_BOLD          = 0b10000010;
+        const INVERSE           = 0b0000_0001;
+        const BOLD              = 0b0000_0010;
+        const ITALIC            = 0b0000_0100;
+        const UNDERLINE         = 0b0000_1000;
+        const WRAPLINE          = 0b0001_0000;
+        const WIDE_CHAR         = 0b0010_0000;
+        const WIDE_CHAR_SPACER  = 0b0100_0000;
+        const DIM               = 0b1000_0000;
+        const DIM_BOLD          = 0b1000_0010;
     }
 }
 
@@ -92,7 +92,7 @@ impl Cell {
 
     pub fn new(c: char, fg: Color, bg: Color) -> Cell {
         Cell {
-            c: c.into(),
+            c: c,
             bg: bg,
             fg: fg,
             flags: Flags::empty(),

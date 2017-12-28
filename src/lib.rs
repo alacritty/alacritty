@@ -15,6 +15,7 @@
 //! Alacritty - The GPU Enhanced Terminal
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
+#![cfg_attr(feature = "clippy", deny(clippy))]
 #![cfg_attr(feature = "clippy", deny(enum_glob_use))]
 #![cfg_attr(feature = "clippy", deny(if_not_else))]
 #![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
@@ -82,7 +83,7 @@ use std::ops::Mul;
 pub use grid::Grid;
 pub use term::Term;
 
-/// Facade around [winit's MouseCursor](glutin::MouseCursor)
+/// Facade around [winit's `MouseCursor`](glutin::MouseCursor)
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum MouseCursor {
     Arrow,
@@ -102,9 +103,9 @@ impl Mul<f32> for Rgb {
 
     fn mul(self, rhs: f32) -> Rgb {
         let result = Rgb {
-            r: (self.r as f32 * rhs).max(0.0).min(255.0) as u8,
-            g: (self.g as f32 * rhs).max(0.0).min(255.0) as u8,
-            b: (self.b as f32 * rhs).max(0.0).min(255.0) as u8
+            r: (f32::from(self.r) * rhs).max(0.0).min(255.0) as u8,
+            g: (f32::from(self.g) * rhs).max(0.0).min(255.0) as u8,
+            b: (f32::from(self.b) * rhs).max(0.0).min(255.0) as u8
         };
 
         trace!("Scaling RGB by {} from {:?} to {:?}", rhs, self, result);

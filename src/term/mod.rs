@@ -36,7 +36,7 @@ pub mod color;
 pub use self::cell::Cell;
 use self::cell::LineLength;
 
-impl<'a> selection::SemanticSearch for &'a Term {
+impl selection::SemanticSearch for Term {
     fn semantic_search_left(&self, mut point: Point) -> Point {
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
@@ -76,7 +76,7 @@ impl<'a> selection::SemanticSearch for &'a Term {
     }
 }
 
-impl<'a> selection::Dimensions for &'a Term {
+impl selection::Dimensions for Term {
     fn dimensions(&self) -> Point {
         Point {
             col: self.grid.num_cols(),
@@ -119,7 +119,6 @@ impl<'a> RenderableCellsIter<'a> {
         config: &'b Config,
         selection: Option<RangeInclusive<index::Linear>>,
         cursor_style: CursorStyle,
-        window_focused: bool,
     ) -> RenderableCellsIter<'b> {
         let cursor_index = Linear(cursor.line.0 * grid.num_cols().0 + cursor.col.0);
 
@@ -134,7 +133,7 @@ impl<'a> RenderableCellsIter<'a> {
             config: config,
             colors: colors,
             cursor_cells: ArrayDeque::new(),
-        }.initialize(cursor_style, window_focused)
+        }.initialize(cursor_style)
     }
 
     fn push_cursor_cells(
@@ -214,6 +213,10 @@ impl<'a> RenderableCellsIter<'a> {
         self.populate_char_cursor(font::BEAM_CURSOR_CHAR, ' ');
     }
 
+    fn populate_box_cursor(&mut self) {
+        self.populate_char_cursor(font::BOX_CURSOR_CHAR, ' ');
+    }
+
     #[inline]
     fn is_wide_cursor(&self, cell: &Cell) -> bool {
         cell.flags.contains(cell::Flags::WIDE_CHAR) && (self.cursor.col + 1) < self.grid.num_cols()
@@ -237,22 +240,20 @@ impl<'a> RenderableCellsIter<'a> {
         });
     }
 
-    fn initialize(mut self, cursor_style: CursorStyle, window_focused: bool) -> Self {
+    fn initialize(mut self, cursor_style: CursorStyle) -> Self {
         if self.cursor_is_visible() {
-            if !window_focused {
-                // Render the box cursor if the window is not focused
-                self.populate_char_cursor(font::BOX_CURSOR_CHAR, ' ');
-            } else {
-                match cursor_style {
-                    CursorStyle::Block => {
-                        self.populate_block_cursor();
-                    },
-                    CursorStyle::Beam => {
-                        self.populate_beam_cursor();
-                    },
-                    CursorStyle::Underline => {
-                        self.populate_underline_cursor();
-                    }
+            match cursor_style {
+                CursorStyle::Box => {
+                    self.populate_box_cursor();
+                },
+                CursorStyle::Block => {
+                    self.populate_block_cursor();
+                },
+                CursorStyle::Beam => {
+                    self.populate_beam_cursor();
+                },
+                CursorStyle::Underline => {
+                    self.populate_underline_cursor();
                 }
             }
         } else {
@@ -417,20 +418,20 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 pub mod mode {
     bitflags! {
         pub struct TermMode: u16 {
-            const SHOW_CURSOR         = 0b0000000000001;
-            const APP_CURSOR          = 0b0000000000010;
-            const APP_KEYPAD          = 0b0000000000100;
-            const MOUSE_REPORT_CLICK  = 0b0000000001000;
-            const BRACKETED_PASTE     = 0b0000000010000;
-            const SGR_MOUSE           = 0b0000000100000;
-            const MOUSE_MOTION        = 0b0000001000000;
-            const LINE_WRAP           = 0b0000010000000;
-            const LINE_FEED_NEW_LINE  = 0b0000100000000;
-            const ORIGIN              = 0b0001000000000;
-            const INSERT              = 0b0010000000000;
-            const FOCUS_IN_OUT        = 0b0100000000000;
-            const ALT_SCREEN          = 0b1000000000000;
-            const ANY                 = 0b1111111111111;
+            const SHOW_CURSOR         = 0b0_0000_0000_0001;
+            const APP_CURSOR          = 0b0_0000_0000_0010;
+            const APP_KEYPAD          = 0b0_0000_0000_0100;
+            const MOUSE_REPORT_CLICK  = 0b0_0000_0000_1000;
+            const BRACKETED_PASTE     = 0b0_0000_0001_0000;
+            const SGR_MOUSE           = 0b0_0000_0010_0000;
+            const MOUSE_MOTION        = 0b0_0000_0100_0000;
+            const LINE_WRAP           = 0b0_0000_1000_0000;
+            const LINE_FEED_NEW_LINE  = 0b0_0001_0000_0000;
+            const ORIGIN              = 0b0_0010_0000_0000;
+            const INSERT              = 0b0_0100_0000_0000;
+            const FOCUS_IN_OUT        = 0b0_1000_0000_0000;
+            const ALT_SCREEN          = 0b1_0000_0000_0000;
+            const ANY                 = 0b1_1111_1111_1111;
             const NONE                = 0;
         }
     }
@@ -603,9 +604,9 @@ impl VisualBell {
 
                 let elapsed = instant.duration_since(earlier);
                 let elapsed_f = elapsed.as_secs() as f64 +
-                                elapsed.subsec_nanos() as f64 / 1e9f64;
+                                f64::from(elapsed.subsec_nanos()) / 1e9f64;
                 let duration_f = self.duration.as_secs() as f64 +
-                                 self.duration.subsec_nanos() as f64 / 1e9f64;
+                                 f64::from(self.duration.subsec_nanos()) / 1e9f64;
 
                 // Otherwise, we compute a value `time` from 0.0 to 1.0
                 // inclusive that represents the ratio of `elapsed` time to the
@@ -616,8 +617,9 @@ impl VisualBell {
                 // VisualBell. When `time` is 0.0, `inverse_intensity` is 0.0,
                 // and when `time` is 1.0, `inverse_intensity` is 1.0.
                 let inverse_intensity = match self.animation {
-                    VisualBellAnimation::Ease => cubic_bezier(0.25, 0.1, 0.25, 1.0, time),
-                    VisualBellAnimation::EaseOut => cubic_bezier(0.25, 0.1, 0.25, 1.0, time),
+                    VisualBellAnimation::Ease | VisualBellAnimation::EaseOut => {
+                        cubic_bezier(0.25, 0.1, 0.25, 1.0, time)
+                    },
                     VisualBellAnimation::EaseOutSine => cubic_bezier(0.39, 0.575, 0.565, 1.0, time),
                     VisualBellAnimation::EaseOutQuad => cubic_bezier(0.25, 0.46, 0.45, 0.94, time),
                     VisualBellAnimation::EaseOutCubic => cubic_bezier(0.215, 0.61, 0.355, 1.0, time),
@@ -993,6 +995,11 @@ impl Term {
     ) -> RenderableCellsIter {
         let selection = selection.and_then(|s| s.to_span(self))
             .map(|span| span.to_range());
+        let cursor = if window_focused {
+            self.cursor_style.unwrap_or(self.default_cursor_style)
+        } else {
+            CursorStyle::Box
+        };
 
         RenderableCellsIter::new(
             &self.grid,
@@ -1001,8 +1008,7 @@ impl Term {
             self.mode,
             config,
             selection,
-            self.cursor_style.unwrap_or(self.default_cursor_style),
-            window_focused,
+            cursor,
         )
     }
 
@@ -1046,13 +1052,13 @@ impl Term {
         // Scroll up to keep cursor in terminal
         if self.cursor.point.line >= num_lines {
             let lines = self.cursor.point.line - num_lines + 1;
-            self.grid.scroll_up(Line(0)..old_lines, lines);
+            self.grid.scroll_up(&(Line(0)..old_lines), lines);
         }
 
         // Scroll up alt grid as well
         if self.cursor_save_alt.point.line >= num_lines {
             let lines = self.cursor_save_alt.point.line - num_lines + 1;
-            self.alt_grid.scroll_up(Line(0)..old_lines, lines);
+            self.alt_grid.scroll_up(&(Line(0)..old_lines), lines);
         }
 
         debug!("num_cols, num_lines = {}, {}", num_cols, num_lines);
@@ -1131,7 +1137,7 @@ impl Term {
         }
 
         // Scroll between origin and bottom
-        self.grid.scroll_down(origin..self.scroll_region.end, lines);
+        self.grid.scroll_down(&(origin..self.scroll_region.end), lines);
     }
 
     /// Scroll screen up
@@ -1153,7 +1159,7 @@ impl Term {
         }
 
         // Scroll from origin to bottom less number of lines
-        self.grid.scroll_up(origin..self.scroll_region.end, lines);
+        self.grid.scroll_up(&(origin..self.scroll_region.end), lines);
     }
 
     fn deccolm(&mut self) {
@@ -1262,13 +1268,11 @@ impl ansi::Handler for Term {
                 }
 
                 // Set spacer cell for wide chars.
-                if width == 2 {
-                    if self.cursor.point.col + 1 < num_cols {
-                        self.cursor.point.col += 1;
-                        let spacer = &mut self.grid[&self.cursor.point];
-                        *spacer = self.cursor.template;
-                        spacer.flags.insert(cell::Flags::WIDE_CHAR_SPACER);
-                    }
+                if width == 2 && self.cursor.point.col + 1 < num_cols {
+                    self.cursor.point.col += 1;
+                    let spacer = &mut self.grid[&self.cursor.point];
+                    *spacer = self.cursor.template;
+                    spacer.flags.insert(cell::Flags::WIDE_CHAR_SPACER);
                 }
             }
         }
@@ -1987,9 +1991,8 @@ mod tests {
         mem::swap(&mut term.grid, &mut grid);
 
         let selection = Selection::lines(Point { line: Line(0), col: Column(3) });
-        match selection.to_span(&term) {
-            Some(span) => assert_eq!(term.string_from_selection(&span), "\"aa\"a\n"),
-            _ => ()
+        if let Some(span) = selection.to_span(&term) {
+            assert_eq!(term.string_from_selection(&span), "\"aa\"a\n");
         }
     }
 

@@ -17,4 +17,4 @@ matrix:
     - rust: nightly
 
 script:
-  - cargo test --no-default-features
+  - cargo test --no-default-features --features "clippy"

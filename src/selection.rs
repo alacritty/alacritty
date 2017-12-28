@@ -106,7 +106,7 @@ impl Selection {
         }
     }
 
-    pub fn semantic<G: SemanticSearch>(point: Point, grid: G) -> Selection {
+    pub fn semantic<G: SemanticSearch>(point: Point, grid: &G) -> Selection {
         let (start, end) = (grid.semantic_search_left(point), grid.semantic_search_right(point));
         Selection::Semantic {
             region: Region {
@@ -136,25 +136,22 @@ impl Selection {
             Selection::Simple { ref mut region } => {
                 region.end = Anchor::new(location, side);
             },
-            Selection::Semantic { ref mut region, .. } => {
+            Selection::Semantic { ref mut region, .. } | Selection::Lines { ref mut region, .. } => {
                 region.end = location;
             },
-            Selection::Lines { ref mut region, .. } => {
-                region.end = location;
-            }
         }
     }
 
-    pub fn to_span<G: SemanticSearch + Dimensions>(&self, grid: G) -> Option<Span> {
+    pub fn to_span<G: SemanticSearch + Dimensions>(&self, grid: &G) -> Option<Span> {
         match *self {
             Selection::Simple { ref region } => {
-                Selection::span_simple(&grid, region)
+                Selection::span_simple(grid, region)
             },
             Selection::Semantic { ref region, ref initial_expansion } => {
-                Selection::span_semantic(&grid, region, initial_expansion)
+                Selection::span_semantic(grid, region, initial_expansion)
             },
             Selection::Lines { ref region, ref initial_line } => {
-                Selection::span_lines(&grid, region, initial_line)
+                Selection::span_lines(grid, region, initial_line)
             }
         }
     }
@@ -409,7 +406,7 @@ mod test {
     use super::{Selection, Span, SpanType};
 
     struct Dimensions(Point);
-    impl<'a> super::Dimensions for &'a Dimensions {
+    impl super::Dimensions for Dimensions {
         fn dimensions(&self) -> Point {
             self.0
         }
@@ -424,7 +421,7 @@ mod test {
         }
     }
 
-    impl<'a> super::SemanticSearch for &'a Dimensions {
+    impl super::SemanticSearch for Dimensions {
         fn semantic_search_left(&self, _: Point) -> Point { unimplemented!(); }
         fn semantic_search_right(&self, _: Point) -> Point { unimplemented!(); }
     }
