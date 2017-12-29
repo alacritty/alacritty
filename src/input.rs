@@ -22,6 +22,7 @@ use std::borrow::Cow;
 use std::mem;
 use std::process::Command;
 use std::time::Instant;
+use std::os::unix::process::CommandExt;
 
 use copypasta::{Clipboard, Load, Buffer};
 use glutin::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollDelta};
@@ -200,7 +201,16 @@ impl Action {
             },
             Action::Command(ref program, ref args) => {
                 trace!("running command: {} {:?}", program, args);
-                match Command::new(program).args(args).spawn() {
+                match Command::new(program)
+                    .args(args)
+                    .before_exec(|| {
+                        // Detach forked process from Alacritty. This will cause
+                        // init or whatever to clean up child processes for us.
+                        unsafe { ::libc::daemon(1, 0); }
+                        Ok(())
+                    })
+                    .spawn()
+                {
                     Ok(child) => {
                         debug!("spawned new proc with pid: {}", child.id());
                     },
