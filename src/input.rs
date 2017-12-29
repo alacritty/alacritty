@@ -414,26 +414,21 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     fn scroll_terminal(&mut self, mouse_modes: TermMode, code: u8) {
+        debug_assert!(code == 64 || code == 65);
+
         let faux_scrollback_lines = self.mouse_config.faux_scrollback_lines;
         if self.ctx.terminal_mode().intersects(mouse_modes) {
             self.normal_mouse_report(code);
         } else if faux_scrollback_lines > 0 {
             // Faux scrolling
-            if code == 64 {
-                // Scroll up by `faux_scrollback_lines`
-                let mut content = String::with_capacity(faux_scrollback_lines * 3);
-                for _ in 0..faux_scrollback_lines {
-                    content = content + "\x1bOA";
-                }
-                self.ctx.write_to_pty(content.into_bytes());
-            } else {
-                // Scroll down by `faux_scrollback_lines`
-                let mut content = String::with_capacity(faux_scrollback_lines * 3);
-                for _ in 0..faux_scrollback_lines {
-                    content = content + "\x1bOB";
-                }
-                self.ctx.write_to_pty(content.into_bytes());
+            let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
+            let mut content = Vec::with_capacity(faux_scrollback_lines * 3);
+            for _ in 0..faux_scrollback_lines {
+                content.push(0x1b);
+                content.push('O' as u8);
+                content.push(cmd);
             }
+            self.ctx.write_to_pty(content);
         }
     }
 
