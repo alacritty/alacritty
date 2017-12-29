@@ -300,7 +300,7 @@ impl<N: Notify> Processor<N> {
                     },
                     MouseInput { state, button, modifiers, .. } => {
                         *hide_cursor = false;
-                        processor.mouse_input(state, button, modifiers);
+                        processor.mouse_input(state, button, modifiers.shift);
                         processor.ctx.terminal.dirty = true;
                     },
                     CursorMoved { position: (x, y), modifiers, .. } => {
@@ -310,7 +310,7 @@ impl<N: Notify> Processor<N> {
                         let y = limit(y, 0, processor.ctx.size_info.height as i32);
 
                         *hide_cursor = false;
-                        processor.mouse_moved(x as u32, y as u32, modifiers);
+                        processor.mouse_moved(x as u32, y as u32, modifiers.shift);
 
                         if !processor.ctx.selection.is_none() {
                             processor.ctx.terminal.dirty = true;
