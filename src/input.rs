@@ -703,7 +703,7 @@ mod tests {
                 };
 
                 if let Event::WindowEvent { event: WindowEvent::MouseInput { state, button, modifiers, .. }, .. } = $input {
-                    processor.mouse_input(state, button, modifiers);
+                    processor.mouse_input(state, button, modifiers.shift);
                 };
 
                 assert!(match mouse.click_state {
