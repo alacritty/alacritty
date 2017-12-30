@@ -618,7 +618,7 @@ mod tests {
         }
 
         fn clear_selection(&mut self) {}
-        fn update_selection(&mut self, _point: Point, _side: Side) {}
+        fn update_selection(&mut self, _point: Point, _side: Side, _ctrl: bool) {}
         fn simple_selection(&mut self, _point: Point, _side: Side) {}
         fn block_selection(&mut self, _point: Point, _side: Side) {}
 
@@ -745,6 +745,7 @@ mod tests {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 device_id: unsafe { ::std::mem::transmute_copy(&0) },
+                modifiers: ModifiersState::default(),
             },
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
@@ -760,6 +761,7 @@ mod tests {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 device_id: unsafe { ::std::mem::transmute_copy(&0) },
+                modifiers: ModifiersState::default(),
             },
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
@@ -775,6 +777,7 @@ mod tests {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 device_id: unsafe { ::std::mem::transmute_copy(&0) },
+                modifiers: ModifiersState::default(),
             },
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
