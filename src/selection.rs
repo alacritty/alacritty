@@ -326,7 +326,7 @@ impl Selection {
 }
 
 /// How to interpret the locations of a Span.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum SpanType {
     /// Includes the beginning and end locations
     Inclusive,
@@ -366,6 +366,10 @@ impl Span {
             SpanType::ExcludeFront => (Span::wrap_start(self.front, self.cols), self.tail),
             SpanType::ExcludeTail => (self.front, Span::wrap_end(self.tail, self.cols))
         }
+    }
+
+    pub fn span_type(&self) -> SpanType {
+        self.ty
     }
 
     pub fn to_rect(&self) -> SelectionRect {

@@ -26,7 +26,7 @@ use font;
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
 use grid::{BidirectionalIterator, Grid, ClearRegion, Indexed};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains};
-use selection::{self, Span, Selection, SelectionRect};
+use selection::{self, Span, SpanType, Selection, SelectionRect};
 use config::{Config, VisualBellAnimation};
 use {MouseCursor, Rgb};
 
@@ -922,6 +922,19 @@ impl Term {
         let (start, end) = span.to_locations();
         let line_count = end.line - start.line;
         let max_col = Column(usize::max_value() - 1);
+
+        // Block selection mode
+        if span.span_type() == SpanType::Block {
+            let range = IndexRange::from((start.line)..(end.line + 1));
+            for line in range {
+                res.append(&self.grid, line, start.col..end.col);
+                if !res.ends_with('\n') {
+                    res.push('\n');
+                }
+            }
+            let _ = res.pop();
+            return res;
+        }
 
         match line_count {
             // Selection within single line
