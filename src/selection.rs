@@ -20,8 +20,7 @@
 //! also be cleared if the user clicks off of the selection.
 use std::cmp::{min, max};
 
-use index::{Point, Column, RangeInclusive, Side, Linear, Line};
-use grid::ToRange;
+use index::{Point, Column, Side, Line};
 
 /// Describes a region of a 2-dimensional area
 ///
@@ -336,6 +335,28 @@ impl Span {
         }
     }
 
+    pub fn to_rect(&self) -> SelectionRect {
+        let mut tail = self.tail;
+        let mut front = self.front;
+        match self.ty {
+            SpanType::Exclusive => {
+                front.col = Span::exclude_start(front.col);
+                tail.col = Span::exclude_end(tail.col);
+            },
+            SpanType::ExcludeFront => front.col = Span::exclude_start(front.col),
+            SpanType::ExcludeTail => tail.col = Span::exclude_end(tail.col),
+            _ => (),
+        }
+
+        let rect = Rect::new(
+            Column(0),
+            front.line,
+            self.cols,
+            tail.line - front.line + 1,
+        );
+        SelectionRect::new(front.col, self.cols - tail.col, rect)
+    }
+
     fn wrap_start(mut start: Point, cols: Column) -> Point {
         if start.col == cols - 1 {
             Point {
@@ -363,34 +384,76 @@ impl Span {
     }
 
     #[inline]
-    fn exclude_start(start: Linear) -> Linear {
-        start + 1
+    fn exclude_start(start: Column) -> Column {
+        start + Column(1)
     }
 
     #[inline]
-    fn exclude_end(end: Linear) -> Linear {
-        if end > Linear(0) {
-            end - 1
+    fn exclude_end(end: Column) -> Column {
+        if end > Column(0) {
+            end - Column(1)
         } else {
             end
         }
     }
 }
 
-impl ToRange for Span {
-    fn to_range(&self) -> RangeInclusive<Linear> {
-        let cols = self.cols;
-        let start = Linear(self.front.line.0 * cols.0 + self.front.col.0);
-        let end = Linear(self.tail.line.0 * cols.0 + self.tail.col.0);
+// A simple rectangle in a grid of cols and lines
+pub struct Rect {
+    x: Column,
+    y: Line,
+    width: Column,
+    height: Line,
+}
 
-        let (start, end) = match self.ty {
-            SpanType::Inclusive => (start, end),
-            SpanType::Exclusive => (Span::exclude_start(start), Span::exclude_end(end)),
-            SpanType::ExcludeFront => (Span::exclude_start(start), end),
-            SpanType::ExcludeTail => (start, Span::exclude_end(end))
-        };
+impl Rect {
+    fn new(x: Column, y: Line, width: Column, height: Line) -> Rect {
+        Rect { x, y, width, height }
+    }
+}
 
-        RangeInclusive::new(start, end)
+// Selection layout
+//
+//      | HEAD OFFSET |
+// -----------------------------------------
+// -----------------------------------------
+// --------------------################----- -------
+// -----###############################----- RECT
+// -----###########------------------------- -------
+// -----------------------------------------
+// -----------------------------------------
+//                 |   TAIL OFFSET    |
+//      |             RECT            |
+pub struct SelectionRect {
+    head_offset: Column,
+    tail_offset: Column,
+    rect: Rect,
+}
+
+impl SelectionRect {
+    fn new(head_offset: Column, tail_offset: Column, rect: Rect) -> SelectionRect {
+        SelectionRect { head_offset, tail_offset, rect }
+    }
+
+    pub fn contains(&self, x: Column, y: Line) -> bool {
+        // Return if it's above or below rect
+        if y < self.rect.y || y > self.rect.y + self.rect.height - 1 ||
+            x < self.rect.x || x > self.rect.x + self.rect.width - 1
+        {
+            return false;
+        }
+
+        // Make sure head/tail is respected
+        let mut contains = true;
+        if y == self.rect.y && x < self.rect.x + self.head_offset {
+            contains = false;
+        }
+        if y == self.rect.y + self.rect.height - 1 &&
+            x >= self.rect.x + self.rect.width - self.tail_offset
+        {
+            contains = false;
+        }
+        contains
     }
 }
 

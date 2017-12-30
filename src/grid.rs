@@ -26,12 +26,7 @@ use std::iter::IntoIterator;
 use std::ops::{Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull, Index, IndexMut};
 use std::slice::{self, Iter, IterMut};
 
-use index::{self, Point, Line, Column, IndexRange, RangeInclusive};
-
-/// Convert a type to a linear index range.
-pub trait ToRange {
-    fn to_range(&self) -> RangeInclusive<index::Linear>;
-}
+use index::{self, Point, Line, Column, IndexRange};
 
 /// Bidirection iterator
 pub trait BidirectionalIterator: Iterator {
