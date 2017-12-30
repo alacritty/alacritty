@@ -76,7 +76,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.selection_modified = true;
     }
 
-    fn update_selection(&mut self, point: Point, side: Side) {
+    fn update_selection(&mut self, point: Point, side: Side, ctrl: bool) {
         self.selection_modified = true;
         // Update selection if one exists
         if let &mut Some(ref mut selection) = self.selection {
@@ -85,11 +85,20 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         }
 
         // Otherwise, start a regular selection
-        self.simple_selection(point, side);
+        if ctrl {
+            self.block_selection(point, side);
+        } else {
+            self.simple_selection(point, side);
+        }
     }
 
     fn simple_selection(&mut self, point: Point, side: Side) {
         *self.selection = Some(Selection::simple(point, side));
+        self.selection_modified = true;
+    }
+
+    fn block_selection(&mut self, point: Point, side: Side) {
+        *self.selection = Some(Selection::block(point, side));
         self.selection_modified = true;
     }
 
@@ -303,14 +312,14 @@ impl<N: Notify> Processor<N> {
                         processor.mouse_input(state, button);
                         processor.ctx.terminal.dirty = true;
                     },
-                    CursorMoved { position: (x, y), .. } => {
+                    CursorMoved { position: (x, y), modifiers, .. } => {
                         let x = x as i32;
                         let y = y as i32;
                         let x = limit(x, 0, processor.ctx.size_info.width as i32);
                         let y = limit(y, 0, processor.ctx.size_info.height as i32);
 
                         *hide_cursor = false;
-                        processor.mouse_moved(x as u32, y as u32);
+                        processor.mouse_moved(x as u32, y as u32, modifiers.ctrl);
 
                         if !processor.ctx.selection.is_none() {
                             processor.ctx.terminal.dirty = true;

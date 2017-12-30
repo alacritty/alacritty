@@ -54,8 +54,9 @@ pub trait ActionContext {
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&self, Buffer);
     fn clear_selection(&mut self);
-    fn update_selection(&mut self, point: Point, side: Side);
+    fn update_selection(&mut self, point: Point, side: Side, ctrl: bool);
     fn simple_selection(&mut self, point: Point, side: Side);
+    fn block_selection(&mut self, point: Point, side: Side);
     fn semantic_selection(&mut self, point: Point);
     fn line_selection(&mut self, point: Point);
     fn mouse_mut(&mut self) -> &mut Mouse;
@@ -228,10 +229,10 @@ impl Action {
             },
             Action::DecreaseFontSize => {
                ctx.change_font_size(-1);
-            }
+            },
             Action::ResetFontSize => {
                ctx.reset_font_size();
-            }
+            },
         }
     }
 
@@ -254,7 +255,7 @@ impl From<&'static str> for Action {
 
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     #[inline]
-    pub fn mouse_moved(&mut self, x: u32, y: u32) {
+    pub fn mouse_moved(&mut self, x: u32, y: u32, ctrl: bool) {
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
@@ -279,7 +280,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     self.ctx.update_selection(Point {
                         line: point.line,
                         col: point.col
-                    }, cell_side);
+                    }, cell_side, ctrl);
                 } else if self.ctx.terminal_mode().contains(mode::TermMode::MOUSE_MOTION)
                         // Only report motion when changing cells
                         && (
@@ -619,6 +620,7 @@ mod tests {
         fn clear_selection(&mut self) {}
         fn update_selection(&mut self, _point: Point, _side: Side) {}
         fn simple_selection(&mut self, _point: Point, _side: Side) {}
+        fn block_selection(&mut self, _point: Point, _side: Side) {}
 
         fn semantic_selection(&mut self, _point: Point) {
             // set something that we can check for here
