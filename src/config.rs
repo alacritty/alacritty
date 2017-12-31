@@ -461,6 +461,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "DecreaseFontSize" => Action::DecreaseFontSize,
                     "ResetFontSize" => Action::ResetFontSize,
                     "Quit" => Action::Quit,
+                    "BlockSelection" => Action::BlockSelection,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
             }

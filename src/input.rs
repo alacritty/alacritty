@@ -54,7 +54,7 @@ pub trait ActionContext {
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&self, Buffer);
     fn clear_selection(&mut self);
-    fn update_selection(&mut self, point: Point, side: Side, ctrl: bool);
+    fn update_selection(&mut self, point: Point, side: Side);
     fn simple_selection(&mut self, point: Point, side: Side);
     fn block_selection(&mut self, point: Point, side: Side);
     fn semantic_selection(&mut self, point: Point);
@@ -66,6 +66,7 @@ pub trait ActionContext {
     fn last_modifiers(&mut self) -> &mut ModifiersState;
     fn change_font_size(&mut self, delta: i8);
     fn reset_font_size(&mut self);
+    fn set_block_selection(&mut self, block_selection: bool);
 }
 
 /// Describes a state and action to take in that state
@@ -102,7 +103,7 @@ impl<T: Eq> Binding<T> {
     fn is_triggered_by(
         &self,
         mode: TermMode,
-        mods: &ModifiersState,
+        mods: ModifiersState,
         input: &T
     ) -> bool {
         // Check input first since bindings are stored in one big list. This is
@@ -136,15 +137,15 @@ impl<T> Binding<T> {
     ///
     /// Optimized to use single check instead of four (one per modifier)
     #[inline]
-    fn mods_match(&self, mods: &ModifiersState) -> bool {
+    fn mods_match(&self, mods: ModifiersState) -> bool {
         debug_assert!(4 == mem::size_of::<ModifiersState>());
         unsafe {
-            mem::transmute_copy::<_, u32>(&self.mods) == mem::transmute_copy::<_, u32>(mods)
+            mem::transmute_copy::<_, u32>(&self.mods) == mem::transmute_copy::<_, u32>(&mods)
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Action {
     /// Write an escape sequence
     Esc(String),
@@ -172,6 +173,9 @@ pub enum Action {
 
     /// Quits Alacritty.
     Quit,
+
+    /// Toggle block selection mode
+    BlockSelection,
 }
 
 impl Action {
@@ -225,13 +229,16 @@ impl Action {
                 ::std::process::exit(0);
             },
             Action::IncreaseFontSize => {
-               ctx.change_font_size(1);
+                ctx.change_font_size(1);
             },
             Action::DecreaseFontSize => {
-               ctx.change_font_size(-1);
+                ctx.change_font_size(-1);
             },
             Action::ResetFontSize => {
-               ctx.reset_font_size();
+                ctx.reset_font_size();
+            },
+            Action::BlockSelection => {
+                ctx.set_block_selection(true);
             },
         }
     }
@@ -255,7 +262,7 @@ impl From<&'static str> for Action {
 
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     #[inline]
-    pub fn mouse_moved(&mut self, x: u32, y: u32, ctrl: bool) {
+    pub fn mouse_moved(&mut self, x: u32, y: u32) {
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
@@ -280,7 +287,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     self.ctx.update_selection(Point {
                         line: point.line,
                         col: point.col
-                    }, cell_side, ctrl);
+                    }, cell_side);
                 } else if self.ctx.terminal_mode().contains(mode::TermMode::MOUSE_MOTION)
                         // Only report motion when changing cells
                         && (
@@ -479,7 +486,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return;
         }
 
-        self.process_mouse_bindings(&ModifiersState::default(), button);
+        self.process_mouse_bindings(ModifiersState::default(), button);
     }
 
     /// Process key input
@@ -489,11 +496,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         &mut self,
         state: ElementState,
         key: Option<VirtualKeyCode>,
-        mods: &ModifiersState,
+        mods: ModifiersState,
     ) {
         match (key, state) {
             (Some(key), ElementState::Pressed) => {
-                *self.ctx.last_modifiers() = *mods;
+                *self.ctx.last_modifiers() = mods;
                 *self.ctx.received_count() = 0;
                 *self.ctx.suppress_chars() = false;
 
@@ -501,7 +508,18 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     *self.ctx.suppress_chars() = true;
                 }
             },
-            (_, ElementState::Released) => *self.ctx.suppress_chars() = false,
+            (Some(key), ElementState::Released) => {
+                // Check for block selection key release
+                for binding in self.key_bindings {
+                    if binding.action == Action::BlockSelection &&
+                        binding.is_triggered_by(self.ctx.terminal_mode(), ModifiersState::default(), &key)
+                    {
+                        self.ctx.set_block_selection(false);
+                        break;
+                    }
+                }
+                *self.ctx.suppress_chars() = false;
+            },
             _ => ()
         }
     }
@@ -534,7 +552,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// for its action to be executed.
     ///
     /// Returns true if an action is executed.
-    fn process_key_bindings(&mut self, mods: &ModifiersState, key: VirtualKeyCode) -> bool {
+    fn process_key_bindings(&mut self, mods: ModifiersState, key: VirtualKeyCode) -> bool {
         for binding in self.key_bindings {
             if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &key) {
                 // binding was triggered; run the action
@@ -552,7 +570,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// for its action to be executed.
     ///
     /// Returns true if an action is executed.
-    fn process_mouse_bindings(&mut self, mods: &ModifiersState, button: MouseButton) -> bool {
+    fn process_mouse_bindings(&mut self, mods: ModifiersState, button: MouseButton) -> bool {
         for binding in self.mouse_bindings {
             if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &button) {
                 // binding was triggered; run the action
@@ -598,6 +616,7 @@ mod tests {
         pub received_count: usize,
         pub suppress_chars: bool,
         pub last_modifiers: ModifiersState,
+        pub block_selection: bool,
     }
 
     impl <'a>super::ActionContext for ActionContext<'a> {
@@ -618,7 +637,7 @@ mod tests {
         }
 
         fn clear_selection(&mut self) {}
-        fn update_selection(&mut self, _point: Point, _side: Side, _ctrl: bool) {}
+        fn update_selection(&mut self, _point: Point, _side: Side) {}
         fn simple_selection(&mut self, _point: Point, _side: Side) {}
         fn block_selection(&mut self, _point: Point, _side: Side) {}
 
@@ -652,6 +671,8 @@ mod tests {
         }
         fn reset_font_size(&mut self) {
         }
+
+        fn set_block_selection(&mut self, _block_selection: bool) {}
     }
 
     macro_rules! test_clickstate {
@@ -690,6 +711,7 @@ mod tests {
                     received_count: 0,
                     suppress_chars: false,
                     last_modifiers: ModifiersState::default(),
+                    block_selection: false,
                 };
 
                 let mut processor = Processor {
@@ -729,9 +751,9 @@ mod tests {
             #[test]
             fn $name() {
                 if $triggers {
-                    assert!($binding.is_triggered_by($mode, &$mods, &KEY));
+                    assert!($binding.is_triggered_by($mode, $mods, &KEY));
                 } else {
-                    assert!(!$binding.is_triggered_by($mode, &$mods, &KEY));
+                    assert!(!$binding.is_triggered_by($mode, $mods, &KEY));
                 }
             }
         }
@@ -745,7 +767,6 @@ mod tests {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 device_id: unsafe { ::std::mem::transmute_copy(&0) },
-                modifiers: ModifiersState::default(),
             },
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
@@ -761,7 +782,6 @@ mod tests {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 device_id: unsafe { ::std::mem::transmute_copy(&0) },
-                modifiers: ModifiersState::default(),
             },
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
@@ -777,7 +797,6 @@ mod tests {
                 state: ElementState::Pressed,
                 button: MouseButton::Left,
                 device_id: unsafe { ::std::mem::transmute_copy(&0) },
-                modifiers: ModifiersState::default(),
             },
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
