@@ -40,7 +40,7 @@ pub struct ActionContext<'a, N: 'a> {
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
     pub last_modifiers: &'a mut ModifiersState,
-    pub block_selection: bool,
+    pub alt_key_block_selection: bool,
 }
 
 impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
@@ -77,7 +77,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.selection_modified = true;
     }
 
-    fn update_selection(&mut self, point: Point, side: Side) {
+    fn update_selection(&mut self, point: Point, side: Side, modifiers: ModifiersState) {
         self.selection_modified = true;
         // Update selection if one exists
         if let &mut Some(ref mut selection) = self.selection {
@@ -86,7 +86,9 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         }
 
         // Otherwise, start a regular selection
-        if self.block_selection {
+        if (self.alt_key_block_selection && modifiers.alt) ||
+            (!self.alt_key_block_selection && modifiers.ctrl)
+        {
             self.block_selection(point, side);
         } else {
             self.simple_selection(point, side);
@@ -143,11 +145,6 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     #[inline]
     fn last_modifiers(&mut self) -> &mut ModifiersState {
         &mut self.last_modifiers
-    }
-
-    #[inline]
-    fn set_block_selection(&mut self, block_selection: bool) {
-        self.block_selection = block_selection;
     }
 }
 
@@ -211,7 +208,7 @@ pub struct Processor<N> {
     suppress_chars: bool,
     last_modifiers: ModifiersState,
     pending_events: Vec<Event>,
-    block_selection: bool,
+    alt_key_block_selection: bool,
 }
 
 /// Notify that the terminal was resized
@@ -255,7 +252,7 @@ impl<N: Notify> Processor<N> {
             suppress_chars: false,
             last_modifiers: Default::default(),
             pending_events: Vec::with_capacity(4),
-            block_selection: false,
+            alt_key_block_selection: config.alt_key_block_selection(),
         }
     }
 
@@ -320,14 +317,14 @@ impl<N: Notify> Processor<N> {
                         processor.mouse_input(state, button);
                         processor.ctx.terminal.dirty = true;
                     },
-                    CursorMoved { position: (x, y), .. } => {
+                    CursorMoved { position: (x, y), modifiers, .. } => {
                         let x = x as i32;
                         let y = y as i32;
                         let x = limit(x, 0, processor.ctx.size_info.width as i32);
                         let y = limit(y, 0, processor.ctx.size_info.height as i32);
 
                         *hide_cursor = false;
-                        processor.mouse_moved(x as u32, y as u32);
+                        processor.mouse_moved(x as u32, y as u32, modifiers);
 
                         if !processor.ctx.selection.is_none() {
                             processor.ctx.terminal.dirty = true;
@@ -409,7 +406,7 @@ impl<N: Notify> Processor<N> {
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
                 last_modifiers: &mut self.last_modifiers,
-                block_selection: self.block_selection,
+                alt_key_block_selection: self.alt_key_block_selection,
             };
 
             processor = input::Processor {
@@ -449,9 +446,6 @@ impl<N: Notify> Processor<N> {
             if self.hide_cursor_when_typing {
                 window.set_cursor_visible(!self.hide_cursor);
             }
-
-            // Update state of block selection
-            self.block_selection = processor.ctx.block_selection;
 
             window.is_focused = window_is_focused;
 

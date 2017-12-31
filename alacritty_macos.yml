@@ -200,6 +200,9 @@ cursor_style: Block
 # Live config reload (changes require restart)
 live_config_reload: true
 
+# Use the alt key instead of the ctrl key for block selection
+alt_key_block_selection: false
+
 # Shell
 #
 # You can set shell.program to the path of your favorite shell, e.g. /bin/fish.

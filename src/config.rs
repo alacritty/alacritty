@@ -34,6 +34,11 @@ fn true_bool() -> bool {
     true
 }
 
+/// Function that returns false for serde default
+fn false_bool() -> bool {
+    false
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct Selection {
     pub semantic_escape_chars: String,
@@ -322,6 +327,10 @@ pub struct Config {
     /// Live config reload
     #[serde(default="true_bool")]
     live_config_reload: bool,
+
+    /// Use alt instead of control fol block selection
+    #[serde(default="false_bool")]
+    alt_key_block_selection: bool,
 }
 
 fn default_padding() -> Delta {
@@ -378,6 +387,7 @@ impl Default for Config {
             dynamic_title: Default::default(),
             live_config_reload: true,
             window: Default::default(),
+            alt_key_block_selection: false,
         }
     }
 }
@@ -461,7 +471,6 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "DecreaseFontSize" => Action::DecreaseFontSize,
                     "ResetFontSize" => Action::ResetFontSize,
                     "Quit" => Action::Quit,
-                    "BlockSelection" => Action::BlockSelection,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
             }
@@ -1145,6 +1154,11 @@ impl Config {
     #[inline]
     pub fn background_opacity(&self) -> Alpha {
         self.background_opacity
+    }
+
+    #[inline]
+    pub fn alt_key_block_selection(&self) -> bool {
+        self.alt_key_block_selection
     }
 
     pub fn key_bindings(&self) -> &[KeyBinding] {
