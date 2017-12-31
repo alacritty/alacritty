@@ -34,11 +34,6 @@ fn true_bool() -> bool {
     true
 }
 
-/// Function that returns false for serde default
-fn false_bool() -> bool {
-    false
-}
-
 #[derive(Clone, Debug, Deserialize)]
 pub struct Selection {
     pub semantic_escape_chars: String,
@@ -328,8 +323,8 @@ pub struct Config {
     #[serde(default="true_bool")]
     live_config_reload: bool,
 
-    /// Use alt instead of control fol block selection
-    #[serde(default="false_bool")]
+    /// Use alt instead of control for block selection
+    #[serde(default)]
     alt_key_block_selection: bool,
 }
 
