@@ -322,6 +322,10 @@ pub struct Config {
     /// Live config reload
     #[serde(default="true_bool")]
     live_config_reload: bool,
+
+    /// Use alt instead of control for block selection
+    #[serde(default)]
+    alt_key_block_selection: bool,
 }
 
 fn default_padding() -> Delta {
@@ -378,6 +382,7 @@ impl Default for Config {
             dynamic_title: Default::default(),
             live_config_reload: true,
             window: Default::default(),
+            alt_key_block_selection: false,
         }
     }
 }
@@ -1144,6 +1149,11 @@ impl Config {
     #[inline]
     pub fn background_opacity(&self) -> Alpha {
         self.background_opacity
+    }
+
+    #[inline]
+    pub fn alt_key_block_selection(&self) -> bool {
+        self.alt_key_block_selection
     }
 
     pub fn key_bindings(&self) -> &[KeyBinding] {

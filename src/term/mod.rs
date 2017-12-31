@@ -24,9 +24,9 @@ use unicode_width::UnicodeWidthChar;
 
 use font;
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
-use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
-use selection::{self, Span, Selection};
+use grid::{BidirectionalIterator, Grid, ClearRegion, Indexed};
+use index::{self, Point, Column, Line, Linear, IndexRange, Contains};
+use selection::{self, Span, SpanType, Selection, SelectionRect};
 use config::{Config, VisualBellAnimation};
 use {MouseCursor, Rgb};
 
@@ -101,7 +101,7 @@ pub struct RenderableCellsIter<'a> {
     column: Column,
     config: &'a Config,
     colors: &'a color::List,
-    selection: Option<RangeInclusive<index::Linear>>,
+    selection: Option<SelectionRect>,
     cursor_cells: ArrayDeque<[Indexed<Cell>; 4]>,
 }
 
@@ -116,7 +116,7 @@ impl<'a> RenderableCellsIter<'a> {
         colors: &'b color::List,
         mode: TermMode,
         config: &'b Config,
-        selection: Option<RangeInclusive<index::Linear>>,
+        selection: Option<SelectionRect>,
         cursor_style: CursorStyle,
         window_focused: bool,
     ) -> RenderableCellsIter<'b> {
@@ -361,7 +361,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     self.column += 1;
 
                     let selected = self.selection.as_ref()
-                        .map(|range| range.contains_(index))
+                        .map(|sr| sr.contains(column, line))
                         .unwrap_or(false);
 
                     // Skip empty cells
@@ -923,6 +923,19 @@ impl Term {
         let line_count = end.line - start.line;
         let max_col = Column(usize::max_value() - 1);
 
+        // Block selection mode
+        if span.span_type() == SpanType::Block {
+            let range = IndexRange::from((start.line)..(end.line + 1));
+            for line in range {
+                res.append(&self.grid, line, start.col..end.col);
+                if !res.ends_with('\n') {
+                    res.push('\n');
+                }
+            }
+            let _ = res.pop();
+            return res;
+        }
+
         match line_count {
             // Selection within single line
             Line(0) => {
@@ -982,11 +995,11 @@ impl Term {
     pub fn renderable_cells<'b>(
         &'b self,
         config: &'b Config,
-        selection: Option<&'b Selection>,
+        selection: Option<&Selection>,
         window_focused: bool,
     ) -> RenderableCellsIter {
         let selection = selection.and_then(|s| s.to_span(self))
-            .map(|span| span.to_range());
+            .map(|span| span.to_rect());
 
         RenderableCellsIter::new(
             &self.grid,

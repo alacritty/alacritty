@@ -20,15 +20,16 @@
 //! also be cleared if the user clicks off of the selection.
 use std::cmp::{min, max};
 
-use index::{Point, Column, RangeInclusive, Side, Linear, Line};
-use grid::ToRange;
+use index::{Point, Column, Side, Line};
 
 /// Describes a region of a 2-dimensional area
 ///
 /// Used to track a text selection. There are three supported modes, each with its own constructor:
-/// [`simple`], [`semantic`], and [`lines`]. The [`simple`] mode precisely tracks which cells are
+/// [`simple`], [`semantic`], [`lines`] and [`block`]. The [`simple`] mode precisely tracks which cells are
 /// selected without any expansion. [`semantic`] mode expands the initial selection to the nearest
-/// semantic escape char in either direction. [`lines`] will always select entire lines.
+/// semantic escape char in either direction. [`lines`] will always select entire lines. [`block`]
+/// is similar to [`simple`], but instead of selecting all columns from the start to the end, a
+/// rectangle is drawn in between the two points.
 ///
 /// Calls to [`update`] operate different based on the selection kind. The [`simple`] mode does
 /// nothing special, simply tracks points and sides. [`semantic`] will continue to expand out to
@@ -38,6 +39,7 @@ use grid::ToRange;
 /// [`simple`]: enum.Selection.html#method.simple
 /// [`semantic`]: enum.Selection.html#method.semantic
 /// [`lines`]: enum.Selection.html#method.lines
+/// [`block`]: enum.Selection.html#method.block
 pub enum Selection {
     Simple {
         /// The region representing start and end of cursor movement
@@ -59,6 +61,10 @@ pub enum Selection {
         /// The line under the initial point. This is always selected regardless
         /// of which way the cursor is moved.
         initial_line: Line
+    },
+    Block {
+        /// The region representing start and end of cursor movement
+        region: Region<Anchor>,
     }
 }
 
@@ -106,6 +112,15 @@ impl Selection {
         }
     }
 
+    pub fn block(location: Point, side: Side) -> Selection {
+        Selection::Block {
+            region: Region {
+                start: Anchor::new(location, side),
+                end: Anchor::new(location, side)
+            }
+        }
+    }
+
     pub fn semantic<G: SemanticSearch>(point: Point, grid: G) -> Selection {
         let (start, end) = (grid.semantic_search_left(point), grid.semantic_search_right(point));
         Selection::Semantic {
@@ -136,6 +151,9 @@ impl Selection {
             Selection::Simple { ref mut region } => {
                 region.end = Anchor::new(location, side);
             },
+            Selection::Block { ref mut region } => {
+                region.end = Anchor::new(location, side);
+            },
             Selection::Semantic { ref mut region, .. } => {
                 region.end = location;
             },
@@ -149,6 +167,9 @@ impl Selection {
         match *self {
             Selection::Simple { ref region } => {
                 Selection::span_simple(&grid, region)
+            },
+            Selection::Block { ref region } => {
+                Selection::span_block(&grid, region)
             },
             Selection::Semantic { ref region, ref initial_expansion } => {
                 Selection::span_semantic(&grid, region, initial_expansion)
@@ -226,6 +247,13 @@ impl Selection {
         })
     }
 
+    fn span_block<G: Dimensions>(grid: &G, region: &Region<Anchor>) -> Option<Span> {
+        Self::span_simple(grid, region).and_then(|mut s| {
+            s.ty = SpanType::Block;
+            Some(s)
+        })
+    }
+
     fn span_simple<G: Dimensions>(grid: &G, region: &Region<Anchor>) -> Option<Span> {
         let start = region.start.point;
         let start_side = region.start.side;
@@ -298,7 +326,7 @@ impl Selection {
 }
 
 /// How to interpret the locations of a Span.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum SpanType {
     /// Includes the beginning and end locations
     Inclusive,
@@ -311,6 +339,9 @@ pub enum SpanType {
 
     /// Excludes first cell of selection
     ExcludeFront,
+
+    /// Block selection instead of normal lines
+    Block,
 }
 
 /// Represents a span of selected cells
@@ -328,12 +359,61 @@ impl Span {
     pub fn to_locations(&self) -> (Point, Point) {
         match self.ty {
             SpanType::Inclusive => (self.front, self.tail),
+            SpanType::Block => (self.front, self.tail),
             SpanType::Exclusive => {
                 (Span::wrap_start(self.front, self.cols), Span::wrap_end(self.tail, self.cols))
             },
             SpanType::ExcludeFront => (Span::wrap_start(self.front, self.cols), self.tail),
             SpanType::ExcludeTail => (self.front, Span::wrap_end(self.tail, self.cols))
         }
+    }
+
+    pub fn span_type(&self) -> SpanType {
+        self.ty
+    }
+
+    pub fn to_rect(&self) -> SelectionRect {
+        let mut block = false;
+        let mut tail = self.tail;
+        let mut front = self.front;
+        match self.ty {
+            SpanType::Exclusive => {
+                front.col = Span::exclude_start(front.col);
+                tail.col = Span::exclude_end(tail.col);
+            },
+            SpanType::ExcludeFront => front.col = Span::exclude_start(front.col),
+            SpanType::ExcludeTail => tail.col = Span::exclude_end(tail.col),
+            SpanType::Block => block = true,
+            _ => (),
+        }
+
+        if block {
+            let width = if front.col > tail.col {
+                front.col - tail.col + 1
+            } else {
+                tail.col - front.col + 1
+            };
+            let height = if front.line > tail.line {
+                front.line - tail.line + 1
+            } else {
+                tail.line - front.line + 1
+            };
+            let rect = Rect::new(
+                min(front.col, tail.col),
+                min(front.line, tail.line),
+                width,
+                height,
+            );
+            return SelectionRect::new(Column(0), Column(0), rect);
+        }
+
+        let rect = Rect::new(
+            Column(0),
+            front.line,
+            self.cols,
+            tail.line - front.line + 1,
+        );
+        SelectionRect::new(front.col, self.cols - tail.col - 1, rect)
     }
 
     fn wrap_start(mut start: Point, cols: Column) -> Point {
@@ -363,34 +443,76 @@ impl Span {
     }
 
     #[inline]
-    fn exclude_start(start: Linear) -> Linear {
-        start + 1
+    fn exclude_start(start: Column) -> Column {
+        start + Column(1)
     }
 
     #[inline]
-    fn exclude_end(end: Linear) -> Linear {
-        if end > Linear(0) {
-            end - 1
+    fn exclude_end(end: Column) -> Column {
+        if end > Column(0) {
+            end - Column(1)
         } else {
             end
         }
     }
 }
 
-impl ToRange for Span {
-    fn to_range(&self) -> RangeInclusive<Linear> {
-        let cols = self.cols;
-        let start = Linear(self.front.line.0 * cols.0 + self.front.col.0);
-        let end = Linear(self.tail.line.0 * cols.0 + self.tail.col.0);
+// A simple rectangle in a grid of cols and lines
+pub struct Rect {
+    x: Column,
+    y: Line,
+    width: Column,
+    height: Line,
+}
 
-        let (start, end) = match self.ty {
-            SpanType::Inclusive => (start, end),
-            SpanType::Exclusive => (Span::exclude_start(start), Span::exclude_end(end)),
-            SpanType::ExcludeFront => (Span::exclude_start(start), end),
-            SpanType::ExcludeTail => (start, Span::exclude_end(end))
-        };
+impl Rect {
+    fn new(x: Column, y: Line, width: Column, height: Line) -> Rect {
+        Rect { x, y, width, height }
+    }
+}
 
-        RangeInclusive::new(start, end)
+// Selection layout
+//
+//      | HEAD OFFSET |
+// -----------------------------------------
+// -----------------------------------------
+// --------------------################----- -------
+// -----###############################----- RECT
+// -----###########------------------------- -------
+// -----------------------------------------
+// -----------------------------------------
+//                 |   TAIL OFFSET    |
+//      |             RECT            |
+pub struct SelectionRect {
+    head_offset: Column,
+    tail_offset: Column,
+    rect: Rect,
+}
+
+impl SelectionRect {
+    fn new(head_offset: Column, tail_offset: Column, rect: Rect) -> SelectionRect {
+        SelectionRect { head_offset, tail_offset, rect }
+    }
+
+    pub fn contains(&self, x: Column, y: Line) -> bool {
+        // Return if it's above or below rect
+        if y < self.rect.y || y > self.rect.y + self.rect.height - 1 ||
+            x < self.rect.x || x > self.rect.x + self.rect.width - 1
+        {
+            return false;
+        }
+
+        // Make sure head/tail is respected
+        let mut contains = true;
+        if y == self.rect.y && x < self.rect.x + self.head_offset {
+            contains = false;
+        }
+        if y == self.rect.y + self.rect.height - 1 &&
+            x >= self.rect.x + self.rect.width - self.tail_offset
+        {
+            contains = false;
+        }
+        contains
     }
 }
 
