@@ -51,7 +51,6 @@ fn main() {
     let config = load_config(&options);
 
     // Switch to home directory
-    env::set_current_dir(env::home_dir().unwrap()).unwrap();
     #[cfg(target_os = "macos")]
     locale::set_locale_environment();
 
