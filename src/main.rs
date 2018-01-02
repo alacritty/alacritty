@@ -30,7 +30,6 @@ extern crate log;
 
 use std::error::Error;
 use std::sync::Arc;
-use std::env;
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
