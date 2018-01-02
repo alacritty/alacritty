@@ -93,8 +93,8 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     let mut slave: c_int = 0;
 
     let mut win = winsize {
-        ws_row: rows as libc::c_ushort,
-        ws_col: cols as libc::c_ushort,
+        ws_row: u16::from(rows),
+        ws_col: u16::from(cols),
         ws_xpixel: 0,
         ws_ypixel: 0,
     };
@@ -113,7 +113,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
 /// Really only needed on BSD, but should be fine elsewhere
 fn set_controlling_terminal(fd: c_int) {
     let res = unsafe {
-        libc::ioctl(fd, TIOCSCTTY as _, 0)
+        libc::ioctl(fd, u64::from(TIOCSCTTY), 0)
     };
 
     if res < 0 {
