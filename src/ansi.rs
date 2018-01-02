@@ -818,11 +818,11 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             // Set clipboard
             b"52" => {
                 if params.len() < 3 {
-                    return unhandled!();
+                    return unhandled(params);
                 }
 
                 match params[2] {
-                    b"?" => unhandled!(),
+                    b"?" => unhandled(params),
                     selection => {
                         if let Ok(string) = base64::decode(selection) {
                             if let Ok(utf8_string) = str::from_utf8(&string) {
