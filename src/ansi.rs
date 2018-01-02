@@ -18,7 +18,7 @@ use std::ops::Range;
 use std::str;
 
 use vte;
-
+use base64;
 use index::{Column, Line, Contains};
 
 use ::{MouseCursor, Rgb};
@@ -341,6 +341,9 @@ pub trait Handler {
 
     /// Reset an indexed color to original value
     fn reset_color(&mut self, usize) {}
+
+    /// Set the clipboard
+    fn set_clipboard(&mut self, &str) {}
 
     /// Run the dectest routine
     fn dectest(&mut self) {}
@@ -817,6 +820,24 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     self.handler.set_color(NamedColor::Cursor as usize, color);
                 } else {
                     unhandled!()
+                }
+            }
+
+            // Set clipboard
+            b"52" => {
+                if params.len() < 3 {
+                    return unhandled!();
+                }
+
+                match params[2] {
+                    b"?" => unhandled!(),
+                    selection => {
+                        if let Ok(string) = base64::decode(selection) {
+                            if let Ok(utf8_string) = str::from_utf8(&string) {
+                                self.handler.set_clipboard(utf8_string);
+                            }
+                        }
+                    }
                 }
             }
 

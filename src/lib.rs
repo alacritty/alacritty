@@ -52,6 +52,7 @@ extern crate serde_yaml;
 extern crate unicode_width;
 extern crate vte;
 extern crate xdg;
+extern crate base64;
 
 #[macro_use]
 pub mod macros;
