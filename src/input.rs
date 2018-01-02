@@ -352,13 +352,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 ClickState::TripleClick
             },
             _ => {
+                self.ctx.clear_selection();
                 let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
                 if !shift && self.ctx.terminal_mode().intersects(report_modes) {
                     self.mouse_report(0);
                     return;
                 }
 
-                self.ctx.clear_selection();
                 ClickState::Click
             }
         };
