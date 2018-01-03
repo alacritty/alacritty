@@ -9,6 +9,7 @@ os:
 
 rust:
   - stable
+  - nightly
 
 env:
   - VERSION="stable"
@@ -16,6 +17,11 @@ env:
 
 matrix:
   fast_finish: true
+  include:
+    - rust: stable
+      env: VERSION="stable"
+    - rust: nightly
+      env: VERSION="nightly"
 
 script:
   - ./build.sh
