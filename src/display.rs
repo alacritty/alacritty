@@ -286,7 +286,7 @@ impl Display {
         if terminal.font_size_modifier != self.font_size_modifier {
             // Make sure the font size is at least 1
             let config_font_size = config.font().size().as_f32_pts() as i8;
-            if terminal.font_size_modifier + config_font_size < 1 {
+            if (terminal.font_size_modifier as i16 + config_font_size as i16) < 1 {
                 terminal.font_size_modifier = 1 - config_font_size;
                 return;
             }
