@@ -337,7 +337,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn on_mouse_press(&mut self, shift: bool) {
+    pub fn on_mouse_press(&mut self, modifiers: ModifiersState) {
         let now = Instant::now();
         let elapsed = self.ctx.mouse_mut().last_click_timestamp.elapsed();
         self.ctx.mouse_mut().last_click_timestamp = now;
@@ -354,7 +354,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             _ => {
                 self.ctx.clear_selection();
                 let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
-                if !shift && self.ctx.terminal_mode().intersects(report_modes) {
+                if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes) {
                     self.mouse_report(0);
                     return;
                 }
@@ -364,9 +364,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         };
     }
 
-    pub fn on_mouse_release(&mut self, shift: bool) {
+    pub fn on_mouse_release(&mut self, modifiers: ModifiersState) {
         let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
-        if !shift && self.ctx.terminal_mode().intersects(report_modes)
+        if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes)
         {
             self.mouse_report(3);
             return;
@@ -456,16 +456,16 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn mouse_input(&mut self, state: ElementState, button: MouseButton, shift: bool) {
+    pub fn mouse_input(&mut self, state: ElementState, button: MouseButton, modifiers: ModifiersState) {
         if let MouseButton::Left = button {
             let state = mem::replace(&mut self.ctx.mouse_mut().left_button_state, state);
             if self.ctx.mouse_mut().left_button_state != state {
                 match self.ctx.mouse_mut().left_button_state {
                     ElementState::Pressed => {
-                        self.on_mouse_press(shift);
+                        self.on_mouse_press(modifiers);
                     },
                     ElementState::Released => {
-                        self.on_mouse_release(shift);
+                        self.on_mouse_release(modifiers);
                     }
                 }
             }
@@ -703,7 +703,7 @@ mod tests {
                 };
 
                 if let Event::WindowEvent { event: WindowEvent::MouseInput { state, button, modifiers, .. }, .. } = $input {
-                    processor.mouse_input(state, button, modifiers.shift);
+                    processor.mouse_input(state, button, modifiers);
                 };
 
                 assert!(match mouse.click_state {

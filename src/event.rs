@@ -300,7 +300,7 @@ impl<N: Notify> Processor<N> {
                     },
                     MouseInput { state, button, modifiers, .. } => {
                         *hide_cursor = false;
-                        processor.mouse_input(state, button, modifiers.shift);
+                        processor.mouse_input(state, button, modifiers);
                         processor.ctx.terminal.dirty = true;
                     },
                     CursorMoved { position: (x, y), modifiers, .. } => {
