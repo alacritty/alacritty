@@ -113,7 +113,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
 /// Really only needed on BSD, but should be fine elsewhere
 fn set_controlling_terminal(fd: c_int) {
     let res = unsafe {
-        libc::ioctl(fd, u64::from(TIOCSCTTY), 0)
+        libc::ioctl(fd, TIOCSCTTY, 0)
     };
 
     if res < 0 {
