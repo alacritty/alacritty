@@ -20,7 +20,7 @@ matrix:
   exclude:
     - rust: stable
       env: FEATURES="clippy"
-  allow_failure:
+  allow_failures:
     - rust: nightly
 
 script:
