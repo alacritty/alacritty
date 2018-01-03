@@ -17,10 +17,10 @@ env:
 
 matrix:
   fast_finish: true
-  include:
-    - rust: stable
-      env: VERSION="stable"
+  exclude:
     - rust: nightly
+      env: VERSION="stable"
+    - rust: stable
       env: VERSION="nightly"
 
 script:
