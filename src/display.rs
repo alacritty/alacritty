@@ -282,8 +282,14 @@ impl Display {
             new_size = Some(sz);
         }
 
+        // Font size modification detected
         if terminal.font_size_modifier != self.font_size_modifier {
-            // Font size modification detected
+            // Make sure the font size is at least 1
+            let config_font_size = config.font().size().as_f32_pts() as i8;
+            if terminal.font_size_modifier + config_font_size < 1 {
+                terminal.font_size_modifier = 1 - config_font_size;
+                return;
+            }
 
             self.font_size_modifier = terminal.font_size_modifier;
             self.update_glyph_cache(config, terminal.font_size_modifier);

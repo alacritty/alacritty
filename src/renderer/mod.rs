@@ -304,7 +304,7 @@ impl GlyphCache {
 
         // Recompute font keys
         let font = font.to_owned().with_size_delta(delta as _);
-        println!("{:?}", font.size);
+        info!("Font size changed: {:?}", font.size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
         self.rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular)?;
