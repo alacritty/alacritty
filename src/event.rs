@@ -310,7 +310,7 @@ impl<N: Notify> Processor<N> {
                         let y = limit(y, 0, processor.ctx.size_info.height as i32);
 
                         *hide_cursor = false;
-                        processor.mouse_moved(x as u32, y as u32, modifiers.shift);
+                        processor.mouse_moved(x as u32, y as u32, modifiers);
 
                         if !processor.ctx.selection.is_none() {
                             processor.ctx.terminal.dirty = true;
