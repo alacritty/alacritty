@@ -49,7 +49,6 @@ fn main() {
     let options = cli::Options::load();
     let config = load_config(&options);
 
-    // Switch to home directory
     #[cfg(target_os = "macos")]
     locale::set_locale_environment();
 
