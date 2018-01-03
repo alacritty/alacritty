@@ -28,6 +28,7 @@ pub struct Logger<T> {
 }
 
 impl<T: Send + io::Write> Logger<T> {
+    // False positive, see: https://github.com/rust-lang-nursery/rust-clippy/issues/734
     #[cfg_attr(feature = "clippy", allow(new_ret_no_self))]
     pub fn new(output: T, level: log::LogLevelFilter) -> Logger<io::LineWriter<T>> {
         Logger {

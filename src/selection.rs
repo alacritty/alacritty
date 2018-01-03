@@ -136,7 +136,9 @@ impl Selection {
             Selection::Simple { ref mut region } => {
                 region.end = Anchor::new(location, side);
             },
-            Selection::Semantic { ref mut region, .. } | Selection::Lines { ref mut region, .. } => {
+            Selection::Semantic { ref mut region, .. } |
+                Selection::Lines { ref mut region, .. } =>
+            {
                 region.end = location;
             },
         }

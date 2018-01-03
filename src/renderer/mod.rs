@@ -1125,7 +1125,7 @@ impl ShaderProgram {
             gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
         }
 
-        if success == i32::from(gl::TRUE) {
+        if success == GLint::from(gl::TRUE) {
             Ok(shader)
         } else {
             // Read log

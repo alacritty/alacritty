@@ -734,7 +734,6 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
     // TODO replace OSC parsing with parser combinators
     #[inline]
     fn osc_dispatch(&mut self, params: &[&[u8]]) {
-        #[inline]
         fn unhandled(params: &[&[u8]]) {
             let mut buf = String::new();
             for items in params {

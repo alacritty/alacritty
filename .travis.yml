@@ -12,16 +12,16 @@ rust:
   - nightly
 
 env:
-  - VERSION="stable"
-  - VERSION="nightly"
+  - FEATURES="clippy"
+  - FEATURES=""
 
 matrix:
   fast_finish: true
   exclude:
-    - rust: nightly
-      env: VERSION="stable"
     - rust: stable
-      env: VERSION="nightly"
+      env: FEATURES="clippy"
+  allow_failure:
+    - rust: nightly
 
 script:
-  - ./build.sh
+  - cargo test --no-default-features --features "$FEATURES"
