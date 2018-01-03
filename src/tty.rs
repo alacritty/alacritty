@@ -93,8 +93,8 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     let mut slave: c_int = 0;
 
     let mut win = winsize {
-        ws_row: c_ushort::from(rows),
-        ws_col: c_ushort::from(cols),
+        ws_row: libc::c_ushort::from(rows),
+        ws_col: libc::c_ushort::from(cols),
         ws_xpixel: 0,
         ws_ypixel: 0,
     };
