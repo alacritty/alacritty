@@ -1883,6 +1883,7 @@ enum Key {
     WebSearch,
     WebStop,
     Yen,
+    Caret,
 }
 
 impl Key {
@@ -2040,6 +2041,7 @@ impl Key {
             Key::WebSearch => WebSearch,
             Key::WebStop => WebStop,
             Key::Yen => Yen,
+            Key::Caret => Caret,
         }
     }
 }
