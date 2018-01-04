@@ -240,7 +240,7 @@ impl Action {
             ctx.write_to_pty(contents.into_bytes());
             ctx.write_to_pty(&b"\x1b[201~"[..]);
         } else {
-            ctx.write_to_pty(contents.into_bytes());
+            ctx.write_to_pty(contents.replace("\n","\r").into_bytes());
         }
     }
 }
