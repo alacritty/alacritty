@@ -243,7 +243,7 @@ impl<'a> RenderableCellsIter<'a> {
     fn initialize(mut self, cursor_style: CursorStyle) -> Self {
         if self.cursor_is_visible() {
             match cursor_style {
-                CursorStyle::Box => {
+                CursorStyle::HollowBox => {
                     self.populate_box_cursor();
                 },
                 CursorStyle::Block => {
@@ -998,7 +998,7 @@ impl Term {
         let cursor = if window_focused {
             self.cursor_style.unwrap_or(self.default_cursor_style)
         } else {
-            CursorStyle::Box
+            CursorStyle::HollowBox
         };
 
         RenderableCellsIter::new(
