@@ -1469,7 +1469,7 @@ impl Font {
     /// Get a font clone with a size modification
     pub fn with_size(self, size: Size) -> Font {
         Font {
-            size : Size::new(size.as_f32_pts()),
+            size,
             .. self
         }
     }
