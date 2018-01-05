@@ -842,7 +842,7 @@ impl Term {
 
     pub fn change_font_size(&mut self, delta: i8) {
         // Saturating addition with minimum font size 1
-        let new_size = self.font_size + Size::new(delta as f32);
+        let new_size = self.font_size + Size::new(f32::from(delta));
         self.font_size = max(new_size, Size::new(1.));
         self.dirty = true;
     }
