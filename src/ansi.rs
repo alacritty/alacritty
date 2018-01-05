@@ -362,7 +362,7 @@ pub enum CursorStyle {
     Beam,
 
     /// Cursor is a box like `☐`
-    HollowBox,
+    HollowBlock,
 }
 
 impl Default for CursorStyle {
