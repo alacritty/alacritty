@@ -1467,13 +1467,9 @@ impl Font {
     }
 
     /// Get a font clone with a size modification
-    pub fn with_size_delta(self, delta: f32) -> Font {
-        let mut new_size = self.size.as_f32_pts() + delta;
-        if new_size < 1.0 {
-            new_size = 1.0;
-        }
+    pub fn with_size(self, size: Size) -> Font {
         Font {
-            size : Size::new(new_size),
+            size,
             .. self
         }
     }

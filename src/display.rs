@@ -96,7 +96,7 @@ pub struct Display {
     rx: mpsc::Receiver<(u32, u32)>,
     tx: mpsc::Sender<(u32, u32)>,
     meter: Meter,
-    font_size_modifier: i8,
+    font_size: font::Size,
     size_info: SizeInfo,
     last_background_color: Rgb,
 }
@@ -150,7 +150,7 @@ impl Display {
         let mut renderer = QuadRenderer::new(config, viewport_size)?;
 
         let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(&window, &mut renderer, config, 0)?;
+            Self::new_glyph_cache(&window, &mut renderer, config)?;
 
 
         let dimensions = options.dimensions()
@@ -205,17 +205,16 @@ impl Display {
             tx: tx,
             rx: rx,
             meter: Meter::new(),
-            font_size_modifier: 0,
+            font_size: font::Size::new(0.),
             size_info: size_info,
             last_background_color: background_color,
         })
     }
 
-    fn new_glyph_cache(window : &Window, renderer : &mut QuadRenderer,
-                       config: &Config, font_size_delta: i8)
+    fn new_glyph_cache(window : &Window, renderer : &mut QuadRenderer, config: &Config)
         -> Result<(GlyphCache, f32, f32), Error>
     {
-        let font = config.font().clone().with_size_delta(font_size_delta as f32);
+        let font = config.font().clone();
         let dpr = window.hidpi_factor();
         let rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
 
@@ -245,10 +244,11 @@ impl Display {
         Ok((glyph_cache, cell_width as f32, cell_height as f32))
     }
 
-    pub fn update_glyph_cache(&mut self, config: &Config, font_size_delta: i8) {
+    pub fn update_glyph_cache(&mut self, config: &Config) {
         let cache = &mut self.glyph_cache;
+        let size = self.font_size;
         self.renderer.with_loader(|mut api| {
-            let _ = cache.update_font_size(config.font(), font_size_delta, &mut api);
+            let _ = cache.update_font_size(config.font(), size, &mut api);
         });
 
         let metrics = cache.font_metrics();
@@ -282,11 +282,10 @@ impl Display {
             new_size = Some(sz);
         }
 
-        if terminal.font_size_modifier != self.font_size_modifier {
-            // Font size modification detected
-
-            self.font_size_modifier = terminal.font_size_modifier;
-            self.update_glyph_cache(config, terminal.font_size_modifier);
+        // Font size modification detected
+        if terminal.font_size != self.font_size {
+            self.font_size = terminal.font_size;
+            self.update_glyph_cache(config);
 
             if new_size == None {
                 // Force a resize to refresh things

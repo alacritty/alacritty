@@ -166,7 +166,7 @@ impl Hash for GlyphKey {
 }
 
 /// Font size stored as integer
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Size(i16);
 
 impl Size {

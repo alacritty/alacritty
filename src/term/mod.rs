@@ -22,7 +22,7 @@ use std::time::{Duration, Instant};
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
 
-use font;
+use font::{self, Size};
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
 use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
@@ -685,8 +685,9 @@ pub struct Term {
     /// Scroll region
     scroll_region: Range<Line>,
 
-    /// Font size modifier
-    pub font_size_modifier: i8,
+    /// Font size
+    pub font_size: Size,
+    original_font_size: Size,
 
     /// Size
     size_info: SizeInfo,
@@ -814,7 +815,8 @@ impl Term {
             grid: grid,
             alt_grid: alt,
             alt: false,
-            font_size_modifier: 0,
+            font_size: config.font().size(),
+            original_font_size: config.font().size(),
             active_charset: Default::default(),
             cursor: Default::default(),
             cursor_save: Default::default(),
@@ -834,14 +836,14 @@ impl Term {
     }
 
     pub fn change_font_size(&mut self, delta: i8) {
-        if let Some(sum) = self.font_size_modifier.checked_add(delta) {
-            self.font_size_modifier = sum;
-            self.dirty = true;
-        }
+        // Saturating addition with minimum font size 1
+        let new_size = self.font_size + Size::new(delta as f32);
+        self.font_size = max(new_size, Size::new(1.));
+        self.dirty = true;
     }
 
     pub fn reset_font_size(&mut self) {
-        self.font_size_modifier = 0;
+        self.font_size = self.original_font_size;
         self.dirty = true;
     }
 
