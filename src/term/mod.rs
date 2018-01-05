@@ -444,8 +444,6 @@ pub mod mode {
 
 pub use self::mode::TermMode;
 
-pub const TAB_SPACES: usize = 8;
-
 trait CharsetMapping {
     fn map(&self, c: char) -> char {
         c
@@ -720,6 +718,9 @@ pub struct Term {
     default_cursor_style: CursorStyle,
 
     dynamic_title: bool,
+
+    /// Number of spaces in one tab
+    tabspaces: usize,
 }
 
 /// Terminal size info
@@ -797,8 +798,9 @@ impl Term {
 
         let grid = Grid::new(num_lines, num_cols, &template);
 
+        let tabspaces = config.tabspaces();
         let tabs = IndexRange::from(Column(0)..grid.num_cols())
-            .map(|i| (*i as usize) % TAB_SPACES == 0)
+            .map(|i| (*i as usize) % tabspaces == 0)
             .collect::<Vec<bool>>();
 
         let alt = grid.clone();
@@ -830,6 +832,7 @@ impl Term {
             cursor_style: None,
             default_cursor_style: config.cursor_style(),
             dynamic_title: config.dynamic_title(),
+            tabspaces,
         }
     }
 
@@ -1070,7 +1073,7 @@ impl Term {
 
         // Recreate tabs list
         self.tabs = IndexRange::from(Column(0)..self.grid.num_cols())
-            .map(|i| (*i as usize) % TAB_SPACES == 0)
+            .map(|i| (*i as usize) % self.tabspaces == 0)
             .collect::<Vec<bool>>();
 
         if num_lines > old_lines {
