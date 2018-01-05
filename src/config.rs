@@ -53,11 +53,20 @@ pub struct ClickHandler {
     pub threshold: Duration,
 }
 
+fn default_threshold_ms() -> Duration {
+    Duration::from_millis(300)
+}
+
 fn deserialize_duration_ms<'a, D>(deserializer: D) -> ::std::result::Result<Duration, D::Error>
     where D: de::Deserializer<'a>
 {
-    let threshold_ms = u64::deserialize(deserializer)?;
-    Ok(Duration::from_millis(threshold_ms))
+    match u64::deserialize(deserializer) {
+        Ok(threshold_ms) => Ok(Duration::from_millis(threshold_ms)),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(default_threshold_ms())
+        },
+    }
 }
 
 
