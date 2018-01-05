@@ -295,7 +295,7 @@ impl GlyphCache {
     pub fn update_font_size<L: LoadGlyph>(
         &mut self,
         font: &config::Font,
-        delta: i8,
+        size: font::Size,
         loader: &mut L
     ) -> Result<(), font::Error> {
         // Clear currently cached data in both GL and the registry
@@ -303,7 +303,7 @@ impl GlyphCache {
         self.cache = HashMap::default();
 
         // Recompute font keys
-        let font = font.to_owned().with_size_delta(delta as _);
+        let font = font.to_owned().with_size(size);
         info!("Font size changed: {:?}", font.size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
         self.rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
