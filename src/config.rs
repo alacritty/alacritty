@@ -352,11 +352,11 @@ pub struct Config {
     window: WindowConfig,
 
     /// Keybindings
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(default, deserialize_with = "failure_default_vec")]
     key_bindings: Vec<KeyBinding>,
 
     /// Bindings for the mouse
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(default, deserialize_with = "failure_default_vec")]
     mouse_bindings: Vec<MouseBinding>,
 
     #[serde(default, deserialize_with = "failure_default")]
@@ -398,12 +398,39 @@ pub struct Config {
     tabspaces: usize,
 }
 
+fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T>, D::Error>
+    where D: de::Deserializer<'a>,
+          T: Deserialize<'a>
+{
+    // Deserialize as generic vector
+    let vec = match Vec::<serde_yaml::Value>::deserialize(deserializer) {
+        Ok(vec) => vec,
+        Err(err) => {
+            eprintln!("problem with config: {}; Using empty vector", err);
+            return Ok(Vec::new());
+        },
+    };
+
+    // Move to lossy vector
+    let mut bindings: Vec<T> = Vec::new();
+    for value in vec {
+        match T::deserialize(value) {
+            Ok(binding) => bindings.push(binding),
+            Err(err) => {
+                eprintln!("problem with config: {}; Skipping value", err);
+            },
+        }
+    }
+
+    Ok(bindings)
+}
+
 fn default_tabspaces() -> usize {
     8
 }
 
 fn deserialize_tabspaces<'a, D>(deserializer: D) -> ::std::result::Result<usize, D::Error>
-    where D: de::Deserializer<'a>,
+    where D: de::Deserializer<'a>
 {
     match usize::deserialize(deserializer) {
         Ok(value) => Ok(value),
@@ -415,7 +442,7 @@ fn deserialize_tabspaces<'a, D>(deserializer: D) -> ::std::result::Result<usize,
 }
 
 fn default_true_bool<'a, D>(deserializer: D) -> ::std::result::Result<bool, D::Error>
-    where D: de::Deserializer<'a>,
+    where D: de::Deserializer<'a>
 {
     match bool::deserialize(deserializer) {
         Ok(value) => Ok(value),
