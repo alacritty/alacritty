@@ -70,8 +70,8 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     let mut slave: c_int = 0;
 
     let win = winsize {
-        ws_row: rows as libc::c_ushort,
-        ws_col: cols as libc::c_ushort,
+        ws_row: libc::c_ushort::from(rows),
+        ws_col: libc::c_ushort::from(cols),
         ws_xpixel: 0,
         ws_ypixel: 0,
     };
@@ -93,8 +93,8 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     let mut slave: c_int = 0;
 
     let mut win = winsize {
-        ws_row: rows as libc::c_ushort,
-        ws_col: cols as libc::c_ushort,
+        ws_row: libc::c_ushort::from(rows),
+        ws_col: libc::c_ushort::from(cols),
         ws_xpixel: 0,
         ws_ypixel: 0,
     };
@@ -113,7 +113,10 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
 /// Really only needed on BSD, but should be fine elsewhere
 fn set_controlling_terminal(fd: c_int) {
     let res = unsafe {
-        libc::ioctl(fd, TIOCSCTTY as _, 0)
+        // Cross platform issue because on linux this is u64 as u64 (does nothing)
+        // But on macos this is u32 as u64, asking for u64::from(u32)
+        #[cfg_attr(feature = "clippy", allow(cast_lossless))]
+        libc::ioctl(fd, TIOCSCTTY as u64, 0)
     };
 
     if res < 0 {
@@ -174,7 +177,7 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
 }
 
 /// Create a new tty and return a handle to interact with it.
-pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T, window_id: Option<usize>) -> Pty {
+pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id: Option<usize>) -> Pty {
     let win = size.to_winsize();
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
@@ -262,7 +265,7 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: T, window_id:
             }
 
             let pty = Pty { fd: master };
-            pty.resize(&size);
+            pty.resize(size);
             pty
         },
         Err(err) => {

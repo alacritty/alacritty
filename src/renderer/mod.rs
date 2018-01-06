@@ -390,7 +390,7 @@ pub struct PackedVertex {
     y: f32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Batch {
     tex: GLuint,
     instances: Vec<InstanceData>,
@@ -428,13 +428,13 @@ impl Batch {
             uv_width: glyph.uv_width,
             uv_height: glyph.uv_height,
 
-            r: cell.fg.r as f32,
-            g: cell.fg.g as f32,
-            b: cell.fg.b as f32,
+            r: f32::from(cell.fg.r),
+            g: f32::from(cell.fg.g),
+            b: f32::from(cell.fg.b),
 
-            bg_r: cell.bg.r as f32,
-            bg_g: cell.bg.g as f32,
-            bg_b: cell.bg.b as f32,
+            bg_r: f32::from(cell.bg.r),
+            bg_g: f32::from(cell.bg.g),
+            bg_b: f32::from(cell.bg.b),
             bg_a: cell.bg_alpha,
         });
     }
@@ -739,9 +739,9 @@ impl<'a> RenderApi<'a> {
         let alpha = self.config.background_opacity().get();
         unsafe {
             gl::ClearColor(
-                (self.visual_bell_intensity + color.r as f32 / 255.0).min(1.0) * alpha,
-                (self.visual_bell_intensity + color.g as f32 / 255.0).min(1.0) * alpha,
-                (self.visual_bell_intensity + color.b as f32 / 255.0).min(1.0) * alpha,
+                (self.visual_bell_intensity + f32::from(color.r) / 255.0).min(1.0) * alpha,
+                (self.visual_bell_intensity + f32::from(color.g) / 255.0).min(1.0) * alpha,
+                (self.visual_bell_intensity + f32::from(color.b) / 255.0).min(1.0) * alpha,
                 alpha
                 );
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -1089,7 +1089,7 @@ impl ShaderProgram {
             let mut success: GLint = 0;
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
 
-            if success == (gl::TRUE as GLint) {
+            if success == i32::from(gl::TRUE) {
                 Ok(program)
             } else {
                 Err(ShaderCreationError::Link(get_program_info_log(program)))
@@ -1125,7 +1125,7 @@ impl ShaderProgram {
             gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
         }
 
-        if success == (gl::TRUE as GLint) {
+        if success == GLint::from(gl::TRUE) {
             Ok(shader)
         } else {
             // Read log

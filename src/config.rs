@@ -178,7 +178,7 @@ impl VisualBellConfig {
     /// Visual bell duration in milliseconds
     #[inline]
     pub fn duration(&self) -> Duration {
-        Duration::from_millis(self.duration as u64)
+        Duration::from_millis(u64::from(self.duration))
     }
 }
 
@@ -240,7 +240,7 @@ impl Alpha {
         self.0 = Self::clamp_to_valid_range(value);
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn get(&self) -> f32 {
         self.0
     }
@@ -1152,8 +1152,7 @@ impl FromStr for Rgb {
 impl ::std::error::Error for Error {
     fn cause(&self) -> Option<&::std::error::Error> {
         match *self {
-            Error::NotFound => None,
-            Error::Empty => None,
+            Error::NotFound | Error::Empty => None,
             Error::ReadingEnvHome(ref err) => Some(err),
             Error::Io(ref err) => Some(err),
             Error::Yaml(ref err) => Some(err),
@@ -1174,8 +1173,7 @@ impl ::std::error::Error for Error {
 impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            Error::NotFound => write!(f, "{}", ::std::error::Error::description(self)),
-            Error::Empty => write!(f, "{}", ::std::error::Error::description(self)),
+            Error::NotFound | Error::Empty => write!(f, "{}", ::std::error::Error::description(self)),
             Error::ReadingEnvHome(ref err) => {
                 write!(f, "could not read $HOME environment variable: {}", err)
             },
@@ -1218,7 +1216,7 @@ impl Config {
     /// 2. $XDG_CONFIG_HOME/alacritty.yml
     /// 3. $HOME/.config/alacritty/alacritty.yml
     /// 4. $HOME/.alacritty.yml
-    pub fn installed_config() -> Option<Cow<'static, Path>> {
+    pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
         // Try using XDG location by default
         ::xdg::BaseDirectories::with_prefix("alacritty")
             .ok()

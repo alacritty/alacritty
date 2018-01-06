@@ -13,8 +13,14 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
-#![cfg_attr(feature = "clippy", plugin(clippy))]
 #![cfg_attr(feature = "clippy", feature(plugin))]
+#![cfg_attr(feature = "clippy", plugin(clippy))]
+#![cfg_attr(feature = "clippy", deny(clippy))]
+#![cfg_attr(feature = "clippy", deny(enum_glob_use))]
+#![cfg_attr(feature = "clippy", deny(if_not_else))]
+#![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
+#![cfg_attr(feature = "nightly", feature(core_intrinsics))]
+#![cfg_attr(all(test, feature = "bench"), feature(test))]
 
 #[macro_use]
 extern crate alacritty;
@@ -64,7 +70,7 @@ fn main() {
 /// /dev/null, we load the compiled-in defaults.
 fn load_config(options: &cli::Options) -> Config {
     let config_path = options.config_path()
-        .or_else(|| Config::installed_config())
+        .or_else(Config::installed_config)
         .unwrap_or_else(|| {
             Config::write_defaults()
                 .unwrap_or_else(|err| die!("Write defaults config failure: {}", err))
@@ -116,7 +122,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // The pty forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-    let mut pty = tty::new(&config, options, display.size(), window_id);
+    let mut pty = tty::new(&config, options, &display.size(), window_id);
 
     // Create the pseudoterminal I/O loop
     //

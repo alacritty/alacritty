@@ -11,10 +11,19 @@ rust:
   - stable
   - nightly
 
+env:
+  - FEATURES="clippy"
+  - FEATURES=""
+
 matrix:
   fast_finish: true
+  exclude:
+    - rust: stable
+      env: FEATURES="clippy"
+    - rust: nightly
+      env: FEATURES=""
   allow_failures:
     - rust: nightly
 
 script:
-  - cargo test --no-default-features
+  - cargo test --no-default-features --features "$FEATURES"

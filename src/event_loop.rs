@@ -90,9 +90,8 @@ impl event::Notify for Notifier {
         if bytes.len() == 0 {
             return
         }
-        match self.0.send(Msg::Input(bytes)) {
-            Ok(_) => (),
-            Err(_) => panic!("expected send event loop msg"),
+        if self.0.send(Msg::Input(bytes)).is_err() {
+            panic!("expected send event loop msg");
         }
     }
 }

@@ -436,7 +436,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             let mut content = Vec::with_capacity(faux_scrollback_lines * 3);
             for _ in 0..faux_scrollback_lines {
                 content.push(0x1b);
-                content.push('O' as u8);
+                content.push(b'O');
                 content.push(cmd);
             }
             self.ctx.write_to_pty(content);

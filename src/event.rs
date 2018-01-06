@@ -56,8 +56,8 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn copy_selection(&self, buffer: ::copypasta::Buffer) {
-        if let &mut Some(ref selection) = self.selection {
-            selection.to_span(self.terminal as &Term)
+        if let Some(ref selection) = *self.selection {
+            selection.to_span(self.terminal)
                 .map(|span| {
                     let buf = self.terminal.string_from_selection(&span);
                     if !buf.is_empty() {
@@ -79,7 +79,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     fn update_selection(&mut self, point: Point, side: Side) {
         self.selection_modified = true;
         // Update selection if one exists
-        if let &mut Some(ref mut selection) = self.selection {
+        if let Some(ref mut selection) = *self.selection {
             selection.update(point, side);
             return;
         }
@@ -94,7 +94,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn semantic_selection(&mut self, point: Point) {
-        *self.selection = Some(Selection::semantic(point, self.terminal as &Term));
+        *self.selection = Some(Selection::semantic(point, self.terminal));
         self.selection_modified = true;
     }
 
@@ -255,8 +255,7 @@ impl<N: Notify> Processor<N> {
     ) {
         match event {
             // Pass on device events
-            Event::DeviceEvent { .. } => (),
-            Event::Suspended { .. } => (),
+            Event::DeviceEvent { .. } | Event::Suspended { .. } => (),
             Event::WindowEvent { event, .. } => {
                 use glutin::WindowEvent::*;
                 match event {

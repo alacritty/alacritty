@@ -103,7 +103,7 @@ impl Meter {
     fn add_sample(&mut self, sample: Duration) {
         let mut usec = 0f64;
 
-        usec += (sample.subsec_nanos() as f64) / 1e3;
+        usec += f64::from(sample.subsec_nanos()) / 1e3;
         usec += (sample.as_secs() as f64) * 1e6;
 
         let prev = self.times[self.index];
