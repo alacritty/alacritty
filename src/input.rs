@@ -29,7 +29,7 @@ use glutin::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollD
 
 use config;
 use event::{ClickState, Mouse};
-use index::{Line, Column, Side, Point};
+use index::{Side, Point};
 use term::SizeInfo;
 use term::mode::{self, TermMode};
 use util::fmt::Red;
@@ -294,18 +294,20 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     pub fn normal_mouse_report(&mut self, button: u8) {
         let (line, column) = (self.ctx.mouse_mut().line, self.ctx.mouse_mut().column);
 
-        if line < Line(223) && column < Column(223) {
-            let msg = vec![
-                b'\x1b',
-                b'[',
-                b'M',
-                32 + button,
-                32 + 1 + column.0 as u8,
-                32 + 1 + line.0 as u8,
-            ];
+        // If mouse report is beyond line/column 222, report it as 222
+        let column = (column.0 as u8).saturating_add(32 + 1);
+        let line = (line.0 as u8).saturating_add(32 + 1);
 
-            self.ctx.write_to_pty(msg);
-        }
+        let msg = vec![
+            b'\x1b',
+            b'[',
+            b'M',
+            32 + button,
+            column,
+            line,
+        ];
+
+        self.ctx.write_to_pty(msg);
     }
 
     pub fn sgr_mouse_report(&mut self, button: u8, release: bool) {
