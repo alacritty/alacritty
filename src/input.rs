@@ -29,7 +29,7 @@ use glutin::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollD
 
 use config;
 use event::{ClickState, Mouse};
-use index::{Line, Column, Side, Point};
+use index::{Side, Point};
 use term::SizeInfo;
 use term::mode::{self, TermMode};
 use util::fmt::Red;
