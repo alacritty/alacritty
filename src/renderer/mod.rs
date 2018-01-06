@@ -749,9 +749,9 @@ impl<'a> RenderApi<'a> {
         let (flash, intensity) = (self.config.visual_bell().color(), self.visual_bell_intensity);
         unsafe {
             gl::ClearColor(
-                mix(color.r as f32 / 255.0, flash.r as f32 / 255.0, intensity).min(1.0) * alpha,
-                mix(color.g as f32 / 255.0, flash.g as f32 / 255.0, intensity).min(1.0) * alpha,
-                mix(color.b as f32 / 255.0, flash.b as f32 / 255.0, intensity).min(1.0) * alpha,
+                mix(f32::from(color.r) / 255.0, f32::from(flash.r) / 255.0, intensity).min(1.0) * alpha,
+                mix(f32::from(color.g) / 255.0, f32::from(flash.g) / 255.0, intensity).min(1.0) * alpha,
+                mix(f32::from(color.b) / 255.0, f32::from(flash.b) / 255.0, intensity).min(1.0) * alpha,
                 alpha
             );
             gl::Clear(gl::COLOR_BUFFER_BIT);
