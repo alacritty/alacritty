@@ -30,7 +30,6 @@ extern crate log;
 
 use std::error::Error;
 use std::sync::Arc;
-use std::env;
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
@@ -50,8 +49,6 @@ fn main() {
     let options = cli::Options::load();
     let config = load_config(&options);
 
-    // Switch to home directory
-    env::set_current_dir(env::home_dir().unwrap()).unwrap();
     #[cfg(target_os = "macos")]
     locale::set_locale_environment();
 
