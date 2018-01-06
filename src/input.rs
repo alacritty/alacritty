@@ -284,8 +284,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                         && (
                             prev_line != self.ctx.mouse_mut().line
                             || prev_col != self.ctx.mouse_mut().column
-                        ) {
-                        self.mouse_report(32);
+                        )
+                {
+                    self.mouse_report(32, ElementState::Pressed);
                 }
             }
         }
@@ -308,18 +309,20 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn sgr_mouse_report(&mut self, button: u8, release: bool) {
+    pub fn sgr_mouse_report(&mut self, button: u8, state: ElementState) {
         let (line, column) = (self.ctx.mouse_mut().line, self.ctx.mouse_mut().column);
-        let c = if release { 'm' } else { 'M' };
+        let c = match state {
+            ElementState::Pressed => 'M',
+            ElementState::Released => 'm',
+        };
 
         let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1, c);
         self.ctx.write_to_pty(msg.into_bytes());
     }
 
-    pub fn mouse_report(&mut self, button: u8) {
+    pub fn mouse_report(&mut self, button: u8, state: ElementState) {
         if self.ctx.terminal_mode().contains(mode::TermMode::SGR_MOUSE) {
-            let release = self.ctx.mouse_mut().left_button_state != ElementState::Pressed;
-            self.sgr_mouse_report(button, release);
+            self.sgr_mouse_report(button, state);
         } else {
             self.normal_mouse_report(button);
         }
@@ -355,7 +358,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 self.ctx.clear_selection();
                 let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
                 if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes) {
-                    self.mouse_report(0);
+                    self.mouse_report(0, ElementState::Pressed);
                     return;
                 }
 
@@ -368,7 +371,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
         if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes)
         {
-            self.mouse_report(3);
+            self.mouse_report(3, ElementState::Released);
             return;
         }
 
@@ -429,7 +432,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         let faux_scrollback_lines = self.mouse_config.faux_scrollback_lines;
         if self.ctx.terminal_mode().intersects(mouse_modes) {
-            self.normal_mouse_report(code);
+            self.mouse_report(code, ElementState::Pressed);
         } else if faux_scrollback_lines > 0 {
             // Faux scrolling
             let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
