@@ -771,7 +771,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                 if params.len() > 1 && params.len() % 2 != 0 {
                     for chunk in params[1..].chunks(2) {
                         let index = parse_number(chunk[0]);
-                        let color = parse_rgb_color(chunk[0]);
+                        let color = parse_rgb_color(chunk[1]);
                         if let (Some(i), Some(c)) = (index, color) {
                             self.handler.set_color(i as usize, c);
                             return;
