@@ -238,13 +238,16 @@ live_config_reload: true
 #
 # You can set shell.program to the path of your favorite shell, e.g. /bin/fish.
 # Entries in shell.args are passed unmodified as arguments to the shell.
+#
 # shell:
 #   program: /bin/bash
 #   args:
 #     - --login
 
-
 # Key bindings
+#
+# A list with all available `key` names can be found here:
+# https://docs.rs/glutin/0.12.0/glutin/enum.VirtualKeyCode.html#variants
 #
 # Each binding is defined as an object with some properties. Most of the
 # properties are optional. All of the alphabetical keys should have a letter for
