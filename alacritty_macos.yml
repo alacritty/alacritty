@@ -227,15 +227,15 @@ live_config_reload: true
 
 # Key bindings
 #
-# A list with all available `key` names can be found here:
-# https://docs.rs/glutin/0.12.0/glutin/enum.VirtualKeyCode.html#variants
-#
 # Each binding is defined as an object with some properties. Most of the
 # properties are optional. All of the alphabetical keys should have a letter for
 # the `key` value such as `V`. Function keys are probably what you would expect
 # as well (F1, F2, ..). The number keys above the main keyboard are encoded as
 # `Key1`, `Key2`, etc. Keys on the number pad are encoded `Number1`, `Number2`,
 # etc.  These all match the glutin::VirtualKeyCode variants.
+#
+# A list with all available `key` names can be found here:
+# https://docs.rs/glutin/0.12.0/glutin/enum.VirtualKeyCode.html#variants
 #
 # Possible values for `mods`
 # `Command`, `Super` refer to the super/command/windows key
