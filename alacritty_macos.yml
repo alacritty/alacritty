@@ -227,9 +227,6 @@ live_config_reload: true
 
 # Key bindings
 #
-# A list with all available `key` names can be found here:
-# https://docs.rs/glutin/0.12.0/glutin/enum.VirtualKeyCode.html#variants
-#
 # Each binding is defined as an object with some properties. Most of the
 # properties are optional. All of the alphabetical keys should have a letter for
 # the `key` value such as `V`. Function keys are probably what you would expect
