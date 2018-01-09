@@ -235,7 +235,7 @@ live_config_reload: true
 # etc.  These all match the glutin::VirtualKeyCode variants.
 #
 # A list with all available `key` names can be found here:
-# https://docs.rs/glutin/0.12.0/glutin/enum.VirtualKeyCode.html#variants
+# https://docs.rs/glutin/*/glutin/enum.VirtualKeyCode.html#variants
 #
 # Possible values for `mods`
 # `Command`, `Super` refer to the super/command/windows key
