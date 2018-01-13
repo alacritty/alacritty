@@ -36,15 +36,17 @@ use window::{Size, Pixels};
 use Rgb;
 
 // Shader paths for live reload
-static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
-static TEXT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
+static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"),
+                                                  "/shaders/text.f.glsl");
+static TEXT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"),
+                                                  "/shaders/text.v.glsl");
 
 // Shader source which is used when live-shader-reload feature is disable
 static TEXT_SHADER_F: &'static str = include_str!(
-    concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl")
+    concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/text.f.glsl")
 );
 static TEXT_SHADER_V: &'static str = include_str!(
-    concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl")
+    concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/text.v.glsl")
 );
 
 /// `LoadGlyph` allows for copying a rasterized glyph into graphics memory
