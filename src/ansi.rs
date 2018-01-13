@@ -536,6 +536,8 @@ pub enum NamedColor {
     BrightWhite,
     /// The foreground color
     Foreground = 256,
+    /// The bright foreground color
+    BrightForeground,
     /// The background color
     Background,
     /// Color for the text under the cursor
@@ -563,6 +565,7 @@ pub enum NamedColor {
 impl NamedColor {
     pub fn to_bright(&self) -> Self {
         match *self {
+            NamedColor::Foreground => NamedColor::BrightForeground,
             NamedColor::Black => NamedColor::BrightBlack,
             NamedColor::Red => NamedColor::BrightRed,
             NamedColor::Green => NamedColor::BrightGreen,

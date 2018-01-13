@@ -4,7 +4,7 @@ use std::fmt;
 use {Rgb, ansi};
 use config::Colors;
 
-pub const COUNT: usize = 268;
+pub const COUNT: usize = 269;
 
 /// List of indexed colors
 ///
@@ -50,6 +50,10 @@ impl List {
         self[ansi::NamedColor::BrightMagenta] = colors.bright.magenta;
         self[ansi::NamedColor::BrightCyan]    = colors.bright.cyan;
         self[ansi::NamedColor::BrightWhite]   = colors.bright.white;
+        self[ansi::NamedColor::BrightForeground] = colors
+            .primary
+            .bright_foreground
+            .unwrap_or(colors.primary.foreground);
 
         // Foreground and background
         self[ansi::NamedColor::Foreground] = colors.primary.foreground;
