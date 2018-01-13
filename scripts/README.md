@@ -15,3 +15,13 @@ Running this script depends on an installation of `perf`. Running the included
 `create-flamegraph/ubuntu-install-perf.sh` takes care of this on Ubuntu. For
 other operating systems refer to thier package manager.
 
+## ANSI Color Tests
+
+We include two scripts for testing the color of text inside a terminal. The
+first shows various foreground and background varients. The second enumerates
+all the colors of a standard terminal.
+
+```sh
+fg-bg.sh
+colors.sh
+```
