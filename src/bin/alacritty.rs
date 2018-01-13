@@ -35,7 +35,7 @@ use std::env;
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
-use alacritty::display::Display;
+use alacritty::display::{Display, InitialSize};
 use alacritty::event;
 use alacritty::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
@@ -45,6 +45,7 @@ use alacritty::sync::FairMutex;
 use alacritty::term::{Term};
 use alacritty::tty::{self, process_should_exit};
 use alacritty::util::fmt::Red;
+use alacritty::window::{Window, SetInnerSize, Size, Pixels};
 
 fn main() {
     // Load command line options and config
@@ -98,10 +99,24 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         info!("Configuration loaded from {}", config_path.display());
     });
 
+    // Create the window where Alacritty will be displayed
+    let mut window = Window::new(&options.title)?;
+
+    let dpr = window.hidpi_factor();
+    info!("device_pixel_ratio: {}", dpr);
+
     // Create a display.
     //
-    // The display manages a window and can draw the terminal
-    let mut display = Display::new(&config, options)?;
+    // The display is responsible for rendering the terminal into the current OpenGL context.
+    let dimensions = options.dimensions()
+        .unwrap_or_else(|| config.dimensions());
+    let mut display = Display::new(&config, InitialSize::Cells(dimensions), dpr)?;
+    let viewport_size = Size {
+        width: Pixels(display.size().width as u32),
+        height: Pixels(display.size().height as u32),
+    };
+    info!("set_inner_size: {}", viewport_size);
+    window.set_inner_size(&viewport_size);
 
     info!(
         "PTY Dimensions: {:?} x {:?}",
@@ -118,7 +133,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Find the window ID for setting $WINDOWID
-    let window_id = display.get_window_id();
+    let window_id = window.get_window_id();
 
     // Create the pty
     //
@@ -135,7 +150,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // consumes it periodically.
     let event_loop = EventLoop::new(
         Arc::clone(&terminal),
-        display.notifier(),
+        window.notifier(),
         pty.reader(),
         options.ref_test,
     );
@@ -165,7 +180,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         (Some(true), _) |
         // Or if no CLI flag was passed and the config says yes
         (None, true) => config.path()
-                .map(|path| config::Monitor::new(path, display.notifier())),
+                .map(|path| config::Monitor::new(path, window.notifier())),
         // Otherwise, don't start the monitor
         _ => None,
     };
@@ -176,7 +191,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // Main display loop
     loop {
         // Process input and window events
-        let mut terminal = processor.process_events(&terminal, display.window());
+        let mut terminal = processor.process_events(&terminal, &mut window);
 
         // Handle config reloads
         config_monitor.as_ref()
@@ -192,15 +207,30 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         // Maybe draw the terminal
         if terminal.needs_draw() {
             // Try to update the position of the input method editor
-            display.update_ime_position(&terminal);
+            let (x, y) = display.current_xim_spot(&terminal);
+            window.send_xim_spot(x, y);
             // Handle pending resize events
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
-            display.handle_resize(&mut terminal, &config, &mut [&mut pty, &mut processor]);
+            display.handle_resize(&mut terminal, &config, &mut [&mut pty, &mut processor, &mut window]);
+
+            if let Some(title) = terminal.get_next_title() {
+                window.set_title(&title);
+            }
+
+            if let Some(is_urgent) = terminal.next_is_urgent.take() {
+                // We don't need to set the urgent flag if we already have the
+                // user's attention.
+                if !is_urgent || !window.is_focused {
+                    window.set_urgent(is_urgent);
+                }
+            }
 
             // Draw the current state of the terminal
             display.draw(terminal, &config, processor.selection.as_ref());
+
+            window.swap_buffers().expect("swap buffers");
         }
 
         // Begin shutdown if the flag was raised.

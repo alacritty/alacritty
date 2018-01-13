@@ -1635,7 +1635,7 @@ pub trait OnConfigReload {
     fn on_config_reload(&mut self);
 }
 
-impl OnConfigReload for ::display::Notifier {
+impl OnConfigReload for ::window::Notifier {
     fn on_config_reload(&mut self) {
         self.notify();
     }
