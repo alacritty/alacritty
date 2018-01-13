@@ -8,7 +8,7 @@ Alacritty process exits, a flamegraph will be generated and it's URI printed
 as the only output to STDOUT.
 
 ```sh
-create-flamegraph.sh
+./create-flamegraph.sh
 ```
 
 Running this script depends on an installation of `perf`. Running the included
@@ -22,6 +22,6 @@ first shows various foreground and background varients. The second enumerates
 all the colors of a standard terminal.
 
 ```sh
-fg-bg.sh
-colors.sh
+./fg-bg.sh
+./colors.sh
 ```
