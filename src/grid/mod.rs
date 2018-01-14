@@ -73,6 +73,15 @@ pub struct Grid<T> {
     ///
     /// Invariant: lines is equivalent to raw.len()
     lines: index::Line,
+
+    /// Template row.
+    ///
+    /// This is used to quickly populate new lines and clear recycled lines
+    /// during scroll wrapping.
+    template_row: Row<T>,
+
+    /// Template cell for populating template_row
+    template: T,
 }
 
 pub struct GridIterator<'a, T: 'a> {
@@ -80,55 +89,110 @@ pub struct GridIterator<'a, T: 'a> {
     pub cur: Point,
 }
 
-impl<T: Clone> Grid<T> {
-    pub fn new(lines: index::Line, cols: index::Column, template: &T) -> Grid<T> {
+impl<T: Copy + Clone> Grid<T> {
+    pub fn new(lines: index::Line, cols: index::Column, template: T) -> Grid<T> {
         let mut raw = VecDeque::with_capacity(*lines);
+        let template_row = Row::new(cols, &template);
         for _ in IndexRange(index::Line(0)..lines) {
-            raw.push_back(Row::new(cols, template));
+            raw.push_back(template_row.clone());
         }
 
         Grid {
             raw,
             cols,
             lines,
+            template_row,
+            template,
         }
     }
 
-    pub fn resize(&mut self, lines: index::Line, cols: index::Column, template: &T) {
+    pub fn resize(&mut self, lines: index::Line, cols: index::Column) {
         // Check that there's actually work to do and return early if not
         if lines == self.lines && cols == self.cols {
             return;
         }
 
         match self.lines.cmp(&lines) {
-            Ordering::Less => self.grow_lines(lines, template),
+            Ordering::Less => self.grow_lines(lines),
             Ordering::Greater => self.shrink_lines(lines),
             Ordering::Equal => (),
         }
 
         match self.cols.cmp(&cols) {
-            Ordering::Less => self.grow_cols(cols, template),
+            Ordering::Less => self.grow_cols(cols),
             Ordering::Greater => self.shrink_cols(cols),
             Ordering::Equal => (),
         }
     }
 
-    fn grow_lines(&mut self, lines: index::Line, template: &T) {
+    fn grow_lines(&mut self, lines: index::Line) {
         for _ in IndexRange(self.num_lines()..lines) {
-            self.raw.push_back(Row::new(self.cols, template));
+            self.raw.push_back(self.template_row.clone());
         }
 
         self.lines = lines;
     }
 
-    fn grow_cols(&mut self, cols: index::Column, template: &T) {
+    fn grow_cols(&mut self, cols: index::Column) {
         for row in self.raw.iter_mut() {
-            row.grow(cols, template);
+            row.grow(cols, &self.template);
         }
 
+        // Update self cols
         self.cols = cols;
+
+        // Also update template_row to be the correct length
+        self.template_row.grow(cols, &self.template);
     }
 
+    #[inline]
+    pub fn scroll_down(&mut self, region: &Range<index::Line>, positions: index::Line) {
+        if region.start == Line(0) && region.end == self.num_lines() {
+            // Full rotation
+            for _ in 0..positions.0 {
+                let mut item = self.raw.pop_back().unwrap();
+                item.reset(&self.template_row);
+                self.raw.push_front(item);
+            }
+        } else {
+            // Subregion rotation
+            for line in IndexRange((region.start + positions)..region.end).rev() {
+                self.swap_lines(line, line - positions);
+            }
+
+            let template = &self.template_row;
+            for i in IndexRange(Line(0)..positions) {
+                self.raw
+                    .get_mut(*(region.start + i))
+                    .map(|row| row.reset(template));
+            }
+        }
+    }
+
+    #[inline]
+    pub fn scroll_up(&mut self, region: &Range<index::Line>, positions: index::Line) {
+        if region.start == Line(0) && region.end == self.num_lines() {
+            // Full rotation
+            for _ in 0..positions.0 {
+                let mut item = self.raw.pop_front().unwrap();
+                item.reset(&self.template_row);
+                self.raw.push_back(item);
+            }
+        } else {
+            // Subregion rotation
+            for line in IndexRange(region.start..(region.end - positions)) {
+                self.swap_lines(line, line + positions);
+            }
+
+            // Clear reused lines
+            let template = &self.template_row;
+            for i in IndexRange(Line(0)..positions) {
+                self.raw
+                    .get_mut(*(region.end - i - 1))
+                    .map(|row| row.reset(template));
+            }
+        }
+    }
 }
 
 impl<T> Grid<T> {
@@ -140,38 +204,6 @@ impl<T> Grid<T> {
     #[inline]
     pub fn num_cols(&self) -> index::Column {
         self.cols
-    }
-
-    #[inline]
-    pub fn scroll_down(&mut self, region: &Range<index::Line>, positions: index::Line) {
-        if region.start == Line(0) && region.end == self.num_lines() {
-            // Full rotation
-            for _ in 0..positions.0 {
-                let item = self.raw.pop_back().unwrap();
-                self.raw.push_front(item);
-            }
-        } else {
-            // Subregion rotation
-            for line in IndexRange((region.start + positions)..region.end).rev() {
-                self.swap_lines(line, line - positions);
-            }
-        }
-    }
-
-    #[inline]
-    pub fn scroll_up(&mut self, region: &Range<index::Line>, positions: index::Line) {
-        if region.start == Line(0) && region.end == self.num_lines() {
-            // Full rotation
-            for _ in 0..positions.0 {
-                let item = self.raw.pop_front().unwrap();
-                self.raw.push_back(item);
-            }
-        } else {
-            // Subregion rotation
-            for line in IndexRange(region.start..(region.end - positions)) {
-                self.swap_lines(line, line + positions);
-            }
-        }
     }
 
     pub fn iter_from(&self, point: Point) -> GridIterator<T> {
@@ -209,6 +241,7 @@ impl<T> Grid<T> {
         }
 
         self.cols = cols;
+        self.template_row.shrink(cols);
     }
 }
 

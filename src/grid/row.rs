@@ -24,15 +24,21 @@ use index::Column;
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Row<T>(Vec<T>);
 
-impl<T: Clone> Row<T> {
+impl<T: Copy + Clone> Row<T> {
     pub fn new(columns: Column, template: &T) -> Row<T> {
-        Row(vec![template.to_owned(); *columns])
+        Row(vec![*template; *columns])
     }
 
     pub fn grow(&mut self, cols: Column, template: &T) {
         while self.len() != *cols {
-            self.push(template.to_owned());
+            self.push(*template);
         }
+    }
+
+    /// Resets contents to the contents of `other`
+    #[inline]
+    pub fn reset(&mut self, other: &Row<T>) {
+        self.copy_from_slice(&**other);
     }
 }
 
