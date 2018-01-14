@@ -265,6 +265,12 @@ impl Display {
         &mut self.window
     }
 
+    /// Set the visibility of the window to `true`.
+    #[inline]
+    pub fn present(&self) {
+        self.window.show();
+    }
+
     /// Process pending resize events
     pub fn handle_resize(
         &mut self,
