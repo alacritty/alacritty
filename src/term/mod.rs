@@ -799,7 +799,7 @@ impl Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
-        let grid = Grid::new(num_lines, num_cols, &template);
+        let grid = Grid::new(num_lines, num_cols, template);
 
         let tabspaces = config.tabspaces();
         let tabs = IndexRange::from(Column(0)..grid.num_cols())
@@ -1064,9 +1064,8 @@ impl Term {
         debug!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         // Resize grids to new size
-        let template = Cell::default();
-        self.grid.resize(num_lines, num_cols, &template);
-        self.alt_grid.resize(num_lines, num_cols, &template);
+        self.grid.resize(num_lines, num_cols);
+        self.alt_grid.resize(num_lines, num_cols);
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();
@@ -1131,17 +1130,6 @@ impl Term {
         trace!("scroll_down_relative: origin={}, lines={}", origin, lines);
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
-        // Copy of cell template; can't have it borrowed when calling clear/scroll
-        let template = self.cursor.template;
-
-        // Clear `lines` lines at bottom of area
-        {
-            let start = max(origin, Line(self.scroll_region.end.0.saturating_sub(lines.0)));
-            self.grid
-                .region_mut(start..self.scroll_region.end)
-                .each(|c| c.reset(&template));
-        }
-
         // Scroll between origin and bottom
         self.grid.scroll_down(&(origin..self.scroll_region.end), lines);
     }
@@ -1154,15 +1142,6 @@ impl Term {
     fn scroll_up_relative(&mut self, origin: Line, lines: Line) {
         trace!("scroll_up_relative: origin={}, lines={}", origin, lines);
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
-
-        // Copy of cell template; can't have it borrowed when calling clear/scroll
-        let template = self.cursor.template;
-
-        // Clear `lines` lines starting from origin to origin + lines
-        {
-            let end = min(origin + lines, self.scroll_region.end);
-            self.grid.region_mut(origin..end).each(|c| c.reset(&template));
-        }
 
         // Scroll from origin to bottom less number of lines
         self.grid.scroll_up(&(origin..self.scroll_region.end), lines);
