@@ -196,6 +196,7 @@ impl Window {
         Window::platform_window_init();
         let window = WindowBuilder::new()
             .with_title(title)
+            .with_visibility(false)
             .with_transparency(true)
             .with_decorations(window_config.decorations());
         let context = ContextBuilder::new()
@@ -293,6 +294,12 @@ impl Window {
             MouseCursor::Arrow => GlutinMouseCursor::Arrow,
             MouseCursor::Text => GlutinMouseCursor::Text,
         });
+    }
+
+    /// Set the visibility of the window to `true`.
+    #[inline]
+    pub fn show(&self) {
+        self.window.show();
     }
 
     /// Set cursor visible
