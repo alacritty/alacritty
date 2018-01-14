@@ -202,6 +202,7 @@ impl Window {
         let context = ContextBuilder::new()
             .with_vsync(true);
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
+        window.show();
 
         // Text cursor
         window.set_cursor(GlutinMouseCursor::Text);
@@ -294,12 +295,6 @@ impl Window {
             MouseCursor::Arrow => GlutinMouseCursor::Arrow,
             MouseCursor::Text => GlutinMouseCursor::Text,
         });
-    }
-
-    /// Set the visibility of the window to `true`.
-    #[inline]
-    pub fn show(&self) {
-        self.window.show();
     }
 
     /// Set cursor visible

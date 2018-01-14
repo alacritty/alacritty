@@ -126,7 +126,6 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
     let mut pty = tty::new(&config, options, &display.size(), window_id);
-    display.present();
 
     // Create the pseudoterminal I/O loop
     //
