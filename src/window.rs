@@ -196,11 +196,13 @@ impl Window {
         Window::platform_window_init();
         let window = WindowBuilder::new()
             .with_title(title)
+            .with_visibility(false)
             .with_transparency(true)
             .with_decorations(window_config.decorations());
         let context = ContextBuilder::new()
             .with_vsync(true);
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
+        window.show();
 
         // Text cursor
         window.set_cursor(GlutinMouseCursor::Text);
