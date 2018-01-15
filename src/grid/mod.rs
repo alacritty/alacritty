@@ -21,7 +21,6 @@
 //! ranges is currently supported.
 
 use std::cmp::Ordering;
-use std::collections::{VecDeque, vec_deque};
 use std::iter::IntoIterator;
 use std::ops::{Deref, Range, RangeTo, RangeFrom, RangeFull, Index, IndexMut};
 
@@ -32,6 +31,9 @@ pub use self::row::Row;
 
 #[cfg(test)]
 mod tests;
+
+mod storage;
+use self::storage::Storage;
 
 /// Convert a type to a linear index range.
 pub trait ToRange {
@@ -64,7 +66,7 @@ impl<T> Deref for Indexed<T> {
 pub struct Grid<T> {
     /// Lines in the grid. Each row holds a list of cells corresponding to the
     /// columns in that row.
-    raw: VecDeque<Row<T>>,
+    raw: Storage<Row<T>>,
 
     /// Number of columns
     cols: index::Column,
@@ -82,6 +84,9 @@ pub struct Grid<T> {
 
     /// Template cell for populating template_row
     template: T,
+
+    /// Temporary row storage for scrolling with a region
+    temp: Vec<Row<T>>,
 }
 
 pub struct GridIterator<'a, T: 'a> {
@@ -91,10 +96,10 @@ pub struct GridIterator<'a, T: 'a> {
 
 impl<T: Copy + Clone> Grid<T> {
     pub fn new(lines: index::Line, cols: index::Column, template: T) -> Grid<T> {
-        let mut raw = VecDeque::with_capacity(*lines);
+        let mut raw = Storage::with_capacity(*lines);
         let template_row = Row::new(cols, &template);
         for _ in IndexRange(index::Line(0)..lines) {
-            raw.push_back(template_row.clone());
+            raw.push(template_row.clone());
         }
 
         Grid {
@@ -103,6 +108,7 @@ impl<T: Copy + Clone> Grid<T> {
             lines,
             template_row,
             template,
+            temp: Vec::new(),
         }
     }
 
@@ -127,7 +133,7 @@ impl<T: Copy + Clone> Grid<T> {
 
     fn grow_lines(&mut self, lines: index::Line) {
         for _ in IndexRange(self.num_lines()..lines) {
-            self.raw.push_back(self.template_row.clone());
+            self.raw.push(self.template_row.clone());
         }
 
         self.lines = lines;
@@ -147,12 +153,25 @@ impl<T: Copy + Clone> Grid<T> {
 
     #[inline]
     pub fn scroll_down(&mut self, region: &Range<index::Line>, positions: index::Line) {
-        if region.start == Line(0) && region.end == self.num_lines() {
-            // Full rotation
-            for _ in 0..positions.0 {
-                let mut item = self.raw.pop_back().unwrap();
-                item.reset(&self.template_row);
-                self.raw.push_front(item);
+        // Whether or not there is a scrolling region active, as long as it
+        // starts at the top, we can do a full rotation which just involves
+        // changing the start index.
+        //
+        // To accomodate scroll regions, rows are reordered at the end.
+        if region.start == Line(0) {
+            // Rotate the entire line buffer. If there's a scrolling region
+            // active, the bottom lines are restored in the next step.
+            self.raw.rotate(-(*positions as isize));
+
+            // Now, restore any scroll region lines
+            for i in IndexRange(region.end .. self.num_lines()) {
+                // First do the swap
+                self.raw.swap(*i, *i + *positions);
+            }
+
+            // Finally, reset recycled lines
+            for i in 0..*positions {
+                self.raw[i].reset(&self.template_row);
             }
         } else {
             // Subregion rotation
@@ -160,23 +179,33 @@ impl<T: Copy + Clone> Grid<T> {
                 self.swap_lines(line, line - positions);
             }
 
-            let template = &self.template_row;
             for i in IndexRange(Line(0)..positions) {
-                self.raw
-                    .get_mut(*(region.start + i))
-                    .map(|row| row.reset(template));
+                self.raw[*(region.start - i - 1)].reset(&self.template_row);
             }
         }
     }
 
     #[inline]
     pub fn scroll_up(&mut self, region: &Range<index::Line>, positions: index::Line) {
-        if region.start == Line(0) && region.end == self.num_lines() {
-            // Full rotation
-            for _ in 0..positions.0 {
-                let mut item = self.raw.pop_front().unwrap();
-                item.reset(&self.template_row);
-                self.raw.push_back(item);
+        if region.start == Line(0) {
+            // Rotate the entire line buffer. If there's a scrolling region
+            // active, the bottom lines are restored in the next step.
+            self.raw.rotate(*positions as isize);
+
+            // Now, restore any lines outside the scroll region
+            let mut i = 0;
+            for _ in IndexRange(region.end .. self.num_lines()) {
+                let idx = *self.num_lines() - i - 1;
+                // First do the swap
+                self.raw.swap(idx, idx - *positions);
+                i += 1;
+            }
+
+            // Finally, reset recycled lines
+            //
+            // Recycled lines are just above the end of the scrolling region.
+            for i in 0..*positions {
+                self.raw[*region.end - i - 1].reset(&self.template_row);
             }
         } else {
             // Subregion rotation
@@ -185,11 +214,8 @@ impl<T: Copy + Clone> Grid<T> {
             }
 
             // Clear reused lines
-            let template = &self.template_row;
             for i in IndexRange(Line(0)..positions) {
-                self.raw
-                    .get_mut(*(region.end - i - 1))
-                    .map(|row| row.reset(template));
+                self.raw[*(region.start - i - 1)].reset(&self.template_row);
             }
         }
     }
@@ -229,7 +255,7 @@ impl<T> Grid<T> {
 
     fn shrink_lines(&mut self, lines: index::Line) {
         while index::Line(self.raw.len()) != lines {
-            self.raw.pop_back();
+            self.raw.pop();
         }
 
         self.lines = lines;
@@ -322,10 +348,10 @@ impl<'point, T> IndexMut<&'point Point> for Grid<T> {
 
 impl<'a, T> IntoIterator for &'a Grid<T> {
     type Item = &'a Row<T>;
-    type IntoIter = vec_deque::Iter<'a, Row<T>>;
+    type IntoIter = self::storage::Iter<'a, Row<T>>;
 
     #[inline]
-    fn into_iter(self) -> vec_deque::Iter<'a, Row<T>> {
+    fn into_iter(self) -> self::storage::Iter<'a, Row<T>> {
         self.raw.iter()
     }
 }
@@ -340,7 +366,7 @@ impl<'a, T> IntoIterator for &'a Grid<T> {
 pub struct Region<'a, T: 'a> {
     start: Line,
     end: Line,
-    raw: &'a VecDeque<Row<T>>,
+    raw: &'a Storage<Row<T>>,
 }
 
 /// A mutable subset of lines in the grid
@@ -349,7 +375,7 @@ pub struct Region<'a, T: 'a> {
 pub struct RegionMut<'a, T: 'a> {
     start: Line,
     end: Line,
-    raw: &'a mut VecDeque<Row<T>>,
+    raw: &'a mut Storage<Row<T>>,
 }
 
 impl<'a, T> RegionMut<'a, T> {
@@ -453,13 +479,13 @@ impl<T> IndexRegion<RangeFull, T> for Grid<T> {
 pub struct RegionIter<'a, T: 'a> {
     end: Line,
     cur: Line,
-    raw: &'a VecDeque<Row<T>>,
+    raw: &'a Storage<Row<T>>,
 }
 
 pub struct RegionIterMut<'a, T: 'a> {
     end: Line,
     cur: Line,
-    raw: &'a mut VecDeque<Row<T>>,
+    raw: &'a mut Storage<Row<T>>,
 }
 
 impl<'a, T> IntoIterator for Region<'a, T> {
