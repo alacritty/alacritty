@@ -17,11 +17,12 @@ other operating systems refer to thier package manager.
 
 ## ANSI Color Tests
 
-We include two scripts for testing the color of text inside a terminal. The
+We include a few scripts for testing the color of text inside a terminal. The
 first shows various foreground and background varients. The second enumerates
-all the colors of a standard terminal.
+all the colors of a standard terminal. The third enumerates the 24-bit colors.
 
 ```sh
 ./fg-bg.sh
 ./colors.sh
+./24-bit-colors.sh
 ```
