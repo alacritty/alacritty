@@ -1031,7 +1031,7 @@ fn deserialize_bright_foreground<'a, D>(deserializer: D) -> ::std::result::Resul
         },
         Ok(None) => Ok(None),
         Err(err) => {
-            eprintln!("problem with config: {}; Using non-bright color", err);
+            eprintln!("problem with config: {}; Using standard foreground color", err);
             Ok(None)
         },
     }
