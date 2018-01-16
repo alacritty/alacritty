@@ -560,8 +560,6 @@ pub enum NamedColor {
     DimWhite,
     /// The bright foreground color
     BrightForeground,
-    /// The bright background color
-    BrightBackground,
 }
 
 impl NamedColor {
