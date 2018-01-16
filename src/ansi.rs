@@ -536,8 +536,6 @@ pub enum NamedColor {
     BrightWhite,
     /// The foreground color
     Foreground = 256,
-    /// The bright foreground color
-    BrightForeground,
     /// The background color
     Background,
     /// Color for the text under the cursor
@@ -560,6 +558,10 @@ pub enum NamedColor {
     DimCyan,
     /// Dim white
     DimWhite,
+    /// The bright foreground color
+    BrightForeground,
+    /// The bright background color
+    BrightBackground,
 }
 
 impl NamedColor {

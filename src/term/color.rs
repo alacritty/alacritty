@@ -4,7 +4,7 @@ use std::fmt;
 use {Rgb, ansi};
 use config::Colors;
 
-pub const COUNT: usize = 269;
+pub const COUNT: usize = 270;
 
 /// List of indexed colors
 ///
@@ -13,6 +13,7 @@ pub const COUNT: usize = 269;
 /// the configured foreground color, item 257 is the configured background
 /// color, item 258 is the cursor foreground color, item 259 is the cursor
 /// background color. Following that are 8 positions for dim colors.
+/// Item 268 is the bright foreground color and 269 is the bright background.
 #[derive(Copy, Clone)]
 pub struct List([Rgb; COUNT]);
 
@@ -54,6 +55,10 @@ impl List {
             .primary
             .bright_foreground
             .unwrap_or(colors.primary.foreground);
+        self[ansi::NamedColor::BrightBackground] = colors
+            .primary
+            .bright_background
+            .unwrap_or(colors.primary.background);
 
         // Foreground and background
         self[ansi::NamedColor::Foreground] = colors.primary.foreground;
