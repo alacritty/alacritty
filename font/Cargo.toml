@@ -9,11 +9,11 @@ license = "Apache-2.0"
 euclid = "0.16"
 libc = "0.2"
 foreign-types = "0.3"
-log = "0.3"
+log = "0.4"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig", branch = "updated-2017-10-8" }
-freetype-rs = "0.13"
+freetype-rs = "0.16"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.4"
