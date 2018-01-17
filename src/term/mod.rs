@@ -1756,9 +1756,23 @@ impl ansi::Handler for Term {
         }
     }
 
+    // Reset all important fields in the term struct
     #[inline]
     fn reset_state(&mut self) {
-        trace!("[unimplemented] reset_state");
+        self.input_needs_wrap = false;
+        self.next_title = None;
+        self.next_mouse_cursor = None;
+        self.alt = false;
+        self.cursor = Default::default();
+        self.active_charset = Default::default();
+        self.mode = Default::default();
+        self.font_size = self.original_font_size;
+        self.next_is_urgent = None;
+        self.cursor_save = Default::default();
+        self.cursor_save_alt = Default::default();
+        self.colors = self.original_colors;
+        self.color_modified = [false; color::COUNT];
+        self.cursor_style = None;
     }
 
     #[inline]
