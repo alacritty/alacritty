@@ -710,7 +710,7 @@ impl QuadRenderer {
         // Draw visual bell
         let color = config.visual_bell().color();
         let rect = Rect::new(0, 0, *size.width, *size.height);
-        self.render_rect(rect, color, visual_bell_intensity as f32, size);
+        self.render_rect(&rect, color, visual_bell_intensity as f32, size);
 
         unsafe {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
@@ -783,7 +783,7 @@ impl QuadRenderer {
     // Render a rectangle
     // TODO: When stuff other than visual bell uses render_rect,
     // draw calls should be collected to reduce number of shader swaps
-    fn render_rect(&mut self, rect: Rect<u32>, color: Rgb, alpha: f32, size: Size<Pixels<u32>>) {
+    fn render_rect(&mut self, rect: &Rect<u32>, color: Rgb, alpha: f32, size: Size<Pixels<u32>>) {
         // Do nothing when alpha is fully transparent
         if alpha == 0. {
             return;
@@ -829,15 +829,15 @@ impl QuadRenderer {
             let u_col = gl::GetUniformLocation(self.program.id, b"col\0".as_ptr() as *const _);
             gl::Uniform4f(
                 u_col,
-                color.r as f32 / 255.,
-                color.g as f32 / 255.,
-                color.b as f32 / 255.,
+                f32::from(color.r) / 255.,
+                f32::from(color.g) / 255.,
+                f32::from(color.b) / 255.,
                 alpha,
             );
 
             // Draw the rectangle
             self.program.activate();
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0 as *const _);
+            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
 
             // Reset state
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);

@@ -176,18 +176,6 @@ fn default_visual_bell_color() -> Rgb {
     Rgb { r: 255, g: 255, b: 255 }
 }
 
-fn deserialize_visual_bell_duration<'a, D>(deserializer: D) -> ::std::result::Result<u16, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match u16::deserialize(deserializer) {
-        Ok(duration) => Ok(duration),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(default_visual_bell_duration())
-        },
-    }
-}
-
 impl VisualBellConfig {
     /// Visual bell animation
     #[inline]
