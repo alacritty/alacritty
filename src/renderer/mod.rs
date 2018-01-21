@@ -684,7 +684,7 @@ impl QuadRenderer {
         while let Ok(_) = self.rx.try_recv() {}
 
         unsafe {
-            self.program.activate();
+            gl::UseProgram(self.program.id);
             self.program.set_term_uniforms(props);
 
             gl::BindVertexArray(self.vao);
@@ -712,7 +712,7 @@ impl QuadRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
 
-            self.program.deactivate();
+            gl::UseProgram(0);
         }
 
         res
@@ -769,12 +769,12 @@ impl QuadRenderer {
         // viewport
         unsafe {
             gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
-        }
 
-        // update projection
-        self.program.activate();
-        self.program.update_projection(width as f32, height as f32);
-        self.program.deactivate();
+            // update projection
+            gl::UseProgram(self.program.id);
+            self.program.update_projection(width as f32, height as f32);
+            gl::UseProgram(0);
+        }
     }
 
     // Render a rectangle
@@ -794,8 +794,10 @@ impl QuadRenderer {
         let width = rect.width as f32 / center_x;
         let height = rect.height as f32 / center_y;
 
-        self.rect_program.activate();
         unsafe {
+            // Activate rectangle program
+            gl::UseProgram(self.rect_program.id);
+
             // Change blending strategy
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
@@ -828,10 +830,10 @@ impl QuadRenderer {
             // Reset state
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
             gl::BindVertexArray(0);
-        }
 
-        // Deactivate program
-        self.rect_program.deactivate();
+            // Deactivate program
+            gl::UseProgram(0);
+        }
     }
 }
 
@@ -1053,18 +1055,6 @@ impl<'a> Drop for RenderApi<'a> {
 }
 
 impl TextShaderProgram {
-    pub fn activate(&self) {
-        unsafe {
-            gl::UseProgram(self.id);
-        }
-    }
-
-    pub fn deactivate(&self) {
-        unsafe {
-            gl::UseProgram(0);
-        }
-    }
-
     pub fn new(
         config: &Config,
         size: Size<Pixels<u32>>
@@ -1131,7 +1121,7 @@ impl TextShaderProgram {
 
         shader.update_projection(*size.width as f32, *size.height as f32);
 
-        shader.deactivate();
+        unsafe { gl::UseProgram(0) }
 
         Ok(shader)
     }
@@ -1226,7 +1216,7 @@ impl RectShaderProgram {
             u_col,
         };
 
-        shader.deactivate();
+        unsafe { gl::UseProgram(0) }
 
         Ok(shader)
     }
@@ -1241,14 +1231,6 @@ impl RectShaderProgram {
                 alpha,
             );
         }
-    }
-
-    fn activate(&self) {
-        unsafe { gl::UseProgram(self.id) }
-    }
-
-    fn deactivate(&self) {
-        unsafe { gl::UseProgram(0) }
     }
 }
 
