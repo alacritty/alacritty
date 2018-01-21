@@ -105,32 +105,13 @@ impl From<ShaderCreationError> for Error {
     }
 }
 
-
 /// Text drawing program
 ///
 /// Uniforms are prefixed with "u", and vertex attributes are prefixed with "a".
 #[derive(Debug)]
-pub struct ShaderProgram {
+pub struct TextShaderProgram {
     // Program id
     id: GLuint,
-
-    /// Current vertex shader
-    vertex: GLuint,
-
-    /// Current fragment shader
-    fragment: GLuint,
-
-    /// Text vertex shader
-    text_vertex: GLuint,
-
-    /// Text fragment shader
-    text_fragment: GLuint,
-
-    /// Rectangle vertex shader
-    rect_vertex: GLuint,
-
-    /// Rectangle fragment shader
-    rect_fragment: GLuint,
 
     /// projection matrix uniform
     u_projection: GLint,
@@ -150,6 +131,17 @@ pub struct ShaderProgram {
     padding_y: f32,
 }
 
+/// Rectangle drawing program
+///
+/// Uniforms are prefixed with "u"
+#[derive(Debug)]
+pub struct RectShaderProgram {
+    // Program id
+    id: GLuint,
+
+    /// Rectangle color
+    u_col: GLint,
+}
 
 #[derive(Debug, Clone)]
 pub struct Glyph {
@@ -377,7 +369,8 @@ struct InstanceData {
 
 #[derive(Debug)]
 pub struct QuadRenderer {
-    program: ShaderProgram,
+    program: TextShaderProgram,
+    rect_program: RectShaderProgram,
     vao: GLuint,
     ebo: GLuint,
     vbo_instance: GLuint,
@@ -396,7 +389,7 @@ pub struct RenderApi<'a> {
     batch: &'a mut Batch,
     atlas: &'a mut Vec<Atlas>,
     current_atlas: &'a mut usize,
-    program: &'a mut ShaderProgram,
+    program: &'a mut TextShaderProgram,
     config: &'a Config,
 }
 
@@ -500,7 +493,8 @@ const ATLAS_SIZE: i32 = 1024;
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
     pub fn new(config: &Config, size: Size<Pixels<u32>>) -> Result<QuadRenderer, Error> {
-        let program = ShaderProgram::new(config, size)?;
+        let program = TextShaderProgram::new(config, size)?;
+        let rect_program = RectShaderProgram::new()?;
 
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
@@ -650,6 +644,7 @@ impl QuadRenderer {
 
         let mut renderer = QuadRenderer {
             program: program,
+            rect_program: rect_program,
             vao: vao,
             ebo: ebo,
             vbo_instance: vbo_instance,
@@ -739,12 +734,13 @@ impl QuadRenderer {
 
     pub fn reload_shaders(&mut self, config: &Config, size: Size<Pixels<u32>>) {
         warn!("Reloading shaders ...");
-        let program = match ShaderProgram::new(config, size) {
-            Ok(program) => {
+        let result = (TextShaderProgram::new(config, size), RectShaderProgram::new());
+        let (program, rect_program) = match result {
+            (Ok(program), Ok(rect_program)) => {
                 warn!(" ... OK");
-                program
+                (program, rect_program)
             },
-            Err(err) => {
+            (Err(err), _) | (_, Err(err)) => {
                 match err {
                     ShaderCreationError::Io(err) => {
                         error!("Error reading shader file: {}", err);
@@ -763,6 +759,7 @@ impl QuadRenderer {
 
         self.active_tex = 0;
         self.program = program;
+        self.rect_program = rect_program;
     }
 
     pub fn resize(&mut self, width: i32, height: i32) {
@@ -797,10 +794,7 @@ impl QuadRenderer {
         let width = rect.width as f32 / center_x;
         let height = rect.height as f32 / center_y;
 
-        // Swap to rectangle shaders
-        let (vert, frag) = (self.program.rect_vertex, self.program.rect_fragment);
-        self.program.swap_shaders(vert, frag).unwrap();
-
+        self.rect_program.activate();
         unsafe {
             // Change blending strategy
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
@@ -826,17 +820,9 @@ impl QuadRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
 
             // Color
-            let u_col = gl::GetUniformLocation(self.program.id, b"col\0".as_ptr() as *const _);
-            gl::Uniform4f(
-                u_col,
-                f32::from(color.r) / 255.,
-                f32::from(color.g) / 255.,
-                f32::from(color.b) / 255.,
-                alpha,
-            );
+            self.rect_program.set_color(color, alpha);
 
             // Draw the rectangle
-            self.program.activate();
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
 
             // Reset state
@@ -844,11 +830,8 @@ impl QuadRenderer {
             gl::BindVertexArray(0);
         }
 
-        // Reset shaders
-        let (vert, frag) = (self.program.text_vertex, self.program.text_fragment);
-        self.program.swap_shaders(vert, frag).unwrap();
-        self.program.update_projection(*size.width as f32, *size.height as f32);
-        self.program.deactivate();
+        // Deactivate program
+        self.rect_program.deactivate();
     }
 }
 
@@ -1069,7 +1052,7 @@ impl<'a> Drop for RenderApi<'a> {
     }
 }
 
-impl ShaderProgram {
+impl TextShaderProgram {
     pub fn activate(&self) {
         unsafe {
             gl::UseProgram(self.id);
@@ -1085,38 +1068,28 @@ impl ShaderProgram {
     pub fn new(
         config: &Config,
         size: Size<Pixels<u32>>
-    ) -> Result<ShaderProgram, ShaderCreationError> {
-        let (text_vert_src, text_frag_src,
-             rect_vert_src, rect_frag_src) = if cfg!(feature = "live-shader-reload")
+    ) -> Result<TextShaderProgram, ShaderCreationError> {
+        let (vertex_shader_src, fragment_shader_src) = if cfg!(feature = "live-shader-reload")
         {
-            (None, None, None, None)
+            (None, None)
         } else {
-            (Some(TEXT_SHADER_V), Some(TEXT_SHADER_F),
-             Some(RECT_SHADER_V), Some(RECT_SHADER_F))
+            (Some(TEXT_SHADER_V), Some(TEXT_SHADER_F))
         };
-        let text_vertex = ShaderProgram::create_shader(
+        let vertex_shader = create_shader(
             TEXT_SHADER_V_PATH,
             gl::VERTEX_SHADER,
-            text_vert_src
+            vertex_shader_src
         )?;
-        let text_fragment = ShaderProgram::create_shader(
+        let fragment_shader = create_shader(
             TEXT_SHADER_F_PATH,
             gl::FRAGMENT_SHADER,
-            text_frag_src
+            fragment_shader_src
         )?;
-        let rect_vertex = ShaderProgram::create_shader(
-            RECT_SHADER_V_PATH,
-            gl::VERTEX_SHADER,
-            rect_vert_src
-        )?;
-        let rect_fragment = ShaderProgram::create_shader(
-            RECT_SHADER_F_PATH,
-            gl::FRAGMENT_SHADER,
-            rect_frag_src
-        )?;
-        let program = ShaderProgram::create_program(text_vertex, text_fragment)?;
+        let program = create_program(vertex_shader, fragment_shader)?;
 
         unsafe {
+            gl::DeleteShader(fragment_shader);
+            gl::DeleteShader(vertex_shader);
             gl::UseProgram(program);
         }
 
@@ -1146,14 +1119,8 @@ impl ShaderProgram {
 
         assert_uniform_valid!(projection, term_dim, cell_dim);
 
-        let shader = ShaderProgram {
+        let shader = TextShaderProgram {
             id: program,
-            text_vertex,
-            text_fragment,
-            rect_vertex,
-            rect_fragment,
-            vertex: text_vertex,
-            fragment: text_fragment,
             u_projection: projection,
             u_term_dim: term_dim,
             u_cell_dim: cell_dim,
@@ -1213,105 +1180,139 @@ impl ShaderProgram {
             gl::Uniform1i(self.u_background, value);
         }
     }
+}
 
-    fn create_program(vertex: GLuint, fragment: GLuint) -> Result<GLuint, ShaderCreationError> {
+impl Drop for TextShaderProgram {
+    fn drop(&mut self) {
         unsafe {
-            let program = gl::CreateProgram();
-            gl::AttachShader(program, vertex);
-            gl::AttachShader(program, fragment);
-            gl::LinkProgram(program);
-
-            let mut success: GLint = 0;
-            gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
-
-            if success == i32::from(gl::TRUE) {
-                Ok(program)
-            } else {
-                Err(ShaderCreationError::Link(get_program_info_log(program)))
-            }
-        }
-    }
-
-    // Load a new vertex and fragment shader into the program
-    fn swap_shaders(&mut self, vertex: GLuint, fragment: GLuint) -> Result<(), ShaderCreationError> {
-        unsafe {
-            gl::DetachShader(self.id, self.vertex);
-            gl::DetachShader(self.id, self.fragment);
-
-            gl::AttachShader(self.id, vertex);
-            gl::AttachShader(self.id, fragment);
-
-            gl::LinkProgram(self.id);
-
-            let mut success: GLint = 0;
-            gl::GetProgramiv(self.id, gl::LINK_STATUS, &mut success);
-            if success != i32::from(gl::TRUE) {
-                return Err(ShaderCreationError::Link(get_program_info_log(self.id)));
-            }
-        }
-
-        self.vertex = vertex;
-        self.fragment = fragment;
-
-        Ok(())
-    }
-
-    fn create_shader(
-        path: &str,
-        kind: GLenum,
-        source: Option<&'static str>
-    ) -> Result<GLuint, ShaderCreationError> {
-        let from_disk;
-        let source = if let Some(src) = source {
-            src
-        } else {
-            from_disk = read_file(path)?;
-            &from_disk[..]
-        };
-
-        let len: [GLint; 1] = [source.len() as GLint];
-
-        let shader = unsafe {
-            let shader = gl::CreateShader(kind);
-            gl::ShaderSource(shader, 1, &(source.as_ptr() as *const _), len.as_ptr());
-            gl::CompileShader(shader);
-            shader
-        };
-
-        let mut success: GLint = 0;
-        unsafe {
-            gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
-        }
-
-        if success == GLint::from(gl::TRUE) {
-            Ok(shader)
-        } else {
-            // Read log
-            let log = get_shader_info_log(shader);
-
-            // Cleanup
-            unsafe { gl::DeleteShader(shader); }
-
-            Err(ShaderCreationError::Compile(PathBuf::from(path), log))
+            gl::DeleteProgram(self.id);
         }
     }
 }
 
-impl Drop for ShaderProgram {
+impl RectShaderProgram {
+    pub fn new() -> Result<Self, ShaderCreationError> {
+        let (vertex_shader_src, fragment_shader_src) = if cfg!(feature = "live-shader-reload")
+        {
+            (None, None)
+        } else {
+            (Some(RECT_SHADER_V), Some(RECT_SHADER_F))
+        };
+        let vertex_shader = create_shader(
+            RECT_SHADER_V_PATH,
+            gl::VERTEX_SHADER,
+            vertex_shader_src
+        )?;
+        let fragment_shader = create_shader(
+            RECT_SHADER_F_PATH,
+            gl::FRAGMENT_SHADER,
+            fragment_shader_src
+        )?;
+        let program = create_program(vertex_shader, fragment_shader)?;
+
+        unsafe {
+            gl::DeleteShader(fragment_shader);
+            gl::DeleteShader(vertex_shader);
+            gl::UseProgram(program);
+        }
+
+        // get uniform locations
+        let u_col = unsafe {
+            gl::GetUniformLocation(program, b"col\0".as_ptr() as *const _)
+        };
+
+        let shader = RectShaderProgram {
+            id: program,
+            u_col,
+        };
+
+        shader.deactivate();
+
+        Ok(shader)
+    }
+
+    fn set_color(&self, color: Rgb, alpha: f32) {
+        unsafe {
+            gl::Uniform4f(
+                self.u_col,
+                f32::from(color.r) / 255.,
+                f32::from(color.g) / 255.,
+                f32::from(color.b) / 255.,
+                alpha,
+            );
+        }
+    }
+
+    fn activate(&self) {
+        unsafe { gl::UseProgram(self.id) }
+    }
+
+    fn deactivate(&self) {
+        unsafe { gl::UseProgram(0) }
+    }
+}
+
+impl Drop for RectShaderProgram {
     fn drop(&mut self) {
         unsafe {
-            // Delete shaders
-            gl::DeleteShader(self.text_vertex);
-            gl::DeleteShader(self.text_fragment);
-            gl::DeleteShader(self.rect_vertex);
-            gl::DeleteShader(self.rect_fragment);
-
-            gl::DetachShader(self.id, self.vertex);
-            gl::DetachShader(self.id, self.fragment);
-
-            // Delete program
             gl::DeleteProgram(self.id);
         }
+    }
+}
+
+fn create_program(vertex: GLuint, fragment: GLuint) -> Result<GLuint, ShaderCreationError> {
+    unsafe {
+        let program = gl::CreateProgram();
+        gl::AttachShader(program, vertex);
+        gl::AttachShader(program, fragment);
+        gl::LinkProgram(program);
+
+        let mut success: GLint = 0;
+        gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
+
+        if success == i32::from(gl::TRUE) {
+            Ok(program)
+        } else {
+            Err(ShaderCreationError::Link(get_program_info_log(program)))
+        }
+    }
+}
+
+fn create_shader(path: &str, kind: GLenum, source: Option<&'static str>)
+    -> Result<GLuint, ShaderCreationError>
+{
+    let from_disk;
+    let source = if let Some(src) = source {
+        src
+    } else {
+        from_disk = read_file(path)?;
+        &from_disk[..]
+    };
+
+    let len: [GLint; 1] = [source.len() as GLint];
+
+    let shader = unsafe {
+        let shader = gl::CreateShader(kind);
+        gl::ShaderSource(shader, 1, &(source.as_ptr() as *const _), len.as_ptr());
+        gl::CompileShader(shader);
+        shader
+    };
+
+    let mut success: GLint = 0;
+    unsafe {
+        gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
+    }
+
+    if success == GLint::from(gl::TRUE) {
+        Ok(shader)
+    } else {
+        // Read log
+        let log = get_shader_info_log(shader);
+
+        // Cleanup
+        unsafe { gl::DeleteShader(shader); }
+
+        Err(ShaderCreationError::Compile(PathBuf::from(path), log))
     }
 }
 
