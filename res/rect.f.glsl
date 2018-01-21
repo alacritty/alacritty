@@ -12,28 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #version 330 core
-in vec2 TexCoords;
-in vec3 fg;
-in vec4 bg;
-flat in int background;
+in vec4 color;
 
-layout(location = 0, index = 0) out vec4 color;
-layout(location = 0, index = 1) out vec4 alphaMask;
-
-uniform float bgOpacity;
-uniform sampler2D mask;
+out vec4 FragColor;
 
 void main()
 {
-    if (background != 0) {
-        if (bg.a == 0.0)
-            discard;
-
-        alphaMask = vec4(1.0);
-        color = vec4(bg.rgb, 1.0);
-    } else {
-        vec3 textColor = texture(mask, TexCoords).rgb;
-        alphaMask = vec4(textColor, textColor.r);
-        color = vec4(fg, 1.0);
-    }
+    FragColor = color;
 }

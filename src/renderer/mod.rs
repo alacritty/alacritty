@@ -38,6 +38,8 @@ use Rgb;
 // Shader paths for live reload
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
 static TEXT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
+static RECT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl");
+static RECT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl");
 
 // Shader source which is used when live-shader-reload feature is disable
 static TEXT_SHADER_F: &'static str = include_str!(
@@ -45,6 +47,12 @@ static TEXT_SHADER_F: &'static str = include_str!(
 );
 static TEXT_SHADER_V: &'static str = include_str!(
     concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl")
+);
+static RECT_SHADER_F: &'static str = include_str!(
+    concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl")
+);
+static RECT_SHADER_V: &'static str = include_str!(
+    concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl")
 );
 
 /// `LoadGlyph` allows for copying a rasterized glyph into graphics memory
@@ -106,6 +114,24 @@ pub struct ShaderProgram {
     // Program id
     id: GLuint,
 
+    /// Current vertex shader
+    vertex: GLuint,
+
+    /// Current fragment shader
+    fragment: GLuint,
+
+    /// Text vertex shader
+    text_vertex: GLuint,
+
+    /// Text fragment shader
+    text_fragment: GLuint,
+
+    /// Rectangle vertex shader
+    rect_vertex: GLuint,
+
+    /// Rectangle fragment shader
+    rect_fragment: GLuint,
+
     /// projection matrix uniform
     u_projection: GLint,
 
@@ -114,12 +140,6 @@ pub struct ShaderProgram {
 
     /// Cell dimensions (pixels)
     u_cell_dim: GLint,
-
-    /// Visual bell
-    u_visual_bell: GLint,
-
-    /// Visual bell color
-    u_visual_bell_color: GLint,
 
     /// Background pass flag
     ///
@@ -359,9 +379,10 @@ struct InstanceData {
 pub struct QuadRenderer {
     program: ShaderProgram,
     vao: GLuint,
-    vbo: GLuint,
     ebo: GLuint,
     vbo_instance: GLuint,
+    rect_vao: GLuint,
+    rect_vbo: GLuint,
     atlas: Vec<Atlas>,
     current_atlas: usize,
     active_tex: GLuint,
@@ -377,7 +398,6 @@ pub struct RenderApi<'a> {
     current_atlas: &'a mut usize,
     program: &'a mut ShaderProgram,
     config: &'a Config,
-    visual_bell_intensity: f32
 }
 
 #[derive(Debug)]
@@ -488,6 +508,10 @@ impl QuadRenderer {
 
         let mut vbo_instance: GLuint = 0;
 
+        let mut rect_vbo: GLuint = 0;
+        let mut rect_vao: GLuint = 0;
+        let mut rect_ebo: GLuint = 0;
+
         unsafe {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
@@ -578,8 +602,24 @@ impl QuadRenderer {
             gl::EnableVertexAttribArray(5);
             gl::VertexAttribDivisor(5, 1);
 
+            // Rectangle setup
+            gl::GenVertexArrays(1, &mut rect_vao);
+            gl::GenBuffers(1, &mut rect_vbo);
+            gl::GenBuffers(1, &mut rect_ebo);
+            gl::BindVertexArray(rect_vao);
+
+            let indices: [i32; 6] = [
+                0, 1, 3,
+                1, 2, 3,
+            ];
+
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, rect_ebo);
+            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, (size_of::<i32>() * indices.len()) as _, indices.as_ptr() as *const _, gl::STATIC_DRAW);
+
+            // Cleanup
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
         }
 
         let (msg_tx, msg_rx) = mpsc::channel();
@@ -611,9 +651,10 @@ impl QuadRenderer {
         let mut renderer = QuadRenderer {
             program: program,
             vao: vao,
-            vbo: vbo,
             ebo: ebo,
             vbo_instance: vbo_instance,
+            rect_vao: rect_vao,
+            rect_vbo: rect_vbo,
             atlas: Vec::new(),
             current_atlas: 0,
             active_tex: 0,
@@ -636,23 +677,20 @@ impl QuadRenderer {
     ) -> T
         where F: FnOnce(RenderApi) -> T
     {
-        while let Ok(msg) = self.rx.try_recv() {
-            match msg {
-                Msg::ShaderReload => {
-                    self.reload_shaders(config, Size {
-                        width: Pixels(props.width as u32),
-                        height: Pixels(props.height as u32)
-                    });
-                }
-            }
-        }
+        let size = Size {
+            width: Pixels(props.width as u32),
+            height: Pixels(props.height as u32),
+        };
 
-        let visual_bell_color = config.visual_bell().color();
+        // Flush message queue
+        if let Ok(Msg::ShaderReload) = self.rx.try_recv() {
+            self.reload_shaders(config, size);
+        }
+        while let Ok(_) = self.rx.try_recv() {}
 
         unsafe {
             self.program.activate();
             self.program.set_term_uniforms(props);
-            self.program.set_visual_bell(visual_bell_intensity as _, visual_bell_color);
 
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
@@ -666,9 +704,13 @@ impl QuadRenderer {
             atlas: &mut self.atlas,
             current_atlas: &mut self.current_atlas,
             program: &mut self.program,
-            visual_bell_intensity: visual_bell_intensity as _,
             config: config,
         });
+
+        // Draw visual bell
+        let color = config.visual_bell().color();
+        let rect = Rect::new(0, 0, *size.width, *size.height);
+        self.render_rect(rect, color, visual_bell_intensity as f32, size);
 
         unsafe {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
@@ -737,21 +779,100 @@ impl QuadRenderer {
         self.program.update_projection(width as f32, height as f32);
         self.program.deactivate();
     }
+
+    // Render a rectangle
+    // TODO: When stuff other than visual bell uses render_rect,
+    // draw calls should be collected to reduce number of shader swaps
+    fn render_rect(&mut self, rect: Rect<u32>, color: Rgb, alpha: f32, size: Size<Pixels<u32>>) {
+        // Do nothing when alpha is fully transparent
+        if alpha == 0. {
+            return;
+        }
+
+        // Calculate rectangle position
+        let center_x = *size.width as f32 / 2.;
+        let center_y = *size.height as f32 / 2.;
+        let x = (rect.x as f32 - center_x) / center_x;
+        let y = -(rect.y as f32 - center_y) / center_y;
+        let width = rect.width as f32 / center_x;
+        let height = rect.height as f32 / center_y;
+
+        // Swap to rectangle shaders
+        let (vert, frag) = (self.program.rect_vertex, self.program.rect_fragment);
+        self.program.swap_shaders(vert, frag).unwrap();
+
+        unsafe {
+            // Change blending strategy
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+
+            // Setup vertices
+            let vertices: [f32; 12] = [
+                x + width, y         , 0.0,
+                x + width, y - height, 0.0,
+                x        , y - height, 0.0,
+                x        , y         , 0.0,
+            ];
+
+            // Load vertex data into array buffer
+            gl::BindVertexArray(self.rect_vao);
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.rect_vbo);
+            gl::BufferData(gl::ARRAY_BUFFER, (size_of::<f32>() * vertices.len()) as _, vertices.as_ptr() as *const _, gl::STATIC_DRAW);
+
+            // Position
+            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, (size_of::<f32>() * 3) as _, ptr::null());
+            gl::EnableVertexAttribArray(0);
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+
+            // Color
+            let u_col = gl::GetUniformLocation(self.program.id, b"col\0".as_ptr() as *const _);
+            gl::Uniform4f(
+                u_col,
+                color.r as f32 / 255.,
+                color.g as f32 / 255.,
+                color.b as f32 / 255.,
+                alpha,
+            );
+
+            // Draw the rectangle
+            self.program.activate();
+            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0 as *const _);
+
+            // Reset state
+            gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
+            gl::BindVertexArray(0);
+        }
+
+        // Reset shaders
+        let (vert, frag) = (self.program.text_vertex, self.program.text_fragment);
+        self.program.swap_shaders(vert, frag).unwrap();
+        self.program.update_projection(*size.width as f32, *size.height as f32);
+        self.program.deactivate();
+    }
 }
 
-fn mix(x: f32, y: f32, a: f32) -> f32 {
-    x * (1.0 - a) + y * a
+struct Rect<T> {
+    x: T,
+    y: T,
+    width: T,
+    height: T,
+}
+
+impl<T> Rect<T> {
+    fn new(x: T, y: T, width: T, height: T) -> Self {
+        Rect { x, y, width, height }
+    }
 }
 
 impl<'a> RenderApi<'a> {
     pub fn clear(&self, color: Rgb) {
         let alpha = self.config.background_opacity().get();
-        let (flash, intensity) = (self.config.visual_bell().color(), self.visual_bell_intensity);
         unsafe {
             gl::ClearColor(
-                mix(f32::from(color.r) / 255.0, f32::from(flash.r) / 255.0, intensity).min(1.0) * alpha,
-                mix(f32::from(color.g) / 255.0, f32::from(flash.g) / 255.0, intensity).min(1.0) * alpha,
-                mix(f32::from(color.b) / 255.0, f32::from(flash.b) / 255.0, intensity).min(1.0) * alpha,
+                (f32::from(color.r) / 255.0).min(1.0) * alpha,
+                (f32::from(color.g) / 255.0).min(1.0) * alpha,
+                (f32::from(color.b) / 255.0).min(1.0) * alpha,
                 alpha
             );
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -965,31 +1086,37 @@ impl ShaderProgram {
         config: &Config,
         size: Size<Pixels<u32>>
     ) -> Result<ShaderProgram, ShaderCreationError> {
-        let vertex_source = if cfg!(feature = "live-shader-reload") {
-            None
+        let (text_vert_src, text_frag_src,
+             rect_vert_src, rect_frag_src) = if cfg!(feature = "live-shader-reload")
+        {
+            (None, None, None, None)
         } else {
-            Some(TEXT_SHADER_V)
+            (Some(TEXT_SHADER_V), Some(TEXT_SHADER_F),
+             Some(RECT_SHADER_V), Some(RECT_SHADER_F))
         };
-        let vertex_shader = ShaderProgram::create_shader(
+        let text_vertex = ShaderProgram::create_shader(
             TEXT_SHADER_V_PATH,
             gl::VERTEX_SHADER,
-            vertex_source
+            text_vert_src
         )?;
-        let frag_source = if cfg!(feature = "live-shader-reload") {
-            None
-        } else {
-            Some(TEXT_SHADER_F)
-        };
-        let fragment_shader = ShaderProgram::create_shader(
+        let text_fragment = ShaderProgram::create_shader(
             TEXT_SHADER_F_PATH,
             gl::FRAGMENT_SHADER,
-            frag_source
+            text_frag_src
         )?;
-        let program = ShaderProgram::create_program(vertex_shader, fragment_shader)?;
+        let rect_vertex = ShaderProgram::create_shader(
+            RECT_SHADER_V_PATH,
+            gl::VERTEX_SHADER,
+            rect_vert_src
+        )?;
+        let rect_fragment = ShaderProgram::create_shader(
+            RECT_SHADER_F_PATH,
+            gl::FRAGMENT_SHADER,
+            rect_frag_src
+        )?;
+        let program = ShaderProgram::create_program(text_vertex, text_fragment)?;
 
         unsafe {
-            gl::DeleteShader(vertex_shader);
-            gl::DeleteShader(fragment_shader);
             gl::UseProgram(program);
         }
 
@@ -1008,13 +1135,11 @@ impl ShaderProgram {
         }
 
         // get uniform locations
-        let (projection, term_dim, cell_dim, visual_bell, visual_bell_color, background) = unsafe {
+        let (projection, term_dim, cell_dim, background) = unsafe {
             (
                 gl::GetUniformLocation(program, cptr!(b"projection\0")),
                 gl::GetUniformLocation(program, cptr!(b"termDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"cellDim\0")),
-                gl::GetUniformLocation(program, cptr!(b"visualBell\0")),
-                gl::GetUniformLocation(program, cptr!(b"visualBellColor\0")),
                 gl::GetUniformLocation(program, cptr!(b"backgroundPass\0")),
             )
         };
@@ -1023,11 +1148,15 @@ impl ShaderProgram {
 
         let shader = ShaderProgram {
             id: program,
+            text_vertex,
+            text_fragment,
+            rect_vertex,
+            rect_fragment,
+            vertex: text_vertex,
+            fragment: text_fragment,
             u_projection: projection,
             u_term_dim: term_dim,
             u_cell_dim: cell_dim,
-            u_visual_bell: visual_bell,
-            u_visual_bell_color: visual_bell_color,
             u_background: background,
             padding_x: config.padding().x.floor(),
             padding_y: config.padding().y.floor(),
@@ -1073,17 +1202,6 @@ impl ShaderProgram {
         }
     }
 
-    fn set_visual_bell(&self, visual_bell: f32, vb_color: Rgb) {
-        unsafe {
-            gl::Uniform1f(self.u_visual_bell, visual_bell);
-            gl::Uniform3f(self.u_visual_bell_color,
-                          vb_color.r as f32 / 255.,
-                          vb_color.g as f32 / 255.,
-                          vb_color.b as f32 / 255.
-            );
-        }
-    }
-
     fn set_background_pass(&self, background_pass: bool) {
         let value = if background_pass {
             1
@@ -1114,6 +1232,29 @@ impl ShaderProgram {
         }
     }
 
+    // Load a new vertex and fragment shader into the program
+    fn swap_shaders(&mut self, vertex: GLuint, fragment: GLuint) -> Result<(), ShaderCreationError> {
+        unsafe {
+            gl::DetachShader(self.id, self.vertex);
+            gl::DetachShader(self.id, self.fragment);
+
+            gl::AttachShader(self.id, vertex);
+            gl::AttachShader(self.id, fragment);
+
+            gl::LinkProgram(self.id);
+
+            let mut success: GLint = 0;
+            gl::GetProgramiv(self.id, gl::LINK_STATUS, &mut success);
+            if success != i32::from(gl::TRUE) {
+                return Err(ShaderCreationError::Link(get_program_info_log(self.id)));
+            }
+        }
+
+        self.vertex = vertex;
+        self.fragment = fragment;
+
+        Ok(())
+    }
 
     fn create_shader(
         path: &str,
@@ -1159,6 +1300,16 @@ impl ShaderProgram {
 impl Drop for ShaderProgram {
     fn drop(&mut self) {
         unsafe {
+            // Delete shaders
+            gl::DeleteShader(self.text_vertex);
+            gl::DeleteShader(self.text_fragment);
+            gl::DeleteShader(self.rect_vertex);
+            gl::DeleteShader(self.rect_fragment);
+
+            gl::DetachShader(self.id, self.vertex);
+            gl::DetachShader(self.id, self.fragment);
+
+            // Delete program
             gl::DeleteProgram(self.id);
         }
     }
