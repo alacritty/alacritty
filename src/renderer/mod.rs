@@ -779,7 +779,7 @@ impl QuadRenderer {
 
     // Render a rectangle
     // TODO: When stuff other than visual bell uses render_rect,
-    // draw calls should be collected to reduce number of shader swaps
+    // draw calls should be collected to reduce number of program swaps
     fn render_rect(&mut self, rect: &Rect<u32>, color: Rgb, alpha: f32, size: Size<Pixels<u32>>) {
         // Do nothing when alpha is fully transparent
         if alpha == 0. {
@@ -1069,7 +1069,7 @@ impl TextShaderProgram {
         config: &Config,
         size: Size<Pixels<u32>>
     ) -> Result<TextShaderProgram, ShaderCreationError> {
-        let (vertex_shader_src, fragment_shader_src) = if cfg!(feature = "live-shader-reload")
+        let (vertex_src, fragment_src) = if cfg!(feature = "live-shader-reload")
         {
             (None, None)
         } else {
@@ -1078,12 +1078,12 @@ impl TextShaderProgram {
         let vertex_shader = create_shader(
             TEXT_SHADER_V_PATH,
             gl::VERTEX_SHADER,
-            vertex_shader_src
+            vertex_src
         )?;
         let fragment_shader = create_shader(
             TEXT_SHADER_F_PATH,
             gl::FRAGMENT_SHADER,
-            fragment_shader_src
+            fragment_src
         )?;
         let program = create_program(vertex_shader, fragment_shader)?;
 
@@ -1192,7 +1192,7 @@ impl Drop for TextShaderProgram {
 
 impl RectShaderProgram {
     pub fn new() -> Result<Self, ShaderCreationError> {
-        let (vertex_shader_src, fragment_shader_src) = if cfg!(feature = "live-shader-reload")
+        let (vertex_src, fragment_src) = if cfg!(feature = "live-shader-reload")
         {
             (None, None)
         } else {
@@ -1201,12 +1201,12 @@ impl RectShaderProgram {
         let vertex_shader = create_shader(
             RECT_SHADER_V_PATH,
             gl::VERTEX_SHADER,
-            vertex_shader_src
+            vertex_src
         )?;
         let fragment_shader = create_shader(
             RECT_SHADER_F_PATH,
             gl::FRAGMENT_SHADER,
-            fragment_shader_src
+            fragment_src
         )?;
         let program = create_program(vertex_shader, fragment_shader)?;
 
