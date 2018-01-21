@@ -86,19 +86,13 @@ impl ::Rasterize for FreeTypeRasterizer {
     }
 
     fn metrics(&self, key: FontKey) -> Result<Metrics, Error> {
-        let face = self.faces
-            .get(&key)
-            .ok_or(Error::FontNotLoaded)?;
+        let full = self.full_metrics(key)?;
 
-        let size_metrics = face.ft_face.size_metrics()
-            .ok_or(Error::MissingSizeMetrics)?;
-
-        let width = (size_metrics.max_advance / 64) as f64;
-        let height = (size_metrics.height / 64) as f64;
-        let descent = (size_metrics.descender / 64) as f32;
+        let height = (full.size_metrics.height / 64) as f64;
+        let descent = (full.size_metrics.descender / 64) as f32;
 
         Ok(Metrics {
-            average_advance: width,
+            average_advance: full.cell_width,
             line_height: height,
             descent: descent,
         })
@@ -141,6 +135,11 @@ impl IntoFontconfigType for Weight {
     }
 }
 
+struct FullMetrics {
+    size_metrics: freetype::ffi::FT_Size_Metrics,
+    cell_width: f64
+}
+
 impl FreeTypeRasterizer {
     /// Load a font face according to `FontDesc`
     fn get_face(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
@@ -157,6 +156,25 @@ impl FreeTypeRasterizer {
                 self.get_specific_face(&desc, &style, size)
             }
         }
+    }
+
+    fn full_metrics(&self, key: FontKey) -> Result<FullMetrics, Error> {
+        let face = self.faces
+            .get(&key)
+            .ok_or(Error::FontNotLoaded)?;
+
+        let size_metrics = face.ft_face.size_metrics()
+            .ok_or(Error::MissingSizeMetrics)?;
+
+        let width = match face.ft_face.load_char('0' as usize, face.load_flags) {
+            Ok(_)  => face.ft_face.glyph().metrics().horiAdvance / 64,
+            Err(_) => size_metrics.max_advance / 64
+        } as f64;
+
+        Ok(FullMetrics {
+            size_metrics: size_metrics,
+            cell_width: width
+        })
     }
 
     fn get_matching_face(
@@ -278,16 +296,13 @@ impl FreeTypeRasterizer {
             super::UNDERLINE_CURSOR_CHAR => {
                 // Get the primary face metrics
                 // This always loads the default face
-                let face = self.faces.get(&glyph_key.font_key).unwrap();
-                let size_metrics = face.ft_face
-                    .size_metrics()
-                    .ok_or(Error::MissingSizeMetrics)?;
+                let full = self.full_metrics(glyph_key.font_key)?;
 
                 // Get the bottom of the bounding box
-                let descent = (size_metrics.descender / 64) as i32;
+                let descent = (full.size_metrics.descender / 64) as i32;
 
                 // Get the width of the cell
-                let width = (size_metrics.max_advance / 64) as i32;
+                let width = full.cell_width as i32;
 
                 // Return the new custom glyph
                 return super::get_underline_cursor_glyph(descent, width);
@@ -295,20 +310,17 @@ impl FreeTypeRasterizer {
             super::BEAM_CURSOR_CHAR | super::BOX_CURSOR_CHAR => {
                 // Get the primary face metrics
                 // This always loads the default face
-                let face = self.faces.get(&glyph_key.font_key).unwrap();
-                let size_metrics = face.ft_face
-                    .size_metrics()
-                    .ok_or(Error::MissingSizeMetrics)?;
+                let full = self.full_metrics(glyph_key.font_key)?;
 
                 // Get the height of the cell
-                let height = (size_metrics.height / 64) as i32;
+                let height = (full.size_metrics.height / 64) as i32;
 
                 // Get the top of the bounding box
-                let descent = (size_metrics.descender / 64) as i32;
+                let descent = (full.size_metrics.descender / 64) as i32;
                 let ascent = height + descent;
 
                 // Get the width of the cell
-                let width = (size_metrics.max_advance / 64) as i32;
+                let width = full.cell_width as i32;
 
                 // Return the new custom glyph
                 return if glyph_key.c == super::BEAM_CURSOR_CHAR {
