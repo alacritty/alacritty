@@ -123,6 +123,25 @@ font:
   # it is recommended to set `use_thin_strokes` to `false`
   use_thin_strokes: true
 
+#
+# An optional small font fallback for smaller requested sizes can be used in
+# the case where a bitmap font would look better. Alacritty will switch between
+# the two fonts upon font resize requests by the user. The upper bound for
+# controlling the use of the fallback is specified using 'upper_bound' field.
+#
+# For example:
+#  
+#   small_font:
+#     upper_bound: 11.0
+#     font:
+#         normal:
+#           family: Terminus
+#         bold:
+#           family: Terminus
+#         italic:
+#           family: Terminus
+#         size: 16.0
+
 # Display the time it takes to redraw each frame.
 render_timer: false
 

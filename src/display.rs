@@ -20,7 +20,7 @@ use parking_lot::MutexGuard;
 
 use Rgb;
 use cli;
-use config::Config;
+use config::{Config, Font};
 use font::{self, Rasterize};
 use meter::Meter;
 use renderer::{self, GlyphCache, QuadRenderer};
@@ -215,10 +215,25 @@ impl Display {
         })
     }
 
-    fn new_glyph_cache(dpr: f32, renderer: &mut QuadRenderer, config: &Config)
+    fn get_font(font_size: &font::Size, config: &Config) -> Font {
+        let first_font = config.font().clone();
+        match config.small_font() {
+            &None => first_font,
+            &Some(ref small_font_config) => {
+                match small_font_config.check_bound(*font_size) {
+                    None => first_font,
+                    Some(small_font) => {
+                        small_font.clone()
+                    }
+                }
+            }
+        }
+    }
+
+    fn new_glyph_cache(dpr: f32, renderer : &mut QuadRenderer, config: &Config)
         -> Result<(GlyphCache, f32, f32), Error>
     {
-        let font = config.font().clone();
+        let font = Self::get_font(&config.font().size(), config);
         let rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
 
         // Initialize glyph cache
@@ -252,15 +267,16 @@ impl Display {
     }
 
     pub fn update_glyph_cache(&mut self, config: &Config) {
-        let cache = &mut self.glyph_cache;
         let size = self.font_size;
+        let font = Self::get_font(&size, config);
+        let cache = &mut self.glyph_cache;
         self.renderer.with_loader(|mut api| {
-            let _ = cache.update_font_size(config.font(), size, &mut api);
+            let _ = cache.update_font_size(&font, size, &mut api);
         });
 
         let metrics = cache.font_metrics();
-        self.size_info.cell_width = ((metrics.average_advance + f64::from(config.font().offset().x)) as f32).floor();
-        self.size_info.cell_height = ((metrics.line_height + f64::from(config.font().offset().y)) as f32).floor();
+        self.size_info.cell_width = ((metrics.average_advance + f64::from(font.offset().x)) as f32).floor();
+        self.size_info.cell_height = ((metrics.line_height + f64::from(font.offset().y)) as f32).floor();
     }
 
     #[inline]
