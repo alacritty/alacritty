@@ -193,7 +193,7 @@ impl Display {
 
         // Clear screen
         let background_color = config.colors().primary.background;
-        renderer.with_api(config, &size_info, 0. /* visual bell intensity */, |api| {
+        renderer.with_api(config, &size_info, |api| {
             api.clear(background_color);
         });
 
@@ -339,7 +339,6 @@ impl Display {
         }
 
         let size_info = *terminal.size_info();
-        let visual_bell_intensity = terminal.visual_bell.intensity();
 
         let background_color = terminal.background_color();
         let background_color_changed = background_color != self.last_background_color;
@@ -358,7 +357,7 @@ impl Display {
                 // TODO I wonder if the renderable cells iter could avoid the
                 // mutable borrow
                 let window_focused = self.window.is_focused;
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                self.renderer.with_api(config, &size_info, |mut api| {
                     // Clear screen to update whole background with new color
                     if background_color_changed {
                         api.clear(background_color);
@@ -372,11 +371,15 @@ impl Display {
                 });
             }
 
+            // Draw rectangles
+            let visual_bell_intensity = terminal.visual_bell.intensity();
+            self.renderer.draw_rects(config, &size_info, visual_bell_intensity);
+
             // Draw render timer
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());
                 let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                self.renderer.with_api(config, &size_info, |mut api| {
                     api.render_string(&timing[..], glyph_cache, color);
                 });
             }
@@ -397,7 +400,7 @@ impl Display {
         // worked around to some extent. Since this doesn't actually address the
         // issue of glClear being slow, less time is available for input
         // handling and rendering.
-        self.renderer.with_api(config, &size_info, visual_bell_intensity, |api| {
+        self.renderer.with_api(config, &size_info, |api| {
             api.clear(background_color);
         });
     }

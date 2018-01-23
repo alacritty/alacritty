@@ -663,23 +663,69 @@ impl QuadRenderer {
         Ok(renderer)
     }
 
-    pub fn with_api<F, T>(
+    // Draw all rectangles, this prevents excessive program swaps
+    pub fn draw_rects(
         &mut self,
         config: &Config,
         props: &term::SizeInfo,
-        visual_bell_intensity: f64,
-        func: F
-    ) -> T
-        where F: FnOnce(RenderApi) -> T
+        visual_bell_intensity: f64)
     {
+        // Swap to rectangle rendering program
+        unsafe {
+            // Swap program
+            gl::UseProgram(self.rect_program.id);
+
+            // Change blending strategy
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+
+            // Setup data and buffers
+            gl::BindVertexArray(self.rect_vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.rect_vbo);
+
+            // Position
+            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, (size_of::<f32>() * 3) as _, ptr::null());
+            gl::EnableVertexAttribArray(0);
+        }
+
+        // Get window size
         let size = Size {
             width: Pixels(props.width as u32),
             height: Pixels(props.height as u32),
         };
 
+        // Draw visual bell
+        let color = config.visual_bell().color();
+        let rect = Rect::new(0, 0, *size.width, *size.height);
+        self.render_rect(&rect, color, visual_bell_intensity as f32, size);
+
+        // Deactivate rectangle program again
+        unsafe {
+            // Reset blending strategy
+            gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
+
+            // Reset data and buffers
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+
+            // Disable program
+            gl::UseProgram(0);
+        }
+    }
+
+    pub fn with_api<F, T>(
+        &mut self,
+        config: &Config,
+        props: &term::SizeInfo,
+        func: F
+    ) -> T
+        where F: FnOnce(RenderApi) -> T
+    {
         // Flush message queue
         if let Ok(Msg::ShaderReload) = self.rx.try_recv() {
-            self.reload_shaders(config, size);
+            self.reload_shaders(config, Size {
+                width: Pixels(props.width as u32),
+                height: Pixels(props.height as u32),
+            });
         }
         while let Ok(_) = self.rx.try_recv() {}
 
@@ -701,11 +747,6 @@ impl QuadRenderer {
             program: &mut self.program,
             config: config,
         });
-
-        // Draw visual bell
-        let color = config.visual_bell().color();
-        let rect = Rect::new(0, 0, *size.width, *size.height);
-        self.render_rect(&rect, color, visual_bell_intensity as f32, size);
 
         unsafe {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
@@ -778,8 +819,7 @@ impl QuadRenderer {
     }
 
     // Render a rectangle
-    // TODO: When stuff other than visual bell uses render_rect,
-    // draw calls should be collected to reduce number of program swaps
+    // This requires the rectangle program to be activated
     fn render_rect(&mut self, rect: &Rect<u32>, color: Rgb, alpha: f32, size: Size<Pixels<u32>>) {
         // Do nothing when alpha is fully transparent
         if alpha == 0. {
@@ -795,12 +835,6 @@ impl QuadRenderer {
         let height = rect.height as f32 / center_y;
 
         unsafe {
-            // Activate rectangle program
-            gl::UseProgram(self.rect_program.id);
-
-            // Change blending strategy
-            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-
             // Setup vertices
             let vertices: [f32; 12] = [
                 x + width, y         , 0.0,
@@ -810,29 +844,13 @@ impl QuadRenderer {
             ];
 
             // Load vertex data into array buffer
-            gl::BindVertexArray(self.rect_vao);
-
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.rect_vbo);
             gl::BufferData(gl::ARRAY_BUFFER, (size_of::<f32>() * vertices.len()) as _, vertices.as_ptr() as *const _, gl::STATIC_DRAW);
-
-            // Position
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, (size_of::<f32>() * 3) as _, ptr::null());
-            gl::EnableVertexAttribArray(0);
-
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
 
             // Color
             self.rect_program.set_color(color, alpha);
 
             // Draw the rectangle
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
-
-            // Reset state
-            gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
-            gl::BindVertexArray(0);
-
-            // Deactivate program
-            gl::UseProgram(0);
         }
     }
 }
