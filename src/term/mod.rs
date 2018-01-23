@@ -753,6 +753,9 @@ pub struct Term {
     pub font_size: Size,
     original_font_size: Size,
 
+    /// Width of east asian characters
+    east_asian_fullwidth: bool,
+
     /// Size
     size_info: SizeInfo,
 
@@ -911,6 +914,7 @@ impl Term {
             alt: false,
             font_size: config.font().size(),
             original_font_size: config.font().size(),
+            east_asian_fullwidth: config.font().east_asian_fullwidth(),
             active_charset: Default::default(),
             cursor: Default::default(),
             cursor_save: Default::default(),
@@ -1379,7 +1383,12 @@ impl ansi::Handler for Term {
         }
 
         // Number of cells the char will occupy
-        if let Some(width) = c.width() {
+        let width = if self.east_asian_fullwidth {
+            c.width_cjk()
+        } else {
+            c.width()
+        };
+        if let Some(width) = width {
             let num_cols = self.grid.num_cols();
 
             // If in insert mode, first shift cells to the right.

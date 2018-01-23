@@ -2052,6 +2052,10 @@ pub struct Font {
     // TODO: Deprecated
     #[serde(deserialize_with = "deserialize_scale_with_dpi")]
     scale_with_dpi: Option<()>,
+
+    /// Whether to use fullwidth for east asian (ambiguous) characters
+    #[serde(default, deserialize_with = "failure_default")]
+    east_asian_fullwidth: bool,
 }
 
 impl Default for Font {
@@ -2066,6 +2070,7 @@ impl Default for Font {
             scale_with_dpi: Default::default(),
             glyph_offset: Default::default(),
             offset: Default::default(),
+            east_asian_fullwidth: Default::default(),
         }
     }
 }
@@ -2087,6 +2092,12 @@ impl Font {
     #[inline]
     pub fn glyph_offset(&self) -> &Delta<i8> {
         &self.glyph_offset
+    }
+
+    /// Get east asian characters width
+    #[inline]
+    pub fn east_asian_fullwidth(&self) -> bool {
+        self.east_asian_fullwidth
     }
 
     /// Get a font clone with a size modification
