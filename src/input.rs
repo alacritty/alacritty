@@ -494,7 +494,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn mouse_input(&mut self, state: ElementState, button: MouseButton, modifiers: ModifiersState) {
-        let button_state = match button {
+        let prev_state = match button {
             MouseButton::Left     => Some(mem::replace(&mut self.ctx.mouse_mut().left_button_state, state)),
             MouseButton::Middle   => Some(mem::replace(&mut self.ctx.mouse_mut().middle_button_state, state)),
             MouseButton::Right    => Some(mem::replace(&mut self.ctx.mouse_mut().right_button_state, state)),
@@ -502,8 +502,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             MouseButton::Other(_) => None,
         };
 
-        if let Some(button_state) = button_state {
-            if button_state != state {
+        if let Some(prev_state) = prev_state {
+            if prev_state != state {
                 match state {
                     ElementState::Pressed  => self.on_mouse_press(button, modifiers),
                     ElementState::Released => self.on_mouse_release(button, modifiers),
