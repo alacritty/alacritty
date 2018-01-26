@@ -298,13 +298,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 )
             {
                 if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
-                    self.mouse_report(32 + 0, ElementState::Pressed);
+                    self.mouse_report(32, ElementState::Pressed);
                 } else if self.ctx.mouse_mut().middle_button_state == ElementState::Pressed {
-                    self.mouse_report(32 + 1, ElementState::Pressed);
+                    self.mouse_report(33, ElementState::Pressed);
                 } else if self.ctx.mouse_mut().right_button_state == ElementState::Pressed {
-                    self.mouse_report(32 + 2, ElementState::Pressed);
+                    self.mouse_report(34, ElementState::Pressed);
                 } else if self.ctx.terminal_mode().contains(mode::TermMode::MOUSE_MOTION) {
-                    self.mouse_report(32 + 3, ElementState::Pressed);
+                    self.mouse_report(35, ElementState::Pressed);
                 }
             }
         }
@@ -341,12 +341,10 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     pub fn mouse_report(&mut self, button: u8, state: ElementState) {
         if self.ctx.terminal_mode().contains(mode::TermMode::SGR_MOUSE) {
             self.sgr_mouse_report(button, state);
+        } else if let ElementState::Released = state {
+            self.normal_mouse_report(3);
         } else {
-            if let ElementState::Released = state {
-                self.normal_mouse_report(3);
-            } else {
-                self.normal_mouse_report(button);
-            }
+            self.normal_mouse_report(button);
         }
     }
 
