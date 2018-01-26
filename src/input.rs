@@ -278,21 +278,33 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             };
             self.ctx.mouse_mut().cell_side = cell_side;
 
-            if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
-                let report_mode = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
-                if modifiers.shift || !self.ctx.terminal_mode().intersects(report_mode) {
-                    self.ctx.update_selection(Point {
-                        line: point.line,
-                        col: point.col
-                    }, cell_side);
-                } else if self.ctx.terminal_mode().contains(mode::TermMode::MOUSE_MOTION)
-                        // Only report motion when changing cells
-                        && (
-                            prev_line != self.ctx.mouse_mut().line
-                            || prev_col != self.ctx.mouse_mut().column
-                        )
-                {
-                    self.mouse_report(32, ElementState::Pressed);
+            let report_mode = mode::TermMode::MOUSE_REPORT_CLICK;
+            let motion_mode = mode::TermMode::MOUSE_MOTION | mode::TermMode::MOUSE_DRAG;
+            if self.ctx.mouse_mut().left_button_state == ElementState::Pressed
+                && (
+                    modifiers.shift
+                    || !self.ctx.terminal_mode().intersects(report_mode | motion_mode)
+                )
+            {
+                self.ctx.update_selection(Point {
+                    line: point.line,
+                    col: point.col
+                }, cell_side);
+            } else if self.ctx.terminal_mode().intersects(motion_mode)
+                // Only report motion when changing cells
+                && (
+                    prev_line != self.ctx.mouse_mut().line
+                    || prev_col != self.ctx.mouse_mut().column
+                )
+            {
+                if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
+                    self.mouse_report(32 + 0, ElementState::Pressed);
+                } else if self.ctx.mouse_mut().middle_button_state == ElementState::Pressed {
+                    self.mouse_report(32 + 1, ElementState::Pressed);
+                } else if self.ctx.mouse_mut().right_button_state == ElementState::Pressed {
+                    self.mouse_report(32 + 2, ElementState::Pressed);
+                } else if self.ctx.terminal_mode().contains(mode::TermMode::MOUSE_MOTION) {
+                    self.mouse_report(32 + 3, ElementState::Pressed);
                 }
             }
         }
@@ -330,7 +342,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         if self.ctx.terminal_mode().contains(mode::TermMode::SGR_MOUSE) {
             self.sgr_mouse_report(button, state);
         } else {
-            self.normal_mouse_report(button);
+            if let ElementState::Released = state {
+                self.normal_mouse_report(3);
+            } else {
+                self.normal_mouse_report(button);
+            }
         }
     }
 
@@ -346,7 +362,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn on_mouse_press(&mut self, modifiers: ModifiersState) {
+    pub fn on_mouse_press(&mut self, button: MouseButton, modifiers: ModifiersState) {
         let now = Instant::now();
         let elapsed = self.ctx.mouse_mut().last_click_timestamp.elapsed();
         self.ctx.mouse_mut().last_click_timestamp = now;
@@ -362,9 +378,15 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             },
             _ => {
                 self.ctx.clear_selection();
-                let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
+                let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_DRAG | mode::TermMode::MOUSE_MOTION;
                 if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes) {
-                    self.mouse_report(0, ElementState::Pressed);
+                    match button {
+                        MouseButton::Left   => self.mouse_report(0, ElementState::Pressed),
+                        MouseButton::Middle => self.mouse_report(1, ElementState::Pressed),
+                        MouseButton::Right  => self.mouse_report(2, ElementState::Pressed),
+                        // Can't properly report more than three buttons.
+                        MouseButton::Other(_) => (),
+                    };
                     return;
                 }
 
@@ -373,11 +395,17 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         };
     }
 
-    pub fn on_mouse_release(&mut self, modifiers: ModifiersState) {
-        let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
+    pub fn on_mouse_release(&mut self, button: MouseButton, modifiers: ModifiersState) {
+        let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_DRAG | mode::TermMode::MOUSE_MOTION;
         if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes)
         {
-            self.mouse_report(3, ElementState::Released);
+            match button {
+                MouseButton::Left   => self.mouse_report(0, ElementState::Released),
+                MouseButton::Middle => self.mouse_report(1, ElementState::Released),
+                MouseButton::Right  => self.mouse_report(2, ElementState::Released),
+                // Can't properly report more than three buttons.
+                MouseButton::Other(_) => (),
+            };
             return;
         }
 
@@ -385,7 +413,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
-        let mouse_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION | mode::TermMode::SGR_MOUSE;
+        let mouse_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_DRAG | mode::TermMode::MOUSE_MOTION | mode::TermMode::SGR_MOUSE;
         if !self.ctx.terminal_mode().intersects(mouse_modes | mode::TermMode::ALT_SCREEN) {
             return;
         }
@@ -466,17 +494,20 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn mouse_input(&mut self, state: ElementState, button: MouseButton, modifiers: ModifiersState) {
-        if let MouseButton::Left = button {
-            let state = mem::replace(&mut self.ctx.mouse_mut().left_button_state, state);
-            if self.ctx.mouse_mut().left_button_state != state {
-                match self.ctx.mouse_mut().left_button_state {
-                    ElementState::Pressed => {
-                        self.on_mouse_press(modifiers);
-                    },
-                    ElementState::Released => {
-                        self.on_mouse_release(modifiers);
-                    }
-                }
+        let button_state = match button {
+            MouseButton::Left     => Some(mem::replace(&mut self.ctx.mouse_mut().left_button_state, state)),
+            MouseButton::Middle   => Some(mem::replace(&mut self.ctx.mouse_mut().middle_button_state, state)),
+            MouseButton::Right    => Some(mem::replace(&mut self.ctx.mouse_mut().right_button_state, state)),
+            // Can't properly report more than three buttons.
+            MouseButton::Other(_) => None,
+        };
+
+        if let Some(button_state) = button_state {
+            if button_state != state {
+                match state {
+                    ElementState::Pressed  => self.on_mouse_press(button, modifiers),
+                    ElementState::Released => self.on_mouse_release(button, modifiers),
+                };
             }
         }
 
