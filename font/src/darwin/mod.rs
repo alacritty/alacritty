@@ -21,8 +21,7 @@ use std::ptr;
 
 use ::{Slant, Weight, Style};
 
-use core_foundation::base::TCFType;
-use core_foundation::string::{CFString, CFStringRef};
+use core_foundation::string::{CFString};
 use core_foundation::array::{CFIndex, CFArray};
 use core_graphics::base::kCGImageAlphaPremultipliedFirst;
 use core_graphics::color_space::CGColorSpace;
@@ -35,7 +34,7 @@ use core_text::font_collection::get_family_names as ct_get_family_names;
 use core_text::font_descriptor::kCTFontDefaultOrientation;
 use core_text::font_descriptor::kCTFontHorizontalOrientation;
 use core_text::font_descriptor::kCTFontVerticalOrientation;
-use core_text::font_descriptor::{CTFontDescriptor, CTFontDescriptorRef, CTFontOrientation};
+use core_text::font_descriptor::{CTFontDescriptor, CTFontOrientation};
 use core_text::font_descriptor::SymbolicTraitAccessors;
 
 use euclid::{Point2D, Rect, Size2D};
@@ -292,8 +291,7 @@ pub fn get_family_names() -> Vec<String> {
     let mut owned_names = Vec::new();
 
     for name in names.iter() {
-        let family: CFString = unsafe { TCFType::wrap_under_get_rule(name as CFStringRef) };
-        owned_names.push(format!("{}", family));
+        owned_names.push(name.to_string());
     }
 
     owned_names
@@ -315,16 +313,11 @@ fn cascade_list_for_languages(
     };
 
     // CFArray of CTFontDescriptorRef (again)
-    let list = ct_cascade_list_for_languages(ct_font, &langarr.as_untyped());
+    let list = ct_cascade_list_for_languages(ct_font, &langarr);
 
     // convert CFArray to Vec<Descriptor>
     list.into_iter()
-        .map(|fontdesc| {
-            let desc: CTFontDescriptor = unsafe {
-                TCFType::wrap_under_get_rule(fontdesc as CTFontDescriptorRef)
-            };
-            Descriptor::new(desc)
-        })
+        .map(|fontdesc| Descriptor::new(fontdesc.clone()))
         .collect()
 }
 
@@ -341,10 +334,7 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
     // CFArray of CTFontDescriptorRef (i think)
     let descriptors = ct_collection.get_descriptors();
     for descriptor in descriptors.iter() {
-        let desc: CTFontDescriptor = unsafe {
-            TCFType::wrap_under_get_rule(descriptor as CTFontDescriptorRef)
-        };
-        out.push(Descriptor::new(desc));
+        out.push(Descriptor::new(descriptor.clone()));
     }
 
     out
