@@ -675,6 +675,9 @@ impl QuadRenderer {
             // Swap program
             gl::UseProgram(self.rect_program.id);
 
+            // Remove padding from viewport
+            gl::Viewport(0, 0, props.width as i32, props.height as i32);
+
             // Change blending strategy
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
@@ -706,6 +709,13 @@ impl QuadRenderer {
             // Reset data and buffers
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
+
+            // Add padding to viewport again
+            let x_pad = config.padding().x as i32;
+            let y_pad = config.padding().y as i32;
+            let width = props.width as i32;
+            let height = props.height as i32;
+            gl::Viewport(x_pad, y_pad, width - 2 * y_pad, height - 2 * y_pad);
 
             // Disable program
             gl::UseProgram(0);
