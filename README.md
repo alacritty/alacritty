@@ -74,11 +74,10 @@ xbps-install alacritty
    cd alacritty
    ```
 
-3. Make sure you have the right Rust compiler installed. Run
+3. Make sure you have the right Rust toolchain installed. From the root directory of this repository, issue
 
    ```sh
-   rustup override set stable
-   rustup update stable
+   rustup show
    ```
 
 #### Ubuntu
