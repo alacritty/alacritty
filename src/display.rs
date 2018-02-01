@@ -417,7 +417,6 @@ impl Display {
 
                     // If strikethrough hasn't been reset, draw until the last cell
                     if let Some(start) = start_strikethrough {
-                        let flag = cell::Flags::STRIKE_THROUGH;
                         cell_line_rects.push(
                             cell_line_rect(
                                 &start,
