@@ -668,7 +668,8 @@ impl QuadRenderer {
         &mut self,
         config: &Config,
         props: &term::SizeInfo,
-        visual_bell_intensity: f64)
+        visual_bell_intensity: f64,
+        cell_line_rects: Vec<(Rect<u32>, Rgb)>)
     {
         // Swap to rectangle rendering program
         unsafe {
@@ -700,6 +701,11 @@ impl QuadRenderer {
         let color = config.visual_bell().color();
         let rect = Rect::new(0, 0, *size.width, *size.height);
         self.render_rect(&rect, color, visual_bell_intensity as f32, size);
+
+        // Draw underlines and strikethroughs
+        for cell_line_rect in cell_line_rects {
+            self.render_rect(&cell_line_rect.0, cell_line_rect.1, 255., size);
+        }
 
         // Deactivate rectangle program again
         unsafe {
@@ -865,7 +871,8 @@ impl QuadRenderer {
     }
 }
 
-struct Rect<T> {
+#[derive(Debug, Copy, Clone)]
+pub struct Rect<T> {
     x: T,
     y: T,
     width: T,
@@ -873,7 +880,7 @@ struct Rect<T> {
 }
 
 impl<T> Rect<T> {
-    fn new(x: T, y: T, width: T, height: T) -> Self {
+    pub fn new(x: T, y: T, width: T, height: T) -> Self {
         Rect { x, y, width, height }
     }
 }
@@ -943,7 +950,9 @@ impl<'a> RenderApi<'a> {
             })
             .collect::<Vec<_>>();
 
-        self.render_cells(cells.into_iter(), glyph_cache);
+        for cell in cells {
+            self.render_cell(cell, glyph_cache);
+        }
     }
 
     #[inline]
@@ -961,48 +970,27 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_cells<I>(
-        &mut self,
-        cells: I,
-        glyph_cache: &mut GlyphCache
-    )
-        where I: Iterator<Item=RenderableCell>
+    pub fn render_cell(&mut self, cell: RenderableCell, glyph_cache: &mut GlyphCache)
     {
-        for cell in cells {
-            // Get font key for cell
-            // FIXME this is super inefficient.
-            let mut font_key = glyph_cache.font_key;
-            if cell.flags.contains(cell::Flags::BOLD) {
-                font_key = glyph_cache.bold_key;
-            } else if cell.flags.contains(cell::Flags::ITALIC) {
-                font_key = glyph_cache.italic_key;
-            }
+        // Get font key for cell
+        // FIXME this is super inefficient.
+        let mut font_key = glyph_cache.font_key;
+        if cell.flags.contains(cell::Flags::BOLD) {
+            font_key = glyph_cache.bold_key;
+        } else if cell.flags.contains(cell::Flags::ITALIC) {
+            font_key = glyph_cache.italic_key;
+        }
 
-            let glyph_key = GlyphKey {
-                font_key: font_key,
-                size: glyph_cache.font_size,
-                c: cell.c
-            };
+        let glyph_key = GlyphKey {
+            font_key: font_key,
+            size: glyph_cache.font_size,
+            c: cell.c
+        };
 
-            // Add cell to batch
-            {
-                let glyph = glyph_cache.get(&glyph_key, self);
-                self.add_render_item(&cell, glyph);
-            }
-
-            // FIXME This is a super hacky way to do underlined text. During
-            //       a time crunch to release 0.1, this seemed like a really
-            //       easy, clean hack.
-            if cell.flags.contains(cell::Flags::UNDERLINE) {
-                let glyph_key = GlyphKey {
-                    font_key: font_key,
-                    size: glyph_cache.font_size,
-                    c: '_'
-                };
-
-                let underscore = glyph_cache.get(&glyph_key, self);
-                self.add_render_item(&cell, underscore);
-            }
+        // Add cell to batch
+        {
+            let glyph = glyph_cache.get(&glyph_key, self);
+            self.add_render_item(&cell, glyph);
         }
     }
 }

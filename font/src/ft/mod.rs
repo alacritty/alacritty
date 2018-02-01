@@ -86,15 +86,24 @@ impl ::Rasterize for FreeTypeRasterizer {
     }
 
     fn metrics(&self, key: FontKey) -> Result<Metrics, Error> {
+        let face = self.faces
+            .get(&key)
+            .ok_or(Error::FontNotLoaded)?;
         let full = self.full_metrics(key)?;
 
         let height = (full.size_metrics.height / 64) as f64;
         let descent = (full.size_metrics.descender / 64) as f32;
+        let underline_position =
+            (f32::from(face.ft_face.underline_position()) / 64.).round();
+        let underline_thickness =
+            (f32::from(face.ft_face.underline_thickness()) / 64.).round();
 
         Ok(Metrics {
             average_advance: full.cell_width,
             line_height: height,
             descent: descent,
+            underline_position,
+            underline_thickness,
         })
     }
 

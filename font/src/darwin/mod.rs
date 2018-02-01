@@ -422,11 +422,15 @@ impl Font {
         let descent = self.ct_font.descent() as f64;
         let leading = self.ct_font.leading() as f64;
         let line_height = (ascent + descent + leading + 0.5).floor();
+        let underline_position = self.ct_font.underline_position() as f32;
+        let underline_thickness = self.ct_font.underline_thickness() as f32;
 
         Metrics {
             average_advance: average_advance,
             line_height: line_height,
             descent: -(self.ct_font.descent() as f32),
+            underline_position,
+            underline_thickness,
         }
     }
 

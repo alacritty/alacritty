@@ -317,6 +317,7 @@ impl<'a> RenderableCellsIter<'a> {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct RenderableCell {
     pub line: Line,
     pub column: Column,
@@ -1808,6 +1809,8 @@ impl ansi::Handler for Term {
             Attr::CancelItalic => self.cursor.template.flags.remove(cell::Flags::ITALIC),
             Attr::Underscore => self.cursor.template.flags.insert(cell::Flags::UNDERLINE),
             Attr::CancelUnderline => self.cursor.template.flags.remove(cell::Flags::UNDERLINE),
+            Attr::Strike => self.cursor.template.flags.insert(cell::Flags::STRIKE_THROUGH),
+            Attr::CancelStrike => self.cursor.template.flags.remove(cell::Flags::STRIKE_THROUGH),
             _ => {
                 debug!("Term got unhandled attr: {:?}", attr);
             }

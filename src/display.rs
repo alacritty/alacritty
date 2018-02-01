@@ -21,11 +21,11 @@ use parking_lot::{MutexGuard};
 use Rgb;
 use cli;
 use config::Config;
-use font::{self, Rasterize};
+use font::{self, Rasterize, Metrics};
 use meter::Meter;
-use renderer::{self, GlyphCache, QuadRenderer};
+use renderer::{self, GlyphCache, QuadRenderer, Rect};
 use selection::Selection;
-use term::{Term, SizeInfo};
+use term::{cell, Term, SizeInfo, RenderableCell};
 
 use window::{self, Size, Pixels, Window, SetInnerSize};
 
@@ -346,6 +346,8 @@ impl Display {
 
         {
             let glyph_cache = &mut self.glyph_cache;
+            let metrics = glyph_cache.font_metrics();
+            let mut cell_line_rects = Vec::new();
 
             // Draw grid
             {
@@ -363,17 +365,74 @@ impl Display {
                         api.clear(background_color);
                     }
 
-                    // Draw the grid
-                    api.render_cells(
-                        terminal.renderable_cells(config, selection, window_focused),
-                        glyph_cache,
-                    );
+                    // Store underline/strikethrough information beyond current cell
+                    let mut last_cell = None;
+                    let mut start_underline: Option<RenderableCell> = None;
+                    let mut start_strikethrough: Option<RenderableCell> = None;
+
+                    // Iterate over all non-empty cells in the grid
+                    for cell in terminal.renderable_cells(config, selection, window_focused) {
+                        // Check if there is a new underline
+                        if let Some(underline) = calculate_cell_line_state(
+                            cell,
+                            &mut start_underline,
+                            &last_cell,
+                            &metrics,
+                            &size_info,
+                            cell::Flags::UNDERLINE,
+                        ) {
+                            cell_line_rects.push(underline);
+                        }
+
+                        // Check if there is a new strikethrough
+                        if let Some(strikethrough) = calculate_cell_line_state(
+                            cell,
+                            &mut start_strikethrough,
+                            &last_cell,
+                            &metrics,
+                            &size_info,
+                            cell::Flags::STRIKE_THROUGH,
+                        ) {
+                            cell_line_rects.push(strikethrough);
+                        }
+
+                        // Change the last checked cell for underline/strikethrough
+                        last_cell = Some(cell);
+
+                        // Draw the cell
+                        api.render_cell(cell, glyph_cache);
+                    }
+
+                    // If underline hasn't been reset, draw until the last cell
+                    if let Some(start) = start_underline {
+                        cell_line_rects.push(
+                            cell_line_rect(
+                                &start,
+                                &last_cell.unwrap(),
+                                &metrics, &size_info,
+                                cell::Flags::UNDERLINE
+                            )
+                        );
+                    }
+
+                    // If strikethrough hasn't been reset, draw until the last cell
+                    if let Some(start) = start_strikethrough {
+                        let flag = cell::Flags::STRIKE_THROUGH;
+                        cell_line_rects.push(
+                            cell_line_rect(
+                                &start,
+                                &last_cell.unwrap(),
+                                &metrics, &size_info,
+                                cell::Flags::STRIKE_THROUGH
+                            )
+                        );
+                    }
                 });
             }
 
             // Draw rectangles
             let visual_bell_intensity = terminal.visual_bell.intensity();
-            self.renderer.draw_rects(config, &size_info, visual_bell_intensity);
+            self.renderer.draw_rects(config, &size_info, visual_bell_intensity, cell_line_rects);
 
             // Draw render timer
             if self.render_timer {
@@ -422,4 +481,76 @@ impl Display {
         let nspot_x = (px + col as f32 * cw) as i16;
         self.window().send_xim_spot(nspot_x, nspot_y);
     }
+}
+
+// Check if the underline/strikethrough state has changed
+// This returns a new rectangle whenever an underline/strikethrough ends
+fn calculate_cell_line_state(
+    cell: RenderableCell,
+    start_cell_line: &mut Option<RenderableCell>,
+    last_cell: &Option<RenderableCell>,
+    metrics: &Metrics,
+    size_info: &SizeInfo,
+    flag: cell::Flags,
+) -> Option<(Rect<u32>, Rgb)> {
+    match *start_cell_line {
+        // If line is already started, check for end
+        Some(start) => {
+            // No change in line
+            if cell.line == start.line
+                && cell.flags.contains(flag)
+                && cell.fg == start.fg
+            {
+                return None;
+            }
+
+            // Check if we need to start a new line
+            // because the cell color has changed
+            *start_cell_line = if cell.fg != start.fg && cell.flags.contains(flag) {
+                // Start a new line
+                Some(cell)
+            } else {
+                // Disable line
+                None
+            };
+
+            return Some(
+                cell_line_rect(&start, &last_cell.unwrap(), metrics, size_info, flag)
+            );
+        },
+        // Check for new start of line
+        None => if cell.flags.contains(flag) {
+            *start_cell_line = Some(cell);
+        },
+    }
+    None
+}
+
+// Create a colored rectangle for an underline/strikethrough based on two cells
+fn cell_line_rect(
+    start: &RenderableCell,
+    end: &RenderableCell,
+    metrics: &Metrics,
+    size: &SizeInfo,
+    flag: cell::Flags,
+) -> (Rect<u32>, Rgb) {
+    let x = (start.column.0 as f64 * metrics.average_advance) as u32;
+    let end_x = ((end.column.0 + 1) as f64 * metrics.average_advance) as u32;
+    let width = end_x - x;
+
+    let y = match flag {
+        cell::Flags::UNDERLINE => {
+            ((start.line.0 as f32 + 1.) * metrics.line_height as f32 + metrics.descent - metrics.underline_position) as u32
+        },
+        cell::Flags::STRIKE_THROUGH => {
+            ((start.line.0 as f32 + 0.5) * metrics.line_height as f32) as u32
+        },
+        _ => panic!("Invalid flag for cell line drawing specified"),
+    };
+    let height = metrics.underline_thickness as u32;
+
+    let rect = Rect::new(x + size.padding_x as u32, y + size.padding_y as u32, width, height);
+    let color = start.fg;
+
+    (rect, color)
 }
