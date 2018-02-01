@@ -995,7 +995,7 @@ impl Term {
     ) -> RenderableCellsIter {
         let selection = selection.and_then(|s| s.to_span(self))
             .map(|span| span.to_range());
-        let cursor = if window_focused {
+        let cursor = if window_focused || !config.cursor_hollow_unfocused() {
             self.cursor_style.unwrap_or(self.default_cursor_style)
         } else {
             CursorStyle::HollowBlock
