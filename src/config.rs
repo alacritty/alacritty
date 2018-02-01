@@ -391,7 +391,7 @@ pub struct Config {
 
     /// Use hollow block cursor when unfocused
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
-    cursor_hollow_unfocused: bool,
+    unfocused_hollow_cursor: bool,
 
     /// Live config reload
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
@@ -1368,8 +1368,8 @@ impl Config {
 
     /// Use hollow block cursor when unfocused
     #[inline]
-    pub fn cursor_hollow_unfocused(&self) -> bool {
-        self.cursor_hollow_unfocused
+    pub fn unfocused_hollow_cursor(&self) -> bool {
+        self.unfocused_hollow_cursor
     }
 
     /// Live config reload
