@@ -20,26 +20,29 @@ use std::env;
 use objc::runtime::{Class, Object};
 
 pub fn set_locale_environment() {
-    let locale_id = unsafe {
+    let (language_code, country_code) = unsafe {
         let locale_class = Class::get("NSLocale").unwrap();
         let locale: *const Object = msg_send![locale_class, currentLocale];
-        let _ : () = msg_send![locale_class, release];
-        let identifier: *const Object = msg_send![locale, localeIdentifier];
-        let _ : () = msg_send![locale, release];
-        let identifier_str = nsstring_as_str(identifier).to_owned();
-        let _ : () = msg_send![identifier, release];
-        identifier_str
+        msg_send![locale_class, release];
+        let language_code: *const Object = msg_send![locale, languageCode];
+        let country_code: *const Object = msg_send![locale, countryCode];
+        msg_send![locale, release];
+        let language_code_str = nsstring_as_str(language_code).to_owned();
+        msg_send![language_code, release];
+        let country_code_str = nsstring_as_str(country_code).to_owned();
+        msg_send![country_code, release];
+        (language_code_str, country_code_str)
     };
-    let locale_id = locale_id + ".UTF-8";
+    let locale_id = format!("{}_{}.UTF-8", &language_code, &country_code);
     env::set_var("LANG", &locale_id);
-    env::set_var("LC_CTYPE", &locale_id);
+    // env::set_var("LC_CTYPE", &locale_id);
 }
 
 const UTF8_ENCODING: usize = 4;
 
 unsafe fn nsstring_as_str<'a>(nsstring: *const Object) -> &'a str {
     let cstr: *const c_char = msg_send![nsstring, UTF8String];
-    let len: usize = msg_send![nsstring, lengthOfBytesUsingEncoding:UTF8_ENCODING];
+    let len: usize = msg_send![nsstring, lengthOfBytesUsingEncoding: UTF8_ENCODING];
     str::from_utf8(slice::from_raw_parts(cstr as *const u8, len)).unwrap()
 }
 
