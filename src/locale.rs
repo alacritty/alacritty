@@ -35,7 +35,6 @@ pub fn set_locale_environment() {
     };
     let locale_id = format!("{}_{}.UTF-8", &language_code, &country_code);
     env::set_var("LANG", &locale_id);
-    // env::set_var("LC_CTYPE", &locale_id);
 }
 
 const UTF8_ENCODING: usize = 4;
