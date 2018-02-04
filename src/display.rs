@@ -539,10 +539,20 @@ fn cell_line_rect(
 
     let y = match flag {
         cell::Flags::UNDERLINE => {
-            ((start.line.0 as f32 + 1.) * metrics.line_height as f32 + metrics.descent - metrics.underline_position) as u32
+            // Get the baseline positon and offset it down by (-) underline position
+            // then move it up by half the underline thickness
+            ((start.line.0 as f32 + 1.) * metrics.line_height as f32 + metrics.descent
+             - metrics.underline_position - metrics.underline_thickness / 2.).round() as u32
         },
         cell::Flags::STRIKE_THROUGH => {
-            ((start.line.0 as f32 + 0.5) * metrics.line_height as f32) as u32
+            // Get half-way point between cell top and baseline
+            // Then offset it down by (-) underline position and
+            // move it up by half the underline thickness
+            // TODO: Moving the strikethrough down by underline thickness is a hack
+            ((start.line.0 as f32) * metrics.line_height as f32
+             + (metrics.line_height as f32 + metrics.descent) / 2.
+             - metrics.underline_thickness / 2.
+             - metrics.underline_position).round() as u32
         },
         _ => panic!("Invalid flag for cell line drawing specified"),
     };
