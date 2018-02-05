@@ -27,8 +27,6 @@ use input::{Action, Binding, MouseBinding, KeyBinding};
 use index::{Line, Column};
 use ansi::CursorStyle;
 
-use util::fmt::Yellow;
-
 /// Function that returns true for serde default
 fn true_bool() -> bool {
     true
@@ -332,10 +330,6 @@ pub struct Config {
     #[serde(default, deserialize_with = "failure_default")]
     render_timer: bool,
 
-    /// Should use custom cursor colors
-    #[serde(default, deserialize_with = "failure_default")]
-    custom_cursor_colors: bool,
-
     /// Should draw bold text with brighter colors instead of bold font
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
     draw_bold_text_with_bright_colors: bool,
@@ -381,13 +375,9 @@ pub struct Config {
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
     dynamic_title: bool,
 
-    /// Hide cursor when typing
+    /// Cursor settings
     #[serde(default, deserialize_with = "failure_default")]
-    hide_cursor_when_typing: bool,
-
-    /// Style of the cursor
-    #[serde(default, deserialize_with = "failure_default")]
-    cursor_style: CursorStyle,
+    cursor: Cursor,
 
     /// Live config reload
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
@@ -936,7 +926,7 @@ pub enum Error {
 pub struct Colors {
     #[serde(default, deserialize_with = "failure_default")]
     pub primary: PrimaryColors,
-    #[serde(default, deserialize_with = "deserialize_cursor_colors")]
+    #[serde(default, deserialize_with = "failure_default")]
     pub cursor: CursorColors,
     pub normal: AnsiColors,
     pub bright: AnsiColors,
@@ -944,67 +934,29 @@ pub struct Colors {
     pub dim: Option<AnsiColors>,
 }
 
-fn deserialize_cursor_colors<'a, D>(deserializer: D) -> ::std::result::Result<CursorColors, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match CursorOrPrimaryColors::deserialize(deserializer) {
-        Ok(either) => Ok(either.into_cursor_colors()),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(CursorColors::default())
-        },
-    }
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
+pub struct Cursor {
+    #[serde(default, deserialize_with = "failure_default")]
+    pub style: CursorStyle,
+    #[serde(default, deserialize_with = "failure_default")]
+    pub hide_when_typing: bool,
 }
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-pub enum CursorOrPrimaryColors {
-    Cursor {
-        #[serde(deserialize_with = "rgb_from_hex")]
-        text: Rgb,
-        #[serde(deserialize_with = "rgb_from_hex")]
-        cursor: Rgb,
-    },
-    Primary {
-        #[serde(deserialize_with = "rgb_from_hex")]
-        foreground: Rgb,
-        #[serde(deserialize_with = "rgb_from_hex")]
-        background: Rgb,
-    }
-}
-
-impl CursorOrPrimaryColors {
-    fn into_cursor_colors(self) -> CursorColors {
-        match self {
-            CursorOrPrimaryColors::Cursor { text, cursor } => CursorColors {
-                text: text,
-                cursor: cursor
-            },
-            CursorOrPrimaryColors::Primary { foreground, background } => {
-                // Must print in config since logger isn't setup yet.
-                eprintln!("{}",
-                    Yellow("Config `colors.cursor.foreground` and `colors.cursor.background` \
-                            are deprecated. Please use `colors.cursor.text` and \
-                            `colors.cursor.cursor` instead.")
-                );
-                CursorColors {
-                    text: foreground,
-                    cursor: background
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct CursorColors {
+    /// Should use custom cursor colors
+    #[serde(default, deserialize_with = "failure_default")]
+    pub custom_colors: bool,
+    #[serde(deserialize_with = "rgb_from_hex")]
     pub text: Rgb,
+    #[serde(deserialize_with = "rgb_from_hex")]
     pub cursor: Rgb,
 }
 
 impl Default for CursorColors {
     fn default() -> Self {
         CursorColors {
+            custom_colors: false,
             text: Rgb { r: 0, g: 0, b: 0 },
             cursor: Rgb { r: 0xff, g: 0xff, b: 0xff },
         }
@@ -1330,12 +1282,6 @@ impl Config {
         self.font.use_thin_strokes
     }
 
-    /// show cursor as inverted
-    #[inline]
-    pub fn custom_cursor_colors(&self) -> bool {
-        self.custom_cursor_colors
-    }
-
     pub fn path(&self) -> Option<&Path> {
         self.config_path
             .as_ref()
@@ -1350,16 +1296,10 @@ impl Config {
         &self.env
     }
 
-    /// Should hide cursor when typing
+    /// Cursor settings
     #[inline]
-    pub fn hide_cursor_when_typing(&self) -> bool {
-        self.hide_cursor_when_typing
-    }
-
-    /// Style of the cursor
-    #[inline]
-    pub fn cursor_style(&self) -> CursorStyle {
-        self.cursor_style
+    pub fn cursor(&self) -> Cursor {
+        self.cursor
     }
 
     /// Live config reload

@@ -168,7 +168,7 @@ impl<'a> RenderableCellsIter<'a> {
     }
 
     fn populate_block_cursor(&mut self) {
-        let (text_color, cursor_color) = if self.config.custom_cursor_colors() {
+        let (text_color, cursor_color) = if self.config.colors().cursor.custom_colors {
             (
                 Color::Named(NamedColor::CursorText),
                 Color::Named(NamedColor::Cursor)
@@ -223,7 +223,7 @@ impl<'a> RenderableCellsIter<'a> {
     }
 
     fn text_cursor_color(&self, cell: &Cell) -> Color {
-        if self.config.custom_cursor_colors() {
+        if self.config.colors().cursor.custom_colors {
             Color::Named(NamedColor::Cursor)
         } else {
             // Cursor is same color as text
@@ -834,7 +834,7 @@ impl Term {
             original_colors: color::List::from(config.colors()),
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
             cursor_style: None,
-            default_cursor_style: config.cursor_style(),
+            default_cursor_style: config.cursor().style,
             dynamic_title: config.dynamic_title(),
             tabspaces,
         }
@@ -861,7 +861,7 @@ impl Term {
             }
         }
         self.visual_bell.update_config(config);
-        self.default_cursor_style = config.cursor_style();
+        self.default_cursor_style = config.cursor().style;
         self.dynamic_title = config.dynamic_title();
     }
 

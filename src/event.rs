@@ -233,7 +233,7 @@ impl<N: Notify> Processor<N> {
             mouse: Default::default(),
             selection: None,
             size_info: size_info,
-            hide_cursor_when_typing: config.hide_cursor_when_typing(),
+            hide_cursor_when_typing: config.cursor().hide_when_typing,
             hide_cursor: false,
             received_count: 0,
             suppress_chars: false,
