@@ -109,13 +109,15 @@ colors:
     foreground: '0xeaeaea'
     bright_foreground: '0xeaeaea'
 
-  # Colors the cursor will use if `custom_cursor_colors` is true
   cursor:
-    # Use custom cursor colors. If true, always display the cursor in the
-    # `colors.cursor.text` and `colors.cursor.cursor` colors,
-    # otherwise invert the colors of the background and foreground.
+    # If this is `false` the text cursor inverses
+    # the foreground and background colors.
     custom_colors: false
+    # Text color when the cursor is above a character.
+    # Only used when `custom_colors` is `true`.
     text: '0x000000'
+    # Cursor color.
+    # Only used when `custom_colors` is `true`.
     cursor: '0xffffff'
 
   # Normal colors
@@ -223,13 +225,16 @@ selection:
 dynamic_title: true
 
 cursor:
-  # Style of the cursor
+  # This is the default look of your text cursor.
+  # It might be overwritten by applications like `vim`.
   #
-  # Values for 'cursor_style':
-  # - Block
-  # - Underline
-  # - Beam
+  # Values for `style`:
+  # - Block     (Looks like: ▒)
+  # - Underline (Looks like: _)
+  # - Beam      (Looks like: |)
   style: Block
+  # When this is `true`, the text cursor is temporarily
+  # hidden when typing.
   hide_when_typing: false
 
 # Live config reload (changes require restart)
