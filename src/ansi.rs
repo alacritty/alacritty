@@ -558,14 +558,11 @@ pub enum NamedColor {
     DimCyan,
     /// Dim white
     DimWhite,
-    /// The bright foreground color
-    BrightForeground,
 }
 
 impl NamedColor {
     pub fn to_bright(&self) -> Self {
         match *self {
-            NamedColor::Foreground => NamedColor::BrightForeground,
             NamedColor::Black => NamedColor::BrightBlack,
             NamedColor::Red => NamedColor::BrightRed,
             NamedColor::Green => NamedColor::BrightGreen,

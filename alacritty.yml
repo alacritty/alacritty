@@ -107,7 +107,6 @@ colors:
   primary:
     background: '0x000000'
     foreground: '0xeaeaea'
-    bright_foreground: '0xeaeaea'
 
   cursor:
     # If this is `false` the text cursor inverses
