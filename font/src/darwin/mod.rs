@@ -326,6 +326,7 @@ fn cascade_list_for_languages(
 pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
     let mut out = Vec::new();
 
+    info!("family: {}", family);
     let ct_collection = match create_for_family(family) {
         Some(c) => c,
         None => return out,
@@ -349,7 +350,7 @@ impl Descriptor {
         let fallbacks = if load_fallbacks {
             descriptors_for_family("Menlo")
                 .into_iter()
-                .filter(|d| d.family_name == "Menlo Regular")
+                .filter(|d| d.font_name == "Menlo-Regular")
                 .nth(0)
                 .map(|descriptor| {
                     let menlo = ct_new_from_descriptor(&descriptor.ct_descriptor, size);
