@@ -196,6 +196,16 @@ It might be handy to mask all other packages provided in the `slyfox` overlay by
 adding `*/*::slyfox` to `/etc/portage/package.mask` and adding
 `x11-terms/alacritty::slyfox` to `/etc/portage/package.unmask`.
 
+### Cargo
+
+If you have a rust toolchain setup you can install Alacritty via cargo:
+
+```sh
+cargo install --git https://github.com/jwilm/alacritty
+```
+
+Note that you still need to download system build dependencies via your package manager as mentioned above. The binary `alacritty` will be placed into `$HOME/.cargo/bin`. Make sure it is in your path (default if you use `rustup`).
+
 #### Other
 
 If you build Alacritty on another distribution, we would love some help
