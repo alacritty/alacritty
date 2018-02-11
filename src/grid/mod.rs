@@ -346,16 +346,6 @@ impl<'point, T> IndexMut<&'point Point> for Grid<T> {
     }
 }
 
-impl<'a, T> IntoIterator for &'a Grid<T> {
-    type Item = &'a Row<T>;
-    type IntoIter = self::storage::Iter<'a, Row<T>>;
-
-    #[inline]
-    fn into_iter(self) -> self::storage::Iter<'a, Row<T>> {
-        self.raw.iter()
-    }
-}
-
 // =================================================================================================
 // Regions =========================================================================================
 // =================================================================================================
