@@ -6,6 +6,7 @@ license = "MIT"
 description = "Safe rust bindings for winpty"
 
 [dependencies]
-winpty-sys = { path = "../../../c++/winpty" }
+# TODO: Replace with official repo
+winpty-sys = { git = "https://github.com/zacps/winpty", branch = "rust" }
 bitflags = "1.0"
 libc = "0.2"

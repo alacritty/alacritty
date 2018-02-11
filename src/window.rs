@@ -125,7 +125,6 @@ macro_rules! deref_newtype {
 
 deref_newtype! { Points<T>, Pixels<T> }
 
-
 impl<T: Display> Display for Pixels<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}px", self.0)
@@ -192,13 +191,13 @@ impl Window {
         // Text cursor
         window.set_cursor(MouseCursor::Text);
 
-        // Set OpenGL symbol loader
-        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
-
         // Make the context current so OpenGL operations can run
         unsafe {
             window.make_current()?;
         }
+
+        // Set OpenGL symbol loader
+        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
         let window = Window {
             event_loop: event_loop,
@@ -223,11 +222,9 @@ impl Window {
     }
 
     pub fn inner_size_pixels(&self) -> Option<Size<Pixels<u32>>> {
-        self.window.get_inner_size_pixels().map(|(w, h)| {
-            Size {
-                width: Pixels(w),
-                height: Pixels(h),
-            }
+        self.window.get_inner_size_pixels().map(|(w, h)| Size {
+            width: Pixels(w),
+            height: Pixels(h),
         })
     }
 

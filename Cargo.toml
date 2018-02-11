@@ -42,7 +42,6 @@ crossbeam = "0.3"
 x11-dl = "2"
 
 [target.'cfg(windows)'.dependencies]
-# TODO: Replace with git dep
 winpty = { path = "./winpty" }
 mio-named-pipes = "0.1"
 winapi = "0.2"
