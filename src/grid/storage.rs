@@ -68,6 +68,11 @@ impl<T> Storage<T> {
         assert!(count.abs() as usize <= len);
         self.zero += (count + len as isize) as usize % len;
     }
+
+    // Fast path
+    pub fn rotate_up(&mut self, count: usize) {
+        self.zero = (self.zero + count) % self.len();
+    }
 }
 
 impl<T> Index<usize> for Storage<T> {

@@ -179,26 +179,26 @@ impl<T: Copy + Clone> Grid<T> {
                 self.swap_lines(line, line - positions);
             }
 
-            for i in IndexRange(Line(0)..positions) {
-                self.raw[*(region.start - i - 1)].reset(&self.template_row);
+            for line in IndexRange(region.start .. (region.start + positions)) {
+                self.raw[*line].reset(&self.template_row);
             }
         }
     }
 
+    /// scroll_up moves lines at the bottom towards the top
+    ///
+    /// This is the performance-sensitive part of scrolling.
     #[inline]
     pub fn scroll_up(&mut self, region: &Range<index::Line>, positions: index::Line) {
         if region.start == Line(0) {
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
-            self.raw.rotate(*positions as isize);
+            self.raw.rotate_up(*positions);
 
             // Now, restore any lines outside the scroll region
-            let mut i = 0;
-            for _ in IndexRange(region.end .. self.num_lines()) {
-                let idx = *self.num_lines() - i - 1;
+            for idx in (*region.end .. *self.num_lines()).rev() {
                 // First do the swap
                 self.raw.swap(idx, idx - *positions);
-                i += 1;
             }
 
             // Finally, reset recycled lines
@@ -214,8 +214,8 @@ impl<T: Copy + Clone> Grid<T> {
             }
 
             // Clear reused lines
-            for i in IndexRange(Line(0)..positions) {
-                self.raw[*(region.start - i - 1)].reset(&self.template_row);
+            for line in IndexRange((region.end - positions) .. region.end) {
+                self.raw[*line].reset(&self.template_row);
             }
         }
     }
