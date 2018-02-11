@@ -55,10 +55,6 @@ impl<T> Storage<T> {
         self.inner.swap(a, b);
     }
 
-    pub fn iter(&self) -> Iter<T> {
-        Iter { storage: self, index: 0 }
-    }
-
     pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut { storage: self, index: 0 }
     }
@@ -92,28 +88,9 @@ impl<T> IndexMut<usize> for Storage<T> {
     }
 }
 
-pub struct Iter<'a, T: 'a> {
-    storage: &'a Storage<T>,
-    index: usize,
-}
-
 pub struct IterMut<'a, T: 'a> {
     storage: &'a mut Storage<T>,
     index: usize,
-}
-
-impl<'a, T: 'a> Iterator for Iter<'a, T> {
-    type Item = &'a T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index == self.storage.len() {
-            None
-        } else {
-            let res = Some(&self.storage[self.index]);
-            self.index += 1;
-            res
-        }
-    }
 }
 
 impl<'a, T: 'a> Iterator for IterMut<'a, T> {
