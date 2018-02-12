@@ -22,7 +22,10 @@ use index::Column;
 
 /// A row in the grid
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct Row<T>(Vec<T>);
+pub struct Row<T> {
+    data: Vec<T>,
+    id: u64
+}
 
 impl<T: Copy + Clone> Row<T> {
     pub fn new(columns: Column, template: &T) -> Row<T> {
@@ -37,8 +40,9 @@ impl<T: Copy + Clone> Row<T> {
 
     /// Resets contents to the contents of `other`
     #[inline]
-    pub fn reset(&mut self, other: &Row<T>) {
+    pub fn reset(&mut self, other: &Row<T>, id: u64) {
         self.copy_from_slice(&**other);
+        self.id = id;
     }
 }
 
