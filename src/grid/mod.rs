@@ -35,6 +35,9 @@ mod tests;
 mod storage;
 use self::storage::Storage;
 
+/// Lines to keep in scrollback buffer
+const SCROLLBACK_LINES: usize = 100_000;
+
 /// Convert a type to a linear index range.
 pub trait ToRange {
     fn to_range(&self) -> RangeInclusive<index::Linear>;
@@ -87,6 +90,13 @@ pub struct Grid<T> {
 
     /// Temporary row storage for scrolling with a region
     temp: Vec<Row<T>>,
+
+    /// Offset of displayed area
+    ///
+    /// If the displayed region isn't at the bottom of the screen, it stays
+    /// stationary while more text is emitted. The scrolling implementation
+    /// updates this offset accordingly.
+    display_offset: usize,
 }
 
 pub struct GridIterator<'a, T: 'a> {
@@ -96,9 +106,15 @@ pub struct GridIterator<'a, T: 'a> {
 
 impl<T: Copy + Clone> Grid<T> {
     pub fn new(lines: index::Line, cols: index::Column, template: T) -> Grid<T> {
-        let mut raw = Storage::with_capacity(*lines);
+        let mut raw = Storage::with_capacity(*lines + SCROLLBACK_LINES);
         let template_row = Row::new(cols, &template);
-        for _ in IndexRange(index::Line(0)..lines) {
+
+        // Allocate all lines in the buffer, including scrollback history
+        //
+        // TODO (jwilm) Allocating each line at this point is expensive and
+        // delays startup. A nice solution might be having `Row` delay
+        // allocation until it's actually used.
+        for _ in 0..raw.capacity() {
             raw.push(template_row.clone());
         }
 
@@ -191,6 +207,11 @@ impl<T: Copy + Clone> Grid<T> {
     #[inline]
     pub fn scroll_up(&mut self, region: &Range<index::Line>, positions: index::Line) {
         if region.start == Line(0) {
+            // Update display offset when not pinned to active area
+            if self.display_offset != 0 {
+                self.display_offset += *positions;
+            }
+
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
             self.raw.rotate_up(*positions);
@@ -319,14 +340,16 @@ impl<T> Index<index::Line> for Grid<T> {
 
     #[inline]
     fn index(&self, index: index::Line) -> &Row<T> {
-        &self.raw[index.0]
+        let index = self.lines.0 - index.0;
+        &self.raw[index]
     }
 }
 
 impl<T> IndexMut<index::Line> for Grid<T> {
     #[inline]
     fn index_mut(&mut self, index: index::Line) -> &mut Row<T> {
-        &mut self.raw[index.0]
+        let index = self.lines.0 - index.0;
+        &mut self.raw[index]
     }
 }
 
@@ -335,14 +358,14 @@ impl<'point, T> Index<&'point Point> for Grid<T> {
 
     #[inline]
     fn index<'a>(&'a self, point: &Point) -> &'a T {
-        &self.raw[point.line.0][point.col]
+        &self[point.line][point.col]
     }
 }
 
 impl<'point, T> IndexMut<&'point Point> for Grid<T> {
     #[inline]
     fn index_mut<'a, 'b>(&'a mut self, point: &'b Point) -> &'a mut T {
-        &mut self.raw[point.line.0][point.col]
+        &mut self[point.line][point.col]
     }
 }
 
