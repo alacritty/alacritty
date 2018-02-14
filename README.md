@@ -119,6 +119,7 @@ missing, please open an issue.
 
 ```sh
 yum install cmake freetype-devel fontconfig-devel xclip
+yum group install "Development Tools" 
 ```
 
 #### openSUSE
