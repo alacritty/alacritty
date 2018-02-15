@@ -93,10 +93,15 @@ impl ::Rasterize for FreeTypeRasterizer {
 
         let height = (full.size_metrics.height / 64) as f64;
         let descent = (full.size_metrics.descender / 64) as f32;
+
+        // Get underline position and thickness in device pixels
+        let x_scale = full.size_metrics.x_scale as f32 / 65536.0;
         let underline_position =
-            (f32::from(face.ft_face.underline_position()) / 64.).round();
+            (f32::from(face.ft_face.underline_position()) * x_scale / 64.).round();
         let underline_thickness =
-            (f32::from(face.ft_face.underline_thickness()) / 64.).round();
+            (f32::from(face.ft_face.underline_thickness()) * x_scale / 64.)
+            .round()
+            .max(1.);
 
         Ok(Metrics {
             average_advance: full.cell_width,
