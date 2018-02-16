@@ -628,6 +628,7 @@ pub struct DisplayIter<'a, T: 'a> {
     offset: usize,
     limit: usize,
     col: Column,
+    line: Line,
 }
 
 impl<'a, T: 'a> DisplayIter<'a, T> {
@@ -635,8 +636,9 @@ impl<'a, T: 'a> DisplayIter<'a, T> {
         let offset = grid.display_offset + *grid.num_lines() - 1;
         let limit =  grid.display_offset;
         let col = Column(0);
+        let line = Line(0);
 
-        DisplayIter { grid, offset, col, limit }
+        DisplayIter { grid, offset, col, limit, line }
     }
 
     pub fn offset(&self) -> usize {
@@ -645,6 +647,10 @@ impl<'a, T: 'a> DisplayIter<'a, T> {
 
     pub fn column(&self) -> Column {
         self.col
+    }
+
+    pub fn line(&self) -> Line {
+        self.line
     }
 }
 
@@ -660,13 +666,15 @@ impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
             }
 
             self.col = Column(0);
+
             self.offset -= 1;
+            self.line = Line(*self.grid.lines - 1 - (self.offset - self.limit));
         }
 
         // Return the next item.
         let item = Some(Indexed {
             inner: self.grid.raw[self.offset][self.col],
-            line: Line( *self.grid.lines - 1 - (self.offset - self.limit)),
+            line: self.line,
             column: self.col
         });
 

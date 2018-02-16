@@ -342,7 +342,8 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 self.inner.column() == self.cursor.col
             {
                 // Cursor cell
-                let cell = self.cursor_cells.pop_front().unwrap();
+                let mut cell = self.cursor_cells.pop_front().unwrap();
+                cell.line = self.inner.line();
 
                 // Since there may be multiple cursor cells (for a wide
                 // char), only update iteration position after all cursor
