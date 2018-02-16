@@ -14,7 +14,7 @@
 
 //! A specialized 2d grid implementation optimized for use in a terminal.
 
-use std::cmp::{max, Ordering};
+use std::cmp::{min, max, Ordering};
 use std::ops::{Deref, Range, Index, IndexMut, RangeTo, RangeFrom, RangeFull};
 
 use index::{self, Point, Line, Column, IndexRange, RangeInclusive};
@@ -90,6 +90,9 @@ pub struct Grid<T> {
     /// stationary while more text is emitted. The scrolling implementation
     /// updates this offset accordingly.
     display_offset: usize,
+
+    /// An limit on how far back it's possible to scroll
+    scroll_limit: usize,
 }
 
 pub struct GridIterator<'a, T: 'a> {
@@ -99,7 +102,10 @@ pub struct GridIterator<'a, T: 'a> {
 
 impl<T: Copy + Clone> Grid<T> {
     pub fn scroll_display(&mut self, count: isize) {
-        self.display_offset = max((self.display_offset as isize) + count, 0isize) as usize;
+        self.display_offset = min(
+                max((self.display_offset as isize) + count, 0isize) as usize,
+                self.scroll_limit
+            );
     }
 
     pub fn new(lines: index::Line, cols: index::Column, template: T) -> Grid<T> {
@@ -123,6 +129,7 @@ impl<T: Copy + Clone> Grid<T> {
             template,
             temp: Vec::new(),
             display_offset: 0,
+            scroll_limit: 0,
         }
     }
 
@@ -145,6 +152,10 @@ impl<T: Copy + Clone> Grid<T> {
         }
     }
 
+    fn increase_scroll_limit(&mut self, count: usize) {
+        self.scroll_limit = min(self.scroll_limit + count, self.raw.len() - *self.lines);
+    }
+
     /// Add lines to the visible area
     ///
     /// The behavior in Terminal.app and iTerm.app is to keep the cursor at the
@@ -155,13 +166,18 @@ impl<T: Copy + Clone> Grid<T> {
     /// Alacritty takes a different approach. Rather than trying to move with
     /// the scrollback, we simply pull additional lines from the back of the
     /// buffer in order to populate the new area.
-    fn grow_lines(&mut self, target: index::Line) {
-        let delta = target - self.lines;
+    fn grow_lines(&mut self, new_line_count: index::Line) {
+        let previous_scroll_limit = self.scroll_limit;
+        let lines_added = new_line_count - self.lines;
 
-        self.raw.set_visible_lines(target);
-        self.lines = target;
+        // Need to "resize" before updating buffer
+        self.raw.set_visible_lines(new_line_count);
+        self.lines = new_line_count;
 
-        self.scroll_up(&(Line(0)..target), delta);
+        // Add new lines to bottom
+        self.scroll_up(&(Line(0)..new_line_count), lines_added);
+
+        self.scroll_limit = self.scroll_limit.saturating_sub(*lines_added);
     }
 
     fn grow_cols(&mut self, cols: index::Column) {
@@ -251,6 +267,8 @@ impl<T: Copy + Clone> Grid<T> {
             if self.display_offset != 0 {
                 self.display_offset += *positions;
             }
+
+            self.increase_scroll_limit(*positions);
 
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
