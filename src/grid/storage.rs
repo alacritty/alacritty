@@ -69,6 +69,7 @@ impl<T> Storage<T> {
     }
 
     pub fn swap_lines(&mut self, a: Line, b: Line) {
+        println!("visible: {}, a: {}, b: {}", self.visible_lines, a, b);
         let a = self.visible_lines - a;
         let b = self.visible_lines - b;
         self.swap(*a, *b);

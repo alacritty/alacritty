@@ -236,8 +236,11 @@ impl<T: Copy + Clone> Grid<T> {
             self.raw.rotate_up(*positions);
 
             // Now, restore any scroll region lines
-            for i in IndexRange(region.end .. self.num_lines()) {
+            let lines = self.lines;
+            for i in IndexRange(region.end .. lines) {
                 // First do the swap
+                // TODO there is a bug here causing a panic.
+                // TODO math
                 self.raw.swap_lines(i, i + positions);
             }
 
