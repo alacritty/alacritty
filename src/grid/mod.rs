@@ -12,17 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! A generic 2d grid implementation optimized for use in a terminal.
-//!
-//! The current implementation uses a vector of vectors to store cell data.
-//! Reimplementing the store as a single contiguous vector may be desirable in
-//! the future. Rotation and indexing would need to be reconsidered at that
-//! time; rotation currently reorganize Vecs in the lines Vec, and indexing with
-//! ranges is currently supported.
+//! A specialized 2d grid implementation optimized for use in a terminal.
 
-use std::cmp::Ordering;
-use std::iter::IntoIterator;
-use std::ops::{Deref, Range, RangeTo, RangeFrom, RangeFull, Index, IndexMut};
+use std::cmp::{max, Ordering};
+use std::ops::{Deref, Range, Index, IndexMut, RangeTo, RangeFrom, RangeFull};
 
 use index::{self, Point, Line, Column, IndexRange, RangeInclusive};
 
@@ -36,7 +29,7 @@ mod storage;
 use self::storage::Storage;
 
 /// Lines to keep in scrollback buffer
-const SCROLLBACK_LINES: usize = 100_000;
+const SCROLLBACK_LINES: usize = 10_000;
 
 /// Convert a type to a linear index range.
 pub trait ToRange {
@@ -105,8 +98,12 @@ pub struct GridIterator<'a, T: 'a> {
 }
 
 impl<T: Copy + Clone> Grid<T> {
+    pub fn scroll_display(&mut self, count: isize) {
+        self.display_offset = max((self.display_offset as isize) + count, 0isize) as usize;
+    }
+
     pub fn new(lines: index::Line, cols: index::Column, template: T) -> Grid<T> {
-        let mut raw = Storage::with_capacity(*lines + SCROLLBACK_LINES);
+        let mut raw = Storage::with_capacity(*lines + SCROLLBACK_LINES, lines);
         let template_row = Row::new(cols, &template);
 
         // Allocate all lines in the buffer, including scrollback history
@@ -125,6 +122,7 @@ impl<T: Copy + Clone> Grid<T> {
             template_row,
             template,
             temp: Vec::new(),
+            display_offset: 0,
         }
     }
 
@@ -147,12 +145,23 @@ impl<T: Copy + Clone> Grid<T> {
         }
     }
 
-    fn grow_lines(&mut self, lines: index::Line) {
-        for _ in IndexRange(self.num_lines()..lines) {
-            self.raw.push(self.template_row.clone());
-        }
+    /// Add lines to the visible area
+    ///
+    /// The behavior in Terminal.app and iTerm.app is to keep the cursor at the
+    /// bottom of the screen as long as there is scrollback available. Once
+    /// scrollback is exhausted, new lines are simply added to the bottom of the
+    /// screen.
+    ///
+    /// Alacritty takes a different approach. Rather than trying to move with
+    /// the scrollback, we simply pull additional lines from the back of the
+    /// buffer in order to populate the new area.
+    fn grow_lines(&mut self, target: index::Line) {
+        let delta = target - self.lines;
 
-        self.lines = lines;
+        self.raw.set_visible_lines(target);
+        self.lines = target;
+
+        self.scroll_up(&(Line(0)..target), delta);
     }
 
     fn grow_cols(&mut self, cols: index::Column) {
@@ -167,6 +176,37 @@ impl<T: Copy + Clone> Grid<T> {
         self.template_row.grow(cols, &self.template);
     }
 
+    /// Remove lines from the visible area
+    ///
+    /// The behavior in Terminal.app and iTerm.app is to keep the cursor at the
+    /// bottom of the screen. This is achieved by pushing history "out the top"
+    /// of the terminal window.
+    ///
+    /// Alacritty takes the same approach.
+    fn shrink_lines(&mut self, target: index::Line) {
+        // TODO handle disabled scrollback
+        // while index::Line(self.raw.len()) != lines {
+        //     self.raw.pop();
+        // }
+
+        let prev = self.lines;
+
+        self.raw.rotate(*prev as isize - *target as isize);
+        self.raw.set_visible_lines(target);
+        self.lines = target;
+    }
+
+    /// Convert a Line index (active region) to a buffer offset
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if `Line` is larger than the grid dimensions
+    pub fn line_to_offset(&self, line: index::Line) -> usize {
+        assert!(line < self.num_lines());
+
+        *(self.num_lines() - line - 1)
+    }
+
     #[inline]
     pub fn scroll_down(&mut self, region: &Range<index::Line>, positions: index::Line) {
         // Whether or not there is a scrolling region active, as long as it
@@ -177,12 +217,12 @@ impl<T: Copy + Clone> Grid<T> {
         if region.start == Line(0) {
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
-            self.raw.rotate(-(*positions as isize));
+            self.raw.rotate_up(*positions);
 
             // Now, restore any scroll region lines
             for i in IndexRange(region.end .. self.num_lines()) {
                 // First do the swap
-                self.raw.swap(*i, *i + *positions);
+                self.raw.swap_lines(i, i + positions);
             }
 
             // Finally, reset recycled lines
@@ -192,7 +232,7 @@ impl<T: Copy + Clone> Grid<T> {
         } else {
             // Subregion rotation
             for line in IndexRange((region.start + positions)..region.end).rev() {
-                self.swap_lines(line, line - positions);
+                self.raw.swap_lines(line, line - positions);
             }
 
             for line in IndexRange(region.start .. (region.start + positions)) {
@@ -214,29 +254,29 @@ impl<T: Copy + Clone> Grid<T> {
 
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
-            self.raw.rotate_up(*positions);
+            self.raw.rotate(-(*positions as isize));
 
             // Now, restore any lines outside the scroll region
             for idx in (*region.end .. *self.num_lines()).rev() {
                 // First do the swap
-                self.raw.swap(idx, idx - *positions);
+                self.raw.swap_lines(Line(idx), Line(idx) - positions);
             }
 
             // Finally, reset recycled lines
             //
             // Recycled lines are just above the end of the scrolling region.
             for i in 0..*positions {
-                self.raw[*region.end - i - 1].reset(&self.template_row);
+                self.raw[region.end - i - 1].reset(&self.template_row);
             }
         } else {
             // Subregion rotation
             for line in IndexRange(region.start..(region.end - positions)) {
-                self.swap_lines(line, line + positions);
+                self.raw.swap_lines(line, line + positions);
             }
 
             // Clear reused lines
             for line in IndexRange((region.end - positions) .. region.end) {
-                self.raw[*line].reset(&self.template_row);
+                self.raw[line].reset(&self.template_row);
             }
         }
     }
@@ -246,6 +286,10 @@ impl<T> Grid<T> {
     #[inline]
     pub fn num_lines(&self) -> index::Line {
         self.lines
+    }
+
+    pub fn display_iter(&self) -> DisplayIter<T> {
+        DisplayIter::new(self)
     }
 
     #[inline]
@@ -265,22 +309,14 @@ impl<T> Grid<T> {
         self.lines > point.line && self.cols > point.col
     }
 
-    /// Swap two lines in the grid
-    ///
-    /// This could have used slice::swap internally, but we are able to have
-    /// better error messages by doing the bounds checking ourselves.
-    #[inline]
-    pub fn swap_lines(&mut self, src: index::Line, dst: index::Line) {
-        self.raw.swap(*src, *dst);
-    }
-
-    fn shrink_lines(&mut self, lines: index::Line) {
-        while index::Line(self.raw.len()) != lines {
-            self.raw.pop();
-        }
-
-        self.lines = lines;
-    }
+    // /// Swap two lines in the grid
+    // ///
+    // /// This could have used slice::swap internally, but we are able to have
+    // /// better error messages by doing the bounds checking ourselves.
+    // #[inline]
+    // pub fn swap_lines(&mut self, src: index::Line, dst: index::Line) {
+    //     self.raw.swap(*src, *dst);
+    // }
 
     fn shrink_cols(&mut self, cols: index::Column) {
         for row in self.raw.iter_mut() {
@@ -335,12 +371,22 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     }
 }
 
+/// Index active region by line
 impl<T> Index<index::Line> for Grid<T> {
     type Output = Row<T>;
 
     #[inline]
     fn index(&self, index: index::Line) -> &Row<T> {
-        let index = self.lines.0 - index.0;
+        &self.raw[index]
+    }
+}
+
+/// Index with buffer offset
+impl<T> Index<usize> for Grid<T> {
+    type Output = Row<T>;
+
+    #[inline]
+    fn index(&self, index: usize) -> &Row<T> {
         &self.raw[index]
     }
 }
@@ -348,7 +394,6 @@ impl<T> Index<index::Line> for Grid<T> {
 impl<T> IndexMut<index::Line> for Grid<T> {
     #[inline]
     fn index_mut(&mut self, index: index::Line) -> &mut Row<T> {
-        let index = self.lines.0 - index.0;
         &mut self.raw[index]
     }
 }
@@ -369,9 +414,9 @@ impl<'point, T> IndexMut<&'point Point> for Grid<T> {
     }
 }
 
-// =================================================================================================
-// Regions =========================================================================================
-// =================================================================================================
+// -------------------------------------------------------------------------------------------------
+// REGIONS
+// -------------------------------------------------------------------------------------------------
 
 /// A subset of lines in the grid
 ///
@@ -533,7 +578,7 @@ impl<'a, T> Iterator for RegionIter<'a, T> {
         if self.cur < self.end {
             let index = self.cur;
             self.cur += 1;
-            Some(&self.raw[*index])
+            Some(&self.raw[index])
         } else {
             None
         }
@@ -547,10 +592,67 @@ impl<'a, T> Iterator for RegionIterMut<'a, T> {
             let index = self.cur;
             self.cur += 1;
             unsafe {
-                Some(&mut *(&mut self.raw[index.0] as *mut _))
+                Some(&mut *(&mut self.raw[index] as *mut _))
             }
         } else {
             None
         }
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+// DISPLAY ITERATOR
+// -------------------------------------------------------------------------------------------------
+
+/// Iterates over the visible area accounting for buffer transform
+pub struct DisplayIter<'a, T: 'a> {
+    grid: &'a Grid<T>,
+    offset: usize,
+    limit: usize,
+    col: Column,
+}
+
+impl<'a, T: 'a> DisplayIter<'a, T> {
+    pub fn new(grid: &'a Grid<T>) -> DisplayIter<'a, T> {
+        let offset = grid.display_offset + *grid.num_lines() - 1;
+        let limit =  grid.display_offset;
+        let col = Column(0);
+
+        DisplayIter { grid, offset, col, limit }
+    }
+
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+
+    pub fn column(&self) -> Column {
+        self.col
+    }
+}
+
+impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
+    type Item = Indexed<T>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        // Make sure indices are valid. Return None if we've reached the end.
+        if self.col == self.grid.num_cols() {
+            if self.offset == self.limit {
+                return None;
+            }
+
+            self.col = Column(0);
+            self.offset -= 1;
+        }
+
+        // Return the next item.
+        let item = Some(Indexed {
+            inner: self.grid.raw[self.offset][self.col],
+            line: Line( *self.grid.lines - 1 - (self.offset - self.limit)),
+            column: self.col
+        });
+
+        self.col += 1;
+        item
     }
 }
