@@ -64,6 +64,7 @@ pub trait ActionContext {
     fn last_modifiers(&mut self) -> &mut ModifiersState;
     fn change_font_size(&mut self, delta: i8);
     fn reset_font_size(&mut self);
+    fn scroll(&mut self, count: isize) {}
 }
 
 /// Describes a state and action to take in that state
@@ -386,10 +387,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
         let mouse_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION | mode::TermMode::SGR_MOUSE;
-        if !self.ctx.terminal_mode().intersects(mouse_modes | mode::TermMode::ALT_SCREEN) {
-            return;
-        }
-
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let to_scroll = self.ctx.mouse_mut().lines_scrolled + lines;
@@ -439,16 +436,19 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let faux_scrollback_lines = self.mouse_config.faux_scrollback_lines;
         if self.ctx.terminal_mode().intersects(mouse_modes) {
             self.mouse_report(code, ElementState::Pressed);
-        } else if faux_scrollback_lines > 0 {
-            // Faux scrolling
-            let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
-            let mut content = Vec::with_capacity(faux_scrollback_lines * 3);
-            for _ in 0..faux_scrollback_lines {
-                content.push(0x1b);
-                content.push(b'O');
-                content.push(cmd);
-            }
-            self.ctx.write_to_pty(content);
+        // } else if faux_scrollback_lines > 0 {
+        //     // Faux scrolling
+        //     let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
+        //     let mut content = Vec::with_capacity(faux_scrollback_lines * 3);
+        //     for _ in 0..faux_scrollback_lines {
+        //         content.push(0x1b);
+        //         content.push(b'O');
+        //         content.push(cmd);
+        //     }
+        //     self.ctx.write_to_pty(content);
+        // }
+        } else {
+            self.ctx.scroll(-((code as isize) * 2 - 129));
         }
     }
 

@@ -24,8 +24,8 @@ use unicode_width::UnicodeWidthChar;
 
 use font::{self, Size};
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use grid::{BidirectionalIterator, Grid, ToRange, Indexed, IndexRegion};
-use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
+use grid::{BidirectionalIterator, Grid, ToRange, Indexed, IndexRegion, DisplayIter};
+use index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive};
 use selection::{self, Span, Selection};
 use config::{Config, VisualBellAnimation};
 use {MouseCursor, Rgb};
@@ -94,12 +94,11 @@ impl selection::Dimensions for Term {
 /// This manages the cursor during a render. The cursor location is inverted to
 /// draw it, and reverted after drawing to maintain state.
 pub struct RenderableCellsIter<'a> {
+    inner: DisplayIter<'a, Cell>,
     grid: &'a Grid<Cell>,
     cursor: &'a Point,
-    cursor_index: index::Linear,
+    cursor_offset: usize,
     mode: TermMode,
-    line: Line,
-    column: Column,
     config: &'a Config,
     colors: &'a color::List,
     selection: Option<RangeInclusive<index::Linear>>,
@@ -120,18 +119,18 @@ impl<'a> RenderableCellsIter<'a> {
         selection: Option<RangeInclusive<index::Linear>>,
         cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b> {
-        let cursor_index = Linear(cursor.line.0 * grid.num_cols().0 + cursor.col.0);
+        let cursor_offset = grid.line_to_offset(cursor.line);
+        let inner = grid.display_iter();
 
         RenderableCellsIter {
-            grid,
-            cursor,
-            cursor_index,
-            mode,
-            line: Line(0),
-            column: Column(0),
-            selection,
-            config,
-            colors,
+            cursor: cursor,
+            cursor_offset: cursor_offset,
+            grid: grid,
+            inner: inner,
+            mode: mode,
+            selection: selection,
+            config: config,
+            colors: colors,
             cursor_cells: ArrayDeque::new(),
         }.initialize(cursor_style)
     }
@@ -318,6 +317,7 @@ impl<'a> RenderableCellsIter<'a> {
 }
 
 pub struct RenderableCell {
+    /// A _Display_ line (not necessarily an _Active_ line)
     pub line: Line,
     pub column: Column,
     pub c: char,
@@ -336,64 +336,55 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
     /// (eg. invert fg and bg colors).
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        while self.line < self.grid.num_lines() {
-            while self.column < self.grid.num_cols() {
-                // Grab current state for this iteration
-                let line = self.line;
-                let mut column = self.column;
-                let cell = &self.grid[line][column];
+        loop {
+            // Handle cursor
+            let (cell, selected) = if self.cursor_offset == self.inner.offset() &&
+                self.inner.column() == self.cursor.col
+            {
+                // Cursor cell
+                let cell = self.cursor_cells.pop_front().unwrap();
 
-                let index = Linear(line.0 * self.grid.num_cols().0 + column.0);
-
-                let (cell, selected) = if index == self.cursor_index {
-                    // Cursor cell
-                    let cell = self.cursor_cells.pop_front().unwrap();
-                    column = cell.column;
-
-                    // Since there may be multiple cursor cells (for a wide
-                    // char), only update iteration position after all cursor
-                    // cells have been drawn.
-                    if self.cursor_cells.is_empty() {
-                        self.line = cell.line;
-                        self.column = cell.column + 1;
-                    }
-                    (cell.inner, false)
-                } else {
-                    // Normal cell
-                    self.column += 1;
-
-                    let selected = self.selection.as_ref()
-                        .map(|range| range.contains_(index))
-                        .unwrap_or(false);
-
-                    // Skip empty cells
-                    if cell.is_empty() && !selected {
-                        continue;
-                    }
-                    (*cell, selected)
-                };
-
-                // Apply inversion and lookup RGB values
-                let mut bg_alpha = 1.0;
-                let fg_rgb;
-                let bg_rgb;
-
-                let invert = selected ^ cell.inverse();
-
-                if invert {
-                    if cell.fg == cell.bg {
-                        bg_rgb = self.colors[NamedColor::Foreground];
-                        fg_rgb = self.colors[NamedColor::Background];
-                        bg_alpha = 1.0
-                    } else {
-                        bg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
-                        fg_rgb = self.compute_bg_rgb(&cell.bg);
-                    }
-                } else {
-                    fg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
-                    bg_rgb = self.compute_bg_rgb(&cell.bg);
-                    bg_alpha = self.compute_bg_alpha(&cell.bg);
+                // Since there may be multiple cursor cells (for a wide
+                // char), only update iteration position after all cursor
+                // cells have been drawn.
+                if self.cursor_cells.is_empty() {
+                    self.inner.next();
                 }
+                (cell, false)
+            } else {
+                let cell = self.inner.next()?;
+
+                // XXX (jwilm) selection temp disabled
+                //
+                // let selected = self.selection.as_ref()
+                //     .map(|range| range.contains_(index))
+                //     .unwrap_or(false);
+                let selected = false;
+
+                // Skip empty cells
+                if cell.is_empty() && !selected {
+                    continue;
+                }
+                (cell, selected)
+            };
+
+            // Apply inversion and lookup RGB values
+            let mut bg_alpha = 1.0;
+            let fg_rgb;
+            let bg_rgb;
+
+            let invert = selected ^ cell.inverse();
+
+            if invert {
+                if cell.fg == cell.bg {
+                    bg_rgb = self.colors[NamedColor::Foreground];
+                    fg_rgb = self.colors[NamedColor::Background];
+                    bg_alpha = 1.0
+                } else {
+                    bg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
+                    fg_rgb = self.compute_bg_rgb(&cell.bg);
+                }
+<<<<<<< HEAD
 
                 return Some(RenderableCell {
                     line,
@@ -404,13 +395,35 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     bg: bg_rgb,
                     bg_alpha,
                 })
+||||||| merged common ancestors
+
+                return Some(RenderableCell {
+                    line: line,
+                    column: column,
+                    flags: cell.flags,
+                    c: cell.c,
+                    fg: fg_rgb,
+                    bg: bg_rgb,
+                    bg_alpha: bg_alpha,
+                })
+=======
+            } else {
+                fg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
+                bg_rgb = self.compute_bg_rgb(&cell.bg);
+                bg_alpha = self.compute_bg_alpha(&cell.bg);
+>>>>>>> checkpoint: very basic scrolling works
             }
 
-            self.column = Column(0);
-            self.line += 1;
+            return Some(RenderableCell {
+                line: cell.line,
+                column: cell.column,
+                flags: cell.flags,
+                c: cell.c,
+                fg: fg_rgb,
+                bg: bg_rgb,
+                bg_alpha: bg_alpha,
+            })
         }
-
-        None
     }
 
 }
@@ -788,6 +801,11 @@ impl Term {
         self.next_title.take()
     }
 
+    pub fn scroll_display(&mut self, count: isize) {
+        self.grid.scroll_display(count);
+        self.dirty = true;
+    }
+
     #[inline]
     pub fn get_next_mouse_cursor(&mut self) -> Option<MouseCursor> {
         self.next_mouse_cursor.take()
@@ -1045,10 +1063,6 @@ impl Term {
             num_lines = Line(2);
         }
 
-        // Scroll up to keep cursor and as much context as possible in grid.
-        // This only runs when the lines decreases.
-        self.scroll_region = Line(0)..self.grid.num_lines();
-
         // Scroll up to keep cursor in terminal
         if self.cursor.point.line >= num_lines {
             let lines = self.cursor.point.line - num_lines + 1;
@@ -1060,7 +1074,6 @@ impl Term {
             let lines = self.cursor_save_alt.point.line - num_lines + 1;
             self.alt_grid.scroll_up(&(Line(0)..old_lines), lines);
         }
-
         debug!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         // Resize grids to new size
@@ -1083,16 +1096,16 @@ impl Term {
             .map(|i| (*i as usize) % self.tabspaces == 0)
             .collect::<Vec<bool>>();
 
-        if num_lines > old_lines {
-            // Make sure bottom of terminal is clear
-            let template = self.cursor.template;
-            self.grid
-                .region_mut((self.cursor.point.line + 1)..)
-                .each(|c| c.reset(&template));
-            self.alt_grid
-                .region_mut((self.cursor_save_alt.point.line + 1)..)
-                .each(|c| c.reset(&template));
-        }
+        // if num_lines > old_lines {
+        //     // Make sure bottom of terminal is clear
+        //     let template = self.cursor.template;
+        //     self.grid
+        //         .region_mut((self.cursor.point.line + 1)..)
+        //         .each(|c| c.reset(&template));
+        //     self.alt_grid
+        //         .region_mut((self.cursor_save_alt.point.line + 1)..)
+        //         .each(|c| c.reset(&template));
+        // }
 
     }
 
