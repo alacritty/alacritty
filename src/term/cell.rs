@@ -27,7 +27,7 @@ bitflags! {
         const WIDE_CHAR_SPACER  = 0b0_0100_0000;
         const DIM               = 0b0_1000_0000;
         const DIM_BOLD          = 0b0_1000_0010;
-        const STRIKE_THROUGH    = 0b1_0000_0000;
+        const STRIKEOUT         = 0b1_0000_0000;
     }
 }
 
@@ -104,7 +104,7 @@ impl Cell {
     pub fn is_empty(&self) -> bool {
         self.c == ' ' &&
             self.bg == Color::Named(NamedColor::Background) &&
-            !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE | Flags::STRIKE_THROUGH)
+            !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE | Flags::STRIKEOUT)
     }
 
     #[inline]

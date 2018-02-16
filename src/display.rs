@@ -365,10 +365,10 @@ impl Display {
                         api.clear(background_color);
                     }
 
-                    // Store underline/strikethrough information beyond current cell
+                    // Store underline/strikeout information beyond current cell
                     let mut last_cell = None;
                     let mut start_underline: Option<RenderableCell> = None;
-                    let mut start_strikethrough: Option<RenderableCell> = None;
+                    let mut start_strikeout: Option<RenderableCell> = None;
 
                     // Iterate over all non-empty cells in the grid
                     for cell in terminal.renderable_cells(config, selection, window_focused) {
@@ -384,19 +384,19 @@ impl Display {
                             cell_line_rects.push(underline);
                         }
 
-                        // Check if there is a new strikethrough
-                        if let Some(strikethrough) = calculate_cell_line_state(
+                        // Check if there is a new strikeout
+                        if let Some(strikeout) = calculate_cell_line_state(
                             cell,
-                            &mut start_strikethrough,
+                            &mut start_strikeout,
                             &last_cell,
                             &metrics,
                             &size_info,
-                            cell::Flags::STRIKE_THROUGH,
+                            cell::Flags::STRIKEOUT,
                         ) {
-                            cell_line_rects.push(strikethrough);
+                            cell_line_rects.push(strikeout);
                         }
 
-                        // Change the last checked cell for underline/strikethrough
+                        // Change the last checked cell for underline/strikeout
                         last_cell = Some(cell);
 
                         // Draw the cell
@@ -415,14 +415,14 @@ impl Display {
                         );
                     }
 
-                    // If strikethrough hasn't been reset, draw until the last cell
-                    if let Some(start) = start_strikethrough {
+                    // If strikeout hasn't been reset, draw until the last cell
+                    if let Some(start) = start_strikeout {
                         cell_line_rects.push(
                             cell_line_rect(
                                 &start,
                                 &last_cell.unwrap(),
                                 &metrics, &size_info,
-                                cell::Flags::STRIKE_THROUGH
+                                cell::Flags::STRIKEOUT
                             )
                         );
                     }
@@ -482,8 +482,8 @@ impl Display {
     }
 }
 
-// Check if the underline/strikethrough state has changed
-// This returns a new rectangle whenever an underline/strikethrough ends
+// Check if the underline/strikeout state has changed
+// This returns a new rectangle whenever an underline/strikeout ends
 fn calculate_cell_line_state(
     cell: RenderableCell,
     start_cell_line: &mut Option<RenderableCell>,
@@ -504,8 +504,7 @@ fn calculate_cell_line_state(
             }
 
             // Check if we need to start a new line
-            // because the cell color has changed
-            *start_cell_line = if cell.fg != start.fg && cell.flags.contains(flag) {
+            *start_cell_line = if cell.flags.contains(flag) {
                 // Start a new line
                 Some(cell)
             } else {
@@ -525,7 +524,7 @@ fn calculate_cell_line_state(
     None
 }
 
-// Create a colored rectangle for an underline/strikethrough based on two cells
+// Create a colored rectangle for an underline/strikeout based on two cells
 fn cell_line_rect(
     start: &RenderableCell,
     end: &RenderableCell,
@@ -537,26 +536,29 @@ fn cell_line_rect(
     let end_x = ((end.column.0 + 1) as f64 * metrics.average_advance) as u32;
     let width = end_x - x;
 
-    let y = match flag {
+    let (y, height) = match flag {
         cell::Flags::UNDERLINE => {
             // Get the baseline positon and offset it down by (-) underline position
             // then move it up by half the underline thickness
-            ((start.line.0 as f32 + 1.) * metrics.line_height as f32 + metrics.descent
-             - metrics.underline_position - metrics.underline_thickness / 2.).round() as u32
-        },
-        cell::Flags::STRIKE_THROUGH => {
-            // Get half-way point between cell top and baseline
-            // Then offset it down by (-) underline position and
-            // move it up by half the underline thickness
-            // TODO: Moving the strikethrough down by underline thickness is a hack
-            ((start.line.0 as f32) * metrics.line_height as f32
-             + (metrics.line_height as f32 + metrics.descent) / 2.
-             - metrics.underline_thickness / 2.
-             - metrics.underline_position).round() as u32
-        },
+            let y = ((start.line.0 as f32 + 1.) * metrics.line_height as f32 + metrics.descent
+                - metrics.underline_position
+                - metrics.underline_thickness / 2.)
+                .round() as u32;
+            let height = metrics.underline_thickness as u32;
+            (y, height)
+        }
+        cell::Flags::STRIKEOUT => {
+            // Get the baseline positon and offset it up by strikeout position
+            // then move it up by half the strikeout thickness
+            let y = ((start.line.0 as f32 + 1.) * metrics.line_height as f32 + metrics.descent
+                - metrics.strikeout_position
+                - metrics.strikeout_thickness / 2.)
+                .round() as u32;
+            let height = metrics.strikeout_thickness as u32;
+            (y, height)
+        }
         _ => panic!("Invalid flag for cell line drawing specified"),
     };
-    let height = metrics.underline_thickness as u32;
 
     let rect = Rect::new(x + size.padding_x as u32, y + size.padding_y as u32, width, height);
     let color = start.fg;

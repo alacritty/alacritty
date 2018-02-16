@@ -702,7 +702,7 @@ impl QuadRenderer {
         let rect = Rect::new(0, 0, *size.width, *size.height);
         self.render_rect(&rect, color, visual_bell_intensity as f32, size);
 
-        // Draw underlines and strikethroughs
+        // Draw underlines and strikeouts
         for cell_line_rect in cell_line_rects {
             self.render_rect(&cell_line_rect.0, cell_line_rect.1, 255., size);
         }
