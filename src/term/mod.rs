@@ -785,7 +785,7 @@ impl Term {
     }
 
     pub fn reset_scroll(&mut self) {
-        self.grid.reset_scroll();
+        self.grid.reset_scroll_display();
     }
 
     #[inline]
@@ -799,7 +799,7 @@ impl Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
-        let grid = Grid::new(num_lines, num_cols, template);
+        let grid = Grid::new(num_lines, num_cols, config.scroll_history(), template);
 
         let tabspaces = config.tabspaces();
         let tabs = IndexRange::from(Column(0)..grid.num_cols())

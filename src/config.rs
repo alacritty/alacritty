@@ -396,6 +396,14 @@ pub struct Config {
     /// Number of spaces in one tab
     #[serde(default="default_tabspaces", deserialize_with = "deserialize_tabspaces")]
     tabspaces: usize,
+
+    /// How much scrolling history to keep
+    #[serde(default="default_scroll_history")]
+    scroll_history: u32,
+}
+
+fn default_scroll_history() -> u32 {
+    10_000
 }
 
 fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T>, D::Error>
@@ -1242,6 +1250,10 @@ impl Config {
                 None
             })
             .map(|path| path.into())
+    }
+
+    pub fn scroll_history(&self) -> usize {
+        self.scroll_history as _
     }
 
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
