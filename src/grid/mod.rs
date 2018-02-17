@@ -108,6 +108,10 @@ impl<T: Copy + Clone> Grid<T> {
             );
     }
 
+    pub fn reset_scroll(&mut self) {
+        self.display_offset = 0;
+    }
+
     pub fn new(lines: index::Line, cols: index::Column, template: T) -> Grid<T> {
         let mut raw = Storage::with_capacity(*lines + SCROLLBACK_LINES, lines);
         let template_row = Row::new(cols, &template);

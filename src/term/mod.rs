@@ -784,6 +784,10 @@ impl Term {
         self.dirty = true;
     }
 
+    pub fn reset_scroll(&mut self) {
+        self.grid.reset_scroll();
+    }
+
     #[inline]
     pub fn get_next_mouse_cursor(&mut self) -> Option<MouseCursor> {
         self.next_mouse_cursor.take()
