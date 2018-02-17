@@ -28,9 +28,6 @@ mod tests;
 mod storage;
 use self::storage::Storage;
 
-/// Lines to keep in scrollback buffer
-const SCROLLBACK_LINES: usize = 10_000;
-
 /// Convert a type to a linear index range.
 pub trait ToRange {
     fn to_range(&self) -> RangeInclusive<index::Linear>;
@@ -101,19 +98,8 @@ pub struct GridIterator<'a, T: 'a> {
 }
 
 impl<T: Copy + Clone> Grid<T> {
-    pub fn scroll_display(&mut self, count: isize) {
-        self.display_offset = min(
-                max((self.display_offset as isize) + count, 0isize) as usize,
-                self.scroll_limit
-            );
-    }
-
-    pub fn reset_scroll(&mut self) {
-        self.display_offset = 0;
-    }
-
-    pub fn new(lines: index::Line, cols: index::Column, template: T) -> Grid<T> {
-        let mut raw = Storage::with_capacity(*lines + SCROLLBACK_LINES, lines);
+    pub fn new(lines: index::Line, cols: index::Column, scrollback: usize, template: T) -> Grid<T> {
+        let mut raw = Storage::with_capacity(*lines + scrollback, lines);
         let template_row = Row::new(cols, &template);
 
         // Allocate all lines in the buffer, including scrollback history
@@ -135,6 +121,17 @@ impl<T: Copy + Clone> Grid<T> {
             display_offset: 0,
             scroll_limit: 0,
         }
+    }
+
+    pub fn scroll_display(&mut self, count: isize) {
+        self.display_offset = min(
+                max((self.display_offset as isize) + count, 0isize) as usize,
+                self.scroll_limit
+            );
+    }
+
+    pub fn reset_scroll_display(&mut self) {
+        self.display_offset = 0;
     }
 
     pub fn resize(&mut self, lines: index::Line, cols: index::Column) {

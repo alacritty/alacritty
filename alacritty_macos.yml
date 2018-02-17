@@ -31,6 +31,9 @@ window:
   # Setting this to false will result in window without borders and title bar.
   decorations: true
 
+# How many lines of scrollback to keep
+scroll_history: 10000
+
 # Display tabs using this many cells (changes require restart)
 tabspaces: 8
 
