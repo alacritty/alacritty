@@ -157,6 +157,10 @@ impl<T: Copy + Clone> Grid<T> {
         self.scroll_limit = min(self.scroll_limit + count, self.raw.len() - *self.lines);
     }
 
+    fn decrease_scroll_limit(&mut self, count: usize) {
+        self.scroll_limit = self.scroll_limit.saturating_sub(count);
+    }
+
     /// Add lines to the visible area
     ///
     /// The behavior in Terminal.app and iTerm.app is to keep the cursor at the
@@ -236,17 +240,16 @@ impl<T: Copy + Clone> Grid<T> {
             // active, the bottom lines are restored in the next step.
             self.raw.rotate_up(*positions);
 
+            self.decrease_scroll_limit(*positions);
+
             // Now, restore any scroll region lines
             let lines = self.lines;
             for i in IndexRange(region.end .. lines) {
-                // First do the swap
-                // TODO there is a bug here causing a panic.
-                // TODO math
                 self.raw.swap_lines(i, i + positions);
             }
 
             // Finally, reset recycled lines
-            for i in 0..*positions {
+            for i in IndexRange(Line(0)..positions) {
                 self.raw[i].reset(&self.template_row);
             }
         } else {
