@@ -65,6 +65,7 @@ pub trait ActionContext {
     fn change_font_size(&mut self, delta: i8);
     fn reset_font_size(&mut self);
     fn scroll(&mut self, count: isize) {}
+    fn reset_scroll(&mut self) {}
 }
 
 /// Describes a state and action to take in that state
@@ -514,6 +515,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// Process a received character
     pub fn received_char(&mut self, c: char) {
         if !*self.ctx.suppress_chars() {
+            self.ctx.reset_scroll();
             self.ctx.clear_selection();
 
             let utf8_len = c.len_utf8();

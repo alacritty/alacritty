@@ -59,6 +59,10 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.scroll_display(count);
     }
 
+    fn reset_scroll(&mut self) {
+        self.terminal.reset_scroll();
+    }
+
     fn copy_selection(&self, buffer: ::copypasta::Buffer) {
         if let Some(ref selection) = *self.selection {
             selection.to_span(self.terminal)
