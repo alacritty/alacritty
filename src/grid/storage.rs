@@ -62,6 +62,10 @@ impl<T> Storage<T> {
         (requested + self.zero) % self.len()
     }
 
+    fn compute_line_index(&self, requested: Line) -> usize {
+        ((self.len() + self.zero + *self.visible_lines) - *requested) % self.len()
+    }
+
     pub fn swap(&mut self, a: usize, b: usize) {
         let a = self.compute_index(a);
         let b = self.compute_index(b);
@@ -69,10 +73,9 @@ impl<T> Storage<T> {
     }
 
     pub fn swap_lines(&mut self, a: Line, b: Line) {
-        println!("visible: {}, a: {}, b: {}", self.visible_lines, a, b);
-        let a = self.visible_lines - a;
-        let b = self.visible_lines - b;
-        self.swap(*a, *b);
+        let a = self.compute_line_index(a);
+        let b = self.compute_line_index(b);
+        self.inner.swap(a, b);
     }
 
     pub fn iter_mut(&mut self) -> IterMut<T> {
