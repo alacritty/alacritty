@@ -496,10 +496,7 @@ fn calculate_cell_line_state(
         // If line is already started, check for end
         Some(start) => {
             // No change in line
-            if cell.line == start.line
-                && cell.flags.contains(flag)
-                && cell.fg == start.fg
-            {
+            if cell.line == start.line && cell.flags.contains(flag) && cell.fg == start.fg {
                 return None;
             }
 
@@ -512,10 +509,14 @@ fn calculate_cell_line_state(
                 None
             };
 
-            return Some(
-                cell_line_rect(&start, &last_cell.unwrap(), metrics, size_info, flag)
-            );
-        },
+            return Some(cell_line_rect(
+                &start,
+                &last_cell.unwrap(),
+                metrics,
+                size_info,
+                flag,
+            ));
+        }
         // Check for new start of line
         None => if cell.flags.contains(flag) {
             *start_cell_line = Some(cell);
@@ -538,17 +539,30 @@ fn cell_line_rect(
 
     let (y, height) = match flag {
         cell::Flags::UNDERLINE => {
-            // Get the baseline positon and offset it down by (-) underline position
-            // then move it up by half the underline thickness
-            let y = ((start.line.0 as f32 + 1.) * metrics.line_height as f32 + metrics.descent
+            // Calculate the bottom point of the underline
+            let underline_bottom = metrics.line_height as f32 + metrics.descent
                 - metrics.underline_position
-                - metrics.underline_thickness / 2.)
-                .round() as u32;
+                + metrics.underline_thickness / 2.;
+
+            // Check if underline is out of bounds
+            let y = if underline_bottom > metrics.line_height as f32 {
+                // Put underline at the bottom of the cell rect
+                ((start.line.0 as f32 + 1.) * metrics.line_height as f32
+                    - metrics.underline_thickness)
+                    .round() as u32
+            } else {
+                // Get the baseline position and offset it down by (-) underline position
+                // then move it up by half the underline thickness
+                ((start.line.0 as f32 + 1.) * metrics.line_height as f32 + metrics.descent
+                    - metrics.underline_position
+                    - metrics.underline_thickness / 2.)
+                    .round() as u32
+            };
             let height = metrics.underline_thickness as u32;
             (y, height)
         }
         cell::Flags::STRIKEOUT => {
-            // Get the baseline positon and offset it up by strikeout position
+            // Get the baseline position and offset it up by strikeout position
             // then move it up by half the strikeout thickness
             let y = ((start.line.0 as f32 + 1.) * metrics.line_height as f32 + metrics.descent
                 - metrics.strikeout_position
@@ -560,7 +574,12 @@ fn cell_line_rect(
         _ => panic!("Invalid flag for cell line drawing specified"),
     };
 
-    let rect = Rect::new(x + size.padding_x as u32, y + size.padding_y as u32, width, height);
+    let rect = Rect::new(
+        x + size.padding_x as u32,
+        y + size.padding_y as u32,
+        width,
+        height,
+    );
     let color = start.fg;
 
     (rect, color)
