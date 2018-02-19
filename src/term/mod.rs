@@ -103,7 +103,7 @@ pub struct RenderableCellsIter<'a> {
     config: &'a Config,
     colors: &'a color::List,
     selection: Option<RangeInclusive<index::Linear>>,
-    cursor_cells: ArrayDeque<[Indexed<Cell>; 4]>,
+    cursor_cells: ArrayDeque<[Indexed<Cell>; 3]>,
 }
 
 impl<'a> RenderableCellsIter<'a> {
@@ -147,14 +147,14 @@ impl<'a> RenderableCellsIter<'a> {
             line: self.cursor.line,
             column: self.cursor.col,
             inner: original_cell,
-        });
+        }).unwrap();
 
         // Prints the cursor
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
             column: self.cursor.col,
             inner: cursor_cell,
-        });
+        }).unwrap();
 
         // If cursor is over a wide (2 cell size) character,
         // print the second cursor cell
@@ -163,7 +163,7 @@ impl<'a> RenderableCellsIter<'a> {
                 line: self.cursor.line,
                 column: self.cursor.col + 1,
                 inner: wide_cell,
-            });
+            }).unwrap();
         }
     }
 
@@ -237,7 +237,7 @@ impl<'a> RenderableCellsIter<'a> {
             line: self.cursor.line,
             column: self.cursor.col,
             inner: self.grid[self.cursor],
-        });
+        }).unwrap();
     }
 
     fn initialize(mut self, cursor_style: CursorStyle) -> Self {

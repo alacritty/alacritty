@@ -32,7 +32,7 @@ log = "0.4"
 clap = "2"
 fnv = "1"
 unicode-width = "0.1"
-arraydeque = "0.2"
+arraydeque = "0.4"
 glutin = "0.12"
 clippy = { version = "*", optional = true }
 env_logger = "0.5"
