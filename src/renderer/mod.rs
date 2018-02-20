@@ -30,6 +30,7 @@ use index::{Line, Column, RangeInclusive};
 use notify::{Watcher, watcher, RecursiveMode, DebouncedEvent};
 
 use config::{self, Config, Delta};
+use config::font::FontConfiguration;
 use term::{self, cell, RenderableCell};
 use window::{Size, Pixels};
 
@@ -152,124 +153,47 @@ pub struct GlyphCache {
     /// Rasterizer for loading new glyphs
     rasterizer: Rasterizer,
 
-    /// regular font
-    font_key: FontKey,
+    /// Font configuration with all fonts
+    font_config: FontConfiguration,
 
-    /// italic font
-    italic_key: FontKey,
-
-    /// bold font
-    bold_key: FontKey,
-
-    /// font size
-    font_size: font::Size,
-
-    /// glyph offset
-    glyph_offset: Delta,
-
+    /// Font metrics like glyph width/height
     metrics: ::font::Metrics,
 }
 
 impl GlyphCache {
     pub fn new<L>(
         mut rasterizer: Rasterizer,
-        font: &config::Font,
+        font_config: FontConfiguration,
         loader: &mut L
     ) -> Result<GlyphCache, font::Error>
         where L: LoadGlyph
     {
-        let (regular, bold, italic) = Self::compute_font_keys(font, &mut rasterizer)?;
-
         // Need to load at least one glyph for the face before calling metrics.
-        // The glyph requested here ('m' at the time of writing) has no special
+        // The glyph requested here ('0' at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        let primary_font = font_config.font_by_char('0');
+        rasterizer.get_glyph(&GlyphKey { font_key: primary_font, c: '0', size: primary_font.size() })?;
         let metrics = rasterizer.metrics(regular)?;
 
         let mut cache = GlyphCache {
             cache: HashMap::default(),
-            rasterizer: rasterizer,
-            font_size: font.size(),
-            font_key: regular,
-            bold_key: bold,
-            italic_key: italic,
-            glyph_offset: *font.glyph_offset(),
-            metrics: metrics
+            metrics,
+            rasterizer,
+            font_config,
         };
 
-        cache.load_glyphs_for_font(regular, loader);
-        cache.load_glyphs_for_font(bold, loader);
-        cache.load_glyphs_for_font(italic, loader);
+        // TODO: Load set of standard glyphs
+        // cache.load_glyphs_for_font(regular, loader);
+        // cache.load_glyphs_for_font(bold, loader);
+        // cache.load_glyphs_for_font(italic, loader);
 
         Ok(cache)
     }
 
-    fn load_glyphs_for_font<L: LoadGlyph>(
-        &mut self,
-        font: FontKey,
-        loader: &mut L,
-    ) {
-        let size = self.font_size;
-        for i in RangeInclusive::new(32u8, 128u8) {
-            self.get(&GlyphKey {
-                font_key: font,
-                c: i as char,
-                size: size
-            }, loader);
-        }
-    }
-
-    /// Computes font keys for (Regular, Bold, Italic)
-    fn compute_font_keys(
-        font: &config::Font,
-        rasterizer: &mut Rasterizer
-    ) -> Result<(FontKey, FontKey, FontKey), font::Error> {
-        let size = font.size();
-
-        // Load regular font
-        let regular_desc = Self::make_desc(&font.normal, font::Slant::Normal, font::Weight::Normal);
-
-        let regular = rasterizer
-            .load_font(&regular_desc, size)?;
-
-        // helper to load a description if it is not the regular_desc
-        let mut load_or_regular = |desc:FontDesc| {
-            if desc == regular_desc {
-                regular
-            } else {
-                rasterizer.load_font(&desc, size).unwrap_or_else(|_| regular)
-            }
-        };
-
-        // Load bold font
-        let bold_desc = Self::make_desc(&font.bold, font::Slant::Normal, font::Weight::Bold);
-
-        let bold = load_or_regular(bold_desc);
-
-        // Load italic font
-        let italic_desc = Self::make_desc(&font.italic, font::Slant::Italic, font::Weight::Normal);
-
-        let italic = load_or_regular(italic_desc);
-
-        Ok((regular, bold, italic))
-    }
-
-    fn make_desc(
-        desc: &config::FontDescription,
-        slant: font::Slant,
-        weight: font::Weight,
-    ) -> FontDesc {
-        let style = if let Some(ref spec) = desc.style {
-            font::Style::Specific(spec.to_owned())
-        } else {
-            font::Style::Description {slant:slant, weight:weight}
-        };
-        FontDesc::new(&desc.family[..], style)
-    }
-
     pub fn font_metrics(&self) -> font::Metrics {
+        let primary_font = self.font_config.font_by_char('0');
         self.rasterizer
-            .metrics(self.font_key)
+            .metrics(primary_font)
             .expect("metrics load since font is loaded at glyph cache creation")
     }
 
@@ -292,9 +216,11 @@ impl GlyphCache {
                 loader.load_glyph(&rasterized)
             })
     }
+
+    // TODO
     pub fn update_font_size<L: LoadGlyph>(
         &mut self,
-        font: &config::Font,
+        font: &FontConfiguration,
         size: font::Size,
         loader: &mut L
     ) -> Result<(), font::Error> {

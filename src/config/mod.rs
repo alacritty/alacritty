@@ -3,6 +3,8 @@
 //! Alacritty reads from a config file at startup to determine various runtime
 //! parameters including font family and style, font size, etc. In the future,
 //! the config file will also hold user and platform specific keybindings.
+pub mod font;
+
 use std::borrow::Cow;
 use std::{env, fmt};
 use std::fs::{self, File};
@@ -14,15 +16,15 @@ use std::time::Duration;
 use std::collections::HashMap;
 
 use ::Rgb;
-use font::Size;
 use serde_yaml;
-use serde::{self, de, Deserialize};
+use serde::{de, Deserialize};
 use serde::de::Error as SerdeError;
 use serde::de::{Visitor, MapAccess, Unexpected};
 use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
 
 use glutin::ModifiersState;
 
+use self::font::FontConfiguration;
 use input::{Action, Binding, MouseBinding, KeyBinding};
 use index::{Line, Column};
 use ansi::CursorStyle;
@@ -326,7 +328,7 @@ pub struct Config {
 
     /// Font configuration
     #[serde(default, deserialize_with = "failure_default")]
-    font: Font,
+    font: FontConfiguration,
 
     /// Should show render timer
     #[serde(default, deserialize_with = "failure_default")]
@@ -453,7 +455,7 @@ fn default_true_bool<'a, D>(deserializer: D) -> ::std::result::Result<bool, D::E
     }
 }
 
-fn failure_default<'a, D, T>(deserializer: D)
+pub fn failure_default<'a, D, T>(deserializer: D)
     -> ::std::result::Result<T, D::Error>
     where D: de::Deserializer<'a>,
           T: Deserialize<'a> + Default
@@ -467,10 +469,8 @@ fn failure_default<'a, D, T>(deserializer: D)
     }
 }
 
-#[cfg(not(target_os="macos"))]
-static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty.yml");
-#[cfg(target_os="macos")]
-static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty_macos.yml");
+static DEFAULT_ALACRITTY_CONFIG: &'static str =
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty.yml"));
 
 impl Default for Config {
     fn default() -> Self {
@@ -1295,12 +1295,6 @@ impl Config {
         self.draw_bold_text_with_bright_colors
     }
 
-    /// Get font config
-    #[inline]
-    pub fn font(&self) -> &Font {
-        &self.font
-    }
-
     /// Get window dimensions
     #[inline]
     pub fn dimensions(&self) -> Dimensions {
@@ -1323,11 +1317,6 @@ impl Config {
     #[inline]
     pub fn render_timer(&self) -> bool {
         self.render_timer
-    }
-
-    #[inline]
-    pub fn use_thin_strokes(&self) -> bool {
-        self.font.use_thin_strokes
     }
 
     /// show cursor as inverted
@@ -1461,173 +1450,6 @@ pub struct Delta {
 impl Default for Delta {
     fn default() -> Delta {
         Delta { x: 0.0, y: 0.0 }
-    }
-}
-
-trait DeserializeSize : Sized {
-    fn deserialize<'a, D>(D) -> ::std::result::Result<Self, D::Error>
-        where D: serde::de::Deserializer<'a>;
-}
-
-impl DeserializeSize for Size {
-    fn deserialize<'a, D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
-        where D: serde::de::Deserializer<'a>
-    {
-        use std::marker::PhantomData;
-
-        struct NumVisitor<__D> {
-            _marker: PhantomData<__D>,
-        }
-
-        impl<'a, __D> Visitor<'a> for NumVisitor<__D>
-            where __D: serde::de::Deserializer<'a>
-        {
-            type Value = f64;
-
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                f.write_str("f64 or u64")
-            }
-
-            fn visit_f64<E>(self, value: f64) -> ::std::result::Result<Self::Value, E>
-                where E: ::serde::de::Error
-            {
-                Ok(value)
-            }
-
-            fn visit_u64<E>(self, value: u64) -> ::std::result::Result<Self::Value, E>
-                where E: ::serde::de::Error
-            {
-                Ok(value as f64)
-            }
-        }
-
-        let size = deserializer
-            .deserialize_any(NumVisitor::<D>{ _marker: PhantomData })
-            .map(|v| Size::new(v as _));
-
-        // Use font size 12 as fallback
-        match size {
-            Ok(size) => Ok(size),
-            Err(err) => {
-                eprintln!("problem with config: {}; Using size 12", err);
-                Ok(Size::new(12.))
-            },
-        }
-    }
-}
-
-/// Font config
-///
-/// Defaults are provided at the level of this struct per platform, but not per
-/// field in this struct. It might be nice in the future to have defaults for
-/// each value independently. Alternatively, maybe erroring when the user
-/// doesn't provide complete config is Ok.
-#[derive(Debug, Deserialize, Clone)]
-pub struct Font {
-    /// Font family
-    pub normal: FontDescription,
-
-    #[serde(default="default_italic_desc")]
-    pub italic: FontDescription,
-
-    #[serde(default="default_bold_desc")]
-    pub bold: FontDescription,
-
-    // Font size in points
-    #[serde(deserialize_with="DeserializeSize::deserialize")]
-    pub size: Size,
-
-    /// Extra spacing per character
-    #[serde(default, deserialize_with = "failure_default")]
-    offset: Delta,
-
-    /// Glyph offset within character cell
-    #[serde(default, deserialize_with = "failure_default")]
-    glyph_offset: Delta,
-
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
-    use_thin_strokes: bool
-}
-
-fn default_bold_desc() -> FontDescription {
-    Font::default().bold
-}
-
-fn default_italic_desc() -> FontDescription {
-    Font::default().italic
-}
-
-/// Description of a single font
-#[derive(Debug, Deserialize, Clone)]
-pub struct FontDescription {
-    pub family: String,
-    pub style: Option<String>,
-}
-
-impl FontDescription {
-    fn new_with_family<S: Into<String>>(family: S) -> FontDescription {
-        FontDescription {
-            family: family.into(),
-            style: None,
-        }
-    }
-}
-
-impl Font {
-    /// Get the font size in points
-    #[inline]
-    pub fn size(&self) -> Size {
-        self.size
-    }
-
-    /// Get offsets to font metrics
-    #[inline]
-    pub fn offset(&self) -> &Delta {
-        &self.offset
-    }
-
-    /// Get cell offsets for glyphs
-    #[inline]
-    pub fn glyph_offset(&self) -> &Delta {
-        &self.glyph_offset
-    }
-
-    /// Get a font clone with a size modification
-    pub fn with_size(self, size: Size) -> Font {
-        Font {
-            size,
-            .. self
-        }
-    }
-}
-
-#[cfg(target_os = "macos")]
-impl Default for Font {
-    fn default() -> Font {
-        Font {
-            normal: FontDescription::new_with_family("Menlo"),
-            bold: FontDescription::new_with_family("Menlo"),
-            italic: FontDescription::new_with_family("Menlo"),
-            size: Size::new(11.0),
-            use_thin_strokes: true,
-            offset: Default::default(),
-            glyph_offset: Default::default()
-        }
-    }
-}
-
-#[cfg(any(target_os = "linux",target_os = "freebsd"))]
-impl Default for Font {
-    fn default() -> Font {
-        Font {
-            normal: FontDescription::new_with_family("monospace"),
-            bold: FontDescription::new_with_family("monospace"),
-            italic: FontDescription::new_with_family("monospace"),
-            size: Size::new(11.0),
-            use_thin_strokes: false,
-            offset: Default::default(),
-            glyph_offset: Default::default()
-        }
     }
 }
 
