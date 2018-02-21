@@ -147,14 +147,14 @@ impl<'a> RenderableCellsIter<'a> {
             line: self.cursor.line,
             column: self.cursor.col,
             inner: original_cell,
-        }).unwrap();
+        }).expect("won't exceed capacity");
 
         // Prints the cursor
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
             column: self.cursor.col,
             inner: cursor_cell,
-        }).unwrap();
+        }).expect("won't exceed capacity");
 
         // If cursor is over a wide (2 cell size) character,
         // print the second cursor cell
@@ -163,7 +163,7 @@ impl<'a> RenderableCellsIter<'a> {
                 line: self.cursor.line,
                 column: self.cursor.col + 1,
                 inner: wide_cell,
-            }).unwrap();
+            }).expect("won't exceed capacity");
         }
     }
 
@@ -237,7 +237,7 @@ impl<'a> RenderableCellsIter<'a> {
             line: self.cursor.line,
             column: self.cursor.col,
             inner: self.grid[self.cursor],
-        }).unwrap();
+        }).expect("won't exceed capacity");
     }
 
     fn initialize(mut self, cursor_style: CursorStyle) -> Self {
