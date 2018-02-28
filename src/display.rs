@@ -16,7 +16,7 @@
 //! GPU drawing.
 use std::sync::mpsc;
 
-use parking_lot::{MutexGuard};
+use parking_lot::MutexGuard;
 
 use Rgb;
 use cli;
@@ -25,9 +25,9 @@ use font::{self, Rasterize};
 use meter::Meter;
 use renderer::{self, GlyphCache, QuadRenderer};
 use selection::Selection;
-use term::{Term, SizeInfo};
+use term::{SizeInfo, Term};
 
-use window::{self, Size, Pixels, Window, SetInnerSize};
+use window::{self, Pixels, SetInnerSize, Size, Window};
 
 #[derive(Debug)]
 pub enum Error {
@@ -129,10 +129,7 @@ impl Display {
         &self.size_info
     }
 
-    pub fn new(
-        config: &Config,
-        options: &cli::Options,
-    ) -> Result<Display, Error> {
+    pub fn new(config: &Config, options: &cli::Options) -> Result<Display, Error> {
         // Extract some properties from config
         let render_timer = config.render_timer();
 
@@ -140,7 +137,8 @@ impl Display {
         let mut window = Window::new(&options.title)?;
 
         // get window properties for initializing the other subsystems
-        let size = window.inner_size_pixels()
+        let size = window
+            .inner_size_pixels()
             .expect("glutin returns window size");
         let dpr = window.hidpi_factor();
 
@@ -153,11 +151,13 @@ impl Display {
             Self::new_glyph_cache(&window, &mut renderer, config, 0)?;
 
         // Resize window to specified dimensions
-        let dimensions = options.dimensions()
-            .unwrap_or_else(|| config.dimensions());
+        let dimensions = options.dimensions().unwrap_or_else(|| config.dimensions());
         let width = cell_width as u32 * dimensions.columns_u32();
         let height = cell_height as u32 * dimensions.lines_u32();
-        let size = Size { width: Pixels(width), height: Pixels(height) };
+        let size = Size {
+            width: Pixels(width),
+            height: Pixels(height),
+        };
         info!("set_inner_size: {}", size);
 
         let viewport_size = Size {
@@ -188,9 +188,14 @@ impl Display {
 
         // Clear screen
         let background_color = config.colors().primary.background;
-        renderer.with_api(config, &size_info, 0. /* visual bell intensity */, |api| {
-            api.clear(background_color);
-        });
+        renderer.with_api(
+            config,
+            &size_info,
+            0., /* visual bell intensity */
+            |api| {
+                api.clear(background_color);
+            },
+        );
 
         Ok(Display {
             window: window,
@@ -206,11 +211,16 @@ impl Display {
         })
     }
 
-    fn new_glyph_cache(window : &Window, renderer : &mut QuadRenderer,
-                       config: &Config, font_size_delta: i8)
-        -> Result<(GlyphCache, f32, f32), Error>
-    {
-        let font = config.font().clone().with_size_delta(font_size_delta as f32);
+    fn new_glyph_cache(
+        window: &Window,
+        renderer: &mut QuadRenderer,
+        config: &Config,
+        font_size_delta: i8,
+    ) -> Result<(GlyphCache, f32, f32), Error> {
+        let font = config
+            .font()
+            .clone()
+            .with_size_delta(font_size_delta as f32);
         let dpr = window.hidpi_factor();
         let rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
 
@@ -219,9 +229,8 @@ impl Display {
             info!("Initializing glyph cache");
             let init_start = ::std::time::Instant::now();
 
-            let cache = renderer.with_loader(|mut api| {
-                GlyphCache::new(rasterizer, &font, &mut api)
-            })?;
+            let cache =
+                renderer.with_loader(|mut api| GlyphCache::new(rasterizer, &font, &mut api))?;
 
             let stop = init_start.elapsed();
             let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;
@@ -233,10 +242,9 @@ impl Display {
         // Need font metrics to resize the window properly. This suggests to me the
         // font metrics should be computed before creating the window in the first
         // place so that a resize is not needed.
-        let metrics = glyph_cache.font_metrics();
+        let metrics = glyph_cache.font_metrics(font.size);
         let cell_width = (metrics.average_advance + font.offset().x as f64) as u32;
         let cell_height = (metrics.line_height + font.offset().y as f64) as u32;
-
         return Ok((glyph_cache, cell_width as f32, cell_height as f32));
     }
 
@@ -246,9 +254,17 @@ impl Display {
             let _ = cache.update_font_size(config.font(), font_size_delta, &mut api);
         });
 
-        let metrics = cache.font_metrics();
-        self.size_info.cell_width = ((metrics.average_advance + config.font().offset().x as f64) as f32).floor();
-        self.size_info.cell_height = ((metrics.line_height + config.font().offset().y as f64) as f32).floor();
+        let metrics = cache.font_metrics(
+            config
+                .font()
+                .clone()
+                .with_size_delta(font_size_delta as f32)
+                .size,
+        );
+        self.size_info.cell_width =
+            ((metrics.average_advance + config.font().offset().x as f64) as f32).floor();
+        self.size_info.cell_height =
+            ((metrics.line_height + config.font().offset().y as f64) as f32).floor();
     }
 
     #[inline]
@@ -265,7 +281,7 @@ impl Display {
         &mut self,
         terminal: &mut MutexGuard<Term>,
         config: &Config,
-        items: &mut [&mut OnResize]
+        items: &mut [&mut OnResize],
     ) {
         // Resize events new_size and are handled outside the poll_events
         // iterator. This has the effect of coalescing multiple resize
@@ -285,8 +301,7 @@ impl Display {
 
             if new_size == None {
                 // Force a resize to refresh things
-                new_size = Some((self.size_info.width as u32,
-                                 self.size_info.height as u32));
+                new_size = Some((self.size_info.width as u32, self.size_info.height as u32));
             }
         }
 
@@ -306,7 +321,6 @@ impl Display {
             self.window.resize(w, h);
             self.renderer.resize(w as i32, h as i32);
         }
-
     }
 
     /// Draw the screen
@@ -314,7 +328,12 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config, selection: Option<&Selection>) {
+    pub fn draw(
+        &mut self,
+        mut terminal: MutexGuard<Term>,
+        config: &Config,
+        selection: Option<&Selection>,
+    ) {
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
 
@@ -349,32 +368,36 @@ impl Display {
                 //
                 // TODO I wonder if the renderable cells iter could avoid the
                 // mutable borrow
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
-                    // Clear screen to update whole background with new color
-                    if background_color_changed {
-                        api.clear(background_color);
-                    }
+                self.renderer
+                    .with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                        // Clear screen to update whole background with new color
+                        if background_color_changed {
+                            api.clear(background_color);
+                        }
 
-                    // Draw the grid
-                    api.render_cells(terminal.renderable_cells(config, selection), glyph_cache);
-                });
+                        // Draw the grid
+                        api.render_cells(terminal.renderable_cells(config, selection), glyph_cache);
+                    });
             }
 
             // Draw render timer
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());
-                let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
-                    api.render_string(&timing[..], glyph_cache, color);
-                });
+                let color = Rgb {
+                    r: 0xd5,
+                    g: 0x4e,
+                    b: 0x53,
+                };
+                self.renderer
+                    .with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                        api.render_string(&timing[..], glyph_cache, color);
+                    });
             }
         }
 
         // Unlock the terminal mutex; following call to swap_buffers() may block
         drop(terminal);
-        self.window
-            .swap_buffers()
-            .expect("swap buffers");
+        self.window.swap_buffers().expect("swap buffers");
 
         // Clear after swap_buffers when terminal mutex isn't held. Mesa for
         // some reason takes a long time to call glClear(). The driver descends
@@ -385,9 +408,10 @@ impl Display {
         // worked around to some extent. Since this doesn't actually address the
         // issue of glClear being slow, less time is available for input
         // handling and rendering.
-        self.renderer.with_api(config, &size_info, visual_bell_intensity, |api| {
-            api.clear(background_color);
-        });
+        self.renderer
+            .with_api(config, &size_info, visual_bell_intensity, |api| {
+                api.clear(background_color);
+            });
     }
 
     pub fn get_window_id(&self) -> Option<usize> {
@@ -396,13 +420,19 @@ impl Display {
 
     /// Adjust the XIM editor position according to the new location of the cursor
     pub fn update_ime_position(&mut self, terminal: &Term) {
-        use index::{Point, Line, Column};
+        use index::{Column, Line, Point};
         use term::SizeInfo;
-        let Point{line: Line(row), col: Column(col)} = terminal.cursor().point;
-        let SizeInfo{cell_width: cw,
-                    cell_height: ch,
-                    padding_x: px,
-                    padding_y: py, ..} = *terminal.size_info();
+        let Point {
+            line: Line(row),
+            col: Column(col),
+        } = terminal.cursor().point;
+        let SizeInfo {
+            cell_width: cw,
+            cell_height: ch,
+            padding_x: px,
+            padding_y: py,
+            ..
+        } = *terminal.size_info();
         let nspot_y = (py + (row + 1) as f32 * ch) as i16;
         let nspot_x = (px + col as f32 * cw) as i16;
         self.window().send_xim_spot(nspot_x, nspot_y);

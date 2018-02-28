@@ -177,13 +177,13 @@ impl From<glutin::ContextError> for Error {
 impl Window {
     /// Create a new window
     ///
-    /// This creates a window and fully initializes a window.
+    /// This creates and fully initializes a window.
     pub fn new(title: &str) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
         Window::platform_window_init();
         let window = WindowBuilder::new()
-            .with_title(title)
+            .with_title("Alacritty")
             .with_transparency(true);
         let context = ContextBuilder::new().with_vsync(true);
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
@@ -455,8 +455,12 @@ pub trait SetInnerSize<T> {
 
 impl SetInnerSize<Pixels<u32>> for Window {
     fn set_inner_size<T: ToPoints>(&mut self, size: &T) {
-        let size = size.to_points(self.hidpi_factor());
-        self.window
-            .set_inner_size(*size.width as _, *size.height as _);
+        #[cfg(not(windows))]
+        {
+            let size = size.to_points(self.hidpi_factor());
+            // FIXME: This never returns for some reason
+            self.window
+                .set_inner_size(*size.width as _, *size.height as _);
+        }
     }
 }

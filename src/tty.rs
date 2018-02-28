@@ -206,7 +206,6 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
         die!("pw not found");
     }
 
-
     // sanity check
     assert_eq!(entry.pw_uid, uid);
 
@@ -335,6 +334,7 @@ pub fn new<'a>(
 ) -> Pty<'a, NamedPipe, NamedPipe> {
     // Create config
     let mut wconfig = WinptyConfig::new(ConfigFlags::empty()).unwrap();
+
     wconfig.set_initial_size(size.cols().0 as i32, size.lines().0 as i32);
     wconfig.set_mouse_mode(MouseMode::Auto);
     wconfig.set_agent_timeout(AGENT_TIMEOUT);
@@ -383,11 +383,19 @@ pub fn new<'a>(
                 .unwrap()
                 .into_raw_handle(),
         );
-    }
+    };
 
-    conout_pipe.connect().unwrap();
+    if let Some(err) = conout_pipe.connect().err() {
+        if err.kind() != io::ErrorKind::WouldBlock {
+            panic!(err);
+        }
+    }
     assert!(conout_pipe.take_error().unwrap().is_none());
-    conin_pipe.connect().unwrap();
+    if let Some(err) = conin_pipe.connect().err() {
+        if err.kind() != io::ErrorKind::WouldBlock {
+            panic!(err);
+        }
+    }
     assert!(conin_pipe.take_error().unwrap().is_none());
 
     winpty.spawn(&spawnconfig, None, None).unwrap(); // Process handle, thread handle
@@ -567,10 +575,12 @@ impl<'a> ToWinsize for &'a SizeInfo {
 #[cfg(windows)]
 impl<'a> OnResize for Winpty<'a> {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
-        self.set_size(sizeinfo.cols().0, sizeinfo.lines().0)
-            .unwrap_or_else(|_| {
-                die!("winpty_set_size failed");
-            });
+        if sizeinfo.cols().0 > 0 && sizeinfo.lines().0 > 0 {
+            self.set_size(sizeinfo.cols().0, sizeinfo.lines().0)
+                .unwrap_or_else(|_| {
+                    die!("winpty_set_size failed");
+                });
+        }
     }
 }
 #[cfg(not(windows))]

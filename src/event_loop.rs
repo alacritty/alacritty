@@ -116,7 +116,6 @@ impl event::Notify for Notifier {
     }
 }
 
-
 impl Default for State {
     fn default() -> State {
         State {
@@ -373,8 +372,7 @@ where
             // Unix uses a single fd for r/w, Windows uses two named pipes.
             #[cfg(not(windows))]
             let fd = {
-                let fd = self.pty.as_raw_fd();
-                let fd = EventedFd(&fd);
+                let fd = EventedFd(&self.pty.as_raw_fd());
                 self.poll
                     .register(fd, PTY, Ready::readable(), poll_opts)
                     .unwrap();
@@ -430,7 +428,7 @@ where
                                     break 'event_loop;
                                 }
                             }
-                        }
+                        },
                         write_token if write_token == self.pty.write_token() => {
                             #[cfg(unix)]
                             {
@@ -449,7 +447,7 @@ where
                                     break 'event_loop;
                                 }
                             }
-                        }
+                        },
                         _ => (),
                     }
 
