@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate bitflags;
+extern crate widestring;
 extern crate winpty_sys;
 
-use winpty_sys::*;
 use std::error::Error;
 use std::fmt;
 use std::path::PathBuf;
@@ -10,6 +10,10 @@ use std::result::Result;
 use std::os::raw::c_void;
 use std::ptr::{null, null_mut};
 use fmt::{Display, Formatter};
+
+use winpty_sys::*;
+
+use widestring::WideCString;
 
 pub enum ErrorCodes {
     Success,
@@ -44,49 +48,56 @@ bitflags!(
 pub struct Handle<'a>(&'a mut c_void);
 
 #[derive(Debug)]
-pub struct Err<'a>(&'a mut winpty_error_t, u32, String);
-trait PrivateError {
-    fn new(*mut winpty_error_t) -> Self;
+pub struct Err<'a> {
+    ptr: &'a mut winpty_error_t,
+    code: u32,
+    message: String,
 }
-impl<'a> PrivateError for Err<'a> {
-    // The error code and message are stored locally after fetching from C because otherwise
-    // it's impossible to write conforming implementations of Display and Error
-    fn new(e: *mut winpty_error_t) -> Self {
-        unsafe {
-            let raw = winpty_error_msg(e);
-            Err {
-                0: &mut *e,
-                1: winpty_error_code(e),
-                2: String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw))),
-            }
+
+fn check_err<'a>(e: *mut winpty_error_t) -> Option<Err<'a>> {
+    let err = unsafe {
+        let raw = winpty_error_msg(e);
+        Err {
+            ptr: &mut *e,
+            code: winpty_error_code(e),
+            message: String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw))),
         }
+    };
+    if err.code != 0 {
+        Some(err)
+    } else {
+        None
     }
 }
+
 impl<'a> Drop for Err<'a> {
     fn drop(&mut self) {
         unsafe {
-            winpty_error_free(self.0);
+            winpty_error_free(self.ptr);
         }
     }
 }
 impl<'a> Display for Err<'a> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        write!(f, "Code: {}, Message: {}", self.1, self.2)
+        write!(f, "Code: {}, Message: {}", self.code, self.message)
     }
 }
 impl<'a> Error for Err<'a> {
     fn description(&self) -> &str {
-        &self.2
+        &self.message
     }
 }
 
+#[derive(Debug)]
 pub struct Config<'a>(&'a mut winpty_config_t);
 impl<'a, 'b> Config<'a> {
     pub fn new(flags: ConfigFlags) -> Result<Self, Err<'b>> {
         let mut err = null_mut() as *mut winpty_error_t;
-        unsafe {
-            winpty_config_new(flags.bits(), &mut err);
-            Result::Err(Err::new(err))
+        let config = unsafe { winpty_config_new(flags.bits(), &mut err) };
+        if let Some(err) = check_err(err) {
+            Result::Err(err)
+        } else {
+            unsafe { Ok(Config(&mut *config)) }
         }
     }
     pub fn set_initial_size(&mut self, cols: i32, rows: i32) {
@@ -122,13 +133,19 @@ impl<'a> Drop for Config<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct Winpty<'a>(&'a mut winpty_t);
 impl<'a, 'b> Winpty<'a> {
     pub fn open(cfg: &Config) -> Result<Self, Err<'b>> {
         let mut err = null_mut() as *mut winpty_error_t;
         unsafe {
-            winpty_open(cfg.0, &mut err);
-            Result::Err(Err::new(err))
+            let winpty = winpty_open(cfg.0, &mut err);
+            let err = check_err(err);
+            if let Some(err) = err {
+                Result::Err(err)
+            } else {
+                Ok(Winpty(&mut *winpty))
+            }
         }
     }
     pub fn handle(&mut self) -> Handle {
@@ -141,34 +158,44 @@ impl<'a, 'b> Winpty<'a> {
     pub fn conin_name(&mut self) -> PathBuf {
         unsafe {
             let raw = winpty_conin_name(self.0);
-            PathBuf::from(&String::from_utf16_lossy(
-                std::slice::from_raw_parts(raw, wcslen(raw)),
-            ))
+            PathBuf::from(&String::from_utf16_lossy(std::slice::from_raw_parts(
+                raw,
+                wcslen(raw),
+            )))
         }
     }
     pub fn conout_name(&mut self) -> PathBuf {
         unsafe {
             let raw = winpty_conout_name(self.0);
-            PathBuf::from(&String::from_utf16_lossy(
-                std::slice::from_raw_parts(raw, wcslen(raw)),
-            ))
+            PathBuf::from(&String::from_utf16_lossy(std::slice::from_raw_parts(
+                raw,
+                wcslen(raw),
+            )))
         }
     }
     pub fn conerr_name(&mut self) -> PathBuf {
         unsafe {
             let raw = winpty_conerr_name(self.0);
-            PathBuf::from(&String::from_utf16_lossy(
-                std::slice::from_raw_parts(raw, wcslen(raw)),
-            ))
+            PathBuf::from(&String::from_utf16_lossy(std::slice::from_raw_parts(
+                raw,
+                wcslen(raw),
+            )))
         }
     }
     pub fn set_size(&mut self, cols: usize, rows: usize) -> Result<(), Err> {
+        assert!(cols > 0);
+        assert!(rows > 0);
         let mut err = null_mut() as *mut winpty_error_t;
         unsafe {
             winpty_set_size(self.0, cols as i32, rows as i32, &mut err);
-            Result::Err(Err::new(err))
+        }
+        if let Some(err) = check_err(err) {
+            Result::Err(err)
+        } else {
+            Ok(())
         }
     }
+    // TODO:
     pub fn console_process_list(&mut self) -> Result<Vec<u32>, Err> {
         unimplemented!();
     }
@@ -198,7 +225,11 @@ impl<'a, 'b> Winpty<'a> {
                 null_mut(),
                 &mut err,
             );
-            Result::Err(Err::new(err))
+        }
+        if let Some(err) = check_err(err) {
+            Result::Err(err)
+        } else {
+            Ok(())
         }
     }
 }
@@ -212,6 +243,7 @@ impl<'a> Drop for Winpty<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct SpawnConfig<'a>(&'a mut winpty_spawn_config_t);
 impl<'a, 'b> SpawnConfig<'a> {
     pub fn new(
@@ -222,18 +254,34 @@ impl<'a, 'b> SpawnConfig<'a> {
         end: Option<&str>,
     ) -> Result<Self, Err<'b>> {
         let mut err = null_mut() as *mut winpty_error_t;
-        // Map a rust string to a raw pointer at the first element of a utf16 array
-        let f = |s: &str| s.encode_utf16().collect::<Vec<u16>>()[0] as *const u16;
+        let (appname, cmdline, cwd, end) = (
+            appname.map_or(null(), |s| WideCString::from_str(s).unwrap().into_raw()),
+            cmdline.map_or(null(), |s| WideCString::from_str(s).unwrap().into_raw()),
+            cwd.map_or(null(), |s| WideCString::from_str(s).unwrap().into_raw()),
+            end.map_or(null(), |s| WideCString::from_str(s).unwrap().into_raw()),
+        );
+        let spawn_config = unsafe {
+            winpty_spawn_config_new(spawnflags.bits(), appname, cmdline, cwd, end, &mut err)
+        };
+        // Required to free the strings
         unsafe {
-            winpty_spawn_config_new(
-                spawnflags.bits(),
-                appname.map_or(null(), &f),
-                cmdline.map_or(null(), &f),
-                cwd.map_or(null(), &f),
-                end.map_or(null(), &f),
-                &mut err,
-            );
-            Result::Err(Err::new(err))
+            if appname != null() {
+                WideCString::from_raw(appname as *mut u16);
+            }
+            if cmdline != null() {
+                WideCString::from_raw(cmdline as *mut u16);
+            }
+            if cwd != null() {
+                WideCString::from_raw(cwd as *mut u16);
+            }
+            if end != null() {
+                WideCString::from_raw(end as *mut u16);
+            }
+        }
+        if let Some(err) = check_err(err) {
+            Result::Err(err)
+        } else {
+            unsafe { Ok(SpawnConfig(&mut *spawn_config)) }
         }
     }
 }

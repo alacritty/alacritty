@@ -40,6 +40,7 @@ extern crate libc;
 #[macro_use]
 extern crate foreign_types;
 
+#[allow(unused)]
 #[allow(dead_code)]
 #[macro_use]
 extern crate log;
@@ -56,6 +57,7 @@ pub use ft::{Error, FreeTypeRasterizer as Rasterizer};
 
 #[cfg(windows)]
 pub mod rusttype;
+#[cfg(windows)]
 pub use rusttype::{Error, RustTypeRasterizer as Rasterizer};
 
 // If target is macos, reexport everything from darwin
@@ -243,13 +245,13 @@ pub trait Rasterize {
     /// Errors occurring in Rasterize methods
     type Err: ::std::error::Error + Send + Sync + 'static;
 
-    /// Create a new Rasterize
+    /// Create a new Rasterizer
     fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
     where
         Self: Sized;
 
     /// Get `Metrics` for the given `FontKey`
-    fn metrics(&self, FontKey) -> Result<Metrics, Self::Err>;
+    fn metrics(&self, FontKey, Size) -> Result<Metrics, Self::Err>;
 
     /// Load the font described by `FontDesc` and `Size`
     fn load_font(&mut self, &FontDesc, Size) -> Result<FontKey, Self::Err>;
