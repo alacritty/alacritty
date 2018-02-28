@@ -436,14 +436,17 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     fn scroll_terminal(&mut self, mouse_modes: TermMode, code: u8) {
         debug_assert!(code == 64 || code == 65);
 
-        let faux_scrollback_lines = self.mouse_config.faux_scrollback_lines;
+        let faux_scrolling_lines = match self.mouse_config.faux_scrollback_lines {
+            Some(lines) => lines,
+            None => self.mouse_config.faux_scrolling_lines,
+        };
         if self.ctx.terminal_mode().intersects(mouse_modes) {
             self.mouse_report(code, ElementState::Pressed);
-        } else if faux_scrollback_lines > 0 {
+        } else if faux_scrolling_lines > 0 {
             // Faux scrolling
             let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
-            let mut content = Vec::with_capacity(faux_scrollback_lines * 3);
-            for _ in 0..faux_scrollback_lines {
+            let mut content = Vec::with_capacity(faux_scrolling_lines * 3);
+            for _ in 0..faux_scrolling_lines {
                 content.push(0x1b);
                 content.push(b'O');
                 content.push(cmd);
@@ -705,7 +708,8 @@ mod tests {
                         triple_click: ClickHandler {
                             threshold: Duration::from_millis(1000),
                         },
-                        faux_scrollback_lines: 1,
+                        faux_scrolling_lines: 1,
+                        faux_scrollback_lines: None,
                     },
                     key_bindings: &config.key_bindings()[..],
                     mouse_bindings: &config.mouse_bindings()[..],

@@ -82,24 +82,29 @@ pub struct Mouse {
     #[serde(default, deserialize_with = "failure_default")]
     pub triple_click: ClickHandler,
 
+    /// TODO DEPRECATED
     /// up/down arrows sent when scrolling in alt screen buffer
-    #[serde(deserialize_with = "deserialize_faux_scrollback_lines")]
-    #[serde(default="default_faux_scrollback_lines")]
-    pub faux_scrollback_lines: usize,
+    #[serde(default)]
+    pub faux_scrollback_lines: Option<usize>,
+
+    /// up/down arrows sent when scrolling in alt screen buffer
+    #[serde(deserialize_with = "deserialize_faux_scrolling_lines")]
+    #[serde(default="default_faux_scrolling_lines")]
+    pub faux_scrolling_lines: usize,
 }
 
-fn default_faux_scrollback_lines() -> usize {
+fn default_faux_scrolling_lines() -> usize {
     1
 }
 
-fn deserialize_faux_scrollback_lines<'a, D>(deserializer: D) -> ::std::result::Result<usize, D::Error>
+fn deserialize_faux_scrolling_lines<'a, D>(deserializer: D) -> ::std::result::Result<usize, D::Error>
     where D: de::Deserializer<'a>
 {
     match usize::deserialize(deserializer) {
         Ok(lines) => Ok(lines),
         Err(err) => {
             eprintln!("problem with config: {}; Using default value", err);
-            Ok(default_faux_scrollback_lines())
+            Ok(default_faux_scrolling_lines())
         },
     }
 }
@@ -113,7 +118,8 @@ impl Default for Mouse {
             triple_click: ClickHandler {
                 threshold: Duration::from_millis(300),
             },
-            faux_scrollback_lines: 1,
+            faux_scrolling_lines: 1,
+            faux_scrollback_lines: None,
         }
     }
 }
@@ -1404,6 +1410,11 @@ impl Config {
         if self.padding.is_some() {
             eprintln!("{}", fmt::Yellow("Config `padding` is deprecated. \
                                         Please use `window.padding` instead."));
+        }
+
+        if self.mouse.faux_scrollback_lines.is_some() {
+            println!("{}", fmt::Yellow("Config `mouse.faux_scrollback_lines` is deprecated. \
+                                        Please use `mouse.faux_scrolling_lines` instead."));
         }
     }
 }
