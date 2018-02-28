@@ -33,7 +33,7 @@ clap = "2"
 fnv = "1"
 unicode-width = "0.1"
 arraydeque = "0.2"
-glutin = "0.12"
+glutin = "0.13"
 clippy = { version = "*", optional = true }
 env_logger = "0.5"
 base64 = "0.9.0"
