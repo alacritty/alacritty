@@ -204,7 +204,9 @@ If you have a rust toolchain setup you can install Alacritty via cargo:
 cargo install --git https://github.com/jwilm/alacritty
 ```
 
-Note that you still need to download system build dependencies via your package manager as mentioned above. The binary `alacritty` will be placed into `$HOME/.cargo/bin`. Make sure it is in your path (default if you use `rustup`).
+Note that you still need to download system build dependencies via your package
+manager as mentioned above. The binary `alacritty` will be placed into `$HOME/.cargo/bin`.
+Make sure it is in your path (default if you use `rustup`).
 
 #### Other
 
@@ -245,7 +247,7 @@ cp -r target/release/osx/Alacritty.app /Applications/
 Although it's possible the default configuration would work on your system,
 you'll probably end up wanting to customize it anyhow. There is a default
 `alacritty.yml` and `alacritty_macos.yml` at the git repository root for
-Linux and macOS repsectively.
+Linux and macOS respectively.
 
 Alacritty looks for the configuration file at the following paths:
 
@@ -274,24 +276,35 @@ Just Works.
 
 ## FAQ
 
-- _Is it really the fastest terminal emulator?_ In the terminals I've
-  benchmarked against, alacritty is either faster, WAY faster, or at least
-  neutral. There are no benchmarks in which I've found Alacritty to be slower.
-- _macOS + tmux + vim is slow! I thought this was supposed to be fast!_ This
-  appears to be an issue outside of terminal emulators; either macOS has an IPC
-  performance issue, or either tmux or vim (or both) have a bug. This same issue
-  can be seen in `iTerm2` and `Terminal.app`. I've found that if tmux is running
-  on another machine which is connected to Alacritty via SSH, this issue
+- **_Is it really the fastest terminal emulator?_**
+
+  In the terminals I've benchmarked against, alacritty is either faster, WAY
+  faster, or at least neutral. There are no benchmarks in which I've found
+  Alacritty to be slower.
+
+- **_macOS + tmux + vim is slow! I thought this was supposed to be fast!_**
+
+  This appears to be an issue outside of terminal emulators; either macOS has an
+  IPC performance issue, or either tmux or vim (or both) have a bug. This same
+  issue can be seen in `iTerm2` and `Terminal.app`. I've found that if tmux is
+  running on another machine which is connected to Alacritty via SSH, this issue
   disappears. Actual throughput and rendering performance are still better in
   Alacritty.
-- _When will Windows support be available?_ When someone has time to work on it.
-  Contributors would be welcomed :).
-- _My arrow keys don't work_. It sounds like you deleted some key bindings from
-  your config file. Please reference the default config file to restore them.
-- _Why doesn't it support scrollback?_ Alacritty's original purpose was to
-  provide a better experience when using [tmux] which already handled
-  scrollback. The scope of this project has since expanded, and [scrollback will
-  eventually be added](https://github.com/jwilm/alacritty/issues/124).
+
+- **_When will Windows support be available?_**
+
+  When someone has time to work on it. Contributors would be welcomed :).
+
+- **_My arrow keys don't work._**
+
+  It sounds like you deleted some key bindings from your config file. Please
+  reference the default config file to restore them.
+
+- **_Why doesn't it support scrollback?_**
+
+  Alacritty's original purpose was to provide a better experience when using
+  [tmux] which already handled scrollback. The scope of this project has since
+  expanded, and [scrollback will eventually be added](https://github.com/jwilm/alacritty/issues/124).
 
 ## IRC
 
