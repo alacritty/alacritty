@@ -167,7 +167,7 @@ something is still found to be missing, please open an issue.
 sudo eopkg install fontconfig-devel
 ```
 
-### NixOS/Nixpkgs
+#### NixOS/Nixpkgs
 
 The following command can be used to get a shell with all development
 dependencies on [NixOS](https://nixos.org).
