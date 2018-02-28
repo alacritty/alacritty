@@ -2,7 +2,6 @@ Alacritty
 =========
 
 [![Build Status](https://travis-ci.org/jwilm/alacritty.svg?branch=master)](https://travis-ci.org/jwilm/alacritty)
-[![Dependency Status](https://deps.rs/repo/github/jwilm/alacritty/status.svg)](https://deps.rs/repo/github/jwilm/alacritty)
 
 Alacritty is the fastest terminal emulator in existence. Using the GPU for
 rendering enables optimizations that simply aren't possible in other emulators.
