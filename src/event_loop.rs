@@ -428,7 +428,7 @@ where
                                     break 'event_loop;
                                 }
                             }
-                        },
+                        }
                         write_token if write_token == self.pty.write_token() => {
                             #[cfg(unix)]
                             {
@@ -447,7 +447,7 @@ where
                                     break 'event_loop;
                                 }
                             }
-                        },
+                        }
                         _ => (),
                     }
 

@@ -5,10 +5,21 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "MSVC Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/debug/alacritty.exe",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceRoot}",
+            "environment": [],
+            "externalConsole": true,
+        },
+        {
             "type": "lldb",
             "request": "launch",
-            "name": "LLDB Cargo run",
-            "program": "cargo run",
+            "name": "LLDB Debug",
+            "program": "${workspaceRoot}/target/debug/alacritty.exe",
             "args": [],
             "cwd": "${workspaceRoot}",
             "sourceLanguages": [

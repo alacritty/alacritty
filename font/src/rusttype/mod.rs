@@ -41,7 +41,7 @@ impl ::Rasterize for RustTypeRasterizer {
         })
     }
 
-    fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
+    fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Error> {
         let fp = system_fonts::FontPropertyBuilder::new()
             .family(&desc.name)
             .monospace();

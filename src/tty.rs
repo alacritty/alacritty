@@ -61,7 +61,7 @@ use std::ptr;
 // How long the agent should wait for any RPC request
 // This is a placeholder value until we see how often long responses happen
 #[cfg(windows)]
-const AGENT_TIMEOUT: u32 = 1000;
+const AGENT_TIMEOUT: u32 = 10000;
 
 /// Process ID of child process
 ///
@@ -391,6 +391,7 @@ pub fn new<'a>(
         }
     }
     assert!(conout_pipe.take_error().unwrap().is_none());
+
     if let Some(err) = conin_pipe.connect().err() {
         if err.kind() != io::ErrorKind::WouldBlock {
             panic!(err);
@@ -404,6 +405,7 @@ pub fn new<'a>(
         winpty: UnsafeCell::new(winpty),
         conout: conout_pipe,
         conin: conin_pipe,
+        // Placeholder tokens that are overwritten
         read_token: 0.into(),
         write_token: 0.into(),
     }
@@ -420,7 +422,6 @@ pub struct Pty<'a, R: io::Read + Evented + Send, W: io::Write + Evented + Send> 
 
     conout: R,
     conin: W,
-    // conerr: T,
     read_token: mio::Token,
     write_token: mio::Token,
 }
@@ -477,11 +478,19 @@ impl<'a> EventedRW<NamedPipe, NamedPipe> for Pty<'a, NamedPipe, NamedPipe> {
             ).unwrap();
         }
         if interest.is_writable() {
-            poll.register(&self.conin, self.write_token, interest, poll_opts)
-                .unwrap();
+            poll.register(
+                &self.conin,
+                self.write_token,
+                mio::Ready::writable(),
+                poll_opts,
+            ).unwrap();
         } else {
-            poll.register(&self.conin, self.write_token, interest, poll_opts)
-                .unwrap();
+            poll.register(
+                &self.conin,
+                self.write_token,
+                mio::Ready::empty(),
+                poll_opts,
+            ).unwrap();
         }
     }
     fn reregister(&mut self, poll: &mio::Poll, interest: mio::Ready, poll_opts: mio::PollOpt) {
@@ -501,10 +510,10 @@ impl<'a> EventedRW<NamedPipe, NamedPipe> for Pty<'a, NamedPipe, NamedPipe> {
             ).unwrap();
         }
         if interest.is_writable() {
-            poll.reregister(&self.conin, self.read_token, interest, poll_opts)
+            poll.reregister(&self.conin, self.write_token, mio::Ready::writable(), poll_opts)
                 .unwrap();
         } else {
-            poll.reregister(&self.conin, self.write_token, interest, poll_opts)
+            poll.reregister(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)
                 .unwrap();
         }
     }
@@ -526,6 +535,7 @@ impl<'a> EventedRW<NamedPipe, NamedPipe> for Pty<'a, NamedPipe, NamedPipe> {
         self.write_token
     }
 }
+// TODO:
 #[cfg(not(windows))]
 impl PTY<RawFd, RawFd> for Pty {
     fn register(&mut self, poll: mio::Poll, interest: mio::Ready) {}
