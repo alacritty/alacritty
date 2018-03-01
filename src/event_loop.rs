@@ -362,7 +362,7 @@ where
             let mut state = state.unwrap_or_else(Default::default);
             let mut buf = [0u8; 4096];
 
-            let poll_opts = PollOpt::edge() | PollOpt::oneshot();
+            let poll_opts = PollOpt::level() | PollOpt::oneshot();
             let tokens: [usize; 2] = [1, 2];
 
             self.poll
@@ -428,7 +428,7 @@ where
                                     break 'event_loop;
                                 }
                             }
-                        },
+                        }
                         write_token if write_token == self.pty.write_token() => {
                             #[cfg(unix)]
                             {
@@ -447,7 +447,7 @@ where
                                     break 'event_loop;
                                 }
                             }
-                        },
+                        }
                         _ => (),
                     }
 
