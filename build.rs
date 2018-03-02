@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 extern crate gl_generator;
+#[cfg(windows)]
+extern crate embed_resource;
 
 use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
 use std::env;
@@ -30,4 +32,8 @@ fn main() {
         ["GL_ARB_blend_func_extended"],
     ).write_bindings(GlobalGenerator, &mut file)
         .unwrap();
+
+
+#[cfg(windows)]
+    embed_resource::compile("assets/windows.rc");
 }

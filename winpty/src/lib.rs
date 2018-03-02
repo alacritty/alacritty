@@ -148,12 +148,8 @@ impl<'a, 'b> Winpty<'a> {
             }
         }
     }
-    pub fn handle(&mut self) -> Handle {
-        unsafe {
-            Handle {
-                0: &mut *winpty_agent_process(self.0),
-            }
-        }
+    pub fn raw_handle(&mut self) -> *mut c_void {
+        unsafe { winpty_agent_process(self.0) }
     }
     pub fn conin_name(&mut self) -> PathBuf {
         unsafe {
