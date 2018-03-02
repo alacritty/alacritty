@@ -56,6 +56,9 @@ bench = []
 [build-dependencies]
 gl_generator = "0.5.5"
 
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "1.1.4"
+
 [profile.release]
 lto = true
 debug = true
