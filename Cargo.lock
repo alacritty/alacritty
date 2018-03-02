@@ -1,4 +1,13 @@
 [[package]]
+name = "advapi32-sys"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -17,6 +26,7 @@ dependencies = [
  "clippy 0.0.186 (registry+https://github.com/rust-lang/crates.io-index)",
  "copypasta 0.0.1",
  "crossbeam 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "embed-resource 1.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "errno 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -484,6 +494,14 @@ dependencies = [
 name = "either"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "embed-resource"
+version = "1.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "winreg 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "env_logger"
@@ -1953,6 +1971,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "winreg"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "advapi32-sys 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "ws2_32-sys"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2019,6 +2047,7 @@ dependencies = [
 ]
 
 [metadata]
+"checksum advapi32-sys 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e06588080cb19d0acb6739808aafa5f26bfb2ca015b2b6370028b44cf7cb8a9a"
 "checksum aho-corasick 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)" = "d6531d44de723825aa81398a6415283229725a00fa30713812ab9323faa82fc4"
 "checksum android_glue 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "000444226fcff248f2bc4c7625be32c63caccfecc2723a2b9f78a7487a49c407"
 "checksum ansi_term 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)" = "6b3568b48b7cefa6b8ce125f9bb4989e52fbcc29ebea88df04cc7c5f12f70455"
@@ -2070,6 +2099,7 @@ dependencies = [
 "checksum dtoa 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "09c3753c3db574d215cba4ea76018483895d7bff25a31b49ba45db21c48e50ab"
 "checksum dwmapi-sys 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b44b6442aeab12e609aee505bd1066bdfd36b79c3fe5aad604aae91537623e76"
 "checksum either 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "740178ddf48b1a9e878e6d6509a1442a2d42fd2928aae8e7a6f8a36fb01981b3"
+"checksum embed-resource 1.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "59edbe56442f96505f79c9116006f2e26c7f5655cccdc2c1546b2528c63bd612"
 "checksum env_logger 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "3ddf21e73e016298f5cb37d6ef8e8da8e39f91f9ec8b0df44b7deb16a9f8cd5b"
 "checksum errno 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "b2c858c42ac0b88532f48fca88b0ed947cad4f1f64d904bcd6c9f138f7b95d70"
 "checksum error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ff511d5dc435d703f4971bc399647c9bc38e20cb41452e3b9feb4765419ed3f3"
@@ -2241,6 +2271,7 @@ dependencies = [
 "checksum winapi-x86_64-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 "checksum winit 0.7.6 (registry+https://github.com/rust-lang/crates.io-index)" = "238df88e5264f09b6d03021143ac914558fe09673b685d98f9c43210a1d4c284"
 "checksum winpty-sys 1.0.0 (git+https://github.com/zacps/winpty?branch=rust)" = "<none>"
+"checksum winreg 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cbf285379f20d7f26abd990d9a566be9d31ab7a9d335299baaa1f0604f5f96af"
 "checksum ws2_32-sys 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d59cefebd0c892fa2dd6de581e937301d8552cb44489cdff035c6187cb63fa5e"
 "checksum x11-clipboard 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "2e7374c7699210cca7084ca61d57e09640fc744d1391808cb9ae2fe4ca9bd1df"
 "checksum x11-dl 2.17.3 (registry+https://github.com/rust-lang/crates.io-index)" = "29e78a65a3239e5511ffe2c832edb9224982ebf67bcaabc218ef1b07d8494b3e"
