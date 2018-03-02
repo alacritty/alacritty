@@ -222,7 +222,7 @@ impl Window {
     }
 
     pub fn inner_size_pixels(&self) -> Option<Size<Pixels<u32>>> {
-        self.window.get_inner_size_pixels().map(|(w, h)| Size {
+        self.window.get_inner_size().map(|(w, h)| Size {
             width: Pixels(w),
             height: Pixels(h),
         })
