@@ -32,7 +32,7 @@ clap = "2"
 fnv = "1"
 unicode-width = "0.1.4"
 arraydeque = "0.2.3"
-glutin = "0.9.2"
+glutin = "0.13"
 clippy = { version = "*", optional = true }
 env_logger = "0.4"
 copypasta = { path = "./copypasta" }
@@ -44,7 +44,7 @@ x11-dl = "2"
 [target.'cfg(windows)'.dependencies]
 winpty = { path = "./winpty" }
 mio-named-pipes = "0.1"
-winapi = { version = "0.3", features = ["winuser", "roerrorapi"]}
+winapi = { version = "0.3", features = ["winuser", "roerrorapi", "winerror"]}
 
 [features]
 default = []

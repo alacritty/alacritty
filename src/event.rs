@@ -301,8 +301,10 @@ impl<N: Notify> Processor<N> {
                         *hide_cursor = false;
                         processor.mouse_input(state, button);
                         processor.ctx.terminal.dirty = true;
-                    },
-                    MouseMoved { position: (x, y), .. } => {
+                    }
+                    CursorMoved {
+                        position: (x, y), ..
+                    } => {
                         let x = x as i32;
                         let y = y as i32;
                         let x = limit(x, 0, processor.ctx.size_info.width as i32);
@@ -340,6 +342,7 @@ impl<N: Notify> Processor<N> {
             Event::Awakened => {
                 processor.ctx.terminal.dirty = true;
             }
+            Event::Suspended(_) => {}
         }
     }
 
