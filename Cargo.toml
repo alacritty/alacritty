@@ -44,7 +44,7 @@ x11-dl = "2"
 [target.'cfg(windows)'.dependencies]
 winpty = { path = "./winpty" }
 mio-named-pipes = "0.1"
-winapi = "0.2"
+winapi = { version = "0.3", features = ["winuser", "roerrorapi"]}
 
 [features]
 default = []

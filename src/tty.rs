@@ -19,9 +19,15 @@ use display::OnResize;
 use config::{Config, Shell};
 use cli::Options;
 use mio;
+use std::ptr;
+use std::os::raw::c_void;
 
 #[cfg(windows)]
-use winapi;
+use winapi::um::synchapi::WaitForSingleObject;
+#[cfg(windows)]
+use winapi::um::winbase::{WAIT_OBJECT_0, FILE_FLAG_OVERLAPPED};
+#[cfg(windows)]
+use winapi::shared::winerror::WAIT_TIMEOUT;
 #[cfg(windows)]
 use mio_named_pipes::NamedPipe;
 #[cfg(windows)]
@@ -55,8 +61,6 @@ use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
 use std::process::{Command, Stdio};
 #[cfg(not(windows))]
 use std::ffi::CStr;
-#[cfg(not(windows))]
-use std::ptr;
 
 // How long the agent should wait for any RPC request
 // This is a placeholder value until we see how often long responses happen
@@ -69,11 +73,15 @@ const AGENT_TIMEOUT: u32 = 10000;
 #[cfg(not(windows))]
 static mut PID: pid_t = 0;
 
+// Handle to the winpty agent process. Required so we know when it closes.
+static mut HANDLE: *mut c_void = ptr::null_mut();
+
 /// Exit flag
 ///
 /// Calling exit() in the SIGCHLD handler sometimes causes opengl to deadlock,
 /// and the process hangs. Instead, this flag is set, and its status can be
 /// checked via `process_should_exit`.
+#[cfg(not(windows))]
 static mut SHOULD_EXIT: bool = false;
 
 #[cfg(not(windows))]
@@ -91,8 +99,29 @@ extern "C" fn sigchld(_a: c_int) {
     }
 }
 
+#[cfg(not(windows))]
 pub fn process_should_exit() -> bool {
     unsafe { SHOULD_EXIT }
+}
+
+#[cfg(windows)]
+pub fn process_should_exit() -> bool {
+    unsafe {
+        match WaitForSingleObject(HANDLE, 0) {
+            // Process has exited
+            WAIT_OBJECT_0 => {
+                info!("wait_object_0");
+                true
+            }
+            // Reached timeout of 0, process has not exited
+            WAIT_TIMEOUT => false,
+            // Error checking process, winpty gave us a bad agent handle?
+            _ => {
+                info!("Bad exit: {}", ::std::io::Error::last_os_error());
+                true
+            }
+        }
+    }
 }
 
 /// Get the current value of errno
@@ -363,7 +392,7 @@ pub fn new<'a>(
     let default_opts = &mut OpenOptions::new();
     default_opts
         .share_mode(0)
-        .custom_flags(winapi::FILE_FLAG_OVERLAPPED);
+        .custom_flags(FILE_FLAG_OVERLAPPED);
 
     let (conout_pipe, conin_pipe);
     unsafe {
@@ -400,6 +429,10 @@ pub fn new<'a>(
     assert!(conin_pipe.take_error().unwrap().is_none());
 
     winpty.spawn(&spawnconfig, None, None).unwrap(); // Process handle, thread handle
+
+    unsafe {
+        HANDLE = winpty.raw_handle();
+    }
 
     Pty {
         winpty: UnsafeCell::new(winpty),
@@ -510,11 +543,19 @@ impl<'a> EventedRW<NamedPipe, NamedPipe> for Pty<'a, NamedPipe, NamedPipe> {
             ).unwrap();
         }
         if interest.is_writable() {
-            poll.reregister(&self.conin, self.write_token, mio::Ready::writable(), poll_opts)
-                .unwrap();
+            poll.reregister(
+                &self.conin,
+                self.write_token,
+                mio::Ready::writable(),
+                poll_opts,
+            ).unwrap();
         } else {
-            poll.reregister(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)
-                .unwrap();
+            poll.reregister(
+                &self.conin,
+                self.write_token,
+                mio::Ready::empty(),
+                poll_opts,
+            ).unwrap();
         }
     }
     fn deregister(&mut self, poll: &mio::Poll) {
