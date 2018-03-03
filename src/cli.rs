@@ -18,7 +18,7 @@ use config::{Dimensions, Shell};
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 
-const DEFAULT_TITLE: &'static str = "Alacritty";
+const DEFAULT_TITLE: &str = "Alacritty";
 
 /// Options specified on the command line
 pub struct Options {
@@ -27,7 +27,7 @@ pub struct Options {
     pub ref_test: bool,
     pub dimensions: Option<Dimensions>,
     pub title: String,
-    pub log_level: log::LogLevelFilter,
+    pub log_level: log::LevelFilter,
     pub command: Option<Shell<'static>>,
     pub working_dir: Option<PathBuf>,
     pub config: Option<PathBuf>,
@@ -41,7 +41,7 @@ impl Default for Options {
             ref_test: false,
             dimensions: None,
             title: DEFAULT_TITLE.to_owned(),
-            log_level: log::LogLevelFilter::Warn,
+            log_level: log::LevelFilter::Warn,
             command: None,
             working_dir: None,
             config: None,
@@ -74,7 +74,8 @@ impl Options {
                 .long("dimensions")
                 .short("d")
                 .value_names(&["columns", "lines"])
-                .help("Defines the window dimensions [default: 80x24]"))
+                .help("Defines the window dimensions. Falls back to size specified by \
+                       window manager if set to 0x0 [default: 80x24]"))
             .arg(Arg::with_name("title")
                 .long("title")
                 .short("t")
@@ -97,7 +98,8 @@ impl Options {
             .arg(Arg::with_name("config-file")
                  .long("config-file")
                  .takes_value(true)
-                 .help("Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]"))
+                 .help("Specify alternative configuration file \
+                       [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]"))
             .arg(Arg::with_name("command")
                 .long("command")
                 .short("e")
@@ -136,15 +138,15 @@ impl Options {
 
         match matches.occurrences_of("q") {
             0 => {},
-            1 => options.log_level = log::LogLevelFilter::Error,
-            2 | _ => options.log_level = log::LogLevelFilter::Off
+            1 => options.log_level = log::LevelFilter::Error,
+            2 | _ => options.log_level = log::LevelFilter::Off
         }
 
         match matches.occurrences_of("v") {
             0 => {},
-            1 => options.log_level = log::LogLevelFilter::Info,
-            2 => options.log_level = log::LogLevelFilter::Debug,
-            3 | _ => options.log_level = log::LogLevelFilter::Trace
+            1 => options.log_level = log::LevelFilter::Info,
+            2 => options.log_level = log::LevelFilter::Debug,
+            3 | _ => options.log_level = log::LevelFilter::Trace
         }
 
         if let Some(dir) = matches.value_of("working-directory") {

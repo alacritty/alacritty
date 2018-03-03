@@ -285,10 +285,11 @@ impl GlyphCache {
         let glyph_offset = self.glyph_offset;
         let rasterizer = &mut self.rasterizer;
         let metrics = &self.metrics;
-        self.cache.entry(*glyph_key).or_insert_with(|| {
-            let mut rasterized = rasterizer
-                .get_glyph(&glyph_key)
-                .unwrap_or_else(|_| Default::default());
+        self.cache
+            .entry(*glyph_key)
+            .or_insert_with(|| {
+                let mut rasterized = rasterizer.get_glyph(glyph_key)
+                    .unwrap_or_else(|_| Default::default());
 
             rasterized.left += glyph_offset.x as i32;
             rasterized.top += glyph_offset.y as i32;
@@ -300,16 +301,16 @@ impl GlyphCache {
     pub fn update_font_size<L: LoadGlyph>(
         &mut self,
         font: &config::Font,
-        delta: i8,
-        loader: &mut L,
+        size: font::Size,
+        loader: &mut L
     ) -> Result<(), font::Error> {
         // Clear currently cached data in both GL and the registry
         loader.clear();
         self.cache = HashMap::default();
 
         // Recompute font keys
-        let font = font.to_owned().with_size_delta(delta as _);
-        println!("{:?}", font.size);
+        let font = font.to_owned().with_size(size);
+        info!("Font size changed: {:?}", font.size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
         self.rasterizer.get_glyph(&GlyphKey {
             font_key: regular,
@@ -399,7 +400,7 @@ pub struct PackedVertex {
     y: f32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Batch {
     tex: GLuint,
     instances: Vec<InstanceData>,
@@ -433,13 +434,13 @@ impl Batch {
             uv_width: glyph.uv_width,
             uv_height: glyph.uv_height,
 
-            r: cell.fg.r as f32,
-            g: cell.fg.g as f32,
-            b: cell.fg.b as f32,
+            r: f32::from(cell.fg.r),
+            g: f32::from(cell.fg.g),
+            b: f32::from(cell.fg.b),
 
-            bg_r: cell.bg.r as f32,
-            bg_g: cell.bg.g as f32,
-            bg_b: cell.bg.b as f32,
+            bg_r: f32::from(cell.bg.r),
+            bg_g: f32::from(cell.bg.g),
+            bg_b: f32::from(cell.bg.b),
             bg_a: cell.bg_alpha,
         });
     }
@@ -476,7 +477,7 @@ impl Batch {
 }
 
 /// Maximum items to be drawn in a batch.
-const BATCH_MAX: usize = 65_536;
+const BATCH_MAX: usize = 0x1_0000;
 const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
@@ -789,11 +790,11 @@ impl<'a> RenderApi<'a> {
         let alpha = self.config.background_opacity().get();
         unsafe {
             gl::ClearColor(
-                (self.visual_bell_intensity + color.r as f32 / 255.0).min(1.0) * alpha,
-                (self.visual_bell_intensity + color.g as f32 / 255.0).min(1.0) * alpha,
-                (self.visual_bell_intensity + color.b as f32 / 255.0).min(1.0) * alpha,
-                alpha,
-            );
+                (self.visual_bell_intensity + f32::from(color.r) / 255.0).min(1.0) * alpha,
+                (self.visual_bell_intensity + f32::from(color.g) / 255.0).min(1.0) * alpha,
+                (self.visual_bell_intensity + f32::from(color.b) / 255.0).min(1.0) * alpha,
+                alpha
+                );
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
     }
@@ -883,9 +884,9 @@ impl<'a> RenderApi<'a> {
             // Get font key for cell
             // FIXME this is super inefficient.
             let mut font_key = glyph_cache.font_key;
-            if cell.flags.contains(cell::BOLD) {
+            if cell.flags.contains(cell::Flags::BOLD) {
                 font_key = glyph_cache.bold_key;
-            } else if cell.flags.contains(cell::ITALIC) {
+            } else if cell.flags.contains(cell::Flags::ITALIC) {
                 font_key = glyph_cache.italic_key;
             }
 
@@ -904,7 +905,7 @@ impl<'a> RenderApi<'a> {
             // FIXME This is a super hacky way to do underlined text. During
             //       a time crunch to release 0.1, this seemed like a really
             //       easy, clean hack.
-            if cell.flags.contains(cell::UNDERLINE) {
+            if cell.flags.contains(cell::Flags::UNDERLINE) {
                 let glyph_key = GlyphKey {
                     font_key: font_key,
                     size: glyph_cache.font_size,
@@ -918,59 +919,70 @@ impl<'a> RenderApi<'a> {
     }
 }
 
-impl<'a> LoadGlyph for LoaderApi<'a> {
-    /// Load a glyph into a texture atlas
-    ///
-    /// If the current atlas is full, a new one will be created.
-    fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
-        // At least one atlas is guaranteed to be in the `self.atlas` list; thus
-        // the unwrap should always be ok.
-        match self.atlas[*self.current_atlas].insert(rasterized, &mut self.active_tex) {
-            Ok(glyph) => glyph,
-            Err(_) => {
-                let atlas = Atlas::new(ATLAS_SIZE);
-                *self.active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
-                *self.current_atlas = 0;
-                self.atlas.push(atlas);
-                self.load_glyph(rasterized)
+/// Load a glyph into a texture atlas
+///
+/// If the current atlas is full, a new one will be created.
+#[inline]
+fn load_glyph(
+    active_tex: &mut GLuint,
+    atlas: &mut Vec<Atlas>,
+    current_atlas: &mut usize,
+    rasterized: &RasterizedGlyph
+) -> Glyph {
+    // At least one atlas is guaranteed to be in the `self.atlas` list; thus
+    // the unwrap.
+    match atlas[*current_atlas].insert(rasterized, active_tex) {
+        Ok(glyph) => glyph,
+        Err(AtlasInsertError::Full) => {
+            *current_atlas += 1;
+            if *current_atlas == atlas.len() {
+                let new = Atlas::new(ATLAS_SIZE);
+                *active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
+                atlas.push(new);
+            }
+            load_glyph(active_tex, atlas, current_atlas, rasterized)
+        }
+        Err(AtlasInsertError::GlyphTooLarge) => {
+            Glyph {
+                tex_id: atlas[*current_atlas].id,
+                top: 0.0,
+                left: 0.0,
+                width: 0.0,
+                height: 0.0,
+                uv_bot: 0.0,
+                uv_left: 0.0,
+                uv_width: 0.0,
+                uv_height: 0.0,
             }
         }
     }
+}
+
+#[inline]
+fn clear_atlas(atlas: &mut Vec<Atlas>, current_atlas: &mut usize) {
+    for atlas in atlas.iter_mut() {
+        atlas.clear();
+    }
+    *current_atlas = 0;
+}
+
+impl<'a> LoadGlyph for LoaderApi<'a> {
+    fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
+        load_glyph(self.active_tex, self.atlas, self.current_atlas, rasterized)
+    }
 
     fn clear(&mut self) {
-        for atlas in self.atlas.iter_mut() {
-            atlas.clear();
-        }
-        *self.current_atlas = 0;
+        clear_atlas(self.atlas, self.current_atlas)
     }
 }
 
 impl<'a> LoadGlyph for RenderApi<'a> {
-    /// Load a glyph into a texture atlas
-    ///
-    /// If the current atlas is full, a new one will be created.
     fn load_glyph(&mut self, rasterized: &RasterizedGlyph) -> Glyph {
-        // At least one atlas is guaranteed to be in the `self.atlas` list; thus
-        // the unwrap.
-        match self.atlas[*self.current_atlas].insert(rasterized, &mut self.active_tex) {
-            Ok(glyph) => glyph,
-            Err(_) => {
-                *self.current_atlas += 1;
-                if *self.current_atlas == self.atlas.len() {
-                    let atlas = Atlas::new(ATLAS_SIZE);
-                    *self.active_tex = 0; // Atlas::new binds a texture. Ugh this is sloppy.
-                    self.atlas.push(atlas);
-                }
-                self.load_glyph(rasterized)
-            }
-        }
+        load_glyph(self.active_tex, self.atlas, self.current_atlas, rasterized)
     }
 
     fn clear(&mut self) {
-        for atlas in self.atlas.iter_mut() {
-            atlas.clear();
-        }
-        *self.current_atlas = 0;
+        clear_atlas(self.atlas, self.current_atlas)
     }
 }
 
@@ -1132,10 +1144,10 @@ impl ShaderProgram {
             let mut success: GLint = 0;
             gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
 
-            if success != (gl::TRUE as GLint) {
-                Err(ShaderCreationError::Link(get_program_info_log(program)))
-            } else {
+            if success == i32::from(gl::TRUE) {
                 Ok(program)
+            } else {
+                Err(ShaderCreationError::Link(get_program_info_log(program)))
             }
         }
     }
@@ -1167,7 +1179,7 @@ impl ShaderProgram {
             gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
         }
 
-        if success == (gl::TRUE as GLint) {
+        if success == GLint::from(gl::TRUE) {
             Ok(shader)
         } else {
             // Read log
@@ -1350,6 +1362,9 @@ struct Atlas {
 enum AtlasInsertError {
     /// Texture atlas is full
     Full,
+
+    /// The glyph cannot fit within a single texture
+    GlyphTooLarge,
 }
 
 impl Atlas {
@@ -1396,11 +1411,15 @@ impl Atlas {
     }
 
     /// Insert a RasterizedGlyph into the texture atlas
-    pub fn insert(
-        &mut self,
-        glyph: &RasterizedGlyph,
-        active_tex: &mut u32,
-    ) -> Result<Glyph, AtlasInsertError> {
+    pub fn insert(&mut self,
+                  glyph: &RasterizedGlyph,
+                  active_tex: &mut u32)
+                  -> Result<Glyph, AtlasInsertError>
+    {
+        if glyph.width > self.width || glyph.height > self.height {
+            return Err(AtlasInsertError::GlyphTooLarge);
+        }
+
         // If there's not enough room in current row, go onto next one
         if !self.room_in_row(glyph) {
             self.advance_row()?;

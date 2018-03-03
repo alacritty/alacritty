@@ -109,9 +109,8 @@ impl event::Notify for Notifier {
         if bytes.len() == 0 {
             return;
         }
-        match self.0.send(Msg::Input(bytes)) {
-            Ok(_) => (),
-            Err(_) => panic!("expected send event loop msg"),
+        if self.0.send(Msg::Input(bytes)).is_err() {
+            panic!("expected send event loop msg");
         }
     }
 }
@@ -267,7 +266,7 @@ where
     where
         X: Write,
     {
-        const MAX_READ: usize = 65_536;
+        const MAX_READ: usize = 0x1_0000;
         let mut processed = 0;
         let mut terminal = None;
 
@@ -360,7 +359,7 @@ where
     pub fn spawn(mut self, state: Option<State>) -> thread::JoinHandle<(Self, State)> {
         thread::spawn_named("pty reader", move || {
             let mut state = state.unwrap_or_else(Default::default);
-            let mut buf = [0u8; 4096];
+            let mut buf = [0u8; 0x1000];
 
             let poll_opts = PollOpt::level() | PollOpt::oneshot();
             let tokens: [usize; 2] = [1, 2];

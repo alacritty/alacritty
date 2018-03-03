@@ -16,9 +16,13 @@ use std::fmt::{self, Display};
 use std::ops::Deref;
 
 use gl;
-use glutin::{self, ContextBuilder, ControlFlow, CursorState, Event, EventsLoop, MouseCursor,
-             WindowBuilder};
+use glutin::{self, ContextBuilder, ControlFlow, CursorState, Event, EventsLoop,
+             MouseCursor as GlutinMouseCursor, WindowBuilder};
 use glutin::GlContext;
+
+use MouseCursor;
+
+use config::WindowConfig;
 
 /// Window errors
 #[derive(Debug)]
@@ -177,19 +181,31 @@ impl From<glutin::ContextError> for Error {
 impl Window {
     /// Create a new window
     ///
-    /// This creates and fully initializes a window.
-    pub fn new(title: &str) -> Result<Window> {
+    /// This creates a window and fully initializes a window.
+    pub fn new(
+        title: &str,
+        window_config: &WindowConfig,
+    ) -> Result<Window> {
         let event_loop = EventsLoop::new();
+
+        #[cfg(not(windows))]
+        let initially_shown = false;
+        #[cfg(windows)]
+        let initially_shown = true;
 
         Window::platform_window_init();
         let window = WindowBuilder::new()
             .with_title(title)
-            .with_transparency(true);
-        let context = ContextBuilder::new().with_vsync(true);
+            .with_visibility(initially_shown)
+            .with_transparency(true)
+            .with_decorations(window_config.decorations());
+        let context = ContextBuilder::new()
+            .with_vsync(true);
         let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
+        window.show();
 
         // Text cursor
-        window.set_cursor(MouseCursor::Text);
+        window.set_cursor(GlutinMouseCursor::Text);
 
         // Make the context current so OpenGL operations can run
         unsafe {
@@ -222,10 +238,9 @@ impl Window {
     }
 
     pub fn inner_size_pixels(&self) -> Option<Size<Pixels<u32>>> {
-        self.window.get_inner_size().map(|(w, h)| Size {
-            width: Pixels(w),
-            height: Pixels(h),
-        })
+        self.window
+            .get_inner_size()
+            .map(|(w, h)| Size { width: Pixels(w), height: Pixels(h) })
     }
 
     #[inline]
@@ -272,6 +287,14 @@ impl Window {
     #[inline]
     pub fn set_title(&self, title: &str) {
         self.window.set_title(title);
+    }
+
+    #[inline]
+    pub fn set_mouse_cursor(&self, cursor: MouseCursor) {
+        self.window.set_cursor(match cursor {
+            MouseCursor::Arrow => GlutinMouseCursor::Arrow,
+            MouseCursor::Text => GlutinMouseCursor::Text,
+        });
     }
 
     /// Set cursor visible

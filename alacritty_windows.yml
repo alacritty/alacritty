@@ -14,18 +14,24 @@ env:
   # `infocmp xterm-256color`.
   TERM: xterm-256color
 
-# Window dimensions in character columns and lines
-# (changes require restart)
-dimensions:
-  columns: 80
-  lines: 24
+window:
+  # Window dimensions in character columns and lines
+  # (changes require restart)
+  dimensions:
+    columns: 80
+    lines: 24
 
-# Adds this many blank pixels of padding around the window
-# Units are physical pixels; this is not DPI aware.
-# (change requires restart)
-padding:
-  x: 2
-  y: 2
+  # Adds this many blank pixels of padding around the window
+  # Units are physical pixels; this is not DPI aware.
+  # (change requires restart)
+  padding:
+    x: 2
+    y: 2
+
+  # Window decorations
+  # Setting this to false will result in window without borders and title bar.
+  decorations: true
+
 
 # Display tabs using this many cells (changes require restart)
 tabspaces: 8

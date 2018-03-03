@@ -5,6 +5,7 @@ FlameGraph
 .idea
 .vscode
 *.iml
+*~
 
 # vim temporary files
 *.swp

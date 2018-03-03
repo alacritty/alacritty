@@ -36,7 +36,7 @@ built from source.
 ## Installation
 
 Instructions are provided for macOS and many Linux variants to compile Alacritty
-from source. With the exception of Arch (which has a package in the AUR) and
+from source. With the exception of Arch (which has a package in the AUR), Void Linux (in main repository) and
 [NixOS](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/alacritty/default.nix)
 (at the moment in unstable, will be part of 17.09), please first read the
 [prerequisites](#prerequisites) section, then find the section for your OS, and
@@ -50,15 +50,18 @@ cd alacritty-git
 makepkg -isr
 ```
 
+### Void Linux
+
+```sh
+xbps-install alacritty
+```
+
 ## Manual Installation
 
 ### Prerequisites
 
 1. Alacritty requires the most recent stable Rust compiler; it can be installed with
    `rustup`.
-
-    Note: **DO NOT** use the Homebrew Rust compiler on macOS (see [FAQ][faq] for
-    explanation).
 
 #### Installing Rust compiler with `rustup`
 
@@ -164,7 +167,7 @@ something is still found to be missing, please open an issue.
 sudo eopkg install fontconfig-devel
 ```
 
-### NixOS/Nixpkgs
+#### NixOS/Nixpkgs
 
 The following command can be used to get a shell with all development
 dependencies on [NixOS](https://nixos.org).
@@ -193,6 +196,16 @@ It might be handy to mask all other packages provided in the `slyfox` overlay by
 adding `*/*::slyfox` to `/etc/portage/package.mask` and adding
 `x11-terms/alacritty::slyfox` to `/etc/portage/package.unmask`.
 
+### Cargo
+
+If you have a rust toolchain setup you can install Alacritty via cargo:
+
+```sh
+cargo install --git https://github.com/jwilm/alacritty
+```
+
+Note that you still need to download system build dependencies via your package manager as mentioned above. The binary `alacritty` will be placed into `$HOME/.cargo/bin`. Make sure it is in your path (default if you use `rustup`).
+
 #### Other
 
 If you build Alacritty on another distribution, we would love some help
@@ -208,8 +221,7 @@ cargo build --release
 
 If all goes well, this should place a binary at `target/release/alacritty`.
 **BEFORE YOU RUN IT:** Install the config file as described below; otherwise,
-many things (such as arrow keys) will not work. If you're on macOS, you'll need
-to change the `monospace` font family to something like `Menlo`.
+many things (such as arrow keys) will not work.
 
 ### Desktop Entry
 
@@ -225,22 +237,24 @@ To build an application for macOS, run
 
 ```sh
 make app
-cp -r target/release/osx/Alacritty.app /Applications/Alacritty.app
+cp -r target/release/osx/Alacritty.app /Applications/
 ```
 
 ## Configuration
 
 Although it's possible the default configuration would work on your system,
 you'll probably end up wanting to customize it anyhow. There is a default
-`alacritty.yml` at the git repository root. Alacritty looks for the
-configuration file as the following paths:
+`alacritty.yml` and `alacritty_macos.yml` at the git repository root for
+Linux and macOS repsectively.
+
+Alacritty looks for the configuration file at the following paths:
 
 1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
 2. `$XDG_CONFIG_HOME/alacritty.yml`
 3. `$HOME/.config/alacritty/alacritty.yml`
 4. `$HOME/.alacritty.yml`
 
-If neither of these paths are found then
+If none of these paths are found then
 `$XDG_CONFIG_HOME/alacritty/alacritty.yml` is created once alacritty is first
 run. On most systems this often defaults to
 `$HOME/.config/alacritty/alacritty.yml`.
@@ -250,7 +264,7 @@ the config file. The only exception is the `font` and `dimensions` sections
 which requires Alacritty to be restarted. For further explanation of the config
 file, please consult the comments in the default config file.
 
-## Issues (known, unknown, feature requests, etc)
+## Issues (known, unknown, feature requests, etc.)
 
 If you run into a problem with Alacritty, please file an issue. If you've got a
 feature request, feel free to ask about it. Keep in mind that Alacritty is very
@@ -260,9 +274,6 @@ Just Works.
 
 ## FAQ
 
-- _proc-macro derive panicked during macOS build; what's wrong?_ There's an
-  issue with the Rust compiler from Homebrew. Please follow the instructions
-  and use `rustup`.
 - _Is it really the fastest terminal emulator?_ In the terminals I've
   benchmarked against, alacritty is either faster, WAY faster, or at least
   neutral. There are no benchmarks in which I've found Alacritty to be slower.
@@ -303,7 +314,7 @@ the [Wayland meta issue] on the _winit_ project to see how you may contribute.
 
 Alacritty is released under the [Apache License, Version 2.0].
 
-[Apache License, Version 2.0]: https://github.com/jwilm/alacritty/blob/readme/LICENSE-APACHE
+[Apache License, Version 2.0]: https://github.com/jwilm/alacritty/blob/master/LICENSE-APACHE
 [faq]: https://github.com/jwilm/alacritty#faq
 [tmux]: https://github.com/tmux/tmux
 [Wayland meta issue]: https://github.com/tomaka/winit/issues/306

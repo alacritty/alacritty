@@ -12,29 +12,30 @@ path = "src/main.rs"
 name = "alacritty"
 
 [dependencies]
-libc = "0.2.30"
-cgmath = "0.15"
+libc = "0.2"
+cgmath = "0.16"
 notify = "4"
-bitflags = "0.9.1"
+bitflags = "1"
 font = { path = "./font" }
-errno = "0.2.3"
-parking_lot = "0.4.5"
+errno = "0.2"
+parking_lot = "0.5"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
-serde_yaml = "0.7.1"
-vte = "0.3.2"
-mio = "0.6.10"
-mio-more = "0.1.0"
+serde_yaml = "0.7"
+vte = "0.3"
+mio = "0.6"
+mio-more = "0.1"
 xdg = "2"
-log = "0.3.8"
+log = "0.4"
 clap = "2"
 fnv = "1"
-unicode-width = "0.1.4"
-arraydeque = "0.2.3"
+unicode-width = "0.1"
+arraydeque = "0.4"
 glutin = "0.13"
 clippy = { version = "*", optional = true }
-env_logger = "0.4"
+env_logger = "0.5"
+base64 = "0.9.0"
 copypasta = { path = "./copypasta" }
 crossbeam = "0.3"
 
@@ -46,6 +47,9 @@ winpty = { path = "./winpty" }
 mio-named-pipes = "0.1"
 winapi = { version = "0.3", features = ["winuser", "roerrorapi", "winerror"]}
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2.2"
+
 [features]
 default = []
 # Enabling this feature makes shaders automatically reload when changed
@@ -54,7 +58,7 @@ nightly = []
 bench = []
 
 [build-dependencies]
-gl_generator = "0.5.5"
+gl_generator = "0.9"
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "1.1.4"

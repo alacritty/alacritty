@@ -96,7 +96,7 @@ pub struct Display {
     rx: mpsc::Receiver<(u32, u32)>,
     tx: mpsc::Sender<(u32, u32)>,
     meter: Meter,
-    font_size_modifier: i8,
+    font_size: font::Size,
     size_info: SizeInfo,
     last_background_color: Rgb,
 }
@@ -134,38 +134,39 @@ impl Display {
         let render_timer = config.render_timer();
 
         // Create the window where Alacritty will be displayed
-        let mut window = Window::new(&options.title)?;
+        let mut window = Window::new(&options.title, config.window())?;
 
         // get window properties for initializing the other subsystems
-        let size = window
-            .inner_size_pixels()
+        let mut viewport_size = window.inner_size_pixels()
             .expect("glutin returns window size");
         let dpr = window.hidpi_factor();
 
         info!("device_pixel_ratio: {}", dpr);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(&config, size)?;
+        let mut renderer = QuadRenderer::new(config, viewport_size)?;
 
         let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(&window, &mut renderer, config, 0)?;
+            Self::new_glyph_cache(&window, &mut renderer, config)?;
 
-        // Resize window to specified dimensions
-        let dimensions = options.dimensions().unwrap_or_else(|| config.dimensions());
-        let width = cell_width as u32 * dimensions.columns_u32();
-        let height = cell_height as u32 * dimensions.lines_u32();
-        let size = Size {
-            width: Pixels(width),
-            height: Pixels(height),
-        };
-        info!("set_inner_size: {}", size);
+        let dimensions = options.dimensions()
+            .unwrap_or_else(|| config.dimensions());
 
-        let viewport_size = Size {
-            width: Pixels(width + 2 * config.padding().x as u32),
-            height: Pixels(height + 2 * config.padding().y as u32),
-        };
-        window.set_inner_size(&viewport_size);
-        renderer.resize(viewport_size.width.0 as _, viewport_size.height.0 as _);
+        // Resize window to specified dimensions unless one or both dimensions are 0
+        if dimensions.columns_u32() > 0 && dimensions.lines_u32() > 0 {
+            let width = cell_width as u32 * dimensions.columns_u32();
+            let height = cell_height as u32 * dimensions.lines_u32();
+
+            let new_viewport_size = Size {
+                width: Pixels(width + 2 * config.padding().x as u32),
+                height: Pixels(height + 2 * config.padding().y as u32),
+            };
+
+            window.set_inner_size(&new_viewport_size);
+            renderer.resize(new_viewport_size.width.0 as _, new_viewport_size.height.0 as _);
+            viewport_size = new_viewport_size
+        }
+
         info!("Cell Size: ({} x {})", cell_width, cell_height);
 
         let size_info = SizeInfo {
@@ -205,22 +206,16 @@ impl Display {
             tx: tx,
             rx: rx,
             meter: Meter::new(),
-            font_size_modifier: 0,
+            font_size: font::Size::new(0.),
             size_info: size_info,
             last_background_color: background_color,
         })
     }
 
-    fn new_glyph_cache(
-        window: &Window,
-        renderer: &mut QuadRenderer,
-        config: &Config,
-        font_size_delta: i8,
-    ) -> Result<(GlyphCache, f32, f32), Error> {
-        let font = config
-            .font()
-            .clone()
-            .with_size_delta(font_size_delta as f32);
+    fn new_glyph_cache(window : &Window, renderer : &mut QuadRenderer, config: &Config)
+        -> Result<(GlyphCache, f32, f32), Error>
+    {
+        let font = config.font().clone();
         let dpr = window.hidpi_factor();
         let rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
 
@@ -233,7 +228,7 @@ impl Display {
                 renderer.with_loader(|mut api| GlyphCache::new(rasterizer, &font, &mut api))?;
 
             let stop = init_start.elapsed();
-            let stop_f = stop.as_secs() as f64 + stop.subsec_nanos() as f64 / 1_000_000_000f64;
+            let stop_f = stop.as_secs() as f64 + f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
             info!("Finished initializing glyph cache in {}", stop_f);
 
             cache
@@ -243,28 +238,23 @@ impl Display {
         // font metrics should be computed before creating the window in the first
         // place so that a resize is not needed.
         let metrics = glyph_cache.font_metrics(font.size);
-        let cell_width = (metrics.average_advance + font.offset().x as f64) as u32;
-        let cell_height = (metrics.line_height + font.offset().y as f64) as u32;
-        return Ok((glyph_cache, cell_width as f32, cell_height as f32));
+        let cell_width = (metrics.average_advance + f64::from(font.offset().x)) as u32;
+        let cell_height = (metrics.line_height + f64::from(font.offset().y)) as u32;
+
+        Ok((glyph_cache, cell_width as f32, cell_height as f32))
+
     }
 
-    pub fn update_glyph_cache(&mut self, config: &Config, font_size_delta: i8) {
+    pub fn update_glyph_cache(&mut self, config: &Config) {
         let cache = &mut self.glyph_cache;
+        let size = self.font_size;
         self.renderer.with_loader(|mut api| {
-            let _ = cache.update_font_size(config.font(), font_size_delta, &mut api);
+            let _ = cache.update_font_size(config.font(), size, &mut api);
         });
 
-        let metrics = cache.font_metrics(
-            config
-                .font()
-                .clone()
-                .with_size_delta(font_size_delta as f32)
-                .size,
-        );
-        self.size_info.cell_width =
-            ((metrics.average_advance + config.font().offset().x as f64) as f32).floor();
-        self.size_info.cell_height =
-            ((metrics.line_height + config.font().offset().y as f64) as f32).floor();
+        let metrics = cache.font_metrics(size);
+        self.size_info.cell_width = ((metrics.average_advance + f64::from(config.font().offset().x)) as f32).floor();
+        self.size_info.cell_height = ((metrics.line_height + f64::from(config.font().offset().y)) as f32).floor();
     }
 
     #[inline]
@@ -293,11 +283,10 @@ impl Display {
             new_size = Some(sz);
         }
 
-        if terminal.font_size_modifier != self.font_size_modifier {
-            // Font size modification detected
-
-            self.font_size_modifier = terminal.font_size_modifier;
-            self.update_glyph_cache(config, terminal.font_size_modifier);
+        // Font size modification detected
+        if terminal.font_size != self.font_size {
+            self.font_size = terminal.font_size;
+            self.update_glyph_cache(config);
 
             if new_size == None {
                 // Force a resize to refresh things
@@ -341,6 +330,10 @@ impl Display {
             self.window.set_title(&title);
         }
 
+        if let Some(mouse_cursor) = terminal.get_next_mouse_cursor() {
+            self.window.set_mouse_cursor(mouse_cursor);
+        }
+
         if let Some(is_urgent) = terminal.next_is_urgent.take() {
             // We don't need to set the urgent flag if we already have the
             // user's attention.
@@ -368,16 +361,19 @@ impl Display {
                 //
                 // TODO I wonder if the renderable cells iter could avoid the
                 // mutable borrow
-                self.renderer
-                    .with_api(config, &size_info, visual_bell_intensity, |mut api| {
-                        // Clear screen to update whole background with new color
-                        if background_color_changed {
-                            api.clear(background_color);
-                        }
+                let window_focused = self.window.is_focused;
+                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                    // Clear screen to update whole background with new color
+                    if background_color_changed {
+                        api.clear(background_color);
+                    }
 
-                        // Draw the grid
-                        api.render_cells(terminal.renderable_cells(config, selection), glyph_cache);
-                    });
+                    // Draw the grid
+                    api.render_cells(
+                        terminal.renderable_cells(config, selection, window_focused),
+                        glyph_cache,
+                    );
+                });
             }
 
             // Draw render timer

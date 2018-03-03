@@ -18,10 +18,10 @@ use std::ops::Range;
 use std::str;
 
 use vte;
-
+use base64;
 use index::{Column, Line, Contains};
 
-use ::Rgb;
+use ::{MouseCursor, Rgb};
 
 // Parse color arguments
 //
@@ -76,6 +76,25 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
         }
         _ => None
     }
+}
+
+fn parse_number(input: &[u8]) -> Option<u8> {
+    if input.is_empty() {
+        return None;
+    }
+    let mut num: u8 = 0;
+    for c in input {
+        let c = *c as char;
+        if let Some(digit) = c.to_digit(10) {
+            num = match num.checked_mul(10).and_then(|v| v.checked_add(digit as u8)) {
+                Some(v) => v,
+                None => return None,
+            }
+        } else {
+            return None;
+        }
+    }
+    Some(num)
 }
 
 /// The processor wraps a `vte::Parser` to ultimately call methods on a Handler
@@ -159,8 +178,11 @@ pub trait Handler {
     /// OSC to set window title
     fn set_title(&mut self, &str) {}
 
+    /// Set the window's mouse cursor
+    fn set_mouse_cursor(&mut self, MouseCursor) {}
+
     /// Set the cursor style
-    fn set_cursor_style(&mut self, _: CursorStyle) {}
+    fn set_cursor_style(&mut self, _: Option<CursorStyle>) {}
 
     /// A character to be displayed
     fn input(&mut self, _c: char) {}
@@ -320,12 +342,15 @@ pub trait Handler {
     /// Reset an indexed color to original value
     fn reset_color(&mut self, usize) {}
 
+    /// Set the clipboard
+    fn set_clipboard(&mut self, &str) {}
+
     /// Run the dectest routine
     fn dectest(&mut self) {}
 }
 
 /// Describes shape of cursor
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize)]
 pub enum CursorStyle {
     /// Cursor is a block like `▒`
     Block,
@@ -335,6 +360,15 @@ pub enum CursorStyle {
 
     /// Cursor is a vertical bar `⎸`
     Beam,
+
+    /// Cursor is a box like `☐`
+    HollowBlock,
+}
+
+impl Default for CursorStyle {
+    fn default() -> CursorStyle {
+        CursorStyle::Block
+    }
 }
 
 /// Terminal modes
@@ -377,7 +411,9 @@ pub enum Mode {
     /// ?1000
     ReportMouseClicks = 1000,
     /// ?1002
-    ReportMouseMotion = 1002,
+    ReportCellMouseMotion = 1002,
+    /// ?1003
+    ReportAllMouseMotion = 1003,
     /// ?1004
     ReportFocusInOut = 1004,
     /// ?1006
@@ -402,12 +438,16 @@ impl Mode {
                 12 => Mode::BlinkingCursor,
                 25 => Mode::ShowCursor,
                 1000 => Mode::ReportMouseClicks,
-                1002 => Mode::ReportMouseMotion,
+                1002 => Mode::ReportCellMouseMotion,
+                1003 => Mode::ReportAllMouseMotion,
                 1004 => Mode::ReportFocusInOut,
                 1006 => Mode::SgrMouse,
                 1049 => Mode::SwapScreenAndSetRestoreCursor,
                 2004 => Mode::BracketedPaste,
-                _ => return None
+                _ => {
+                    trace!("[unhandled] mode={:?}", num);
+                    return None
+                }
             })
         } else {
             Some(match num {
@@ -694,18 +734,16 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
     // TODO replace OSC parsing with parser combinators
     #[inline]
     fn osc_dispatch(&mut self, params: &[&[u8]]) {
-        macro_rules! unhandled {
-            () => {{
-                let mut buf = String::new();
-                for items in params {
-                    buf.push_str("[");
-                    for item in *items {
-                        buf.push_str(&format!("{:?},", *item as char));
-                    }
-                    buf.push_str("],");
+        fn unhandled(params: &[&[u8]]) {
+            let mut buf = String::new();
+            for items in params {
+                buf.push_str("[");
+                for item in *items {
+                    buf.push_str(&format!("{:?},", *item as char));
                 }
-                warn!("[unhandled osc_dispatch]: [{}] at line {}", &buf, line!());
-            }}
+                buf.push_str("],");
+            }
+            warn!("[unhandled osc_dispatch]: [{}] at line {}", &buf, line!());
         }
 
         if params.is_empty() || params[0].is_empty() {
@@ -715,13 +753,13 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
         match params[0] {
             // Set window title
             b"0" | b"2" => {
-                if params.len() < 2 {
-                    return unhandled!();
+                if params.len() >= 2 {
+                    if let Ok(utf8_title) = str::from_utf8(params[1]) {
+                        self.handler.set_title(utf8_title);
+                        return;
+                    }
                 }
-
-                if let Ok(utf8_title) = str::from_utf8(params[1]) {
-                    self.handler.set_title(utf8_title);
-                }
+                unhandled(params);
             },
 
             // Set icon name
@@ -730,79 +768,99 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
 
             // Set color index
             b"4" => {
-                if params.len() < 3 {
-                    return unhandled!();
-                }
-
-                // Parse index
-                let index = {
-                    let raw = params[1];
-                    if raw.len() > 3 {
-                        return unhandled!();
-                    }
-                    let mut index: u8 = 0;
-                    for c in raw {
-                        let c = *c as char;
-                        if let Some(digit) = c.to_digit(10) {
-                            index *= 10;
-                            index += digit as u8;
+                if params.len() > 1 && params.len() % 2 != 0 {
+                    for chunk in params[1..].chunks(2) {
+                        let index = parse_number(chunk[0]);
+                        let color = parse_rgb_color(chunk[1]);
+                        if let (Some(i), Some(c)) = (index, color) {
+                            self.handler.set_color(i as usize, c);
+                            return;
                         }
                     }
-
-                    index
-                };
-
-                // Check that index is a valid u8
-                if index & 0xff != index {
-                    return unhandled!();
                 }
-
-                if let Some(color) = parse_rgb_color(params[2]) {
-                    self.handler.set_color(index as usize, color);
-                } else {
-                    unhandled!();
-                }
+                unhandled(params);
             }
 
             // Set foreground color
             b"10" => {
-                if params.len() < 2 {
-                    return unhandled!();
+                if params.len() >= 2 {
+                    if let Some(color) = parse_rgb_color(params[1]) {
+                        self.handler.set_color(NamedColor::Foreground as usize, color);
+                        return;
+                    }
                 }
-
-                if let Some(color) = parse_rgb_color(params[1]) {
-                    self.handler.set_color(NamedColor::Foreground as usize, color);
-                } else {
-                    unhandled!()
-                }
+                unhandled(params);
             }
 
             // Set background color
             b"11" => {
-                if params.len() < 2 {
-                    return unhandled!();
+                if params.len() >= 2 {
+                    if let Some(color) = parse_rgb_color(params[1]) {
+                        self.handler.set_color(NamedColor::Background as usize, color);
+                        return;
+                    }
+                }
+                unhandled(params);
+            }
+
+            // Set text cursor color
+            b"12" => {
+                if params.len() >= 2 {
+                    if let Some(color) = parse_rgb_color(params[1]) {
+                        self.handler.set_color(NamedColor::Cursor as usize, color);
+                        return;
+                    }
+                }
+                unhandled(params);
+            }
+
+            // Set clipboard
+            b"52" => {
+                if params.len() < 3 {
+                    return unhandled(params);
                 }
 
-                if let Some(color) = parse_rgb_color(params[1]) {
-                    self.handler.set_color(NamedColor::Background as usize, color);
-                } else {
-                    unhandled!()
+                match params[2] {
+                    b"?" => unhandled(params),
+                    selection => {
+                        if let Ok(string) = base64::decode(selection) {
+                            if let Ok(utf8_string) = str::from_utf8(&string) {
+                                self.handler.set_clipboard(utf8_string);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Reset color index
+            b"104" => {
+                // Reset all color indexes when no parameters are given
+                if params.len() == 1 {
+                    for i in 0..256 {
+                        self.handler.reset_color(i);
+                    }
+                    return;
+                }
+
+                // Reset color indexes given as parameters
+                for param in &params[1..] {
+                    match parse_number(param) {
+                        Some(index) => self.handler.reset_color(index as usize),
+                        None => unhandled(params),
+                    }
                 }
             }
 
             // Reset foreground color
-            b"110" => {
-                self.handler.reset_color(NamedColor::Foreground as usize);
-            }
+            b"110" => self.handler.reset_color(NamedColor::Foreground as usize),
 
             // Reset background color
-            b"111" => {
-                self.handler.reset_color(NamedColor::Background as usize);
-            }
+            b"111" => self.handler.reset_color(NamedColor::Background as usize),
 
-            _ => {
-                unhandled!();
-            }
+            // Reset text cursor color
+            b"112" => self.handler.reset_color(NamedColor::Cursor as usize),
+
+            _ => unhandled(params),
         }
     }
 
@@ -1031,9 +1089,10 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             'u' => handler.restore_cursor_position(),
             'q' => {
                 let style = match arg_or_default!(idx: 0, default: 0) {
-                    0 ... 2 => CursorStyle::Block,
-                    3 | 4 => CursorStyle::Underline,
-                    5 | 6 => CursorStyle::Beam,
+                    0 => None,
+                    1 | 2 => Some(CursorStyle::Block),
+                    3 | 4 => Some(CursorStyle::Underline),
+                    5 | 6 => Some(CursorStyle::Beam),
                     _ => unhandled!()
                 };
 
@@ -1310,10 +1369,10 @@ pub mod C1 {
 mod tests {
     use std::io;
     use index::{Line, Column};
-    use super::{Processor, Handler, Attr, TermInfo, Color, StandardCharset, CharsetIndex, parse_rgb_color};
+    use super::{Processor, Handler, Attr, TermInfo, Color, StandardCharset, CharsetIndex, parse_rgb_color, parse_number};
     use ::Rgb;
 
-    /// The /dev/null of io::Write
+    /// The /dev/null of `io::Write`
     struct Void;
 
     impl io::Write for Void {
@@ -1487,5 +1546,20 @@ mod tests {
     #[test]
     fn parse_valid_rgb_color2() {
         assert_eq!(parse_rgb_color(b"#11aaff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+    }
+
+    #[test]
+    fn parse_invalid_number() {
+        assert_eq!(parse_number(b"1abc"), None);
+    }
+
+    #[test]
+    fn parse_valid_number() {
+        assert_eq!(parse_number(b"123"), Some(123));
+    }
+
+    #[test]
+    fn parse_number_too_large() {
+        assert_eq!(parse_number(b"321"), None);
     }
 }

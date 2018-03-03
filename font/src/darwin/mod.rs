@@ -21,8 +21,7 @@ use std::ptr;
 
 use ::{Slant, Weight, Style};
 
-use core_foundation::base::TCFType;
-use core_foundation::string::{CFString, CFStringRef};
+use core_foundation::string::{CFString};
 use core_foundation::array::{CFIndex, CFArray};
 use core_graphics::base::kCGImageAlphaPremultipliedFirst;
 use core_graphics::color_space::CGColorSpace;
@@ -35,12 +34,10 @@ use core_text::font_collection::get_family_names as ct_get_family_names;
 use core_text::font_descriptor::kCTFontDefaultOrientation;
 use core_text::font_descriptor::kCTFontHorizontalOrientation;
 use core_text::font_descriptor::kCTFontVerticalOrientation;
-use core_text::font_descriptor::{CTFontDescriptor, CTFontDescriptorRef, CTFontOrientation};
+use core_text::font_descriptor::{CTFontDescriptor, CTFontOrientation};
 use core_text::font_descriptor::SymbolicTraitAccessors;
 
-use euclid::point::Point2D;
-use euclid::rect::Rect;
-use euclid::size::Size2D;
+use euclid::{Point2D, Rect, Size2D};
 
 use super::{FontDesc, RasterizedGlyph, Metrics, FontKey, GlyphKey};
 
@@ -154,23 +151,7 @@ impl ::Rasterize for Rasterizer {
             .get(&(desc.to_owned(), size))
             .map(|k| Ok(*k))
             .unwrap_or_else(|| {
-                let mut font = self.get_font(desc, size)?;
-
-                // TODO, we can't use apple's proposed
-                // .Apple Symbol Fallback (filtered out below),
-                // but not having these makes us not able to render
-                // many chars. We add the symbols back in.
-                // Investigate if we can actually use the .-prefixed
-                // fallbacks somehow.
-                {
-                    let symbols = {
-                        let fallback_style = Style::Description { slant:Slant::Normal, weight:Weight::Normal  } ;
-                        let d = FontDesc::new("Apple Symbols".to_owned(), fallback_style);
-                        self.get_font(&d, size)?
-                    };
-                    font.fallbacks.push(symbols);
-                }
-
+                let font = self.get_font(desc, size)?;
                 let key = FontKey::next();
 
                 self.fonts.insert(key, font);
@@ -310,8 +291,7 @@ pub fn get_family_names() -> Vec<String> {
     let mut owned_names = Vec::new();
 
     for name in names.iter() {
-        let family: CFString = unsafe { TCFType::wrap_under_get_rule(name as CFStringRef) };
-        owned_names.push(format!("{}", family));
+        owned_names.push(name.to_string());
     }
 
     owned_names
@@ -325,7 +305,7 @@ fn cascade_list_for_languages(
 ) -> Vec<Descriptor> {
 
     // convert language type &Vec<String> -> CFArray
-    let langarr:CFArray = {
+    let langarr:CFArray<CFString> = {
         let tmp:Vec<CFString> = languages.iter()
             .map(|language| CFString::new(&language))
             .collect();
@@ -337,12 +317,7 @@ fn cascade_list_for_languages(
 
     // convert CFArray to Vec<Descriptor>
     list.into_iter()
-        .map(|fontdesc| {
-            let desc: CTFontDescriptor = unsafe {
-                TCFType::wrap_under_get_rule(fontdesc as CTFontDescriptorRef)
-            };
-            Descriptor::new(desc)
-        })
+        .map(|fontdesc| Descriptor::new(fontdesc.clone()))
         .collect()
 }
 
@@ -351,6 +326,7 @@ fn cascade_list_for_languages(
 pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
     let mut out = Vec::new();
 
+    info!("family: {}", family);
     let ct_collection = match create_for_family(family) {
         Some(c) => c,
         None => return out,
@@ -359,10 +335,7 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
     // CFArray of CTFontDescriptorRef (i think)
     let descriptors = ct_collection.get_descriptors();
     for descriptor in descriptors.iter() {
-        let desc: CTFontDescriptor = unsafe {
-            TCFType::wrap_under_get_rule(descriptor as CTFontDescriptorRef)
-        };
-        out.push(Descriptor::new(desc));
+        out.push(Descriptor::new(descriptor.clone()));
     }
 
     out
@@ -375,20 +348,45 @@ impl Descriptor {
         let cg_font = ct_font.copy_to_CGFont();
 
         let fallbacks = if load_fallbacks {
-            // TODO fixme, hardcoded en for english
-            cascade_list_for_languages(&ct_font, &vec!["en".to_owned()])
+            descriptors_for_family("Menlo")
                 .into_iter()
-                // the system lists contains (at least) two strange fonts:
-                // .Apple Symbol Fallback
-                // .Noto Sans Universal
-                // both have a .-prefix (to indicate they are internal?)
-                // neither work very well. the latter even breaks things because
-                // it defines code points with just [?] glyphs.
-                .filter(|desc| desc.font_path != "")
-                .map(|desc| desc.to_font(size, false))
-                .collect()
+                .filter(|d| d.font_name == "Menlo-Regular")
+                .nth(0)
+                .map(|descriptor| {
+                    let menlo = ct_new_from_descriptor(&descriptor.ct_descriptor, size);
+
+                    // TODO fixme, hardcoded en for english
+                    let mut fallbacks = cascade_list_for_languages(&menlo, &vec!["en".to_owned()])
+                        .into_iter()
+                        .filter(|desc| desc.font_path != "")
+                        .map(|desc| desc.to_font(size, false))
+                        .collect::<Vec<_>>();
+
+                    // TODO, we can't use apple's proposed
+                    // .Apple Symbol Fallback (filtered out below),
+                    // but not having these makes us not able to render
+                    // many chars. We add the symbols back in.
+                    // Investigate if we can actually use the .-prefixed
+                    // fallbacks somehow.
+                    descriptors_for_family("Apple Symbols")
+                        .into_iter()
+                        .next() // should only have one element; use it
+                        .map(|descriptor| {
+                            fallbacks.push(descriptor.to_font(size, false))
+                        });
+
+                    // Include Menlo in the fallback list as well
+                    fallbacks.insert(0, Font {
+                        cg_font: menlo.copy_to_CGFont(),
+                        ct_font: menlo,
+                        fallbacks: Vec::new()
+                    });
+
+                    fallbacks
+                })
+                .unwrap_or_else(Vec::new)
         } else {
-            vec![]
+            Vec::new()
         };
 
         Font {
@@ -454,6 +452,35 @@ impl Font {
     }
 
     pub fn get_glyph(&self, character: char, _size: f64, use_thin_strokes: bool) -> Result<RasterizedGlyph, Error> {
+        // Render custom symbols for underline and beam cursor
+        match character {
+            super::UNDERLINE_CURSOR_CHAR => {
+                // Get the bottom of the bounding box
+                let descent = -(self.ct_font.descent() as i32);
+                // Get the width of the cell
+                let width = self.glyph_advance('0') as i32;
+                // Return the new custom glyph
+                return super::get_underline_cursor_glyph(descent, width);
+            }
+            super::BEAM_CURSOR_CHAR | super::BOX_CURSOR_CHAR => {
+                // Get the top of the bounding box
+                let metrics = self.metrics();
+                let height = metrics.line_height;
+                let ascent = (height - self.ct_font.descent()).ceil();
+
+                // Get the width of the cell
+                let width = self.glyph_advance('0') as i32;
+
+                // Return the new custom glyph
+                if character == super::BEAM_CURSOR_CHAR {
+                    return super::get_beam_cursor_glyph(ascent as i32, height as i32, width);
+                } else {
+                    return super::get_box_cursor_glyph(ascent as i32, height as i32, width);
+                }
+            }
+            _ => ()
+        }
+
         let glyph_index = self.glyph_index(character)
             .ok_or(Error::MissingGlyph(character))?;
 

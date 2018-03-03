@@ -13,6 +13,7 @@ pub const COUNT: usize = 268;
 /// the configured foreground color, item 257 is the configured background
 /// color, item 258 is the cursor foreground color, item 259 is the cursor
 /// background color. Following that are 8 positions for dim colors.
+#[derive(Copy, Clone)]
 pub struct List([Rgb; COUNT]);
 
 impl<'a> From<&'a Colors> for List {
@@ -20,7 +21,7 @@ impl<'a> From<&'a Colors> for List {
         // Type inference fails without this annotation
         let mut list: List = unsafe { ::std::mem::uninitialized() };
 
-        list.fill_named(&colors);
+        list.fill_named(colors);
         list.fill_cube();
         list.fill_gray_ramp();
 

@@ -45,7 +45,7 @@ Definitions:
   Control Character - A single character with an ASCII code with the range
   of 000 to 037 and 200 to 237 octal, 00 to 1F and 80 to 9F hex.
 
-  Escape Sequence - A two or three character string staring with ESCape.
+  Escape Sequence - A two or three character string starting with ESCape.
   (Four or more character strings are allowed but not defined.)
 
   Control Sequence - A string starting with CSI (233 octal, 9B hex) or

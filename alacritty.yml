@@ -14,18 +14,24 @@ env:
   # `infocmp xterm-256color`.
   TERM: xterm-256color
 
-# Window dimensions in character columns and lines
-# (changes require restart)
-dimensions:
-  columns: 80
-  lines: 24
+window:
+  # Window dimensions in character columns and lines
+  # Falls back to size specified by window manager if set to 0x0.
+  # (changes require restart)
+  dimensions:
+    columns: 80
+    lines: 24
 
-# Adds this many blank pixels of padding around the window
-# Units are physical pixels; this is not DPI aware.
-# (change requires restart)
-padding:
-  x: 2
-  y: 2
+  # Adds this many blank pixels of padding around the window
+  # Units are physical pixels; this is not DPI aware.
+  # (change requires restart)
+  padding:
+    x: 2
+    y: 2
+
+  # Window decorations
+  # Setting this to false will result in window without borders and title bar.
+  decorations: true
 
 # Display tabs using this many cells (changes require restart)
 tabspaces: 8
@@ -192,13 +198,38 @@ mouse_bindings:
   - { mouse: Middle, action: PasteSelection }
 
 mouse:
+  # Click settings
+  #
+  # The `double_click` and `triple_click` settings control the time
+  # alacritty should wait for accepting multiple clicks as one double
+  # or triple click.
   double_click: { threshold: 300 }
   triple_click: { threshold: 300 }
+
+  # Faux Scrollback
+  #
+  # The `faux_scrollback_lines` setting controls the number
+  # of lines the terminal should scroll when the alternate
+  # screen buffer is active. This is used to allow mouse
+  # scrolling for applications like `man`.
+  #
+  # To disable this completely, set `faux_scrollback_lines` to 0.
+  faux_scrollback_lines: 1
 
 selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>"
 
+dynamic_title: true
+
 hide_cursor_when_typing: false
+
+# Style of the cursor
+#
+# Values for 'cursor_style':
+# - Block
+# - Underline
+# - Beam
+cursor_style: Block
 
 # Live config reload (changes require restart)
 live_config_reload: true
@@ -207,11 +238,11 @@ live_config_reload: true
 #
 # You can set shell.program to the path of your favorite shell, e.g. /bin/fish.
 # Entries in shell.args are passed unmodified as arguments to the shell.
+#
 # shell:
 #   program: /bin/bash
 #   args:
 #     - --login
-
 
 # Key bindings
 #
@@ -221,6 +252,9 @@ live_config_reload: true
 # as well (F1, F2, ..). The number keys above the main keyboard are encoded as
 # `Key1`, `Key2`, etc. Keys on the number pad are encoded `Number1`, `Number2`,
 # etc.  These all match the glutin::VirtualKeyCode variants.
+#
+# A list with all available `key` names can be found here:
+# https://docs.rs/glutin/*/glutin/enum.VirtualKeyCode.html#variants
 #
 # Possible values for `mods`
 # `Command`, `Super` refer to the super/command/windows key
