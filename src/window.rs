@@ -478,12 +478,9 @@ pub trait SetInnerSize<T> {
 
 impl SetInnerSize<Pixels<u32>> for Window {
     fn set_inner_size<T: ToPoints>(&mut self, size: &T) {
-        #[cfg(not(windows))]
-        {
-            let size = size.to_points(self.hidpi_factor());
-            // FIXME: This never returns for some reason
-            self.window
-                .set_inner_size(*size.width as _, *size.height as _);
-        }
+        let size = size.to_points(self.hidpi_factor());
+        // FIXME: This never returns for some reason
+        self.window
+            .set_inner_size(*size.width as _, *size.height as _);
     }
 }
