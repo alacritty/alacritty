@@ -19,7 +19,6 @@ use display::OnResize;
 use config::{Config, Shell};
 use cli::Options;
 use mio;
-use std::ptr;
 use std::os::raw::c_void;
 
 #[cfg(windows)]
@@ -74,7 +73,7 @@ const AGENT_TIMEOUT: u32 = 10000;
 static mut PID: pid_t = 0;
 
 // Handle to the winpty agent process. Required so we know when it closes.
-static mut HANDLE: *mut c_void = ptr::null_mut();
+static mut HANDLE: *mut c_void = 0usize as *mut c_void;
 
 /// Exit flag
 ///
