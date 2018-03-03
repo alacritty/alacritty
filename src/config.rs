@@ -1253,7 +1253,9 @@ impl Config {
         if let Some(mut path) = ::std::env::home_dir() {
             path.push("alacritty");
             path.set_extension("yml");
-            return Some(path.into());
+            if path.exists() {
+                return Some(path.into());
+            }
         }
         None
     }
