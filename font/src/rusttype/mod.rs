@@ -8,7 +8,7 @@ use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, 
 
 pub struct RustTypeRasterizer {
     fonts: Vec<rusttype::Font<'static>>,
-    dpi: f32,
+    dpi_ratio: f32,
 }
 
 impl ::Rasterize for RustTypeRasterizer {
@@ -17,13 +17,12 @@ impl ::Rasterize for RustTypeRasterizer {
     fn new(device_pixel_ratio: f32, _: bool) -> Result<RustTypeRasterizer, Error> {
         Ok(RustTypeRasterizer {
             fonts: Vec::new(),
-            dpi: device_pixel_ratio,
+            dpi_ratio: device_pixel_ratio,
         })
     }
 
     fn metrics(&self, key: FontKey, size: Size) -> Result<Metrics, Error> {
-        let scale = Scale::uniform(size.as_f32_pts());
-        info!("DPI: {}", self.dpi);
+        let scale = Scale::uniform(size.as_f32_pts() * self.dpi_ratio * 96. / 72.);
         let vmetrics = self.fonts[key.token as usize].v_metrics(scale);
         let hmetrics = self.fonts[key.token as usize]
             .glyph(
@@ -76,7 +75,9 @@ impl ::Rasterize for RustTypeRasterizer {
         let scaled_glyph = self.fonts[glyph_key.font_key.token as usize]
             .glyph(glyph_key.c)
             .ok_or(Error::MissingGlyph)?
-            .scaled(Scale::uniform(glyph_key.size.as_f32_pts()));
+            .scaled(Scale::uniform(
+                glyph_key.size.as_f32_pts() * self.dpi_ratio * 96. / 72.,
+            ));
 
         // TODO: I think 0,0 is the origin. This should be changed by the offset specified in alacritty.yml
         // font.glyph_offset.x,y
