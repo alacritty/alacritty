@@ -20,6 +20,15 @@ install:
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
   - rustc -Vv
   - cargo -V
+  # Make 32bit libclang dll available for winpty-sys build on i686
+  - If [%TARGET%]==[i686-pc-windows-msvc] (
+      copy assets\windows\x86\libclang_win32_5.0.1.dll "C:\Program Files\LLVM\bin\libclang.dll"
+    )
+
+cache:
+  - \%USERPROFILE%\.cargo
+# - \%USERPROFILE%\.multirust
+  - target
 
 build_script:
   - cargo build --target %TARGET%
@@ -34,29 +43,25 @@ before_deploy:
   - ps: ci\before_deploy.ps1
 
 artifacts:
-  - path: target\debug\alacritty.exe
+  - path: target\%TARGET%\debug\alacritty.exe
     name: Alacritty (debug build)
-  - path: target\release\alacritty.exe
+  - path: target\%TARGET%\release\alacritty.exe
     name: Alacritty
-  - path: assets\windows\%TARGET%\winpty-agent.exe
+  - path: assets\windows\%platform%\winpty-agent.exe
 
-deploy:
-  artifact: /.*\.zip/
-  auth_token:
-    secure: t3puM/2hOig26EHhAodcZBc61NywF7/PFEpimR6SwGaCiqS07KR5i7iAhSABmBp7
-  description: ''
-  on:
-    # TODO Here you can pick which targets will generate binary releases
-    # In this example, there are some targets that are tested using the stable
-    # and nightly channels. This condition makes sure there is only one release
-    # for such targets and that's generated using the stable channel
-    RUST_VERSION: stable
-    appveyor_repo_tag: true
-  provider: GitHub
-
-cache:
-  - C:\Users\appveyor\.cargo\registry
-  - target
+# deploy:
+#   artifact: /.*\.zip/
+#   auth_token:
+#     secure: t3puM/2hOig26EHhAodcZBc61NywF7/PFEpimR6SwGaCiqS07KR5i7iAhSABmBp7
+#   description: ''
+#   on:
+#     # TODO Here you can pick which targets will generate binary releases
+#     # In this example, there are some targets that are tested using the stable
+#     # and nightly channels. This condition makes sure there is only one release
+#     # for such targets and that's generated using the stable channel
+#     RUST_VERSION: stable
+#     appveyor_repo_tag: true
+#   provider: GitHub
 
 branches:
   only:
@@ -64,10 +69,6 @@ branches:
     - /^v\d+\.\d+\.\d+.*$/
     - master
     - windows
-
-notifications:
-  - provider: Email
-    on_build_success: false
 
 # Building is done in the test phase, so we disable Appveyor's build phase.
 build: false
