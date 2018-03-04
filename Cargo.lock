@@ -19,7 +19,7 @@ dependencies = [
 name = "alacritty"
 version = "0.1.0"
 dependencies = [
- "arraydeque 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "arraydeque 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "base64 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cgmath 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -71,7 +71,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "arraydeque"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -1694,7 +1694,7 @@ dependencies = [
 [[package]]
 name = "winpty-sys"
 version = "1.1.0"
-source = "git+https://github.com/zacps/winpty?branch=rust#19aaae0cb298deab2a1dfe66f038473d450afeea"
+source = "git+https://github.com/zacps/winpty?branch=rust#4940cb62b0d10a660d99849919e0f6ff54511fa9"
 dependencies = [
  "bindgen 0.33.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1774,7 +1774,7 @@ dependencies = [
 "checksum android_glue 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "000444226fcff248f2bc4c7625be32c63caccfecc2723a2b9f78a7487a49c407"
 "checksum ansi_term 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)" = "6b3568b48b7cefa6b8ce125f9bb4989e52fbcc29ebea88df04cc7c5f12f70455"
 "checksum approx 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "08abcc3b4e9339e33a3d0a5ed15d84a687350c05689d825e0f6655eef9e76a94"
-"checksum arraydeque 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e086e04591633197d09ce022aef751d0d050923b9426654d615005516a57fb8d"
+"checksum arraydeque 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "bc059aa8598b9f4fb1dd532a061edc8e4efe0ccc55ba05358aba2a80b7b01f11"
 "checksum arrayvec 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)" = "a1e964f9e24d588183fcb43503abda40d288c8657dfc27311516ce2f05675aef"
 "checksum atty 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "8352656fd42c30a0c3c89d26dea01e3b77c0ab2af18230835c15e2e13cd51859"
 "checksum backtrace 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "ebbbf59b1c43eefa8c3ede390fcc36820b4999f7914104015be25025e0d62af2"

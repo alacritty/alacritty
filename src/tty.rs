@@ -634,9 +634,7 @@ impl<'a> OnResize for Winpty<'a> {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
         if sizeinfo.cols().0 > 0 && sizeinfo.lines().0 > 0 {
             self.set_size(sizeinfo.cols().0, sizeinfo.lines().0)
-                .unwrap_or_else(|_| {
-                    die!("winpty_set_size failed");
-                });
+                .unwrap_or_else(|_| info!("Unable to set winpty size, did it die?"));
         }
     }
 }

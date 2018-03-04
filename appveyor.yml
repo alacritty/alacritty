@@ -6,48 +6,42 @@ environment:
     RUST_VERSION: nightly
     CRATE_NAME: alacritty
 
-  # TODO These are all the build jobs. Adjust as necessary. Comment out what you
-  # don't need
   matrix:
-    # MSVC
-    - TARGET: i686-pc-windows-msvc
-    - TARGET: x86_64-pc-windows-msvc
+    - platform: x86
+      TARGET: x86_64-pc-windows-msvc
+    - platform: x64
+      TARGET: i686-pc-windows-msvc
+
+shallow_clone: true
 
 install:
-  - ps: >-
-      If ($Env:TARGET -eq 'x86_64-pc-windows-gnu') {
-        $Env:PATH += ';C:\msys64\mingw64\bin'
-      } ElseIf ($Env:TARGET -eq 'i686-pc-windows-gnu') {
-        $Env:PATH += ';C:\msys64\mingw32\bin'
-      }
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
   - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
   - rustc -Vv
   - cargo -V
-# TODO This is the "test phase", tweak it as you see fit
+
+build_script:
+  - cargo build --target %TARGET%
+  - cargo build --target %TARGET% --release
+
 test_script:
-  # we don't run the "test phase" when doing deploys
-  - if [%APPVEYOR_REPO_TAG%]==[false] (
-      cargo build --target %TARGET% &&
-      cargo build --target %TARGET% --release &&
-      cargo test --target %TARGET% &&
-      cargo test --target %TARGET% --release &&
-      cargo run --target %TARGET% &&
-      cargo run --target %TARGET% --release
-    )
+  - cargo test --target %TARGET%
 
 before_deploy:
   # TODO Update this to build the artifacts that matter to you
-  - cargo rustc --target %TARGET% --release --bin alacritty -- -C lto
+  - cargo build --target %TARGET% --release
   - ps: ci\before_deploy.ps1
+
+artifacts:
+  - path: target\debug\alacritty.exe
+    name: Alacritty (debug build)
+  - path: target\release\alacritty.exe
+    name: Alacritty
+  - path: assets\windows\%TARGET%\winpty-agent.exe
 
 deploy:
   artifact: /.*\.zip/
-  # TODO update `auth_token.secure`
-  # - Create a `public_repo` GitHub token. Go to: https://github.com/settings/tokens/new
-  # - Encrypt it. Go to https://ci.appveyor.com/tools/encrypt
-  # - Paste the output down here
   auth_token:
     secure: t3puM/2hOig26EHhAodcZBc61NywF7/PFEpimR6SwGaCiqS07KR5i7iAhSABmBp7
   description: ''
@@ -69,6 +63,7 @@ branches:
     # Release tags
     - /^v\d+\.\d+\.\d+.*$/
     - master
+    - windows
 
 notifications:
   - provider: Email

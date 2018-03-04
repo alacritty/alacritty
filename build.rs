@@ -11,9 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-extern crate gl_generator;
 #[cfg(windows)]
 extern crate embed_resource;
+extern crate gl_generator;
 
 use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
 use std::env;
@@ -33,7 +33,6 @@ fn main() {
     ).write_bindings(GlobalGenerator, &mut file)
         .unwrap();
 
-
-#[cfg(windows)]
-    embed_resource::compile("assets/windows.rc");
+    #[cfg(windows)]
+    embed_resource::compile("assets/windows/windows.rc");
 }
