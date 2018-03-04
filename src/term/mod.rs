@@ -123,15 +123,15 @@ impl<'a> RenderableCellsIter<'a> {
         let cursor_index = Linear(cursor.line.0 * grid.num_cols().0 + cursor.col.0);
 
         RenderableCellsIter {
-            grid: grid,
-            cursor: cursor,
-            cursor_index: cursor_index,
-            mode: mode,
+            grid,
+            cursor,
+            cursor_index,
+            mode,
             line: Line(0),
             column: Column(0),
-            selection: selection,
-            config: config,
-            colors: colors,
+            selection,
+            config,
+            colors,
             cursor_cells: ArrayDeque::new(),
         }.initialize(cursor_style)
     }
@@ -396,13 +396,13 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 }
 
                 return Some(RenderableCell {
-                    line: line,
-                    column: column,
+                    line,
+                    column,
                     flags: cell.flags,
                     c: cell.c,
                     fg: fg_rgb,
                     bg: bg_rgb,
-                    bg_alpha: bg_alpha,
+                    bg_alpha,
                 })
             }
 
@@ -816,7 +816,7 @@ impl Term {
             visual_bell: VisualBell::new(config),
             next_is_urgent: None,
             input_needs_wrap: false,
-            grid: grid,
+            grid,
             alt_grid: alt,
             alt: false,
             font_size: config.font().size(),
@@ -825,9 +825,9 @@ impl Term {
             cursor: Default::default(),
             cursor_save: Default::default(),
             cursor_save_alt: Default::default(),
-            tabs: tabs,
+            tabs,
             mode: Default::default(),
-            scroll_region: scroll_region,
+            scroll_region,
             size_info: size,
             colors: color::List::from(config.colors()),
             color_modified: [false; color::COUNT],

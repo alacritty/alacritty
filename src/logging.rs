@@ -32,7 +32,7 @@ impl<T: Send + io::Write> Logger<T> {
     #[cfg_attr(feature = "clippy", allow(new_ret_no_self))]
     pub fn new(output: T, level: log::LevelFilter) -> Logger<io::LineWriter<T>> {
         Logger {
-            level: level,
+            level,
             output: sync::Mutex::new(io::LineWriter::new(output))
         }
     }

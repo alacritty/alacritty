@@ -198,15 +198,15 @@ impl Display {
         });
 
         Ok(Display {
-            window: window,
-            renderer: renderer,
-            glyph_cache: glyph_cache,
-            render_timer: render_timer,
-            tx: tx,
-            rx: rx,
+            window,
+            renderer,
+            glyph_cache,
+            render_timer,
+            tx,
+            rx,
             meter: Meter::new(),
             font_size: font::Size::new(0.),
-            size_info: size_info,
+            size_info,
             last_background_color: background_color,
         })
     }
