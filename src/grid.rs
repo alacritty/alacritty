@@ -82,9 +82,9 @@ impl<T: Clone> Grid<T> {
         }
 
         Grid {
-            raw: raw,
-            cols: cols,
-            lines: lines,
+            raw,
+            cols,
+            lines,
         }
     }
 

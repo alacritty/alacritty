@@ -214,7 +214,7 @@ impl<'a> Shell<'a> {
     {
         Shell {
             program: program.into(),
-            args: args
+            args,
         }
     }
 
@@ -865,12 +865,12 @@ impl<'a> de::Deserialize<'a> for RawBinding {
                 }
 
                 Ok(RawBinding {
-                    mode: mode,
+                    mode,
                     notmode: not_mode,
-                    action: action,
-                    key: key,
-                    mouse: mouse,
-                    mods: mods,
+                    action,
+                    key,
+                    mouse,
+                    mods,
                 })
             }
         }
@@ -977,8 +977,8 @@ impl CursorOrPrimaryColors {
     fn into_cursor_colors(self) -> CursorColors {
         match self {
             CursorOrPrimaryColors::Cursor { text, cursor } => CursorColors {
-                text: text,
-                cursor: cursor
+                text,
+                cursor,
             },
             CursorOrPrimaryColors::Primary { foreground, background } => {
                 // Must print in config since logger isn't setup yet.
@@ -1429,8 +1429,8 @@ impl Default for Dimensions {
 impl Dimensions {
     pub fn new(columns: Column, lines: Line) -> Self {
         Dimensions {
-            columns: columns,
-            lines: lines
+            columns,
+            lines,
         }
     }
 
@@ -1743,7 +1743,6 @@ enum Key {
     Key8,
     Key9,
     Key0,
-
     A,
     B,
     C,
@@ -1770,9 +1769,7 @@ enum Key {
     X,
     Y,
     Z,
-
     Escape,
-
     F1,
     F2,
     F3,
@@ -1788,7 +1785,6 @@ enum Key {
     F13,
     F14,
     F15,
-
     Snapshot,
     Scroll,
     Pause,
@@ -1798,7 +1794,6 @@ enum Key {
     End,
     PageDown,
     PageUp,
-
     Left,
     Up,
     Right,
@@ -1818,7 +1813,6 @@ enum Key {
     Numpad7,
     Numpad8,
     Numpad9,
-
     AbntC1,
     AbntC2,
     Add,

@@ -65,7 +65,7 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
             if next!() != Some('/') { return None; }
             let b = parse_hex!();
 
-            Some(Rgb { r: r, g: g, b: b})
+            Some(Rgb { r, g, b })
         }
         Some('#') => {
             Some(Rgb {
@@ -128,8 +128,8 @@ impl<'a, H: Handler + TermInfo + 'a, W: io::Write> Performer<'a, H, W> {
     ) -> Performer<'b, H, W> {
         Performer {
             _state: state,
-            handler: handler,
-            writer: writer,
+            handler,
+            writer,
         }
     }
 }

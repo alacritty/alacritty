@@ -188,13 +188,13 @@ impl GlyphCache {
 
         let mut cache = GlyphCache {
             cache: HashMap::default(),
-            rasterizer: rasterizer,
+            rasterizer,
             font_size: font.size(),
             font_key: regular,
             bold_key: bold,
             italic_key: italic,
             glyph_offset: *font.glyph_offset(),
-            metrics: metrics
+            metrics,
         };
 
         cache.load_glyphs_for_font(regular, loader);
@@ -214,7 +214,7 @@ impl GlyphCache {
             self.get(&GlyphKey {
                 font_key: font,
                 c: i as char,
-                size: size
+                size,
             }, loader);
         }
     }
@@ -262,7 +262,7 @@ impl GlyphCache {
         let style = if let Some(ref spec) = desc.style {
             font::Style::Specific(spec.to_owned())
         } else {
-            font::Style::Description {slant:slant, weight:weight}
+            font::Style::Description { slant, weight }
         };
         FontDesc::new(&desc.family[..], style)
     }
@@ -606,11 +606,11 @@ impl QuadRenderer {
         }
 
         let mut renderer = QuadRenderer {
-            program: program,
-            vao: vao,
-            vbo: vbo,
-            ebo: ebo,
-            vbo_instance: vbo_instance,
+            program,
+            vao,
+            vbo,
+            ebo,
+            vbo_instance,
             atlas: Vec::new(),
             current_atlas: 0,
             active_tex: 0,
@@ -662,7 +662,7 @@ impl QuadRenderer {
             current_atlas: &mut self.current_atlas,
             program: &mut self.program,
             visual_bell_intensity: visual_bell_intensity as _,
-            config: config,
+            config,
         });
 
         unsafe {
@@ -789,9 +789,9 @@ impl<'a> RenderApi<'a> {
         let cells = string.chars()
             .enumerate()
             .map(|(i, c)| RenderableCell {
-                line: line,
+                line,
                 column: col + i,
-                c: c,
+                c,
                 bg: color,
                 fg: Rgb { r: 0, g: 0, b: 0 },
                 flags: cell::Flags::empty(),
@@ -835,7 +835,7 @@ impl<'a> RenderApi<'a> {
             }
 
             let glyph_key = GlyphKey {
-                font_key: font_key,
+                font_key,
                 size: glyph_cache.font_size,
                 c: cell.c
             };
@@ -851,7 +851,7 @@ impl<'a> RenderApi<'a> {
             //       easy, clean hack.
             if cell.flags.contains(cell::Flags::UNDERLINE) {
                 let glyph_key = GlyphKey {
-                    font_key: font_key,
+                    font_key,
                     size: glyph_cache.font_size,
                     c: '_'
                 };
@@ -1332,7 +1332,7 @@ impl Atlas {
         }
 
         Atlas {
-            id: id,
+            id,
             width: size,
             height: size,
             row_extent: 0,
@@ -1424,10 +1424,10 @@ impl Atlas {
             width: width as f32,
             height: height as f32,
             left: glyph.left as f32,
-            uv_bot: uv_bot,
-            uv_left: uv_left,
-            uv_width: uv_width,
-            uv_height: uv_height,
+            uv_bot,
+            uv_left,
+            uv_width,
+            uv_height,
         }
     }
 

@@ -216,8 +216,8 @@ impl Window {
         }
 
         let window = Window {
-            event_loop: event_loop,
-            window: window,
+            event_loop,
+            window,
             cursor_visible: true,
             is_focused: true,
         };
