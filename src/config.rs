@@ -678,9 +678,9 @@ struct RawBinding {
 
 impl RawBinding {
     fn into_mouse_binding(self) -> ::std::result::Result<MouseBinding, Self> {
-        if self.mouse.is_some() {
+        if let Some(mouse) = self.mouse {
             Ok(Binding {
-                trigger: self.mouse.unwrap(),
+                trigger: mouse,
                 mods: self.mods,
                 action: self.action,
                 mode: self.mode,
@@ -692,9 +692,9 @@ impl RawBinding {
     }
 
     fn into_key_binding(self) -> ::std::result::Result<KeyBinding, Self> {
-        if self.key.is_some() {
+        if let Some(key) = self.key {
             Ok(KeyBinding {
-                trigger: self.key.unwrap(),
+                trigger: key,
                 mods: self.mods,
                 action: self.action,
                 mode: self.mode,
@@ -1124,12 +1124,12 @@ impl FromStr for Rgb {
         macro_rules! component {
             ($($c:ident),*) => {
                 $(
-                    match chars.next().unwrap().to_digit(16) {
+                    match chars.next().and_then(|c| c.to_digit(16)) {
                         Some(val) => rgb.$c = (val as u8) << 4,
                         None => return Err(())
                     }
 
-                    match chars.next().unwrap().to_digit(16) {
+                    match chars.next().and_then(|c| c.to_digit(16)) {
                         Some(val) => rgb.$c |= val as u8,
                         None => return Err(())
                     }
@@ -1137,9 +1137,9 @@ impl FromStr for Rgb {
             }
         }
 
-        match chars.next().unwrap() {
-            '0' => if chars.next().unwrap() != 'x' { return Err(()); },
-            '#' => (),
+        match chars.next() {
+            Some('0') => if chars.next() != Some('x') { return Err(()); },
+            Some('#') => (),
             _ => return Err(()),
         }
 
@@ -1668,7 +1668,8 @@ impl Monitor {
             _thread: ::util::thread::spawn_named("config watcher", move || {
                 let (tx, rx) = mpsc::channel();
                 // The Duration argument is a debouncing period.
-                let mut watcher = watcher(tx, Duration::from_millis(10)).unwrap();
+                let mut watcher = watcher(tx, Duration::from_millis(10))
+                    .expect("Unable to spawn file watcher");
                 let config_path = ::std::fs::canonicalize(path)
                     .expect("canonicalize config path");
 
