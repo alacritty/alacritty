@@ -21,7 +21,7 @@ use std::slice;
 use index::Column;
 
 /// A row in the grid
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Row<T>(Vec<T>);
 
 impl<T: Copy + Clone> Row<T> {
