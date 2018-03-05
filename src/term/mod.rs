@@ -135,33 +135,28 @@ impl<'a> RenderableCellsIter<'a> {
         }.initialize(cursor_style)
     }
 
-    fn push_cursor_cells(
-        &mut self,
-        original_cell: Cell,
-        cursor_cell: Cell,
-        wide_cell: Cell,
-    ) {
+    fn push_cursor_cells(&mut self, original: Cell, cursor: Cell, wide: Cell) {
         // Prints the char under the cell if cursor is situated on a non-empty cell
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
             column: self.cursor.col,
-            inner: original_cell,
+            inner: original,
         }).expect("won't exceed capacity");
 
         // Prints the cursor
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
             column: self.cursor.col,
-            inner: cursor_cell,
+            inner: cursor,
         }).expect("won't exceed capacity");
 
         // If cursor is over a wide (2 cell size) character,
         // print the second cursor cell
-        if self.is_wide_cursor(&cursor_cell) {
+        if self.is_wide_cursor(&cursor) {
             self.cursor_cells.push_back(Indexed {
                 line: self.cursor.line,
                 column: self.cursor.col + 1,
-                inner: wide_cell,
+                inner: wide,
             }).expect("won't exceed capacity");
         }
     }
