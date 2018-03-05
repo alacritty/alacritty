@@ -135,33 +135,28 @@ impl<'a> RenderableCellsIter<'a> {
         }.initialize(cursor_style)
     }
 
-    fn push_cursor_cells(
-        &mut self,
-        original_cell: Cell,
-        cursor_cell: Cell,
-        wide_cell: Cell,
-    ) {
+    fn push_cursor_cells(&mut self, original: Cell, cursor: Cell, wide: Cell) {
         // Prints the char under the cell if cursor is situated on a non-empty cell
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
             column: self.cursor.col,
-            inner: original_cell,
+            inner: original,
         }).expect("won't exceed capacity");
 
         // Prints the cursor
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
             column: self.cursor.col,
-            inner: cursor_cell,
+            inner: cursor,
         }).expect("won't exceed capacity");
 
         // If cursor is over a wide (2 cell size) character,
         // print the second cursor cell
-        if self.is_wide_cursor(&cursor_cell) {
+        if self.is_wide_cursor(&cursor) {
             self.cursor_cells.push_back(Indexed {
                 line: self.cursor.line,
                 column: self.cursor.col + 1,
-                inner: wide_cell,
+                inner: wide,
             }).expect("won't exceed capacity");
         }
     }
@@ -385,34 +380,10 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     bg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
                     fg_rgb = self.compute_bg_rgb(&cell.bg);
                 }
-<<<<<<< HEAD
-
-                return Some(RenderableCell {
-                    line,
-                    column,
-                    flags: cell.flags,
-                    c: cell.c,
-                    fg: fg_rgb,
-                    bg: bg_rgb,
-                    bg_alpha,
-                })
-||||||| merged common ancestors
-
-                return Some(RenderableCell {
-                    line: line,
-                    column: column,
-                    flags: cell.flags,
-                    c: cell.c,
-                    fg: fg_rgb,
-                    bg: bg_rgb,
-                    bg_alpha: bg_alpha,
-                })
-=======
             } else {
                 fg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
                 bg_rgb = self.compute_bg_rgb(&cell.bg);
                 bg_alpha = self.compute_bg_alpha(&cell.bg);
->>>>>>> checkpoint: very basic scrolling works
             }
 
             return Some(RenderableCell {
