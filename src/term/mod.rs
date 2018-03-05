@@ -768,6 +768,14 @@ impl SizeInfo {
 
 
 impl Term {
+    pub fn selection(&self) -> &Option<Selection> {
+        &self.grid.selection
+    }
+
+    pub fn selection_mut(&mut self) -> &mut Option<Selection> {
+        &mut self.grid.selection
+    }
+
     #[inline]
     pub fn get_next_title(&mut self) -> Option<String> {
         self.next_title.take()
@@ -864,7 +872,7 @@ impl Term {
         self.dirty
     }
 
-    pub fn string_from_selection(&self, span: &Span) -> String {
+    pub fn selection_to_string(&self) -> Option<String> {
         /// Need a generic push() for the Append trait
         trait PushChar {
             fn push_char(&mut self, c: char);
@@ -919,6 +927,9 @@ impl Term {
             }
         }
 
+        let selection = self.grid.selection.clone()?;
+        let span = selection.to_span(self)?;
+
         let mut res = String::new();
 
         let (start, end) = span.to_locations();
@@ -955,7 +966,7 @@ impl Term {
             }
         }
 
-        res
+        Some(res)
     }
 
     /// Convert the given pixel values to a grid coordinate
@@ -984,10 +995,9 @@ impl Term {
     pub fn renderable_cells<'b>(
         &'b self,
         config: &'b Config,
-        selection: Option<&'b Selection>,
         window_focused: bool,
     ) -> RenderableCellsIter {
-        let selection = selection.and_then(|s| s.to_span(self))
+        let selection = self.grid.selection.as_ref().and_then(|s| s.to_span(self))
             .map(|span| span.to_range());
         let cursor = if window_focused {
             self.cursor_style.unwrap_or(self.default_cursor_style)
@@ -1028,6 +1038,9 @@ impl Term {
             debug!("Term::resize dimensions unchanged");
             return;
         }
+
+        self.grid.selection = None;
+        self.alt_grid.selection = None;
 
         // Should not allow less than 1 col, causes all sorts of checks to be required.
         if num_cols <= Column(1) {

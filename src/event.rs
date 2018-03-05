@@ -33,10 +33,8 @@ pub trait Notify {
 pub struct ActionContext<'a, N: 'a> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term,
-    pub selection: &'a mut Option<Selection>,
     pub size_info: &'a SizeInfo,
     pub mouse: &'a mut Mouse,
-    pub selection_modified: bool,
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
     pub last_modifiers: &'a mut ModifiersState,
@@ -64,31 +62,35 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn copy_selection(&self, buffer: ::copypasta::Buffer) {
-        if let Some(ref selection) = *self.selection {
-            selection.to_span(self.terminal)
-                .map(|span| {
-                    let buf = self.terminal.string_from_selection(&span);
-                    if !buf.is_empty() {
-                        Clipboard::new()
-                            .and_then(|mut clipboard| clipboard.store(buf, buffer))
-                            .unwrap_or_else(|err| {
-                                warn!("Error storing selection to clipboard. {}", Red(err));
-                            });
-                    }
-                });
-        }
+        self.terminal
+            .selection_to_string()
+            .map(|selected| {
+                if !selected.is_empty() {
+                    Clipboard::new()
+                        .and_then(|mut clipboard| clipboard.store(selected, buffer))
+                        .unwrap_or_else(|err| {
+                            warn!("Error storing selection to clipboard. {}", Red(err));
+                        });
+                }
+            });
     }
 
     fn clear_selection(&mut self) {
-        *self.selection = None;
-        self.selection_modified = true;
+        *self.terminal.selection_mut() = None;
+        self.terminal.dirty = true;
     }
 
     fn update_selection(&mut self, point: Point, side: Side) {
-        self.selection_modified = true;
+
         // Update selection if one exists
-        if let Some(ref mut selection) = *self.selection {
+        let mut had_selection = false; // borrowck
+        if let Some(ref mut selection) = *self.terminal.selection_mut() {
             selection.update(point, side);
+            had_selection = true;
+        }
+
+        if had_selection { // borrowck
+            self.terminal.dirty = true;
             return;
         }
 
@@ -97,18 +99,18 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn simple_selection(&mut self, point: Point, side: Side) {
-        *self.selection = Some(Selection::simple(point, side));
-        self.selection_modified = true;
+        *self.terminal.selection_mut() = Some(Selection::simple(point, side));
+        self.terminal.dirty = true;
     }
 
     fn semantic_selection(&mut self, point: Point) {
-        *self.selection = Some(Selection::semantic(point, self.terminal));
-        self.selection_modified = true;
+        *self.terminal.selection_mut() = Some(Selection::semantic(point, &*self.terminal));
+        self.terminal.dirty = true;
     }
 
     fn line_selection(&mut self, point: Point) {
-        *self.selection = Some(Selection::lines(point));
-        self.selection_modified = true;
+        *self.terminal.selection_mut() = Some(Selection::lines(point));
+        self.terminal.dirty = true;
     }
 
     fn mouse_coords(&self) -> Option<Point> {
@@ -197,7 +199,6 @@ pub struct Processor<N> {
     resize_tx: mpsc::Sender<(u32, u32)>,
     ref_test: bool,
     size_info: SizeInfo,
-    pub selection: Option<Selection>,
     hide_cursor_when_typing: bool,
     hide_cursor: bool,
     received_count: usize,
@@ -212,7 +213,6 @@ pub struct Processor<N> {
 impl<N> OnResize for Processor<N> {
     fn on_resize(&mut self, size: &SizeInfo) {
         self.size_info = size.to_owned();
-        self.selection = None;
     }
 }
 
@@ -239,8 +239,7 @@ impl<N: Notify> Processor<N> {
             resize_tx,
             ref_test,
             mouse: Default::default(),
-            selection: None,
-            size_info,
+            size_info: size_info,
             hide_cursor_when_typing: config.hide_cursor_when_typing(),
             hide_cursor: false,
             received_count: 0,
@@ -318,10 +317,6 @@ impl<N: Notify> Processor<N> {
 
                         *hide_cursor = false;
                         processor.mouse_moved(x as u32, y as u32, modifiers);
-
-                        if !processor.ctx.selection.is_none() {
-                            processor.ctx.terminal.dirty = true;
-                        }
                     },
                     MouseWheel { delta, phase, .. } => {
                         *hide_cursor = false;
@@ -392,10 +387,8 @@ impl<N: Notify> Processor<N> {
             context = ActionContext {
                 terminal: &mut terminal,
                 notifier: &mut self.notifier,
-                selection: &mut self.selection,
                 mouse: &mut self.mouse,
                 size_info: &self.size_info,
-                selection_modified: false,
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
                 last_modifiers: &mut self.last_modifiers,
@@ -440,10 +433,6 @@ impl<N: Notify> Processor<N> {
             }
 
             window.is_focused = window_is_focused;
-
-            if processor.ctx.selection_modified {
-                processor.ctx.terminal.dirty = true;
-            }
         }
 
         self.wait_for_event = !terminal.dirty;

@@ -39,6 +39,7 @@ use grid::ToRange;
 /// [`simple`]: enum.Selection.html#method.simple
 /// [`semantic`]: enum.Selection.html#method.semantic
 /// [`lines`]: enum.Selection.html#method.lines
+#[derive(Debug, Clone)]
 pub enum Selection {
     Simple {
         /// The region representing start and end of cursor movement
@@ -64,6 +65,7 @@ pub enum Selection {
 }
 
 /// A Point and side within that point.
+#[derive(Debug, Clone)]
 pub struct Anchor {
     point: Point,
     side: Side,

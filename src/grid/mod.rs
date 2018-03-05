@@ -18,6 +18,7 @@ use std::cmp::{min, max, Ordering};
 use std::ops::{Deref, Range, Index, IndexMut, RangeTo, RangeFrom, RangeFull};
 
 use index::{self, Point, Line, Column, IndexRange, RangeInclusive};
+use selection::Selection;
 
 mod row;
 pub use self::row::Row;
@@ -54,8 +55,16 @@ impl<T> Deref for Indexed<T> {
     }
 }
 
+impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.cols.eq(&other.cols) &&
+            self.lines.eq(&other.lines) &&
+            self.raw.eq(&other.raw)
+    }
+}
+
 /// Represents the terminal display contents
-#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Grid<T> {
     /// Lines in the grid. Each row holds a list of cells corresponding to the
     /// columns in that row.
@@ -73,13 +82,12 @@ pub struct Grid<T> {
     ///
     /// This is used to quickly populate new lines and clear recycled lines
     /// during scroll wrapping.
+    #[serde(skip)]
     template_row: Row<T>,
 
     /// Template cell for populating template_row
+    #[serde(skip)]
     template: T,
-
-    /// Temporary row storage for scrolling with a region
-    temp: Vec<Row<T>>,
 
     /// Offset of displayed area
     ///
@@ -90,6 +98,10 @@ pub struct Grid<T> {
 
     /// An limit on how far back it's possible to scroll
     scroll_limit: usize,
+
+    /// Selected region
+    #[serde(skip)]
+    pub selection: Option<Selection>,
 }
 
 pub struct GridIterator<'a, T: 'a> {
@@ -117,9 +129,9 @@ impl<T: Copy + Clone> Grid<T> {
             lines,
             template_row,
             template,
-            temp: Vec::new(),
             display_offset: 0,
             scroll_limit: 0,
+            selection: None,
         }
     }
 
