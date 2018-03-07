@@ -34,6 +34,8 @@ use term::SizeInfo;
 use term::mode::TermMode;
 use util::fmt::Red;
 
+const SCROLL_MULTIPLIER: usize = 3;
+
 /// Processes input from glutin.
 ///
 /// An escape sequence may be emitted in case specific keys or key combinations
@@ -439,7 +441,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     65
                 };
 
-                for _ in 0..(to_scroll.abs() as usize) {
+                for _ in 0..(to_scroll.abs() as usize * SCROLL_MULTIPLIER) {
                     self.scroll_terminal(code, modifiers)
                 }
 
