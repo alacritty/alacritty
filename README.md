@@ -213,6 +213,11 @@ filling in this section of the README.
 
 ### Building
 
+**BEFORE YOU RUN IT:** Install the config file as described below; otherwise,
+many things (such as arrow keys) will not work.
+
+#### Linux
+
 Once all the prerequisites are installed, compiling Alacritty should be easy:
 
 ```sh
@@ -220,10 +225,8 @@ cargo build --release
 ```
 
 If all goes well, this should place a binary at `target/release/alacritty`.
-**BEFORE YOU RUN IT:** Install the config file as described below; otherwise,
-many things (such as arrow keys) will not work.
 
-### Desktop Entry
+##### Desktop Entry
 
 Many linux distributions support desktop entries for adding applications to
 system menus. To install the desktop entry for Alacritty, run
@@ -233,11 +236,53 @@ sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
 cp Alacritty.desktop ~/.local/share/applications
 ```
 
+#### MacOS
+
 To build an application for macOS, run
 
 ```sh
 make app
 cp -r target/release/osx/Alacritty.app /Applications/
+```
+
+## Manual Page
+
+Installing the manual page requires the additional dependency `gzip`.
+To install the manual page, run
+
+```sh
+sudo mkdir -p /usr/local/share/man/man1
+gzip -c alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
+```
+
+## Shell completions
+
+To get automatic completions for alacritty's flags and arguments you can install the provided shell completions.
+
+### Zsh
+
+To install the completions for zsh, run
+
+```
+sudo cp alacritty-completions.zsh /usr/share/zsh/functions/Completion/X/_alacritty
+```
+
+### Bash
+
+To install the completions for bash, you can `source` the `alacritty-completions.bash` in your `~/.bashrc` file.
+
+If you do not plan to delete the source folder of alacritty, you can run
+
+```sh
+echo "source $(pwd)/alacritty-completions.bash" >> ~/.bashrc
+```
+
+Otherwise you can copy it to the `~/.bash_completion` folder and source it from there:
+
+```sh
+mkdir -p ~/.bash_completion
+cp alacritty-completions.bash ~/.bash_completion/alacritty
+echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
 ```
 
 ## Configuration
