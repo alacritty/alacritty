@@ -81,34 +81,33 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn update_selection(&mut self, point: Point, side: Side) {
+        self.terminal.dirty = true;
+        let point = self.terminal.visible_to_buffer(point);
 
         // Update selection if one exists
-        let mut had_selection = false; // borrowck
         if let Some(ref mut selection) = *self.terminal.selection_mut() {
             selection.update(point, side);
-            had_selection = true;
-        }
-
-        if had_selection { // borrowck
-            self.terminal.dirty = true;
             return;
         }
 
         // Otherwise, start a regular selection
-        self.simple_selection(point, side);
+        *self.terminal.selection_mut() = Some(Selection::simple(point, side));
     }
 
     fn simple_selection(&mut self, point: Point, side: Side) {
+        let point = self.terminal.visible_to_buffer(point);
         *self.terminal.selection_mut() = Some(Selection::simple(point, side));
         self.terminal.dirty = true;
     }
 
     fn semantic_selection(&mut self, point: Point) {
+        let point = self.terminal.visible_to_buffer(point);
         *self.terminal.selection_mut() = Some(Selection::semantic(point, &*self.terminal));
         self.terminal.dirty = true;
     }
 
     fn line_selection(&mut self, point: Point) {
+        let point = self.terminal.visible_to_buffer(point);
         *self.terminal.selection_mut() = Some(Selection::lines(point));
         self.terminal.dirty = true;
     }

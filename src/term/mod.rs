@@ -24,9 +24,9 @@ use unicode_width::UnicodeWidthChar;
 
 use font::{self, Size};
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use grid::{BidirectionalIterator, Grid, ToRange, Indexed, IndexRegion, DisplayIter};
-use index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive};
-use selection::{self, Span, Selection};
+use grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter};
+use index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
+use selection::{self, Selection, Locations};
 use config::{Config, VisualBellAnimation};
 use {MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
@@ -37,7 +37,7 @@ pub use self::cell::Cell;
 use self::cell::LineLength;
 
 impl selection::SemanticSearch for Term {
-    fn semantic_search_left(&self, mut point: Point) -> Point {
+    fn semantic_search_left(&self, mut point: Point<usize>) -> Point<usize> {
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
 
@@ -56,7 +56,7 @@ impl selection::SemanticSearch for Term {
         point
     }
 
-    fn semantic_search_right(&self, mut point: Point) -> Point {
+    fn semantic_search_right(&self, mut point: Point<usize>) -> Point<usize> {
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
 
@@ -116,11 +116,36 @@ impl<'a> RenderableCellsIter<'a> {
         colors: &'b color::List,
         mode: TermMode,
         config: &'b Config,
-        selection: Option<RangeInclusive<index::Linear>>,
+        selection: Option<Locations>,
         cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b> {
         let cursor_offset = grid.line_to_offset(cursor.line);
         let inner = grid.display_iter();
+
+        let selection = selection.map(|loc| {
+            // start and end *lines* are swapped as we switch from buffer to
+            // Line coordinates.
+            let mut end = Point {
+                line: grid.buffer_line_to_visible(loc.start.line),
+                col: loc.start.col
+            };
+            let mut start = Point {
+                line: grid.buffer_line_to_visible(loc.end.line),
+                col: loc.end.col
+            };
+
+            if start > end {
+                ::std::mem::swap(&mut start, &mut end);
+            }
+
+            println!("start={:?}, end={:?}", start, end);
+
+            let cols = grid.num_cols();
+            let start = Linear(start.line.0 * cols.0 + start.col.0);
+            let end = Linear(end.line.0 * cols.0 + end.col.0);
+
+            RangeInclusive::new(start, end)
+        });
 
         RenderableCellsIter {
             cursor: cursor,
@@ -350,12 +375,13 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
             } else {
                 let cell = self.inner.next()?;
 
+                let index = Linear(cell.line.0 * self.grid.num_cols().0 + cell.column.0);
+
                 // XXX (jwilm) selection temp disabled
                 //
-                // let selected = self.selection.as_ref()
-                //     .map(|range| range.contains_(index))
-                //     .unwrap_or(false);
-                let selected = false;
+                let selected = self.selection.as_ref()
+                    .map(|range| range.contains_(index))
+                    .unwrap_or(false);
 
                 // Skip empty cells
                 if cell.is_empty() && !selected {
@@ -877,7 +903,7 @@ impl Term {
         /// Need a generic push() for the Append trait
         trait PushChar {
             fn push_char(&mut self, c: char);
-            fn maybe_newline(&mut self, grid: &Grid<Cell>, line: Line, ending: Column) {
+            fn maybe_newline(&mut self, grid: &Grid<Cell>, line: usize, ending: Column) {
                 if ending != Column(0) && !grid[line][ending - 1].flags.contains(cell::Flags::WRAPLINE) {
                     self.push_char('\n');
                 }
@@ -894,14 +920,14 @@ impl Term {
         use std::ops::Range;
 
         trait Append : PushChar {
-            fn append(&mut self, grid: &Grid<Cell>, line: Line, cols: Range<Column>) -> Option<Range<Column>>;
+            fn append(&mut self, grid: &Grid<Cell>, line: usize, cols: Range<Column>) -> Option<Range<Column>>;
         }
 
         impl Append for String {
             fn append(
                 &mut self,
                 grid: &Grid<Cell>,
-                line: Line,
+                line: usize,
                 cols: Range<Column>
             ) -> Option<Range<Column>> {
                 let grid_line = &grid[line];
@@ -934,41 +960,52 @@ impl Term {
 
         let mut res = String::new();
 
-        let (start, end) = span.to_locations();
+        let Locations { mut start, mut end } = span.to_locations();
+
+        if start > end {
+            ::std::mem::swap(&mut start, &mut end);
+        }
+
         let line_count = end.line - start.line;
         let max_col = Column(usize::max_value() - 1);
 
         match line_count {
             // Selection within single line
-            Line(0) => {
+            0 => {
                 res.append(&self.grid, start.line, start.col..end.col);
             },
 
             // Selection ends on line following start
-            Line(1) => {
-                // Starting line
-                res.append(&self.grid, start.line, start.col..max_col);
-
+            1 => {
                 // Ending line
-                res.append(&self.grid, end.line, Column(0)..end.col);
+                res.append(&self.grid, end.line, end.col..max_col);
+
+                // Starting line
+                res.append(&self.grid, start.line, Column(0)..start.col);
+
             },
 
             // Multi line selection
             _ => {
-                // Starting line
-                res.append(&self.grid, start.line, start.col..max_col);
+                // Ending line
+                res.append(&self.grid, end.line, end.col..max_col);
 
-                let middle_range = IndexRange::from((start.line + 1)..(end.line));
+                let middle_range = (start.line + 1)..(end.line);
                 for line in middle_range {
                     res.append(&self.grid, line, Column(0)..max_col);
                 }
 
-                // Ending line
-                res.append(&self.grid, end.line, Column(0)..end.col);
+                // Starting line
+                res.append(&self.grid, start.line, Column(0)..(start.col + 1));
+
             }
         }
 
         Some(res)
+    }
+
+    pub(crate) fn visible_to_buffer(&self, point: Point) -> Point<usize> {
+        self.grid.visible_to_buffer(point)
     }
 
     /// Convert the given pixel values to a grid coordinate
@@ -999,8 +1036,12 @@ impl Term {
         config: &'b Config,
         window_focused: bool,
     ) -> RenderableCellsIter {
-        let selection = self.grid.selection.as_ref().and_then(|s| s.to_span(self))
-            .map(|span| span.to_range());
+        let selection = self.grid.selection.as_ref()
+            .and_then(|s| s.to_span(self))
+            .map(|span| {
+                // println!("span={:?}, locations={:?}", span, span.to_locations());
+                span.to_locations()
+            });
         let cursor = if window_focused {
             self.cursor_style.unwrap_or(self.default_cursor_style)
         } else {
