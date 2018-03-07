@@ -17,7 +17,7 @@
 use std::cmp::{min, max, Ordering};
 use std::ops::{Deref, Range, Index, IndexMut, RangeTo, RangeFrom, RangeFull};
 
-use index::{self, Point, Line, Column, IndexRange, RangeInclusive};
+use index::{self, Point, Line, Column, IndexRange};
 use selection::Selection;
 
 mod row;
@@ -28,11 +28,6 @@ mod tests;
 
 mod storage;
 use self::storage::Storage;
-
-/// Convert a type to a linear index range.
-pub trait ToRange {
-    fn to_range(&self) -> RangeInclusive<index::Linear>;
-}
 
 /// Bidirection iterator
 pub trait BidirectionalIterator: Iterator {
@@ -105,8 +100,17 @@ pub struct Grid<T> {
 }
 
 pub struct GridIterator<'a, T: 'a> {
+    /// Immutable grid reference
     grid: &'a Grid<T>,
-    pub cur: Point,
+
+    /// Current position of the iterator within the grid.
+    pub cur: Point<usize>,
+
+    /// Bottom of screen (buffer)
+    bot: usize,
+
+    /// Top of screen (buffer)
+    top: usize,
 }
 
 impl<T: Copy + Clone> Grid<T> {
@@ -133,6 +137,28 @@ impl<T: Copy + Clone> Grid<T> {
             scroll_limit: 0,
             selection: None,
         }
+    }
+
+    pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
+        Point {
+            line: self.visible_line_to_buffer(point.line),
+            col: point.col
+        }
+    }
+
+    pub fn buffer_to_visible(&self, point: Point<usize>) -> Point {
+        Point {
+            line: self.buffer_line_to_visible(point.line),
+            col: point.col
+        }
+    }
+
+    pub fn buffer_line_to_visible(&self, line: usize) -> Line {
+        self.offset_to_line(line - self.display_offset)
+    }
+
+    pub fn visible_line_to_buffer(&self, line: Line) -> usize {
+        self.line_to_offset(line) + self.display_offset
     }
 
     pub fn scroll_display(&mut self, count: isize) {
@@ -224,6 +250,7 @@ impl<T: Copy + Clone> Grid<T> {
 
         let prev = self.lines;
 
+        self.selection = None;
         self.raw.rotate(*prev as isize - *target as isize);
         self.raw.set_visible_lines(target);
         self.lines = target;
@@ -240,6 +267,12 @@ impl<T: Copy + Clone> Grid<T> {
         *(self.num_lines() - line - 1)
     }
 
+    pub fn offset_to_line(&self, offset: usize) -> Line {
+        assert!(offset < *self.num_lines());
+
+        self.lines - offset - 1
+    }
+
     #[inline]
     pub fn scroll_down(&mut self, region: &Range<index::Line>, positions: index::Line) {
         // Whether or not there is a scrolling region active, as long as it
@@ -251,6 +284,9 @@ impl<T: Copy + Clone> Grid<T> {
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
             self.raw.rotate_up(*positions);
+            if let Some(ref mut selection) = self.selection {
+                selection.rotate(-(*positions as isize));
+            }
 
             self.decrease_scroll_limit(*positions);
 
@@ -292,6 +328,9 @@ impl<T: Copy + Clone> Grid<T> {
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
             self.raw.rotate(-(*positions as isize));
+            if let Some(ref mut selection) = self.selection {
+                selection.rotate(*positions as isize);
+            }
 
             // Now, restore any lines outside the scroll region
             for idx in (*region.end .. *self.num_lines()).rev() {
@@ -334,10 +373,12 @@ impl<T> Grid<T> {
         self.cols
     }
 
-    pub fn iter_from(&self, point: Point) -> GridIterator<T> {
+    pub fn iter_from(&self, point: Point<usize>) -> GridIterator<T> {
         GridIterator {
             grid: self,
             cur: point,
+            bot: self.display_offset,
+            top: self.display_offset + *self.num_lines() - 1,
         }
     }
 
@@ -369,15 +410,12 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let last_line = self.grid.num_lines() - Line(1);
         let last_col = self.grid.num_cols() - Column(1);
         match self.cur {
-            Point { line, col } if
-                (line == last_line) &&
-                (col == last_col) => None,
+            Point { line, col } if (line == self.bot) && (col == last_col) => None,
             Point { col, .. } if
                 (col == last_col) => {
-                self.cur.line += Line(1);
+                self.cur.line -= 1;
                 self.cur.col = Column(0);
                 Some(&self.grid[self.cur.line][self.cur.col])
             },
@@ -394,9 +432,9 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
         let num_cols = self.grid.num_cols();
 
         match self.cur {
-            Point { line: Line(0), col: Column(0) } => None,
+            Point { line, col: Column(0) } if line == self.top => None,
             Point { col: Column(0), .. } => {
-                self.cur.line -= Line(1);
+                self.cur.line += 1;
                 self.cur.col = num_cols - Column(1);
                 Some(&self.grid[self.cur.line][self.cur.col])
             },

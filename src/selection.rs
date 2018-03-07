@@ -21,8 +21,7 @@
 use std::cmp::{min, max};
 use std::ops::Range;
 
-use index::{Point, Column, RangeInclusive, Side, Linear, Line};
-use grid::ToRange;
+use index::{Point, Column, Side};
 
 /// Describes a region of a 2-dimensional area
 ///
@@ -47,32 +46,32 @@ pub enum Selection {
     },
     Semantic {
         /// The region representing start and end of cursor movement
-        region: Range<Point>,
+        region: Range<Point<usize>>,
 
         /// When beginning a semantic selection, the grid is searched around the
         /// initial point to find semantic escapes, and this initial expansion
         /// marks those points.
-        initial_expansion: Range<Point>
+        initial_expansion: Range<Point<usize>>
     },
     Lines {
         /// The region representing start and end of cursor movement
-        region: Range<Point>,
+        region: Range<Point<usize>>,
 
         /// The line under the initial point. This is always selected regardless
         /// of which way the cursor is moved.
-        initial_line: Line
+        initial_line: usize
     }
 }
 
 /// A Point and side within that point.
 #[derive(Debug, Clone)]
 pub struct Anchor {
-    point: Point,
+    point: Point<usize>,
     side: Side,
 }
 
 impl Anchor {
-    fn new(point: Point, side: Side) -> Anchor {
+    fn new(point: Point<usize>, side: Side) -> Anchor {
         Anchor { point, side }
     }
 }
@@ -83,9 +82,9 @@ impl Anchor {
 /// points are two dimensional indices.
 pub trait SemanticSearch {
     /// Find the nearest semantic boundary _to the left_ of provided point.
-    fn semantic_search_left(&self, _: Point) -> Point;
+    fn semantic_search_left(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest semantic boundary _to the point_ of provided point.
-    fn semantic_search_right(&self, _: Point) -> Point;
+    fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
 }
 
 /// A type that has 2-dimensional boundaries
@@ -95,7 +94,7 @@ pub trait Dimensions {
 }
 
 impl Selection {
-    pub fn simple(location: Point, side: Side) -> Selection {
+    pub fn simple(location: Point<usize>, side: Side) -> Selection {
         Selection::Simple {
             region: Range {
                 start: Anchor::new(location, side),
@@ -104,7 +103,27 @@ impl Selection {
         }
     }
 
-    pub fn semantic<G: SemanticSearch>(point: Point, grid: &G) -> Selection {
+    pub fn rotate(&mut self, offset: isize) {
+        match *self {
+            Selection::Simple { ref mut region } => {
+                region.start.point.line = (region.start.point.line as isize + offset) as usize;
+                region.end.point.line = (region.end.point.line as isize + offset) as usize;
+            },
+            Selection::Semantic { ref mut region, ref mut initial_expansion } => {
+                region.start.line = (region.start.line as isize + offset) as usize;
+                region.end.line = (region.end.line as isize + offset) as usize;
+                initial_expansion.start.line = (initial_expansion.start.line as isize + offset) as usize;
+                initial_expansion.end.line = (initial_expansion.end.line as isize + offset) as usize;
+            },
+            Selection::Lines { ref mut region, ref mut initial_line } => {
+                region.start.line = (region.start.line as isize + offset) as usize;
+                region.end.line = (region.end.line as isize + offset) as usize;
+                *initial_line = (*initial_line as isize + offset) as usize;
+            }
+        }
+    }
+
+    pub fn semantic<G: SemanticSearch>(point: Point<usize>, grid: &G) -> Selection {
         let (start, end) = (grid.semantic_search_left(point), grid.semantic_search_right(point));
         Selection::Semantic {
             region: Range {
@@ -118,7 +137,7 @@ impl Selection {
         }
     }
 
-    pub fn lines(point: Point) -> Selection {
+    pub fn lines(point: Point<usize>) -> Selection {
         Selection::Lines {
             region: Range {
                 start: point,
@@ -128,7 +147,7 @@ impl Selection {
         }
     }
 
-    pub fn update(&mut self, location: Point, side: Side) {
+    pub fn update(&mut self, location: Point<usize>, side: Side) {
         // Always update the `end`; can normalize later during span generation.
         match *self {
             Selection::Simple { ref mut region } => {
@@ -151,14 +170,14 @@ impl Selection {
                 Selection::span_semantic(grid, region, initial_expansion)
             },
             Selection::Lines { ref region, ref initial_line } => {
-                Selection::span_lines(grid, region, initial_line)
+                Selection::span_lines(grid, region, *initial_line)
             }
         }
     }
     fn span_semantic<G>(
         grid: &G,
-        region: &Range<Point>,
-        initial_expansion: &Range<Point>
+        region: &Range<Point<usize>>,
+        initial_expansion: &Range<Point<usize>>
     ) -> Option<Span>
         where G: SemanticSearch + Dimensions
     {
@@ -172,14 +191,20 @@ impl Selection {
             (region.end, region.start)
         };
 
-        // Update start of selection *if* front has moved beyond initial start
-        if front < start {
+        println!("BEFORE front={:?}, start={:?}, tail={:?}, end={:?}", front, start, tail, end);
+
+        if front < tail && front.line == tail.line {
             start = grid.semantic_search_left(front);
+            end = grid.semantic_search_right(tail);
+        } else {
+            start = grid.semantic_search_right(front);
+            end = grid.semantic_search_left(tail);
         }
 
-        // Update end of selection *if* tail has moved beyond initial end.
-        if tail > end {
-            end = grid.semantic_search_right(tail);
+        println!("AFTER  front={:?}, start={:?}, tail={:?}, end={:?}", front, start, tail, end);
+
+        if start > end {
+            ::std::mem::swap(&mut start, &mut end);
         }
 
         Some(Span {
@@ -190,27 +215,27 @@ impl Selection {
         })
     }
 
-    fn span_lines<G>(grid: &G, region: &Range<Point>, initial_line: &Line) -> Option<Span>
+    fn span_lines<G>(grid: &G, region: &Range<Point<usize>>, initial_line: usize) -> Option<Span>
         where G: Dimensions
     {
         // First, create start and end points based on initial line and the grid
         // dimensions.
         let mut start = Point {
-            col: Column(0),
-            line: *initial_line
+            col: grid.dimensions().col - 1,
+            line: initial_line
         };
         let mut end = Point {
-            col: grid.dimensions().col - 1,
-            line: *initial_line
+            col: Column(0),
+            line: initial_line
         };
 
         // Now, expand lines based on where cursor started and ended.
         if region.start.line < region.end.line {
-            // Start is above end
+            // Start is below end
             start.line = min(start.line, region.start.line);
             end.line = max(end.line, region.end.line);
         } else {
-            // Start is below end
+            // Start is above end
             start.line = min(start.line, region.end.line);
             end.line = max(end.line, region.start.line);
         }
@@ -313,27 +338,37 @@ pub enum SpanType {
 /// Represents a span of selected cells
 #[derive(Debug, Eq, PartialEq)]
 pub struct Span {
-    front: Point,
-    tail: Point,
+    front: Point<usize>,
+    tail: Point<usize>,
     cols: Column,
 
     /// The type says whether ends are included or not.
     ty: SpanType,
 }
 
+#[derive(Debug)]
+pub struct Locations {
+    /// Start point from bottom of buffer
+    pub start: Point<usize>,
+    /// End point towards top of buffer
+    pub end: Point<usize>,
+}
+
 impl Span {
-    pub fn to_locations(&self) -> (Point, Point) {
-        match self.ty {
+    pub fn to_locations(&self) -> Locations {
+        let (start, end) = match self.ty {
             SpanType::Inclusive => (self.front, self.tail),
             SpanType::Exclusive => {
                 (Span::wrap_start(self.front, self.cols), Span::wrap_end(self.tail, self.cols))
             },
             SpanType::ExcludeFront => (Span::wrap_start(self.front, self.cols), self.tail),
             SpanType::ExcludeTail => (self.front, Span::wrap_end(self.tail, self.cols))
-        }
+        };
+
+        Locations { start, end }
     }
 
-    fn wrap_start(mut start: Point, cols: Column) -> Point {
+    fn wrap_start(mut start: Point<usize>, cols: Column) -> Point<usize> {
         if start.col == cols - 1 {
             Point {
                 line: start.line + 1,
@@ -345,8 +380,8 @@ impl Span {
         }
     }
 
-    fn wrap_end(end: Point, cols: Column) -> Point {
-        if end.col == Column(0) && end.line != Line(0) {
+    fn wrap_end(end: Point<usize>, cols: Column) -> Point<usize> {
+        if end.col == Column(0) && end.line != 0 {
             Point {
                 line: end.line - 1,
                 col: cols
@@ -357,37 +392,6 @@ impl Span {
                 col: end.col - 1
             }
         }
-    }
-
-    #[inline]
-    fn exclude_start(start: Linear) -> Linear {
-        start + 1
-    }
-
-    #[inline]
-    fn exclude_end(end: Linear) -> Linear {
-        if end > Linear(0) {
-            end - 1
-        } else {
-            end
-        }
-    }
-}
-
-impl ToRange for Span {
-    fn to_range(&self) -> RangeInclusive<Linear> {
-        let cols = self.cols;
-        let start = Linear(self.front.line.0 * cols.0 + self.front.col.0);
-        let end = Linear(self.tail.line.0 * cols.0 + self.tail.col.0);
-
-        let (start, end) = match self.ty {
-            SpanType::Inclusive => (start, end),
-            SpanType::Exclusive => (Span::exclude_start(start), Span::exclude_end(end)),
-            SpanType::ExcludeFront => (Span::exclude_start(start), end),
-            SpanType::ExcludeTail => (start, Span::exclude_end(end))
-        };
-
-        RangeInclusive::new(start, end)
     }
 }
 
@@ -422,8 +426,8 @@ mod test {
     }
 
     impl super::SemanticSearch for Dimensions {
-        fn semantic_search_left(&self, _: Point) -> Point { unimplemented!(); }
-        fn semantic_search_right(&self, _: Point) -> Point { unimplemented!(); }
+        fn semantic_search_left(&self, _: Point<usize>) -> Point<usize> { unimplemented!(); }
+        fn semantic_search_right(&self, _: Point<usize>) -> Point<usize> { unimplemented!(); }
     }
 
     /// Test case of single cell selection
@@ -433,7 +437,7 @@ mod test {
     /// 3. [BE]
     #[test]
     fn single_cell_left_to_right() {
-        let location = Point { line: Line(0), col: Column(0) };
+        let location = Point { line: 0, col: Column(0) };
         let mut selection = Selection::simple(location, Side::Left);
         selection.update(location, Side::Right);
 
@@ -452,7 +456,7 @@ mod test {
     /// 3. [EB]
     #[test]
     fn single_cell_right_to_left() {
-        let location = Point { line: Line(0), col: Column(0) };
+        let location = Point { line: 0, col: Column(0) };
         let mut selection = Selection::simple(location, Side::Right);
         selection.update(location, Side::Left);
 
@@ -471,8 +475,8 @@ mod test {
     /// 3. [ B][E ]
     #[test]
     fn between_adjacent_cells_left_to_right() {
-        let mut selection = Selection::simple(Point::new(Line(0), Column(0)), Side::Right);
-        selection.update(Point::new(Line(0), Column(1)), Side::Left);
+        let mut selection = Selection::simple(Point::new(0, Column(0)), Side::Right);
+        selection.update(Point::new(0, Column(1)), Side::Left);
 
         assert_eq!(selection.to_span(&Dimensions::new(1, 2)), None);
     }
@@ -484,8 +488,8 @@ mod test {
     /// 3. [ E][B ]
     #[test]
     fn between_adjacent_cells_right_to_left() {
-        let mut selection = Selection::simple(Point::new(Line(0), Column(1)), Side::Left);
-        selection.update(Point::new(Line(0), Column(0)), Side::Right);
+        let mut selection = Selection::simple(Point::new(0, Column(1)), Side::Left);
+        selection.update(Point::new(0, Column(0)), Side::Right);
 
         assert_eq!(selection.to_span(&Dimensions::new(1, 2)), None);
     }
@@ -501,13 +505,13 @@ mod test {
     ///     [XX][XB][  ][  ][  ]
     #[test]
     fn across_adjacent_lines_upward_final_cell_exclusive() {
-        let mut selection = Selection::simple(Point::new(Line(1), Column(1)), Side::Right);
-        selection.update(Point::new(Line(0), Column(1)), Side::Right);
+        let mut selection = Selection::simple(Point::new(1, Column(1)), Side::Right);
+        selection.update(Point::new(0, Column(1)), Side::Right);
 
         assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
             cols: Column(5),
-            front: Point::new(Line(0), Column(1)),
-            tail: Point::new(Line(1), Column(1)),
+            front: Point::new(0, Column(1)),
+            tail: Point::new(1, Column(1)),
             ty: SpanType::ExcludeFront
         });
     }
@@ -525,14 +529,14 @@ mod test {
     ///     [XE][  ][  ][  ][  ]
     #[test]
     fn selection_bigger_then_smaller() {
-        let mut selection = Selection::simple(Point::new(Line(0), Column(1)), Side::Right);
-        selection.update(Point::new(Line(1), Column(1)), Side::Right);
-        selection.update(Point::new(Line(1), Column(0)), Side::Right);
+        let mut selection = Selection::simple(Point::new(0, Column(1)), Side::Right);
+        selection.update(Point::new(1, Column(1)), Side::Right);
+        selection.update(Point::new(1, Column(0)), Side::Right);
 
         assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
             cols: Column(5),
-            front: Point::new(Line(0), Column(1)),
-            tail: Point::new(Line(1), Column(0)),
+            front: Point::new(0, Column(1)),
+            tail: Point::new(1, Column(0)),
             ty: SpanType::ExcludeFront
         });
     }
