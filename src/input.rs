@@ -587,7 +587,7 @@ mod tests {
 
     use glutin::{VirtualKeyCode, Event, WindowEvent, ElementState, MouseButton, ModifiersState};
 
-    use term::{SizeInfo, Term, TermMode, mode};
+    use term::{SizeInfo, Term, TermMode};
     use event::{Mouse, ClickState};
     use config::{self, Config, ClickHandler};
     use index::{Point, Side};
