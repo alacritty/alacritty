@@ -298,7 +298,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn normal_mouse_report(&mut self, mut button: u8, state: ElementState, modifiers: ModifiersState) {
+    pub fn normal_mouse_report(&mut self, mut button: u8, state: ElementState) {
         let (line, column) = (self.ctx.mouse_mut().line, self.ctx.mouse_mut().column);
 
         if line < Line(223) && column < Column(223) {
@@ -308,17 +308,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 // 3 stands for any mouse button released
                 ElementState::Released => 3,
             };
-
-            // Apply modifiers
-            if modifiers.shift {
-                button += 4;
-            }
-            if modifiers.logo {
-                button += 8;
-            }
-            if modifiers.ctrl {
-                button += 16;
-            }
 
             let msg = vec![
                 b'\x1b',
@@ -333,13 +322,18 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn sgr_mouse_report(&mut self, mut button: u8, state: ElementState, modifiers: ModifiersState) {
+    pub fn sgr_mouse_report(&mut self, button: u8, state: ElementState) {
         let (line, column) = (self.ctx.mouse_mut().line, self.ctx.mouse_mut().column);
         let c = match state {
             ElementState::Pressed => 'M',
             ElementState::Released => 'm',
         };
 
+        let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1, c);
+        self.ctx.write_to_pty(msg.into_bytes());
+    }
+
+    pub fn mouse_report(&mut self, mut button: u8, state: ElementState, modifiers: ModifiersState) {
         // Apply modifiers
         if modifiers.shift {
             button += 4;
@@ -351,15 +345,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             button += 16;
         }
 
-        let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1, c);
-        self.ctx.write_to_pty(msg.into_bytes());
-    }
-
-    pub fn mouse_report(&mut self, button: u8, state: ElementState, modifiers: ModifiersState) {
+        // Report mouse event
         if self.ctx.terminal_mode().contains(TermMode::SGR_MOUSE) {
-            self.sgr_mouse_report(button, state, modifiers);
+            self.sgr_mouse_report(button, state);
         } else {
-            self.normal_mouse_report(button, state, modifiers);
+            self.normal_mouse_report(button, state);
         }
     }
 
