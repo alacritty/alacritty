@@ -346,7 +346,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn on_mouse_press(&mut self, modifiers: ModifiersState) {
+    pub fn on_left_mouse_press(&mut self, modifiers: ModifiersState) {
         let now = Instant::now();
         let elapsed = self.ctx.mouse_mut().last_click_timestamp.elapsed();
         self.ctx.mouse_mut().last_click_timestamp = now;
@@ -371,6 +371,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 ClickState::Click
             }
         };
+    }
+
+    pub fn on_mouse_press(&mut self, button: u8, modifiers: ModifiersState) {
+        let report_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION;
+        if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes) {
+            self.mouse_report(button, ElementState::Pressed);
+        }
     }
 
     pub fn on_mouse_release(&mut self, modifiers: ModifiersState) {
@@ -466,25 +473,36 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn mouse_input(&mut self, state: ElementState, button: MouseButton, modifiers: ModifiersState) {
+        if let ElementState::Pressed = state {
+            if self.process_mouse_bindings(&ModifiersState::default(), button) {
+                return;
+            }
+        }
         if let MouseButton::Left = button {
             let state = mem::replace(&mut self.ctx.mouse_mut().left_button_state, state);
             if self.ctx.mouse_mut().left_button_state != state {
                 match self.ctx.mouse_mut().left_button_state {
                     ElementState::Pressed => {
-                        self.on_mouse_press(modifiers);
+                        self.on_left_mouse_press(modifiers);
                     },
                     ElementState::Released => {
                         self.on_mouse_release(modifiers);
                     }
                 }
             }
+        } else {
+            let button_code = if let MouseButton::Right = button {
+                2
+            } else {
+                1
+            };
+            if let ElementState::Pressed = state {
+                self.on_mouse_press(button_code, modifiers);
+            } else {
+                self.on_mouse_release(modifiers);
+            }
         }
 
-        if let ElementState::Released = state {
-            return;
-        }
-
-        self.process_mouse_bindings(&ModifiersState::default(), button);
     }
 
     /// Process key input
