@@ -5,8 +5,7 @@ Alacritty
 
 Alacritty is the fastest terminal emulator in existence. Using the GPU for
 rendering enables optimizations that simply aren't possible in other emulators.
-Alacritty currently supports macOS and Linux, and Windows support is planned
-before the 1.0 release.
+Alacritty currently supports macOS and Linux, and Windows.
 
 <p align="center">
   <img width="600" alt="Alacritty running vim inside tmux" src="https://cloud.githubusercontent.com/assets/4285147/21585004/2ebd0288-d06c-11e6-95d3-4a2889dbbd6f.png">
@@ -24,8 +23,8 @@ The software is considered to be at an **alpha** level of readiness--there are
 missing features and bugs to be fixed, but it is already used by many as a daily
 driver.
 
-Precompiled binaries will eventually be made available on supported platforms.
-This is minimally blocked on a stable config format. For now, Alacritty must be
+Precompiled binaries are available for Windows through [appveyor](https://ci.appveyor.com/project/jwilm/alacritty).
+Precompiled binaries for other platforms are minimally blocked on a stable config format. For now, Alacritty must be
 built from source.
 
 ## Further information
@@ -55,6 +54,10 @@ makepkg -isr
 ```sh
 xbps-install alacritty
 ```
+
+### Windows
+
+Download `alacritty.exe` and `winpty-agent.exe` from the artifacts tab of the latest build for your arcitecture and place them in the same directory.
 
 ## Manual Installation
 
@@ -90,6 +93,10 @@ missing, please open an issue.
 ```sh
 apt-get install cmake libfreetype6-dev libfontconfig1-dev xclip
 ```
+
+#### Windows
+
+On windows you will need to have the `{architecture}-pc-windows-msvc` toolchain installed as well as [Clang 3.9 or greater](http://releases.llvm.org/download.html).
 
 #### Arch Linux
 
@@ -223,6 +230,11 @@ If all goes well, this should place a binary at `target/release/alacritty`.
 **BEFORE YOU RUN IT:** Install the config file as described below; otherwise,
 many things (such as arrow keys) will not work.
 
+#### Windows
+
+On windows you must have `winpty-agent.exe` in the same directory as `alacritty.exe`.
+A prebuild binary is vendored in `assets/windows/{architecture}/winpty-agent.exe`.
+
 ### Desktop Entry
 
 Many linux distributions support desktop entries for adding applications to
@@ -244,8 +256,15 @@ cp -r target/release/osx/Alacritty.app /Applications/
 
 Although it's possible the default configuration would work on your system,
 you'll probably end up wanting to customize it anyhow. There is a default
-`alacritty.yml` and `alacritty_macos.yml` at the git repository root for
-Linux and macOS repsectively.
+`alacritty.yml`, `alacritty_windows.yml` and `alacritty_macos.yml` at the git repository root for
+Linux, windows, and macOS repsectively.
+
+Many configuration options will take effect immediately upon saving changes to
+the config file. The only exception is the `font` and `dimensions` sections
+which requires Alacritty to be restarted. For further explanation of the config
+file, please consult the comments in the default config file.
+
+### Unix/MacOS
 
 Alacritty looks for the configuration file at the following paths:
 
@@ -259,10 +278,9 @@ If none of these paths are found then
 run. On most systems this often defaults to
 `$HOME/.config/alacritty/alacritty.yml`.
 
-Many configuration options will take effect immediately upon saving changes to
-the config file. The only exception is the `font` and `dimensions` sections
-which requires Alacritty to be restarted. For further explanation of the config
-file, please consult the comments in the default config file.
+### Windows
+
+Alacritty looks for the configuration file in `%userprofile%/alacritty.yml`, this usually looks like `C:\Users\Username\alacritty.yml`.
 
 ## Issues (known, unknown, feature requests, etc.)
 
@@ -284,8 +302,6 @@ Just Works.
   on another machine which is connected to Alacritty via SSH, this issue
   disappears. Actual throughput and rendering performance are still better in
   Alacritty.
-- _When will Windows support be available?_ When someone has time to work on it.
-  Contributors would be welcomed :).
 - _My arrow keys don't work_. It sounds like you deleted some key bindings from
   your config file. Please reference the default config file to restore them.
 - _Why doesn't it support scrollback?_ Alacritty's original purpose was to
