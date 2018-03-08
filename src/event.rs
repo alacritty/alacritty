@@ -315,9 +315,9 @@ impl<N: Notify> Processor<N> {
                             processor.ctx.terminal.dirty = true;
                         }
                     },
-                    MouseWheel { delta, phase, .. } => {
+                    MouseWheel { delta, phase, modifiers, .. } => {
                         *hide_cursor = false;
-                        processor.on_mouse_wheel(delta, phase);
+                        processor.on_mouse_wheel(delta, phase, modifiers);
                     },
                     Refresh => {
                         processor.ctx.terminal.dirty = true;
