@@ -1833,10 +1833,7 @@ impl ansi::Handler for Term {
                 self.set_mouse_cursor(MouseCursor::Arrow);
             },
             ansi::Mode::ReportCellMouseMotion |
-            ansi::Mode::ReportAllMouseMotion => {
-                self.mode.insert(mode::TermMode::MOUSE_MOTION);
-                self.set_mouse_cursor(MouseCursor::Arrow);
-            },
+            ansi::Mode::ReportAllMouseMotion => self.mode.insert(mode::TermMode::MOUSE_MOTION),
             ansi::Mode::ReportFocusInOut => self.mode.insert(mode::TermMode::FOCUS_IN_OUT),
             ansi::Mode::BracketedPaste => self.mode.insert(mode::TermMode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.insert(mode::TermMode::SGR_MOUSE),
@@ -1870,10 +1867,7 @@ impl ansi::Handler for Term {
                 self.set_mouse_cursor(MouseCursor::Text);
             },
             ansi::Mode::ReportCellMouseMotion |
-            ansi::Mode::ReportAllMouseMotion => {
-                self.mode.remove(mode::TermMode::MOUSE_MOTION);
-                self.set_mouse_cursor(MouseCursor::Text);
-            },
+            ansi::Mode::ReportAllMouseMotion => self.mode.remove(mode::TermMode::MOUSE_MOTION),
             ansi::Mode::ReportFocusInOut => self.mode.remove(mode::TermMode::FOCUS_IN_OUT),
             ansi::Mode::BracketedPaste => self.mode.remove(mode::TermMode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.remove(mode::TermMode::SGR_MOUSE),

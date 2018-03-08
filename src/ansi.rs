@@ -876,7 +876,6 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
         let handler = &mut self.handler;
         let writer = &mut self.writer;
 
-
         macro_rules! unhandled {
             () => {{
                 warn!("[Unhandled CSI] action={:?}, args={:?}, intermediates={:?}",
@@ -959,10 +958,12 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             'T' => handler.scroll_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             'L' => handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             'l' => {
-                let mode = Mode::from_primitive(private, arg_or_default!(idx: 0, default: 0));
-                match mode {
-                    Some(mode) => handler.unset_mode(mode),
-                    None => unhandled!(),
+                for arg in args {
+                    let mode = Mode::from_primitive(private, *arg);
+                    match mode {
+                        Some(mode) => handler.unset_mode(mode),
+                        None => unhandled!(),
+                    }
                 }
             },
             'M' => handler.delete_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
@@ -971,10 +972,12 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             'Z' => handler.move_backward_tabs(arg_or_default!(idx: 0, default: 1)),
             'd' => handler.goto_line(Line(arg_or_default!(idx: 0, default: 1) as usize - 1)),
             'h' => {
-                let mode = Mode::from_primitive(private, arg_or_default!(idx: 0, default: 0));
-                match mode {
-                    Some(mode) => handler.set_mode(mode),
-                    None => unhandled!(),
+                for arg in args {
+                    let mode = Mode::from_primitive(private, *arg);
+                    match mode {
+                        Some(mode) => handler.set_mode(mode),
+                        None => unhandled!(),
+                    }
                 }
             },
             'm' => {
@@ -985,7 +988,6 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     return;
                 }
                 loop {
-                    // println!("args.len = {}; i={}", args.len(), i);
                     if i >= args.len() { // C-for condition
                         break;
                     }
