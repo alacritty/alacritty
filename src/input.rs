@@ -298,11 +298,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn normal_mouse_report(&mut self, button: u8, state: ElementState, modifiers: ModifiersState) {
+    pub fn normal_mouse_report(&mut self, mut button: u8, state: ElementState, modifiers: ModifiersState) {
         let (line, column) = (self.ctx.mouse_mut().line, self.ctx.mouse_mut().column);
 
         if line < Line(223) && column < Column(223) {
-            let mut c = match state {
+            button = match state {
                 // 0/1/2 stands for MB1/MB2/MB3 pressed
                 ElementState::Pressed => button,
                 // 3 stands for any mouse button released
@@ -311,20 +311,20 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
             // Apply modifiers
             if modifiers.shift {
-                c += 4;
+                button += 4;
             }
             if modifiers.logo {
-                c += 8;
+                button += 8;
             }
             if modifiers.ctrl {
-                c += 16;
+                button += 16;
             }
 
             let msg = vec![
                 b'\x1b',
                 b'[',
                 b'M',
-                32 + c,
+                32 + button,
                 32 + 1 + column.0 as u8,
                 32 + 1 + line.0 as u8,
             ];
@@ -333,7 +333,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn sgr_mouse_report(&mut self, button: u8, state: ElementState, modifiers: ModifiersState) {
+    pub fn sgr_mouse_report(&mut self, mut button: u8, state: ElementState, modifiers: ModifiersState) {
         let (line, column) = (self.ctx.mouse_mut().line, self.ctx.mouse_mut().column);
         let c = match state {
             ElementState::Pressed => 'M',
@@ -341,7 +341,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         };
 
         // Apply modifiers
-        let mut button = button;
         if modifiers.shift {
             button += 4;
         }
@@ -350,10 +349,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
         if modifiers.ctrl {
             button += 16;
-        }
-
-        if let ElementState::Released = state {
-            button = 3;
         }
 
         let msg = format!("\x1b[<{};{};{}{}", button, column + 1, line + 1, c);
@@ -380,7 +375,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn on_mouse_press(&mut self, modifiers: ModifiersState) {
+    pub fn on_mouse_press(&mut self, modifiers: ModifiersState, button_code: u8) {
         let now = Instant::now();
         let elapsed = self.ctx.mouse_mut().last_click_timestamp.elapsed();
         self.ctx.mouse_mut().last_click_timestamp = now;
@@ -397,10 +392,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             _ => {
                 self.ctx.clear_selection();
                 let report_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_MOTION;
-                if !modifiers.shift &&
-                    self.ctx.terminal_mode().intersects(report_modes)
-                {
-                    self.mouse_report(0, ElementState::Pressed, modifiers);
+                if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes) {
+                    self.mouse_report(button_code, ElementState::Pressed, modifiers);
                     return;
                 }
 
@@ -409,12 +402,10 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         };
     }
 
-    pub fn on_mouse_release(&mut self, modifiers: ModifiersState) {
+    pub fn on_mouse_release(&mut self, modifiers: ModifiersState, button_code: u8) {
         let report_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_MOTION;
-        if !modifiers.shift &&
-            self.ctx.terminal_mode().intersects(report_modes)
-        {
-            self.mouse_report(0, ElementState::Released, modifiers);
+        if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes) {
+            self.mouse_report(button_code, ElementState::Released, modifiers);
             return;
         }
 
@@ -512,17 +503,26 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn mouse_input(&mut self, state: ElementState, button: MouseButton, modifiers: ModifiersState) {
-        if let MouseButton::Left = button {
-            let state = mem::replace(&mut self.ctx.mouse_mut().left_button_state, state);
-            if self.ctx.mouse_mut().left_button_state != state {
-                match self.ctx.mouse_mut().left_button_state {
-                    ElementState::Pressed => {
-                        self.on_mouse_press(modifiers);
-                    },
-                    ElementState::Released => {
-                        self.on_mouse_release(modifiers);
-                    }
-                }
+        let button_code = match button {
+            MouseButton::Left => {
+                // Update button state for selection
+                self.ctx.mouse_mut().left_button_state = state;
+
+                Some(0)
+            },
+            MouseButton::Middle => Some(1),
+            MouseButton::Right => Some(2),
+            _ => None,
+        };
+
+        if let Some(button_code) = button_code {
+            match state {
+                ElementState::Pressed => {
+                    self.on_mouse_press(modifiers, button_code);
+                },
+                ElementState::Released => {
+                    self.on_mouse_release(modifiers, button_code);
+                },
             }
         }
 
