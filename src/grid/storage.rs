@@ -13,13 +13,23 @@
 /// done so manually.
 use std::ops::{Index, IndexMut};
 
-use index::Line;
+use index::{IndexRange, Line};
 
-#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Storage<T> {
     inner: Vec<T>,
     zero: usize,
     visible_lines: Line,
+}
+
+impl<T: PartialEq> ::std::cmp::PartialEq for Storage<T> {
+    fn eq(&self, other: &Self) -> bool {
+        let mut equal = true;
+        for i in IndexRange(Line(0) .. self.visible_lines) {
+            equal = equal && (self[i] == other[i])
+        }
+        equal
+    }
 }
 
 impl<T> Storage<T> {
