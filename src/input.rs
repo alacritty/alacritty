@@ -399,8 +399,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     65
                 };
 
-                for _ in 0..(to_scroll.abs() as usize * SCROLL_MULTIPLIER) {
-                    self.scroll_terminal(mouse_modes, code)
+                for _ in 0..(to_scroll.abs() as usize) {
+                    self.scroll_terminal(mouse_modes, code, SCROLL_MULTIPLIER)
                 }
 
                 self.ctx.mouse_mut().lines_scrolled = to_scroll % 1.0;
@@ -424,7 +424,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                                 65
                             };
 
-                            self.scroll_terminal(mouse_modes, code)
+                            self.scroll_terminal(mouse_modes, code, 1)
                         }
                     },
                     _ => (),
@@ -433,25 +433,28 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    fn scroll_terminal(&mut self, mouse_modes: TermMode, code: u8) {
+    fn scroll_terminal(&mut self, mouse_modes: TermMode, code: u8, scroll_multiplier: usize) {
         debug_assert!(code == 64 || code == 65);
 
         let faux_scrollback_lines = self.mouse_config.faux_scrollback_lines;
         if self.ctx.terminal_mode().intersects(mouse_modes) {
             self.mouse_report(code, ElementState::Pressed);
-        // } else if faux_scrollback_lines > 0 {
-        //     // Faux scrolling
-        //     let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
-        //     let mut content = Vec::with_capacity(faux_scrollback_lines * 3);
-        //     for _ in 0..faux_scrollback_lines {
-        //         content.push(0x1b);
-        //         content.push(b'O');
-        //         content.push(cmd);
-        //     }
-        //     self.ctx.write_to_pty(content);
-        // }
+        } else if self.ctx.terminal_mode().contains(TermMode::ALT_SCREEN)
+            && faux_scrollback_lines > 0
+        {
+            // Faux scrolling
+            let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
+            let mut content = Vec::with_capacity(faux_scrollback_lines * 3);
+            for _ in 0..faux_scrollback_lines {
+                content.push(0x1b);
+                content.push(b'O');
+                content.push(cmd);
+            }
+            self.ctx.write_to_pty(content);
         } else {
-            self.ctx.scroll(-((code as isize) * 2 - 129));
+            for _ in 0..scroll_multiplier {
+                self.ctx.scroll(-((code as isize) * 2 - 129));
+            }
         }
     }
 
