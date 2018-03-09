@@ -43,11 +43,13 @@ fn scroll_up() {
     other[Line(5)][Column(0)] = 7;
     other[Line(6)][Column(0)] = 8;
     other[Line(7)][Column(0)] = 9;
-    other[Line(8)][Column(0)] = 0;
-    other[Line(9)][Column(0)] = 1;
+    other[Line(8)][Column(0)] = 0; // should be cleared on scroll; was 0
+    other[Line(9)][Column(0)] = 0; // should be cleared on scroll; was 1
 
     for i in 0..10 {
-        assert_eq!(grid[Line(i)][Column(0)], other[Line(i)][Column(0)]);
+        assert_eq!(grid[Line(i)][Column(0)], other[Line(i)][Column(0)],
+            "index={}; actual: {:?}, expected: {:?}",
+            Line(i), grid[Line(i)][Column(0)], other[Line(i)][Column(0)]);
     }
 }
 
@@ -69,8 +71,8 @@ fn scroll_down() {
 
     let mut other = Grid::new(Line(10), Column(1), 0, 9);
 
-    other[Line(0)][Column(0)] = 8;
-    other[Line(1)][Column(0)] = 9;
+    other[Line(0)][Column(0)] = 0; // Should be cleared upon recycle; was 8
+    other[Line(1)][Column(0)] = 0; // Should be cleared upon recycle; was 9
     other[Line(2)][Column(0)] = 0;
     other[Line(3)][Column(0)] = 1;
     other[Line(4)][Column(0)] = 2;
@@ -81,7 +83,9 @@ fn scroll_down() {
     other[Line(9)][Column(0)] = 7;
 
     for i in 0..10 {
-        assert_eq!(grid[Line(i)][Column(0)], other[Line(i)][Column(0)]);
+        assert_eq!(grid[Line(i)][Column(0)], other[Line(i)][Column(0)],
+            "index={}; actual: {:?}, expected: {:?}",
+            Line(i), grid[Line(i)][Column(0)], other[Line(i)][Column(0)]);
     }
 }
 
