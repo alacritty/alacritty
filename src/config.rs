@@ -385,18 +385,6 @@ pub struct Config {
     scrolling: Scrolling,
 }
 
-fn deserialize_scroll_history<'a, D>(deserializer: D) -> ::std::result::Result<u32, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match u32::deserialize(deserializer) {
-        Ok(lines) => Ok(lines),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(default_scroll_history())
-        },
-    }
-}
-
 fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T>, D::Error>
     where D: de::Deserializer<'a>,
           T: Deserialize<'a>
