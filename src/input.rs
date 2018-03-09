@@ -483,7 +483,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         if self.ctx.terminal_mode().intersects(mouse_modes) {
             self.mouse_report(code, ElementState::Pressed, modifiers);
         } else if self.ctx.terminal_mode().contains(TermMode::ALT_SCREEN)
-            && faux_scrollback_lines > 0
+            && faux_scrollback_lines > 0 && !modifiers.shift
         {
             // Faux scrolling
             let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
