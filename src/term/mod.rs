@@ -2100,7 +2100,7 @@ mod benches {
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {
-            let iter = terminal.renderable_cells(&config, None);
+            let iter = terminal.renderable_cells(&config, None, false);
             for cell in iter {
                 test::black_box(cell);
             }
