@@ -343,7 +343,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         if modifiers.shift {
             mods += 4;
         }
-        if modifiers.logo {
+        if modifiers.alt {
             mods += 8;
         }
         if modifiers.ctrl {
