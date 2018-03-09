@@ -317,9 +317,9 @@ impl<N: Notify> Processor<N> {
                         *hide_cursor = false;
                         processor.mouse_moved(x as u32, y as u32, modifiers);
                     },
-                    MouseWheel { delta, phase, .. } => {
+                    MouseWheel { delta, phase, modifiers, .. } => {
                         *hide_cursor = false;
-                        processor.on_mouse_wheel(delta, phase);
+                        processor.on_mouse_wheel(delta, phase, modifiers);
                     },
                     Refresh => {
                         processor.ctx.terminal.dirty = true;

@@ -388,7 +388,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         self.ctx.copy_selection(Buffer::Selection);
     }
 
-    pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
+    pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase, modifiers: ModifiersState) {
         let mouse_modes = mode::TermMode::MOUSE_REPORT_CLICK | mode::TermMode::MOUSE_MOTION | mode::TermMode::SGR_MOUSE;
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
@@ -400,7 +400,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 };
 
                 for _ in 0..(to_scroll.abs() as usize) {
-                    self.scroll_terminal(mouse_modes, code, SCROLL_MULTIPLIER)
+                    self.scroll_terminal(mouse_modes, code, modifiers, SCROLL_MULTIPLIER)
                 }
 
                 self.ctx.mouse_mut().lines_scrolled = to_scroll % 1.0;
@@ -424,7 +424,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                                 65
                             };
 
-                            self.scroll_terminal(mouse_modes, code, 1)
+                            self.scroll_terminal(mouse_modes, code, modifiers, 1)
                         }
                     },
                     _ => (),
@@ -433,14 +433,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    fn scroll_terminal(&mut self, mouse_modes: TermMode, code: u8, scroll_multiplier: usize) {
+    fn scroll_terminal(&mut self, mouse_modes: TermMode, code: u8, modifiers: ModifiersState, scroll_multiplier: usize) {
         debug_assert!(code == 64 || code == 65);
 
         let faux_scrollback_lines = self.mouse_config.faux_scrollback_lines;
         if self.ctx.terminal_mode().intersects(mouse_modes) {
             self.mouse_report(code, ElementState::Pressed);
         } else if self.ctx.terminal_mode().contains(TermMode::ALT_SCREEN)
-            && faux_scrollback_lines > 0
+            && faux_scrollback_lines > 0 && !modifiers.shift
         {
             // Faux scrolling
             let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
