@@ -439,7 +439,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     65
                 };
 
-                let scrolling_multiplier = self.mouse_config.normal_scrolling_lines;
+                let scrolling_multiplier = self.scrolling_config.multiplier;
                 for _ in 0..(to_scroll.abs() as usize) {
                     self.scroll_terminal(code, modifiers, scrolling_multiplier)
                 }
@@ -477,8 +477,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     fn scroll_terminal(&mut self, code: u8, modifiers: ModifiersState, scroll_multiplier: u8) {
         debug_assert!(code == 64 || code == 65);
 
-        let faux_scrollback_lines = self.mouse_config.faux_scrollback_lines;
         let mouse_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
+
+        // Make sure the new and deprecated setting are both allowed
+        let faux_scrollback_lines = self.mouse_config
+            .faux_scrollback_lines
+            .unwrap_or(self.scrolling_config.faux_multiplier as usize);
+
         if self.ctx.terminal_mode().intersects(mouse_modes) {
             self.mouse_report(code, ElementState::Pressed, modifiers);
         } else if self.ctx.terminal_mode().contains(TermMode::ALT_SCREEN)
