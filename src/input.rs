@@ -44,6 +44,7 @@ pub struct Processor<'a, A: 'a> {
     pub key_bindings: &'a [KeyBinding],
     pub mouse_bindings: &'a [MouseBinding],
     pub mouse_config: &'a config::Mouse,
+    pub scrolling_config: &'a config::Scrolling,
     pub ctx: A,
 }
 
@@ -756,8 +757,9 @@ mod tests {
                         triple_click: ClickHandler {
                             threshold: Duration::from_millis(1000),
                         },
-                        faux_scrollback_lines: 1,
+                        faux_scrollback_lines: None,
                     },
+                    scrolling_config: &config::Scrolling::default(),
                     key_bindings: &config.key_bindings()[..],
                     mouse_bindings: &config.mouse_bindings()[..],
                 };

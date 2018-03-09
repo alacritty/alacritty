@@ -82,47 +82,9 @@ pub struct Mouse {
     #[serde(default, deserialize_with = "failure_default")]
     pub triple_click: ClickHandler,
 
-    /// up/down arrows sent when scrolling in alt screen buffer
-    #[serde(deserialize_with = "deserialize_faux_scrollback_lines")]
-    #[serde(default="default_faux_scrollback_lines")]
-    pub faux_scrollback_lines: u8,
-
-    /// Number of lines scrolled in normal buffer with scrollback
-    #[serde(deserialize_with = "deserialize_normal_scrolling_lines")]
-    #[serde(default="default_normal_scrolling_lines")]
-    pub normal_scrolling_lines: u8,
-}
-
-fn default_faux_scrollback_lines() -> u8 {
-    1
-}
-
-fn default_normal_scrolling_lines() -> u8 {
-    3
-}
-
-fn deserialize_faux_scrollback_lines<'a, D>(deserializer: D) -> ::std::result::Result<u8, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match u8::deserialize(deserializer) {
-        Ok(lines) => Ok(lines),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(default_faux_scrollback_lines())
-        },
-    }
-}
-
-fn deserialize_normal_scrolling_lines<'a, D>(deserializer: D) -> ::std::result::Result<u8, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match u8::deserialize(deserializer) {
-        Ok(lines) => Ok(lines),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(default_normal_scrolling_lines())
-        },
-    }
+    // TODO: DEPRECATED
+    #[serde(default)]
+    pub faux_scrollback_lines: Option<usize>,
 }
 
 impl Default for Mouse {
@@ -134,8 +96,7 @@ impl Default for Mouse {
             triple_click: ClickHandler {
                 threshold: Duration::from_millis(300),
             },
-            faux_scrollback_lines: default_faux_scrollback_lines(),
-            normal_scrolling_lines: default_normal_scrolling_lines(),
+            faux_scrollback_lines: None,
         }
     }
 }
@@ -420,12 +381,8 @@ pub struct Config {
     tabspaces: usize,
 
     /// How much scrolling history to keep
-    #[serde(default="default_scroll_history", deserialize_with="deserialize_scroll_history")]
-    scroll_history: u32,
-}
-
-fn default_scroll_history() -> u32 {
-    10_000
+    #[serde(default, deserialize_with="failure_default")]
+    scrolling: Scrolling,
 }
 
 fn deserialize_scroll_history<'a, D>(deserializer: D) -> ::std::result::Result<u32, D::Error>
@@ -518,6 +475,63 @@ impl Default for Config {
     fn default() -> Self {
         serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG)
             .expect("default config is invalid")
+    }
+}
+
+/// Struct for scrolling related settings
+#[derive(Copy, Clone, Debug, Deserialize)]
+pub struct Scrolling {
+    #[serde(deserialize_with="deserialize_scrolling_history")]
+    #[serde(default="default_scrolling_history")]
+    pub history: u32,
+    #[serde(deserialize_with="deserialize_scrolling_multiplier")]
+    #[serde(default="default_scrolling_multiplier")]
+    pub multiplier: u8,
+    #[serde(deserialize_with="deserialize_scrolling_multiplier")]
+    #[serde(default="default_scrolling_multiplier")]
+    pub faux_multiplier: u8,
+}
+
+fn default_scrolling_history() -> u32 {
+    10_000
+}
+
+// Default for normal and faux scrolling
+fn default_scrolling_multiplier() -> u8 {
+    3
+}
+
+impl Default for Scrolling {
+    fn default() -> Self {
+        Self {
+            history: default_scrolling_history(),
+            multiplier: default_scrolling_multiplier(),
+            faux_multiplier: default_scrolling_multiplier(),
+        }
+    }
+}
+
+fn deserialize_scrolling_history<'a, D>(deserializer: D) -> ::std::result::Result<u32, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match u32::deserialize(deserializer) {
+        Ok(lines) => Ok(lines),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(default_scrolling_history())
+        },
+    }
+}
+
+fn deserialize_scrolling_multiplier<'a, D>(deserializer: D) -> ::std::result::Result<u8, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match u8::deserialize(deserializer) {
+        Ok(lines) => Ok(lines),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(default_scrolling_multiplier())
+        },
     }
 }
 
@@ -1286,10 +1300,6 @@ impl Config {
             .map(|path| path.into())
     }
 
-    pub fn scroll_history(&self) -> usize {
-        self.scroll_history as _
-    }
-
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
         let path = ::xdg::BaseDirectories::with_prefix("alacritty")
             .map_err(|err| io::Error::new(io::ErrorKind::NotFound, ::std::error::Error::description(&err)))
@@ -1419,6 +1429,12 @@ impl Config {
         self.dynamic_title
     }
 
+    /// Scrolling settings
+    #[inline]
+    pub fn scrolling(&self) -> Scrolling {
+        self.scrolling
+    }
+
     pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
         let path = path.into();
         let raw = Config::read_file(path.as_path())?;
@@ -1450,6 +1466,11 @@ impl Config {
         if self.padding.is_some() {
             eprintln!("{}", fmt::Yellow("Config `padding` is deprecated. \
                                         Please use `window.padding` instead."));
+        }
+
+        if self.mouse.faux_scrollback_lines.is_some() {
+            println!("{}", fmt::Yellow("Config `mouse.faux_scrollback_lines` is deprecated. \
+                                        Please use `mouse.faux_scrolling_lines` instead."));
         }
     }
 }

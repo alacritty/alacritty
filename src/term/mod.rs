@@ -848,7 +848,8 @@ impl Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
-        let grid = Grid::new(num_lines, num_cols, config.scroll_history(), template);
+        let history_size = config.scrolling().history as usize;
+        let grid = Grid::new(num_lines, num_cols, history_size, template);
 
         let tabspaces = config.tabspaces();
         let tabs = IndexRange::from(Column(0)..grid.num_cols())
