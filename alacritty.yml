@@ -223,7 +223,7 @@ mouse:
   #
   # Number of lines the viewport will move when scrolling in
   # the terminal with scrollback enabled (>0).
-  normal_scrolling_lines: 300
+  normal_scrolling_lines: 3
 
 selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>"
