@@ -398,12 +398,24 @@ pub struct Config {
     tabspaces: usize,
 
     /// How much scrolling history to keep
-    #[serde(default="default_scroll_history", deserialize_with="failure_default")]
+    #[serde(default="default_scroll_history", deserialize_with="deserialize_scroll_history")]
     scroll_history: u32,
 }
 
 fn default_scroll_history() -> u32 {
     10_000
+}
+
+fn deserialize_scroll_history<'a, D>(deserializer: D) -> ::std::result::Result<u32, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match u32::deserialize(deserializer) {
+        Ok(lines) => Ok(lines),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(default_scroll_history())
+        },
+    }
 }
 
 fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T>, D::Error>
