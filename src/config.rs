@@ -85,21 +85,42 @@ pub struct Mouse {
     /// up/down arrows sent when scrolling in alt screen buffer
     #[serde(deserialize_with = "deserialize_faux_scrollback_lines")]
     #[serde(default="default_faux_scrollback_lines")]
-    pub faux_scrollback_lines: usize,
+    pub faux_scrollback_lines: u8,
+
+    /// Number of lines scrolled in normal buffer with scrollback
+    #[serde(deserialize_with = "deserialize_normal_scrolling_lines")]
+    #[serde(default="default_normal_scrolling_lines")]
+    pub normal_scrolling_lines: u8,
 }
 
-fn default_faux_scrollback_lines() -> usize {
+fn default_faux_scrollback_lines() -> u8 {
     1
 }
 
-fn deserialize_faux_scrollback_lines<'a, D>(deserializer: D) -> ::std::result::Result<usize, D::Error>
+fn default_normal_scrolling_lines() -> u8 {
+    3
+}
+
+fn deserialize_faux_scrollback_lines<'a, D>(deserializer: D) -> ::std::result::Result<u8, D::Error>
     where D: de::Deserializer<'a>
 {
-    match usize::deserialize(deserializer) {
+    match u8::deserialize(deserializer) {
         Ok(lines) => Ok(lines),
         Err(err) => {
             eprintln!("problem with config: {}; Using default value", err);
             Ok(default_faux_scrollback_lines())
+        },
+    }
+}
+
+fn deserialize_normal_scrolling_lines<'a, D>(deserializer: D) -> ::std::result::Result<u8, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match u8::deserialize(deserializer) {
+        Ok(lines) => Ok(lines),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(default_normal_scrolling_lines())
         },
     }
 }
@@ -113,7 +134,8 @@ impl Default for Mouse {
             triple_click: ClickHandler {
                 threshold: Duration::from_millis(300),
             },
-            faux_scrollback_lines: 1,
+            faux_scrollback_lines: default_faux_scrollback_lines(),
+            normal_scrolling_lines: default_normal_scrolling_lines(),
         }
     }
 }

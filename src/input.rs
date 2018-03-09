@@ -34,8 +34,6 @@ use term::SizeInfo;
 use term::mode::TermMode;
 use util::fmt::Red;
 
-const SCROLL_MULTIPLIER: usize = 3;
-
 /// Processes input from glutin.
 ///
 /// An escape sequence may be emitted in case specific keys or key combinations
@@ -431,7 +429,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase, modifiers: ModifiersState) {
-        let mouse_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let to_scroll = self.ctx.mouse_mut().lines_scrolled + lines;
@@ -441,8 +438,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     65
                 };
 
+                let scrolling_multiplier = self.mouse_config.normal_scrolling_lines;
                 for _ in 0..(to_scroll.abs() as usize) {
-                    self.scroll_terminal(code, modifiers, SCROLL_MULTIPLIER)
+                    self.scroll_terminal(code, modifiers, scrolling_multiplier)
                 }
 
                 self.ctx.mouse_mut().lines_scrolled = to_scroll % 1.0;
@@ -475,7 +473,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    fn scroll_terminal(&mut self, code: u8, modifiers: ModifiersState, scroll_multiplier: usize) {
+    fn scroll_terminal(&mut self, code: u8, modifiers: ModifiersState, scroll_multiplier: u8) {
         debug_assert!(code == 64 || code == 65);
 
         let faux_scrollback_lines = self.mouse_config.faux_scrollback_lines;
@@ -487,7 +485,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         {
             // Faux scrolling
             let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
-            let mut content = Vec::with_capacity(faux_scrollback_lines * 3);
+            let mut content = Vec::with_capacity(faux_scrollback_lines as usize * 3);
             for _ in 0..faux_scrollback_lines {
                 content.push(0x1b);
                 content.push(b'O');
