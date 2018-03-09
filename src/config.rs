@@ -398,7 +398,7 @@ pub struct Config {
     tabspaces: usize,
 
     /// How much scrolling history to keep
-    #[serde(default="default_scroll_history")]
+    #[serde(default="default_scroll_history", deserialize_with="failure_default")]
     scroll_history: u32,
 }
 
