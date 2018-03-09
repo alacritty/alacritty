@@ -1986,7 +1986,7 @@ mod tests {
             padding_y: 0.0,
         };
         let mut term = Term::new(&Default::default(), size);
-        let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), &Cell::default());
+        let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0, Cell::default());
         for i in 0..5 {
             for j in 0..2 {
                 grid[Line(j)][Column(i)].c = 'a';
@@ -2003,18 +2003,18 @@ mod tests {
         mem::swap(&mut term.semantic_escape_chars, &mut escape_chars);
 
         {
-            let selection = Selection::semantic(Point { line: Line(0), col: Column(1) }, &term);
-            assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aa");
+            *term.selection_mut() = Some(Selection::semantic(Point { line: 2, col: Column(1) }, &term));
+            assert_eq!(term.selection_to_string(), Some(String::from("aa")));
         }
 
         {
-            let selection = Selection::semantic(Point { line: Line(0), col: Column(4) }, &term);
-            assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aaa");
+            *term.selection_mut() = Some(Selection::semantic(Point { line: 2, col: Column(4) }, &term));
+            assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
         }
 
         {
-            let selection = Selection::semantic(Point { line: Line(1), col: Column(1) }, &term);
-            assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aaa");
+            *term.selection_mut() = Some(Selection::semantic(Point { line: 1, col: Column(1) }, &term));
+            assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
         }
     }
 
@@ -2029,7 +2029,7 @@ mod tests {
             padding_y: 0.0,
         };
         let mut term = Term::new(&Default::default(), size);
-        let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), &Cell::default());
+        let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0, Cell::default());
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
         }
@@ -2039,10 +2039,8 @@ mod tests {
 
         mem::swap(&mut term.grid, &mut grid);
 
-        let selection = Selection::lines(Point { line: Line(0), col: Column(3) });
-        if let Some(span) = selection.to_span(&term) {
-            assert_eq!(term.string_from_selection(&span), "\"aa\"a\n");
-        }
+        *term.selection_mut() = Some(Selection::lines(Point { line: 0, col: Column(3) }));
+        assert_eq!(term.selection_to_string(), Some(String::from("\"aa\"a\n")));
     }
 
     /// Check that the grid can be serialized back and forth losslessly
@@ -2053,7 +2051,7 @@ mod tests {
     fn grid_serde() {
         let template = Cell::default();
 
-        let grid = Grid::new(Line(24), Column(80), &template);
+        let grid: Grid<Cell> = Grid::new(Line(24), Column(80), 0, template);
         let serialized = serde_json::to_string(&grid).expect("ser");
         let deserialized = serde_json::from_str::<Grid<Cell>>(&serialized)
                                       .expect("de");
