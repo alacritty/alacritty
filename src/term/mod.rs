@@ -989,7 +989,7 @@ impl Term {
                 res.append(&self.grid, end.line, end.col..max_col);
 
                 let middle_range = (start.line + 1)..(end.line);
-                for line in middle_range {
+                for line in middle_range.rev() {
                     res.append(&self.grid, line, Column(0)..max_col);
                 }
 
