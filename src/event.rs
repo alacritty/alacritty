@@ -191,6 +191,7 @@ pub struct Processor<N> {
     key_bindings: Vec<KeyBinding>,
     mouse_bindings: Vec<MouseBinding>,
     mouse_config: config::Mouse,
+    scrolling_config: config::Scrolling,
     print_events: bool,
     wait_for_event: bool,
     notifier: N,
@@ -232,6 +233,7 @@ impl<N: Notify> Processor<N> {
             key_bindings: config.key_bindings().to_vec(),
             mouse_bindings: config.mouse_bindings().to_vec(),
             mouse_config: config.mouse().to_owned(),
+            scrolling_config: config.scrolling(),
             print_events: options.print_events,
             wait_for_event: true,
             notifier,
@@ -395,6 +397,7 @@ impl<N: Notify> Processor<N> {
 
             processor = input::Processor {
                 ctx: context,
+                scrolling_config: &self.scrolling_config,
                 mouse_config: &self.mouse_config,
                 key_bindings: &self.key_bindings[..],
                 mouse_bindings: &self.mouse_bindings[..],
