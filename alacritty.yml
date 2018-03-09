@@ -33,8 +33,24 @@ window:
   # Setting this to false will result in window without borders and title bar.
   decorations: true
 
-# How many lines of scrollback to keep
-scroll_history: 10000
+scrolling:
+  # How many lines of scrollback to keep,
+  # '0' will disable scrolling.
+  history: 10000
+
+  # Number of lines the viewport will move for every line
+  # scrolled when scrollback is enabled (history > 0).
+  multiplier: 1
+
+  # Faux Scrolling
+  #
+  # The `faux_multiplier` setting controls the number
+  # of lines the terminal should scroll when the alternate
+  # screen buffer is active. This is used to allow mouse
+  # scrolling for applications like `man`.
+  #
+  # To disable this completely, set `faux_multiplier` to 0.
+  faux_multiplier: 3
 
 # Display tabs using this many cells (changes require restart)
 tabspaces: 8
@@ -208,22 +224,6 @@ mouse:
   # or triple click.
   double_click: { threshold: 300 }
   triple_click: { threshold: 300 }
-
-  # Faux Scrollback
-  #
-  # The `faux_scrollback_lines` setting controls the number
-  # of lines the terminal should scroll when the alternate
-  # screen buffer is active. This is used to allow mouse
-  # scrolling for applications like `man`.
-  #
-  # To disable this completely, set `faux_scrollback_lines` to 0.
-  faux_scrollback_lines: 1
-
-  # Normal Scrolling
-  #
-  # Number of lines the viewport will move when scrolling in
-  # the terminal with scrollback enabled (>0).
-  normal_scrolling_lines: 3
 
 selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>"
