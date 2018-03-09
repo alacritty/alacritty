@@ -34,8 +34,6 @@ use term::SizeInfo;
 use term::mode::{self, TermMode};
 use util::fmt::Red;
 
-const SCROLL_MULTIPLIER: usize = 3;
-
 /// Processes input from glutin.
 ///
 /// An escape sequence may be emitted in case specific keys or key combinations
@@ -399,8 +397,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     65
                 };
 
+                let scrolling_multiplier = self.mouse_config.normal_scrolling_lines;
                 for _ in 0..(to_scroll.abs() as usize) {
-                    self.scroll_terminal(mouse_modes, code, modifiers, SCROLL_MULTIPLIER)
+                    self.scroll_terminal(mouse_modes, code, modifiers, scrolling_multiplier)
                 }
 
                 self.ctx.mouse_mut().lines_scrolled = to_scroll % 1.0;
@@ -433,10 +432,10 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    fn scroll_terminal(&mut self, mouse_modes: TermMode, code: u8, modifiers: ModifiersState, scroll_multiplier: usize) {
+    fn scroll_terminal(&mut self, mouse_modes: TermMode, code: u8, modifiers: ModifiersState, scroll_multiplier: u8) {
         debug_assert!(code == 64 || code == 65);
 
-        let faux_scrollback_lines = self.mouse_config.faux_scrollback_lines;
+        let faux_scrollback_lines = self.mouse_config.faux_scrollback_lines as usize;
         if self.ctx.terminal_mode().intersects(mouse_modes) {
             self.mouse_report(code, ElementState::Pressed);
         } else if self.ctx.terminal_mode().contains(TermMode::ALT_SCREEN)
