@@ -7,9 +7,9 @@ environment:
     CRATE_NAME: alacritty
 
   matrix:
-    - platform: x86
+    - platform: x86_64
       TARGET: x86_64-pc-windows-msvc
-    - platform: x64
+    - platform: x86
       TARGET: i686-pc-windows-msvc
 
 shallow_clone: true
@@ -26,8 +26,6 @@ install:
     )
 
 cache:
-  - \%USERPROFILE%\.cargo
-# - \%USERPROFILE%\.multirust
   - target
 
 build_script:
@@ -37,17 +35,17 @@ build_script:
 test_script:
   - cargo test --target %TARGET%
 
-before_deploy:
-  # TODO Update this to build the artifacts that matter to you
-  - cargo build --target %TARGET% --release
-  - ps: ci\before_deploy.ps1
-
 artifacts:
   - path: target\%TARGET%\debug\alacritty.exe
     name: Alacritty (debug build)
   - path: target\%TARGET%\release\alacritty.exe
     name: Alacritty
   - path: assets\windows\%platform%\winpty-agent.exe
+    name: Winpty agent
+
+before_deploy:
+  - cargo build --target %TARGET% --release
+  - ps: ci\before_deploy.ps1
 
 # deploy:
 #   artifact: /.*\.zip/
@@ -68,7 +66,4 @@ branches:
     # Release tags
     - /^v\d+\.\d+\.\d+.*$/
     - master
-    - windows
-
-# Building is done in the test phase, so we disable Appveyor's build phase.
-build: false
+    - /.*windows.*/
