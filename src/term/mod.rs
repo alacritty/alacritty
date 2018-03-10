@@ -1060,7 +1060,6 @@ impl Term {
         let selection = self.grid.selection.as_ref()
             .and_then(|s| s.to_span(self))
             .map(|span| {
-                // println!("span={:?}, locations={:?}", span, span.to_locations());
                 span.to_locations()
             });
         let cursor = if window_focused {
