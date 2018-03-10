@@ -122,29 +122,49 @@ impl<'a> RenderableCellsIter<'a> {
         let cursor_offset = grid.line_to_offset(cursor.line);
         let inner = grid.display_iter();
 
-        let selection = selection.map(|loc| {
-            // start and end *lines* are swapped as we switch from buffer to
-            // Line coordinates.
-            let mut end = Point {
-                line: grid.buffer_line_to_visible(loc.start.line),
-                col: loc.start.col
-            };
-            let mut start = Point {
-                line: grid.buffer_line_to_visible(loc.end.line),
-                col: loc.end.col
+        let mut selection_range = None;
+        selection.map(|loc| {
+            // Get on-screen lines of the selection's locations
+            let start_line = grid.buffer_line_to_visible(loc.start.line);
+            let end_line = grid.buffer_line_to_visible(loc.end.line);
+
+            // Get start/end locations based on what part of selection is on screen
+            let locations = match (start_line, end_line) {
+                (Some(start_line), Some(end_line)) => {
+                    Some((start_line, loc.start.col, end_line, loc.end.col))
+                },
+                (Some(start_line), None) => {
+                    Some((start_line, loc.start.col, Line(0), grid.num_cols()))
+                },
+                (None, Some(end_line)) => {
+                    Some((grid.num_lines(), Column(0), end_line, loc.end.col))
+                },
+                (None, None) => None,
             };
 
-            if start > end {
-                ::std::mem::swap(&mut start, &mut end);
+            if let Some((start_line, start_col, end_line, end_col)) = locations {
+                // start and end *lines* are swapped as we switch from buffer to
+                // Line coordinates.
+                let mut end = Point {
+                    line: start_line,
+                    col: start_col,
+                };
+                let mut start = Point {
+                    line: end_line,
+                    col: end_col,
+                };
+
+                if start > end {
+                    ::std::mem::swap(&mut start, &mut end);
+                }
+
+                let cols = grid.num_cols();
+                let start = Linear(start.line.0 * cols.0 + start.col.0);
+                let end = Linear(end.line.0 * cols.0 + end.col.0);
+
+                // Update the selection
+                selection_range = Some(RangeInclusive::new(start, end));
             }
-
-            println!("start={:?}, end={:?}", start, end);
-
-            let cols = grid.num_cols();
-            let start = Linear(start.line.0 * cols.0 + start.col.0);
-            let end = Linear(end.line.0 * cols.0 + end.col.0);
-
-            RangeInclusive::new(start, end)
         });
 
         RenderableCellsIter {
@@ -153,7 +173,7 @@ impl<'a> RenderableCellsIter<'a> {
             grid: grid,
             inner: inner,
             mode: mode,
-            selection: selection,
+            selection: selection_range,
             config: config,
             colors: colors,
             cursor_cells: ArrayDeque::new(),
