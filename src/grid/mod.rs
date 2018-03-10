@@ -176,6 +176,26 @@ impl<T: Copy + Clone> Grid<T> {
         self.display_offset = 0;
     }
 
+    pub fn scroll_to_top(&mut self) {
+        self.display_offset = self.scroll_limit;
+    }
+
+    pub fn scroll_page_up(&mut self) {
+        if self.display_offset + self.lines.0 >= self.scroll_limit {
+            self.display_offset = self.scroll_limit;
+        } else {
+            self.display_offset += self.lines.0;
+        }
+    }
+
+    pub fn scroll_page_down(&mut self) {
+        if self.display_offset <= self.lines.0 {
+            self.display_offset = 0;
+        } else {
+            self.display_offset -= self.lines.0;
+        }
+    }
+
     pub fn resize(&mut self, lines: index::Line, cols: index::Column) {
         // Check that there's actually work to do and return early if not
         if lines == self.lines && cols == self.cols {

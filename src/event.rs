@@ -61,6 +61,18 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.reset_scroll();
     }
 
+    fn scroll_to_top(&mut self) {
+        self.terminal.scroll_to_top();
+    }
+
+    fn scroll_page_up(&mut self) {
+        self.terminal.scroll_page_up();
+    }
+
+    fn scroll_page_down(&mut self) {
+        self.terminal.scroll_page_down();
+    }
+
     fn copy_selection(&self, buffer: ::copypasta::Buffer) {
         self.terminal
             .selection_to_string()
