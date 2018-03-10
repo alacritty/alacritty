@@ -262,7 +262,18 @@ live_config_reload: true
 # around them.
 #
 # Either an `action`, `chars`, or `command` field must be present.
-#   `action` must be one of `Paste`, `PasteSelection`, `Copy`, or `Quit`.
+#   `action` must be one of the following:
+#       - `Paste`
+#       - `PasteSelection`
+#       - `Copy`
+#       - `IncreaseFontSize`
+#       - `DecreaseFontSize`
+#       - `ResetFontSize`
+#       - `ScrollPageUp`
+#       - `ScrollPageDown`
+#       - `ScrollToTop`
+#       - `ScrollToBottom`
+#       - `Quit`
 #   `chars` writes the specified string every time that binding is activated.
 #     These should generally be escape sequences, but they can be configured to
 #     send arbitrary strings of bytes.

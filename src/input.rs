@@ -65,8 +65,11 @@ pub trait ActionContext {
     fn last_modifiers(&mut self) -> &mut ModifiersState;
     fn change_font_size(&mut self, delta: i8);
     fn reset_font_size(&mut self);
-    fn scroll(&mut self, count: isize) {}
-    fn reset_scroll(&mut self) {}
+    fn scroll(&mut self, count: isize);
+    fn reset_scroll(&mut self);
+    fn scroll_to_top(&mut self);
+    fn scroll_page_up(&mut self);
+    fn scroll_page_down(&mut self);
 }
 
 /// Describes a state and action to take in that state
@@ -168,6 +171,18 @@ pub enum Action {
     /// Reset font size to the config value
     ResetFontSize,
 
+    /// Scroll exactly one page up
+    ScrollPageUp,
+
+    /// Scroll exactly one page down
+    ScrollPageDown,
+
+    /// Scroll all the way to the top
+    ScrollToTop,
+
+    /// Scroll all the way to the bottom
+    ScrollToBottom,
+
     /// Run given command
     Command(String, Vec<String>),
 
@@ -237,7 +252,19 @@ impl Action {
             }
             Action::ResetFontSize => {
                ctx.reset_font_size();
-            }
+            },
+            Action::ScrollPageUp => {
+                ctx.scroll_page_up();
+            },
+            Action::ScrollPageDown => {
+                ctx.scroll_page_down();
+            },
+            Action::ScrollToTop => {
+                ctx.scroll_to_top();
+            },
+            Action::ScrollToBottom => {
+                ctx.reset_scroll();
+            },
         }
     }
 

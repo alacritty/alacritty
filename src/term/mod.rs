@@ -831,6 +831,22 @@ impl Term {
 
     pub fn reset_scroll(&mut self) {
         self.grid.reset_scroll_display();
+        self.dirty = true;
+    }
+
+    pub fn scroll_to_top(&mut self) {
+        self.grid.scroll_to_top();
+        self.dirty = true;
+    }
+
+    pub fn scroll_page_up(&mut self) {
+        self.grid.scroll_page_up();
+        self.dirty = true;
+    }
+
+    pub fn scroll_page_down(&mut self) {
+        self.grid.scroll_page_down();
+        self.dirty = true;
     }
 
     #[inline]
