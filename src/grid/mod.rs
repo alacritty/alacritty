@@ -148,13 +148,17 @@ impl<T: Copy + Clone> Grid<T> {
 
     pub fn buffer_to_visible(&self, point: Point<usize>) -> Point {
         Point {
-            line: self.buffer_line_to_visible(point.line),
+            line: self.buffer_line_to_visible(point.line).expect("Line not visible"),
             col: point.col
         }
     }
 
-    pub fn buffer_line_to_visible(&self, line: usize) -> Line {
-        self.offset_to_line(line - self.display_offset)
+    pub fn buffer_line_to_visible(&self, line: usize) -> Option<Line> {
+        if line >= self.display_offset {
+            self.offset_to_line(line - self.display_offset)
+        } else {
+            None
+        }
     }
 
     pub fn visible_line_to_buffer(&self, line: Line) -> usize {
@@ -267,10 +271,12 @@ impl<T: Copy + Clone> Grid<T> {
         *(self.num_lines() - line - 1)
     }
 
-    pub fn offset_to_line(&self, offset: usize) -> Line {
-        assert!(offset < *self.num_lines());
-
-        self.lines - offset - 1
+    pub fn offset_to_line(&self, offset: usize) -> Option<Line> {
+        if offset < *self.num_lines() {
+            Some(self.lines - offset - 1)
+        } else {
+            None
+        }
     }
 
     #[inline]
