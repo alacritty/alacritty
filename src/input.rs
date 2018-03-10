@@ -275,7 +275,10 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             let cell_x = (x as usize - size_info.padding_x as usize) % size_info.cell_width as usize;
             let half_cell_width = (size_info.cell_width / 2.0) as usize;
 
-            let cell_side = if cell_x > half_cell_width {
+            let cell_side = if cell_x > half_cell_width
+                // Edge case when mouse leaves the window
+                || x as f32 >= size_info.width - size_info.padding_x
+            {
                 Side::Right
             } else {
                 Side::Left

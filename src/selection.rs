@@ -191,8 +191,6 @@ impl Selection {
             (region.end, region.start)
         };
 
-        println!("BEFORE front={:?}, start={:?}, tail={:?}, end={:?}", front, start, tail, end);
-
         if front < tail && front.line == tail.line {
             start = grid.semantic_search_left(front);
             end = grid.semantic_search_right(tail);
@@ -200,8 +198,6 @@ impl Selection {
             start = grid.semantic_search_right(front);
             end = grid.semantic_search_left(tail);
         }
-
-        println!("AFTER  front={:?}, start={:?}, tail={:?}, end={:?}", front, start, tail, end);
 
         if start > end {
             ::std::mem::swap(&mut start, &mut end);
@@ -249,11 +245,20 @@ impl Selection {
     }
 
     fn span_simple<G: Dimensions>(grid: &G, region: &Range<Anchor>) -> Option<Span> {
-        let start = region.start.point;
+        let mut start = region.start.point;
         let start_side = region.start.side;
-        let end = region.end.point;
+        let mut end = region.end.point;
         let end_side = region.end.side;
         let cols = grid.dimensions().col;
+
+        // Handle some edge cases
+        if start.line > end.line {
+            start.col += 1;
+            end.col -= 1;
+        } else if start.line < end.line {
+            start.col -= 1;
+            end.col += 1;
+        }
 
         let (front, tail, front_side, tail_side) = if start > end {
             // Selected upward; start/end are swapped
