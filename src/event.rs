@@ -10,6 +10,7 @@ use parking_lot::MutexGuard;
 use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store};
 
+use grid::Scroll;
 use config::{self, Config};
 use cli::Options;
 use display::OnResize;
@@ -53,24 +54,8 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         *self.size_info
     }
 
-    fn scroll(&mut self, count: isize) {
-        self.terminal.scroll_display(count);
-    }
-
-    fn reset_scroll(&mut self) {
-        self.terminal.reset_scroll();
-    }
-
-    fn scroll_to_top(&mut self) {
-        self.terminal.scroll_to_top();
-    }
-
-    fn scroll_page_up(&mut self) {
-        self.terminal.scroll_page_up();
-    }
-
-    fn scroll_page_down(&mut self) {
-        self.terminal.scroll_page_down();
+    fn scroll(&mut self, scroll: Scroll) {
+        self.terminal.scroll_display(scroll);
     }
 
     fn copy_selection(&self, buffer: ::copypasta::Buffer) {

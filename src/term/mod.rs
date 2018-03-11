@@ -24,7 +24,7 @@ use unicode_width::UnicodeWidthChar;
 
 use font::{self, Size};
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter};
+use grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter, Scroll};
 use index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
 use selection::{self, Selection, Locations};
 use config::{Config, VisualBellAnimation};
@@ -823,28 +823,8 @@ impl Term {
         self.next_title.take()
     }
 
-    pub fn scroll_display(&mut self, count: isize) {
-        self.grid.scroll_display(count);
-        self.dirty = true;
-    }
-
-    pub fn reset_scroll(&mut self) {
-        self.grid.reset_scroll_display();
-        self.dirty = true;
-    }
-
-    pub fn scroll_to_top(&mut self) {
-        self.grid.scroll_to_top();
-        self.dirty = true;
-    }
-
-    pub fn scroll_page_up(&mut self) {
-        self.grid.scroll_page_up();
-        self.dirty = true;
-    }
-
-    pub fn scroll_page_down(&mut self) {
-        self.grid.scroll_page_down();
+    pub fn scroll_display(&mut self, scroll: Scroll) {
+        self.grid.scroll_display(scroll);
         self.dirty = true;
     }
 
