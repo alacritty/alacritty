@@ -28,6 +28,7 @@ use copypasta::{Clipboard, Load, Buffer};
 use glutin::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState};
 
 use config;
+use grid::Scroll;
 use event::{ClickState, Mouse};
 use index::{Line, Column, Side, Point};
 use term::SizeInfo;
@@ -65,11 +66,7 @@ pub trait ActionContext {
     fn last_modifiers(&mut self) -> &mut ModifiersState;
     fn change_font_size(&mut self, delta: i8);
     fn reset_font_size(&mut self);
-    fn scroll(&mut self, count: isize);
-    fn reset_scroll(&mut self);
-    fn scroll_to_top(&mut self);
-    fn scroll_page_up(&mut self);
-    fn scroll_page_down(&mut self);
+    fn scroll(&mut self, scroll: Scroll);
 }
 
 /// Describes a state and action to take in that state
@@ -254,16 +251,16 @@ impl Action {
                ctx.reset_font_size();
             },
             Action::ScrollPageUp => {
-                ctx.scroll_page_up();
+                ctx.scroll(Scroll::PageUp);
             },
             Action::ScrollPageDown => {
-                ctx.scroll_page_down();
+                ctx.scroll(Scroll::PageDown);
             },
             Action::ScrollToTop => {
-                ctx.scroll_to_top();
+                ctx.scroll(Scroll::Top);
             },
             Action::ScrollToBottom => {
-                ctx.reset_scroll();
+                ctx.scroll(Scroll::Bottom);
             },
         }
     }
@@ -527,7 +524,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.ctx.write_to_pty(content);
         } else {
             for _ in 0..scroll_multiplier {
-                self.ctx.scroll(-((code as isize) * 2 - 129));
+                self.ctx.scroll(Scroll::Lines(-((code as isize) * 2 - 129)));
             }
         }
     }
@@ -597,7 +594,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// Process a received character
     pub fn received_char(&mut self, c: char) {
         if !*self.ctx.suppress_chars() {
-            self.ctx.reset_scroll();
+            self.ctx.scroll(Scroll::Bottom);
             self.ctx.clear_selection();
 
             let utf8_len = c.len_utf8();

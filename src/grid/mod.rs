@@ -113,6 +113,14 @@ pub struct GridIterator<'a, T: 'a> {
     top: usize,
 }
 
+pub enum Scroll {
+    Lines(isize),
+    PageUp,
+    PageDown,
+    Top,
+    Bottom,
+}
+
 impl<T: Copy + Clone> Grid<T> {
     pub fn new(lines: index::Line, cols: index::Column, scrollback: usize, template: T) -> Grid<T> {
         let mut raw = Storage::with_capacity(*lines + scrollback, lines);
@@ -165,34 +173,28 @@ impl<T: Copy + Clone> Grid<T> {
         self.line_to_offset(line) + self.display_offset
     }
 
-    pub fn scroll_display(&mut self, count: isize) {
-        self.display_offset = min(
-                max((self.display_offset as isize) + count, 0isize) as usize,
-                self.scroll_limit
-            );
-    }
-
-    pub fn reset_scroll_display(&mut self) {
-        self.display_offset = 0;
-    }
-
-    pub fn scroll_to_top(&mut self) {
-        self.display_offset = self.scroll_limit;
-    }
-
-    pub fn scroll_page_up(&mut self) {
-        if self.display_offset + self.lines.0 >= self.scroll_limit {
-            self.display_offset = self.scroll_limit;
-        } else {
-            self.display_offset += self.lines.0;
-        }
-    }
-
-    pub fn scroll_page_down(&mut self) {
-        if self.display_offset <= self.lines.0 {
-            self.display_offset = 0;
-        } else {
-            self.display_offset -= self.lines.0;
+    pub fn scroll_display(&mut self, scroll: Scroll) {
+        match scroll {
+            Scroll::Lines(count) => {
+                self.display_offset = min(
+                    max((self.display_offset as isize) + count, 0isize) as usize,
+                    self.scroll_limit
+                );
+            },
+            Scroll::PageUp => {
+                self.display_offset = min(
+                    self.display_offset + self.lines.0,
+                    self.scroll_limit
+                );
+            },
+            Scroll::PageDown => {
+                self.display_offset -= min(
+                    self.display_offset,
+                    self.lines.0
+                );
+            },
+            Scroll::Top => self.display_offset = self.scroll_limit,
+            Scroll::Bottom => self.display_offset = 0,
         }
     }
 
