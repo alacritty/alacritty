@@ -29,9 +29,73 @@ use ansi::CursorStyle;
 
 use util::fmt::Yellow;
 
-/// Function that returns true for serde default
-fn true_bool() -> bool {
-    true
+// Define two methods for falling back to a certain value in serde
+// if deserialization fails or the key is missing from the config
+macro_rules! serde_fallback {
+    ($type:ident, $default_name:ident, $deserialize_name:ident, $value:expr) => {
+        fn $default_name() -> $type {
+            $value
+        }
+
+        fn $deserialize_name<'a, D>(deserializer: D) -> ::std::result::Result<$type, D::Error>
+            where D: de::Deserializer<'a>
+        {
+            match $type::deserialize(deserializer) {
+                Ok(value) => Ok(value),
+                Err(err) => {
+                    eprintln!("problem with config: {}; Using default value.", err);
+                    Ok($value)
+                },
+            }
+        }
+    }
+}
+
+// Deserialize a boolean to `true` instead of `false`
+serde_fallback!(bool, default_true_bool, deserialize_true_bool, true);
+
+// Use the default value of a type if deserialization fails
+fn failure_default<'a, D, T>(deserializer: D)
+    -> ::std::result::Result<T, D::Error>
+    where D: de::Deserializer<'a>,
+          T: Deserialize<'a> + Default
+{
+    match T::deserialize(deserializer) {
+        Ok(value) => Ok(value),
+        Err(err) => {
+            let value = T::default();
+            eprintln!("problem with config: {}; Using default value.", err);
+            Ok(value)
+        },
+    }
+}
+
+// Setup fallback deserialization for vectors
+fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T>, D::Error>
+    where D: de::Deserializer<'a>,
+          T: Deserialize<'a>
+{
+    // Deserialize as generic vector
+    let vec = match Vec::<serde_yaml::Value>::deserialize(deserializer) {
+        Ok(vec) => vec,
+        Err(err) => {
+            eprintln!("problem with config: {}; Using empty vector", err);
+            return Ok(Vec::new());
+        },
+    };
+
+    // Move to lossy vector
+    let mut bindings: Vec<T> = Vec::new();
+    for value in vec {
+        match T::deserialize(value) {
+            Ok(binding) => bindings.push(binding),
+            Err(err) => {
+                eprintln!("problem with config: {}; Skipping value", err);
+            },
+        }
+    }
+
+    Ok(bindings)
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -47,23 +111,13 @@ impl Default for Selection {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct ClickHandler {
-    #[serde(deserialize_with="deserialize_duration_ms")]
-    pub threshold: Duration,
-}
-
-impl Default for ClickHandler {
-    fn default() -> Self {
-        ClickHandler { threshold: default_threshold_ms() }
-    }
-}
-
+// Default click threshold
 fn default_threshold_ms() -> Duration {
     Duration::from_millis(300)
 }
 
-fn deserialize_duration_ms<'a, D>(deserializer: D) -> ::std::result::Result<Duration, D::Error>
+// Custom `integer -> duration` deserializer
+fn deserialize_threshold_ms<'a, D>(deserializer: D) -> ::std::result::Result<Duration, D::Error>
     where D: de::Deserializer<'a>
 {
     match u64::deserialize(deserializer) {
@@ -74,6 +128,27 @@ fn deserialize_duration_ms<'a, D>(deserializer: D) -> ::std::result::Result<Dura
         },
     }
 }
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct ClickHandler {
+    #[serde(default="default_threshold_ms")]
+    #[serde(deserialize_with="deserialize_threshold_ms")]
+    pub threshold: Duration,
+}
+
+impl Default for ClickHandler {
+    fn default() -> Self {
+        ClickHandler { threshold: default_threshold_ms() }
+    }
+}
+
+// Setup fallback for faux scrolling
+serde_fallback!(
+    usize,
+    default_faux_scrollback_lines,
+    deserialize_faux_scrollback_lines,
+    1
+);
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Mouse {
@@ -88,22 +163,6 @@ pub struct Mouse {
     pub faux_scrollback_lines: usize,
 }
 
-fn default_faux_scrollback_lines() -> usize {
-    1
-}
-
-fn deserialize_faux_scrollback_lines<'a, D>(deserializer: D) -> ::std::result::Result<usize, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match usize::deserialize(deserializer) {
-        Ok(lines) => Ok(lines),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(default_faux_scrollback_lines())
-        },
-    }
-}
-
 impl Default for Mouse {
     fn default() -> Mouse {
         Mouse {
@@ -113,7 +172,7 @@ impl Default for Mouse {
             triple_click: ClickHandler {
                 threshold: Duration::from_millis(300),
             },
-            faux_scrollback_lines: 1,
+            faux_scrollback_lines: default_faux_scrollback_lines(),
         }
     }
 }
@@ -140,6 +199,14 @@ impl Default for VisualBellAnimation {
     }
 }
 
+// Setup visual bell duration deserialization fallback
+serde_fallback!(
+    u16,
+    default_visual_bell_duration,
+    deserialize_visual_bell_duration,
+    150
+);
+
 #[derive(Debug, Deserialize)]
 pub struct VisualBellConfig {
     /// Visual bell animation function
@@ -150,22 +217,6 @@ pub struct VisualBellConfig {
     #[serde(deserialize_with = "deserialize_visual_bell_duration")]
     #[serde(default="default_visual_bell_duration")]
     duration: u16,
-}
-
-fn default_visual_bell_duration() -> u16 {
-    150
-}
-
-fn deserialize_visual_bell_duration<'a, D>(deserializer: D) -> ::std::result::Result<u16, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match u16::deserialize(deserializer) {
-        Ok(duration) => Ok(duration),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(default_visual_bell_duration())
-        },
-    }
 }
 
 impl VisualBellConfig {
@@ -262,6 +313,14 @@ impl Default for Alpha {
     }
 }
 
+// Setup fallback window padding
+serde_fallback!(
+    Delta,
+    default_padding,
+    deserialize_padding,
+    Delta { x: 2., y: 2. }
+);
+
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct WindowConfig {
     /// Initial dimensions
@@ -275,22 +334,6 @@ pub struct WindowConfig {
     /// Draw the window with title bar / borders
     #[serde(default, deserialize_with = "failure_default")]
     decorations: bool,
-}
-
-fn default_padding() -> Delta {
-    Delta { x: 2., y: 2. }
-}
-
-fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Delta, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match Delta::deserialize(deserializer) {
-        Ok(delta) => Ok(delta),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(default_padding())
-        },
-    }
 }
 
 impl WindowConfig {
@@ -308,6 +351,14 @@ impl Default for WindowConfig {
         }
     }
 }
+
+// Setup fallback tab width
+serde_fallback!(
+    usize,
+    default_tabspaces,
+    deserialize_tabspaces,
+    8
+);
 
 /// Top-level config type
 #[derive(Debug, Deserialize)]
@@ -337,7 +388,8 @@ pub struct Config {
     custom_cursor_colors: bool,
 
     /// Should draw bold text with brighter colors instead of bold font
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    #[serde(default="default_true_bool")]
+    #[serde(deserialize_with="deserialize_true_bool")]
     draw_bold_text_with_bright_colors: bool,
 
     #[serde(default, deserialize_with = "failure_default")]
@@ -378,7 +430,8 @@ pub struct Config {
     visual_bell: VisualBellConfig,
 
     /// Use dynamic title
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    #[serde(default="default_true_bool")]
+    #[serde(deserialize_with="deserialize_true_bool")]
     dynamic_title: bool,
 
     /// Hide cursor when typing
@@ -390,81 +443,13 @@ pub struct Config {
     cursor_style: CursorStyle,
 
     /// Live config reload
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    #[serde(default="default_true_bool")]
+    #[serde(deserialize_with="deserialize_true_bool")]
     live_config_reload: bool,
 
     /// Number of spaces in one tab
     #[serde(default="default_tabspaces", deserialize_with = "deserialize_tabspaces")]
     tabspaces: usize,
-}
-
-fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T>, D::Error>
-    where D: de::Deserializer<'a>,
-          T: Deserialize<'a>
-{
-    // Deserialize as generic vector
-    let vec = match Vec::<serde_yaml::Value>::deserialize(deserializer) {
-        Ok(vec) => vec,
-        Err(err) => {
-            eprintln!("problem with config: {}; Using empty vector", err);
-            return Ok(Vec::new());
-        },
-    };
-
-    // Move to lossy vector
-    let mut bindings: Vec<T> = Vec::new();
-    for value in vec {
-        match T::deserialize(value) {
-            Ok(binding) => bindings.push(binding),
-            Err(err) => {
-                eprintln!("problem with config: {}; Skipping value", err);
-            },
-        }
-    }
-
-    Ok(bindings)
-}
-
-fn default_tabspaces() -> usize {
-    8
-}
-
-fn deserialize_tabspaces<'a, D>(deserializer: D) -> ::std::result::Result<usize, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match usize::deserialize(deserializer) {
-        Ok(value) => Ok(value),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using `8`", err);
-            Ok(default_tabspaces())
-        },
-    }
-}
-
-fn default_true_bool<'a, D>(deserializer: D) -> ::std::result::Result<bool, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match bool::deserialize(deserializer) {
-        Ok(value) => Ok(value),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using `true`", err);
-            Ok(true)
-        },
-    }
-}
-
-fn failure_default<'a, D, T>(deserializer: D)
-    -> ::std::result::Result<T, D::Error>
-    where D: de::Deserializer<'a>,
-          T: Deserialize<'a> + Default
-{
-    match T::deserialize(deserializer) {
-        Ok(value) => Ok(value),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(T::default())
-        },
-    }
 }
 
 #[cfg(not(target_os="macos"))]
@@ -1545,7 +1530,8 @@ pub struct Font {
     #[serde(default, deserialize_with = "failure_default")]
     glyph_offset: Delta,
 
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    #[serde(default="default_true_bool")]
+    #[serde(deserialize_with="deserialize_true_bool")]
     use_thin_strokes: bool
 }
 
