@@ -178,8 +178,8 @@ impl Display {
             height: viewport_size.height.0 as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
-            padding_x: config.padding().x.floor(),
-            padding_y: config.padding().y.floor(),
+            padding_x: config.padding().x as f32,
+            padding_y: config.padding().y as f32,
         };
 
         // Channel for resize events
@@ -238,10 +238,15 @@ impl Display {
         // font metrics should be computed before creating the window in the first
         // place so that a resize is not needed.
         let metrics = glyph_cache.font_metrics();
-        let cell_width = (metrics.average_advance + f64::from(font.offset().x)) as u32;
-        let cell_height = (metrics.line_height + f64::from(font.offset().y)) as u32;
+        let cell_width = metrics.average_advance as f32 + font.offset().x as f32;
+        let cell_height = metrics.line_height as f32 + font.offset().y as f32;
 
-        Ok((glyph_cache, cell_width as f32, cell_height as f32))
+        // Prevent invalid cell sizes
+        if cell_width < 1. || cell_height < 1. {
+            panic!("font offset is too small");
+        }
+
+        Ok((glyph_cache, cell_width.floor(), cell_height.floor()))
     }
 
     pub fn update_glyph_cache(&mut self, config: &Config) {
