@@ -119,7 +119,7 @@ missing, please open an issue.
 
 ```sh
 yum install cmake freetype-devel fontconfig-devel xclip
-yum group install "Development Tools" 
+yum group install "Development Tools"
 ```
 
 #### openSUSE
@@ -284,6 +284,14 @@ Otherwise you can copy it to the `~/.bash_completion` folder and source it from 
 mkdir -p ~/.bash_completion
 cp alacritty-completions.bash ~/.bash_completion/alacritty
 echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
+```
+
+### Fish
+
+To install the completions for fish, run
+
+```
+sudo cp alacritty-completions.fish /usr/share/fish/vendor_completions.d/alacritty.fish
 ```
 
 ## Configuration
