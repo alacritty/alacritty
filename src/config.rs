@@ -270,18 +270,18 @@ pub struct WindowConfig {
 
     /// Pixel padding
     #[serde(default="default_padding", deserialize_with = "deserialize_padding")]
-    padding: Delta,
+    padding: Delta<u8>,
 
     /// Draw the window with title bar / borders
     #[serde(default, deserialize_with = "failure_default")]
     decorations: bool,
 }
 
-fn default_padding() -> Delta {
-    Delta { x: 2., y: 2. }
+fn default_padding() -> Delta<u8> {
+    Delta { x: 2, y: 2 }
 }
 
-fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Delta, D::Error>
+fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Delta<u8>, D::Error>
     where D: de::Deserializer<'a>
 {
     match Delta::deserialize(deserializer) {
@@ -318,7 +318,7 @@ pub struct Config {
 
     /// Pixel padding
     #[serde(default, deserialize_with = "failure_default")]
-    padding: Option<Delta>,
+    padding: Option<Delta<u8>>,
 
     /// TERM env variable
     #[serde(default, deserialize_with = "failure_default")]
@@ -1285,7 +1285,7 @@ impl Config {
         self.tabspaces
     }
 
-    pub fn padding(&self) -> &Delta {
+    pub fn padding(&self) -> &Delta<u8> {
         self.padding.as_ref()
             .unwrap_or(&self.window.padding)
     }
@@ -1448,20 +1448,15 @@ impl Dimensions {
 }
 
 /// A delta for a point in a 2 dimensional plane
-#[derive(Clone, Copy, Debug, Deserialize)]
-pub struct Delta {
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[serde(bound(deserialize = "T: Deserialize<'de> + Default"))]
+pub struct Delta<T: Default> {
     /// Horizontal change
     #[serde(default, deserialize_with = "failure_default")]
-    pub x: f32,
+    pub x: T,
     /// Vertical change
     #[serde(default, deserialize_with = "failure_default")]
-    pub y: f32,
-}
-
-impl Default for Delta {
-    fn default() -> Delta {
-        Delta { x: 0.0, y: 0.0 }
-    }
+    pub y: T,
 }
 
 trait DeserializeSize : Sized {
@@ -1539,11 +1534,11 @@ pub struct Font {
 
     /// Extra spacing per character
     #[serde(default, deserialize_with = "failure_default")]
-    offset: Delta,
+    offset: Delta<i8>,
 
     /// Glyph offset within character cell
     #[serde(default, deserialize_with = "failure_default")]
-    glyph_offset: Delta,
+    glyph_offset: Delta<i8>,
 
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
     use_thin_strokes: bool
@@ -1582,13 +1577,13 @@ impl Font {
 
     /// Get offsets to font metrics
     #[inline]
-    pub fn offset(&self) -> &Delta {
+    pub fn offset(&self) -> &Delta<i8> {
         &self.offset
     }
 
     /// Get cell offsets for glyphs
     #[inline]
-    pub fn glyph_offset(&self) -> &Delta {
+    pub fn glyph_offset(&self) -> &Delta<i8> {
         &self.glyph_offset
     }
 
