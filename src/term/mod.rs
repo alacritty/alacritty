@@ -134,7 +134,7 @@ impl<'a> RenderableCellsIter<'a> {
                     Some((start_line, loc.start.col, end_line, loc.end.col))
                 },
                 (Some(start_line), None) => {
-                    Some((start_line, loc.start.col, Line(0), grid.num_cols()))
+                    Some((start_line, loc.start.col, Line(0), Column(0)))
                 },
                 (None, Some(end_line)) => {
                     Some((grid.num_lines(), Column(0), end_line, loc.end.col))
