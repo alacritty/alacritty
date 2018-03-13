@@ -266,55 +266,52 @@ impl From<&'static str> for Action {
 
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     #[inline]
-    pub fn mouse_moved(&mut self, x: u32, y: u32, modifiers: ModifiersState) {
+    pub fn mouse_moved(&mut self, x: usize, y: usize, modifiers: ModifiersState) {
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
         let size_info = self.ctx.size_info();
-        if let Some(point) = size_info.pixels_to_coords(x as usize, y as usize) {
-            let prev_line = mem::replace(&mut self.ctx.mouse_mut().line, point.line);
-            let prev_col = mem::replace(&mut self.ctx.mouse_mut().column, point.col);
+        let point = size_info.pixels_to_coords(x, y);
 
-            let cell_x = (x as usize - size_info.padding_x as usize) % size_info.cell_width as usize;
-            let half_cell_width = (size_info.cell_width / 2.0) as usize;
+        let prev_line = mem::replace(&mut self.ctx.mouse_mut().line, point.line);
+        let prev_col = mem::replace(&mut self.ctx.mouse_mut().column, point.col);
 
-            let cell_side = if cell_x > half_cell_width
-                // Edge case when mouse leaves the window
-                || x as f32 >= size_info.width - size_info.padding_x
-            {
-                Side::Right
-            } else {
-                Side::Left
-            };
-            self.ctx.mouse_mut().cell_side = cell_side;
+        let cell_x = x.saturating_sub(size_info.padding_x as usize) % size_info.cell_width as usize;
+        let half_cell_width = (size_info.cell_width / 2.0) as usize;
 
-            let motion_mode = TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG;
-            if self.ctx.mouse_mut().left_button_state == ElementState::Pressed
-                && (
-                    modifiers.shift
-                    || !self.ctx.terminal_mode().intersects(TermMode::MOUSE_REPORT_CLICK | motion_mode)
-                )
-            {
-                self.ctx.update_selection(Point {
-                    line: point.line,
-                    col: point.col
-                }, cell_side);
-            } else if self.ctx.terminal_mode().intersects(motion_mode)
-                // Only report motion when changing cells
-                && (
-                    prev_line != self.ctx.mouse_mut().line
-                    || prev_col != self.ctx.mouse_mut().column
-                )
-            {
-                if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
-                    self.mouse_report(32, ElementState::Pressed, modifiers);
-                } else if self.ctx.mouse_mut().middle_button_state == ElementState::Pressed {
-                    self.mouse_report(33, ElementState::Pressed, modifiers);
-                } else if self.ctx.mouse_mut().right_button_state == ElementState::Pressed {
-                    self.mouse_report(34, ElementState::Pressed, modifiers);
-                } else if self.ctx.terminal_mode().contains(TermMode::MOUSE_MOTION) {
-                    self.mouse_report(35, ElementState::Pressed, modifiers);
-                }
+        let cell_side = if cell_x > half_cell_width
+            // Edge case when mouse leaves the window
+            || x as f32 >= size_info.width - size_info.padding_x
+        {
+            Side::Right
+        } else {
+            Side::Left
+        };
+        self.ctx.mouse_mut().cell_side = cell_side;
+
+        let motion_mode = TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG;
+        let report_mode = TermMode::MOUSE_REPORT_CLICK | motion_mode;
+
+        if self.ctx.mouse_mut().left_button_state == ElementState::Pressed &&
+            ( modifiers.shift || !self.ctx.terminal_mode().intersects(report_mode))
+        {
+            self.ctx.update_selection(Point {
+                line: point.line,
+                col: point.col
+            }, cell_side);
+        } else if self.ctx.terminal_mode().intersects(motion_mode)
+            // Only report motion when changing cells
+            && (prev_line != self.ctx.mouse_mut().line || prev_col != self.ctx.mouse_mut().column)
+            && size_info.contains_point(x, y)
+        {
+            if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
+                self.mouse_report(32, ElementState::Pressed, modifiers);
+            } else if self.ctx.mouse_mut().middle_button_state == ElementState::Pressed {
+                self.mouse_report(33, ElementState::Pressed, modifiers);
+            } else if self.ctx.mouse_mut().right_button_state == ElementState::Pressed {
+                self.mouse_report(34, ElementState::Pressed, modifiers);
+            } else if self.ctx.terminal_mode().contains(TermMode::MOUSE_MOTION) {
+                self.mouse_report(35, ElementState::Pressed, modifiers);
             }
         }
     }
