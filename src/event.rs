@@ -154,8 +154,8 @@ pub enum ClickState {
 
 /// State of the mouse
 pub struct Mouse {
-    pub x: u32,
-    pub y: u32,
+    pub x: usize,
+    pub y: usize,
     pub left_button_state: ElementState,
     pub last_click_timestamp: Instant,
     pub click_state: ClickState,
@@ -309,13 +309,11 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.terminal.dirty = true;
                     },
                     CursorMoved { position: (x, y), modifiers, .. } => {
-                        let x = x as i32;
-                        let y = y as i32;
-                        let x = limit(x, 0, processor.ctx.size_info.width as i32);
-                        let y = limit(y, 0, processor.ctx.size_info.height as i32);
+                        let x = limit(x as i32, 0, processor.ctx.size_info.width as i32);
+                        let y = limit(y as i32, 0, processor.ctx.size_info.height as i32);
 
                         *hide_cursor = false;
-                        processor.mouse_moved(x as u32, y as u32, modifiers);
+                        processor.mouse_moved(x as usize, y as usize, modifiers);
                     },
                     MouseWheel { delta, phase, modifiers, .. } => {
                         *hide_cursor = false;

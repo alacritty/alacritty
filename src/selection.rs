@@ -253,8 +253,31 @@ impl Selection {
 
         // Handle some edge cases
         if start.line > end.line {
-            start.col += 1;
-            end.col -= 1;
+            if end.col > Column(0) {
+                start.col += 1;
+                end.col -= 1;
+            }
+            // Special case for when a multi-line selection to the
+            // bottom ends on a new line with just one cell selected
+            // and the first cell should not be selected
+            else {
+                if start_side == Side::Right {
+                    start.col += 1;
+                }
+
+                // Remove the single selected cell if mouse left window
+                if end_side == Side::Left {
+                    end.line += 1;
+                    end.col = cols - 1;
+                }
+
+                return Some(Span {
+                    cols,
+                    front: end,
+                    tail: start,
+                    ty: SpanType::Inclusive,
+                });
+            }
         } else if start.line < end.line {
             start.col -= 1;
             end.col += 1;
