@@ -58,3 +58,15 @@ complete \
   -c alacritty \
   -l "ref-test" \
   -d "Generates ref test"
+
+complete \
+  -c alacritty \
+  -s "d" \
+  -l "dimensions" \
+  -d "Window dimensions <columns> <lines>"
+
+complete \
+  -c alacritty \
+  -s "e" \
+  -l "command" \
+  -d "Execute command (must be last arg)"
