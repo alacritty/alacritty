@@ -279,8 +279,31 @@ impl Selection {
                 });
             }
         } else if start.line < end.line {
-            start.col -= 1;
             end.col += 1;
+            if start.col > Column(0) {
+                start.col -= 1;
+            }
+            // Special case for when a selection is started
+            // in the first cell of a line
+            else {
+                let ty = match end_side {
+                    Side::Left => SpanType::ExcludeTail,
+                    Side::Right => SpanType::Inclusive,
+                };
+
+                // Switch start cell to last cell of previous line
+                if start_side == Side::Left {
+                    start.line += 1;
+                    start.col = cols - 1;
+                }
+
+                return Some(Span {
+                    ty,
+                    cols,
+                    front: start,
+                    tail: end,
+                });
+            }
         }
 
         let (front, tail, front_side, tail_side) = if start > end {

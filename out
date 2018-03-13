@@ -1,0 +1,104 @@
+   Compiling alacritty v0.1.0 (file:///home/undeadleech/programming/rust/alacritty)
+warning: unused variable: `count`
+  --> src/input.rs:69:26
+   |
+69 |     fn scroll(&mut self, count: isize) {}
+   |                          ^^^^^ help: consider using `_count` instead
+   |
+   = note: #[warn(unused_variables)] on by default
+
+warning: unused variable: `previous_scroll_limit`
+   --> src/grid/mod.rs:217:13
+    |
+217 |         let previous_scroll_limit = self.scroll_limit;
+    |             ^^^^^^^^^^^^^^^^^^^^^ help: consider using `_previous_scroll_limit` instead
+
+warning: value assigned to `start` is never read
+   --> src/selection.rs:184:13
+    |
+184 |         let mut start = initial_expansion.start;
+    |             ^^^^^^^^^
+    |
+    = note: #[warn(unused_assignments)] on by default
+
+warning: value assigned to `end` is never read
+   --> src/selection.rs:185:13
+    |
+185 |         let mut end = initial_expansion.end;
+    |             ^^^^^^^
+
+warning: method is never used: `pop`
+  --> src/grid/storage.rs:50:5
+   |
+50 |     pub fn pop(&mut self) -> Option<T> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: #[warn(dead_code)] on by default
+
+warning: method is never used: `swap`
+  --> src/grid/storage.rs:69:5
+   |
+69 |     pub fn swap(&mut self, a: usize, b: usize) {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    Finished dev [unoptimized + debuginfo] target(s) in 9.82 secs
+     Running `target/debug/alacritty`
+thread 'main' panicked at 'attempt to subtract with overflow', src/index.rs:414:17
+stack backtrace:
+   0: std::sys::unix::backtrace::tracing::imp::unwind_backtrace
+             at libstd/sys/unix/backtrace/tracing/gcc_s.rs:49
+   1: std::sys_common::backtrace::_print
+             at libstd/sys_common/backtrace.rs:71
+   2: std::panicking::default_hook::{{closure}}
+             at libstd/sys_common/backtrace.rs:59
+             at libstd/panicking.rs:207
+   3: std::panicking::default_hook
+             at libstd/panicking.rs:223
+   4: std::panicking::rust_panic_with_hook
+             at libstd/panicking.rs:402
+   5: std::panicking::begin_panic_fmt
+             at libstd/panicking.rs:349
+   6: rust_begin_unwind
+             at libstd/panicking.rs:325
+   7: core::panicking::panic_fmt
+             at libcore/panicking.rs:72
+   8: core::panicking::panic
+             at libcore/panicking.rs:51
+   9: <alacritty::index::Column as core::ops::arith::SubAssign<usize>>::sub_assign
+             at src/index.rs:414
+  10: alacritty::selection::Selection::span_simple
+             at src/selection.rs:283
+  11: alacritty::selection::Selection::to_span
+             at src/selection.rs:167
+  12: alacritty::term::Term::renderable_cells::{{closure}}
+             at src/term/mod.rs:1058
+  13: <core::option::Option<T>>::and_then
+             at /checkout/src/libcore/option.rs:612
+  14: alacritty::term::Term::renderable_cells
+             at src/term/mod.rs:1057
+  15: alacritty::display::Display::draw::{{closure}}
+             at src/display.rs:368
+  16: alacritty::renderer::QuadRenderer::with_api
+             at src/renderer/mod.rs:658
+  17: alacritty::display::Display::draw
+             at src/display.rs:360
+  18: alacritty::run
+             at src/main.rs:203
+  19: alacritty::main
+             at src/main.rs:62
+  20: std::rt::lang_start::{{closure}}
+             at /checkout/src/libstd/rt.rs:74
+  21: std::panicking::try::do_call
+             at libstd/rt.rs:59
+             at libstd/panicking.rs:306
+  22: __rust_maybe_catch_panic
+             at libpanic_unwind/lib.rs:102
+  23: std::rt::lang_start_internal
+             at libstd/panicking.rs:285
+             at libstd/panic.rs:361
+             at libstd/rt.rs:58
+  24: std::rt::lang_start
+             at /checkout/src/libstd/rt.rs:74
+  25: main
+  26: __libc_start_main
+  27: _start
