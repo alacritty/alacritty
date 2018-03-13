@@ -790,25 +790,21 @@ impl SizeInfo {
         Column(((self.width - 2. * self.padding_x) / self.cell_width) as usize)
     }
 
-    fn contains_point(&self, x: usize, y:usize) -> bool {
+    pub fn contains_point(&self, x: usize, y:usize) -> bool {
         x <= (self.width - self.padding_x) as usize &&
             x >= self.padding_x as usize &&
             y <= (self.height - self.padding_y) as usize &&
             y >= self.padding_y as usize
     }
 
-    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<Point> {
-        if !self.contains_point(x, y) {
-            return None;
-        }
+    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Point {
+        let col = Column(x.saturating_sub(self.padding_x as usize) / (self.cell_width as usize));
+        let line = Line(y.saturating_sub(self.padding_y as usize) / (self.cell_height as usize));
 
-        let col = Column((x - self.padding_x as usize) / (self.cell_width as usize));
-        let line = Line((y - self.padding_y as usize) / (self.cell_height as usize));
-
-        Some(Point {
+        Point {
             line: min(line, self.lines() - 1),
             col: min(col, self.cols() - 1)
-        })
+        }
     }
 }
 
@@ -1034,7 +1030,11 @@ impl Term {
     ///
     /// Returns None if the coordinates are outside the screen
     pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<Point> {
-        self.size_info().pixels_to_coords(x, y)
+        if self.size_info.contains_point(x, y) {
+            Some(self.size_info.pixels_to_coords(x, y))
+        } else {
+            None
+        }
     }
 
     /// Access to the raw grid data structure
