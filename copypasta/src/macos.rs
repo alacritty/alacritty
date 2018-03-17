@@ -298,7 +298,7 @@ impl super::Load for Clipboard {
         Ok(Clipboard(ns::Pasteboard::new()?))
     }
 
-    fn load_primary(&self) -> Result<String, Self::Err> {
+    fn load_primary(&mut self) -> Result<String, Self::Err> {
         use self::ns::PasteboardReadObject;
 
         self.0.read_object()
