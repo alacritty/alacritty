@@ -47,6 +47,8 @@ use mio::Evented;
 use std::env;
 #[cfg(windows)]
 use std::cell::UnsafeCell;
+#[cfg(windows)]
+use dunce::canonicalize;
 
 #[cfg(not(windows))]
 use std::os::unix::io::FromRawFd;
@@ -385,13 +387,17 @@ pub fn new<'a>(
     let mut cmdline = initial_command.args().to_vec();
     cmdline.insert(0, initial_command.program().into());
 
+    // Warning, here be borrow hell
+    let cwd = options.working_dir.as_ref().map(|dir| canonicalize(dir).unwrap());
+    let cwd = cwd.as_ref().map(|dir| dir.to_str()).unwrap();
+
     // Spawn process
     let spawnconfig = SpawnConfig::new(
         // This may be problematic if we can't tell immediately when the process shut down
         SpawnFlags::AUTO_SHUTDOWN | SpawnFlags::EXIT_AFTER_SHUTDOWN,
         None, // appname
         Some(&cmdline.join(" ")),
-        None, // cwd
+        cwd,
         None, // Env
     ).unwrap();
 

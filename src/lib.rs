@@ -42,6 +42,9 @@ extern crate mio_named_pipes;
 extern crate winapi;
 #[cfg(windows)]
 extern crate winpty;
+#[cfg(windows)]
+extern crate dunce;
+
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;

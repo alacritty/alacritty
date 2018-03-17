@@ -27,6 +27,7 @@ dependencies = [
  "clippy 0.0.187 (registry+https://github.com/rust-lang/crates.io-index)",
  "copypasta 0.0.1",
  "crossbeam 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dunce 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "embed-resource 1.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "errno 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -423,6 +424,11 @@ dependencies = [
 [[package]]
 name = "dtoa"
 version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "dunce"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -1843,6 +1849,7 @@ dependencies = [
 "checksum crossbeam-utils 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "2760899e32a1d58d5abb31129f8fae5de75220bc2176e77ff7c627ae45c918d9"
 "checksum dlib 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "95518d8f88d556e62c9b3014629f21bdad97a9fdfee85c68a185e3980af29e7c"
 "checksum dtoa 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "09c3753c3db574d215cba4ea76018483895d7bff25a31b49ba45db21c48e50ab"
+"checksum dunce 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e86b07356baf1cc7058c95807ffba0bebe0c8cadd0df4c40b292c86194eabb37"
 "checksum either 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "740178ddf48b1a9e878e6d6509a1442a2d42fd2928aae8e7a6f8a36fb01981b3"
 "checksum embed-resource 1.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "59edbe56442f96505f79c9116006f2e26c7f5655cccdc2c1546b2528c63bd612"
 "checksum env_logger 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)" = "f0628f04f7c26ebccf40d7fc2c1cf92236c05ec88cf2132641cc956812312f0f"
