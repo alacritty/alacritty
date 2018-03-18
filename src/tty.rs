@@ -389,7 +389,7 @@ pub fn new<'a>(
 
     // Warning, here be borrow hell
     let cwd = options.working_dir.as_ref().map(|dir| canonicalize(dir).unwrap());
-    let cwd = cwd.as_ref().map(|dir| dir.to_str()).unwrap();
+    let cwd = cwd.as_ref().map(|dir| dir.to_str().unwrap());
 
     // Spawn process
     let spawnconfig = SpawnConfig::new(

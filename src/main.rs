@@ -20,8 +20,7 @@
 #![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
-#![windows_subsystem = "windows"]
-
+//#![windows_subsystem = "windows"]
 
 #[macro_use]
 extern crate alacritty;
