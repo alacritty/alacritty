@@ -756,6 +756,9 @@ pub struct Term {
 
     /// Number of spaces in one tab
     tabspaces: usize,
+
+    /// Automatically scroll to bottom when new lines are added
+    auto_scroll: bool,
 }
 
 /// Terminal size info
@@ -879,6 +882,7 @@ impl Term {
             default_cursor_style: config.cursor_style(),
             dynamic_title: config.dynamic_title(),
             tabspaces,
+            auto_scroll: config.scrolling().auto_scroll,
         }
     }
 
@@ -905,6 +909,7 @@ impl Term {
         self.visual_bell.update_config(config);
         self.default_cursor_style = config.cursor_style();
         self.dynamic_title = config.dynamic_title();
+        self.auto_scroll = config.scrolling().auto_scroll;
     }
 
     #[inline]
@@ -1255,6 +1260,11 @@ impl ansi::Handler for Term {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
+        // If enabled, scroll to bottom when character is received
+        if self.auto_scroll {
+            self.scroll_display(Scroll::Bottom);
+        }
+
         if self.input_needs_wrap {
             if !self.mode.contains(mode::TermMode::LINE_WRAP) {
                 return;

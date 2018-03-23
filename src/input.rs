@@ -192,6 +192,7 @@ impl Action {
     fn execute<A: ActionContext>(&self, ctx: &mut A) {
         match *self {
             Action::Esc(ref s) => {
+                ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
             },
             Action::Copy => {
