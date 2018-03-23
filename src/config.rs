@@ -478,6 +478,8 @@ pub struct Scrolling {
     #[serde(deserialize_with="deserialize_scrolling_multiplier")]
     #[serde(default="default_scrolling_multiplier")]
     pub faux_multiplier: u8,
+    #[serde(default, deserialize_with="failure_default")]
+    pub auto_scroll: bool,
 }
 
 fn default_scrolling_history() -> u32 {
@@ -495,6 +497,7 @@ impl Default for Scrolling {
             history: default_scrolling_history(),
             multiplier: default_scrolling_multiplier(),
             faux_multiplier: default_scrolling_multiplier(),
+            auto_scroll: false,
         }
     }
 }
