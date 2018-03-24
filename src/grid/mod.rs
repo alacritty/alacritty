@@ -748,13 +748,13 @@ impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         // Make sure indices are valid. Return None if we've reached the end.
-        if self.col == self.grid.num_cols() {
+        let next_line = self.col == self.grid.num_cols();
+        if next_line {
             if self.offset == self.limit {
                 return None;
             }
 
             self.col = Column(0);
-
             self.offset -= 1;
             self.line = Line(*self.grid.lines - 1 - (self.offset - self.limit));
         }
@@ -766,7 +766,9 @@ impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
             column: self.col
         });
 
-        self.col += 1;
+        if !next_line {
+            self.col += 1;
+        }
         item
     }
 }
