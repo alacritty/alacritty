@@ -248,6 +248,83 @@ impl Default for Alpha {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum Decorations {
+    Default,
+    Transparent,
+    Buttonless,
+    None,
+}
+
+impl<'de> Deserialize<'de> for Decorations {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Decorations, D::Error>
+        where D: de::Deserializer<'de>
+    {
+
+        struct DecorationsVisitor;
+
+        impl<'de> Visitor<'de> for DecorationsVisitor {
+            type Value = Decorations;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("Some subset of default|transparent|buttonless|none")
+            }
+
+            fn visit_bool<E>(self, value: bool) -> ::std::result::Result<Decorations, E>
+                where E: de::Error
+            {
+                if value {
+                    eprintln!("deprecated decorations boolean value, use one of default|transparent|buttonless|none instead; Falling back to \"default\"");
+                    Ok(Decorations::Default)
+                } else {
+                    eprintln!("deprecated decorations boolean value, use one of default|transparent|buttonless|none instead; Falling back to \"none\"");
+                    Ok(Decorations::None)
+                }
+            }
+
+            #[cfg(target_os = "macos")]
+            fn visit_str<E>(self, value: &str) -> ::std::result::Result<Decorations, E>
+                where E: de::Error
+            {
+                match value {
+                    "transparent" => Ok(Decorations::Transparent),
+                    "buttonless" => Ok(Decorations::Buttonless),
+                    "none" => Ok(Decorations::None),
+                    "default" => Ok(Decorations::Default),
+                    _ => {
+                        eprintln!("invalid decorations value: {}; Using default value", value);
+                        Ok(Decorations::Default)
+                    }
+                }
+            }
+
+            #[cfg(not(target_os = "macos"))]
+            fn visit_str<E>(self, value: &str) -> ::std::result::Result<Decorations, E>
+                where E: de::Error
+            {
+                match value {
+                    "none" => Ok(Decorations::None),
+                    "default" => Ok(Decorations::Default),
+                    "transparent" => {
+                        eprintln!("macos-only decorations value: {}; Using default value", value);
+                        Ok(Decorations::Default)
+                    },
+                    "buttonless" => {
+                        eprintln!("macos-only decorations value: {}; Using default value", value);
+                        Ok(Decorations::Default)
+                    }
+                    _ => {
+                        eprintln!("invalid decorations value: {}; Using default value", value);
+                        Ok(Decorations::Default)
+                    }
+                }
+            }
+        }
+
+        deserializer.deserialize_str(DecorationsVisitor)
+    }
+}
+
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct WindowConfig {
     /// Initial dimensions
@@ -259,8 +336,7 @@ pub struct WindowConfig {
     padding: Delta<u8>,
 
     /// Draw the window with title bar / borders
-    #[serde(default, deserialize_with = "failure_default")]
-    decorations: bool,
+    decorations: Decorations,
 }
 
 fn default_padding() -> Delta<u8> {
@@ -280,7 +356,7 @@ fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Delta<u8
 }
 
 impl WindowConfig {
-    pub fn decorations(&self) -> bool {
+    pub fn decorations(&self) -> Decorations {
         self.decorations
     }
 }
@@ -290,7 +366,7 @@ impl Default for WindowConfig {
         WindowConfig{
             dimensions: Default::default(),
             padding: default_padding(),
-            decorations: true,
+            decorations: Decorations::Default,
         }
     }
 }
