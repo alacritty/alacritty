@@ -1017,6 +1017,24 @@ pub struct PrimaryColors {
     pub background: Rgb,
     #[serde(deserialize_with = "rgb_from_hex")]
     pub foreground: Rgb,
+    #[serde(default, deserialize_with = "deserialize_bright_foreground")]
+    pub bright_foreground: Option<Rgb>,
+}
+
+fn deserialize_bright_foreground<'a, D>(deserializer: D) -> ::std::result::Result<Option<Rgb>, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match Option::deserialize(deserializer) {
+        Ok(Some(color)) => {
+            let color: serde_yaml::Value = color;
+            Ok(Some(rgb_from_hex(color).unwrap()))
+        },
+        Ok(None) => Ok(None),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using standard foreground color", err);
+            Ok(None)
+        },
+    }
 }
 
 impl Default for PrimaryColors {
@@ -1024,6 +1042,7 @@ impl Default for PrimaryColors {
         PrimaryColors {
             background: Rgb { r: 0, g: 0, b: 0 },
             foreground: Rgb { r: 0xea, g: 0xea, b: 0xea },
+            bright_foreground: None,
         }
     }
 }
