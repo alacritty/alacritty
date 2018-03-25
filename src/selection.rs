@@ -251,13 +251,6 @@ impl Selection {
         let end_side = region.end.side;
         let cols = grid.dimensions().col;
 
-        // No selection for single cell with identical sides or two cell with right+left sides
-        if (start == end && start_side == end_side)
-            || (start_side == Side::Right && end_side == Side::Left && end.col == start.col + 1)
-        {
-            return None;
-        }
-
         // Make sure front is always the "bottom" and tail is always the "top"
         let (mut front, mut tail, front_side, tail_side) =
             if start.line > end.line || start.line == end.line && start.col <= end.col {
@@ -267,6 +260,14 @@ impl Selection {
                 // Selected downward; no swapping
                 (start, end, start_side, end_side)
             };
+
+        // No selection for single cell with identical sides or two cell with right+left sides
+        if (front == tail && front_side == tail_side)
+            || (tail_side == Side::Right && front_side == Side::Left && front.line == tail.line
+                && front.col == tail.col + 1)
+        {
+            return None;
+        }
 
         // Remove last cell if selection ends to the left of a cell
         if front_side == Side::Left && start != end {
@@ -475,10 +476,10 @@ mod test {
     ///
     /// 1.  [  ][  ][  ][  ][  ]
     ///     [  ][  ][  ][  ][  ]
-    /// 2.  [  ][  ][  ][  ][  ]
-    ///     [  ][ B][  ][  ][  ]
-    /// 3.  [  ][ E][XX][XX][XX]
-    ///     [XX][XB][  ][  ][  ]
+    /// 2.  [  ][ B][  ][  ][  ]
+    ///     [  ][  ][  ][  ][  ]
+    /// 3.  [  ][ B][XX][XX][XX]
+    ///     [XX][XE][  ][  ][  ]
     #[test]
     fn across_adjacent_lines_upward_final_cell_exclusive() {
         let mut selection = Selection::simple(Point::new(1, Column(1)), Side::Right);
@@ -487,8 +488,8 @@ mod test {
         assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
             cols: Column(5),
             front: Point::new(0, Column(1)),
-            tail: Point::new(1, Column(1)),
-            ty: SpanType::ExcludeFront
+            tail: Point::new(1, Column(2)),
+            ty: SpanType::Inclusive,
         });
     }
 
@@ -497,12 +498,12 @@ mod test {
     ///
     /// 1.  [  ][  ][  ][  ][  ]
     ///     [  ][  ][  ][  ][  ]
-    /// 2.  [  ][ B][  ][  ][  ]
-    ///     [  ][  ][  ][  ][  ]
-    /// 3.  [  ][ B][XX][XX][XX]
-    ///     [XX][XE][  ][  ][  ]
-    /// 4.  [  ][ B][XX][XX][XX]
-    ///     [XE][  ][  ][  ][  ]
+    /// 2.  [  ][  ][  ][  ][  ]
+    ///     [  ][ B][  ][  ][  ]
+    /// 3.  [  ][ E][XX][XX][XX]
+    ///     [XX][XB][  ][  ][  ]
+    /// 4.  [ E][XX][XX][XX][XX]
+    ///     [XX][XB][  ][  ][  ]
     #[test]
     fn selection_bigger_then_smaller() {
         let mut selection = Selection::simple(Point::new(0, Column(1)), Side::Right);
@@ -512,8 +513,8 @@ mod test {
         assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
             cols: Column(5),
             front: Point::new(0, Column(1)),
-            tail: Point::new(1, Column(0)),
-            ty: SpanType::ExcludeFront
+            tail: Point::new(1, Column(1)),
+            ty: SpanType::Inclusive,
         });
     }
 }
