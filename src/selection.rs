@@ -245,127 +245,53 @@ impl Selection {
     }
 
     fn span_simple<G: Dimensions>(grid: &G, region: &Range<Anchor>) -> Option<Span> {
-        let mut start = region.start.point;
+        let start = region.start.point;
         let start_side = region.start.side;
-        let mut end = region.end.point;
+        let end = region.end.point;
         let end_side = region.end.side;
         let cols = grid.dimensions().col;
 
-        // Handle some edge cases
-        if start.line > end.line {
-            if end.col > Column(0) {
-                start.col += 1;
-                end.col -= 1;
-            }
-            // Special case for when a multi-line selection to the
-            // bottom ends on a new line with just one cell selected
-            // and the first cell should not be selected
-            else {
-                if start_side == Side::Right {
-                    start.col += 1;
-                }
-
-                // Remove the single selected cell if mouse left window
-                if end_side == Side::Left {
-                    end.line += 1;
-                    end.col = cols - 1;
-                }
-
-                return Some(Span {
-                    cols,
-                    front: end,
-                    tail: start,
-                    ty: SpanType::Inclusive,
-                });
-            }
-        } else if start.line < end.line {
-            end.col += 1;
-            if start.col > Column(0) {
-                start.col -= 1;
-            }
-            // Special case for when a selection is started
-            // in the first cell of a line
-            else {
-                let ty = match end_side {
-                    Side::Left => SpanType::ExcludeTail,
-                    Side::Right => SpanType::Inclusive,
-                };
-
-                // Switch start cell to last cell of previous line
-                if start_side == Side::Left {
-                    start.line += 1;
-                    start.col = cols - 1;
-                }
-
-                return Some(Span {
-                    ty,
-                    cols,
-                    front: start,
-                    tail: end,
-                });
-            }
-        }
-
-        let (front, tail, front_side, tail_side) = if start > end {
-            // Selected upward; start/end are swapped
-            (end, start, end_side, start_side)
-        } else {
-            // Selected downward; no swapping
-            (start, end, start_side, end_side)
-        };
-
-        debug_assert!(!(tail < front));
-
-        // Single-cell selections are a special case
-        if start == end {
-            if start_side == end_side {
-                return None;
+        // Make sure front is always the "bottom" and tail is always the "top"
+        let (mut front, mut tail, front_side, tail_side) =
+            if start.line > end.line || start.line == end.line && start.col <= end.col {
+                // Selected upward; start/end are swapped
+                (end, start, end_side, start_side)
             } else {
-                return Some(Span {
-                    cols,
-                    ty: SpanType::Inclusive,
-                    front,
-                    tail,
-                });
-            }
-        }
+                // Selected downward; no swapping
+                (start, end, start_side, end_side)
+            };
 
-        // The other special case is two adjacent cells with no
-        // selection: [ B][E ] or [ E][B ]
-        let adjacent = tail.line == front.line && tail.col - front.col == Column(1);
-        if adjacent && front_side == Side::Right && tail_side == Side::Left {
+        // No selection for single cell with identical sides or two cell with right+left sides
+        if (front == tail && front_side == tail_side)
+            || (tail_side == Side::Right && front_side == Side::Left && front.line == tail.line
+                && front.col == tail.col + 1)
+        {
             return None;
         }
 
-        Some(match (front_side, tail_side) {
-            // [FX][XX][XT]
-            (Side::Left, Side::Right) => Span {
-                cols,
-                front,
-                tail,
-                ty: SpanType::Inclusive
-            },
-            // [ F][XX][T ]
-            (Side::Right, Side::Left) => Span {
-                cols,
-                front,
-                tail,
-                ty: SpanType::Exclusive
-            },
-            // [FX][XX][T ]
-            (Side::Left, Side::Left) => Span {
-                cols,
-                front,
-                tail,
-                ty: SpanType::ExcludeTail
-            },
-            // [ F][XX][XT]
-            (Side::Right, Side::Right) => Span {
-                cols,
-                front,
-                tail,
-                ty: SpanType::ExcludeFront
-            },
+        // Remove last cell if selection ends to the left of a cell
+        if front_side == Side::Left && start != end {
+            if front.col != Column(0) {
+                front.col -= 1;
+            }
+            // Special case when selection starts to left of first cell
+            else {
+                front.col = cols - 1;
+                front.line += 1;
+            }
+        }
+
+        // Remove first cell if selection starts at the right of a cell
+        if tail_side == Side::Right && front != tail {
+            tail.col += 1;
+        }
+
+        // Return the selection with all cells inclusive
+        Some(Span {
+            cols,
+            front,
+            tail,
+            ty: SpanType::Inclusive,
         })
     }
 }
@@ -550,10 +476,10 @@ mod test {
     ///
     /// 1.  [  ][  ][  ][  ][  ]
     ///     [  ][  ][  ][  ][  ]
-    /// 2.  [  ][  ][  ][  ][  ]
-    ///     [  ][ B][  ][  ][  ]
-    /// 3.  [  ][ E][XX][XX][XX]
-    ///     [XX][XB][  ][  ][  ]
+    /// 2.  [  ][ B][  ][  ][  ]
+    ///     [  ][  ][  ][  ][  ]
+    /// 3.  [  ][ B][XX][XX][XX]
+    ///     [XX][XE][  ][  ][  ]
     #[test]
     fn across_adjacent_lines_upward_final_cell_exclusive() {
         let mut selection = Selection::simple(Point::new(1, Column(1)), Side::Right);
@@ -562,8 +488,8 @@ mod test {
         assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
             cols: Column(5),
             front: Point::new(0, Column(1)),
-            tail: Point::new(1, Column(1)),
-            ty: SpanType::ExcludeFront
+            tail: Point::new(1, Column(2)),
+            ty: SpanType::Inclusive,
         });
     }
 
@@ -572,12 +498,12 @@ mod test {
     ///
     /// 1.  [  ][  ][  ][  ][  ]
     ///     [  ][  ][  ][  ][  ]
-    /// 2.  [  ][ B][  ][  ][  ]
-    ///     [  ][  ][  ][  ][  ]
-    /// 3.  [  ][ B][XX][XX][XX]
-    ///     [XX][XE][  ][  ][  ]
-    /// 4.  [  ][ B][XX][XX][XX]
-    ///     [XE][  ][  ][  ][  ]
+    /// 2.  [  ][  ][  ][  ][  ]
+    ///     [  ][ B][  ][  ][  ]
+    /// 3.  [  ][ E][XX][XX][XX]
+    ///     [XX][XB][  ][  ][  ]
+    /// 4.  [ E][XX][XX][XX][XX]
+    ///     [XX][XB][  ][  ][  ]
     #[test]
     fn selection_bigger_then_smaller() {
         let mut selection = Selection::simple(Point::new(0, Column(1)), Side::Right);
@@ -587,8 +513,8 @@ mod test {
         assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
             cols: Column(5),
             front: Point::new(0, Column(1)),
-            tail: Point::new(1, Column(0)),
-            ty: SpanType::ExcludeFront
+            tail: Point::new(1, Column(1)),
+            ty: SpanType::Inclusive,
         });
     }
 }

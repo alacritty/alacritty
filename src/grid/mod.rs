@@ -337,7 +337,7 @@ impl<T: Copy + Clone> Grid<T> {
             }
 
             for line in IndexRange(region.start .. (region.start + positions)) {
-                self.raw[*line].reset(&self.template_row);
+                self.raw[line].reset(&self.template_row);
             }
         }
     }
