@@ -664,6 +664,7 @@ mod tests {
     use config::{self, Config, ClickHandler};
     use index::{Point, Side};
     use selection::Selection;
+    use grid::Scroll;
 
     use super::{Action, Binding, Processor};
 
@@ -715,6 +716,10 @@ mod tests {
 
         fn line_selection(&mut self, _point: Point) {
             self.last_action = MultiClick::TripleClick;
+        }
+
+        fn scroll(&mut self, scroll: Scroll) {
+            self.terminal.scroll_display(scroll);
         }
 
         fn mouse_coords(&self) -> Option<Point> {
