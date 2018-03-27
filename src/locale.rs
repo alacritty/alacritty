@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #![cfg(target_os = "macos")]
+use libc::{LC_CTYPE, setlocale};
+use std::ffi::{CString, CStr};
 use std::os::raw::c_char;
+use std::ptr::null;
 use std::slice;
 use std::str;
 use std::env;
@@ -34,6 +37,29 @@ pub fn set_locale_environment() {
         (language_code_str, country_code_str)
     };
     let locale_id = format!("{}_{}.UTF-8", &language_code, &country_code);
+    // check if locale_id is valid
+    let locale_c_str = CString::new(locale_id.to_owned()).unwrap();
+    let locale_ptr = locale_c_str.as_ptr();
+    let locale_id = unsafe {
+        // save a copy of original setting
+        let original = setlocale(LC_CTYPE, null());
+        let saved_original = if original.is_null() {
+            CString::new("").unwrap()
+        } else {
+            CStr::from_ptr(original).to_owned()
+        };
+        // try setting `locale_id`
+        let modified = setlocale(LC_CTYPE, locale_ptr);
+        let result = if modified.is_null() {
+            String::from("")
+        } else {
+            locale_id
+        };
+        // restore original setting
+        setlocale(LC_CTYPE, saved_original.as_ptr());
+        result
+    };
+
     env::set_var("LANG", &locale_id);
 }
 
