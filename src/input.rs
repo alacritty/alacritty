@@ -191,12 +191,16 @@ impl Action {
                     });
             },
             Action::PasteSelection => {
-                Clipboard::new()
-                    .and_then(|clipboard| clipboard.load_selection() )
-                    .map(|contents| { self.paste(ctx, contents) })
-                    .unwrap_or_else(|err| {
-                        warn!("Error loading data from clipboard. {}", Red(err));
-                    });
+                // Only paste if mouse events are not captured by an application
+                let mouse_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
+                if !ctx.terminal_mode().intersects(mouse_modes) {
+                    Clipboard::new()
+                        .and_then(|clipboard| clipboard.load_selection() )
+                        .map(|contents| { self.paste(ctx, contents) })
+                        .unwrap_or_else(|err| {
+                            warn!("Error loading data from clipboard. {}", Red(err));
+                        });
+                }
             },
             Action::Command(ref program, ref args) => {
                 trace!("running command: {} {:?}", program, args);
