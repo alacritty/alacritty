@@ -96,7 +96,6 @@ pub struct Display {
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
-    last_background_color: Rgb,
 }
 
 /// Types that are interested in when the display is resized
@@ -133,7 +132,7 @@ impl Display {
         let zero_size = Size { width: Pixels(0), height: Pixels(0) };
         let mut renderer = QuadRenderer::new(&config, zero_size)?;
         let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(&mut renderer, config, 0, dpr)?;
+            Self::new_glyph_cache(&mut renderer, config, dpr)?;
         let size = match size {
             InitialSize::Cells(dimensions) => {
                 let width = cell_width as u32 * dimensions.columns_u32();
@@ -181,12 +180,10 @@ impl Display {
             meter: Meter::new(),
             font_size: font::Size::new(0.),
             size_info,
-            last_background_color: background_color,
         })
     }
 
-    fn new_glyph_cache(renderer: &mut QuadRenderer,
-                       config: &Config, font_size_delta: i8, dpr: f32)
+    fn new_glyph_cache(renderer: &mut QuadRenderer, config: &Config, dpr: f32)
         -> Result<(GlyphCache, f32, f32), Error>
     {
         let font = config.font().clone();
@@ -292,16 +289,12 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config, selection: Option<&Selection>) {
+    pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config, selection: Option<&Selection>, window_focused: bool) {
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
 
         let size_info = *terminal.size_info();
         let visual_bell_intensity = terminal.visual_bell.intensity();
-
-        let background_color = terminal.background_color();
-        let background_color_changed = background_color != self.last_background_color;
-        self.last_background_color = background_color;
 
         {
             let glyph_cache = &mut self.glyph_cache;
@@ -315,9 +308,8 @@ impl Display {
                 //
                 // TODO I wonder if the renderable cells iter could avoid the
                 // mutable borrow
-                let window_focused = self.window.is_focused;
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
-                    api.clear(background_color);
+                    api.clear(terminal.background_color());
 
                     // Draw the grid
                     api.render_cells(

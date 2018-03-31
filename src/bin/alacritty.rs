@@ -100,7 +100,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     });
 
     // Create the window where Alacritty will be displayed
-    let mut window = Window::new(&options.title)?;
+    let mut window = Window::new(&options.title, config.window())?;
 
     let dpr = window.hidpi_factor();
     info!("device_pixel_ratio: {}", dpr);
@@ -228,7 +228,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
             }
 
             // Draw the current state of the terminal
-            display.draw(terminal, &config, processor.selection.as_ref());
+            display.draw(terminal, &config, processor.selection.as_ref(), window.is_focused);
 
             window.swap_buffers().expect("swap buffers");
         }
