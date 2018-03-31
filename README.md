@@ -50,6 +50,12 @@ cd alacritty-git
 makepkg -isr
 ```
 
+### openSUSE Tumbleweed Linux
+
+```sh
+zypper in alacritty
+```
+
 ### Void Linux
 
 ```sh
