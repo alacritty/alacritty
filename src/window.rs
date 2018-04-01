@@ -25,6 +25,7 @@ use MouseCursor;
 use config::WindowConfig;
 use display::OnResize;
 use term::SizeInfo;
+use event_loop::WindowNotifier;
 
 /// Window errors
 #[derive(Debug)]
@@ -469,8 +470,8 @@ impl Proxy {
 /// Can wakeup the render loop from other threads
 pub struct Notifier(Proxy);
 
-impl Notifier {
-    pub fn notify(&self) {
+impl WindowNotifier for Notifier {
+    fn notify(&self) {
         self.0.wakeup_event_loop();
     }
 }

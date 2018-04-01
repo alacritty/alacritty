@@ -20,6 +20,7 @@ use serde::{self, de, Deserialize};
 use serde::de::Error as SerdeError;
 use serde::de::{Visitor, MapAccess, Unexpected};
 use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
+use event_loop::WindowNotifier;
 
 use glutin::ModifiersState;
 
