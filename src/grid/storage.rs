@@ -57,11 +57,6 @@ impl<T> Storage<T> {
     }
 
     #[inline]
-    pub fn pop(&mut self) -> Option<T> {
-        self.inner.pop()
-    }
-
-    #[inline]
     pub fn len(&self) -> usize {
         self.inner.len()
     }
@@ -74,12 +69,6 @@ impl<T> Storage<T> {
 
     fn compute_line_index(&self, requested: Line) -> usize {
         ((self.len() + self.zero + *self.visible_lines) - *requested) % self.len()
-    }
-
-    pub fn swap(&mut self, a: usize, b: usize) {
-        let a = self.compute_index(a);
-        let b = self.compute_index(b);
-        self.inner.swap(a, b);
     }
 
     pub fn swap_lines(&mut self, a: Line, b: Line) {

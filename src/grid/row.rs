@@ -37,8 +37,10 @@ impl<T: Copy + Clone> Row<T> {
 
     /// Resets contents to the contents of `other`
     #[inline]
-    pub fn reset(&mut self, other: &Row<T>) {
-        self.copy_from_slice(&**other);
+    pub fn reset(&mut self, other: &T) {
+        for item in &mut self.0 {
+            *item = *other;
+        }
     }
 }
 
