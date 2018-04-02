@@ -29,7 +29,7 @@ fn scroll_up() {
 
     info!("grid: {:?}", grid);
 
-    grid.scroll_up(&(Line(0)..Line(10)), Line(2));
+    grid.scroll_up(&(Line(0)..Line(10)), Line(2), &0);
 
     info!("grid: {:?}", grid);
 
@@ -65,7 +65,7 @@ fn scroll_down() {
 
     info!("grid: {:?}", grid);
 
-    grid.scroll_down(&(Line(0)..Line(10)), Line(2));
+    grid.scroll_down(&(Line(0)..Line(10)), Line(2), &0);
 
     info!("grid: {:?}", grid);
 
