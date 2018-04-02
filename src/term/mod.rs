@@ -1119,19 +1119,19 @@ impl Term {
         // Scroll up to keep cursor in terminal
         if self.cursor.point.line >= num_lines {
             let lines = self.cursor.point.line - num_lines + 1;
-            self.grid.scroll_up(&(Line(0)..old_lines), lines);
+            self.grid.scroll_up(&(Line(0)..old_lines), lines, &self.cursor.template);
         }
 
         // Scroll up alt grid as well
         if self.cursor_save_alt.point.line >= num_lines {
             let lines = self.cursor_save_alt.point.line - num_lines + 1;
-            self.alt_grid.scroll_up(&(Line(0)..old_lines), lines);
+            self.alt_grid.scroll_up(&(Line(0)..old_lines), lines, &self.cursor_save_alt.template);
         }
         debug!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         // Resize grids to new size
-        self.grid.resize(num_lines, num_cols);
-        self.alt_grid.resize(num_lines, num_cols);
+        self.grid.resize(num_lines, num_cols, &self.cursor.template);
+        self.alt_grid.resize(num_lines, num_cols, &self.cursor_save_alt.template);
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();
@@ -1197,7 +1197,7 @@ impl Term {
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Scroll between origin and bottom
-        self.grid.scroll_down(&(origin..self.scroll_region.end), lines);
+        self.grid.scroll_down(&(origin..self.scroll_region.end), lines, &self.cursor.template);
     }
 
     /// Scroll screen up
@@ -1210,7 +1210,7 @@ impl Term {
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Scroll from origin to bottom less number of lines
-        self.grid.scroll_up(&(origin..self.scroll_region.end), lines);
+        self.grid.scroll_up(&(origin..self.scroll_region.end), lines, &self.cursor.template);
     }
 
     fn deccolm(&mut self) {

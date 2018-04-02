@@ -181,9 +181,6 @@ impl Selection {
     ) -> Option<Span>
         where G: SemanticSearch + Dimensions
     {
-        let mut start = initial_expansion.start;
-        let mut end = initial_expansion.end;
-
         // Normalize ordering of selected cells
         let (front, tail) = if region.start < region.end {
             (region.start, region.end)
@@ -191,13 +188,11 @@ impl Selection {
             (region.end, region.start)
         };
 
-        if front < tail && front.line == tail.line {
-            start = grid.semantic_search_left(front);
-            end = grid.semantic_search_right(tail);
+        let (mut start, mut end) = if front < tail && front.line == tail.line {
+            (grid.semantic_search_left(front), grid.semantic_search_right(tail))
         } else {
-            start = grid.semantic_search_right(front);
-            end = grid.semantic_search_left(tail);
-        }
+            (grid.semantic_search_right(front), grid.semantic_search_left(tail))
+        };
 
         if start > end {
             ::std::mem::swap(&mut start, &mut end);

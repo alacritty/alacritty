@@ -73,17 +73,6 @@ pub struct Grid<T> {
     /// Invariant: lines is equivalent to raw.len()
     lines: index::Line,
 
-    /// Template row.
-    ///
-    /// This is used to quickly populate new lines and clear recycled lines
-    /// during scroll wrapping.
-    #[serde(skip)]
-    template_row: Row<T>,
-
-    /// Template cell for populating template_row
-    #[serde(skip)]
-    template: T,
-
     /// Offset of displayed area
     ///
     /// If the displayed region isn't at the bottom of the screen, it stays
@@ -126,7 +115,6 @@ pub enum Scroll {
 impl<T: Copy + Clone> Grid<T> {
     pub fn new(lines: index::Line, cols: index::Column, scrollback: usize, template: T) -> Grid<T> {
         let mut raw = Storage::with_capacity(*lines + scrollback, lines);
-        let template_row = Row::new(cols, &template);
 
         // Allocate all lines in the buffer, including scrollback history
         //
@@ -134,15 +122,13 @@ impl<T: Copy + Clone> Grid<T> {
         // delays startup. A nice solution might be having `Row` delay
         // allocation until it's actually used.
         for _ in 0..raw.capacity() {
-            raw.push(template_row.clone());
+            raw.push(Row::new(cols, &template));
         }
 
         Grid {
             raw,
             cols,
             lines,
-            template_row,
-            template,
             display_offset: 0,
             scroll_limit: 0,
             selection: None,
@@ -200,20 +186,25 @@ impl<T: Copy + Clone> Grid<T> {
         }
     }
 
-    pub fn resize(&mut self, lines: index::Line, cols: index::Column) {
+    pub fn resize(
+        &mut self,
+        lines: index::Line,
+        cols: index::Column,
+        template: &T,
+    ) {
         // Check that there's actually work to do and return early if not
         if lines == self.lines && cols == self.cols {
             return;
         }
 
         match self.lines.cmp(&lines) {
-            Ordering::Less => self.grow_lines(lines),
+            Ordering::Less => self.grow_lines(lines, template),
             Ordering::Greater => self.shrink_lines(lines),
             Ordering::Equal => (),
         }
 
         match self.cols.cmp(&cols) {
-            Ordering::Less => self.grow_cols(cols),
+            Ordering::Less => self.grow_cols(cols, template),
             Ordering::Greater => self.shrink_cols(cols),
             Ordering::Equal => (),
         }
@@ -237,7 +228,11 @@ impl<T: Copy + Clone> Grid<T> {
     /// Alacritty takes a different approach. Rather than trying to move with
     /// the scrollback, we simply pull additional lines from the back of the
     /// buffer in order to populate the new area.
-    fn grow_lines(&mut self, new_line_count: index::Line) {
+    fn grow_lines(
+        &mut self,
+        new_line_count: index::Line,
+        template: &T,
+    ) {
         let previous_scroll_limit = self.scroll_limit;
         let lines_added = new_line_count - self.lines;
 
@@ -246,21 +241,18 @@ impl<T: Copy + Clone> Grid<T> {
         self.lines = new_line_count;
 
         // Add new lines to bottom
-        self.scroll_up(&(Line(0)..new_line_count), lines_added);
+        self.scroll_up(&(Line(0)..new_line_count), lines_added, template);
 
         self.scroll_limit = self.scroll_limit.saturating_sub(*lines_added);
     }
 
-    fn grow_cols(&mut self, cols: index::Column) {
+    fn grow_cols(&mut self, cols: index::Column, template: &T) {
         for row in self.raw.iter_mut() {
-            row.grow(cols, &self.template);
+            row.grow(cols, template);
         }
 
         // Update self cols
         self.cols = cols;
-
-        // Also update template_row to be the correct length
-        self.template_row.grow(cols, &self.template);
     }
 
     /// Remove lines from the visible area
@@ -304,7 +296,12 @@ impl<T: Copy + Clone> Grid<T> {
     }
 
     #[inline]
-    pub fn scroll_down(&mut self, region: &Range<index::Line>, positions: index::Line) {
+    pub fn scroll_down(
+        &mut self,
+        region: &Range<index::Line>,
+        positions: index::Line,
+        template: &T,
+    ) {
         // Whether or not there is a scrolling region active, as long as it
         // starts at the top, we can do a full rotation which just involves
         // changing the start index.
@@ -328,7 +325,7 @@ impl<T: Copy + Clone> Grid<T> {
 
             // Finally, reset recycled lines
             for i in IndexRange(Line(0)..positions) {
-                self.raw[i].reset(&self.template_row);
+                self.raw[i].reset(&template);
             }
         } else {
             // Subregion rotation
@@ -337,7 +334,7 @@ impl<T: Copy + Clone> Grid<T> {
             }
 
             for line in IndexRange(region.start .. (region.start + positions)) {
-                self.raw[line].reset(&self.template_row);
+                self.raw[line].reset(&template);
             }
         }
     }
@@ -346,7 +343,12 @@ impl<T: Copy + Clone> Grid<T> {
     ///
     /// This is the performance-sensitive part of scrolling.
     #[inline]
-    pub fn scroll_up(&mut self, region: &Range<index::Line>, positions: index::Line) {
+    pub fn scroll_up(
+        &mut self,
+        region: &Range<index::Line>,
+        positions: index::Line,
+        template: &T
+    ) {
         if region.start == Line(0) {
             // Update display offset when not pinned to active area
             if self.display_offset != 0 {
@@ -372,7 +374,7 @@ impl<T: Copy + Clone> Grid<T> {
             //
             // Recycled lines are just above the end of the scrolling region.
             for i in 0..*positions {
-                self.raw[region.end - i - 1].reset(&self.template_row);
+                self.raw[region.end - i - 1].reset(&template);
             }
         } else {
             // Subregion rotation
@@ -382,7 +384,7 @@ impl<T: Copy + Clone> Grid<T> {
 
             // Clear reused lines
             for line in IndexRange((region.end - positions) .. region.end) {
-                self.raw[line].reset(&self.template_row);
+                self.raw[line].reset(&template);
             }
         }
     }
@@ -432,7 +434,6 @@ impl<T> Grid<T> {
         }
 
         self.cols = cols;
-        self.template_row.shrink(cols);
     }
 }
 
