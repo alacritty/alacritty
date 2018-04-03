@@ -28,6 +28,7 @@ use gl::types::*;
 use gl;
 use index::{Line, Column, RangeInclusive};
 use notify::{Watcher, watcher, RecursiveMode, DebouncedEvent};
+use smallvec::SmallVec;
 
 use config::{self, Config, Delta};
 use term::{self, cell, RenderableCell};
@@ -791,7 +792,7 @@ impl<'a> RenderApi<'a> {
             .map(|(i, c)| RenderableCell {
                 line,
                 column: col + i,
-                c,
+                c: SmallVec::from_buf([c]),
                 bg: color,
                 fg: Rgb { r: 0, g: 0, b: 0 },
                 flags: cell::Flags::empty(),
@@ -834,10 +835,11 @@ impl<'a> RenderApi<'a> {
                 font_key = glyph_cache.italic_key;
             }
 
+            // XXX only rendering a single codepoint for now
             let glyph_key = GlyphKey {
                 font_key,
                 size: glyph_cache.font_size,
-                c: cell.c
+                c: cell.c[0]
             };
 
             // Add cell to batch

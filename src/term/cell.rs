@@ -14,6 +14,10 @@
 use ansi::{NamedColor, Color};
 use grid;
 use index::Column;
+use serde::de::{self, Deserializer, SeqAccess, Visitor};
+use serde::ser::{Serializer};
+use smallvec::SmallVec;
+use std::fmt;
 
 bitflags! {
     #[derive(Serialize, Deserialize)]
@@ -30,9 +34,13 @@ bitflags! {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+pub type CellContents = SmallVec<[char; 1]>;
+
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Cell {
-    pub c: char,
+    #[serde(serialize_with = "serialize_cell_contents")]
+    #[serde(deserialize_with = "deserialize_cell_contents")]
+    pub c: CellContents,
     pub fg: Color,
     pub bg: Color,
     pub flags: Flags,
@@ -47,6 +55,44 @@ impl Default for Cell {
         )
     }
 
+}
+
+fn serialize_cell_contents<S>(contents: &CellContents, serializer: S) -> Result<S::Ok, S::Error>
+where S: Serializer {
+    serializer.collect_seq(contents.iter())
+}
+
+fn deserialize_cell_contents<'de, D>(deserializer: D) -> Result<CellContents, D::Error>
+where D: Deserializer<'de> {
+    struct CellContentsVisitor;
+    impl<'de> Visitor<'de> for CellContentsVisitor {
+        type Value = CellContents;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("string or array")
+        }
+
+        fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+        where E: de::Error {
+            Ok(s.chars().collect())
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where A: SeqAccess<'de> {
+            let mut v = if let Some(cap) = seq.size_hint() {
+                SmallVec::with_capacity(cap)
+            }
+            else {
+                SmallVec::new()
+            };
+            while let Some(elem) = seq.next_element()? {
+                v.push(elem);
+            }
+            Ok(v)
+        }
+    }
+
+    deserializer.deserialize_any(CellContentsVisitor)
 }
 
 /// Get the length of occupied cells in a line
@@ -64,7 +110,7 @@ impl LineLength for grid::Row<Cell> {
         }
 
         for (index, cell) in self[..].iter().rev().enumerate() {
-            if cell.c != ' ' {
+            if cell.c.len() != 1 || cell.c[0] != ' ' {
                 length = Column(self.len() - index);
                 break;
             }
@@ -92,7 +138,7 @@ impl Cell {
 
     pub fn new(c: char, fg: Color, bg: Color) -> Cell {
         Cell {
-            c,
+            c: SmallVec::from_buf([c]),
             bg,
             fg,
             flags: Flags::empty(),
@@ -101,7 +147,8 @@ impl Cell {
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.c == ' ' &&
+        self.c.len() == 1 &&
+            self.c[0] == ' ' &&
             self.bg == Color::Named(NamedColor::Background) &&
             !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE)
     }
@@ -109,13 +156,23 @@ impl Cell {
     #[inline]
     pub fn reset(&mut self, template: &Cell) {
         // memcpy template to self
-        *self = *template;
+        *self = template.clone();
+    }
+
+    pub fn set_char(&mut self, c: char) {
+        self.c = SmallVec::from_buf([c]);
+    }
+
+    pub fn append(&mut self, c: char) {
+        self.c.push(c);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Cell, LineLength};
+
+    use smallvec::SmallVec;
 
     use grid::Row;
     use index::Column;
@@ -124,7 +181,7 @@ mod tests {
     fn line_length_works() {
         let template = Cell::default();
         let mut row = Row::new(Column(10), &template);
-        row[Column(5)].c = 'a';
+        row[Column(5)].c = SmallVec::from_buf(['a']);
 
         assert_eq!(row.line_length(), Column(6));
     }

@@ -35,7 +35,7 @@ use input::FONT_SIZE_STEP;
 pub mod cell;
 pub mod color;
 pub use self::cell::Cell;
-use self::cell::LineLength;
+use self::cell::{CellContents,LineLength};
 
 impl selection::SemanticSearch for Term {
     fn semantic_search_left(&self, mut point: Point) -> Point {
@@ -43,7 +43,7 @@ impl selection::SemanticSearch for Term {
         let last_col = self.grid.num_cols() - Column(1);
 
         while let Some(cell) = iter.prev() {
-            if self.semantic_escape_chars.contains(cell.c) {
+            if cell.c.len() == 1 && self.semantic_escape_chars.contains(cell.c[0]) {
                 break;
             }
 
@@ -62,7 +62,7 @@ impl selection::SemanticSearch for Term {
         let last_col = self.grid.num_cols() - Column(1);
 
         while let Some(cell) = iter.next() {
-            if self.semantic_escape_chars.contains(cell.c) {
+            if cell.c.len() == 1 && self.semantic_escape_chars.contains(cell.c[0]) {
                 break;
             }
 
@@ -154,7 +154,7 @@ impl<'a> RenderableCellsIter<'a> {
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
             column: self.cursor.col,
-            inner: cursor_cell,
+            inner: cursor_cell.clone(),
         }).expect("won't exceed capacity");
 
         // If cursor is over a wide (2 cell size) character,
@@ -180,30 +180,30 @@ impl<'a> RenderableCellsIter<'a> {
             (cell.bg, cell.fg)
         };
 
-        let original_cell = self.grid[self.cursor];
+        let original_cell = self.grid[self.cursor].clone();
 
-        let mut cursor_cell = self.grid[self.cursor];
+        let mut cursor_cell = self.grid[self.cursor].clone();
         cursor_cell.fg = text_color;
         cursor_cell.bg = cursor_color;
 
-        let mut wide_cell = cursor_cell;
-        wide_cell.c = ' ';
+        let mut wide_cell = cursor_cell.clone();
+        wide_cell.set_char(' ');
 
         self.push_cursor_cells(original_cell, cursor_cell, wide_cell);
     }
 
     fn populate_char_cursor(&mut self, cursor_cell_char: char, wide_cell_char: char) {
-        let original_cell = self.grid[self.cursor];
+        let original_cell = self.grid[self.cursor].clone();
 
-        let mut cursor_cell = self.grid[self.cursor];
+        let mut cursor_cell = self.grid[self.cursor].clone();
         let cursor_color = self.text_cursor_color(&cursor_cell);
-        cursor_cell.c = cursor_cell_char;
+        cursor_cell.set_char(cursor_cell_char);
         cursor_cell.fg = cursor_color;
 
-        let mut wide_cell = cursor_cell;
-        wide_cell.c = wide_cell_char;
+        let mut wide_cell = cursor_cell.clone();
+        wide_cell.set_char(wide_cell_char);
 
-        self.push_cursor_cells(original_cell, cursor_cell, wide_cell);
+        self.push_cursor_cells(original_cell, cursor_cell.clone(), wide_cell);
     }
 
     fn populate_underline_cursor(&mut self) {
@@ -237,7 +237,7 @@ impl<'a> RenderableCellsIter<'a> {
         self.cursor_cells.push_back(Indexed {
             line: self.cursor.line,
             column: self.cursor.col,
-            inner: self.grid[self.cursor],
+            inner: self.grid[self.cursor].clone(),
         }).expect("won't exceed capacity");
     }
 
@@ -321,7 +321,7 @@ impl<'a> RenderableCellsIter<'a> {
 pub struct RenderableCell {
     pub line: Line,
     pub column: Column,
-    pub c: char,
+    pub c: CellContents,
     pub fg: Rgb,
     pub bg: Rgb,
     pub bg_alpha: f32,
@@ -371,7 +371,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     if cell.is_empty() && !selected {
                         continue;
                     }
-                    (*cell, selected)
+                    (cell.clone(), selected)
                 };
 
                 // Apply inversion and lookup RGB values
@@ -515,7 +515,7 @@ impl IndexMut<CharsetIndex> for Charsets {
     }
 }
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Clone)]
 pub struct Cursor {
     /// The location of this cursor
     pub point: Point,
@@ -912,7 +912,9 @@ impl Term {
                 } else {
                     for cell in &grid_line[cols.start..line_end] {
                         if !cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
-                            self.push(cell.c);
+                            for c in cell.c.iter() {
+                                self.push(*c);
+                            }
                         }
                     }
 
@@ -1089,7 +1091,7 @@ impl Term {
 
         if num_lines > old_lines {
             // Make sure bottom of terminal is clear
-            let template = self.cursor.template;
+            let template = self.cursor.template.clone();
             self.grid.clear_region((self.cursor.point.line + 1).., |c| c.reset(&template));
             self.alt_grid.clear_region((self.cursor_save_alt.point.line + 1).., |c| c.reset(&template));
         }
@@ -1131,7 +1133,7 @@ impl Term {
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
-        let template = self.cursor.template;
+        let template = self.cursor.template.clone();
 
         // Clear `lines` lines at bottom of area
         {
@@ -1153,7 +1155,7 @@ impl Term {
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Copy of cell template; can't have it borrowed when calling clear/scroll
-        let template = self.cursor.template;
+        let template = self.cursor.template.clone();
 
         // Clear `lines` lines starting from origin to origin + lines
         {
@@ -1172,7 +1174,7 @@ impl Term {
         self.set_scrolling_region(scroll_region);
 
         // Clear grid
-        let template = self.cursor.template;
+        let template = self.cursor.template.clone();
         self.grid.clear(|c| c.reset(&template));
     }
 
@@ -1261,8 +1263,8 @@ impl ansi::Handler for Term {
                     }
 
                     let cell = &mut self.grid[&self.cursor.point];
-                    *cell = self.cursor.template;
-                    cell.c = self.cursor.charsets[self.active_charset].map(c);
+                    *cell = self.cursor.template.clone();
+                    cell.set_char(self.cursor.charsets[self.active_charset].map(c));
 
                     // Handle wide chars
                     if width == 2 {
@@ -1274,7 +1276,7 @@ impl ansi::Handler for Term {
                 if width == 2 && self.cursor.point.col + 1 < num_cols {
                     self.cursor.point.col += 1;
                     let spacer = &mut self.grid[&self.cursor.point];
-                    *spacer = self.cursor.template;
+                    *spacer = self.cursor.template.clone();
                     spacer.flags.insert(cell::Flags::WIDE_CHAR_SPACER);
                 }
             }
@@ -1291,8 +1293,8 @@ impl ansi::Handler for Term {
     #[inline]
     fn dectest(&mut self) {
         trace!("dectest");
-        let mut template = self.cursor.template;
-        template.c = 'E';
+        let mut template = self.cursor.template.clone();
+        template.set_char('E');
 
         for row in &mut self.grid.lines_mut() {
             for cell in row {
@@ -1351,7 +1353,7 @@ impl ansi::Handler for Term {
 
         // Cells were just moved out towards the end of the line; fill in
         // between source and dest with blanks.
-        let template = self.cursor.template;
+        let template = self.cursor.template.clone();
         for c in &mut line[source..destination] {
             c.reset(&template);
         }
@@ -1559,7 +1561,7 @@ impl ansi::Handler for Term {
         let end = min(start + count, self.grid.num_cols() - 1);
 
         let row = &mut self.grid[self.cursor.point.line];
-        let template = self.cursor.template; // Cleared cells have current background color set
+        let template = self.cursor.template.clone(); // Cleared cells have current background color set
         for c in &mut row[start..end] {
             c.reset(&template);
         }
@@ -1586,7 +1588,7 @@ impl ansi::Handler for Term {
 
         // Clear last `count` cells in line. If deleting 1 char, need to delete
         // 1 cell.
-        let template = self.cursor.template;
+        let template = self.cursor.template.clone();
         let end = self.size_info.cols() - count;
         for c in &mut line[end..] {
             c.reset(&template);
@@ -1623,7 +1625,7 @@ impl ansi::Handler for Term {
             &mut self.cursor_save
         };
 
-        *cursor = self.cursor;
+        *cursor = self.cursor.clone();
     }
 
     #[inline]
@@ -1635,7 +1637,7 @@ impl ansi::Handler for Term {
             &self.cursor_save
         };
 
-        self.cursor = *source;
+        self.cursor = source.clone();
         self.cursor.point.line = min(self.cursor.point.line, self.grid.num_lines() - 1);
         self.cursor.point.col = min(self.cursor.point.col, self.grid.num_cols() - 1);
     }
@@ -1643,7 +1645,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         trace!("clear_line: {:?}", mode);
-        let mut template = self.cursor.template;
+        let mut template = self.cursor.template.clone();
         template.flags ^= template.flags;
 
         let col =  self.cursor.point.col;
@@ -1700,7 +1702,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
         trace!("clear_screen: {:?}", mode);
-        let mut template = self.cursor.template;
+        let mut template = self.cursor.template.clone();
         template.flags ^= template.flags;
 
         match mode {
@@ -1943,6 +1945,8 @@ mod tests {
     use super::{Cell, Term, SizeInfo};
     use term::cell;
 
+    use smallvec::SmallVec;
+
     use grid::Grid;
     use index::{Point, Line, Column};
     use ansi::{Handler, CharsetIndex, StandardCharset};
@@ -1966,12 +1970,12 @@ mod tests {
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), &Cell::default());
         for i in 0..5 {
             for j in 0..2 {
-                grid[Line(j)][Column(i)].c = 'a';
+                grid[Line(j)][Column(i)].c = SmallVec::from_buf(['a']);
             }
         }
-        grid[Line(0)][Column(0)].c = '"';
-        grid[Line(0)][Column(3)].c = '"';
-        grid[Line(1)][Column(2)].c = '"';
+        grid[Line(0)][Column(0)].c = SmallVec::from_buf(['"']);
+        grid[Line(0)][Column(3)].c = SmallVec::from_buf(['"']);
+        grid[Line(1)][Column(2)].c = SmallVec::from_buf(['"']);
         grid[Line(0)][Column(4)].flags.insert(cell::Flags::WRAPLINE);
 
         let mut escape_chars = String::from("\"");
@@ -2008,10 +2012,10 @@ mod tests {
         let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), &Cell::default());
         for i in 0..5 {
-            grid[Line(0)][Column(i)].c = 'a';
+            grid[Line(0)][Column(i)].c = SmallVec::from_buf(['a']);
         }
-        grid[Line(0)][Column(0)].c = '"';
-        grid[Line(0)][Column(3)].c = '"';
+        grid[Line(0)][Column(0)].c = SmallVec::from_buf(['"']);
+        grid[Line(0)][Column(3)].c = SmallVec::from_buf(['"']);
 
 
         mem::swap(&mut term.grid, &mut grid);
@@ -2054,7 +2058,9 @@ mod tests {
                                StandardCharset::SpecialCharacterAndLineDrawing);
         term.input('a');
 
-        assert_eq!(term.grid()[&cursor].c, '▒');
+        let contents = &term.grid()[&cursor].c;
+        assert_eq!(contents.len(), 1);
+        assert_eq!(contents[0], '▒');
     }
 
     fn change_font_size_works(font_size: f32) {

@@ -33,6 +33,7 @@ dependencies = [
  "serde_derive 1.0.66 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.20 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_yaml 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smallvec 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicode-width 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "vte 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "x11-dl 2.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
