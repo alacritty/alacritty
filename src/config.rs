@@ -1611,7 +1611,7 @@ impl Default for Font {
     }
 }
 
-#[cfg(any(target_os = "linux",target_os = "freebsd"))]
+#[cfg(any(target_os = "linux",target_os = "freebsd",target_os = "openbsd"))]
 impl Default for Font {
     fn default() -> Font {
         Font {
