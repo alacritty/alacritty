@@ -63,9 +63,9 @@ pub trait Store : Load {
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
 mod x11;
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
 pub use x11::{Clipboard, Error};
 
 #[cfg(target_os = "macos")]

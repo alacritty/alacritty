@@ -87,7 +87,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     (master, slave)
 }
 
-#[cfg(any(target_os = "macos",target_os = "freebsd"))]
+#[cfg(any(target_os = "macos",target_os = "freebsd",target_os = "openbsd"))]
 fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     let mut master: c_int = 0;
     let mut slave: c_int = 0;
