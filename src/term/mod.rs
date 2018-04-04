@@ -1241,51 +1241,69 @@ impl ansi::Handler for Term {
             self.input_needs_wrap = false;
         }
 
+        let mut zero_width = false;
+
         {
             // Number of cells the char will occupy
             if let Some(width) = c.width() {
-                // Sigh, borrowck making us check the width twice. Hopefully the
-                // optimizer can fix it.
-                let num_cols = self.grid.num_cols();
-                {
-                    // If in insert mode, first shift cells to the right.
-                    if self.mode.contains(mode::TermMode::INSERT) && self.cursor.point.col + width < num_cols {
-                        let line = self.cursor.point.line; // borrowck
-                        let col = self.cursor.point.col;
-                        let line = &mut self.grid[line];
+                if width == 0 {
+                    zero_width = true;
+                    let index::Column(col) = self.cursor.point.col;
+                    if col > 0 {
+                        let line = self.cursor.point.line;
+                        let mut prev_char = col - 1;
+                        if self.grid[line][index::Column(prev_char)].flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
+                            prev_char -= 1;
+                        }
+                        self.grid[line][index::Column(prev_char)].append(c);
+                    }
+                }
+                else {
+                    // Sigh, borrowck making us check the width twice.
+                    // Hopefully the optimizer can fix it.
+                    let num_cols = self.grid.num_cols();
+                    {
+                        // If in insert mode, first shift cells to the right.
+                        if self.mode.contains(mode::TermMode::INSERT) && self.cursor.point.col + width < num_cols {
+                            let line = self.cursor.point.line; // borrowck
+                            let col = self.cursor.point.col;
+                            let line = &mut self.grid[line];
 
-                        let src = line[col..].as_ptr();
-                        let dst = line[(col + width)..].as_mut_ptr();
-                        unsafe {
-                            // memmove
-                            ptr::copy(src, dst, (num_cols - col - width).0);
+                            let src = line[col..].as_ptr();
+                            let dst = line[(col + width)..].as_mut_ptr();
+                            unsafe {
+                                // memmove
+                                ptr::copy(src, dst, (num_cols - col - width).0);
+                            }
+                        }
+
+                        let cell = &mut self.grid[&self.cursor.point];
+                        *cell = self.cursor.template.clone();
+                        cell.set_char(self.cursor.charsets[self.active_charset].map(c));
+
+                        // Handle wide chars
+                        if width == 2 {
+                            cell.flags.insert(cell::Flags::WIDE_CHAR);
                         }
                     }
 
-                    let cell = &mut self.grid[&self.cursor.point];
-                    *cell = self.cursor.template.clone();
-                    cell.set_char(self.cursor.charsets[self.active_charset].map(c));
-
-                    // Handle wide chars
-                    if width == 2 {
-                        cell.flags.insert(cell::Flags::WIDE_CHAR);
+                    // Set spacer cell for wide chars.
+                    if width == 2 && self.cursor.point.col + 1 < num_cols {
+                        self.cursor.point.col += 1;
+                        let spacer = &mut self.grid[&self.cursor.point];
+                        *spacer = self.cursor.template.clone();
+                        spacer.flags.insert(cell::Flags::WIDE_CHAR_SPACER);
                     }
-                }
-
-                // Set spacer cell for wide chars.
-                if width == 2 && self.cursor.point.col + 1 < num_cols {
-                    self.cursor.point.col += 1;
-                    let spacer = &mut self.grid[&self.cursor.point];
-                    *spacer = self.cursor.template.clone();
-                    spacer.flags.insert(cell::Flags::WIDE_CHAR_SPACER);
                 }
             }
         }
 
-        if (self.cursor.point.col + 1) < self.grid.num_cols() {
-            self.cursor.point.col += 1;
-        } else {
-            self.input_needs_wrap = true;
+        if !zero_width {
+            if (self.cursor.point.col + 1) < self.grid.num_cols() {
+                self.cursor.point.col += 1;
+            } else {
+                self.input_needs_wrap = true;
+            }
         }
 
     }
