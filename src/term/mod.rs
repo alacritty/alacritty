@@ -1245,55 +1245,54 @@ impl ansi::Handler for Term {
 
         {
             // Number of cells the char will occupy
-            if let Some(width) = c.width() {
-                if width == 0 {
-                    zero_width = true;
-                    let index::Column(col) = self.cursor.point.col;
-                    if col > 0 {
-                        let line = self.cursor.point.line;
-                        let mut prev_char = col - 1;
-                        if self.grid[line][index::Column(prev_char)].flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
-                            prev_char -= 1;
+            let width = character_width(c);
+            if width == 0 {
+                zero_width = true;
+                let index::Column(col) = self.cursor.point.col;
+                if col > 0 {
+                    let line = self.cursor.point.line;
+                    let mut prev_char = col - 1;
+                    if self.grid[line][index::Column(prev_char)].flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
+                        prev_char -= 1;
+                    }
+                    self.grid[line][index::Column(prev_char)].append(c);
+                }
+            }
+            else {
+                // Sigh, borrowck making us check the width twice.
+                // Hopefully the optimizer can fix it.
+                let num_cols = self.grid.num_cols();
+                {
+                    // If in insert mode, first shift cells to the right.
+                    if self.mode.contains(mode::TermMode::INSERT) && self.cursor.point.col + width < num_cols {
+                        let line = self.cursor.point.line; // borrowck
+                        let col = self.cursor.point.col;
+                        let line = &mut self.grid[line];
+
+                        let src = line[col..].as_ptr();
+                        let dst = line[(col + width)..].as_mut_ptr();
+                        unsafe {
+                            // memmove
+                            ptr::copy(src, dst, (num_cols - col - width).0);
                         }
-                        self.grid[line][index::Column(prev_char)].append(c);
+                    }
+
+                    let cell = &mut self.grid[&self.cursor.point];
+                    *cell = self.cursor.template.clone();
+                    cell.set_char(self.cursor.charsets[self.active_charset].map(c));
+
+                    // Handle wide chars
+                    if width == 2 {
+                        cell.flags.insert(cell::Flags::WIDE_CHAR);
                     }
                 }
-                else {
-                    // Sigh, borrowck making us check the width twice.
-                    // Hopefully the optimizer can fix it.
-                    let num_cols = self.grid.num_cols();
-                    {
-                        // If in insert mode, first shift cells to the right.
-                        if self.mode.contains(mode::TermMode::INSERT) && self.cursor.point.col + width < num_cols {
-                            let line = self.cursor.point.line; // borrowck
-                            let col = self.cursor.point.col;
-                            let line = &mut self.grid[line];
 
-                            let src = line[col..].as_ptr();
-                            let dst = line[(col + width)..].as_mut_ptr();
-                            unsafe {
-                                // memmove
-                                ptr::copy(src, dst, (num_cols - col - width).0);
-                            }
-                        }
-
-                        let cell = &mut self.grid[&self.cursor.point];
-                        *cell = self.cursor.template.clone();
-                        cell.set_char(self.cursor.charsets[self.active_charset].map(c));
-
-                        // Handle wide chars
-                        if width == 2 {
-                            cell.flags.insert(cell::Flags::WIDE_CHAR);
-                        }
-                    }
-
-                    // Set spacer cell for wide chars.
-                    if width == 2 && self.cursor.point.col + 1 < num_cols {
-                        self.cursor.point.col += 1;
-                        let spacer = &mut self.grid[&self.cursor.point];
-                        *spacer = self.cursor.template.clone();
-                        spacer.flags.insert(cell::Flags::WIDE_CHAR_SPACER);
-                    }
+                // Set spacer cell for wide chars.
+                if width == 2 && self.cursor.point.col + 1 < num_cols {
+                    self.cursor.point.col += 1;
+                    let spacer = &mut self.grid[&self.cursor.point];
+                    *spacer = self.cursor.template.clone();
+                    spacer.flags.insert(cell::Flags::WIDE_CHAR_SPACER);
                 }
             }
         }
@@ -1954,6 +1953,20 @@ impl ansi::Handler for Term {
         trace!("set_cursor_style {:?}", style);
         self.cursor_style = style;
     }
+}
+
+fn character_width(c: char) -> usize {
+    if let Some(width) = c.width() {
+        // handle soft hyphen specially. terminals don't do auto-hyphenation,
+        // so this will always be zero width, even though it is technically
+        // classified as width 1
+        if c as usize == 0xad {
+            return 0;
+        }
+        return width;
+    }
+
+    return 0;
 }
 
 #[cfg(test)]
