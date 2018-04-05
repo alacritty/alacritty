@@ -1993,21 +1993,27 @@ mod tests {
             padding_y: 0.0,
         };
         let mut term = Term::new(&Default::default(), size);
-        let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), &Cell::default());
+        let mut grid: Grid<Cell> = Grid::new(Line(4), Column(5), &Cell::default());
         for i in 0..5 {
-            for j in 0..2 {
+            for j in 0..4 {
                 grid[Line(j)][Column(i)].c = 'a';
             }
         }
-        grid[Line(0)][Column(0)].c = '"';
-        grid[Line(0)][Column(3)].c = '"';
-        grid[Line(1)][Column(2)].c = '"';
+        grid[Line(0)][Column(0)].c = ':';
+        grid[Line(0)][Column(3)].c = ':';
+        grid[Line(1)][Column(2)].c = ':';
         grid[Line(0)][Column(4)].flags.insert(cell::Flags::WRAPLINE);
 
-        let mut escape_chars = String::from("\"");
+        grid[Line(2)][Column(1)].c = ':';
+        grid[Line(2)][Column(2)].c = '/';
+        grid[Line(2)][Column(3)].c = '/';
+
+        let mut escape_chars = String::from(":");
+        let mut detect_scheme = true;
 
         mem::swap(&mut term.grid, &mut grid);
         mem::swap(&mut term.semantic_escape_chars, &mut escape_chars);
+        mem::swap(&mut term.semantic_detect_scheme, &mut detect_scheme);
 
         {
             let selection = Selection::semantic(Point { line: Line(0), col: Column(1) }, &term);
@@ -2022,6 +2028,16 @@ mod tests {
         {
             let selection = Selection::semantic(Point { line: Line(1), col: Column(1) }, &term);
             assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aaa");
+        }
+
+        {
+            let selection = Selection::semantic(Point { line: Line(3), col: Column(3) }, &term);
+            assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aaaaa\n");
+        }
+
+        {
+            let selection = Selection::semantic(Point { line: Line(2), col: Column(0) }, &term);
+            assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "a://a\n");
         }
     }
 
