@@ -46,22 +46,22 @@ impl selection::SemanticSearch for Term {
         let mut match_buf = String::from(" ".repeat(scheme_match.len()));
 
         while let Some(cell) = iter.prev() {
+            if iter.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
+                break; // cut off if on new line or hit escape char
+            }
+
             if self.semantic_detect_scheme {
-                // Maintain a circular buffer of recent cells
+                // We use a circular buffer to check if we've seen scheme_match
                 match_buf.drain(..1);
                 match_buf.push(cell.c);
                 if match_buf == scheme_match {
                     // Bypass things that look like schemes
-                    continue
+                    continue;
                 }
             }
 
             if self.semantic_escape_chars.contains(cell.c) {
                 break;
-            }
-
-            if iter.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
-                break; // cut off if on new line or hit escape char
             }
 
             point = iter.cur;
@@ -78,14 +78,19 @@ impl selection::SemanticSearch for Term {
         let mut match_buf = String::with_capacity(scheme_match.len());
 
         while let Some(cell) = iter.next() {
-
             if self.semantic_detect_scheme {
+                // We use a lookahead to see if we're at scheme_match
                 match_buf.clear();
                 match_buf.push(cell.c);
-                match_buf.extend(self.grid.iter_from(iter.cur).take(2).map(|cell| cell.c));
+                match_buf.extend(
+                    self.grid
+                    .iter_from(iter.cur)
+                    .take(scheme_match.len() - 1)
+                    .map(|cell| cell.c),
+                    );
                 if match_buf == scheme_match {
                     // Bypass things that look like schemes
-                    continue
+                    continue;
                 }
             }
 
