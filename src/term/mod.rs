@@ -46,11 +46,14 @@ impl selection::SemanticSearch for Term {
         let mut match_buf = String::from(" ".repeat(scheme_match.len()));
 
         while let Some(cell) = iter.prev() {
-            match_buf.drain(..1);
-            match_buf.push(cell.c);
-            if self.semantic_detect_scheme && match_buf.contains(scheme_match) {
-                // Bypass things that look like schemes
-                continue
+            if self.semantic_detect_scheme {
+                // Maintain a circular buffer of recent cells
+                match_buf.drain(..1);
+                match_buf.push(cell.c);
+                if match_buf == scheme_match {
+                    // Bypass things that look like schemes
+                    continue
+                }
             }
 
             if self.semantic_escape_chars.contains(cell.c) {
@@ -71,8 +74,21 @@ impl selection::SemanticSearch for Term {
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
 
+        let scheme_match = "://";
+        let mut match_buf = String::with_capacity(scheme_match.len());
+
         while let Some(cell) = iter.next() {
-            // TODO: Implement semantic_detect_scheme
+
+            if self.semantic_detect_scheme {
+                match_buf.clear();
+                match_buf.push(cell.c);
+                match_buf.extend(self.grid.iter_from(iter.cur).take(2).map(|cell| cell.c));
+                if match_buf == scheme_match {
+                    // Bypass things that look like schemes
+                    continue
+                }
+            }
+
             if self.semantic_escape_chars.contains(cell.c) {
                 break;
             }
