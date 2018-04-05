@@ -18,6 +18,7 @@ use std::ptr;
 use std::cmp::{min, max};
 use std::io;
 use std::time::{Duration, Instant};
+use std::str;
 
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
@@ -40,11 +41,15 @@ impl selection::SemanticSearch for Term {
     fn semantic_search_left(&self, mut point: Point) -> Point {
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
-        let mut prev_point = point;
+
+        let scheme_match = "//:"; // "://" reversed because search_left
+        let mut match_buf = String::from(" ".repeat(scheme_match.len()));
 
         while let Some(cell) = iter.prev() {
-            if self.semantic_detect_scheme && ":".contains(cell.c) && "/".contains(self.grid[prev_point.line][prev_point.col].c) {
-                // Bypass things that look like schemes (:/)
+            match_buf.drain(..1);
+            match_buf.push(cell.c);
+            if self.semantic_detect_scheme && match_buf.contains(scheme_match) {
+                // Bypass things that look like schemes
                 continue
             }
 
@@ -56,7 +61,6 @@ impl selection::SemanticSearch for Term {
                 break; // cut off if on new line or hit escape char
             }
 
-            prev_point = point;
             point = iter.cur;
         }
 
