@@ -40,8 +40,14 @@ impl selection::SemanticSearch for Term {
     fn semantic_search_left(&self, mut point: Point) -> Point {
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
+        let mut prev_point = point;
 
         while let Some(cell) = iter.prev() {
+            if self.semantic_detect_scheme && ":".contains(cell.c) && "/".contains(self.grid[prev_point.line][prev_point.col].c) {
+                // Bypass things that look like schemes (:/)
+                continue
+            }
+
             if self.semantic_escape_chars.contains(cell.c) {
                 break;
             }
@@ -50,6 +56,7 @@ impl selection::SemanticSearch for Term {
                 break; // cut off if on new line or hit escape char
             }
 
+            prev_point = point;
             point = iter.cur;
         }
 
@@ -61,6 +68,7 @@ impl selection::SemanticSearch for Term {
         let last_col = self.grid.num_cols() - Column(1);
 
         while let Some(cell) = iter.next() {
+            // TODO: Implement semantic_detect_scheme
             if self.semantic_escape_chars.contains(cell.c) {
                 break;
             }
@@ -705,6 +713,7 @@ pub struct Term {
     cursor_save_alt: Cursor,
 
     semantic_escape_chars: String,
+    semantic_detect_scheme: bool,
 
     /// Colors used for rendering
     colors: color::List,
@@ -834,6 +843,7 @@ impl Term {
             color_modified: [false; color::COUNT],
             original_colors: color::List::from(config.colors()),
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
+            semantic_detect_scheme: true,
             cursor_style: None,
             default_cursor_style: config.cursor_style(),
             dynamic_title: config.dynamic_title(),

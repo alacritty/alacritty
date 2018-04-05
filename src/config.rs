@@ -37,12 +37,14 @@ fn true_bool() -> bool {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Selection {
     pub semantic_escape_chars: String,
+    pub semantic_detect_scheme: bool,
 }
 
 impl Default for Selection {
     fn default() -> Selection {
         Selection {
-            semantic_escape_chars: String::new()
+            semantic_escape_chars: String::new(),
+            semantic_detect_scheme: true,
         }
     }
 }
