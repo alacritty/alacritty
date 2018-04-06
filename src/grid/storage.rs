@@ -48,6 +48,17 @@ impl<T> Storage<T> {
     }
 
     pub fn set_visible_lines(&mut self, next: Line) {
+        // Change capacity to fit scrollback + screen size
+        if next > self.visible_lines + 1 {
+            self.inner.reserve_exact((next - (self.visible_lines + 1)).0);
+        } else if next < self.visible_lines + 1 {
+            let shrinkage = (self.visible_lines + 1 - next).0;
+            let new_size = self.inner.capacity() - shrinkage;
+            self.inner.truncate(new_size);
+            self.inner.shrink_to_fit();
+        }
+
+        // Update visible lines
         self.visible_lines = next - 1;
     }
 
