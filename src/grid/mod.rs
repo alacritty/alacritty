@@ -211,7 +211,10 @@ impl<T: Copy + Clone> Grid<T> {
     }
 
     fn increase_scroll_limit(&mut self, count: usize) {
-        self.scroll_limit = min(self.scroll_limit + count, self.raw.len() - *self.lines);
+        self.scroll_limit = min(
+            self.scroll_limit + count,
+            self.raw.len().saturating_sub(*self.lines),
+        );
     }
 
     fn decrease_scroll_limit(&mut self, count: usize) {
@@ -240,6 +243,13 @@ impl<T: Copy + Clone> Grid<T> {
         self.raw.set_visible_lines(new_line_count);
         self.lines = new_line_count;
 
+        // Fill up the history with empty lines
+        if self.raw.len() < self.raw.capacity() {
+            for _ in self.raw.len()..self.raw.capacity() {
+                self.raw.push(Row::new(self.cols, &template));
+            }
+        }
+
         // Add new lines to bottom
         self.scroll_up(&(Line(0)..new_line_count), lines_added, template);
 
@@ -263,11 +273,6 @@ impl<T: Copy + Clone> Grid<T> {
     ///
     /// Alacritty takes the same approach.
     fn shrink_lines(&mut self, target: index::Line) {
-        // TODO handle disabled scrollback
-        // while index::Line(self.raw.len()) != lines {
-        //     self.raw.pop();
-        // }
-
         let prev = self.lines;
 
         self.selection = None;
