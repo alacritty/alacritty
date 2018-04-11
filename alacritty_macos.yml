@@ -28,13 +28,14 @@ window:
     y: 2
 
   # Window decorations
-  # Setting this to none will result in window without title bar, rounded
-  # corners, or drop shadow.
-  # Setting this to transparent will result in window with title bar with
-  # transparent background
-  # Setting this to buttonless will result in window with title bar with
-  # transparent background and no buttons
-  decorations: default
+  # Available values:
+  # - `full`: Window with title bar and title bar buttons
+  # - `none`: Window without title bar, rounded corners, or drop shadow
+  # - `transparent`: Window with title bar with transparent background and title
+  #   bar buttons
+  # - `buttonless`: Window with title bar with transparent background and no
+  #   title bar buttons
+  decorations: full
 
 scrolling:
   # How many lines of scrollback to keep,

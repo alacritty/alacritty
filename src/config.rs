@@ -290,7 +290,7 @@ impl<'de> Deserialize<'de> for Decorations {
                     "transparent" => Ok(Decorations::Transparent),
                     "buttonless" => Ok(Decorations::Buttonless),
                     "none" => Ok(Decorations::None),
-                    "default" => Ok(Decorations::Default),
+                    "full" => Ok(Decorations::Default),
                     _ => {
                         eprintln!("invalid decorations value: {}; Using default value", value);
                         Ok(Decorations::Default)
@@ -304,7 +304,7 @@ impl<'de> Deserialize<'de> for Decorations {
             {
                 match value {
                     "none" => Ok(Decorations::None),
-                    "default" => Ok(Decorations::Default),
+                    "full" => Ok(Decorations::Default),
                     "transparent" => {
                         eprintln!("macos-only decorations value: {}; Using default value", value);
                         Ok(Decorations::Default)

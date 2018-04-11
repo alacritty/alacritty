@@ -30,8 +30,10 @@ window:
     y: 2
 
   # Window decorations
-  # Setting this to "none" will result in window without borders and title bar.
-  decorations: default
+  # Available values:
+  # - `full`: Window with borders and title bar.
+  # - `none`: Window without borders or title bar.
+  decorations: full
 
 scrolling:
   # How many lines of scrollback to keep,

@@ -375,31 +375,25 @@ impl Window {
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
         use glutin::os::macos::WindowBuilderExt;
 
+        let window = WindowBuilder::new()
+            .with_title(title)
+            .with_visibility(false)
+            .with_transparency(true);
+
         match window_config.decorations() {
-            Decorations::Default => WindowBuilder::new()
-                .with_title(title)
-                .with_visibility(false)
-                .with_transparency(true),
-            Decorations::Transparent => WindowBuilder::new()
-                .with_title(title)
+            Decorations::Default => window,
+            Decorations::Transparent => window
                 .with_title_hidden(true)
                 .with_titlebar_transparent(true)
-                .with_fullsize_content_view(true)
-                .with_visibility(false)
-                .with_transparency(true),
-            Decorations::Buttonless => WindowBuilder::new()
-                .with_title(title)
+                .with_fullsize_content_view(true),
+            Decorations::Buttonless => window
                 .with_title_hidden(true)
                 .with_titlebar_buttons_hidden(true)
                 .with_titlebar_transparent(true)
-                .with_fullsize_content_view(true)
-                .with_visibility(false)
-                .with_transparency(true),
-            Decorations::None => WindowBuilder::new()
+                .with_fullsize_content_view(true),
+            Decorations::None => window
                 .with_title(title)
-                .with_titlebar_hidden(true)
-                .with_visibility(false)
-                .with_transparency(true),
+                .with_titlebar_hidden(true),
         }
     }
 
