@@ -237,7 +237,7 @@ impl Action {
     fn paste<A: ActionContext>(&self, ctx: &mut A, contents: String) {
         if ctx.terminal_mode().contains(TermMode::BRACKETED_PASTE) {
             ctx.write_to_pty(&b"\x1b[200~"[..]);
-            ctx.write_to_pty(contents.into_bytes());
+            ctx.write_to_pty(contents.replace("\x1b[201~","").into_bytes());
             ctx.write_to_pty(&b"\x1b[201~"[..]);
         } else {
             // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
