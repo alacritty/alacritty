@@ -274,7 +274,7 @@ impl<'de> Deserialize<'de> for Decorations {
                 where E: de::Error
             {
                 if value {
-                    eprintln!("deprecated decorations boolean value, use one of default|transparent|buttonless|none instead; Falling back to \"default\"");
+                    eprintln!("deprecated decorations boolean value, use one of default|transparent|buttonless|none instead; Falling back to \"full\"");
                     Ok(Decorations::Default)
                 } else {
                     eprintln!("deprecated decorations boolean value, use one of default|transparent|buttonless|none instead; Falling back to \"none\"");
