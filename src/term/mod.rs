@@ -837,13 +837,11 @@ impl Term {
     }
 
     pub fn new(config: &Config, size: SizeInfo) -> Term {
-        let template = Cell::default();
-
         let num_cols = size.cols();
         let num_lines = size.lines();
 
         let history_size = config.scrolling().history as usize;
-        let grid = Grid::new(num_lines, num_cols, history_size, template);
+        let grid = Grid::new(num_lines, num_cols, history_size, Cell::default());
 
         let tabspaces = config.tabspaces();
         let tabs = IndexRange::from(Column(0)..grid.num_cols())
@@ -1818,6 +1816,12 @@ impl ansi::Handler for Term {
         self.colors = self.original_colors;
         self.color_modified = [false; color::COUNT];
         self.cursor_style = None;
+        self.grid = Grid::new(
+            self.grid.num_lines(),
+            self.grid.num_cols(),
+            self.grid.history_size(),
+            Cell::default(),
+        );
     }
 
     #[inline]
