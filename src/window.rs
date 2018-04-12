@@ -381,7 +381,7 @@ impl Window {
             .with_transparency(true);
 
         match window_config.decorations() {
-            Decorations::Default => window,
+            Decorations::Full => window,
             Decorations::Transparent => window
                 .with_title_hidden(true)
                 .with_titlebar_transparent(true)
@@ -392,7 +392,6 @@ impl Window {
                 .with_titlebar_transparent(true)
                 .with_fullsize_content_view(true),
             Decorations::None => window
-                .with_title(title)
                 .with_titlebar_hidden(true),
         }
     }
