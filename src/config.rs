@@ -1431,6 +1431,11 @@ impl Config {
         self.scrolling
     }
 
+    // Update the history size, used in ref tests
+    pub fn set_history(&mut self, history: u32) {
+        self.scrolling.history = history;
+    }
+
     pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
         let path = path.into();
         let raw = Config::read_file(path.as_path())?;

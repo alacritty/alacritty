@@ -52,9 +52,23 @@ impl<T> Deref for Indexed<T> {
 
 impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
     fn eq(&self, other: &Self) -> bool {
+        // Compare raw grid content
+        // TODO: This is pretty inefficient but only used in tests
+        let mut raw_match = true;
+        for i in 0..(self.lines.0 + self.history_size) {
+            for j in 0..self.cols.0 {
+                if self[i][Column(j)] != other[i][Column(j)] {
+                    raw_match = false;
+                    break;
+                }
+            }
+        }
+
+        // Compare struct fields and check result of grid comparison
         self.cols.eq(&other.cols) &&
             self.lines.eq(&other.lines) &&
-            self.raw.eq(&other.raw)
+            self.history_size.eq(&other.history_size) &&
+            raw_match
     }
 }
 
@@ -88,6 +102,10 @@ pub struct Grid<T> {
     /// Selected region
     #[serde(skip)]
     pub selection: Option<Selection>,
+
+    /// Maximum number of lines in the scrollback history
+    #[serde(default)]
+    history_size: usize,
 }
 
 pub struct GridIterator<'a, T: 'a> {
@@ -132,6 +150,7 @@ impl<T: Copy + Clone> Grid<T> {
             display_offset: 0,
             scroll_limit: 0,
             selection: None,
+            history_size: scrollback,
         }
     }
 

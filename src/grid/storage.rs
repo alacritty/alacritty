@@ -22,16 +22,6 @@ pub struct Storage<T> {
     visible_lines: Line,
 }
 
-impl<T: PartialEq> ::std::cmp::PartialEq for Storage<T> {
-    fn eq(&self, other: &Self) -> bool {
-        let mut equal = true;
-        for i in IndexRange(Line(0) .. self.visible_lines) {
-            equal = equal && (self[i] == other[i])
-        }
-        equal
-    }
-}
-
 impl<T> Storage<T> {
     #[inline]
     pub fn with_capacity(cap: usize, lines: Line) -> Storage<T> {
