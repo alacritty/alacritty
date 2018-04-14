@@ -13,7 +13,7 @@
 /// done so manually.
 use std::ops::{Index, IndexMut};
 
-use index::{IndexRange, Line};
+use index::Line;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Storage<T> {
