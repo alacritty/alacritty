@@ -9,10 +9,11 @@ use alacritty::Grid;
 use alacritty::grid::IndexRegion;
 use alacritty::Term;
 use alacritty::ansi;
-use alacritty::index::{Line, Column};
+use alacritty::index::Column;
 use alacritty::term::Cell;
 use alacritty::term::SizeInfo;
 use alacritty::util::fmt::{Red, Green};
+use alacritty::config::Config;
 
 macro_rules! ref_tests {
     ($($name:ident)*) => {
@@ -47,6 +48,7 @@ ref_tests! {
     vttest_scroll
     vttest_tab_clear_set
     zsh_tab_completion
+    history
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
@@ -77,7 +79,10 @@ fn ref_test(dir: &Path) {
     let size: SizeInfo = json::from_str(&serialized_size).unwrap();
     let grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
 
-    let mut terminal = Term::new(&Default::default(), size);
+    let mut config: Config = Default::default();
+    config.set_history(grid.history_size() as u32);
+
+    let mut terminal = Term::new(&config, size);
     let mut parser = ansi::Processor::new();
 
     for byte in recording {
@@ -85,10 +90,11 @@ fn ref_test(dir: &Path) {
     }
 
     if grid != *terminal.grid() {
-        for (i, row) in terminal.grid().region(..).into_iter().enumerate() {
-            for (j, cell) in row.iter().enumerate() {
-                let original_cell = &grid[Line(i)][Column(j)];
-                if *original_cell != *cell {
+        for i in 0..(grid.num_lines().0 + grid.history_size()) {
+            for j in 0..grid.num_cols().0 {
+                let cell = terminal.grid()[i][Column(j)];
+                let original_cell = grid[i][Column(j)];
+                if original_cell != cell {
                     println!("[{i}][{j}] {original:?} => {now:?}",
                              i=i, j=j, original=Green(original_cell), now=Red(cell));
                 }
