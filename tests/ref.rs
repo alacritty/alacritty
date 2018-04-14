@@ -49,6 +49,7 @@ ref_tests! {
     vttest_tab_clear_set
     zsh_tab_completion
     history
+    grid_reset
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
