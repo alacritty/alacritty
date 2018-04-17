@@ -12,7 +12,7 @@ use copypasta::{Clipboard, Load, Store};
 
 use config::{self, Config};
 use cli::Options;
-use display::OnResize;
+use display::{DisplayCommand, OnResize};
 use index::{Line, Column, Side, Point};
 use input::{self, MouseBinding, KeyBinding};
 use selection::Selection;
@@ -189,7 +189,7 @@ pub struct Processor<N> {
     wait_for_event: bool,
     notifier: N,
     mouse: Mouse,
-    resize_tx: mpsc::Sender<(u32, u32)>,
+    command_tx: mpsc::Sender<DisplayCommand>,
     ref_test: bool,
     size_info: SizeInfo,
     pub selection: Option<Selection>,
@@ -218,7 +218,7 @@ impl<N: Notify> Processor<N> {
     /// pty.
     pub fn new(
         notifier: N,
-        resize_tx: mpsc::Sender<(u32, u32)>,
+        command_tx: mpsc::Sender<DisplayCommand>,
         options: &Options,
         config: &Config,
         ref_test: bool,
@@ -231,7 +231,7 @@ impl<N: Notify> Processor<N> {
             print_events: options.print_events,
             wait_for_event: true,
             notifier,
-            resize_tx,
+            command_tx,
             ref_test,
             mouse: Default::default(),
             selection: None,
@@ -252,7 +252,7 @@ impl<N: Notify> Processor<N> {
         processor: &mut input::Processor<'a, ActionContext<'a, N>>,
         event: Event,
         ref_test: bool,
-        resize_tx: &mpsc::Sender<(u32, u32)>,
+        command_tx: &mpsc::Sender<DisplayCommand>,
         hide_cursor: &mut bool,
         window_is_focused: &mut bool,
     ) {
@@ -286,7 +286,11 @@ impl<N: Notify> Processor<N> {
                         ::std::process::exit(0);
                     },
                     Resized(w, h) => {
-                        resize_tx.send((w, h)).expect("send new size");
+                        command_tx.send(DisplayCommand::Resize(w, h)).expect("send new size");
+                        processor.ctx.terminal.dirty = true;
+                    },
+                    HiDPIFactorChanged(dpr) => {
+                        command_tx.send(DisplayCommand::HiDPIFactor(dpr)).expect("send new dpr");
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
@@ -374,7 +378,7 @@ impl<N: Notify> Processor<N> {
             let print_events = self.print_events;
 
             let ref_test = self.ref_test;
-            let resize_tx = &self.resize_tx;
+            let command_tx = &self.command_tx;
 
             if self.wait_for_event {
                 // A Vec is used here since wait_events can potentially yield
@@ -422,7 +426,7 @@ impl<N: Notify> Processor<N> {
                         &mut processor,
                         event,
                         ref_test,
-                        resize_tx,
+                        command_tx,
                         hide_cursor,
                         &mut window_is_focused,
                     );
