@@ -745,27 +745,29 @@ impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        // Make sure indices are valid. Return None if we've reached the end.
-        if self.col == self.grid.num_cols() {
-            if self.offset == self.limit {
-                return None;
-            }
-
-            // Switch to the next line
-            self.col = Column(0);
-
-            self.offset -= 1;
-            self.line = Line(*self.grid.lines - 1 - (self.offset - self.limit));
+        // Return None if we've reached the end.
+        if self.offset == self.limit && self.grid.num_cols() == self.col {
+            return None;
         }
 
-        // Return the next item
+        // Get the next item.
         let item = Some(Indexed {
             inner: self.grid.raw[self.offset][self.col],
             line: self.line,
             column: self.col
         });
 
+        // Update line/col to point to next item
         self.col += 1;
+        if self.col == self.grid.num_cols() {
+            if self.offset != self.limit {
+                self.offset -= 1;
+
+                self.col = Column(0);
+                self.line = Line(*self.grid.lines - 1 - (self.offset - self.limit));
+            }
+        }
+
         item
     }
 }
