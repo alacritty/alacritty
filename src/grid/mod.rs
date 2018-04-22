@@ -240,15 +240,8 @@ impl<T: Copy + Clone> Grid<T> {
         let lines_added = new_line_count - self.lines;
 
         // Need to "resize" before updating buffer
-        self.raw.set_visible_lines(new_line_count);
+        self.raw.grow_visible_lines(new_line_count, Row::new(self.cols, template));
         self.lines = new_line_count;
-
-        // Fill up the history with empty lines
-        if self.raw.len() < self.raw.capacity() {
-            for _ in self.raw.len()..self.raw.capacity() {
-                self.raw.push(Row::new(self.cols, &template));
-            }
-        }
 
         // Add new lines to bottom
         self.scroll_up(&(Line(0)..new_line_count), lines_added, template);
@@ -277,7 +270,7 @@ impl<T: Copy + Clone> Grid<T> {
 
         self.selection = None;
         self.raw.rotate(*prev as isize - *target as isize);
-        self.raw.set_visible_lines(target);
+        self.raw.shrink_visible_lines(target);
         self.lines = target;
     }
 
