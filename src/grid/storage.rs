@@ -47,15 +47,49 @@ impl<T> Storage<T> {
         self.inner.capacity()
     }
 
-    pub fn set_visible_lines(&mut self, next: Line) {
-        // Change capacity to fit scrollback + screen size
-        if next > self.visible_lines + 1 {
-            self.inner.reserve_exact((next - (self.visible_lines + 1)).0);
-        } else if next < self.visible_lines + 1 {
-            let shrinkage = (self.visible_lines + 1 - next).0;
-            let new_size = self.inner.capacity() - shrinkage;
-            self.inner.truncate(new_size);
-            self.inner.shrink_to_fit();
+    /// Increase the number of lines in the buffer
+    pub fn grow_visible_lines(&mut self, next: Line, template_row: T)
+    where
+        T: Clone,
+    {
+        // Calculate insert position (before the first line)
+        let offset = self.zero % self.inner.len();
+
+        // Insert new template row for every line grown
+        let lines_to_grow = (next - (self.visible_lines + 1)).0;
+        for _ in 0..lines_to_grow {
+            self.inner.insert(offset, template_row.clone());
+        }
+
+        // Set zero to old zero + lines grown
+        self.zero = offset + lines_to_grow;
+
+        // Update visible lines
+        self.visible_lines = next - 1;
+    }
+
+    /// Decrease the number of lines in the buffer
+    pub fn shrink_visible_lines(&mut self, next: Line) {
+        // Calculate shrinkage and last line of buffer
+        let shrinkage = (self.visible_lines + 1 - next).0;
+        let offset = (self.zero + self.inner.len() - 1) % self.inner.len();
+
+        // Generate range of lines that have to be deleted before the zero line
+        let start = offset.saturating_sub(shrinkage - 1);
+        let shrink_before = start..=offset;
+
+        // Generate range of lines that have to be deleted after the zero line
+        let shrink_after = (self.inner.len() + offset + 1 - shrinkage)..self.inner.len();
+
+        // Delete all lines in reverse order
+        for i in shrink_before.chain(shrink_after).rev() {
+            self.inner.remove(i);
+        }
+
+        // Check if zero has moved (not the first line in the buffer)
+        if self.zero % (self.inner.len() + shrinkage) != 0 {
+            // Set zero to the first deleted line in the buffer
+            self.zero = start;
         }
 
         // Update visible lines
@@ -158,4 +192,166 @@ impl<'a, T: 'a> Iterator for IterMut<'a, T> {
             }
         }
     }
+}
+
+/// Grow the buffer one line at the end of the buffer
+///
+/// Before:
+///   0: 0 <- Zero
+///   1: 1
+///   2: -
+/// After:
+///   0: -
+///   1: 0 <- Zero
+///   2: 1
+///   3: -
+#[test]
+fn grow_after_zero() {
+    // Setup storage area
+    let mut storage = Storage {
+        inner: vec!["0", "1", "-"],
+        zero: 0,
+        visible_lines: Line(2),
+    };
+
+    // Grow buffer
+    storage.grow_visible_lines(Line(4), "-");
+
+    // Make sure the result is correct
+    let expected = Storage {
+        inner: vec!["-", "0", "1", "-"],
+        zero: 1,
+        visible_lines: Line(0),
+    };
+    assert_eq!(storage.inner, expected.inner);
+    assert_eq!(storage.zero, expected.zero);
+}
+
+/// Grow the buffer one line at the start of the buffer
+///
+/// Before:
+///   0: -
+///   1: 0 <- Zero
+///   2: 1
+/// After:
+///   0: -
+///   1: -
+///   2: 0 <- Zero
+///   3: 1
+#[test]
+fn grow_before_zero() {
+    // Setup storage area
+    let mut storage = Storage {
+        inner: vec!["-", "0", "1"],
+        zero: 1,
+        visible_lines: Line(2),
+    };
+
+    // Grow buffer
+    storage.grow_visible_lines(Line(4), "-");
+
+    // Make sure the result is correct
+    let expected = Storage {
+        inner: vec!["-", "-", "0", "1"],
+        zero: 2,
+        visible_lines: Line(0),
+    };
+    assert_eq!(storage.inner, expected.inner);
+    assert_eq!(storage.zero, expected.zero);
+}
+
+/// Shrink the buffer one line at the start of the buffer
+///
+/// Before:
+///   0: 2
+///   1: 0 <- Zero
+///   2: 1
+/// After:
+///   0: 0 <- Zero
+///   1: 1
+#[test]
+fn shrink_before_zero() {
+    // Setup storage area
+    let mut storage = Storage {
+        inner: vec!["2", "0", "1"],
+        zero: 1,
+        visible_lines: Line(2),
+    };
+
+    // Shrink buffer
+    storage.shrink_visible_lines(Line(2));
+
+    // Make sure the result is correct
+    let expected = Storage {
+        inner: vec!["0", "1"],
+        zero: 0,
+        visible_lines: Line(0),
+    };
+    assert_eq!(storage.inner, expected.inner);
+    assert_eq!(storage.zero, expected.zero);
+}
+
+/// Shrink the buffer one line at the end of the buffer
+///
+/// Before:
+///   0: 0 <- Zero
+///   1: 1
+///   2: 2
+/// After:
+///   0: 0 <- Zero
+///   1: 1
+#[test]
+fn shrink_after_zero() {
+    // Setup storage area
+    let mut storage = Storage {
+        inner: vec!["0", "1", "2"],
+        zero: 0,
+        visible_lines: Line(2),
+    };
+
+    // Shrink buffer
+    storage.shrink_visible_lines(Line(2));
+
+    // Make sure the result is correct
+    let expected = Storage {
+        inner: vec!["0", "1"],
+        zero: 0,
+        visible_lines: Line(0),
+    };
+    assert_eq!(storage.inner, expected.inner);
+    assert_eq!(storage.zero, expected.zero);
+}
+
+/// Shrink the buffer at the start and end of the buffer
+///
+/// Before:
+///   0: 4
+///   1: 5
+///   2: 0 <- Zero
+///   3: 1
+///   4: 2
+///   5: 3
+/// After:
+///   0: 0 <- Zero
+///   1: 1
+#[test]
+fn shrink_before_and_after_zero() {
+    // Setup storage area
+    let mut storage = Storage {
+        inner: vec!["4", "5", "0", "1", "2", "3"],
+        zero: 2,
+        visible_lines: Line(5),
+    };
+
+    // Shrink buffer
+    storage.shrink_visible_lines(Line(2));
+
+    // Make sure the result is correct
+    let expected = Storage {
+        inner: vec!["0", "1"],
+        zero: 0,
+        visible_lines: Line(0),
+    };
+    assert_eq!(storage.inner, expected.inner);
+    assert_eq!(storage.zero, expected.zero);
 }
