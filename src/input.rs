@@ -700,7 +700,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 c.encode_utf8(&mut bytes[..]);
             }
 
-            if *self.ctx.received_count() == 0 && self.ctx.last_modifiers().alt && utf8_len == 1 {
+            if self.ctx.last_modifiers().alt && utf8_len == 1 {
                 bytes.insert(0, b'\x1b');
             }
 
