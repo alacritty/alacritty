@@ -259,6 +259,10 @@ pub struct WindowConfig {
     /// Draw the window with title bar / borders
     #[serde(default, deserialize_with = "failure_default")]
     decorations: bool,
+
+    /// Start maximized
+    #[serde(default, deserialize_with = "failure_default")]
+    start_maximized: bool,
 }
 
 fn default_padding() -> Delta<u8> {
@@ -281,6 +285,10 @@ impl WindowConfig {
     pub fn decorations(&self) -> bool {
         self.decorations
     }
+
+    pub fn start_maximized(&self) -> bool {
+        self.start_maximized
+    }
 }
 
 impl Default for WindowConfig {
@@ -289,6 +297,7 @@ impl Default for WindowConfig {
             dimensions: Default::default(),
             padding: default_padding(),
             decorations: true,
+            start_maximized: false,
         }
     }
 }

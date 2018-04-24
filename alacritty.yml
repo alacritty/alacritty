@@ -33,6 +33,9 @@ window:
   # Setting this to false will result in window without borders and title bar.
   decorations: true
 
+  # When true, alacritty starts maximized.
+  start_maximized: false
+
 scrolling:
   # How many lines of scrollback to keep,
   # '0' will disable scrolling.
