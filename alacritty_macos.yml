@@ -50,6 +50,9 @@ window:
   #     - transparent: Title bar, transparent background, but no title bar buttons
   decorations: full
 
+  # When true, alacritty starts maximized.
+  start_maximized: false
+
 scrolling:
   # Maximum number of lines in the scrollback buffer.
   # Specifying '0' will disable scrolling.

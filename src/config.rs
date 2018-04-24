@@ -380,6 +380,10 @@ pub struct WindowConfig {
     /// Spread out additional padding evenly
     #[serde(default, deserialize_with = "failure_default")]
     dynamic_padding: bool,
+
+    /// Start maximized
+    #[serde(default, deserialize_with = "failure_default")]
+    start_maximized: bool,
 }
 
 fn default_padding() -> Delta<u8> {
@@ -406,6 +410,10 @@ impl WindowConfig {
     pub fn dynamic_padding(&self) -> bool {
         self.dynamic_padding
     }
+
+    pub fn start_maximized(&self) -> bool {
+        self.start_maximized
+    }
 }
 
 impl Default for WindowConfig {
@@ -415,6 +423,7 @@ impl Default for WindowConfig {
             padding: default_padding(),
             decorations: Default::default(),
             dynamic_padding: false,
+            start_maximized: false,
         }
     }
 }

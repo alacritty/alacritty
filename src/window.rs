@@ -156,6 +156,10 @@ impl Window {
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();
 
+        if window_config.start_maximized() {
+            window.set_maximized(true);
+        }
+
         // Text cursor
         window.set_cursor(GlutinMouseCursor::Text);
 
