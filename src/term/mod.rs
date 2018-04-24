@@ -1816,12 +1816,7 @@ impl ansi::Handler for Term {
         self.colors = self.original_colors;
         self.color_modified = [false; color::COUNT];
         self.cursor_style = None;
-        self.grid = Grid::new(
-            self.grid.num_lines(),
-            self.grid.num_cols(),
-            self.grid.history_size(),
-            Cell::default(),
-        );
+        self.grid.reset();
     }
 
     #[inline]

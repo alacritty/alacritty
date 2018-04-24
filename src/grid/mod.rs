@@ -73,10 +73,6 @@ pub struct Grid<T> {
     /// Invariant: lines is equivalent to raw.len()
     lines: index::Line,
 
-    /// Maximum number of lines in the scrollback history
-    #[serde(default)]
-    history_size: usize,
-
     /// Offset of displayed area
     ///
     /// If the displayed region isn't at the bottom of the screen, it stays
@@ -136,7 +132,6 @@ impl<T: Copy + Clone> Grid<T> {
             display_offset: 0,
             scroll_limit: 0,
             selection: None,
-            history_size: scrollback,
         }
     }
 
@@ -408,9 +403,8 @@ impl<T> Grid<T> {
         self.cols
     }
 
-    #[inline]
-    pub fn history_size(&self) -> usize {
-        self.history_size
+    pub fn reset(&mut self) {
+        self.scroll_limit = 0;
     }
 
     pub fn iter_from(&self, point: Point<usize>) -> GridIterator<T> {
