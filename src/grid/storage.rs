@@ -76,7 +76,7 @@ impl<T> Storage<T> {
 
         // Generate range of lines that have to be deleted before the zero line
         let start = offset.saturating_sub(shrinkage - 1);
-        let shrink_before = start..=offset;
+        let shrink_before = start..(offset + 1);
 
         // Generate range of lines that have to be deleted after the zero line
         let shrink_after = (self.inner.len() + offset + 1 - shrinkage)..self.inner.len();
