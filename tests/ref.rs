@@ -6,7 +6,6 @@ use std::io::{self, Read};
 use std::path::Path;
 
 use alacritty::Grid;
-use alacritty::grid::IndexRegion;
 use alacritty::Term;
 use alacritty::ansi;
 use alacritty::index::Column;
@@ -81,7 +80,7 @@ fn ref_test(dir: &Path) {
     let grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
 
     let mut config: Config = Default::default();
-    config.set_history(grid.history_size() as u32);
+    config.set_history((grid.len() - grid.num_lines().0) as u32);
 
     let mut terminal = Term::new(&config, size);
     let mut parser = ansi::Processor::new();
@@ -91,7 +90,7 @@ fn ref_test(dir: &Path) {
     }
 
     if grid != *terminal.grid() {
-        for i in 0..(grid.num_lines().0 + grid.history_size()) {
+        for i in 0..grid.len() {
             for j in 0..grid.num_cols().0 {
                 let cell = terminal.grid()[i][Column(j)];
                 let original_cell = grid[i][Column(j)];
