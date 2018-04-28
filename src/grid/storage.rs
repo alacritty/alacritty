@@ -22,6 +22,47 @@ pub struct Storage<T> {
     visible_lines: Line,
 }
 
+impl<T: PartialEq> ::std::cmp::PartialEq for Storage<T> {
+    fn eq(&self, other: &Self) -> bool {
+        // Make sure length is equal
+        if self.inner.len() != other.inner.len() {
+            return false;
+        }
+
+        // Check which vec has the bigger zero
+        let (ref bigger, ref smaller) = if self.zero >= other.zero {
+            (self, other)
+        } else {
+            (other, self)
+        };
+
+        // Calculate the actual zero offset
+        let len = self.inner.len();
+        let bigger_zero = bigger.zero % len;
+        let smaller_zero = smaller.zero % len;
+
+        // Compare the slices in chunks
+        // Chunks:
+        //   - Bigger zero to the end
+        //   - Remaining lines in smaller zero vec
+        //   - Beginning of smaller zero vec
+        //
+        // Example:
+        //   Bigger Zero (6):
+        //     4  5  6  | 7  8  9  | 0  1  2  3
+        //     C2 C2 C2 | C3 C3 C3 | C1 C1 C1 C1
+        //   Smaller Zero (3):
+        //     7  8  9  | 0  1  2  3  | 4  5  6
+        //     C3 C3 C3 | C1 C1 C1 C1 | C2 C2 C2
+        &bigger.inner[bigger_zero..]
+            == &smaller.inner[smaller_zero..smaller_zero + (len - bigger_zero)]
+            && &bigger.inner[..bigger_zero - smaller_zero]
+                == &smaller.inner[smaller_zero + (len - bigger_zero)..]
+            && &bigger.inner[bigger_zero - smaller_zero..bigger_zero]
+                == &smaller.inner[..smaller_zero]
+    }
+}
+
 impl<T> Storage<T> {
     #[inline]
     pub fn with_capacity(cap: usize, lines: Line) -> Storage<T> {
