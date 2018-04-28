@@ -403,6 +403,10 @@ impl<T> Grid<T> {
         self.cols
     }
 
+    pub fn reset(&mut self) {
+        self.scroll_limit = 0;
+    }
+
     pub fn iter_from(&self, point: Point<usize>) -> GridIterator<T> {
         GridIterator {
             grid: self,
