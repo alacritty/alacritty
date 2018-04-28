@@ -38,7 +38,7 @@ use index::{Point, Column, Side};
 /// [`simple`]: enum.Selection.html#method.simple
 /// [`semantic`]: enum.Selection.html#method.semantic
 /// [`lines`]: enum.Selection.html#method.lines
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Selection {
     Simple {
         /// The region representing start and end of cursor movement
@@ -64,7 +64,7 @@ pub enum Selection {
 }
 
 /// A Point and side within that point.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Anchor {
     point: Point<usize>,
     side: Side,
