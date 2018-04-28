@@ -40,6 +40,7 @@ pub struct ActionContext<'a, N: 'a> {
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
     pub last_modifiers: &'a mut ModifiersState,
+    pub window_changes: &'a mut WindowChanges,
 }
 
 impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
@@ -133,6 +134,33 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     fn last_modifiers(&mut self) -> &mut ModifiersState {
         &mut self.last_modifiers
     }
+
+    #[inline]
+    fn hide_window(&mut self) {
+        self.window_changes.hide = true;
+    }
+}
+
+/// The ActionContext can't really have direct access to the Window
+/// with the current design. Event handlers that want to change the
+/// window must set these flags instead. The processor will trigger
+/// the actual changes.
+pub struct WindowChanges {
+    pub hide: bool,
+}
+
+impl WindowChanges {
+    fn clear(&mut self) {
+        self.hide = false;
+    }
+}
+
+impl Default for WindowChanges {
+    fn default() -> WindowChanges {
+        WindowChanges {
+            hide: false,
+        }
+    }
 }
 
 pub enum ClickState {
@@ -199,6 +227,7 @@ pub struct Processor<N> {
     suppress_chars: bool,
     last_modifiers: ModifiersState,
     pending_events: Vec<Event>,
+    window_changes: WindowChanges,
 }
 
 /// Notify that the terminal was resized
@@ -242,6 +271,7 @@ impl<N: Notify> Processor<N> {
             suppress_chars: false,
             last_modifiers: Default::default(),
             pending_events: Vec::with_capacity(4),
+            window_changes: Default::default(),
         }
     }
 
@@ -401,6 +431,7 @@ impl<N: Notify> Processor<N> {
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
                 last_modifiers: &mut self.last_modifiers,
+                window_changes: &mut self.window_changes,
             };
 
             processor = input::Processor {
@@ -448,6 +479,11 @@ impl<N: Notify> Processor<N> {
             }
         }
 
+        if self.window_changes.hide {
+            window.hide();
+        }
+
+        self.window_changes.clear();
         self.wait_for_event = !terminal.dirty;
 
         terminal
