@@ -23,11 +23,11 @@ pub fn set_locale_environment() {
     let locale_id = unsafe {
         let locale_class = Class::get("NSLocale").unwrap();
         let locale: *const Object = msg_send![locale_class, currentLocale];
-        msg_send![locale_class, release];
+        let _ : () = msg_send![locale_class, release];
         let identifier: *const Object = msg_send![locale, localeIdentifier];
-        msg_send![locale, release];
+        let _ : () = msg_send![locale, release];
         let identifier_str = nsstring_as_str(identifier).to_owned();
-        msg_send![identifier, release];
+        let _ : () = msg_send![identifier, release];
         identifier_str
     };
     let locale_id = locale_id + ".UTF-8";
