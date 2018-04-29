@@ -303,7 +303,7 @@ echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
 To install the completions for fish, run
 
 ```
-sudo cp alacritty-completions.fish /usr/share/fish/vendor_completions.d/alacritty.fish
+sudo cp alacritty-completions.fish $__fish_datadir/vendor_completions.d/alacritty.fish
 ```
 
 ## Configuration
