@@ -125,7 +125,7 @@ impl<T: Copy + Clone> Grid<T> {
         // TODO (jwilm) Allocating each line at this point is expensive and
         // delays startup. A nice solution might be having `Row` delay
         // allocation until it's actually used.
-        for _ in 0..raw.capacity() {
+        for _ in 0..raw.len() {
             raw.push(Row::new(cols, &template));
         }
 
