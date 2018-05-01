@@ -244,6 +244,14 @@ If all goes well, this should place a binary at `target/release/alacritty`.
 Many linux distributions support desktop entries for adding applications to
 system menus. To install the desktop entry for Alacritty, run
 
+##### Set as default terminal emulator
+
+To make alacritty the default terminal emulator (which will cause it to be opened by the ctrl+alt+t shortcut on Ubuntu) run this command:
+
+```sh
+sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/local/bin/alacritty 50
+```
+
 ```sh
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
 cp Alacritty.desktop ~/.local/share/applications
