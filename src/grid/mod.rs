@@ -118,17 +118,7 @@ pub enum Scroll {
 
 impl<T: Copy + Clone> Grid<T> {
     pub fn new(lines: index::Line, cols: index::Column, scrollback: usize, template: T) -> Grid<T> {
-        let mut raw = Storage::with_capacity(*lines + scrollback, lines);
-
-        // Allocate all lines in the buffer, including scrollback history
-        //
-        // TODO (jwilm) Allocating each line at this point is expensive and
-        // delays startup. A nice solution might be having `Row` delay
-        // allocation until it's actually used.
-        for _ in 0..raw.len() {
-            raw.push(Row::new(cols, &template));
-        }
-
+        let raw = Storage::with_capacity(*lines + scrollback, lines, Row::new(cols, &template));
         Grid {
             raw,
             cols,
