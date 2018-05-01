@@ -27,11 +27,3 @@ matrix:
 
 script:
   - cargo test --no-default-features --features "$FEATURES"
-
-deploy:
-  provider: releases
-  api_key: "667d981e1f96ae2c4b4b5f0245ef2b8b6a653ae3"
-  file: "builded"
-  skip_cleanup: true
-  on:
-    tags: true
