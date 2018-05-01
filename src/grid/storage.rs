@@ -67,9 +67,18 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Storage<T> {
 
 impl<T> Storage<T> {
     #[inline]
-    pub fn with_capacity(cap: usize, lines: Line) -> Storage<T> {
+    pub fn with_capacity(cap: usize, lines: Line, template: T) -> Storage<T>
+    where
+        T: Clone,
+    {
+        // Allocate all lines in the buffer, including scrollback history
+        //
+        // TODO (jwilm) Allocating each line at this point is expensive and
+        // delays startup. A nice solution might be having `Row` delay
+        // allocation until it's actually used.
+        let inner = vec![template; cap];
         Storage {
-            inner: Vec::with_capacity(cap),
+            inner,
             zero: 0,
             visible_lines: lines - 1,
             len: cap,
@@ -118,11 +127,6 @@ impl<T> Storage<T> {
 
         // Update visible lines
         self.visible_lines = next - 1;
-    }
-
-    #[inline]
-    pub fn push(&mut self, item: T) {
-        self.inner.push(item)
     }
 
     #[inline]
