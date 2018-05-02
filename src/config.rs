@@ -270,22 +270,22 @@ pub struct WindowConfig {
 
     /// Pixel padding
     #[serde(default="default_padding", deserialize_with = "deserialize_padding")]
-    padding: Delta<u8>,
+    padding: Padding,
 
     /// Draw the window with title bar / borders
     #[serde(default, deserialize_with = "failure_default")]
     decorations: bool,
 }
 
-fn default_padding() -> Delta<u8> {
-    Delta { x: 2, y: 2 }
+fn default_padding() -> Padding {
+    Padding { top: 2, right: 2, bottom: 2, left: 2 }
 }
 
-fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Delta<u8>, D::Error>
+fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Padding, D::Error>
     where D: de::Deserializer<'a>
 {
-    match Delta::deserialize(deserializer) {
-        Ok(delta) => Ok(delta),
+    match Padding::deserialize(deserializer) {
+        Ok(padding) => Ok(padding),
         Err(err) => {
             eprintln!("problem with config: {}; Using default value", err);
             Ok(default_padding())
@@ -318,7 +318,7 @@ pub struct Config {
 
     /// Pixel padding
     #[serde(default, deserialize_with = "failure_default")]
-    padding: Option<Delta<u8>>,
+    padding: Option<Padding>,
 
     /// TERM env variable
     #[serde(default, deserialize_with = "failure_default")]
@@ -1285,7 +1285,7 @@ impl Config {
         self.tabspaces
     }
 
-    pub fn padding(&self) -> &Delta<u8> {
+    pub fn padding(&self) -> &Padding {
         self.padding.as_ref()
             .unwrap_or(&self.window.padding)
     }
@@ -1457,6 +1457,14 @@ pub struct Delta<T: Default> {
     /// Vertical change
     #[serde(default, deserialize_with = "failure_default")]
     pub y: T,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+pub struct Padding {
+    pub top: u8,
+    pub right: u8,
+    pub bottom: u8,
+    pub left: u8,
 }
 
 trait DeserializeSize : Sized {

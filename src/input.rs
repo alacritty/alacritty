@@ -272,7 +272,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             let prev_line = mem::replace(&mut self.ctx.mouse_mut().line, point.line);
             let prev_col = mem::replace(&mut self.ctx.mouse_mut().column, point.col);
 
-            let cell_x = (x as usize - size_info.padding_x as usize) % size_info.cell_width as usize;
+            let cell_x = (x as usize - size_info.padding_left as usize) % size_info.cell_width as usize;
             let half_cell_width = (size_info.cell_width / 2.0) as usize;
 
             let cell_side = if cell_x > half_cell_width {
@@ -720,8 +720,10 @@ mod tests {
                     height: 51.0,
                     cell_width: 3.0,
                     cell_height: 3.0,
-                    padding_x: 0.0,
-                    padding_y: 0.0,
+                    padding_top: 0.0,
+                    padding_right: 0.0,
+                    padding_bottom: 0.0,
+                    padding_left: 0.0,
                 };
 
                 let mut terminal = Term::new(&config, size);

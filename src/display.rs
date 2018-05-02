@@ -20,7 +20,7 @@ use parking_lot::{MutexGuard};
 
 use Rgb;
 use cli;
-use config::Config;
+use config::{Config, Padding};
 use font::{self, Rasterize};
 use meter::Meter;
 use renderer::{self, GlyphCache, QuadRenderer};
@@ -156,14 +156,16 @@ impl Display {
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
 
+        let &Padding { top, right, bottom, left } = config.padding();
+
         // Resize window to specified dimensions unless one or both dimensions are 0
         if dimensions.columns_u32() > 0 && dimensions.lines_u32() > 0 {
             let width = cell_width as u32 * dimensions.columns_u32();
             let height = cell_height as u32 * dimensions.lines_u32();
 
             let new_viewport_size = Size {
-                width: Pixels(width + 2 * u32::from(config.padding().x)),
-                height: Pixels(height + 2 * u32::from(config.padding().y)),
+                width: Pixels(width + u32::from(right + left)),
+                height: Pixels(height + u32::from(top + bottom)),
             };
 
             window.set_inner_size(&new_viewport_size);
@@ -178,8 +180,10 @@ impl Display {
             height: viewport_size.height.0 as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
-            padding_x: f32::from(config.padding().x),
-            padding_y: f32::from(config.padding().y),
+            padding_top: f32::from(top),
+            padding_right: f32::from(right),
+            padding_bottom: f32::from(bottom),
+            padding_left: f32::from(left),
         };
 
         // Channel for resize events
@@ -418,8 +422,8 @@ impl Display {
         let Point{line: Line(row), col: Column(col)} = terminal.cursor().point;
         let SizeInfo{cell_width: cw,
                     cell_height: ch,
-                    padding_x: px,
-                    padding_y: py, ..} = *terminal.size_info();
+                    padding_left: px,
+                    padding_bottom: py, ..} = *terminal.size_info();
         let nspot_y = (py + (row + 1) as f32 * ch) as i32;
         let nspot_x = (px + col as f32 * cw) as i32;
         self.window().set_ime_spot(nspot_x, nspot_y);
