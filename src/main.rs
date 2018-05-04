@@ -27,6 +27,9 @@ extern crate alacritty;
 
 #[macro_use]
 extern crate log;
+extern crate syslog;
+extern crate libc;
+extern crate backtrace;
 
 use std::error::Error;
 use std::sync::Arc;
@@ -46,10 +49,46 @@ use alacritty::term::{Term};
 use alacritty::tty::{self, process_should_exit};
 use alacritty::util::fmt::Red;
 
+use syslog::{Facility, Formatter3164};
+
 fn main() {
     // Load command line options and config
     let options = cli::Options::load();
     let config = load_config(&options);
+
+    ::std::panic::set_hook(Box::new(|panic_info| {
+        let formatter = Formatter3164 {
+            facility: Facility::LOG_USER,
+            hostname: None,
+            process: "alacritty".into(),
+            pid: unsafe { libc::getpid() as _ },
+        };
+
+        match syslog::unix::<String, _>(formatter) {
+            Err(e)         => println!("impossible to connect to syslog: {:?}", e),
+            Ok(mut writer) => {
+                let mut message = String::new();
+                if let Some(location) = panic_info.location() {
+                    let _ = writer.err(format!("panic occurred in file '{}' at line {}: ",
+                                                location.file(),
+                                                location.line()));
+                }
+
+                if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
+                    let _ = writer.err(s.to_string());
+                } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
+                    let _ = writer.err(s.to_string());
+                }
+
+                let backtrace = backtrace::Backtrace::new();
+                let backtrace = format!("{:?}", backtrace);
+                for line in backtrace.split('\n') {
+                    let _ = writer.err(line.to_string());
+                }
+
+            }
+        }
+    }));
 
     // Switch to home directory
     #[cfg(target_os = "macos")]

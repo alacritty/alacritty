@@ -37,6 +37,8 @@ glutin = "0.13"
 clippy = { version = "*", optional = true }
 env_logger = "0.5"
 base64 = "0.9.0"
+syslog = "4.0"
+backtrace = "*"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
