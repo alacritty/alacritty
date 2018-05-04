@@ -123,10 +123,8 @@ pub struct ShaderProgram {
     /// Rendering is split into two passes; 1 for backgrounds, and one for text
     u_background: GLint,
 
-    padding_top: u8,
-    padding_right: u8,
-    padding_bottom: u8,
-    padding_left: u8,
+    /// Window padding
+    padding: Padding,
 }
 
 
@@ -721,14 +719,14 @@ impl QuadRenderer {
     }
 
     pub fn resize(&mut self, width: i32, height: i32) {
-        let padding_top = i32::from(self.program.padding_top);
-        let padding_right = i32::from(self.program.padding_right);
-        let padding_bottom = i32::from(self.program.padding_bottom);
-        let padding_left = i32::from(self.program.padding_left);
-
         // viewport
         unsafe {
-            gl::Viewport(padding_left, padding_bottom, width - (padding_right + padding_left), height - (padding_top + padding_bottom));
+            gl::Viewport(
+                i32::from(self.program.padding.left),
+                i32::from(self.program.padding.bottom),
+                width - i32::from(self.program.padding.horizontal()),
+                height - i32::from(self.program.padding.vertical()),
+            );
         }
 
         // update projection
@@ -1014,8 +1012,6 @@ impl ShaderProgram {
 
         assert_uniform_valid!(projection, term_dim, cell_dim);
 
-        let &Padding { top, right, bottom, left } = config.padding();
-
         let shader = ShaderProgram {
             id: program,
             u_projection: projection,
@@ -1023,10 +1019,7 @@ impl ShaderProgram {
             u_cell_dim: cell_dim,
             u_visual_bell: visual_bell,
             u_background: background,
-            padding_top: top,
-            padding_right: right,
-            padding_bottom: bottom,
-            padding_left: left,
+            padding: config.padding().clone(),
         };
 
         shader.update_projection(*size.width as f32, *size.height as f32);
@@ -1038,8 +1031,8 @@ impl ShaderProgram {
 
     fn update_projection(&self, width: f32, height: f32) {
         // Bounds check
-        if (width as u32) < u32::from(self.padding_left + self.padding_right) ||
-            (height as u32) < u32::from(self.padding_top + self.padding_bottom)
+        if (width as u32) < u32::from(self.padding.horizontal()) ||
+            (height as u32) < u32::from(self.padding.vertical())
         {
             return;
         }
@@ -1051,8 +1044,8 @@ impl ShaderProgram {
         //    correctly.
         let ortho = cgmath::ortho(
             0.,
-            width - f32::from(self.padding_left + self.padding_right),
-            f32::from(self.padding_top + self.padding_bottom),
+            width - f32::from(self.padding.horizontal()),
+            f32::from(self.padding.vertical()),
             height,
             -1.,
             1.

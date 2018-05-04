@@ -1459,12 +1459,17 @@ pub struct Delta<T: Default> {
     pub y: T,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Serialize)]
 pub struct Padding {
     pub top: u8,
     pub right: u8,
     pub bottom: u8,
     pub left: u8,
+}
+
+impl Padding {
+    pub fn vertical(&self) -> u8 { self.top + self.bottom }
+    pub fn horizontal(&self) -> u8 { self.left + self.right }
 }
 
 impl<'de> Deserialize<'de> for Padding {

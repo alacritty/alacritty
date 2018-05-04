@@ -156,7 +156,7 @@ impl Display {
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
 
-        let &Padding { top, right, bottom, left } = config.padding();
+        let padding = config.padding();
 
         // Resize window to specified dimensions unless one or both dimensions are 0
         if dimensions.columns_u32() > 0 && dimensions.lines_u32() > 0 {
@@ -164,8 +164,8 @@ impl Display {
             let height = cell_height as u32 * dimensions.lines_u32();
 
             let new_viewport_size = Size {
-                width: Pixels(width + u32::from(right + left)),
-                height: Pixels(height + u32::from(top + bottom)),
+                width: Pixels(width + u32::from(padding.horizontal())),
+                height: Pixels(height + u32::from(padding.vertical())),
             };
 
             window.set_inner_size(&new_viewport_size);
@@ -180,10 +180,7 @@ impl Display {
             height: viewport_size.height.0 as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
-            padding_top: f32::from(top),
-            padding_right: f32::from(right),
-            padding_bottom: f32::from(bottom),
-            padding_left: f32::from(left),
+            padding: padding.clone(),
         };
 
         // Channel for resize events
@@ -420,12 +417,18 @@ impl Display {
         use index::{Point, Line, Column};
         use term::SizeInfo;
         let Point{line: Line(row), col: Column(col)} = terminal.cursor().point;
-        let SizeInfo{cell_width: cw,
-                    cell_height: ch,
-                    padding_left: px,
-                    padding_bottom: py, ..} = *terminal.size_info();
-        let nspot_y = (py + (row + 1) as f32 * ch) as i32;
-        let nspot_x = (px + col as f32 * cw) as i32;
+        let SizeInfo {
+            cell_width: cw,
+            cell_height: ch,
+            padding: Padding {
+                left: px,
+                right: py,
+                ..
+            },
+            ..
+        } = *terminal.size_info();
+        let nspot_y = (py as f32 + (row + 1) as f32 * ch) as i32;
+        let nspot_x = (px as f32 + col as f32 * cw) as i32;
         self.window().set_ime_spot(nspot_x, nspot_y);
     }
 }

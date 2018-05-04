@@ -27,7 +27,7 @@ use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset
 use grid::{BidirectionalIterator, Grid, ClearRegion, ToRange, Indexed};
 use index::{self, Point, Column, Line, Linear, IndexRange, Contains, RangeInclusive};
 use selection::{self, Span, Selection};
-use config::{Config, VisualBellAnimation};
+use config::{Config, VisualBellAnimation, Padding};
 use {MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
 
@@ -742,35 +742,26 @@ pub struct SizeInfo {
     /// Height of individual cell
     pub cell_height: f32,
 
-    /// Top window padding
-    pub padding_top: f32,
-
-    /// Right window padding
-    pub padding_right: f32,
-
-    /// Bottom window padding
-    pub padding_bottom: f32,
-
-    /// Left window padding
-    pub padding_left: f32,
+    /// Window padding
+    pub padding: Padding,
 }
 
 impl SizeInfo {
     #[inline]
     pub fn lines(&self) -> Line {
-        Line(((self.height - (self.padding_top + self.padding_bottom)) / self.cell_height) as usize)
+        Line(((self.height - self.padding.vertical() as f32) / self.cell_height) as usize)
     }
 
     #[inline]
     pub fn cols(&self) -> Column {
-        Column(((self.width - (self.padding_right + self.padding_left)) / self.cell_width) as usize)
+        Column(((self.width - self.padding.horizontal() as f32) / self.cell_width) as usize)
     }
 
     fn contains_point(&self, x: usize, y:usize) -> bool {
-        x <= (self.width - self.padding_right) as usize &&
-            x >= self.padding_left as usize &&
-            y <= (self.height - self.padding_top) as usize &&
-            y >= self.padding_bottom as usize
+        x <= (self.width - self.padding.right as f32) as usize &&
+            x >= self.padding.left as usize &&
+            y <= (self.height - self.padding.top as f32) as usize &&
+            y >= self.padding.bottom as usize
     }
 
     pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<Point> {
@@ -778,8 +769,8 @@ impl SizeInfo {
             return None;
         }
 
-        let col = Column((x - self.padding_left as usize) / (self.cell_width as usize));
-        let line = Line((y - self.padding_bottom as usize) / (self.cell_height as usize));
+        let col = Column((x - self.padding.left as usize) / (self.cell_width as usize));
+        let line = Line((y - self.padding.bottom as usize) / (self.cell_height as usize));
 
         Some(Point {
             line: min(line, self.lines() - 1),
@@ -1025,8 +1016,8 @@ impl Term {
         debug!("Term::resize");
 
         // Bounds check; lots of math assumes width and height are > 0
-        if size.width as usize <= (self.size_info.padding_right + self.size_info.padding_left) as usize ||
-            size.height as usize <= (self.size_info.padding_top + self.size_info.padding_bottom) as usize
+        if size.width as usize <= (self.size_info.padding.horizontal()) as usize ||
+            size.height as usize <= (self.size_info.padding.vertical()) as usize
         {
             return;
         }
