@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use ::Rgb;
 use font::Size;
 use serde_yaml;
-use serde::{self, de, Deserialize, Deserializer};
+use serde::{self, de, Deserialize};
 use serde::de::Error as SerdeError;
 use serde::de::{Visitor, MapAccess, Unexpected};
 use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
@@ -269,7 +269,7 @@ pub struct WindowConfig {
     dimensions: Dimensions,
 
     /// Pixel padding
-    #[serde(default="default_padding", deserialize_with = "deserialize_padding")]
+    #[serde(default, deserialize_with = "deserialize_padding")]
     padding: Padding,
 
     /// Draw the window with title bar / borders
@@ -278,14 +278,50 @@ pub struct WindowConfig {
 }
 
 fn default_padding() -> Padding {
-    Padding { top: 2, right: 2, bottom: 2, left: 2 }
+    Padding {
+        top: default_padding_field(),
+        right: default_padding_field(),
+        bottom: default_padding_field(),
+        left: default_padding_field(),
+        x: default_padding_field_deprecated(),
+        y: default_padding_field_deprecated(),
+    }
+}
+
+fn default_padding_field() -> u8 {
+    2
+}
+
+fn default_padding_field_deprecated() -> Option<u8> {
+    None
 }
 
 fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Padding, D::Error>
     where D: de::Deserializer<'a>
 {
+    use ::util::fmt;
     match Padding::deserialize(deserializer) {
-        Ok(padding) => Ok(padding),
+        Ok(mut padding) => {
+            match padding.x {
+                Some(x) => {
+                    padding.left = x;
+                    padding.right = x;
+                        eprintln!("{}", fmt::Yellow("Config `padding.x` is deprecated. Please use \
+                                                    `right|left` instead"));
+                },
+                None => {}
+            }
+            match padding.y {
+                Some(y) => {
+                    padding.top = y;
+                    padding.bottom = y;
+                    eprintln!("{}", fmt::Yellow("Config `padding.y` is deprecated. Please use \
+                                                `top|bottom` instead"));
+                },
+                None => {}
+            }
+            Ok(padding)
+        },
         Err(err) => {
             eprintln!("problem with config: {}; Using default value", err);
             Ok(default_padding())
@@ -1459,99 +1495,25 @@ pub struct Delta<T: Default> {
     pub y: T,
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct Padding {
+    #[serde(default="default_padding_field")]
     pub top: u8,
+    #[serde(default="default_padding_field")]
     pub right: u8,
+    #[serde(default="default_padding_field")]
     pub bottom: u8,
+    #[serde(default="default_padding_field")]
     pub left: u8,
+    #[serde(default="default_padding_field_deprecated")]
+    x: Option<u8>,
+    #[serde(default="default_padding_field_deprecated")]
+    y: Option<u8>,
 }
 
 impl Padding {
     pub fn vertical(&self) -> u8 { self.top + self.bottom }
     pub fn horizontal(&self) -> u8 { self.left + self.right }
-}
-
-impl<'de> Deserialize<'de> for Padding {
-    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
-        where D: Deserializer<'de>
-    {
-        #[derive(Deserialize)]
-        #[serde(field_identifier, rename_all = "lowercase")]
-        enum Field { Top, Right, Bottom, Left, X, Y };
-
-
-        struct PaddingVisitor;
-
-        impl<'de> Visitor<'de> for PaddingVisitor {
-            type Value = Padding;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("struct Padding")
-            }
-
-            fn visit_map<V>(self, mut map: V) -> ::std::result::Result<Padding, V::Error>
-                where V: MapAccess<'de>
-            {
-                let mut top = None;
-                let mut right = None;
-                let mut bottom = None;
-                let mut left = None;
-                let mut x = None;
-                let mut y = None;
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        Field::Top => {
-                            if top.is_some() {
-                                return Err(de::Error::duplicate_field("top"));
-                            }
-                            top = Some(map.next_value()?);
-                        }
-                        Field::Right => {
-                            if right.is_some() {
-                                return Err(de::Error::duplicate_field("right"));
-                            }
-                            right = Some(map.next_value()?);
-                        }
-                        Field::Bottom => {
-                            if bottom.is_some() {
-                                return Err(de::Error::duplicate_field("bottom"));
-                            }
-                            bottom = Some(map.next_value()?);
-                        }
-                        Field::Left => {
-                            if left.is_some() {
-                                return Err(de::Error::duplicate_field("left"));
-                            }
-                            left = Some(map.next_value()?);
-                        }
-                        Field::X => {
-                            if x.is_some() {
-                                return Err(de::Error::duplicate_field("x"));
-                            }
-                            x = Some(map.next_value()?);
-                        }
-                        Field::Y => {
-                            if y.is_some() {
-                                return Err(de::Error::duplicate_field("y"));
-                            }
-                            y = Some(map.next_value()?);
-                        }
-                    }
-                }
-                let default_value = 2;
-                let top = top.unwrap_or(y.unwrap_or(default_value));
-                let right = right.unwrap_or(x.unwrap_or(default_value));
-                let bottom = bottom.unwrap_or(y.unwrap_or(default_value));
-                let left = left.unwrap_or(x.unwrap_or(default_value));
-                Ok(Padding{ top, right, bottom, left})
-            }
-        }
-
-        const FIELDS: &'static [&'static str] = &["top", "right", "bottom", "left", "x", "y"];
-        deserializer.deserialize_struct("Duration", FIELDS, PaddingVisitor)
-
-    }
 }
 
 trait DeserializeSize : Sized {
