@@ -1019,7 +1019,7 @@ impl ShaderProgram {
             u_cell_dim: cell_dim,
             u_visual_bell: visual_bell,
             u_background: background,
-            padding: config.padding().clone(),
+            padding: *(config.padding()),
         };
 
         shader.update_projection(*size.width as f32, *size.height as f32);

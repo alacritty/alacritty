@@ -180,7 +180,7 @@ impl Display {
             height: viewport_size.height.0 as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
-            padding: padding.clone(),
+            padding: *padding,
         };
 
         // Channel for resize events
