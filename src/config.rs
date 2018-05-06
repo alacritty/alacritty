@@ -269,7 +269,7 @@ pub struct WindowConfig {
     dimensions: Dimensions,
 
     /// Pixel padding
-    #[serde(default, deserialize_with = "deserialize_padding")]
+    #[serde(default, deserialize_with = "failure_default")]
     padding: Padding,
 
     /// Draw the window with title bar / borders
@@ -1363,6 +1363,7 @@ impl Config {
         let mut config: Config = serde_yaml::from_str(&raw)?;
         config.config_path = Some(path);
         config.print_deprecation_warnings();
+        config.apply_deprecated_padding();
 
         Ok(config)
     }
@@ -1388,6 +1389,18 @@ impl Config {
         if self.padding.is_some() {
             eprintln!("{}", fmt::Yellow("Config `padding` is deprecated. \
                                         Please use `window.padding` instead."));
+        }
+    }
+
+    fn apply_deprecated_padding(&mut self) {
+        if let Some(y) = self.window.padding.y {
+            self.window.padding.top = y;
+            self.window.padding.bottom = y;
+        }
+
+        if let Some(x) = self.window.padding.x {
+            self.window.padding.right = x;
+            self.window.padding.left = x;
         }
     }
 }
@@ -1493,44 +1506,16 @@ fn deserialize_side_deprecated<'a, D>(deserializer: D) -> ::std::result::Result<
     where D: de::Deserializer<'a>
 {
     match u8::deserialize(deserializer) {
-        Ok(side) => Ok(Some(side)),
+        Ok(side) => {
+            eprintln!("{}", ::util::fmt::Yellow("Config `padding.x` and `padding.y` are \
+                                                deprecated. Please use `top|right|bottom|left` \
+                                                instead"));
+            Ok(Some(side))
+        },
         Err(err) => {
             eprintln!("problem with config: {}; Using default value", err);
             Ok(None)
         }
-    }
-}
-
-fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Padding, D::Error>
-    where D: de::Deserializer<'a>
-{
-    use ::util::fmt;
-    match Padding::deserialize(deserializer) {
-        Ok(mut padding) => {
-            match padding.x {
-                Some(x) => {
-                    padding.left = x;
-                    padding.right = x;
-                        eprintln!("{}", fmt::Yellow("Config `padding.x` is deprecated. Please use \
-                                                    `right|left` instead"));
-                },
-                None => {}
-            }
-            match padding.y {
-                Some(y) => {
-                    padding.top = y;
-                    padding.bottom = y;
-                    eprintln!("{}", fmt::Yellow("Config `padding.y` is deprecated. Please use \
-                                                `top|bottom` instead"));
-                },
-                None => {}
-            }
-            Ok(padding)
-        },
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(Default::default())
-        },
     }
 }
 
