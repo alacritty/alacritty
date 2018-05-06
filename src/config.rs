@@ -277,58 +277,6 @@ pub struct WindowConfig {
     decorations: bool,
 }
 
-fn default_padding() -> Padding {
-    Padding {
-        top: default_padding_field(),
-        right: default_padding_field(),
-        bottom: default_padding_field(),
-        left: default_padding_field(),
-        x: default_padding_field_deprecated(),
-        y: default_padding_field_deprecated(),
-    }
-}
-
-fn default_padding_field() -> u8 {
-    2
-}
-
-fn default_padding_field_deprecated() -> Option<u8> {
-    None
-}
-
-fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Padding, D::Error>
-    where D: de::Deserializer<'a>
-{
-    use ::util::fmt;
-    match Padding::deserialize(deserializer) {
-        Ok(mut padding) => {
-            match padding.x {
-                Some(x) => {
-                    padding.left = x;
-                    padding.right = x;
-                        eprintln!("{}", fmt::Yellow("Config `padding.x` is deprecated. Please use \
-                                                    `right|left` instead"));
-                },
-                None => {}
-            }
-            match padding.y {
-                Some(y) => {
-                    padding.top = y;
-                    padding.bottom = y;
-                    eprintln!("{}", fmt::Yellow("Config `padding.y` is deprecated. Please use \
-                                                `top|bottom` instead"));
-                },
-                None => {}
-            }
-            Ok(padding)
-        },
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(default_padding())
-        },
-    }
-}
-
 impl WindowConfig {
     pub fn decorations(&self) -> bool {
         self.decorations
@@ -339,7 +287,7 @@ impl Default for WindowConfig {
     fn default() -> Self {
         WindowConfig{
             dimensions: Default::default(),
-            padding: default_padding(),
+            padding: Default::default(),
             decorations: true,
         }
     }
@@ -1495,25 +1443,95 @@ pub struct Delta<T: Default> {
     pub y: T,
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Padding {
-    #[serde(default="default_padding_field")]
+    #[serde(default, deserialize_with = "deserialize_side")]
     pub top: u8,
-    #[serde(default="default_padding_field")]
+    #[serde(default, deserialize_with = "deserialize_side")]
     pub right: u8,
-    #[serde(default="default_padding_field")]
+    #[serde(default, deserialize_with = "deserialize_side")]
     pub bottom: u8,
-    #[serde(default="default_padding_field")]
+    #[serde(default, deserialize_with = "deserialize_side")]
     pub left: u8,
-    #[serde(default="default_padding_field_deprecated")]
+    #[serde(default, deserialize_with = "deserialize_side_deprecated")]
     x: Option<u8>,
-    #[serde(default="default_padding_field_deprecated")]
+    #[serde(default, deserialize_with = "deserialize_side_deprecated")]
     y: Option<u8>,
 }
 
 impl Padding {
     pub fn vertical(&self) -> u8 { self.top + self.bottom }
     pub fn horizontal(&self) -> u8 { self.left + self.right }
+}
+
+impl Default for Padding {
+    fn default() -> Padding {
+        Padding {
+            top: 2,
+            right: 2,
+            bottom: 2,
+            left: 2,
+            x: None,
+            y: None,
+        }
+    }
+}
+
+fn deserialize_side<'a, D>(deserializer: D) -> ::std::result::Result<u8, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match u8::deserialize(deserializer) {
+        Ok(side) => Ok(side),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(2)
+        }
+    }
+}
+
+fn deserialize_side_deprecated<'a, D>(deserializer: D) -> ::std::result::Result<Option<u8>, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match u8::deserialize(deserializer) {
+        Ok(side) => Ok(Some(side)),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(None)
+        }
+    }
+}
+
+fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Padding, D::Error>
+    where D: de::Deserializer<'a>
+{
+    use ::util::fmt;
+    match Padding::deserialize(deserializer) {
+        Ok(mut padding) => {
+            match padding.x {
+                Some(x) => {
+                    padding.left = x;
+                    padding.right = x;
+                        eprintln!("{}", fmt::Yellow("Config `padding.x` is deprecated. Please use \
+                                                    `right|left` instead"));
+                },
+                None => {}
+            }
+            match padding.y {
+                Some(y) => {
+                    padding.top = y;
+                    padding.bottom = y;
+                    eprintln!("{}", fmt::Yellow("Config `padding.y` is deprecated. Please use \
+                                                `top|bottom` instead"));
+                },
+                None => {}
+            }
+            Ok(padding)
+        },
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(Default::default())
+        },
+    }
 }
 
 trait DeserializeSize : Sized {
