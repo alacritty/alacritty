@@ -1938,6 +1938,7 @@ mod tests {
 
     use super::{Cell, Term, SizeInfo};
     use term::cell;
+    use config::Padding;
 
     use grid::Grid;
     use index::{Point, Line, Column};
@@ -1952,10 +1953,7 @@ mod tests {
             height: 51.0,
             cell_width: 3.0,
             cell_height: 3.0,
-            padding_top: 0.0,
-            padding_right: 0.0,
-            padding_bottom: 0.0,
-            padding_left: 0.0,
+            padding: Padding::new(0, 0, 0, 0),
         };
         let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), &Cell::default());
@@ -1997,10 +1995,7 @@ mod tests {
             height: 51.0,
             cell_width: 3.0,
             cell_height: 3.0,
-            padding_top: 0.0,
-            padding_right: 0.0,
-            padding_bottom: 0.0,
-            padding_left: 0.0,
+            padding: Padding::new(0, 0, 0, 0),
         };
         let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), &Cell::default());
@@ -2042,10 +2037,7 @@ mod tests {
             height: 51.0,
             cell_width: 3.0,
             cell_height: 3.0,
-            padding_top: 0.0,
-            padding_right: 0.0,
-            padding_bottom: 0.0,
-            padding_left: 0.0,
+            padding: Padding::new(0, 0, 0, 0),
         };
         let mut term = Term::new(&Default::default(), size);
         let cursor = Point::new(Line(0), Column(0));

@@ -1475,6 +1475,16 @@ pub struct Padding {
 impl Padding {
     pub fn vertical(&self) -> u8 { self.top + self.bottom }
     pub fn horizontal(&self) -> u8 { self.left + self.right }
+    pub fn new(top: u8, right: u8, bottom: u8, left: u8) -> Padding {
+        Padding {
+            top,
+            right,
+            bottom,
+            left,
+            x: None,
+            y: None,
+        }
+    }
 }
 
 impl Default for Padding {
