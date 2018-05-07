@@ -19,3 +19,4 @@ parts
 *.snap
 *.pyc
 alacritty_*_source.tar.bz2
+*.vi
