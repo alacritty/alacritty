@@ -285,8 +285,8 @@ impl GlyphCache {
                 let mut rasterized = rasterizer.get_glyph(glyph_key)
                     .unwrap_or_else(|_| Default::default());
 
-                rasterized.left += glyph_offset.x as i32;
-                rasterized.top += glyph_offset.y as i32;
+                rasterized.left += i32::from(glyph_offset.x);
+                rasterized.top += i32::from(glyph_offset.y);
                 rasterized.top -= metrics.descent as i32;
 
                 loader.load_glyph(&rasterized)
@@ -719,8 +719,8 @@ impl QuadRenderer {
     }
 
     pub fn resize(&mut self, width: i32, height: i32) {
-        let padding_x = self.program.padding_x as i32;
-        let padding_y = self.program.padding_y as i32;
+        let padding_x = i32::from(self.program.padding_x);
+        let padding_y = i32::from(self.program.padding_y);
 
         // viewport
         unsafe {
@@ -1030,8 +1030,8 @@ impl ShaderProgram {
 
     fn update_projection(&self, width: f32, height: f32) {
         // Bounds check
-        if (width as u32) < (2 * self.padding_x as u32) ||
-            (height as u32) < (2 * self.padding_y as u32)
+        if (width as u32) < (2 * u32::from(self.padding_x)) ||
+            (height as u32) < (2 * u32::from(self.padding_y))
         {
             return;
         }
@@ -1041,8 +1041,14 @@ impl ShaderProgram {
         // NB Not sure why padding change only requires changing the vertical
         //    translation in the projection, but this makes everything work
         //    correctly.
-        let ortho = cgmath::ortho(0., width - 2. * self.padding_x as f32, 2. * self.padding_y as f32,
-            height, -1., 1.);
+        let ortho = cgmath::ortho(
+            0.,
+            width - 2. * f32::from(self.padding_x),
+            2. * f32::from(self.padding_y),
+            height,
+            -1.,
+            1.,
+        );
         let projection: [[f32; 4]; 4] = ortho.into();
 
         info!("width: {}, height: {}", width, height);

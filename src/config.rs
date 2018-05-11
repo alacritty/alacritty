@@ -1718,10 +1718,10 @@ mod tests {
             .expect("deserialize config");
 
         // Sanity check that mouse bindings are being parsed
-        assert!(config.mouse_bindings.len() >= 1);
+        assert!(!config.mouse_bindings.is_empty());
 
         // Sanity check that key bindings are being parsed
-        assert!(config.key_bindings.len() >= 1);
+        assert!(!config.key_bindings.is_empty());
     }
 }
 
