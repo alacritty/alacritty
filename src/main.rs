@@ -94,9 +94,9 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     logging::initialize(options)?;
 
     info!("Welcome to Alacritty.");
-    config.path().map(|config_path| {
+    if let Some(config_path) = config.path() {
         info!("Configuration loaded from {}", config_path.display());
-    });
+    };
 
     // Create a display.
     //
@@ -179,15 +179,16 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         let mut terminal = processor.process_events(&terminal, display.window());
 
         // Handle config reloads
-        config_monitor.as_ref()
+        if let Some(new_config) = config_monitor
+            .as_ref()
             .and_then(|monitor| monitor.pending_config())
-            .map(|new_config| {
-                config = new_config;
-                display.update_config(&config);
-                processor.update_config(&config);
-                terminal.update_config(&config);
-                terminal.dirty = true;
-            });
+        {
+            config = new_config;
+            display.update_config(&config);
+            processor.update_config(&config);
+            terminal.update_config(&config);
+            terminal.dirty = true;
+        }
 
         // Maybe draw the terminal
         if terminal.needs_draw() {

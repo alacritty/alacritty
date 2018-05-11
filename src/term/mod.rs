@@ -917,8 +917,9 @@ impl Term {
 
                     let range = Some(cols.start..line_end);
                     if cols.end >= grid.num_cols() - 1 {
-                        range.as_ref()
-                            .map(|range| self.maybe_newline(grid, line, range.end));
+                        if let Some(ref range) = range {
+                            self.maybe_newline(grid, line, range.end);
+                        }
                     }
 
                     range

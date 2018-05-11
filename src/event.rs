@@ -57,17 +57,16 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn copy_selection(&self, buffer: ::copypasta::Buffer) {
         if let Some(ref selection) = *self.selection {
-            selection.to_span(self.terminal)
-                .map(|span| {
-                    let buf = self.terminal.string_from_selection(&span);
-                    if !buf.is_empty() {
-                        Clipboard::new()
-                            .and_then(|mut clipboard| clipboard.store(buf, buffer))
-                            .unwrap_or_else(|err| {
-                                warn!("Error storing selection to clipboard. {}", Red(err));
-                            });
-                    }
-                });
+            if let Some(ref span) = selection.to_span(self.terminal) {
+                let buf = self.terminal.string_from_selection(&span);
+                if !buf.is_empty() {
+                    Clipboard::new()
+                        .and_then(|mut clipboard| clipboard.store(buf, buffer))
+                        .unwrap_or_else(|err| {
+                            warn!("Error storing selection to clipboard. {}", Red(err));
+                        });
+                }
+            }
         }
     }
 
