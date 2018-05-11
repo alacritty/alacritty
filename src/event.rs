@@ -338,6 +338,11 @@ impl<N: Notify> Processor<N> {
                         }
 
                         processor.on_focus_change(is_focused);
+                    },
+                    DroppedFile(path) => {
+                        use input::ActionContext;
+                        let path: String = path.to_string_lossy().into();
+                        processor.ctx.write_to_pty(path.into_bytes());
                     }
                     _ => (),
                 }
