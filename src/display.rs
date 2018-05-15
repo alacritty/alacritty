@@ -411,7 +411,7 @@ impl Display {
         self.window.get_window_id()
     }
 
-    /// Adjust the XIM editor position according to the new location of the cursor
+    /// Adjust the IME editor position according to the new location of the cursor
     pub fn update_ime_position(&mut self, terminal: &Term) {
         use index::{Point, Line, Column};
         use term::SizeInfo;
@@ -420,8 +420,8 @@ impl Display {
                     cell_height: ch,
                     padding_x: px,
                     padding_y: py, ..} = *terminal.size_info();
-        let nspot_y = (py + (row + 1) as f32 * ch) as i16;
-        let nspot_x = (px + col as f32 * cw) as i16;
-        self.window().send_xim_spot(nspot_x, nspot_y);
+        let nspot_y = (py + (row + 1) as f32 * ch) as i32;
+        let nspot_x = (px + col as f32 * cw) as i32;
+        self.window().set_ime_spot(nspot_x, nspot_y);
     }
 }

@@ -262,7 +262,7 @@ impl<N: Notify> Processor<N> {
             Event::WindowEvent { event, .. } => {
                 use glutin::WindowEvent::*;
                 match event {
-                    Closed => {
+                    CloseRequested => {
                         if ref_test {
                             // dump grid state
                             let grid = processor.ctx.terminal.grid();
