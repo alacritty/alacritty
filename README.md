@@ -246,7 +246,8 @@ system menus. To install the desktop entry for Alacritty, run
 
 ```sh
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
-cp Alacritty.desktop ~/.local/share/applications
+sudo desktop-file-install alacritty.desktop
+sudo update-desktop-database
 ```
 
 #### MacOS
