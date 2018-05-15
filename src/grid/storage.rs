@@ -15,6 +15,9 @@ use std::ops::{Index, IndexMut};
 
 use index::Line;
 
+/// Maximum number of invisible lines before buffer is resized
+const TRUNCATE_STEP: usize = 100;
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Storage<T> {
     inner: Vec<T>,
@@ -134,6 +137,32 @@ impl<T> Storage<T> {
 
         // Update visible lines
         self.visible_lines = next - 1;
+
+        // Free memory
+        if self.inner.len() > self.len() + TRUNCATE_STEP {
+            self.truncate();
+        }
+    }
+
+    /// Truncate the invisible elements from the raw buffer
+    pub fn truncate(&mut self) {
+        // Calculate shrinkage/offset for indexing
+        let offset = self.zero % self.inner.len();
+        let shrinkage = self.inner.len() - self.len;
+        let shrinkage_start = ::std::cmp::min(offset, shrinkage);
+
+        // Create two vectors with correct ordering
+        let mut split = self.inner.split_off(offset);
+
+        // Truncate the buffers
+        let len = self.inner.len();
+        let split_len = split.len();
+        self.inner.truncate(len - shrinkage_start);
+        split.truncate(split_len - (shrinkage - shrinkage_start));
+
+        // Merge buffers again and reset zero
+        self.zero = self.inner.len();
+        self.inner.append(&mut split);
     }
 
     #[inline]
@@ -407,6 +436,79 @@ fn shrink_before_and_after_zero() {
         visible_lines: Line(0),
         len: 2,
     };
+    assert_eq!(storage.inner, expected.inner);
+    assert_eq!(storage.zero, expected.zero);
+    assert_eq!(storage.len, expected.len);
+}
+
+/// Check that when truncating all hidden lines are removed from the raw buffer
+///
+/// Before:
+///   0: 4 <- Hidden
+///   1: 5 <- Hidden
+///   2: 0 <- Zero
+///   3: 1
+///   4: 2 <- Hidden
+///   5: 3 <- Hidden
+/// After:
+///   0: 0 <- Zero
+///   1: 1
+#[test]
+fn truncate_invisible_lines() {
+    // Setup storage area
+    let mut storage = Storage {
+        inner: vec!["4", "5", "0", "1", "2", "3"],
+        zero: 2,
+        visible_lines: Line(1),
+        len: 2,
+    };
+
+    // Truncate buffer
+    storage.truncate();
+
+    // Make sure the result is correct
+    let expected = Storage {
+        inner: vec!["0", "1"],
+        zero: 0,
+        visible_lines: Line(1),
+        len: 2,
+    };
+    assert_eq!(storage.visible_lines, expected.visible_lines);
+    assert_eq!(storage.inner, expected.inner);
+    assert_eq!(storage.zero, expected.zero);
+    assert_eq!(storage.len, expected.len);
+}
+
+/// Truncate buffer only at the beginning
+///
+/// Before:
+///   0: 1
+///   1: 2 <- Hidden
+///   2: 0 <- Zero
+/// After:
+///   0: 1
+///   0: 0 <- Zero
+#[test]
+fn truncate_invisible_lines_beginning() {
+    // Setup storage area
+    let mut storage = Storage {
+        inner: vec!["1", "2", "0"],
+        zero: 2,
+        visible_lines: Line(1),
+        len: 2,
+    };
+
+    // Truncate buffer
+    storage.truncate();
+
+    // Make sure the result is correct
+    let expected = Storage {
+        inner: vec!["1", "0"],
+        zero: 1,
+        visible_lines: Line(1),
+        len: 2,
+    };
+    assert_eq!(storage.visible_lines, expected.visible_lines);
     assert_eq!(storage.inner, expected.inner);
     assert_eq!(storage.zero, expected.zero);
     assert_eq!(storage.len, expected.len);

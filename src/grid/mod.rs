@@ -407,6 +407,11 @@ impl<T> Grid<T> {
         self.raw.len()
     }
 
+    /// This is used only for truncating before saving ref-tests
+    pub fn truncate(&mut self) {
+        self.raw.truncate();
+    }
+
     pub fn iter_from(&self, point: Point<usize>) -> GridIterator<T> {
         GridIterator {
             grid: self,
