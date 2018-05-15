@@ -271,7 +271,8 @@ impl<N: Notify> Processor<N> {
                     CloseRequested => {
                         if ref_test {
                             // dump grid state
-                            let grid = processor.ctx.terminal.grid();
+                            let mut grid = processor.ctx.terminal.grid().clone();
+                            grid.truncate();
 
                             let serialized_grid = json::to_string(&grid)
                                 .expect("serialize grid");
