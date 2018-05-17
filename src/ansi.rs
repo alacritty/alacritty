@@ -814,6 +814,21 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                 unhandled(params);
             }
 
+            // Set cursor style
+            b"50" => {
+                if params.len() >= 2 && params[1].len() >= 13 && params[1][0..12] == *b"CursorShape=" {
+                    let style = match params[1][12] as char {
+                        '0' => CursorStyle::Block,
+                        '1' => CursorStyle::Beam,
+                        '2' => CursorStyle::Underline,
+                        _ => return unhandled(params),
+                    };
+                    self.handler.set_cursor_style(Some(style));
+                    return;
+                }
+                unhandled(params);
+            }
+
             // Set clipboard
             b"52" => {
                 if params.len() < 3 {
