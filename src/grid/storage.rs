@@ -176,13 +176,10 @@ impl<T> Storage<T> {
         (requested + self.zero) % self.inner.len()
     }
 
-    fn compute_line_index(&self, requested: Line) -> usize {
-        ((self.inner.len() + self.zero + *self.visible_lines) - *requested) % self.inner.len()
-    }
-
     pub fn swap_lines(&mut self, a: Line, b: Line) {
-        let a = self.compute_line_index(a);
-        let b = self.compute_line_index(b);
+        let offset = self.inner.len() + self.zero + *self.visible_lines;
+        let a = (offset - *a) % self.inner.len();
+        let b = (offset - *b) % self.inner.len();
         self.inner.swap(a, b);
     }
 
@@ -191,9 +188,10 @@ impl<T> Storage<T> {
     }
 
     pub fn rotate(&mut self, count: isize) {
+        debug_assert!(count.abs() as usize <= self.inner.len());
+
         let len = self.inner.len();
-        assert!(count.abs() as usize <= len);
-        self.zero += (count + len as isize) as usize % len;
+        self.zero = (self.zero as isize + count + len as isize) as usize % len;
     }
 
     // Fast path
