@@ -3,18 +3,31 @@
 require 'json'
 
 Dir.glob('./tests/ref/**/grid.json').each do |path|
+  puts "Migrating #{path}"
+
   # Read contents
   s = File.open(path) { |f| f.read }
 
   # Parse
   grid = JSON.parse(s)
 
-  # Check if it's already migrated / make this migration idempotent
-  next if grid['raw'][0][0].is_a? Array
+  # Normalize Storage serialization
+  if grid['raw'].is_a? Array
+    grid['raw'] = {
+      'inner' => grid['raw'][0],
+      'zero' => grid['raw'][1],
+      'visible_lines' => grid['raw'][2]
+    }
+  end
 
-  # Transform
-  grid['raw'].reverse!
-  grid['raw'] = [grid['raw'], 0, grid['lines'] - 1]
+  # Migrate Row serialization
+  grid['raw']['inner'].map! do |row|
+    if row.is_a? Hash
+      row
+    else
+      { inner: row, occ: row.length }
+    end
+  end
 
   # Write updated grid
   File.open(path, 'w') { |f| f << JSON.generate(grid) }
