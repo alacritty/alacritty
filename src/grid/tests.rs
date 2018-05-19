@@ -20,73 +20,77 @@ use index::{Point, Line, Column};
 // Scroll up moves lines upwards
 #[test]
 fn scroll_up() {
-    info!("");
+    println!("");
 
     let mut grid = Grid::new(Line(10), Column(1), 0, 0);
     for i in 0..10 {
         grid[Line(i)][Column(0)] = i;
     }
 
-    info!("grid: {:?}", grid);
+    println!("grid: {:?}", grid);
 
     grid.scroll_up(&(Line(0)..Line(10)), Line(2), &0);
 
-    info!("grid: {:?}", grid);
+    println!("grid: {:?}", grid);
 
-    let mut other = Grid::new(Line(10), Column(1), 0, 9);
-
-    other[Line(0)][Column(0)] = 2;
-    other[Line(1)][Column(0)] = 3;
-    other[Line(2)][Column(0)] = 4;
-    other[Line(3)][Column(0)] = 5;
-    other[Line(4)][Column(0)] = 6;
-    other[Line(5)][Column(0)] = 7;
-    other[Line(6)][Column(0)] = 8;
-    other[Line(7)][Column(0)] = 9;
-    other[Line(8)][Column(0)] = 0; // should be cleared on scroll; was 0
-    other[Line(9)][Column(0)] = 0; // should be cleared on scroll; was 1
-
-    for i in 0..10 {
-        assert_eq!(grid[Line(i)][Column(0)], other[Line(i)][Column(0)],
-            "index={}; actual: {:?}, expected: {:?}",
-            Line(i), grid[Line(i)][Column(0)], other[Line(i)][Column(0)]);
-    }
+    assert_eq!(grid[Line(0)][Column(0)], 2);
+    assert_eq!(grid[Line(0)].occ, 1);
+    assert_eq!(grid[Line(1)][Column(0)], 3);
+    assert_eq!(grid[Line(1)].occ, 1);
+    assert_eq!(grid[Line(2)][Column(0)], 4);
+    assert_eq!(grid[Line(2)].occ, 1);
+    assert_eq!(grid[Line(3)][Column(0)], 5);
+    assert_eq!(grid[Line(3)].occ, 1);
+    assert_eq!(grid[Line(4)][Column(0)], 6);
+    assert_eq!(grid[Line(4)].occ, 1);
+    assert_eq!(grid[Line(5)][Column(0)], 7);
+    assert_eq!(grid[Line(5)].occ, 1);
+    assert_eq!(grid[Line(6)][Column(0)], 8);
+    assert_eq!(grid[Line(6)].occ, 1);
+    assert_eq!(grid[Line(7)][Column(0)], 9);
+    assert_eq!(grid[Line(7)].occ, 1);
+    assert_eq!(grid[Line(8)][Column(0)], 0); // was 0
+    assert_eq!(grid[Line(8)].occ, 0);
+    assert_eq!(grid[Line(9)][Column(0)], 0); // was 1
+    assert_eq!(grid[Line(9)].occ, 0);
 }
 
 // Scroll down moves lines downwards
 #[test]
 fn scroll_down() {
-    info!("");
+    println!("");
 
     let mut grid = Grid::new(Line(10), Column(1), 0, 0);
     for i in 0..10 {
         grid[Line(i)][Column(0)] = i;
     }
 
-    info!("grid: {:?}", grid);
+    println!("grid: {:?}", grid);
 
     grid.scroll_down(&(Line(0)..Line(10)), Line(2), &0);
 
-    info!("grid: {:?}", grid);
+    println!("grid: {:?}", grid);
 
-    let mut other = Grid::new(Line(10), Column(1), 0, 9);
-
-    other[Line(0)][Column(0)] = 0; // Should be cleared upon recycle; was 8
-    other[Line(1)][Column(0)] = 0; // Should be cleared upon recycle; was 9
-    other[Line(2)][Column(0)] = 0;
-    other[Line(3)][Column(0)] = 1;
-    other[Line(4)][Column(0)] = 2;
-    other[Line(5)][Column(0)] = 3;
-    other[Line(6)][Column(0)] = 4;
-    other[Line(7)][Column(0)] = 5;
-    other[Line(8)][Column(0)] = 6;
-    other[Line(9)][Column(0)] = 7;
-
-    for i in 0..10 {
-        assert_eq!(grid[Line(i)][Column(0)], other[Line(i)][Column(0)],
-            "index={}; actual: {:?}, expected: {:?}",
-            Line(i), grid[Line(i)][Column(0)], other[Line(i)][Column(0)]);
-    }
+    assert_eq!(grid[Line(0)][Column(0)], 0); // was 8
+    assert_eq!(grid[Line(0)].occ, 0);
+    assert_eq!(grid[Line(1)][Column(0)], 0); // was 9
+    assert_eq!(grid[Line(1)].occ, 0);
+    assert_eq!(grid[Line(2)][Column(0)], 0);
+    assert_eq!(grid[Line(2)].occ, 1);
+    assert_eq!(grid[Line(3)][Column(0)], 1);
+    assert_eq!(grid[Line(3)].occ, 1);
+    assert_eq!(grid[Line(4)][Column(0)], 2);
+    assert_eq!(grid[Line(4)].occ, 1);
+    assert_eq!(grid[Line(5)][Column(0)], 3);
+    assert_eq!(grid[Line(5)].occ, 1);
+    assert_eq!(grid[Line(6)][Column(0)], 4);
+    assert_eq!(grid[Line(6)].occ, 1);
+    assert_eq!(grid[Line(7)][Column(0)], 5);
+    assert_eq!(grid[Line(7)].occ, 1);
+    assert_eq!(grid[Line(8)][Column(0)], 6);
+    assert_eq!(grid[Line(8)].occ, 1);
+    assert_eq!(grid[Line(9)][Column(0)], 7);
+    assert_eq!(grid[Line(9)].occ, 1);
 }
 
 // Test that GridIterator works

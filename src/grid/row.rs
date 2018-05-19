@@ -14,41 +14,76 @@
 
 //! Defines the Row type which makes up lines in the grid
 
-use std::ops::{Deref, DerefMut, Index, IndexMut};
+use std::ops::{Index, IndexMut};
 use std::ops::{Range, RangeTo, RangeFrom, RangeFull};
+use std::cmp::{max, min};
 use std::slice;
 
 use index::Column;
 
 /// A row in the grid
-#[derive(Default, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct Row<T>(Vec<T>);
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+pub struct Row<T> {
+    inner: Vec<T>,
+
+    /// occupied entries
+    ///
+    /// Semantically, this value can be understood as the **end** of an
+    /// Exclusive Range. Thus,
+    ///
+    /// - Zero means there are no occupied entries
+    /// - 1 means there is a value at index zero, but nowhere else
+    /// - `occ == inner.len` means every value is occupied
+    pub(crate) occ: usize,
+}
+
+impl<T: PartialEq> PartialEq for Row<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
 
 impl<T: Copy + Clone> Row<T> {
     pub fn new(columns: Column, template: &T) -> Row<T> {
-        Row(vec![*template; *columns])
+        Row {
+            inner: vec![*template; *columns],
+            occ: 0,
+        }
     }
 
     pub fn grow(&mut self, cols: Column, template: &T) {
         while self.len() != *cols {
-            self.push(*template);
+            self.inner.push(*template);
         }
     }
 
     /// Resets contents to the contents of `other`
-    #[inline]
+    #[inline(never)]
     pub fn reset(&mut self, other: &T) {
-        for item in &mut self.0 {
+        let occ = self.occ;
+        for item in &mut self.inner[..occ] {
             *item = *other;
         }
+
+        self.occ = 0;
     }
 }
 
 impl<T> Row<T> {
     pub fn shrink(&mut self, cols: Column) {
         while self.len() != *cols {
-            self.pop();
+            self.inner.pop();
         }
+
+        self.occ = min(self.occ, *cols);
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    pub fn iter<'a>(&'a self) -> slice::Iter<'a, T> {
+        self.inner.iter()
     }
 }
 
@@ -69,24 +104,8 @@ impl<'a, T> IntoIterator for &'a mut Row<T> {
 
     #[inline]
     fn into_iter(self) -> slice::IterMut<'a, T> {
-        self.iter_mut()
-    }
-}
-
-impl<T> Deref for Row<T> {
-    type Target = Vec<T>;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-
-impl<T> DerefMut for Row<T> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        self.occ = self.len();
+        self.inner.iter_mut()
     }
 }
 
@@ -95,14 +114,15 @@ impl<T> Index<Column> for Row<T> {
 
     #[inline]
     fn index(&self, index: Column) -> &T {
-        &self.0[index.0]
+        &self.inner[index.0]
     }
 }
 
 impl<T> IndexMut<Column> for Row<T> {
     #[inline]
     fn index_mut(&mut self, index: Column) -> &mut T {
-        &mut self.0[index.0]
+        self.occ = max(self.occ, *index + 1);
+        &mut self.inner[index.0]
     }
 }
 
@@ -115,14 +135,15 @@ impl<T> Index<Range<Column>> for Row<T> {
 
     #[inline]
     fn index(&self, index: Range<Column>) -> &[T] {
-        &self.0[(index.start.0)..(index.end.0)]
+        &self.inner[(index.start.0)..(index.end.0)]
     }
 }
 
 impl<T> IndexMut<Range<Column>> for Row<T> {
     #[inline]
     fn index_mut(&mut self, index: Range<Column>) -> &mut [T] {
-        &mut self.0[(index.start.0)..(index.end.0)]
+        self.occ = max(self.occ, *index.end);
+        &mut self.inner[(index.start.0)..(index.end.0)]
     }
 }
 
@@ -131,14 +152,15 @@ impl<T> Index<RangeTo<Column>> for Row<T> {
 
     #[inline]
     fn index(&self, index: RangeTo<Column>) -> &[T] {
-        &self.0[..(index.end.0)]
+        &self.inner[..(index.end.0)]
     }
 }
 
 impl<T> IndexMut<RangeTo<Column>> for Row<T> {
     #[inline]
     fn index_mut(&mut self, index: RangeTo<Column>) -> &mut [T] {
-        &mut self.0[..(index.end.0)]
+        self.occ = max(self.occ, *index.end);
+        &mut self.inner[..(index.end.0)]
     }
 }
 
@@ -147,14 +169,15 @@ impl<T> Index<RangeFrom<Column>> for Row<T> {
 
     #[inline]
     fn index(&self, index: RangeFrom<Column>) -> &[T] {
-        &self.0[(index.start.0)..]
+        &self.inner[(index.start.0)..]
     }
 }
 
 impl<T> IndexMut<RangeFrom<Column>> for Row<T> {
     #[inline]
     fn index_mut(&mut self, index: RangeFrom<Column>) -> &mut [T] {
-        &mut self.0[(index.start.0)..]
+        self.occ = self.len();
+        &mut self.inner[(index.start.0)..]
     }
 }
 
@@ -163,13 +186,14 @@ impl<T> Index<RangeFull> for Row<T> {
 
     #[inline]
     fn index(&self, _: RangeFull) -> &[T] {
-        &self.0[..]
+        &self.inner[..]
     }
 }
 
 impl<T> IndexMut<RangeFull> for Row<T> {
     #[inline]
     fn index_mut(&mut self, _: RangeFull) -> &mut [T] {
-        &mut self.0[..]
+        self.occ = self.len();
+        &mut self.inner[..]
     }
 }
