@@ -244,7 +244,7 @@ impl<T: Copy + Clone> Grid<T> {
     }
 
     fn grow_cols(&mut self, cols: index::Column, template: &T) {
-        for row in self.raw.iter_mut() {
+        for row in self.raw.iter_mut_raw() {
             row.grow(cols, template);
         }
 
