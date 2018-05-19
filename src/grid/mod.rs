@@ -334,7 +334,6 @@ impl<T: Copy + Clone> Grid<T> {
     /// scroll_up moves lines at the bottom towards the top
     ///
     /// This is the performance-sensitive part of scrolling.
-    #[inline]
     pub fn scroll_up(
         &mut self,
         region: &Range<index::Line>,
@@ -356,17 +355,21 @@ impl<T: Copy + Clone> Grid<T> {
                 selection.rotate(*positions as isize);
             }
 
-            // Now, restore any lines outside the scroll region
-            for idx in (*region.end .. *self.num_lines()).rev() {
-                // First do the swap
-                self.raw.swap_lines(Line(idx), Line(idx) - positions);
+            // // This next loop swaps "fixed" lines outside of a scroll region
+            // // back into place after the rotation. The work is done in buffer-
+            // // space rather than terminal-space to avoid redundant
+            // // transformations.
+            let fixed_lines = *self.num_lines() - *region.end;
+
+            for i in 0..fixed_lines {
+                self.raw.swap(i, i + *positions);
             }
 
             // Finally, reset recycled lines
             //
             // Recycled lines are just above the end of the scrolling region.
             for i in 0..*positions {
-                self.raw[region.end - i - 1].reset(&template);
+                self.raw[i + fixed_lines].reset(&template);
             }
         } else {
             // Subregion rotation
