@@ -12,6 +12,7 @@
 /// implementation is provided. Anything from Vec that should be exposed must be
 /// done so manually.
 use std::ops::{Index, IndexMut};
+use std::slice;
 
 use index::Line;
 
@@ -183,8 +184,23 @@ impl<T> Storage<T> {
         self.inner.swap(a, b);
     }
 
+    /// Iterator over *logical* entries in the storage
+    ///
+    /// This *does not* iterate over hidden entries.
     pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut { storage: self, index: 0 }
+    }
+
+    /// Iterate over *all* entries in the underlying buffer
+    ///
+    /// This includes hidden entries.
+    ///
+    /// XXX This suggests that Storage is a leaky abstraction. Ultimately, this
+    ///     is needed because of the grow lines functionality implemented on
+    ///     this type, and maybe that's where the leak is necessitating this
+    ///     accessor.
+    pub fn iter_mut_raw<'a>(&'a mut self) -> slice::IterMut<'a, T> {
+        self.inner.iter_mut()
     }
 
     pub fn rotate(&mut self, count: isize) {
