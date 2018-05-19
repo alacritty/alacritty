@@ -171,16 +171,42 @@ impl<T> Storage<T> {
         self.len
     }
 
-    /// Compute actual index in underlying storage given the requested index.
     #[inline]
+    pub fn raw_len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Compute actual index in underlying storage given the requested index.
     fn compute_index(&self, requested: usize) -> usize {
         (requested + self.zero) % self.inner.len()
+    }
+
+    #[inline]
+    pub fn line_offset(&self) -> usize {
+        self.inner.len() + self.zero + *self.visible_lines
+    }
+
+    pub fn compute_line_index(&self, a: Line) -> usize {
+        (self.line_offset() - *a) % self.inner.len()
     }
 
     pub fn swap_lines(&mut self, a: Line, b: Line) {
         let offset = self.inner.len() + self.zero + *self.visible_lines;
         let a = (offset - *a) % self.inner.len();
         let b = (offset - *b) % self.inner.len();
+        self.inner.swap(a, b);
+    }
+
+    /// Swap two lines in raw buffer
+    ///
+    /// # Panics
+    ///
+    /// `swap` will panic if either `a` or `b` are out-of-bounds of the
+    /// underlying storage.
+    pub fn swap(&mut self, a: usize, b: usize) {
+        let a = self.compute_index(a);
+        let b = self.compute_index(b);
+
         self.inner.swap(a, b);
     }
 
