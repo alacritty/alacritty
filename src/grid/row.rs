@@ -58,7 +58,6 @@ impl<T: Copy + Clone> Row<T> {
     }
 
     /// Resets contents to the contents of `other`
-    #[inline(never)]
     pub fn reset(&mut self, other: &T) {
         let occ = self.occ;
         for item in &mut self.inner[..occ] {

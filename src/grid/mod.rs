@@ -27,7 +27,7 @@ pub use self::row::Row;
 mod tests;
 
 mod storage;
-use self::storage::Storage;
+use self::storage::{Storage, Swap};
 
 /// Bidirection iterator
 pub trait BidirectionalIterator: Iterator {

@@ -15,9 +15,66 @@ use std::ops::{Index, IndexMut};
 use std::slice;
 
 use index::Line;
+use grid::Row;
 
 /// Maximum number of invisible lines before buffer is resized
 const TRUNCATE_STEP: usize = 100;
+
+pub trait Swap {
+    fn swap(&mut self, _: usize, _: usize);
+}
+
+impl<T> Swap for Storage<T> {
+    /// Swap two lines in raw buffer
+    ///
+    /// # Panics
+    ///
+    /// `swap` will panic if either `a` or `b` are out-of-bounds of the
+    /// underlying storage.
+    default fn swap(&mut self, a: usize, b: usize) {
+        let a = self.compute_index(a);
+        let b = self.compute_index(b);
+
+        self.inner.swap(a, b);
+    }
+}
+
+impl<T> Swap for Storage<Row<T>> {
+    /// Custom swap implementation for Row<T>.
+    ///
+    /// Exploits the known size of Row<T> to produce a slightly more efficient
+    /// swap than going through slice::swap.
+    ///
+    /// The default implementation from swap generates 8 movups and 4 movaps
+    /// instructions. This implementation only uses 8 movups instructions.
+    fn swap(&mut self, a: usize, b: usize) {
+        use std::mem::{size_of, uninitialized};
+        use ::libc::memcpy;
+
+        debug_assert!(size_of::<Row<T>>() == 32);
+
+        let a = self.compute_index(a);
+        let b = self.compute_index(b);
+
+        unsafe {
+            // Cast to a u64 array of size 4 to pretend that the data is copy
+            let a_ptr = self.inner.as_mut_ptr().offset(a as isize) as *mut u64;
+            let b_ptr = self.inner.as_mut_ptr().offset(b as isize) as *mut u64;
+
+            // Swap space
+            let mut tmp: u64;
+
+            // Copy 1 qword at a time
+            //
+            // The optimizer unrolls this loop and vectorizes it.
+            for i in 0..4 {
+                tmp = *a_ptr.offset(i);
+                *a_ptr.offset(i) = *b_ptr.offset(i);
+                *b_ptr.offset(i) = tmp;
+            }
+        }
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Storage<T> {
@@ -202,19 +259,6 @@ impl<T> Storage<T> {
         let offset = self.inner.len() + self.zero + *self.visible_lines;
         let a = (offset - *a) % self.inner.len();
         let b = (offset - *b) % self.inner.len();
-        self.inner.swap(a, b);
-    }
-
-    /// Swap two lines in raw buffer
-    ///
-    /// # Panics
-    ///
-    /// `swap` will panic if either `a` or `b` are out-of-bounds of the
-    /// underlying storage.
-    pub fn swap(&mut self, a: usize, b: usize) {
-        let a = self.compute_index(a);
-        let b = self.compute_index(b);
-
         self.inner.swap(a, b);
     }
 
