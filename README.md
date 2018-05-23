@@ -50,7 +50,7 @@ cd alacritty-git
 makepkg -isr
 ```
 
-#### Debian/Ubuntu
+### Debian/Ubuntu
 
 Using `cargo deb` you can create and install a deb file.
 
