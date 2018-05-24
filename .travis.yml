@@ -12,8 +12,8 @@ os:
   - windows
 
 rust:
-  - stable
-  - nightly
+- stable
+- nightly
 
 env:
   - CLIPPY="true"
@@ -35,7 +35,31 @@ matrix:
 
 script:
   - if [ "$TRAVIS_OS_NAME" == "windows" ]; then choco install llvm --norestart --nosilent; fi
-
   - if [ -n "$CLIPPY" ]; then cargo clippy --all-features --all-targets; fi
   - if [ -z "$CLIPPY" ]; then cargo test; fi
   - if [ -z "$CLIPPY" ]; then cargo test -p font; fi
+
+before_deploy:
+  - mkdir "releases"
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      make dmg
+      mv "target/releases/osx/Alacritty.dmg" "releases/Alacritty-$TRAVIS_TAG.dmg"
+    fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+      cargo install cargo-deb;
+      cargo build --release;
+      mv "target/release/alacritty" "releases/Alacritty-$TRAVIS_TAG"
+      mv $(cargo deb --no-build) "releases/Alacritty-$TRAVIS_TAG.deb"
+    fi
+
+deploy:
+  provider: releases
+  api_key:
+    secure: o2Q39A2JAKeMEYD0dFJTpYJMpAsHYcUa4DIXApqn/ygXQzcfPpnLelCWb70zOlICIk3ICETlzeLfF7s/q802jy5aEFLbbmIp+rT0SWlRiShuQqLPkwlK7Cqh2nUAVPoozYn1y9ha8kozOL3xgDxI9RGHMC+7ZV9duVLWUqz5Ah7qBoOx9QemDMrdPJ7zi8vFvJp4oW3EV7wQRRfEmFkqOAxbAWhLeTNGVR9ECjUZIgXWRz1kjqVz6dJrLauH/D068RSV/7JM1dlzrMkBsmRe8xVOTnAiHIoGMB4UaUTLz8hJNH+KUmXfprfBKuFEQ7jDnYq+6/y200VYuRfRsU2EOqYjzHXmWD6E3vkHhVdrUUfFmG9tfAzIXFZxs0LVIszWgqqMypmuLNxgYcfpMmo+YeHGWX59HOVwXmvY38ix1++zLh44kpRuX0mYFuPdH6gRdeKPr7jyueODKRwsegh1d8rVl7T0HQpBmDcWHBidOf8Aw8NTrsEoRQFlS/eVZyGnZet/nf6Otenp/5MIBA3BHO9R9QaCo0FT3Yi7FL/kkoEZs+lN5mKJulZ6hpmG760h+mYBqw7buLKcCR3qBiuXOpgfzNWgOoAGb3G7eUAhCf1zHTEcdL6U/SEA2ofpaPZGqrcuZ7aTgnJ6lWU4YWI8X+hAouv6IOk/UoxiONIUwHE=
+  skip_cleanup: true
+  overwrite: true
+  file_glob: true
+  file: releases/*
+  on:
+    tags: true
+    rust: stable
