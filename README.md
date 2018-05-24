@@ -52,7 +52,7 @@ makepkg -isr
 
 ### Debian/Ubuntu
 
-Using `cargo deb` you can create and install a deb file.
+Using `cargo deb`, you can create and install a deb file.
 
 ```sh
 git clone git@github.com:jwilm/alacritty.git
@@ -92,6 +92,19 @@ xbps-install alacritty
    rustup override set stable
    rustup update stable
    ```
+
+#### Debian/Ubuntu
+
+You can build alacritty using `cargo deb` and use your system's package manager
+to maintain the application using the instructions [above](#debianubuntu).
+
+If you'd still like to build a local version manually, you need a few extra
+libraries to build Alacritty. Here's an apt command that should install all of
+them. If something is still found to be missing, please open an issue.
+
+```sh
+apt-get install cmake libfreetype6-dev libfontconfig1-dev xclip
+```
 
 #### Arch Linux
 
