@@ -47,7 +47,7 @@ pub fn set_locale_environment() {
             let identifier: *const Object = msg_send![locale, localeIdentifier];
             let identifier_str = nsstring_as_str(identifier).to_owned();
             let _ : () = msg_send![identifier, release];
-            identifier_str
+            identifier_str + ".UTF-8"
         };
         let _ : () = msg_send![locale, release];
         locale_id
