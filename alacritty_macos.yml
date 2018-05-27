@@ -198,7 +198,7 @@ mouse:
   faux_scrollback_lines: 1
 
 selection:
-  semantic_escape_chars: ",│`|:\"' ()[]{}<>"
+  semantic_escape_chars: ",│`|\"' ()[]{}<>"
 
 dynamic_title: true
 
