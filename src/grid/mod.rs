@@ -252,6 +252,14 @@ impl<T: Copy + Clone> Grid<T> {
         self.cols = cols;
     }
 
+    fn shrink_cols(&mut self, cols: index::Column) {
+        for row in self.raw.iter_mut_raw() {
+            row.shrink(cols);
+        }
+
+        self.cols = cols;
+    }
+
     /// Remove lines from the visible area
     ///
     /// The behavior in Terminal.app and iTerm.app is to keep the cursor at the
@@ -437,14 +445,6 @@ impl<T> Grid<T> {
     // pub fn swap_lines(&mut self, src: index::Line, dst: index::Line) {
     //     self.raw.swap(*src, *dst);
     // }
-
-    fn shrink_cols(&mut self, cols: index::Column) {
-        for row in self.raw.iter_mut() {
-            row.shrink(cols);
-        }
-
-        self.cols = cols;
-    }
 }
 
 impl<'a, T> Iterator for GridIterator<'a, T> {
