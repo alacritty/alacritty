@@ -30,8 +30,10 @@ impl<T: Copy + Clone> Row<T> {
     }
 
     pub fn grow(&mut self, cols: Column, template: &T) {
+        assert!(self.len() < * cols);
+
         while self.len() != *cols {
-            self.push(*template);
+            self.inner.push(*template);
         }
     }
 
