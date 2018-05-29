@@ -33,7 +33,7 @@ impl<T: Copy + Clone> Row<T> {
         assert!(self.len() < * cols);
 
         while self.len() != *cols {
-            self.inner.push(*template);
+            self.0.push(*template);
         }
     }
 
