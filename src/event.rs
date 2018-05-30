@@ -99,7 +99,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn semantic_selection(&mut self, point: Point) {
         let point = self.terminal.visible_to_buffer(point);
-        *self.terminal.selection_mut() = Some(Selection::semantic(point, &*self.terminal));
+        *self.terminal.selection_mut() = Some(Selection::semantic(point));
         self.terminal.dirty = true;
     }
 

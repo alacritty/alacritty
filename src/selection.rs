@@ -47,11 +47,6 @@ pub enum Selection {
     Semantic {
         /// The region representing start and end of cursor movement
         region: Range<Point<usize>>,
-
-        /// When beginning a semantic selection, the grid is searched around the
-        /// initial point to find semantic escapes, and this initial expansion
-        /// marks those points.
-        initial_expansion: Range<Point<usize>>
     },
     Lines {
         /// The region representing start and end of cursor movement
@@ -109,11 +104,9 @@ impl Selection {
                 region.start.point.line = (region.start.point.line as isize + offset) as usize;
                 region.end.point.line = (region.end.point.line as isize + offset) as usize;
             },
-            Selection::Semantic { ref mut region, ref mut initial_expansion } => {
+            Selection::Semantic { ref mut region } => {
                 region.start.line = (region.start.line as isize + offset) as usize;
                 region.end.line = (region.end.line as isize + offset) as usize;
-                initial_expansion.start.line = (initial_expansion.start.line as isize + offset) as usize;
-                initial_expansion.end.line = (initial_expansion.end.line as isize + offset) as usize;
             },
             Selection::Lines { ref mut region, ref mut initial_line } => {
                 region.start.line = (region.start.line as isize + offset) as usize;
@@ -123,16 +116,11 @@ impl Selection {
         }
     }
 
-    pub fn semantic<G: SemanticSearch>(point: Point<usize>, grid: &G) -> Selection {
-        let (start, end) = (grid.semantic_search_left(point), grid.semantic_search_right(point));
+    pub fn semantic(point: Point<usize>) -> Selection {
         Selection::Semantic {
             region: Range {
                 start: point,
                 end: point,
-            },
-            initial_expansion: Range {
-                start: start,
-                end: end
             }
         }
     }
@@ -153,7 +141,7 @@ impl Selection {
             Selection::Simple { ref mut region } => {
                 region.end = Anchor::new(location, side);
             },
-            Selection::Semantic { ref mut region, .. } |
+            Selection::Semantic { ref mut region } |
                 Selection::Lines { ref mut region, .. } =>
             {
                 region.end = location;
@@ -166,8 +154,8 @@ impl Selection {
             Selection::Simple { ref region } => {
                 Selection::span_simple(grid, region)
             },
-            Selection::Semantic { ref region, ref initial_expansion } => {
-                Selection::span_semantic(grid, region, initial_expansion)
+            Selection::Semantic { ref region } => {
+                Selection::span_semantic(grid, region)
             },
             Selection::Lines { ref region, ref initial_line } => {
                 Selection::span_lines(grid, region, *initial_line)
@@ -177,7 +165,6 @@ impl Selection {
     fn span_semantic<G>(
         grid: &G,
         region: &Range<Point<usize>>,
-        initial_expansion: &Range<Point<usize>>
     ) -> Option<Span>
         where G: SemanticSearch + Dimensions
     {
