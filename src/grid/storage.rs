@@ -14,7 +14,7 @@
 use std::ops::{Index, IndexMut};
 use std::slice;
 
-use index::{Column, Line};
+use index::Line;
 use super::Row;
 
 /// Maximum number of invisible lines before buffer is resized
@@ -198,17 +198,40 @@ impl<T> Storage<T> {
         self.inner.swap(a, b);
     }
 
-    /// Swap two lines in raw buffer
+    /// Swap implementation for Row<T>.
     ///
-    /// # Panics
+    /// Exploits the known size of Row<T> to produce a slightly more efficient
+    /// swap than going through slice::swap.
     ///
-    /// `swap` will panic if either `a` or `b` are out-of-bounds of the
-    /// underlying storage.
+    /// The default implementation from swap generates 8 movups and 4 movaps
+    /// instructions. This implementation achieves the swap in only 8 movups
+    /// instructions.
+    ///
+    // TODO Once specialization is available, Storage<T> can be fully generic
+    //      again instead of enforcing inner: Vec<Row<T>>.
     pub fn swap(&mut self, a: usize, b: usize) {
+        debug_assert!(::std::mem::size_of::<Row<T>>() == 32);
+
         let a = self.compute_index(a);
         let b = self.compute_index(b);
 
-        self.inner.swap(a, b);
+        unsafe {
+            // Cast to a qword array to opt out of copy restrictions and avoid
+            // drop hazards. Byte array is no good here since for whatever
+            // reason LLVM won't optimized it.
+            let a_ptr = self.inner.as_mut_ptr().offset(a as isize) as *mut u64;
+            let b_ptr = self.inner.as_mut_ptr().offset(b as isize) as *mut u64;
+
+            // Copy 1 qword at a time
+            //
+            // The optimizer unrolls this loop and vectorizes it.
+            let mut tmp: u64;
+            for i in 0..4 {
+                tmp = *a_ptr.offset(i);
+                *a_ptr.offset(i) = *b_ptr.offset(i);
+                *b_ptr.offset(i) = tmp;
+            }
+        }
     }
 
     /// Iterator over *logical* entries in the storage
@@ -298,6 +321,9 @@ impl<'a, T: 'a> Iterator for IterMut<'a, T> {
         }
     }
 }
+
+#[cfg(test)]
+use index::Column;
 
 /// Grow the buffer one line at the end of the buffer
 ///
