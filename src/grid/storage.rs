@@ -201,6 +201,14 @@ impl<T> Storage<T> {
 
     /// Compute actual index in underlying storage given the requested index.
     fn compute_index(&self, requested: usize) -> usize {
+        use ::std::hint::unreachable_unchecked;
+
+        // This prevents an extra branch being inserted which checks for the
+        // divisor to be zero thus making a % b generate equivalent code as in C
+        if self.inner.len() == 0 {
+            unsafe { unreachable_unchecked(); }
+        }
+
         (requested + self.zero) % self.inner.len()
     }
 
