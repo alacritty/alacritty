@@ -908,6 +908,8 @@ impl Term {
         self.default_cursor_style = config.cursor_style();
         self.dynamic_title = config.dynamic_title();
         self.auto_scroll = config.scrolling().auto_scroll;
+        self.grid
+            .update_history(config.scrolling().history as usize, &self.cursor.template);
     }
 
     #[inline]
@@ -2020,17 +2022,17 @@ mod tests {
         mem::swap(&mut term.semantic_escape_chars, &mut escape_chars);
 
         {
-            *term.selection_mut() = Some(Selection::semantic(Point { line: 2, col: Column(1) }, &term));
+            *term.selection_mut() = Some(Selection::semantic(Point { line: 2, col: Column(1) }));
             assert_eq!(term.selection_to_string(), Some(String::from("aa")));
         }
 
         {
-            *term.selection_mut() = Some(Selection::semantic(Point { line: 2, col: Column(4) }, &term));
+            *term.selection_mut() = Some(Selection::semantic(Point { line: 2, col: Column(4) }));
             assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
         }
 
         {
-            *term.selection_mut() = Some(Selection::semantic(Point { line: 1, col: Column(1) }, &term));
+            *term.selection_mut() = Some(Selection::semantic(Point { line: 1, col: Column(1) }));
             assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
         }
     }

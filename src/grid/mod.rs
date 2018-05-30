@@ -155,6 +155,13 @@ impl<T: Copy + Clone> Grid<T> {
         self.line_to_offset(line) + self.display_offset
     }
 
+    /// Update the size of the scrollback history
+    pub fn update_history(&mut self, history_size: usize, template: &T)
+    {
+        self.raw.update_history(history_size, Row::new(self.cols, &template));
+        self.scroll_limit = min(self.scroll_limit, history_size);
+    }
+
     pub fn scroll_display(&mut self, scroll: Scroll) {
         match scroll {
             Scroll::Lines(count) => {

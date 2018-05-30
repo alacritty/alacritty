@@ -97,48 +97,75 @@ impl<T> Storage<T> {
         }
     }
 
+    /// Update the size of the scrollback history
+    pub fn update_history(&mut self, history_size: usize, template_row: Row<T>)
+    where
+        T: Clone,
+    {
+        let current_history = self.len - (self.visible_lines.0 + 1);
+        if history_size > current_history {
+            self.grow_lines(history_size - current_history, template_row);
+        } else if history_size < current_history {
+            self.shrink_lines(current_history - history_size);
+        }
+    }
+
     /// Increase the number of lines in the buffer
     pub fn grow_visible_lines(&mut self, next: Line, template_row: Row<T>)
     where
         T: Clone,
     {
         // Number of lines the buffer needs to grow
-        let lines_to_grow = (next - (self.visible_lines + 1)).0;
+        let growage = (next - (self.visible_lines + 1)).0;
+        self.grow_lines(growage, template_row);
+
+        // Update visible lines
+        self.visible_lines = next - 1;
+    }
+
+    /// Grow the number of lines in the buffer, filling new lines with the template
+    pub fn grow_lines(&mut self, growage: usize, template_row: Row<T>)
+    where
+        T: Clone,
+    {
+        // Get the position of the start of the buffer
+        let offset = self.zero % self.inner.len();
 
         // Only grow if there are not enough lines still hidden
-        if lines_to_grow > (self.inner.len() - self.len) {
+        let mut new_growage = 0;
+        if growage > (self.inner.len() - self.len) {
             // Lines to grow additionally to invisible lines
-            let new_lines_to_grow = lines_to_grow - (self.inner.len() - self.len);
-
-            // Get the position of the start of the buffer
-            let offset = self.zero % self.inner.len();
+            new_growage = growage - (self.inner.len() - self.len);
 
             // Split off the beginning of the raw inner buffer
             let mut start_buffer = self.inner.split_off(offset);
 
             // Insert new template rows at the end of the raw inner buffer
-            let mut new_lines = vec![template_row; new_lines_to_grow];
+            let mut new_lines = vec![template_row; new_growage];
             self.inner.append(&mut new_lines);
 
             // Add the start to the raw inner buffer again
             self.inner.append(&mut start_buffer);
-
-            // Update the zero to after the lines we just inserted
-            self.zero = offset + lines_to_grow;
         }
 
-        // Update visible lines and raw buffer length
-        self.len += lines_to_grow;
-        self.visible_lines = next - 1;
+        // Update raw buffer length and zero offset
+        self.zero = offset + new_growage;
+        self.len += growage;
     }
 
     /// Decrease the number of lines in the buffer
     pub fn shrink_visible_lines(&mut self, next: Line) {
         // Shrink the size without removing any lines
-        self.len -= (self.visible_lines - (next - 1)).0;
+        let shrinkage = (self.visible_lines - (next - 1)).0;
+        self.shrink_lines(shrinkage);
 
         // Update visible lines
         self.visible_lines = next - 1;
+    }
+
+    // Shrink the number of lines in the buffer
+    fn shrink_lines(&mut self, shrinkage: usize) {
+        self.len -= shrinkage;
 
         // Free memory
         if self.inner.len() > self.len() + TRUNCATE_STEP {
@@ -536,4 +563,89 @@ fn truncate_invisible_lines_beginning() {
     assert_eq!(storage.inner, expected.inner);
     assert_eq!(storage.zero, expected.zero);
     assert_eq!(storage.len, expected.len);
+}
+
+/// First shrink the buffer and then grow it again
+///
+/// Before:
+///   0: 4
+///   1: 5
+///   2: 0 <- Zero
+///   3: 1
+///   4: 2
+///   5: 3
+/// After Shrinking:
+///   0: 4 <- Hidden
+///   1: 5 <- Hidden
+///   2: 0 <- Zero
+///   3: 1
+///   4: 2
+///   5: 3 <- Hidden
+/// After Growing:
+///   0: 4
+///   1: 5
+///   2: -
+///   3: 0 <- Zero
+///   4: 1
+///   5: 2
+///   6: 3
+#[test]
+fn shrink_then_grow() {
+    // Setup storage area
+    let mut storage = Storage {
+        inner: vec![
+            Row::new(Column(1), &'4'),
+            Row::new(Column(1), &'5'),
+            Row::new(Column(1), &'0'),
+            Row::new(Column(1), &'1'),
+            Row::new(Column(1), &'2'),
+            Row::new(Column(1), &'3'),
+        ],
+        zero: 2,
+        visible_lines: Line(0),
+        len: 6,
+    };
+
+    // Shrink buffer
+    storage.shrink_lines(3);
+
+    // Make sure the result after shrinking is correct
+    let shrinking_expected = Storage {
+        inner: vec![
+            Row::new(Column(1), &'4'),
+            Row::new(Column(1), &'5'),
+            Row::new(Column(1), &'0'),
+            Row::new(Column(1), &'1'),
+            Row::new(Column(1), &'2'),
+            Row::new(Column(1), &'3'),
+        ],
+        zero: 2,
+        visible_lines: Line(0),
+        len: 3,
+    };
+    assert_eq!(storage.inner, shrinking_expected.inner);
+    assert_eq!(storage.zero, shrinking_expected.zero);
+    assert_eq!(storage.len, shrinking_expected.len);
+
+    // Grow buffer
+    storage.grow_lines(4, Row::new(Column(1), &'-'));
+
+    // Make sure the result after shrinking is correct
+    let growing_expected = Storage {
+        inner: vec![
+            Row::new(Column(1), &'4'),
+            Row::new(Column(1), &'5'),
+            Row::new(Column(1), &'-'),
+            Row::new(Column(1), &'0'),
+            Row::new(Column(1), &'1'),
+            Row::new(Column(1), &'2'),
+            Row::new(Column(1), &'3'),
+        ],
+        zero: 3,
+        visible_lines: Line(0),
+        len: 7,
+    };
+    assert_eq!(storage.inner, growing_expected.inner);
+    assert_eq!(storage.zero, growing_expected.zero);
+    assert_eq!(storage.len, growing_expected.len);
 }
