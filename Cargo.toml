@@ -56,4 +56,4 @@ gl_generator = "0.9"
 
 [profile.release]
 lto = true
-debug = true
+debug = 1
