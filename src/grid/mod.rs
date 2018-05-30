@@ -67,7 +67,7 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
 pub struct Grid<T> {
     /// Lines in the grid. Each row holds a list of cells corresponding to the
     /// columns in that row.
-    raw: Storage<Row<T>>,
+    raw: Storage<T>,
 
     /// Number of columns
     cols: index::Column,
@@ -540,7 +540,7 @@ impl<'point, T> IndexMut<&'point Point> for Grid<T> {
 pub struct Region<'a, T: 'a> {
     start: Line,
     end: Line,
-    raw: &'a Storage<Row<T>>,
+    raw: &'a Storage<T>,
 }
 
 /// A mutable subset of lines in the grid
@@ -549,7 +549,7 @@ pub struct Region<'a, T: 'a> {
 pub struct RegionMut<'a, T: 'a> {
     start: Line,
     end: Line,
-    raw: &'a mut Storage<Row<T>>,
+    raw: &'a mut Storage<T>,
 }
 
 impl<'a, T> RegionMut<'a, T> {
@@ -653,13 +653,13 @@ impl<T> IndexRegion<RangeFull, T> for Grid<T> {
 pub struct RegionIter<'a, T: 'a> {
     end: Line,
     cur: Line,
-    raw: &'a Storage<Row<T>>,
+    raw: &'a Storage<T>,
 }
 
 pub struct RegionIterMut<'a, T: 'a> {
     end: Line,
     cur: Line,
-    raw: &'a mut Storage<Row<T>>,
+    raw: &'a mut Storage<T>,
 }
 
 impl<'a, T> IntoIterator for Region<'a, T> {
