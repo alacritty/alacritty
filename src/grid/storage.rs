@@ -14,14 +14,15 @@
 use std::ops::{Index, IndexMut};
 use std::slice;
 
-use index::Line;
+use index::{Column, Line};
+use super::Row;
 
 /// Maximum number of invisible lines before buffer is resized
 const TRUNCATE_STEP: usize = 100;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Storage<T> {
-    inner: Vec<T>,
+    inner: Vec<Row<T>>,
     zero: usize,
     visible_lines: Line,
 
@@ -78,7 +79,7 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Storage<T> {
 
 impl<T> Storage<T> {
     #[inline]
-    pub fn with_capacity(cap: usize, lines: Line, template: T) -> Storage<T>
+    pub fn with_capacity(cap: usize, lines: Line, template: Row<T>) -> Storage<T>
     where
         T: Clone,
     {
@@ -97,7 +98,7 @@ impl<T> Storage<T> {
     }
 
     /// Increase the number of lines in the buffer
-    pub fn grow_visible_lines(&mut self, next: Line, template_row: T)
+    pub fn grow_visible_lines(&mut self, next: Line, template_row: Row<T>)
     where
         T: Clone,
     {
@@ -225,7 +226,7 @@ impl<T> Storage<T> {
     ///     is needed because of the grow lines functionality implemented on
     ///     this type, and maybe that's where the leak is necessitating this
     ///     accessor.
-    pub fn iter_mut_raw<'a>(&'a mut self) -> slice::IterMut<'a, T> {
+    pub fn iter_mut_raw<'a>(&'a mut self) -> slice::IterMut<'a, Row<T>> {
         self.inner.iter_mut()
     }
 
@@ -243,9 +244,9 @@ impl<T> Storage<T> {
 }
 
 impl<T> Index<usize> for Storage<T> {
-    type Output = T;
+    type Output = Row<T>;
     #[inline]
-    fn index(&self, index: usize) -> &T {
+    fn index(&self, index: usize) -> &Self::Output {
         let index = self.compute_index(index); // borrowck
         &self.inner[index]
     }
@@ -253,16 +254,16 @@ impl<T> Index<usize> for Storage<T> {
 
 impl<T> IndexMut<usize> for Storage<T> {
     #[inline]
-    fn index_mut(&mut self, index: usize) -> &mut T {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         let index = self.compute_index(index); // borrowck
         &mut self.inner[index]
     }
 }
 
 impl<T> Index<Line> for Storage<T> {
-    type Output = T;
+    type Output = Row<T>;
     #[inline]
-    fn index(&self, index: Line) -> &T {
+    fn index(&self, index: Line) -> &Self::Output {
         let index = self.visible_lines - index;
         &self[*index]
     }
@@ -270,7 +271,7 @@ impl<T> Index<Line> for Storage<T> {
 
 impl<T> IndexMut<Line> for Storage<T> {
     #[inline]
-    fn index_mut(&mut self, index: Line) -> &mut T {
+    fn index_mut(&mut self, index: Line) -> &mut Self::Output {
         let index = self.visible_lines - index;
         &mut self[*index]
     }
@@ -282,7 +283,7 @@ pub struct IterMut<'a, T: 'a> {
 }
 
 impl<'a, T: 'a> Iterator for IterMut<'a, T> {
-    type Item = &'a mut T;
+    type Item = &'a mut Row<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index == self.storage.len() {
@@ -313,18 +314,18 @@ impl<'a, T: 'a> Iterator for IterMut<'a, T> {
 fn grow_after_zero() {
     // Setup storage area
     let mut storage = Storage {
-        inner: vec!["0", "1", "-"],
+        inner: vec![Row::new(Column(1), &'0'), Row::new(Column(1), &'1'), Row::new(Column(1), &'-')],
         zero: 0,
         visible_lines: Line(2),
         len: 3,
     };
 
     // Grow buffer
-    storage.grow_visible_lines(Line(4), "-");
+    storage.grow_visible_lines(Line(4), Row::new(Column(1), &'-'));
 
     // Make sure the result is correct
     let expected = Storage {
-        inner: vec!["-", "0", "1", "-"],
+        inner: vec![Row::new(Column(1), &'-'), Row::new(Column(1), &'0'), Row::new(Column(1), &'1'), Row::new(Column(1), &'-')],
         zero: 1,
         visible_lines: Line(0),
         len: 4,
@@ -349,18 +350,18 @@ fn grow_after_zero() {
 fn grow_before_zero() {
     // Setup storage area
     let mut storage = Storage {
-        inner: vec!["-", "0", "1"],
+        inner: vec![Row::new(Column(1), &'-'), Row::new(Column(1), &'0'), Row::new(Column(1), &'1')],
         zero: 1,
         visible_lines: Line(2),
         len: 3,
     };
 
     // Grow buffer
-    storage.grow_visible_lines(Line(4), "-");
+    storage.grow_visible_lines(Line(4), Row::new(Column(1), &'-'));
 
     // Make sure the result is correct
     let expected = Storage {
-        inner: vec!["-", "-", "0", "1"],
+        inner: vec![Row::new(Column(1), &'-'), Row::new(Column(1), &'-'), Row::new(Column(1), &'0'), Row::new(Column(1), &'1')],
         zero: 2,
         visible_lines: Line(0),
         len: 4,
@@ -384,7 +385,7 @@ fn grow_before_zero() {
 fn shrink_before_zero() {
     // Setup storage area
     let mut storage = Storage {
-        inner: vec!["2", "0", "1"],
+        inner: vec![Row::new(Column(1), &'2'), Row::new(Column(1), &'0'), Row::new(Column(1), &'1')],
         zero: 1,
         visible_lines: Line(2),
         len: 3,
@@ -395,7 +396,7 @@ fn shrink_before_zero() {
 
     // Make sure the result is correct
     let expected = Storage {
-        inner: vec!["2", "0", "1"],
+        inner: vec![Row::new(Column(1), &'2'), Row::new(Column(1), &'0'), Row::new(Column(1), &'1')],
         zero: 1,
         visible_lines: Line(0),
         len: 2,
@@ -419,7 +420,7 @@ fn shrink_before_zero() {
 fn shrink_after_zero() {
     // Setup storage area
     let mut storage = Storage {
-        inner: vec!["0", "1", "2"],
+        inner: vec![Row::new(Column(1), &'0'), Row::new(Column(1), &'1'), Row::new(Column(1), &'2')],
         zero: 0,
         visible_lines: Line(2),
         len: 3,
@@ -430,7 +431,7 @@ fn shrink_after_zero() {
 
     // Make sure the result is correct
     let expected = Storage {
-        inner: vec!["0", "1", "2"],
+        inner: vec![Row::new(Column(1), &'0'), Row::new(Column(1), &'1'), Row::new(Column(1), &'2')],
         zero: 0,
         visible_lines: Line(0),
         len: 2,
@@ -460,7 +461,7 @@ fn shrink_after_zero() {
 fn shrink_before_and_after_zero() {
     // Setup storage area
     let mut storage = Storage {
-        inner: vec!["4", "5", "0", "1", "2", "3"],
+        inner: vec![Row::new(Column(1), &'4'), Row::new(Column(1), &'5'), Row::new(Column(1), &'0'), Row::new(Column(1), &'1'), Row::new(Column(1), &'2'), Row::new(Column(1), &'3')],
         zero: 2,
         visible_lines: Line(5),
         len: 6,
@@ -471,7 +472,7 @@ fn shrink_before_and_after_zero() {
 
     // Make sure the result is correct
     let expected = Storage {
-        inner: vec!["4", "5", "0", "1", "2", "3"],
+        inner: vec![Row::new(Column(1), &'4'), Row::new(Column(1), &'5'), Row::new(Column(1), &'0'), Row::new(Column(1), &'1'), Row::new(Column(1), &'2'), Row::new(Column(1), &'3')],
         zero: 2,
         visible_lines: Line(0),
         len: 2,
@@ -497,7 +498,7 @@ fn shrink_before_and_after_zero() {
 fn truncate_invisible_lines() {
     // Setup storage area
     let mut storage = Storage {
-        inner: vec!["4", "5", "0", "1", "2", "3"],
+        inner: vec![Row::new(Column(1), &'4'), Row::new(Column(1), &'5'), Row::new(Column(1), &'0'), Row::new(Column(1), &'1'), Row::new(Column(1), &'2'), Row::new(Column(1), &'3')],
         zero: 2,
         visible_lines: Line(1),
         len: 2,
@@ -508,7 +509,7 @@ fn truncate_invisible_lines() {
 
     // Make sure the result is correct
     let expected = Storage {
-        inner: vec!["0", "1"],
+        inner: vec![Row::new(Column(1), &'0'), Row::new(Column(1), &'1')],
         zero: 0,
         visible_lines: Line(1),
         len: 2,
@@ -532,7 +533,7 @@ fn truncate_invisible_lines() {
 fn truncate_invisible_lines_beginning() {
     // Setup storage area
     let mut storage = Storage {
-        inner: vec!["1", "2", "0"],
+        inner: vec![Row::new(Column(1), &'1'), Row::new(Column(1), &'2'), Row::new(Column(1), &'0')],
         zero: 2,
         visible_lines: Line(1),
         len: 2,
@@ -543,7 +544,7 @@ fn truncate_invisible_lines_beginning() {
 
     // Make sure the result is correct
     let expected = Storage {
-        inner: vec!["1", "0"],
+        inner: vec![Row::new(Column(1), &'1'), Row::new(Column(1), &'0')],
         zero: 1,
         visible_lines: Line(1),
         len: 2,
