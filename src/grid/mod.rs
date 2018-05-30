@@ -230,7 +230,6 @@ impl<T: Copy + Clone> Grid<T> {
         new_line_count: index::Line,
         template: &T,
     ) {
-        let previous_scroll_limit = self.scroll_limit;
         let lines_added = new_line_count - self.lines;
 
         // Need to "resize" before updating buffer

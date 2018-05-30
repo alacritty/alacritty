@@ -172,23 +172,9 @@ impl<T> Storage<T> {
         self.len
     }
 
-    #[inline]
-    pub fn raw_len(&self) -> usize {
-        self.inner.len()
-    }
-
     /// Compute actual index in underlying storage given the requested index.
     fn compute_index(&self, requested: usize) -> usize {
         (requested + self.zero) % self.inner.len()
-    }
-
-    #[inline]
-    pub fn line_offset(&self) -> usize {
-        self.inner.len() + self.zero + *self.visible_lines
-    }
-
-    pub fn compute_line_index(&self, a: Line) -> usize {
-        (self.line_offset() - *a) % self.inner.len()
     }
 
     pub fn swap_lines(&mut self, a: Line, b: Line) {
@@ -232,13 +218,6 @@ impl<T> Storage<T> {
                 *b_ptr.offset(i) = tmp;
             }
         }
-    }
-
-    /// Iterator over *logical* entries in the storage
-    ///
-    /// This *does not* iterate over hidden entries.
-    pub fn iter_mut(&mut self) -> IterMut<T> {
-        IterMut { storage: self, index: 0 }
     }
 
     /// Iterate over *all* entries in the underlying buffer
@@ -297,28 +276,6 @@ impl<T> IndexMut<Line> for Storage<T> {
     fn index_mut(&mut self, index: Line) -> &mut Self::Output {
         let index = self.visible_lines - index;
         &mut self[*index]
-    }
-}
-
-pub struct IterMut<'a, T: 'a> {
-    storage: &'a mut Storage<T>,
-    index: usize,
-}
-
-impl<'a, T: 'a> Iterator for IterMut<'a, T> {
-    type Item = &'a mut Row<T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index == self.storage.len() {
-            None
-        } else {
-            let index = self.index;
-            self.index += 1;
-
-            unsafe {
-                Some(&mut *(&mut self.storage[index] as *mut _))
-            }
-        }
     }
 }
 
