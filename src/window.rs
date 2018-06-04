@@ -209,7 +209,7 @@ impl Window {
             .with_visibility(false)
             .with_transparency(true)
             .with_decorations(window_config.decorations());
-        let window_builder = Window::platform_builder_ext(window_builder);
+        let window_builder = Window::platform_builder_ext(window_builder, title);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();
@@ -322,13 +322,13 @@ impl Window {
     }
 
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
-    fn platform_builder_ext(window_builder: WindowBuilder) -> WindowBuilder {
+    fn platform_builder_ext(window_builder: WindowBuilder, wm_class: &str) -> WindowBuilder {
         use glutin::os::unix::WindowBuilderExt;
-        window_builder.with_class("alacritty".to_owned(), "Alacritty".to_owned())
+        window_builder.with_class(wm_class.to_owned(), "Alacritty".to_owned())
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
-    fn platform_builder_ext(window_builder: WindowBuilder) -> WindowBuilder {
+    fn platform_builder_ext(window_builder: WindowBuilder, wm_class: &str) -> WindowBuilder {
         window_builder
     }
 
