@@ -87,7 +87,7 @@ impl Options {
             .arg(Arg::with_name("class")
                  .long("class")
                  .default_value(DEFAULT_CLASS)
-                 .help("Defines WM_CLASS on supported platforms"))
+                 .help("Defines window class on X11"))
             .arg(Arg::with_name("q")
                 .short("q")
                 .multiple(true)

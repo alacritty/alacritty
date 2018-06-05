@@ -205,10 +205,8 @@ impl Window {
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
-        let title = &options.title;
-
         let window_builder = WindowBuilder::new()
-            .with_title(title.to_owned())
+            .with_title(&*options.title)
             .with_visibility(false)
             .with_transparency(true)
             .with_decorations(window_config.decorations());
