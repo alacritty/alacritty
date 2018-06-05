@@ -137,7 +137,7 @@ impl Display {
         let render_timer = config.render_timer();
 
         // Create the window where Alacritty will be displayed
-        let mut window = Window::new(&options.title, config.window())?;
+        let mut window = Window::new(&options, config.window())?;
 
         // get window properties for initializing the other subsystems
         let mut viewport_size = window.inner_size_pixels()

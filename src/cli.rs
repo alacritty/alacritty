@@ -19,6 +19,7 @@ use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 
 const DEFAULT_TITLE: &str = "Alacritty";
+const DEFAULT_CLASS: &str = "Alacritty";
 
 /// Options specified on the command line
 pub struct Options {
@@ -27,6 +28,7 @@ pub struct Options {
     pub ref_test: bool,
     pub dimensions: Option<Dimensions>,
     pub title: String,
+    pub class: String,
     pub log_level: log::LevelFilter,
     pub command: Option<Shell<'static>>,
     pub working_dir: Option<PathBuf>,
@@ -41,6 +43,7 @@ impl Default for Options {
             ref_test: false,
             dimensions: None,
             title: DEFAULT_TITLE.to_owned(),
+            class: DEFAULT_CLASS.to_owned(),
             log_level: log::LevelFilter::Warn,
             command: None,
             working_dir: None,
@@ -81,6 +84,10 @@ impl Options {
                 .short("t")
                 .default_value(DEFAULT_TITLE)
                 .help("Defines the window title"))
+            .arg(Arg::with_name("class")
+                 .long("class")
+                 .default_value(DEFAULT_CLASS)
+                 .help("Defines WM_CLASS on supported platforms"))
             .arg(Arg::with_name("q")
                 .short("q")
                 .multiple(true)
@@ -134,6 +141,10 @@ impl Options {
 
         if let Some(title) = matches.value_of("title") {
             options.title = title.to_owned();
+        }
+
+        if let Some(class) = matches.value_of("class") {
+            options.class = class.to_owned();
         }
 
         match matches.occurrences_of("q") {

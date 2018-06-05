@@ -22,6 +22,7 @@ use glutin::GlContext;
 
 use MouseCursor;
 
+use cli::Options;
 use config::WindowConfig;
 
 /// Window errors
@@ -199,17 +200,19 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
-        title: &str,
+        options: &Options,
         window_config: &WindowConfig,
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
+        let title = &options.title;
+
         let window_builder = WindowBuilder::new()
-            .with_title(title)
+            .with_title(title.to_owned())
             .with_visibility(false)
             .with_transparency(true)
             .with_decorations(window_config.decorations());
-        let window_builder = Window::platform_builder_ext(window_builder, title);
+        let window_builder = Window::platform_builder_ext(window_builder, &options.class);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();
