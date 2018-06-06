@@ -1879,6 +1879,9 @@ enum Key {
     WebStop,
     Yen,
     Caret,
+    Copy,
+    Paste,
+    Cut,
 }
 
 impl Key {
@@ -2037,6 +2040,9 @@ impl Key {
             Key::WebStop => WebStop,
             Key::Yen => Yen,
             Key::Caret => Caret,
+            Key::Copy => Copy,
+            Key::Paste => Paste,
+            Key::Cut => Cut,
         }
     }
 }
