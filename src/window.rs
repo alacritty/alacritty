@@ -22,6 +22,7 @@ use glutin::GlContext;
 
 use MouseCursor;
 
+use cli::Options;
 use config::WindowConfig;
 
 /// Window errors
@@ -199,17 +200,17 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
-        title: &str,
+        options: &Options,
         window_config: &WindowConfig,
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
         let window_builder = WindowBuilder::new()
-            .with_title(title)
+            .with_title(&*options.title)
             .with_visibility(false)
             .with_transparency(true)
             .with_decorations(window_config.decorations());
-        let window_builder = Window::platform_builder_ext(window_builder);
+        let window_builder = Window::platform_builder_ext(window_builder, &options.class);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();
@@ -322,13 +323,13 @@ impl Window {
     }
 
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
-    fn platform_builder_ext(window_builder: WindowBuilder) -> WindowBuilder {
+    fn platform_builder_ext(window_builder: WindowBuilder, wm_class: &str) -> WindowBuilder {
         use glutin::os::unix::WindowBuilderExt;
-        window_builder.with_class("alacritty".to_owned(), "Alacritty".to_owned())
+        window_builder.with_class(wm_class.to_owned(), "Alacritty".to_owned())
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
-    fn platform_builder_ext(window_builder: WindowBuilder) -> WindowBuilder {
+    fn platform_builder_ext(window_builder: WindowBuilder, _: &str) -> WindowBuilder {
         window_builder
     }
 
