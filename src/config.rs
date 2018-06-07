@@ -1373,6 +1373,11 @@ impl Config {
         self.dynamic_title
     }
 
+    #[inline]
+    pub fn dynamic_title_mut(&mut self) -> bool {
+        self.dynamic_title
+    }
+
     pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
         let path = path.into();
         let raw = Config::read_file(path.as_path())?;

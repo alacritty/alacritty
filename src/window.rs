@@ -25,6 +25,23 @@ use MouseCursor;
 use cli::Options;
 use config::WindowConfig;
 
+/// This the default value for the `WM_NAME` property.
+///
+/// ```
+/// WM_NAME(STRING) = "Alacritty"
+/// ```
+pub const DEFAULT_TITLE: &str = "Alacritty";
+
+/// This the default value for the `WM_CLASS` property.
+///
+/// The second value of `WM_CLASS` is **never** changed to anything but the
+/// default value.
+///
+/// ```
+/// WM_CLASS(STRING) = "Alacritty", "Alacritty"
+/// ```
+pub const DEFAULT_CLASS: &str = "Alacritty";
+
 /// Window errors
 #[derive(Debug)]
 pub enum Error {
@@ -48,6 +65,10 @@ pub struct Window {
 
     /// Whether or not the window is the focused window.
     pub is_focused: bool,
+
+    /// Whether or not the window's title is allowed to be updated. This
+    /// disables the underlying ansi commands.
+    pub has_dynamic_title: bool,
 }
 
 /// Threadsafe APIs for the window
@@ -205,12 +226,14 @@ impl Window {
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
+        let title = options.title.as_ref().map_or(DEFAULT_TITLE as &str, |t| &t);
+        let class = options.class.as_ref().map_or(DEFAULT_CLASS as &str, |c| &c);
         let window_builder = WindowBuilder::new()
-            .with_title(&*options.title)
+            .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
             .with_decorations(window_config.decorations());
-        let window_builder = Window::platform_builder_ext(window_builder, &options.class);
+        let window_builder = Window::platform_builder_ext(window_builder, &class);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();
@@ -231,6 +254,7 @@ impl Window {
             window,
             cursor_visible: true,
             is_focused: true,
+            has_dynamic_title: options.title.is_none(),
         };
 
         window.run_os_extensions();
@@ -297,7 +321,9 @@ impl Window {
     /// Set the window title
     #[inline]
     pub fn set_title(&self, title: &str) {
-        self.window.set_title(title);
+        if self.has_dynamic_title {
+            self.window.set_title(title);
+        }
     }
 
     #[inline]
