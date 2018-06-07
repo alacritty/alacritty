@@ -1609,7 +1609,10 @@ pub struct Font {
     glyph_offset: Delta<i8>,
 
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
-    use_thin_strokes: bool
+    use_thin_strokes: bool,
+
+    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    scale_with_dpi: bool,
 }
 
 fn default_bold_desc() -> FontDescription {
@@ -1662,6 +1665,11 @@ impl Font {
             .. self
         }
     }
+
+    /// Check whether dpi should be applied
+    pub fn scale_with_dpi(&self) -> bool {
+        self.scale_with_dpi
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -1673,8 +1681,9 @@ impl Default for Font {
             italic: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
             use_thin_strokes: true,
+            scale_with_dpi: true,
+            glyph_offset: Default::default(),
             offset: Default::default(),
-            glyph_offset: Default::default()
         }
     }
 }
@@ -1688,8 +1697,9 @@ impl Default for Font {
             italic: FontDescription::new_with_family("monospace"),
             size: Size::new(11.0),
             use_thin_strokes: false,
+            scale_with_dpi: true,
+            glyph_offset: Default::default(),
             offset: Default::default(),
-            glyph_offset: Default::default()
         }
     }
 }
