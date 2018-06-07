@@ -1374,8 +1374,8 @@ impl Config {
     }
 
     #[inline]
-    pub fn dynamic_title_mut(&mut self) -> bool {
-        self.dynamic_title
+    pub fn dynamic_title_mut(&mut self) -> &mut bool {
+        &mut self.dynamic_title
     }
 
     pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {

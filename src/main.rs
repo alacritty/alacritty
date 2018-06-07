@@ -54,7 +54,7 @@ fn main() {
     // Override configurations based on CLI options.
     if options.title.is_some() {
         let mut dynamic_title = config.dynamic_title_mut();
-        dynamic_title = false;
+        *dynamic_title = false;
     }
 
     // Switch to home directory

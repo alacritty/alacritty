@@ -65,10 +65,6 @@ pub struct Window {
 
     /// Whether or not the window is the focused window.
     pub is_focused: bool,
-
-    /// Whether or not the window's title is allowed to be updated. This
-    /// disables the underlying ansi commands.
-    pub has_dynamic_title: bool,
 }
 
 /// Threadsafe APIs for the window
@@ -254,7 +250,6 @@ impl Window {
             window,
             cursor_visible: true,
             is_focused: true,
-            has_dynamic_title: options.title.is_none(),
         };
 
         window.run_os_extensions();
@@ -321,9 +316,7 @@ impl Window {
     /// Set the window title
     #[inline]
     pub fn set_title(&self, title: &str) {
-        if self.has_dynamic_title {
-            self.window.set_title(title);
-        }
+        self.window.set_title(title);
     }
 
     #[inline]
