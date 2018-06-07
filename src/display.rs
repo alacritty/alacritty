@@ -149,7 +149,6 @@ impl Display {
         };
 
         info!("device_pixel_ratio: {}", dpr);
-        println!("DPR: {}", dpr);
 
         // Create renderer
         let mut renderer = QuadRenderer::new(config, viewport_size)?;
