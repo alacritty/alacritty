@@ -2073,6 +2073,7 @@ mod tests {
         let expected_font_size: Size = config.font().size() + Size::new(font_size);
         assert_eq!(term.font_size, expected_font_size);
     }
+
     #[test]
     fn increase_font_size_works() {
         change_font_size_works(10.0);
