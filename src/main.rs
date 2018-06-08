@@ -49,7 +49,7 @@ use alacritty::util::fmt::Red;
 fn main() {
     // Load command line options and config
     let options = cli::Options::load();
-    let mut config = load_config(&options).flag(&options);
+    let config = load_config(&options).flag(&options);
 
     // Switch to home directory
     #[cfg(target_os = "macos")]
