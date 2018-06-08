@@ -49,7 +49,7 @@ use alacritty::util::fmt::Red;
 fn main() {
     // Load command line options and config
     let options = cli::Options::load();
-    let config = load_config(&options).flag(&options);
+    let config = load_config(&options).update_dynamic_title(&options);
 
     // Switch to home directory
     #[cfg(target_os = "macos")]
@@ -183,7 +183,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
             .as_ref()
             .and_then(|monitor| monitor.pending_config())
         {
-            config = new_config.flag(&options);
+            config = new_config.update_dynamic_title(&options);
             display.update_config(&config);
             processor.update_config(&config);
             terminal.update_config(&config);

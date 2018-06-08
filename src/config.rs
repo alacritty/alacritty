@@ -1384,8 +1384,8 @@ impl Config {
         Ok(config)
     }
 
-    /// Override configurations based on CLI options.
-    pub fn flag(mut self, options: &Options) -> Self {
+    /// Overrides the `dynamic_title` configuration based on `--title`.
+    pub fn update_dynamic_title(mut self, options: &Options) -> Self {
         if options.title.is_some() {
             self.dynamic_title = false;
         }
