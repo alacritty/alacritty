@@ -1948,6 +1948,9 @@ mod tests {
     use ansi::{Handler, CharsetIndex, StandardCharset};
     use selection::Selection;
     use std::mem;
+    use input::FONT_SIZE_STEP;
+    use font::Size;
+    use config::Config;
 
     #[test]
     fn semantic_selection_works() {
@@ -2052,6 +2055,71 @@ mod tests {
         term.input('a');
 
         assert_eq!(term.grid()[&cursor].c, '▒');
+    }
+
+    fn change_font_size_works(font_size: f32) {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+        };
+        let config: Config = Default::default();
+        let mut term: Term = Term::new(&config, size);
+        term.change_font_size(font_size);
+
+        let expected_font_size: Size = config.font().size() + Size::new(font_size);
+        assert_eq!(term.font_size, expected_font_size);
+    }
+    #[test]
+    fn increase_font_size_works() {
+        change_font_size_works(10.0);
+    }
+
+    #[test]
+    fn decrease_font_size_works() {
+        change_font_size_works(-10.0);
+    }
+
+    #[test]
+    fn prevent_font_below_threshold_works() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+        };
+        let config: Config = Default::default();
+        let mut term: Term = Term::new(&config, size);
+
+        term.change_font_size(-100.0);
+
+        let expected_font_size: Size = Size::new(FONT_SIZE_STEP);
+        assert_eq!(term.font_size, expected_font_size);
+    }
+
+    #[test]
+    fn reset_font_size_works() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+        };
+        let config: Config = Default::default();
+        let mut term: Term = Term::new(&config, size);
+
+        term.change_font_size(10.0);
+        term.reset_font_size();
+
+        let expected_font_size: Size = config.font().size();
+        assert_eq!(term.font_size, expected_font_size);
     }
 }
 
