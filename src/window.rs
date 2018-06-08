@@ -27,24 +27,25 @@ use config::WindowConfig;
 
 /// Default text for the window's title bar, if not overriden.
 ///
-/// This the default value for the `WM_NAME` property (TODO: X11 only?).
+/// In X11, this the default value for the `WM_NAME` property. Other
+/// platforms haven't been documented yet.
 ///
 /// ```ignore
+/// xprop | grep WM_NAME
 /// WM_NAME(STRING) = "Alacritty"
 /// ```
 pub const DEFAULT_TITLE: &str = "Alacritty";
 
-/// General window class for X11, used as an identifier.
+/// Default text for general window class, X11 specific.
 ///
-/// This the default value for the `WM_CLASS` property.  The second value
-/// of `WM_CLASS` is **never** changed to anything but the default value.A
+/// In X11, this is the default value for the `WM_CLASS` property. The
+/// second value of `WM_CLASS` is **never** changed to anything but
+/// the default value.
 ///
 /// ```ignore
+/// xprop | grep WM_CLASS
 /// WM_CLASS(STRING) = "Alacritty", "Alacritty"
 /// ```
-///
-/// # Platform Support
-/// TODO
 pub const DEFAULT_CLASS: &str = "Alacritty";
 
 /// Window errors
