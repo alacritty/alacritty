@@ -30,6 +30,7 @@ use selection::{self, Span, Selection};
 use config::{Config, VisualBellAnimation};
 use {MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
+use input::FONT_SIZE_STEP;
 
 pub mod cell;
 pub mod color;
@@ -841,10 +842,10 @@ impl Term {
         }
     }
 
-    pub fn change_font_size(&mut self, delta: i8) {
-        // Saturating addition with minimum font size 1
-        let new_size = self.font_size + Size::new(f32::from(delta));
-        self.font_size = max(new_size, Size::new(1.));
+    pub fn change_font_size(&mut self, delta: f32) {
+        // Saturating addition with minimum font size FONT_SIZE_STEP
+        let new_size = self.font_size + Size::new(delta);
+        self.font_size = max(new_size, Size::new(FONT_SIZE_STEP));
         self.dirty = true;
     }
 

@@ -34,6 +34,8 @@ use term::SizeInfo;
 use term::mode::TermMode;
 use util::fmt::Red;
 
+pub const FONT_SIZE_STEP: f32 = 0.5;
+
 /// Processes input from glutin.
 ///
 /// An escape sequence may be emitted in case specific keys or key combinations
@@ -62,7 +64,7 @@ pub trait ActionContext {
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
     fn last_modifiers(&mut self) -> &mut ModifiersState;
-    fn change_font_size(&mut self, delta: i8);
+    fn change_font_size(&mut self, delta: f32);
     fn reset_font_size(&mut self);
 }
 
@@ -227,10 +229,10 @@ impl Action {
                 ::std::process::exit(0);
             },
             Action::IncreaseFontSize => {
-               ctx.change_font_size(1);
+               ctx.change_font_size(FONT_SIZE_STEP);
             },
             Action::DecreaseFontSize => {
-               ctx.change_font_size(-1);
+               ctx.change_font_size(-FONT_SIZE_STEP);
             }
             Action::ResetFontSize => {
                ctx.reset_font_size();
@@ -698,7 +700,7 @@ mod tests {
         fn last_modifiers(&mut self) -> &mut ModifiersState {
             &mut self.last_modifiers
         }
-        fn change_font_size(&mut self, _delta: i8) {
+        fn change_font_size(&mut self, _delta: f32) {
         }
         fn reset_font_size(&mut self) {
         }
