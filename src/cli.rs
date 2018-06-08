@@ -15,7 +15,6 @@ extern crate log;
 use clap::{Arg, App};
 use index::{Line, Column};
 use config::{Dimensions, Shell};
-use window::{DEFAULT_TITLE, DEFAULT_CLASS};
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 
@@ -80,11 +79,11 @@ impl Options {
             .arg(Arg::with_name("title")
                 .long("title")
                 .short("t")
-                .default_value(DEFAULT_TITLE)
+                .takes_value(true)
                 .help("Defines the window title"))
             .arg(Arg::with_name("class")
                  .long("class")
-                 .default_value(DEFAULT_CLASS)
+                 .takes_value(true)
                  .help("Defines window class on X11"))
             .arg(Arg::with_name("q")
                 .short("q")
@@ -137,16 +136,12 @@ impl Options {
             }
         }
 
-        if matches.occurrences_of("title") > 0 {
-            if let Some(title) = matches.value_of("title") {
-                options.title = Some(title.to_owned());
-            }
+        if let Some(title) = matches.value_of("title") {
+            options.title = Some(title.to_owned());
         }
 
-        if matches.occurrences_of("class") > 0 {
-            if let Some(class) = matches.value_of("class") {
-                options.class = Some(class.to_owned());
-            }
+        if let Some(class) = matches.value_of("class") {
+            options.class = Some(class.to_owned());
         }
 
         match matches.occurrences_of("q") {
