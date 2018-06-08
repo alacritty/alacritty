@@ -25,21 +25,26 @@ use MouseCursor;
 use cli::Options;
 use config::WindowConfig;
 
-/// This the default value for the `WM_NAME` property.
+/// Default text for the window's title bar, if not overriden.
+///
+/// This the default value for the `WM_NAME` property (TODO: X11 only?).
 ///
 /// ```ignore
 /// WM_NAME(STRING) = "Alacritty"
 /// ```
 pub const DEFAULT_TITLE: &str = "Alacritty";
 
-/// This the default value for the `WM_CLASS` property.
+/// General window class for X11, used as an identifier.
 ///
-/// The second value of `WM_CLASS` is **never** changed to anything but the
-/// default value.
+/// This the default value for the `WM_CLASS` property.  The second value
+/// of `WM_CLASS` is **never** changed to anything but the default value.A
 ///
 /// ```ignore
 /// WM_CLASS(STRING) = "Alacritty", "Alacritty"
 /// ```
+///
+/// # Platform Support
+/// TODO
 pub const DEFAULT_CLASS: &str = "Alacritty";
 
 /// Window errors
