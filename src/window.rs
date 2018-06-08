@@ -27,7 +27,7 @@ use config::WindowConfig;
 
 /// This the default value for the `WM_NAME` property.
 ///
-/// ```
+/// ```ignore
 /// WM_NAME(STRING) = "Alacritty"
 /// ```
 pub const DEFAULT_TITLE: &str = "Alacritty";
@@ -37,7 +37,7 @@ pub const DEFAULT_TITLE: &str = "Alacritty";
 /// The second value of `WM_CLASS` is **never** changed to anything but the
 /// default value.
 ///
-/// ```
+/// ```ignore
 /// WM_CLASS(STRING) = "Alacritty", "Alacritty"
 /// ```
 pub const DEFAULT_CLASS: &str = "Alacritty";
