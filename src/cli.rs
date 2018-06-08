@@ -136,13 +136,8 @@ impl Options {
             }
         }
 
-        if let Some(title) = matches.value_of("title") {
-            options.title = Some(title.to_owned());
-        }
-
-        if let Some(class) = matches.value_of("class") {
-            options.class = Some(class.to_owned());
-        }
+        options.class = matches.value_of("class").map(|c| c.to_owned());
+        options.title = matches.value_of("title").map(|t| t.to_owned());
 
         match matches.occurrences_of("q") {
             0 => {},
