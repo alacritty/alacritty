@@ -22,6 +22,7 @@ use glutin::GlContext;
 
 use MouseCursor;
 
+use cli::Options;
 use config::WindowConfig;
 
 /// Window errors
@@ -178,30 +179,35 @@ impl From<glutin::ContextError> for Error {
     }
 }
 
+fn create_gl_window(
+    window: WindowBuilder,
+    event_loop: &EventsLoop,
+    srgb: bool,
+) -> ::std::result::Result<glutin::GlWindow, glutin::CreationError> {
+    let context = ContextBuilder::new()
+        .with_srgb(srgb)
+        .with_vsync(true);
+    ::glutin::GlWindow::new(window, context, event_loop)
+}
+
 impl Window {
     /// Create a new window
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
-        title: &str,
+        options: &Options,
         window_config: &WindowConfig,
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
-        #[cfg(not(windows))]
-        let initially_shown = false;
-        #[cfg(windows)]
-        let initially_shown = true;
-
-        Window::platform_window_init();
-        let window = WindowBuilder::new()
-            .with_title(title)
-            .with_visibility(initially_shown)
+        let window_builder = WindowBuilder::new()
+            .with_title(&*options.title)
+            .with_visibility(false)
             .with_transparency(true)
             .with_decorations(window_config.decorations());
-        let context = ContextBuilder::new()
-            .with_vsync(true);
-        let window = ::glutin::GlWindow::new(window, context, &event_loop)?;
+        let window_builder = Window::platform_builder_ext(window_builder, &options.class);
+        let window = create_gl_window(window_builder.clone(), &event_loop, false)
+            .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();
 
         // Text cursor
@@ -216,8 +222,8 @@ impl Window {
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
         let window = Window {
-            event_loop: event_loop,
-            window: window,
+            event_loop,
+            window,
             cursor_visible: true,
             is_focused: true,
         };
@@ -311,76 +317,32 @@ impl Window {
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
-              target_os = "openbsd"))]
-    pub fn platform_window_init() {
-        /// Set up env to make XIM work correctly
-        use x11_dl::xlib;
-        use libc::{setlocale, LC_CTYPE};
-        let xlib = xlib::Xlib::open().expect("get xlib");
-        unsafe {
-            // Use empty c string to fallback to LC_CTYPE in environment variables
-            setlocale(LC_CTYPE, b"\0".as_ptr() as *const _);
-            // Use empty c string for implementation dependent behavior,
-            // which might be the XMODIFIERS set in env
-            (xlib.XSetLocaleModifiers)(b"\0".as_ptr() as *const _);
-        }
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
+    fn platform_builder_ext(window_builder: WindowBuilder, wm_class: &str) -> WindowBuilder {
+        use glutin::os::unix::WindowBuilderExt;
+        window_builder.with_class(wm_class.to_owned(), "Alacritty".to_owned())
     }
 
-    /// TODO: change this directive when adding functions for other platforms
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
-                  target_os = "openbsd")))]
-    pub fn platform_window_init() {}
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
+    fn platform_builder_ext(window_builder: WindowBuilder, _: &str) -> WindowBuilder {
+        window_builder
+    }
 
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
               target_os = "openbsd"))]
     pub fn set_urgent(&self, is_urgent: bool) {
         use glutin::os::unix::WindowExt;
-        use std::os::raw;
-        use x11_dl::xlib::{self, XUrgencyHint};
-
-        let xlib_display = self.window.get_xlib_display();
-        let xlib_window = self.window.get_xlib_window();
-
-        if let (Some(xlib_window), Some(xlib_display)) = (xlib_window, xlib_display) {
-            let xlib = xlib::Xlib::open().expect("get xlib");
-
-            unsafe {
-                let mut hints = (xlib.XGetWMHints)(xlib_display as _, xlib_window as _);
-
-                if hints.is_null() {
-                    hints = (xlib.XAllocWMHints)();
-                }
-
-                if is_urgent {
-                    (*hints).flags |= XUrgencyHint;
-                } else {
-                    (*hints).flags &= !XUrgencyHint;
-                }
-
-                (xlib.XSetWMHints)(xlib_display as _, xlib_window as _, hints);
-
-                (xlib.XFree)(hints as *mut raw::c_void);
-            }
-        }
+        self.window.set_urgent(is_urgent);
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
-                  target_os = "openbsd")))]
-    pub fn set_urgent(&self, _: bool) {}
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
+    pub fn set_urgent(&self, _is_urgent: bool) {}
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
-              target_os = "openbsd"))]
-    pub fn send_xim_spot(&self, x: i16, y: i16) {
-        use glutin::os::unix::WindowExt;
-        self.window.send_xim_spot(x, y);
+    pub fn set_ime_spot(&self, x: i32, y: i32) {
+        self.window.set_ime_spot(x, y);
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
-                  target_os = "openbsd")))]
-    pub fn send_xim_spot(&self, _x: i16, _y: i16) {}
-
-    #[cfg(not(any(macos, windows)))]
+    #[cfg(not(target_os = "macos"))]
     pub fn get_window_id(&self) -> Option<usize> {
         use glutin::os::unix::WindowExt;
 

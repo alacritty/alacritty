@@ -49,16 +49,6 @@ cd alacritty-git
 makepkg -isr
 ```
 
-### Void Linux
-
-```sh
-xbps-install alacritty
-```
-
-### Windows
-
-Download `alacritty.exe` and `winpty-agent.exe` from the artifacts tab of the latest build for your arcitecture and place them in the same directory.
-
 ## Manual Installation
 
 ### Prerequisites
@@ -126,6 +116,7 @@ missing, please open an issue.
 
 ```sh
 yum install cmake freetype-devel fontconfig-devel xclip
+yum group install "Development Tools"
 ```
 
 #### openSUSE
@@ -162,6 +153,16 @@ missing, please open an issue.
 
 ```sh
 pkg install cmake freetype2 fontconfig xclip pkgconf
+```
+
+#### OpenBSD
+
+Alacritty builds on OpenBSD 6.3 almost out-of-the-box if Rust and
+[Xenocara](https://xenocara.org) are installed.  If something is still found to
+be missing, please open an issue.
+
+```sh
+pkg_add rust
 ```
 
 #### Solus
@@ -203,22 +204,17 @@ It might be handy to mask all other packages provided in the `slyfox` overlay by
 adding `*/*::slyfox` to `/etc/portage/package.mask` and adding
 `x11-terms/alacritty::slyfox` to `/etc/portage/package.unmask`.
 
-### Cargo
-
-If you have a rust toolchain setup you can install Alacritty via cargo:
-
-```sh
-cargo install --git https://github.com/jwilm/alacritty
-```
-
-Note that you still need to download system build dependencies via your package manager as mentioned above. The binary `alacritty` will be placed into `$HOME/.cargo/bin`. Make sure it is in your path (default if you use `rustup`).
-
 #### Other
 
 If you build Alacritty on another distribution, we would love some help
 filling in this section of the README.
 
 ### Building
+
+**BEFORE YOU RUN IT:** Install the config file as described below; otherwise,
+many things (such as arrow keys) will not work.
+
+#### Linux
 
 Once all the prerequisites are installed, compiling Alacritty should be easy:
 
@@ -228,12 +224,8 @@ cargo build --release
 
 If all goes well, this should place a binary at `target/release/alacritty`.
 **BEFORE YOU RUN IT:** Install the config file as described below; otherwise,
-many things (such as arrow keys) will not work.
-
-#### Windows
-
-On windows you must have `winpty-agent.exe` in the same directory as `alacritty.exe`.
-A prebuild binary is vendored in `assets/windows/{architecture}/winpty-agent.exe`.
+many things (such as arrow keys) will not work. If you're on macOS, you'll need
+to change the `monospace` font family to something like `Menlo`.
 
 ### Desktop Entry
 
@@ -242,8 +234,11 @@ system menus. To install the desktop entry for Alacritty, run
 
 ```sh
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
-cp Alacritty.desktop ~/.local/share/applications
+sudo desktop-file-install alacritty.desktop
+sudo update-desktop-database
 ```
+
+#### MacOS
 
 To build an application for macOS, run
 
@@ -252,21 +247,60 @@ make app
 cp -r target/release/osx/Alacritty.app /Applications/
 ```
 
+## Manual Page
+
+Installing the manual page requires the additional dependency `gzip`.
+To install the manual page, run
+
+```sh
+sudo mkdir -p /usr/local/share/man/man1
+gzip -c alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
+```
+
+## Shell completions
+
+To get automatic completions for alacritty's flags and arguments you can install the provided shell completions.
+
+### Zsh
+
+To install the completions for zsh, run
+
+```
+sudo cp alacritty-completions.zsh /usr/share/zsh/functions/Completion/X/_alacritty
+```
+
+### Bash
+
+To install the completions for bash, you can `source` the `alacritty-completions.bash` in your `~/.bashrc` file.
+
+If you do not plan to delete the source folder of alacritty, you can run
+
+```sh
+echo "source $(pwd)/alacritty-completions.bash" >> ~/.bashrc
+```
+
+Otherwise you can copy it to the `~/.bash_completion` folder and source it from there:
+
+```sh
+mkdir -p ~/.bash_completion
+cp alacritty-completions.bash ~/.bash_completion/alacritty
+echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
+```
+
+### Fish
+
+To install the completions for fish, run
+
+```
+sudo cp alacritty-completions.fish $__fish_datadir/vendor_completions.d/alacritty.fish
+```
+
 ## Configuration
 
 Although it's possible the default configuration would work on your system,
 you'll probably end up wanting to customize it anyhow. There is a default
-`alacritty.yml`, `alacritty_windows.yml` and `alacritty_macos.yml` at the git repository root for
-Linux, windows, and macOS repsectively.
-
-Many configuration options will take effect immediately upon saving changes to
-the config file. The only exception is the `font` and `dimensions` sections
-which requires Alacritty to be restarted. For further explanation of the config
-file, please consult the comments in the default config file.
-
-### Unix/MacOS
-
-Alacritty looks for the configuration file at the following paths:
+`alacritty.yml` at the git repository root. Alacritty looks for the
+configuration file as the following paths:
 
 1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
 2. `$XDG_CONFIG_HOME/alacritty.yml`
@@ -280,7 +314,7 @@ run. On most systems this often defaults to
 
 ### Windows
 
-Alacritty looks for the configuration file in `%userprofile%/alacritty.yml`, this usually looks like `C:\Users\Username\alacritty.yml`.
+## Issues (known, unknown, feature requests, etc)
 
 ## Issues (known, unknown, feature requests, etc.)
 
@@ -292,6 +326,9 @@ Just Works.
 
 ## FAQ
 
+- _proc-macro derive panicked during macOS build; what's wrong?_ There's an
+  issue with the Rust compiler from Homebrew. Please follow the instructions
+  and use `rustup`.
 - _Is it really the fastest terminal emulator?_ In the terminals I've
   benchmarked against, alacritty is either faster, WAY faster, or at least
   neutral. There are no benchmarks in which I've found Alacritty to be slower.
@@ -302,12 +339,29 @@ Just Works.
   on another machine which is connected to Alacritty via SSH, this issue
   disappears. Actual throughput and rendering performance are still better in
   Alacritty.
+- _When will Windows support be available?_ When someone has time to work on it.
+  Contributors would be welcomed :).
 - _My arrow keys don't work_. It sounds like you deleted some key bindings from
   your config file. Please reference the default config file to restore them.
 - _Why doesn't it support scrollback?_ Alacritty's original purpose was to
   provide a better experience when using [tmux] which already handled
   scrollback. The scope of this project has since expanded, and [scrollback will
   eventually be added](https://github.com/jwilm/alacritty/issues/124).
+
+- **_When will Windows support be available?_**
+
+  When someone has time to work on it. Contributors would be welcomed :).
+
+- **_My arrow keys don't work._**
+
+  It sounds like you deleted some key bindings from your config file. Please
+  reference the default config file to restore them.
+
+- **_Why doesn't it support scrollback?_**
+
+  Alacritty's original purpose was to provide a better experience when using
+  [tmux] which already handled scrollback. The scope of this project has since
+  expanded, and [scrollback will eventually be added](https://github.com/jwilm/alacritty/issues/124).
 
 ## IRC
 

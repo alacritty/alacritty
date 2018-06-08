@@ -92,9 +92,9 @@ impl Cell {
 
     pub fn new(c: char, fg: Color, bg: Color) -> Cell {
         Cell {
-            c: c,
-            bg: bg,
-            fg: fg,
+            c,
+            bg,
+            fg,
             flags: Flags::empty(),
         }
     }

@@ -198,14 +198,12 @@ where
         let (tx, rx) = channel::channel();
         EventLoop {
             poll: mio::Poll::new().expect("create mio Poll"),
-            pty: pty,
-            tx: tx,
-            rx: rx,
-            terminal: terminal,
-            display: display,
-            ref_test: ref_test,
-            _r: PhantomData,
-            _w: PhantomData,
+            pty,
+            tx,
+            rx,
+            terminal,
+            display,
+            ref_test,
         }
     }
 
@@ -411,15 +409,11 @@ where
                                     break 'event_loop;
                                 }
                             }
-                            if event.readiness().is_readable() {
-                                if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut())
-                                {
-                                    error!(
-                                        "Event loop exitting due to error: {} [{}:{}]",
-                                        err,
-                                        file!(),
-                                        line!()
-                                    );
+
+                            if ready.is_readable() {
+                                if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut()) {
+                                    error!("Event loop exiting due to error: {} [{}:{}]",
+                                           err, file!(), line!());
                                     break 'event_loop;
                                 }
 
@@ -437,12 +431,8 @@ where
                             }
                             if event.readiness().is_writable() {
                                 if let Err(err) = self.pty_write(&mut state) {
-                                    error!(
-                                        "Event loop exitting due to error: {} [{}:{}]",
-                                        err,
-                                        file!(),
-                                        line!()
-                                    );
+                                    error!("Event loop exiting due to error: {} [{}:{}]",
+                                           err, file!(), line!());
                                     break 'event_loop;
                                 }
                             }

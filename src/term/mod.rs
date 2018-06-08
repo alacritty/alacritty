@@ -123,15 +123,15 @@ impl<'a> RenderableCellsIter<'a> {
         let cursor_index = Linear(cursor.line.0 * grid.num_cols().0 + cursor.col.0);
 
         RenderableCellsIter {
-            grid: grid,
-            cursor: cursor,
-            cursor_index: cursor_index,
-            mode: mode,
+            grid,
+            cursor,
+            cursor_index,
+            mode,
             line: Line(0),
             column: Column(0),
-            selection: selection,
-            config: config,
-            colors: colors,
+            selection,
+            config,
+            colors,
             cursor_cells: ArrayDeque::new(),
         }.initialize(cursor_style)
     }
@@ -396,13 +396,13 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 }
 
                 return Some(RenderableCell {
-                    line: line,
-                    column: column,
+                    line,
+                    column,
                     flags: cell.flags,
                     c: cell.c,
                     fg: fg_rgb,
                     bg: bg_rgb,
-                    bg_alpha: bg_alpha,
+                    bg_alpha,
                 })
             }
 
@@ -418,20 +418,21 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 pub mod mode {
     bitflags! {
         pub struct TermMode: u16 {
-            const SHOW_CURSOR         = 0b0_0000_0000_0001;
-            const APP_CURSOR          = 0b0_0000_0000_0010;
-            const APP_KEYPAD          = 0b0_0000_0000_0100;
-            const MOUSE_REPORT_CLICK  = 0b0_0000_0000_1000;
-            const BRACKETED_PASTE     = 0b0_0000_0001_0000;
-            const SGR_MOUSE           = 0b0_0000_0010_0000;
-            const MOUSE_MOTION        = 0b0_0000_0100_0000;
-            const LINE_WRAP           = 0b0_0000_1000_0000;
-            const LINE_FEED_NEW_LINE  = 0b0_0001_0000_0000;
-            const ORIGIN              = 0b0_0010_0000_0000;
-            const INSERT              = 0b0_0100_0000_0000;
-            const FOCUS_IN_OUT        = 0b0_1000_0000_0000;
-            const ALT_SCREEN          = 0b1_0000_0000_0000;
-            const ANY                 = 0b1_1111_1111_1111;
+            const SHOW_CURSOR         = 0b00_0000_0000_0001;
+            const APP_CURSOR          = 0b00_0000_0000_0010;
+            const APP_KEYPAD          = 0b00_0000_0000_0100;
+            const MOUSE_REPORT_CLICK  = 0b00_0000_0000_1000;
+            const BRACKETED_PASTE     = 0b00_0000_0001_0000;
+            const SGR_MOUSE           = 0b00_0000_0010_0000;
+            const MOUSE_MOTION        = 0b00_0000_0100_0000;
+            const LINE_WRAP           = 0b00_0000_1000_0000;
+            const LINE_FEED_NEW_LINE  = 0b00_0001_0000_0000;
+            const ORIGIN              = 0b00_0010_0000_0000;
+            const INSERT              = 0b00_0100_0000_0000;
+            const FOCUS_IN_OUT        = 0b00_1000_0000_0000;
+            const ALT_SCREEN          = 0b01_0000_0000_0000;
+            const MOUSE_DRAG          = 0b10_0000_0000_0000;
+            const ANY                 = 0b11_1111_1111_1111;
             const NONE                = 0;
         }
     }
@@ -816,7 +817,7 @@ impl Term {
             visual_bell: VisualBell::new(config),
             next_is_urgent: None,
             input_needs_wrap: false,
-            grid: grid,
+            grid,
             alt_grid: alt,
             alt: false,
             font_size: config.font().size(),
@@ -825,9 +826,9 @@ impl Term {
             cursor: Default::default(),
             cursor_save: Default::default(),
             cursor_save_alt: Default::default(),
-            tabs: tabs,
+            tabs,
             mode: Default::default(),
-            scroll_region: scroll_region,
+            scroll_region,
             size_info: size,
             colors: color::List::from(config.colors()),
             color_modified: [false; color::COUNT],
@@ -916,8 +917,9 @@ impl Term {
 
                     let range = Some(cols.start..line_end);
                     if cols.end >= grid.num_cols() - 1 {
-                        range.as_ref()
-                            .map(|range| self.maybe_newline(grid, line, range.end));
+                        if let Some(ref range) = range {
+                            self.maybe_newline(grid, line, range.end);
+                        }
                     }
 
                     range
@@ -1832,7 +1834,10 @@ impl ansi::Handler for Term {
                 self.mode.insert(mode::TermMode::MOUSE_REPORT_CLICK);
                 self.set_mouse_cursor(MouseCursor::Arrow);
             },
-            ansi::Mode::ReportCellMouseMotion |
+            ansi::Mode::ReportCellMouseMotion => {
+                self.mode.insert(mode::TermMode::MOUSE_DRAG);
+                self.set_mouse_cursor(MouseCursor::Arrow);
+            },
             ansi::Mode::ReportAllMouseMotion => {
                 self.mode.insert(mode::TermMode::MOUSE_MOTION);
                 self.set_mouse_cursor(MouseCursor::Arrow);
@@ -1869,7 +1874,10 @@ impl ansi::Handler for Term {
                 self.mode.remove(mode::TermMode::MOUSE_REPORT_CLICK);
                 self.set_mouse_cursor(MouseCursor::Text);
             },
-            ansi::Mode::ReportCellMouseMotion |
+            ansi::Mode::ReportCellMouseMotion => {
+                self.mode.remove(mode::TermMode::MOUSE_DRAG);
+                self.set_mouse_cursor(MouseCursor::Text);
+            },
             ansi::Mode::ReportAllMouseMotion => {
                 self.mode.remove(mode::TermMode::MOUSE_MOTION);
                 self.set_mouse_cursor(MouseCursor::Text);
@@ -2100,7 +2108,7 @@ mod benches {
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {
-            let iter = terminal.renderable_cells(&config, None);
+            let iter = terminal.renderable_cells(&config, None, false);
             for cell in iter {
                 test::black_box(cell);
             }
