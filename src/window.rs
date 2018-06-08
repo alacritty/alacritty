@@ -31,7 +31,7 @@ use config::WindowConfig;
 /// platforms haven't been documented yet.
 ///
 /// ```ignore
-/// xprop | grep WM_NAME
+/// $ xprop | grep WM_NAME
 /// WM_NAME(STRING) = "Alacritty"
 /// ```
 pub const DEFAULT_TITLE: &str = "Alacritty";
@@ -43,7 +43,7 @@ pub const DEFAULT_TITLE: &str = "Alacritty";
 /// the default value.
 ///
 /// ```ignore
-/// xprop | grep WM_CLASS
+/// $ xprop | grep WM_CLASS
 /// WM_CLASS(STRING) = "Alacritty", "Alacritty"
 /// ```
 pub const DEFAULT_CLASS: &str = "Alacritty";
@@ -228,8 +228,8 @@ impl Window {
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
-        let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| &t);
-        let class = options.class.as_ref().map_or(DEFAULT_CLASS, |c| &c);
+        let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
+        let class = options.class.as_ref().map_or(DEFAULT_CLASS, |c| c);
         let window_builder = WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
