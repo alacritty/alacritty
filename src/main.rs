@@ -49,13 +49,7 @@ use alacritty::util::fmt::Red;
 fn main() {
     // Load command line options and config
     let options = cli::Options::load();
-    let mut config = load_config(&options);
-
-    // Override configurations based on CLI options.
-    if options.title.is_some() {
-        let mut dynamic_title = config.dynamic_title_mut();
-        *dynamic_title = false;
-    }
+    let mut config = load_config(&options).flag(&options);
 
     // Switch to home directory
     #[cfg(target_os = "macos")]

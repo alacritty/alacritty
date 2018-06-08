@@ -23,6 +23,7 @@ use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
 
 use glutin::ModifiersState;
 
+use cli::Options;
 use input::{Action, Binding, MouseBinding, KeyBinding};
 use index::{Line, Column};
 use ansi::CursorStyle;
@@ -1386,6 +1387,14 @@ impl Config {
         config.print_deprecation_warnings();
 
         Ok(config)
+    }
+
+    /// Override configurations based on CLI options.
+    pub fn flag(mut self, options: &Options) -> Self {
+        if options.title.is_some() {
+            self.dynamic_title = false;
+        }
+        self
     }
 
     fn read_file<P: AsRef<Path>>(path: P) -> Result<String> {
