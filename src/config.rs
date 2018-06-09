@@ -1722,6 +1722,7 @@ impl Monitor {
 
 #[cfg(test)]
 mod tests {
+    use cli::Options;
     use super::Config;
 
     #[cfg(target_os="macos")]
@@ -1741,6 +1742,23 @@ mod tests {
 
         // Sanity check that key bindings are being parsed
         assert!(!config.key_bindings.is_empty());
+    }
+
+    #[test]
+    fn update_dynamic_title() {
+        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
+            .expect("deserialize config");
+        assert!(config.dynamic_title);
+
+        let mut options = Options::default();
+        let config = config.update_dynamic_title(&options);
+        assert!(config.dynamic_title);
+        options.title = Some("".to_owned());
+        let config = config.update_dynamic_title(&options);
+        assert!(!config.dynamic_title);
+        options.title = Some("foo".to_owned());
+        let config = config.update_dynamic_title(&options);
+        assert!(!config.dynamic_title);
     }
 }
 
