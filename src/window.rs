@@ -344,7 +344,7 @@ impl Window {
     }
     #[cfg(windows)]
     pub fn set_ime_spot(&self, _x: i32, _y: i32) {
-        // do niothing
+        // do nothing
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
