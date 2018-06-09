@@ -1671,7 +1671,8 @@ impl Default for Font {
             size: Size::new(11.0),
             use_thin_strokes: false,
             offset: Default::default(),
-            glyph_offset: Default::default()
+            glyph_offset: Default::default(),
+            scale_with_dpi: false,
         }
     }
 }

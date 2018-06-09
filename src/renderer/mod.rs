@@ -24,7 +24,6 @@ use std::time::Duration;
 use cgmath;
 use fnv::FnvHasher;
 use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
-use font::Size as FontSize;
 use gl::types::*;
 use gl;
 use index::{Column, Line, RangeInclusive};
@@ -186,7 +185,7 @@ impl GlyphCache {
             c: 'm',
             size: font.size(),
         })?;
-        let metrics = rasterizer.metrics(regular, font.size())?;
+        let metrics = rasterizer.metrics(regular)?;
 
         let mut cache = GlyphCache {
             cache: HashMap::default(),
@@ -266,9 +265,9 @@ impl GlyphCache {
         FontDesc::new(&desc.family[..], style)
     }
 
-    pub fn font_metrics(&self, size: FontSize) -> font::Metrics {
+    pub fn font_metrics(&self) -> font::Metrics {
         self.rasterizer
-            .metrics(self.font_key, size)
+            .metrics(self.font_key)
             .expect("metrics load since font is loaded at glyph cache creation")
     }
 
@@ -311,7 +310,7 @@ impl GlyphCache {
             c: 'm',
             size: font.size(),
         })?;
-        let metrics = self.rasterizer.metrics(regular, font.size)?;
+        let metrics = self.rasterizer.metrics(regular)?;
 
         self.font_size = font.size;
         self.font_key = regular;

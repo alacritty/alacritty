@@ -196,7 +196,7 @@ impl Action {
                 let mouse_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
                 if !ctx.terminal_mode().intersects(mouse_modes) {
                     Clipboard::new()
-                        .and_then(|clipboard| clipboard.load_selection() )
+                        .and_then(|mut clipboard| clipboard.load_selection() )
                         .map(|contents| { self.paste(ctx, contents) })
                         .unwrap_or_else(|err| {
                             warn!("Error loading data from clipboard. {}", Red(err));
