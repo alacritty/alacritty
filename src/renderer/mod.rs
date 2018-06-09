@@ -185,7 +185,7 @@ impl GlyphCache {
             c: 'm',
             size: font.size(),
         })?;
-        let metrics = rasterizer.metrics(regular)?;
+        let metrics = rasterizer.metrics(regular, font.size())?;
 
         let mut cache = GlyphCache {
             cache: HashMap::default(),
@@ -267,7 +267,7 @@ impl GlyphCache {
 
     pub fn font_metrics(&self) -> font::Metrics {
         self.rasterizer
-            .metrics(self.font_key)
+            .metrics(self.font_key, self.font_size)
             .expect("metrics load since font is loaded at glyph cache creation")
     }
 
@@ -310,7 +310,7 @@ impl GlyphCache {
             c: 'm',
             size: font.size(),
         })?;
-        let metrics = self.rasterizer.metrics(regular)?;
+        let metrics = self.rasterizer.metrics(regular, size)?;
 
         self.font_size = font.size;
         self.font_key = regular;

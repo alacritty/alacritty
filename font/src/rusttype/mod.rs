@@ -21,8 +21,8 @@ impl ::Rasterize for RustTypeRasterizer {
         })
     }
 
-    fn metrics(&self, key: FontKey) -> Result<Metrics, Error> {
-        let scale = Scale::uniform(32.0);
+    fn metrics(&self, key: FontKey, size: Size) -> Result<Metrics, Error> {
+        let scale = Scale::uniform(size.as_f32_pts() * self.dpi_ratio * 96. / 72.);
         let vmetrics = self.fonts[key.token as usize].v_metrics(scale);
         let hmetrics = self.fonts[key.token as usize]
             .glyph(
