@@ -402,10 +402,11 @@ where
                         CHANNEL => if !self.channel_event(&mut state) {
                             break 'event_loop;
                         },
-                        read_token if read_token == self.pty.read_token() => {
-                            #[cfg(unix)]
-                            {
-                                if UnixReady::from(event.readiness()).is_hup() {
+                        PTY => {
+                            let ready = event.readiness();
+
+                            #[cfg(unix)] {
+                                if UnixReady::from(ready).is_hup() {
                                     break 'event_loop;
                                 }
                             }
@@ -421,22 +422,27 @@ where
                                     break 'event_loop;
                                 }
                             }
-                        }
-                        write_token if write_token == self.pty.write_token() => {
-                            #[cfg(unix)]
-                            {
-                                if UnixReady::from(event.readiness()).is_hup() {
-                                    break 'event_loop;
-                                }
-                            }
-                            if event.readiness().is_writable() {
+
+                            if ready.is_writable() {
                                 if let Err(err) = self.pty_write(&mut state) {
                                     error!("Event loop exiting due to error: {} [{}:{}]",
                                            err, file!(), line!());
                                     break 'event_loop;
                                 }
                             }
-                        }
+
+                            // Figure out pty interest
+                            let mut interest = Ready::readable();
+                            if state.needs_write() {
+                                interest.insert(Ready::writable());
+                            }
+
+                            // Reregister pty
+                            #[cfg(unix)]
+                            self.poll
+                                .reregister(&fd, PTY, interest, poll_opts)
+                                .expect("register fd after read/write");
+                        },
                         _ => (),
                     }
 
@@ -446,6 +452,7 @@ where
                         interest.insert(Ready::writable());
                     }
                     // Reregister with new interest
+                    #[cfg(unix)]
                     self.pty.reregister(&self.poll, interest, poll_opts);
                 }
             }

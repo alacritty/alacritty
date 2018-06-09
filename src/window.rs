@@ -342,7 +342,7 @@ impl Window {
         self.window.set_ime_spot(x, y);
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     pub fn get_window_id(&self) -> Option<usize> {
         use glutin::os::unix::WindowExt;
 
@@ -352,12 +352,7 @@ impl Window {
         }
     }
 
-    #[cfg(target_os = "macos")]
-    pub fn get_window_id(&self) -> Option<usize> {
-        None
-    }
-
-    #[cfg(windows)]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn get_window_id(&self) -> Option<usize> {
         None
     }
