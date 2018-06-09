@@ -1745,17 +1745,20 @@ mod tests {
     }
 
     #[test]
-    fn update_dynamic_title() {
+    fn dynamic_title_ignoring_options_by_default() {
         let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
             .expect("deserialize config");
-        assert!(config.dynamic_title);
+        let old_dynamic_title = config.dynamic_title;
+        let options = Options::default();
+        let config = config.update_dynamic_title(&options);
+        assert_eq!(old_dynamic_title, config.dynamic_title);
+    }
 
+    #[test]
+    fn dynamic_title_overridden_by_options() {
+        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
+            .expect("deserialize config");
         let mut options = Options::default();
-        let config = config.update_dynamic_title(&options);
-        assert!(config.dynamic_title);
-        options.title = Some("".to_owned());
-        let config = config.update_dynamic_title(&options);
-        assert!(!config.dynamic_title);
         options.title = Some("foo".to_owned());
         let config = config.update_dynamic_title(&options);
         assert!(!config.dynamic_title);
