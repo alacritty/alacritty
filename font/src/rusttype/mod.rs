@@ -22,12 +22,12 @@ impl ::Rasterize for RustTypeRasterizer {
     }
 
     fn metrics(&self, key: FontKey) -> Result<Metrics, Error> {
-        let scale = Scale::uniform(1.0);
+        let scale = Scale::uniform(32.0);
         let vmetrics = self.fonts[key.token as usize].v_metrics(scale);
         let hmetrics = self.fonts[key.token as usize]
             .glyph(
                 // If the font is monospaced all glyphs *should* have the same width
-                // 32 '!' is the first displaying character
+                // 33 '!' is the first displaying character
                 Codepoint(33),
             )
             .ok_or(Error::MissingGlyph)?

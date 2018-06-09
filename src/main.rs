@@ -149,7 +149,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // reading/writing to the shell.
     #[cfg(not(windows))]
     let mut pty = tty::new(&config, options, &display.size(), window_id);
-
+    #[cfg(windows)]
     let pty = tty::new(&config, options, &display.size(), window_id);
 
     // Get a reference to something that we can resize

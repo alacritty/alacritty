@@ -338,8 +338,13 @@ impl Window {
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
     pub fn set_urgent(&self, _is_urgent: bool) {}
 
+    #[cfg(not(windows))]
     pub fn set_ime_spot(&self, x: i32, y: i32) {
         self.window.set_ime_spot(x, y);
+    }
+    #[cfg(windows)]
+    pub fn set_ime_spot(&self, _x: i32, _y: i32) {
+        // do niothing
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
