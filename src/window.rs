@@ -200,9 +200,14 @@ impl Window {
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
+        #[cfg(not(windows))]
+        let initially_shown = false;
+        #[cfg(windows)]
+        let initially_shown = true;
+
         let window_builder = WindowBuilder::new()
             .with_title(&*options.title)
-            .with_visibility(false)
+            .with_visibility(initially_shown)
             .with_transparency(true)
             .with_decorations(window_config.decorations());
         let window_builder = Window::platform_builder_ext(window_builder, &options.class);
