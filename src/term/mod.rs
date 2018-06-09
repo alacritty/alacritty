@@ -865,6 +865,9 @@ impl Term {
         self.visual_bell.update_config(config);
         self.default_cursor_style = config.cursor_style();
         self.dynamic_title = config.dynamic_title();
+
+        // Required in case dpi scaling was enabled/disabled and cell size changed
+        self.dirty = true;
     }
 
     #[inline]

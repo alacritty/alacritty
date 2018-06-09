@@ -292,22 +292,28 @@ impl GlyphCache {
                 loader.load_glyph(&rasterized)
             })
     }
+
     pub fn update_font_size<L: LoadGlyph>(
         &mut self,
         font: &config::Font,
         size: font::Size,
-        loader: &mut L
+        dpr: f32,
+        loader: &mut L,
     ) -> Result<(), font::Error> {
         // Clear currently cached data in both GL and the registry
         loader.clear();
         self.cache = HashMap::default();
 
+        // Update the DPI scaling
+        self.rasterizer.update_dpr(dpr);
+
         // Recompute font keys
         let font = font.to_owned().with_size(size);
-        info!("Font size changed: {:?}", font.size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
         self.rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular)?;
+
+        info!("Font size changed: {:?} [DPR: {}]", font.size, dpr);
 
         self.font_size = font.size;
         self.font_key = regular;
