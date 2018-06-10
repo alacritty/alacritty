@@ -75,7 +75,7 @@ pub struct Anchor {
 
 impl Anchor {
     fn new(point: Point, side: Side) -> Anchor {
-        Anchor { point: point, side: side }
+        Anchor { point, side }
     }
 }
 
@@ -114,8 +114,8 @@ impl Selection {
                 end: point,
             },
             initial_expansion: Region {
-                start: start,
-                end: end
+                start,
+                end,
             }
         }
     }
@@ -248,10 +248,10 @@ impl Selection {
                 return None;
             } else {
                 return Some(Span {
-                    cols: cols,
+                    cols,
                     ty: SpanType::Inclusive,
-                    front: front,
-                    tail: tail
+                    front,
+                    tail,
                 });
             }
         }
@@ -266,30 +266,30 @@ impl Selection {
         Some(match (front_side, tail_side) {
             // [FX][XX][XT]
             (Side::Left, Side::Right) => Span {
-                cols: cols,
-                front: front,
-                tail: tail,
+                cols,
+                front,
+                tail,
                 ty: SpanType::Inclusive
             },
             // [ F][XX][T ]
             (Side::Right, Side::Left) => Span {
-                cols: cols,
-                front: front,
-                tail: tail,
+                cols,
+                front,
+                tail,
                 ty: SpanType::Exclusive
             },
             // [FX][XX][T ]
             (Side::Left, Side::Left) => Span {
-                cols: cols,
-                front: front,
-                tail: tail,
+                cols,
+                front,
+                tail,
                 ty: SpanType::ExcludeTail
             },
             // [ F][XX][XT]
             (Side::Right, Side::Right) => Span {
-                cols: cols,
-                front: front,
-                tail: tail,
+                cols,
+                front,
+                tail,
                 ty: SpanType::ExcludeFront
             },
         })

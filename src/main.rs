@@ -13,6 +13,7 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
+#![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 #![cfg_attr(feature = "clippy", deny(clippy))]
 #![cfg_attr(feature = "clippy", deny(enum_glob_use))]
@@ -20,7 +21,6 @@
 #![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
-//#![windows_subsystem = "windows"]
 
 #[macro_use]
 extern crate alacritty;
@@ -70,7 +70,22 @@ fn main() {
 ///
 /// If a configuration file is given as a command line argument we don't
 /// generate a default file. If an empty configuration file is given, i.e.
-/// /dev/null, we load the compiled-in defaults.
+/// /dev/null, we load the compiled-in defaults.)
+#[cfg(not(windows))]
+fn load_config(options: &cli::Options) -> Config {
+    let config_path = options.config_path()
+        .or_else(Config::installed_config)
+        .unwrap_or_else(|| {
+            Config::write_defaults()
+                .unwrap_or_else(|err| die!("Write defaults config failure: {}", err))
+        });
+
+    Config::load_from(&*config_path).unwrap_or_else(|err| {
+        eprintln!("Error: {}; Loading default config", err);
+        Config::default()
+    })
+}
+#[cfg(windows)]
 fn load_config(options: &cli::Options) -> Config {
     let config_path = options
         .config_path()
@@ -101,9 +116,9 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     logging::initialize(options)?;
 
     info!("Welcome to Alacritty.");
-    config.path().map(|config_path| {
+    if let Some(config_path) = config.path() {
         info!("Configuration loaded from {}", config_path.display());
-    });
+    };
 
     // Create a display.
     //
@@ -132,7 +147,9 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // The pty forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-
+    #[cfg(not(windows))]
+    let mut pty = tty::new(&config, options, &display.size(), window_id);
+    #[cfg(windows)]
     let pty = tty::new(&config, options, &display.size(), window_id);
 
     // Get a reference to something that we can resize
@@ -196,16 +213,16 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         let mut terminal = processor.process_events(&terminal, display.window());
 
         // Handle config reloads
-        config_monitor
+        if let Some(new_config) = config_monitor
             .as_ref()
             .and_then(|monitor| monitor.pending_config())
-            .map(|new_config| {
-                config = new_config;
-                display.update_config(&config);
-                processor.update_config(&config);
-                terminal.update_config(&config);
-                terminal.dirty = true;
-            });
+        {
+            config = new_config;
+            display.update_config(&config);
+            processor.update_config(&config);
+            terminal.update_config(&config);
+            terminal.dirty = true;
+        }
 
         // Maybe draw the terminal
         if terminal.needs_draw() {

@@ -35,7 +35,7 @@ pub struct Point {
 
 impl Point {
     pub fn new(line: Line, col: Column) -> Point {
-        Point { line: line, col: col }
+        Point { line, col }
     }
 }
 

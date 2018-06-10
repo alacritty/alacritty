@@ -27,7 +27,7 @@ impl ::Rasterize for RustTypeRasterizer {
         let hmetrics = self.fonts[key.token as usize]
             .glyph(
                 // If the font is monospaced all glyphs *should* have the same width
-                // 32 '!' is the first displaying character
+                // 33 '!' is the first displaying character
                 Codepoint(33),
             )
             .ok_or(Error::MissingGlyph)?

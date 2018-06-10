@@ -134,12 +134,16 @@ impl Display {
         let render_timer = config.render_timer();
 
         // Create the window where Alacritty will be displayed
-        let mut window = Window::new(&options.title, config.window())?;
+        let mut window = Window::new(&options, config.window())?;
 
         // get window properties for initializing the other subsystems
         let mut viewport_size = window.inner_size_pixels()
             .expect("glutin returns window size");
-        let dpr = window.hidpi_factor();
+        let dpr = if config.font().scale_with_dpi() {
+            window.hidpi_factor()
+        } else {
+            1.0
+        };
 
         info!("device_pixel_ratio: {}", dpr);
 
@@ -147,7 +151,8 @@ impl Display {
         let mut renderer = QuadRenderer::new(config, viewport_size)?;
 
         let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(&window, &mut renderer, config)?;
+            Self::new_glyph_cache(dpr, &mut renderer, config)?;
+
 
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
@@ -158,8 +163,8 @@ impl Display {
             let height = cell_height as u32 * dimensions.lines_u32();
 
             let new_viewport_size = Size {
-                width: Pixels(width + 2 * config.padding().x as u32),
-                height: Pixels(height + 2 * config.padding().y as u32),
+                width: Pixels(width + 2 * u32::from(config.padding().x)),
+                height: Pixels(height + 2 * u32::from(config.padding().y)),
             };
 
             window.set_inner_size(&new_viewport_size);
@@ -174,8 +179,8 @@ impl Display {
             height: viewport_size.height.0 as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
-            padding_x: config.padding().x.floor(),
-            padding_y: config.padding().y.floor(),
+            padding_x: f32::from(config.padding().x),
+            padding_y: f32::from(config.padding().y),
         };
 
         // Channel for resize events
@@ -199,24 +204,23 @@ impl Display {
         );
 
         Ok(Display {
-            window: window,
-            renderer: renderer,
-            glyph_cache: glyph_cache,
-            render_timer: render_timer,
-            tx: tx,
-            rx: rx,
+            window,
+            renderer,
+            glyph_cache,
+            render_timer,
+            tx,
+            rx,
             meter: Meter::new(),
             font_size: font::Size::new(0.),
-            size_info: size_info,
+            size_info,
             last_background_color: background_color,
         })
     }
 
-    fn new_glyph_cache(window : &Window, renderer : &mut QuadRenderer, config: &Config)
+    fn new_glyph_cache(dpr: f32, renderer: &mut QuadRenderer, config: &Config)
         -> Result<(GlyphCache, f32, f32), Error>
     {
         let font = config.font().clone();
-        let dpr = window.hidpi_factor();
         let rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
 
         // Initialize glyph cache
@@ -237,12 +241,16 @@ impl Display {
         // Need font metrics to resize the window properly. This suggests to me the
         // font metrics should be computed before creating the window in the first
         // place so that a resize is not needed.
-        let metrics = glyph_cache.font_metrics(font.size);
-        let cell_width = (metrics.average_advance + f64::from(font.offset().x)) as u32;
-        let cell_height = (metrics.line_height + f64::from(font.offset().y)) as u32;
+        let metrics = glyph_cache.font_metrics();
+        let cell_width = metrics.average_advance as f32 + f32::from(font.offset().x);
+        let cell_height = metrics.line_height as f32 + f32::from(font.offset().y);
 
-        Ok((glyph_cache, cell_width as f32, cell_height as f32))
+        // Prevent invalid cell sizes
+        if cell_width < 1. || cell_height < 1. {
+            panic!("font offset is too small");
+        }
 
+        Ok((glyph_cache, cell_width.floor(), cell_height.floor()))
     }
 
     pub fn update_glyph_cache(&mut self, config: &Config) {
@@ -252,7 +260,7 @@ impl Display {
             let _ = cache.update_font_size(config.font(), size, &mut api);
         });
 
-        let metrics = cache.font_metrics(size);
+        let metrics = cache.font_metrics();
         self.size_info.cell_width = ((metrics.average_advance + f64::from(config.font().offset().x)) as f32).floor();
         self.size_info.cell_height = ((metrics.line_height + f64::from(config.font().offset().y)) as f32).floor();
     }
@@ -414,23 +422,17 @@ impl Display {
         self.window.get_window_id()
     }
 
-    /// Adjust the XIM editor position according to the new location of the cursor
+    /// Adjust the IME editor position according to the new location of the cursor
     pub fn update_ime_position(&mut self, terminal: &Term) {
         use index::{Column, Line, Point};
         use term::SizeInfo;
-        let Point {
-            line: Line(row),
-            col: Column(col),
-        } = terminal.cursor().point;
-        let SizeInfo {
-            cell_width: cw,
-            cell_height: ch,
-            padding_x: px,
-            padding_y: py,
-            ..
-        } = *terminal.size_info();
-        let nspot_y = (py + (row + 1) as f32 * ch) as i16;
-        let nspot_x = (px + col as f32 * cw) as i16;
-        self.window().send_xim_spot(nspot_x, nspot_y);
+        let Point{line: Line(row), col: Column(col)} = terminal.cursor().point;
+        let SizeInfo{cell_width: cw,
+                    cell_height: ch,
+                    padding_x: px,
+                    padding_y: py, ..} = *terminal.size_info();
+        let nspot_y = (py + (row + 1) as f32 * ch) as i32;
+        let nspot_x = (px + col as f32 * cw) as i32;
+        self.window().set_ime_spot(nspot_x, nspot_y);
     }
 }

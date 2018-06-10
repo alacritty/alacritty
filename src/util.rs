@@ -57,13 +57,13 @@ pub mod fmt {
 
                 impl<T: fmt::Display> fmt::Display for $s<T> {
                     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                        write!(f, "\x1b[{}m{}\x1b[0m", $color, self.0)
+                        write!(f, concat!("\x1b[", $color, "m{}\x1b[0m"), self.0)
                     }
                 }
 
                 impl<T: fmt::Debug> fmt::Debug for $s<T> {
                     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                        write!(f, "\x1b[{}m{:?}\x1b[0m", $color, self.0)
+                        write!(f, concat!("\x1b[", $color, "m{:?}\x1b[0m"), self.0)
                     }
                 }
             )*
