@@ -1272,7 +1272,7 @@ impl Config {
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
         let path = ::std::env::home_dir()
             .ok_or(io::Error::new(io::ErrorKind::NotFound, "could not find profile directory"))
-            .and_then(|p| {p.push("alacritty"); p.set_extension("yml"); Ok(p)})?;
+            .and_then(|mut p| {p.push("alacritty"); p.set_extension("yml"); Ok(p)})?;
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
         Ok(path.into())
     }

@@ -39,12 +39,14 @@ impl Load for Clipboard {
             .map_err(Error::Clipboard)
     }
 
-    fn load_primary(&mut self) -> Result<String, Self::Err> {
-        self.0.get_contents().map_err(Error::Clipboard)
+    fn load_primary(&self) -> Result<String, Self::Err> {
+        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+        ctx.get_contents().map_err(Error::Clipboard)
     }
 
-    fn load_selection(&mut self) -> Result<String, Self::Err> {
-        self.0.get_contents().map_err(Error::Clipboard)
+    fn load_selection(&self) -> Result<String, Self::Err> {
+        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+        ctx.get_contents().map_err(Error::Clipboard)
     }
 }
 
