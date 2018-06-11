@@ -24,18 +24,18 @@ pub trait Load: Sized {
     fn new() -> Result<Self, Self::Err>;
 
     /// Get the primary clipboard contents.
-    fn load_primary(&mut self) -> Result<String, Self::Err>;
+    fn load_primary(&self) -> Result<String, Self::Err>;
 
     /// Get the clipboard selection contents.
     ///
     /// On most platforms, this doesn't mean anything. A default implementation
     /// is provided which uses the primary clipboard.
     #[inline]
-    fn load_selection(&mut self) -> Result<String, Self::Err> {
+    fn load_selection(&self) -> Result<String, Self::Err> {
         self.load_primary()
     }
 
-    fn load(&mut self, buffer: Buffer) -> Result<String, Self::Err> {
+    fn load(&self, buffer: Buffer) -> Result<String, Self::Err> {
         match buffer {
             Buffer::Selection => self.load_selection(),
             Buffer::Primary => self.load_primary(),
@@ -82,4 +82,5 @@ pub use macos::{Clipboard, Error};
 
 #[cfg(windows)]
 mod windows;
+#[cfg(windows)]
 pub use windows::{Clipboard, Error};

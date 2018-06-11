@@ -18,7 +18,9 @@ use term::SizeInfo;
 use display::OnResize;
 use config::{Config, Shell};
 use cli::Options;
+#[cfg(windows)]
 use mio;
+#[cfg(windows)]
 use std::os::raw::c_void;
 
 #[cfg(windows)]
@@ -57,6 +59,8 @@ use std::fs::File;
 #[cfg(not(windows))]
 use std::os::unix::process::CommandExt;
 #[cfg(not(windows))]
+use std::ptr;
+#[cfg(not(windows))]
 use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
 #[cfg(not(windows))]
 use std::process::{Command, Stdio};
@@ -75,6 +79,7 @@ const AGENT_TIMEOUT: u32 = 10000;
 static mut PID: pid_t = 0;
 
 // Handle to the winpty agent process. Required so we know when it closes.
+#[cfg(windows)]
 static mut HANDLE: *mut c_void = 0usize as *mut c_void;
 
 /// Exit flag
@@ -144,7 +149,9 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
         ws_ypixel: 0,
     };
 
-    let res = unsafe { libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null(), &win) };
+    let res = unsafe {
+        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null(), &win)
+    };
 
     if res < 0 {
         die!("openpty failed");
@@ -166,13 +173,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     };
 
     let res = unsafe {
-        libc::openpty(
-            &mut master,
-            &mut slave,
-            ptr::null_mut(),
-            ptr::null_mut(),
-            &mut win,
-        )
+        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null_mut(), &mut win)
     };
 
     if res < 0 {
@@ -226,13 +227,7 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
     // Try and read the pw file.
     let uid = unsafe { libc::getuid() };
     let status = unsafe {
-        libc::getpwuid_r(
-            uid,
-            &mut entry,
-            buf.as_mut_ptr() as *mut _,
-            buf.len(),
-            &mut res,
-        )
+        libc::getpwuid_r(uid, &mut entry, buf.as_mut_ptr() as *mut _, buf.len(), &mut res)
     };
 
     if status < 0 {
@@ -262,12 +257,7 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
 ///
 /// On windows this starts the winpty agent to interact with the console
 #[cfg(not(windows))]
-pub fn new<T: ToWinsize>(
-    config: &Config,
-    options: &Options,
-    size: T,
-    window_id: Option<usize>,
-) -> Pty {
+pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id: Option<usize>) -> Pty {
     let win = size.to_winsize();
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
@@ -275,7 +265,8 @@ pub fn new<T: ToWinsize>(
     let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
 
     let default_shell = &Shell::new(pw.shell);
-    let shell = config.shell().unwrap_or(default_shell);
+    let shell = config.shell()
+        .unwrap_or(default_shell);
 
     let initial_command = options.command().unwrap_or(shell);
 
@@ -338,6 +329,7 @@ pub fn new<T: ToWinsize>(
         builder.current_dir(dir.as_path());
     }
 
+
     match builder.spawn() {
         Ok(child) => {
             unsafe {
@@ -356,7 +348,7 @@ pub fn new<T: ToWinsize>(
             let pty = Pty { fd: master };
             pty.resize(size);
             pty
-        }
+        },
         Err(err) => {
             die!("Command::spawn() failed: {}", err);
         }
@@ -477,19 +469,21 @@ impl Pty {
     ///
     /// XXX File is a bad abstraction here; it closes the fd on drop
     pub fn reader(&self) -> File {
-        unsafe { File::from_raw_fd(self.fd) }
+        unsafe {
+            File::from_raw_fd(self.fd)
+        }
     }
 
     /// Resize the pty
     ///
     /// Tells the kernel that the window size changed with the new pixel
     /// dimensions and line/column counts.
-    ///
-    /// On windows only line/column counts are used.
-    pub fn resize<T: ToWinsize>(&self, size: T) {
+    pub fn resize<T: ToWinsize>(&self, size: &T) {
         let win = size.to_winsize();
 
-        let res = unsafe { libc::ioctl(self.fd, libc::TIOCSWINSZ, &win as *const _) };
+        let res = unsafe {
+            libc::ioctl(self.fd, libc::TIOCSWINSZ, &win as *const _)
+        };
 
         if res < 0 {
             die!("ioctl TIOCSWINSZ failed: {}", errno());
@@ -588,23 +582,13 @@ impl<'a> EventedRW<NamedPipe, NamedPipe> for Pty<'a, NamedPipe, NamedPipe> {
         self.write_token
     }
 }
-// TODO:
-#[cfg(not(windows))]
-impl PTY<RawFd, RawFd> for Pty {
-    fn register(&mut self, poll: mio::Poll, interest: mio::Ready) {}
-    fn reregister(&mut self, poll: mio::Poll, interest: mio::Ready) {}
-    fn deregister(&mut self, poll: mio::Poll) {}
-
-    fn reader(&mut self) -> (mio::Token, &mut RawFd) {}
-    fn writer(&mut self) -> (mio::Token, &mut RawFd) {}
-    fn resize(&self, sizeinfo: &SizeInfo) {}
-}
 
 /// This trait defines the behaviour needed to read and/or write to a stream.
 /// It defines an abstraction over mio's interface in order to allow either one
 /// read/write object or a seperate read and write object.
 // TODO: Maybe return results here instead of panicing
 // FIXME: There's probably a much more elegant way to do this
+#[cfg(windows)]
 pub trait EventedRW<R: io::Read, W: io::Write> {
     fn register(&mut self, &mio::Poll, &mut Iterator<Item = &usize>, mio::Ready, mio::PollOpt);
     fn reregister(&mut self, &mio::Poll, mio::Ready, mio::PollOpt);

@@ -6,6 +6,7 @@ use std::fs::File;
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
+#[cfg(windows)]
 use std::marker::{PhantomData, Send};
 
 use mio::{self, Events, PollOpt, Ready};
@@ -18,6 +19,7 @@ use mio::unix::EventedFd;
 use ansi;
 use display;
 use event;
+#[cfg(windows)]
 use tty;
 use term::Term;
 use util::thread;
@@ -51,10 +53,10 @@ pub struct EventLoop<R: io::Read + Send, W: io::Write + Send, T: tty::EventedRW<
     _w: PhantomData<W>,
 }
 #[cfg(not(windows))]
-pub struct EventLoop<R: io::Read, W: io::Write, T: tty::PTY<R, W>> {
+pub struct EventLoop<Io> {
     poll: mio::Poll,
-    pty: T,
-    rx: Reciever<Msg>,
+    pty: Io,
+    rx: Receiver<Msg>,
     tx: Sender<Msg>,
     terminal: Arc<FairMutex<Term>>,
     display: display::Notifier,
@@ -75,14 +77,14 @@ enum DrainResult {
     /// Nothing was available to receive
     Empty,
     /// A shutdown message was received
-    Shutdown,
+    Shutdown
 }
 
 impl DrainResult {
     pub fn is_shutdown(&self) -> bool {
         match *self {
             DrainResult::Shutdown => true,
-            _ => false,
+            _ => false
         }
     }
 }
@@ -101,13 +103,12 @@ pub struct Notifier(pub Sender<Msg>);
 
 impl event::Notify for Notifier {
     fn notify<B>(&mut self, bytes: B)
-    where
-        B: Into<Cow<'static, [u8]>>,
+    where B: Into<Cow<'static, [u8]>>,
     {
         let bytes = bytes.into();
         // terminal hangs if we send 0 bytes through.
         if bytes.len() == 0 {
-            return;
+            return
         }
         if self.0.send(Msg::Input(bytes)).is_err() {
             panic!("expected send event loop msg");
@@ -135,7 +136,9 @@ impl State {
 
     #[inline]
     fn goto_next(&mut self) {
-        self.writing = self.write_list.pop_front().map(Writing::new);
+        self.writing = self.write_list
+            .pop_front()
+            .map(Writing::new);
     }
 
     #[inline]
@@ -157,10 +160,7 @@ impl State {
 impl Writing {
     #[inline]
     fn new(c: Cow<'static, [u8]>) -> Writing {
-        Writing {
-            source: c,
-            written: 0,
-        }
+        Writing { source: c, written: 0 }
     }
 
     #[inline]

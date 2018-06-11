@@ -35,13 +35,10 @@ extern crate euclid;
 
 extern crate libc;
 
-#[cfg(unix)]
-#[allow(dead_code)]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 #[macro_use]
 extern crate foreign_types;
 
-#[allow(unused)]
-#[allow(dead_code)]
 #[macro_use]
 extern crate log;
 
@@ -49,15 +46,15 @@ use std::hash::{Hash, Hasher};
 use std::{fmt, cmp};
 use std::sync::atomic::{AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
 
-// If target isn't macos, reexport everything from ft
-#[cfg(unix)]
+// If target isn't macos or windows, reexport everything from ft
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub mod ft;
-#[cfg(unix)]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub use ft::{Error, FreeTypeRasterizer as Rasterizer};
 
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 pub mod rusttype;
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 pub use rusttype::{Error, RustTypeRasterizer as Rasterizer};
 
 // If target is macos, reexport everything from darwin

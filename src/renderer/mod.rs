@@ -180,12 +180,11 @@ impl GlyphCache {
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(&GlyphKey {
-            font_key: regular,
-            c: 'm',
-            size: font.size(),
-        })?;
+        rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        #[cfg(windows)]
         let metrics = rasterizer.metrics(regular, font.size())?;
+        #[cfg(not(windows))]
+        let metrics = rasterizer.metrics(regular)?;
 
         let mut cache = GlyphCache {
             cache: HashMap::default(),
@@ -266,8 +265,13 @@ impl GlyphCache {
     }
 
     pub fn font_metrics(&self) -> font::Metrics {
+        #[cfg(windows)]
         self.rasterizer
             .metrics(self.font_key, self.font_size)
+            .expect("metrics load since font is loaded at glyph cache creation");
+        #[cfg(not(windows))]
+        self.rasterizer
+            .metrics(self.font_key)
             .expect("metrics load since font is loaded at glyph cache creation")
     }
 
@@ -310,7 +314,10 @@ impl GlyphCache {
             c: 'm',
             size: font.size(),
         })?;
+        #[cfg(windows)]
         let metrics = self.rasterizer.metrics(regular, size)?;
+        #[cfg(not(windows))]
+        let metrics = self.rasterizer.metrics(regular)?;
 
         self.font_size = font.size;
         self.font_key = regular;
