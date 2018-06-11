@@ -28,10 +28,10 @@ extern crate alacritty;
 #[macro_use]
 extern crate log;
 
-use std::error::Error;
-use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use std::env;
+use std::error::Error;
+use std::sync::Arc;
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
@@ -42,7 +42,7 @@ use alacritty::event_loop::{self, EventLoop, Msg};
 use alacritty::locale;
 use alacritty::logging;
 use alacritty::sync::FairMutex;
-use alacritty::term::{Term};
+use alacritty::term::Term;
 use alacritty::tty::{self, process_should_exit};
 use alacritty::util::fmt::Red;
 
@@ -60,7 +60,10 @@ fn main() {
 
     // Run alacritty
     if let Err(err) = run(config, &options) {
-        die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
+        die!(
+            "Alacritty encountered an unrecoverable error:\n\n\t{}\n",
+            Red(err)
+        );
     }
 
     info!("Goodbye.");
@@ -72,7 +75,8 @@ fn main() {
 /// generate a default file. If an empty configuration file is given, i.e.
 /// /dev/null, we load the compiled-in defaults.
 fn load_config(options: &cli::Options) -> Config {
-    let config_path = options.config_path()
+    let config_path = options
+        .config_path()
         .or_else(Config::installed_config)
         .unwrap_or_else(|| {
             Config::write_defaults()
@@ -102,6 +106,11 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     //
     // The display manages a window and can draw the terminal
     let mut display = Display::new(&config, options)?;
+
+    unsafe {
+        // Construct the notifier for the SIGCHLD handler
+        tty::DISPLAY_NOTIFIER = Some(display.notifier());
+    }
 
     info!(
         "PTY Dimensions: {:?} x {:?}",
@@ -210,7 +219,9 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         }
     }
 
-    loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to event loop");
+    loop_tx
+        .send(Msg::Shutdown)
+        .expect("Error sending shutdown to event loop");
 
     // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();

@@ -18,15 +18,15 @@ use std::ffi::CStr;
 use std::fs::File;
 use std::os::unix::io::FromRawFd;
 use std::os::unix::process::CommandExt;
-use std::ptr;
 use std::process::{Command, Stdio};
+use std::ptr;
 
-use libc::{self, winsize, c_int, pid_t, WNOHANG, SIGCHLD, TIOCSCTTY};
+use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
 
-use term::SizeInfo;
-use display::OnResize;
-use config::{Config, Shell};
 use cli::Options;
+use config::{Config, Shell};
+use display::{self, OnResize};
+use term::SizeInfo;
 
 /// Process ID of child process
 ///
@@ -40,6 +40,12 @@ static mut PID: pid_t = 0;
 /// checked via `process_should_exit`.
 static mut SHOULD_EXIT: bool = false;
 
+/// Display Notifier
+///
+/// Due to SHOULD_EXIT, the blocked display loop must be notified
+/// of termination via an event, to unblock it
+pub static mut DISPLAY_NOTIFIER: Option<display::Notifier> = None;
+
 extern "C" fn sigchld(_a: c_int) {
     let mut status: c_int = 0;
     unsafe {
@@ -50,6 +56,12 @@ extern "C" fn sigchld(_a: c_int) {
 
         if PID == p {
             SHOULD_EXIT = true;
+            match DISPLAY_NOTIFIER {
+                Some(ref notifier) => {
+                    notifier.notify();
+                }
+                None => {}
+            }
         }
     }
 }
@@ -76,9 +88,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
         ws_ypixel: 0,
     };
 
-    let res = unsafe {
-        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null(), &win)
-    };
+    let res = unsafe { libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null(), &win) };
 
     if res < 0 {
         die!("openpty failed");
@@ -87,7 +97,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     (master, slave)
 }
 
-#[cfg(any(target_os = "macos",target_os = "freebsd",target_os = "openbsd"))]
+#[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "openbsd"))]
 fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     let mut master: c_int = 0;
     let mut slave: c_int = 0;
@@ -100,7 +110,13 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     };
 
     let res = unsafe {
-        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null_mut(), &mut win)
+        libc::openpty(
+            &mut master,
+            &mut slave,
+            ptr::null_mut(),
+            ptr::null_mut(),
+            &mut win,
+        )
     };
 
     if res < 0 {
@@ -151,7 +167,13 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
     // Try and read the pw file.
     let uid = unsafe { libc::getuid() };
     let status = unsafe {
-        libc::getpwuid_r(uid, &mut entry, buf.as_mut_ptr() as *mut _, buf.len(), &mut res)
+        libc::getpwuid_r(
+            uid,
+            &mut entry,
+            buf.as_mut_ptr() as *mut _,
+            buf.len(),
+            &mut res,
+        )
     };
 
     if status < 0 {
@@ -161,7 +183,6 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
     if res.is_null() {
         die!("pw not found");
     }
-
 
     // sanity check
     assert_eq!(entry.pw_uid, uid);
@@ -179,7 +200,12 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
 }
 
 /// Create a new tty and return a handle to interact with it.
-pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id: Option<usize>) -> Pty {
+pub fn new<T: ToWinsize>(
+    config: &Config,
+    options: &Options,
+    size: &T,
+    window_id: Option<usize>,
+) -> Pty {
     let win = size.to_winsize();
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
@@ -187,8 +213,7 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id
     let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
 
     let default_shell = &Shell::new(pw.shell);
-    let shell = config.shell()
-        .unwrap_or(default_shell);
+    let shell = config.shell().unwrap_or(default_shell);
 
     let initial_command = options.command().unwrap_or(shell);
 
@@ -269,7 +294,7 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id
             let pty = Pty { fd: master };
             pty.resize(size);
             pty
-        },
+        }
         Err(err) => {
             die!("Command::spawn() failed: {}", err);
         }
@@ -285,9 +310,7 @@ impl Pty {
     ///
     /// XXX File is a bad abstraction here; it closes the fd on drop
     pub fn reader(&self) -> File {
-        unsafe {
-            File::from_raw_fd(self.fd)
-        }
+        unsafe { File::from_raw_fd(self.fd) }
     }
 
     /// Resize the pty
@@ -297,9 +320,7 @@ impl Pty {
     pub fn resize<T: ToWinsize>(&self, size: &T) {
         let win = size.to_winsize();
 
-        let res = unsafe {
-            libc::ioctl(self.fd, libc::TIOCSWINSZ, &win as *const _)
-        };
+        let res = unsafe { libc::ioctl(self.fd, libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
             die!("ioctl TIOCSWINSZ failed: {}", errno());
@@ -331,7 +352,7 @@ impl OnResize for Pty {
 }
 
 unsafe fn set_nonblocking(fd: c_int) {
-    use libc::{fcntl, F_SETFL, F_GETFL, O_NONBLOCK};
+    use libc::{fcntl, F_GETFL, F_SETFL, O_NONBLOCK};
 
     let res = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
     assert_eq!(res, 0);
