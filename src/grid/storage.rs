@@ -201,7 +201,16 @@ impl<T> Storage<T> {
 
     /// Compute actual index in underlying storage given the requested index.
     fn compute_index(&self, requested: usize) -> usize {
-        (requested + self.zero) % self.inner.len()
+        let zeroed = requested + self.zero;
+        let len = self.inner.len();
+
+        // This is performance-critical, since `zeroed` is smaller than `len` most of the time,
+        // it makes sense to check before doing an expensive modulo operation
+        if zeroed >= len {
+            zeroed % len
+        } else {
+            zeroed
+        }
     }
 
     pub fn swap_lines(&mut self, a: Line, b: Line) {
