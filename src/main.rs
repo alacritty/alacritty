@@ -157,6 +157,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // This exists because the EventedRW interface is not necessarily thread-safe
     // and we need to be able to resize the PTY from the main thread while the IO
     // thread owns the EventedRW object.
+    #[cfg(windows)]
     let resize_handle = unsafe { &mut *pty.winpty.get() };
 
     // Create the pseudoterminal I/O loop
@@ -165,10 +166,18 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // renderer and input processing. Note that access to the terminal state is
     // synchronized since the I/O loop updates the state, and the display
     // consumes it periodically.
+    #[cfg(windows)]
     let event_loop = EventLoop::new(
         Arc::clone(&terminal),
         display.notifier(),
         pty,
+        options.ref_test,
+    );
+    #[cfg(not(windows))]
+    let event_loop = EventLoop::new(
+        Arc::clone(&terminal),
+        display.notifier(),
+        pty.reader(),
         options.ref_test,
     );
 
@@ -232,7 +241,10 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
+            #[cfg(windows)]
             display.handle_resize(&mut terminal, &config, &mut [resize_handle, &mut processor]);
+            #[cfg(not(windows))]
+            display.handle_resize(&mut terminal, &config, &mut [&mut pty, &mut processor]);
 
             // Draw the current state of the terminal
             display.draw(terminal, &config, processor.selection.as_ref());
