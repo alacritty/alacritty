@@ -22,9 +22,9 @@ matrix:
   fast_finish: true
   exclude:
     - rust: stable
-      env: FEATURES="clippy"
+      env: CLIPPY="true"
     - rust: nightly
-      env: FEATURES=""
+      env: CLIPPY=""
   allow_failures:
     - rust: nightly
 
