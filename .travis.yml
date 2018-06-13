@@ -12,8 +12,11 @@ rust:
   - nightly
 
 env:
-  - FEATURES="clippy"
-  - FEATURES=""
+  - CLIPPY="true"
+  - CLIPPY=""
+
+install:
+  - if [ -n "$CLIPPY" ]; then cargo install clippy; fi
 
 matrix:
   fast_finish: true
@@ -26,4 +29,5 @@ matrix:
     - rust: nightly
 
 script:
-  - cargo test --no-default-features --features "$FEATURES"
+  - if [ -n "$CLIPPY" ]; then cargo clippy; fi
+  - if [ -z "$CLIPPY" ]; then cargo test; fi
