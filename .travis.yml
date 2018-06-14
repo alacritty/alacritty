@@ -25,5 +25,8 @@ matrix:
   allow_failures:
     - rust: nightly
 
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install fontconfig; fi
+
 script:
   - cargo test --no-default-features --features "$FEATURES"

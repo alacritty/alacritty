@@ -32,6 +32,8 @@ use std::error::Error;
 use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use std::env;
+#[cfg(not(windows))]
+use std::os::unix::io::AsRawFd;
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
@@ -147,18 +149,17 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // The pty forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-    #[cfg(not(windows))]
-    let mut pty = tty::new(&config, options, &display.size(), window_id);
-    #[cfg(windows)]
-    let pty = tty::new(&config, options, &display.size(), window_id);
+    let pty = tty::new(&config, options, display.size(), window_id);
 
     // Get a reference to something that we can resize
     //
-    // This exists because the EventedRW interface is not necessarily thread-safe
+    // This exists because rust doesn't know the interface is thread-safe
     // and we need to be able to resize the PTY from the main thread while the IO
     // thread owns the EventedRW object.
     #[cfg(windows)]
     let resize_handle = unsafe { &mut *pty.winpty.get() };
+    #[cfg(not(windows))]
+    let mut resize_handle = pty.fd.as_raw_fd();
 
     // Create the pseudoterminal I/O loop
     //
@@ -177,7 +178,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     let event_loop = EventLoop::new(
         Arc::clone(&terminal),
         display.notifier(),
-        pty.reader(),
+        pty,
         options.ref_test,
     );
 
@@ -244,7 +245,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
             #[cfg(windows)]
             display.handle_resize(&mut terminal, &config, &mut [resize_handle, &mut processor]);
             #[cfg(not(windows))]
-            display.handle_resize(&mut terminal, &config, &mut [&mut pty, &mut processor]);
+            display.handle_resize(&mut terminal, &config, &mut [&mut resize_handle, &mut processor]);
 
             // Draw the current state of the terminal
             display.draw(terminal, &config, processor.selection.as_ref());

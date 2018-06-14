@@ -18,11 +18,11 @@ use term::SizeInfo;
 use display::OnResize;
 use config::{Config, Shell};
 use cli::Options;
-#[cfg(windows)]
 use mio;
+use std::io;
+
 #[cfg(windows)]
 use std::os::raw::c_void;
-
 #[cfg(windows)]
 use winapi::um::synchapi::WaitForSingleObject;
 #[cfg(windows)]
@@ -35,8 +35,6 @@ use mio_named_pipes::NamedPipe;
 use winpty::{ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
 #[cfg(windows)]
 use winpty::Config as WinptyConfig;
-#[cfg(windows)]
-use std::io;
 #[cfg(windows)]
 use std::os::windows::io::{FromRawHandle, IntoRawHandle};
 #[cfg(windows)]
@@ -53,24 +51,23 @@ use std::cell::UnsafeCell;
 use dunce::canonicalize;
 
 #[cfg(not(windows))]
-use std::os::unix::io::FromRawFd;
+use std::os::unix::io::{FromRawFd, RawFd};
 #[cfg(not(windows))]
 use std::fs::File;
 #[cfg(not(windows))]
 use std::os::unix::process::CommandExt;
-#[cfg(not(windows))]
-use std::ptr;
 #[cfg(not(windows))]
 use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
 #[cfg(not(windows))]
 use std::process::{Command, Stdio};
 #[cfg(not(windows))]
 use std::ffi::CStr;
-
-// How long the agent should wait for any RPC request
-// This is a placeholder value until we see how often long responses happen
-#[cfg(windows)]
-const AGENT_TIMEOUT: u32 = 10000;
+#[cfg(not(windows))]
+use std::ptr;
+#[cfg(not(windows))]
+use mio::unix::EventedFd;
+#[cfg(not(windows))]
+use std::os::unix::io::AsRawFd;
 
 /// Process ID of child process
 ///
@@ -78,9 +75,14 @@ const AGENT_TIMEOUT: u32 = 10000;
 #[cfg(not(windows))]
 static mut PID: pid_t = 0;
 
-// Handle to the winpty agent process. Required so we know when it closes.
+/// Handle to the winpty agent process. Required so we know when it closes.
 #[cfg(windows)]
 static mut HANDLE: *mut c_void = 0usize as *mut c_void;
+
+/// How long the winpty agent should wait for any RPC request
+/// This is a placeholder value until we see how often long responses happen
+#[cfg(windows)]
+const AGENT_TIMEOUT: u32 = 10000;
 
 /// Exit flag
 ///
@@ -257,7 +259,12 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
 ///
 /// On windows this starts the winpty agent to interact with the console
 #[cfg(not(windows))]
-pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id: Option<usize>) -> Pty {
+pub fn new<'a, T: ToWinsize>(
+    config: &Config,
+    options: &Options,
+    size: T,
+    window_id: Option<usize>,
+) -> Pty {
     let win = size.to_winsize();
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
@@ -345,8 +352,12 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id
                 set_nonblocking(master);
             }
 
-            let pty = Pty { fd: master };
-            pty.resize(size);
+            let pty = Pty {
+                fd: unsafe {File::from_raw_fd(master) },
+                raw_fd: master,
+                token: mio::Token::from(0)
+            };
+            pty.resize(&size);
             pty
         },
         Err(err) => {
@@ -450,7 +461,9 @@ pub fn new<'a>(
 
 #[cfg(not(windows))]
 pub struct Pty {
-    fd: c_int,
+    pub fd: File,
+    pub raw_fd: RawFd,
+    token: mio::Token,
 }
 #[cfg(windows)]
 pub struct Pty<'a, R: io::Read + Evented + Send, W: io::Write + Evented + Send> {
@@ -465,15 +478,6 @@ pub struct Pty<'a, R: io::Read + Evented + Send, W: io::Write + Evented + Send> 
 
 #[cfg(not(windows))]
 impl Pty {
-    /// Get reader for the TTY
-    ///
-    /// XXX File is a bad abstraction here; it closes the fd on drop
-    pub fn reader(&self) -> File {
-        unsafe {
-            File::from_raw_fd(self.fd)
-        }
-    }
-
     /// Resize the pty
     ///
     /// Tells the kernel that the window size changed with the new pixel
@@ -482,7 +486,7 @@ impl Pty {
         let win = size.to_winsize();
 
         let res = unsafe {
-            libc::ioctl(self.fd, libc::TIOCSWINSZ, &win as *const _)
+            libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _)
         };
 
         if res < 0 {
@@ -490,6 +494,22 @@ impl Pty {
         }
     }
 }
+
+/// This trait defines the behaviour needed to read and/or write to a stream.
+/// It defines an abstraction over mio's interface in order to allow either one
+/// read/write object or a seperate read and write object.
+// TODO: Maybe return results here instead of panicing
+pub trait EventedRW<R: io::Read, W: io::Write> {
+    fn register(&mut self, &mio::Poll, &mut Iterator<Item = &usize>, mio::Ready, mio::PollOpt);
+    fn reregister(&mut self, &mio::Poll, mio::Ready, mio::PollOpt);
+    fn deregister(&mut self, &mio::Poll);
+
+    fn reader(&mut self) -> &mut R;
+    fn read_token(&self) -> mio::Token;
+    fn writer(&mut self) -> &mut W;
+    fn write_token(&self) -> mio::Token;
+}
+
 #[cfg(windows)]
 impl<'a> EventedRW<NamedPipe, NamedPipe> for Pty<'a, NamedPipe, NamedPipe> {
     fn register(
@@ -583,21 +603,50 @@ impl<'a> EventedRW<NamedPipe, NamedPipe> for Pty<'a, NamedPipe, NamedPipe> {
     }
 }
 
-/// This trait defines the behaviour needed to read and/or write to a stream.
-/// It defines an abstraction over mio's interface in order to allow either one
-/// read/write object or a seperate read and write object.
-// TODO: Maybe return results here instead of panicing
-// FIXME: There's probably a much more elegant way to do this
-#[cfg(windows)]
-pub trait EventedRW<R: io::Read, W: io::Write> {
-    fn register(&mut self, &mio::Poll, &mut Iterator<Item = &usize>, mio::Ready, mio::PollOpt);
-    fn reregister(&mut self, &mio::Poll, mio::Ready, mio::PollOpt);
-    fn deregister(&mut self, &mio::Poll);
+#[cfg(not(windows))]
+impl<'a> EventedRW<File, File> for Pty {
+    fn register(
+        &mut self,
+        poll: &mio::Poll,
+        token: &mut Iterator<Item = &usize>,
+        interest: mio::Ready,
+        poll_opts: mio::PollOpt,
+    ) {
+        info!("reg");
+        self.token = (*token.next().unwrap()).into();
+        info!("{:?}", self.token);
+        poll.register(
+            &EventedFd(&self.raw_fd),
+            self.token,
+            interest,
+            poll_opts
+        ).unwrap();
+    }
+    fn reregister(&mut self, poll: &mio::Poll, interest: mio::Ready, poll_opts: mio::PollOpt) {
+        poll.reregister(
+            &EventedFd(&self.raw_fd),
+            self.token,
+            interest,
+            poll_opts
+        ).unwrap();
+    }
+    fn deregister(&mut self, poll: &mio::Poll) {
+        info!("dereg");
+        poll.deregister(&EventedFd(&self.raw_fd)).unwrap();
+    }
 
-    fn reader(&mut self) -> &mut R;
-    fn read_token(&self) -> mio::Token;
-    fn writer(&mut self) -> &mut W;
-    fn write_token(&self) -> mio::Token;
+    fn reader(&mut self) -> &mut File {
+        &mut self.fd
+    }
+    fn read_token(&self) -> mio::Token {
+        self.token
+    }
+    fn writer(&mut self) -> &mut File {
+        &mut self.fd
+    }
+    fn write_token(&self) -> mio::Token {
+        self.token
+    }
 }
 
 /// Types that can produce a `libc::winsize`
@@ -629,9 +678,17 @@ impl<'a> OnResize for Winpty<'a> {
     }
 }
 #[cfg(not(windows))]
-impl OnResize for Pty {
+impl OnResize for i32 {
     fn on_resize(&mut self, size: &SizeInfo) {
-        self.resize(&size);
+        let win = size.to_winsize();
+
+        let res = unsafe {
+            libc::ioctl(*self, libc::TIOCSWINSZ, &win as *const _)
+        };
+
+        if res < 0 {
+            die!("ioctl TIOCSWINSZ failed: {}", errno());
+        }
     }
 }
 
