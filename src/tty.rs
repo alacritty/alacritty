@@ -396,7 +396,6 @@ pub fn new<'a>(
 
     // Spawn process
     let spawnconfig = SpawnConfig::new(
-        // This may be problematic if we can't tell immediately when the process shut down
         SpawnFlags::AUTO_SHUTDOWN | SpawnFlags::EXIT_AFTER_SHUTDOWN,
         None, // appname
         Some(&cmdline.join(" ")),

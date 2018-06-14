@@ -1759,7 +1759,10 @@ mod tests {
     #[cfg(target_os="macos")]
     static ALACRITTY_YML: &'static str =
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty_macos.yml"));
-    #[cfg(not(target_os="macos"))]
+    #[cfg(windows)]
+    static ALACRITTY_YML: &'static str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty_windows.yml"));
+    #[cfg(not(any(target_os="macos", windows)))]
     static ALACRITTY_YML: &'static str =
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty.yml"));
 

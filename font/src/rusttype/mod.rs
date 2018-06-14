@@ -86,7 +86,7 @@ impl ::Rasterize for RustTypeRasterizer {
         // Pixel bounding box
         let bb = match glyph.pixel_bounding_box() {
             Some(bb) => bb,
-            // NOTE: Bounding box calculation fails for spaces
+            // Bounding box calculation fails for spaces so we provide a placeholder bounding box
             None => rusttype::Rect {
                 min: point(0, 0),
                 max: point(0, 0),
@@ -102,7 +102,6 @@ impl ::Rasterize for RustTypeRasterizer {
             buf.push((v * 255.0) as u8);
             buf.push((v * 255.0) as u8);
         });
-        // NOTE: These conversions may reduce accuracy
         Ok(RasterizedGlyph {
             c: glyph_key.c,
             width: bb.width(),
@@ -136,7 +135,6 @@ impl ::std::error::Error for Error {
 
 impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        // TODO Improve error messages
         match *self {
             Error::MissingFont(ref desc) => write!(
                 f,

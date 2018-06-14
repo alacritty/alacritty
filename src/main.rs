@@ -167,14 +167,6 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // renderer and input processing. Note that access to the terminal state is
     // synchronized since the I/O loop updates the state, and the display
     // consumes it periodically.
-    #[cfg(windows)]
-    let event_loop = EventLoop::new(
-        Arc::clone(&terminal),
-        display.notifier(),
-        pty,
-        options.ref_test,
-    );
-    #[cfg(not(windows))]
     let event_loop = EventLoop::new(
         Arc::clone(&terminal),
         display.notifier(),

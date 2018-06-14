@@ -1,7 +1,8 @@
 Alacritty
 =========
 
-[![Build Status](https://travis-ci.org/jwilm/alacritty.svg?branch=master)](https://travis-ci.org/jwilm/alacritty)
+[![Travis build Status](https://travis-ci.org/jwilm/alacritty.svg?branch=master)](https://travis-ci.org/jwilm/alacritty)
+[![Appveyor build Status](https://ci.appveyor.com/api/projects/status/sjq7ya5xf3hsa59s?svg=true)](https://ci.appveyor.com/project/zacps/alacritty)
 
 Alacritty is the fastest terminal emulator in existence. Using the GPU for
 rendering enables optimizations that simply aren't possible in other emulators.
@@ -34,7 +35,7 @@ built from source.
 
 ## Installation
 
-Instructions are provided for macOS and many Linux variants to compile Alacritty
+Instructions are provided for Windows, macOS and many Linux variants to compile Alacritty
 from source. With the exception of Arch (which has a package in the AUR), Void Linux (in main repository) and
 [NixOS](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/alacritty/default.nix)
 (at the moment in unstable, will be part of 17.09), please first read the
@@ -314,9 +315,11 @@ run. On most systems this often defaults to
 
 ### Windows
 
-## Issues (known, unknown, feature requests, etc)
+On windows the config file is located at:
 
-## Issues (known, unknown, feature requests, etc.)
+`%UserProfile%\alacritty.yml`
+
+## Issues (known, unknown, feature requests, etc)
 
 If you run into a problem with Alacritty, please file an issue. If you've got a
 feature request, feel free to ask about it. Keep in mind that Alacritty is very
@@ -339,29 +342,12 @@ Just Works.
   on another machine which is connected to Alacritty via SSH, this issue
   disappears. Actual throughput and rendering performance are still better in
   Alacritty.
-- _When will Windows support be available?_ When someone has time to work on it.
-  Contributors would be welcomed :).
 - _My arrow keys don't work_. It sounds like you deleted some key bindings from
   your config file. Please reference the default config file to restore them.
 - _Why doesn't it support scrollback?_ Alacritty's original purpose was to
   provide a better experience when using [tmux] which already handled
   scrollback. The scope of this project has since expanded, and [scrollback will
   eventually be added](https://github.com/jwilm/alacritty/issues/124).
-
-- **_When will Windows support be available?_**
-
-  When someone has time to work on it. Contributors would be welcomed :).
-
-- **_My arrow keys don't work._**
-
-  It sounds like you deleted some key bindings from your config file. Please
-  reference the default config file to restore them.
-
-- **_Why doesn't it support scrollback?_**
-
-  Alacritty's original purpose was to provide a better experience when using
-  [tmux] which already handled scrollback. The scope of this project has since
-  expanded, and [scrollback will eventually be added](https://github.com/jwilm/alacritty/issues/124).
 
 ## IRC
 
