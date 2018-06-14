@@ -34,20 +34,6 @@ pub enum Msg {
 ///
 /// Handles all the pty I/O and runs the pty parser which updates terminal
 /// state.
-#[cfg(windows)]
-pub struct EventLoop<R: io::Read + Send, W: io::Write + Send, T: tty::EventedRW<R, W>> {
-    poll: mio::Poll,
-    pty: T,
-    rx: Receiver<Msg>,
-    tx: Sender<Msg>,
-    terminal: Arc<FairMutex<Term>>,
-    display: display::Notifier,
-    ref_test: bool,
-    // FIXME: A possibly better solution is to change the trait (PTY?) to use an associated type
-    _r: PhantomData<R>,
-    _w: PhantomData<W>,
-}
-#[cfg(not(windows))]
 pub struct EventLoop<R: io::Read, W: io::Write, T: tty::EventedRW<R, W>> {
     poll: mio::Poll,
     pty: T,
@@ -56,6 +42,7 @@ pub struct EventLoop<R: io::Read, W: io::Write, T: tty::EventedRW<R, W>> {
     terminal: Arc<FairMutex<Term>>,
     display: display::Notifier,
     ref_test: bool,
+    // FIXME: A possibly better solution is to change the trait (PTY?) to use an associated type
     _r: PhantomData<R>,
     _w: PhantomData<W>,
 }
@@ -195,12 +182,13 @@ impl<R, W, T> EventLoop<R, W, T>
         let (tx, rx) = channel::channel();
         EventLoop {
             poll: mio::Poll::new().expect("create mio Poll"),
-            pty: pty,
-            tx: tx,
-            rx: rx,
-            terminal: terminal,
-            display: display,
-            ref_test: ref_test,
+            pty,
+            tx,
+            rx,
+            terminal,
+            display,
+            ref_test,
+            // TODO: A possibly better solution is to use an associated type in the EventedRW trait
             _r: PhantomData,
             _w: PhantomData,
         }
