@@ -15,6 +15,11 @@ env:
   - FEATURES="clippy"
   - FEATURES=""
 
+addons:
+  apt:
+    packages:
+      gperf
+
 matrix:
   fast_finish: true
   exclude:
