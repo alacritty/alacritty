@@ -551,7 +551,7 @@ impl Font {
 
         let rasterized_pixels = cg_context.data().to_vec();
 
-        let buf = extract_rgb(rasterized_pixels);
+        let buf = extract_rgb(&rasterized_pixels);
 
         Ok(RasterizedGlyph {
             c: character,
