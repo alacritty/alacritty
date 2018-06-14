@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![cfg_attr(feature = "cargo-clippy", allow(let_unit_value))]
 #![cfg(target_os = "macos")]
 use libc::{LC_CTYPE, setlocale};
 use std::ffi::{CString, CStr};
@@ -26,7 +27,7 @@ pub fn set_locale_environment() {
     let locale_id = unsafe {
         let locale_class = Class::get("NSLocale").unwrap();
         let locale: *const Object = msg_send![locale_class, currentLocale];
-        msg_send![locale_class, release];
+        let _ : () = msg_send![locale_class, release];
         // `localeIdentifier` returns extra metadata with the locale (including currency and
         // collator) on newer versions of macOS. This is not a valid locale, so we use
         // `languageCode` and `countryCode`, if they're available (macOS 10.12+):
@@ -39,17 +40,17 @@ pub fn set_locale_environment() {
             let language_code: *const Object = msg_send![locale, languageCode];
             let country_code: *const Object = msg_send![locale, countryCode];
             let language_code_str = nsstring_as_str(language_code).to_owned();
-            msg_send![language_code, release];
+            let _ : () = msg_send![language_code, release];
             let country_code_str = nsstring_as_str(country_code).to_owned();
-            msg_send![country_code, release];
+            let _ : () = msg_send![country_code, release];
             format!("{}_{}.UTF-8", &language_code_str, &country_code_str)
         } else {
             let identifier: *const Object = msg_send![locale, localeIdentifier];
             let identifier_str = nsstring_as_str(identifier).to_owned();
-            msg_send![identifier, release];
+            let _ : () = msg_send![identifier, release];
             identifier_str + ".UTF-8"
         };
-        msg_send![locale, release];
+        let _ : () = msg_send![locale, release];
         locale_id
     };
     // check if locale_id is valid
