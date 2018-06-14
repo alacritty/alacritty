@@ -26,7 +26,7 @@ pub fn set_locale_environment() {
     let locale_id = unsafe {
         let locale_class = Class::get("NSLocale").unwrap();
         let locale: *const Object = msg_send![locale_class, currentLocale];
-        let _ : () = msg_send![locale_class, release];
+        let _ = msg_send![locale_class, release];
         // `localeIdentifier` returns extra metadata with the locale (including currency and
         // collator) on newer versions of macOS. This is not a valid locale, so we use
         // `languageCode` and `countryCode`, if they're available (macOS 10.12+):
@@ -39,17 +39,17 @@ pub fn set_locale_environment() {
             let language_code: *const Object = msg_send![locale, languageCode];
             let country_code: *const Object = msg_send![locale, countryCode];
             let language_code_str = nsstring_as_str(language_code).to_owned();
-            let _ : () = msg_send![language_code, release];
+            let _ = msg_send![language_code, release];
             let country_code_str = nsstring_as_str(country_code).to_owned();
-            let _ : () = msg_send![country_code, release];
+            let _ = msg_send![country_code, release];
             format!("{}_{}.UTF-8", &language_code_str, &country_code_str)
         } else {
             let identifier: *const Object = msg_send![locale, localeIdentifier];
             let identifier_str = nsstring_as_str(identifier).to_owned();
-            let _ : () = msg_send![identifier, release];
+            let _ = msg_send![identifier, release];
             identifier_str + ".UTF-8"
         };
-        let _ : () = msg_send![locale, release];
+        let _ = msg_send![locale, release];
         locale_id
     };
     // check if locale_id is valid

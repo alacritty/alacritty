@@ -132,8 +132,8 @@ impl ::Rasterize for Rasterizer {
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
-            device_pixel_ratio: device_pixel_ratio,
-            use_thin_strokes: use_thin_strokes,
+            device_pixel_ratio,
+            use_thin_strokes,
         })
     }
 
@@ -196,7 +196,7 @@ impl Rasterizer {
         for descriptor in descriptors {
             if descriptor.style_name == style {
                 // Found the font we want
-                let scaled_size = size.as_f32_pts() as f64 * self.device_pixel_ratio as f64;
+                let scaled_size = f64::from(size.as_f32_pts()) * f64::from(self.device_pixel_ratio);
                 let font = descriptor.to_font(scaled_size, true);
                 return Ok(font);
             }
@@ -220,7 +220,7 @@ impl Rasterizer {
             Slant::Normal => false,
             _ => true,
         };
-        let scaled_size = size.as_f32_pts() as f64 * self.device_pixel_ratio as f64;
+        let scaled_size = f64::from(size.as_f32_pts()) * f64::from(self.device_pixel_ratio);
 
         let descriptors = descriptors_for_family(&desc.name[..]);
         for descriptor in descriptors {
@@ -250,7 +250,7 @@ impl Rasterizer {
         font: &Font,
     ) -> Option<Result<RasterizedGlyph, Error>> {
         let scaled_size = self.device_pixel_ratio * glyph.size.as_f32_pts();
-        font.get_glyph(glyph.c, scaled_size as _, self.use_thin_strokes)
+        font.get_glyph(glyph.c, f64::from(scaled_size), self.use_thin_strokes)
             .map(|r| Some(Ok(r)))
             .unwrap_or_else(|e| match e {
                 Error::MissingGlyph(_) => None,
@@ -301,7 +301,7 @@ pub fn get_family_names() -> Vec<String> {
 /// Return fallback descriptors for font/language list
 fn cascade_list_for_languages(
     ct_font: &CTFont,
-    languages: &Vec<String>
+    languages: &[String]
 ) -> Vec<Descriptor> {
 
     // convert language type &Vec<String> -> CFArray
@@ -368,12 +368,11 @@ impl Descriptor {
                     // many chars. We add the symbols back in.
                     // Investigate if we can actually use the .-prefixed
                     // fallbacks somehow.
-                    descriptors_for_family("Apple Symbols")
-                        .into_iter()
-                        .next() // should only have one element; use it
-                        .map(|descriptor| {
-                            fallbacks.push(descriptor.to_font(size, false))
-                        });
+                    if let Some(descriptor) =
+                        descriptors_for_family("Apple Symbols").into_iter().next()
+                    {
+                        fallbacks.push(descriptor.to_font(size, false))
+                    };
 
                     // Include Menlo in the fallback list as well
                     fallbacks.insert(0, Font {
@@ -390,9 +389,9 @@ impl Descriptor {
         };
 
         Font {
-            ct_font: ct_font,
-            cg_font: cg_font,
-            fallbacks: fallbacks,
+            ct_font,
+            cg_font,
+            fallbacks,
         }
     }
 }
@@ -424,8 +423,8 @@ impl Font {
         let line_height = (ascent + descent + leading + 0.5).floor();
 
         Metrics {
-            average_advance: average_advance,
-            line_height: line_height,
+            average_advance,
+            line_height,
             descent: -(self.ct_font.descent() as f32),
         }
     }
@@ -482,13 +481,13 @@ impl Font {
         }
 
         let glyph_index = self.glyph_index(character)
-            .ok_or(Error::MissingGlyph(character))?;
+            .ok_or_else(|| Error::MissingGlyph(character))?;
 
         let bounds = self.bounding_rect_for_glyph(Default::default(), glyph_index);
 
         let rasterized_left = bounds.origin.x.floor() as i32;
         let rasterized_width =
-            (bounds.origin.x - (rasterized_left as f64) + bounds.size.width).ceil() as u32;
+            (bounds.origin.x - f64::from(rasterized_left) + bounds.size.width).ceil() as u32;
         let rasterized_descent = (-bounds.origin.y).ceil() as i32;
         let rasterized_ascent = (bounds.size.height + bounds.origin.y).ceil() as i32;
         let rasterized_height = (rasterized_descent + rasterized_ascent) as u32;
@@ -519,8 +518,8 @@ impl Font {
         let context_rect = CGRect::new(
             &CGPoint::new(0.0, 0.0),
             &CGSize::new(
-                rasterized_width as f64,
-                rasterized_height as f64
+                f64::from(rasterized_width),
+                f64::from(rasterized_height)
             )
         );
 
@@ -542,8 +541,8 @@ impl Font {
         // Set fill color to white for drawing the glyph
         cg_context.set_rgb_fill_color(1.0, 1.0, 1.0, 1.0);
         let rasterization_origin = CGPoint {
-            x: -rasterized_left as f64,
-            y: rasterized_descent as f64,
+            x: f64::from(-rasterized_left),
+            y: f64::from(rasterized_descent),
         };
 
         self.ct_font.draw_glyphs(&[glyph_index as CGGlyph],
@@ -560,7 +559,7 @@ impl Font {
             top: (bounds.size.height + bounds.origin.y).ceil() as i32,
             width: rasterized_width as i32,
             height: rasterized_height as i32,
-            buf: buf,
+            buf,
         })
     }
 
@@ -585,7 +584,7 @@ impl Font {
         );
 
         if res {
-            Some(glyphs[0] as u32)
+            Some(u32::from(glyphs[0]))
         } else {
             None
         }
