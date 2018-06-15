@@ -197,10 +197,8 @@ impl<T> Storage<T> {
     }
 
     /// Compute actual index in underlying storage given the requested index.
-    fn compute_index(&self, mut requested: usize) -> usize {
-        // If line outside the buffer is requested, return the last line in the buffer
-        // This is used for copying a selection that has left the screen
-        requested = ::std::cmp::min(requested, self.inner.len());
+    fn compute_index(&self, requested: usize) -> usize {
+        debug_assert!(requested < self.inner.len());
         let zeroed = requested + self.zero;
 
         // This part is critical for performance,
