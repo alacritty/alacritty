@@ -186,7 +186,8 @@ impl<T> Storage<T> {
         split.truncate(split_len - (shrinkage - shrinkage_start));
 
         // Merge buffers again and reset zero
-        self.inner.append(&mut split);
+        split.append(&mut self.inner);
+        self.inner = split;
         self.zero = 0;
     }
 
@@ -561,8 +562,8 @@ fn truncate_invisible_lines_beginning() {
 
     // Make sure the result is correct
     let expected = Storage {
-        inner: vec![Row::new(Column(1), &'1'), Row::new(Column(1), &'0')],
-        zero: 1,
+        inner: vec![Row::new(Column(1), &'0'), Row::new(Column(1), &'1')],
+        zero: 0,
         visible_lines: Line(1),
         len: 2,
     };
