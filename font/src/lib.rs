@@ -17,9 +17,9 @@
 //! CoreText is used on Mac OS.
 //! FreeType is used on everything that's not Mac OS.
 //! Eventually, ClearType support will be available for windows
-#[cfg(unix)]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 extern crate fontconfig;
-#[cfg(unix)]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 extern crate freetype;
 
 #[cfg(target_os = "macos")]

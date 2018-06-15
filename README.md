@@ -50,6 +50,12 @@ cd alacritty-git
 makepkg -isr
 ```
 
+### Void Linux	
+	
+```sh	
+xbps-install alacritty	
+```	
+
 ## Manual Installation
 
 ### Prerequisites
@@ -205,6 +211,18 @@ It might be handy to mask all other packages provided in the `slyfox` overlay by
 adding `*/*::slyfox` to `/etc/portage/package.mask` and adding
 `x11-terms/alacritty::slyfox` to `/etc/portage/package.unmask`.
 
+### Cargo	
+	
+If you have a rust toolchain setup you can install Alacritty via cargo:	
+	
+```sh	
+cargo install --git https://github.com/jwilm/alacritty	
+```	
+	
+Note that you still need to download system build dependencies via your package	
+manager as mentioned above. The binary `alacritty` will be placed into `$HOME/.cargo/bin`.	
+Make sure it is in your path (default if you use `rustup`).	
+
 #### Other
 
 If you build Alacritty on another distribution, we would love some help
@@ -224,11 +242,8 @@ cargo build --release
 ```
 
 If all goes well, this should place a binary at `target/release/alacritty`.
-**BEFORE YOU RUN IT:** Install the config file as described below; otherwise,
-many things (such as arrow keys) will not work. If you're on macOS, you'll need
-to change the `monospace` font family to something like `Menlo`.
 
-### Desktop Entry
+##### Desktop Entry
 
 Many linux distributions support desktop entries for adding applications to
 system menus. To install the desktop entry for Alacritty, run
@@ -329,25 +344,31 @@ Just Works.
 
 ## FAQ
 
-- _proc-macro derive panicked during macOS build; what's wrong?_ There's an
-  issue with the Rust compiler from Homebrew. Please follow the instructions
-  and use `rustup`.
-- _Is it really the fastest terminal emulator?_ In the terminals I've
-  benchmarked against, alacritty is either faster, WAY faster, or at least
-  neutral. There are no benchmarks in which I've found Alacritty to be slower.
-- _macOS + tmux + vim is slow! I thought this was supposed to be fast!_ This
-  appears to be an issue outside of terminal emulators; either macOS has an IPC
-  performance issue, or either tmux or vim (or both) have a bug. This same issue
-  can be seen in `iTerm2` and `Terminal.app`. I've found that if tmux is running
-  on another machine which is connected to Alacritty via SSH, this issue
-  disappears. Actual throughput and rendering performance are still better in
-  Alacritty.
-- _My arrow keys don't work_. It sounds like you deleted some key bindings from
-  your config file. Please reference the default config file to restore them.
-- _Why doesn't it support scrollback?_ Alacritty's original purpose was to
-  provide a better experience when using [tmux] which already handled
-  scrollback. The scope of this project has since expanded, and [scrollback will
-  eventually be added](https://github.com/jwilm/alacritty/issues/124).
+**_Is it really the fastest terminal emulator?_**
+
+In the terminals I've benchmarked against, alacritty is either faster, WAY
+faster, or at least neutral. There are no benchmarks in which I've found
+Alacritty to be slower.
+
+**_macOS + tmux + vim is slow! I thought this was supposed to be fast!_**
+
+This appears to be an issue outside of terminal emulators; either macOS has an
+IPC performance issue, or either tmux or vim (or both) have a bug. This same
+issue can be seen in `iTerm2` and `Terminal.app`. I've found that if tmux is
+running on another machine which is connected to Alacritty via SSH, this issue
+disappears. Actual throughput and rendering performance are still better in
+Alacritty.
+
+**_My arrow keys don't work._**
+
+It sounds like you deleted some key bindings from your config file. Please
+reference the default config file to restore them.
+
+**_Why doesn't it support scrollback?_**
+
+Alacritty's original purpose was to provide a better experience when using
+[tmux] which already handled scrollback. The scope of this project has since
+expanded, and [scrollback will eventually be added](https://github.com/jwilm/alacritty/issues/124).
 
 ## IRC
 
