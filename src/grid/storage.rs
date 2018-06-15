@@ -128,9 +128,6 @@ impl<T> Storage<T> {
     where
         T: Clone,
     {
-        // Get the position of the start of the buffer
-        let offset = self.zero % self.inner.len();
-
         // Only grow if there are not enough lines still hidden
         let mut new_growage = 0;
         if growage > (self.inner.len() - self.len) {
@@ -138,7 +135,7 @@ impl<T> Storage<T> {
             new_growage = growage - (self.inner.len() - self.len);
 
             // Split off the beginning of the raw inner buffer
-            let mut start_buffer = self.inner.split_off(offset);
+            let mut start_buffer = self.inner.split_off(self.zero);
 
             // Insert new template rows at the end of the raw inner buffer
             let mut new_lines = vec![template_row; new_growage];
@@ -149,7 +146,7 @@ impl<T> Storage<T> {
         }
 
         // Update raw buffer length and zero offset
-        self.zero = offset + new_growage;
+        self.zero = (self.zero + new_growage) % self.inner.len();
         self.len += growage;
     }
 
@@ -176,12 +173,11 @@ impl<T> Storage<T> {
     /// Truncate the invisible elements from the raw buffer
     pub fn truncate(&mut self) {
         // Calculate shrinkage/offset for indexing
-        let offset = self.zero % self.inner.len();
         let shrinkage = self.inner.len() - self.len;
-        let shrinkage_start = ::std::cmp::min(offset, shrinkage);
+        let shrinkage_start = ::std::cmp::min(self.zero, shrinkage);
 
         // Create two vectors with correct ordering
-        let mut split = self.inner.split_off(offset);
+        let mut split = self.inner.split_off(self.zero);
 
         // Truncate the buffers
         let len = self.inner.len();
@@ -190,8 +186,8 @@ impl<T> Storage<T> {
         split.truncate(split_len - (shrinkage - shrinkage_start));
 
         // Merge buffers again and reset zero
-        self.zero = self.inner.len();
         self.inner.append(&mut split);
+        self.zero = 0;
     }
 
     #[inline]
@@ -200,14 +196,16 @@ impl<T> Storage<T> {
     }
 
     /// Compute actual index in underlying storage given the requested index.
-    fn compute_index(&self, requested: usize) -> usize {
+    fn compute_index(&self, mut requested: usize) -> usize {
+        // If line outside the buffer is requested, return the last line in the buffer
+        // This is used for copying a selection that has left the screen
+        requested = ::std::cmp::min(requested, self.inner.len());
         let zeroed = requested + self.zero;
-        let len = self.inner.len();
 
-        // This is performance-critical, since `zeroed` is smaller than `len` most of the time,
-        // it makes sense to check before doing an expensive modulo operation
-        if zeroed >= len {
-            zeroed % len
+        // This part is critical for performance,
+        // so an if/else is used here instead of a moludo operation
+        if zeroed >= self.inner.len() {
+            zeroed - self.inner.len()
         } else {
             zeroed
         }
