@@ -69,6 +69,8 @@ extern crate unicode_width;
 extern crate vte;
 extern crate xdg;
 extern crate base64;
+extern crate winit;
+extern crate image;
 
 #[macro_use]
 pub mod macros;

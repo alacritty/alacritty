@@ -19,11 +19,15 @@ use gl;
 use glutin::{self, ContextBuilder, ControlFlow, CursorState, Event, EventsLoop,
              MouseCursor as GlutinMouseCursor, WindowBuilder};
 use glutin::GlContext;
+use winit::Icon;
+use image::ImageFormat;
 
 use MouseCursor;
 
 use cli::Options;
 use config::WindowConfig;
+
+static WINDOW_ICON: &'static [u8] = include_bytes!("../assets/windows/alacritty.ico");
 
 /// Window errors
 #[derive(Debug)]
@@ -200,16 +204,14 @@ impl Window {
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
-        #[cfg(not(windows))]
-        let initially_shown = false;
-        #[cfg(windows)]
-        let initially_shown = true;
+        let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO).unwrap();
 
         let window_builder = WindowBuilder::new()
             .with_title(&*options.title)
-            .with_visibility(initially_shown)
+            .with_visibility(cfg!(windows))
             .with_transparency(true)
-            .with_decorations(window_config.decorations());
+            .with_decorations(window_config.decorations())
+            .with_window_icon(Some(icon));
         let window_builder = Window::platform_builder_ext(window_builder, &options.class);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
