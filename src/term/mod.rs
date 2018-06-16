@@ -945,9 +945,12 @@ impl Term {
             fn append(
                 &mut self,
                 grid: &Grid<Cell>,
-                line: usize,
+                mut line: usize,
                 cols: Range<Column>
             ) -> Option<Range<Column>> {
+                // Select until last line still within the buffer
+                line = min(line, grid.len() - 1);
+
                 let grid_line = &grid[line];
                 let line_length = grid_line.line_length();
                 let line_end = min(line_length, cols.end + 1);

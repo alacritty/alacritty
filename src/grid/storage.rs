@@ -128,9 +128,6 @@ impl<T> Storage<T> {
     where
         T: Clone,
     {
-        // Get the position of the start of the buffer
-        let offset = self.zero % self.inner.len();
-
         // Only grow if there are not enough lines still hidden
         let mut new_growage = 0;
         if growage > (self.inner.len() - self.len) {
@@ -138,7 +135,7 @@ impl<T> Storage<T> {
             new_growage = growage - (self.inner.len() - self.len);
 
             // Split off the beginning of the raw inner buffer
-            let mut start_buffer = self.inner.split_off(offset);
+            let mut start_buffer = self.inner.split_off(self.zero);
 
             // Insert new template rows at the end of the raw inner buffer
             let mut new_lines = vec![template_row; new_growage];
@@ -149,7 +146,7 @@ impl<T> Storage<T> {
         }
 
         // Update raw buffer length and zero offset
-        self.zero = offset + new_growage;
+        self.zero = (self.zero + new_growage) % self.inner.len();
         self.len += growage;
     }
 
@@ -176,12 +173,11 @@ impl<T> Storage<T> {
     /// Truncate the invisible elements from the raw buffer
     pub fn truncate(&mut self) {
         // Calculate shrinkage/offset for indexing
-        let offset = self.zero % self.inner.len();
         let shrinkage = self.inner.len() - self.len;
-        let shrinkage_start = ::std::cmp::min(offset, shrinkage);
+        let shrinkage_start = ::std::cmp::min(self.zero, shrinkage);
 
         // Create two vectors with correct ordering
-        let mut split = self.inner.split_off(offset);
+        let mut split = self.inner.split_off(self.zero);
 
         // Truncate the buffers
         let len = self.inner.len();
@@ -190,8 +186,9 @@ impl<T> Storage<T> {
         split.truncate(split_len - (shrinkage - shrinkage_start));
 
         // Merge buffers again and reset zero
-        self.zero = self.inner.len();
-        self.inner.append(&mut split);
+        split.append(&mut self.inner);
+        self.inner = split;
+        self.zero = 0;
     }
 
     #[inline]
@@ -201,7 +198,16 @@ impl<T> Storage<T> {
 
     /// Compute actual index in underlying storage given the requested index.
     fn compute_index(&self, requested: usize) -> usize {
-        (requested + self.zero) % self.inner.len()
+        debug_assert!(requested < self.inner.len());
+        let zeroed = requested + self.zero;
+
+        // This part is critical for performance,
+        // so an if/else is used here instead of a moludo operation
+        if zeroed >= self.inner.len() {
+            zeroed - self.inner.len()
+        } else {
+            zeroed
+        }
     }
 
     pub fn swap_lines(&mut self, a: Line, b: Line) {
@@ -554,8 +560,8 @@ fn truncate_invisible_lines_beginning() {
 
     // Make sure the result is correct
     let expected = Storage {
-        inner: vec![Row::new(Column(1), &'1'), Row::new(Column(1), &'0')],
-        zero: 1,
+        inner: vec![Row::new(Column(1), &'0'), Row::new(Column(1), &'1')],
+        zero: 0,
         visible_lines: Line(1),
         len: 2,
     };
