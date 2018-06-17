@@ -24,8 +24,13 @@ foreign_type! {
 }
 
 impl ObjectSet {
-    #[allow(dead_code)]
-    pub fn new() -> ObjectSet {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for ObjectSet {
+    fn default() -> Self {
         ObjectSet(unsafe {
             FcObjectSetCreate()
         })

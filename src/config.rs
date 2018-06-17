@@ -1735,7 +1735,7 @@ mod tests {
     }
 }
 
-#[cfg_attr(feature = "clippy", allow(enum_variant_names))]
+#[cfg_attr(feature = "cargo-clippy", allow(enum_variant_names))]
 #[derive(Deserialize, Copy, Clone)]
 enum Key {
     Key1,

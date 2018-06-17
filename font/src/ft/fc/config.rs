@@ -38,7 +38,7 @@ impl Config {
 impl ConfigRef {
     /// Returns one of the two sets of fonts from the configuration as
     /// specified by `set`.
-    pub fn get_fonts<'a>(&'a self, set: SetName) -> &'a FontSetRef {
+    pub fn get_fonts(&self, set: SetName) -> &FontSetRef {
         unsafe {
             let ptr = FcConfigGetFonts(self.as_ptr(), set as u32);
             FontSetRef::from_ptr(ptr)
