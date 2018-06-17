@@ -299,7 +299,11 @@ impl Window {
     /// Set the window title
     #[inline]
     pub fn set_title(&self, title: &str) {
-        self.window.set_title(title);
+        // Because winpty doesn't know anything about OSC escapes this gets set to an empty
+        // string on windows
+        if !cfg!(windows) {
+            self.window.set_title(title);
+        }
     }
 
     #[inline]
