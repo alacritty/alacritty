@@ -219,11 +219,22 @@ impl<'a, 'b> Winpty<'a> {
         }
     }
 
-    /// Gets a list of processes attached to the console.
-    /// Currently unimplemented
-    // TODO: Implement
-    pub fn console_process_list(&mut self) -> Result<Vec<u32>, Err> {
-        unimplemented!();
+    /// Get the list of processses running in the winpty agent. Returns <= limit processes
+    // TODO: This should return Vec<Handle> instead of Vec<i32>
+    pub fn console_process_list(&mut self, count: usize) -> Result<Vec<i32>, Err> {
+        let mut err = null_mut() as *mut winpty_error_t;
+        let mut process_list = Vec::with_capacity(count);
+
+        unsafe {
+            let len = winpty_get_console_process_list(self.0, process_list.as_mut_ptr(), count as i32, &mut err) as usize;
+            process_list.set_len(len);
+        }
+
+        if let Some(err) = check_err(err) {
+            Result::Err(err)
+        } else {
+            Ok(process_list)
+        }
     }
 
     /// Spawns the new process.
