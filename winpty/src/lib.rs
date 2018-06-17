@@ -7,7 +7,7 @@ use std::error::Error;
 use std::fmt;
 use std::path::PathBuf;
 use std::result::Result;
-use std::os::raw::c_void;
+use std::os::windows::io::RawHandle;
 use std::ptr::{null, null_mut};
 use fmt::{Display, Formatter};
 
@@ -45,8 +45,6 @@ bitflags!(
     }
 );
 
-pub struct Handle<'a>(&'a mut c_void);
-
 #[derive(Debug)]
 pub struct Err<'a> {
     ptr: &'a mut winpty_error_t,
@@ -54,6 +52,7 @@ pub struct Err<'a> {
     message: String,
 }
 
+// Check to see whether winpty gave us an error
 fn check_err<'a>(e: *mut winpty_error_t) -> Option<Err<'a>> {
     let err = unsafe {
         let raw = winpty_error_msg(e);
@@ -89,24 +88,29 @@ impl<'a> Error for Err<'a> {
 }
 
 #[derive(Debug)]
+/// Winpty agent config
 pub struct Config<'a>(&'a mut winpty_config_t);
+
 impl<'a, 'b> Config<'a> {
     pub fn new(flags: ConfigFlags) -> Result<Self, Err<'b>> {
         let mut err = null_mut() as *mut winpty_error_t;
         let config = unsafe { winpty_config_new(flags.bits(), &mut err) };
+
         if let Some(err) = check_err(err) {
             Result::Err(err)
         } else {
             unsafe { Ok(Config(&mut *config)) }
         }
     }
+
+    /// Set the initial size of the console window
     pub fn set_initial_size(&mut self, cols: i32, rows: i32) {
-        assert!(cols > 0);
-        assert!(rows > 0);
         unsafe {
             winpty_config_set_initial_size(self.0, cols, rows);
         }
     }
+
+    /// Set the mouse mode
     pub fn set_mouse_mode(&mut self, mode: MouseMode) {
         let m = match mode {
             MouseMode::None => 0,
@@ -117,6 +121,9 @@ impl<'a, 'b> Config<'a> {
             winpty_config_set_mouse_mode(self.0, m);
         }
     }
+
+    /// Amount of time to wait for the agent to startup and to wait for any given
+    /// agent RPC request.  Must be greater than 0.  Can be INFINITE.
     // Might be a better way to represent this while still retaining infinite capability?
     // Enum?
     pub fn set_agent_timeout(&mut self, timeout: u32) {
@@ -125,6 +132,7 @@ impl<'a, 'b> Config<'a> {
         }
     }
 }
+
 impl<'a> Drop for Config<'a> {
     fn drop(&mut self) {
         unsafe {
@@ -134,8 +142,13 @@ impl<'a> Drop for Config<'a> {
 }
 
 #[derive(Debug)]
+/// A struct representing the winpty agent process
 pub struct Winpty<'a>(&'a mut winpty_t);
+
 impl<'a, 'b> Winpty<'a> {
+    /// Starts the agent. This process will connect to the agent 
+    /// over a control pipe, and the agent will open data pipes 
+    /// (e.g. CONIN and CONOUT).
     pub fn open(cfg: &Config) -> Result<Self, Err<'b>> {
         let mut err = null_mut() as *mut winpty_error_t;
         unsafe {
@@ -148,9 +161,14 @@ impl<'a, 'b> Winpty<'a> {
             }
         }
     }
-    pub fn raw_handle(&mut self) -> *mut c_void {
+
+    /// Returns the handle to the winpty agent process
+    pub fn raw_handle(&mut self) -> RawHandle {
         unsafe { winpty_agent_process(self.0) }
     }
+
+    /// Returns the name of the input pipe.
+    /// Pipe is half-duplex.
     pub fn conin_name(&mut self) -> PathBuf {
         unsafe {
             let raw = winpty_conin_name(self.0);
@@ -160,6 +178,9 @@ impl<'a, 'b> Winpty<'a> {
             )))
         }
     }
+
+    /// Returns the name of the output pipe.
+    /// Pipe is half-duplex.
     pub fn conout_name(&mut self) -> PathBuf {
         unsafe {
             let raw = winpty_conout_name(self.0);
@@ -169,6 +190,10 @@ impl<'a, 'b> Winpty<'a> {
             )))
         }
     }
+
+    /// Returns the name of the error pipe.
+    /// The name will only be valid if ConfigFlags::CONERR was specified.
+    /// Pipe is half-duplex.
     pub fn conerr_name(&mut self) -> PathBuf {
         unsafe {
             let raw = winpty_conerr_name(self.0);
@@ -178,50 +203,56 @@ impl<'a, 'b> Winpty<'a> {
             )))
         }
     }
+
+    /// Change the size of the Windows console window.
     pub fn set_size(&mut self, cols: usize, rows: usize) -> Result<(), Err> {
-        assert!(cols > 0);
-        assert!(rows > 0);
         let mut err = null_mut() as *mut winpty_error_t;
+
         unsafe {
             winpty_set_size(self.0, cols as i32, rows as i32, &mut err);
         }
+
         if let Some(err) = check_err(err) {
             Result::Err(err)
         } else {
             Ok(())
         }
     }
-    // TODO:
+
+    /// Gets a list of processes attached to the console.
+    /// Currently unimplemented
+    // TODO: Implement
     pub fn console_process_list(&mut self) -> Result<Vec<u32>, Err> {
         unimplemented!();
     }
+
+    /// Spawns the new process.
+    ///
+    /// spawn can only be called once per Winpty object.  If it is called
+    /// before the output data pipe(s) is/are connected, then collected output is
+    /// buffered until the pipes are connected, rather than being discarded.
+    /// (https://blogs.msdn.microsoft.com/oldnewthing/20110107-00/?p=11803)
     // Decide whether this should return a new object and if so should it have the pipe methods
-    // This method can return two errors, create_process and the normal one, create an enum?
+    // TODO: Support getting the process and thread handle of the spawned process (Not the agent)
+    // TODO: Support returning the error from CreateProcess
     pub fn spawn(
         &mut self,
         cfg: &SpawnConfig,
-        process_handle: Option<Handle>,
-        thread_handle: Option<Handle>,
     ) -> Result<(), Err> {
         let mut err = null_mut() as *mut winpty_error_t;
-        let mut p_handle = match process_handle {
-            None => null_mut(),
-            Some(h) => h.0,
-        };
-        let mut t_handle = match thread_handle {
-            None => null_mut(),
-            Some(h) => h.0,
-        };
+
         unsafe {
-            winpty_spawn(
+            let ok = winpty_spawn(
                 self.0,
                 cfg.0 as *const winpty_spawn_config_s,
-                &mut p_handle,
-                &mut t_handle,
-                null_mut(),
+                null_mut(), // Process handle
+                null_mut(), // Thread handle
+                null_mut(), // Create process error
                 &mut err,
             );
+            if ok == 0 { return Ok(());}
         }
+
         if let Some(err) = check_err(err) {
             Result::Err(err)
         } else {
@@ -231,6 +262,7 @@ impl<'a, 'b> Winpty<'a> {
 }
 unsafe impl<'a> Sync for Winpty<'a> {}
 unsafe impl<'a> Send for Winpty<'a> {}
+
 impl<'a> Drop for Winpty<'a> {
     fn drop(&mut self) {
         unsafe {
@@ -240,8 +272,11 @@ impl<'a> Drop for Winpty<'a> {
 }
 
 #[derive(Debug)]
+/// Information about a process for winpty to spawn
 pub struct SpawnConfig<'a>(&'a mut winpty_spawn_config_t);
+
 impl<'a, 'b> SpawnConfig<'a> {
+    /// Creates a new spawnconfig
     pub fn new(
         spawnflags: SpawnFlags,
         appname: Option<&str>,
@@ -256,9 +291,11 @@ impl<'a, 'b> SpawnConfig<'a> {
             cwd.map_or(null(), |s| WideCString::from_str(s).unwrap().into_raw()),
             end.map_or(null(), |s| WideCString::from_str(s).unwrap().into_raw()),
         );
+
         let spawn_config = unsafe {
             winpty_spawn_config_new(spawnflags.bits(), appname, cmdline, cwd, end, &mut err)
         };
+
         // Required to free the strings
         unsafe {
             if appname != null() {
@@ -274,6 +311,7 @@ impl<'a, 'b> SpawnConfig<'a> {
                 WideCString::from_raw(end as *mut u16);
             }
         }
+
         if let Some(err) = check_err(err) {
             Result::Err(err)
         } else {

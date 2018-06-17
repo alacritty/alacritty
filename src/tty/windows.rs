@@ -147,7 +147,7 @@ pub fn new<'a>(
     }
     assert!(conin_pipe.take_error().unwrap().is_none());
 
-    winpty.spawn(&spawnconfig, None, None).unwrap(); // Process handle, thread handle
+    winpty.spawn(&spawnconfig).unwrap();
 
     unsafe {
         HANDLE = winpty.raw_handle();
