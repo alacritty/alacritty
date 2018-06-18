@@ -27,13 +27,7 @@ use config::WindowConfig;
 
 /// Default text for the window's title bar, if not overriden.
 ///
-/// In X11, this the default value for the `WM_NAME` property. Other
-/// platforms haven't been documented yet.
-///
-/// ```ignore
-/// $ xprop | grep WM_NAME
-/// WM_NAME(STRING) = "Alacritty"
-/// ```
+/// In X11, this the default value for the `WM_NAME` property.
 pub const DEFAULT_TITLE: &str = "Alacritty";
 
 /// Default text for general window class, X11 specific.
