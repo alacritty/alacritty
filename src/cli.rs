@@ -18,17 +18,14 @@ use config::{Dimensions, Shell};
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 
-const DEFAULT_TITLE: &str = "Alacritty";
-const DEFAULT_CLASS: &str = "Alacritty";
-
 /// Options specified on the command line
 pub struct Options {
     pub live_config_reload: Option<bool>,
     pub print_events: bool,
     pub ref_test: bool,
     pub dimensions: Option<Dimensions>,
-    pub title: String,
-    pub class: String,
+    pub title: Option<String>,
+    pub class: Option<String>,
     pub log_level: log::LevelFilter,
     pub command: Option<Shell<'static>>,
     pub working_dir: Option<PathBuf>,
@@ -42,8 +39,8 @@ impl Default for Options {
             print_events: false,
             ref_test: false,
             dimensions: None,
-            title: DEFAULT_TITLE.to_owned(),
-            class: DEFAULT_CLASS.to_owned(),
+            title: None,
+            class: None,
             log_level: log::LevelFilter::Warn,
             command: None,
             working_dir: None,
@@ -82,11 +79,11 @@ impl Options {
             .arg(Arg::with_name("title")
                 .long("title")
                 .short("t")
-                .default_value(DEFAULT_TITLE)
+                .takes_value(true)
                 .help("Defines the window title"))
             .arg(Arg::with_name("class")
                  .long("class")
-                 .default_value(DEFAULT_CLASS)
+                 .takes_value(true)
                  .help("Defines window class on X11"))
             .arg(Arg::with_name("q")
                 .short("q")
@@ -139,13 +136,8 @@ impl Options {
             }
         }
 
-        if let Some(title) = matches.value_of("title") {
-            options.title = title.to_owned();
-        }
-
-        if let Some(class) = matches.value_of("class") {
-            options.class = class.to_owned();
-        }
+        options.class = matches.value_of("class").map(|c| c.to_owned());
+        options.title = matches.value_of("title").map(|t| t.to_owned());
 
         match matches.occurrences_of("q") {
             0 => {},
