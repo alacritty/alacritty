@@ -23,6 +23,7 @@ use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
 
 use glutin::ModifiersState;
 
+use cli::Options;
 use input::{Action, Binding, MouseBinding, KeyBinding};
 use index::{Line, Column};
 use ansi::CursorStyle;
@@ -1383,6 +1384,14 @@ impl Config {
         Ok(config)
     }
 
+    /// Overrides the `dynamic_title` configuration based on `--title`.
+    pub fn update_dynamic_title(mut self, options: &Options) -> Self {
+        if options.title.is_some() {
+            self.dynamic_title = false;
+        }
+        self
+    }
+
     fn read_file<P: AsRef<Path>>(path: P) -> Result<String> {
         let mut f = fs::File::open(path)?;
         let mut contents = String::new();
@@ -1713,6 +1722,7 @@ impl Monitor {
 
 #[cfg(test)]
 mod tests {
+    use cli::Options;
     use super::Config;
 
     #[cfg(target_os="macos")]
@@ -1732,6 +1742,26 @@ mod tests {
 
         // Sanity check that key bindings are being parsed
         assert!(!config.key_bindings.is_empty());
+    }
+
+    #[test]
+    fn dynamic_title_ignoring_options_by_default() {
+        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
+            .expect("deserialize config");
+        let old_dynamic_title = config.dynamic_title;
+        let options = Options::default();
+        let config = config.update_dynamic_title(&options);
+        assert_eq!(old_dynamic_title, config.dynamic_title);
+    }
+
+    #[test]
+    fn dynamic_title_overridden_by_options() {
+        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
+            .expect("deserialize config");
+        let mut options = Options::default();
+        options.title = Some("foo".to_owned());
+        let config = config.update_dynamic_title(&options);
+        assert!(!config.dynamic_title);
     }
 }
 
