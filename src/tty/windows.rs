@@ -163,7 +163,10 @@ pub fn new<'a>(
     }
 }
 
-impl<'a> EventedRW<NamedPipe, NamedPipe> for Pty<'a, NamedPipe, NamedPipe> {
+impl<'a> EventedRW for Pty<'a, NamedPipe, NamedPipe> {
+    type Reader = NamedPipe;
+    type Writer = NamedPipe;
+
     fn register(
         &mut self,
         poll: &mio::Poll,

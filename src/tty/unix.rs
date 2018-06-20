@@ -310,7 +310,10 @@ pub fn new<'a, T: ToWinsize>(
     }
 }
 
-impl<'a> EventedRW<File, File> for Pty {
+impl<'a> EventedRW for Pty {
+    type Reader = File;
+    type Writer = File;
+
     fn register(
         &mut self,
         poll: &mio::Poll,
@@ -318,9 +321,7 @@ impl<'a> EventedRW<File, File> for Pty {
         interest: mio::Ready,
         poll_opts: mio::PollOpt,
     ) {
-        info!("reg");
         self.token = (*token.next().unwrap()).into();
-        info!("{:?}", self.token);
         poll.register(
             &EventedFd(&self.raw_fd),
             self.token,
@@ -337,7 +338,6 @@ impl<'a> EventedRW<File, File> for Pty {
         ).unwrap();
     }
     fn deregister(&mut self, poll: &mio::Poll) {
-        info!("dereg");
         poll.deregister(&EventedFd(&self.raw_fd)).unwrap();
     }
 

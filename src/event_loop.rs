@@ -1,10 +1,10 @@
 //! The main event loop which performs I/O on the pseudoterminal
 use std::borrow::Cow;
 use std::collections::VecDeque;
-use std::io::{self, ErrorKind, Write};
+use std::io::{self, ErrorKind, Read, Write};
 use std::fs::File;
 use std::sync::Arc;
-use std::marker::{PhantomData, Send};
+use std::marker::Send;
 
 use mio::{self, Events, PollOpt, Ready};
 use mio_more::channel::{self, Receiver, Sender};
@@ -34,7 +34,7 @@ pub enum Msg {
 ///
 /// Handles all the pty I/O and runs the pty parser which updates terminal
 /// state.
-pub struct EventLoop<R: io::Read, W: io::Write, T: tty::EventedRW<R, W>> {
+pub struct EventLoop<T: tty::EventedRW> {
     poll: mio::Poll,
     pty: T,
     rx: Receiver<Msg>,
@@ -42,9 +42,6 @@ pub struct EventLoop<R: io::Read, W: io::Write, T: tty::EventedRW<R, W>> {
     terminal: Arc<FairMutex<Term>>,
     display: display::Notifier,
     ref_test: bool,
-    // FIXME: A possibly better solution is to change the trait (PTY?) to use an associated type
-    _r: PhantomData<R>,
-    _w: PhantomData<W>,
 }
 
 /// Helper type which tracks how much of a buffer has been written.
@@ -166,11 +163,9 @@ impl Writing {
 /// `mio::Token` for the event loop channel
 const CHANNEL: mio::Token = mio::Token(0);
 
-impl<R, W, T> EventLoop<R, W, T>
+impl<T> EventLoop<T>
     where
-        R: io::Read + Send + 'static,
-        W: io::Write + Send + 'static,
-        T: tty::EventedRW<R, W> + Send + 'static,
+        T: tty::EventedRW + Send + 'static,
 {
     /// Create a new event loop
     pub fn new(
@@ -178,7 +173,7 @@ impl<R, W, T> EventLoop<R, W, T>
         display: display::Notifier,
         pty: T,
         ref_test: bool,
-    ) -> EventLoop<R, W, T> {
+    ) -> EventLoop<T> {
         let (tx, rx) = channel::channel();
         EventLoop {
             poll: mio::Poll::new().expect("create mio Poll"),
@@ -188,9 +183,6 @@ impl<R, W, T> EventLoop<R, W, T>
             terminal,
             display,
             ref_test,
-            // TODO: A possibly better solution is to use an associated type in the EventedRW trait
-            _r: PhantomData,
-            _w: PhantomData,
         }
     }
 
