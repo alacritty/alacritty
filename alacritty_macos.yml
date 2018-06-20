@@ -194,6 +194,14 @@ colors:
     cyan:    '0x66cccc'
     white:   '0xdddddd'
 
+  # Indexed Colors
+  #
+  # The indexed colors include all colors from 16 to 256.
+  # When these are not set, they're filled with sensible defaults.
+  #
+  #indexed_colors:
+  #  - { index: 16, color: '0x000000' }
+
 # Visual Bell
 #
 # Any time the BEL code is received, Alacritty "rings" the visual bell. Once

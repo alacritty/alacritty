@@ -900,6 +900,8 @@ impl Term {
     pub fn update_config(&mut self, config: &Config) {
         self.semantic_escape_chars = config.selection().semantic_escape_chars.clone();
         self.original_colors.fill_named(config.colors());
+        self.original_colors.fill_cube(config.colors());
+        self.original_colors.fill_gray_ramp(config.colors());
         for i in 0..color::COUNT {
             if !self.color_modified[i] {
                 self.colors[i] = self.original_colors[i];

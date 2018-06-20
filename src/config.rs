@@ -1100,16 +1100,42 @@ pub struct Colors {
     pub bright: AnsiColors,
     #[serde(default, deserialize_with = "failure_default")]
     pub dim: Option<AnsiColors>,
+    #[serde(default, deserialize_with = "failure_default_vec")]
+    pub indexed_colors: Vec<IndexedColor>,
 }
 
-fn deserialize_cursor_colors<'a, D>(deserializer: D) -> ::std::result::Result<CursorColors, D::Error>
+#[derive(Debug, Deserialize)]
+pub struct IndexedColor {
+    #[serde(deserialize_with = "deserialize_color_index")]
+    pub index: u8,
+    #[serde(deserialize_with = "rgb_from_hex")]
+    pub color: Rgb,
+}
+
+fn deserialize_color_index<'a, D>(deserializer: D) -> ::std::result::Result<u8, D::Error>
     where D: de::Deserializer<'a>
 {
-    match CursorOrPrimaryColors::deserialize(deserializer) {
-        Ok(either) => Ok(either.into_cursor_colors()),
+    match u8::deserialize(deserializer) {
+        Ok(index) => {
+            if index < 16 {
+                eprintln!(
+                    "problem with config: indexed_color's index is '{}', \
+                     but a value bigger than 15 was expected; \
+                     Ignoring setting",
+                    index
+                );
+
+                // Return value out of range to ignore this color
+                Ok(0)
+            } else {
+                Ok(index)
+            }
+        },
         Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(CursorColors::default())
+            eprintln!("problem with config: {}; Ignoring setting", err);
+
+            // Return value out of range to ignore this color
+            Ok(0)
         },
     }
 }
@@ -1166,6 +1192,18 @@ impl Default for CursorColors {
             text: Rgb { r: 0, g: 0, b: 0 },
             cursor: Rgb { r: 0xff, g: 0xff, b: 0xff },
         }
+    }
+}
+
+fn deserialize_cursor_colors<'a, D>(deserializer: D) -> ::std::result::Result<CursorColors, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match CursorOrPrimaryColors::deserialize(deserializer) {
+        Ok(either) => Ok(either.into_cursor_colors()),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(CursorColors::default())
+        },
     }
 }
 
@@ -1234,6 +1272,7 @@ impl Default for Colors {
                 white: Rgb {r: 0xff, g: 0xff, b: 0xff},
             },
             dim: None,
+            indexed_colors: Vec::new(),
         }
     }
 }
