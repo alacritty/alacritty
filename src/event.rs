@@ -75,10 +75,6 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.selection_modified = true;
     }
 
-    fn selection_started(&self) -> bool {
-        self.selection.is_some()
-    }
-
     fn update_selection(&mut self, point: Point, side: Side) {
         self.selection_modified = true;
         // Update selection if one exists
@@ -165,8 +161,8 @@ pub struct Mouse {
     pub column: Column,
     pub cell_side: Side,
     pub lines_scrolled: f32,
-    pub selection_start_pos: Point,
-    pub selection_start_side: Side,
+    pub selection_start_point: Option<Point>,
+    pub selection_start_side: Option<Side>,
 }
 
 impl Default for Mouse {
@@ -184,11 +180,8 @@ impl Default for Mouse {
             column: Column(0),
             cell_side: Side::Left,
             lines_scrolled: 0.0,
-            selection_start_pos: Point {
-                line: Line(0),
-                col: Column(0),
-            },
-            selection_start_side: Side::Left,
+            selection_start_point: None,
+            selection_start_side: None,
         }
     }
 }

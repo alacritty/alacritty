@@ -55,7 +55,6 @@ pub trait ActionContext {
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&self, Buffer);
     fn clear_selection(&mut self);
-    fn selection_started(&self) -> bool;
     fn update_selection(&mut self, point: Point, side: Side);
     fn simple_selection(&mut self, point: Point, side: Side);
     fn semantic_selection(&mut self, point: Point);
@@ -284,15 +283,19 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     || !self.ctx.terminal_mode().intersects(TermMode::MOUSE_REPORT_CLICK | motion_mode)
                 )
             {
-                if self.ctx.selection_started() {
+                let start_point = self.ctx.mouse().selection_start_point;
+                let start_side = self.ctx.mouse().selection_start_side;
+                if let (Some(point), Some(side)) = (start_point, start_side) {
+                    // Reset beginning of selection once selection is started
+                    self.ctx.mouse_mut().selection_start_point = None;
+                    self.ctx.mouse_mut().selection_start_side = None;
+
+                    self.ctx.update_selection(point, side);
+                } else {
                     self.ctx.update_selection(Point {
                         line: point.line,
                         col: point.col
                     }, cell_side);
-                } else {
-                    let pos = self.ctx.mouse().selection_start_pos;
-                    let side = self.ctx.mouse().selection_start_side;
-                    self.ctx.update_selection(pos, side);
                 }
             } else if self.ctx.terminal_mode().intersects(motion_mode)
                 // Only report motion when changing cells
@@ -366,24 +369,30 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_double_click(&mut self) {
-        if self.ctx.selection_started() {
+        if let Some(point) = self.ctx.mouse().selection_start_point {
+            // Reset beginning of selection once selection is started
+            self.ctx.mouse_mut().selection_start_point = None;
+            self.ctx.mouse_mut().selection_start_side = None;
+
+            self.ctx.semantic_selection(point);
+        } else {
             if let Some(point) = self.ctx.mouse_coords() {
                 self.ctx.semantic_selection(point);
             }
-        } else {
-            let point = self.ctx.mouse().selection_start_pos;
-            self.ctx.semantic_selection(point);
         }
     }
 
     pub fn on_mouse_triple_click(&mut self) {
-        if self.ctx.selection_started() {
+        if let Some(point) = self.ctx.mouse().selection_start_point {
+            // Reset beginning of selection once selection is started
+            self.ctx.mouse_mut().selection_start_point = None;
+            self.ctx.mouse_mut().selection_start_side = None;
+
+            self.ctx.line_selection(point);
+        } else {
             if let Some(point) = self.ctx.mouse_coords() {
                 self.ctx.line_selection(point);
             }
-        } else {
-            let point = self.ctx.mouse().selection_start_pos;
-            self.ctx.line_selection(point);
         }
     }
 
@@ -404,8 +413,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             _ => {
                 // Store click position for accurate selection
                 if let Some((point, side)) = self.get_mouse_pos() {
-                    self.ctx.mouse_mut().selection_start_pos = point;
-                    self.ctx.mouse_mut().selection_start_side = side;
+                    self.ctx.mouse_mut().selection_start_point = Some(point);
+                    self.ctx.mouse_mut().selection_start_side = Some(side);
                 }
 
                 self.ctx.clear_selection();
@@ -704,10 +713,6 @@ mod tests {
 
         fn copy_selection(&self, _buffer: ::copypasta::Buffer) {
             // STUBBED
-        }
-
-        fn selection_started(&self) -> bool {
-            false
         }
 
         fn clear_selection(&mut self) {}
