@@ -286,10 +286,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 let start_point = self.ctx.mouse().selection_start_point;
                 let start_side = self.ctx.mouse().selection_start_side;
                 if let (Some(point), Some(side)) = (start_point, start_side) {
-                    // Reset beginning of selection once selection is started
-                    self.ctx.mouse_mut().selection_start_point = None;
-                    self.ctx.mouse_mut().selection_start_side = None;
-
                     self.ctx.update_selection(point, side);
                 } else {
                     self.ctx.update_selection(Point {
@@ -369,30 +365,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_double_click(&mut self) {
-        if let Some(point) = self.ctx.mouse().selection_start_point {
-            // Reset beginning of selection once selection is started
-            self.ctx.mouse_mut().selection_start_point = None;
-            self.ctx.mouse_mut().selection_start_side = None;
-
+        if let Some(point) = self.ctx.mouse_coords() {
             self.ctx.semantic_selection(point);
-        } else {
-            if let Some(point) = self.ctx.mouse_coords() {
-                self.ctx.semantic_selection(point);
-            }
         }
     }
 
     pub fn on_mouse_triple_click(&mut self) {
-        if let Some(point) = self.ctx.mouse().selection_start_point {
-            // Reset beginning of selection once selection is started
-            self.ctx.mouse_mut().selection_start_point = None;
-            self.ctx.mouse_mut().selection_start_side = None;
-
+        if let Some(point) = self.ctx.mouse_coords() {
             self.ctx.line_selection(point);
-        } else {
-            if let Some(point) = self.ctx.mouse_coords() {
-                self.ctx.line_selection(point);
-            }
         }
     }
 

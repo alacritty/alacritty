@@ -14,7 +14,7 @@ use config::{self, Config};
 use cli::Options;
 use display::OnResize;
 use index::{Line, Column, Side, Point};
-use input::{self, MouseBinding, KeyBinding};
+use input::{self, MouseBinding, KeyBinding, ActionContext as InputActionContext};
 use selection::Selection;
 use sync::FairMutex;
 use term::{Term, SizeInfo, TermMode};
@@ -88,18 +88,16 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn simple_selection(&mut self, point: Point, side: Side) {
-        *self.selection = Some(Selection::simple(point, side));
-        self.selection_modified = true;
+        self.start_selection(Selection::simple(point, side));
     }
 
     fn semantic_selection(&mut self, point: Point) {
-        *self.selection = Some(Selection::semantic(point, self.terminal));
-        self.selection_modified = true;
+        let selection = Selection::semantic(point, self.terminal);
+        self.start_selection(selection);
     }
 
     fn line_selection(&mut self, point: Point) {
-        *self.selection = Some(Selection::lines(point));
-        self.selection_modified = true;
+        self.start_selection(Selection::lines(point));
     }
 
     fn mouse_coords(&self) -> Option<Point> {
@@ -137,6 +135,18 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     #[inline]
     fn last_modifiers(&mut self) -> &mut ModifiersState {
         &mut self.last_modifiers
+    }
+}
+
+impl<'a, N: Notify + 'a> ActionContext<'a, N> {
+    /// Helper to create selections
+    fn start_selection(&mut self, selection: Selection) {
+        // Reset beginning of selection once selection is started
+        self.mouse_mut().selection_start_point = None;
+        self.mouse_mut().selection_start_side = None;
+
+        *self.selection = Some(selection);
+        self.selection_modified = true;
     }
 }
 
