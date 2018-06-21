@@ -55,11 +55,13 @@ pub trait ActionContext {
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&self, Buffer);
     fn clear_selection(&mut self);
+    fn selection_started(&self) -> bool;
     fn update_selection(&mut self, point: Point, side: Side);
     fn simple_selection(&mut self, point: Point, side: Side);
     fn semantic_selection(&mut self, point: Point);
     fn line_selection(&mut self, point: Point);
     fn mouse_mut(&mut self) -> &mut Mouse;
+    fn mouse(&self) -> &Mouse;
     fn mouse_coords(&self) -> Option<Point>;
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
@@ -269,44 +271,41 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
-        let size_info = self.ctx.size_info();
-        if let Some(point) = size_info.pixels_to_coords(x as usize, y as usize) {
+        if let Some((point, cell_side)) = self.get_mouse_pos() {
             let prev_line = mem::replace(&mut self.ctx.mouse_mut().line, point.line);
             let prev_col = mem::replace(&mut self.ctx.mouse_mut().column, point.col);
 
-            let cell_x = (x as usize - size_info.padding_x as usize) % size_info.cell_width as usize;
-            let half_cell_width = (size_info.cell_width / 2.0) as usize;
-
-            let cell_side = if cell_x > half_cell_width {
-                Side::Right
-            } else {
-                Side::Left
-            };
             self.ctx.mouse_mut().cell_side = cell_side;
 
             let motion_mode = TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG;
-            if self.ctx.mouse_mut().left_button_state == ElementState::Pressed
+            if self.ctx.mouse().left_button_state == ElementState::Pressed
                 && (
                     modifiers.shift
                     || !self.ctx.terminal_mode().intersects(TermMode::MOUSE_REPORT_CLICK | motion_mode)
                 )
             {
-                self.ctx.update_selection(Point {
-                    line: point.line,
-                    col: point.col
-                }, cell_side);
+                if self.ctx.selection_started() {
+                    self.ctx.update_selection(Point {
+                        line: point.line,
+                        col: point.col
+                    }, cell_side);
+                } else {
+                    let pos = self.ctx.mouse().selection_start_pos;
+                    let side = self.ctx.mouse().selection_start_side;
+                    self.ctx.update_selection(pos, side);
+                }
             } else if self.ctx.terminal_mode().intersects(motion_mode)
                 // Only report motion when changing cells
                 && (
-                    prev_line != self.ctx.mouse_mut().line
-                    || prev_col != self.ctx.mouse_mut().column
+                    prev_line != self.ctx.mouse().line
+                    || prev_col != self.ctx.mouse().column
                 )
             {
-                if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
+                if self.ctx.mouse().left_button_state == ElementState::Pressed {
                     self.mouse_report(32, ElementState::Pressed, modifiers);
-                } else if self.ctx.mouse_mut().middle_button_state == ElementState::Pressed {
+                } else if self.ctx.mouse().middle_button_state == ElementState::Pressed {
                     self.mouse_report(33, ElementState::Pressed, modifiers);
-                } else if self.ctx.mouse_mut().right_button_state == ElementState::Pressed {
+                } else if self.ctx.mouse().right_button_state == ElementState::Pressed {
                     self.mouse_report(34, ElementState::Pressed, modifiers);
                 } else if self.ctx.terminal_mode().contains(TermMode::MOUSE_MOTION) {
                     self.mouse_report(35, ElementState::Pressed, modifiers);
@@ -316,7 +315,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn normal_mouse_report(&mut self, button: u8) {
-        let (line, column) = (self.ctx.mouse_mut().line, self.ctx.mouse_mut().column);
+        let (line, column) = (self.ctx.mouse().line, self.ctx.mouse().column);
 
         if line < Line(223) && column < Column(223) {
             let msg = vec![
@@ -333,7 +332,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn sgr_mouse_report(&mut self, button: u8, state: ElementState) {
-        let (line, column) = (self.ctx.mouse_mut().line, self.ctx.mouse_mut().column);
+        let (line, column) = (self.ctx.mouse().line, self.ctx.mouse().column);
         let c = match state {
             ElementState::Pressed => 'M',
             ElementState::Released => 'm',
@@ -367,23 +366,33 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_double_click(&mut self) {
-        if let Some(point) = self.ctx.mouse_coords() {
+        if self.ctx.selection_started() {
+            if let Some(point) = self.ctx.mouse_coords() {
+                self.ctx.semantic_selection(point);
+            }
+        } else {
+            let point = self.ctx.mouse().selection_start_pos;
             self.ctx.semantic_selection(point);
         }
     }
 
     pub fn on_mouse_triple_click(&mut self) {
-        if let Some(point) = self.ctx.mouse_coords() {
+        if self.ctx.selection_started() {
+            if let Some(point) = self.ctx.mouse_coords() {
+                self.ctx.line_selection(point);
+            }
+        } else {
+            let point = self.ctx.mouse().selection_start_pos;
             self.ctx.line_selection(point);
         }
     }
 
     pub fn on_mouse_press(&mut self, button: MouseButton, modifiers: ModifiersState) {
         let now = Instant::now();
-        let elapsed = self.ctx.mouse_mut().last_click_timestamp.elapsed();
+        let elapsed = self.ctx.mouse().last_click_timestamp.elapsed();
         self.ctx.mouse_mut().last_click_timestamp = now;
 
-        self.ctx.mouse_mut().click_state = match self.ctx.mouse_mut().click_state {
+        self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
             ClickState::Click if elapsed < self.mouse_config.double_click.threshold => {
                 self.on_mouse_double_click();
                 ClickState::DoubleClick
@@ -393,6 +402,12 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 ClickState::TripleClick
             },
             _ => {
+                // Store click position for accurate selection
+                if let Some((point, side)) = self.get_mouse_pos() {
+                    self.ctx.mouse_mut().selection_start_pos = point;
+                    self.ctx.mouse_mut().selection_start_side = side;
+                }
+
                 self.ctx.clear_selection();
                 let report_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
                 if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes) {
@@ -409,6 +424,27 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 ClickState::Click
             }
         };
+    }
+
+    fn get_mouse_pos(&self) -> Option<(Point, Side)> {
+        let x = self.ctx.mouse().x;
+        let y = self.ctx.mouse().y;
+
+        let size_info = self.ctx.size_info();
+        if let Some(point) = size_info.pixels_to_coords(x as usize, y as usize) {
+            let cell_x = (x as usize - size_info.padding_x as usize) % size_info.cell_width as usize;
+            let half_cell_width = (size_info.cell_width / 2.0) as usize;
+
+            let cell_side = if cell_x > half_cell_width {
+                Side::Right
+            } else {
+                Side::Left
+            };
+
+            Some((point, cell_side))
+        } else {
+            None
+        }
     }
 
     pub fn on_mouse_release(&mut self, button: MouseButton, modifiers: ModifiersState) {
@@ -436,7 +472,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
-                let to_scroll = self.ctx.mouse_mut().lines_scrolled + lines;
+                let to_scroll = self.ctx.mouse().lines_scrolled + lines;
                 let code = if to_scroll > 0.0 {
                     64
                 } else {
@@ -459,8 +495,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                         self.ctx.mouse_mut().scroll_px += y as i32;
                         let height = self.ctx.size_info().cell_height as i32;
 
-                        while self.ctx.mouse_mut().scroll_px.abs() >= height {
-                            let code = if self.ctx.mouse_mut().scroll_px > 0 {
+                        while self.ctx.mouse().scroll_px.abs() >= height {
+                            let code = if self.ctx.mouse().scroll_px > 0 {
                                 self.ctx.mouse_mut().scroll_px -= height;
                                 64
                             } else {
@@ -670,6 +706,10 @@ mod tests {
             // STUBBED
         }
 
+        fn selection_started(&self) -> bool {
+            false
+        }
+
         fn clear_selection(&mut self) {}
         fn update_selection(&mut self, _point: Point, _side: Side) {}
         fn simple_selection(&mut self, _point: Point, _side: Side) {}
@@ -691,6 +731,12 @@ mod tests {
         fn mouse_mut(&mut self) -> &mut Mouse {
             self.mouse
         }
+
+        #[inline]
+        fn mouse(&self) -> &Mouse {
+            self.mouse
+        }
+
         fn received_count(&mut self) -> &mut usize {
             &mut self.received_count
         }
