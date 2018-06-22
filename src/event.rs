@@ -14,7 +14,7 @@ use config::{self, Config};
 use cli::Options;
 use display::OnResize;
 use index::{Line, Column, Side, Point};
-use input::{self, MouseBinding, KeyBinding, ActionContext as InputActionContext};
+use input::{self, MouseBinding, KeyBinding};
 use selection::Selection;
 use sync::FairMutex;
 use term::{Term, SizeInfo, TermMode};
@@ -76,28 +76,26 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn update_selection(&mut self, point: Point, side: Side) {
-        self.selection_modified = true;
         // Update selection if one exists
         if let Some(ref mut selection) = *self.selection {
+            self.selection_modified = true;
             selection.update(point, side);
-            return;
         }
-
-        // Otherwise, start a regular selection
-        self.simple_selection(point, side);
     }
 
     fn simple_selection(&mut self, point: Point, side: Side) {
-        self.start_selection(Selection::simple(point, side));
+        *self.selection = Some(Selection::simple(point, side));
+        self.selection_modified = true;
     }
 
     fn semantic_selection(&mut self, point: Point) {
-        let selection = Selection::semantic(point, self.terminal);
-        self.start_selection(selection);
+        *self.selection = Some(Selection::semantic(point, self.terminal));
+        self.selection_modified = true;
     }
 
     fn line_selection(&mut self, point: Point) {
-        self.start_selection(Selection::lines(point));
+        *self.selection = Some(Selection::lines(point));
+        self.selection_modified = true;
     }
 
     fn mouse_coords(&self) -> Option<Point> {
@@ -138,18 +136,6 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 }
 
-impl<'a, N: Notify + 'a> ActionContext<'a, N> {
-    /// Helper to create selections
-    fn start_selection(&mut self, selection: Selection) {
-        // Reset beginning of selection once selection is started
-        self.mouse_mut().selection_start_point = None;
-        self.mouse_mut().selection_start_side = None;
-
-        *self.selection = Some(selection);
-        self.selection_modified = true;
-    }
-}
-
 pub enum ClickState {
     None,
     Click,
@@ -171,8 +157,6 @@ pub struct Mouse {
     pub column: Column,
     pub cell_side: Side,
     pub lines_scrolled: f32,
-    pub selection_start_point: Option<Point>,
-    pub selection_start_side: Option<Side>,
 }
 
 impl Default for Mouse {
@@ -190,8 +174,6 @@ impl Default for Mouse {
             column: Column(0),
             cell_side: Side::Left,
             lines_scrolled: 0.0,
-            selection_start_point: None,
-            selection_start_side: None,
         }
     }
 }

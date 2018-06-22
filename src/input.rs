@@ -270,9 +270,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
-        if let Some((point, cell_side)) = self.get_mouse_pos() {
+        let size_info = self.ctx.size_info();
+        if let Some(point) = size_info.pixels_to_coords(x as usize, y as usize) {
             let prev_line = mem::replace(&mut self.ctx.mouse_mut().line, point.line);
             let prev_col = mem::replace(&mut self.ctx.mouse_mut().column, point.col);
+            let cell_side = self.get_mouse_side();
 
             self.ctx.mouse_mut().cell_side = cell_side;
 
@@ -283,16 +285,10 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     || !self.ctx.terminal_mode().intersects(TermMode::MOUSE_REPORT_CLICK | motion_mode)
                 )
             {
-                let start_point = self.ctx.mouse().selection_start_point;
-                let start_side = self.ctx.mouse().selection_start_side;
-                if let (Some(point), Some(side)) = (start_point, start_side) {
-                    self.ctx.update_selection(point, side);
-                } else {
-                    self.ctx.update_selection(Point {
-                        line: point.line,
-                        col: point.col
-                    }, cell_side);
-                }
+                self.ctx.update_selection(Point {
+                    line: point.line,
+                    col: point.col
+                }, cell_side);
             } else if self.ctx.terminal_mode().intersects(motion_mode)
                 // Only report motion when changing cells
                 && (
@@ -391,13 +387,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 ClickState::TripleClick
             },
             _ => {
+                self.ctx.clear_selection();
+
                 // Store click position for accurate selection
-                if let Some((point, side)) = self.get_mouse_pos() {
-                    self.ctx.mouse_mut().selection_start_point = Some(point);
-                    self.ctx.mouse_mut().selection_start_side = Some(side);
+                if let Some(point) = self.ctx.mouse_coords() {
+                    let side = self.get_mouse_side();
+                    self.ctx.simple_selection(point, side);
                 }
 
-                self.ctx.clear_selection();
                 let report_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
                 if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes) {
                     match button {
@@ -415,25 +412,20 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         };
     }
 
-    fn get_mouse_pos(&self) -> Option<(Point, Side)> {
-        let x = self.ctx.mouse().x;
-        let y = self.ctx.mouse().y;
-
+    fn get_mouse_side(&self) -> Side {
         let size_info = self.ctx.size_info();
-        if let Some(point) = size_info.pixels_to_coords(x as usize, y as usize) {
-            let cell_x = (x as usize - size_info.padding_x as usize) % size_info.cell_width as usize;
-            let half_cell_width = (size_info.cell_width / 2.0) as usize;
+        let x = self.ctx.mouse().x;
 
-            let cell_side = if cell_x > half_cell_width {
-                Side::Right
-            } else {
-                Side::Left
-            };
+        let cell_x = (x as usize - size_info.padding_x as usize) % size_info.cell_width as usize;
+        let half_cell_width = (size_info.cell_width / 2.0) as usize;
 
-            Some((point, cell_side))
+        let cell_side = if cell_x > half_cell_width {
+            Side::Right
         } else {
-            None
-        }
+            Side::Left
+        };
+
+        cell_side
     }
 
     pub fn on_mouse_release(&mut self, button: MouseButton, modifiers: ModifiersState) {
