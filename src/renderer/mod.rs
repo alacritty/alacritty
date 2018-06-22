@@ -283,7 +283,7 @@ impl GlyphCache {
             .entry(*glyph_key)
             .or_insert_with(|| {
                 let mut rasterized = rasterizer.get_glyph(glyph_key)
-                    .unwrap_or_else(|_| Default::default());
+                    .unwrap_or_else(|_| font::RasterizedGlyph::default());
 
                 rasterized.left += i32::from(glyph_offset.x);
                 rasterized.top += i32::from(glyph_offset.y);

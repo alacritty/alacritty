@@ -145,7 +145,7 @@ impl Default for Processor {
 
 impl Processor {
     pub fn new() -> Processor {
-        Default::default()
+        Processor::default()
     }
 
     #[inline]

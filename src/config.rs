@@ -303,7 +303,7 @@ impl WindowConfig {
 impl Default for WindowConfig {
     fn default() -> Self {
         WindowConfig{
-            dimensions: Default::default(),
+            dimensions: Dimensions::default(),
             padding: default_padding(),
             decorations: true,
         }
@@ -1639,8 +1639,8 @@ impl Default for Font {
             size: Size::new(11.0),
             use_thin_strokes: false,
             scale_with_dpi: true,
-            glyph_offset: Default::default(),
-            offset: Default::default(),
+            glyph_offset: Delta::default(),
+            offset: Delta::default(),
         }
     }
 }

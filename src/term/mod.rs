@@ -823,12 +823,12 @@ impl Term {
             alt: false,
             font_size: config.font().size(),
             original_font_size: config.font().size(),
-            active_charset: Default::default(),
-            cursor: Default::default(),
-            cursor_save: Default::default(),
-            cursor_save_alt: Default::default(),
+            active_charset: ansi::CharsetIndex::default(),
+            cursor: Cursor::default(),
+            cursor_save: Cursor::default(),
+            cursor_save_alt: Cursor::default(),
             tabs,
-            mode: Default::default(),
+            mode: mode::TermMode::default(),
             scroll_region,
             size_info: size,
             colors: color::List::from(config.colors()),
@@ -1766,13 +1766,13 @@ impl ansi::Handler for Term {
         self.next_title = None;
         self.next_mouse_cursor = None;
         self.alt = false;
-        self.cursor = Default::default();
-        self.active_charset = Default::default();
-        self.mode = Default::default();
+        self.cursor = Cursor::default();
+        self.active_charset = ansi::CharsetIndex::default();
+        self.mode = mode::TermMode::default();
         self.font_size = self.original_font_size;
         self.next_is_urgent = None;
-        self.cursor_save = Default::default();
-        self.cursor_save_alt = Default::default();
+        self.cursor_save = Cursor::default();
+        self.cursor_save_alt = Cursor::default();
         self.colors = self.original_colors;
         self.color_modified = [false; color::COUNT];
         self.cursor_style = None;
