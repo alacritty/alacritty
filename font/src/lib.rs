@@ -146,7 +146,7 @@ impl FontKey {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct GlyphKey {
     pub c: char,
     pub font_key: FontKey,
@@ -162,6 +162,14 @@ impl Hash for GlyphKey {
             // - Result is being used for hashing and has no fields (it's a u64)
             ::std::mem::transmute::<GlyphKey, u64>(*self)
         }.hash(state);
+    }
+}
+
+impl PartialEq for GlyphKey {
+    fn eq(&self, other: &GlyphKey) -> bool {
+        self.c == other.c &&
+        self.font_key == other.font_key &&
+        self.size == other.size
     }
 }
 
