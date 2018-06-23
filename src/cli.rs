@@ -15,6 +15,7 @@ extern crate log;
 use clap::{Arg, App};
 use index::{Line, Column};
 use config::{Dimensions, Shell};
+use window::{DEFAULT_TITLE, DEFAULT_CLASS};
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 
@@ -80,11 +81,11 @@ impl Options {
                 .long("title")
                 .short("t")
                 .takes_value(true)
-                .help("Defines the window title"))
+                .help(&format!("Defines the window title [default: {}]", DEFAULT_TITLE)))
             .arg(Arg::with_name("class")
                  .long("class")
                  .takes_value(true)
-                 .help("Defines window class on X11"))
+                 .help(&format!("Defines window class on X11 [default: {}]", DEFAULT_CLASS)))
             .arg(Arg::with_name("q")
                 .short("q")
                 .multiple(true)
