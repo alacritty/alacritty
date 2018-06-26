@@ -44,7 +44,7 @@ $(DMG_NAME): $(APP_NAME)
 install: $(DMG_NAME) ## Mount disk image
 	@open $(DMG_DIR)/$(DMG_NAME)
 
-.PHONY: app binary clean dmg install
+.PHONY: app binary clean dmg install $(TARGET)
 
 clean: ## Remove all artifacts
 	-rm -rf $(APP_DIR)
