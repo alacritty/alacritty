@@ -39,8 +39,8 @@ pub struct StringPropertyIter<'a> {
 impl<'a> StringPropertyIter<'a> {
     fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> StringPropertyIter<'b> {
         StringPropertyIter {
-            pattern: pattern,
-            object: object,
+            pattern,
+            object,
             index: 0
         }
     }
@@ -82,8 +82,8 @@ pub struct BooleanPropertyIter<'a> {
 impl<'a> BooleanPropertyIter<'a> {
     fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> BooleanPropertyIter<'b> {
         BooleanPropertyIter {
-            pattern: pattern,
-            object: object,
+            pattern,
+            object,
             index: 0
         }
     }
@@ -101,7 +101,7 @@ impl<'a> BooleanPropertyIter<'a> {
         };
 
         if result == FcResultMatch {
-            Some(!(value == 0))
+            Some(value != 0)
         } else {
             None
         }
@@ -118,8 +118,8 @@ pub struct IntPropertyIter<'a> {
 impl<'a> IntPropertyIter<'a> {
     fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> IntPropertyIter<'b> {
         IntPropertyIter {
-            pattern: pattern,
-            object: object,
+            pattern,
+            object,
             index: 0
         }
     }
@@ -171,7 +171,7 @@ pub struct HintStylePropertyIter<'a> {
 }
 
 impl<'a> HintStylePropertyIter<'a> {
-    fn new<'b>(pattern: &'b PatternRef) -> HintStylePropertyIter<'b> {
+    fn new(pattern: &PatternRef) -> HintStylePropertyIter {
         HintStylePropertyIter {
             inner: IntPropertyIter::new(pattern, b"hintstyle\0")
         }
@@ -201,7 +201,7 @@ pub struct LcdFilterPropertyIter<'a> {
 }
 
 impl<'a> LcdFilterPropertyIter<'a> {
-    fn new<'b>(pattern: &'b PatternRef) -> LcdFilterPropertyIter<'b> {
+    fn new(pattern: &PatternRef) -> LcdFilterPropertyIter {
         LcdFilterPropertyIter {
             inner: IntPropertyIter::new(pattern, b"lcdfilter\0")
         }
@@ -236,14 +236,14 @@ pub struct DoublePropertyIter<'a> {
 impl<'a> DoublePropertyIter<'a> {
     fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> DoublePropertyIter<'b> {
         DoublePropertyIter {
-            pattern: pattern,
-            object: object,
+            pattern,
+            object,
             index: 0
         }
     }
 
     fn get_value(&self, index: usize) -> Option<f64> {
-        let mut value = 0 as c_double;
+        let mut value = f64::from(0);
 
         let result = unsafe {
             FcPatternGetDouble(
@@ -379,7 +379,13 @@ macro_rules! string_accessor {
 }
 
 impl Pattern {
-    pub fn new() -> Pattern {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for Pattern {
+    fn default() -> Self {
         Pattern(unsafe { FcPatternCreate() })
     }
 }
@@ -483,11 +489,11 @@ impl PatternRef {
         BooleanPropertyIter::new(self, object)
     }
 
-    pub fn hintstyle<'a>(&'a self) -> HintStylePropertyIter<'a> {
+    pub fn hintstyle(&self) -> HintStylePropertyIter {
         HintStylePropertyIter::new(self)
     }
 
-    pub fn lcdfilter<'a>(&'a self) -> LcdFilterPropertyIter<'a> {
+    pub fn lcdfilter(&self) -> LcdFilterPropertyIter {
         LcdFilterPropertyIter::new(self)
     }
 
@@ -565,7 +571,7 @@ impl PatternRef {
         RgbaPropertyIter::new(self, b"rgba\0")
     }
 
-    pub fn set_rgba(&self, rgba: Rgba) -> bool {
+    pub fn set_rgba(&self, rgba: &Rgba) -> bool {
         unsafe {
             self.add_integer(b"rgba\0", rgba.to_isize())
         }

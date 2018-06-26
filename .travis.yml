@@ -12,8 +12,11 @@ rust:
   - nightly
 
 env:
-  - FEATURES="clippy"
-  - FEATURES=""
+  - CLIPPY="true"
+  - CLIPPY=""
+
+install:
+  - if [ -n "$CLIPPY" ]; then cargo install -f clippy; fi
 
 addons:
   apt:
@@ -24,9 +27,9 @@ matrix:
   fast_finish: true
   exclude:
     - rust: stable
-      env: FEATURES="clippy"
+      env: CLIPPY="true"
     - rust: nightly
-      env: FEATURES=""
+      env: CLIPPY=""
   allow_failures:
     - rust: nightly
 
@@ -34,4 +37,5 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install fontconfig; fi
 
 script:
-  - cargo test --no-default-features --features "$FEATURES"
+  - if [ -n "$CLIPPY" ]; then cargo clippy; fi
+  - if [ -z "$CLIPPY" ]; then cargo test; fi
