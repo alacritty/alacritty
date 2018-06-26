@@ -95,9 +95,7 @@ impl ::Rasterize for RustTypeRasterizer {
 
         let mut buf = Vec::with_capacity((bb.width() * bb.height()) as usize);
 
-        let mut counter = 0;
         glyph.draw(|_x, _y, v| {
-            counter += 1;
             buf.push((v * 255.0) as u8);
             buf.push((v * 255.0) as u8);
             buf.push((v * 255.0) as u8);

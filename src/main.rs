@@ -22,6 +22,12 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
+// With the default subsystem, 'console', windows creates an additional console
+// window for the program.
+// This is silently ignored on non-windows systems.
+// See https://msdn.microsoft.com/en-us/library/4cc7ya5b.aspx for more details.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 #[macro_use]
 extern crate alacritty;
 
