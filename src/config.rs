@@ -242,7 +242,7 @@ impl Alpha {
     }
 
     #[inline]
-    pub fn get(&self) -> f32 {
+    pub fn get(self) -> f32 {
         self.0
     }
 
@@ -303,7 +303,7 @@ impl WindowConfig {
 impl Default for WindowConfig {
     fn default() -> Self {
         WindowConfig{
-            dimensions: Default::default(),
+            dimensions: Dimensions::default(),
             padding: default_padding(),
             decorations: true,
         }
@@ -1639,8 +1639,8 @@ impl Default for Font {
             size: Size::new(11.0),
             use_thin_strokes: false,
             scale_with_dpi: true,
-            glyph_offset: Default::default(),
-            offset: Default::default(),
+            glyph_offset: Delta::default(),
+            offset: Delta::default(),
         }
     }
 }
@@ -1925,10 +1925,10 @@ enum Key {
 }
 
 impl Key {
-    fn to_glutin_key(&self) -> ::glutin::VirtualKeyCode {
+    fn to_glutin_key(self) -> ::glutin::VirtualKeyCode {
         use ::glutin::VirtualKeyCode::*;
         // Thank you, vim macros!
-        match *self {
+        match self {
             Key::Key1 => Key1,
             Key::Key2 => Key2,
             Key::Key3 => Key3,

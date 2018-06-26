@@ -233,14 +233,14 @@ impl<N: Notify> Processor<N> {
             notifier,
             resize_tx,
             ref_test,
-            mouse: Default::default(),
+            mouse: Mouse::default(),
             selection: None,
             size_info,
             hide_cursor_when_typing: config.hide_cursor_when_typing(),
             hide_cursor: false,
             received_count: 0,
             suppress_chars: false,
-            last_modifiers: Default::default(),
+            last_modifiers: ModifiersState::default(),
             pending_events: Vec::with_capacity(4),
         }
     }
@@ -291,7 +291,7 @@ impl<N: Notify> Processor<N> {
                     },
                     KeyboardInput { input, .. } => {
                         let glutin::KeyboardInput { state, virtual_keycode, modifiers, .. } = input;
-                        processor.process_key(state, virtual_keycode, &modifiers);
+                        processor.process_key(state, virtual_keycode, modifiers);
                         if state == ElementState::Pressed {
                             // Hide cursor while typing
                             *hide_cursor = true;

@@ -183,7 +183,7 @@ impl GlyphCache {
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = rasterizer.metrics(regular)?;
 
         let mut cache = GlyphCache {
@@ -211,7 +211,7 @@ impl GlyphCache {
     ) {
         let size = self.font_size;
         for i in RangeInclusive::new(32u8, 128u8) {
-            self.get(&GlyphKey {
+            self.get(GlyphKey {
                 font_key: font,
                 c: i as char,
                 size,
@@ -273,17 +273,17 @@ impl GlyphCache {
             .expect("metrics load since font is loaded at glyph cache creation")
     }
 
-    pub fn get<'a, L>(&'a mut self, glyph_key: &GlyphKey, loader: &mut L) -> &'a Glyph
+    pub fn get<'a, L>(&'a mut self, glyph_key: GlyphKey, loader: &mut L) -> &'a Glyph
         where L: LoadGlyph
     {
         let glyph_offset = self.glyph_offset;
         let rasterizer = &mut self.rasterizer;
         let metrics = &self.metrics;
         self.cache
-            .entry(*glyph_key)
+            .entry(glyph_key)
             .or_insert_with(|| {
                 let mut rasterized = rasterizer.get_glyph(glyph_key)
-                    .unwrap_or_else(|_| Default::default());
+                    .unwrap_or_else(|_| font::RasterizedGlyph::default());
 
                 rasterized.left += i32::from(glyph_offset.x);
                 rasterized.top += i32::from(glyph_offset.y);
@@ -306,7 +306,7 @@ impl GlyphCache {
         let font = font.to_owned().with_size(size);
         info!("Font size changed: {:?}", font.size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
-        self.rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular)?;
 
         self.font_size = font.size;
@@ -842,7 +842,7 @@ impl<'a> RenderApi<'a> {
 
             // Add cell to batch
             {
-                let glyph = glyph_cache.get(&glyph_key, self);
+                let glyph = glyph_cache.get(glyph_key, self);
                 self.add_render_item(&cell, glyph);
             }
 
@@ -856,7 +856,7 @@ impl<'a> RenderApi<'a> {
                     c: '_'
                 };
 
-                let underscore = glyph_cache.get(&glyph_key, self);
+                let underscore = glyph_cache.get(glyph_key, self);
                 self.add_render_item(&cell, underscore);
             }
         }

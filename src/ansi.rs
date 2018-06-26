@@ -145,7 +145,7 @@ impl Default for Processor {
 
 impl Processor {
     pub fn new() -> Processor {
-        Default::default()
+        Processor::default()
     }
 
     #[inline]
@@ -561,8 +561,8 @@ pub enum NamedColor {
 }
 
 impl NamedColor {
-    pub fn to_bright(&self) -> Self {
-        match *self {
+    pub fn to_bright(self) -> Self {
+        match self {
             NamedColor::Black => NamedColor::BrightBlack,
             NamedColor::Red => NamedColor::BrightRed,
             NamedColor::Green => NamedColor::BrightGreen,
@@ -583,8 +583,8 @@ impl NamedColor {
         }
     }
 
-    pub fn to_dim(&self) -> Self {
-        match *self {
+    pub fn to_dim(self) -> Self {
+        match self {
             NamedColor::Black => NamedColor::DimBlack,
             NamedColor::Red => NamedColor::DimRed,
             NamedColor::Green => NamedColor::DimGreen,

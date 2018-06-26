@@ -84,7 +84,7 @@ impl<'a> Drop for Sampler<'a> {
 impl Meter {
     /// Create a meter
     pub fn new() -> Meter {
-        Default::default()
+        Meter::default()
     }
 
     /// Get a sampler

@@ -269,9 +269,9 @@ impl<'a> RenderableCellsIter<'a> {
         self.mode.contains(mode::TermMode::SHOW_CURSOR) && self.grid.contains(self.cursor)
     }
 
-    fn compute_fg_rgb(&self, fg: &Color, cell: &Cell) -> Rgb {
+    fn compute_fg_rgb(&self, fg: Color, cell: &Cell) -> Rgb {
         use self::cell::Flags;
-        match *fg {
+        match fg {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => {
                 match (self.config.draw_bold_text_with_bright_colors(), cell.flags & Flags::DIM_BOLD) {
@@ -302,15 +302,15 @@ impl<'a> RenderableCellsIter<'a> {
     }
 
     #[inline]
-    fn compute_bg_alpha(&self, bg: &Color) -> f32 {
-        match *bg {
+    fn compute_bg_alpha(&self, bg: Color) -> f32 {
+        match bg {
             Color::Named(NamedColor::Background) => 0.0,
             _ => 1.0
         }
     }
 
-    fn compute_bg_rgb(&self, bg: &Color) -> Rgb {
-        match *bg {
+    fn compute_bg_rgb(&self, bg: Color) -> Rgb {
+        match bg {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => self.colors[ansi],
             Color::Indexed(idx) => self.colors[idx],
@@ -387,13 +387,13 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                         fg_rgb = self.colors[NamedColor::Background];
                         bg_alpha = 1.0
                     } else {
-                        bg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
-                        fg_rgb = self.compute_bg_rgb(&cell.bg);
+                        bg_rgb = self.compute_fg_rgb(cell.fg, &cell);
+                        fg_rgb = self.compute_bg_rgb(cell.bg);
                     }
                 } else {
-                    fg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
-                    bg_rgb = self.compute_bg_rgb(&cell.bg);
-                    bg_alpha = self.compute_bg_alpha(&cell.bg);
+                    fg_rgb = self.compute_fg_rgb(cell.fg, &cell);
+                    bg_rgb = self.compute_bg_rgb(cell.bg);
+                    bg_alpha = self.compute_bg_alpha(cell.bg);
                 }
 
                 return Some(RenderableCell {
@@ -823,12 +823,12 @@ impl Term {
             alt: false,
             font_size: config.font().size(),
             original_font_size: config.font().size(),
-            active_charset: Default::default(),
-            cursor: Default::default(),
-            cursor_save: Default::default(),
-            cursor_save_alt: Default::default(),
+            active_charset: ansi::CharsetIndex::default(),
+            cursor: Cursor::default(),
+            cursor_save: Cursor::default(),
+            cursor_save_alt: Cursor::default(),
             tabs,
-            mode: Default::default(),
+            mode: mode::TermMode::default(),
             scroll_region,
             size_info: size,
             colors: color::List::from(config.colors()),
@@ -1766,13 +1766,13 @@ impl ansi::Handler for Term {
         self.next_title = None;
         self.next_mouse_cursor = None;
         self.alt = false;
-        self.cursor = Default::default();
-        self.active_charset = Default::default();
-        self.mode = Default::default();
+        self.cursor = Cursor::default();
+        self.active_charset = ansi::CharsetIndex::default();
+        self.mode = mode::TermMode::default();
         self.font_size = self.original_font_size;
         self.next_is_urgent = None;
-        self.cursor_save = Default::default();
-        self.cursor_save_alt = Default::default();
+        self.cursor_save = Cursor::default();
+        self.cursor_save_alt = Cursor::default();
         self.colors = self.original_colors;
         self.color_modified = [false; color::COUNT];
         self.cursor_style = None;
