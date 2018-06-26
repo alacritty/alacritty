@@ -180,9 +180,9 @@ pub enum Width {
 }
 
 impl Width {
-    fn to_isize(&self) -> isize {
+    fn to_isize(self) -> isize {
         use self::Width::*;
-        match *self {
+        match self {
             Ultracondensed => 50,
             Extracondensed => 63,
             Condensed => 75,

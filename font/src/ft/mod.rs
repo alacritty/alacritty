@@ -102,7 +102,7 @@ impl ::Rasterize for FreeTypeRasterizer {
         self.get_face(desc, size)
     }
 
-    fn get_glyph(&mut self, glyph_key: &GlyphKey) -> Result<RasterizedGlyph, Error> {
+    fn get_glyph(&mut self, glyph_key: GlyphKey) -> Result<RasterizedGlyph, Error> {
         self.get_rendered_glyph(glyph_key)
     }
 
@@ -264,7 +264,7 @@ impl FreeTypeRasterizer {
         }
     }
 
-    fn face_for_glyph(&mut self, glyph_key: &GlyphKey, have_recursed: bool) -> Result<FontKey, Error> {
+    fn face_for_glyph(&mut self, glyph_key: GlyphKey, have_recursed: bool) -> Result<FontKey, Error> {
         let c = glyph_key.c;
 
         let use_initial_face = if self.faces.contains_key(&glyph_key.font_key) {
@@ -285,7 +285,7 @@ impl FreeTypeRasterizer {
         }
     }
 
-    fn get_rendered_glyph(&mut self, glyph_key: &GlyphKey)
+    fn get_rendered_glyph(&mut self, glyph_key: GlyphKey)
                           -> Result<RasterizedGlyph, Error> {
         // Render a custom symbol for the underline and beam cursor
         match glyph_key.c {
