@@ -269,9 +269,9 @@ impl<'a> RenderableCellsIter<'a> {
         self.mode.contains(mode::TermMode::SHOW_CURSOR) && self.grid.contains(self.cursor)
     }
 
-    fn compute_fg_rgb(&self, fg: &Color, cell: &Cell) -> Rgb {
+    fn compute_fg_rgb(&self, fg: Color, cell: &Cell) -> Rgb {
         use self::cell::Flags;
-        match *fg {
+        match fg {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => {
                 match (self.config.draw_bold_text_with_bright_colors(), cell.flags & Flags::DIM_BOLD) {
@@ -302,15 +302,15 @@ impl<'a> RenderableCellsIter<'a> {
     }
 
     #[inline]
-    fn compute_bg_alpha(&self, bg: &Color) -> f32 {
-        match *bg {
+    fn compute_bg_alpha(&self, bg: Color) -> f32 {
+        match bg {
             Color::Named(NamedColor::Background) => 0.0,
             _ => 1.0
         }
     }
 
-    fn compute_bg_rgb(&self, bg: &Color) -> Rgb {
-        match *bg {
+    fn compute_bg_rgb(&self, bg: Color) -> Rgb {
+        match bg {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => self.colors[ansi],
             Color::Indexed(idx) => self.colors[idx],
@@ -387,13 +387,13 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                         fg_rgb = self.colors[NamedColor::Background];
                         bg_alpha = 1.0
                     } else {
-                        bg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
-                        fg_rgb = self.compute_bg_rgb(&cell.bg);
+                        bg_rgb = self.compute_fg_rgb(cell.fg, &cell);
+                        fg_rgb = self.compute_bg_rgb(cell.bg);
                     }
                 } else {
-                    fg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
-                    bg_rgb = self.compute_bg_rgb(&cell.bg);
-                    bg_alpha = self.compute_bg_alpha(&cell.bg);
+                    fg_rgb = self.compute_fg_rgb(cell.fg, &cell);
+                    bg_rgb = self.compute_bg_rgb(cell.bg);
+                    bg_alpha = self.compute_bg_alpha(cell.bg);
                 }
 
                 return Some(RenderableCell {
