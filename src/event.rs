@@ -21,6 +21,7 @@ use term::{Term, SizeInfo, TermMode};
 use util::limit;
 use util::fmt::Red;
 use window::Window;
+use LogicalSize;
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
@@ -217,7 +218,7 @@ pub struct Processor<N> {
     wait_for_event: bool,
     notifier: N,
     mouse: Mouse,
-    resize_tx: mpsc::Sender<(u32, u32)>,
+    resize_tx: mpsc::Sender<LogicalSize>,
     ref_test: bool,
     size_info: SizeInfo,
     pub selection: Option<Selection>,
@@ -247,7 +248,7 @@ impl<N: Notify> Processor<N> {
     /// pty.
     pub fn new(
         notifier: N,
-        resize_tx: mpsc::Sender<(u32, u32)>,
+        resize_tx: mpsc::Sender<LogicalSize>,
         options: &Options,
         config: &Config,
         ref_test: bool,
@@ -282,7 +283,7 @@ impl<N: Notify> Processor<N> {
         processor: &mut input::Processor<'a, ActionContext<'a, N>>,
         event: Event,
         ref_test: bool,
-        resize_tx: &mpsc::Sender<(u32, u32)>,
+        resize_tx: &mpsc::Sender<LogicalSize>,
         hide_cursor: &mut bool,
         window_is_focused: &mut bool,
     ) {
@@ -315,8 +316,8 @@ impl<N: Notify> Processor<N> {
                         // FIXME should do a more graceful shutdown
                         ::std::process::exit(0);
                     },
-                    Resized(w, h) => {
-                        resize_tx.send((w, h)).expect("send new size");
+                    Resized(lsize) => {
+                        resize_tx.send(lsize).expect("send new size");
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
@@ -337,11 +338,10 @@ impl<N: Notify> Processor<N> {
                             processor.ctx.terminal.dirty = true;
                         }
                     },
-                    CursorMoved { position: (x, y), modifiers, .. } => {
-                        let x = x as i32;
-                        let y = y as i32;
-                        let x = limit(x, 0, processor.ctx.size_info.width as i32);
-                        let y = limit(y, 0, processor.ctx.size_info.height as i32);
+                    CursorMoved { position: lpos, modifiers, .. } => {
+                        let (x, y) = lpos.into();
+                        let x: i32 = limit(x, 0, processor.ctx.size_info.width as i32);
+                        let y: i32 = limit(y, 0, processor.ctx.size_info.height as i32);
 
                         *hide_cursor = false;
                         processor.mouse_moved(x as u32, y as u32, modifiers);

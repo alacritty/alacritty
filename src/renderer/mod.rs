@@ -31,9 +31,7 @@ use notify::{Watcher, watcher, RecursiveMode, DebouncedEvent};
 
 use config::{self, Config, Delta};
 use term::{self, cell, RenderableCell};
-use window::{Size, Pixels};
-
-use Rgb;
+use {PhysicalSize, Rgb};
 
 // Shader paths for live reload
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
@@ -476,7 +474,7 @@ const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
-    pub fn new(config: &Config, size: Size<Pixels<u32>>) -> Result<QuadRenderer, Error> {
+    pub fn new(config: &Config, size: PhysicalSize) -> Result<QuadRenderer, Error> {
         let program = ShaderProgram::new(config, size)?;
 
         let mut vao: GLuint = 0;
@@ -636,10 +634,7 @@ impl QuadRenderer {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::ShaderReload => {
-                    self.reload_shaders(config, Size {
-                        width: Pixels(props.width as u32),
-                        height: Pixels(props.height as u32)
-                    });
+                    self.reload_shaders(config, PhysicalSize::new(props.width as f64, props.height as f64));
                 }
             }
         }
@@ -690,7 +685,7 @@ impl QuadRenderer {
         })
     }
 
-    pub fn reload_shaders(&mut self, config: &Config, size: Size<Pixels<u32>>) {
+    pub fn reload_shaders(&mut self, config: &Config, size: PhysicalSize) {
         warn!("Reloading shaders ...");
         let program = match ShaderProgram::new(config, size) {
             Ok(program) => {
@@ -718,13 +713,15 @@ impl QuadRenderer {
         self.program = program;
     }
 
-    pub fn resize(&mut self, width: i32, height: i32) {
+    pub fn resize(&mut self, size: PhysicalSize) {
+        let (width, height) : (u32, u32) = size.into();
+        
         let padding_x = i32::from(self.program.padding_x);
         let padding_y = i32::from(self.program.padding_y);
 
         // viewport
         unsafe {
-            gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
+            gl::Viewport(padding_x, padding_y, (width as i32) - 2 * padding_x, (height as i32) - 2 * padding_y);
         }
 
         // update projection
@@ -953,7 +950,7 @@ impl ShaderProgram {
 
     pub fn new(
         config: &Config,
-        size: Size<Pixels<u32>>
+        size: PhysicalSize
     ) -> Result<ShaderProgram, ShaderCreationError> {
         let vertex_source = if cfg!(feature = "live-shader-reload") {
             None
@@ -1021,8 +1018,8 @@ impl ShaderProgram {
             padding_y: config.padding().y,
         };
 
-        shader.update_projection(*size.width as f32, *size.height as f32);
-
+        shader.update_projection(size.width as f32, size.height as f32);
+        
         shader.deactivate();
 
         Ok(shader)

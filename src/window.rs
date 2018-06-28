@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::convert::From;
-use std::fmt::{self, Display};
-use std::ops::Deref;
+use std::fmt::Display;
 
 use gl;
-use glutin::{self, ContextBuilder, ControlFlow, CursorState, Event, EventsLoop,
+use glutin::{self, ContextBuilder, ControlFlow, Event, EventsLoop,
              MouseCursor as GlutinMouseCursor, WindowBuilder};
 use glutin::GlContext;
 
-use MouseCursor;
+
+use {LogicalPosition, LogicalSize, MouseCursor, PhysicalSize};
+
 
 use cli::Options;
 use config::WindowConfig;
@@ -81,83 +82,7 @@ pub struct DeviceProperties {
     ///
     /// This will be 1. on standard displays and may have a different value on
     /// hidpi displays.
-    pub scale_factor: f32,
-}
-
-/// Size of the window
-#[derive(Debug, Copy, Clone)]
-pub struct Size<T> {
-    pub width: T,
-    pub height: T,
-}
-
-/// Strongly typed Pixels unit
-#[derive(Debug, Copy, Clone)]
-pub struct Pixels<T>(pub T);
-
-/// Strongly typed Points unit
-///
-/// Points are like pixels but adjusted for DPI.
-#[derive(Debug, Copy, Clone)]
-pub struct Points<T>(pub T);
-
-pub trait ToPoints {
-    fn to_points(&self, scale: f32) -> Size<Points<u32>>;
-}
-
-impl ToPoints for Size<Points<u32>> {
-    #[inline]
-    fn to_points(&self, _scale: f32) -> Size<Points<u32>> {
-        *self
-    }
-}
-
-impl ToPoints for Size<Pixels<u32>> {
-    fn to_points(&self, scale: f32) -> Size<Points<u32>> {
-        let width_pts = (*self.width as f32 / scale) as u32;
-        let height_pts = (*self.height as f32 / scale) as u32;
-
-        Size {
-            width: Points(width_pts),
-            height: Points(height_pts)
-        }
-    }
-}
-
-impl<T: Display> Display for Size<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} × {}", self.width, self.height)
-    }
-}
-
-macro_rules! deref_newtype {
-    ($($src:ty),+) => {
-        $(
-        impl<T> Deref for $src {
-            type Target = T;
-
-            #[inline]
-            fn deref(&self) -> &Self::Target {
-                &self.0
-            }
-        }
-        )+
-    }
-}
-
-deref_newtype! { Points<T>, Pixels<T> }
-
-
-impl<T: Display> Display for Pixels<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}px", self.0)
-    }
-}
-
-impl<T: Display> Display for Points<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}pts", self.0)
-    }
+    pub scale_factor: f64,
 }
 
 impl ::std::error::Error for Error {
@@ -208,7 +133,8 @@ fn create_gl_window(
 ) -> ::std::result::Result<glutin::GlWindow, glutin::CreationError> {
     let context = ContextBuilder::new()
         .with_srgb(srgb)
-        .with_vsync(true);
+        .with_vsync(true)
+        .with_hardware_acceleration(None);
     ::glutin::GlWindow::new(window, context, event_loop)
 }
 
@@ -263,19 +189,21 @@ impl Window {
     /// rasterization depend on DPI and scale factor.
     pub fn device_properties(&self) -> DeviceProperties {
         DeviceProperties {
-            scale_factor: self.window.hidpi_factor(),
+            scale_factor: self.window.get_hidpi_factor(),
         }
     }
 
-    pub fn inner_size_pixels(&self) -> Option<Size<Pixels<u32>>> {
-        self.window
-            .get_inner_size()
-            .map(|(w, h)| Size { width: Pixels(w), height: Pixels(h) })
+    pub fn inner_size_pixels(&self) -> Option<LogicalSize> {
+        self.window.get_inner_size()
+    }
+    
+    pub fn set_inner_size(&mut self, size: LogicalSize) {
+        self.window.set_inner_size(size);
     }
 
     #[inline]
-    pub fn hidpi_factor(&self) -> f32 {
-        self.window.hidpi_factor()
+    pub fn hidpi_factor(&self) -> f64 {
+        self.window.get_hidpi_factor()
     }
 
     #[inline]
@@ -301,8 +229,8 @@ impl Window {
     }
 
     #[inline]
-    pub fn resize(&self, width: u32, height: u32) {
-        self.window.resize(width, height);
+    pub fn resize(&self, size: PhysicalSize) {
+        self.window.resize(size);
     }
 
     /// Block waiting for events
@@ -331,13 +259,7 @@ impl Window {
     pub fn set_cursor_visible(&mut self, visible: bool) {
         if visible != self.cursor_visible {
             self.cursor_visible = visible;
-            if let Err(err) = self.window.set_cursor_state(if visible {
-                CursorState::Normal
-            } else {
-                CursorState::Hide
-            }) {
-                warn!("Failed to set cursor visibility: {}", err);
-            }
+            self.window.hide_cursor(!visible);
         }
     }
 
@@ -361,8 +283,8 @@ impl Window {
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
     pub fn set_urgent(&self, _is_urgent: bool) {}
 
-    pub fn set_ime_spot(&self, x: i32, y: i32) {
-        self.window.set_ime_spot(x, y);
+    pub fn set_ime_spot(&self, pos: LogicalPosition) {
+        self.window.set_ime_spot(pos);
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -437,16 +359,5 @@ impl Proxy {
     /// be waiting on user input.
     pub fn wakeup_event_loop(&self) {
         self.inner.wakeup().unwrap();
-    }
-}
-
-pub trait SetInnerSize<T> {
-    fn set_inner_size<S: ToPoints>(&mut self, size: &S);
-}
-
-impl SetInnerSize<Pixels<u32>> for Window {
-    fn set_inner_size<T: ToPoints>(&mut self, size: &T) {
-        let size = size.to_points(self.hidpi_factor());
-        self.window.set_inner_size(*size.width as _, *size.height as _);
     }
 }

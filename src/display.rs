@@ -18,7 +18,7 @@ use std::sync::mpsc;
 
 use parking_lot::{MutexGuard};
 
-use Rgb;
+use {LogicalPosition, LogicalSize, PhysicalSize, Rgb};
 use cli;
 use config::Config;
 use font::{self, Rasterize};
@@ -27,7 +27,8 @@ use renderer::{self, GlyphCache, QuadRenderer};
 use selection::Selection;
 use term::{Term, SizeInfo};
 
-use window::{self, Size, Pixels, Window, SetInnerSize};
+use window::{self, Window};
+
 
 #[derive(Debug)]
 pub enum Error {
@@ -93,8 +94,8 @@ pub struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
-    rx: mpsc::Receiver<(u32, u32)>,
-    tx: mpsc::Sender<(u32, u32)>,
+    rx: mpsc::Receiver<LogicalSize>,
+    tx: mpsc::Sender<LogicalSize>,
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
@@ -151,10 +152,10 @@ impl Display {
         info!("device_pixel_ratio: {}", dpr);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(config, viewport_size)?;
+        let mut renderer = QuadRenderer::new(config, viewport_size.to_physical(window.hidpi_factor()))?;
 
         let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(dpr, &mut renderer, config)?;
+            Self::new_glyph_cache(dpr as f32, &mut renderer, config)?;
 
 
         let dimensions = options.dimensions()
@@ -165,21 +166,21 @@ impl Display {
             let width = cell_width as u32 * dimensions.columns_u32();
             let height = cell_height as u32 * dimensions.lines_u32();
 
-            let new_viewport_size = Size {
-                width: Pixels(width + 2 * u32::from(config.padding().x)),
-                height: Pixels(height + 2 * u32::from(config.padding().y)),
-            };
+            let new_viewport_size = LogicalSize::new(
+                (width + 2 * u32::from(config.padding().x)) as f64,
+                (height + 2 * u32::from(config.padding().y)) as f64);
 
-            window.set_inner_size(&new_viewport_size);
-            renderer.resize(new_viewport_size.width.0 as _, new_viewport_size.height.0 as _);
-            viewport_size = new_viewport_size
+            window.set_inner_size(new_viewport_size);
+            renderer.resize(new_viewport_size.to_physical(dpr));
+            viewport_size = new_viewport_size;
         }
 
         info!("Cell Size: ({} x {})", cell_width, cell_height);
 
+        let psize = viewport_size.to_physical(window.hidpi_factor());
         let size_info = SizeInfo {
-            width: viewport_size.width.0 as f32,
-            height: viewport_size.height.0 as f32,
+            width: psize.width as f32,
+            height: psize.height as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
             padding_x: f32::from(config.padding().x),
@@ -265,7 +266,7 @@ impl Display {
     }
 
     #[inline]
-    pub fn resize_channel(&self) -> mpsc::Sender<(u32, u32)> {
+    pub fn resize_channel(&self) -> mpsc::Sender<LogicalSize> {
         self.tx.clone()
     }
 
@@ -287,7 +288,10 @@ impl Display {
 
         // Take most recent resize event, if any
         while let Ok(sz) = self.rx.try_recv() {
-            new_size = Some(sz);
+            // Resize events are emitted via glutin/winit with logical sizes
+            // However the terminal, window and renderer use physical sizes
+            // so a conversion must be done here
+            new_size = Some(sz.to_physical(self.window.hidpi_factor()));
         }
 
         // Font size modification detected
@@ -297,16 +301,16 @@ impl Display {
 
             if new_size == None {
                 // Force a resize to refresh things
-                new_size = Some((self.size_info.width as u32,
-                                 self.size_info.height as u32));
+                new_size = Some(PhysicalSize::new(self.size_info.width as f64,
+                                                  self.size_info.height as f64));
             }
         }
 
         // Receive any resize events; only call gl::Viewport on last
         // available
-        if let Some((w, h)) = new_size.take() {
-            self.size_info.width = w as f32;
-            self.size_info.height = h as f32;
+        if let Some(psize) = new_size.take() {
+            self.size_info.width = psize.width as f32;
+            self.size_info.height = psize.height as f32;
 
             let size = &self.size_info;
             terminal.resize(size);
@@ -315,8 +319,8 @@ impl Display {
                 item.on_resize(size)
             }
 
-            self.window.resize(w, h);
-            self.renderer.resize(w as i32, h as i32);
+            self.window.resize(psize);
+            self.renderer.resize(psize);
         }
 
     }
@@ -425,6 +429,6 @@ impl Display {
                     padding_y: py, ..} = *terminal.size_info();
         let nspot_y = (py + (row + 1) as f32 * ch) as i32;
         let nspot_x = (px + col as f32 * cw) as i32;
-        self.window().set_ime_spot(nspot_x, nspot_y);
+        self.window().set_ime_spot(LogicalPosition::from((nspot_x, nspot_y)));
     }
 }

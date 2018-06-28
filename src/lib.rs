@@ -79,6 +79,9 @@ use std::ops::Mul;
 pub use grid::Grid;
 pub use term::Term;
 
+/// Re-export size and position types from glutin/winit
+pub use glutin::dpi::{PhysicalSize,LogicalSize,LogicalPosition,PhysicalPosition};
+
 /// Facade around [winit's `MouseCursor`](glutin::MouseCursor)
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum MouseCursor {
