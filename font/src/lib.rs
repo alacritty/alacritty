@@ -17,9 +17,9 @@
 //! CoreText is used on Mac OS.
 //! FreeType is used on everything that's not Mac OS.
 //! Eventually, ClearType support will be available for windows
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", windows)))]
 extern crate fontconfig;
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", windows)))]
 extern crate freetype;
 
 #[cfg(target_os = "macos")]
@@ -35,7 +35,7 @@ extern crate euclid;
 
 extern crate libc;
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", windows)))]
 #[macro_use]
 extern crate foreign_types;
 
@@ -47,14 +47,14 @@ use std::{fmt, cmp};
 use std::sync::atomic::{AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
 
 // If target isn't macos or windows, reexport everything from ft
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", windows)))]
 pub mod ft;
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", windows)))]
 pub use ft::{Error, FreeTypeRasterizer as Rasterizer};
 
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 pub mod rusttype;
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 pub use rusttype::{Error, RustTypeRasterizer as Rasterizer};
 
 // If target is macos, reexport everything from darwin

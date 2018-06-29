@@ -50,11 +50,11 @@ cd alacritty-git
 makepkg -isr
 ```
 
-### Void Linux	
-	
-```sh	
-xbps-install alacritty	
-```	
+### Void Linux
+
+```sh
+xbps-install alacritty
+```
 
 ## Manual Installation
 
@@ -211,14 +211,14 @@ It might be handy to mask all other packages provided in the `slyfox` overlay by
 adding `*/*::slyfox` to `/etc/portage/package.mask` and adding
 `x11-terms/alacritty::slyfox` to `/etc/portage/package.unmask`.
 
-### Cargo	
-	
-If you have a rust toolchain setup you can install Alacritty via cargo:	
-	
-```sh	
-cargo install --git https://github.com/jwilm/alacritty	
-```	
-	
+### Cargo
+
+If you have a rust toolchain setup you can install Alacritty via cargo:
+
+```sh
+cargo install --git https://github.com/jwilm/alacritty
+```
+
 Note that you still need to download system build dependencies via your package	
 manager as mentioned above. The binary `alacritty` will be placed into `$HOME/.cargo/bin`.	
 Make sure it is in your path (default if you use `rustup`).	
@@ -315,8 +315,8 @@ sudo cp alacritty-completions.fish $__fish_datadir/vendor_completions.d/alacritt
 
 Although it's possible the default configuration would work on your system,
 you'll probably end up wanting to customize it anyhow. There is a default
-`alacritty.yml` at the git repository root. Alacritty looks for the
-configuration file as the following paths:
+`alacritty.yml`, `alacritty_macos.yml`, and `alacritty_windows.yml` at the git repository root.
+Alacritty looks for the configuration file as the following paths:
 
 1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
 2. `$XDG_CONFIG_HOME/alacritty.yml`
@@ -327,6 +327,11 @@ If none of these paths are found then
 `$XDG_CONFIG_HOME/alacritty/alacritty.yml` is created once alacritty is first
 run. On most systems this often defaults to
 `$HOME/.config/alacritty/alacritty.yml`.
+
+Many configuration options will take effect immediately upon saving changes to
+the config file. The only exception is the `font` and `dimensions` sections
+which requires Alacritty to be restarted. For further explanation of the config
+file, please consult the comments in the default config file.
 
 ### Windows
 

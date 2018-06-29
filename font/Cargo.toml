@@ -11,7 +11,7 @@ libc = "0.2"
 foreign-types = "0.3"
 log = "0.4"
 
-[target.'cfg(unix)'.dependencies]
+[target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]
 servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig", branch = "updated-2017-10-8" }
 freetype-rs = "0.13"
 

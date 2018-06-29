@@ -243,7 +243,6 @@ impl<'a, 'b> Winpty<'a> {
     /// before the output data pipe(s) is/are connected, then collected output is
     /// buffered until the pipes are connected, rather than being discarded.
     /// (https://blogs.msdn.microsoft.com/oldnewthing/20110107-00/?p=11803)
-    // Decide whether this should return a new object and if so should it have the pipe methods
     // TODO: Support getting the process and thread handle of the spawned process (Not the agent)
     // TODO: Support returning the error from CreateProcess
     pub fn spawn(
@@ -271,6 +270,8 @@ impl<'a, 'b> Winpty<'a> {
         }
     }
 }
+
+// winpty_t is thread-safe
 unsafe impl<'a> Sync for Winpty<'a> {}
 unsafe impl<'a> Send for Winpty<'a> {}
 

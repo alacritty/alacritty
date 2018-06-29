@@ -227,8 +227,7 @@ impl<T> EventLoop<T>
             interest.insert(Ready::writable());
         }
         self.pty
-            .reregister(&self.poll, interest, PollOpt::edge() | PollOpt::oneshot());
-        // .expect("reregister channel");
+            .reregister(&self.poll, interest, PollOpt::edge() | PollOpt::oneshot()).unwrap();
 
         true
     }
@@ -348,7 +347,7 @@ impl<T> EventLoop<T>
 
             // Register TTY through EventedRW interface
             self.pty
-                .register(&self.poll, &mut tokens.iter(), Ready::readable(), poll_opts);
+                .register(&self.poll, &mut tokens.iter(), Ready::readable(), poll_opts).unwrap();
 
             let mut events = Events::with_capacity(1024);
 
@@ -416,13 +415,14 @@ impl<T> EventLoop<T>
                         interest.insert(Ready::writable());
                     }
                     // Reregister with new interest
-                    self.pty.reregister(&self.poll, interest, poll_opts);
+                    self.pty.reregister(&self.poll, interest, poll_opts).unwrap();
                 }
             }
 
             // The evented instances are not dropped here so deregister them explicitly
+            // TODO: Is this still necessary?
             let _ = self.poll.deregister(&self.rx);
-            self.pty.deregister(&self.poll);
+            self.pty.deregister(&self.poll).unwrap();
 
             (self, state)
         })

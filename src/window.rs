@@ -244,7 +244,7 @@ impl Window {
             window.make_current()?;
         }
 
-        // Set OpenGL symbol loader
+        // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
         let window = Window {
@@ -317,12 +317,11 @@ impl Window {
 
     /// Set the window title
     #[inline]
-    pub fn set_title(&self, title: &str) {
+    pub fn set_title(&self, _title: &str) {
         // Because winpty doesn't know anything about OSC escapes this gets set to an empty
         // string on windows
-        if !cfg!(windows) {
-            self.window.set_title(title);
-        }
+        #[cfg(not(windows))]
+        self.window.set_title(_title);
     }
 
     #[inline]
@@ -368,13 +367,10 @@ impl Window {
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
     pub fn set_urgent(&self, _is_urgent: bool) {}
 
-    #[cfg(not(windows))]
-    pub fn set_ime_spot(&self, x: i32, y: i32) {
-        self.window.set_ime_spot(x, y);
-    }
-    #[cfg(windows)]
     pub fn set_ime_spot(&self, _x: i32, _y: i32) {
-        // do nothing
+        // This is not implemented on windows as of winit 0.15.1
+        #[cfg(not(windows))]
+        self.window.set_ime_spot(_x, _y);
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]

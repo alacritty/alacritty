@@ -30,14 +30,13 @@ pub use self::windows::*;
 /// This trait defines the behaviour needed to read and/or write to a stream.
 /// It defines an abstraction over mio's interface in order to allow either one
 /// read/write object or a seperate read and write object.
-// TODO: Maybe return results here instead of panicing
 pub trait EventedRW {
     type Reader: io::Read;
     type Writer: io::Write;
 
-    fn register(&mut self, &mio::Poll, &mut Iterator<Item = &usize>, mio::Ready, mio::PollOpt);
-    fn reregister(&mut self, &mio::Poll, mio::Ready, mio::PollOpt);
-    fn deregister(&mut self, &mio::Poll);
+    fn register(&mut self, &mio::Poll, &mut Iterator<Item = &usize>, mio::Ready, mio::PollOpt) -> io::Result<()>;
+    fn reregister(&mut self, &mio::Poll, mio::Ready, mio::PollOpt) -> io::Result<()>;
+    fn deregister(&mut self, &mio::Poll) -> io::Result<()>;
 
     fn reader(&mut self) -> &mut Self::Reader;
     fn read_token(&self) -> mio::Token;

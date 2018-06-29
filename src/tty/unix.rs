@@ -27,6 +27,7 @@ use std::process::{Command, Stdio};
 use std::ffi::CStr;
 use std::ptr;
 use mio::unix::EventedFd;
+use std::io;
 use std::os::unix::io::AsRawFd;
 
 /// Process ID of child process
@@ -280,7 +281,6 @@ pub fn new<'a, T: ToWinsize>(
         builder.current_dir(dir.as_path());
     }
 
-
     match builder.spawn() {
         Ok(child) => {
             unsafe {
@@ -314,42 +314,54 @@ impl<'a> EventedRW for Pty {
     type Reader = File;
     type Writer = File;
 
+    #[inline]
     fn register(
         &mut self,
         poll: &mio::Poll,
         token: &mut Iterator<Item = &usize>,
         interest: mio::Ready,
         poll_opts: mio::PollOpt,
-    ) {
+    ) -> io::Result<()> {
         self.token = (*token.next().unwrap()).into();
         poll.register(
             &EventedFd(&self.raw_fd),
             self.token,
             interest,
             poll_opts
-        ).unwrap();
+        )
     }
-    fn reregister(&mut self, poll: &mio::Poll, interest: mio::Ready, poll_opts: mio::PollOpt) {
+
+    #[inline]
+    fn reregister(&mut self, poll: &mio::Poll, interest: mio::Ready, poll_opts: mio::PollOpt) -> io::Result<()> {
         poll.reregister(
             &EventedFd(&self.raw_fd),
             self.token,
             interest,
             poll_opts
-        ).unwrap();
-    }
-    fn deregister(&mut self, poll: &mio::Poll) {
-        poll.deregister(&EventedFd(&self.raw_fd)).unwrap();
+        )
     }
 
+    #[inline]
+    fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
+        poll.deregister(&EventedFd(&self.raw_fd))
+    }
+
+    #[inline]
     fn reader(&mut self) -> &mut File {
         &mut self.fd
     }
+
+    #[inline]
     fn read_token(&self) -> mio::Token {
         self.token
     }
+
+    #[inline]
     fn writer(&mut self) -> &mut File {
         &mut self.fd
     }
+
+    #[inline]
     fn write_token(&self) -> mio::Token {
         self.token
     }

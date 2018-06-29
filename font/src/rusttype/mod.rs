@@ -36,7 +36,7 @@ impl ::Rasterize for RustTypeRasterizer {
         Ok(Metrics {
             descent: vmetrics.descent,
             average_advance: hmetrics.advance_width as f64,
-            line_height: (vmetrics.ascent - vmetrics.descent + vmetrics.line_gap) as f64, // TODO: ?
+            line_height: (vmetrics.ascent - vmetrics.descent + vmetrics.line_gap) as f64,
         })
     }
 
@@ -79,8 +79,6 @@ impl ::Rasterize for RustTypeRasterizer {
                 glyph_key.size.as_f32_pts() * self.dpi_ratio * 96. / 72.,
             ));
 
-        // TODO: I think 0,0 is the origin. This should be changed by the offset specified in alacritty.yml
-        // font.glyph_offset.x,y
         let glyph = scaled_glyph.positioned(point(0.0, 0.0));
 
         // Pixel bounding box

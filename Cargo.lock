@@ -1739,7 +1739,6 @@ name = "winpty"
 version = "0.1.0"
 dependencies = [
  "bitflags 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
  "widestring 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "winpty-sys 1.1.0 (git+https://github.com/zacps/winpty?branch=rust)",
 ]

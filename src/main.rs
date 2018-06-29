@@ -100,7 +100,7 @@ fn load_config(options: &cli::Options) -> Config {
 
     Config::load_from(&*config_path).unwrap_or_else(|err| match err {
         config::Error::NotFound => {
-            die!("Config file not found at: {}", config_path.display());
+            die!("Config file not found after writing: {}", config_path.display());
         }
         config::Error::Empty => {
             eprintln!("Empty config; Loading defaults");

@@ -33,9 +33,6 @@ matrix:
   allow_failures:
     - rust: nightly
 
-before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install fontconfig; fi
-
 script:
   - if [ -n "$CLIPPY" ]; then cargo clippy; fi
   - if [ -z "$CLIPPY" ]; then cargo test; fi

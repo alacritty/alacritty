@@ -167,13 +167,14 @@ impl<'a> EventedRW for Pty<'a, NamedPipe, NamedPipe> {
     type Reader = NamedPipe;
     type Writer = NamedPipe;
 
+    #[inline]
     fn register(
         &mut self,
         poll: &mio::Poll,
         token: &mut Iterator<Item = &usize>,
         interest: mio::Ready,
         poll_opts: mio::PollOpt,
-    ) {
+    ) -> io::Result<()> {
         self.read_token = (*token.next().unwrap()).into();
         self.write_token = (*token.next().unwrap()).into();
         if interest.is_readable() {
@@ -182,14 +183,14 @@ impl<'a> EventedRW for Pty<'a, NamedPipe, NamedPipe> {
                 self.read_token,
                 mio::Ready::readable(),
                 poll_opts,
-            ).unwrap();
+            )?
         } else {
             poll.register(
                 &self.conout,
                 self.read_token,
                 mio::Ready::empty(),
                 poll_opts,
-            ).unwrap();
+            )?
         }
         if interest.is_writable() {
             poll.register(
@@ -197,31 +198,34 @@ impl<'a> EventedRW for Pty<'a, NamedPipe, NamedPipe> {
                 self.write_token,
                 mio::Ready::writable(),
                 poll_opts,
-            ).unwrap();
+            )?
         } else {
             poll.register(
                 &self.conin,
                 self.write_token,
                 mio::Ready::empty(),
                 poll_opts,
-            ).unwrap();
+            )?
         }
+        Ok(())
     }
-    fn reregister(&mut self, poll: &mio::Poll, interest: mio::Ready, poll_opts: mio::PollOpt) {
+
+    #[inline]
+    fn reregister(&mut self, poll: &mio::Poll, interest: mio::Ready, poll_opts: mio::PollOpt) -> io::Result<()> {
         if interest.is_readable() {
             poll.reregister(
                 &self.conout,
                 self.read_token,
                 mio::Ready::readable(),
                 poll_opts,
-            ).unwrap();
+            )?
         } else {
             poll.reregister(
                 &self.conout,
                 self.write_token,
                 mio::Ready::empty(),
                 poll_opts,
-            ).unwrap();
+            )?
         }
         if interest.is_writable() {
             poll.reregister(
@@ -229,30 +233,41 @@ impl<'a> EventedRW for Pty<'a, NamedPipe, NamedPipe> {
                 self.write_token,
                 mio::Ready::writable(),
                 poll_opts,
-            ).unwrap();
+            )?
         } else {
             poll.reregister(
                 &self.conin,
                 self.write_token,
                 mio::Ready::empty(),
                 poll_opts,
-            ).unwrap();
+            )?
         }
-    }
-    fn deregister(&mut self, poll: &mio::Poll) {
-        poll.deregister(&self.conout).unwrap();
-        poll.deregister(&self.conin).unwrap();
+        Ok(())
     }
 
+    #[inline]
+    fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
+        poll.deregister(&self.conout)?;
+        poll.deregister(&self.conin)?;
+        Ok(())
+    }
+
+    #[inline]
     fn reader(&mut self) -> &mut NamedPipe {
         &mut self.conout
     }
+
+    #[inline]
     fn read_token(&self) -> mio::Token {
         self.read_token
     }
+
+    #[inline]
     fn writer(&mut self) -> &mut NamedPipe {
         &mut self.conin
     }
+
+    #[inline]
     fn write_token(&self) -> mio::Token {
         self.write_token
     }
