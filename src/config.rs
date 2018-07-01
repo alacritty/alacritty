@@ -242,7 +242,7 @@ impl Alpha {
     }
 
     #[inline]
-    pub fn get(&self) -> f32 {
+    pub fn get(self) -> f32 {
         self.0
     }
 
@@ -1969,10 +1969,10 @@ enum Key {
 }
 
 impl Key {
-    fn to_glutin_key(&self) -> ::glutin::VirtualKeyCode {
+    fn to_glutin_key(self) -> ::glutin::VirtualKeyCode {
         use ::glutin::VirtualKeyCode::*;
         // Thank you, vim macros!
-        match *self {
+        match self {
             Key::Key1 => Key1,
             Key::Key2 => Key2,
             Key::Key3 => Key3,

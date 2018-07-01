@@ -39,7 +39,7 @@ extern crate libc;
 #[macro_use]
 extern crate foreign_types;
 
-#[macro_use]
+#[cfg_attr(not(windows), macro_use)]
 extern crate log;
 
 use std::hash::{Hash, Hasher};
@@ -354,5 +354,5 @@ pub trait Rasterize {
     fn load_font(&mut self, &FontDesc, Size) -> Result<FontKey, Self::Err>;
 
     /// Rasterize the glyph described by `GlyphKey`.
-    fn get_glyph(&mut self, &GlyphKey) -> Result<RasterizedGlyph, Self::Err>;
+    fn get_glyph(&mut self, GlyphKey) -> Result<RasterizedGlyph, Self::Err>;
 }

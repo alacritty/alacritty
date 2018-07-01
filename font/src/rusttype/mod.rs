@@ -71,7 +71,7 @@ impl ::Rasterize for RustTypeRasterizer {
         })
     }
 
-    fn get_glyph(&mut self, glyph_key: &GlyphKey) -> Result<RasterizedGlyph, Error> {
+    fn get_glyph(&mut self, glyph_key: GlyphKey) -> Result<RasterizedGlyph, Error> {
         let scaled_glyph = self.fonts[glyph_key.font_key.token as usize]
             .glyph(glyph_key.c)
             .ok_or(Error::MissingGlyph)?
