@@ -152,7 +152,7 @@ impl Selection {
             Selection::Semantic { ref region, ref initial_expansion } => {
                 Selection::span_semantic(grid, region, initial_expansion)
             },
-            Selection::Lines { ref region, ref initial_line } => {
+            Selection::Lines { ref region, initial_line } => {
                 Selection::span_lines(grid, region, initial_line)
             }
         }
@@ -192,18 +192,18 @@ impl Selection {
         })
     }
 
-    fn span_lines<G>(grid: &G, region: &Region<Point>, initial_line: &Line) -> Option<Span>
+    fn span_lines<G>(grid: &G, region: &Region<Point>, initial_line: Line) -> Option<Span>
         where G: Dimensions
     {
         // First, create start and end points based on initial line and the grid
         // dimensions.
         let mut start = Point {
             col: Column(0),
-            line: *initial_line
+            line: initial_line
         };
         let mut end = Point {
             col: grid.dimensions().col - 1,
-            line: *initial_line
+            line: initial_line
         };
 
         // Now, expand lines based on where cursor started and ended.
