@@ -345,4 +345,7 @@ pub trait Rasterize {
 
     /// Rasterize the glyph described by `GlyphKey`.
     fn get_glyph(&mut self, &GlyphKey) -> Result<RasterizedGlyph, Self::Err>;
+
+    /// Update the Rasterizer's DPR
+    fn update_dpr(&mut self, device_pixel_ratio: f32);
 }

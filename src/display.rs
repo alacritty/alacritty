@@ -97,6 +97,7 @@ pub struct Display {
     tx: mpsc::Sender<(u32, u32)>,
     meter: Meter,
     font_size: font::Size,
+    display_pixel_ratio: f32,
     size_info: SizeInfo,
     last_background_color: Rgb,
 }
@@ -212,6 +213,7 @@ impl Display {
             font_size: font::Size::new(0.),
             size_info,
             last_background_color: background_color,
+            display_pixel_ratio: dpr,
         })
     }
 
@@ -253,10 +255,11 @@ impl Display {
     }
 
     pub fn update_glyph_cache(&mut self, config: &Config) {
+        let dpr = self.display_pixel_ratio;
         let cache = &mut self.glyph_cache;
         let size = self.font_size;
         self.renderer.with_loader(|mut api| {
-            let _ = cache.update_font_size(config.font(), size, &mut api);
+            let _ = cache.update_font_size(config.font(), size, dpr, &mut api);
         });
 
         let metrics = cache.font_metrics();
@@ -290,9 +293,17 @@ impl Display {
             new_size = Some(sz);
         }
 
-        // Font size modification detected
-        if terminal.font_size != self.font_size {
+        // Calculate new dpr
+        let new_dpr = if config.font().scale_with_dpi() {
+            self.window.hidpi_factor()
+        } else {
+            1.0
+        };
+
+        // Font size/dpi modification detected
+        if terminal.font_size != self.font_size || self.display_pixel_ratio != new_dpr {
             self.font_size = terminal.font_size;
+            self.display_pixel_ratio = new_dpr;
             self.update_glyph_cache(config);
 
             if new_size == None {
