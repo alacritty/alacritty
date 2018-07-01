@@ -100,12 +100,6 @@ pub struct GridIterator<'a, T: 'a> {
 
     /// Current position of the iterator within the grid.
     pub cur: Point<usize>,
-
-    /// Bottom of screen (buffer)
-    bot: usize,
-
-    /// Top of screen (buffer)
-    top: usize,
 }
 
 pub enum Scroll {
@@ -436,8 +430,6 @@ impl<T> Grid<T> {
         GridIterator {
             grid: self,
             cur: point,
-            bot: self.display_offset,
-            top: self.display_offset + *self.num_lines() - 1,
         }
     }
 
@@ -462,7 +454,7 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         let last_col = self.grid.num_cols() - Column(1);
         match self.cur {
-            Point { line, col } if (line == self.bot) && (col == last_col) => None,
+            Point { line, col } if line == 0 && col == last_col => None,
             Point { col, .. } if
                 (col == last_col) => {
                 self.cur.line -= 1;
@@ -482,7 +474,7 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
         let num_cols = self.grid.num_cols();
 
         match self.cur {
-            Point { line, col: Column(0) } if line == self.top => None,
+            Point { line, col: Column(0) } if line == self.grid.len() - 1 => None,
             Point { col: Column(0), .. } => {
                 self.cur.line += 1;
                 self.cur.col = num_cols - Column(1);
