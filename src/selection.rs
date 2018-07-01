@@ -157,8 +157,8 @@ impl Selection {
             Selection::Semantic { ref region } => {
                 Selection::span_semantic(grid, region)
             },
-            Selection::Lines { ref region, ref initial_line } => {
-                Selection::span_lines(grid, region, *initial_line)
+            Selection::Lines { ref region, initial_line } => {
+                Selection::span_lines(grid, region, initial_line)
             }
         }
     }
