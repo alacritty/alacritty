@@ -15,7 +15,6 @@ use std::cmp;
 
 #[cfg(not(feature = "nightly"))]
 #[inline(always)]
-#[cfg_attr(feature = "clippy", allow(inline_always))]
 pub unsafe fn unlikely(x: bool) -> bool {
     x
 }
