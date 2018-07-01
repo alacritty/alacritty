@@ -29,5 +29,5 @@ matrix:
     - rust: nightly
 
 script:
-  - if [ -n "$CLIPPY" ]; then cargo clippy; fi
+  - if [ -n "$CLIPPY" ]; then cargo clippy --all-features --all-targets; fi
   - if [ -z "$CLIPPY" ]; then cargo test; fi
