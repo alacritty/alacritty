@@ -110,9 +110,6 @@ impl Mul<f32> for Rgb {
 }
 
 
-#[cfg_attr(feature = "clippy", allow(too_many_arguments))]
-#[cfg_attr(feature = "clippy", allow(doc_markdown))]
-#[cfg_attr(feature = "clippy", allow(unreadable_literal))]
 #[allow(unused_mut)]
 pub mod gl {
     #![allow(non_upper_case_globals)]
