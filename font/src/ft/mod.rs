@@ -232,15 +232,15 @@ impl FreeTypeRasterizer {
             let ft_face = self.library.new_face(&path, index)?;
 
             // Get available pixel sizes if font isn't scalable.
-            let non_scalable = if !pattern.scalable().next().unwrap_or(true) {
+            let non_scalable = if pattern.scalable().next().unwrap_or(true) {
+                None
+            } else {
                 let mut pixelsize = pattern.pixelsize();
                 debug!("pixelsizes: {:?}", pixelsize);
 
                 Some(FixedSize {
                     pixelsize: pixelsize.next().expect("has 1+ pixelsize"),
                 })
-            } else {
-                None
             };
 
             let face = Face {
