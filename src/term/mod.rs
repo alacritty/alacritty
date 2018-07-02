@@ -38,6 +38,9 @@ use self::cell::LineLength;
 
 impl selection::SemanticSearch for Term {
     fn semantic_search_left(&self, mut point: Point<usize>) -> Point<usize> {
+        // Limit the starting point to the last line in the history
+        point.line = min(point.line, self.grid.len() - 1);
+
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
 
@@ -57,6 +60,9 @@ impl selection::SemanticSearch for Term {
     }
 
     fn semantic_search_right(&self, mut point: Point<usize>) -> Point<usize> {
+        // Limit the starting point to the last line in the history
+        point.line = min(point.line, self.grid.len() - 1);
+
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
 
@@ -1017,7 +1023,7 @@ impl Term {
                 }
 
                 // Starting line
-                res.append(&self.grid, start.line, Column(0)..(start.col + 1));
+                res.append(&self.grid, start.line, Column(0)..start.col);
 
             }
         }

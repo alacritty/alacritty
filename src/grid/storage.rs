@@ -198,7 +198,7 @@ impl<T> Storage<T> {
 
     /// Compute actual index in underlying storage given the requested index.
     fn compute_index(&self, requested: usize) -> usize {
-        debug_assert!(requested < self.inner.len());
+        debug_assert!(requested < self.len);
         let zeroed = requested + self.zero;
 
         // This part is critical for performance,
