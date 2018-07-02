@@ -17,6 +17,9 @@
 //! CoreText is used on Mac OS.
 //! FreeType is used on everything that's not Mac OS.
 //! Eventually, ClearType support will be available for windows
+
+#![cfg_attr(feature = "cargo-clippy", deny(clippy, if_not_else, enum_glob_use, wrong_pub_self_convention))]
+
 #[cfg(not(target_os = "macos"))]
 extern crate fontconfig;
 #[cfg(not(target_os = "macos"))]
