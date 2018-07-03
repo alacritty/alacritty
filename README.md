@@ -37,8 +37,7 @@ built from source.
 
 Instructions are provided for macOS and many Linux variants to compile Alacritty
 from source. With the exception of Arch (which has a package in the AUR), Void Linux (in main repository) and
-[NixOS](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/alacritty/default.nix)
-(at the moment in unstable, will be part of 17.09), please first read the
+[NixOS](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/alacritty/default.nix), please first read the
 [prerequisites](#prerequisites) section, then find the section for your OS, and
 finally go to [building](#building) and [configuration](#configuration).
 
