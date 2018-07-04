@@ -304,9 +304,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let cell_x = x.saturating_sub(size_info.padding_x as usize) % size_info.cell_width as usize;
         let half_cell_width = (size_info.cell_width / 2.0) as usize;
 
+        let additional_padding = (size_info.width - size_info.padding_x * 2.) % size_info.cell_width;
+        let end_of_grid = size_info.width - size_info.padding_x - additional_padding;
         let cell_side = if cell_x > half_cell_width
             // Edge case when mouse leaves the window
-            || x as f32 >= size_info.width - size_info.padding_x
+            || x as f32 >= end_of_grid
         {
             Side::Right
         } else {
