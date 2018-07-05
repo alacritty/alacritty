@@ -12,5 +12,5 @@ bitflags = "1.0"
 widestring = "0.2.2"
 
 [dev-dependencies]
-named_pipe = "*"
+named_pipe = "0.3"
 winapi = { version = "0.3", features = ["winnt", "processthreadsapi"] }

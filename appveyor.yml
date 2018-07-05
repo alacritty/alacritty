@@ -3,14 +3,33 @@
 
 environment:
   global:
-    RUST_VERSION: nightly
     CRATE_NAME: alacritty
+    RUST_BACKTRACE: 1
 
   matrix:
     - platform: x86_64
       TARGET: x86_64-pc-windows-msvc
+      RUST_VERSION: stable
+      CLIPPY: false
+
+    - platform: x86_64
+      TARGET: x86_64-pc-windows-msvc
+      RUST_VERSION: nightly
+      CLIPPY: true
+
     - platform: x86
       TARGET: i686-pc-windows-msvc
+      RUST_VERSION: stable
+      CLIPPY: false
+
+    - platform: x86
+      TARGET: i686-pc-windows-msvc
+      RUST_VERSION: nightly
+      CLIPPY: true
+
+matrix:
+  allow_failures:
+    - CLIPPY: true
 
 shallow_clone: true
 
@@ -25,45 +44,34 @@ install:
       copy assets\windows\x86\libclang_win32_5.0.1.dll "C:\Program Files\LLVM\bin\libclang.dll"
     )
 
-cache:
-  - target
-
 build_script:
-  - cargo build --target %TARGET%
-  - cargo build --target %TARGET% --release
+  # Only build once per architecture
+  - if [%CLIPPY%]==[false] (
+      cargo +%RUST_TOOLCHAIN% build --release
+    )
+
+before_test:
+  - If [%CLIPPY%]==[true] (
+      cargo install -f clippy
+    )
 
 test_script:
-  - cargo test --target %TARGET%
+  - ps: |
+      if ($env:CLIPPY -eq "true") {
+        cargo +$env:RUST_TOOLCHAIN clippy 2> $null
+      } else {
+        cargo +$env:RUST_TOOLCHAIN test 2> $null
+        cd winpty
+        cargo +$env:RUST_TOOLCHAIN test 2> $null
+      }
+
+cache:
+  # Ideally we'd also cache the toolchain but it's too large to fit in the free cache.
+  # Building alacritty takes significantly longer than downloading the toolchain.
+  - target
 
 artifacts:
-  - path: target\%TARGET%\debug\alacritty.exe
-    name: Alacritty (debug build)
-  - path: target\%TARGET%\release\alacritty.exe
+  - path: target\release\alacritty.exe
     name: Alacritty
   - path: assets\windows\%platform%\winpty-agent.exe
     name: Winpty agent
-
-before_deploy:
-  - cargo build --target %TARGET% --release
-  - ps: ci\before_deploy.ps1
-
-# deploy:
-#   artifact: /.*\.zip/
-#   auth_token:
-#     secure: t3puM/2hOig26EHhAodcZBc61NywF7/PFEpimR6SwGaCiqS07KR5i7iAhSABmBp7
-#   description: ''
-#   on:
-#     # TODO Here you can pick which targets will generate binary releases
-#     # In this example, there are some targets that are tested using the stable
-#     # and nightly channels. This condition makes sure there is only one release
-#     # for such targets and that's generated using the stable channel
-#     RUST_VERSION: stable
-#     appveyor_repo_tag: true
-#   provider: GitHub
-
-branches:
-  only:
-    # Release tags
-    - /^v\d+\.\d+\.\d+.*$/
-    - master
-    - /.*windows.*/
