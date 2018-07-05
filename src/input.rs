@@ -137,7 +137,7 @@ impl<T> Binding<T> {
     /// Optimized to use single check instead of four (one per modifier)
     #[inline]
     fn mods_match(&self, mods: ModifiersState) -> bool {
-        debug_assert!(4 == mem::size_of::<ModifiersState>());
+        assert_eq_size!(ModifiersState, u32);
         unsafe {
             mem::transmute_copy::<_, u32>(&self.mods) == mem::transmute_copy::<_, u32>(&mods)
         }
