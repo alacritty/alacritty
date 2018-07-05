@@ -17,7 +17,7 @@ extern crate gl_generator;
 
 use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
 use std::env;
-use std::fs::File;
+use std::fs::{copy, File};
 use std::path::Path;
 
 fn main() {
@@ -35,4 +35,9 @@ fn main() {
 
     #[cfg(windows)]
     embed_resource::compile("assets/windows/windows.rc");
+
+    #[cfg(debug_assertions)]
+    copy("assets/windows/x86_64/winpty-agent.exe", "target/debug/winpty-agent.exe").unwrap();
+    #[cfg(not(debug_assertions))]
+    copy("assets/windows/x86_64/winpty-agent.exe", "target/release/winpty-agent.exe").unwrap();
 }

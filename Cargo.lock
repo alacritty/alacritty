@@ -1740,13 +1740,12 @@ version = "0.1.0"
 dependencies = [
  "bitflags 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "widestring 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "winpty-sys 1.1.0 (git+https://github.com/zacps/winpty?branch=rust)",
+ "winpty-sys 1.1.0",
 ]
 
 [[package]]
 name = "winpty-sys"
 version = "1.1.0"
-source = "git+https://github.com/zacps/winpty?branch=rust#4940cb62b0d10a660d99849919e0f6ff54511fa9"
 dependencies = [
  "bindgen 0.33.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2021,7 +2020,6 @@ dependencies = [
 "checksum winapi-x86_64-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 "checksum wincolor 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "eeb06499a3a4d44302791052df005d5232b927ed1a9658146d842165c4de7767"
 "checksum winit 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4bb6ea35de8bd722201914b28a33d503ee45b09fcf85fc4bbf574845e41f79e2"
-"checksum winpty-sys 1.1.0 (git+https://github.com/zacps/winpty?branch=rust)" = "<none>"
 "checksum winreg 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cbf285379f20d7f26abd990d9a566be9d31ab7a9d335299baaa1f0604f5f96af"
 "checksum ws2_32-sys 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d59cefebd0c892fa2dd6de581e937301d8552cb44489cdff035c6187cb63fa5e"
 "checksum x11-clipboard 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "2e7374c7699210cca7084ca61d57e09640fc744d1391808cb9ae2fe4ca9bd1df"

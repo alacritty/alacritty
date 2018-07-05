@@ -9,5 +9,8 @@ description = "Safe rust bindings for winpty"
 # TODO: Replace with official repo
 winpty-sys = { git = "https://github.com/zacps/winpty", branch = "rust" }
 bitflags = "1.0"
-libc = "0.2"
 widestring = "0.2.2"
+
+[dev-dependencies]
+named_pipe = "*"
+winapi = { version = "0.3", features = ["winnt", "processthreadsapi"] }
