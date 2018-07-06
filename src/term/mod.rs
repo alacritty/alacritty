@@ -849,13 +849,13 @@ impl Term {
 
         let history_size = config.scrolling().history as usize;
         let grid = Grid::new(num_lines, num_cols, history_size, Cell::default());
+        let alt = Grid::new(num_lines, num_cols, 0 /* scroll history */, Cell::default());
 
         let tabspaces = config.tabspaces();
         let tabs = IndexRange::from(Column(0)..grid.num_cols())
             .map(|i| (*i as usize) % tabspaces == 0)
             .collect::<Vec<bool>>();
 
-        let alt = grid.clone();
         let scroll_region = Line(0)..grid.num_lines();
 
         Term {
