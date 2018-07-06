@@ -87,14 +87,20 @@ impl From<renderer::Error> for Error {
     }
 }
 
+#[derive(Debug)]
+pub enum DisplayCommand {
+    Resize(u32, u32),
+    HiDPIFactor(f32),
+}
+
 /// The display wraps a window, font rasterizer, and GPU renderer
 pub struct Display {
     window: Window,
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
-    rx: mpsc::Receiver<(u32, u32)>,
-    tx: mpsc::Sender<(u32, u32)>,
+    rx: mpsc::Receiver<DisplayCommand>,
+    tx: mpsc::Sender<DisplayCommand>,
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
@@ -264,8 +270,25 @@ impl Display {
         self.size_info.cell_height = ((metrics.line_height + f64::from(config.font().offset().y)) as f32).floor();
     }
 
+    pub fn replace_glyph_cache(&mut self, dpr: f32, config: &Config) -> Result<(), Error> {
+
+        let (glyph_cache, cell_width, cell_height) =
+            Self::new_glyph_cache(dpr, &mut self.renderer, config)?;
+
+        let size_info = SizeInfo {
+            cell_width: cell_width as f32,
+            cell_height: cell_height as f32,
+            ..self.size_info
+        };
+
+        self.glyph_cache = glyph_cache;
+        self.size_info = size_info;
+
+        Ok(())
+    }
+
     #[inline]
-    pub fn resize_channel(&self) -> mpsc::Sender<(u32, u32)> {
+    pub fn command_channel(&self) -> mpsc::Sender<DisplayCommand> {
         self.tx.clone()
     }
 
@@ -273,8 +296,8 @@ impl Display {
         &mut self.window
     }
 
-    /// Process pending resize events
-    pub fn handle_resize(
+    /// Process pending resize and dpi size change events
+    pub fn handle_display_command(
         &mut self,
         terminal: &mut MutexGuard<Term>,
         config: &Config,
@@ -287,7 +310,12 @@ impl Display {
 
         // Take most recent resize event, if any
         while let Ok(sz) = self.rx.try_recv() {
-            new_size = Some(sz);
+            match sz {
+                DisplayCommand::Resize(w, h) => new_size = Some((w, h)),
+                DisplayCommand::HiDPIFactor(dpr) => {
+                    self.replace_glyph_cache(dpr, config).expect("replacing glyph cache");
+                },
+            }
         }
 
         // Font size modification detected
