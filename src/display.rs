@@ -143,19 +143,19 @@ impl Display {
         // get window properties for initializing the other subsystems
         let mut viewport_size = window.inner_size_pixels()
             .expect("glutin returns window size");
-        let dpr = if config.font().scale_with_dpi() {
+        let dpi_factor = if config.font().scale_with_dpi() {
             window.hidpi_factor()
         } else {
             1.0
         };
 
-        info!("device_pixel_ratio: {}", dpr);
+        info!("device_pixel_ratio: {}", dpi_factor);
 
         // Create renderer
         let mut renderer = QuadRenderer::new(config, viewport_size.to_physical(window.hidpi_factor()))?;
 
         let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(dpr as f32, &mut renderer, config)?;
+            Self::new_glyph_cache(dpi_factor, &mut renderer, config)?;
 
 
         let dimensions = options.dimensions()
@@ -171,7 +171,7 @@ impl Display {
                 (height + 2 * u32::from(config.padding().y)) as f64);
 
             window.set_inner_size(new_viewport_size);
-            renderer.resize(new_viewport_size.to_physical(dpr));
+            renderer.resize(new_viewport_size.to_physical(dpi_factor));
             viewport_size = new_viewport_size;
         }
 
@@ -179,6 +179,7 @@ impl Display {
 
         let psize = viewport_size.to_physical(window.hidpi_factor());
         let size_info = SizeInfo {
+            dpi_factor,
             width: psize.width as f32,
             height: psize.height as f32,
             cell_width: cell_width as f32,
@@ -216,11 +217,11 @@ impl Display {
         })
     }
 
-    fn new_glyph_cache(dpr: f32, renderer: &mut QuadRenderer, config: &Config)
+    fn new_glyph_cache(dpi_factor: f64, renderer: &mut QuadRenderer, config: &Config)
         -> Result<(GlyphCache, f32, f32), Error>
     {
         let font = config.font().clone();
-        let rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
+        let rasterizer = font::Rasterizer::new(dpi_factor as f32, config.use_thin_strokes())?;
 
         // Initialize glyph cache
         let glyph_cache = {
@@ -294,8 +295,15 @@ impl Display {
             new_size = Some(sz.to_physical(self.window.hidpi_factor()));
         }
 
+        let dpi_factor = if config.font().scale_with_dpi() {
+            self.window.hidpi_factor()
+        } else {
+            1.0
+        };
+
         // Font size modification detected
-        if terminal.font_size != self.font_size {
+        if terminal.font_size != self.font_size || dpi_factor != self.size_info.dpi_factor {
+            self.size_info.dpi_factor = dpi_factor;
             self.font_size = terminal.font_size;
             self.update_glyph_cache(config);
 

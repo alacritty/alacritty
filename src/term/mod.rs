@@ -755,6 +755,9 @@ pub struct SizeInfo {
 
     /// Horizontal window padding
     pub padding_y: f32,
+
+    /// DPI factor of the current window
+    pub dpi_factor: f64,
 }
 
 impl SizeInfo {

@@ -339,7 +339,7 @@ impl<N: Notify> Processor<N> {
                         }
                     },
                     CursorMoved { position: lpos, modifiers, .. } => {
-                        let (x, y) = lpos.into();
+                        let (x, y) = lpos.to_physical(processor.ctx.size_info.dpi_factor).into();
                         let x: i32 = limit(x, 0, processor.ctx.size_info.width as i32);
                         let y: i32 = limit(y, 0, processor.ctx.size_info.height as i32);
 
