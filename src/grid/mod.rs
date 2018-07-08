@@ -437,15 +437,6 @@ impl<T> Grid<T> {
     pub fn contains(&self, point: &Point) -> bool {
         self.lines > point.line && self.cols > point.col
     }
-
-    // /// Swap two lines in the grid
-    // ///
-    // /// This could have used slice::swap internally, but we are able to have
-    // /// better error messages by doing the bounds checking ourselves.
-    // #[inline]
-    // pub fn swap_lines(&mut self, src: index::Line, dst: index::Line) {
-    //     self.raw.swap(*src, *dst);
-    // }
 }
 
 impl<'a, T> Iterator for GridIterator<'a, T> {

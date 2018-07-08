@@ -84,11 +84,8 @@ impl<T> Storage<T> {
         T: Clone,
     {
         // Allocate all lines in the buffer, including scrollback history
-        //
-        // TODO (jwilm) Allocating each line at this point is expensive and
-        // delays startup. A nice solution might be having `Row` delay
-        // allocation until it's actually used.
         let inner = vec![template; cap];
+
         Storage {
             inner,
             zero: 0,
@@ -124,7 +121,7 @@ impl<T> Storage<T> {
     }
 
     /// Grow the number of lines in the buffer, filling new lines with the template
-    pub fn grow_lines(&mut self, growage: usize, template_row: Row<T>)
+    fn grow_lines(&mut self, growage: usize, template_row: Row<T>)
     where
         T: Clone,
     {
@@ -225,9 +222,6 @@ impl<T> Storage<T> {
     /// The default implementation from swap generates 8 movups and 4 movaps
     /// instructions. This implementation achieves the swap in only 8 movups
     /// instructions.
-    ///
-    // TODO Once specialization is available, Storage<T> can be fully generic
-    //      again instead of enforcing inner: Vec<Row<T>>.
     pub fn swap(&mut self, a: usize, b: usize) {
         debug_assert!(::std::mem::size_of::<Row<T>>() == 32);
 

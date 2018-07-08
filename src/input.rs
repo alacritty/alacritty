@@ -509,19 +509,19 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let mouse_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
 
         // Make sure the new and deprecated setting are both allowed
-        let faux_scrollback_lines = self.mouse_config
-            .faux_scrollback_lines
+        let faux_scrolling_lines = self.mouse_config
+            .faux_scrolling_lines
             .unwrap_or(self.scrolling_config.faux_multiplier as usize);
 
         if self.ctx.terminal_mode().intersects(mouse_modes) {
             self.mouse_report(code, ElementState::Pressed, modifiers);
         } else if self.ctx.terminal_mode().contains(TermMode::ALT_SCREEN)
-            && faux_scrollback_lines > 0 && !modifiers.shift
+            && faux_scrolling_lines > 0 && !modifiers.shift
         {
             // Faux scrolling
             let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
-            let mut content = Vec::with_capacity(faux_scrollback_lines as usize * 3);
-            for _ in 0..faux_scrollback_lines {
+            let mut content = Vec::with_capacity(faux_scrolling_lines as usize * 3);
+            for _ in 0..faux_scrolling_lines {
                 content.push(0x1b);
                 content.push(b'O');
                 content.push(cmd);
@@ -529,7 +529,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.ctx.write_to_pty(content);
         } else {
             for _ in 0..scroll_multiplier {
-                self.ctx.scroll(Scroll::Lines(-((code as isize) * 2 - 129)));
+                // Transform the reported button codes 64 and 65 into 1 and -1 lines to scroll
+                self.ctx.scroll(Scroll::Lines(-(code as isize * 2 - 129)));
             }
         }
     }
@@ -796,7 +797,7 @@ mod tests {
                         triple_click: ClickHandler {
                             threshold: Duration::from_millis(1000),
                         },
-                        faux_scrollback_lines: None,
+                        faux_scrolling_lines: None,
                     },
                     scrolling_config: &config::Scrolling::default(),
                     key_bindings: &config.key_bindings()[..],

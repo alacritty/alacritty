@@ -404,8 +404,6 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 
                 let index = Linear(cell.line.0 * self.grid.num_cols().0 + cell.column.0);
 
-                // XXX (jwilm) selection temp disabled
-                //
                 let selected = self.selection.as_ref()
                     .map(|range| range.contains_(index))
                     .unwrap_or(false);
@@ -1158,18 +1156,6 @@ impl Term {
         self.tabs = IndexRange::from(Column(0)..self.grid.num_cols())
             .map(|i| (*i as usize) % self.tabspaces == 0)
             .collect::<Vec<bool>>();
-
-        // if num_lines > old_lines {
-        //     // Make sure bottom of terminal is clear
-        //     let template = self.cursor.template;
-        //     self.grid
-        //         .region_mut((self.cursor.point.line + 1)..)
-        //         .each(|c| c.reset(&template));
-        //     self.alt_grid
-        //         .region_mut((self.cursor_save_alt.point.line + 1)..)
-        //         .each(|c| c.reset(&template));
-        // }
-
     }
 
     #[inline]
