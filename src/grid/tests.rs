@@ -20,7 +20,7 @@ use index::{Point, Line, Column};
 // Scroll up moves lines upwards
 #[test]
 fn scroll_up() {
-    println!("");
+    println!();
 
     let mut grid = Grid::new(Line(10), Column(1), 0, 0);
     for i in 0..10 {
@@ -58,7 +58,7 @@ fn scroll_up() {
 // Scroll down moves lines downwards
 #[test]
 fn scroll_down() {
-    println!("");
+    println!();
 
     let mut grid = Grid::new(Line(10), Column(1), 0, 0);
     for i in 0..10 {

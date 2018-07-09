@@ -59,17 +59,15 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn copy_selection(&self, buffer: ::copypasta::Buffer) {
-        self.terminal
-            .selection_to_string()
-            .map(|selected| {
-                if !selected.is_empty() {
-                    Clipboard::new()
-                        .and_then(|mut clipboard| clipboard.store(selected, buffer))
-                        .unwrap_or_else(|err| {
-                            warn!("Error storing selection to clipboard. {}", Red(err));
-                        });
-                }
-            });
+        if let Some(selected) = self.terminal.selection_to_string() {
+            if !selected.is_empty() {
+                Clipboard::new()
+                    .and_then(|mut clipboard| clipboard.store(selected, buffer))
+                    .unwrap_or_else(|err| {
+                        warn!("Error storing selection to clipboard. {}", Red(err));
+                    });
+            }
+        }
     }
 
     fn clear_selection(&mut self) {
@@ -241,7 +239,7 @@ impl<N: Notify> Processor<N> {
             resize_tx,
             ref_test,
             mouse: Default::default(),
-            size_info: size_info,
+            size_info,
             hide_cursor_when_typing: config.hide_cursor_when_typing(),
             hide_cursor: false,
             received_count: 0,

@@ -68,12 +68,12 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Storage<T> {
         //   Smaller Zero (3):
         //     7  8  9  | 0  1  2  3  | 4  5  6
         //     C3 C3 C3 | C1 C1 C1 C1 | C2 C2 C2
-        &bigger.inner[bigger_zero..]
-            == &smaller.inner[smaller_zero..smaller_zero + (len - bigger_zero)]
-            && &bigger.inner[..bigger_zero - smaller_zero]
-                == &smaller.inner[smaller_zero + (len - bigger_zero)..]
-            && &bigger.inner[bigger_zero - smaller_zero..bigger_zero]
-                == &smaller.inner[..smaller_zero]
+        bigger.inner[bigger_zero..]
+            == smaller.inner[smaller_zero..smaller_zero + (len - bigger_zero)]
+            && bigger.inner[..bigger_zero - smaller_zero]
+                == smaller.inner[smaller_zero + (len - bigger_zero)..]
+            && bigger.inner[bigger_zero - smaller_zero..bigger_zero]
+                == smaller.inner[..smaller_zero]
     }
 }
 

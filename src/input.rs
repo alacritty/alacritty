@@ -510,7 +510,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         // Make sure the new and deprecated setting are both allowed
         let faux_scrolling_lines = self.mouse_config
-            .faux_scrolling_lines
+            .faux_scrollback_lines
             .unwrap_or(self.scrolling_config.faux_multiplier as usize);
 
         if self.ctx.terminal_mode().intersects(mouse_modes) {
@@ -797,7 +797,7 @@ mod tests {
                         triple_click: ClickHandler {
                             threshold: Duration::from_millis(1000),
                         },
-                        faux_scrolling_lines: None,
+                        faux_scrollback_lines: None,
                     },
                     scrolling_config: &config::Scrolling::default(),
                     key_bindings: &config.key_bindings()[..],

@@ -102,6 +102,7 @@ pub struct GridIterator<'a, T: 'a> {
     pub cur: Point<usize>,
 }
 
+#[derive(Copy, Clone)]
 pub enum Scroll {
     Lines(isize),
     PageUp,
@@ -396,6 +397,7 @@ impl<T: Copy + Clone> Grid<T> {
     }
 }
 
+#[cfg_attr(feature = "cargo-clippy", allow(len_without_is_empty))]
 impl<T> Grid<T> {
     #[inline]
     pub fn num_lines(&self) -> index::Line {
@@ -557,10 +559,10 @@ impl<'a, T> RegionMut<'a, T> {
 
 pub trait IndexRegion<I, T> {
     /// Get an immutable region of Self
-    fn region<'a>(&'a self, _: I) -> Region<'a, T>;
+    fn region(&self, _: I) -> Region<T>;
 
     /// Get a mutable region of Self
-    fn region_mut<'a>(&'a mut self, _: I) -> RegionMut<'a, T>;
+    fn region_mut(&mut self, _: I) -> RegionMut<T>;
 }
 
 impl<T> IndexRegion<Range<Line>, T> for Grid<T> {
@@ -763,13 +765,11 @@ impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
 
         // Update line/col to point to next item
         self.col += 1;
-        if self.col == self.grid.num_cols() {
-            if self.offset != self.limit {
-                self.offset -= 1;
+        if self.col == self.grid.num_cols() && self.offset != self.limit {
+            self.offset -= 1;
 
-                self.col = Column(0);
-                self.line = Line(*self.grid.lines - 1 - (self.offset - self.limit));
-            }
+            self.col = Column(0);
+            self.line = Line(*self.grid.lines - 1 - (self.offset - self.limit));
         }
 
         item

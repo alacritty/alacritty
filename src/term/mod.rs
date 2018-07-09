@@ -130,7 +130,7 @@ impl<'a> RenderableCellsIter<'a> {
         let inner = grid.display_iter();
 
         let mut selection_range = None;
-        selection.map(|loc| {
+        if let Some(loc) = selection {
             // Get on-screen lines of the selection's locations
             let start_line = grid.buffer_line_to_visible(loc.start.line);
             let end_line = grid.buffer_line_to_visible(loc.end.line);
@@ -172,17 +172,17 @@ impl<'a> RenderableCellsIter<'a> {
                 // Update the selection
                 selection_range = Some(RangeInclusive::new(start, end));
             }
-        });
+        }
 
         RenderableCellsIter {
-            cursor: cursor,
-            cursor_offset: cursor_offset,
-            grid: grid,
-            inner: inner,
-            mode: mode,
+            cursor,
+            cursor_offset,
+            grid,
+            inner,
+            mode,
             selection: selection_range,
-            config: config,
-            colors: colors,
+            config,
+            colors,
             cursor_cells: ArrayDeque::new(),
         }.initialize(cursor_style)
     }
@@ -428,13 +428,13 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     fg_rgb = self.colors[NamedColor::Background];
                     bg_alpha = 1.0
                 } else {
-                    bg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
-                    fg_rgb = self.compute_bg_rgb(&cell.bg);
+                    bg_rgb = self.compute_fg_rgb(cell.fg, &cell);
+                    fg_rgb = self.compute_bg_rgb(cell.bg);
                 }
             } else {
-                fg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
-                bg_rgb = self.compute_bg_rgb(&cell.bg);
-                bg_alpha = self.compute_bg_alpha(&cell.bg);
+                fg_rgb = self.compute_fg_rgb(cell.fg, &cell);
+                bg_rgb = self.compute_bg_rgb(cell.bg);
+                bg_alpha = self.compute_bg_alpha(cell.bg);
             }
 
             return Some(RenderableCell {
@@ -444,7 +444,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 c: cell.c,
                 fg: fg_rgb,
                 bg: bg_rgb,
-                bg_alpha: bg_alpha,
+                bg_alpha,
             })
         }
     }
@@ -2217,7 +2217,7 @@ mod benches {
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {
-            let iter = terminal.renderable_cells(&config, None, false);
+            let iter = terminal.renderable_cells(&config, false);
             for cell in iter {
                 test::black_box(cell);
             }
