@@ -140,19 +140,20 @@ impl Display {
         // Create the window where Alacritty will be displayed
         let mut window = Window::new(&options, config.window())?;
 
-        // get window properties for initializing the other subsystems
-        let mut viewport_size = window.inner_size_pixels()
-            .expect("glutin returns window size");
         let dpi_factor = if config.font().scale_with_dpi() {
             window.hidpi_factor()
         } else {
             1.0
         };
+        // get window properties for initializing the other subsystems
+        let mut viewport_size = window.inner_size_pixels()
+            .expect("glutin returns window size").to_physical(dpi_factor);
+        
 
         info!("device_pixel_ratio: {}", dpi_factor);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(config, viewport_size.to_physical(window.hidpi_factor()))?;
+        let mut renderer = QuadRenderer::new(config, viewport_size)?;
 
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpi_factor, &mut renderer, config)?;
@@ -166,22 +167,21 @@ impl Display {
             let width = cell_width as u32 * dimensions.columns_u32();
             let height = cell_height as u32 * dimensions.lines_u32();
 
-            let new_viewport_size = LogicalSize::new(
+            let new_viewport_size = PhysicalSize::new(
                 (width + 2 * u32::from(config.padding().x)) as f64,
                 (height + 2 * u32::from(config.padding().y)) as f64);
 
-            window.set_inner_size(new_viewport_size);
-            renderer.resize(new_viewport_size.to_physical(dpi_factor));
+            window.set_inner_size(new_viewport_size.to_logical(dpi_factor));
+            renderer.resize(new_viewport_size);
             viewport_size = new_viewport_size;
         }
 
         info!("Cell Size: ({} x {})", cell_width, cell_height);
 
-        let psize = viewport_size.to_physical(window.hidpi_factor());
         let size_info = SizeInfo {
             dpi_factor,
-            width: psize.width as f32,
-            height: psize.height as f32,
+            width: viewport_size.width as f32,
+            height: viewport_size.height as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
             padding_x: f32::from(config.padding().x),
