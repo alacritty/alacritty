@@ -375,7 +375,7 @@ impl<N: Notify> Processor<N> {
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty(path.into_bytes());
                     },
-                    HiDpiFactorChanged(_) => self.terminal.dirty = true,
+                    HiDpiFactorChanged(_) => processor.ctx.terminal.dirty = true,
                     _ => (),
                 }
             },
