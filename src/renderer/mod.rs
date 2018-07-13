@@ -294,18 +294,23 @@ impl GlyphCache {
         &mut self,
         font: &config::Font,
         size: font::Size,
+        dpr: f64,
         loader: &mut L
     ) -> Result<(), font::Error> {
         // Clear currently cached data in both GL and the registry
         loader.clear();
         self.cache = HashMap::default();
 
+        // Update dpi scaling
+        self.rasterizer.update_dpr(dpr as f32);
+
         // Recompute font keys
         let font = font.to_owned().with_size(size);
-        info!("Font size changed: {:?}", font.size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
         self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular)?;
+
+        info!("Font size changed: {:?} [DPR: {}]", font.size, dpr);
 
         self.font_size = font.size;
         self.font_key = regular;
@@ -715,7 +720,7 @@ impl QuadRenderer {
 
     pub fn resize(&mut self, size: PhysicalSize) {
         let (width, height) : (u32, u32) = size.into();
-        
+
         let padding_x = i32::from(self.program.padding_x);
         let padding_y = i32::from(self.program.padding_y);
 
@@ -1019,7 +1024,7 @@ impl ShaderProgram {
         };
 
         shader.update_projection(size.width as f32, size.height as f32);
-        
+
         shader.deactivate();
 
         Ok(shader)

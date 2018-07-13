@@ -339,7 +339,7 @@ impl<N: Notify> Processor<N> {
                         }
                     },
                     CursorMoved { position: lpos, modifiers, .. } => {
-                        let (x, y) = lpos.to_physical(processor.ctx.size_info.dpi_factor).into();
+                        let (x, y) = lpos.to_physical(processor.ctx.size_info.dpr).into();
                         let x: i32 = limit(x, 0, processor.ctx.size_info.width as i32);
                         let y: i32 = limit(y, 0, processor.ctx.size_info.height as i32);
 
@@ -374,7 +374,8 @@ impl<N: Notify> Processor<N> {
                         use input::ActionContext;
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty(path.into_bytes());
-                    }
+                    },
+                    HiDpiFactorChanged(_) => self.terminal.dirty = true,
                     _ => (),
                 }
             },

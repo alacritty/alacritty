@@ -1585,8 +1585,18 @@ pub struct Font {
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
     use_thin_strokes: bool,
 
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
-    scale_with_dpi: bool,
+    // TODO: Deprecated
+    #[serde(default, deserialize_with = "deserialize_scale_with_dpi")]
+    scale_with_dpi: Option<()>,
+}
+
+fn deserialize_scale_with_dpi<'a, D>(_deserializer: D) -> ::std::result::Result<Option<()>, D::Error>
+    where D: de::Deserializer<'a>
+{
+    panic!(
+        "The `scale_with_dpi` field has been deprecated, \
+         on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead."
+    );
 }
 
 fn default_bold_desc() -> FontDescription {
@@ -1639,11 +1649,6 @@ impl Font {
             .. self
         }
     }
-
-    /// Check whether dpi should be applied
-    pub fn scale_with_dpi(&self) -> bool {
-        self.scale_with_dpi
-    }
 }
 
 #[cfg(target_os = "macos")]
@@ -1655,7 +1660,7 @@ impl Default for Font {
             italic: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
             use_thin_strokes: true,
-            scale_with_dpi: true,
+            scale_with_dpi: None,
             glyph_offset: Default::default(),
             offset: Default::default(),
         }
@@ -1671,7 +1676,7 @@ impl Default for Font {
             italic: FontDescription::new_with_family("monospace"),
             size: Size::new(11.0),
             use_thin_strokes: false,
-            scale_with_dpi: true,
+            scale_with_dpi: None,
             glyph_offset: Default::default(),
             offset: Default::default(),
         }

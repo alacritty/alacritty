@@ -140,23 +140,18 @@ impl Display {
         // Create the window where Alacritty will be displayed
         let mut window = Window::new(&options, config.window())?;
 
-        let dpi_factor = if config.font().scale_with_dpi() {
-            window.hidpi_factor()
-        } else {
-            1.0
-        };
+        let dpr = window.hidpi_factor();
+        info!("device_pixel_ratio: {}", dpr);
+
         // get window properties for initializing the other subsystems
         let mut viewport_size = window.inner_size_pixels()
-            .expect("glutin returns window size").to_physical(dpi_factor);
-        
-
-        info!("device_pixel_ratio: {}", dpi_factor);
+            .expect("glutin returns window size").to_physical(dpr);
 
         // Create renderer
         let mut renderer = QuadRenderer::new(config, viewport_size)?;
 
         let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(dpi_factor, &mut renderer, config)?;
+            Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
 
         let dimensions = options.dimensions()
@@ -171,7 +166,7 @@ impl Display {
                 (width + 2 * u32::from(config.padding().x)) as f64,
                 (height + 2 * u32::from(config.padding().y)) as f64);
 
-            window.set_inner_size(new_viewport_size.to_logical(dpi_factor));
+            window.set_inner_size(new_viewport_size.to_logical(dpr));
             renderer.resize(new_viewport_size);
             viewport_size = new_viewport_size;
         }
@@ -179,7 +174,7 @@ impl Display {
         info!("Cell Size: ({} x {})", cell_width, cell_height);
 
         let size_info = SizeInfo {
-            dpi_factor,
+            dpr,
             width: viewport_size.width as f32,
             height: viewport_size.height as f32,
             cell_width: cell_width as f32,
@@ -217,11 +212,11 @@ impl Display {
         })
     }
 
-    fn new_glyph_cache(dpi_factor: f64, renderer: &mut QuadRenderer, config: &Config)
+    fn new_glyph_cache(dpr: f64, renderer: &mut QuadRenderer, config: &Config)
         -> Result<(GlyphCache, f32, f32), Error>
     {
         let font = config.font().clone();
-        let rasterizer = font::Rasterizer::new(dpi_factor as f32, config.use_thin_strokes())?;
+        let rasterizer = font::Rasterizer::new(dpr as f32, config.use_thin_strokes())?;
 
         // Initialize glyph cache
         let glyph_cache = {
@@ -255,10 +250,11 @@ impl Display {
     }
 
     pub fn update_glyph_cache(&mut self, config: &Config) {
+        let dpr = self.size_info.dpr;
         let cache = &mut self.glyph_cache;
         let size = self.font_size;
         self.renderer.with_loader(|mut api| {
-            let _ = cache.update_font_size(config.font(), size, &mut api);
+            let _ = cache.update_font_size(config.font(), size, dpr, &mut api);
         });
 
         let metrics = cache.font_metrics();
@@ -292,19 +288,14 @@ impl Display {
             // Resize events are emitted via glutin/winit with logical sizes
             // However the terminal, window and renderer use physical sizes
             // so a conversion must be done here
-            new_size = Some(sz.to_physical(self.window.hidpi_factor()));
+            new_size = Some(sz.to_physical(self.size_info.dpr));
         }
 
-        let dpi_factor = if config.font().scale_with_dpi() {
-            self.window.hidpi_factor()
-        } else {
-            1.0
-        };
-
-        // Font size modification detected
-        if terminal.font_size != self.font_size || dpi_factor != self.size_info.dpi_factor {
-            self.size_info.dpi_factor = dpi_factor;
+        // Font size/DPI factor modification detected
+        let dpr = self.window.hidpi_factor();
+        if terminal.font_size != self.font_size || dpr != self.size_info.dpr {
             self.font_size = terminal.font_size;
+            self.size_info.dpr = dpr;
             self.update_glyph_cache(config);
 
             if new_size == None {

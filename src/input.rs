@@ -735,7 +735,7 @@ mod tests {
                     cell_height: 3.0,
                     padding_x: 0.0,
                     padding_y: 0.0,
-                    dpi_factor: 1.0,
+                    dpr: 1.0,
                 };
 
                 let mut terminal = Term::new(&config, size);
