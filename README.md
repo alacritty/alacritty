@@ -37,8 +37,7 @@ built from source.
 
 Instructions are provided for macOS and many Linux variants to compile Alacritty
 from source. With the exception of Arch (which has a package in the AUR), Void Linux (in main repository) and
-[NixOS](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/alacritty/default.nix)
-(at the moment in unstable, will be part of 17.09), please first read the
+[NixOS](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/alacritty/default.nix), please first read the
 [prerequisites](#prerequisites) section, then find the section for your OS, and
 finally go to [building](#building) and [configuration](#configuration).
 
@@ -61,6 +60,11 @@ cargo install cargo-deb
 cargo deb --install
 ```
 
+### openSUSE Tumbleweed Linux
+
+```sh
+zypper in alacritty
+```
 
 ### Void Linux
 
@@ -262,7 +266,8 @@ system menus. To install the desktop entry for Alacritty, run
 
 ```sh
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
-cp Alacritty.desktop ~/.local/share/applications
+sudo desktop-file-install alacritty.desktop
+sudo update-desktop-database
 ```
 
 #### MacOS

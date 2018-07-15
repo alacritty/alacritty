@@ -24,7 +24,7 @@ pub const kCGBitmapByteOrder32Host: u32 = kCGBitmapByteOrder32Little;
 pub const kCGBitmapByteOrder32Host: u32 = kCGBitmapByteOrder32Big;
 
 #[cfg(target_endian = "little")]
-pub fn extract_rgb(bytes: Vec<u8>) -> Vec<u8> {
+pub fn extract_rgb(bytes: &[u8]) -> Vec<u8> {
     let pixels = bytes.len() / 4;
     let mut rgb = Vec::with_capacity(pixels * 3);
 
@@ -32,7 +32,7 @@ pub fn extract_rgb(bytes: Vec<u8>) -> Vec<u8> {
         let offset = i * 4;
         rgb.push(bytes[offset + 2]);
         rgb.push(bytes[offset + 1]);
-        rgb.push(bytes[offset + 0]);
+        rgb.push(bytes[offset]);
     }
 
     rgb

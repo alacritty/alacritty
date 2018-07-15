@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![cfg_attr(feature = "cargo-clippy", allow(let_unit_value))]
 #![cfg(target_os = "macos")]
 use libc::{LC_CTYPE, setlocale};
 use std::ffi::{CString, CStr};
@@ -47,7 +48,7 @@ pub fn set_locale_environment() {
             let identifier: *const Object = msg_send![locale, localeIdentifier];
             let identifier_str = nsstring_as_str(identifier).to_owned();
             let _ : () = msg_send![identifier, release];
-            identifier_str
+            identifier_str + ".UTF-8"
         };
         let _ : () = msg_send![locale, release];
         locale_id

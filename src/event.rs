@@ -106,7 +106,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
     }
 
-    fn change_font_size(&mut self, delta: i8) {
+    fn change_font_size(&mut self, delta: f32) {
         self.terminal.change_font_size(delta);
     }
 
@@ -262,7 +262,7 @@ impl<N: Notify> Processor<N> {
             Event::WindowEvent { event, .. } => {
                 use glutin::WindowEvent::*;
                 match event {
-                    Closed => {
+                    CloseRequested => {
                         if ref_test {
                             // dump grid state
                             let grid = processor.ctx.terminal.grid();
@@ -291,7 +291,7 @@ impl<N: Notify> Processor<N> {
                     },
                     KeyboardInput { input, .. } => {
                         let glutin::KeyboardInput { state, virtual_keycode, modifiers, .. } = input;
-                        processor.process_key(state, virtual_keycode, &modifiers);
+                        processor.process_key(state, virtual_keycode, modifiers);
                         if state == ElementState::Pressed {
                             // Hide cursor while typing
                             *hide_cursor = true;
@@ -301,9 +301,11 @@ impl<N: Notify> Processor<N> {
                         processor.received_char(c);
                     },
                     MouseInput { state, button, modifiers, .. } => {
-                        *hide_cursor = false;
-                        processor.mouse_input(state, button, modifiers);
-                        processor.ctx.terminal.dirty = true;
+                        if *window_is_focused {
+                            *hide_cursor = false;
+                            processor.mouse_input(state, button, modifiers);
+                            processor.ctx.terminal.dirty = true;
+                        }
                     },
                     CursorMoved { position: (x, y), modifiers, .. } => {
                         let x = x as i32;

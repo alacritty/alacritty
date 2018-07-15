@@ -34,6 +34,8 @@ use term::SizeInfo;
 use term::mode::TermMode;
 use util::fmt::Red;
 
+pub const FONT_SIZE_STEP: f32 = 0.5;
+
 /// Processes input from glutin.
 ///
 /// An escape sequence may be emitted in case specific keys or key combinations
@@ -62,7 +64,7 @@ pub trait ActionContext {
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
     fn last_modifiers(&mut self) -> &mut ModifiersState;
-    fn change_font_size(&mut self, delta: i8);
+    fn change_font_size(&mut self, delta: f32);
     fn reset_font_size(&mut self);
 }
 
@@ -100,15 +102,15 @@ impl<T: Eq> Binding<T> {
     fn is_triggered_by(
         &self,
         mode: TermMode,
-        mods: &ModifiersState,
+        mods: ModifiersState,
         input: &T
     ) -> bool {
         // Check input first since bindings are stored in one big list. This is
         // the most likely item to fail so prioritizing it here allows more
         // checks to be short circuited.
         self.trigger == *input &&
-            self.mode_matches(&mode) &&
-            self.not_mode_matches(&mode) &&
+            self.mode_matches(mode) &&
+            self.not_mode_matches(mode) &&
             self.mods_match(mods)
     }
 }
@@ -121,12 +123,12 @@ impl<T> Binding<T> {
     }
 
     #[inline]
-    fn mode_matches(&self, mode: &TermMode) -> bool {
+    fn mode_matches(&self, mode: TermMode) -> bool {
         self.mode.is_empty() || mode.intersects(self.mode)
     }
 
     #[inline]
-    fn not_mode_matches(&self, mode: &TermMode) -> bool {
+    fn not_mode_matches(&self, mode: TermMode) -> bool {
         self.notmode.is_empty() || !mode.intersects(self.notmode)
     }
 
@@ -134,10 +136,10 @@ impl<T> Binding<T> {
     ///
     /// Optimized to use single check instead of four (one per modifier)
     #[inline]
-    fn mods_match(&self, mods: &ModifiersState) -> bool {
-        debug_assert!(4 == mem::size_of::<ModifiersState>());
+    fn mods_match(&self, mods: ModifiersState) -> bool {
+        assert_eq_size!(ModifiersState, u32);
         unsafe {
-            mem::transmute_copy::<_, u32>(&self.mods) == mem::transmute_copy::<_, u32>(mods)
+            mem::transmute_copy::<_, u32>(&self.mods) == mem::transmute_copy::<_, u32>(&mods)
         }
     }
 }
@@ -227,10 +229,10 @@ impl Action {
                 ::std::process::exit(0);
             },
             Action::IncreaseFontSize => {
-               ctx.change_font_size(1);
+               ctx.change_font_size(FONT_SIZE_STEP);
             },
             Action::DecreaseFontSize => {
-               ctx.change_font_size(-1);
+               ctx.change_font_size(-FONT_SIZE_STEP);
             }
             Action::ResetFontSize => {
                ctx.reset_font_size();
@@ -530,7 +532,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return;
         }
 
-        self.process_mouse_bindings(&ModifiersState::default(), button);
+        self.process_mouse_bindings(ModifiersState::default(), button);
     }
 
     /// Process key input
@@ -540,11 +542,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         &mut self,
         state: ElementState,
         key: Option<VirtualKeyCode>,
-        mods: &ModifiersState,
+        mods: ModifiersState,
     ) {
         match (key, state) {
             (Some(key), ElementState::Pressed) => {
-                *self.ctx.last_modifiers() = *mods;
+                *self.ctx.last_modifiers() = mods;
                 *self.ctx.received_count() = 0;
                 *self.ctx.suppress_chars() = false;
 
@@ -585,7 +587,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// for its action to be executed.
     ///
     /// Returns true if an action is executed.
-    fn process_key_bindings(&mut self, mods: &ModifiersState, key: VirtualKeyCode) -> bool {
+    fn process_key_bindings(&mut self, mods: ModifiersState, key: VirtualKeyCode) -> bool {
         for binding in self.key_bindings {
             if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &key) {
                 // binding was triggered; run the action
@@ -603,7 +605,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// for its action to be executed.
     ///
     /// Returns true if an action is executed.
-    fn process_mouse_bindings(&mut self, mods: &ModifiersState, button: MouseButton) -> bool {
+    fn process_mouse_bindings(&mut self, mods: ModifiersState, button: MouseButton) -> bool {
         for binding in self.mouse_bindings {
             if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &button) {
                 // binding was triggered; run the action
@@ -698,7 +700,7 @@ mod tests {
         fn last_modifiers(&mut self) -> &mut ModifiersState {
             &mut self.last_modifiers
         }
-        fn change_font_size(&mut self, _delta: i8) {
+        fn change_font_size(&mut self, _delta: f32) {
         }
         fn reset_font_size(&mut self) {
         }
@@ -780,9 +782,9 @@ mod tests {
             #[test]
             fn $name() {
                 if $triggers {
-                    assert!($binding.is_triggered_by($mode, &$mods, &KEY));
+                    assert!($binding.is_triggered_by($mode, $mods, &KEY));
                 } else {
-                    assert!(!$binding.is_triggered_by($mode, &$mods, &KEY));
+                    assert!(!$binding.is_triggered_by($mode, $mods, &KEY));
                 }
             }
         }
