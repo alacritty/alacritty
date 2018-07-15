@@ -237,6 +237,9 @@ hide_cursor_when_typing: false
 # - Beam
 cursor_style: Block
 
+# Whether the cursor should be a hollow block on window focus loss
+unfocused_hollow_cursor: true
+
 # Live config reload (changes require restart)
 live_config_reload: true
 
