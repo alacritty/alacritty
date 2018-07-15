@@ -95,6 +95,7 @@ colors:
   primary:
     background: '0x000000'
     foreground: '0xeaeaea'
+    bright_foreground: '0xeaeaea'
 
   # Colors the cursor will use if `custom_cursor_colors` is true
   cursor:
