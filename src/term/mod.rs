@@ -941,16 +941,11 @@ impl Term {
         use std::ops::Range;
 
         trait Append : PushChar {
-            fn append(&mut self, grid: &Grid<Cell>, line: usize, cols: Range<Column>) -> Option<Range<Column>>;
+            fn append(&mut self, grid: &Grid<Cell>, line: usize, cols: Range<Column>);
         }
 
         impl Append for String {
-            fn append(
-                &mut self,
-                grid: &Grid<Cell>,
-                mut line: usize,
-                cols: Range<Column>
-            ) -> Option<Range<Column>> {
+            fn append(&mut self, grid: &Grid<Cell>, mut line: usize, cols: Range<Column>) {
                 // Select until last line still within the buffer
                 line = min(line, grid.len() - 1);
 
@@ -959,7 +954,7 @@ impl Term {
                 let line_end = min(line_length, cols.end + 1);
 
                 if cols.start >= line_end {
-                    None
+                    self.push('\n');
                 } else {
                     for cell in &grid_line[cols.start..line_end] {
                         if !cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
@@ -973,8 +968,6 @@ impl Term {
                             self.maybe_newline(grid, line, range.end);
                         }
                     }
-
-                    range
                 }
             }
         }
@@ -2002,7 +1995,7 @@ mod tests {
     use term::cell;
 
     use grid::{Grid, Scroll};
-    use index::{Point, Line, Column};
+    use index::{Point, Line, Column, Side};
     use ansi::{self, Handler, CharsetIndex, StandardCharset};
     use selection::Selection;
     use std::mem;
@@ -2076,6 +2069,34 @@ mod tests {
 
         *term.selection_mut() = Some(Selection::lines(Point { line: 0, col: Column(3) }));
         assert_eq!(term.selection_to_string(), Some(String::from("\"aa\"a\n")));
+    }
+
+    #[test]
+    fn selecting_empty_line() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+        };
+        let mut term = Term::new(&Default::default(), size);
+        let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0, Cell::default());
+        for l in 0..3 {
+            if l != 1 {
+                for c in 0..3 {
+                    grid[Line(l)][Column(c)].c = 'a';
+                }
+            }
+        }
+
+        mem::swap(&mut term.grid, &mut grid);
+
+        let mut selection = Selection::simple(Point { line: 2, col: Column(0) }, Side::Left);
+        selection.update(Point { line: 0, col: Column(2) }, Side::Right);
+        *term.selection_mut() = Some(selection);
+        assert_eq!(term.selection_to_string(), Some("aaa\n\naaa\n".into()));
     }
 
     /// Check that the grid can be serialized back and forth losslessly
