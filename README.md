@@ -49,6 +49,17 @@ cd alacritty-git
 makepkg -isr
 ```
 
+### Debian/Ubuntu
+
+Using `cargo deb`, you can create and install a deb file.
+
+```sh
+git clone git@github.com:jwilm/alacritty.git
+cd alacritty
+cargo install cargo-deb
+cargo deb --install
+```
+
 ### openSUSE Tumbleweed Linux
 
 ```sh
@@ -86,11 +97,14 @@ xbps-install alacritty
    rustup update stable
    ```
 
-#### Ubuntu
+#### Debian/Ubuntu
 
-On Ubuntu, you need a few extra libraries to build Alacritty. Here's an `apt`
-command that should install all of them. If something is still found to be
-missing, please open an issue.
+You can build alacritty using `cargo deb` and use your system's package manager
+to maintain the application using the instructions [above](#debianubuntu).
+
+If you'd still like to build a local version manually, you need a few extra
+libraries to build Alacritty. Here's an apt command that should install all of
+them. If something is still found to be missing, please open an issue.
 
 ```sh
 apt-get install cmake libfreetype6-dev libfontconfig1-dev xclip
@@ -243,6 +257,7 @@ cargo build --release
 ```
 
 If all goes well, this should place a binary at `target/release/alacritty`.
+
 
 ##### Desktop Entry
 
