@@ -563,8 +563,8 @@ pub enum NamedColor {
 }
 
 impl NamedColor {
-    pub fn to_bright(&self) -> Self {
-        match *self {
+    pub fn to_bright(self) -> Self {
+        match self {
             NamedColor::Foreground => NamedColor::BrightForeground,
             NamedColor::Black => NamedColor::BrightBlack,
             NamedColor::Red => NamedColor::BrightRed,
@@ -586,8 +586,8 @@ impl NamedColor {
         }
     }
 
-    pub fn to_dim(&self) -> Self {
-        match *self {
+    pub fn to_dim(self) -> Self {
+        match self {
             NamedColor::Black => NamedColor::DimBlack,
             NamedColor::Red => NamedColor::DimRed,
             NamedColor::Green => NamedColor::DimGreen,
@@ -813,6 +813,21 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                         self.handler.set_color(NamedColor::Cursor as usize, color);
                         return;
                     }
+                }
+                unhandled(params);
+            }
+
+            // Set cursor style
+            b"50" => {
+                if params.len() >= 2 && params[1].len() >= 13 && params[1][0..12] == *b"CursorShape=" {
+                    let style = match params[1][12] as char {
+                        '0' => CursorStyle::Block,
+                        '1' => CursorStyle::Beam,
+                        '2' => CursorStyle::Underline,
+                        _ => return unhandled(params),
+                    };
+                    self.handler.set_cursor_style(Some(style));
+                    return;
                 }
                 unhandled(params);
             }

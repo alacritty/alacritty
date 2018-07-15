@@ -396,7 +396,7 @@ impl<Io> EventLoop<Io>
 
                             if ready.is_readable() {
                                 if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut()) {
-                                    error!("Event loop exitting due to error: {} [{}:{}]",
+                                    error!("Event loop exiting due to error: {} [{}:{}]",
                                            err, file!(), line!());
                                     break 'event_loop;
                                 }
@@ -408,7 +408,7 @@ impl<Io> EventLoop<Io>
 
                             if ready.is_writable() {
                                 if let Err(err) = self.pty_write(&mut state) {
-                                    error!("Event loop exitting due to error: {} [{}:{}]",
+                                    error!("Event loop exiting due to error: {} [{}:{}]",
                                            err, file!(), line!());
                                     break 'event_loop;
                                 }

@@ -15,7 +15,6 @@ _alacritty()
 
     # If `--command` or `-e` is used, stop completing
     for i in "${!COMP_WORDS[@]}"; do
-        echo "${COMP_WORDS[i]}" >> ./testfile
         if [[ "${COMP_WORDS[i]}" == "--command" ]] \
             || [[ "${COMP_WORDS[i]}" == "-e" ]] \
             && [[ "${#COMP_WORDS[@]}" -gt "$(($i + 2))" ]]

@@ -23,6 +23,7 @@ use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
 
 use glutin::ModifiersState;
 
+use cli::Options;
 use input::{Action, Binding, MouseBinding, KeyBinding};
 use index::{Line, Column};
 use ansi::CursorStyle;
@@ -241,7 +242,7 @@ impl Alpha {
     }
 
     #[inline]
-    pub fn get(&self) -> f32 {
+    pub fn get(self) -> f32 {
         self.0
     }
 
@@ -388,6 +389,10 @@ pub struct Config {
     /// Style of the cursor
     #[serde(default, deserialize_with = "failure_default")]
     cursor_style: CursorStyle,
+
+    /// Use hollow block cursor when unfocused
+    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    unfocused_hollow_cursor: bool,
 
     /// Live config reload
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
@@ -1381,6 +1386,12 @@ impl Config {
         self.cursor_style
     }
 
+    /// Use hollow block cursor when unfocused
+    #[inline]
+    pub fn unfocused_hollow_cursor(&self) -> bool {
+        self.unfocused_hollow_cursor
+    }
+
     /// Live config reload
     #[inline]
     pub fn live_config_reload(&self) -> bool {
@@ -1400,6 +1411,14 @@ impl Config {
         config.print_deprecation_warnings();
 
         Ok(config)
+    }
+
+    /// Overrides the `dynamic_title` configuration based on `--title`.
+    pub fn update_dynamic_title(mut self, options: &Options) -> Self {
+        if options.title.is_some() {
+            self.dynamic_title = false;
+        }
+        self
     }
 
     fn read_file<P: AsRef<Path>>(path: P) -> Result<String> {
@@ -1560,7 +1579,10 @@ pub struct Font {
     glyph_offset: Delta<i8>,
 
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
-    use_thin_strokes: bool
+    use_thin_strokes: bool,
+
+    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    scale_with_dpi: bool,
 }
 
 fn default_bold_desc() -> FontDescription {
@@ -1613,6 +1635,11 @@ impl Font {
             .. self
         }
     }
+
+    /// Check whether dpi should be applied
+    pub fn scale_with_dpi(&self) -> bool {
+        self.scale_with_dpi
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -1624,13 +1651,14 @@ impl Default for Font {
             italic: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
             use_thin_strokes: true,
+            scale_with_dpi: true,
+            glyph_offset: Default::default(),
             offset: Default::default(),
-            glyph_offset: Default::default()
         }
     }
 }
 
-#[cfg(any(target_os = "linux",target_os = "freebsd"))]
+#[cfg(any(target_os = "linux",target_os = "freebsd",target_os = "openbsd"))]
 impl Default for Font {
     fn default() -> Font {
         Font {
@@ -1639,8 +1667,9 @@ impl Default for Font {
             italic: FontDescription::new_with_family("monospace"),
             size: Size::new(11.0),
             use_thin_strokes: false,
+            scale_with_dpi: true,
+            glyph_offset: Default::default(),
             offset: Default::default(),
-            glyph_offset: Default::default()
         }
     }
 }
@@ -1722,6 +1751,7 @@ impl Monitor {
 
 #[cfg(test)]
 mod tests {
+    use cli::Options;
     use super::Config;
 
     #[cfg(target_os="macos")]
@@ -1737,14 +1767,34 @@ mod tests {
             .expect("deserialize config");
 
         // Sanity check that mouse bindings are being parsed
-        assert!(config.mouse_bindings.len() >= 1);
+        assert!(!config.mouse_bindings.is_empty());
 
         // Sanity check that key bindings are being parsed
-        assert!(config.key_bindings.len() >= 1);
+        assert!(!config.key_bindings.is_empty());
+    }
+
+    #[test]
+    fn dynamic_title_ignoring_options_by_default() {
+        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
+            .expect("deserialize config");
+        let old_dynamic_title = config.dynamic_title;
+        let options = Options::default();
+        let config = config.update_dynamic_title(&options);
+        assert_eq!(old_dynamic_title, config.dynamic_title);
+    }
+
+    #[test]
+    fn dynamic_title_overridden_by_options() {
+        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
+            .expect("deserialize config");
+        let mut options = Options::default();
+        options.title = Some("foo".to_owned());
+        let config = config.update_dynamic_title(&options);
+        assert!(!config.dynamic_title);
     }
 }
 
-#[cfg_attr(feature = "clippy", allow(enum_variant_names))]
+#[cfg_attr(feature = "cargo-clippy", allow(enum_variant_names))]
 #[derive(Deserialize, Copy, Clone)]
 enum Key {
     Key1,
@@ -1898,13 +1948,16 @@ enum Key {
     WebStop,
     Yen,
     Caret,
+    Copy,
+    Paste,
+    Cut,
 }
 
 impl Key {
-    fn to_glutin_key(&self) -> ::glutin::VirtualKeyCode {
+    fn to_glutin_key(self) -> ::glutin::VirtualKeyCode {
         use ::glutin::VirtualKeyCode::*;
         // Thank you, vim macros!
-        match *self {
+        match self {
             Key::Key1 => Key1,
             Key::Key2 => Key2,
             Key::Key3 => Key3,
@@ -2056,6 +2109,9 @@ impl Key {
             Key::WebStop => WebStop,
             Key::Yen => Yen,
             Key::Caret => Caret,
+            Key::Copy => Copy,
+            Key::Paste => Paste,
+            Key::Cut => Cut,
         }
     }
 }

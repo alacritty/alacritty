@@ -270,7 +270,7 @@ macro_rules! inclusive {
                 match *self {
                     Empty { .. } => (0, Some(0)),
 
-                    NonEmpty { ref start, ref end } => {
+                    NonEmpty { start, end } => {
                         let added = $steps_add_one(start, end);
                         match added {
                             Some(hint) => (hint.saturating_add(1), hint.checked_add(1)),
@@ -283,9 +283,9 @@ macro_rules! inclusive {
     }
 }
 
-fn steps_add_one_u8(start: &u8, end: &u8) -> Option<usize> {
-    if *start < *end {
-        Some((*end - *start) as usize)
+fn steps_add_one_u8(start: u8, end: u8) -> Option<usize> {
+    if start < end {
+        Some((end - start) as usize)
     } else {
         None
     }
@@ -330,11 +330,11 @@ macro_rules! ops {
         impl $ty {
             #[inline]
             #[allow(trivial_numeric_casts)]
-            fn steps_between(start: &$ty, end: &$ty, by: &$ty) -> Option<usize> {
-                if *by == $construct(0) { return None; }
-                if *start < *end {
+            fn steps_between(start: $ty, end: $ty, by: $ty) -> Option<usize> {
+                if by == $construct(0) { return None; }
+                if start < end {
                     // Note: We assume $t <= usize here
-                    let diff = (*end - *start).0;
+                    let diff = (end - start).0;
                     let by = by.0;
                     if diff % by > 0 {
                         Some(diff / by + 1)
@@ -347,8 +347,8 @@ macro_rules! ops {
             }
 
             #[inline]
-            fn steps_between_by_one(start: &$ty, end: &$ty) -> Option<usize> {
-                Self::steps_between(start, end, &$construct(1))
+            fn steps_between_by_one(start: $ty, end: $ty) -> Option<usize> {
+                Self::steps_between(start, end, $construct(1))
             }
         }
 
@@ -366,7 +366,7 @@ macro_rules! ops {
             }
             #[inline]
             fn size_hint(&self) -> (usize, Option<usize>) {
-                match Self::Item::steps_between_by_one(&self.0.start, &self.0.end) {
+                match Self::Item::steps_between_by_one(self.0.start, self.0.end) {
                     Some(hint) => (hint, Some(hint)),
                     None => (0, None)
                 }

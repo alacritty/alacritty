@@ -183,7 +183,7 @@ impl GlyphCache {
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = rasterizer.metrics(regular)?;
 
         let mut cache = GlyphCache {
@@ -211,7 +211,7 @@ impl GlyphCache {
     ) {
         let size = self.font_size;
         for i in RangeInclusive::new(32u8, 128u8) {
-            self.get(&GlyphKey {
+            self.get(GlyphKey {
                 font_key: font,
                 c: i as char,
                 size,
@@ -273,20 +273,20 @@ impl GlyphCache {
             .expect("metrics load since font is loaded at glyph cache creation")
     }
 
-    pub fn get<'a, L>(&'a mut self, glyph_key: &GlyphKey, loader: &mut L) -> &'a Glyph
+    pub fn get<'a, L>(&'a mut self, glyph_key: GlyphKey, loader: &mut L) -> &'a Glyph
         where L: LoadGlyph
     {
         let glyph_offset = self.glyph_offset;
         let rasterizer = &mut self.rasterizer;
         let metrics = &self.metrics;
         self.cache
-            .entry(*glyph_key)
+            .entry(glyph_key)
             .or_insert_with(|| {
                 let mut rasterized = rasterizer.get_glyph(glyph_key)
                     .unwrap_or_else(|_| Default::default());
 
-                rasterized.left += glyph_offset.x as i32;
-                rasterized.top += glyph_offset.y as i32;
+                rasterized.left += i32::from(glyph_offset.x);
+                rasterized.top += i32::from(glyph_offset.y);
                 rasterized.top -= metrics.descent as i32;
 
                 loader.load_glyph(&rasterized)
@@ -306,7 +306,7 @@ impl GlyphCache {
         let font = font.to_owned().with_size(size);
         info!("Font size changed: {:?}", font.size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
-        self.rasterizer.get_glyph(&GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular)?;
 
         self.font_size = font.size;
@@ -719,8 +719,8 @@ impl QuadRenderer {
     }
 
     pub fn resize(&mut self, width: i32, height: i32) {
-        let padding_x = self.program.padding_x as i32;
-        let padding_y = self.program.padding_y as i32;
+        let padding_x = i32::from(self.program.padding_x);
+        let padding_y = i32::from(self.program.padding_y);
 
         // viewport
         unsafe {
@@ -842,7 +842,7 @@ impl<'a> RenderApi<'a> {
 
             // Add cell to batch
             {
-                let glyph = glyph_cache.get(&glyph_key, self);
+                let glyph = glyph_cache.get(glyph_key, self);
                 self.add_render_item(&cell, glyph);
             }
 
@@ -856,7 +856,7 @@ impl<'a> RenderApi<'a> {
                     c: '_'
                 };
 
-                let underscore = glyph_cache.get(&glyph_key, self);
+                let underscore = glyph_cache.get(glyph_key, self);
                 self.add_render_item(&cell, underscore);
             }
         }
@@ -1030,8 +1030,8 @@ impl ShaderProgram {
 
     fn update_projection(&self, width: f32, height: f32) {
         // Bounds check
-        if (width as u32) < (2 * self.padding_x as u32) ||
-            (height as u32) < (2 * self.padding_y as u32)
+        if (width as u32) < (2 * u32::from(self.padding_x)) ||
+            (height as u32) < (2 * u32::from(self.padding_y))
         {
             return;
         }
@@ -1041,8 +1041,14 @@ impl ShaderProgram {
         // NB Not sure why padding change only requires changing the vertical
         //    translation in the projection, but this makes everything work
         //    correctly.
-        let ortho = cgmath::ortho(0., width - 2. * self.padding_x as f32, 2. * self.padding_y as f32,
-            height, -1., 1.);
+        let ortho = cgmath::ortho(
+            0.,
+            width - 2. * f32::from(self.padding_x),
+            2. * f32::from(self.padding_y),
+            height,
+            -1.,
+            1.,
+        );
         let projection: [[f32; 4]; 4] = ortho.into();
 
         info!("width: {}, height: {}", width, height);

@@ -73,6 +73,10 @@ font:
     x: 0
     y: 0
 
+  # Scale the font size based on the monitor's DPI. This will lead to bigger text on HiDPI
+  # screens and make reading text a little easier.
+  scale_with_dpi: true
+
   # OS X only: use thin stroke font rendering. Thin strokes are suitable
   # for retina displays, but for non-retina you probably want this set to
   # false.
@@ -213,6 +217,9 @@ hide_cursor_when_typing: false
 # - Beam
 cursor_style: Block
 
+# Whether the cursor should be a hollow block on window focus loss
+unfocused_hollow_cursor: true
+
 # Live config reload (changes require restart)
 live_config_reload: true
 
@@ -264,6 +271,8 @@ live_config_reload: true
 key_bindings:
   - { key: V,        mods: Command, action: Paste                        }
   - { key: C,        mods: Command, action: Copy                         }
+  - { key: Paste,                   action: Paste                        }
+  - { key: Copy,                    action: Copy                         }
   - { key: Q,        mods: Command, action: Quit                         }
   - { key: W,        mods: Command, action: Quit                         }
   - { key: Home,                    chars: "\x1bOH",   mode: AppCursor   }

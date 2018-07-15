@@ -5,8 +5,8 @@ Alacritty
 
 Alacritty is the fastest terminal emulator in existence. Using the GPU for
 rendering enables optimizations that simply aren't possible in other emulators.
-Alacritty currently supports macOS and Linux, and Windows support is planned
-before the 1.0 release.
+Alacritty currently supports FreeBSD, Linux, macOS, and OpenBSD. Windows
+support is planned before the 1.0 release.
 
 <p align="center">
   <img width="600" alt="Alacritty running vim inside tmux" src="https://cloud.githubusercontent.com/assets/4285147/21585004/2ebd0288-d06c-11e6-95d3-4a2889dbbd6f.png">
@@ -37,8 +37,7 @@ built from source.
 
 Instructions are provided for macOS and many Linux variants to compile Alacritty
 from source. With the exception of Arch (which has a package in the AUR), Void Linux (in main repository) and
-[NixOS](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/alacritty/default.nix)
-(at the moment in unstable, will be part of 17.09), please first read the
+[NixOS](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/alacritty/default.nix), please first read the
 [prerequisites](#prerequisites) section, then find the section for your OS, and
 finally go to [building](#building) and [configuration](#configuration).
 
@@ -48,6 +47,23 @@ finally go to [building](#building) and [configuration](#configuration).
 git clone https://aur.archlinux.org/alacritty-git.git
 cd alacritty-git
 makepkg -isr
+```
+
+### Debian/Ubuntu
+
+Using `cargo deb`, you can create and install a deb file.
+
+```sh
+git clone git@github.com:jwilm/alacritty.git
+cd alacritty
+cargo install cargo-deb
+cargo deb --install
+```
+
+### openSUSE Tumbleweed Linux
+
+```sh
+zypper in alacritty
 ```
 
 ### Void Linux
@@ -81,11 +97,14 @@ xbps-install alacritty
    rustup update stable
    ```
 
-#### Ubuntu
+#### Debian/Ubuntu
 
-On Ubuntu, you need a few extra libraries to build Alacritty. Here's an `apt`
-command that should install all of them. If something is still found to be
-missing, please open an issue.
+You can build alacritty using `cargo deb` and use your system's package manager
+to maintain the application using the instructions [above](#debianubuntu).
+
+If you'd still like to build a local version manually, you need a few extra
+libraries to build Alacritty. Here's an apt command that should install all of
+them. If something is still found to be missing, please open an issue.
 
 ```sh
 apt-get install cmake libfreetype6-dev libfontconfig1-dev xclip
@@ -156,6 +175,16 @@ missing, please open an issue.
 
 ```sh
 pkg install cmake freetype2 fontconfig xclip pkgconf
+```
+
+#### OpenBSD
+
+Alacritty builds on OpenBSD 6.3 almost out-of-the-box if Rust and
+[Xenocara](https://xenocara.org) are installed.  If something is still found to
+be missing, please open an issue.
+
+```sh
+pkg_add rust
 ```
 
 #### Solus
@@ -229,6 +258,7 @@ cargo build --release
 
 If all goes well, this should place a binary at `target/release/alacritty`.
 
+
 ##### Desktop Entry
 
 Many linux distributions support desktop entries for adding applications to
@@ -236,7 +266,8 @@ system menus. To install the desktop entry for Alacritty, run
 
 ```sh
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
-cp Alacritty.desktop ~/.local/share/applications
+sudo desktop-file-install alacritty.desktop
+sudo update-desktop-database
 ```
 
 #### MacOS
@@ -293,7 +324,7 @@ echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
 To install the completions for fish, run
 
 ```
-sudo cp alacritty-completions.fish /usr/share/fish/vendor_completions.d/alacritty.fish
+sudo cp alacritty-completions.fish $__fish_datadir/vendor_completions.d/alacritty.fish
 ```
 
 ## Configuration

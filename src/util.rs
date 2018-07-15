@@ -15,7 +15,6 @@ use std::cmp;
 
 #[cfg(not(feature = "nightly"))]
 #[inline(always)]
-#[cfg_attr(feature = "clippy", allow(inline_always))]
 pub unsafe fn unlikely(x: bool) -> bool {
     x
 }
@@ -57,13 +56,13 @@ pub mod fmt {
 
                 impl<T: fmt::Display> fmt::Display for $s<T> {
                     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                        write!(f, "\x1b[{}m{}\x1b[0m", $color, self.0)
+                        write!(f, concat!("\x1b[", $color, "m{}\x1b[0m"), self.0)
                     }
                 }
 
                 impl<T: fmt::Debug> fmt::Debug for $s<T> {
                     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                        write!(f, "\x1b[{}m{:?}\x1b[0m", $color, self.0)
+                        write!(f, concat!("\x1b[", $color, "m{:?}\x1b[0m"), self.0)
                     }
                 }
             )*
@@ -74,23 +73,11 @@ pub mod fmt {
         /// Write a `Display` or `Debug` escaped with Red
         pub struct Red => "31";
 
+        /// Write a `Display` or `Debug` escaped with Green
+        pub struct Green => "32";
+
         /// Write a `Display` or `Debug` escaped with Yellow
         pub struct Yellow => "33";
-    }
-
-    /// Write a `Display` or `Debug` escaped with Red
-    pub struct Green<T>(pub T);
-
-    impl<T: fmt::Display> fmt::Display for Green<T> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "\x1b[32m{}\x1b[0m", self.0)
-        }
-    }
-
-    impl<T: fmt::Debug> fmt::Debug for Green<T> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "\x1b[32m{:?}\x1b[0m", self.0)
-        }
     }
 }
 

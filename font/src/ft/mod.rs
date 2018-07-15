@@ -80,8 +80,8 @@ impl ::Rasterize for FreeTypeRasterizer {
         Ok(FreeTypeRasterizer {
             faces: HashMap::new(),
             keys: HashMap::new(),
-            library: library,
-            device_pixel_ratio: device_pixel_ratio,
+            library,
+            device_pixel_ratio,
         })
     }
 
@@ -94,7 +94,7 @@ impl ::Rasterize for FreeTypeRasterizer {
         Ok(Metrics {
             average_advance: full.cell_width,
             line_height: height,
-            descent: descent,
+            descent,
         })
     }
 
@@ -102,7 +102,7 @@ impl ::Rasterize for FreeTypeRasterizer {
         self.get_face(desc, size)
     }
 
-    fn get_glyph(&mut self, glyph_key: &GlyphKey) -> Result<RasterizedGlyph, Error> {
+    fn get_glyph(&mut self, glyph_key: GlyphKey) -> Result<RasterizedGlyph, Error> {
         self.get_rendered_glyph(glyph_key)
     }
 
@@ -172,7 +172,7 @@ impl FreeTypeRasterizer {
         } as f64;
 
         Ok(FullMetrics {
-            size_metrics: size_metrics,
+            size_metrics,
             cell_width: width
         })
     }
@@ -188,7 +188,7 @@ impl FreeTypeRasterizer {
         pattern.add_family(&desc.name);
         pattern.set_weight(weight.into_fontconfig_type());
         pattern.set_slant(slant.into_fontconfig_type());
-        pattern.add_pixelsize(size.as_f32_pts() as _);
+        pattern.add_pixelsize(f64::from(size.as_f32_pts()));
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
@@ -210,7 +210,7 @@ impl FreeTypeRasterizer {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.add_style(style);
-        pattern.add_pixelsize(size.as_f32_pts() as _);
+        pattern.add_pixelsize(f64::from(size.as_f32_pts()));
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
@@ -232,24 +232,24 @@ impl FreeTypeRasterizer {
             let ft_face = self.library.new_face(&path, index)?;
 
             // Get available pixel sizes if font isn't scalable.
-            let non_scalable = if !pattern.scalable().next().unwrap_or(true) {
+            let non_scalable = if pattern.scalable().next().unwrap_or(true) {
+                None
+            } else {
                 let mut pixelsize = pattern.pixelsize();
                 debug!("pixelsizes: {:?}", pixelsize);
 
                 Some(FixedSize {
                     pixelsize: pixelsize.next().expect("has 1+ pixelsize"),
                 })
-            } else {
-                None
             };
 
             let face = Face {
-                ft_face: ft_face,
+                ft_face,
                 key: FontKey::next(),
                 load_flags: Self::ft_load_flags(pattern),
                 render_mode: Self::ft_render_mode(pattern),
                 lcd_filter: Self::ft_lcd_filter(pattern),
-                non_scalable: non_scalable,
+                non_scalable,
             };
 
             debug!("Loaded Face {:?}", face);
@@ -264,19 +264,15 @@ impl FreeTypeRasterizer {
         }
     }
 
-    fn face_for_glyph(&mut self, glyph_key: &GlyphKey, have_recursed: bool) -> Result<FontKey, Error> {
+    fn face_for_glyph(&mut self, glyph_key: GlyphKey, have_recursed: bool) -> Result<FontKey, Error> {
         let c = glyph_key.c;
 
         let use_initial_face = if self.faces.contains_key(&glyph_key.font_key) {
             // Get face and unwrap since we just checked for presence.
-            let face = self.faces.get(&glyph_key.font_key).unwrap();
+            let face = &self.faces[&glyph_key.font_key];
             let index = face.ft_face.get_char_index(c as usize);
 
-            if index != 0 || have_recursed {
-                true
-            } else {
-                false
-            }
+            index != 0 || have_recursed
         } else {
             false
         };
@@ -289,7 +285,7 @@ impl FreeTypeRasterizer {
         }
     }
 
-    fn get_rendered_glyph(&mut self, glyph_key: &GlyphKey)
+    fn get_rendered_glyph(&mut self, glyph_key: GlyphKey)
                           -> Result<RasterizedGlyph, Error> {
         // Render a custom symbol for the underline and beam cursor
         match glyph_key.c {
@@ -334,7 +330,7 @@ impl FreeTypeRasterizer {
 
         // Render a normal character if it's not a cursor
         let font_key = self.face_for_glyph(glyph_key, false)?;
-        let face = self.faces.get(&font_key).unwrap();
+        let face = &self.faces[&font_key];
         let index = face.ft_face.get_char_index(glyph_key.c as usize);
 
         let size = face.non_scalable.as_ref()
@@ -360,7 +356,7 @@ impl FreeTypeRasterizer {
             left: glyph.bitmap_left(),
             width: pixel_width,
             height: glyph.bitmap().rows(),
-            buf: buf,
+            buf,
         })
     }
 
@@ -490,7 +486,7 @@ impl FreeTypeRasterizer {
                 }
                 Ok((bitmap.width(), packed))
             },
-            mode @ _ => panic!("unhandled pixel mode: {:?}", mode)
+            mode => panic!("unhandled pixel mode: {:?}", mode)
         }
     }
 
