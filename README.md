@@ -54,7 +54,7 @@ makepkg -isr
 Using `cargo deb`, you can create and install a deb file.
 
 ```sh
-git clone git@github.com:jwilm/alacritty.git
+git clone https://github.com/jwilm/alacritty.git
 cd alacritty
 cargo install cargo-deb
 cargo deb --install
