@@ -73,7 +73,7 @@ section = "rust"
 priority = "optional"
 assets = [
     ["target/release/alacritty", "usr/local/bin/", "755"],
-    ["Alacritty.desktop", "usr/share/applications/", "644"],
+    ["alacritty.desktop", "usr/share/applications/", "644"],
     ["alacritty-completions.bash", "usr/share/bash-completion/completions/alacritty", "644"],
     ["alacritty-completions.fish", "usr/share/fish/completions/alacritty", "644"],
     ["alacritty-completions.zsh", "usr/share/zsh/functions/Completion/alacritty", "644"],
