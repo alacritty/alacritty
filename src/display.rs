@@ -283,16 +283,19 @@ impl Display {
         // events into one.
         let mut new_size = None;
 
+        // Update the DPR 
+        let dpr = self.window.hidpi_factor();
+
+
         // Take most recent resize event, if any
         while let Ok(sz) = self.rx.try_recv() {
             // Resize events are emitted via glutin/winit with logical sizes
             // However the terminal, window and renderer use physical sizes
             // so a conversion must be done here
-            new_size = Some(sz.to_physical(self.size_info.dpr));
+            new_size = Some(sz.to_physical(dpr));
         }
 
         // Font size/DPI factor modification detected
-        let dpr = self.window.hidpi_factor();
         if terminal.font_size != self.font_size || dpr != self.size_info.dpr {
             self.font_size = terminal.font_size;
             self.size_info.dpr = dpr;
@@ -310,6 +313,7 @@ impl Display {
         if let Some(psize) = new_size.take() {
             self.size_info.width = psize.width as f32;
             self.size_info.height = psize.height as f32;
+            self.size_info.dpr = dpr;
 
             let size = &self.size_info;
             terminal.resize(size);
