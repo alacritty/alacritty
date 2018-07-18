@@ -283,9 +283,8 @@ impl Display {
         // events into one.
         let mut new_size = None;
 
-        // Update the DPR 
+        // Update the DPR
         let dpr = self.window.hidpi_factor();
-
 
         // Take most recent resize event, if any
         while let Ok(sz) = self.rx.try_recv() {
