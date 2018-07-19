@@ -16,6 +16,7 @@ dependencies = [
  "cgmath 0.16.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.31.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "copypasta 0.0.1",
+ "dirs 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.5.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "errno 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -251,6 +252,15 @@ dependencies = [
  "core-graphics 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "dirs"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1285,6 +1295,7 @@ dependencies = [
 "checksum core-graphics 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fb0ed45fdc32f9ab426238fba9407dfead7bacd7900c9b4dd3f396f46eafdae3"
 "checksum core-graphics 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e54c4ab33705fa1fc8af375bb7929d68e1c1546c1ecef408966d8c3e49a1d84a"
 "checksum core-text 9.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2bd581c37283d0c23311d179aefbb891f2324ee0405da58a26e8594ab76e5748"
+"checksum dirs 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "37a76dd8b997af7107d0bb69d43903cf37153a18266f8b3fdb9911f28efb5444"
 "checksum dlib 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "77e51249a9d823a4cb79e3eca6dcd756153e8ed0157b6c04775d04bf1b13b76a"
 "checksum downcast-rs 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "18df8ce4470c189d18aa926022da57544f31e154631eb4cfe796aea97051fe6c"
 "checksum dtoa 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "09c3753c3db574d215cba4ea76018483895d7bff25a31b49ba45db21c48e50ab"
