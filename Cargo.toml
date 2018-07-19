@@ -68,7 +68,7 @@ Alacritty is the fastest terminal emulator in existence. Using the GPU for \
 rendering enables optimizations that simply aren't possible in other emulators. \
 Alacritty currently supports FreeBSD, Linux, macOS, and OpenBSD. Windows \
 support is planned before the 1.0 release.  """
-depends = "$auto, cmake, libfreetype6-dev, libfontconfig1-dev, xclip, gperf"
+depends = "$auto, cmake, libfreetype6-dev, libfontconfig1-dev, xclip"
 section = "rust"
 priority = "optional"
 assets = [
