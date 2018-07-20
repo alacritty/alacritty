@@ -560,6 +560,8 @@ pub enum NamedColor {
     DimWhite,
     /// The bright foreground color
     BrightForeground,
+    /// Dim foreground
+    DimForeground,
 }
 
 impl NamedColor {
@@ -596,6 +598,7 @@ impl NamedColor {
             NamedColor::Magenta => NamedColor::DimMagenta,
             NamedColor::Cyan => NamedColor::DimCyan,
             NamedColor::White => NamedColor::DimWhite,
+            NamedColor::Foreground => NamedColor::DimForeground,
             NamedColor::BrightBlack => NamedColor::Black,
             NamedColor::BrightRed => NamedColor::Red,
             NamedColor::BrightGreen => NamedColor::Green,
