@@ -45,6 +45,7 @@ x11-dl = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"
+dirs = "1.0.2"
 
 [features]
 default = []
