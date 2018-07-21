@@ -75,7 +75,7 @@ pub struct Anchor {
 
 impl Anchor {
     fn new(point: Point, side: Side) -> Anchor {
-        Anchor { point: point, side: side }
+        Anchor { point, side }
     }
 }
 
@@ -114,8 +114,8 @@ impl Selection {
                 end: point,
             },
             initial_expansion: Region {
-                start: start,
-                end: end
+                start,
+                end,
             }
         }
     }
@@ -152,7 +152,7 @@ impl Selection {
             Selection::Semantic { ref region, ref initial_expansion } => {
                 Selection::span_semantic(grid, region, initial_expansion)
             },
-            Selection::Lines { ref region, ref initial_line } => {
+            Selection::Lines { ref region, initial_line } => {
                 Selection::span_lines(grid, region, initial_line)
             }
         }
@@ -192,18 +192,18 @@ impl Selection {
         })
     }
 
-    fn span_lines<G>(grid: &G, region: &Region<Point>, initial_line: &Line) -> Option<Span>
+    fn span_lines<G>(grid: &G, region: &Region<Point>, initial_line: Line) -> Option<Span>
         where G: Dimensions
     {
         // First, create start and end points based on initial line and the grid
         // dimensions.
         let mut start = Point {
             col: Column(0),
-            line: *initial_line
+            line: initial_line
         };
         let mut end = Point {
             col: grid.dimensions().col - 1,
-            line: *initial_line
+            line: initial_line
         };
 
         // Now, expand lines based on where cursor started and ended.
@@ -248,10 +248,10 @@ impl Selection {
                 return None;
             } else {
                 return Some(Span {
-                    cols: cols,
+                    cols,
                     ty: SpanType::Inclusive,
-                    front: front,
-                    tail: tail
+                    front,
+                    tail,
                 });
             }
         }
@@ -266,30 +266,30 @@ impl Selection {
         Some(match (front_side, tail_side) {
             // [FX][XX][XT]
             (Side::Left, Side::Right) => Span {
-                cols: cols,
-                front: front,
-                tail: tail,
+                cols,
+                front,
+                tail,
                 ty: SpanType::Inclusive
             },
             // [ F][XX][T ]
             (Side::Right, Side::Left) => Span {
-                cols: cols,
-                front: front,
-                tail: tail,
+                cols,
+                front,
+                tail,
                 ty: SpanType::Exclusive
             },
             // [FX][XX][T ]
             (Side::Left, Side::Left) => Span {
-                cols: cols,
-                front: front,
-                tail: tail,
+                cols,
+                front,
+                tail,
                 ty: SpanType::ExcludeTail
             },
             // [ F][XX][XT]
             (Side::Right, Side::Right) => Span {
-                cols: cols,
-                front: front,
-                tail: tail,
+                cols,
+                front,
+                tail,
                 ty: SpanType::ExcludeFront
             },
         })

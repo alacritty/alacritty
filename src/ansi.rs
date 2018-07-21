@@ -65,7 +65,7 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
             if next!() != Some('/') { return None; }
             let b = parse_hex!();
 
-            Some(Rgb { r: r, g: g, b: b})
+            Some(Rgb { r, g, b })
         }
         Some('#') => {
             Some(Rgb {
@@ -128,8 +128,8 @@ impl<'a, H: Handler + TermInfo + 'a, W: io::Write> Performer<'a, H, W> {
     ) -> Performer<'b, H, W> {
         Performer {
             _state: state,
-            handler: handler,
-            writer: writer,
+            handler,
+            writer,
         }
     }
 }
@@ -558,11 +558,14 @@ pub enum NamedColor {
     DimCyan,
     /// Dim white
     DimWhite,
+    /// The bright foreground color
+    BrightForeground,
 }
 
 impl NamedColor {
-    pub fn to_bright(&self) -> Self {
-        match *self {
+    pub fn to_bright(self) -> Self {
+        match self {
+            NamedColor::Foreground => NamedColor::BrightForeground,
             NamedColor::Black => NamedColor::BrightBlack,
             NamedColor::Red => NamedColor::BrightRed,
             NamedColor::Green => NamedColor::BrightGreen,
@@ -583,8 +586,8 @@ impl NamedColor {
         }
     }
 
-    pub fn to_dim(&self) -> Self {
-        match *self {
+    pub fn to_dim(self) -> Self {
+        match self {
             NamedColor::Black => NamedColor::DimBlack,
             NamedColor::Red => NamedColor::DimRed,
             NamedColor::Green => NamedColor::DimGreen,
@@ -814,6 +817,21 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                 unhandled(params);
             }
 
+            // Set cursor style
+            b"50" => {
+                if params.len() >= 2 && params[1].len() >= 13 && params[1][0..12] == *b"CursorShape=" {
+                    let style = match params[1][12] as char {
+                        '0' => CursorStyle::Block,
+                        '1' => CursorStyle::Beam,
+                        '2' => CursorStyle::Underline,
+                        _ => return unhandled(params),
+                    };
+                    self.handler.set_cursor_style(Some(style));
+                    return;
+                }
+                unhandled(params);
+            }
+
             // Set clipboard
             b"52" => {
                 if params.len() < 3 {
@@ -875,7 +893,6 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
         let private = intermediates.get(0).map(|b| *b == b'?').unwrap_or(false);
         let handler = &mut self.handler;
         let writer = &mut self.writer;
-
 
         macro_rules! unhandled {
             () => {{
@@ -959,10 +976,12 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             'T' => handler.scroll_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             'L' => handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             'l' => {
-                let mode = Mode::from_primitive(private, arg_or_default!(idx: 0, default: 0));
-                match mode {
-                    Some(mode) => handler.unset_mode(mode),
-                    None => unhandled!(),
+                for arg in args {
+                    let mode = Mode::from_primitive(private, *arg);
+                    match mode {
+                        Some(mode) => handler.unset_mode(mode),
+                        None => unhandled!(),
+                    }
                 }
             },
             'M' => handler.delete_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
@@ -971,10 +990,12 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             'Z' => handler.move_backward_tabs(arg_or_default!(idx: 0, default: 1)),
             'd' => handler.goto_line(Line(arg_or_default!(idx: 0, default: 1) as usize - 1)),
             'h' => {
-                let mode = Mode::from_primitive(private, arg_or_default!(idx: 0, default: 0));
-                match mode {
-                    Some(mode) => handler.set_mode(mode),
-                    None => unhandled!(),
+                for arg in args {
+                    let mode = Mode::from_primitive(private, *arg);
+                    match mode {
+                        Some(mode) => handler.set_mode(mode),
+                        None => unhandled!(),
+                    }
                 }
             },
             'm' => {
@@ -985,7 +1006,6 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     return;
                 }
                 loop {
-                    // println!("args.len = {}; i={}", args.len(), i);
                     if i >= args.len() { // C-for condition
                         break;
                     }

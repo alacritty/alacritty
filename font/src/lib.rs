@@ -17,6 +17,9 @@
 //! CoreText is used on Mac OS.
 //! FreeType is used on everything that's not Mac OS.
 //! Eventually, ClearType support will be available for windows
+
+#![cfg_attr(feature = "cargo-clippy", deny(clippy, if_not_else, enum_glob_use, wrong_pub_self_convention))]
+
 #[cfg(not(target_os = "macos"))]
 extern crate fontconfig;
 #[cfg(not(target_os = "macos"))]
@@ -116,7 +119,7 @@ impl FontDesc {
     {
         FontDesc {
             name: name.into(),
-            style: style
+            style,
         }
     }
 }
@@ -146,7 +149,7 @@ impl FontKey {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct GlyphKey {
     pub c: char,
     pub font_key: FontKey,
@@ -162,6 +165,19 @@ impl Hash for GlyphKey {
             // - Result is being used for hashing and has no fields (it's a u64)
             ::std::mem::transmute::<GlyphKey, u64>(*self)
         }.hash(state);
+    }
+}
+
+impl PartialEq for GlyphKey {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe {
+            // This transmute is fine:
+            //
+            // - If GlyphKey ever becomes a different size, this will fail to compile
+            // - Result is being used for equality checking and has no fields (it's a u64)
+            let other = ::std::mem::transmute::<GlyphKey, u64>(*other);
+            ::std::mem::transmute::<GlyphKey, u64>(*self).eq(&other)
+        }
     }
 }
 
@@ -183,7 +199,7 @@ impl Size {
 
     /// Get the f32 size in points
     pub fn as_f32_pts(self) -> f32 {
-        self.0 as f32 / Size::factor()
+        f32::from(self.0) / Size::factor()
     }
 }
 
@@ -224,14 +240,14 @@ pub fn get_underline_cursor_glyph(descent: i32, width: i32) -> Result<Rasterized
     let buf = vec![255u8; (width * height * 3) as usize];
 
     // Create a custom glyph with the rectangle data attached to it
-    return Ok(RasterizedGlyph {
+    Ok(RasterizedGlyph {
         c: UNDERLINE_CURSOR_CHAR,
         top: descent + height,
         left: 0,
         height,
         width,
-        buf: buf,
-    });
+        buf,
+    })
 }
 
 // Returns a custom beam cursor character
@@ -245,14 +261,14 @@ pub fn get_beam_cursor_glyph(
     let buf = vec![255u8; (beam_width * height * 3) as usize];
 
     // Create a custom glyph with the rectangle data attached to it
-    return Ok(RasterizedGlyph {
+    Ok(RasterizedGlyph {
         c: BEAM_CURSOR_CHAR,
         top: ascent,
         left: 0,
         height,
         width: beam_width,
-        buf: buf,
-    });
+        buf,
+    })
 }
 
 // Returns a custom box cursor character
@@ -276,14 +292,14 @@ pub fn get_box_cursor_glyph(
     }
 
     // Create a custom glyph with the rectangle data attached to it
-    return Ok(RasterizedGlyph {
+    Ok(RasterizedGlyph {
         c: BOX_CURSOR_CHAR,
         top: ascent,
         left: 0,
         height,
         width,
-        buf: buf,
-    });
+        buf,
+    })
 }
 
 struct BufDebugger<'a>(&'a [u8]);
@@ -331,5 +347,5 @@ pub trait Rasterize {
     fn load_font(&mut self, &FontDesc, Size) -> Result<FontKey, Self::Err>;
 
     /// Rasterize the glyph described by `GlyphKey`.
-    fn get_glyph(&mut self, &GlyphKey) -> Result<RasterizedGlyph, Self::Err>;
+    fn get_glyph(&mut self, GlyphKey) -> Result<RasterizedGlyph, Self::Err>;
 }

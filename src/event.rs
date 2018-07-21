@@ -57,17 +57,16 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn copy_selection(&self, buffer: ::copypasta::Buffer) {
         if let Some(ref selection) = *self.selection {
-            selection.to_span(self.terminal)
-                .map(|span| {
-                    let buf = self.terminal.string_from_selection(&span);
-                    if !buf.is_empty() {
-                        Clipboard::new()
-                            .and_then(|mut clipboard| clipboard.store(buf, buffer))
-                            .unwrap_or_else(|err| {
-                                warn!("Error storing selection to clipboard. {}", Red(err));
-                            });
-                    }
-                });
+            if let Some(ref span) = selection.to_span(self.terminal) {
+                let buf = self.terminal.string_from_selection(&span);
+                if !buf.is_empty() {
+                    Clipboard::new()
+                        .and_then(|mut clipboard| clipboard.store(buf, buffer))
+                        .unwrap_or_else(|err| {
+                            warn!("Error storing selection to clipboard. {}", Red(err));
+                        });
+                }
+            }
         }
     }
 
@@ -107,7 +106,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
     }
 
-    fn change_font_size(&mut self, delta: i8) {
+    fn change_font_size(&mut self, delta: f32) {
         self.terminal.change_font_size(delta);
     }
 
@@ -148,6 +147,8 @@ pub struct Mouse {
     pub x: u32,
     pub y: u32,
     pub left_button_state: ElementState,
+    pub middle_button_state: ElementState,
+    pub right_button_state: ElementState,
     pub last_click_timestamp: Instant,
     pub click_state: ClickState,
     pub scroll_px: i32,
@@ -164,6 +165,8 @@ impl Default for Mouse {
             y: 0,
             last_click_timestamp: Instant::now(),
             left_button_state: ElementState::Released,
+            middle_button_state: ElementState::Released,
+            right_button_state: ElementState::Released,
             click_state: ClickState::None,
             scroll_px: 0,
             line: Line(0),
@@ -227,12 +230,12 @@ impl<N: Notify> Processor<N> {
             mouse_config: config.mouse().to_owned(),
             print_events: options.print_events,
             wait_for_event: true,
-            notifier: notifier,
-            resize_tx: resize_tx,
-            ref_test: ref_test,
+            notifier,
+            resize_tx,
+            ref_test,
             mouse: Default::default(),
             selection: None,
-            size_info: size_info,
+            size_info,
             hide_cursor_when_typing: config.hide_cursor_when_typing(),
             hide_cursor: false,
             received_count: 0,
@@ -259,7 +262,7 @@ impl<N: Notify> Processor<N> {
             Event::WindowEvent { event, .. } => {
                 use glutin::WindowEvent::*;
                 match event {
-                    Closed => {
+                    CloseRequested => {
                         if ref_test {
                             // dump grid state
                             let grid = processor.ctx.terminal.grid();
@@ -288,7 +291,7 @@ impl<N: Notify> Processor<N> {
                     },
                     KeyboardInput { input, .. } => {
                         let glutin::KeyboardInput { state, virtual_keycode, modifiers, .. } = input;
-                        processor.process_key(state, virtual_keycode, &modifiers);
+                        processor.process_key(state, virtual_keycode, modifiers);
                         if state == ElementState::Pressed {
                             // Hide cursor while typing
                             *hide_cursor = true;
@@ -298,9 +301,11 @@ impl<N: Notify> Processor<N> {
                         processor.received_char(c);
                     },
                     MouseInput { state, button, modifiers, .. } => {
-                        *hide_cursor = false;
-                        processor.mouse_input(state, button, modifiers);
-                        processor.ctx.terminal.dirty = true;
+                        if *window_is_focused {
+                            *hide_cursor = false;
+                            processor.mouse_input(state, button, modifiers);
+                            processor.ctx.terminal.dirty = true;
+                        }
                     },
                     CursorMoved { position: (x, y), modifiers, .. } => {
                         let x = x as i32;
@@ -315,9 +320,9 @@ impl<N: Notify> Processor<N> {
                             processor.ctx.terminal.dirty = true;
                         }
                     },
-                    MouseWheel { delta, phase, .. } => {
+                    MouseWheel { delta, phase, modifiers, .. } => {
                         *hide_cursor = false;
-                        processor.on_mouse_wheel(delta, phase);
+                        processor.on_mouse_wheel(delta, phase, modifiers);
                     },
                     Refresh => {
                         processor.ctx.terminal.dirty = true;
@@ -334,6 +339,11 @@ impl<N: Notify> Processor<N> {
                         }
 
                         processor.on_focus_change(is_focused);
+                    },
+                    DroppedFile(path) => {
+                        use input::ActionContext;
+                        let path: String = path.to_string_lossy().into();
+                        processor.ctx.write_to_pty(path.into_bytes());
                     }
                     _ => (),
                 }

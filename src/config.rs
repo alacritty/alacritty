@@ -23,6 +23,7 @@ use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
 
 use glutin::ModifiersState;
 
+use cli::Options;
 use input::{Action, Binding, MouseBinding, KeyBinding};
 use index::{Line, Column};
 use ansi::CursorStyle;
@@ -214,7 +215,7 @@ impl<'a> Shell<'a> {
     {
         Shell {
             program: program.into(),
-            args: args
+            args,
         }
     }
 
@@ -241,7 +242,7 @@ impl Alpha {
     }
 
     #[inline]
-    pub fn get(&self) -> f32 {
+    pub fn get(self) -> f32 {
         self.0
     }
 
@@ -270,18 +271,18 @@ pub struct WindowConfig {
 
     /// Pixel padding
     #[serde(default="default_padding", deserialize_with = "deserialize_padding")]
-    padding: Delta,
+    padding: Delta<u8>,
 
     /// Draw the window with title bar / borders
     #[serde(default, deserialize_with = "failure_default")]
     decorations: bool,
 }
 
-fn default_padding() -> Delta {
-    Delta { x: 2., y: 2. }
+fn default_padding() -> Delta<u8> {
+    Delta { x: 2, y: 2 }
 }
 
-fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Delta, D::Error>
+fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Delta<u8>, D::Error>
     where D: de::Deserializer<'a>
 {
     match Delta::deserialize(deserializer) {
@@ -318,7 +319,7 @@ pub struct Config {
 
     /// Pixel padding
     #[serde(default, deserialize_with = "failure_default")]
-    padding: Option<Delta>,
+    padding: Option<Delta<u8>>,
 
     /// TERM env variable
     #[serde(default, deserialize_with = "failure_default")]
@@ -388,6 +389,10 @@ pub struct Config {
     /// Style of the cursor
     #[serde(default, deserialize_with = "failure_default")]
     cursor_style: CursorStyle,
+
+    /// Use hollow block cursor when unfocused
+    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    unfocused_hollow_cursor: bool,
 
     /// Live config reload
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
@@ -678,9 +683,9 @@ struct RawBinding {
 
 impl RawBinding {
     fn into_mouse_binding(self) -> ::std::result::Result<MouseBinding, Self> {
-        if self.mouse.is_some() {
+        if let Some(mouse) = self.mouse {
             Ok(Binding {
-                trigger: self.mouse.unwrap(),
+                trigger: mouse,
                 mods: self.mods,
                 action: self.action,
                 mode: self.mode,
@@ -692,9 +697,9 @@ impl RawBinding {
     }
 
     fn into_key_binding(self) -> ::std::result::Result<KeyBinding, Self> {
-        if self.key.is_some() {
+        if let Some(key) = self.key {
             Ok(KeyBinding {
-                trigger: self.key.unwrap(),
+                trigger: key,
                 mods: self.mods,
                 action: self.action,
                 mode: self.mode,
@@ -865,12 +870,12 @@ impl<'a> de::Deserialize<'a> for RawBinding {
                 }
 
                 Ok(RawBinding {
-                    mode: mode,
+                    mode,
                     notmode: not_mode,
-                    action: action,
-                    key: key,
-                    mouse: mouse,
-                    mods: mods,
+                    action,
+                    key,
+                    mouse,
+                    mods,
                 })
             }
         }
@@ -977,8 +982,8 @@ impl CursorOrPrimaryColors {
     fn into_cursor_colors(self) -> CursorColors {
         match self {
             CursorOrPrimaryColors::Cursor { text, cursor } => CursorColors {
-                text: text,
-                cursor: cursor
+                text,
+                cursor,
             },
             CursorOrPrimaryColors::Primary { foreground, background } => {
                 // Must print in config since logger isn't setup yet.
@@ -1017,6 +1022,24 @@ pub struct PrimaryColors {
     pub background: Rgb,
     #[serde(deserialize_with = "rgb_from_hex")]
     pub foreground: Rgb,
+    #[serde(default, deserialize_with = "deserialize_bright_foreground")]
+    pub bright_foreground: Option<Rgb>,
+}
+
+fn deserialize_bright_foreground<'a, D>(deserializer: D) -> ::std::result::Result<Option<Rgb>, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match Option::deserialize(deserializer) {
+        Ok(Some(color)) => {
+            let color: serde_yaml::Value = color;
+            Ok(Some(rgb_from_hex(color).unwrap()))
+        },
+        Ok(None) => Ok(None),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using standard foreground color", err);
+            Ok(None)
+        },
+    }
 }
 
 impl Default for PrimaryColors {
@@ -1024,6 +1047,7 @@ impl Default for PrimaryColors {
         PrimaryColors {
             background: Rgb { r: 0, g: 0, b: 0 },
             foreground: Rgb { r: 0xea, g: 0xea, b: 0xea },
+            bright_foreground: None,
         }
     }
 }
@@ -1124,12 +1148,12 @@ impl FromStr for Rgb {
         macro_rules! component {
             ($($c:ident),*) => {
                 $(
-                    match chars.next().unwrap().to_digit(16) {
+                    match chars.next().and_then(|c| c.to_digit(16)) {
                         Some(val) => rgb.$c = (val as u8) << 4,
                         None => return Err(())
                     }
 
-                    match chars.next().unwrap().to_digit(16) {
+                    match chars.next().and_then(|c| c.to_digit(16)) {
                         Some(val) => rgb.$c |= val as u8,
                         None => return Err(())
                     }
@@ -1137,9 +1161,9 @@ impl FromStr for Rgb {
             }
         }
 
-        match chars.next().unwrap() {
-            '0' => if chars.next().unwrap() != 'x' { return Err(()); },
-            '#' => (),
+        match chars.next() {
+            Some('0') => if chars.next() != Some('x') { return Err(()); },
+            Some('#') => (),
             _ => return Err(()),
         }
 
@@ -1285,7 +1309,7 @@ impl Config {
         self.tabspaces
     }
 
-    pub fn padding(&self) -> &Delta {
+    pub fn padding(&self) -> &Delta<u8> {
         self.padding.as_ref()
             .unwrap_or(&self.window.padding)
     }
@@ -1362,6 +1386,12 @@ impl Config {
         self.cursor_style
     }
 
+    /// Use hollow block cursor when unfocused
+    #[inline]
+    pub fn unfocused_hollow_cursor(&self) -> bool {
+        self.unfocused_hollow_cursor
+    }
+
     /// Live config reload
     #[inline]
     pub fn live_config_reload(&self) -> bool {
@@ -1381,6 +1411,14 @@ impl Config {
         config.print_deprecation_warnings();
 
         Ok(config)
+    }
+
+    /// Overrides the `dynamic_title` configuration based on `--title`.
+    pub fn update_dynamic_title(mut self, options: &Options) -> Self {
+        if options.title.is_some() {
+            self.dynamic_title = false;
+        }
+        self
     }
 
     fn read_file<P: AsRef<Path>>(path: P) -> Result<String> {
@@ -1429,8 +1467,8 @@ impl Default for Dimensions {
 impl Dimensions {
     pub fn new(columns: Column, lines: Line) -> Self {
         Dimensions {
-            columns: columns,
-            lines: lines
+            columns,
+            lines,
         }
     }
 
@@ -1448,20 +1486,15 @@ impl Dimensions {
 }
 
 /// A delta for a point in a 2 dimensional plane
-#[derive(Clone, Copy, Debug, Deserialize)]
-pub struct Delta {
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[serde(bound(deserialize = "T: Deserialize<'de> + Default"))]
+pub struct Delta<T: Default> {
     /// Horizontal change
     #[serde(default, deserialize_with = "failure_default")]
-    pub x: f32,
+    pub x: T,
     /// Vertical change
     #[serde(default, deserialize_with = "failure_default")]
-    pub y: f32,
-}
-
-impl Default for Delta {
-    fn default() -> Delta {
-        Delta { x: 0.0, y: 0.0 }
-    }
+    pub y: T,
 }
 
 trait DeserializeSize : Sized {
@@ -1539,14 +1572,17 @@ pub struct Font {
 
     /// Extra spacing per character
     #[serde(default, deserialize_with = "failure_default")]
-    offset: Delta,
+    offset: Delta<i8>,
 
     /// Glyph offset within character cell
     #[serde(default, deserialize_with = "failure_default")]
-    glyph_offset: Delta,
+    glyph_offset: Delta<i8>,
 
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
-    use_thin_strokes: bool
+    use_thin_strokes: bool,
+
+    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    scale_with_dpi: bool,
 }
 
 fn default_bold_desc() -> FontDescription {
@@ -1582,13 +1618,13 @@ impl Font {
 
     /// Get offsets to font metrics
     #[inline]
-    pub fn offset(&self) -> &Delta {
+    pub fn offset(&self) -> &Delta<i8> {
         &self.offset
     }
 
     /// Get cell offsets for glyphs
     #[inline]
-    pub fn glyph_offset(&self) -> &Delta {
+    pub fn glyph_offset(&self) -> &Delta<i8> {
         &self.glyph_offset
     }
 
@@ -1598,6 +1634,11 @@ impl Font {
             size,
             .. self
         }
+    }
+
+    /// Check whether dpi should be applied
+    pub fn scale_with_dpi(&self) -> bool {
+        self.scale_with_dpi
     }
 }
 
@@ -1610,13 +1651,14 @@ impl Default for Font {
             italic: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
             use_thin_strokes: true,
+            scale_with_dpi: true,
+            glyph_offset: Default::default(),
             offset: Default::default(),
-            glyph_offset: Default::default()
         }
     }
 }
 
-#[cfg(any(target_os = "linux",target_os = "freebsd"))]
+#[cfg(any(target_os = "linux",target_os = "freebsd",target_os = "openbsd"))]
 impl Default for Font {
     fn default() -> Font {
         Font {
@@ -1625,8 +1667,9 @@ impl Default for Font {
             italic: FontDescription::new_with_family("monospace"),
             size: Size::new(11.0),
             use_thin_strokes: false,
+            scale_with_dpi: true,
+            glyph_offset: Default::default(),
             offset: Default::default(),
-            glyph_offset: Default::default()
         }
     }
 }
@@ -1668,7 +1711,8 @@ impl Monitor {
             _thread: ::util::thread::spawn_named("config watcher", move || {
                 let (tx, rx) = mpsc::channel();
                 // The Duration argument is a debouncing period.
-                let mut watcher = watcher(tx, Duration::from_millis(10)).unwrap();
+                let mut watcher = watcher(tx, Duration::from_millis(10))
+                    .expect("Unable to spawn file watcher");
                 let config_path = ::std::fs::canonicalize(path)
                     .expect("canonicalize config path");
 
@@ -1707,6 +1751,7 @@ impl Monitor {
 
 #[cfg(test)]
 mod tests {
+    use cli::Options;
     use super::Config;
 
     #[cfg(target_os="macos")]
@@ -1722,14 +1767,34 @@ mod tests {
             .expect("deserialize config");
 
         // Sanity check that mouse bindings are being parsed
-        assert!(config.mouse_bindings.len() >= 1);
+        assert!(!config.mouse_bindings.is_empty());
 
         // Sanity check that key bindings are being parsed
-        assert!(config.key_bindings.len() >= 1);
+        assert!(!config.key_bindings.is_empty());
+    }
+
+    #[test]
+    fn dynamic_title_ignoring_options_by_default() {
+        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
+            .expect("deserialize config");
+        let old_dynamic_title = config.dynamic_title;
+        let options = Options::default();
+        let config = config.update_dynamic_title(&options);
+        assert_eq!(old_dynamic_title, config.dynamic_title);
+    }
+
+    #[test]
+    fn dynamic_title_overridden_by_options() {
+        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
+            .expect("deserialize config");
+        let mut options = Options::default();
+        options.title = Some("foo".to_owned());
+        let config = config.update_dynamic_title(&options);
+        assert!(!config.dynamic_title);
     }
 }
 
-#[cfg_attr(feature = "clippy", allow(enum_variant_names))]
+#[cfg_attr(feature = "cargo-clippy", allow(enum_variant_names))]
 #[derive(Deserialize, Copy, Clone)]
 enum Key {
     Key1,
@@ -1742,7 +1807,6 @@ enum Key {
     Key8,
     Key9,
     Key0,
-
     A,
     B,
     C,
@@ -1769,9 +1833,7 @@ enum Key {
     X,
     Y,
     Z,
-
     Escape,
-
     F1,
     F2,
     F3,
@@ -1787,7 +1849,6 @@ enum Key {
     F13,
     F14,
     F15,
-
     Snapshot,
     Scroll,
     Pause,
@@ -1797,7 +1858,6 @@ enum Key {
     End,
     PageDown,
     PageUp,
-
     Left,
     Up,
     Right,
@@ -1817,7 +1877,6 @@ enum Key {
     Numpad7,
     Numpad8,
     Numpad9,
-
     AbntC1,
     AbntC2,
     Add,
@@ -1888,13 +1947,17 @@ enum Key {
     WebSearch,
     WebStop,
     Yen,
+    Caret,
+    Copy,
+    Paste,
+    Cut,
 }
 
 impl Key {
-    fn to_glutin_key(&self) -> ::glutin::VirtualKeyCode {
+    fn to_glutin_key(self) -> ::glutin::VirtualKeyCode {
         use ::glutin::VirtualKeyCode::*;
         // Thank you, vim macros!
-        match *self {
+        match self {
             Key::Key1 => Key1,
             Key::Key2 => Key2,
             Key::Key3 => Key3,
@@ -2045,6 +2108,10 @@ impl Key {
             Key::WebSearch => WebSearch,
             Key::WebStop => WebStop,
             Key::Yen => Yen,
+            Key::Caret => Caret,
+            Key::Copy => Copy,
+            Key::Paste => Paste,
+            Key::Cut => Cut,
         }
     }
 }

@@ -1,5 +1,7 @@
 //! A cross-platform clipboard library
 
+#![cfg_attr(feature = "cargo-clippy", deny(clippy, if_not_else, enum_glob_use, wrong_pub_self_convention))]
+
 // This has to be here due to macro_use
 #[cfg(target_os = "macos")]
 #[macro_use] extern crate objc;
@@ -63,9 +65,9 @@ pub trait Store : Load {
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
 mod x11;
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
 pub use x11::{Clipboard, Error};
 
 #[cfg(target_os = "macos")]

@@ -29,10 +29,11 @@ pub struct Logger<T> {
 
 impl<T: Send + io::Write> Logger<T> {
     // False positive, see: https://github.com/rust-lang-nursery/rust-clippy/issues/734
-    #[cfg_attr(feature = "clippy", allow(new_ret_no_self))]
+    #[cfg_attr(feature = "cargo-clippy", allow(new_ret_no_self))]
     pub fn new(output: T, level: log::LevelFilter) -> Logger<io::LineWriter<T>> {
+        log::set_max_level(level);
         Logger {
-            level: level,
+            level,
             output: sync::Mutex::new(io::LineWriter::new(output))
         }
     }

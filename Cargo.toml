@@ -5,6 +5,8 @@ authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 build = "build.rs"
 description = "GPU-accelerated terminal emulator"
+readme = "README.md"
+homepage = "https://github.com/jwilm/alacritty"
 
 [[bin]]
 doc = false
@@ -32,17 +34,18 @@ log = "0.4"
 clap = "2"
 fnv = "1"
 unicode-width = "0.1"
-arraydeque = "0.2"
-glutin = "0.12"
-clippy = { version = "*", optional = true }
+arraydeque = "0.4"
+glutin = "0.16"
 env_logger = "0.5"
 base64 = "0.9.0"
+static_assertions = "0.2.5"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"
+dirs = "1.0.2"
 
 [features]
 default = []
@@ -52,8 +55,28 @@ nightly = []
 bench = []
 
 [build-dependencies]
-gl_generator = "0.8"
+gl_generator = "0.9"
 
 [profile.release]
 lto = true
-debug = true
+debug = 1
+
+[package.metadata.deb]
+maintainer = "Joe Wilm <joe@jwilm.com>"
+license-file = ["LICENSE-APACHE", "3"]
+extended-description = """\
+Alacritty is the fastest terminal emulator in existence. Using the GPU for \
+rendering enables optimizations that simply aren't possible in other emulators. \
+Alacritty currently supports FreeBSD, Linux, macOS, and OpenBSD. Windows \
+support is planned before the 1.0 release.  """
+depends = "$auto, cmake, libfreetype6-dev, libfontconfig1-dev, xclip"
+section = "rust"
+priority = "optional"
+assets = [
+    ["target/release/alacritty", "usr/local/bin/", "755"],
+    ["alacritty.desktop", "usr/share/applications/", "644"],
+    ["alacritty-completions.bash", "usr/share/bash-completion/completions/alacritty", "644"],
+    ["alacritty-completions.fish", "usr/share/fish/completions/alacritty", "644"],
+    ["alacritty-completions.zsh", "usr/share/zsh/functions/Completion/alacritty", "644"],
+    ["alacritty.info", "usr/share/terminfo/a/alacritty", "644"],
+]

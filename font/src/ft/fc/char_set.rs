@@ -24,7 +24,13 @@ foreign_type! {
 }
 
 impl CharSet {
-    pub fn new() -> CharSet {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for CharSet {
+    fn default() -> Self {
         CharSet(unsafe { FcCharSetCreate() })
     }
 }

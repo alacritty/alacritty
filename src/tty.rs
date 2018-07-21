@@ -87,7 +87,7 @@ fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     (master, slave)
 }
 
-#[cfg(any(target_os = "macos",target_os = "freebsd"))]
+#[cfg(any(target_os = "macos",target_os = "freebsd",target_os = "openbsd"))]
 fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
     let mut master: c_int = 0;
     let mut slave: c_int = 0;
@@ -117,7 +117,7 @@ fn set_controlling_terminal(fd: c_int) {
         // based on architecture (32/64). So a generic cast is used to make sure
         // there are no issues. To allow such a generic cast the clippy warning
         // is disabled.
-        #[cfg_attr(feature = "clippy", allow(cast_lossless))]
+        #[cfg_attr(feature = "cargo-clippy", allow(cast_lossless))]
         libc::ioctl(fd, TIOCSCTTY as _, 0)
     };
 

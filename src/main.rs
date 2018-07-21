@@ -13,12 +13,7 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
-#![cfg_attr(feature = "clippy", feature(plugin))]
-#![cfg_attr(feature = "clippy", plugin(clippy))]
-#![cfg_attr(feature = "clippy", deny(clippy))]
-#![cfg_attr(feature = "clippy", deny(enum_glob_use))]
-#![cfg_attr(feature = "clippy", deny(if_not_else))]
-#![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
+#![cfg_attr(feature = "cargo-clippy", deny(clippy, if_not_else, enum_glob_use, wrong_pub_self_convention))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
@@ -27,6 +22,8 @@ extern crate alacritty;
 
 #[macro_use]
 extern crate log;
+#[cfg(target_os = "macos")]
+extern crate dirs;
 
 use std::error::Error;
 use std::sync::Arc;
@@ -49,11 +46,11 @@ use alacritty::util::fmt::Red;
 fn main() {
     // Load command line options and config
     let options = cli::Options::load();
-    let config = load_config(&options);
+    let config = load_config(&options).update_dynamic_title(&options);
 
     // Switch to home directory
     #[cfg(target_os = "macos")]
-    env::set_current_dir(env::home_dir().unwrap()).unwrap();
+    env::set_current_dir(dirs::home_dir().unwrap()).unwrap();
     // Set locale
     #[cfg(target_os = "macos")]
     locale::set_locale_environment();
@@ -94,9 +91,9 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     logging::initialize(options)?;
 
     info!("Welcome to Alacritty.");
-    config.path().map(|config_path| {
+    if let Some(config_path) = config.path() {
         info!("Configuration loaded from {}", config_path.display());
-    });
+    };
 
     // Create a display.
     //
@@ -179,15 +176,16 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         let mut terminal = processor.process_events(&terminal, display.window());
 
         // Handle config reloads
-        config_monitor.as_ref()
+        if let Some(new_config) = config_monitor
+            .as_ref()
             .and_then(|monitor| monitor.pending_config())
-            .map(|new_config| {
-                config = new_config;
-                display.update_config(&config);
-                processor.update_config(&config);
-                terminal.update_config(&config);
-                terminal.dirty = true;
-            });
+        {
+            config = new_config.update_dynamic_title(&options);
+            display.update_config(&config);
+            processor.update_config(&config);
+            terminal.update_config(&config);
+            terminal.dirty = true;
+        }
 
         // Maybe draw the terminal
         if terminal.needs_draw() {

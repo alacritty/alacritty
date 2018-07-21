@@ -15,10 +15,9 @@ extern crate log;
 use clap::{Arg, App};
 use index::{Line, Column};
 use config::{Dimensions, Shell};
+use window::{DEFAULT_TITLE, DEFAULT_CLASS};
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
-
-const DEFAULT_TITLE: &str = "Alacritty";
 
 /// Options specified on the command line
 pub struct Options {
@@ -26,7 +25,8 @@ pub struct Options {
     pub print_events: bool,
     pub ref_test: bool,
     pub dimensions: Option<Dimensions>,
-    pub title: String,
+    pub title: Option<String>,
+    pub class: Option<String>,
     pub log_level: log::LevelFilter,
     pub command: Option<Shell<'static>>,
     pub working_dir: Option<PathBuf>,
@@ -40,7 +40,8 @@ impl Default for Options {
             print_events: false,
             ref_test: false,
             dimensions: None,
-            title: DEFAULT_TITLE.to_owned(),
+            title: None,
+            class: None,
             log_level: log::LevelFilter::Warn,
             command: None,
             working_dir: None,
@@ -79,8 +80,12 @@ impl Options {
             .arg(Arg::with_name("title")
                 .long("title")
                 .short("t")
-                .default_value(DEFAULT_TITLE)
-                .help("Defines the window title"))
+                .takes_value(true)
+                .help(&format!("Defines the window title [default: {}]", DEFAULT_TITLE)))
+            .arg(Arg::with_name("class")
+                 .long("class")
+                 .takes_value(true)
+                 .help(&format!("Defines window class on X11 [default: {}]", DEFAULT_CLASS)))
             .arg(Arg::with_name("q")
                 .short("q")
                 .multiple(true)
@@ -132,9 +137,8 @@ impl Options {
             }
         }
 
-        if let Some(title) = matches.value_of("title") {
-            options.title = title.to_owned();
-        }
+        options.class = matches.value_of("class").map(|c| c.to_owned());
+        options.title = matches.value_of("title").map(|t| t.to_owned());
 
         match matches.occurrences_of("q") {
             0 => {},
