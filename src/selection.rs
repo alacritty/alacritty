@@ -157,8 +157,8 @@ impl Selection {
             Selection::Semantic { ref region } => {
                 Selection::span_semantic(grid, region)
             },
-            Selection::Lines { ref region, ref initial_line } => {
-                Selection::span_lines(grid, region, *initial_line)
+            Selection::Lines { ref region, initial_line } => {
+                Selection::span_lines(grid, region, initial_line)
             }
         }
     }
@@ -253,13 +253,12 @@ impl Selection {
 
         // Remove last cell if selection ends to the left of a cell
         if front_side == Side::Left && start != end {
-            if front.col != Column(0) {
-                front.col -= 1;
-            }
             // Special case when selection starts to left of first cell
-            else {
+            if front.col == Column(0) {
                 front.col = cols - 1;
                 front.line += 1;
+            } else {
+                front.col -= 1;
             }
         }
 

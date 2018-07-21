@@ -30,6 +30,7 @@ use selection::{self, Selection, Locations};
 use config::{Config, VisualBellAnimation};
 use {MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
+use input::FONT_SIZE_STEP;
 
 pub mod cell;
 pub mod color;
@@ -129,7 +130,7 @@ impl<'a> RenderableCellsIter<'a> {
         let inner = grid.display_iter();
 
         let mut selection_range = None;
-        selection.map(|loc| {
+        if let Some(loc) = selection {
             // Get on-screen lines of the selection's locations
             let start_line = grid.buffer_line_to_visible(loc.start.line);
             let end_line = grid.buffer_line_to_visible(loc.end.line);
@@ -171,17 +172,17 @@ impl<'a> RenderableCellsIter<'a> {
                 // Update the selection
                 selection_range = Some(RangeInclusive::new(start, end));
             }
-        });
+        }
 
         RenderableCellsIter {
-            cursor: cursor,
-            cursor_offset: cursor_offset,
-            grid: grid,
-            inner: inner,
-            mode: mode,
+            cursor,
+            cursor_offset,
+            grid,
+            inner,
+            mode,
             selection: selection_range,
-            config: config,
-            colors: colors,
+            config,
+            colors,
             cursor_cells: ArrayDeque::new(),
         }.initialize(cursor_style)
     }
@@ -313,9 +314,9 @@ impl<'a> RenderableCellsIter<'a> {
         self.mode.contains(mode::TermMode::SHOW_CURSOR) && self.grid.contains(self.cursor)
     }
 
-    fn compute_fg_rgb(&self, fg: &Color, cell: &Cell) -> Rgb {
+    fn compute_fg_rgb(&self, fg: Color, cell: &Cell) -> Rgb {
         use self::cell::Flags;
-        match *fg {
+        match fg {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => {
                 match (self.config.draw_bold_text_with_bright_colors(), cell.flags & Flags::DIM_BOLD) {
@@ -346,15 +347,15 @@ impl<'a> RenderableCellsIter<'a> {
     }
 
     #[inline]
-    fn compute_bg_alpha(&self, bg: &Color) -> f32 {
-        match *bg {
+    fn compute_bg_alpha(&self, bg: Color) -> f32 {
+        match bg {
             Color::Named(NamedColor::Background) => 0.0,
             _ => 1.0
         }
     }
 
-    fn compute_bg_rgb(&self, bg: &Color) -> Rgb {
-        match *bg {
+    fn compute_bg_rgb(&self, bg: Color) -> Rgb {
+        match bg {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => self.colors[ansi],
             Color::Indexed(idx) => self.colors[idx],
@@ -403,8 +404,6 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 
                 let index = Linear(cell.line.0 * self.grid.num_cols().0 + cell.column.0);
 
-                // XXX (jwilm) selection temp disabled
-                //
                 let selected = self.selection.as_ref()
                     .map(|range| range.contains_(index))
                     .unwrap_or(false);
@@ -429,13 +428,13 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     fg_rgb = self.colors[NamedColor::Background];
                     bg_alpha = 1.0
                 } else {
-                    bg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
-                    fg_rgb = self.compute_bg_rgb(&cell.bg);
+                    bg_rgb = self.compute_fg_rgb(cell.fg, &cell);
+                    fg_rgb = self.compute_bg_rgb(cell.bg);
                 }
             } else {
-                fg_rgb = self.compute_fg_rgb(&cell.fg, &cell);
-                bg_rgb = self.compute_bg_rgb(&cell.bg);
-                bg_alpha = self.compute_bg_alpha(&cell.bg);
+                fg_rgb = self.compute_fg_rgb(cell.fg, &cell);
+                bg_rgb = self.compute_bg_rgb(cell.bg);
+                bg_alpha = self.compute_bg_alpha(cell.bg);
             }
 
             return Some(RenderableCell {
@@ -445,7 +444,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 c: cell.c,
                 fg: fg_rgb,
                 bg: bg_rgb,
-                bg_alpha: bg_alpha,
+                bg_alpha,
             })
         }
     }
@@ -890,10 +889,10 @@ impl Term {
         }
     }
 
-    pub fn change_font_size(&mut self, delta: i8) {
-        // Saturating addition with minimum font size 1
-        let new_size = self.font_size + Size::new(f32::from(delta));
-        self.font_size = max(new_size, Size::new(1.));
+    pub fn change_font_size(&mut self, delta: f32) {
+        // Saturating addition with minimum font size FONT_SIZE_STEP
+        let new_size = self.font_size + Size::new(delta);
+        self.font_size = max(new_size, Size::new(FONT_SIZE_STEP));
         self.dirty = true;
     }
 
@@ -1157,18 +1156,6 @@ impl Term {
         self.tabs = IndexRange::from(Column(0)..self.grid.num_cols())
             .map(|i| (*i as usize) % self.tabspaces == 0)
             .collect::<Vec<bool>>();
-
-        // if num_lines > old_lines {
-        //     // Make sure bottom of terminal is clear
-        //     let template = self.cursor.template;
-        //     self.grid
-        //         .region_mut((self.cursor.point.line + 1)..)
-        //         .each(|c| c.reset(&template));
-        //     self.alt_grid
-        //         .region_mut((self.cursor_save_alt.point.line + 1)..)
-        //         .each(|c| c.reset(&template));
-        // }
-
     }
 
     #[inline]
@@ -2002,6 +1989,9 @@ mod tests {
     use ansi::{Handler, CharsetIndex, StandardCharset};
     use selection::Selection;
     use std::mem;
+    use input::FONT_SIZE_STEP;
+    use font::Size;
+    use config::Config;
 
     #[test]
     fn semantic_selection_works() {
@@ -2105,6 +2095,72 @@ mod tests {
 
         assert_eq!(term.grid()[&cursor].c, '▒');
     }
+
+    fn change_font_size_works(font_size: f32) {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+        };
+        let config: Config = Default::default();
+        let mut term: Term = Term::new(&config, size);
+        term.change_font_size(font_size);
+
+        let expected_font_size: Size = config.font().size() + Size::new(font_size);
+        assert_eq!(term.font_size, expected_font_size);
+    }
+
+    #[test]
+    fn increase_font_size_works() {
+        change_font_size_works(10.0);
+    }
+
+    #[test]
+    fn decrease_font_size_works() {
+        change_font_size_works(-10.0);
+    }
+
+    #[test]
+    fn prevent_font_below_threshold_works() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+        };
+        let config: Config = Default::default();
+        let mut term: Term = Term::new(&config, size);
+
+        term.change_font_size(-100.0);
+
+        let expected_font_size: Size = Size::new(FONT_SIZE_STEP);
+        assert_eq!(term.font_size, expected_font_size);
+    }
+
+    #[test]
+    fn reset_font_size_works() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+        };
+        let config: Config = Default::default();
+        let mut term: Term = Term::new(&config, size);
+
+        term.change_font_size(10.0);
+        term.reset_font_size();
+
+        let expected_font_size: Size = config.font().size();
+        assert_eq!(term.font_size, expected_font_size);
+    }
 }
 
 #[cfg(all(test, feature = "bench"))]
@@ -2161,7 +2217,7 @@ mod benches {
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {
-            let iter = terminal.renderable_cells(&config, None, false);
+            let iter = terminal.renderable_cells(&config, false);
             for cell in iter {
                 test::black_box(cell);
             }

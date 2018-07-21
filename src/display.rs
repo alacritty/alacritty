@@ -136,12 +136,16 @@ impl Display {
         let render_timer = config.render_timer();
 
         // Create the window where Alacritty will be displayed
-        let mut window = Window::new(&options.title, config.window())?;
+        let mut window = Window::new(&options, config.window())?;
 
         // get window properties for initializing the other subsystems
         let mut viewport_size = window.inner_size_pixels()
             .expect("glutin returns window size");
-        let dpr = window.hidpi_factor();
+        let dpr = if config.font().scale_with_dpi() {
+            window.hidpi_factor()
+        } else {
+            1.0
+        };
 
         info!("device_pixel_ratio: {}", dpr);
 
@@ -149,7 +153,7 @@ impl Display {
         let mut renderer = QuadRenderer::new(config, viewport_size)?;
 
         let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(&window, &mut renderer, config)?;
+            Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
 
         let dimensions = options.dimensions()
@@ -210,11 +214,10 @@ impl Display {
         })
     }
 
-    fn new_glyph_cache(window : &Window, renderer : &mut QuadRenderer, config: &Config)
+    fn new_glyph_cache(dpr: f32, renderer: &mut QuadRenderer, config: &Config)
         -> Result<(GlyphCache, f32, f32), Error>
     {
         let font = config.font().clone();
-        let dpr = window.hidpi_factor();
         let rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
 
         // Initialize glyph cache

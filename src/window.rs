@@ -22,7 +22,25 @@ use glutin::GlContext;
 
 use MouseCursor;
 
+use cli::Options;
 use config::WindowConfig;
+
+/// Default text for the window's title bar, if not overriden.
+///
+/// In X11, this the default value for the `WM_NAME` property.
+pub const DEFAULT_TITLE: &str = "Alacritty";
+
+/// Default text for general window class, X11 specific.
+///
+/// In X11, this is the default value for the `WM_CLASS` property. The
+/// second value of `WM_CLASS` is **never** changed to anything but
+/// the default value.
+///
+/// ```ignore
+/// $ xprop | grep WM_CLASS
+/// WM_CLASS(STRING) = "Alacritty", "Alacritty"
+/// ```
+pub const DEFAULT_CLASS: &str = "Alacritty";
 
 /// Window errors
 #[derive(Debug)]
@@ -199,17 +217,19 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
-        title: &str,
+        options: &Options,
         window_config: &WindowConfig,
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
+        let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
+        let class = options.class.as_ref().map_or(DEFAULT_CLASS, |c| c);
         let window_builder = WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
             .with_decorations(window_config.decorations());
-        let window_builder = Window::platform_builder_ext(window_builder);
+        let window_builder = Window::platform_builder_ext(window_builder, &class);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();
@@ -322,13 +342,13 @@ impl Window {
     }
 
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
-    fn platform_builder_ext(window_builder: WindowBuilder) -> WindowBuilder {
+    fn platform_builder_ext(window_builder: WindowBuilder, wm_class: &str) -> WindowBuilder {
         use glutin::os::unix::WindowBuilderExt;
-        window_builder.with_class("alacritty".to_owned(), "Alacritty".to_owned())
+        window_builder.with_class(wm_class.to_owned(), "Alacritty".to_owned())
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
-    fn platform_builder_ext(window_builder: WindowBuilder) -> WindowBuilder {
+    fn platform_builder_ext(window_builder: WindowBuilder, _: &str) -> WindowBuilder {
         window_builder
     }
 

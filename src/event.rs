@@ -59,17 +59,15 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn copy_selection(&self, buffer: ::copypasta::Buffer) {
-        self.terminal
-            .selection_to_string()
-            .map(|selected| {
-                if !selected.is_empty() {
-                    Clipboard::new()
-                        .and_then(|mut clipboard| clipboard.store(selected, buffer))
-                        .unwrap_or_else(|err| {
-                            warn!("Error storing selection to clipboard. {}", Red(err));
-                        });
-                }
-            });
+        if let Some(selected) = self.terminal.selection_to_string() {
+            if !selected.is_empty() {
+                Clipboard::new()
+                    .and_then(|mut clipboard| clipboard.store(selected, buffer))
+                    .unwrap_or_else(|err| {
+                        warn!("Error storing selection to clipboard. {}", Red(err));
+                    });
+            }
+        }
     }
 
     fn clear_selection(&mut self) {
@@ -113,7 +111,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
     }
 
-    fn change_font_size(&mut self, delta: i8) {
+    fn change_font_size(&mut self, delta: f32) {
         self.terminal.change_font_size(delta);
     }
 
@@ -241,7 +239,7 @@ impl<N: Notify> Processor<N> {
             resize_tx,
             ref_test,
             mouse: Default::default(),
-            size_info: size_info,
+            size_info,
             hide_cursor_when_typing: config.hide_cursor_when_typing(),
             hide_cursor: false,
             received_count: 0,
@@ -298,7 +296,7 @@ impl<N: Notify> Processor<N> {
                     },
                     KeyboardInput { input, .. } => {
                         let glutin::KeyboardInput { state, virtual_keycode, modifiers, .. } = input;
-                        processor.process_key(state, virtual_keycode, &modifiers);
+                        processor.process_key(state, virtual_keycode, modifiers);
                         if state == ElementState::Pressed {
                             // Hide cursor while typing
                             *hide_cursor = true;
@@ -308,9 +306,11 @@ impl<N: Notify> Processor<N> {
                         processor.received_char(c);
                     },
                     MouseInput { state, button, modifiers, .. } => {
-                        *hide_cursor = false;
-                        processor.mouse_input(state, button, modifiers);
-                        processor.ctx.terminal.dirty = true;
+                        if *window_is_focused {
+                            *hide_cursor = false;
+                            processor.mouse_input(state, button, modifiers);
+                            processor.ctx.terminal.dirty = true;
+                        }
                     },
                     CursorMoved { position: (x, y), modifiers, .. } => {
                         let x = limit(x as i32, 0, processor.ctx.size_info.width as i32);

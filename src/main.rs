@@ -13,12 +13,7 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
-#![cfg_attr(feature = "clippy", feature(plugin))]
-#![cfg_attr(feature = "clippy", plugin(clippy))]
-#![cfg_attr(feature = "clippy", deny(clippy))]
-#![cfg_attr(feature = "clippy", deny(enum_glob_use))]
-#![cfg_attr(feature = "clippy", deny(if_not_else))]
-#![cfg_attr(feature = "clippy", deny(wrong_pub_self_convention))]
+#![cfg_attr(feature = "cargo-clippy", deny(clippy, if_not_else, enum_glob_use, wrong_pub_self_convention))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
@@ -49,7 +44,7 @@ use alacritty::util::fmt::Red;
 fn main() {
     // Load command line options and config
     let options = cli::Options::load();
-    let config = load_config(&options);
+    let config = load_config(&options).update_dynamic_title(&options);
 
     // Switch to home directory
     #[cfg(target_os = "macos")]
@@ -183,7 +178,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
             .as_ref()
             .and_then(|monitor| monitor.pending_config())
         {
-            config = new_config;
+            config = new_config.update_dynamic_title(&options);
             display.update_config(&config);
             processor.update_config(&config);
             terminal.update_config(&config);

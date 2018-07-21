@@ -71,6 +71,7 @@ impl<T: Copy + Clone> Row<T> {
     }
 }
 
+#[cfg_attr(feature = "cargo-clippy", allow(len_without_is_empty))]
 impl<T> Row<T> {
     pub fn shrink(&mut self, cols: Column) {
         while self.len() != *cols {
@@ -84,7 +85,7 @@ impl<T> Row<T> {
         self.inner.len()
     }
 
-    pub fn iter<'a>(&'a self) -> slice::Iter<'a, T> {
+    pub fn iter(&self) -> slice::Iter<T> {
         self.inner.iter()
     }
 }
