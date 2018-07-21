@@ -532,7 +532,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return;
         }
 
-        self.process_mouse_bindings(ModifiersState::default(), button);
+        self.process_mouse_bindings(modifiers, button);
     }
 
     /// Process key input
