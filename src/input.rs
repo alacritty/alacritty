@@ -66,6 +66,7 @@ pub trait ActionContext {
     fn last_modifiers(&mut self) -> &mut ModifiersState;
     fn change_font_size(&mut self, delta: f32);
     fn reset_font_size(&mut self);
+    fn hide_window(&mut self);
 }
 
 /// Describes a state and action to take in that state
@@ -170,6 +171,9 @@ pub enum Action {
     /// Run given command
     Command(String, Vec<String>),
 
+    /// Hides the Alacritty window
+    Hide,
+
     /// Quits Alacritty.
     Quit,
 }
@@ -223,6 +227,9 @@ impl Action {
                         warn!("couldn't run command: {}", err);
                     },
                 }
+            },
+            Action::Hide => {
+                ctx.hide_window();
             },
             Action::Quit => {
                 // FIXME should do a more graceful shutdown
@@ -626,7 +633,7 @@ mod tests {
     use glutin::{VirtualKeyCode, Event, WindowEvent, ElementState, MouseButton, ModifiersState};
 
     use term::{SizeInfo, Term, TermMode};
-    use event::{Mouse, ClickState};
+    use event::{Mouse, ClickState, WindowChanges};
     use config::{self, Config, ClickHandler};
     use index::{Point, Side};
     use selection::Selection;
@@ -651,6 +658,7 @@ mod tests {
         pub received_count: usize,
         pub suppress_chars: bool,
         pub last_modifiers: ModifiersState,
+        pub window_changes: &'a mut WindowChanges,
     }
 
     impl <'a>super::ActionContext for ActionContext<'a> {
@@ -704,6 +712,8 @@ mod tests {
         }
         fn reset_font_size(&mut self) {
         }
+        fn hide_window(&mut self) {
+        }
     }
 
     macro_rules! test_clickstate {
@@ -742,6 +752,7 @@ mod tests {
                     received_count: 0,
                     suppress_chars: false,
                     last_modifiers: ModifiersState::default(),
+                    window_changes: &mut WindowChanges::default(),
                 };
 
                 let mut processor = Processor {
