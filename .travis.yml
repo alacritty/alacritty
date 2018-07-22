@@ -16,7 +16,7 @@ env:
   - CLIPPY=""
 
 install:
-  - if [ -n "$CLIPPY" ]; then cargo install -f clippy; fi
+  - if [ -n "$CLIPPY" ]; then rustup component add clippy-preview; fi
 
 matrix:
   fast_finish: true
