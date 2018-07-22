@@ -275,11 +275,11 @@ impl<'a> RenderableCellsIter<'a> {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => {
                 match (self.config.draw_bold_text_with_bright_colors(), cell.flags & Flags::DIM_BOLD) {
+                    // Cell is marked as dim, has priority over brightened bold
+                    (_,    self::cell::Flags::DIM) |
+                    (_,    self::cell::Flags::DIM_BOLD) => self.colors[ansi.to_dim()],
                     // Draw bold text in bright colors *and* contains bold flag.
-                    (true, self::cell::Flags::DIM_BOLD) |
                     (true, self::cell::Flags::BOLD)     => self.colors[ansi.to_bright()],
-                    // Cell is marked as dim and not bold
-                    (_,    self::cell::Flags::DIM)      => self.colors[ansi.to_dim()],
                     // None of the above, keep original color.
                     _ => self.colors[ansi]
                 }
