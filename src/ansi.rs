@@ -607,6 +607,7 @@ impl NamedColor {
             NamedColor::BrightMagenta => NamedColor::Magenta,
             NamedColor::BrightCyan => NamedColor::Cyan,
             NamedColor::BrightWhite => NamedColor::White,
+            NamedColor::BrightForeground => NamedColor::Foreground,
             val => val
         }
     }
