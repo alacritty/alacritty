@@ -576,6 +576,7 @@ impl NamedColor {
             NamedColor::Magenta => NamedColor::BrightMagenta,
             NamedColor::Cyan => NamedColor::BrightCyan,
             NamedColor::White => NamedColor::BrightWhite,
+            NamedColor::DimForeground => NamedColor::Foreground,
             NamedColor::DimBlack => NamedColor::Black,
             NamedColor::DimRed => NamedColor::Red,
             NamedColor::DimGreen => NamedColor::Green,
