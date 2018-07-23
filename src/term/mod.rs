@@ -275,11 +275,18 @@ impl<'a> RenderableCellsIter<'a> {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => {
                 match (self.config.draw_bold_text_with_bright_colors(), cell.flags & Flags::DIM_BOLD) {
+                    // If no bright foreground is set, treat it like the BOLD flag doesn't exist
+                    (_, self::cell::Flags::DIM_BOLD)
+                        if ansi == NamedColor::Foreground
+                            && self.config.colors().primary.bright_foreground.is_none() =>
+                    {
+                        self.colors[NamedColor::DimForeground]
+                    }
                     // Draw bold text in bright colors *and* contains bold flag.
-                    (true, self::cell::Flags::DIM_BOLD) |
-                    (true, self::cell::Flags::BOLD)     => self.colors[ansi.to_bright()],
+                    (true,  self::cell::Flags::BOLD)     => self.colors[ansi.to_bright()],
                     // Cell is marked as dim and not bold
-                    (_,    self::cell::Flags::DIM)      => self.colors[ansi.to_dim()],
+                    (_,     self::cell::Flags::DIM) |
+                    (false, self::cell::Flags::DIM_BOLD) => self.colors[ansi.to_dim()],
                     // None of the above, keep original color.
                     _ => self.colors[ansi]
                 }

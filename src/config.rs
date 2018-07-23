@@ -1023,11 +1023,13 @@ pub struct PrimaryColors {
     pub background: Rgb,
     #[serde(deserialize_with = "rgb_from_hex")]
     pub foreground: Rgb,
-    #[serde(default, deserialize_with = "deserialize_bright_foreground")]
+    #[serde(default, deserialize_with = "deserialize_optional_color")]
     pub bright_foreground: Option<Rgb>,
+    #[serde(default, deserialize_with = "deserialize_optional_color")]
+    pub dim_foreground: Option<Rgb>,
 }
 
-fn deserialize_bright_foreground<'a, D>(deserializer: D) -> ::std::result::Result<Option<Rgb>, D::Error>
+fn deserialize_optional_color<'a, D>(deserializer: D) -> ::std::result::Result<Option<Rgb>, D::Error>
     where D: de::Deserializer<'a>
 {
     match Option::deserialize(deserializer) {
@@ -1049,6 +1051,7 @@ impl Default for PrimaryColors {
             background: Rgb { r: 0, g: 0, b: 0 },
             foreground: Rgb { r: 0xea, g: 0xea, b: 0xea },
             bright_foreground: None,
+            dim_foreground: None,
         }
     }
 }
