@@ -31,17 +31,17 @@ macro_rules! maybe {
 }
 
 #[macro_export]
-macro_rules! println {
+macro_rules! print {
     ($($arg:tt)*) => {{
         use std::io::Write;
-        let _ = writeln!(::std::io::stdout(), $($arg)*);
+        let _ = write!(::std::io::stdout(), $($arg)*);
     }};
 }
 
 #[macro_export]
-macro_rules! eprintln {
+macro_rules! eprint {
     ($($arg:tt)*) => {{
         use std::io::Write;
-        let _ = writeln!(::std::io::stderr(), $($arg)*);
+        let _ = write!(::std::io::stderr(), $($arg)*);
     }};
 }
