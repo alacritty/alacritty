@@ -326,7 +326,7 @@ mod tests {
         print!("embeddedbitmap={:?}; ", font.embeddedbitmap());
         print!("lcdfilter={:?}; ", font.lcdfilter());
         print!("hintstyle={:?}", font.hintstyle());
-        println!("");
+        println!();
     }
 
     #[test]
@@ -346,7 +346,7 @@ mod tests {
             print!("style={:?}; ", font.style());
             print!("rgba={:?}", font.rgba());
             print!("rgba={:?}", font.rgba());
-            println!("");
+            println!();
         }
     }
 
@@ -367,7 +367,7 @@ mod tests {
             print!("family={:?}; ", font.family());
             print!("style={:?}; ", font.style());
             print!("rgba={:?}", font.rgba());
-            println!("");
+            println!();
         }
     }
 }
