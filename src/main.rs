@@ -180,7 +180,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
             .as_ref()
             .and_then(|monitor| monitor.pending_config())
         {
-            config = new_config.update_dynamic_title(&options);
+            config = new_config.update_dynamic_title(options);
             display.update_config(&config);
             processor.update_config(&config);
             terminal.update_config(&config);
