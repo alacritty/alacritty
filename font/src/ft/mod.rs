@@ -348,14 +348,14 @@ impl FreeTypeRasterizer {
         let glyph = face.ft_face.glyph();
         glyph.render_glyph(face.render_mode)?;
 
-        let (pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;
+        let (pixel_height, pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;
 
         Ok(RasterizedGlyph {
             c: glyph_key.c,
             top: glyph.bitmap_top(),
             left: glyph.bitmap_left(),
             width: pixel_width,
-            height: glyph.bitmap().rows(),
+            height: pixel_height,
             buf,
         })
     }
@@ -427,7 +427,7 @@ impl FreeTypeRasterizer {
     /// Given a FreeType `Bitmap`, returns packed buffer with 1 byte per LCD channel.
     ///
     /// The i32 value in the return type is the number of pixels per row.
-    fn normalize_buffer(bitmap: &freetype::bitmap::Bitmap) -> freetype::FtResult<(i32, Vec<u8>)> {
+    fn normalize_buffer(bitmap: &freetype::bitmap::Bitmap) -> freetype::FtResult<(i32, i32, Vec<u8>)> {
         use freetype::bitmap::PixelMode;
 
         let buf = bitmap.buffer();
@@ -440,7 +440,18 @@ impl FreeTypeRasterizer {
                     let stop = start + bitmap.width() as usize;
                     packed.extend_from_slice(&buf[start..stop]);
                 }
-                Ok((bitmap.width() / 3, packed))
+                Ok((bitmap.rows(), bitmap.width() / 3, packed))
+            },
+            PixelMode::LcdV => {
+                for i in 0..bitmap.rows()/3 {
+                    for j in 0..bitmap.width() {
+                        for k in 0..3 {
+                            let offset = ((i as usize) * 3 + k) * pitch + (j as usize);
+                            packed.push(buf[offset]);
+                        }
+                    }
+                }
+                Ok((bitmap.rows() / 3, bitmap.width(), packed))
             },
             // Mono data is stored in a packed format using 1 bit per pixel.
             PixelMode::Mono => {
@@ -471,7 +482,7 @@ impl FreeTypeRasterizer {
                         byte += 1;
                     }
                 }
-                Ok((bitmap.width(), packed))
+                Ok((bitmap.rows(), bitmap.width(), packed))
             },
             // Gray data is stored as a value between 0 and 255 using 1 byte per pixel.
             PixelMode::Gray => {
@@ -484,7 +495,7 @@ impl FreeTypeRasterizer {
                         packed.push(*byte);
                     }
                 }
-                Ok((bitmap.width(), packed))
+                Ok((bitmap.rows(), bitmap.width(), packed))
             },
             mode => panic!("unhandled pixel mode: {:?}", mode)
         }
