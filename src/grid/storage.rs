@@ -223,7 +223,7 @@ impl<T> Storage<T> {
     /// instructions. This implementation achieves the swap in only 8 movups
     /// instructions.
     pub fn swap(&mut self, a: usize, b: usize) {
-        debug_assert!(::std::mem::size_of::<Row<T>>() == 32);
+        assert_eq_size!(Row<T>, [u32; 8]);
 
         let a = self.compute_index(a);
         let b = self.compute_index(b);
