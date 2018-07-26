@@ -1138,8 +1138,8 @@ impl Term {
         debug!("num_cols, num_lines = {}, {}", num_cols, num_lines);
 
         // Resize grids to new size
-        self.grid.resize(num_lines, num_cols, &self.cursor.template);
-        self.alt_grid.resize(num_lines, num_cols, &self.cursor_save_alt.template);
+        self.grid.resize(num_lines, num_cols, &Cell::default());
+        self.alt_grid.resize(num_lines, num_cols, &Cell::default());
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();
