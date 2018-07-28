@@ -1079,6 +1079,7 @@ impl Term {
             .map(|span| {
                 span.to_locations()
             });
+
         let cursor = if window_focused || !config.unfocused_hollow_cursor() {
             self.cursor_style.unwrap_or(self.default_cursor_style)
         } else {

@@ -477,6 +477,10 @@ impl<N: Notify> Processor<N> {
             window.hide();
         }
 
+        if self.window_changes.hide {
+            window.hide();
+        }
+
         self.window_changes.clear();
         self.wait_for_event = !terminal.dirty;
 
