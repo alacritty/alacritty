@@ -631,7 +631,7 @@ mod tests {
                         };
                         print!("{}", c);
                     }
-                    print!("\n");
+                    println!();
                 }
             }
         }

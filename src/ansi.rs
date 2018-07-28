@@ -558,11 +558,16 @@ pub enum NamedColor {
     DimCyan,
     /// Dim white
     DimWhite,
+    /// The bright foreground color
+    BrightForeground,
+    /// Dim foreground
+    DimForeground,
 }
 
 impl NamedColor {
     pub fn to_bright(self) -> Self {
         match self {
+            NamedColor::Foreground => NamedColor::BrightForeground,
             NamedColor::Black => NamedColor::BrightBlack,
             NamedColor::Red => NamedColor::BrightRed,
             NamedColor::Green => NamedColor::BrightGreen,
@@ -571,6 +576,7 @@ impl NamedColor {
             NamedColor::Magenta => NamedColor::BrightMagenta,
             NamedColor::Cyan => NamedColor::BrightCyan,
             NamedColor::White => NamedColor::BrightWhite,
+            NamedColor::DimForeground => NamedColor::Foreground,
             NamedColor::DimBlack => NamedColor::Black,
             NamedColor::DimRed => NamedColor::Red,
             NamedColor::DimGreen => NamedColor::Green,
@@ -593,6 +599,7 @@ impl NamedColor {
             NamedColor::Magenta => NamedColor::DimMagenta,
             NamedColor::Cyan => NamedColor::DimCyan,
             NamedColor::White => NamedColor::DimWhite,
+            NamedColor::Foreground => NamedColor::DimForeground,
             NamedColor::BrightBlack => NamedColor::Black,
             NamedColor::BrightRed => NamedColor::Red,
             NamedColor::BrightGreen => NamedColor::Green,
@@ -601,6 +608,7 @@ impl NamedColor {
             NamedColor::BrightMagenta => NamedColor::Magenta,
             NamedColor::BrightCyan => NamedColor::Cyan,
             NamedColor::BrightWhite => NamedColor::White,
+            NamedColor::BrightForeground => NamedColor::Foreground,
             val => val
         }
     }
@@ -810,6 +818,21 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                         self.handler.set_color(NamedColor::Cursor as usize, color);
                         return;
                     }
+                }
+                unhandled(params);
+            }
+
+            // Set cursor style
+            b"50" => {
+                if params.len() >= 2 && params[1].len() >= 13 && params[1][0..12] == *b"CursorShape=" {
+                    let style = match params[1][12] as char {
+                        '0' => CursorStyle::Block,
+                        '1' => CursorStyle::Beam,
+                        '2' => CursorStyle::Underline,
+                        _ => return unhandled(params),
+                    };
+                    self.handler.set_cursor_style(Some(style));
+                    return;
                 }
                 unhandled(params);
             }

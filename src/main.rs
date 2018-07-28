@@ -22,6 +22,8 @@ extern crate alacritty;
 
 #[macro_use]
 extern crate log;
+#[cfg(target_os = "macos")]
+extern crate dirs;
 
 use std::error::Error;
 use std::sync::Arc;
@@ -48,7 +50,7 @@ fn main() {
 
     // Switch to home directory
     #[cfg(target_os = "macos")]
-    env::set_current_dir(env::home_dir().unwrap()).unwrap();
+    env::set_current_dir(dirs::home_dir().unwrap()).unwrap();
     // Set locale
     #[cfg(target_os = "macos")]
     locale::set_locale_environment();
@@ -178,7 +180,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
             .as_ref()
             .and_then(|monitor| monitor.pending_config())
         {
-            config = new_config.update_dynamic_title(&options);
+            config = new_config.update_dynamic_title(options);
             display.update_config(&config);
             processor.update_config(&config);
             terminal.update_config(&config);
