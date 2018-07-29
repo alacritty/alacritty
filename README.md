@@ -56,7 +56,7 @@ Using `cargo deb`, you can create and install a deb file.
 ```sh
 git clone https://github.com/jwilm/alacritty.git
 cd alacritty
-cargo install cargo-deb
+cargo install --git https://github.com/mmstick/cargo-deb cargo-deb
 cargo deb --install
 ```
 
