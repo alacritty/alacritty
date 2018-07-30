@@ -37,8 +37,7 @@ built from source.
 
 Instructions are provided for Windows, macOS and many Linux variants to compile Alacritty
 from source. With the exception of Arch (which has a package in the AUR), Void Linux (in main repository) and
-[NixOS](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/alacritty/default.nix)
-(at the moment in unstable, will be part of 17.09), please first read the
+[NixOS](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/alacritty/default.nix), please first read the
 [prerequisites](#prerequisites) section, then find the section for your OS, and
 finally go to [building](#building) and [configuration](#configuration).
 
@@ -48,6 +47,17 @@ finally go to [building](#building) and [configuration](#configuration).
 git clone https://aur.archlinux.org/alacritty-git.git
 cd alacritty-git
 makepkg -isr
+```
+
+### Debian/Ubuntu
+
+Using `cargo deb`, you can create and install a deb file.
+
+```sh
+git clone https://github.com/jwilm/alacritty.git
+cd alacritty
+cargo install cargo-deb
+cargo deb --install
 ```
 
 ### openSUSE Tumbleweed Linux
@@ -87,11 +97,14 @@ xbps-install alacritty
    rustup update stable
    ```
 
-#### Ubuntu
+#### Debian/Ubuntu
 
-On Ubuntu, you need a few extra libraries to build Alacritty. Here's an `apt`
-command that should install all of them. If something is still found to be
-missing, please open an issue.
+You can build alacritty using `cargo deb` and use your system's package manager
+to maintain the application using the instructions [above](#debianubuntu).
+
+If you'd still like to build a local version manually, you need a few extra
+libraries to build Alacritty. Here's an apt command that should install all of
+them. If something is still found to be missing, please open an issue.
 
 ```sh
 apt-get install cmake libfreetype6-dev libfontconfig1-dev xclip
@@ -248,6 +261,7 @@ cargo build --release
 ```
 
 If all goes well, this should place a binary at `target/release/alacritty`.
+
 
 ##### Desktop Entry
 

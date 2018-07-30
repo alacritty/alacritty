@@ -17,14 +17,11 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
-#[macro_use]
-extern crate bitflags;
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate serde_derive;
+#[macro_use] extern crate bitflags;
+#[macro_use] extern crate clap;
+#[macro_use] extern crate log;
+#[macro_use] extern crate serde_derive;
+#[macro_use] extern crate static_assertions;
 
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
           target_os = "openbsd"))]

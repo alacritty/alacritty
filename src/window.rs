@@ -387,6 +387,11 @@ impl Window {
     pub fn get_window_id(&self) -> Option<usize> {
         None
     }
+
+    /// Hide the window
+    pub fn hide(&self) {
+        self.window.hide();
+    }
 }
 
 pub trait OsExtensions {

@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "cargo-clippy", deny(clippy, if_not_else, enum_glob_use, wrong_pub_self_convention))]
+
 #[macro_use]
 extern crate bitflags;
 extern crate widestring;
@@ -62,10 +64,10 @@ fn check_err<'a>(e: *mut winpty_error_t) -> Option<Err<'a>> {
             message: String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw))),
         }
     };
-    if err.code != 0 {
-        Some(err)
-    } else {
+    if err.code == 0 {
         None
+    } else {
+        Some(err)
     }
 }
 
@@ -111,7 +113,7 @@ impl<'a, 'b> Config<'a> {
     }
 
     /// Set the mouse mode
-    pub fn set_mouse_mode(&mut self, mode: MouseMode) {
+    pub fn set_mouse_mode(&mut self, mode: &MouseMode) {
         let m = match mode {
             MouseMode::None => 0,
             MouseMode::Auto => 1,
@@ -317,16 +319,16 @@ impl<'a, 'b> SpawnConfig<'a> {
 
         // Required to free the strings
         unsafe {
-            if appname != null() {
+            if !appname.is_null() {
                 WideCString::from_raw(appname as *mut u16);
             }
-            if cmdline != null() {
+            if !cmdline.is_null() {
                 WideCString::from_raw(cmdline as *mut u16);
             }
-            if cwd != null() {
+            if !cwd.is_null() {
                 WideCString::from_raw(cwd as *mut u16);
             }
-            if end != null() {
+            if !end.is_null() {
                 WideCString::from_raw(end as *mut u16);
             }
         }

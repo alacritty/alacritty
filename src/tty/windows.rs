@@ -81,7 +81,7 @@ pub fn new<'a>(
     let mut wconfig = WinptyConfig::new(ConfigFlags::empty()).unwrap();
 
     wconfig.set_initial_size(size.cols().0 as i32, size.lines().0 as i32);
-    wconfig.set_mouse_mode(MouseMode::Auto);
+    wconfig.set_mouse_mode(&MouseMode::Auto);
     wconfig.set_agent_timeout(AGENT_TIMEOUT);
 
     // Start agent

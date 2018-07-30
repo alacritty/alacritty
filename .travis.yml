@@ -16,7 +16,7 @@ env:
   - CLIPPY=""
 
 install:
-  - if [ -n "$CLIPPY" ]; then cargo install -f clippy; fi
+  - if [ -n "$CLIPPY" ]; then rustup component add clippy-preview; fi
 
 addons:
   apt:
@@ -36,3 +36,4 @@ matrix:
 script:
   - if [ -n "$CLIPPY" ]; then cargo clippy --all-features --all-targets; fi
   - if [ -z "$CLIPPY" ]; then cargo test; fi
+  - if [ -z "$CLIPPY" ]; then cargo test -p font; fi

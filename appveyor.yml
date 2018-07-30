@@ -52,7 +52,7 @@ build_script:
 
 before_test:
   - If [%CLIPPY%]==[true] (
-      cargo install -f clippy
+      rustup component add clippy-preview
     )
 
 test_script:
@@ -61,8 +61,7 @@ test_script:
         cargo +$env:RUST_TOOLCHAIN clippy 2> $null
       } else {
         cargo +$env:RUST_TOOLCHAIN test 2> $null
-        cd winpty
-        cargo +$env:RUST_TOOLCHAIN test 2> $null
+        cargo +$env:RUST_TOOLCHAIN test -p winpty 2> $null
       }
 
 cache:

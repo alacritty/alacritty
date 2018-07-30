@@ -112,6 +112,15 @@ colors:
     background: '0x000000'
     foreground: '0xeaeaea'
 
+    # (Optional) Bright and Dim foreground colors
+    #
+    # The dimmed foreground color is calculated automatically if it is not present.
+    # If the bright foreground color is not set, or `draw_bold_text_with_bright_colors`
+    # is `false`, the normal foreground color will be used.
+    #
+    # dim_foreground: '0x9a9a9a'
+    # bright_foreground: '0xffffff'
+
   # Colors the cursor will use if `custom_cursor_colors` is true
   cursor:
     text: '0x000000'
@@ -205,6 +214,12 @@ selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>"
 
 hide_cursor_when_typing: false
+
+# - Beam
+cursor_style: Block
+
+# Whether the cursor should be a hollow block on window focus loss
+unfocused_hollow_cursor: true
 
 # Live config reload (changes require restart)
 live_config_reload: true
