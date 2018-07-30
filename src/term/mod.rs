@@ -1064,6 +1064,11 @@ impl Term {
         &self.grid
     }
 
+    /// Access to the raw grid data structure for mutation
+    pub fn grid_mut(&mut self) -> &mut Grid<Cell> {
+        &mut self.grid
+    }
+
     /// Iterate over the *renderable* cells in the terminal
     ///
     /// A renderable cell is any cell which has content other than the default

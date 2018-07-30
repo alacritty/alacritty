@@ -59,6 +59,13 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.scroll_display(scroll);
     }
 
+    fn update_history(&mut self) {
+        use term::Cell;
+        let size = 0; //config.scrolling().history as usize;
+        let template = Cell::default(); //self.terminal.grid().cursor.template;
+        self.terminal.grid_mut().update_history(size, &template);
+    }
+
     fn copy_selection(&self, buffer: ::copypasta::Buffer) {
         if let Some(selected) = self.terminal.selection_to_string() {
             if !selected.is_empty() {

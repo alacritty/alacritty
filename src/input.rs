@@ -69,6 +69,7 @@ pub trait ActionContext {
     fn change_font_size(&mut self, delta: f32);
     fn reset_font_size(&mut self);
     fn scroll(&mut self, scroll: Scroll);
+    fn update_history(&mut self);
     fn hide_window(&mut self);
 }
 
@@ -183,6 +184,9 @@ pub enum Action {
     /// Scroll all the way to the bottom
     ScrollToBottom,
 
+    /// Clear the display buffer(s) to remove history
+    ClearHistory,
+
     /// Run given command
     Command(String, Vec<String>),
 
@@ -271,6 +275,10 @@ impl Action {
             },
             Action::ScrollToBottom => {
                 ctx.scroll(Scroll::Bottom);
+            },
+            Action::ClearHistory => {
+                println!("HIT");
+                ctx.update_history();
             },
         }
     }
@@ -755,6 +763,8 @@ mod tests {
         fn change_font_size(&mut self, _delta: f32) {
         }
         fn reset_font_size(&mut self) {
+        }
+        fn update_history(&mut self) {
         }
         fn hide_window(&mut self) {
         }
