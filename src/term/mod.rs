@@ -1790,7 +1790,9 @@ impl ansi::Handler for Term {
                 }
             },
             // If scrollback is implemented, this should clear it
-            ansi::ClearMode::Saved => return
+            ansi::ClearMode::Saved => {
+                unimplemented!()
+            }
         }
     }
 
