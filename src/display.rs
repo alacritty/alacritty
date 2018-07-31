@@ -148,7 +148,7 @@ impl Display {
             .expect("glutin returns window size").to_physical(dpr);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(config, viewport_size)?;
+        let mut renderer = QuadRenderer::new(config, viewport_size, dpr)?;
 
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
@@ -163,11 +163,11 @@ impl Display {
             let height = cell_height as u32 * dimensions.lines_u32();
 
             let new_viewport_size = PhysicalSize::new(
-                (width + 2 * u32::from(config.padding().x)) as f64,
-                (height + 2 * u32::from(config.padding().y)) as f64);
+                (width + 2 * u32::from(config.padding().x) * dpr.floor() as u32) as f64,
+                (height + 2 * u32::from(config.padding().y) * dpr.floor() as u32) as f64);
 
             window.set_inner_size(new_viewport_size.to_logical(dpr));
-            renderer.resize(new_viewport_size);
+            renderer.resize(new_viewport_size, dpr);
             viewport_size = new_viewport_size;
         }
 
@@ -179,8 +179,8 @@ impl Display {
             height: viewport_size.height as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
-            padding_x: f32::from(config.padding().x),
-            padding_y: f32::from(config.padding().y),
+            padding_x: f32::from(config.padding().x) * dpr as f32,
+            padding_y: f32::from(config.padding().y) * dpr as f32,
         };
 
         // Channel for resize events
@@ -298,6 +298,8 @@ impl Display {
         if terminal.font_size != self.font_size || dpr != self.size_info.dpr {
             self.font_size = terminal.font_size;
             self.size_info.dpr = dpr;
+            self.size_info.padding_x = f32::from(config.padding().x) * dpr as f32;
+            self.size_info.padding_y = f32::from(config.padding().y) * dpr as f32;
             self.update_glyph_cache(config);
 
             if new_size == None {
@@ -322,7 +324,7 @@ impl Display {
             }
 
             self.window.resize(psize);
-            self.renderer.resize(psize);
+            self.renderer.resize(psize, dpr);
         }
 
     }
