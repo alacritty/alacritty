@@ -56,7 +56,14 @@ scrolling:
   # to the terminal.
   auto_scroll: false
 
-# Display tabs using this many cells (changes require restart)
+# Spaces per Tab
+#
+# This setting defines the width of a tab in cells. Changes to this
+# value require a restart to take effect.
+#
+# Some applications, like Emacs, rely on knowing about the width of a tab.
+# To prevent unexpected behavior in these applications, it's also required to
+# change the `it` value in terminfo when altering this setting.
 tabspaces: 8
 
 # When true, bold text is drawn using the bright variant of colors.
