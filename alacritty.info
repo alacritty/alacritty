@@ -1,8 +1,162 @@
-alacritty| alacritty,
-	use=xterm-256color,
-	ritm=\E[23m,
-	sitm=\E[3m,
-	Tc,
+# This is alacritty for ncurses.
+alacritty|alacritty terminal emulator (X Window System),
+	use=alacritty-new,
 
-alacritty-256color| alacritty with 256 colors,
-	use=alacritty,
+# This chunk is used for building the VT220/Sun/PC keyboard variants.
+alacritty-basic|modern alacritty terminal emulator - common,
+	OTbs, am, bce, km, mir, msgr, xenl, AX, XT,
+	colors#8, cols#80, it#8, lines#24, pairs#64,
+	acsc=``aaffggiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz{{||}}~~,
+	bel=^G, blink=\E[5m, bold=\E[1m, cbt=\E[Z, civis=\E[?25l,
+	clear=\E[H\E[2J, cnorm=\E[?12l\E[?25h, cr=\r,
+	csr=\E[%i%p1%d;%p2%dr, cub=\E[%p1%dD, cub1=^H,
+	cud=\E[%p1%dB, cud1=\n, cuf=\E[%p1%dC, cuf1=\E[C,
+	cup=\E[%i%p1%d;%p2%dH, cuu=\E[%p1%dA, cuu1=\E[A,
+	cvvis=\E[?12;25h, dch=\E[%p1%dP, dch1=\E[P, dim=\E[2m,
+	dl=\E[%p1%dM, dl1=\E[M, ech=\E[%p1%dX, ed=\E[J, el=\E[K,
+	el1=\E[1K, flash=\E[?5h$<100/>\E[?5l, home=\E[H,
+	hpa=\E[%i%p1%dG, ht=^I, hts=\EH, ich=\E[%p1%d@,
+	il=\E[%p1%dL, il1=\E[L, ind=\n, invis=\E[8m,
+	is2=\E[!p\E[?3;4l\E[4l\E>, kmous=\E[M, meml=\El,
+	memu=\Em, op=\E[39;49m, rc=\E8, rev=\E[7m, ri=\EM,
+	rmacs=\E(B, rmam=\E[?7l, rmir=\E[4l, rmkx=\E[?1l\E>,
+	rmm=\E[?1034l, rmso=\E[27m, rmul=\E[24m, rs1=\Ec,
+	rs2=\E[!p\E[?3;4l\E[4l\E>, sc=\E7, setab=\E[4%p1%dm,
+	setaf=\E[3%p1%dm,
+	setb=\E[4%?%p1%{1}%=%t4%e%p1%{3}%=%t6%e%p1%{4}%=%t1%e%p1%{6}
+	     %=%t3%e%p1%d%;m,
+	setf=\E[3%?%p1%{1}%=%t4%e%p1%{3}%=%t6%e%p1%{4}%=%t1%e%p1%{6}
+	     %=%t3%e%p1%d%;m,
+	sgr=%?%p9%t\E(0%e\E(B%;\E[0%?%p6%t;1%;%?%p5%t;2%;%?%p2%t;4%;
+	    %?%p1%p3%|%t;7%;%?%p4%t;5%;%?%p7%t;8%;m,
+	sgr0=\E(B\E[m, smacs=\E(0, smam=\E[?7h, smir=\E[4h,
+	smkx=\E[?1h\E=, smm=\E[?1034h, smso=\E[7m, smul=\E[4m,
+	tbc=\E[3g, vpa=\E[%i%p1%dd, E3=\E[3J, use=ecma+italics,
+	use=ansi+pp, use=alacritty+kbs, use=alacritty+alt+title,
+	use=ansi+enq,
+
+# This fragment is for people who cannot agree on what the backspace key
+# should send.
+alacritty+kbs|fragment for backspace key,
+	kbs=^H,
+
+alacritty+alt+title|alacritty 90 and 251 features combined,
+	rmcup=\E[?1049l\E[23;0;0t, smcup=\E[?1049h\E[22;0;0t,
+
+# alacritty patch #277 (2012/1/7) provides a mode where the mouse response uses
+# SGR-style parameters.
+#
+# Someone stated that the 1005 mouse mode would not be handled properly in luit.
+# (By the way, this is a problem with the X11 protocol).  A more plausible
+# criticism is that the responses provided by the 1005 mode are not distinct
+# from the non-1005 responses.
+#
+# As an alternative (and fixing the longstanding limitation of X11 mouse
+# protocol regarding button-releases), I provided this:
+alacritty+sm+1006|alacritty SGR-mouse,
+	kmous=\E[<, XM=\E[?1006;1000%?%p1%{1}%=%th%el%;,
+	xm=\E[<%p1%d;%p2%d;%p3%d;%?%p4%tM%em%;,
+
+# This fragment describes as much of XFree86 alacritty's "pc-style" function
+# keys as will fit into terminfo's 60 function keys.
+# From ctlseqs.ms:
+#    Code     Modifiers
+#  ---------------------------------
+#     2       Shift
+#     3       Alt
+#     4       Shift + Alt
+#     5       Control
+#     6       Shift + Control
+#     7       Alt + Control
+#     8       Shift + Alt + Control
+#  ---------------------------------
+# The meta key may also be used as a modifier in this scheme, adding another
+# bit to the parameter.
+alacritty+pcfkeys|fragment for PC-style fkeys,
+	use=alacritty+app, use=alacritty+pcf2, use=alacritty+pcc2,
+	use=alacritty+pce2,
+
+alacritty+app|fragment with cursor keys in application mode,
+	kcub1=\EOD, kcud1=\EOB, kcuf1=\EOC, kcuu1=\EOA, kend=\EOF,
+	khome=\EOH,
+
+alacritty+pcf2|fragment with modifyFunctionKeys:2,
+	kf1=\EOP, kf10=\E[21~, kf11=\E[23~, kf12=\E[24~,
+	kf13=\E[1;2P, kf14=\E[1;2Q, kf15=\E[1;2R, kf16=\E[1;2S,
+	kf17=\E[15;2~, kf18=\E[17;2~, kf19=\E[18;2~, kf2=\EOQ,
+	kf20=\E[19;2~, kf21=\E[20;2~, kf22=\E[21;2~,
+	kf23=\E[23;2~, kf24=\E[24;2~, kf25=\E[1;5P, kf26=\E[1;5Q,
+	kf27=\E[1;5R, kf28=\E[1;5S, kf29=\E[15;5~, kf3=\EOR,
+	kf30=\E[17;5~, kf31=\E[18;5~, kf32=\E[19;5~,
+	kf33=\E[20;5~, kf34=\E[21;5~, kf35=\E[23;5~,
+	kf36=\E[24;5~, kf37=\E[1;6P, kf38=\E[1;6Q, kf39=\E[1;6R,
+	kf4=\EOS, kf40=\E[1;6S, kf41=\E[15;6~, kf42=\E[17;6~,
+	kf43=\E[18;6~, kf44=\E[19;6~, kf45=\E[20;6~,
+	kf46=\E[21;6~, kf47=\E[23;6~, kf48=\E[24;6~,
+	kf49=\E[1;3P, kf5=\E[15~, kf50=\E[1;3Q, kf51=\E[1;3R,
+	kf52=\E[1;3S, kf53=\E[15;3~, kf54=\E[17;3~,
+	kf55=\E[18;3~, kf56=\E[19;3~, kf57=\E[20;3~,
+	kf58=\E[21;3~, kf59=\E[23;3~, kf6=\E[17~, kf60=\E[24;3~,
+	kf61=\E[1;4P, kf62=\E[1;4Q, kf63=\E[1;4R, kf7=\E[18~,
+	kf8=\E[19~, kf9=\E[20~,
+
+alacritty+pcc2|fragment with modifyCursorKeys:2,
+	kLFT=\E[1;2D, kRIT=\E[1;2C, kind=\E[1;2B, kri=\E[1;2A,
+	kDN=\E[1;2B, kDN3=\E[1;3B, kDN4=\E[1;4B, kDN5=\E[1;5B,
+	kDN6=\E[1;6B, kDN7=\E[1;7B, kLFT3=\E[1;3D, kLFT4=\E[1;4D,
+	kLFT5=\E[1;5D, kLFT6=\E[1;6D, kLFT7=\E[1;7D,
+	kRIT3=\E[1;3C, kRIT4=\E[1;4C, kRIT5=\E[1;5C,
+	kRIT6=\E[1;6C, kRIT7=\E[1;7C, kUP=\E[1;2A, kUP3=\E[1;3A,
+	kUP4=\E[1;4A, kUP5=\E[1;5A, kUP6=\E[1;6A, kUP7=\E[1;7A,
+
+# Chunks from alacritty #230:
+alacritty+pce2|fragment with modifyCursorKeys:2,
+	kDC=\E[3;2~, kEND=\E[1;2F, kHOM=\E[1;2H, kIC=\E[2;2~,
+	kNXT=\E[6;2~, kPRV=\E[5;2~, kich1=\E[2~, knp=\E[6~,
+	kpp=\E[5~, kDC3=\E[3;3~, kDC4=\E[3;4~, kDC5=\E[3;5~,
+	kDC6=\E[3;6~, kDC7=\E[3;7~, kEND3=\E[1;3F, kEND4=\E[1;4F,
+	kEND5=\E[1;5F, kEND6=\E[1;6F, kEND7=\E[1;7F,
+	kHOM3=\E[1;3H, kHOM4=\E[1;4H, kHOM5=\E[1;5H,
+	kHOM6=\E[1;6H, kHOM7=\E[1;7H, kIC3=\E[2;3~, kIC4=\E[2;4~,
+	kIC5=\E[2;5~, kIC6=\E[2;6~, kIC7=\E[2;7~, kNXT3=\E[6;3~,
+	kNXT4=\E[6;4~, kNXT5=\E[6;5~, kNXT6=\E[6;6~,
+	kNXT7=\E[6;7~, kPRV3=\E[5;3~, kPRV4=\E[5;4~,
+	kPRV5=\E[5;5~, kPRV6=\E[5;6~, kPRV7=\E[5;7~,
+	use=alacritty+edit,
+
+alacritty+edit|fragment for 6-key editing-keypad,
+	kdch1=\E[3~, kich1=\E[2~, knp=\E[6~, kpp=\E[5~,
+	use=alacritty+pc+edit,
+
+alacritty+pc+edit|fragment for pc-style editing keypad,
+	kend=\E[4~, khome=\E[1~,
+
+# This chunk is based on suggestions by Ailin Nemui and Nicholas Marriott, who
+# asked for some of alacritty's advanced features to be added to its terminfo
+# entry.  It defines extended capabilities not found in standard terminfo or
+# termcap.  These are useful in tmux, for instance, hence the name.
+#
+# One caveat in adding extended capabilities in ncurses is that if the names
+# are longer than two characters, then they will not be visible through the
+# termcap interface.
+#
+# Ms modifies the selection/clipboard.  Its parameters are
+#	p1 = the storage unit (clipboard, selection or cut buffer)
+#	p2 = the base64-encoded clipboard content.
+#
+# Ss is used to set the cursor style as described by the DECSCUSR
+#	function to a block or underline.
+# Se resets the cursor style to the terminal power-on default.
+#
+# Cs and Cr set and reset the cursor colour.
+alacritty+tmux|advanced alacritty features used in tmux,
+	Cr=\E]112\007, Cs=\E]12;%p1%s\007,
+	Ms=\E]52;%p1%s;%p2%s\007, Se=\E[2 q, Ss=\E[%p1%d q,
+
+alacritty-new|modern alacritty terminal emulator,
+	npc,
+	indn=\E[%p1%dS, kb2=\EOE, kcbt=\E[Z, kent=\EOM,
+	rin=\E[%p1%dT, use=ansi+rep, use=ecma+strikeout,
+	use=alacritty+sm+1006, use=alacritty+pcfkeys, use=alacritty+tmux,
+	use=alacritty-basic,
+
