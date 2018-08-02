@@ -2,6 +2,10 @@
 alacritty|alacritty terminal emulator (X Window System),
 	use=alacritty-new,
 
+# These variants of XFree86 3.9.16 alacritty are built as a configure option.
+alacritty-256color|alacritty with 256 colors,
+	rs1=\Ec\E]104\007, use=alacritty+256color, use=alacritty-new,
+
 # This chunk is used for building the VT220/Sun/PC keyboard variants.
 alacritty-basic|modern alacritty terminal emulator - common,
 	OTbs, am, bce, km, mir, msgr, xenl, AX, XT,
@@ -160,3 +164,16 @@ alacritty-new|modern alacritty terminal emulator,
 	use=alacritty+sm+1006, use=alacritty+pcfkeys, use=alacritty+tmux,
 	use=alacritty-basic,
 
+# 256-colors is a compile-time feature of XFree86 alacritty beginning with
+# alacritty patch #111 (1999/7/10) -TD
+alacritty+256color|alacritty 256-color feature,
+	ccc,
+	colors#0x100, pairs#0x10000,
+	initc=\E]4;%p1%d;rgb\:%p2%{255}%*%{1000}%/%2.2X/%p3%{255}%*
+	      %{1000}%/%2.2X/%p4%{255}%*%{1000}%/%2.2X\E\\,
+	oc=\E]104\007,
+	setab=\E[%?%p1%{8}%<%t4%p1%d%e%p1%{16}%<%t10%p1%{8}%-%d%e48;
+	      5;%p1%d%;m,
+	setaf=\E[%?%p1%{8}%<%t3%p1%d%e%p1%{16}%<%t9%p1%{8}%-%d%e38;5
+	      ;%p1%d%;m,
+	setb@, setf@,
