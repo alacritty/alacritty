@@ -1,15 +1,12 @@
-# This is alacritty for ncurses.
 alacritty|alacritty terminal emulator (X Window System),
 	use=alacritty-new,
 
-# These variants of XFree86 3.9.16 alacritty are built as a configure option.
 alacritty-256color|alacritty with 256 colors,
 	rs1=\Ec\E]104\007, use=alacritty+256color, use=alacritty-new,
 
 alacritty-direct|alacritty with direct color indexing,
 	use=alacritty+indirect, use=alacritty,
 
-# This chunk is used for building the VT220/Sun/PC keyboard variants.
 alacritty-basic|modern alacritty terminal emulator - common,
 	OTbs, am, bce, km, mir, msgr, xenl, AX, XT,
 	colors#8, cols#80, it#8, lines#24, pairs#64,
@@ -42,43 +39,16 @@ alacritty-basic|modern alacritty terminal emulator - common,
 	use=ansi+pp, use=alacritty+kbs, use=alacritty+alt+title,
 	use=ansi+enq,
 
-# This fragment is for people who cannot agree on what the backspace key
-# should send.
 alacritty+kbs|fragment for backspace key,
 	kbs=^H,
 
 alacritty+alt+title|alacritty 90 and 251 features combined,
 	rmcup=\E[?1049l\E[23;0;0t, smcup=\E[?1049h\E[22;0;0t,
 
-# alacritty patch #277 (2012/1/7) provides a mode where the mouse response uses
-# SGR-style parameters.
-#
-# Someone stated that the 1005 mouse mode would not be handled properly in luit.
-# (By the way, this is a problem with the X11 protocol).  A more plausible
-# criticism is that the responses provided by the 1005 mode are not distinct
-# from the non-1005 responses.
-#
-# As an alternative (and fixing the longstanding limitation of X11 mouse
-# protocol regarding button-releases), I provided this:
 alacritty+sm+1006|alacritty SGR-mouse,
 	kmous=\E[<, XM=\E[?1006;1000%?%p1%{1}%=%th%el%;,
 	xm=\E[<%p1%d;%p2%d;%p3%d;%?%p4%tM%em%;,
 
-# This fragment describes as much of XFree86 alacritty's "pc-style" function
-# keys as will fit into terminfo's 60 function keys.
-# From ctlseqs.ms:
-#    Code     Modifiers
-#  ---------------------------------
-#     2       Shift
-#     3       Alt
-#     4       Shift + Alt
-#     5       Control
-#     6       Shift + Control
-#     7       Alt + Control
-#     8       Shift + Alt + Control
-#  ---------------------------------
-# The meta key may also be used as a modifier in this scheme, adding another
-# bit to the parameter.
 alacritty+pcfkeys|fragment for PC-style fkeys,
 	use=alacritty+app, use=alacritty+pcf2, use=alacritty+pcc2,
 	use=alacritty+pce2,
@@ -116,7 +86,6 @@ alacritty+pcc2|fragment with modifyCursorKeys:2,
 	kRIT6=\E[1;6C, kRIT7=\E[1;7C, kUP=\E[1;2A, kUP3=\E[1;3A,
 	kUP4=\E[1;4A, kUP5=\E[1;5A, kUP6=\E[1;6A, kUP7=\E[1;7A,
 
-# Chunks from alacritty #230:
 alacritty+pce2|fragment with modifyCursorKeys:2,
 	kDC=\E[3;2~, kEND=\E[1;2F, kHOM=\E[1;2H, kIC=\E[2;2~,
 	kNXT=\E[6;2~, kPRV=\E[5;2~, kich1=\E[2~, knp=\E[6~,
@@ -138,24 +107,6 @@ alacritty+edit|fragment for 6-key editing-keypad,
 alacritty+pc+edit|fragment for pc-style editing keypad,
 	kend=\E[4~, khome=\E[1~,
 
-# This chunk is based on suggestions by Ailin Nemui and Nicholas Marriott, who
-# asked for some of alacritty's advanced features to be added to its terminfo
-# entry.  It defines extended capabilities not found in standard terminfo or
-# termcap.  These are useful in tmux, for instance, hence the name.
-#
-# One caveat in adding extended capabilities in ncurses is that if the names
-# are longer than two characters, then they will not be visible through the
-# termcap interface.
-#
-# Ms modifies the selection/clipboard.  Its parameters are
-#	p1 = the storage unit (clipboard, selection or cut buffer)
-#	p2 = the base64-encoded clipboard content.
-#
-# Ss is used to set the cursor style as described by the DECSCUSR
-#	function to a block or underline.
-# Se resets the cursor style to the terminal power-on default.
-#
-# Cs and Cr set and reset the cursor colour.
 alacritty+tmux|advanced alacritty features used in tmux,
 	Cr=\E]112\007, Cs=\E]12;%p1%s\007,
 	Ms=\E]52;%p1%s;%p2%s\007, Se=\E[2 q, Ss=\E[%p1%d q,
@@ -167,8 +118,6 @@ alacritty-new|modern alacritty terminal emulator,
 	use=alacritty+sm+1006, use=alacritty+pcfkeys, use=alacritty+tmux,
 	use=alacritty-basic,
 
-# 256-colors is a compile-time feature of XFree86 alacritty beginning with
-# alacritty patch #111 (1999/7/10) -TD
 alacritty+256color|alacritty 256-color feature,
 	ccc,
 	colors#0x100, pairs#0x10000,
@@ -181,10 +130,6 @@ alacritty+256color|alacritty 256-color feature,
 	      ;%p1%d%;m,
 	setb@, setf@,
 
-# Meanwhile, in KDE #107487, the patch submitter and the developer both saw
-# that alacritty's original implementation should have used colons for the
-# subparameter separators, but chose not to correct this in konsole.  As of
-# late 2017, konsole still accepts only the nonstandard semicolon delimiters.
 alacritty+indirect|alacritty with direct-color indexing (old),
 	RGB,
 	colors#0x1000000, pairs#0x10000,
