@@ -413,7 +413,7 @@ impl<T> Grid<T> {
         self.cols
     }
 
-    pub fn reset(&mut self) {
+    pub fn clear_history(&mut self) {
         self.scroll_limit = 0;
     }
 

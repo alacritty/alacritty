@@ -1825,7 +1825,8 @@ impl ansi::Handler for Term {
         self.colors = self.original_colors;
         self.color_modified = [false; color::COUNT];
         self.cursor_style = None;
-        self.grid.reset();
+        self.grid.clear_history();
+        self.grid.region_mut(..).each(|c| c.reset(&Cell::default()));
     }
 
     #[inline]
