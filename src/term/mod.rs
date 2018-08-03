@@ -1791,7 +1791,8 @@ impl ansi::Handler for Term {
             },
             // If scrollback is implemented, this should clear it
             ansi::ClearMode::Saved => {
-                unimplemented!()
+                self.grid.clear_history();
+                self.grid.region_mut(..).each(|c| c.reset(&Cell::default()));
             }
         }
     }

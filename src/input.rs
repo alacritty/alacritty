@@ -69,7 +69,7 @@ pub trait ActionContext {
     fn change_font_size(&mut self, delta: f32);
     fn reset_font_size(&mut self);
     fn scroll(&mut self, scroll: Scroll);
-    fn update_history(&mut self);
+    fn clear_history(&mut self);
     fn hide_window(&mut self);
 }
 
@@ -277,8 +277,7 @@ impl Action {
                 ctx.scroll(Scroll::Bottom);
             },
             Action::ClearHistory => {
-                println!("HIT");
-                ctx.update_history();
+                ctx.clear_history();
             },
         }
     }
@@ -764,7 +763,7 @@ mod tests {
         }
         fn reset_font_size(&mut self) {
         }
-        fn update_history(&mut self) {
+        fn clear_history(&mut self) {
         }
         fn hide_window(&mut self) {
         }
