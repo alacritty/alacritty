@@ -21,7 +21,7 @@ use term::{Term, SizeInfo, TermMode};
 use util::limit;
 use util::fmt::Red;
 use window::Window;
-use LogicalSize;
+use PhysicalSize;
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
@@ -218,7 +218,7 @@ pub struct Processor<N> {
     wait_for_event: bool,
     notifier: N,
     mouse: Mouse,
-    resize_tx: mpsc::Sender<LogicalSize>,
+    resize_tx: mpsc::Sender<PhysicalSize>,
     ref_test: bool,
     size_info: SizeInfo,
     pub selection: Option<Selection>,
@@ -248,7 +248,7 @@ impl<N: Notify> Processor<N> {
     /// pty.
     pub fn new(
         notifier: N,
-        resize_tx: mpsc::Sender<LogicalSize>,
+        resize_tx: mpsc::Sender<PhysicalSize>,
         options: &Options,
         config: &Config,
         ref_test: bool,
@@ -283,9 +283,10 @@ impl<N: Notify> Processor<N> {
         processor: &mut input::Processor<'a, ActionContext<'a, N>>,
         event: Event,
         ref_test: bool,
-        resize_tx: &mpsc::Sender<LogicalSize>,
+        resize_tx: &mpsc::Sender<PhysicalSize>,
         hide_cursor: &mut bool,
         window_is_focused: &mut bool,
+        dpr: f64,
     ) {
         match event {
             // Pass on device events
@@ -317,7 +318,7 @@ impl<N: Notify> Processor<N> {
                         ::std::process::exit(0);
                     },
                     Resized(lsize) => {
-                        resize_tx.send(lsize).expect("send new size");
+                        resize_tx.send(lsize.to_physical(dpr)).expect("send new size");
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
@@ -443,6 +444,7 @@ impl<N: Notify> Processor<N> {
             };
 
             let mut window_is_focused = window.is_focused;
+            let dpr = window.hidpi_factor();
 
             // Scope needed to that hide_cursor isn't borrowed after the scope
             // ends.
@@ -459,6 +461,7 @@ impl<N: Notify> Processor<N> {
                         resize_tx,
                         hide_cursor,
                         &mut window_is_focused,
+                        dpr,
                     );
                 };
 

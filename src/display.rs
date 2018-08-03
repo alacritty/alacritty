@@ -18,7 +18,7 @@ use std::sync::mpsc;
 
 use parking_lot::{MutexGuard};
 
-use {LogicalPosition, LogicalSize, PhysicalSize, Rgb};
+use {LogicalPosition, PhysicalSize, Rgb};
 use cli;
 use config::Config;
 use font::{self, Rasterize};
@@ -94,8 +94,8 @@ pub struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
-    rx: mpsc::Receiver<LogicalSize>,
-    tx: mpsc::Sender<LogicalSize>,
+    rx: mpsc::Receiver<PhysicalSize>,
+    tx: mpsc::Sender<PhysicalSize>,
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
@@ -263,7 +263,7 @@ impl Display {
     }
 
     #[inline]
-    pub fn resize_channel(&self) -> mpsc::Sender<LogicalSize> {
+    pub fn resize_channel(&self) -> mpsc::Sender<PhysicalSize> {
         self.tx.clone()
     }
 
@@ -283,16 +283,16 @@ impl Display {
         // events into one.
         let mut new_size = None;
 
-        // Update the DPR
-        let dpr = self.window.hidpi_factor();
-
         // Take most recent resize event, if any
-        while let Ok(sz) = self.rx.try_recv() {
+        while let Ok(size) = self.rx.try_recv() {
             // Resize events are emitted via glutin/winit with logical sizes
             // However the terminal, window and renderer use physical sizes
             // so a conversion must be done here
-            new_size = Some(sz.to_physical(dpr));
+            new_size = Some(size);
         }
+
+        // Update the DPR
+        let dpr = self.window.hidpi_factor();
 
         // Font size/DPI factor modification detected
         if terminal.font_size != self.font_size || dpr != self.size_info.dpr {
