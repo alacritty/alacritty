@@ -336,6 +336,33 @@ To install the completions for fish, run
 sudo cp alacritty-completions.fish $__fish_datadir/vendor_completions.d/alacritty.fish
 ```
 
+## Terminfo
+
+The terminfo database contains entries describing the terminal
+emulator's capabilities. Programs need these in order to function
+properly.
+
+Alacritty should work with the standard `xterm-256color` definition,
+but to allow programs to make best use of alacritty's capabilities,
+use it's own terminfo definition instead.
+
+To install alacritty's terminfo entry globally:
+
+```sh
+sudo tic alacritty.info
+```
+
+You must then **configure** alacritty to use it, by setting the `TERM`
+option in the configuration file.
+
+If you are a package maintainer, you might want to do something along
+these lines instead (`${pkgdir}` refers to the directory where
+the package is being built):
+
+```sh
+tic -o "${pkgdir}/usr/share/terminfo" alacritty.info
+```
+
 ## Configuration
 
 Although it's possible the default configuration would work on your system,
