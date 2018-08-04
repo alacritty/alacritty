@@ -163,8 +163,8 @@ impl Display {
             let height = cell_height as u32 * dimensions.lines_u32();
 
             let new_viewport_size = PhysicalSize::new(
-                (width + 2 * u32::from(config.padding().x) * dpr.floor() as u32) as f64,
-                (height + 2 * u32::from(config.padding().y) * dpr.floor() as u32) as f64);
+                (width + 2 * (config.padding().x as f64 * dpr) as u32) as f64,
+                (height + 2 * (config.padding().y as f64 * dpr) as u32) as f64);
 
             window.set_inner_size(new_viewport_size.to_logical(dpr));
             renderer.resize(new_viewport_size, dpr);

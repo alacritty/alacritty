@@ -721,8 +721,8 @@ impl QuadRenderer {
     pub fn resize(&mut self, size: PhysicalSize, dpr: f64) {
         let (width, height) : (u32, u32) = size.into();
 
-        let padding_x = (self.program.padding_x as f64 * dpr).floor() as i32;
-        let padding_y = (self.program.padding_y as f64 * dpr).floor() as i32;
+        let padding_x = (self.program.padding_x as f64 * dpr) as i32;
+        let padding_y = (self.program.padding_y as f64 * dpr) as i32;
 
         // viewport
         unsafe {
@@ -1033,8 +1033,8 @@ impl ShaderProgram {
 
     fn update_projection(&self, width: f32, height: f32, dpr: f32) {
         // Bounds check
-        if (width as u32) < (2 * (self.padding_x as f32 * dpr).floor() as u32) ||
-            (height as u32) < (2 * (self.padding_y as f32 * dpr).floor() as u32)
+        if (width as u32) < (2 * (self.padding_x as f32 * dpr) as u32) ||
+            (height as u32) < (2 * (self.padding_y as f32 * dpr) as u32)
         {
             return;
         }
