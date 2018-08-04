@@ -1032,9 +1032,12 @@ impl ShaderProgram {
     }
 
     fn update_projection(&self, width: f32, height: f32, dpr: f32) {
+        let padding_x = (self.padding_x as f32 * dpr).floor();
+        let padding_y = (self.padding_y as f32 * dpr).floor();
+        
         // Bounds check
-        if (width as u32) < (2 * (self.padding_x as f32 * dpr) as u32) ||
-            (height as u32) < (2 * (self.padding_y as f32 * dpr) as u32)
+        if (width as u32) < (2 * padding_x as u32) ||
+            (height as u32) < (2 * padding_y as u32)
         {
             return;
         }
@@ -1046,8 +1049,8 @@ impl ShaderProgram {
         //    correctly.
         let ortho = cgmath::ortho(
             0.,
-            width - (2. * f32::from(self.padding_x) * dpr),
-            2. * f32::from(self.padding_y) * dpr,
+            width - (2. * padding_x),
+            2. * padding_x,
             height,
             -1.,
             1.,

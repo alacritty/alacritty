@@ -179,8 +179,8 @@ impl Display {
             height: viewport_size.height as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
-            padding_x: f32::from(config.padding().x) * dpr as f32,
-            padding_y: f32::from(config.padding().y) * dpr as f32,
+            padding_x: (config.padding().x as f64 * dpr).floor() as f32,
+            padding_y: (config.padding().y as f64 * dpr).floor() as f32,
         };
 
         // Channel for resize events
@@ -298,8 +298,8 @@ impl Display {
         if terminal.font_size != self.font_size || dpr != self.size_info.dpr {
             self.font_size = terminal.font_size;
             self.size_info.dpr = dpr;
-            self.size_info.padding_x = f32::from(config.padding().x) * dpr as f32;
-            self.size_info.padding_y = f32::from(config.padding().y) * dpr as f32;
+            self.size_info.padding_x = (config.padding().x as f64 * dpr).floor() as f32;
+            self.size_info.padding_y = (config.padding().y as f64 * dpr).floor() as f32;
             self.update_glyph_cache(config);
 
             if new_size == None {
