@@ -1,4 +1,4 @@
-alacritty-256color|alacritty with 256 colors,
+alacritty|alacritty terminal emulator,
 	rs1=\Ec\E]104\007, use=alacritty+256color, use=alacritty-new,
 
 alacritty-direct|alacritty with direct color indexing,
