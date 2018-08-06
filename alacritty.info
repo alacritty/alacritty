@@ -1,8 +1,27 @@
 alacritty|alacritty terminal emulator,
-	rs1=\Ec\E]104\007, use=alacritty+256color, use=alacritty+common,
+	use=alacritty+common,
+	rs1=\Ec\E]104\007,
+	ccc,
+	colors#0x100, pairs#0x10000,
+	initc=\E]4;%p1%d;rgb\:%p2%{255}%*%{1000}%/%2.2X/%p3%{255}%*
+	      %{1000}%/%2.2X/%p4%{255}%*%{1000}%/%2.2X\E\\,
+	oc=\E]104\007,
+	setab=\E[%?%p1%{8}%<%t4%p1%d%e%p1%{16}%<%t10%p1%{8}%-%d%e48;
+	      5;%p1%d%;m,
+	setaf=\E[%?%p1%{8}%<%t3%p1%d%e%p1%{16}%<%t9%p1%{8}%-%d%e38;5
+	      ;%p1%d%;m,
+	setb@, setf@,
 
 alacritty-direct|alacritty with direct color indexing,
-	use=alacritty+indirect, use=alacritty+common,
+	use=alacritty+common,
+	RGB,
+	colors#0x1000000, pairs#0x10000,
+	initc@, op=\E[39;49m,
+	setab=\E[%?%p1%{8}%<%t4%p1%d%e48;2;%p1%{65536}%/%d;%p1%{256}
+	      %/%{255}%&%d;%p1%{255}%&%d%;m,
+	setaf=\E[%?%p1%{8}%<%t3%p1%d%e38;2;%p1%{65536}%/%d;%p1%{256}
+	      %/%{255}%&%d;%p1%{255}%&%d%;m,
+	setb@, setf@,
 
 alacritty+common|base fragment for alacritty,
 	OTbs, am, bce, km, mir, msgr, xenl, AX, XT,
@@ -101,25 +120,3 @@ alacritty+common|base fragment for alacritty,
 
 	Cr=\E]112\007, Cs=\E]12;%p1%s\007,
 	Ms=\E]52;%p1%s;%p2%s\007, Se=\E[2 q, Ss=\E[%p1%d q,
-
-alacritty+256color|fragment enabling 256 colors for alacritty,
-	ccc,
-	colors#0x100, pairs#0x10000,
-	initc=\E]4;%p1%d;rgb\:%p2%{255}%*%{1000}%/%2.2X/%p3%{255}%*
-	      %{1000}%/%2.2X/%p4%{255}%*%{1000}%/%2.2X\E\\,
-	oc=\E]104\007,
-	setab=\E[%?%p1%{8}%<%t4%p1%d%e%p1%{16}%<%t10%p1%{8}%-%d%e48;
-	      5;%p1%d%;m,
-	setaf=\E[%?%p1%{8}%<%t3%p1%d%e%p1%{16}%<%t9%p1%{8}%-%d%e38;5
-	      ;%p1%d%;m,
-	setb@, setf@,
-
-alacritty+indirect|fragment enabling old-style direct-color indexing for alacritty,
-	RGB,
-	colors#0x1000000, pairs#0x10000,
-	initc@, op=\E[39;49m,
-	setab=\E[%?%p1%{8}%<%t4%p1%d%e48;2;%p1%{65536}%/%d;%p1%{256}
-	      %/%{255}%&%d;%p1%{255}%&%d%;m,
-	setaf=\E[%?%p1%{8}%<%t3%p1%d%e38;2;%p1%{65536}%/%d;%p1%{256}
-	      %/%{255}%&%d;%p1%{255}%&%d%;m,
-	setb@, setf@,
