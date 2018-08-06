@@ -1390,7 +1390,8 @@ impl ansi::Handler for Term {
     #[inline]
     fn move_backward(&mut self, cols: Column) {
         trace!("move_backward: {}", cols);
-        self.cursor.point.col -= min(self.cursor.point.col, cols);
+        let self_cols = self.cursor.point.col;
+        self.cursor.point.col -= min(self_cols, cols);
         self.input_needs_wrap = false;
     }
 
@@ -1651,7 +1652,8 @@ impl ansi::Handler for Term {
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         trace!("clear_line: {:?}", mode);
         let mut template = self.cursor.template;
-        template.flags ^= template.flags;
+        let templ_flags = template.flags;
+        template.flags ^= templ_flags;
 
         let col =  self.cursor.point.col;
 
@@ -1708,7 +1710,8 @@ impl ansi::Handler for Term {
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
         trace!("clear_screen: {:?}", mode);
         let mut template = self.cursor.template;
-        template.flags ^= template.flags;
+        let template_flags = template.flags;
+        template.flags ^= template_flags;
 
         match mode {
             ansi::ClearMode::Below => {
@@ -1792,7 +1795,8 @@ impl ansi::Handler for Term {
         if self.cursor.point.line == self.scroll_region.start {
             self.scroll_down(Line(1));
         } else {
-            self.cursor.point.line -= min(self.cursor.point.line, Line(1));
+            let cursor_point_line = self.cursor.point.line;
+            self.cursor.point.line -= min(cursor_point_line, Line(1));
         }
     }
 
