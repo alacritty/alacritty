@@ -1,10 +1,10 @@
 alacritty|alacritty terminal emulator,
-	rs1=\Ec\E]104\007, use=alacritty+256color, use=alacritty-new,
+	rs1=\Ec\E]104\007, use=alacritty+256color, use=alacritty+common,
 
 alacritty-direct|alacritty with direct color indexing,
-	use=alacritty+indirect, use=alacritty-new,
+	use=alacritty+indirect, use=alacritty+common,
 
-alacritty-basic|modern alacritty terminal emulator - common,
+alacritty+common|base fragment for alacritty,
 	OTbs, am, bce, km, mir, msgr, xenl, AX, XT,
 	colors#8, cols#80, it#8, lines#24, pairs#64,
 	acsc=``aaffggiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz{{||}}~~,
@@ -32,29 +32,33 @@ alacritty-basic|modern alacritty terminal emulator - common,
 	    %?%p1%p3%|%t;7%;%?%p4%t;5%;%?%p7%t;8%;m,
 	sgr0=\E(B\E[m, smacs=\E(0, smam=\E[?7h, smir=\E[4h,
 	smkx=\E[?1h\E=, smm=\E[?1034h, smso=\E[7m, smul=\E[4m,
-	tbc=\E[3g, vpa=\E[%i%p1%dd, E3=\E[3J, use=ecma+italics,
-	use=ansi+pp, use=alacritty+kbs, use=alacritty+alt+title,
-	use=ansi+enq,
+	tbc=\E[3g, vpa=\E[%i%p1%dd, E3=\E[3J,
 
-alacritty+kbs|fragment for backspace key,
 	kbs=^H,
 
-alacritty+alt+title|alacritty 90 and 251 features combined,
+	ritm=\E[23m, sitm=\E[3m,
+
+	mc5i,
+	mc0=\E[i, mc4=\E[4i, mc5=\E[5i,
+
+	u6=\E[%i%d;%dR, u7=\E[6n, u8=\E[?%[;0123456789]c,
+	u9=\E[c,
+
 	rmcup=\E[?1049l\E[23;0;0t, smcup=\E[?1049h\E[22;0;0t,
 
-alacritty+sm+1006|alacritty SGR-mouse,
+    npc,
+	indn=\E[%p1%dS, kb2=\EOE, kcbt=\E[Z, kent=\EOM,
+	rin=\E[%p1%dT,
+
+	rep=%p1%c\E[%p2%{1}%-%db,
+	rmxx=\E[29m, smxx=\E[9m,
+
 	kmous=\E[<, XM=\E[?1006;1000%?%p1%{1}%=%th%el%;,
 	xm=\E[<%p1%d;%p2%d;%p3%d;%?%p4%tM%em%;,
 
-alacritty+pcfkeys|fragment for PC-style fkeys,
-	use=alacritty+app, use=alacritty+pcf2, use=alacritty+pcc2,
-	use=alacritty+pce2,
-
-alacritty+app|fragment with cursor keys in application mode,
 	kcub1=\EOD, kcud1=\EOB, kcuf1=\EOC, kcuu1=\EOA, kend=\EOF,
 	khome=\EOH,
 
-alacritty+pcf2|fragment with modifyFunctionKeys:2,
 	kf1=\EOP, kf10=\E[21~, kf11=\E[23~, kf12=\E[24~,
 	kf13=\E[1;2P, kf14=\E[1;2Q, kf15=\E[1;2R, kf16=\E[1;2S,
 	kf17=\E[15;2~, kf18=\E[17;2~, kf19=\E[18;2~, kf2=\EOQ,
@@ -74,7 +78,6 @@ alacritty+pcf2|fragment with modifyFunctionKeys:2,
 	kf61=\E[1;4P, kf62=\E[1;4Q, kf63=\E[1;4R, kf7=\E[18~,
 	kf8=\E[19~, kf9=\E[20~,
 
-alacritty+pcc2|fragment with modifyCursorKeys:2,
 	kLFT=\E[1;2D, kRIT=\E[1;2C, kind=\E[1;2B, kri=\E[1;2A,
 	kDN=\E[1;2B, kDN3=\E[1;3B, kDN4=\E[1;4B, kDN5=\E[1;5B,
 	kDN6=\E[1;6B, kDN7=\E[1;7B, kLFT3=\E[1;3D, kLFT4=\E[1;4D,
@@ -83,7 +86,6 @@ alacritty+pcc2|fragment with modifyCursorKeys:2,
 	kRIT6=\E[1;6C, kRIT7=\E[1;7C, kUP=\E[1;2A, kUP3=\E[1;3A,
 	kUP4=\E[1;4A, kUP5=\E[1;5A, kUP6=\E[1;6A, kUP7=\E[1;7A,
 
-alacritty+pce2|fragment with modifyCursorKeys:2,
 	kDC=\E[3;2~, kEND=\E[1;2F, kHOM=\E[1;2H, kIC=\E[2;2~,
 	kNXT=\E[6;2~, kPRV=\E[5;2~, kich1=\E[2~, knp=\E[6~,
 	kpp=\E[5~, kDC3=\E[3;3~, kDC4=\E[3;4~, kDC5=\E[3;5~,
@@ -95,27 +97,12 @@ alacritty+pce2|fragment with modifyCursorKeys:2,
 	kNXT4=\E[6;4~, kNXT5=\E[6;5~, kNXT6=\E[6;6~,
 	kNXT7=\E[6;7~, kPRV3=\E[5;3~, kPRV4=\E[5;4~,
 	kPRV5=\E[5;5~, kPRV6=\E[5;6~, kPRV7=\E[5;7~,
-	use=alacritty+edit,
-
-alacritty+edit|fragment for 6-key editing-keypad,
 	kdch1=\E[3~, kich1=\E[2~, knp=\E[6~, kpp=\E[5~,
-	use=alacritty+pc+edit,
 
-alacritty+pc+edit|fragment for pc-style editing keypad,
-	kend=\E[4~, khome=\E[1~,
-
-alacritty+tmux|advanced alacritty features used in tmux,
 	Cr=\E]112\007, Cs=\E]12;%p1%s\007,
 	Ms=\E]52;%p1%s;%p2%s\007, Se=\E[2 q, Ss=\E[%p1%d q,
 
-alacritty-new|modern alacritty terminal emulator,
-	npc,
-	indn=\E[%p1%dS, kb2=\EOE, kcbt=\E[Z, kent=\EOM,
-	rin=\E[%p1%dT, use=ansi+rep, use=ecma+strikeout,
-	use=alacritty+sm+1006, use=alacritty+pcfkeys, use=alacritty+tmux,
-	use=alacritty-basic,
-
-alacritty+256color|alacritty 256-color feature,
+alacritty+256color|fragment enabling 256 colors for alacritty,
 	ccc,
 	colors#0x100, pairs#0x10000,
 	initc=\E]4;%p1%d;rgb\:%p2%{255}%*%{1000}%/%2.2X/%p3%{255}%*
@@ -127,7 +114,7 @@ alacritty+256color|alacritty 256-color feature,
 	      ;%p1%d%;m,
 	setb@, setf@,
 
-alacritty+indirect|alacritty with direct-color indexing (old),
+alacritty+indirect|fragment enabling old-style direct-color indexing for alacritty,
 	RGB,
 	colors#0x1000000, pairs#0x10000,
 	initc@, op=\E[39;49m,
