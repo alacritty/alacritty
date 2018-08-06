@@ -1,11 +1,8 @@
-alacritty|alacritty terminal emulator (X Window System),
-	use=alacritty-new,
-
 alacritty-256color|alacritty with 256 colors,
 	rs1=\Ec\E]104\007, use=alacritty+256color, use=alacritty-new,
 
 alacritty-direct|alacritty with direct color indexing,
-	use=alacritty+indirect, use=alacritty,
+	use=alacritty+indirect, use=alacritty-new,
 
 alacritty-basic|modern alacritty terminal emulator - common,
 	OTbs, am, bce, km, mir, msgr, xenl, AX, XT,
