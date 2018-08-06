@@ -97,7 +97,7 @@ alacritty+common|base fragment for alacritty,
 	kNXT4=\E[6;4~, kNXT5=\E[6;5~, kNXT6=\E[6;6~,
 	kNXT7=\E[6;7~, kPRV3=\E[5;3~, kPRV4=\E[5;4~,
 	kPRV5=\E[5;5~, kPRV6=\E[5;6~, kPRV7=\E[5;7~,
-	kdch1=\E[3~, kich1=\E[2~, knp=\E[6~, kpp=\E[5~,
+	kdch1=\E[3~,
 
 	Cr=\E]112\007, Cs=\E]12;%p1%s\007,
 	Ms=\E]52;%p1%s;%p2%s\007, Se=\E[2 q, Ss=\E[%p1%d q,
