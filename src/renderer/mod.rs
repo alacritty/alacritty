@@ -639,7 +639,7 @@ impl QuadRenderer {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::ShaderReload => {
-                    self.reload_shaders(config, PhysicalSize::new(props.width as f64, props.height as f64), props.dpr);
+                    self.reload_shaders(config, PhysicalSize::new(f64::from(props.width), f64::from(props.height)), props.dpr);
                 }
             }
         }
@@ -721,8 +721,8 @@ impl QuadRenderer {
     pub fn resize(&mut self, size: PhysicalSize, dpr: f64) {
         let (width, height) : (u32, u32) = size.into();
 
-        let padding_x = (self.program.padding_x as f64 * dpr) as i32;
-        let padding_y = (self.program.padding_y as f64 * dpr) as i32;
+        let padding_x = (f64::from(self.program.padding_x) * dpr) as i32;
+        let padding_y = (f64::from(self.program.padding_y) * dpr) as i32;
 
         // viewport
         unsafe {
@@ -1020,8 +1020,8 @@ impl ShaderProgram {
             u_cell_dim: cell_dim,
             u_visual_bell: visual_bell,
             u_background: background,
-            padding_x: u8::from(config.padding().x),
-            padding_y: u8::from(config.padding().y),
+            padding_x: config.padding().x,
+            padding_y: config.padding().y,
         };
 
         shader.update_projection(size.width as f32, size.height as f32, dpr as f32);
@@ -1032,8 +1032,8 @@ impl ShaderProgram {
     }
 
     fn update_projection(&self, width: f32, height: f32, dpr: f32) {
-        let padding_x = (self.padding_x as f32 * dpr).floor();
-        let padding_y = (self.padding_y as f32 * dpr).floor();
+        let padding_x = (f32::from(self.padding_x) * dpr).floor();
+        let padding_y = (f32::from(self.padding_y) * dpr).floor();
         
         // Bounds check
         if (width as u32) < (2 * padding_x as u32) ||

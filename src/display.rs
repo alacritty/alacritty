@@ -15,6 +15,7 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
 use std::sync::mpsc;
+use std::f64;
 
 use parking_lot::{MutexGuard};
 
@@ -163,8 +164,8 @@ impl Display {
             let height = cell_height as u32 * dimensions.lines_u32();
 
             let new_viewport_size = PhysicalSize::new(
-                (width + 2 * (config.padding().x as f64 * dpr) as u32) as f64,
-                (height + 2 * (config.padding().y as f64 * dpr) as u32) as f64);
+                f64::from(width + 2 * (f64::from(config.padding().x) * dpr) as u32),
+                f64::from(height + 2 * (f64::from(config.padding().y) * dpr) as u32) as f64);
 
             window.set_inner_size(new_viewport_size.to_logical(dpr));
             renderer.resize(new_viewport_size, dpr);
@@ -179,8 +180,8 @@ impl Display {
             height: viewport_size.height as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
-            padding_x: (config.padding().x as f64 * dpr).floor() as f32,
-            padding_y: (config.padding().y as f64 * dpr).floor() as f32,
+            padding_x: (f64::from(config.padding().x) * dpr).floor() as f32,
+            padding_y: (f64::from(config.padding().y) * dpr).floor() as f32,
         };
 
         // Channel for resize events
@@ -295,17 +296,17 @@ impl Display {
         let dpr = self.window.hidpi_factor();
 
         // Font size/DPI factor modification detected
-        if terminal.font_size != self.font_size || dpr != self.size_info.dpr {
+        if terminal.font_size != self.font_size || (dpr - self.size_info.dpr).abs() > f64::EPSILON {
             self.font_size = terminal.font_size;
             self.size_info.dpr = dpr;
-            self.size_info.padding_x = (config.padding().x as f64 * dpr).floor() as f32;
-            self.size_info.padding_y = (config.padding().y as f64 * dpr).floor() as f32;
+            self.size_info.padding_x = (f64::from(config.padding().x) * dpr).floor() as f32;
+            self.size_info.padding_y = (f64::from(config.padding().y) * dpr).floor() as f32;
             self.update_glyph_cache(config);
 
             if new_size == None {
                 // Force a resize to refresh things
-                new_size = Some(PhysicalSize::new(self.size_info.width as f64,
-                                                  self.size_info.height as f64));
+                new_size = Some(PhysicalSize::new(f64::from(self.size_info.width),
+                                                  f64::from(self.size_info.height)));
             }
         }
 
