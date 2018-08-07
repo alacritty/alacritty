@@ -354,14 +354,6 @@ To install alacritty's terminfo entry globally:
 sudo tic alacritty.info
 ```
 
-If you are a package maintainer, you might want to do something along
-these lines instead (`${pkgdir}` refers to the directory where
-the package is being built):
-
-```sh
-tic -o "${pkgdir}/usr/share/terminfo" alacritty.info
-```
-
 ## Configuration
 
 Although it's possible the default configuration would work on your system,
