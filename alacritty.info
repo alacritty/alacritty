@@ -65,7 +65,7 @@ alacritty+common|base fragment for alacritty,
 
 	rmcup=\E[?1049l\E[23;0;0t, smcup=\E[?1049h\E[22;0;0t,
 
-    npc,
+	npc,
 	indn=\E[%p1%dS, kb2=\EOE, kcbt=\E[Z, kent=\EOM,
 	rin=\E[%p1%dT,
 
