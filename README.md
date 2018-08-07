@@ -346,14 +346,13 @@ Alacritty should work with the standard `xterm-256color` definition,
 but to allow programs to make best use of alacritty's capabilities,
 use it's own terminfo definition instead.
 
+Note that the default configuration **requires** alacritty's terminfo.
+
 To install alacritty's terminfo entry globally:
 
 ```sh
 sudo tic alacritty.info
 ```
-
-You must then **configure** alacritty to use it, by setting the `TERM`
-option in the configuration file.
 
 If you are a package maintainer, you might want to do something along
 these lines instead (`${pkgdir}` refers to the directory where
