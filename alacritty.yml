@@ -335,6 +335,9 @@ live_config_reload: true
 #   it possible to pass escape sequences.
 #   To find escape codes for bindings like `PageUp` ("\x1b[5~"), you can run
 #   the command `showkey -a` outside of tmux.
+#   Note that applications use terminfo to map escape sequences back to
+#   keys. It is therefore required to update the terminfo when
+#   changing an escape sequence.
 #
 # Values for `action`:
 #   - Paste
