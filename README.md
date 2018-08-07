@@ -344,7 +344,7 @@ properly.
 
 Alacritty should work with the standard `xterm-256color` definition,
 but to allow programs to make best use of alacritty's capabilities,
-use it's own terminfo definition instead.
+use its own terminfo definition instead.
 
 Note that the default configuration **requires** alacritty's terminfo.
 
