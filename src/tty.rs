@@ -210,7 +210,7 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id
     builder.env("USER", pw.name);
     builder.env("SHELL", shell.program());
     builder.env("HOME", pw.dir);
-    builder.env("TERM", "xterm-256color"); // default term until we can supply our own
+    builder.env("TERM", "alacritty");
     builder.env("COLORTERM", "truecolor"); // advertise 24-bit support
     if let Some(window_id) = window_id {
         builder.env("WINDOWID", format!("{}", window_id));
