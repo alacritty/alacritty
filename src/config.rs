@@ -1593,7 +1593,7 @@ pub struct Font {
 fn deserialize_scale_with_dpi<'a, D>(deserializer: D) -> ::std::result::Result<Option<()>, D::Error>
     where D: de::Deserializer<'a>
 {
-    // This seems to be necessary in order for the config containing this entry to be parsed properly
+    // This is necessary in order to get serde to complete deserialization of the configuration
     let _ignored = bool::deserialize(deserializer);
     eprintln!(
         "The `scale_with_dpi` setting has been removed, \
