@@ -4,9 +4,12 @@
 # environment variables. Some entries may override variables
 # set by alacritty itself.
 env:
-  # TERM env customization
+  # TERM variable
   #
-  # If this property is not set, alacritty will set it to alacritty.
+  # This value is used to set the `$TERM` environment variable for
+  # each instance of Alacritty. If it is not present, the default value
+  # 'alacritty' will be used instead.
+  #
   # TERM: alacritty
 
 window:
