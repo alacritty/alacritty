@@ -1590,13 +1590,15 @@ pub struct Font {
     scale_with_dpi: Option<()>,
 }
 
-fn deserialize_scale_with_dpi<'a, D>(_deserializer: D) -> ::std::result::Result<Option<()>, D::Error>
+fn deserialize_scale_with_dpi<'a, D>(deserializer: D) -> ::std::result::Result<Option<()>, D::Error>
     where D: de::Deserializer<'a>
 {
-    panic!(
-        "The `scale_with_dpi` field has been deprecated, \
-         on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead."
-    );
+    // This seems to be necessary in order for the config containing this entry to be parsed properly
+    let _ignored = bool::deserialize(deserializer);
+    eprintln!(
+        "The `scale_with_dpi` setting has been removed, \
+        on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead.");
+    Ok(None)
 }
 
 fn default_bold_desc() -> FontDescription {
