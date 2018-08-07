@@ -52,32 +52,22 @@ alacritty+common|base fragment for alacritty,
 	sgr0=\E(B\E[m, smacs=\E(0, smam=\E[?7h, smir=\E[4h,
 	smkx=\E[?1h\E=, smm=\E[?1034h, smso=\E[7m, smul=\E[4m,
 	tbc=\E[3g, vpa=\E[%i%p1%dd, E3=\E[3J,
-
 	kbs=^H,
-
 	ritm=\E[23m, sitm=\E[3m,
-
 	mc5i,
 	mc0=\E[i, mc4=\E[4i, mc5=\E[5i,
-
 	u6=\E[%i%d;%dR, u7=\E[6n, u8=\E[?%[;0123456789]c,
 	u9=\E[c,
-
 	rmcup=\E[?1049l\E[23;0;0t, smcup=\E[?1049h\E[22;0;0t,
-
 	npc,
 	indn=\E[%p1%dS, kb2=\EOE, kcbt=\E[Z, kent=\EOM,
 	rin=\E[%p1%dT,
-
 	rep=%p1%c\E[%p2%{1}%-%db,
 	rmxx=\E[29m, smxx=\E[9m,
-
 	kmous=\E[<, XM=\E[?1006;1000%?%p1%{1}%=%th%el%;,
 	xm=\E[<%p1%d;%p2%d;%p3%d;%?%p4%tM%em%;,
-
 	kcub1=\EOD, kcud1=\EOB, kcuf1=\EOC, kcuu1=\EOA, kend=\EOF,
 	khome=\EOH,
-
 	kf1=\EOP, kf10=\E[21~, kf11=\E[23~, kf12=\E[24~,
 	kf13=\E[1;2P, kf14=\E[1;2Q, kf15=\E[1;2R, kf16=\E[1;2S,
 	kf17=\E[15;2~, kf18=\E[17;2~, kf19=\E[18;2~, kf2=\EOQ,
@@ -96,7 +86,6 @@ alacritty+common|base fragment for alacritty,
 	kf58=\E[21;3~, kf59=\E[23;3~, kf6=\E[17~, kf60=\E[24;3~,
 	kf61=\E[1;4P, kf62=\E[1;4Q, kf63=\E[1;4R, kf7=\E[18~,
 	kf8=\E[19~, kf9=\E[20~,
-
 	kLFT=\E[1;2D, kRIT=\E[1;2C, kind=\E[1;2B, kri=\E[1;2A,
 	kDN=\E[1;2B, kDN3=\E[1;3B, kDN4=\E[1;4B, kDN5=\E[1;5B,
 	kDN6=\E[1;6B, kDN7=\E[1;7B, kLFT3=\E[1;3D, kLFT4=\E[1;4D,
@@ -104,7 +93,6 @@ alacritty+common|base fragment for alacritty,
 	kRIT3=\E[1;3C, kRIT4=\E[1;4C, kRIT5=\E[1;5C,
 	kRIT6=\E[1;6C, kRIT7=\E[1;7C, kUP=\E[1;2A, kUP3=\E[1;3A,
 	kUP4=\E[1;4A, kUP5=\E[1;5A, kUP6=\E[1;6A, kUP7=\E[1;7A,
-
 	kDC=\E[3;2~, kEND=\E[1;2F, kHOM=\E[1;2H, kIC=\E[2;2~,
 	kNXT=\E[6;2~, kPRV=\E[5;2~, kich1=\E[2~, knp=\E[6~,
 	kpp=\E[5~, kDC3=\E[3;3~, kDC4=\E[3;4~, kDC5=\E[3;5~,
@@ -117,6 +105,5 @@ alacritty+common|base fragment for alacritty,
 	kNXT7=\E[6;7~, kPRV3=\E[5;3~, kPRV4=\E[5;4~,
 	kPRV5=\E[5;5~, kPRV6=\E[5;6~, kPRV7=\E[5;7~,
 	kdch1=\E[3~,
-
 	Cr=\E]112\007, Cs=\E]12;%p1%s\007,
 	Ms=\E]52;%p1%s;%p2%s\007, Se=\E[2 q, Ss=\E[%p1%d q,
