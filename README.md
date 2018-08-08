@@ -351,7 +351,7 @@ Note that the default configuration **requires** alacritty's terminfo.
 To install alacritty's terminfo entry globally:
 
 ```sh
-sudo tic alacritty.info
+sudo tic -e alacritty,alacritty-direct alacritty.info
 ```
 
 ## Configuration
