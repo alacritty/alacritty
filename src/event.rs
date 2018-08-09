@@ -286,7 +286,7 @@ impl<N: Notify> Processor<N> {
         resize_tx: &mpsc::Sender<PhysicalSize>,
         hide_cursor: &mut bool,
         window_is_focused: &mut bool,
-        dpr: f64,
+        dpr: &mut f64,
     ) {
         match event {
             // Pass on device events
@@ -318,7 +318,7 @@ impl<N: Notify> Processor<N> {
                         ::std::process::exit(0);
                     },
                     Resized(lsize) => {
-                        resize_tx.send(lsize.to_physical(dpr)).expect("send new size");
+                        resize_tx.send(lsize.to_physical(*dpr)).expect("send new size");
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
@@ -376,7 +376,10 @@ impl<N: Notify> Processor<N> {
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty(path.into_bytes());
                     },
-                    HiDpiFactorChanged(_) => processor.ctx.terminal.dirty = true,
+                    HiDpiFactorChanged(new_dpr) => {
+                        *dpr = new_dpr;
+                        processor.ctx.terminal.dirty = true;
+                    },
                     _ => (),
                 }
             },
@@ -444,8 +447,8 @@ impl<N: Notify> Processor<N> {
             };
 
             let mut window_is_focused = window.is_focused;
-            let dpr = window.hidpi_factor();
-
+            let mut dpr = window.hidpi_factor();
+            
             // Scope needed to that hide_cursor isn't borrowed after the scope
             // ends.
             {
@@ -461,7 +464,7 @@ impl<N: Notify> Processor<N> {
                         resize_tx,
                         hide_cursor,
                         &mut window_is_focused,
-                        dpr,
+                        &mut dpr,
                     );
                 };
 
