@@ -317,7 +317,12 @@ impl<N: Notify> Processor<N> {
                         ::std::process::exit(0);
                     },
                     Resized(lsize) => {
-                        resize_tx.send(lsize.to_physical(processor.ctx.size_info.dpr)).expect("send new size");
+                        // Resize events are emitted via glutin/winit with logical sizes
+                        // However the terminal, window and renderer use physical sizes
+                        // so a conversion must be done here
+                        resize_tx
+                            .send(lsize.to_physical(processor.ctx.size_info.dpr))
+                            .expect("send new size");
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {

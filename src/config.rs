@@ -1597,9 +1597,9 @@ fn deserialize_scale_with_dpi<'a, D>(deserializer: D) -> ::std::result::Result<O
     let _ignored = bool::deserialize(deserializer);
     eprintln!("{}",
         Yellow("The `scale_with_dpi` setting has been removed, \
-        on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead."));
-     Ok(None)
-   
+                on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead.")
+    );
+    Ok(None)
 }
 
 fn default_bold_desc() -> FontDescription {

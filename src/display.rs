@@ -286,9 +286,6 @@ impl Display {
 
         // Take most recent resize event, if any
         while let Ok(size) = self.rx.try_recv() {
-            // Resize events are emitted via glutin/winit with logical sizes
-            // However the terminal, window and renderer use physical sizes
-            // so a conversion must be done here
             new_size = Some(size);
         }
 
@@ -305,8 +302,10 @@ impl Display {
 
             if new_size == None {
                 // Force a resize to refresh things
-                new_size = Some(PhysicalSize::new(f64::from(self.size_info.width),
-                                                  f64::from(self.size_info.height)));
+                new_size = Some(PhysicalSize::new(
+                    f64::from(self.size_info.width),
+                    f64::from(self.size_info.height),
+                ));
             }
         }
 
