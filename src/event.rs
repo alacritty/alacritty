@@ -35,7 +35,7 @@ pub struct ActionContext<'a, N: 'a> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term,
     pub selection: &'a mut Option<Selection>,
-    pub size_info: &'a SizeInfo,
+    pub size_info: &'a mut SizeInfo,
     pub mouse: &'a mut Mouse,
     pub selection_modified: bool,
     pub received_count: &'a mut usize,
@@ -286,7 +286,6 @@ impl<N: Notify> Processor<N> {
         resize_tx: &mpsc::Sender<PhysicalSize>,
         hide_cursor: &mut bool,
         window_is_focused: &mut bool,
-        dpr: &mut f64,
     ) {
         match event {
             // Pass on device events
@@ -318,7 +317,7 @@ impl<N: Notify> Processor<N> {
                         ::std::process::exit(0);
                     },
                     Resized(lsize) => {
-                        resize_tx.send(lsize.to_physical(*dpr)).expect("send new size");
+                        resize_tx.send(lsize.to_physical(processor.ctx.size_info.dpr)).expect("send new size");
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
@@ -377,7 +376,7 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.write_to_pty(path.into_bytes());
                     },
                     HiDpiFactorChanged(new_dpr) => {
-                        *dpr = new_dpr;
+                        processor.ctx.size_info.dpr = new_dpr;
                         processor.ctx.terminal.dirty = true;
                     },
                     _ => (),
@@ -431,7 +430,7 @@ impl<N: Notify> Processor<N> {
                 notifier: &mut self.notifier,
                 selection: &mut self.selection,
                 mouse: &mut self.mouse,
-                size_info: &self.size_info,
+                size_info: &mut self.size_info,
                 selection_modified: false,
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
@@ -447,8 +446,7 @@ impl<N: Notify> Processor<N> {
             };
 
             let mut window_is_focused = window.is_focused;
-            let mut dpr = window.hidpi_factor();
-            
+
             // Scope needed to that hide_cursor isn't borrowed after the scope
             // ends.
             {
@@ -464,7 +462,6 @@ impl<N: Notify> Processor<N> {
                         resize_tx,
                         hide_cursor,
                         &mut window_is_focused,
-                        &mut dpr,
                     );
                 };
 
