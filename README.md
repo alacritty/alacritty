@@ -416,3 +416,4 @@ Alacritty is released under the [Apache License, Version 2.0].
 [faq]: https://github.com/jwilm/alacritty#faq
 [tmux]: https://github.com/tmux/tmux
 [Wayland meta issue]: https://github.com/tomaka/winit/issues/306
+

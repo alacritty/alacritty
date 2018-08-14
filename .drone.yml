@@ -1,0 +1,6 @@
+pipeline:
+  build:
+    image: liuchong/rustup:stable
+    commands:
+      - cargo build --release
+
