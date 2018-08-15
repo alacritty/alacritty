@@ -238,8 +238,11 @@ impl<T: Copy + Clone> Grid<T> {
         self.raw.grow_visible_lines(new_line_count, Row::new(self.cols, template));
         self.lines = new_line_count;
 
-        // Add new lines to bottom
-        self.scroll_up(&(Line(0)..new_line_count), lines_added, template);
+        // Move existing lines up if there is no scrollback to fill new lines
+        if lines_added.0 > self.scroll_limit {
+            let scroll_lines = lines_added - self.scroll_limit;
+            self.scroll_up(&(Line(0)..new_line_count), scroll_lines, template);
+        }
 
         self.scroll_limit = self.scroll_limit.saturating_sub(*lines_added);
     }
@@ -415,6 +418,11 @@ impl<T> Grid<T> {
 
     pub fn clear_history(&mut self) {
         self.scroll_limit = 0;
+    }
+
+    #[inline]
+    pub fn scroll_limit(&self) -> usize {
+        self.scroll_limit
     }
 
     /// Total number of lines in the buffer, this includes scrollback + visible lines
