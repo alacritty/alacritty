@@ -1050,7 +1050,7 @@ impl ShaderProgram {
         let ortho = cgmath::ortho(
             0.,
             width - (2. * padding_x),
-            2. * padding_x,
+            2. * padding_y,
             height,
             -1.,
             1.,
