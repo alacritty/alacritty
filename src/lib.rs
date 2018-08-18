@@ -50,6 +50,8 @@ extern crate unicode_width;
 extern crate vte;
 extern crate xdg;
 extern crate base64;
+extern crate tokio;
+extern crate futures;
 
 #[macro_use]
 pub mod macros;
@@ -73,6 +75,7 @@ pub mod term;
 pub mod tty;
 pub mod util;
 pub mod window;
+pub mod scheduler;
 
 use std::ops::Mul;
 

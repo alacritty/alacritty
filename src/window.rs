@@ -14,9 +14,11 @@
 use std::convert::From;
 use std::fmt::{self, Display};
 use std::ops::Deref;
+use std::thread;
+use std::sync::mpsc::{self, Sender};
 
 use gl;
-use glutin::{self, ContextBuilder, ControlFlow, CursorState, Event, EventsLoop,
+use glutin::{self, ContextBuilder, ControlFlow, CursorState, EventsLoop,
              MouseCursor as GlutinMouseCursor, WindowBuilder};
 use glutin::GlContext;
 
@@ -24,6 +26,7 @@ use MouseCursor;
 
 use cli::Options;
 use config::WindowConfig;
+use event::Event;
 
 /// Default text for the window's title bar, if not overriden.
 ///
@@ -59,7 +62,7 @@ type Result<T> = ::std::result::Result<T, Error>;
 ///
 /// Wraps the underlying windowing library to provide a stable API in Alacritty
 pub struct Window {
-    event_loop: EventsLoop,
+    proxy: glutin::EventsLoopProxy,
     window: glutin::GlWindow,
     cursor_visible: bool,
 
@@ -217,28 +220,45 @@ impl Window {
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
-        options: &Options,
-        window_config: &WindowConfig,
+        options: Options,
+        window_config: WindowConfig,
+        event_tx: Sender<Event>,
     ) -> Result<Window> {
-        let event_loop = EventsLoop::new();
+        let (sender, receiver) = mpsc::channel();
 
-        let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
-        let class = options.class.as_ref().map_or(DEFAULT_CLASS, |c| c);
-        let window_builder = WindowBuilder::new()
-            .with_title(title)
-            .with_visibility(false)
-            .with_transparency(true)
-            .with_decorations(window_config.decorations());
-        let window_builder = Window::platform_builder_ext(window_builder, &class);
-        let window = create_gl_window(window_builder.clone(), &event_loop, false)
-            .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
-        window.show();
+        thread::spawn(move || {
+            let mut event_loop = EventsLoop::new();
 
-        // Text cursor
-        window.set_cursor(GlutinMouseCursor::Text);
+            let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
+            let class = options.class.as_ref().map_or(DEFAULT_CLASS, |c| c);
+            let window_builder = WindowBuilder::new()
+                .with_title(title)
+                .with_visibility(false)
+                .with_transparency(true)
+                .with_decorations(window_config.decorations());
+            let window_builder = Window::platform_builder_ext(window_builder, &class);
+            let window = create_gl_window(window_builder.clone(), &event_loop, false)
+                .or_else(|_| create_gl_window(window_builder, &event_loop, true)).unwrap();
+            window.show();
 
-        // Set OpenGL symbol loader
-        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
+            // Text cursor
+            window.set_cursor(GlutinMouseCursor::Text);
+
+            // Set OpenGL symbol loader
+            gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
+
+            let proxy = event_loop.create_proxy();
+
+            sender.send((window, proxy)).unwrap();
+
+            // Transform glutin events to a stream by sending them through a channel
+            event_loop.run_forever(move |event| {
+                let _ = event_tx.clone().send(Event::Glutin(event));
+                ControlFlow::Continue
+            });
+        });
+
+        let (window, proxy) = receiver.recv().unwrap();
 
         // Make the context current so OpenGL operations can run
         unsafe {
@@ -246,7 +266,7 @@ impl Window {
         }
 
         let window = Window {
-            event_loop,
+            proxy,
             window,
             cursor_visible: true,
             is_focused: true,
@@ -281,7 +301,7 @@ impl Window {
     #[inline]
     pub fn create_window_proxy(&self) -> Proxy {
         Proxy {
-            inner: self.event_loop.create_proxy(),
+            inner: self.proxy.clone(),
         }
     }
 
@@ -292,25 +312,9 @@ impl Window {
             .map_err(From::from)
     }
 
-    /// Poll for any available events
-    #[inline]
-    pub fn poll_events<F>(&mut self, func: F)
-        where F: FnMut(Event)
-    {
-        self.event_loop.poll_events(func);
-    }
-
     #[inline]
     pub fn resize(&self, width: u32, height: u32) {
         self.window.resize(width, height);
-    }
-
-    /// Block waiting for events
-    #[inline]
-    pub fn wait_events<F>(&mut self, func: F)
-        where F: FnMut(Event) -> ControlFlow
-    {
-        self.event_loop.run_forever(func);
     }
 
     /// Set the window title

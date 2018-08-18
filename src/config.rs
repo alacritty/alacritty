@@ -175,7 +175,7 @@ impl Default for VisualBellConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Shell<'a> {
     program: Cow<'a, str>,
 

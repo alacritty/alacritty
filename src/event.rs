@@ -4,11 +4,13 @@ use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc;
 use std::time::{Instant};
+use std::sync::mpsc::Receiver;
 
 use serde_json as json;
 use parking_lot::MutexGuard;
-use glutin::{self, ModifiersState, Event, ElementState};
+use glutin::{self, ModifiersState, ElementState};
 use copypasta::{Clipboard, Load, Store};
+use futures::sync::oneshot;
 
 use grid::Scroll;
 use config::{self, Config};
@@ -22,6 +24,7 @@ use term::{Term, SizeInfo, TermMode};
 use util::limit;
 use util::fmt::Red;
 use window::Window;
+use input::ActionContext as InputActionContext;
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
@@ -49,6 +52,10 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn terminal_mode(&self) -> TermMode {
         *self.terminal.mode()
+    }
+
+    fn terminal(&self) -> &Term {
+        self.terminal
     }
 
     fn size_info(&self) -> SizeInfo {
@@ -146,6 +153,14 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 }
 
+/// Event types for the Alacritty event handler
+#[derive(Clone, Debug)]
+pub enum Event {
+    Glutin(glutin::Event),
+    Scroll(Scroll),
+}
+
+
 /// The ActionContext can't really have direct access to the Window
 /// with the current design. Event handlers that want to change the
 /// window must set these flags instead. The processor will trigger
@@ -233,6 +248,8 @@ pub struct Processor<N> {
     last_modifiers: ModifiersState,
     pending_events: Vec<Event>,
     window_changes: WindowChanges,
+    scheduler_rx: Receiver<Event>,
+    selection_scrolling: Option<oneshot::Sender<()>>,
 }
 
 /// Notify that the terminal was resized
@@ -256,6 +273,7 @@ impl<N: Notify> Processor<N> {
         config: &Config,
         ref_test: bool,
         size_info: SizeInfo,
+        scheduler_rx: Receiver<Event>,
     ) -> Processor<N> {
         Processor {
             key_bindings: config.key_bindings().to_vec(),
@@ -276,12 +294,12 @@ impl<N: Notify> Processor<N> {
             last_modifiers: Default::default(),
             pending_events: Vec::with_capacity(4),
             window_changes: Default::default(),
+            scheduler_rx,
+            selection_scrolling: None,
         }
     }
 
-    /// Handle events from glutin
-    ///
-    /// Doesn't take self mutably due to borrow checking. Kinda uggo but w/e.
+    /// Handle all events from Glutin and Alacritty
     fn handle_event<'a>(
         processor: &mut input::Processor<'a, ActionContext<'a, N>>,
         event: Event,
@@ -291,9 +309,17 @@ impl<N: Notify> Processor<N> {
         window_is_focused: &mut bool,
     ) {
         match event {
-            // Pass on device events
-            Event::DeviceEvent { .. } | Event::Suspended { .. } => (),
-            Event::WindowEvent { event, .. } => {
+            Event::Scroll(scroll) => {
+                processor.ctx.terminal.scroll_display(scroll);
+
+                let x = processor.ctx.mouse_mut().x;
+                let y = processor.ctx.mouse_mut().y;
+                let size_info = processor.ctx.size_info();
+                let point = size_info.pixels_to_coords(x, y);
+                let side = processor.ctx.mouse_mut().cell_side;
+                processor.ctx.update_selection(point, side);
+            },
+            Event::Glutin(glutin::Event::WindowEvent { event, .. }) => {
                 use glutin::WindowEvent::*;
                 match event {
                     CloseRequested => {
@@ -377,9 +403,10 @@ impl<N: Notify> Processor<N> {
                     _ => (),
                 }
             },
-            Event::Awakened => {
+            Event::Glutin(glutin::Event::Awakened) => {
                 processor.ctx.terminal.dirty = true;
-            }
+            },
+            _ => (),
         }
     }
 
@@ -411,11 +438,7 @@ impl<N: Notify> Processor<N> {
                 // A Vec is used here since wait_events can potentially yield
                 // multiple events before the interrupt is handled. For example,
                 // Resize and Moved events.
-                let pending_events = &mut self.pending_events;
-                window.wait_events(|e| {
-                    pending_events.push(e);
-                    glutin::ControlFlow::Break
-                });
+                self.pending_events.push(self.scheduler_rx.recv().unwrap());
             }
 
             terminal = term.lock();
@@ -437,6 +460,7 @@ impl<N: Notify> Processor<N> {
                 mouse_config: &self.mouse_config,
                 key_bindings: &self.key_bindings[..],
                 mouse_bindings: &self.mouse_bindings[..],
+                selection_scrolling: &mut self.selection_scrolling,
             };
 
             let mut window_is_focused = window.is_focused;
@@ -463,7 +487,9 @@ impl<N: Notify> Processor<N> {
                     process(event);
                 }
 
-                window.poll_events(process);
+                while let Ok(event) = self.scheduler_rx.try_recv() {
+                    process(event);
+                }
             }
 
             if self.hide_cursor_when_typing {

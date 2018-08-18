@@ -18,6 +18,7 @@ use std::ptr;
 use std::cmp::{min, max};
 use std::io;
 use std::time::{Duration, Instant};
+use std::sync::mpsc::Sender;
 
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
@@ -31,6 +32,8 @@ use config::{Config, VisualBellAnimation};
 use {MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
 use input::FONT_SIZE_STEP;
+use scheduler::Scheduler;
+use event::Event;
 
 pub mod cell;
 pub mod color;
@@ -772,6 +775,9 @@ pub struct Term {
 
     /// Automatically scroll to bottom when new lines are added
     auto_scroll: bool,
+
+    /// Scheduler for repeatedly sending events to the event loop
+    scheduler: Scheduler,
 }
 
 /// Terminal size info
@@ -850,7 +856,7 @@ impl Term {
         self.next_mouse_cursor.take()
     }
 
-    pub fn new(config: &Config, size: SizeInfo) -> Term {
+    pub fn new(config: &Config, size: SizeInfo, event_tx: Sender<Event>) -> Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
@@ -894,6 +900,7 @@ impl Term {
             dynamic_title: config.dynamic_title(),
             tabspaces,
             auto_scroll: config.scrolling().auto_scroll,
+            scheduler: Scheduler::new(event_tx),
         }
     }
 
@@ -1244,6 +1251,11 @@ impl Term {
     #[inline]
     pub fn background_color(&self) -> Rgb {
         self.colors[NamedColor::Background]
+    }
+
+    #[inline]
+    pub fn scheduler(&self) -> &Scheduler {
+        &self.scheduler
     }
 }
 

@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 
 /// Options specified on the command line
+#[derive(Clone)]
 pub struct Options {
     pub live_config_reload: Option<bool>,
     pub print_events: bool,

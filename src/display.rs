@@ -15,6 +15,7 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
 use std::sync::mpsc;
+use std::sync::mpsc::Sender;
 
 use parking_lot::{MutexGuard};
 
@@ -25,6 +26,7 @@ use font::{self, Rasterize};
 use meter::Meter;
 use renderer::{self, GlyphCache, QuadRenderer};
 use term::{Term, SizeInfo};
+use event::Event;
 
 use window::{self, Size, Pixels, Window, SetInnerSize};
 
@@ -131,12 +133,13 @@ impl Display {
     pub fn new(
         config: &Config,
         options: &cli::Options,
+        event_tx: Sender<Event>,
     ) -> Result<Display, Error> {
         // Extract some properties from config
         let render_timer = config.render_timer();
 
         // Create the window where Alacritty will be displayed
-        let mut window = Window::new(&options, config.window())?;
+        let mut window = Window::new(options.clone(), config.window().clone(), event_tx)?;
 
         // get window properties for initializing the other subsystems
         let mut viewport_size = window.inner_size_pixels()

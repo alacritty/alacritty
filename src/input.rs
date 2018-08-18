@@ -26,14 +26,16 @@ use std::os::unix::process::CommandExt;
 
 use copypasta::{Clipboard, Load, Buffer};
 use glutin::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState};
+use futures::sync::oneshot::Sender;
 
 use config;
 use grid::Scroll;
 use event::{ClickState, Mouse};
 use index::{Line, Column, Side, Point};
-use term::SizeInfo;
+use term::{Term, SizeInfo};
 use term::mode::TermMode;
 use util::fmt::Red;
+use event::Event;
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
 
@@ -48,12 +50,14 @@ pub struct Processor<'a, A: 'a> {
     pub mouse_bindings: &'a [MouseBinding],
     pub mouse_config: &'a config::Mouse,
     pub scrolling_config: &'a config::Scrolling,
+    pub selection_scrolling: &'a mut Option<Sender<()>>,
     pub ctx: A,
 }
 
 pub trait ActionContext {
     fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, B);
     fn terminal_mode(&self) -> TermMode;
+    fn terminal(&self) -> &Term;
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&self, Buffer);
     fn clear_selection(&mut self);
@@ -331,6 +335,31 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         if self.ctx.mouse_mut().left_button_state == ElementState::Pressed &&
             ( modifiers.shift || !self.ctx.terminal_mode().intersects(report_mode))
         {
+            match self.selection_scrolling.take() {
+                None if y == 0 || y as f32 == size_info.height =>
+                {
+                    let diff = if y == 0 { 1 } else { -1 };
+                    *self.selection_scrolling = Some(
+                        self.ctx
+                            .terminal()
+                            .scheduler()
+                            .register(
+                                Event::Scroll(Scroll::Lines(diff)),
+                                ::std::time::Duration::from_millis(10)
+                            )
+                    );
+                },
+                Some(sender) => {
+                    if y > 0 && (y as f32) < size_info.height {
+                        let _ = sender.send(());
+                        *self.selection_scrolling = None;
+                    } else {
+                        *self.selection_scrolling = Some(sender);
+                    }
+                },
+                val => *self.selection_scrolling = val,
+            }
+
             self.ctx.update_selection(Point {
                 line: point.line,
                 col: point.col
@@ -461,6 +490,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             };
             return;
         }
+
+        *self.selection_scrolling = None;
 
         self.ctx.copy_selection(Buffer::Selection);
     }
@@ -708,6 +739,10 @@ mod tests {
 
         fn terminal_mode(&self) -> TermMode {
             *self.terminal.mode()
+        }
+
+        fn terminal(&self) -> &Term {
+            // STUBBED
         }
 
         fn size_info(&self) -> SizeInfo {

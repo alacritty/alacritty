@@ -26,6 +26,7 @@ extern crate log;
 extern crate dirs;
 
 use std::error::Error;
+use std::sync::mpsc;
 use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use std::env;
@@ -95,10 +96,13 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         info!("Configuration loaded from {}", config_path.display());
     };
 
+    // TODO
+    let (scheduler_tx, scheduler_rx) = mpsc::channel();
+
     // Create a display.
     //
     // The display manages a window and can draw the terminal
-    let mut display = Display::new(&config, options)?;
+    let mut display = Display::new(&config, options, scheduler_tx.clone())?;
 
     info!(
         "PTY Dimensions: {:?} x {:?}",
@@ -111,7 +115,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let terminal = Term::new(&config, display.size().to_owned());
+    let terminal = Term::new(&config, display.size().to_owned(), scheduler_tx);
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Find the window ID for setting $WINDOWID
@@ -151,6 +155,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         &config,
         options.ref_test,
         display.size().to_owned(),
+        scheduler_rx,
     );
 
     // Create a config monitor when config was loaded from path

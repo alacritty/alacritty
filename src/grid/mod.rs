@@ -102,7 +102,7 @@ pub struct GridIterator<'a, T: 'a> {
     pub cur: Point<usize>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Scroll {
     Lines(isize),
     PageUp,
