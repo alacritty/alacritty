@@ -10,6 +10,7 @@ use parking_lot::MutexGuard;
 use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store};
 
+use ansi::{Handler, ClearMode};
 use grid::Scroll;
 use config::{self, Config};
 use cli::Options;
@@ -60,7 +61,6 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn clear_history(&mut self) {
-        use ansi::{Handler, ClearMode};
         self.terminal.clear_screen(ClearMode::Saved);
     }
 

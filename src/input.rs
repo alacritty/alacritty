@@ -641,15 +641,16 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     ///
     /// Returns true if an action is executed.
     fn process_key_bindings(&mut self, mods: ModifiersState, key: VirtualKeyCode) -> bool {
+        let mut has_binding = false;
         for binding in self.key_bindings {
             if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &key) {
                 // binding was triggered; run the action
                 binding.execute(&mut self.ctx);
-                return true;
+                has_binding = true;
             }
         }
 
-        false
+        has_binding
     }
 
     /// Attempts to find a binding and execute its action
@@ -659,15 +660,16 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     ///
     /// Returns true if an action is executed.
     fn process_mouse_bindings(&mut self, mods: ModifiersState, button: MouseButton) -> bool {
+        let mut has_binding = false;
         for binding in self.mouse_bindings {
             if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &button) {
                 // binding was triggered; run the action
                 binding.execute(&mut self.ctx);
-                return true;
+                has_binding = true;
             }
         }
 
-        false
+        has_binding
     }
 }
 

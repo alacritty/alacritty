@@ -107,10 +107,6 @@ impl<T> Storage<T> {
         }
     }
 
-    pub fn clear_history(&mut self) {
-        self.len = 0;
-    }
-
     /// Increase the number of lines in the buffer
     pub fn grow_visible_lines(&mut self, next: Line, template_row: Row<T>)
     where
