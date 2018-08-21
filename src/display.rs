@@ -14,7 +14,7 @@
 
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 
 use parking_lot::{MutexGuard};
 
@@ -25,6 +25,7 @@ use font::{self, Rasterize};
 use meter::Meter;
 use renderer::{self, GlyphCache, QuadRenderer};
 use term::{Term, SizeInfo};
+use sync::FairMutex;
 
 use window::{self, Size, Pixels, Window, SetInnerSize};
 
@@ -325,7 +326,20 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config) {
+    pub fn draw(&mut self, terminal: Arc<FairMutex<Term>>, config: &Config) {
+        let terminal_locked = terminal.lock();
+        let size_info = *terminal_locked.size_info();
+        let visual_bell_intensity = terminal_locked.visual_bell.intensity();
+
+        let background_color = terminal_locked.background_color();
+        self.last_background_color = background_color;
+        drop(terminal_locked);
+
+        self.renderer.with_api(config, &size_info, visual_bell_intensity, |api| {
+            api.clear(background_color);
+        });
+
+        let mut terminal = terminal.lock();
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
 
@@ -345,13 +359,8 @@ impl Display {
             }
         }
 
-        let background_color = terminal.background_color();
-        self.last_background_color = background_color;
-
         {
             let glyph_cache = &mut self.glyph_cache;
-            let size_info = *terminal.size_info();
-            let visual_bell_intensity = terminal.visual_bell.intensity();
 
             // Draw grid
             {
