@@ -59,7 +59,6 @@ gl_generator = "0.9"
 
 [profile.release]
 lto = true
-debug = 1
 
 [package.metadata.deb]
 maintainer = "Joe Wilm <joe@jwilm.com>"
