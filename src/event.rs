@@ -10,6 +10,7 @@ use parking_lot::MutexGuard;
 use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store};
 
+use ansi::{Handler, ClearMode};
 use grid::Scroll;
 use config::{self, Config};
 use cli::Options;
@@ -57,6 +58,10 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn scroll(&mut self, scroll: Scroll) {
         self.terminal.scroll_display(scroll);
+    }
+
+    fn clear_history(&mut self) {
+        self.terminal.clear_screen(ClearMode::Saved);
     }
 
     fn copy_selection(&self, buffer: ::copypasta::Buffer) {

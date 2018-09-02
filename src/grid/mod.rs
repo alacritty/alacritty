@@ -219,14 +219,9 @@ impl<T: Copy + Clone> Grid<T> {
 
     /// Add lines to the visible area
     ///
-    /// The behavior in Terminal.app and iTerm.app is to keep the cursor at the
-    /// bottom of the screen as long as there is scrollback available. Once
-    /// scrollback is exhausted, new lines are simply added to the bottom of the
-    /// screen.
-    ///
-    /// Alacritty takes a different approach. Rather than trying to move with
-    /// the scrollback, we simply pull additional lines from the back of the
-    /// buffer in order to populate the new area.
+    /// Alacritty keeps the cursor at the bottom of the terminal as long as there
+    /// is scrollback available. Once scrollback is exhausted, new lines are
+    /// simply added to the bottom of the screen.
     fn grow_lines(
         &mut self,
         new_line_count: index::Line,

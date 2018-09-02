@@ -1797,7 +1797,9 @@ impl ansi::Handler for Term {
                 }
             },
             // If scrollback is implemented, this should clear it
-            ansi::ClearMode::Saved => return
+            ansi::ClearMode::Saved => {
+                self.grid.clear_history();
+            }
         }
     }
 
@@ -2006,9 +2008,9 @@ mod tests {
     use super::{Cell, Term, SizeInfo};
     use term::cell;
 
-    use grid::Grid;
+    use grid::{Grid, Scroll};
     use index::{Point, Line, Column};
-    use ansi::{Handler, CharsetIndex, StandardCharset};
+    use ansi::{self, Handler, CharsetIndex, StandardCharset};
     use selection::Selection;
     use std::mem;
     use input::FONT_SIZE_STEP;
@@ -2182,6 +2184,31 @@ mod tests {
 
         let expected_font_size: Size = config.font().size();
         assert_eq!(term.font_size, expected_font_size);
+    }
+
+    #[test]
+    fn clear_saved_lines() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+        };
+        let config: Config = Default::default();
+        let mut term: Term = Term::new(&config, size);
+
+        // Add one line of scrollback
+        term.grid.scroll_up(&(Line(0)..Line(1)), Line(1), &Cell::default());
+
+        // Clear the history
+        term.clear_screen(ansi::ClearMode::Saved);
+
+        // Make sure that scrolling does not change the grid
+        let mut scrolled_grid = term.grid.clone();
+        scrolled_grid.scroll_display(Scroll::Top);
+        assert_eq!(term.grid, scrolled_grid);
     }
 }
 
