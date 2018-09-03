@@ -14,7 +14,7 @@
 
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
-use std::sync::{mpsc, Arc};
+use std::sync::mpsc;
 
 use parking_lot::{MutexGuard};
 
@@ -324,7 +324,7 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(&mut self, terminal: &Arc<FairMutex<Term>>, config: &Config) {
+    pub fn draw(&mut self, terminal: &FairMutex<Term>, config: &Config) {
         let terminal_locked = terminal.lock();
         let size_info = *terminal_locked.size_info();
         let visual_bell_intensity = terminal_locked.visual_bell.intensity();
