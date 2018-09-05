@@ -20,7 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Multiple key/mouse bindings for a single key will now all be executed instead of picking one and
   ignoring the rest
+- Improve text scrolling performance (affects applications like `yes`, not scrolling the history)
 
 ### Fixed
 - Clear the visible region when the RIS escape sequence (`echo -ne '\033c'`) is received
 - Prevent logger from crashing Alacritty when stdout/stderr is not available
+- Fix a crash when sending the IL escape sequence with a large number of lines
