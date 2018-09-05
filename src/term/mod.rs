@@ -1209,9 +1209,10 @@ impl Term {
     /// Text moves down; clear at bottom
     /// Expects origin to be in scroll range.
     #[inline]
-    fn scroll_down_relative(&mut self, origin: Line, lines: Line) {
+    fn scroll_down_relative(&mut self, origin: Line, mut lines: Line) {
         trace!("scroll_down_relative: origin={}, lines={}", origin, lines);
-        let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
+        lines = min(lines, self.scroll_region.end - self.scroll_region.start);
+        lines = min(lines, self.scroll_region.end - origin);
 
         // Scroll between origin and bottom
         self.grid.scroll_down(&(origin..self.scroll_region.end), lines, &self.cursor.template);
