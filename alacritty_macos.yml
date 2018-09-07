@@ -212,6 +212,7 @@ mouse:
 
 selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>"
+  semantic_detect_scheme: true
 
 dynamic_title: true
 

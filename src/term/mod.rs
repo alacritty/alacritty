@@ -18,6 +18,7 @@ use std::ptr;
 use std::cmp::{min, max};
 use std::io;
 use std::time::{Duration, Instant};
+use std::str;
 
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
@@ -42,13 +43,26 @@ impl selection::SemanticSearch for Term {
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
 
-        while let Some(cell) = iter.prev() {
-            if self.semantic_escape_chars.contains(cell.c) {
-                break;
-            }
+        let scheme_match = "//:"; // "://" reversed because search_left
+        let mut match_buf = String::from(" ".repeat(scheme_match.len()));
 
+        while let Some(cell) = iter.prev() {
             if iter.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
                 break; // cut off if on new line or hit escape char
+            }
+
+            if self.semantic_detect_scheme {
+                // We use a circular buffer to check if we've seen scheme_match
+                match_buf.drain(..1);
+                match_buf.push(cell.c);
+                if match_buf == scheme_match {
+                    // Bypass things that look like schemes
+                    continue;
+                }
+            }
+
+            if self.semantic_escape_chars.contains(cell.c) {
+                break;
             }
 
             point = iter.cur;
@@ -61,7 +75,26 @@ impl selection::SemanticSearch for Term {
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
 
+        let scheme_match = "://";
+        let mut match_buf = String::with_capacity(scheme_match.len());
+
         while let Some(cell) = iter.next() {
+            if self.semantic_detect_scheme {
+                // We use a lookahead to see if we're at scheme_match
+                match_buf.clear();
+                match_buf.push(cell.c);
+                match_buf.extend(
+                    self.grid
+                    .iter_from(iter.cur)
+                    .take(scheme_match.len() - 1)
+                    .map(|cell| cell.c),
+                    );
+                if match_buf == scheme_match {
+                    // Bypass things that look like schemes
+                    continue;
+                }
+            }
+
             if self.semantic_escape_chars.contains(cell.c) {
                 break;
             }
@@ -713,6 +746,7 @@ pub struct Term {
     cursor_save_alt: Cursor,
 
     semantic_escape_chars: String,
+    semantic_detect_scheme: bool,
 
     /// Colors used for rendering
     colors: color::List,
@@ -842,6 +876,7 @@ impl Term {
             color_modified: [false; color::COUNT],
             original_colors: color::List::from(config.colors()),
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
+            semantic_detect_scheme: true,
             cursor_style: None,
             default_cursor_style: config.cursor_style(),
             dynamic_title: config.dynamic_title(),
@@ -1970,21 +2005,27 @@ mod tests {
             padding_y: 0.0,
         };
         let mut term = Term::new(&Default::default(), size);
-        let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), &Cell::default());
+        let mut grid: Grid<Cell> = Grid::new(Line(4), Column(5), &Cell::default());
         for i in 0..5 {
-            for j in 0..2 {
+            for j in 0..4 {
                 grid[Line(j)][Column(i)].c = 'a';
             }
         }
-        grid[Line(0)][Column(0)].c = '"';
-        grid[Line(0)][Column(3)].c = '"';
-        grid[Line(1)][Column(2)].c = '"';
+        grid[Line(0)][Column(0)].c = ':';
+        grid[Line(0)][Column(3)].c = ':';
+        grid[Line(1)][Column(2)].c = ':';
         grid[Line(0)][Column(4)].flags.insert(cell::Flags::WRAPLINE);
 
-        let mut escape_chars = String::from("\"");
+        grid[Line(2)][Column(1)].c = ':';
+        grid[Line(2)][Column(2)].c = '/';
+        grid[Line(2)][Column(3)].c = '/';
+
+        let mut escape_chars = String::from(":");
+        let mut detect_scheme = true;
 
         mem::swap(&mut term.grid, &mut grid);
         mem::swap(&mut term.semantic_escape_chars, &mut escape_chars);
+        mem::swap(&mut term.semantic_detect_scheme, &mut detect_scheme);
 
         {
             let selection = Selection::semantic(Point { line: Line(0), col: Column(1) }, &term);
@@ -1999,6 +2040,16 @@ mod tests {
         {
             let selection = Selection::semantic(Point { line: Line(1), col: Column(1) }, &term);
             assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aaa");
+        }
+
+        {
+            let selection = Selection::semantic(Point { line: Line(3), col: Column(3) }, &term);
+            assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "aaaaa\n");
+        }
+
+        {
+            let selection = Selection::semantic(Point { line: Line(2), col: Column(0) }, &term);
+            assert_eq!(term.string_from_selection(&selection.to_span(&term).unwrap()), "a://a\n");
         }
     }
 
