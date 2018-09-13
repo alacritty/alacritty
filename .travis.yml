@@ -15,6 +15,10 @@ env:
   - CLIPPY="true"
   - CLIPPY=""
 
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -y gperf; fi
+
 install:
   - if [ -n "$CLIPPY" ]; then rustup component add clippy-preview; fi
 

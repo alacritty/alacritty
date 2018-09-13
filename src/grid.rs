@@ -23,7 +23,9 @@
 use std::borrow::ToOwned;
 use std::cmp::Ordering;
 use std::iter::IntoIterator;
-use std::ops::{Deref, DerefMut, Range, RangeTo, RangeFrom, RangeFull, Index, IndexMut};
+use std::ops::{
+    Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo, RangeToInclusive,
+};
 use std::slice::{self, Iter, IterMut};
 
 use index::{self, Point, Line, Column, IndexRange, RangeInclusive};
@@ -506,6 +508,22 @@ impl<T> IndexMut<RangeTo<index::Column>> for Row<T> {
     #[inline]
     fn index_mut(&mut self, index: RangeTo<index::Column>) -> &mut [T] {
         &mut self.0[..(index.end.0)]
+    }
+}
+
+impl<T> Index<RangeToInclusive<index::Column>> for Row<T> {
+    type Output = [T];
+
+    #[inline]
+    fn index(&self, index: RangeToInclusive<index::Column>) -> &[T] {
+        &self.0[..=(index.end.0)]
+    }
+}
+
+impl<T> IndexMut<RangeToInclusive<index::Column>> for Row<T> {
+    #[inline]
+    fn index_mut(&mut self, index: RangeToInclusive<index::Column>) -> &mut [T] {
+        &mut self.0[..=(index.end.0)]
     }
 }
 
