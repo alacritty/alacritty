@@ -15,6 +15,10 @@ env:
   - CLIPPY="true"
   - CLIPPY=""
 
+before_install:
+  - sudo apt-get update
+  - sudo apt-get install -y gperf
+
 install:
   - if [ -n "$CLIPPY" ]; then rustup component add clippy-preview; fi
 
