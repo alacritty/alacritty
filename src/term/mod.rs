@@ -1664,7 +1664,7 @@ impl ansi::Handler for Term {
             },
             ansi::LineClearMode::Left => {
                 let row = &mut self.grid[self.cursor.point.line];
-                for cell in &mut row[..(col + 1)] {
+                for cell in &mut row[..=col] {
                     cell.reset(&template);
                 }
             },
