@@ -2206,6 +2206,7 @@ mod tests {
             cell_height: 3.0,
             padding_x: 0.0,
             padding_y: 0.0,
+            dpr: 1.0
         };
         let config: Config = Default::default();
         let mut term: Term = Term::new(&config, size);
