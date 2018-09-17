@@ -45,9 +45,7 @@ finally go to [building](#building) and [configuration](#configuration).
 ### Arch Linux
 
 ```sh
-git clone https://aur.archlinux.org/alacritty-git.git
-cd alacritty-git
-makepkg -isr
+pacman -S alacritty
 ```
 
 ### Debian/Ubuntu
