@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- First click on unfocused Alacritty windows is no longer ignored on platforms other than macOS
+
 ## Version 0.2.0
 
 ### Added
