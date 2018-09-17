@@ -385,12 +385,6 @@ Just Works.
   It sounds like you deleted some key bindings from your config file. Please
   reference the default config file to restore them.
 
-- **_Why doesn't it support scrollback?_**
-
-  Alacritty's original purpose was to provide a better experience when using
-  [tmux] which already handled scrollback. The scope of this project has since
-  expanded, and [scrollback will eventually be added](https://github.com/jwilm/alacritty/issues/124).
-
 ## IRC
 
 Alacritty discussion can be found in `#alacritty` on freenode.
