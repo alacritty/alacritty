@@ -99,7 +99,7 @@ impl<'a> Iterator for Iter<'a> {
             None
         } else {
             let pattern = unsafe {
-                let ptr = *(*self.font_set.as_ptr()).fonts.offset(self.current as isize);
+                let ptr = *(*self.font_set.as_ptr()).fonts.add(self.current);
                 PatternRef::from_ptr(ptr)
             };
 

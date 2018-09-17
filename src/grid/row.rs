@@ -15,7 +15,7 @@
 //! Defines the Row type which makes up lines in the grid
 
 use std::ops::{Index, IndexMut};
-use std::ops::{Range, RangeTo, RangeFrom, RangeFull};
+use std::ops::{Range, RangeTo, RangeFrom, RangeFull, RangeToInclusive};
 use std::cmp::{max, min};
 use std::slice;
 
@@ -198,5 +198,22 @@ impl<T> IndexMut<RangeFull> for Row<T> {
     fn index_mut(&mut self, _: RangeFull) -> &mut [T] {
         self.occ = self.len();
         &mut self.inner[..]
+    }
+}
+
+impl<T> Index<RangeToInclusive<Column>> for Row<T> {
+    type Output = [T];
+
+    #[inline]
+    fn index(&self, index: RangeToInclusive<Column>) -> &[T] {
+        &self.inner[..=(index.end.0)]
+    }
+}
+
+impl<T> IndexMut<RangeToInclusive<Column>> for Row<T> {
+    #[inline]
+    fn index_mut(&mut self, index: RangeToInclusive<Column>) -> &mut [T] {
+        self.occ = max(self.occ, *index.end);
+        &mut self.inner[..=(index.end.0)]
     }
 }
