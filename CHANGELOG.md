@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Set the environment variable `COLORTERM="truecolor"` to advertise 24-bit color support
+
 ### Changed
 
 - First click on unfocused Alacritty windows is no longer ignored on platforms other than macOS
