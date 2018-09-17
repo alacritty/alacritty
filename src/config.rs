@@ -30,6 +30,8 @@ use ansi::CursorStyle;
 
 use util::fmt::Yellow;
 
+const MAX_SCROLLBACK_LINES: u32 = 100_000;
+
 /// Function that returns true for serde default
 fn true_bool() -> bool {
     true
@@ -511,7 +513,18 @@ fn deserialize_scrolling_history<'a, D>(deserializer: D) -> ::std::result::Resul
     where D: de::Deserializer<'a>
 {
     match u32::deserialize(deserializer) {
-        Ok(lines) => Ok(lines),
+        Ok(lines) => {
+            if lines > MAX_SCROLLBACK_LINES {
+                eprintln!(
+                    "problem with config: scrollback size is {}, but expected a maximum of {}; \
+                     Using {1} instead",
+                    lines, MAX_SCROLLBACK_LINES,
+                );
+                Ok(MAX_SCROLLBACK_LINES)
+            } else {
+                Ok(lines)
+            }
+        },
         Err(err) => {
             eprintln!("problem with config: {}; Using default value", err);
             Ok(default_scrolling_history())
