@@ -39,7 +39,6 @@ built from source.
 Some operating systems already provide binaries for Alacritty, for everyone else there are
 instructions to compile Alacritty from source.
 
-
 For the manual installation, please first read the [prerequisites](#prerequisites) section,
 then find the instructions for your OS, and finally go through the [building](#building)
 and [configuration](#configuration) steps.
