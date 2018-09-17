@@ -28,13 +28,13 @@ pub enum Side {
 
 /// Index in the grid using row, column notation
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
-pub struct Point {
-    pub line: Line,
+pub struct Point<L=Line> {
+    pub line: L,
     pub col: Column,
 }
 
-impl Point {
-    pub fn new(line: Line, col: Column) -> Point {
+impl<L> Point<L> {
+    pub fn new(line: L, col: Column) -> Point<L> {
         Point { line, col }
     }
 }

@@ -28,6 +28,7 @@ use copypasta::{Clipboard, Load, Buffer};
 use glutin::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState};
 
 use config;
+use grid::Scroll;
 use event::{ClickState, Mouse};
 use index::{Line, Column, Side, Point};
 use term::SizeInfo;
@@ -46,6 +47,7 @@ pub struct Processor<'a, A: 'a> {
     pub key_bindings: &'a [KeyBinding],
     pub mouse_bindings: &'a [MouseBinding],
     pub mouse_config: &'a config::Mouse,
+    pub scrolling_config: &'a config::Scrolling,
     pub ctx: A,
 }
 
@@ -66,6 +68,8 @@ pub trait ActionContext {
     fn last_modifiers(&mut self) -> &mut ModifiersState;
     fn change_font_size(&mut self, delta: f32);
     fn reset_font_size(&mut self);
+    fn scroll(&mut self, scroll: Scroll);
+    fn clear_history(&mut self);
     fn hide_window(&mut self);
 }
 
@@ -168,6 +172,21 @@ pub enum Action {
     /// Reset font size to the config value
     ResetFontSize,
 
+    /// Scroll exactly one page up
+    ScrollPageUp,
+
+    /// Scroll exactly one page down
+    ScrollPageDown,
+
+    /// Scroll all the way to the top
+    ScrollToTop,
+
+    /// Scroll all the way to the bottom
+    ScrollToBottom,
+
+    /// Clear the display buffer(s) to remove history
+    ClearHistory,
+
     /// Run given command
     Command(String, Vec<String>),
 
@@ -183,6 +202,7 @@ impl Action {
     fn execute<A: ActionContext>(&self, ctx: &mut A) {
         match *self {
             Action::Esc(ref s) => {
+                ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
             },
             Action::Copy => {
@@ -243,7 +263,22 @@ impl Action {
             }
             Action::ResetFontSize => {
                ctx.reset_font_size();
-            }
+            },
+            Action::ScrollPageUp => {
+                ctx.scroll(Scroll::PageUp);
+            },
+            Action::ScrollPageDown => {
+                ctx.scroll(Scroll::PageDown);
+            },
+            Action::ScrollToTop => {
+                ctx.scroll(Scroll::Top);
+            },
+            Action::ScrollToBottom => {
+                ctx.scroll(Scroll::Bottom);
+            },
+            Action::ClearHistory => {
+                ctx.clear_history();
+            },
         }
     }
 
@@ -272,52 +307,54 @@ impl From<&'static str> for Action {
 
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     #[inline]
-    pub fn mouse_moved(&mut self, x: u32, y: u32, modifiers: ModifiersState) {
+    pub fn mouse_moved(&mut self, x: usize, y: usize, modifiers: ModifiersState) {
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
 
         let size_info = self.ctx.size_info();
-        if let Some(point) = size_info.pixels_to_coords(x as usize, y as usize) {
-            let prev_line = mem::replace(&mut self.ctx.mouse_mut().line, point.line);
-            let prev_col = mem::replace(&mut self.ctx.mouse_mut().column, point.col);
+        let point = size_info.pixels_to_coords(x, y);
 
-            let cell_x = (x as usize - size_info.padding_x as usize) % size_info.cell_width as usize;
-            let half_cell_width = (size_info.cell_width / 2.0) as usize;
+        let prev_line = mem::replace(&mut self.ctx.mouse_mut().line, point.line);
+        let prev_col = mem::replace(&mut self.ctx.mouse_mut().column, point.col);
 
-            let cell_side = if cell_x > half_cell_width {
-                Side::Right
-            } else {
-                Side::Left
-            };
-            self.ctx.mouse_mut().cell_side = cell_side;
+        let cell_x = x.saturating_sub(size_info.padding_x as usize) % size_info.cell_width as usize;
+        let half_cell_width = (size_info.cell_width / 2.0) as usize;
 
-            let motion_mode = TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG;
-            if self.ctx.mouse_mut().left_button_state == ElementState::Pressed
-                && (
-                    modifiers.shift
-                    || !self.ctx.terminal_mode().intersects(TermMode::MOUSE_REPORT_CLICK | motion_mode)
-                )
-            {
-                self.ctx.update_selection(Point {
-                    line: point.line,
-                    col: point.col
-                }, cell_side);
-            } else if self.ctx.terminal_mode().intersects(motion_mode)
-                // Only report motion when changing cells
-                && (
-                    prev_line != self.ctx.mouse_mut().line
-                    || prev_col != self.ctx.mouse_mut().column
-                )
-            {
-                if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
-                    self.mouse_report(32, ElementState::Pressed, modifiers);
-                } else if self.ctx.mouse_mut().middle_button_state == ElementState::Pressed {
-                    self.mouse_report(33, ElementState::Pressed, modifiers);
-                } else if self.ctx.mouse_mut().right_button_state == ElementState::Pressed {
-                    self.mouse_report(34, ElementState::Pressed, modifiers);
-                } else if self.ctx.terminal_mode().contains(TermMode::MOUSE_MOTION) {
-                    self.mouse_report(35, ElementState::Pressed, modifiers);
-                }
+        let additional_padding = (size_info.width - size_info.padding_x * 2.) % size_info.cell_width;
+        let end_of_grid = size_info.width - size_info.padding_x - additional_padding;
+        let cell_side = if cell_x > half_cell_width
+            // Edge case when mouse leaves the window
+            || x as f32 >= end_of_grid
+        {
+            Side::Right
+        } else {
+            Side::Left
+        };
+        self.ctx.mouse_mut().cell_side = cell_side;
+
+        let motion_mode = TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG;
+        let report_mode = TermMode::MOUSE_REPORT_CLICK | motion_mode;
+
+        if self.ctx.mouse_mut().left_button_state == ElementState::Pressed &&
+            ( modifiers.shift || !self.ctx.terminal_mode().intersects(report_mode))
+        {
+            self.ctx.update_selection(Point {
+                line: point.line,
+                col: point.col
+            }, cell_side);
+        } else if self.ctx.terminal_mode().intersects(motion_mode)
+            // Only report motion when changing cells
+            && (prev_line != self.ctx.mouse_mut().line || prev_col != self.ctx.mouse_mut().column)
+            && size_info.contains_point(x, y)
+        {
+            if self.ctx.mouse_mut().left_button_state == ElementState::Pressed {
+                self.mouse_report(32, ElementState::Pressed, modifiers);
+            } else if self.ctx.mouse_mut().middle_button_state == ElementState::Pressed {
+                self.mouse_report(33, ElementState::Pressed, modifiers);
+            } else if self.ctx.mouse_mut().right_button_state == ElementState::Pressed {
+                self.mouse_report(34, ElementState::Pressed, modifiers);
+            } else if self.ctx.terminal_mode().contains(TermMode::MOUSE_MOTION) {
+                self.mouse_report(35, ElementState::Pressed, modifiers);
             }
         }
     }
@@ -436,11 +473,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase, modifiers: ModifiersState) {
-        let mouse_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
-        if !self.ctx.terminal_mode().intersects(mouse_modes | TermMode::ALT_SCREEN) {
-            return;
-        }
-
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let to_scroll = self.ctx.mouse_mut().lines_scrolled + lines;
@@ -450,8 +482,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     65
                 };
 
+                let scrolling_multiplier = self.scrolling_config.multiplier;
                 for _ in 0..(to_scroll.abs() as usize) {
-                    self.scroll_terminal(code, modifiers)
+                    self.scroll_terminal(code, modifiers, scrolling_multiplier)
                 }
 
                 self.ctx.mouse_mut().lines_scrolled = to_scroll % 1.0;
@@ -476,7 +509,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                                 65
                             };
 
-                            self.scroll_terminal(code, modifiers)
+                            self.scroll_terminal(code, modifiers, 1)
                         }
                     },
                     _ => (),
@@ -485,23 +518,35 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    fn scroll_terminal(&mut self, code: u8, modifiers: ModifiersState) {
+    fn scroll_terminal(&mut self, code: u8, modifiers: ModifiersState, scroll_multiplier: u8) {
         debug_assert!(code == 64 || code == 65);
 
-        let faux_scrollback_lines = self.mouse_config.faux_scrollback_lines;
         let mouse_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
+
+        // Make sure the new and deprecated setting are both allowed
+        let faux_scrolling_lines = self.mouse_config
+            .faux_scrollback_lines
+            .unwrap_or(self.scrolling_config.faux_multiplier as usize);
+
         if self.ctx.terminal_mode().intersects(mouse_modes) {
             self.mouse_report(code, ElementState::Pressed, modifiers);
-        } else if faux_scrollback_lines > 0 {
+        } else if self.ctx.terminal_mode().contains(TermMode::ALT_SCREEN)
+            && faux_scrolling_lines > 0 && !modifiers.shift
+        {
             // Faux scrolling
             let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
-            let mut content = Vec::with_capacity(faux_scrollback_lines * 3);
-            for _ in 0..faux_scrollback_lines {
+            let mut content = Vec::with_capacity(faux_scrolling_lines as usize * 3);
+            for _ in 0..faux_scrolling_lines {
                 content.push(0x1b);
                 content.push(b'O');
                 content.push(cmd);
             }
             self.ctx.write_to_pty(content);
+        } else {
+            for _ in 0..scroll_multiplier {
+                // Transform the reported button codes 64 and 65 into 1 and -1 lines to scroll
+                self.ctx.scroll(Scroll::Lines(-(code as isize * 2 - 129)));
+            }
         }
     }
 
@@ -570,6 +615,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// Process a received character
     pub fn received_char(&mut self, c: char) {
         if !*self.ctx.suppress_chars() {
+            self.ctx.scroll(Scroll::Bottom);
             self.ctx.clear_selection();
 
             let utf8_len = c.len_utf8();
@@ -596,15 +642,16 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     ///
     /// Returns true if an action is executed.
     fn process_key_bindings(&mut self, mods: ModifiersState, key: VirtualKeyCode) -> bool {
+        let mut has_binding = false;
         for binding in self.key_bindings {
             if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &key) {
                 // binding was triggered; run the action
                 binding.execute(&mut self.ctx);
-                return true;
+                has_binding = true;
             }
         }
 
-        false
+        has_binding
     }
 
     /// Attempts to find a binding and execute its action
@@ -614,15 +661,16 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     ///
     /// Returns true if an action is executed.
     fn process_mouse_bindings(&mut self, mods: ModifiersState, button: MouseButton) -> bool {
+        let mut has_binding = false;
         for binding in self.mouse_bindings {
             if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &button) {
                 // binding was triggered; run the action
                 binding.execute(&mut self.ctx);
-                return true;
+                has_binding = true;
             }
         }
 
-        false
+        has_binding
     }
 }
 
@@ -638,6 +686,7 @@ mod tests {
     use config::{self, Config, ClickHandler};
     use index::{Point, Side};
     use selection::Selection;
+    use grid::Scroll;
 
     use super::{Action, Binding, Processor};
 
@@ -692,6 +741,10 @@ mod tests {
             self.last_action = MultiClick::TripleClick;
         }
 
+        fn scroll(&mut self, scroll: Scroll) {
+            self.terminal.scroll_display(scroll);
+        }
+
         fn mouse_coords(&self) -> Option<Point> {
             self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
         }
@@ -712,6 +765,8 @@ mod tests {
         fn change_font_size(&mut self, _delta: f32) {
         }
         fn reset_font_size(&mut self) {
+        }
+        fn clear_history(&mut self) {
         }
         fn hide_window(&mut self) {
         }
@@ -766,8 +821,9 @@ mod tests {
                         triple_click: ClickHandler {
                             threshold: Duration::from_millis(1000),
                         },
-                        faux_scrollback_lines: 1,
+                        faux_scrollback_lines: None,
                     },
+                    scrolling_config: &config::Scrolling::default(),
                     key_bindings: &config.key_bindings()[..],
                     mouse_bindings: &config.mouse_bindings()[..],
                 };

@@ -83,26 +83,9 @@ pub struct Mouse {
     #[serde(default, deserialize_with = "failure_default")]
     pub triple_click: ClickHandler,
 
-    /// up/down arrows sent when scrolling in alt screen buffer
-    #[serde(deserialize_with = "deserialize_faux_scrollback_lines")]
-    #[serde(default="default_faux_scrollback_lines")]
-    pub faux_scrollback_lines: usize,
-}
-
-fn default_faux_scrollback_lines() -> usize {
-    1
-}
-
-fn deserialize_faux_scrollback_lines<'a, D>(deserializer: D) -> ::std::result::Result<usize, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match usize::deserialize(deserializer) {
-        Ok(lines) => Ok(lines),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(default_faux_scrollback_lines())
-        },
-    }
+    // TODO: DEPRECATED
+    #[serde(default)]
+    pub faux_scrollback_lines: Option<usize>,
 }
 
 impl Default for Mouse {
@@ -114,7 +97,7 @@ impl Default for Mouse {
             triple_click: ClickHandler {
                 threshold: Duration::from_millis(300),
             },
-            faux_scrollback_lines: 1,
+            faux_scrollback_lines: None,
         }
     }
 }
@@ -401,6 +384,10 @@ pub struct Config {
     /// Number of spaces in one tab
     #[serde(default="default_tabspaces", deserialize_with = "deserialize_tabspaces")]
     tabspaces: usize,
+
+    /// How much scrolling history to keep
+    #[serde(default, deserialize_with="failure_default")]
+    scrolling: Scrolling,
 }
 
 fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T>, D::Error>
@@ -484,6 +471,66 @@ impl Default for Config {
     }
 }
 
+/// Struct for scrolling related settings
+#[derive(Copy, Clone, Debug, Deserialize)]
+pub struct Scrolling {
+    #[serde(deserialize_with="deserialize_scrolling_history")]
+    #[serde(default="default_scrolling_history")]
+    pub history: u32,
+    #[serde(deserialize_with="deserialize_scrolling_multiplier")]
+    #[serde(default="default_scrolling_multiplier")]
+    pub multiplier: u8,
+    #[serde(deserialize_with="deserialize_scrolling_multiplier")]
+    #[serde(default="default_scrolling_multiplier")]
+    pub faux_multiplier: u8,
+    #[serde(default, deserialize_with="failure_default")]
+    pub auto_scroll: bool,
+}
+
+fn default_scrolling_history() -> u32 {
+    10_000
+}
+
+// Default for normal and faux scrolling
+fn default_scrolling_multiplier() -> u8 {
+    3
+}
+
+impl Default for Scrolling {
+    fn default() -> Self {
+        Self {
+            history: default_scrolling_history(),
+            multiplier: default_scrolling_multiplier(),
+            faux_multiplier: default_scrolling_multiplier(),
+            auto_scroll: false,
+        }
+    }
+}
+
+fn deserialize_scrolling_history<'a, D>(deserializer: D) -> ::std::result::Result<u32, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match u32::deserialize(deserializer) {
+        Ok(lines) => Ok(lines),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(default_scrolling_history())
+        },
+    }
+}
+
+fn deserialize_scrolling_multiplier<'a, D>(deserializer: D) -> ::std::result::Result<u8, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match u8::deserialize(deserializer) {
+        Ok(lines) => Ok(lines),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(default_scrolling_multiplier())
+        },
+    }
+}
+
 /// Newtype for implementing deserialize on glutin Mods
 ///
 /// Our deserialize impl wouldn't be covered by a derive(Deserialize); see the
@@ -549,7 +596,9 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
             type Value = ActionWrapper;
 
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                f.write_str("Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, ResetFontSize, Hide, or Quit")
+                f.write_str("Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, \
+                            ResetFontSize, ScrollPageUp, ScrollPageDown, ScrollToTop, \
+                            ScrollToBottom, ClearHistory, Hide, or Quit")
             }
 
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<ActionWrapper, E>
@@ -562,6 +611,11 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "IncreaseFontSize" => Action::IncreaseFontSize,
                     "DecreaseFontSize" => Action::DecreaseFontSize,
                     "ResetFontSize" => Action::ResetFontSize,
+                    "ScrollPageUp" => Action::ScrollPageUp,
+                    "ScrollPageDown" => Action::ScrollPageDown,
+                    "ScrollToTop" => Action::ScrollToTop,
+                    "ScrollToBottom" => Action::ScrollToBottom,
+                    "ClearHistory" => Action::ClearHistory,
                     "Hide" => Action::Hide,
                     "Quit" => Action::Quit,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
@@ -1407,6 +1461,17 @@ impl Config {
         self.dynamic_title
     }
 
+    /// Scrolling settings
+    #[inline]
+    pub fn scrolling(&self) -> Scrolling {
+        self.scrolling
+    }
+
+    // Update the history size, used in ref tests
+    pub fn set_history(&mut self, history: u32) {
+        self.scrolling.history = history;
+    }
+
     pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
         let path = path.into();
         let raw = Config::read_file(path.as_path())?;
@@ -1446,6 +1511,11 @@ impl Config {
         if self.padding.is_some() {
             eprintln!("{}", fmt::Yellow("Config `padding` is deprecated. \
                                         Please use `window.padding` instead."));
+        }
+
+        if self.mouse.faux_scrollback_lines.is_some() {
+            println!("{}", fmt::Yellow("Config `mouse.faux_scrollback_lines` is deprecated. \
+                                        Please use `mouse.faux_scrolling_lines` instead."));
         }
     }
 }

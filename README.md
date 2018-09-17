@@ -30,8 +30,9 @@ built from source.
 
 ## Further information
 
-- [Announcing Alacritty, a GPU-Accelerated Terminal Emulator](http://blog.jwilm.io/announcing-alacritty/) January 6, 2017
+- [Announcing Alacritty, a GPU-Accelerated Terminal Emulator](http://jwilm.io/blog/announcing-alacritty/) January 6, 2017
 - [A short talk about Alacritty at the Rust Meetup January 2017](https://air.mozilla.org/rust-meetup-january-2017/) (starts at 57:00)
+- [Alacritty Lands Scrollback, Publishes Benchmarks](https://jwilm.io/blog/alacritty-lands-scrollback/) September 17, 2018
 
 ## Installation
 
@@ -384,12 +385,6 @@ Just Works.
 
   It sounds like you deleted some key bindings from your config file. Please
   reference the default config file to restore them.
-
-- **_Why doesn't it support scrollback?_**
-
-  Alacritty's original purpose was to provide a better experience when using
-  [tmux] which already handled scrollback. The scope of this project has since
-  expanded, and [scrollback will eventually be added](https://github.com/jwilm/alacritty/issues/124).
 
 ## IRC
 

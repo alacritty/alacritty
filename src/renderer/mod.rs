@@ -829,12 +829,13 @@ impl<'a> RenderApi<'a> {
         for cell in cells {
             // Get font key for cell
             // FIXME this is super inefficient.
-            let mut font_key = glyph_cache.font_key;
-            if cell.flags.contains(cell::Flags::BOLD) {
-                font_key = glyph_cache.bold_key;
+            let font_key = if cell.flags.contains(cell::Flags::BOLD) {
+                glyph_cache.bold_key
             } else if cell.flags.contains(cell::Flags::ITALIC) {
-                font_key = glyph_cache.italic_key;
-            }
+                glyph_cache.italic_key
+            } else {
+                glyph_cache.font_key
+            };
 
             let glyph_key = GlyphKey {
                 font_key,
@@ -1360,11 +1361,11 @@ impl Atlas {
     }
 
     /// Insert a RasterizedGlyph into the texture atlas
-    pub fn insert(&mut self,
-                  glyph: &RasterizedGlyph,
-                  active_tex: &mut u32)
-                  -> Result<Glyph, AtlasInsertError>
-    {
+    pub fn insert(
+        &mut self,
+        glyph: &RasterizedGlyph,
+        active_tex: &mut u32
+    ) -> Result<Glyph, AtlasInsertError> {
         if glyph.width > self.width || glyph.height > self.height {
             return Err(AtlasInsertError::GlyphTooLarge);
         }
@@ -1388,11 +1389,7 @@ impl Atlas {
     /// Internal function for use once atlas has been checked for space. GL
     /// errors could still occur at this point if we were checking for them;
     /// hence, the Result.
-    fn insert_inner(&mut self,
-                    glyph: &RasterizedGlyph,
-                    active_tex: &mut u32)
-                    -> Glyph
-    {
+    fn insert_inner(&mut self, glyph: &RasterizedGlyph, active_tex: &mut u32) -> Glyph {
         let offset_y = self.row_baseline;
         let offset_x = self.row_extent;
         let height = glyph.height as i32;

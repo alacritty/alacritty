@@ -10,6 +10,8 @@ use parking_lot::MutexGuard;
 use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store};
 
+use ansi::{Handler, ClearMode};
+use grid::Scroll;
 use config::{self, Config};
 use cli::Options;
 use display::OnResize;
@@ -34,10 +36,8 @@ pub trait Notify {
 pub struct ActionContext<'a, N: 'a> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term,
-    pub selection: &'a mut Option<Selection>,
     pub size_info: &'a mut SizeInfo,
     pub mouse: &'a mut Mouse,
-    pub selection_modified: bool,
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
     pub last_modifiers: &'a mut ModifiersState,
@@ -57,51 +57,61 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         *self.size_info
     }
 
+    fn scroll(&mut self, scroll: Scroll) {
+        self.terminal.scroll_display(scroll);
+    }
+
+    fn clear_history(&mut self) {
+        self.terminal.clear_screen(ClearMode::Saved);
+    }
+
     fn copy_selection(&self, buffer: ::copypasta::Buffer) {
-        if let Some(ref selection) = *self.selection {
-            if let Some(ref span) = selection.to_span(self.terminal) {
-                let buf = self.terminal.string_from_selection(&span);
-                if !buf.is_empty() {
-                    Clipboard::new()
-                        .and_then(|mut clipboard| clipboard.store(buf, buffer))
-                        .unwrap_or_else(|err| {
-                            warn!("Error storing selection to clipboard. {}", Red(err));
-                        });
-                }
+        if let Some(selected) = self.terminal.selection_to_string() {
+            if !selected.is_empty() {
+                Clipboard::new()
+                    .and_then(|mut clipboard| clipboard.store(selected, buffer))
+                    .unwrap_or_else(|err| {
+                        warn!("Error storing selection to clipboard. {}", Red(err));
+                    });
             }
         }
     }
 
     fn clear_selection(&mut self) {
-        *self.selection = None;
-        self.selection_modified = true;
+        *self.terminal.selection_mut() = None;
+        self.terminal.dirty = true;
     }
 
     fn update_selection(&mut self, point: Point, side: Side) {
-        self.selection_modified = true;
+        self.terminal.dirty = true;
+        let point = self.terminal.visible_to_buffer(point);
+
         // Update selection if one exists
-        if let Some(ref mut selection) = *self.selection {
+        if let Some(ref mut selection) = *self.terminal.selection_mut() {
             selection.update(point, side);
             return;
         }
 
         // Otherwise, start a regular selection
-        self.simple_selection(point, side);
+        *self.terminal.selection_mut() = Some(Selection::simple(point, side));
     }
 
     fn simple_selection(&mut self, point: Point, side: Side) {
-        *self.selection = Some(Selection::simple(point, side));
-        self.selection_modified = true;
+        let point = self.terminal.visible_to_buffer(point);
+        *self.terminal.selection_mut() = Some(Selection::simple(point, side));
+        self.terminal.dirty = true;
     }
 
     fn semantic_selection(&mut self, point: Point) {
-        *self.selection = Some(Selection::semantic(point, self.terminal));
-        self.selection_modified = true;
+        let point = self.terminal.visible_to_buffer(point);
+        *self.terminal.selection_mut() = Some(Selection::semantic(point));
+        self.terminal.dirty = true;
     }
 
     fn line_selection(&mut self, point: Point) {
-        *self.selection = Some(Selection::lines(point));
-        self.selection_modified = true;
+        let point = self.terminal.visible_to_buffer(point);
+        *self.terminal.selection_mut() = Some(Selection::lines(point));
+        self.terminal.dirty = true;
     }
 
     fn mouse_coords(&self) -> Option<Point> {
@@ -173,8 +183,8 @@ pub enum ClickState {
 
 /// State of the mouse
 pub struct Mouse {
-    pub x: u32,
-    pub y: u32,
+    pub x: usize,
+    pub y: usize,
     pub left_button_state: ElementState,
     pub middle_button_state: ElementState,
     pub right_button_state: ElementState,
@@ -214,6 +224,7 @@ pub struct Processor<N> {
     key_bindings: Vec<KeyBinding>,
     mouse_bindings: Vec<MouseBinding>,
     mouse_config: config::Mouse,
+    scrolling_config: config::Scrolling,
     print_events: bool,
     wait_for_event: bool,
     notifier: N,
@@ -221,7 +232,6 @@ pub struct Processor<N> {
     resize_tx: mpsc::Sender<PhysicalSize>,
     ref_test: bool,
     size_info: SizeInfo,
-    pub selection: Option<Selection>,
     hide_cursor_when_typing: bool,
     hide_cursor: bool,
     received_count: usize,
@@ -237,7 +247,6 @@ pub struct Processor<N> {
 impl<N> OnResize for Processor<N> {
     fn on_resize(&mut self, size: &SizeInfo) {
         self.size_info = size.to_owned();
-        self.selection = None;
     }
 }
 
@@ -258,13 +267,13 @@ impl<N: Notify> Processor<N> {
             key_bindings: config.key_bindings().to_vec(),
             mouse_bindings: config.mouse_bindings().to_vec(),
             mouse_config: config.mouse().to_owned(),
+            scrolling_config: config.scrolling(),
             print_events: options.print_events,
             wait_for_event: true,
             notifier,
             resize_tx,
             ref_test,
             mouse: Default::default(),
-            selection: None,
             size_info,
             hide_cursor_when_typing: config.hide_cursor_when_typing(),
             hide_cursor: false,
@@ -296,7 +305,8 @@ impl<N: Notify> Processor<N> {
                     CloseRequested => {
                         if ref_test {
                             // dump grid state
-                            let grid = processor.ctx.terminal.grid();
+                            let mut grid = processor.ctx.terminal.grid().clone();
+                            grid.truncate();
 
                             let serialized_grid = json::to_string(&grid)
                                 .expect("serialize grid");
@@ -349,11 +359,7 @@ impl<N: Notify> Processor<N> {
                         let y: i32 = limit(y, 0, processor.ctx.size_info.height as i32);
 
                         *hide_cursor = false;
-                        processor.mouse_moved(x as u32, y as u32, modifiers);
-
-                        if !processor.ctx.selection.is_none() {
-                            processor.ctx.terminal.dirty = true;
-                        }
+                        processor.mouse_moved(x as usize, y as usize, modifiers);
                     },
                     MouseWheel { delta, phase, modifiers, .. } => {
                         *hide_cursor = false;
@@ -433,10 +439,8 @@ impl<N: Notify> Processor<N> {
             context = ActionContext {
                 terminal: &mut terminal,
                 notifier: &mut self.notifier,
-                selection: &mut self.selection,
                 mouse: &mut self.mouse,
                 size_info: &mut self.size_info,
-                selection_modified: false,
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
                 last_modifiers: &mut self.last_modifiers,
@@ -445,6 +449,7 @@ impl<N: Notify> Processor<N> {
 
             processor = input::Processor {
                 ctx: context,
+                scrolling_config: &self.scrolling_config,
                 mouse_config: &self.mouse_config,
                 key_bindings: &self.key_bindings[..],
                 mouse_bindings: &self.mouse_bindings[..],
@@ -482,10 +487,10 @@ impl<N: Notify> Processor<N> {
             }
 
             window.is_focused = window_is_focused;
+        }
 
-            if processor.ctx.selection_modified {
-                processor.ctx.terminal.dirty = true;
-            }
+        if self.window_changes.hide {
+            window.hide();
         }
 
         if self.window_changes.hide {
