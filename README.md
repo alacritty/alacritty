@@ -295,10 +295,19 @@ To get automatic completions for alacritty's flags and arguments you can install
 
 ### Zsh
 
-To install the completions for zsh, run
+To install the completions for zsh, you can place the `alacritty-completions.zsh` as `_alacritty` in any directory referenced by `$fpath`.
 
+If you do not already have such a directory registered through your `~/.zshrc`, you can add one like this:
+
+```sh
+mkdir -p ${ZDOTDIR:-~}/.zsh_functions
+echo 'fpath+=${ZDOTDIR:-~}/.zsh_functions' >> ${ZDOTDIR:-~}/.zshrc
 ```
-sudo cp alacritty-completions.zsh /usr/share/zsh/functions/Completion/X/_alacritty
+
+Then copy the completion file to this directory:
+
+```sh
+cp alacritty-completions.zsh ${ZDOTDIR:-~}/.zsh_functions/_alacritty
 ```
 
 ### Bash
