@@ -67,7 +67,7 @@ pub fn set_locale_environment() {
         // try setting `locale_id`
         let modified = setlocale(LC_CTYPE, locale_ptr);
         let result = if modified.is_null() {
-            String::from("")
+            String::new()
         } else {
             locale_id
         };

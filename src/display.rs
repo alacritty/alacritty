@@ -24,8 +24,7 @@ use config::Config;
 use font::{self, Rasterize};
 use meter::Meter;
 use renderer::{self, GlyphCache, QuadRenderer};
-use selection::Selection;
-use term::{SizeInfo, Term};
+use term::{Term, SizeInfo};
 
 use window::{self, Pixels, SetInnerSize, Size, Window};
 
@@ -325,12 +324,7 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(
-        &mut self,
-        mut terminal: MutexGuard<Term>,
-        config: &Config,
-        selection: Option<&Selection>,
-    ) {
+    pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config) {
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
 
@@ -378,7 +372,7 @@ impl Display {
 
                     // Draw the grid
                     api.render_cells(
-                        terminal.renderable_cells(config, selection, window_focused),
+                        terminal.renderable_cells(config, window_focused),
                         glyph_cache,
                     );
                 });
