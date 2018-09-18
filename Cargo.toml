@@ -67,6 +67,9 @@ gl_generator = "0.9"
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "1.1.4"
+reqwest = "0.8"
+tempdir = "0.3"
+zip = "0.4"
 
 [profile.release]
 lto = true
