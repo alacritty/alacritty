@@ -8,11 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Implement the `hidden` escape sequence (`echo -e "\e[8mTEST"`)
 - Add support for macOS systemwide dark mode
 - Set the environment variable `COLORTERM="truecolor"` to advertise 24-bit color support
 
 ### Changed
 
+- Inverse/Selection color is now modelled after XTerm/VTE instead of URxvt to improve consistency
 - First click on unfocused Alacritty windows is no longer ignored on platforms other than macOS
 
 ## Version 0.2.0
