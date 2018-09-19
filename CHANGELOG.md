@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inverse/Selection color is now modelled after XTerm/VTE instead of URxvt to improve consistency
 - First click on unfocused Alacritty windows is no longer ignored on platforms other than macOS
 
+### Fixed
+
+- Windows started as unfocused now show the hollow cursor if the setting is enabled
+
 ## Version 0.2.0
 
 ### Added

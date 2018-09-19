@@ -249,7 +249,7 @@ impl Window {
             event_loop,
             window,
             cursor_visible: true,
-            is_focused: true,
+            is_focused: false,
         };
 
         window.run_os_extensions();
