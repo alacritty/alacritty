@@ -14,11 +14,16 @@ env:
   TERM: xterm-256color
 
 window:
-  # Window dimensions in character columns and lines
+  # Initial window dimensions in character columns and lines
+  # Will only be effective if fullscreen is disabled
   # (changes require restart)
   dimensions:
     columns: 80
     lines: 24
+
+  # Start in fullscreen mode on the primary monitor
+  # (changes require restart)
+  fullscreen: false
 
   # Adds this many blank pixels of padding around the window
   # Units are physical pixels; this is not DPI aware.

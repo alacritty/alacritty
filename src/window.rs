@@ -221,13 +221,18 @@ impl Window {
         window_config: &WindowConfig,
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
-
+        let fullscreen_monitor = if window_config.fullscreen() {
+            Some(event_loop.get_primary_monitor())
+        } else {
+            None
+        };
         let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
         let class = options.class.as_ref().map_or(DEFAULT_CLASS, |c| c);
         let window_builder = WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
+            .with_fullscreen(fullscreen_monitor)
             .with_decorations(window_config.decorations());
         let window_builder = Window::platform_builder_ext(window_builder, &class);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
