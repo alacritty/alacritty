@@ -16,7 +16,7 @@ servo-fontconfig = { git = "https://github.com/jwilm/rust-fontconfig", branch = 
 freetype-rs = "0.13"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-core-foundation = "0.5"
-core-text = "9.1"
-core-graphics = "0.13"
-core-foundation-sys = "0.5"
+core-foundation = "0.6"
+core-text = "13"
+core-graphics = "0.17"
+core-foundation-sys = "0.6"
