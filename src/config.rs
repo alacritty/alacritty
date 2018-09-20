@@ -280,10 +280,12 @@ impl<'de> Deserialize<'de> for Decorations {
                 where E: de::Error
             {
                 if value {
-                    eprintln!("deprecated decorations boolean value, use one of default|transparent|buttonless|none instead; Falling back to \"full\"");
+                    eprintln!("deprecated decorations boolean value, use one of \
+                              default|transparent|buttonless|none instead; Falling back to \"full\"");
                     Ok(Decorations::Full)
                 } else {
-                    eprintln!("deprecated decorations boolean value, use one of default|transparent|buttonless|none instead; Falling back to \"none\"");
+                    eprintln!("deprecated decorations boolean value, use one of \
+                              default|transparent|buttonless|none instead; Falling back to \"none\"");
                     Ok(Decorations::None)
                 }
             }
@@ -308,7 +310,7 @@ impl<'de> Deserialize<'de> for Decorations {
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<Decorations, E>
                 where E: de::Error
             {
-                match value {
+                match value.to_lowercase().as_str() {
                     "none" => Ok(Decorations::None),
                     "full" => Ok(Decorations::Full),
                     "transparent" => {
@@ -342,6 +344,7 @@ pub struct WindowConfig {
     padding: Delta<u8>,
 
     /// Draw the window with title bar / borders
+    #[serde(default)]
     decorations: Decorations,
 }
 
