@@ -25,12 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix build failure on 32-bit systems
 - Windows started as unfocused now show the hollow cursor if the setting is enabled
-- Bracketed paste mode now filters escape sequences beginning with \x1b
 
 ### Deprecated
 
 - The config option `window.decorations` should now use `full` or `none` instead
   of `true` or `false`, respectively.
+
+### Security
+
+- Bracketed paste mode now filters escape sequences beginning with \x1b
 
 ## Version 0.2.0
 
