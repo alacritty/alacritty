@@ -223,7 +223,7 @@ impl<T> Storage<T> {
     /// instructions. This implementation achieves the swap in only 8 movups
     /// instructions.
     pub fn swap(&mut self, a: usize, b: usize) {
-        assert_eq_size!(Row<T>, [u32; 8]);
+        assert_eq_size!(Row<T>, [usize; 4]);
 
         let a = self.compute_index(a);
         let b = self.compute_index(b);
@@ -232,13 +232,13 @@ impl<T> Storage<T> {
             // Cast to a qword array to opt out of copy restrictions and avoid
             // drop hazards. Byte array is no good here since for whatever
             // reason LLVM won't optimized it.
-            let a_ptr = self.inner.as_mut_ptr().add(a) as *mut u64;
-            let b_ptr = self.inner.as_mut_ptr().add(b) as *mut u64;
+            let a_ptr = self.inner.as_mut_ptr().add(a) as *mut usize;
+            let b_ptr = self.inner.as_mut_ptr().add(b) as *mut usize;
 
             // Copy 1 qword at a time
             //
             // The optimizer unrolls this loop and vectorizes it.
-            let mut tmp: u64;
+            let mut tmp: usize;
             for i in 0..4 {
                 tmp = *a_ptr.offset(i);
                 *a_ptr.offset(i) = *b_ptr.offset(i);
