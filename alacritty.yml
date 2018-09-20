@@ -314,6 +314,28 @@ live_config_reload: true
 #   To find escape codes for bindings like `PageUp` ("\x1b[5~"), you can run
 #   the command `showkey -a` outside of tmux.
 #
+# Values for `action`:
+#   - Paste
+#   - PasteSelection
+#   - Copy
+#   - IncreaseFontSize
+#   - DecreaseFontSize
+#   - ResetFontSize
+#   - ScrollPageUp
+#   - ScrollPageDown
+#   - ScrollToTop
+#   - ScrollToBottom
+#   - ClearHistory
+#   - Hide
+#   - Quit
+#
+# Values for `command`:
+#   The `command` field must be a map containing a `program` string and
+#   an `args` array of command line parameter strings.
+#
+#   Example:
+#       `command: { program: "alacritty", args: ["-e", "vttest"] }`
+#
 # Values for `mode`:
 #   - ~AppCursor
 #   - AppCursor
