@@ -208,6 +208,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     }
 
     loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to event loop");
+    display.hide();
 
     // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();

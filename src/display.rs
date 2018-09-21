@@ -426,4 +426,8 @@ impl Display {
         let nspot_x = (px + col as f32 * cw) as i32;
         self.window().set_ime_spot(nspot_x, nspot_y);
     }
+
+    pub fn hide(&self) {
+        self.window.hide();
+    }
 }
