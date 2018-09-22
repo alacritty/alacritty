@@ -283,6 +283,16 @@ live_config_reload: true
 
 # Key bindings
 #
+# Key bindings are specified as a list of objects. Each binding will specify
+# a key and modifiers required to trigger it, terminal modes where the binding
+# is applicable, and what should be done when the key binding fires. It can
+# either send a byte sequnce to the running application (`chars`), execute
+# a predefined action (`action`) or fork and execute a specified command plus
+# arguments (`command`).
+#
+# Example:
+#   `- { key: V, mods: Command, action: Paste }`
+#
 # Available fields:
 #   - key
 #   - mods (optional)
