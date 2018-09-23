@@ -292,19 +292,19 @@ impl Display {
 
         // Font size/DPI factor modification detected
         if terminal.font_size != self.font_size || (dpr - self.size_info.dpr).abs() > f64::EPSILON {
+            if new_size == None {
+                // Force a resize to refresh things
+                new_size = Some(PhysicalSize::new(
+                    f64::from(self.size_info.width) / self.size_info.dpr * dpr,
+                    f64::from(self.size_info.height) / self.size_info.dpr * dpr,
+                ));
+            }
+
             self.font_size = terminal.font_size;
             self.size_info.dpr = dpr;
             self.size_info.padding_x = (f64::from(config.padding().x) * dpr).floor() as f32;
             self.size_info.padding_y = (f64::from(config.padding().y) * dpr).floor() as f32;
             self.update_glyph_cache(config);
-
-            if new_size == None {
-                // Force a resize to refresh things
-                new_size = Some(PhysicalSize::new(
-                    f64::from(self.size_info.width),
-                    f64::from(self.size_info.height),
-                ));
-            }
         }
 
         // Receive any resize events; only call gl::Viewport on last
