@@ -28,6 +28,9 @@ use display::OnResize;
 use config::{Config, Shell};
 use cli::Options;
 
+extern crate terminfo;
+use self::terminfo::Database;
+
 /// Process ID of child process
 ///
 /// Necessary to put this in static storage for `sigchld` to have access
@@ -210,7 +213,16 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id
     builder.env("USER", pw.name);
     builder.env("SHELL", shell.program());
     builder.env("HOME", pw.dir);
-    builder.env("TERM", "alacritty");
+
+    // TERM; default to 'alacritty' if it is available, otherwise
+    // default to 'xterm-256color'. May be overridden by user's config
+    // below.
+    let mut term = "alacritty";
+    if let Err(_) = Database::from_name("alacritty") {
+        term = "xterm-256color";
+    }
+    builder.env("TERM", term);
+
     builder.env("COLORTERM", "truecolor"); // advertise 24-bit support
     if let Some(window_id) = window_id {
         builder.env("WINDOWID", format!("{}", window_id));
