@@ -24,12 +24,11 @@ use std::process::{Command, Stdio};
 use libc::{self, winsize, c_int, pid_t, WNOHANG, SIGCHLD, TIOCSCTTY};
 
 use term::SizeInfo;
+use terminfo::Database;
 use display::OnResize;
 use config::{Config, Shell};
 use cli::Options;
 
-extern crate terminfo;
-use self::terminfo::Database;
 
 /// Process ID of child process
 ///
