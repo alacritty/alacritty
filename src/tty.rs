@@ -22,9 +22,9 @@ use std::ptr;
 use std::process::{Command, Stdio};
 
 use libc::{self, winsize, c_int, pid_t, WNOHANG, SIGCHLD, TIOCSCTTY};
+use terminfo::Database;
 
 use term::SizeInfo;
-use terminfo::Database;
 use display::OnResize;
 use config::{Config, Shell};
 use cli::Options;
