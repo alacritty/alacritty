@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Inverse/Selection color is now modelled after XTerm/VTE instead of URxvt to improve consistency
 - First click on unfocused Alacritty windows is no longer ignored on platforms other than macOS
+- Reduce memory usage significantly by only initializing part of the scrollback buffer at startup
 
 ### Fixed
 
