@@ -346,7 +346,10 @@ Alacritty should work with the standard `xterm-256color` definition,
 but to allow programs to make best use of alacritty's capabilities,
 use its own terminfo definition instead.
 
-Note that the default configuration **requires** alacritty's terminfo.
+Note: unless the user has set the `TERM` environment variable in the
+alacritty configuration, the `alacritty` terminfo definition will be
+used if it has been installed. If not, then `xterm-256color` is used
+instead.
 
 To install alacritty's terminfo entry globally:
 
