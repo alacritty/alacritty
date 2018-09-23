@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `transparent` - This makes the title bar transparent and allows the
         viewport to extend to the top of the window.
     - `buttonless` - Similar to transparent but also removed the buttons.
+- Add support for changing the colors from 16 to 256 in the `indexed_colors` config section
 
 ### Changed
 
