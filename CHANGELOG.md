@@ -23,6 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inverse/Selection color is now modelled after XTerm/VTE instead of URxvt to improve consistency
 - First click on unfocused Alacritty windows is no longer ignored on platforms other than macOS
 - Reduce memory usage significantly by only initializing part of the scrollback buffer at startup
+- Standalone terminfo definition:
+    - The alacritty terminfo definitions no longer inherit from the systems
+      `xterm` definitions.
+    - The terminfo entry `alacritty` replaces the old `alacritty` and
+      `alacritty-256color` (both were actually 256 colors).
+    - There is a new entry called `alacritty-direct` which advertises 24-bit
+      color support
+    - The default `TERM` value is no longer static; the `alacritty` entry is
+      used if available, otherwise the `xterm-256color` entry is used instead.
 
 ### Fixed
 
