@@ -324,6 +324,10 @@ impl super::Store for Clipboard {
     }
 }
 
+impl Clipboard {
+    pub fn set_wayland(&mut self, wayland_display: *mut ::std::os::raw::c_void) {}
+}
+
 #[cfg(test)]
 mod tests {
     use super::Clipboard;

@@ -25,7 +25,6 @@ use glutin::{
     MouseCursor as GlutinMouseCursor, WindowBuilder,
 };
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
-
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
 use glutin::os::unix::WindowExt;
 
@@ -397,8 +396,14 @@ impl Window {
         self.window.hide();
     }
 
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
     pub fn get_wayland_display(&self) -> Option<*mut ::std::os::raw::c_void> {
         self.window.get_wayland_display()
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd")))]
+    pub fn get_wayland_display(&self) -> Option<*mut ::std::os::raw::c_void> {
+        None
     }
 }
 
