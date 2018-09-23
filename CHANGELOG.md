@@ -17,21 +17,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `buttonless` - Similar to transparent but also removed the buttons.
 - Add support for changing the colors from 16 to 256 in the `indexed_colors` config section
 - Add `save_to_clipboard` configuration option for copying selected text to the system clipboard
+- New terminfo entry, `alacritty-direct`, that advertises 24-bit color support
 
 ### Changed
 
 - Inverse/Selection color is now modelled after XTerm/VTE instead of URxvt to improve consistency
 - First click on unfocused Alacritty windows is no longer ignored on platforms other than macOS
 - Reduce memory usage significantly by only initializing part of the scrollback buffer at startup
-- Standalone terminfo definition:
-    - The alacritty terminfo definitions no longer inherit from the systems
-      `xterm` definitions.
-    - The terminfo entry `alacritty` replaces the old `alacritty` and
-      `alacritty-256color` (both were actually 256 colors).
-    - There is a new entry called `alacritty-direct` which advertises 24-bit
-      color support
-    - The default `TERM` value is no longer static; the `alacritty` entry is
-      used if available, otherwise the `xterm-256color` entry is used instead.
+- The `alacritty` terminfo entry no longer requires the `xterm` definition to be
+  present on the system
+- The default `TERM` value is no longer static; the `alacritty` entry is used if
+  available, otherwise the `xterm-256color` entry is used instead
+
+### Removed
+
+- The terminfo entry `alacritty-256color`. It is replaced by the `alacritty`
+  entry (which also advertises 256 colors)
 
 ### Fixed
 
