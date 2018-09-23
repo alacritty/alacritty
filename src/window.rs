@@ -19,12 +19,11 @@ use glutin::{self, ContextBuilder, ControlFlow, Event, EventsLoop,
              MouseCursor as GlutinMouseCursor, WindowBuilder};
 use glutin::GlContext;
 
-
 use {LogicalPosition, LogicalSize, MouseCursor, PhysicalSize};
 
 
 use cli::Options;
-use config::WindowConfig;
+use config::{Decorations, WindowConfig};
 
 /// Default text for the window's title bar, if not overriden.
 ///
@@ -104,12 +103,8 @@ impl ::std::error::Error for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            Error::ContextCreation(ref err) => {
-                write!(f, "Error creating GL context; {}", err)
-            },
-            Error::Context(ref err) => {
-                write!(f, "Error operating on render context; {}", err)
-            },
+            Error::ContextCreation(ref err) => write!(f, "Error creating GL context; {}", err),
+            Error::Context(ref err) => write!(f, "Error operating on render context; {}", err),
         }
     }
 }
@@ -142,19 +137,12 @@ impl Window {
     /// Create a new window
     ///
     /// This creates a window and fully initializes a window.
-    pub fn new(
-        options: &Options,
-        window_config: &WindowConfig,
-    ) -> Result<Window> {
+    pub fn new(options: &Options, window_config: &WindowConfig) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
         let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
         let class = options.class.as_ref().map_or(DEFAULT_CLASS, |c| c);
-        let window_builder = WindowBuilder::new()
-            .with_title(title)
-            .with_visibility(false)
-            .with_transparency(true)
-            .with_decorations(window_config.decorations());
+        let window_builder = Window::get_platform_window(title, window_config);
         let window_builder = Window::platform_builder_ext(window_builder, &class);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
@@ -175,7 +163,7 @@ impl Window {
             event_loop,
             window,
             cursor_visible: true,
-            is_focused: true,
+            is_focused: false,
         };
 
         window.run_os_extensions();
@@ -196,7 +184,7 @@ impl Window {
     pub fn inner_size_pixels(&self) -> Option<LogicalSize> {
         self.window.get_inner_size()
     }
-    
+
     pub fn set_inner_size(&mut self, size: LogicalSize) {
         self.window.set_inner_size(size);
     }
@@ -215,15 +203,14 @@ impl Window {
 
     #[inline]
     pub fn swap_buffers(&self) -> Result<()> {
-        self.window
-            .swap_buffers()
-            .map_err(From::from)
+        self.window.swap_buffers().map_err(From::from)
     }
 
     /// Poll for any available events
     #[inline]
     pub fn poll_events<F>(&mut self, func: F)
-        where F: FnMut(Event)
+    where
+        F: FnMut(Event),
     {
         self.event_loop.poll_events(func);
     }
@@ -236,7 +223,8 @@ impl Window {
     /// Block waiting for events
     #[inline]
     pub fn wait_events<F>(&mut self, func: F)
-        where F: FnMut(Event) -> ControlFlow
+    where
+        F: FnMut(Event) -> ControlFlow,
     {
         self.event_loop.run_forever(func);
     }
@@ -263,24 +251,95 @@ impl Window {
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
+    #[cfg(
+        any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "dragonfly",
+            target_os = "openbsd"
+        )
+    )]
     fn platform_builder_ext(window_builder: WindowBuilder, wm_class: &str) -> WindowBuilder {
         use glutin::os::unix::WindowBuilderExt;
         window_builder.with_class(wm_class.to_owned(), "Alacritty".to_owned())
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
+    #[cfg(
+        not(
+            any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "dragonfly",
+                target_os = "openbsd"
+            )
+        )
+    )]
     fn platform_builder_ext(window_builder: WindowBuilder, _: &str) -> WindowBuilder {
         window_builder
     }
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
+    #[cfg(not(target_os = "macos"))]
+    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+        let decorations = match window_config.decorations() {
+            Decorations::None => false,
+            _ => true,
+        };
+
+        WindowBuilder::new()
+            .with_title(title)
+            .with_visibility(false)
+            .with_transparency(true)
+            .with_decorations(decorations)
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+        use glutin::os::macos::WindowBuilderExt;
+
+        let window = WindowBuilder::new()
+            .with_title(title)
+            .with_visibility(false)
+            .with_transparency(true);
+
+        match window_config.decorations() {
+            Decorations::Full => window,
+            Decorations::Transparent => window
+                .with_title_hidden(true)
+                .with_titlebar_transparent(true)
+                .with_fullsize_content_view(true),
+            Decorations::Buttonless => window
+                .with_title_hidden(true)
+                .with_titlebar_buttons_hidden(true)
+                .with_titlebar_transparent(true)
+                .with_fullsize_content_view(true),
+            Decorations::None => window
+                .with_titlebar_hidden(true),
+        }
+    }
+
+    #[cfg(
+        any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "dragonfly",
+            target_os = "openbsd"
+        )
+    )]
     pub fn set_urgent(&self, is_urgent: bool) {
         use glutin::os::unix::WindowExt;
         self.window.set_urgent(is_urgent);
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
+    #[cfg(
+        not(
+            any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "dragonfly",
+                target_os = "openbsd"
+            )
+        )
+    )]
     pub fn set_urgent(&self, _is_urgent: bool) {}
 
     pub fn set_ime_spot(&self, pos: LogicalPosition) {
@@ -293,7 +352,7 @@ impl Window {
 
         match self.window.get_xlib_window() {
             Some(xlib_window) => Some(xlib_window as usize),
-            None => None
+            None => None,
         }
     }
 
@@ -312,17 +371,28 @@ pub trait OsExtensions {
     fn run_os_extensions(&self) {}
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd")))]
-impl OsExtensions for Window { }
+#[cfg(
+    not(
+        any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "dragonfly",
+            target_os = "openbsd"
+        )
+    )
+)]
+impl OsExtensions for Window {}
 
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
+#[cfg(
+    any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")
+)]
 impl OsExtensions for Window {
     fn run_os_extensions(&self) {
         use glutin::os::unix::WindowExt;
-        use x11_dl::xlib::{self, XA_CARDINAL, PropModeReplace};
-        use std::ffi::{CStr};
-        use std::ptr;
         use libc::getpid;
+        use std::ffi::CStr;
+        use std::ptr;
+        use x11_dl::xlib::{self, PropModeReplace, XA_CARDINAL};
 
         let xlib_display = self.window.get_xlib_display();
         let xlib_window = self.window.get_xlib_window();
@@ -336,17 +406,32 @@ impl OsExtensions for Window {
                 let atom = (xlib.XInternAtom)(xlib_display as *mut _, _net_wm_pid.as_ptr(), 0);
                 let pid = getpid();
 
-                (xlib.XChangeProperty)(xlib_display as _, xlib_window as _, atom,
-                    XA_CARDINAL, 32, PropModeReplace, &pid as *const i32 as *const u8, 1);
-
+                (xlib.XChangeProperty)(
+                    xlib_display as _,
+                    xlib_window as _,
+                    atom,
+                    XA_CARDINAL,
+                    32,
+                    PropModeReplace,
+                    &pid as *const i32 as *const u8,
+                    1,
+                );
             }
             // Although this call doesn't actually pass any data, it does cause
             // WM_CLIENT_MACHINE to be set. WM_CLIENT_MACHINE MUST be set if _NET_WM_PID is set
             // (which we do above).
             unsafe {
-                (xlib.XSetWMProperties)(xlib_display as _, xlib_window as _, ptr::null_mut(),
-                    ptr::null_mut(), ptr::null_mut(), 0, ptr::null_mut(), ptr::null_mut(),
-                    ptr::null_mut());
+                (xlib.XSetWMProperties)(
+                    xlib_display as _,
+                    xlib_window as _,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    0,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                );
             }
         }
     }

@@ -14,9 +14,8 @@
 //
 //! Exports the `Term` type which is a high-level API for the Grid
 use std::ops::{Range, Index, IndexMut};
-use std::ptr;
+use std::{ptr, io, mem};
 use std::cmp::{min, max};
-use std::io;
 use std::time::{Duration, Instant};
 
 use arraydeque::ArrayDeque;
@@ -424,26 +423,15 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
             };
 
             // Apply inversion and lookup RGB values
-            let mut bg_alpha = 1.0;
-            let fg_rgb;
-            let bg_rgb;
+            let mut fg_rgb = self.compute_fg_rgb(cell.fg, &cell);
+            let mut bg_rgb = self.compute_bg_rgb(cell.bg);
 
-            let invert = selected ^ cell.inverse();
-
-            if invert {
-                if cell.fg == cell.bg {
-                    bg_rgb = self.colors[NamedColor::Foreground];
-                    fg_rgb = self.colors[NamedColor::Background];
-                    bg_alpha = 1.0
-                } else {
-                    bg_rgb = self.compute_fg_rgb(cell.fg, &cell);
-                    fg_rgb = self.compute_bg_rgb(cell.bg);
-                }
+            let bg_alpha = if selected ^ cell.inverse() {
+                mem::swap(&mut fg_rgb, &mut bg_rgb);
+                self.compute_bg_alpha(cell.fg)
             } else {
-                fg_rgb = self.compute_fg_rgb(cell.fg, &cell);
-                bg_rgb = self.compute_bg_rgb(cell.bg);
-                bg_alpha = self.compute_bg_alpha(cell.bg);
-            }
+                self.compute_bg_alpha(cell.bg)
+            };
 
             return Some(RenderableCell {
                 line: cell.line,
@@ -1729,7 +1717,7 @@ impl ansi::Handler for Term {
             },
             ansi::LineClearMode::Left => {
                 let row = &mut self.grid[self.cursor.point.line];
-                for cell in &mut row[..(col + 1)] {
+                for cell in &mut row[..=col] {
                     cell.reset(&template);
                 }
             },
@@ -1881,6 +1869,8 @@ impl ansi::Handler for Term {
             Attr::CancelItalic => self.cursor.template.flags.remove(cell::Flags::ITALIC),
             Attr::Underscore => self.cursor.template.flags.insert(cell::Flags::UNDERLINE),
             Attr::CancelUnderline => self.cursor.template.flags.remove(cell::Flags::UNDERLINE),
+            Attr::Hidden => self.cursor.template.flags.insert(cell::Flags::HIDDEN),
+            Attr::CancelHidden => self.cursor.template.flags.remove(cell::Flags::HIDDEN),
             _ => {
                 debug!("Term got unhandled attr: {:?}", attr);
             }

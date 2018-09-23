@@ -30,6 +30,8 @@ use ansi::CursorStyle;
 
 use util::fmt::Yellow;
 
+const MAX_SCROLLBACK_LINES: u32 = 100_000;
+
 /// Function that returns true for serde default
 fn true_bool() -> bool {
     true
@@ -246,6 +248,91 @@ impl Default for Alpha {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum Decorations {
+    Full,
+    Transparent,
+    Buttonless,
+    None,
+}
+
+impl Default for Decorations {
+    fn default() -> Decorations {
+        Decorations::Full
+    }
+}
+
+impl<'de> Deserialize<'de> for Decorations {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Decorations, D::Error>
+        where D: de::Deserializer<'de>
+    {
+
+        struct DecorationsVisitor;
+
+        impl<'de> Visitor<'de> for DecorationsVisitor {
+            type Value = Decorations;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("Some subset of full|transparent|buttonless|none")
+            }
+
+            fn visit_bool<E>(self, value: bool) -> ::std::result::Result<Decorations, E>
+                where E: de::Error
+            {
+                if value {
+                    eprintln!("deprecated decorations boolean value, use one of \
+                              default|transparent|buttonless|none instead; Falling back to \"full\"");
+                    Ok(Decorations::Full)
+                } else {
+                    eprintln!("deprecated decorations boolean value, use one of \
+                              default|transparent|buttonless|none instead; Falling back to \"none\"");
+                    Ok(Decorations::None)
+                }
+            }
+
+            #[cfg(target_os = "macos")]
+            fn visit_str<E>(self, value: &str) -> ::std::result::Result<Decorations, E>
+                where E: de::Error
+            {
+                match value {
+                    "transparent" => Ok(Decorations::Transparent),
+                    "buttonless" => Ok(Decorations::Buttonless),
+                    "none" => Ok(Decorations::None),
+                    "full" => Ok(Decorations::Full),
+                    _ => {
+                        eprintln!("invalid decorations value: {}; Using default value", value);
+                        Ok(Decorations::Full)
+                    }
+                }
+            }
+
+            #[cfg(not(target_os = "macos"))]
+            fn visit_str<E>(self, value: &str) -> ::std::result::Result<Decorations, E>
+                where E: de::Error
+            {
+                match value.to_lowercase().as_str() {
+                    "none" => Ok(Decorations::None),
+                    "full" => Ok(Decorations::Full),
+                    "transparent" => {
+                        eprintln!("macos-only decorations value: {}; Using default value", value);
+                        Ok(Decorations::Full)
+                    },
+                    "buttonless" => {
+                        eprintln!("macos-only decorations value: {}; Using default value", value);
+                        Ok(Decorations::Full)
+                    }
+                    _ => {
+                        eprintln!("invalid decorations value: {}; Using default value", value);
+                        Ok(Decorations::Full)
+                    }
+                }
+            }
+        }
+
+        deserializer.deserialize_str(DecorationsVisitor)
+    }
+}
+
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct WindowConfig {
     /// Initial dimensions
@@ -257,8 +344,8 @@ pub struct WindowConfig {
     padding: Delta<u8>,
 
     /// Draw the window with title bar / borders
-    #[serde(default, deserialize_with = "failure_default")]
-    decorations: bool,
+    #[serde(default)]
+    decorations: Decorations,
 }
 
 fn default_padding() -> Delta<u8> {
@@ -278,7 +365,7 @@ fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Delta<u8
 }
 
 impl WindowConfig {
-    pub fn decorations(&self) -> bool {
+    pub fn decorations(&self) -> Decorations {
         self.decorations
     }
 }
@@ -288,7 +375,7 @@ impl Default for WindowConfig {
         WindowConfig{
             dimensions: Default::default(),
             padding: default_padding(),
-            decorations: true,
+            decorations: Default::default(),
         }
     }
 }
@@ -511,7 +598,18 @@ fn deserialize_scrolling_history<'a, D>(deserializer: D) -> ::std::result::Resul
     where D: de::Deserializer<'a>
 {
     match u32::deserialize(deserializer) {
-        Ok(lines) => Ok(lines),
+        Ok(lines) => {
+            if lines > MAX_SCROLLBACK_LINES {
+                eprintln!(
+                    "problem with config: scrollback size is {}, but expected a maximum of {}; \
+                     Using {1} instead",
+                    lines, MAX_SCROLLBACK_LINES,
+                );
+                Ok(MAX_SCROLLBACK_LINES)
+            } else {
+                Ok(lines)
+            }
+        },
         Err(err) => {
             eprintln!("problem with config: {}; Using default value", err);
             Ok(default_scrolling_history())

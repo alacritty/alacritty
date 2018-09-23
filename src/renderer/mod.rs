@@ -837,11 +837,16 @@ impl<'a> RenderApi<'a> {
                 glyph_cache.font_key
             };
 
-            let glyph_key = GlyphKey {
+            let mut glyph_key = GlyphKey {
                 font_key,
                 size: glyph_cache.font_size,
                 c: cell.c
             };
+
+            // Don't render text of HIDDEN cells
+            if cell.flags.contains(cell::Flags::HIDDEN) {
+                glyph_key.c = ' ';
+            }
 
             // Add cell to batch
             {

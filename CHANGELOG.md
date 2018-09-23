@@ -6,6 +6,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Implement the `hidden` escape sequence (`echo -e "\e[8mTEST"`)
+- Add support for macOS systemwide dark mode
+- Set the environment variable `COLORTERM="truecolor"` to advertise 24-bit color support
+- On macOS, there are two new values for the config option `window.decorations`:
+    - `transparent` - This makes the title bar transparent and allows the
+        viewport to extend to the top of the window.
+    - `buttonless` - Similar to transparent but also removed the buttons.
+
+### Changed
+
+- Inverse/Selection color is now modelled after XTerm/VTE instead of URxvt to improve consistency
+- First click on unfocused Alacritty windows is no longer ignored on platforms other than macOS
+
+### Fixed
+
+- Clear screen properly before rendering of content to prevent various graphical glitches
+- Fix build failure on 32-bit systems
+- Windows started as unfocused now show the hollow cursor if the setting is enabled
+
+### Deprecated
+
+- The config option `window.decorations` should now use `full` or `none` instead
+  of `true` or `false`, respectively.
+
+### Security
+
+- Bracketed paste mode now filters escape sequences beginning with \x1b
+
 ## Version 0.2.0
 
 ### Added

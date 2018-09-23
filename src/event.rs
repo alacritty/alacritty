@@ -347,7 +347,7 @@ impl<N: Notify> Processor<N> {
                         processor.received_char(c);
                     },
                     MouseInput { state, button, modifiers, .. } => {
-                        if *window_is_focused {
+                        if !cfg!(target_os = "macos") || *window_is_focused {
                             *hide_cursor = false;
                             processor.mouse_input(state, button, modifiers);
                             processor.ctx.terminal.dirty = true;
