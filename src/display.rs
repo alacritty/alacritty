@@ -25,6 +25,7 @@ use font::{self, Rasterize};
 use meter::Meter;
 use renderer::{self, GlyphCache, QuadRenderer};
 use term::{Term, SizeInfo};
+use sync::FairMutex;
 
 use window::{self, Size, Pixels, Window, SetInnerSize};
 
@@ -97,7 +98,6 @@ pub struct Display {
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
-    last_background_color: Rgb,
 }
 
 /// Can wakeup the render loop from other threads
@@ -210,7 +210,6 @@ impl Display {
             meter: Meter::new(),
             font_size: font::Size::new(0.),
             size_info,
-            last_background_color: background_color,
         })
     }
 
@@ -325,7 +324,29 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(&mut self, mut terminal: MutexGuard<Term>, config: &Config) {
+    pub fn draw(&mut self, terminal: &FairMutex<Term>, config: &Config) {
+        let terminal_locked = terminal.lock();
+        let size_info = *terminal_locked.size_info();
+        let visual_bell_intensity = terminal_locked.visual_bell.intensity();
+        let background_color = terminal_locked.background_color();
+
+        // Clear when terminal mutex isn't held. Mesa for
+        // some reason takes a long time to call glClear(). The driver descends
+        // into xcb_connect_to_fd() which ends up calling __poll_nocancel()
+        // which blocks for a while.
+        //
+        // By keeping this outside of the critical region, the Mesa bug is
+        // worked around to some extent. Since this doesn't actually address the
+        // issue of glClear being slow, less time is available for input
+        // handling and rendering.
+        drop(terminal_locked);
+
+        self.renderer.with_api(config, &size_info, visual_bell_intensity, |api| {
+            api.clear(background_color);
+        });
+
+        let mut terminal = terminal.lock();
+
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
 
@@ -345,13 +366,6 @@ impl Display {
             }
         }
 
-        let size_info = *terminal.size_info();
-        let visual_bell_intensity = terminal.visual_bell.intensity();
-
-        let background_color = terminal.background_color();
-        let background_color_changed = background_color != self.last_background_color;
-        self.last_background_color = background_color;
-
         {
             let glyph_cache = &mut self.glyph_cache;
 
@@ -366,11 +380,6 @@ impl Display {
                 // mutable borrow
                 let window_focused = self.window.is_focused;
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
-                    // Clear screen to update whole background with new color
-                    if background_color_changed {
-                        api.clear(background_color);
-                    }
-
                     // Draw the grid
                     api.render_cells(
                         terminal.renderable_cells(config, window_focused),
@@ -394,19 +403,6 @@ impl Display {
         self.window
             .swap_buffers()
             .expect("swap buffers");
-
-        // Clear after swap_buffers when terminal mutex isn't held. Mesa for
-        // some reason takes a long time to call glClear(). The driver descends
-        // into xcb_connect_to_fd() which ends up calling __poll_nocancel()
-        // which blocks for a while.
-        //
-        // By keeping this outside of the critical region, the Mesa bug is
-        // worked around to some extent. Since this doesn't actually address the
-        // issue of glClear being slow, less time is available for input
-        // handling and rendering.
-        self.renderer.with_api(config, &size_info, visual_bell_intensity, |api| {
-            api.clear(background_color);
-        });
     }
 
     pub fn get_window_id(&self) -> Option<usize> {
