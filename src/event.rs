@@ -14,7 +14,7 @@ use ansi::{Handler, ClearMode};
 use grid::Scroll;
 use config::{self, Config};
 use cli::Options;
-use display::OnResize;
+use display::{OnResize, SizeOrDprChange};
 use index::{Line, Column, Side, Point};
 use input::{self, MouseBinding, KeyBinding};
 use selection::Selection;
@@ -23,7 +23,6 @@ use term::{Term, SizeInfo, TermMode};
 use util::limit;
 use util::fmt::Red;
 use window::Window;
-use PhysicalSize;
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
@@ -229,7 +228,7 @@ pub struct Processor<N> {
     wait_for_event: bool,
     notifier: N,
     mouse: Mouse,
-    resize_tx: mpsc::Sender<PhysicalSize>,
+    resize_tx: mpsc::Sender<SizeOrDprChange>,
     ref_test: bool,
     size_info: SizeInfo,
     hide_cursor_when_typing: bool,
@@ -257,7 +256,7 @@ impl<N: Notify> Processor<N> {
     /// pty.
     pub fn new(
         notifier: N,
-        resize_tx: mpsc::Sender<PhysicalSize>,
+        resize_tx: mpsc::Sender<SizeOrDprChange>,
         options: &Options,
         config: &Config,
         ref_test: bool,
@@ -292,7 +291,7 @@ impl<N: Notify> Processor<N> {
         processor: &mut input::Processor<'a, ActionContext<'a, N>>,
         event: Event,
         ref_test: bool,
-        resize_tx: &mpsc::Sender<PhysicalSize>,
+        resize_tx: &mpsc::Sender<SizeOrDprChange>,
         hide_cursor: &mut bool,
         window_is_focused: &mut bool,
     ) {
@@ -331,7 +330,7 @@ impl<N: Notify> Processor<N> {
                         // However the terminal, window and renderer use physical sizes
                         // so a conversion must be done here
                         resize_tx
-                            .send(lsize.to_physical(processor.ctx.size_info.dpr))
+                            .send(SizeOrDprChange::Size(lsize))
                             .expect("send new size");
                         processor.ctx.terminal.dirty = true;
                     },
@@ -386,8 +385,13 @@ impl<N: Notify> Processor<N> {
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty(path.into_bytes());
                     },
-                    HiDpiFactorChanged(new_dpr) => {
-                        processor.ctx.size_info.dpr = new_dpr;
+                    HiDpiFactorChanged(dpr) => {
+                        // Resize events are emitted via glutin/winit with logical sizes
+                        // However the terminal, window and renderer use physical sizes
+                        // so a conversion must be done here
+                        resize_tx
+                            .send(SizeOrDprChange::Dpr(dpr))
+                            .expect("send new size");
                         processor.ctx.terminal.dirty = true;
                     },
                     _ => (),

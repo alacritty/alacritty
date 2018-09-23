@@ -19,7 +19,7 @@ use std::f64;
 
 use parking_lot::{MutexGuard};
 
-use {LogicalPosition, PhysicalSize, Rgb};
+use {LogicalPosition, LogicalSize, PhysicalSize, Rgb};
 use cli;
 use config::Config;
 use font::{self, Rasterize};
@@ -30,6 +30,10 @@ use sync::FairMutex;
 
 use window::{self, Window};
 
+pub enum SizeOrDprChange {
+    Size(LogicalSize),
+    Dpr(f64),
+}
 
 #[derive(Debug)]
 pub enum Error {
@@ -95,8 +99,8 @@ pub struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
-    rx: mpsc::Receiver<PhysicalSize>,
-    tx: mpsc::Sender<PhysicalSize>,
+    rx: mpsc::Receiver<SizeOrDprChange>,
+    tx: mpsc::Sender<SizeOrDprChange>,
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
@@ -262,7 +266,7 @@ impl Display {
     }
 
     #[inline]
-    pub fn resize_channel(&self) -> mpsc::Sender<PhysicalSize> {
+    pub fn resize_channel(&self) -> mpsc::Sender<SizeOrDprChange> {
         self.tx.clone()
     }
 
@@ -277,42 +281,41 @@ impl Display {
         config: &Config,
         items: &mut [&mut OnResize]
     ) {
-        // Resize events new_size and are handled outside the poll_events
-        // iterator. This has the effect of coalescing multiple resize
-        // events into one.
-        let mut new_size = None;
-
-        // Take most recent resize event, if any
-        while let Ok(size) = self.rx.try_recv() {
-            new_size = Some(size);
+        // Get the latest logical size and dpr
+        let mut dpr = self.size_info.dpr;
+        let mut lsize = None;
+        while let Ok(change) = self.rx.try_recv() {
+            match change {
+                SizeOrDprChange::Size(new_lsize) => lsize = Some(new_lsize),
+                SizeOrDprChange::Dpr(new_dpr) => dpr = new_dpr,
+            }
         }
 
-        // Update the DPR
-        let dpr = self.window.hidpi_factor();
+        let dpr_changed = (dpr - self.size_info.dpr).abs() > f64::EPSILON;
+        self.size_info.dpr = dpr;
 
         // Font size/DPI factor modification detected
-        if terminal.font_size != self.font_size || (dpr - self.size_info.dpr).abs() > f64::EPSILON {
-            if new_size == None {
-                // Force a resize to refresh things
-                new_size = Some(PhysicalSize::new(
-                    f64::from(self.size_info.width) / self.size_info.dpr * dpr,
-                    f64::from(self.size_info.height) / self.size_info.dpr * dpr,
-                ));
-            }
-
-            self.font_size = terminal.font_size;
-            self.size_info.dpr = dpr;
+        if terminal.font_size != self.font_size || dpr_changed {
             self.size_info.padding_x = (f64::from(config.padding().x) * dpr).floor() as f32;
             self.size_info.padding_y = (f64::from(config.padding().y) * dpr).floor() as f32;
+            self.font_size = terminal.font_size;
             self.update_glyph_cache(config);
+
+            if lsize.is_none() {
+                // Force a resize to refresh things
+                lsize = Some(LogicalSize::new(
+                    f64::from(self.size_info.width) / self.size_info.dpr,
+                    f64::from(self.size_info.height) / self.size_info.dpr,
+                ));
+            }
         }
 
         // Receive any resize events; only call gl::Viewport on last
         // available
-        if let Some(psize) = new_size.take() {
+        if let Some(lsize) = lsize.take() {
+            let psize = lsize.to_physical(dpr);
             self.size_info.width = psize.width as f32;
             self.size_info.height = psize.height as f32;
-            self.size_info.dpr = dpr;
 
             let size = &self.size_info;
             terminal.resize(size);
