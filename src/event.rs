@@ -3,12 +3,13 @@ use std::borrow::Cow;
 use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 use std::time::{Instant};
 
 use serde_json as json;
 use parking_lot::MutexGuard;
 use glutin::{self, ModifiersState, Event, ElementState};
-use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
+use copypasta::{Clipboard, Store, Buffer as ClipboardBuffer};
 
 use crate::ansi::{Handler, ClearMode};
 use crate::grid::Scroll;
@@ -77,11 +78,11 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.clear_screen(ClearMode::Saved);
     }
 
-    fn copy_selection(&self, buffer: ClipboardBuffer) {
+    fn copy_selection(&mut self, buffer: ClipboardBuffer) {
         if let Some(selected) = self.terminal.selection_to_string() {
             if !selected.is_empty() {
-                Clipboard::new()
-                    .and_then(|mut clipboard| clipboard.store(selected, buffer))
+                let clipboard = self.terminal.clipboard();
+                clipboard.lock().unwrap().store(selected, buffer)
                     .unwrap_or_else(|err| {
                         warn!("Error storing selection to clipboard. {}", Red(err));
                     });
@@ -176,6 +177,11 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     #[inline]
     fn clear_log(&mut self) {
         self.terminal.clear_log();
+    }
+
+    #[inline]
+    fn clipboard(&self) -> Arc<Mutex<Clipboard>> {
+        self.terminal.clipboard()
     }
 }
 

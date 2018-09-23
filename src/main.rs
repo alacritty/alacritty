@@ -53,6 +53,8 @@ use alacritty::term::Term;
 use alacritty::tty::{self, process_should_exit};
 use alacritty::util::fmt::Red;
 
+use copypasta::{Clipboard, Load};
+
 fn main() {
     panic::attach_handler();
 
@@ -140,7 +142,11 @@ fn run(
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let mut terminal = Term::new(&config, display.size().to_owned());
+    let mut clipboard = Clipboard::new().expect("Could not create clipboard");
+    if let Some(wayland_display) = display.window().get_wayland_display() {
+        clipboard.set_wayland(wayland_display);
+    }
+    let mut terminal = Term::new(&config, display.size().to_owned(), clipboard);
     terminal.set_logger_proxy(logger_proxy.clone());
     let terminal = Arc::new(FairMutex::new(terminal));
 

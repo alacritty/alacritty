@@ -26,6 +26,9 @@ use glutin::{
 };
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+use glutin::os::unix::WindowExt;
+
 use crate::cli::Options;
 use crate::config::{Decorations, WindowConfig};
 use crate::MouseCursor;
@@ -392,6 +395,10 @@ impl Window {
     /// Hide the window
     pub fn hide(&self) {
         self.window.hide();
+    }
+
+    pub fn get_wayland_display(&self) -> Option<*mut ::std::os::raw::c_void> {
+        self.window.get_wayland_display()
     }
 }
 

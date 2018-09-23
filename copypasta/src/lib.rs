@@ -10,6 +10,9 @@ extern crate objc;
 #[cfg(windows)]
 extern crate clipboard;
 
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+extern crate smithay_client_toolkit as sctk;
+
 /// An enumeration describing available clipboard buffers
 pub enum Buffer {
     Primary,
@@ -73,9 +76,9 @@ pub trait Store: Load {
 }
 
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
-mod x11;
+mod linux;
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
-pub use x11::{Clipboard, Error};
+pub use linux::{Clipboard, Error};
 
 #[cfg(target_os = "macos")]
 mod macos;

@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
 
+use copypasta::{Clipboard, Load};
 use alacritty::Grid;
 use alacritty::Term;
 use alacritty::ansi;
@@ -90,7 +91,8 @@ fn ref_test(dir: &Path) {
     let mut config: Config = Default::default();
     config.set_history(ref_config.history_size);
 
-    let mut terminal = Term::new(&config, size);
+    let clipboard = Clipboard::new().unwrap();
+    let mut terminal = Term::new(&config, size, clipboard);
     let mut parser = ansi::Processor::new();
 
     for byte in recording {

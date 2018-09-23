@@ -15,3 +15,6 @@ objc-foundation = "0.1"
 
 [target.'cfg(windows)'.dependencies]
 clipboard = "0.4.2"
+
+[target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))'.dependencies]
+smithay-client-toolkit = "0.4.1"

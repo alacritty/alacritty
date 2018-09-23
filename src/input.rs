@@ -21,6 +21,7 @@
 use std::borrow::Cow;
 use std::mem;
 use std::time::Instant;
+use std::sync::{Arc, Mutex};
 
 use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
 use glutin::{ElementState, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState, KeyboardInput};
@@ -55,7 +56,7 @@ pub trait ActionContext {
     fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _: B);
     fn terminal_mode(&self) -> TermMode;
     fn size_info(&self) -> SizeInfo;
-    fn copy_selection(&self, _: ClipboardBuffer);
+    fn copy_selection(&mut self, _: ClipboardBuffer);
     fn clear_selection(&mut self);
     fn update_selection(&mut self, point: Point, side: Side);
     fn simple_selection(&mut self, point: Point, side: Side);
@@ -75,6 +76,7 @@ pub trait ActionContext {
     fn hide_window(&mut self);
     fn url(&self, _: Point<usize>) -> Option<String>;
     fn clear_log(&mut self);
+    fn clipboard(&self) -> Arc<Mutex<Clipboard>>;
 }
 
 /// Describes a state and action to take in that state
@@ -216,8 +218,9 @@ impl Action {
                 ctx.copy_selection(ClipboardBuffer::Primary);
             },
             Action::Paste => {
-                Clipboard::new()
-                    .and_then(|clipboard| clipboard.load_primary() )
+                let clipboard = ctx.clipboard();
+                let clipboard = clipboard.lock().unwrap();
+                clipboard.load_primary()
                     .map(|contents| { self.paste(ctx, &contents) })
                     .unwrap_or_else(|err| {
                         error!("Error loading data from clipboard. {}", Red(err));
@@ -226,8 +229,9 @@ impl Action {
             Action::PasteSelection => {
                 // Only paste if mouse events are not captured by an application
                 if !mouse_mode {
-                    Clipboard::new()
-                        .and_then(|clipboard| clipboard.load_selection() )
+                    let clipboard = ctx.clipboard();
+                    let clipboard = clipboard.lock().unwrap();
+                    clipboard.load_selection()
                         .map(|contents| { self.paste(ctx, &contents) })
                         .unwrap_or_else(|err| {
                             error!("Error loading data from clipboard. {}", Red(err));
@@ -756,8 +760,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
 #[cfg(test)]
 mod tests {
+    extern crate copypasta;
+
     use std::borrow::Cow;
     use std::time::Duration;
+    use std::sync::{Arc, Mutex};
 
     use glutin::{VirtualKeyCode, Event, WindowEvent, ElementState, MouseButton, ModifiersState};
 
@@ -770,6 +777,8 @@ mod tests {
 
     use super::{Action, Binding, Processor};
     use copypasta::Buffer as ClipboardBuffer;
+
+    use copypasta::{Clipboard, Load};
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
@@ -805,7 +814,7 @@ mod tests {
             *self.size_info
         }
 
-        fn copy_selection(&self, _buffer: ClipboardBuffer) {
+        fn copy_selection(&mut self, _buffer: ClipboardBuffer) {
             // STUBBED
         }
 
@@ -857,6 +866,9 @@ mod tests {
         fn last_modifiers(&mut self) -> &mut ModifiersState {
             &mut self.last_modifiers
         }
+        fn clipboard(&self) -> Arc<Mutex<Clipboard>> {
+            self.terminal.clipboard()
+        }
         fn change_font_size(&mut self, _delta: f32) {
         }
         fn reset_font_size(&mut self) {
@@ -889,7 +901,8 @@ mod tests {
                     dpr: 1.0,
                 };
 
-                let mut terminal = Term::new(&config, size);
+                let clipboard = Clipboard::new().unwrap();
+                let mut terminal = Term::new(&config, size, clipboard);
 
                 let mut mouse = Mouse::default();
                 mouse.click_state = $initial_state;

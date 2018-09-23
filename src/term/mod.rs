@@ -17,6 +17,7 @@ use std::ops::{Range, Index, IndexMut};
 use std::{ptr, io, mem};
 use std::cmp::{min, max};
 use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
 
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
@@ -29,7 +30,7 @@ use crate::index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusi
 use crate::selection::{self, Selection, Locations};
 use crate::config::{Config, VisualBellAnimation};
 use crate::{MouseCursor, Rgb};
-use copypasta::{Clipboard, Load, Store};
+use copypasta::{Clipboard, Store};
 use crate::input::FONT_SIZE_STEP;
 use crate::logging::LoggerProxy;
 
@@ -816,6 +817,9 @@ pub struct Term {
 
     /// Proxy object for clearing displayed errors and warnings
     logger_proxy: Option<LoggerProxy>,
+
+    /// An object to access the clipboard
+    clipboard: Arc<Mutex<Clipboard>>,
 }
 
 /// Terminal size info
@@ -906,7 +910,7 @@ impl Term {
         self.next_mouse_cursor.take()
     }
 
-    pub fn new(config: &Config, size: SizeInfo) -> Term {
+    pub fn new(config: &Config, size: SizeInfo, clipboard: Clipboard) -> Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
@@ -949,6 +953,7 @@ impl Term {
             tabspaces,
             auto_scroll: config.scrolling().auto_scroll,
             logger_proxy: None,
+            clipboard: Arc::new(Mutex::new(clipboard)),
         }
     }
 
@@ -1327,6 +1332,10 @@ impl Term {
     #[inline]
     pub fn background_color(&self) -> Rgb {
         self.colors[NamedColor::Background]
+    }
+
+    pub fn clipboard(&self) -> Arc<Mutex<Clipboard>> {
+        self.clipboard.clone()
     }
 }
 
@@ -1848,8 +1857,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn set_clipboard(&mut self, string: &str)
     {
-        Clipboard::new()
-            .and_then(|mut clipboard| clipboard.store_primary(string))
+        self.clipboard.lock().unwrap().store_primary(string)
             .unwrap_or_else(|err| {
                 warn!("Error storing selection to clipboard. {}", err);
             });
@@ -2142,6 +2150,8 @@ mod tests {
     use font::Size;
     use crate::config::Config;
 
+    use copypasta::{Clipboard, Load};
+
     #[test]
     fn semantic_selection_works() {
         let size = SizeInfo {
@@ -2153,7 +2163,8 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let clipboard = Clipboard::new().unwrap();
+        let mut term = Term::new(&Default::default(), size, clipboard);
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0, Cell::default());
         for i in 0..5 {
             for j in 0..2 {
@@ -2197,7 +2208,8 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let clipboard = Clipboard::new().unwrap();
+        let mut term = Term::new(&Default::default(), size, clipboard);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0, Cell::default());
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2268,7 +2280,8 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let clipboard = Clipboard::new().unwrap();
+        let mut term = Term::new(&Default::default(), size, clipboard);
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0,
                                StandardCharset::SpecialCharacterAndLineDrawing);
@@ -2288,7 +2301,8 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size);
+        let clipboard = Clipboard::new().unwrap();
+        let mut term: Term = Term::new(&config, size, clipboard);
         term.change_font_size(font_size);
 
         let expected_font_size: Size = config.font().size() + Size::new(font_size);
@@ -2317,7 +2331,8 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size);
+        let clipboard = Clipboard::new().unwrap();
+        let mut term: Term = Term::new(&config, size, clipboard);
 
         term.change_font_size(-100.0);
 
@@ -2337,7 +2352,8 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size);
+        let clipboard = Clipboard::new().unwrap();
+        let mut term: Term = Term::new(&config, size, clipboard);
 
         term.change_font_size(10.0);
         term.reset_font_size();
@@ -2358,7 +2374,8 @@ mod tests {
             dpr: 1.0
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size);
+        let clipboard = Clipboard::new().unwrap();
+        let mut term: Term = Term::new(&config, size, clipboard);
 
         // Add one line of scrollback
         term.grid.scroll_up(&(Line(0)..Line(1)), Line(1), &Cell::default());
