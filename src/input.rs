@@ -24,7 +24,7 @@ use std::process::Command;
 use std::time::Instant;
 use std::os::unix::process::CommandExt;
 
-use copypasta::{Clipboard, Load, Buffer};
+use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
 use glutin::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState};
 
 use config;
@@ -49,13 +49,14 @@ pub struct Processor<'a, A: 'a> {
     pub mouse_config: &'a config::Mouse,
     pub scrolling_config: &'a config::Scrolling,
     pub ctx: A,
+    pub save_to_clipboard: bool,
 }
 
 pub trait ActionContext {
     fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, B);
     fn terminal_mode(&self) -> TermMode;
     fn size_info(&self) -> SizeInfo;
-    fn copy_selection(&self, Buffer);
+    fn copy_selection(&self, ClipboardBuffer);
     fn clear_selection(&mut self);
     fn update_selection(&mut self, point: Point, side: Side);
     fn simple_selection(&mut self, point: Point, side: Side);
@@ -206,7 +207,7 @@ impl Action {
                 ctx.write_to_pty(s.clone().into_bytes())
             },
             Action::Copy => {
-                ctx.copy_selection(Buffer::Primary);
+                ctx.copy_selection(ClipboardBuffer::Primary);
             },
             Action::Paste => {
                 Clipboard::new()
@@ -469,7 +470,10 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return;
         }
 
-        self.ctx.copy_selection(Buffer::Selection);
+        if self.save_to_clipboard {
+            self.ctx.copy_selection(ClipboardBuffer::Primary);
+        }
+        self.ctx.copy_selection(ClipboardBuffer::Selection);
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase, modifiers: ModifiersState) {
@@ -688,6 +692,7 @@ mod tests {
     use grid::Scroll;
 
     use super::{Action, Binding, Processor};
+    use copypasta::Buffer as ClipboardBuffer;
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
@@ -723,7 +728,7 @@ mod tests {
             *self.size_info
         }
 
-        fn copy_selection(&self, _buffer: ::copypasta::Buffer) {
+        fn copy_selection(&self, _buffer: ClipboardBuffer) {
             // STUBBED
         }
 
@@ -824,6 +829,7 @@ mod tests {
                     scrolling_config: &config::Scrolling::default(),
                     key_bindings: &config.key_bindings()[..],
                     mouse_bindings: &config.mouse_bindings()[..],
+                    save_to_clipboard: config.selection().save_to_clipboard
                 };
 
                 if let Event::WindowEvent { event: WindowEvent::MouseInput { state, button, modifiers, .. }, .. } = $input {
