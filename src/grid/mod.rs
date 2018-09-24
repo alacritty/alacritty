@@ -29,6 +29,8 @@ mod tests;
 mod storage;
 use self::storage::Storage;
 
+const MIN_INIT_SIZE: usize = 1_000;
+
 /// Bidirection iterator
 pub trait BidirectionalIterator: Iterator {
     fn prev(&mut self) -> Option<Self::Item>;
@@ -92,6 +94,9 @@ pub struct Grid<T> {
     /// Selected region
     #[serde(skip)]
     pub selection: Option<Selection>,
+
+    #[serde(default)]
+    max_scroll_limit: usize,
 }
 
 pub struct GridIterator<'a, T: 'a> {
@@ -113,7 +118,7 @@ pub enum Scroll {
 
 impl<T: Copy + Clone> Grid<T> {
     pub fn new(lines: index::Line, cols: index::Column, scrollback: usize, template: T) -> Grid<T> {
-        let raw = Storage::with_capacity(*lines + scrollback, lines, Row::new(cols, &template));
+        let raw = Storage::with_capacity(lines, Row::new(cols, &template));
         Grid {
             raw,
             cols,
@@ -121,6 +126,7 @@ impl<T: Copy + Clone> Grid<T> {
             display_offset: 0,
             scroll_limit: 0,
             selection: None,
+            max_scroll_limit: scrollback,
         }
     }
 
@@ -206,11 +212,19 @@ impl<T: Copy + Clone> Grid<T> {
         }
     }
 
-    fn increase_scroll_limit(&mut self, count: usize) {
-        self.scroll_limit = min(
-            self.scroll_limit + count,
-            self.raw.len().saturating_sub(*self.lines),
-        );
+    fn increase_scroll_limit(&mut self, count: usize, template: &T)
+    {
+        self.scroll_limit = min(self.scroll_limit + count, self.max_scroll_limit);
+
+        // Initialize new lines when the history buffer is smaller than the scroll limit
+        let history_size = self.raw.len().saturating_sub(*self.lines);
+        if history_size < self.scroll_limit {
+            let new = min(
+                max(self.scroll_limit - history_size, MIN_INIT_SIZE),
+                self.max_scroll_limit - history_size,
+            );
+            self.raw.initialize(new, Row::new(self.cols, template));
+        }
     }
 
     fn decrease_scroll_limit(&mut self, count: usize) {
@@ -356,7 +370,7 @@ impl<T: Copy + Clone> Grid<T> {
                 );
             }
 
-            self.increase_scroll_limit(*positions);
+            self.increase_scroll_limit(*positions, template);
 
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.
