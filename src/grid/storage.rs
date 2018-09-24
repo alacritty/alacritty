@@ -83,7 +83,7 @@ impl<T> Storage<T> {
     where
         T: Clone,
     {
-        // Allocate all lines in the buffer, including scrollback history
+        // Initialize visible lines, the scrollback buffer is initialized dynamically
         let inner = vec![template; lines.0];
 
         Storage {
@@ -169,13 +169,13 @@ impl<T> Storage<T> {
 
     /// Truncate the invisible elements from the raw buffer
     pub fn truncate(&mut self) {
-        // Bring vector in correct order, then truncate the end
         self.inner.rotate_left(self.zero);
         self.inner.truncate(self.len);
 
         self.zero = 0;
     }
 
+    /// Dynamically grow the storage buffer at runtime
     pub fn initialize(&mut self, num_rows: usize, template_row: Row<T>)
         where T: Clone
     {
