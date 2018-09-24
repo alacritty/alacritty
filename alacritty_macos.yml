@@ -260,6 +260,9 @@ mouse:
 selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>"
 
+  # When set to `true`, selected text will be copied to the primary clipboard.
+  save_to_clipboard: false
+
 dynamic_title: true
 
 hide_cursor_when_typing: false

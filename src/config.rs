@@ -40,12 +40,15 @@ fn true_bool() -> bool {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Selection {
     pub semantic_escape_chars: String,
+    #[serde(default, deserialize_with = "failure_default")]
+    pub save_to_clipboard: bool,
 }
 
 impl Default for Selection {
     fn default() -> Selection {
         Selection {
-            semantic_escape_chars: String::new()
+            semantic_escape_chars: String::new(),
+            save_to_clipboard: false
         }
     }
 }
