@@ -260,10 +260,8 @@ mouse:
 selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>"
 
-  # When set to `true`, selection string will be copied to the primary
-  # clipboard. Otherwise nothing will happen as macOS does not have selection
-  # clipboard.
-  save_to_clipboard: true
+  # When set to `true`, selected text will be copied to the primary clipboard.
+  save_to_clipboard: false
 
 dynamic_title: true
 
