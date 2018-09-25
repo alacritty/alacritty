@@ -962,9 +962,8 @@ impl Term {
                         }
                     }
 
-                    let range = cols.start..line_end;
                     if cols.end >= grid.num_cols() - 1 {
-                        self.maybe_newline(grid, line, range.end);
+                        self.maybe_newline(grid, line, line_end);
                     }
                 }
             }
