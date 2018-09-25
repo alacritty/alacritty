@@ -953,20 +953,18 @@ impl Term {
                 let line_length = grid_line.line_length();
                 let line_end = min(line_length, cols.end + 1);
 
-                if cols.start >= line_end {
+                if line_end.0 == 0 && cols.end >= grid.num_cols() - 1 {
                     self.push('\n');
-                } else {
+                } else if cols.start < line_end {
                     for cell in &grid_line[cols.start..line_end] {
                         if !cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
                             self.push(cell.c);
                         }
                     }
 
-                    let range = Some(cols.start..line_end);
+                    let range = cols.start..line_end;
                     if cols.end >= grid.num_cols() - 1 {
-                        if let Some(ref range) = range {
-                            self.maybe_newline(grid, line, range.end);
-                        }
+                        self.maybe_newline(grid, line, range.end);
                     }
                 }
             }
