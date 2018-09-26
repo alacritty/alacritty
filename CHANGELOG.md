@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add support for changing the colors from 16 to 256 in the `indexed_colors` config section
 - Add `save_to_clipboard` configuration option for copying selected text to the system clipboard
 - New terminfo entry, `alacritty-direct`, that advertises 24-bit color support
+- Add support for CSI sequences Cursor Next Line (`\e[nE`) and Cursor Previous Line (`\e[nF`)
 
 ### Changed
 
