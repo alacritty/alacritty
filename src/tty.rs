@@ -216,10 +216,11 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id
     // TERM; default to 'alacritty' if it is available, otherwise
     // default to 'xterm-256color'. May be overridden by user's config
     // below.
-    let mut term = "alacritty";
-    if let Err(_) = Database::from_name("alacritty") {
-        term = "xterm-256color";
-    }
+    let term = if Database::from_name("alacritty").is_ok() {
+        "alacritty"
+    } else {
+        "xterm-256color"
+    };
     builder.env("TERM", term);
 
     builder.env("COLORTERM", "truecolor"); // advertise 24-bit support
