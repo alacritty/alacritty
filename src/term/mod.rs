@@ -1467,12 +1467,16 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn move_down_and_cr(&mut self, lines: Line) {
-        trace!("[unimplemented] move_down_and_cr: {}", lines);
+        trace!("move_down_and_cr: {}", lines);
+        let move_to = self.cursor.point.line + lines;
+        self.goto(move_to, Column(0))
     }
 
     #[inline]
     fn move_up_and_cr(&mut self, lines: Line) {
-        trace!("[unimplemented] move_up_and_cr: {}", lines);
+        trace!("move_up_and_cr: {}", lines);
+        let move_to = Line(self.cursor.point.line.0.saturating_sub(lines.0));
+        self.goto(move_to, Column(0))
     }
 
     #[inline]
