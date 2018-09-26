@@ -15,9 +15,8 @@ use std::convert::From;
 use std::fmt::Display;
 
 use gl;
-use glutin::{self, ContextBuilder, ControlFlow, Event, EventsLoop,
-             MouseCursor as GlutinMouseCursor, WindowBuilder};
 use glutin::GlContext;
+use glutin::{self, ContextBuilder, EventsLoop, MouseCursor as GlutinMouseCursor, WindowBuilder};
 
 use {LogicalPosition, LogicalSize, MouseCursor, PhysicalSize};
 
@@ -62,7 +61,6 @@ type Result<T> = ::std::result::Result<T, Error>;
 ///
 /// Wraps the underlying windowing library to provide a stable API in Alacritty
 pub struct Window {
-    event_loop: EventsLoop,
     window: glutin::GlWindow,
     cursor_visible: bool,
 
@@ -140,9 +138,11 @@ impl Window {
     /// Create a new window
     ///
     /// This creates a window and fully initializes a window.
-    pub fn new(options: &Options, window_config: &WindowConfig) -> Result<Window> {
-        let event_loop = EventsLoop::new();
-
+    pub fn new(
+        options: &Options,
+        window_config: &WindowConfig,
+        event_loop: &EventsLoop,
+    ) -> Result<Window> {
         let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
         let class = options.class.as_ref().map_or(DEFAULT_CLASS, |c| c);
         let window_builder = Window::get_platform_window(title, window_config);
@@ -163,7 +163,6 @@ impl Window {
         }
 
         let window = Window {
-            event_loop,
             window,
             cursor_visible: true,
             is_focused: false,
@@ -197,40 +196,23 @@ impl Window {
         self.window.get_hidpi_factor()
     }
 
-    #[inline]
-    pub fn create_window_proxy(&self) -> Proxy {
+    // #[inline]
+    pub fn create_window_proxy(&self, events_loop: &EventsLoop) -> Proxy {
         Proxy {
-            inner: self.event_loop.create_proxy(),
+            inner: events_loop.create_proxy(),
         }
     }
-
     #[inline]
     pub fn swap_buffers(&self) -> Result<()> {
         self.window.swap_buffers().map_err(From::from)
     }
 
-    /// Poll for any available events
-    #[inline]
-    pub fn poll_events<F>(&mut self, func: F)
-    where
-        F: FnMut(Event),
-    {
-        self.event_loop.poll_events(func);
-    }
 
     #[inline]
     pub fn resize(&self, size: PhysicalSize) {
         self.window.resize(size);
     }
 
-    /// Block waiting for events
-    #[inline]
-    pub fn wait_events<F>(&mut self, func: F)
-    where
-        F: FnMut(Event) -> ControlFlow,
-    {
-        self.event_loop.run_forever(func);
-    }
 
     /// Set the window title
     #[inline]
@@ -349,6 +331,10 @@ impl Window {
         self.window.set_ime_spot(pos);
     }
 
+    pub fn get_glutin_window_id(&self) -> glutin::WindowId {
+        self.window.window().id()
+    }
+
     #[cfg(not(target_os = "macos"))]
     pub fn get_window_id(&self) -> Option<usize> {
         use glutin::os::unix::WindowExt;
@@ -362,10 +348,6 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn get_window_id(&self) -> Option<usize> {
         None
-    }
-
-    pub fn notifier(&self) -> Notifier {
-        Notifier(self.create_window_proxy())
     }
 
     /// Hide the window

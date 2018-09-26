@@ -25,19 +25,23 @@ extern crate log;
 #[cfg(target_os = "macos")]
 extern crate dirs;
 extern crate glutin;
+extern crate mio_more;
 
 use std::error::Error;
 use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use std::env;
 
-use glutin::dpi::{LogicalPosition, PhysicalSize};
+use glutin::{
+    dpi::{LogicalPosition, PhysicalSize},
+    Event, EventsLoop, EventsLoopProxy,
+};
 
 use alacritty::cli;
-use alacritty::config::{self, Config};
+use alacritty::config::Config;
 use alacritty::display::Display;
 use alacritty::event;
-use alacritty::event_loop::{self, EventLoop, Msg};
+use alacritty::event_loop::{self, EventLoop, Msg, WindowNotifier};
 #[cfg(target_os = "macos")]
 use alacritty::locale;
 use alacritty::logging;
@@ -90,7 +94,7 @@ fn load_config(options: &cli::Options) -> Config {
 ///
 /// Creates a window, the terminal state, pty, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
+fn run(config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // Initialize the logger first as to capture output from other subsystems
     logging::initialize(options)?;
 
@@ -99,143 +103,88 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         info!("Configuration loaded from {}", config_path.display());
     };
 
-    let mut window = Window::new(&options, config.window())?;
+    let mut events_loop = EventsLoop::new();
 
-    let dpr = window.hidpi_factor();
-    info!("device_pixel_ratio: {}", dpr);
+    let mut instances = std::collections::HashMap::new();
 
-    // Create a display.
-    //
-    // The display manages a window and can draw the terminal
-    let mut display = Display::new(&config, options, dpr)?;
+    let instance = Instance::new(&events_loop, &config, &options)?;
+    let instance2 = Instance::new(&events_loop, &config, &options)?;
 
-    let size = display.size().to_owned();
-    let viewport_size = PhysicalSize::new(size.width as f64, size.height as f64).to_logical(dpr);
-
-    info!("set_inner_size: {:?}", viewport_size);
-    window.set_inner_size(viewport_size);
-
-    info!("PTY Dimensions: {:?} x {:?}", size.lines(), size.cols());
-
-    // Create the terminal
-    //
-    // This object contains all of the state about what's being displayed. It's
-    // wrapped in a clonable mutex since both the I/O loop and display need to
-    // access it.
-    let terminal = Term::new(&config, size);
-    let terminal = Arc::new(FairMutex::new(terminal));
-
-    // Find the window ID for setting $WINDOWID
-    let window_id = window.get_window_id();
-
-    // Create the pty
-    //
-    // The pty forks a process to run the shell on the slave side of the
-    // pseudoterminal. A file descriptor for the master side is retained for
-    // reading/writing to the shell.
-    let mut pty = tty::new(&config, options, &display.size(), window_id);
-
-    // Create the pseudoterminal I/O loop
-    //
-    // pty I/O is ran on another thread as to not occupy cycles used by the
-    // renderer and input processing. Note that access to the terminal state is
-    // synchronized since the I/O loop updates the state, and the display
-    // consumes it periodically.
-    let event_loop = EventLoop::new(
-        Arc::clone(&terminal),
-        Box::new(window.notifier()),
-        pty.reader(),
-        options.ref_test,
-    );
-
-    // The event loop channel allows write requests from the event processor
-    // to be sent to the loop and ultimately written to the pty.
-    let loop_tx = event_loop.channel();
-
-    // Event processor
-    //
-    // Need the Rc<RefCell<_>> here since a ref is shared in the resize callback
-    let mut processor = event::Processor::new(
-        event_loop::Notifier(event_loop.channel()),
-        display.resize_channel(),
-        options,
-        &config,
-        options.ref_test,
-        display.size().to_owned(),
-    );
-
-    // Create a config monitor when config was loaded from path
-    //
-    // The monitor watches the config file for changes and reloads it. Pending
-    // config changes are processed in the main loop.
-    let config_monitor = match (options.live_config_reload, config.live_config_reload()) {
-        // Start monitor if CLI flag says yes
-        (Some(true), _) |
-        // Or if no CLI flag was passed and the config says yes
-        (None, true) => config.path()
-                .map(|path| config::Monitor::new(path, window.notifier())),
-        // Otherwise, don't start the monitor
-        _ => None,
-    };
-
-    // Kick off the I/O thread
-    let io_thread = event_loop.spawn(None);
+    instances.insert(instance.window.get_glutin_window_id(), instance);
+    instances.insert(instance2.window.get_glutin_window_id(), instance2);
 
     // Main display loop
     loop {
-        // Process input and window events
-        let mut terminal_lock = processor.process_events(&terminal, &mut window);
+        let mut pending_events: Vec<Event> = vec![];
 
-        // Handle config reloads
-        if let Some(new_config) = config_monitor
-            .as_ref()
-            .and_then(|monitor| monitor.pending_config())
-        {
-            config = new_config.update_dynamic_title(options);
-            display.update_config(&config);
-            processor.update_config(&config);
-            terminal_lock.update_config(&config);
-            terminal_lock.dirty = true;
+        for (_, instance) in &instances {
+            if instance.wait_for_event {
+                events_loop.run_forever(|e| {
+                    pending_events.push(e);
+                    glutin::ControlFlow::Break
+                });
+                break;
+            }
         }
 
-        // Maybe draw the terminal
-        if terminal_lock.needs_draw() {
-            // Try to update the position of the input method editor
-            let (x, y) = display.current_ime_position(&terminal_lock);
-            window.set_ime_spot(LogicalPosition {
-                x: x as f64,
-                y: y as f64,
-            });
-            // Handle pending resize events
-            //
-            // The second argument is a list of types that want to be notified
-            // of display size changes.
-            display.handle_resize(
-                &mut terminal_lock,
-                &config,
-                &mut [&mut pty, &mut processor, &mut window],
-                dpr,
-            );
+        let mut process = |e| match e {
+            Event::WindowEvent { window_id, .. } => {
+                let instance = instances.get_mut(&window_id).unwrap();
+                let mut terminal_lock =
+                    instance
+                        .processor
+                        .process_event(&instance.terminal, &mut instance.window, e);
 
-            // if let Some(title) = &terminal.get_next_title() {
-            //     window.set_title(&title);
-            // };
+                instance.wait_for_event = !terminal_lock.dirty;
 
-            if let Some(is_urgent) = terminal_lock.next_is_urgent.take() {
-                // We don't need to set the urgent flag if we already have the
-                // user's attention.
-                if !is_urgent || !window.is_focused {
-                    window.set_urgent(is_urgent);
+                if terminal_lock.needs_draw() {
+                    let (x, y) = instance.display.current_ime_position(&terminal_lock);
+                    instance.window.set_ime_spot(LogicalPosition {
+                        x: x as f64,
+                        y: y as f64,
+                    });
+                    // Handle pending resize events
+                    //
+                    // The second argument is a list of types that want to be notified
+                    // of display size changes.
+                    instance.display.handle_resize(
+                        &mut terminal_lock,
+                        &config,
+                        &mut [
+                            &mut instance.pty,
+                            &mut instance.processor,
+                            &mut instance.window,
+                        ],
+                        instance.dpr,
+                    );
+
+                    drop(terminal_lock);
+
+                    // Draw the current state of the terminal
+                    instance
+                        .display
+                        .draw(&instance.terminal, &config, instance.window.is_focused);
+
+                    instance.window.swap_buffers().expect("swap buffers");
                 }
             }
+            _ => {
+                for (_, instance) in &mut instances {
+                    let terminal_lock = instance.processor.process_event(
+                        &instance.terminal,
+                        &mut instance.window,
+                        e.clone(),
+                    );
+                    instance.wait_for_event = !terminal_lock.dirty;
+                }
+            }
+        };
 
-            drop(terminal_lock);
-
-            // Draw the current state of the terminal
-            display.draw(&terminal, &config, window.is_focused);
-
-            window.swap_buffers().expect("swap buffers");
+        for event in pending_events.drain(..) {
+            process(event);
         }
+
+        events_loop.poll_events(process);
 
         // Begin shutdown if the flag was raised.
         if process_should_exit() {
@@ -243,13 +192,118 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         }
     }
 
-    loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to event loop");
-
-    // FIXME patch notify library to have a shutdown method
-    // config_reloader.join().ok();
-
-    // Wait for the I/O thread thread to finish
-    let _ = io_thread.join();
+    for (_, instance) in instances {
+        instance
+            .loop_tx
+            .send(Msg::Shutdown)
+            .expect("Error sending shutdown to event loop");
+        let _ = instance.io_thread.join();
+    }
 
     Ok(())
+}
+
+struct Notifier(EventsLoopProxy);
+
+impl WindowNotifier for Notifier {
+    fn notify(&self) {
+        self.0.wakeup().unwrap();
+    }
+}
+
+struct Instance {
+    window: Window,
+    display: Display,
+    terminal: Arc<FairMutex<Term>>,
+    processor: event::Processor<event_loop::Notifier>,
+    dpr: f64,
+    pty: tty::Pty,
+    loop_tx: mio_more::channel::Sender<Msg>,
+    io_thread: std::thread::JoinHandle<(event_loop::EventLoop<std::fs::File>, event_loop::State)>,
+    wait_for_event: bool,
+}
+
+impl Instance {
+    fn new(
+        events_loop: &EventsLoop,
+        config: &Config,
+        options: &cli::Options,
+    ) -> Result<Instance, Box<Error>> {
+        let mut window = Window::new(&options, config.window(), &events_loop)?;
+
+        let dpr = window.hidpi_factor();
+        info!("device_pixel_ratio: {}", dpr);
+
+        // Create a display.
+        //
+        // The display manages a window and can draw the terminal
+        let display = Display::new(&config, options, dpr)?;
+
+        let size = display.size().to_owned();
+        let viewport_size =
+            PhysicalSize::new(size.width as f64, size.height as f64).to_logical(dpr);
+
+        info!("set_inner_size: {:?}", viewport_size);
+        window.set_inner_size(viewport_size);
+
+        info!("PTY Dimensions: {:?} x {:?}", size.lines(), size.cols());
+
+        // Create the terminal
+        //
+        // This object contains all of the state about what's being displayed. It's
+        // wrapped in a clonable mutex since both the I/O loop and display need to
+        // access it.
+        let terminal = Term::new(&config, size);
+        let terminal = Arc::new(FairMutex::new(terminal));
+
+        // Find the window ID for setting $WINDOWID
+        let window_id = window.get_window_id();
+
+        // Create the pty
+        //
+        // The pty forks a process to run the shell on the slave side of the
+        // pseudoterminal. A file descriptor for the master side is retained for
+        // reading/writing to the shell.
+        let pty = tty::new(&config, options, &display.size(), window_id);
+
+        // Create the pseudoterminal I/O loop
+        //
+        // pty I/O is ran on another thread as to not occupy cycles used by the
+        // renderer and input processing. Note that access to the terminal state is
+        // synchronized since the I/O loop updates the state, and the display
+        // consumes it periodically.
+        let event_loop = EventLoop::new(
+            Arc::clone(&terminal),
+            Box::new(Notifier(events_loop.create_proxy())),
+            pty.reader(),
+            options.ref_test,
+        );
+
+        // Event processor
+        //
+        // Need the Rc<RefCell<_>> here since a ref is shared in the resize callback
+        let processor = event::Processor::new(
+            event_loop::Notifier(event_loop.channel()),
+            display.resize_channel(),
+            options,
+            &config,
+            options.ref_test,
+            display.size().to_owned(),
+        );
+
+        let loop_tx = event_loop.channel();
+        let io_thread = event_loop.spawn(None);
+
+        Ok(Instance {
+            window,
+            display,
+            terminal,
+            processor,
+            dpr,
+            pty,
+            loop_tx,
+            io_thread,
+            wait_for_event: true,
+        })
+    }
 }

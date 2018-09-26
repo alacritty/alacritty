@@ -226,7 +226,6 @@ pub struct Processor<N> {
     mouse_config: config::Mouse,
     scrolling_config: config::Scrolling,
     print_events: bool,
-    wait_for_event: bool,
     notifier: N,
     mouse: Mouse,
     resize_tx: mpsc::Sender<PhysicalSize>,
@@ -237,7 +236,6 @@ pub struct Processor<N> {
     received_count: usize,
     suppress_chars: bool,
     last_modifiers: ModifiersState,
-    pending_events: Vec<Event>,
     window_changes: WindowChanges,
 }
 
@@ -269,7 +267,6 @@ impl<N: Notify> Processor<N> {
             mouse_config: config.mouse().to_owned(),
             scrolling_config: config.scrolling(),
             print_events: options.print_events,
-            wait_for_event: true,
             notifier,
             resize_tx,
             ref_test,
@@ -280,7 +277,6 @@ impl<N: Notify> Processor<N> {
             received_count: 0,
             suppress_chars: false,
             last_modifiers: Default::default(),
-            pending_events: Vec::with_capacity(4),
             window_changes: Default::default(),
         }
     }
@@ -399,44 +395,21 @@ impl<N: Notify> Processor<N> {
         }
     }
 
-    /// Process events. When `wait_for_event` is set, this method is guaranteed
-    /// to process at least one event.
-    pub fn process_events<'a>(
+    pub fn process_event<'a>(
         &mut self,
         term: &'a FairMutex<Term>,
-        window: &mut Window
+        window: &mut Window,
+        event: Event,
     ) -> MutexGuard<'a, Term> {
-        // Terminal is lazily initialized the first time an event is returned
-        // from the blocking WaitEventsIterator. Otherwise, the pty reader would
-        // be blocked the entire time we wait for input!
-        let mut terminal;
-
-        self.pending_events.clear();
+        let mut terminal = term.lock();
 
         {
-            // Ditto on lazy initialization for context and processor.
-            let context;
-            let mut processor: input::Processor<ActionContext<N>>;
-
             let print_events = self.print_events;
 
             let ref_test = self.ref_test;
             let resize_tx = &self.resize_tx;
 
-            if self.wait_for_event {
-                // A Vec is used here since wait_events can potentially yield
-                // multiple events before the interrupt is handled. For example,
-                // Resize and Moved events.
-                let pending_events = &mut self.pending_events;
-                window.wait_events(|e| {
-                    pending_events.push(e);
-                    glutin::ControlFlow::Break
-                });
-            }
-
-            terminal = term.lock();
-
-            context = ActionContext {
+            let context = ActionContext {
                 terminal: &mut terminal,
                 notifier: &mut self.notifier,
                 mouse: &mut self.mouse,
@@ -447,7 +420,7 @@ impl<N: Notify> Processor<N> {
                 window_changes: &mut self.window_changes,
             };
 
-            processor = input::Processor {
+            let mut processor = input::Processor {
                 ctx: context,
                 scrolling_config: &self.scrolling_config,
                 mouse_config: &self.mouse_config,
@@ -461,25 +434,17 @@ impl<N: Notify> Processor<N> {
             // ends.
             {
                 let hide_cursor = &mut self.hide_cursor;
-                let mut process = |event| {
-                    if print_events {
-                        println!("glutin event: {:?}", event);
-                    }
-                    Processor::handle_event(
-                        &mut processor,
-                        event,
-                        ref_test,
-                        resize_tx,
-                        hide_cursor,
-                        &mut window_is_focused,
-                    );
-                };
-
-                for event in self.pending_events.drain(..) {
-                    process(event);
+                if print_events {
+                    println!("glutin event: {:?}", event);
                 }
-
-                window.poll_events(process);
+                Processor::handle_event(
+                    &mut processor,
+                    event,
+                    ref_test,
+                    resize_tx,
+                    hide_cursor,
+                    &mut window_is_focused,
+                );
             }
 
             if self.hide_cursor_when_typing {
@@ -498,7 +463,6 @@ impl<N: Notify> Processor<N> {
         }
 
         self.window_changes.clear();
-        self.wait_for_event = !terminal.dirty;
 
         terminal
     }
