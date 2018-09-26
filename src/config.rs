@@ -279,29 +279,27 @@ impl<'de> Deserialize<'de> for Decorations {
                 f.write_str("Some subset of full|transparent|buttonless|none")
             }
 
-            fn visit_bool<E>(self, value: bool) -> ::std::result::Result<Decorations, E>
-                where E: de::Error
-            {
-                if value {
-                    eprintln!("deprecated decorations boolean value, use one of \
-                              default|transparent|buttonless|none instead; Falling back to \"full\"");
-                    Ok(Decorations::Full)
-                } else {
-                    eprintln!("deprecated decorations boolean value, use one of \
-                              default|transparent|buttonless|none instead; Falling back to \"none\"");
-                    Ok(Decorations::None)
-                }
-            }
-
             #[cfg(target_os = "macos")]
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<Decorations, E>
                 where E: de::Error
             {
-                match value {
+                match value.to_lowercase().as_str() {
                     "transparent" => Ok(Decorations::Transparent),
                     "buttonless" => Ok(Decorations::Buttonless),
                     "none" => Ok(Decorations::None),
                     "full" => Ok(Decorations::Full),
+                    "true" => {
+                        eprintln!("deprecated decorations boolean value, use one of \
+                                   default|transparent|buttonless|none instead;\
+                                   Falling back to \"full\"");
+                        Ok(Decorations::Full)
+                    },
+                    "false" => {
+                        eprintln!("deprecated decorations boolean value, use one of \
+                                   default|transparent|buttonless|none instead;\
+                                   Falling back to \"none\"");
+                        Ok(Decorations::None)
+                    },
                     _ => {
                         eprintln!("invalid decorations value: {}; Using default value", value);
                         Ok(Decorations::Full)
@@ -316,14 +314,22 @@ impl<'de> Deserialize<'de> for Decorations {
                 match value.to_lowercase().as_str() {
                     "none" => Ok(Decorations::None),
                     "full" => Ok(Decorations::Full),
-                    "transparent" => {
+                    "true" => {
+                        eprintln!("deprecated decorations boolean value, use one of \
+                                   default|transparent|buttonless|none instead; \
+                                   Falling back to \"full\"");
+                        Ok(Decorations::Full)
+                    },
+                    "false" => {
+                        eprintln!("deprecated decorations boolean value, use one of \
+                                   default|transparent|buttonless|none instead; \
+                                   Falling back to \"none\"");
+                        Ok(Decorations::None)
+                    },
+                    "transparent" | "buttonless" => {
                         eprintln!("macos-only decorations value: {}; Using default value", value);
                         Ok(Decorations::Full)
                     },
-                    "buttonless" => {
-                        eprintln!("macos-only decorations value: {}; Using default value", value);
-                        Ok(Decorations::Full)
-                    }
                     _ => {
                         eprintln!("invalid decorations value: {}; Using default value", value);
                         Ok(Decorations::Full)
