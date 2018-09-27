@@ -116,6 +116,13 @@ pub enum Scroll {
     Bottom,
 }
 
+#[derive(Copy, Clone)]
+pub enum ViewportPosition {
+    Visible(Line),
+    Above,
+    Below,
+}
+
 impl<T: Copy + Clone> Grid<T> {
     pub fn new(lines: index::Line, cols: index::Column, scrollback: usize, template: T) -> Grid<T> {
         let raw = Storage::with_capacity(lines, Row::new(cols, &template));
@@ -137,18 +144,11 @@ impl<T: Copy + Clone> Grid<T> {
         }
     }
 
-    pub fn buffer_to_visible(&self, point: Point<usize>) -> Point {
-        Point {
-            line: self.buffer_line_to_visible(point.line).expect("Line not visible"),
-            col: point.col
-        }
-    }
-
-    pub fn buffer_line_to_visible(&self, line: usize) -> Option<Line> {
+    pub fn buffer_line_to_visible(&self, line: usize) -> ViewportPosition {
         if line >= self.display_offset {
             self.offset_to_line(line - self.display_offset)
         } else {
-            None
+            ViewportPosition::Below
         }
     }
 
@@ -300,11 +300,11 @@ impl<T: Copy + Clone> Grid<T> {
         *(self.num_lines() - line - 1)
     }
 
-    pub fn offset_to_line(&self, offset: usize) -> Option<Line> {
+    fn offset_to_line(&self, offset: usize) -> ViewportPosition {
         if offset < *self.num_lines() {
-            Some(self.lines - offset - 1)
+            ViewportPosition::Visible(self.lines - offset - 1)
         } else {
-            None
+            ViewportPosition::Above
         }
     }
 

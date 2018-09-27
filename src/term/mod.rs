@@ -23,7 +23,7 @@ use unicode_width::UnicodeWidthChar;
 
 use font::{self, Size};
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter, Scroll};
+use grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter, Scroll, ViewportPosition};
 use index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
 use selection::{self, Selection, Locations};
 use config::{Config, VisualBellAnimation};
@@ -136,16 +136,19 @@ impl<'a> RenderableCellsIter<'a> {
 
             // Get start/end locations based on what part of selection is on screen
             let locations = match (start_line, end_line) {
-                (Some(start_line), Some(end_line)) => {
+                (ViewportPosition::Visible(start_line), ViewportPosition::Visible(end_line)) => {
                     Some((start_line, loc.start.col, end_line, loc.end.col))
                 },
-                (Some(start_line), None) => {
+                (ViewportPosition::Visible(start_line), ViewportPosition::Above) => {
                     Some((start_line, loc.start.col, Line(0), Column(0)))
                 },
-                (None, Some(end_line)) => {
+                (ViewportPosition::Below, ViewportPosition::Visible(end_line)) => {
                     Some((grid.num_lines(), Column(0), end_line, loc.end.col))
                 },
-                (None, None) => None,
+                (ViewportPosition::Below, ViewportPosition::Above) =>  {
+                    Some((grid.num_lines(), Column(0), Line(0), Column(0)))
+                },
+                _ => None,
             };
 
             if let Some((start_line, start_col, end_line, end_col)) = locations {
