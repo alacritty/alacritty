@@ -289,14 +289,14 @@ impl<'de> Deserialize<'de> for Decorations {
                     "none" => Ok(Decorations::None),
                     "full" => Ok(Decorations::Full),
                     "true" => {
-                        eprintln!("deprecated decorations boolean value, use one of \
-                                   default|transparent|buttonless|none instead;\
+                        eprintln!("deprecated decorations boolean value, \
+                                   use one of transparent|buttonless|none|full instead; \
                                    Falling back to \"full\"");
                         Ok(Decorations::Full)
                     },
                     "false" => {
-                        eprintln!("deprecated decorations boolean value, use one of \
-                                   default|transparent|buttonless|none instead;\
+                        eprintln!("deprecated decorations boolean value, \
+                                   use one of transparent|buttonless|none|full instead; \
                                    Falling back to \"none\"");
                         Ok(Decorations::None)
                     },
@@ -315,14 +315,14 @@ impl<'de> Deserialize<'de> for Decorations {
                     "none" => Ok(Decorations::None),
                     "full" => Ok(Decorations::Full),
                     "true" => {
-                        eprintln!("deprecated decorations boolean value, use one of \
-                                   default|transparent|buttonless|none instead; \
+                        eprintln!("deprecated decorations boolean value, \
+                                   use one of none|full instead; \
                                    Falling back to \"full\"");
                         Ok(Decorations::Full)
                     },
                     "false" => {
-                        eprintln!("deprecated decorations boolean value, use one of \
-                                   default|transparent|buttonless|none instead; \
+                        eprintln!("deprecated decorations boolean value, \
+                                   use one of none|full instead; \
                                    Falling back to \"none\"");
                         Ok(Decorations::None)
                     },
