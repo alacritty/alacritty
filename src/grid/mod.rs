@@ -145,10 +145,13 @@ impl<T: Copy + Clone> Grid<T> {
     }
 
     pub fn buffer_line_to_visible(&self, line: usize) -> ViewportPosition {
-        if line >= self.display_offset {
-            self.offset_to_line(line - self.display_offset)
-        } else {
+        let offset = line.saturating_sub(self.display_offset);
+        if line < self.display_offset {
             ViewportPosition::Below
+        } else if offset >= *self.num_lines() {
+            ViewportPosition::Above
+        } else {
+            ViewportPosition::Visible(self.lines - offset - 1)
         }
     }
 
@@ -298,14 +301,6 @@ impl<T: Copy + Clone> Grid<T> {
         assert!(line < self.num_lines());
 
         *(self.num_lines() - line - 1)
-    }
-
-    fn offset_to_line(&self, offset: usize) -> ViewportPosition {
-        if offset < *self.num_lines() {
-            ViewportPosition::Visible(self.lines - offset - 1)
-        } else {
-            ViewportPosition::Above
-        }
     }
 
     #[inline]
