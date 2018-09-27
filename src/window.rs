@@ -24,6 +24,9 @@ use {LogicalPosition, LogicalSize, MouseCursor, PhysicalSize};
 
 use cli::Options;
 use config::{Decorations, WindowConfig};
+use display::OnResize;
+use event_loop::WindowNotifier;
+use term::SizeInfo;
 
 /// Default text for the window's title bar, if not overriden.
 ///
@@ -361,6 +364,10 @@ impl Window {
         None
     }
 
+    pub fn notifier(&self) -> Notifier {
+        Notifier(self.create_window_proxy())
+    }
+
     /// Hide the window
     pub fn hide(&self) {
         self.window.hide();
@@ -444,5 +451,26 @@ impl Proxy {
     /// be waiting on user input.
     pub fn wakeup_event_loop(&self) {
         self.inner.wakeup().unwrap();
+    }
+}
+
+impl OnResize for Window {
+    #[inline]
+    fn on_resize(&mut self, size: &SizeInfo) {
+        self.resize(PhysicalSize::new(size.width as f64, size.height as f64));
+    }
+}
+
+pub struct Notifier(Proxy);
+
+impl Notifier {
+    pub fn notify(&self) {
+        self.0.wakeup_event_loop();
+    }
+}
+
+impl WindowNotifier for Notifier {
+    fn notify(&self) {
+        self.notify()
     }
 }

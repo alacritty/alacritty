@@ -13,11 +13,14 @@ use mio::unix::EventedFd;
 use mio_more::channel::{self, Sender, Receiver};
 
 use ansi;
-use display;
 use event;
 use term::Term;
 use util::thread;
 use sync::FairMutex;
+
+pub trait WindowNotifier {
+    fn notify(&self);
+}
 
 /// Messages that may be sent to the `EventLoop`
 #[derive(Debug)]
@@ -39,7 +42,7 @@ pub struct EventLoop<Io> {
     rx: Receiver<Msg>,
     tx: Sender<Msg>,
     terminal: Arc<FairMutex<Term>>,
-    display: display::Notifier,
+    window: Box<WindowNotifier + Send>,
     ref_test: bool,
 }
 
@@ -172,7 +175,7 @@ impl<Io> EventLoop<Io>
     /// Create a new event loop
     pub fn new(
         terminal: Arc<FairMutex<Term>>,
-        display: display::Notifier,
+        window: Box<WindowNotifier + Send>,
         pty: Io,
         ref_test: bool,
     ) -> EventLoop<Io> {
@@ -183,7 +186,7 @@ impl<Io> EventLoop<Io>
             tx,
             rx,
             terminal,
-            display,
+            window,
             ref_test,
         }
     }
@@ -309,7 +312,7 @@ impl<Io> EventLoop<Io>
         // Only request a draw if one hasn't already been requested.
         if let Some(mut terminal) = terminal {
             if send_wakeup {
-                self.display.notify();
+                self.window.notify();
                 terminal.dirty = true;
             }
         }

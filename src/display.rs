@@ -19,7 +19,7 @@ use std::f64;
 
 use parking_lot::{MutexGuard};
 
-use {LogicalPosition, PhysicalSize, Rgb};
+use {PhysicalSize, Rgb};
 use cli;
 use config::Config;
 use font::{self, Rasterize};
@@ -28,14 +28,8 @@ use renderer::{self, GlyphCache, QuadRenderer};
 use term::{Term, SizeInfo};
 use sync::FairMutex;
 
-use window::{self, Window};
-
-
 #[derive(Debug)]
 pub enum Error {
-    /// Error with window management
-    Window(window::Error),
-
     /// Error dealing with fonts
     Font(font::Error),
 
@@ -46,7 +40,6 @@ pub enum Error {
 impl ::std::error::Error for Error {
     fn cause(&self) -> Option<&::std::error::Error> {
         match *self {
-            Error::Window(ref err) => Some(err),
             Error::Font(ref err) => Some(err),
             Error::Render(ref err) => Some(err),
         }
@@ -54,7 +47,6 @@ impl ::std::error::Error for Error {
 
     fn description(&self) -> &str {
         match *self {
-            Error::Window(ref err) => err.description(),
             Error::Font(ref err) => err.description(),
             Error::Render(ref err) => err.description(),
         }
@@ -64,16 +56,9 @@ impl ::std::error::Error for Error {
 impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            Error::Window(ref err) => err.fmt(f),
             Error::Font(ref err) => err.fmt(f),
             Error::Render(ref err) => err.fmt(f),
         }
-    }
-}
-
-impl From<window::Error> for Error {
-    fn from(val: window::Error) -> Error {
-        Error::Window(val)
     }
 }
 
@@ -91,7 +76,6 @@ impl From<renderer::Error> for Error {
 
 /// The display wraps a window, font rasterizer, and GPU renderer
 pub struct Display {
-    window: Window,
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
@@ -102,25 +86,12 @@ pub struct Display {
     size_info: SizeInfo,
 }
 
-/// Can wakeup the render loop from other threads
-pub struct Notifier(window::Proxy);
-
 /// Types that are interested in when the display is resized
 pub trait OnResize {
     fn on_resize(&mut self, size: &SizeInfo);
 }
 
-impl Notifier {
-    pub fn notify(&self) {
-        self.0.wakeup_event_loop();
-    }
-}
-
 impl Display {
-    pub fn notifier(&self) -> Notifier {
-        Notifier(self.window.create_window_proxy())
-    }
-
     pub fn update_config(&mut self, config: &Config) {
         self.render_timer = config.render_timer();
     }
@@ -130,25 +101,12 @@ impl Display {
         &self.size_info
     }
 
-    pub fn new(
-        config: &Config,
-        options: &cli::Options,
-    ) -> Result<Display, Error> {
+    pub fn new(config: &Config, options: &cli::Options, dpr: f64) -> Result<Display, Error> {
         // Extract some properties from config
         let render_timer = config.render_timer();
 
-        // Create the window where Alacritty will be displayed
-        let mut window = Window::new(&options, config.window())?;
-
-        let dpr = window.hidpi_factor();
-        info!("device_pixel_ratio: {}", dpr);
-
-        // get window properties for initializing the other subsystems
-        let mut viewport_size = window.inner_size_pixels()
-            .expect("glutin returns window size").to_physical(dpr);
-
         // Create renderer
-        let mut renderer = QuadRenderer::new(config, viewport_size, dpr)?;
+        let mut renderer = QuadRenderer::new(config, PhysicalSize::new(0.0, 0.0), dpr)?;
 
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
@@ -157,26 +115,23 @@ impl Display {
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
 
+        let width = cell_width as u32 * dimensions.columns_u32();
+        let height = cell_height as u32 * dimensions.lines_u32();
+
         // Resize window to specified dimensions unless one or both dimensions are 0
-        if dimensions.columns_u32() > 0 && dimensions.lines_u32() > 0 {
-            let width = cell_width as u32 * dimensions.columns_u32();
-            let height = cell_height as u32 * dimensions.lines_u32();
+        let size = PhysicalSize::new(
+            f64::from(width + 2 * (f64::from(config.padding().x) * dpr) as u32),
+            f64::from(height + 2 * (f64::from(config.padding().y) * dpr) as u32) as f64,
+        );
 
-            let new_viewport_size = PhysicalSize::new(
-                f64::from(width + 2 * (f64::from(config.padding().x) * dpr) as u32),
-                f64::from(height + 2 * (f64::from(config.padding().y) * dpr) as u32) as f64);
-
-            window.set_inner_size(new_viewport_size.to_logical(dpr));
-            renderer.resize(new_viewport_size, dpr);
-            viewport_size = new_viewport_size;
-        }
+        renderer.resize(size, dpr);
 
         info!("Cell Size: ({} x {})", cell_width, cell_height);
 
         let size_info = SizeInfo {
             dpr,
-            width: viewport_size.width as f32,
-            height: viewport_size.height as f32,
+            width: size.width as f32,
+            height: size.height as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
             padding_x: (f64::from(config.padding().x) * dpr).floor() as f32,
@@ -199,7 +154,6 @@ impl Display {
         });
 
         Ok(Display {
-            window,
             renderer,
             glyph_cache,
             render_timer,
@@ -266,16 +220,13 @@ impl Display {
         self.tx.clone()
     }
 
-    pub fn window(&mut self) -> &mut Window {
-        &mut self.window
-    }
-
     /// Process pending resize events
     pub fn handle_resize(
         &mut self,
         terminal: &mut MutexGuard<Term>,
         config: &Config,
-        items: &mut [&mut OnResize]
+        items: &mut [&mut OnResize],
+        dpr: f64,
     ) {
         // Resize events new_size and are handled outside the poll_events
         // iterator. This has the effect of coalescing multiple resize
@@ -286,9 +237,6 @@ impl Display {
         while let Ok(size) = self.rx.try_recv() {
             new_size = Some(size);
         }
-
-        // Update the DPR
-        let dpr = self.window.hidpi_factor();
 
         // Font size/DPI factor modification detected
         if terminal.font_size != self.font_size || (dpr - self.size_info.dpr).abs() > f64::EPSILON {
@@ -321,10 +269,8 @@ impl Display {
                 item.on_resize(size)
             }
 
-            self.window.resize(psize);
             self.renderer.resize(psize, dpr);
         }
-
     }
 
     /// Draw the screen
@@ -332,7 +278,7 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(&mut self, terminal: &FairMutex<Term>, config: &Config) {
+    pub fn draw(&mut self, terminal: &FairMutex<Term>, config: &Config, window_focused: bool) {
         let terminal_locked = terminal.lock();
         let size_info = *terminal_locked.size_info();
         let visual_bell_intensity = terminal_locked.visual_bell.intensity();
@@ -358,22 +304,6 @@ impl Display {
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
 
-        if let Some(title) = terminal.get_next_title() {
-            self.window.set_title(&title);
-        }
-
-        if let Some(mouse_cursor) = terminal.get_next_mouse_cursor() {
-            self.window.set_mouse_cursor(mouse_cursor);
-        }
-
-        if let Some(is_urgent) = terminal.next_is_urgent.take() {
-            // We don't need to set the urgent flag if we already have the
-            // user's attention.
-            if !is_urgent || !self.window.is_focused {
-                self.window.set_urgent(is_urgent);
-            }
-        }
-
         {
             let glyph_cache = &mut self.glyph_cache;
 
@@ -386,7 +316,6 @@ impl Display {
                 //
                 // TODO I wonder if the renderable cells iter could avoid the
                 // mutable borrow
-                let window_focused = self.window.is_focused;
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
                     // Draw the grid
                     api.render_cells(
@@ -405,21 +334,11 @@ impl Display {
                 });
             }
         }
-
-        // Unlock the terminal mutex; following call to swap_buffers() may block
-        drop(terminal);
-        self.window
-            .swap_buffers()
-            .expect("swap buffers");
-    }
-
-    pub fn get_window_id(&self) -> Option<usize> {
-        self.window.get_window_id()
     }
 
     /// Adjust the IME editor position according to the new location of the cursor
-    pub fn update_ime_position(&mut self, terminal: &Term) {
-        use index::{Point, Line, Column};
+    pub fn current_ime_position(&mut self, terminal: &Term) -> (i32, i32) {
+        use index::{Column, Line, Point};
         use term::SizeInfo;
         let Point{line: Line(row), col: Column(col)} = terminal.cursor().point;
         let SizeInfo{cell_width: cw,
@@ -428,6 +347,6 @@ impl Display {
                     padding_y: py, ..} = *terminal.size_info();
         let nspot_y = (py + (row + 1) as f32 * ch) as i32;
         let nspot_x = (px + col as f32 * cw) as i32;
-        self.window().set_ime_spot(LogicalPosition::from((nspot_x, nspot_y)));
+        (nspot_x, nspot_y)
     }
 }
