@@ -82,17 +82,14 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn update_selection(&mut self, point: Point, side: Side) {
-        self.terminal.dirty = true;
         let point = self.terminal.visible_to_buffer(point);
 
         // Update selection if one exists
-        if let Some(ref mut selection) = *self.terminal.selection_mut() {
+        if let Some(ref mut selection) = self.terminal.selection_mut() {
             selection.update(point, side);
-            return;
         }
 
-        // Otherwise, start a regular selection
-        *self.terminal.selection_mut() = Some(Selection::simple(point, side));
+        self.terminal.dirty = true;
     }
 
     fn simple_selection(&mut self, point: Point, side: Side) {
@@ -127,6 +124,11 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     #[inline]
     fn mouse_mut(&mut self) -> &mut Mouse {
+        self.mouse
+    }
+
+    #[inline]
+    fn mouse(&self) -> &Mouse {
         self.mouse
     }
 
