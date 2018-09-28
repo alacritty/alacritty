@@ -81,3 +81,6 @@ assets = [
     ["alacritty-completions.zsh", "usr/share/zsh/vendor-completions/_alacritty", "644"],
     ["alacritty.info", "usr/share/terminfo/a/alacritty", "644"],
 ]
+
+[patch.crates-io]
+servo-freetype-sys = { path = "servo-freetype-proxy" }
