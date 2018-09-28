@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Windows started as unfocused now show the hollow cursor if the setting is enabled
 - Empty lines in selections are now properly copied to the clipboard
 - Selection start point lagging behind initial cursor position
+- Rendering of selections which start above the visible area and end below it
 
 ### Deprecated
 
