@@ -72,6 +72,11 @@ zypper in alacritty
 xbps-install alacritty
 ```
 
+### FreeBSD
+```sh
+pkg install alacritty
+```
+
 ## Manual Installation
 
 ### Prerequisites
