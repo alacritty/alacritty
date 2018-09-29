@@ -378,7 +378,7 @@ impl Display {
 
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
                     // Draw the grid
-                    api.render_grid(glyph_cache);
+                    api.render_cells(api.grid_cells.iter(), glyph_cache);
                 });
             }
 
@@ -415,3 +415,4 @@ impl Display {
         self.window().set_ime_spot(nspot_x, nspot_y);
     }
 }
+

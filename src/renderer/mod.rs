@@ -376,7 +376,7 @@ pub struct RenderApi<'a> {
     program: &'a mut ShaderProgram,
     config: &'a Config,
     visual_bell_intensity: f32,
-    grid_cells: &'a Vec<RenderableCell>
+    pub grid_cells: &'a Vec<RenderableCell>
 }
 
 #[derive(Debug)]
@@ -803,7 +803,7 @@ impl<'a> RenderApi<'a> {
             })
             .collect::<Vec<_>>();
 
-        self.render_cells(cells.into_iter(), glyph_cache);
+        self.render_cells(cells.iter(), glyph_cache);
     }
 
     #[inline]
@@ -820,59 +820,14 @@ impl<'a> RenderApi<'a> {
             self.render_batch();
         }
     }
-    pub fn render_cells<I>(
+    pub fn render_cells<'b, I>(
         &mut self,
         cells: I,
         glyph_cache: &mut GlyphCache
     )
-        where I: Iterator<Item=RenderableCell>
+        where I: Iterator<Item=&'b RenderableCell>
     {
         for cell in cells {
-            // Get font key for cell
-            // FIXME this is super inefficient.
-            let font_key = if cell.flags.contains(cell::Flags::BOLD) {
-                glyph_cache.bold_key
-            } else if cell.flags.contains(cell::Flags::ITALIC) {
-                glyph_cache.italic_key
-            } else {
-                glyph_cache.font_key
-            };
-
-            let mut glyph_key = GlyphKey {
-                font_key,
-                size: glyph_cache.font_size,
-                c: cell.c
-            };
-
-            // Don't render text of HIDDEN cells
-            if cell.flags.contains(cell::Flags::HIDDEN) {
-                glyph_key.c = ' ';
-            }
-
-            // Add cell to batch
-            {
-                let glyph = glyph_cache.get(glyph_key, self);
-                self.add_render_item(&cell, glyph);
-            }
-
-            // FIXME This is a super hacky way to do underlined text. During
-            //       a time crunch to release 0.1, this seemed like a really
-            //       easy, clean hack.
-            if cell.flags.contains(cell::Flags::UNDERLINE) {
-                let glyph_key = GlyphKey {
-                    font_key,
-                    size: glyph_cache.font_size,
-                    c: '_'
-                };
-
-                let underscore = glyph_cache.get(glyph_key, self);
-                self.add_render_item(&cell, underscore);
-            }
-        }
-    }
-
-    pub fn render_grid(&mut self, glyph_cache: &mut GlyphCache) {
-        for cell in self.grid_cells {
             // Get font key for cell
             // FIXME this is super inefficient.
             let font_key = if cell.flags.contains(cell::Flags::BOLD) {
