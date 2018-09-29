@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Rendering now occurs without the terminal locked which improves performance
 - Clear screen properly before rendering of content to prevent various graphical glitches
 - Fix build failure on 32-bit systems
 - Windows started as unfocused now show the hollow cursor if the setting is enabled
