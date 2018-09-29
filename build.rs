@@ -21,7 +21,9 @@ use std::path::Path;
 fn main() {
     let dest = env::var("OUT_DIR").unwrap();
     let mut file = File::create(&Path::new(&dest).join("gl_bindings.rs")).unwrap();
-
+    if cfg!(target_os = "macos"){
+        println!("cargo:rustc-env=MACOSX_DEPLOYMENT_TARGET=10.12");
+    }
     Registry::new(Api::Gl, (4, 5), Profile::Core, Fallbacks::All, [
             "GL_ARB_blend_func_extended"
         ])
