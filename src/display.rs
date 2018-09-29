@@ -24,7 +24,7 @@ use config::Config;
 use font::{self, Rasterize};
 use meter::Meter;
 use renderer::{self, GlyphCache, QuadRenderer};
-use term::{Term, SizeInfo};
+use term::{Term, SizeInfo, RenderableCell};
 use sync::FairMutex;
 
 use window::{self, Size, Pixels, Window, SetInnerSize};
@@ -331,7 +331,7 @@ impl Display {
         let background_color = terminal.background_color();
 
         let window_focused = self.window.is_focused;
-        self.renderer.grid_cells = terminal
+        let grid_cells: Vec<RenderableCell> = terminal
             .renderable_cells(config, window_focused)
             .collect();
 
@@ -378,7 +378,7 @@ impl Display {
 
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
                     // Draw the grid
-                    api.render_cells(api.grid_cells.iter(), glyph_cache);
+                    api.render_cells(grid_cells.iter(), glyph_cache);
                 });
             }
 

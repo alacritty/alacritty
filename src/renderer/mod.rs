@@ -364,7 +364,6 @@ pub struct QuadRenderer {
     active_tex: GLuint,
     batch: Batch,
     rx: mpsc::Receiver<Msg>,
-    pub grid_cells: Vec<RenderableCell>,
 }
 
 #[derive(Debug)]
@@ -376,7 +375,6 @@ pub struct RenderApi<'a> {
     program: &'a mut ShaderProgram,
     config: &'a Config,
     visual_bell_intensity: f32,
-    pub grid_cells: &'a Vec<RenderableCell>
 }
 
 #[derive(Debug)]
@@ -618,7 +616,6 @@ impl QuadRenderer {
             active_tex: 0,
             batch: Batch::new(),
             rx: msg_rx,
-            grid_cells: Vec::new(),
         };
 
         let atlas = Atlas::new(ATLAS_SIZE);
@@ -666,7 +663,6 @@ impl QuadRenderer {
             program: &mut self.program,
             visual_bell_intensity: visual_bell_intensity as _,
             config,
-            grid_cells: &self.grid_cells,
         });
 
         unsafe {
