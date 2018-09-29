@@ -350,6 +350,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let motion_mode = TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG;
         let report_mode = TermMode::MOUSE_REPORT_CLICK | motion_mode;
 
+        let cell_side = self.get_mouse_side();
+        self.ctx.mouse_mut().cell_side = cell_side;
+
         // Don't launch URLs if mouse has moved
         if prev_line != self.ctx.mouse().line
             || prev_col != self.ctx.mouse().column
