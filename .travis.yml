@@ -31,4 +31,5 @@ matrix:
 script:
   - if [ -n "$CLIPPY" ]; then cargo clippy --all-features --all-targets; fi
   - if [ -z "$CLIPPY" ]; then cargo test; fi
+  - if [ -z "$CLIPPY" ] && [[ "$TRAVIS_RUST_VERSION" == "nightly" ]]; then cargo test --features bench; fi
   - if [ -z "$CLIPPY" ]; then cargo test -p font; fi
