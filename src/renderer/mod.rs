@@ -820,6 +820,7 @@ impl<'a> RenderApi<'a> {
             self.render_batch();
         }
     }
+
     pub fn render_cells<'b, I>(
         &mut self,
         cells: I,
