@@ -364,6 +364,7 @@ pub struct QuadRenderer {
     active_tex: GLuint,
     batch: Batch,
     rx: mpsc::Receiver<Msg>,
+    pub grid_cells: Vec<RenderableCell>,
 }
 
 #[derive(Debug)]
@@ -374,7 +375,8 @@ pub struct RenderApi<'a> {
     current_atlas: &'a mut usize,
     program: &'a mut ShaderProgram,
     config: &'a Config,
-    visual_bell_intensity: f32
+    visual_bell_intensity: f32,
+    grid_cells: &'a Vec<RenderableCell>
 }
 
 #[derive(Debug)]
@@ -616,6 +618,7 @@ impl QuadRenderer {
             active_tex: 0,
             batch: Batch::new(),
             rx: msg_rx,
+            grid_cells: Vec::new(),
         };
 
         let atlas = Atlas::new(ATLAS_SIZE);
@@ -663,6 +666,7 @@ impl QuadRenderer {
             program: &mut self.program,
             visual_bell_intensity: visual_bell_intensity as _,
             config,
+            grid_cells: &self.grid_cells,
         });
 
         unsafe {
@@ -816,7 +820,6 @@ impl<'a> RenderApi<'a> {
             self.render_batch();
         }
     }
-
     pub fn render_cells<I>(
         &mut self,
         cells: I,
@@ -825,6 +828,51 @@ impl<'a> RenderApi<'a> {
         where I: Iterator<Item=RenderableCell>
     {
         for cell in cells {
+            // Get font key for cell
+            // FIXME this is super inefficient.
+            let font_key = if cell.flags.contains(cell::Flags::BOLD) {
+                glyph_cache.bold_key
+            } else if cell.flags.contains(cell::Flags::ITALIC) {
+                glyph_cache.italic_key
+            } else {
+                glyph_cache.font_key
+            };
+
+            let mut glyph_key = GlyphKey {
+                font_key,
+                size: glyph_cache.font_size,
+                c: cell.c
+            };
+
+            // Don't render text of HIDDEN cells
+            if cell.flags.contains(cell::Flags::HIDDEN) {
+                glyph_key.c = ' ';
+            }
+
+            // Add cell to batch
+            {
+                let glyph = glyph_cache.get(glyph_key, self);
+                self.add_render_item(&cell, glyph);
+            }
+
+            // FIXME This is a super hacky way to do underlined text. During
+            //       a time crunch to release 0.1, this seemed like a really
+            //       easy, clean hack.
+            if cell.flags.contains(cell::Flags::UNDERLINE) {
+                let glyph_key = GlyphKey {
+                    font_key,
+                    size: glyph_cache.font_size,
+                    c: '_'
+                };
+
+                let underscore = glyph_cache.get(glyph_key, self);
+                self.add_render_item(&cell, underscore);
+            }
+        }
+    }
+
+    pub fn render_grid(&mut self, glyph_cache: &mut GlyphCache) {
+        for cell in self.grid_cells {
             // Get font key for cell
             // FIXME this is super inefficient.
             let font_key = if cell.flags.contains(cell::Flags::BOLD) {
