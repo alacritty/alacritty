@@ -127,69 +127,77 @@ fn run(config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
             }
         }
 
-        let mut process = |e| match e {
-            Event::WindowEvent { window_id, .. } => {
-                let instance = instances.get_mut(&window_id).unwrap();
-                let mut terminal_lock =
-                    instance
+        {
+
+            let mut process = |e| match e {
+                Event::WindowEvent { window_id, .. } => {
+                    let instance = instances.get_mut(&window_id).unwrap();
+                    let mut terminal_lock =
+                        instance
                         .processor
                         .process_event(&instance.terminal, &mut instance.window, e);
 
-                instance.wait_for_event = !terminal_lock.dirty;
+                    instance.wait_for_event = !terminal_lock.dirty;
 
-                if terminal_lock.needs_draw() {
-                    let (x, y) = instance.display.current_ime_position(&terminal_lock);
-                    instance.window.set_ime_spot(LogicalPosition {
-                        x: x as f64,
-                        y: y as f64,
-                    });
-                    // Handle pending resize events
-                    //
-                    // The second argument is a list of types that want to be notified
-                    // of display size changes.
-                    instance.display.handle_resize(
-                        &mut terminal_lock,
-                        &config,
-                        &mut [
+                    if terminal_lock.needs_draw() {
+                        let (x, y) = instance.display.current_ime_position(&terminal_lock);
+                        instance.window.set_ime_spot(LogicalPosition {
+                            x: x as f64,
+                            y: y as f64,
+                        });
+                        // Handle pending resize events
+                        //
+                        // The second argument is a list of types that want to be notified
+                        // of display size changes.
+                        instance.display.handle_resize(
+                            &mut terminal_lock,
+                            &config,
+                            &mut [
                             &mut instance.pty,
                             &mut instance.processor,
                             &mut instance.window,
-                        ],
-                        instance.dpr,
-                    );
+                            ],
+                            instance.dpr,
+                            );
 
-                    drop(terminal_lock);
-
-                    // Draw the current state of the terminal
-                    instance
-                        .display
-                        .draw(&instance.terminal, &config, instance.window.is_focused);
-
-                    instance.window.swap_buffers().expect("swap buffers");
+                        drop(terminal_lock);
+                    }
                 }
-            }
-            _ => {
-                for (_, instance) in &mut instances {
-                    let terminal_lock = instance.processor.process_event(
-                        &instance.terminal,
-                        &mut instance.window,
-                        e.clone(),
-                    );
-                    instance.wait_for_event = !terminal_lock.dirty;
+                _ => {
+                    for (_, instance) in &mut instances {
+                        let terminal_lock = instance.processor.process_event(
+                            &instance.terminal,
+                            &mut instance.window,
+                            e.clone(),
+                            );
+                        instance.wait_for_event = !terminal_lock.dirty;
+                    }
                 }
-            }
-        };
+            };
 
-        for event in pending_events.drain(..) {
-            process(event);
+            for event in pending_events.drain(..) {
+                process(event);
+            }
+
+            events_loop.poll_events(process);
         }
-
-        events_loop.poll_events(process);
 
         // Begin shutdown if the flag was raised.
         if process_should_exit() {
             break;
         }
+
+        for (_, instance) in &mut instances {
+            if instance.terminal.lock().needs_draw() {
+                // Draw the current state of the terminal
+                instance
+                    .display
+                    .draw(&instance.terminal, &config, instance.window.is_focused, instance.window.get_glutin_window_id());
+
+                instance.window.swap_buffers().expect("swap buffers");
+            }
+        }
+
     }
 
     for (_, instance) in instances {
