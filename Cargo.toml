@@ -41,6 +41,7 @@ base64 = "0.9.0"
 winit = { version = "0.15", features = ["icon_loading"] }
 image = "0.19"
 static_assertions = "0.2.5"
+terminfo = "0.6.1"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
@@ -94,3 +95,6 @@ assets = [
     ["alacritty-completions.zsh", "usr/share/zsh/vendor-completions/_alacritty", "644"],
     ["alacritty.info", "usr/share/terminfo/a/alacritty", "644"],
 ]
+
+[patch.crates-io]
+servo-freetype-sys = { path = "servo-freetype-proxy" }

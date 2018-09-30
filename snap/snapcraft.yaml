@@ -15,8 +15,8 @@ parts:
     plugin: dump
     source: .
     stage:
-      - Alacritty.desktop
+      - alacritty.desktop
 apps:
   alacritty:
     command: env XDG_RUNTIME_DIR= XDG_CONFIG_HOME=$SNAP_USER_DATA XDG_DATA_DIRS=$SNAP_DATA PATH=$SNAP/bin:$PATH SNAP= alacritty
-    desktop: Alacritty.desktop
+    desktop: alacritty.desktop

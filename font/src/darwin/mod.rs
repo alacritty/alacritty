@@ -18,6 +18,7 @@
 #![allow(improper_ctypes)]
 use std::collections::HashMap;
 use std::ptr;
+use std::path::PathBuf;
 
 use ::{Slant, Weight, Style};
 
@@ -56,7 +57,7 @@ pub struct Descriptor {
     font_name: String,
     style_name: String,
     display_name: String,
-    font_path: String,
+    font_path: PathBuf,
 
     ct_descriptor: CTFontDescriptor
 }
@@ -68,7 +69,7 @@ impl Descriptor {
             font_name: desc.font_name(),
             style_name: desc.style_name(),
             display_name: desc.display_name(),
-            font_path: desc.font_path().unwrap_or_else(String::new),
+            font_path: desc.font_path().unwrap_or_else(PathBuf::new),
             ct_descriptor: desc,
         }
     }
@@ -334,8 +335,10 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
 
     // CFArray of CTFontDescriptorRef (i think)
     let descriptors = ct_collection.get_descriptors();
-    for descriptor in descriptors.iter() {
-        out.push(Descriptor::new(descriptor.clone()));
+    if let Some(descriptors) = descriptors {
+        for descriptor in descriptors.iter() {
+            out.push(Descriptor::new(descriptor.clone()));
+        }
     }
 
     out
@@ -358,7 +361,7 @@ impl Descriptor {
                     // TODO fixme, hardcoded en for english
                     let mut fallbacks = cascade_list_for_languages(&menlo, &["en".to_owned()])
                         .into_iter()
-                        .filter(|desc| desc.font_path != "")
+                        .filter(|desc| !desc.font_path.as_os_str().is_empty())
                         .map(|desc| desc.to_font(size, false))
                         .collect::<Vec<_>>();
 
@@ -442,12 +445,14 @@ impl Font {
 
         let indices = [index as CGGlyph];
 
-        self.ct_font.get_advances_for_glyphs(
-            FontOrientation::Default as _,
-            &indices[0],
-            ptr::null_mut(),
-            1
-        )
+        unsafe {
+            self.ct_font.get_advances_for_glyphs(
+                FontOrientation::Default as _,
+                &indices[0],
+                ptr::null_mut(),
+                1
+            )
+        }
     }
 
     pub fn get_glyph(&self, character: char, _size: f64, use_thin_strokes: bool) -> Result<RasterizedGlyph, Error> {
@@ -577,11 +582,13 @@ impl Font {
         // always being a 0.
         let mut glyphs:[CGGlyph; 2] = [0; 2];
 
-        let res = self.ct_font.get_glyphs_for_characters(
-            encoded.as_ptr(),
-            glyphs.as_mut_ptr(),
-            encoded.len() as CFIndex
-        );
+        let res = unsafe {
+            self.ct_font.get_glyphs_for_characters(
+                encoded.as_ptr(),
+                glyphs.as_mut_ptr(),
+                encoded.len() as CFIndex
+            )
+        };
 
         if res {
             Some(u32::from(glyphs[0]))

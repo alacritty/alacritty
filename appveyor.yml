@@ -61,7 +61,6 @@ test_script:
         cargo +$env:RUST_TOOLCHAIN clippy 2> $null
       } else {
         cargo +$env:RUST_TOOLCHAIN test 2> $null
-        #cargo +$env:RUST_TOOLCHAIN test -p winpty 2> $null
       }
 
 cache:

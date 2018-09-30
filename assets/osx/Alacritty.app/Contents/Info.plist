@@ -32,5 +32,7 @@
   <true/>
   <key>CFBundleDisplayName</key>
   <string>Alacritty</string>
+  <key>NSRequiresAquaSystemAppearance</key>
+  <string>NO</string>
 </dict>
 </plist>

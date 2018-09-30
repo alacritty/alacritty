@@ -29,6 +29,13 @@ window:
     y: 2
 
   # Window decorations
+  #
+  # Values for `decorations`:
+  #     - full: Borders and title bar
+  #     - none: Neither borders nor title bar
+  decorations: full
+
+  # Window decorations
   # Setting this to false will result in window without borders and title bar.
   decorations: true
 

@@ -63,6 +63,7 @@ extern crate xdg;
 extern crate base64;
 extern crate winit;
 extern crate image;
+extern crate terminfo;
 
 #[macro_use]
 pub mod macros;

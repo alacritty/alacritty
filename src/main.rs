@@ -215,7 +215,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // Main display loop
     loop {
         // Process input and window events
-        let mut terminal = processor.process_events(&terminal, display.window());
+        let mut terminal_lock = processor.process_events(&terminal, display.window());
 
         // Handle config reloads
         if let Some(new_config) = config_monitor
@@ -225,25 +225,27 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
             config = new_config.update_dynamic_title(options);
             display.update_config(&config);
             processor.update_config(&config);
-            terminal.update_config(&config);
-            terminal.dirty = true;
+            terminal_lock.update_config(&config);
+            terminal_lock.dirty = true;
         }
 
         // Maybe draw the terminal
-        if terminal.needs_draw() {
+        if terminal_lock.needs_draw() {
             // Try to update the position of the input method editor
-            display.update_ime_position(&terminal);
+            display.update_ime_position(&terminal_lock);
             // Handle pending resize events
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
             #[cfg(windows)]
-            display.handle_resize(&mut terminal, &config, &mut [resize_handle, &mut processor]);
+            display.handle_resize(&mut terminal_lock, &config, &mut [resize_handle, &mut processor]);
             #[cfg(not(windows))]
             display.handle_resize(&mut terminal, &config, &mut [&mut resize_handle, &mut processor]);
 
+            drop(terminal_lock);
+
             // Draw the current state of the terminal
-            display.draw(terminal, &config);
+            display.draw(&terminal, &config);
         }
 
         // Begin shutdown if the flag was raised.

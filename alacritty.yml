@@ -1,117 +1,121 @@
-# Configuration for Alacritty, the GPU enhanced terminal emulator
+# Configuration for Alacritty, the GPU enhanced terminal emulator.
 
 
 # Any items in the `env` entry below will be added as
 # environment variables. Some entries may override variables
-# set by alacritty it self.
+# set by alacritty itself.
 env:
-  # TERM env customization.
+  # TERM variable
   #
-  # If this property is not set, alacritty will set it to xterm-256color.
+  # This value is used to set the `$TERM` environment variable for
+  # each instance of Alacritty. If it is not present, alacritty will
+  # check the local terminfo database and use 'alacritty' if it is
+  # available, otherwise 'xterm-256color' is used.
   #
-  # Note that some xterm terminfo databases don't declare support for italics.
-  # You can verify this by checking for the presence of `smso` and `sitm` in
-  # `infocmp xterm-256color`.
-  TERM: xterm-256color
+  # TERM: xterm-256color
 
 window:
-  # Window dimensions in character columns and lines
-  # Falls back to size specified by window manager if set to 0x0.
-  # (changes require restart)
+  # Window dimensions (changes require restart)
+  #
+  # Specified in number of columns/lines, not pixels.
+  # If both are `0`, this setting is ignored.
   dimensions:
     columns: 80
     lines: 24
 
-  # Adds this many blank pixels of padding around the window
-  # Units are physical pixels; this is not DPI aware.
-  # (change requires restart)
+  # Window padding (changes require restart)
+  #
+  # Blank space added around the window in pixels. This padding is not scaled
+  # by DPI and the specified value is always added at both opposing sides.
   padding:
     x: 2
     y: 2
 
   # Window decorations
-  # Setting this to false will result in window without borders and title bar.
-  decorations: true
+  #
+  # Values for `decorations`:
+  #     - full: Borders and title bar
+  #     - none: Neither borders nor title bar
+  decorations: full
 
 scrolling:
-  # How many lines of scrollback to keep,
-  # '0' will disable scrolling.
+  # Maximum number of lines in the scrollback buffer.
+  # Specifying '0' will disable scrolling.
   history: 10000
 
-  # Number of lines the viewport will move for every line
-  # scrolled when scrollback is enabled (history > 0).
+  # Number of lines the viewport will move for every line scrolled when
+  # scrollback is enabled (history > 0).
   multiplier: 3
 
   # Faux Scrolling
   #
-  # The `faux_multiplier` setting controls the number
-  # of lines the terminal should scroll when the alternate
-  # screen buffer is active. This is used to allow mouse
-  # scrolling for applications like `man`.
+  # The `faux_multiplier` setting controls the number of lines the terminal
+  # should scroll when the alternate screen buffer is active. This is used
+  # to allow mouse scrolling for applications like `man`.
   #
-  # To disable this completely, set `faux_multiplier` to 0.
+  # Specifying `0` will disable faux scrolling.
   faux_multiplier: 3
 
-  # Automatically scroll to the bottom when new text is written
-  # to the terminal.
+  # Scroll to the bottom when new text is written to the terminal.
   auto_scroll: false
 
-# Display tabs using this many cells (changes require restart)
+# Spaces per Tab (changes require restart)
+#
+# This setting defines the width of a tab in cells.
+#
+# Some applications, like Emacs, rely on knowing about the width of a tab.
+# To prevent unexpected behavior in these applications, it's also required to
+# change the `it` value in terminfo when altering this setting.
 tabspaces: 8
-
-# When true, bold text is drawn using the bright variant of colors.
-draw_bold_text_with_bright_colors: true
 
 # Font configuration (changes require restart)
 #
 # Important font attributes like antialiasing, subpixel aa, and hinting can be
 # controlled through fontconfig. Specifically, the following attributes should
 # have an effect:
-#
-# * hintstyle
-# * antialias
-# * lcdfilter
-# * rgba
+#   - hintstyle
+#   - antialias
+#   - lcdfilter
+#   - rgba
 #
 # For instance, if you wish to disable subpixel antialiasing, you might set the
-# rgba property to "none". If you wish to completely disable antialiasing, you
-# can set antialias to false.
+# rgba property to `none`. If you wish to completely disable antialiasing, you
+# can set antialias to `false`.
 #
-# Please see these resources for more information on how to use fontconfig
-#
-# * https://wiki.archlinux.org/index.php/font_configuration#Fontconfig_configuration
-# * file:///usr/share/doc/fontconfig/fontconfig-user.html
+# Please see these resources for more information on how to use fontconfig:
+#   - https://wiki.archlinux.org/index.php/font_configuration#Fontconfig_configuration
+#   - file:///usr/share/doc/fontconfig/fontconfig-user.html
 font:
-  # The normal (roman) font face to use.
+  # Normal (roman) font face
   normal:
     family: monospace
-    # Style can be specified to pick a specific face.
+    # The `style` can be specified to pick a specific face.
     # style: Regular
 
-  # The bold font face
+  # Bold font face
   bold:
     family: monospace
-    # Style can be specified to pick a specific face.
+    # The `style` can be specified to pick a specific face.
     # style: Bold
 
-  # The italic font face
+  # Italic font face
   italic:
     family: monospace
-    # Style can be specified to pick a specific face.
+    # The `style` can be specified to pick a specific face.
     # style: Italic
 
-  # Point size of the font
+  # Point size
   size: 11.0
 
-  # Offset is the extra space around each character. offset.y can be thought of
-  # as modifying the linespacing, and offset.x as modifying the letter spacing.
+  # Offset is the extra space around each character. `offset.y` can be thought of
+  # as modifying the line spacing, and `offset.x` as modifying the letter spacing.
   offset:
     x: 0
     y: 0
 
   # Glyph offset determines the locations of the glyphs within their cells with
-  # the default being at the bottom. Increase the x offset to move the glyph to
-  # the right, increase the y offset to move the glyph upward.
+  # the default being at the bottom. Increasing `x` moves the glyph to the right,
+  # increasing `y` moves the glyph upwards.
   glyph_offset:
     x: 0
     y: 0
@@ -122,17 +126,16 @@ font:
   # `WINIT_HIDPI_FACTOR=1.0 alacritty` to scale the font.
   scale_with_dpi: true
 
-  # OS X only: use thin stroke font rendering. Thin strokes are suitable
-  # for retina displays, but for non-retina you probably want this set to
-  # false.
-  use_thin_strokes: true
-
-# Should display the render timer
+# Display the time it takes to redraw each frame.
 render_timer: false
 
-# Use custom cursor colors. If true, display the cursor in the cursor.foreground
-# and cursor.background colors, otherwise invert the colors of the cursor.
+# Use custom cursor colors. If `true`, the `colors.cursor.foreground` and
+# `colors.cursor.background` colors will be used to display the cursor.
+# Otherwise the cell colors are inverted for the cursor.
 custom_cursor_colors: false
+
+# If `true`, bold text is drawn using the bright color variants.
+draw_bold_text_with_bright_colors: true
 
 # Colors (Tomorrow Night Bright)
 colors:
@@ -141,16 +144,18 @@ colors:
     background: '0x000000'
     foreground: '0xeaeaea'
 
-    # (Optional) Bright and Dim foreground colors
+    # Bright and dim foreground colors
     #
     # The dimmed foreground color is calculated automatically if it is not present.
     # If the bright foreground color is not set, or `draw_bold_text_with_bright_colors`
     # is `false`, the normal foreground color will be used.
     #
-    # dim_foreground: '0x9a9a9a'
-    # bright_foreground: '0xffffff'
+    #dim_foreground: '0x9a9a9a'
+    #bright_foreground: '0xffffff'
 
-  # Colors the cursor will use if `custom_cursor_colors` is true
+  # Cursor colors
+  #
+  # These will only be used when the `custom_cursor_colors` field is set to `true`.
   cursor:
     text: '0x000000'
     cursor: '0xffffff'
@@ -177,7 +182,10 @@ colors:
     cyan:    '0x54ced6'
     white:   '0xffffff'
 
-  # Dim colors (Optional)
+  # Dim colors
+  #
+  # If the dim colors are not set, they will be calculated automatically based
+  # on the `normal` colors.
   dim:
     black:   '0x333333'
     red:     '0xf2777a'
@@ -188,6 +196,14 @@ colors:
     cyan:    '0x66cccc'
     white:   '0xdddddd'
 
+  # Indexed Colors
+  #
+  # The indexed colors include all colors from 16 to 256.
+  # When these are not set, they're filled with sensible defaults.
+  #
+  #indexed_colors:
+  #  - { index: 16, color: '0x000000' }
+
 # Visual Bell
 #
 # Any time the BEL code is received, Alacritty "rings" the visual bell. Once
@@ -196,20 +212,19 @@ colors:
 # setting the `duration` property (represented in milliseconds). You can also
 # configure the transition function by setting the `animation` property.
 #
-# Possible values for `animation`
-# `Ease`
-# `EaseOut`
-# `EaseOutSine`
-# `EaseOutQuad`
-# `EaseOutCubic`
-# `EaseOutQuart`
-# `EaseOutQuint`
-# `EaseOutExpo`
-# `EaseOutCirc`
-# `Linear`
+# Values for `animation`:
+#   - Ease
+#   - EaseOut
+#   - EaseOutSine
+#   - EaseOutQuad
+#   - EaseOutCubic
+#   - EaseOutQuart
+#   - EaseOutQuint
+#   - EaseOutExpo
+#   - EaseOutCirc
+#   - Linear
 #
-# To completely disable the visual bell, set its duration to 0.
-#
+# Specifying a `duration` of `0` will disable the visual bell.
 visual_bell:
   animation: EaseOutExpo
   duration: 0
@@ -219,19 +234,19 @@ background_opacity: 1.0
 
 # Mouse bindings
 #
-# Currently doesn't support modifiers. Both the `mouse` and `action` fields must
-# be specified.
+# Available fields:
+#   - mouse
+#   - action
+#   - mods (optional)
 #
 # Values for `mouse`:
-# - Middle
-# - Left
-# - Right
-# - Numeric identifier such as `5`
+#   - Middle
+#   - Left
+#   - Right
+#   - Numeric identifier such as `5`
 #
-# Values for `action`:
-# - Paste
-# - PasteSelection
-# - Copy (TODO)
+# All available `mods` and `action` values are documented in the key binding
+# section.
 mouse_bindings:
   - { mouse: Middle, action: PasteSelection }
 
@@ -247,19 +262,25 @@ mouse:
 selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>"
 
+  # When set to `true`, selected text will be copied to both the primary and
+  # the selection clipboard. Otherwise, it will only be copied to the selection
+  # clipboard.
+  save_to_clipboard: false
+
 dynamic_title: true
 
 hide_cursor_when_typing: false
 
-# Style of the cursor
+# Cursor style
 #
 # Values for 'cursor_style':
-# - Block
-# - Underline
-# - Beam
+#   - Block
+#   - Underline
+#   - Beam
 cursor_style: Block
 
-# Whether the cursor should be a hollow block on window focus loss
+# If this is `true`, the cursor will be rendered as a hollow box when the
+# window is not focused.
 unfocused_hollow_cursor: true
 
 # Live config reload (changes require restart)
@@ -267,64 +288,85 @@ live_config_reload: true
 
 # Shell
 #
-# You can set shell.program to the path of your favorite shell, e.g. /bin/fish.
-# Entries in shell.args are passed unmodified as arguments to the shell.
+# You can set `shell.program` to the path of your favorite shell, e.g. `/bin/fish`.
+# Entries in `shell.args` are passed unmodified as arguments to the shell.
 #
-# shell:
-#   program: /bin/bash
-#   args:
-#     - --login
+#shell:
+#  program: /bin/bash
+#  args:
+#    - --login
 
 # Key bindings
 #
-# Each binding is defined as an object with some properties. Most of the
-# properties are optional. All of the alphabetical keys should have a letter for
-# the `key` value such as `V`. Function keys are probably what you would expect
-# as well (F1, F2, ..). The number keys above the main keyboard are encoded as
-# `Key1`, `Key2`, etc. Keys on the number pad are encoded `Number1`, `Number2`,
-# etc.  These all match the glutin::VirtualKeyCode variants.
+# Key bindings are specified as a list of objects. Each binding will specify
+# a key and modifiers required to trigger it, terminal modes where the binding
+# is applicable, and what should be done when the key binding fires. It can
+# either send a byte sequnce to the running application (`chars`), execute
+# a predefined action (`action`) or fork and execute a specified command plus
+# arguments (`command`).
 #
-# A list with all available `key` names can be found here:
-# https://docs.rs/glutin/*/glutin/enum.VirtualKeyCode.html#variants
+# Example:
+#   `- { key: V, mods: Command, action: Paste }`
 #
-# Possible values for `mods`
-# `Command`, `Super` refer to the super/command/windows key
-# `Control` for the control key
-# `Shift` for the Shift key
-# `Alt` and `Option` refer to alt/option
+# Available fields:
+#   - key
+#   - mods (optional)
+#   - chars | action | command (exactly one required)
+#   - mode (optional)
 #
-# mods may be combined with a `|`. For example, requiring control and shift
-# looks like:
+# Values for `key`:
+#   - `A` -> `Z`
+#   - `F1` -> `F12`
+#   - `Key1` -> `Key0`
 #
-# mods: Control|Shift
+#   A full list with available key codes can be found here:
+#   https://docs.rs/glutin/*/glutin/enum.VirtualKeyCode.html#variants
 #
-# The parser is currently quite sensitive to whitespace and capitalization -
-# capitalization must match exactly, and piped items must not have whitespace
-# around them.
+# Values for `mods`:
+#   - Command
+#   - Control
+#   - Shift
+#   - Alt
 #
-# Either an `action`, `chars`, or `command` field must be present.
-#   `action` must be one of the following:
-#       - `Paste`
-#       - `PasteSelection`
-#       - `Copy`
-#       - `IncreaseFontSize`
-#       - `DecreaseFontSize`
-#       - `ResetFontSize`
-#       - `ScrollPageUp`
-#       - `ScrollPageDown`
-#       - `ScrollToTop`
-#       - `ScrollToBottom`
-#       - `Quit`
-#   `chars` writes the specified string every time that binding is activated.
-#     These should generally be escape sequences, but they can be configured to
-#     send arbitrary strings of bytes.
-#   `command` must be a map containing a `program` string, and `args` array of
-#     strings. For example:
-#     - { ... , command: { program: "alacritty", args: ["-e", "vttest"] } }
+#   Multiple `mods` can be combined using `|` like this: `mods: Control|Shift`.
+#   Whitespace and capitalization is relevant and must match the example.
 #
-# Want to add a binding (e.g. "PageUp") but are unsure what the X sequence
-# (e.g. "\x1b[5~") is? Open another terminal (like xterm) without tmux,
-# then run `showkey -a` to get the sequence associated to a key combination.
+# Values for `chars`:
+#   The `chars` field writes the specified string to the terminal. This makes
+#   it possible to pass escape sequences.
+#   To find escape codes for bindings like `PageUp` ("\x1b[5~"), you can run
+#   the command `showkey -a` outside of tmux.
+#   Note that applications use terminfo to map escape sequences back to
+#   keys. It is therefore required to update the terminfo when
+#   changing an escape sequence.
+#
+# Values for `action`:
+#   - Paste
+#   - PasteSelection
+#   - Copy
+#   - IncreaseFontSize
+#   - DecreaseFontSize
+#   - ResetFontSize
+#   - ScrollPageUp
+#   - ScrollPageDown
+#   - ScrollToTop
+#   - ScrollToBottom
+#   - ClearHistory
+#   - Hide
+#   - Quit
+#
+# Values for `command`:
+#   The `command` field must be a map containing a `program` string and
+#   an `args` array of command line parameter strings.
+#
+#   Example:
+#       `command: { program: "alacritty", args: ["-e", "vttest"] }`
+#
+# Values for `mode`:
+#   - ~AppCursor
+#   - AppCursor
+#   - ~AppKeypad
+#   - AppKeypad
 key_bindings:
   - { key: V,        mods: Control|Shift,    action: Paste               }
   - { key: C,        mods: Control|Shift,    action: Copy                }

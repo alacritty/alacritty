@@ -11,6 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+//! tty related functionality
+//!
 
 use tty::EventedRW;
 use term::SizeInfo;
@@ -19,16 +22,19 @@ use config::{Config, Shell};
 use cli::Options;
 use mio;
 
+use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
+use terminfo::Database;
+
 use std::os::unix::io::{FromRawFd, RawFd};
 use std::fs::File;
 use std::os::unix::process::CommandExt;
-use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
 use std::process::{Command, Stdio};
 use std::ffi::CStr;
 use std::ptr;
 use mio::unix::EventedFd;
 use std::io;
 use std::os::unix::io::AsRawFd;
+
 
 /// Process ID of child process
 ///
@@ -240,7 +246,17 @@ pub fn new<'a, T: ToWinsize>(
     builder.env("USER", pw.name);
     builder.env("SHELL", shell.program());
     builder.env("HOME", pw.dir);
-    builder.env("TERM", "xterm-256color"); // default term until we can supply our own
+
+    // TERM; default to 'alacritty' if it is available, otherwise
+    // default to 'xterm-256color'. May be overridden by user's config
+    // below.
+    let term = if Database::from_name("alacritty").is_ok() {
+        "alacritty"
+    } else {
+        "xterm-256color"
+    };
+    builder.env("TERM", term);
+
     builder.env("COLORTERM", "truecolor"); // advertise 24-bit support
     if let Some(window_id) = window_id {
         builder.env("WINDOWID", format!("{}", window_id));
