@@ -857,7 +857,7 @@ impl<'a> RenderApi<'a> {
             })
             .collect::<Vec<_>>();
 
-        self.render_cells(cells.into_iter(), glyph_cache);
+        self.render_cells(cells.iter(), glyph_cache);
     }
 
     #[inline]
@@ -875,9 +875,12 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_cells<I>(&mut self, cells: I, glyph_cache: &mut GlyphCache)
-    where
-        I: Iterator<Item = RenderableCell>,
+    pub fn render_cells<'b, I>(
+        &mut self,
+        cells: I,
+        glyph_cache: &mut GlyphCache
+    )
+        where I: Iterator<Item=&'b RenderableCell>
     {
         for cell in cells {
             // Get font key for cell
