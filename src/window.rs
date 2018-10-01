@@ -17,7 +17,9 @@ use std::ops::Deref;
 
 use gl;
 use glutin::GlContext;
+#[cfg(windows)]
 use winit::Icon;
+#[cfg(windows)]
 use image::ImageFormat;
 use glutin::{
     self, ContextBuilder, ControlFlow, CursorState, Event, EventsLoop,
@@ -29,6 +31,7 @@ use MouseCursor;
 use cli::Options;
 use config::{Decorations, WindowConfig};
 
+#[cfg(windows)]
 static WINDOW_ICON: &'static [u8] = include_bytes!("../assets/windows/alacritty.ico");
 
 /// Default text for the window's title bar, if not overriden.

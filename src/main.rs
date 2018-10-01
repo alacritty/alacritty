@@ -240,7 +240,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
             #[cfg(windows)]
             display.handle_resize(&mut terminal_lock, &config, &mut [resize_handle, &mut processor]);
             #[cfg(not(windows))]
-            display.handle_resize(&mut terminal, &config, &mut [&mut resize_handle, &mut processor]);
+            display.handle_resize(&mut terminal_lock, &config, &mut [&mut resize_handle, &mut processor]);
 
             drop(terminal_lock);
 
