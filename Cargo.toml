@@ -42,6 +42,7 @@ winit = { version = "0.15", features = ["icon_loading"] }
 image = "0.19"
 static_assertions = "0.2.5"
 terminfo = "0.6.1"
+url = "1.7.1"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"

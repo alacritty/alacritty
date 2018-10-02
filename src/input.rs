@@ -74,6 +74,7 @@ pub trait ActionContext {
     fn scroll(&mut self, scroll: Scroll);
     fn clear_history(&mut self);
     fn hide_window(&mut self);
+    fn url(&self, _: Point<usize>) -> Option<String>;
 }
 
 /// Describes a state and action to take in that state
@@ -425,6 +426,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let elapsed = self.ctx.mouse().last_click_timestamp.elapsed();
         self.ctx.mouse_mut().last_click_timestamp = now;
 
+        self.ctx.mouse_mut().last_press_pos = (self.ctx.mouse().x, self.ctx.mouse().y);
+
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
             ClickState::Click if elapsed < self.mouse_config.double_click.threshold => {
                 self.on_mouse_double_click();
@@ -492,6 +495,24 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 MouseButton::Other(_) => (),
             };
             return;
+        } else {
+            // Spawn URL launcher when clicking on URLs
+            let moved = self.ctx.mouse().last_press_pos != (self.ctx.mouse().x, self.ctx.mouse().y);
+            let ref url_launcher = self.mouse_config.url_launcher;
+            match (self.ctx.mouse_coords(), url_launcher, moved) {
+                (Some(point), Some(launcher), false) => {
+                    if let Some(text) = self.ctx.url(Point::new(point.line.0, point.col)) {
+                        let mut args = launcher.args().to_vec();
+                        args.push(text);
+                        debug!("Launching: {} {:?}", launcher.program(), args);
+                        Command::new(launcher.program())
+                            .args(&args)
+                            .spawn()
+                            .expect("url launcher error");
+                    }
+                }
+                _ => (),
+            }
         }
 
         if self.save_to_clipboard {

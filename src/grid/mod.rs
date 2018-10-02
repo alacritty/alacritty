@@ -31,11 +31,6 @@ use self::storage::Storage;
 
 const MIN_INIT_SIZE: usize = 1_000;
 
-/// Bidirection iterator
-pub trait BidirectionalIterator: Iterator {
-    fn prev(&mut self) -> Option<Self::Item>;
-}
-
 /// An item in the grid along with its Line and Column.
 pub struct Indexed<T> {
     pub inner: T,
@@ -474,8 +469,8 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
     }
 }
 
-impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
-    fn prev(&mut self) -> Option<Self::Item> {
+impl<'a, T> DoubleEndedIterator for GridIterator<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
         let num_cols = self.grid.num_cols();
 
         match self.cur {
