@@ -88,6 +88,10 @@ pub struct Mouse {
     #[serde(default, deserialize_with = "failure_default")]
     pub triple_click: ClickHandler,
 
+    // Program for opening links
+    #[serde(default, deserialize_with = "failure_default")]
+    pub url_launcher: Option<CommandWrapper>,
+
     // TODO: DEPRECATED
     #[serde(default)]
     pub faux_scrollback_lines: Option<usize>,
@@ -102,6 +106,7 @@ impl Default for Mouse {
             triple_click: ClickHandler {
                 threshold: Duration::from_millis(300),
             },
+            url_launcher: None,
             faux_scrollback_lines: None,
         }
     }
@@ -733,15 +738,31 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
-enum CommandWrapper {
+pub enum CommandWrapper {
     Just(String),
     WithArgs {
         program: String,
         #[serde(default)]
         args: Vec<String>,
     },
+}
+
+impl CommandWrapper {
+    pub fn program(&self) -> &String {
+        match *self {
+            CommandWrapper::Just(ref program) => program,
+            CommandWrapper::WithArgs { ref program, .. } => program,
+        }
+    }
+
+    pub fn args(&self) -> &[String] {
+        match *self {
+            CommandWrapper::Just(_) => &[],
+            CommandWrapper::WithArgs { ref args, .. } => &args,
+        }
+    }
 }
 
 use ::term::{mode, TermMode};

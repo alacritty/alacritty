@@ -4,11 +4,13 @@ use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc;
 use std::time::{Instant};
+use std::cmp::min;
 
 use serde_json as json;
 use parking_lot::MutexGuard;
 use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
+use url::Url;
 
 use ansi::{Handler, ClearMode};
 use grid::Scroll;
@@ -19,7 +21,7 @@ use index::{Line, Column, Side, Point};
 use input::{self, MouseBinding, KeyBinding};
 use selection::Selection;
 use sync::FairMutex;
-use term::{Term, SizeInfo, TermMode};
+use term::{Term, SizeInfo, TermMode, Cell};
 use util::limit;
 use util::fmt::Red;
 use window::Window;
@@ -102,6 +104,36 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         let point = self.terminal.visible_to_buffer(point);
         *self.terminal.selection_mut() = Some(Selection::semantic(point));
         self.terminal.dirty = true;
+    }
+
+    fn url(&self, mut point: Point<usize>) -> Option<String> {
+        let grid = self.terminal.grid();
+        point.line = grid.num_lines().0 - point.line - 1;
+
+        // Limit the starting point to the last line in the history
+        point.line = min(point.line, grid.len() - 1);
+
+        // Create forwards and backwards iterators
+        let iterf = grid.iter_from(point);
+        point.col += 1;
+        let iterb = grid.iter_from(point);
+
+        // Put all characters until separators into a String
+        let url_char = |cell: &&Cell| {
+            cell.c != ' ' && cell.c != '\'' && cell.c != '"'
+        };
+
+        let mut buf = String::new();
+
+        iterb.rev().take_while(url_char).for_each(|cell| buf.push(cell.c));
+        buf = buf.chars().rev().collect();
+        iterf.take_while(url_char).for_each(|cell| buf.push(cell.c));
+
+        // Check if string is valid url
+        match Url::parse(&buf) {
+            Ok(_) => Some(buf),
+            Err(_) => None,
+        }
     }
 
     fn line_selection(&mut self, point: Point) {
@@ -196,6 +228,7 @@ pub struct Mouse {
     pub column: Column,
     pub cell_side: Side,
     pub lines_scrolled: f32,
+    pub last_press_pos: (usize, usize),
 }
 
 impl Default for Mouse {
@@ -213,6 +246,7 @@ impl Default for Mouse {
             column: Column(0),
             cell_side: Side::Left,
             lines_scrolled: 0.0,
+            last_press_pos: (0, 0),
         }
     }
 }
