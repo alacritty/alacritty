@@ -488,20 +488,18 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         } else {
             // Spawn URL launcher when clicking on URLs
             let moved = self.ctx.mouse().last_press_pos != (self.ctx.mouse().x, self.ctx.mouse().y);
-            let ref url_launcher = self.mouse_config.url_launcher;
-            match (self.ctx.mouse_coords(), url_launcher, moved) {
-                (Some(point), Some(launcher), false) => {
-                    if let Some(text) = self.ctx.url(Point::new(point.line.0, point.col)) {
-                        let mut args = launcher.args().to_vec();
-                        args.push(text);
-                        debug!("Launching: {} {:?}", launcher.program(), args);
-                        Command::new(launcher.program())
-                            .args(&args)
-                            .spawn()
-                            .expect("url launcher error");
-                    }
+            if let (Some(point), Some(launcher), false) =
+                (self.ctx.mouse_coords(), &self.mouse_config.url_launcher, moved)
+            {
+                if let Some(text) = self.ctx.url(Point::new(point.line.0, point.col)) {
+                    let mut args = launcher.args().to_vec();
+                    args.push(text);
+                    debug!("Launching: {} {:?}", launcher.program(), args);
+                    Command::new(launcher.program())
+                        .args(&args)
+                        .spawn()
+                        .expect("url launcher error");
                 }
-                _ => (),
             }
         }
 
@@ -798,6 +796,10 @@ mod tests {
             self.mouse
         }
 
+        fn url(&self, _: Point<usize>) -> Option<String> {
+            None
+        }
+
         fn received_count(&mut self) -> &mut usize {
             &mut self.received_count
         }
@@ -866,11 +868,12 @@ mod tests {
                             threshold: Duration::from_millis(1000),
                         },
                         faux_scrollback_lines: None,
+                        url_launcher: None,
                     },
                     scrolling_config: &config::Scrolling::default(),
                     key_bindings: &config.key_bindings()[..],
                     mouse_bindings: &config.mouse_bindings()[..],
-                    save_to_clipboard: config.selection().save_to_clipboard
+                    save_to_clipboard: config.selection().save_to_clipboard,
                 };
 
                 if let Event::WindowEvent { event: WindowEvent::MouseInput { state, button, modifiers, .. }, .. } = $input {
