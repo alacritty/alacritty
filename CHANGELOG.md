@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Version 0.2.1
+
 ### Added
 
 - Implement the `hidden` escape sequence (`echo -e "\e[8mTEST"`)
