@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use tty::EventedRW;
+use tty::EventedReadWrite;
 use term::SizeInfo;
 use display::OnResize;
 use config::{Config, Shell};
@@ -163,7 +163,7 @@ pub fn new<'a>(
     }
 }
 
-impl<'a> EventedRW for Pty<'a, NamedPipe, NamedPipe> {
+impl<'a> EventedReadWrite for Pty<'a, NamedPipe, NamedPipe> {
     type Reader = NamedPipe;
     type Writer = NamedPipe;
 

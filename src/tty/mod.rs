@@ -30,7 +30,7 @@ pub use self::windows::*;
 /// This trait defines the behaviour needed to read and/or write to a stream.
 /// It defines an abstraction over mio's interface in order to allow either one
 /// read/write object or a seperate read and write object.
-pub trait EventedRW {
+pub trait EventedReadWrite {
     type Reader: io::Read;
     type Writer: io::Write;
 

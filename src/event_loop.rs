@@ -34,7 +34,7 @@ pub enum Msg {
 ///
 /// Handles all the pty I/O and runs the pty parser which updates terminal
 /// state.
-pub struct EventLoop<T: tty::EventedRW> {
+pub struct EventLoop<T: tty::EventedReadWrite> {
     poll: mio::Poll,
     pty: T,
     rx: Receiver<Msg>,
@@ -165,7 +165,7 @@ const CHANNEL: mio::Token = mio::Token(0);
 
 impl<T> EventLoop<T>
     where
-        T: tty::EventedRW + Send + 'static,
+        T: tty::EventedReadWrite + Send + 'static,
 {
     /// Create a new event loop
     pub fn new(

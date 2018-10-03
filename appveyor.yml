@@ -17,16 +17,6 @@ environment:
       RUST_VERSION: nightly
       CLIPPY: true
 
-    - platform: x86
-      TARGET: i686-pc-windows-msvc
-      RUST_VERSION: stable
-      CLIPPY: false
-
-    - platform: x86
-      TARGET: i686-pc-windows-msvc
-      RUST_VERSION: nightly
-      CLIPPY: true
-
 matrix:
   allow_failures:
     - CLIPPY: true
@@ -39,10 +29,6 @@ install:
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
   - rustc -Vv
   - cargo -V
-  # Make 32bit libclang dll available for winpty-sys build on i686
-  - If [%TARGET%]==[i686-pc-windows-msvc] (
-      copy assets\windows\x86\libclang_win32_5.0.1.dll "C:\Program Files\LLVM\bin\libclang.dll"
-    )
 
 build_script:
   # Only build once per architecture
