@@ -1,0 +1,56 @@
+version: 2
+
+jobs:
+
+  android-test:
+    working_directory: ~/glutin
+    docker:
+      - image: tomaka/cargo-apk
+    steps:
+      - run: apt-get -qq update && apt-get install -y git
+      - checkout
+      - restore_cache:
+          key: android-test-cache-{{ checksum "Cargo.toml" }}
+      - run: cargo apk build --example window
+      - save_cache:
+          key: android-test-cache-{{ checksum "Cargo.toml" }}
+          paths:
+            - target
+
+  asmjs-test:
+    working_directory: ~/glutin
+    docker:
+      - image: tomaka/rustc-emscripten
+    steps:
+      - run: apt-get -qq update && apt-get install -y git
+      - checkout
+      - restore_cache:
+          key: asmjs-test-cache-{{ checksum "Cargo.toml" }}
+      - run: cargo build --example window --target asmjs-unknown-emscripten
+      - save_cache:
+          key: asmjs-test-cache-{{ checksum "Cargo.toml" }}
+          paths:
+            - target
+
+  wasm-test:
+    working_directory: ~/glutin
+    docker:
+      - image: tomaka/rustc-emscripten
+    steps:
+      - run: apt-get -qq update && apt-get install -y git
+      - checkout
+      - restore_cache:
+          key: wasm-test-cache-{{ checksum "Cargo.toml" }}
+      - run: cargo build --example window --target wasm32-unknown-emscripten
+      - save_cache:
+          key: wasm-test-cache-{{ checksum "Cargo.toml" }}
+          paths:
+            - target
+  
+workflows:
+  version: 2
+  test-all:
+    jobs:
+      - android-test
+      - asmjs-test
+      - wasm-test

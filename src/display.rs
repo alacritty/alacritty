@@ -312,7 +312,6 @@ impl Display {
         if let Some(psize) = new_size.take() {
             self.size_info.width = psize.width as f32;
             self.size_info.height = psize.height as f32;
-            self.size_info.dpr = dpr;
 
             let size = &self.size_info;
             terminal.resize(size);
