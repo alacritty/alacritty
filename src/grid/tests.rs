@@ -14,7 +14,7 @@
 
 //! Tests for the Gird
 
-use super::{Grid};
+use super::{Grid, BidirectionalIterator};
 use index::{Point, Line, Column};
 
 // Scroll up moves lines upwards
@@ -112,7 +112,7 @@ fn test_iter() {
         col: Column(0),
     });
 
-    assert_eq!(None, iter.next_back());
+    assert_eq!(None, iter.prev());
     assert_eq!(Some(&1), iter.next());
     assert_eq!(Column(1), iter.cur.col);
     assert_eq!(4, iter.cur.line);
@@ -126,7 +126,7 @@ fn test_iter() {
     assert_eq!(Column(0), iter.cur.col);
     assert_eq!(3, iter.cur.line);
 
-    assert_eq!(Some(&4), iter.next_back());
+    assert_eq!(Some(&4), iter.prev());
     assert_eq!(Column(4), iter.cur.col);
     assert_eq!(4, iter.cur.line);
 
@@ -137,5 +137,5 @@ fn test_iter() {
         col: Column(4),
     });
     assert_eq!(None, final_iter.next());
-    assert_eq!(Some(&23), final_iter.next_back());
+    assert_eq!(Some(&23), final_iter.prev());
 }

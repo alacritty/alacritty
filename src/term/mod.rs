@@ -23,7 +23,7 @@ use unicode_width::UnicodeWidthChar;
 
 use font::{self, Size};
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use grid::{Grid, Indexed, IndexRegion, DisplayIter, Scroll, ViewportPosition};
+use grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter, Scroll, ViewportPosition};
 use index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
 use selection::{self, Selection, Locations};
 use config::{Config, VisualBellAnimation};
@@ -44,7 +44,7 @@ impl selection::SemanticSearch for Term {
         let mut iter = self.grid.iter_from(point);
         let last_col = self.grid.num_cols() - Column(1);
 
-        while let Some(cell) = iter.next_back() {
+        while let Some(cell) = iter.prev() {
             if self.semantic_escape_chars.contains(cell.c) {
                 break;
             }
