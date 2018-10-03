@@ -15,7 +15,7 @@
 //! tty related functionality
 //!
 
-use tty::EventedRW;
+use tty::EventedReadWrite;
 use term::SizeInfo;
 use display::OnResize;
 use config::{Config, Shell};
@@ -327,7 +327,7 @@ pub fn new<'a, T: ToWinsize>(
     }
 }
 
-impl<'a> EventedRW for Pty {
+impl<'a> EventedReadWrite for Pty {
     type Reader = File;
     type Writer = File;
 
