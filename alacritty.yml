@@ -230,6 +230,8 @@ visual_bell:
   duration: 0
 
 # Background opacity
+# The value can be between 0 and 1.
+# Values less than 1 will add some transparency on the window.
 background_opacity: 1.0
 
 # Mouse bindings
