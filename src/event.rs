@@ -13,7 +13,7 @@ use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
 use url::Url;
 
 use ansi::{Handler, ClearMode};
-use grid::Scroll;
+use grid::{Scroll, BidirectionalIterator};
 use config::{self, Config};
 use cli::Options;
 use display::OnResize;
@@ -21,10 +21,12 @@ use index::{Line, Column, Side, Point};
 use input::{self, MouseBinding, KeyBinding};
 use selection::Selection;
 use sync::FairMutex;
-use term::{Term, SizeInfo, TermMode, Cell};
+use term::{Term, SizeInfo, TermMode};
 use util::limit;
 use util::fmt::Red;
 use window::Window;
+
+const URL_SEPARATOR_CHARS: [char; 3] = [' ', '"', '\''];
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
@@ -116,18 +118,22 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         // Create forwards and backwards iterators
         let iterf = grid.iter_from(point);
         point.col += 1;
-        let iterb = grid.iter_from(point);
+        let mut iterb = grid.iter_from(point);
 
-        // Put all characters until separators into a String
-        let url_char = |cell: &&Cell| {
-            cell.c != ' ' && cell.c != '\'' && cell.c != '"'
-        };
-
+        // Put all characters until separators into a string
         let mut buf = String::new();
-
-        iterb.rev().take_while(url_char).for_each(|cell| buf.push(cell.c));
-        buf = buf.chars().rev().collect();
-        iterf.take_while(url_char).for_each(|cell| buf.push(cell.c));
+        while let Some(cell) = iterb.prev() {
+            if URL_SEPARATOR_CHARS.contains(&cell.c) {
+                break;
+            }
+            buf.insert(0, cell.c);
+        }
+        for cell in iterf {
+            if URL_SEPARATOR_CHARS.contains(&cell.c) {
+                break;
+            }
+            buf.push(cell.c);
+        }
 
         // Check if string is valid url
         match Url::parse(&buf) {

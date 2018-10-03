@@ -265,10 +265,7 @@ mouse:
   #
   # This program is executed when clicking on a text which is recognized as a URL.
   # The URL is always added to the command as the last parameter.
-  #url_launcher:
-  #  program: /usr/bin/firefox
-  #  args:
-  #    - --new-tab
+  url_launcher: xdg-open
 
 selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>"

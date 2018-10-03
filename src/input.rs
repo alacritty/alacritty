@@ -504,11 +504,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 if let Some(text) = self.ctx.url(Point::new(point.line.0, point.col)) {
                     let mut args = launcher.args().to_vec();
                     args.push(text);
-                    debug!("Launching: {} {:?}", launcher.program(), args);
-                    Command::new(launcher.program())
-                        .args(&args)
-                        .spawn()
-                        .expect("url launcher error");
+                    match Command::new(launcher.program()).args(&args).spawn() {
+                        Ok(_) => debug!("Launching: {} {:?}", launcher.program(), args),
+                        Err(_) => warn!("Unable to launch: {} {:?}", launcher.program(), args),
+                    }
+
                 }
             }
         }
