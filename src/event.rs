@@ -135,6 +135,19 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
             buf.push(cell.c);
         }
 
+        // Heuristic to remove all leading '('
+        while buf.starts_with('(') {
+            buf.remove(0);
+        }
+
+        // Heuristic to remove all ')' from end of URLs without matching '('
+        let str_count = |text: &str, c: char| {
+            text.chars().filter(|tc| *tc == c).count()
+        };
+        while buf.ends_with(')') && str_count(&buf, '(') < str_count(&buf, ')') {
+            buf.pop();
+        }
+
         // Check if string is valid url
         match Url::parse(&buf) {
             Ok(_) => Some(buf),
