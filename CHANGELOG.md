@@ -33,7 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `save_to_clipboard` configuration option for copying selected text to the system clipboard
 - New terminfo entry, `alacritty-direct`, that advertises 24-bit color support
 - Add support for CSI sequences Cursor Next Line (`\e[nE`) and Cursor Previous Line (`\e[nF`)
-- When `mouse.url_launcher` is set, clicking on URLs will now open them with the specified program
+- When `mouse.url.launcher` is set, clicking on URLs will now open them with the specified program
+- New `mouse.url.modifiers` option to specify keyboard modifiers for opening URLs on click
 
 ### Changed
 

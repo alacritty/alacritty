@@ -887,7 +887,7 @@ mod tests {
                             threshold: Duration::from_millis(1000),
                         },
                         faux_scrollback_lines: None,
-                        url_launcher: None,
+                        url: Default::default(),
                     },
                     scrolling_config: &config::Scrolling::default(),
                     key_bindings: &config.key_bindings()[..],
