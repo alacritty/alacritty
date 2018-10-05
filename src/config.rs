@@ -87,14 +87,29 @@ pub struct Mouse {
     pub double_click: ClickHandler,
     #[serde(default, deserialize_with = "failure_default")]
     pub triple_click: ClickHandler,
-
-    // Program for opening links
     #[serde(default, deserialize_with = "failure_default")]
-    pub url_launcher: Option<CommandWrapper>,
+    pub url: Url,
 
     // TODO: DEPRECATED
     #[serde(default)]
     pub faux_scrollback_lines: Option<usize>,
+}
+
+#[derive(Default, Clone, Debug, Deserialize)]
+pub struct Url {
+    // Program for opening links
+    #[serde(default, deserialize_with = "failure_default")]
+    pub launcher: Option<CommandWrapper>,
+
+    // Modifier used to open links
+    #[serde(default, deserialize_with = "deserialize_modifiers")]
+    pub modifiers: ModifiersState,
+}
+
+fn deserialize_modifiers<'a, D>(deserializer: D) -> ::std::result::Result<ModifiersState, D::Error>
+    where D: de::Deserializer<'a>
+{
+    ModsWrapper::deserialize(deserializer).map(|wrapper| wrapper.into_inner())
 }
 
 impl Default for Mouse {
@@ -106,7 +121,7 @@ impl Default for Mouse {
             triple_click: ClickHandler {
                 threshold: Duration::from_millis(300),
             },
-            url_launcher: None,
+            url: Url::default(),
             faux_scrollback_lines: None,
         }
     }
@@ -649,6 +664,7 @@ fn deserialize_scrolling_multiplier<'a, D>(deserializer: D) -> ::std::result::Re
 ///
 /// Our deserialize impl wouldn't be covered by a derive(Deserialize); see the
 /// impl below.
+#[derive(Debug, Copy, Clone, Hash, Default, Eq, PartialEq)]
 struct ModsWrapper(ModifiersState);
 
 impl ModsWrapper {
@@ -752,17 +768,17 @@ pub enum CommandWrapper {
 }
 
 impl CommandWrapper {
-    pub fn program(&self) -> &String {
-        match *self {
-            CommandWrapper::Just(ref program) => program,
-            CommandWrapper::WithArgs { ref program, .. } => program,
+    pub fn program(&self) -> &str {
+        match self {
+            CommandWrapper::Just(program) => program,
+            CommandWrapper::WithArgs { program, .. } => program,
         }
     }
 
     pub fn args(&self) -> &[String] {
-        match *self {
+        match self {
             CommandWrapper::Just(_) => &[],
-            CommandWrapper::WithArgs { ref args, .. } => &args,
+            CommandWrapper::WithArgs { args, .. } => args,
         }
     }
 }
