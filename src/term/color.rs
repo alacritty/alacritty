@@ -101,14 +101,12 @@ impl List {
         for r in 0..6 {
             for g in 0..6 {
                 for b in 0..6 {
-                    // Index of the color is number of named colors + rgb
-                    let color_index = 16 + r + g + b;
 
                     // Override colors 16..232 with the config (if present)
                     if let Some(indexed_color) = colors
                         .indexed_colors
                         .iter()
-                        .find(|ic| ic.index == color_index)
+                        .find(|ic| ic.index == index as u8)
                     {
                         self[index] = indexed_color.color;
                         index += 1;
