@@ -34,6 +34,7 @@ $(APP_NAME): $(TARGET) $(APP_TEMPLATE)
 	@mkdir -p $(APP_BINARY_DIR)
 	@cp -fRp $(APP_TEMPLATE) $(APP_DIR)
 	@cp -fp $(APP_BINARY) $(APP_BINARY_DIR)
+	@ln -s /Applications $(APP_DIR)
 	@echo "Created '$@' in '$(APP_DIR)'"
 
 dmg: | $(DMG_NAME) ## Pack Alacritty.app into .dmg
