@@ -22,6 +22,7 @@ use std::cmp::{min, max};
 use std::ops::Range;
 
 use index::{Point, Column, Side};
+use term::Search;
 
 /// Describes a region of a 2-dimensional area
 ///
@@ -69,17 +70,6 @@ impl Anchor {
     fn new(point: Point<usize>, side: Side) -> Anchor {
         Anchor { point, side }
     }
-}
-
-/// A type that can expand a given point to a region
-///
-/// Usually this is implemented for some 2-D array type since
-/// points are two dimensional indices.
-pub trait SemanticSearch {
-    /// Find the nearest semantic boundary _to the left_ of provided point.
-    fn semantic_search_left(&self, _: Point<usize>) -> Point<usize>;
-    /// Find the nearest semantic boundary _to the point_ of provided point.
-    fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
 }
 
 /// A type that has 2-dimensional boundaries
@@ -149,7 +139,7 @@ impl Selection {
         }
     }
 
-    pub fn to_span<G: SemanticSearch + Dimensions>(&self, grid: &G) -> Option<Span> {
+    pub fn to_span<G: Search + Dimensions>(&self, grid: &G) -> Option<Span> {
         match *self {
             Selection::Simple { ref region } => {
                 Selection::span_simple(grid, region)
@@ -166,7 +156,7 @@ impl Selection {
         grid: &G,
         region: &Range<Point<usize>>,
     ) -> Option<Span>
-        where G: SemanticSearch + Dimensions
+        where G: Search + Dimensions
     {
         // Normalize ordering of selected cells
         let (front, tail) = if region.start < region.end {
@@ -383,9 +373,10 @@ mod test {
         }
     }
 
-    impl super::SemanticSearch for Dimensions {
+    impl super::Search for Dimensions {
         fn semantic_search_left(&self, _: Point<usize>) -> Point<usize> { unimplemented!(); }
         fn semantic_search_right(&self, _: Point<usize>) -> Point<usize> { unimplemented!(); }
+        fn url_search(&self, _: Point<usize>) -> Option<String> { unimplemented!(); }
     }
 
     /// Test case of single cell selection

@@ -488,8 +488,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         } else {
             // Spawn URL launcher when clicking on URLs
             let moved = self.ctx.mouse().last_press_pos != (self.ctx.mouse().x, self.ctx.mouse().y);
-            if let (Some(point), Some(launcher), false) =
-                (self.ctx.mouse_coords(), &self.mouse_config.url_launcher, moved)
+            let modifiers_match = modifiers == self.mouse_config.url.modifiers;
+            if let (Some(point), Some(launcher), true, true) =
+                (self.ctx.mouse_coords(), &self.mouse_config.url.launcher, !moved, modifiers_match)
             {
                 if let Some(text) = self.ctx.url(Point::new(point.line.0, point.col)) {
                     let mut args = launcher.args().to_vec();

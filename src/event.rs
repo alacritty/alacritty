@@ -4,16 +4,14 @@ use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc;
 use std::time::{Instant};
-use std::cmp::min;
 
 use serde_json as json;
 use parking_lot::MutexGuard;
 use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
-use url::Url;
 
 use ansi::{Handler, ClearMode};
-use grid::{Scroll, BidirectionalIterator};
+use grid::Scroll;
 use config::{self, Config};
 use cli::Options;
 use display::OnResize;
@@ -21,12 +19,10 @@ use index::{Line, Column, Side, Point};
 use input::{self, MouseBinding, KeyBinding};
 use selection::Selection;
 use sync::FairMutex;
-use term::{Term, SizeInfo, TermMode};
+use term::{Term, SizeInfo, TermMode, Search};
 use util::limit;
 use util::fmt::Red;
 use window::Window;
-
-const URL_SEPARATOR_CHARS: [char; 3] = [' ', '"', '\''];
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
@@ -108,51 +104,8 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.dirty = true;
     }
 
-    fn url(&self, mut point: Point<usize>) -> Option<String> {
-        let grid = self.terminal.grid();
-        point.line = grid.num_lines().0 - point.line - 1;
-
-        // Limit the starting point to the last line in the history
-        point.line = min(point.line, grid.len() - 1);
-
-        // Create forwards and backwards iterators
-        let iterf = grid.iter_from(point);
-        point.col += 1;
-        let mut iterb = grid.iter_from(point);
-
-        // Put all characters until separators into a string
-        let mut buf = String::new();
-        while let Some(cell) = iterb.prev() {
-            if URL_SEPARATOR_CHARS.contains(&cell.c) {
-                break;
-            }
-            buf.insert(0, cell.c);
-        }
-        for cell in iterf {
-            if URL_SEPARATOR_CHARS.contains(&cell.c) {
-                break;
-            }
-            buf.push(cell.c);
-        }
-
-        // Heuristic to remove all leading '('
-        while buf.starts_with('(') {
-            buf.remove(0);
-        }
-
-        // Heuristic to remove all ')' from end of URLs without matching '('
-        let str_count = |text: &str, c: char| {
-            text.chars().filter(|tc| *tc == c).count()
-        };
-        while buf.ends_with(')') && str_count(&buf, '(') < str_count(&buf, ')') {
-            buf.pop();
-        }
-
-        // Check if string is valid url
-        match Url::parse(&buf) {
-            Ok(_) => Some(buf),
-            Err(_) => None,
-        }
+    fn url(&self, point: Point<usize>) -> Option<String> {
+        self.terminal.url_search(point)
     }
 
     fn line_selection(&mut self, point: Point) {
