@@ -36,8 +36,8 @@ built from source.
 
 ## Installation
 
-Some operating systems already provide binaries for Alacritty, for everyone else there are
-instructions to compile Alacritty from source.
+Some operating systems already provide binaries for Alacritty, for everyone else the instructions
+to build Alacritty from source, can be found [here](INSTALL.md).
 
 ### Arch Linux
 
@@ -67,10 +67,6 @@ zypper in alacritty
 ```sh
 xbps-install alacritty
 ```
-
-### Manual Installation
-
-If you wish to compile Alacritty yourself, please follow the [manual installation instructions](INSTALL.md).
 
 ## Configuration
 
