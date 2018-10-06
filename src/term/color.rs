@@ -101,7 +101,6 @@ impl List {
         for r in 0..6 {
             for g in 0..6 {
                 for b in 0..6 {
-
                     // Override colors 16..232 with the config (if present)
                     if let Some(indexed_color) = colors
                         .indexed_colors
@@ -109,14 +108,12 @@ impl List {
                         .find(|ic| ic.index == index as u8)
                     {
                         self[index] = indexed_color.color;
-                        index += 1;
-                        continue;
+                    } else {
+                        self[index] = Rgb { r: if r == 0 { 0 } else { r * 40 + 55 },
+                            b: if b == 0 { 0 } else { b * 40 + 55 },
+                            g: if g == 0 { 0 } else { g * 40 + 55 },
+                        };
                     }
-
-                    self[index] = Rgb { r: if r == 0 { 0 } else { r * 40 + 55 },
-                        b: if b == 0 { 0 } else { b * 40 + 55 },
-                        g: if g == 0 { 0 } else { g * 40 + 55 },
-                    };
                     index += 1;
                 }
             }
