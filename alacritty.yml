@@ -1,10 +1,9 @@
 # Configuration for Alacritty, the GPU enhanced terminal emulator.
 
-
 # Any items in the `env` entry below will be added as
 # environment variables. Some entries may override variables
 # set by alacritty itself.
-env:
+#env:
   # TERM variable
   #
   # This value is used to set the `$TERM` environment variable for
@@ -12,7 +11,7 @@ env:
   # check the local terminfo database and use 'alacritty' if it is
   # available, otherwise 'xterm-256color' is used.
   #
-  # TERM: xterm-256color
+  #TERM: xterm-256color
 
 window:
   # Window dimensions (changes require restart)
