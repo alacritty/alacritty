@@ -2236,12 +2236,13 @@ mod benches {
     extern crate test;
     extern crate serde_json as json;
 
-    use std::io::Read;
+    use std::io::{self, Read};
     use std::fs::File;
     use std::mem;
     use std::path::Path;
 
-    use grid::Grid;
+    use ansi::{self, ClearMode, Handler};
+    use grid::{Grid, Scroll};
     use config::Config;
 
     use super::{SizeInfo, Term};
@@ -2290,5 +2291,66 @@ mod benches {
                 test::black_box(cell);
             }
         })
+    }
+
+    #[bench]
+    fn parser_advance(b: &mut test::Bencher) {
+        // Create buffer with `num_lines` * "y\n"
+        let num_lines = 1_000;
+        let mut buf = String::with_capacity(num_lines * 2);
+        for _ in 0..num_lines {
+            buf.push_str("y\n");
+        }
+        let size = SizeInfo {
+            width: 100.,
+            height: 100.,
+            cell_width: 10.,
+            cell_height: 20.,
+            padding_x: 0.,
+            padding_y: 0.,
+        };
+        let mut terminal = Term::new(&Default::default(), size);
+        let mut parser = ansi::Processor::new();
+
+        // Parse all lines
+        b.iter(|| {
+            for byte in buf.bytes() {
+                parser.advance(&mut terminal, byte, &mut io::sink());
+            }
+        });
+    }
+
+    #[bench]
+    fn scroll_display(b: &mut test::Bencher) {
+        // Create buffer with `num_lines` * "y\n"
+        let num_lines = 10_000;
+        let mut buf = String::with_capacity(num_lines * 2);
+        for _ in 0..num_lines {
+            buf.push_str("y\n");
+        }
+        let size = SizeInfo {
+            width: 100.,
+            height: 100.,
+            cell_width: 10.,
+            cell_height: 20.,
+            padding_x: 0.,
+            padding_y: 0.,
+        };
+        let mut terminal = Term::new(&Default::default(), size);
+        let mut parser = ansi::Processor::new();
+
+        for byte in buf.bytes() {
+            parser.advance(&mut terminal, byte, &mut io::sink());
+        }
+
+        // Scroll up and down
+        b.iter(|| {
+            for _ in 0..10_000 {
+                terminal.scroll_display(Scroll::Lines(1));
+            }
+            for _ in 0..10_000 {
+                terminal.scroll_display(Scroll::Lines(-1));
+            }
+        });
     }
 }

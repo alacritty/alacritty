@@ -3,6 +3,16 @@ sudo: false
 
 cache: cargo
 
+notifications:
+  webhooks:
+    urls:
+      - https://perf.christianduerr.com/notify
+    on_success: always # default: always
+    on_failure: never  # default: always
+    on_start: never    # default: never
+    on_cancel: never   # default: always
+    on_error: never    # default: always
+
 os:
   - linux
   - osx
