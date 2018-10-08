@@ -348,9 +348,6 @@ pub trait Rasterize {
         Self: Sized;
 
     /// Get `Metrics` for the given `FontKey`
-    #[cfg(not(windows))]
-    fn metrics(&self, FontKey) -> Result<Metrics, Self::Err>;
-    #[cfg(windows)]
     fn metrics(&self, FontKey, Size) -> Result<Metrics, Self::Err>;
 
     /// Load the font described by `FontDesc` and `Size`

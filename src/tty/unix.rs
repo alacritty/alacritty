@@ -210,10 +210,10 @@ impl Pty {
 }
 
 /// Create a new tty and return a handle to interact with it.
-pub fn new<'a, T: ToWinsize>(
+pub fn new<T: ToWinsize>(
     config: &Config,
     options: &Options,
-    size: T,
+    size: &T,
     window_id: Option<usize>,
 ) -> Pty {
     let win = size.to_winsize();
@@ -318,7 +318,7 @@ pub fn new<'a, T: ToWinsize>(
                 raw_fd: master,
                 token: mio::Token::from(0)
             };
-            pty.resize(&size);
+            pty.resize(size);
             pty
         },
         Err(err) => {
@@ -327,7 +327,7 @@ pub fn new<'a, T: ToWinsize>(
     }
 }
 
-impl<'a> EventedReadWrite for Pty {
+impl EventedReadWrite for Pty {
     type Reader = File;
     type Writer = File;
 

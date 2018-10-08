@@ -152,7 +152,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // The pty forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-    let pty = tty::new(&config, options, display.size(), window_id);
+    let pty = tty::new(&config, options, &display.size(), window_id);
 
     // Get a reference to something that we can resize
     //

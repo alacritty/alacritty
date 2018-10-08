@@ -26,11 +26,17 @@ use tempdir::TempDir;
 extern crate gl_generator;
 
 use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
-use std::env;
-use std::fs::{File, OpenOptions};
-use std::path::Path;
-use std::io;
 
+use std::env;
+use std::fs::File;
+use std::path::Path;
+
+#[cfg(windows)]
+use std::io;
+#[cfg(windows)]
+use std::fs::OpenOptions;
+
+#[cfg(windows)]
 const WINPTY_PACKAGE_URL: &str = "https://www.nuget.org/api/v2/package/winpty.NET/0.4.2";
 
 fn main() {

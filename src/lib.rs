@@ -27,7 +27,6 @@
           target_os = "openbsd"))]
 extern crate x11_dl;
 
-
 #[cfg(windows)]
 extern crate mio_named_pipes;
 #[cfg(windows)]
@@ -36,6 +35,10 @@ extern crate winapi;
 extern crate winpty;
 #[cfg(windows)]
 extern crate dunce;
+#[cfg(windows)]
+extern crate winit;
+#[cfg(windows)]
+extern crate image;
 
 #[cfg(target_os = "macos")]
 #[macro_use]
@@ -61,8 +64,6 @@ extern crate unicode_width;
 extern crate vte;
 extern crate xdg;
 extern crate base64;
-extern crate winit;
-extern crate image;
 extern crate terminfo;
 
 #[macro_use]

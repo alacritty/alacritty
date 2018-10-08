@@ -12,28 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use tty::EventedReadWrite;
-use term::SizeInfo;
-use display::OnResize;
-use config::{Config, Shell};
-use cli::Options;
-use mio;
 use std::io;
-
+use std::fs::OpenOptions;
 use std::os::raw::c_void;
+use std::os::windows::io::{FromRawHandle, IntoRawHandle};
+use std::os::windows::fs::OpenOptionsExt;
+use std::env;
+use std::cell::UnsafeCell;
+
+use dunce::canonicalize;
+use mio;
+use mio::Evented;
+use mio_named_pipes::NamedPipe;
 use winapi::um::synchapi::WaitForSingleObject;
 use winapi::um::winbase::{WAIT_OBJECT_0, FILE_FLAG_OVERLAPPED};
 use winapi::shared::winerror::WAIT_TIMEOUT;
-use mio_named_pipes::NamedPipe;
 use winpty::{ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
 use winpty::Config as WinptyConfig;
-use std::os::windows::io::{FromRawHandle, IntoRawHandle};
-use std::fs::OpenOptions;
-use std::os::windows::fs::OpenOptionsExt;
-use mio::Evented;
-use std::env;
-use std::cell::UnsafeCell;
-use dunce::canonicalize;
+
+use config::{Config, Shell};
+use display::OnResize;
+use cli::Options;
+use tty::EventedReadWrite;
+use term::SizeInfo;
 
 /// Handle to the winpty agent process. Required so we know when it closes.
 static mut HANDLE: *mut c_void = 0usize as *mut c_void;
