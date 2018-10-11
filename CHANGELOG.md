@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add terminfo capabilities advertising support for changing the window title
+
 ### Fixed
 - Fixed erroneous results when using the `indexed_colors` config option
 
