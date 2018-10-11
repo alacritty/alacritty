@@ -35,8 +35,8 @@ impl ::Rasterize for RustTypeRasterizer {
             .h_metrics();
         Ok(Metrics {
             descent: vmetrics.descent,
-            average_advance: hmetrics.advance_width as f64,
-            line_height: (vmetrics.ascent - vmetrics.descent + vmetrics.line_gap) as f64,
+            average_advance: f64::from(hmetrics.advance_width),
+            line_height: f64::from(vmetrics.ascent - vmetrics.descent + vmetrics.line_gap),
         })
     }
 
@@ -62,7 +62,7 @@ impl ::Rasterize for RustTypeRasterizer {
         };
         self.fonts.push(FontCollection::from_bytes(
             system_fonts::get(&fp.build())
-                .ok_or(Error::MissingFont(desc.clone()))?
+                .ok_or_else(|| Error::MissingFont(desc.clone()))?
                 .0,
         ).into_font()
             .ok_or(Error::UnsupportedFont)?);
@@ -104,7 +104,7 @@ impl ::Rasterize for RustTypeRasterizer {
             height: bb.height(),
             top: -bb.min.y,
             left: bb.min.x,
-            buf: buf,
+            buf,
         })
     }
 }
