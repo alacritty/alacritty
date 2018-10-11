@@ -26,7 +26,6 @@ impl ::std::fmt::Display for Error {
     }
 }
 
-// TODO: Is this really safe?
 unsafe impl Send for Error {}
 unsafe impl Sync for Error {}
 
@@ -35,7 +34,7 @@ impl Load for Clipboard {
 
     fn new() -> Result<Self, Error> {
         ClipboardContext::new()
-            .map(|c| Clipboard(c))
+            .map(Clipboard)
             .map_err(Error::Clipboard)
     }
 
