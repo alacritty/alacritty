@@ -6,6 +6,7 @@ cache: cargo
 os:
   - linux
   - osx
+  - windows
 
 rust:
   - stable
@@ -29,6 +30,8 @@ matrix:
     - rust: nightly
 
 script:
+  - if [ "$TRAVIS_OS_NAME" == "windows" ]; then choco install windows-sdk-10.1 -y; fi
+
   - if [ -n "$CLIPPY" ]; then cargo clippy --all-features --all-targets; fi
   - if [ -z "$CLIPPY" ]; then cargo test; fi
   - if [ -z "$CLIPPY" ]; then cargo test -p font; fi
