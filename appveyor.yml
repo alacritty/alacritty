@@ -42,12 +42,11 @@ before_test:
     )
 
 test_script:
-  - ps: |
-      if ($env:CLIPPY -eq "true") {
-        cargo +$env:RUST_TOOLCHAIN clippy 2> $null
-      } else {
-        cargo +$env:RUST_TOOLCHAIN test 2> $null
-      }
+  - if [%CLIPPY%] == [true] (
+      cargo %RUST_TOOLCHAIN% clippy
+    ) else (
+      cargo %RUST_TOOLCHAIN% test
+    )
 
 cache:
   # Ideally we'd also cache the toolchain but it's too large to fit in the free cache.

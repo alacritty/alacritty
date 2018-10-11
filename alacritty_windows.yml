@@ -35,10 +35,6 @@ window:
   #     - none: Neither borders nor title bar
   decorations: full
 
-  # Window decorations
-  # Setting this to false will result in window without borders and title bar.
-  decorations: true
-
 scrolling:
   # How many lines of scrollback to keep,
   # '0' will disable scrolling.
