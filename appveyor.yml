@@ -5,6 +5,7 @@ environment:
   global:
     CRATE_NAME: alacritty
     RUST_BACKTRACE: 1
+    APPVEYOR_SAVE_CACHE_ON_ERROR: true
 
   matrix:
     - platform: x86_64
@@ -56,5 +57,5 @@ cache:
 artifacts:
   - path: target\release\alacritty.exe
     name: Alacritty
-  - path: assets\windows\%platform%\winpty-agent.exe
+  - path: target\release\winpty-agent.exe
     name: Winpty agent
