@@ -219,14 +219,14 @@ impl<'a> EventedReadWrite for Pty<'a, NamedPipe, NamedPipe> {
                 self.read_token,
                 mio::Ready::readable(),
                 poll_opts,
-            )?
+            )?;
         } else {
             poll.reregister(
                 &self.conout,
-                self.write_token,
+                self.read_token,
                 mio::Ready::empty(),
                 poll_opts,
-            )?
+            )?;
         }
         if interest.is_writable() {
             poll.reregister(
@@ -234,14 +234,14 @@ impl<'a> EventedReadWrite for Pty<'a, NamedPipe, NamedPipe> {
                 self.write_token,
                 mio::Ready::writable(),
                 poll_opts,
-            )?
+            )?;
         } else {
             poll.reregister(
                 &self.conin,
                 self.write_token,
                 mio::Ready::empty(),
                 poll_opts,
-            )?
+            )?;
         }
         Ok(())
     }

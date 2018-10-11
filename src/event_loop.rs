@@ -222,12 +222,9 @@ impl<T> EventLoop<T>
             return false;
         }
 
-        let mut interest = Ready::readable();
-        if state.needs_write() {
-            interest.insert(Ready::writable());
-        }
-        self.pty
-            .reregister(&self.poll, interest, PollOpt::edge() | PollOpt::oneshot()).unwrap();
+        self.poll
+            .reregister(&self.rx, CHANNEL, Ready::readable(), PollOpt::edge() | PollOpt::oneshot())
+            .unwrap();
 
         true
     }
@@ -344,7 +341,7 @@ impl<T> EventLoop<T>
             let mut state = state.unwrap_or_else(Default::default);
             let mut buf = [0u8; 0x1000];
 
-            let poll_opts = PollOpt::level() | PollOpt::oneshot();
+            let poll_opts = PollOpt::edge() | PollOpt::oneshot();
 
             let tokens = [1, 2];
 
@@ -415,15 +412,15 @@ impl<T> EventLoop<T>
                         }
                         _ => (),
                     }
-
-                    // Register write interest if necessary
-                    let mut interest = Ready::readable();
-                    if state.needs_write() {
-                        interest.insert(Ready::writable());
-                    }
-                    // Reregister with new interest
-                    self.pty.reregister(&self.poll, interest, poll_opts).unwrap();
                 }
+
+                // Register write interest if necessary
+                let mut interest = Ready::readable();
+                if state.needs_write() {
+                    interest.insert(Ready::writable());
+                }
+                // Reregister with new interest
+                self.pty.reregister(&self.poll, interest, poll_opts).unwrap();
             }
 
             // The evented instances are not dropped here so deregister them explicitly
