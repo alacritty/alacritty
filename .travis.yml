@@ -1,9 +1,6 @@
 language: rust
 sudo: false
 
-git:
-  depth: 1
-
 cache: cargo
 
 os:
