@@ -1,6 +1,9 @@
 language: rust
 sudo: false
 
+git:
+  depth: 1
+
 cache: cargo
 
 os:
@@ -31,6 +34,8 @@ matrix:
     - os: windows
 
 script:
+  - if [ "$TRAVIS_OS_NAME" == "windows" ]; then choco install llvm --norestart --nosilent; fi
+
   - if [ -n "$CLIPPY" ]; then cargo clippy --all-features --all-targets; fi
   - if [ -z "$CLIPPY" ]; then cargo test; fi
   - if [ -z "$CLIPPY" ]; then cargo test -p font; fi
