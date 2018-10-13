@@ -355,6 +355,10 @@ pub struct WindowConfig {
     /// Draw the window with title bar / borders
     #[serde(default)]
     decorations: Decorations,
+
+    /// Initialize in fullscreen mode
+    #[serde(default)]
+    fullscreen: bool,
 }
 
 fn default_padding() -> Delta<u8> {
@@ -377,6 +381,10 @@ impl WindowConfig {
     pub fn decorations(&self) -> Decorations {
         self.decorations
     }
+
+    pub fn fullscreen(&self) -> bool {
+        self.fullscreen
+    }
 }
 
 impl Default for WindowConfig {
@@ -385,6 +393,7 @@ impl Default for WindowConfig {
             dimensions: Default::default(),
             padding: default_padding(),
             decorations: Default::default(),
+            fullscreen: false,
         }
     }
 }
@@ -705,7 +714,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 f.write_str("Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, \
                             ResetFontSize, ScrollPageUp, ScrollPageDown, ScrollToTop, \
-                            ScrollToBottom, ClearHistory, Hide, or Quit")
+                            ScrollToBottom, ClearHistory, Hide, Quit, or ToggleFullscreen")
             }
 
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<ActionWrapper, E>
@@ -725,6 +734,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "ClearHistory" => Action::ClearHistory,
                     "Hide" => Action::Hide,
                     "Quit" => Action::Quit,
+                    "ToggleFullscreen" => Action::ToggleFullscreen,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
             }
