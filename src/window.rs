@@ -67,6 +67,7 @@ pub struct Window {
 
     /// Whether or not the window is the focused window.
     pub is_focused: bool,
+    pub is_fullscreen: bool,
 }
 
 /// Threadsafe APIs for the window
@@ -216,7 +217,7 @@ impl Window {
 
         let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
         let class = options.class.as_ref().map_or(DEFAULT_CLASS, |c| c);
-        let window_builder = Window::get_platform_window(title, window_config);
+        let window_builder = Window::get_platform_window(title, window_config, &event_loop);
         let window_builder = Window::platform_builder_ext(window_builder, &class);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
@@ -238,6 +239,7 @@ impl Window {
             window,
             cursor_visible: true,
             is_focused: false,
+            is_fullscreen: false,
         };
 
         window.run_os_extensions();
@@ -358,26 +360,48 @@ impl Window {
     }
 
     #[cfg(not(target_os = "macos"))]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(
+        title: &str,
+        window_config: &WindowConfig,
+        event_loop: &EventsLoop,
+    ) -> WindowBuilder {
         let decorations = match window_config.decorations() {
             Decorations::None => false,
             _ => true,
+        };
+
+        let fullscreen = if window_config.fullscreen() {
+            Some(event_loop.get_primary_monitor())
+        } else {
+            None
         };
 
         WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
+            .with_fullscreen(fullscreen)
             .with_decorations(decorations)
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(
+        title: &str,
+        window_config: &WindowConfig,
+        event_loop: &EventsLoop,
+    ) -> WindowBuilder {
         use glutin::os::macos::WindowBuilderExt;
+
+        let fullscreen = if window_config.fullscreen() {
+            Some(event_loop.get_primary_monitor())
+        } else {
+            None
+        };
 
         let window = WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
+            .with_fullscreen(fullscreen)
             .with_transparency(true);
 
         match window_config.decorations() {
@@ -443,6 +467,16 @@ impl Window {
     /// Hide the window
     pub fn hide(&self) {
         self.window.hide();
+    }
+
+    pub fn toggle_fullscreen(&self) {
+        let monitor_id = if self.is_fullscreen {
+            None
+        } else {
+            Some(self.event_loop.get_primary_monitor())
+        };
+
+        self.window.set_fullscreen(monitor_id);
     }
 }
 

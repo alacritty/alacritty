@@ -73,6 +73,7 @@ pub trait ActionContext {
     fn scroll(&mut self, scroll: Scroll);
     fn clear_history(&mut self);
     fn hide_window(&mut self);
+    fn toggle_fullscreen(&mut self);
 }
 
 /// Describes a state and action to take in that state
@@ -197,6 +198,9 @@ pub enum Action {
 
     /// Quits Alacritty.
     Quit,
+
+    /// Toggles fullscreen mode.
+    ToggleFullscreen,
 }
 
 impl Action {
@@ -280,6 +284,9 @@ impl Action {
             },
             Action::ClearHistory => {
                 ctx.clear_history();
+            },
+            Action::ToggleFullscreen => {
+                ctx.toggle_fullscreen();
             },
         }
     }
