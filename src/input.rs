@@ -801,6 +801,8 @@ mod tests {
         }
         fn hide_window(&mut self) {
         }
+        fn toggle_fullscreen(&mut self) {
+        }
     }
 
     macro_rules! test_clickstate {
