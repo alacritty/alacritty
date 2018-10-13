@@ -1048,6 +1048,11 @@ impl Term {
         &self.grid
     }
 
+    /// Mutable access to the raw grid data structure
+    pub fn grid_mut(&mut self) -> &mut Grid<Cell> {
+        &mut self.grid
+    }
+
     /// Iterate over the *renderable* cells in the terminal
     ///
     /// A renderable cell is any cell which has content other than the default
@@ -2228,129 +2233,5 @@ mod tests {
         let mut scrolled_grid = term.grid.clone();
         scrolled_grid.scroll_display(Scroll::Top);
         assert_eq!(term.grid, scrolled_grid);
-    }
-}
-
-#[cfg(all(test, feature = "bench"))]
-mod benches {
-    extern crate test;
-    extern crate serde_json as json;
-
-    use std::io::{self, Read};
-    use std::fs::File;
-    use std::mem;
-    use std::path::Path;
-
-    use ansi::{self, ClearMode, Handler};
-    use grid::{Grid, Scroll};
-    use config::Config;
-
-    use super::{SizeInfo, Term};
-    use super::cell::Cell;
-
-    fn read_string<P>(path: P) -> String
-        where P: AsRef<Path>
-    {
-        let mut res = String::new();
-        File::open(path.as_ref()).unwrap()
-            .read_to_string(&mut res).unwrap();
-
-        res
-    }
-
-    /// Benchmark for the renderable cells iterator
-    ///
-    /// The renderable cells iterator yields cells that require work to be
-    /// displayed (that is, not a an empty background cell). This benchmark
-    /// measures how long it takes to process the whole iterator.
-    ///
-    /// When this benchmark was first added, it averaged ~78usec on my macbook
-    /// pro. The total render time for this grid is anywhere between ~1500 and
-    /// ~2000usec (measured imprecisely with the visual meter).
-    #[bench]
-    fn render_iter(b: &mut test::Bencher) {
-        // Need some realistic grid state; using one of the ref files.
-        let serialized_grid = read_string(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/ref/vim_large_window_scroll/grid.json")
-        );
-        let serialized_size = read_string(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/ref/vim_large_window_scroll/size.json")
-        );
-
-        let mut grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
-        let size: SizeInfo = json::from_str(&serialized_size).unwrap();
-
-        let config = Config::default();
-
-        let mut terminal = Term::new(&config, size);
-        mem::swap(&mut terminal.grid, &mut grid);
-
-        b.iter(|| {
-            let iter = terminal.renderable_cells(&config, false);
-            for cell in iter {
-                test::black_box(cell);
-            }
-        })
-    }
-
-    #[bench]
-    fn parser_advance(b: &mut test::Bencher) {
-        // Create buffer with `num_lines` * "y\n"
-        let num_lines = 1_000;
-        let mut buf = String::with_capacity(num_lines * 2);
-        for _ in 0..num_lines {
-            buf.push_str("y\n");
-        }
-        let size = SizeInfo {
-            width: 100.,
-            height: 100.,
-            cell_width: 10.,
-            cell_height: 20.,
-            padding_x: 0.,
-            padding_y: 0.,
-        };
-        let mut terminal = Term::new(&Default::default(), size);
-        let mut parser = ansi::Processor::new();
-
-        // Parse all lines
-        b.iter(|| {
-            for byte in buf.bytes() {
-                parser.advance(&mut terminal, byte, &mut io::sink());
-            }
-        });
-    }
-
-    #[bench]
-    fn scroll_display(b: &mut test::Bencher) {
-        // Create buffer with `num_lines` * "y\n"
-        let num_lines = 10_000;
-        let mut buf = String::with_capacity(num_lines * 2);
-        for _ in 0..num_lines {
-            buf.push_str("y\n");
-        }
-        let size = SizeInfo {
-            width: 100.,
-            height: 100.,
-            cell_width: 10.,
-            cell_height: 20.,
-            padding_x: 0.,
-            padding_y: 0.,
-        };
-        let mut terminal = Term::new(&Default::default(), size);
-        let mut parser = ansi::Processor::new();
-
-        for byte in buf.bytes() {
-            parser.advance(&mut terminal, byte, &mut io::sink());
-        }
-
-        // Scroll up and down
-        b.iter(|| {
-            for _ in 0..10_000 {
-                terminal.scroll_display(Scroll::Lines(1));
-            }
-            for _ in 0..10_000 {
-                terminal.scroll_display(Scroll::Lines(-1));
-            }
-        });
     }
 }

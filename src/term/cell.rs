@@ -139,22 +139,3 @@ mod tests {
         assert_eq!(row.line_length(), Column(10));
     }
 }
-
-#[cfg(all(test, feature = "bench"))]
-mod benches {
-    extern crate test;
-    use super::Cell;
-
-    #[bench]
-    fn cell_reset(b: &mut test::Bencher) {
-        b.iter(|| {
-            let mut cell = Cell::default();
-
-            for _ in 0..100 {
-                cell.reset(test::black_box(&Cell::default()));
-            }
-
-            test::black_box(cell);
-        });
-    }
-}

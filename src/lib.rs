@@ -15,7 +15,6 @@
 //! Alacritty - The GPU Enhanced Terminal
 #![cfg_attr(feature = "cargo-clippy", deny(clippy, if_not_else, enum_glob_use, wrong_pub_self_convention))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
-#![cfg_attr(all(test, feature = "bench"), feature(test))]
 
 #[macro_use] extern crate bitflags;
 #[macro_use] extern crate clap;
