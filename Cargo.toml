@@ -40,7 +40,7 @@ env_logger = "0.5"
 base64 = "0.9.0"
 static_assertions = "0.2.5"
 terminfo = "0.6.1"
-criterion = { version = "*", features = ["real_blackbox"], optional = true }
+criterion = { git = "https://github.com/chrisduerr/criterion.rs", features = ["real_blackbox"], optional = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"

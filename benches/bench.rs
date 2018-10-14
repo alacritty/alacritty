@@ -124,23 +124,23 @@ fn reset_cell(args: (Cell, Cell, usize)) -> (Cell, Cell) {
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("render_iter", |b| {
-        b.iter_with_setup(setup_render_iter, render_iter)
+        b.iter_with_large_setup(setup_render_iter, render_iter)
     });
 
     c.bench_function("clear_screen", |b| {
-        b.iter_with_setup(|| setup_term(100_000), clear_screen)
+        b.iter_with_large_setup(|| setup_term(100_000), clear_screen)
     });
 
     c.bench_function("scroll_display", |b| {
-        b.iter_with_setup(|| setup_term(10_000), scroll_display)
+        b.iter_with_large_setup(|| setup_term(10_000), scroll_display)
     });
 
     c.bench_function("advance_parser", |b| {
-        b.iter_with_setup(|| create_term(1_000), advance_parser)
+        b.iter_with_large_setup(|| create_term(1_000), advance_parser)
     });
 
     c.bench_function("reset_cell", |b| {
-        b.iter_with_setup(|| (Cell::default(), Cell::default(), 1_000_000), reset_cell)
+        b.iter_with_large_setup(|| (Cell::default(), Cell::default(), 1_000_000), reset_cell)
     });
 }
 
