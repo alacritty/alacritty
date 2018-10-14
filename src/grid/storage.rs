@@ -201,12 +201,11 @@ impl<T> Storage<T> {
 
         // This part is critical for performance,
         // so an if/else is used here instead of a moludo operation
-        // if zeroed >= self.inner.len() {
-        //     zeroed - self.inner.len()
-        // } else {
-        //     zeroed
-        // }
-        zeroed % self.inner.len()
+        if zeroed >= self.inner.len() {
+            zeroed - self.inner.len()
+        } else {
+            zeroed
+        }
     }
 
     pub fn swap_lines(&mut self, a: Line, b: Line) {
