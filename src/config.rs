@@ -968,7 +968,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
                                 key = Some(Key::Scancode(scancode as u32));
                             } else {
                                 let k = Key::deserialize(val)
-                                    .map_err(|e| V::Error::custom(e))?;
+                                    .map_err(V::Error::custom)?;
                                 key = Some(k);
                             }
                         },
@@ -2188,8 +2188,8 @@ pub enum Key {
 }
 
 impl Key {
-    pub fn from_glutin_input(key: &::glutin::VirtualKeyCode) -> Self {
-        use ::glutin::VirtualKeyCode::*;
+    pub fn from_glutin_input(key: ::glutin::VirtualKeyCode) -> Self {
+        use glutin::VirtualKeyCode::*;
         // Thank you, vim macros and regex!
         match key {
             Key1 => Key::Key1,

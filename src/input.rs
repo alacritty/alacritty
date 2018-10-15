@@ -661,7 +661,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     input.modifiers,
                     &Key::Scancode(input.scancode),
                 ),
-                _ => if let Some(ref key) = input.virtual_keycode {
+                _ => if let Some(key) = input.virtual_keycode {
                     let key = Key::from_glutin_input(key);
                     binding.is_triggered_by(self.ctx.terminal_mode(), input.modifiers, &key)
                 } else {
