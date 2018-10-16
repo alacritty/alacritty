@@ -10,8 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add support for windows
 - Add terminfo capabilities advertising support for changing the window title
+- Allow using scancodes in the key_bindings section
 
 ### Fixed
+
 - Fixed erroneous results when using the `indexed_colors` config option
 
 ## Version 0.2.1

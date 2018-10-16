@@ -26,9 +26,9 @@ use std::time::Instant;
 use std::os::unix::process::CommandExt;
 
 use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
-use glutin::{ElementState, VirtualKeyCode, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState};
+use glutin::{ElementState, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState, KeyboardInput};
 
-use config;
+use config::{self, Key};
 use grid::Scroll;
 use event::{ClickState, Mouse};
 use index::{Line, Column, Side, Point};
@@ -100,7 +100,7 @@ pub struct Binding<T> {
 }
 
 /// Bindings that are triggered by a keyboard key
-pub type KeyBinding = Binding<VirtualKeyCode>;
+pub type KeyBinding = Binding<Key>;
 
 /// Bindings that are triggered by a mouse button
 pub type MouseBinding = Binding<MouseButton>;
@@ -618,24 +618,18 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// Process key input
     ///
     /// If a keybinding was run, returns true. Otherwise returns false.
-    pub fn process_key(
-        &mut self,
-        state: ElementState,
-        key: Option<VirtualKeyCode>,
-        mods: ModifiersState,
-    ) {
-        match (key, state) {
-            (Some(key), ElementState::Pressed) => {
-                *self.ctx.last_modifiers() = mods;
+    pub fn process_key(&mut self, input: KeyboardInput) {
+        match input.state {
+            ElementState::Pressed => {
+                *self.ctx.last_modifiers() = input.modifiers;
                 *self.ctx.received_count() = 0;
                 *self.ctx.suppress_chars() = false;
 
-                if self.process_key_bindings(mods, key) {
+                if self.process_key_bindings(input) {
                     *self.ctx.suppress_chars() = true;
                 }
             },
-            (_, ElementState::Released) => *self.ctx.suppress_chars() = false,
-            _ => ()
+            ElementState::Released => *self.ctx.suppress_chars() = false,
         }
     }
 
@@ -668,10 +662,24 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// for its action to be executed.
     ///
     /// Returns true if an action is executed.
-    fn process_key_bindings(&mut self, mods: ModifiersState, key: VirtualKeyCode) -> bool {
+    fn process_key_bindings(&mut self, input: KeyboardInput) -> bool {
         let mut has_binding = false;
         for binding in self.key_bindings {
-            if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &key) {
+            let is_triggered = match binding.trigger {
+                Key::Scancode(_) => binding.is_triggered_by(
+                    self.ctx.terminal_mode(),
+                    input.modifiers,
+                    &Key::Scancode(input.scancode),
+                ),
+                _ => if let Some(key) = input.virtual_keycode {
+                    let key = Key::from_glutin_input(key);
+                    binding.is_triggered_by(self.ctx.terminal_mode(), input.modifiers, &key)
+                } else {
+                    false
+                },
+            };
+
+            if is_triggered {
                 // binding was triggered; run the action
                 binding.execute(&mut self.ctx);
                 has_binding = true;

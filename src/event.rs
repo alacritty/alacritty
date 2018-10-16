@@ -334,9 +334,8 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
-                        let glutin::KeyboardInput { state, virtual_keycode, modifiers, .. } = input;
-                        processor.process_key(state, virtual_keycode, modifiers);
-                        if state == ElementState::Pressed {
+                        processor.process_key(input);
+                        if input.state == ElementState::Pressed {
                             // Hide cursor while typing
                             *hide_cursor = true;
                         }
