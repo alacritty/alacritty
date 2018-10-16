@@ -46,11 +46,11 @@ pub enum Selection {
     },
     Semantic {
         /// The region representing start and end of cursor movement
-        region: Range<Point<usize>>,
+        region: Range<Point<isize>>,
     },
     Lines {
         /// The region representing start and end of cursor movement
-        region: Range<Point<usize>>,
+        region: Range<Point<isize>>,
 
         /// The line under the initial point. This is always selected regardless
         /// of which way the cursor is moved.
@@ -61,12 +61,12 @@ pub enum Selection {
 /// A Point and side within that point.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Anchor {
-    point: Point<usize>,
+    point: Point<isize>,
     side: Side,
 }
 
 impl Anchor {
-    fn new(point: Point<usize>, side: Side) -> Anchor {
+    fn new(point: Point<isize>, side: Side) -> Anchor {
         Anchor { point, side }
     }
 }
@@ -92,8 +92,8 @@ impl Selection {
     pub fn simple(location: Point<usize>, side: Side) -> Selection {
         Selection::Simple {
             region: Range {
-                start: Anchor::new(location, side),
-                end: Anchor::new(location, side)
+                start: Anchor::new(location.into(), side),
+                end: Anchor::new(location.into(), side)
             }
         }
     }
@@ -101,16 +101,16 @@ impl Selection {
     pub fn rotate(&mut self, offset: isize) {
         match *self {
             Selection::Simple { ref mut region } => {
-                region.start.point.line = (region.start.point.line as isize + offset) as usize;
-                region.end.point.line = (region.end.point.line as isize + offset) as usize;
+                region.start.point.line = region.start.point.line + offset;
+                region.end.point.line = region.end.point.line + offset;
             },
             Selection::Semantic { ref mut region } => {
-                region.start.line = (region.start.line as isize + offset) as usize;
-                region.end.line = (region.end.line as isize + offset) as usize;
+                region.start.line = region.start.line + offset;
+                region.end.line = region.end.line + offset;
             },
             Selection::Lines { ref mut region, ref mut initial_line } => {
-                region.start.line = (region.start.line as isize + offset) as usize;
-                region.end.line = (region.end.line as isize + offset) as usize;
+                region.start.line = region.start.line + offset;
+                region.end.line = region.end.line + offset;
                 *initial_line = (*initial_line as isize + offset) as usize;
             }
         }
@@ -119,8 +119,8 @@ impl Selection {
     pub fn semantic(point: Point<usize>) -> Selection {
         Selection::Semantic {
             region: Range {
-                start: point,
-                end: point,
+                start: point.into(),
+                end: point.into(),
             }
         }
     }
@@ -128,8 +128,8 @@ impl Selection {
     pub fn lines(point: Point<usize>) -> Selection {
         Selection::Lines {
             region: Range {
-                start: point,
-                end: point
+                start: point.into(),
+                end: point.into(),
             },
             initial_line: point.line
         }
@@ -139,12 +139,12 @@ impl Selection {
         // Always update the `end`; can normalize later during span generation.
         match *self {
             Selection::Simple { ref mut region } => {
-                region.end = Anchor::new(location, side);
+                region.end = Anchor::new(location.into(), side);
             },
             Selection::Semantic { ref mut region } |
                 Selection::Lines { ref mut region, .. } =>
             {
-                region.end = location;
+                region.end = location.into();
             },
         }
     }
@@ -162,9 +162,10 @@ impl Selection {
             }
         }
     }
+
     fn span_semantic<G>(
         grid: &G,
-        region: &Range<Point<usize>>,
+        region: &Range<Point<isize>>,
     ) -> Option<Span>
         where G: SemanticSearch + Dimensions
     {
@@ -176,9 +177,9 @@ impl Selection {
         };
 
         let (mut start, mut end) = if front < tail && front.line == tail.line {
-            (grid.semantic_search_left(front), grid.semantic_search_right(tail))
+            (grid.semantic_search_left(front.into()), grid.semantic_search_right(tail.into()))
         } else {
-            (grid.semantic_search_right(front), grid.semantic_search_left(tail))
+            (grid.semantic_search_right(front.into()), grid.semantic_search_left(tail.into()))
         };
 
         if start > end {
@@ -193,7 +194,7 @@ impl Selection {
         })
     }
 
-    fn span_lines<G>(grid: &G, region: &Range<Point<usize>>, initial_line: usize) -> Option<Span>
+    fn span_lines<G>(grid: &G, region: &Range<Point<isize>>, initial_line: usize) -> Option<Span>
         where G: Dimensions
     {
         // First, create start and end points based on initial line and the grid
@@ -210,12 +211,12 @@ impl Selection {
         // Now, expand lines based on where cursor started and ended.
         if region.start.line < region.end.line {
             // Start is below end
-            start.line = min(start.line, region.start.line);
-            end.line = max(end.line, region.end.line);
+            start.line = min(start.line, region.start.line as usize);
+            end.line = max(end.line, region.end.line as usize);
         } else {
             // Start is above end
-            start.line = min(start.line, region.end.line);
-            end.line = max(end.line, region.start.line);
+            start.line = min(start.line, region.end.line as usize);
+            end.line = max(end.line, region.start.line as usize);
         }
 
         Some(Span {
@@ -247,6 +248,7 @@ impl Selection {
         if (front == tail && front_side == tail_side)
             || (tail_side == Side::Right && front_side == Side::Left && front.line == tail.line
                 && front.col == tail.col + 1)
+            || tail.line < 0
         {
             return None;
         }
@@ -267,11 +269,17 @@ impl Selection {
             tail.col += 1;
         }
 
+        // Clamp selection below viewport to visible region
+        if front.line < 0 {
+            front.line = 0;
+            front.col = cols - 1;
+        }
+
         // Return the selection with all cells inclusive
         Some(Span {
             cols,
-            front,
-            tail,
+            front: front.into(),
+            tail: tail.into(),
             ty: SpanType::Inclusive,
         })
     }

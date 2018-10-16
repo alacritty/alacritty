@@ -52,6 +52,18 @@ impl Ord for Point {
     }
 }
 
+impl From<Point<usize>> for Point<isize> {
+    fn from(point: Point<usize>) -> Self {
+        Point::new(point.line as isize, point.col)
+    }
+}
+
+impl From<Point<isize>> for Point<usize> {
+    fn from(point: Point<isize>) -> Self {
+        Point::new(point.line as usize, point.col)
+    }
+}
+
 /// A line
 ///
 /// Newtype to avoid passing values incorrectly
