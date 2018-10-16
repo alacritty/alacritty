@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add support for windows
+- Add terminfo capabilities advertising support for changing the window title
+
+### Fixed
+- Fixed erroneous results when using the `indexed_colors` config option
+
+## Version 0.2.1
+
+### Added
+
 - Implement the `hidden` escape sequence (`echo -e "\e[8mTEST"`)
 - Add support for macOS systemwide dark mode
 - Set the environment variable `COLORTERM="truecolor"` to advertise 24-bit color support

@@ -22,7 +22,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "arraydeque 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "base64 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
