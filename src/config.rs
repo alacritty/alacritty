@@ -348,6 +348,10 @@ pub struct WindowConfig {
     #[serde(default, deserialize_with = "failure_default")]
     dimensions: Dimensions,
 
+    /// Start in fullscreen mode
+    #[serde(default, deserialize_with = "failure_default")]
+    fullscreen: bool,
+
     /// Pixel padding
     #[serde(default="default_padding", deserialize_with = "deserialize_padding")]
     padding: Delta<u8>,
@@ -378,7 +382,7 @@ fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Delta<u8
 }
 
 impl WindowConfig {
-    pub fn decorations(&self) -> Decorations {
+    pub fn decorations(&self) -> bool {
         self.decorations
     }
 
@@ -391,6 +395,7 @@ impl Default for WindowConfig {
     fn default() -> Self {
         WindowConfig{
             dimensions: Default::default(),
+            fullscreen: false,
             padding: default_padding(),
             decorations: Default::default(),
             fullscreen: false,

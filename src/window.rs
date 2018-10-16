@@ -214,11 +214,14 @@ impl Window {
     /// This creates a window and fully initializes a window.
     pub fn new(options: &Options, window_config: &WindowConfig) -> Result<Window> {
         let event_loop = EventsLoop::new();
-
+        let fullscreen_monitor = if window_config.fullscreen() {
+            Some(event_loop.get_primary_monitor())
+        } else {
+            None
+        };
         let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
         let class = options.class.as_ref().map_or(DEFAULT_CLASS, |c| c);
         let window_builder = Window::get_platform_window(title, window_config, &event_loop);
-        let window_builder = Window::platform_builder_ext(window_builder, &class);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();

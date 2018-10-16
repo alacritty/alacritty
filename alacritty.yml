@@ -14,13 +14,18 @@
   #TERM: xterm-256color
 
 window:
-  # Window dimensions (changes require restart)
-  #
-  # Specified in number of columns/lines, not pixels.
-  # If both are `0`, this setting is ignored.
+  # Initial window dimensions in character columns and lines
+  # Falls back to size specified by window manager if set to 0x0. 
+  # Will only be effective if fullscreen is disabled
+  # (changes require restart)
   dimensions:
     columns: 80
     lines: 24
+
+
+  # Start in fullscreen mode on the primary monitor
+  # (changes require restart)
+  fullscreen: false
 
   # Window padding (changes require restart)
   #
@@ -376,6 +381,7 @@ key_bindings:
   - { key: Copy,                    action: Copy                         }
   - { key: Q,        mods: Command, action: Quit                         }
   - { key: W,        mods: Command, action: Quit                         }
+  - { key: Return,   mods: Control, action: ToggleFullscreen             }
   - { key: Insert,   mods: Shift,   action: PasteSelection               }
   - { key: Key0,     mods: Control, action: ResetFontSize                }
   - { key: Equals,   mods: Control, action: IncreaseFontSize             }
