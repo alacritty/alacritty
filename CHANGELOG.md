@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add support for windows
 - Add terminfo capabilities advertising support for changing the window title
 
 ### Fixed

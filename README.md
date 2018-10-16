@@ -1,12 +1,12 @@
 Alacritty
 =========
 
-[![Build Status](https://travis-ci.org/jwilm/alacritty.svg?branch=master)](https://travis-ci.org/jwilm/alacritty)
+[![Travis build Status](https://travis-ci.org/jwilm/alacritty.svg?branch=master)](https://travis-ci.org/jwilm/alacritty)
+[![Appveyor build Status](https://ci.appveyor.com/api/projects/status/sjq7ya5xf3hsa59s?svg=true)](https://ci.appveyor.com/project/zacps/alacritty)
 
 Alacritty is the fastest terminal emulator in existence. Using the GPU for
 rendering enables optimizations that simply aren't possible in other emulators.
-Alacritty currently supports FreeBSD, Linux, macOS, and OpenBSD. Windows
-support is planned before the 1.0 release.
+Alacritty currently supports macOS and Linux, and Windows.
 
 <p align="center">
   <img width="600" alt="Alacritty running vim inside tmux" src="https://cloud.githubusercontent.com/assets/4285147/21585004/2ebd0288-d06c-11e6-95d3-4a2889dbbd6f.png">
@@ -24,8 +24,8 @@ The software is considered to be at an **alpha** level of readiness--there are
 missing features and bugs to be fixed, but it is already used by many as a daily
 driver.
 
-Precompiled binaries will eventually be made available on supported platforms.
-This is minimally blocked on a stable config format. For now, Alacritty must be
+Precompiled binaries are available for Windows through [appveyor](https://ci.appveyor.com/project/jwilm/alacritty).
+Precompiled binaries for other platforms are minimally blocked on a stable config format. For now, Alacritty must be
 built from source.
 
 ## Further information
@@ -68,14 +68,16 @@ zypper in alacritty
 xbps-install alacritty
 ```
 
+### Windows
+
+Prebuilt binaries can be downloaded from the artifacts section of [appveyor](https://ci.appveyor.com/project/jwilm/alacritty).
+
 ## Configuration
 
 Although it's possible the default configuration would work on your system,
 you'll probably end up wanting to customize it anyhow. There is a default
-`alacritty.yml` and `alacritty_macos.yml` at the git repository root for
-Linux and macOS respectively.
-
-Alacritty looks for the configuration file at the following paths:
+`alacritty.yml`, `alacritty_macos.yml`, and `alacritty_windows.yml` at the git repository root.
+Alacritty looks for the configuration file as the following paths:
 
 1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
 2. `$XDG_CONFIG_HOME/alacritty.yml`
@@ -92,7 +94,13 @@ the config file. The only exception is the `font` and `dimensions` sections
 which requires Alacritty to be restarted. For further explanation of the config
 file, please consult the comments in the default config file.
 
-## Issues (known, unknown, feature requests, etc.)
+### Windows
+
+On windows the config file is located at:
+
+`%UserProfile%\alacritty.yml`
+
+## Issues (known, unknown, feature requests, etc)
 
 If you run into a problem with Alacritty, please file an issue. If you've got a
 feature request, feel free to ask about it. Keep in mind that Alacritty is very
@@ -102,29 +110,25 @@ Just Works.
 
 ## FAQ
 
-- **_Is it really the fastest terminal emulator?_**
+**_Is it really the fastest terminal emulator?_**
 
-  In the terminals I've benchmarked against, alacritty is either faster, WAY
-  faster, or at least neutral. There are no benchmarks in which I've found
-  Alacritty to be slower.
+In the terminals I've benchmarked against, alacritty is either faster, WAY
+faster, or at least neutral. There are no benchmarks in which I've found
+Alacritty to be slower.
 
-- **_macOS + tmux + vim is slow! I thought this was supposed to be fast!_**
+**_macOS + tmux + vim is slow! I thought this was supposed to be fast!_**
 
-  This appears to be an issue outside of terminal emulators; either macOS has an
-  IPC performance issue, or either tmux or vim (or both) have a bug. This same
-  issue can be seen in `iTerm2` and `Terminal.app`. I've found that if tmux is
-  running on another machine which is connected to Alacritty via SSH, this issue
-  disappears. Actual throughput and rendering performance are still better in
-  Alacritty.
+This appears to be an issue outside of terminal emulators; either macOS has an
+IPC performance issue, or either tmux or vim (or both) have a bug. This same
+issue can be seen in `iTerm2` and `Terminal.app`. I've found that if tmux is
+running on another machine which is connected to Alacritty via SSH, this issue
+disappears. Actual throughput and rendering performance are still better in
+Alacritty.
 
-- **_When will Windows support be available?_**
+**_My arrow keys don't work._**
 
-  When someone has time to work on it. Contributors would be welcomed :).
-
-- **_My arrow keys don't work._**
-
-  It sounds like you deleted some key bindings from your config file. Please
-  reference the default config file to restore them.
+It sounds like you deleted some key bindings from your config file. Please
+reference the default config file to restore them.
 
 ## IRC
 

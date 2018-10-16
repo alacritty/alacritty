@@ -66,6 +66,10 @@ them. If something is still found to be missing, please open an issue.
 apt-get install cmake libfreetype6-dev libfontconfig1-dev xclip
 ```
 
+#### Windows
+
+On windows you will need to have the `{architecture}-pc-windows-msvc` toolchain installed as well as [Clang 3.9 or greater](http://releases.llvm.org/download.html).
+
 #### Arch Linux
 
 On Arch Linux, you need a few extra libraries to build Alacritty. Here's a

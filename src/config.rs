@@ -555,10 +555,12 @@ fn failure_default<'a, D, T>(deserializer: D)
     }
 }
 
-#[cfg(not(target_os="macos"))]
+#[cfg(not(any(windows, target_os="macos")))]
 static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty.yml");
 #[cfg(target_os="macos")]
 static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty_macos.yml");
+#[cfg(windows)]
+static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty_windows.yml");
 
 impl Default for Config {
     fn default() -> Self {
@@ -1444,6 +1446,7 @@ impl Config {
     /// 2. $XDG_CONFIG_HOME/alacritty.yml
     /// 3. $HOME/.config/alacritty/alacritty.yml
     /// 4. $HOME/.alacritty.yml
+      #[cfg(not(windows))]
     pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
         // Try using XDG location by default
         ::xdg::BaseDirectories::with_prefix("alacritty")
@@ -1472,10 +1475,32 @@ impl Config {
             .map(|path| path.into())
     }
 
+    #[cfg(windows)]
+    pub fn installed_config() -> Option<Cow<'static, Path>> {
+        if let Some(mut path) = ::std::env::home_dir() {
+            path.push("alacritty");
+            path.set_extension("yml");
+            if path.exists() {
+                return Some(path.into());
+            }
+        }
+        None
+    }
+
+    #[cfg(not(windows))]
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
         let path = ::xdg::BaseDirectories::with_prefix("alacritty")
             .map_err(|err| io::Error::new(io::ErrorKind::NotFound, ::std::error::Error::description(&err)))
             .and_then(|p| p.place_config_file("alacritty.yml"))?;
+        File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
+        Ok(path.into())
+    }
+
+    #[cfg(windows)]
+    pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
+        let path = ::std::env::home_dir()
+            .ok_or(io::Error::new(io::ErrorKind::NotFound, "could not find profile directory"))
+            .and_then(|mut p| {p.push("alacritty"); p.set_extension("yml"); Ok(p)})?;
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
         Ok(path.into())
     }
@@ -1894,6 +1919,22 @@ impl Default for Font {
     }
 }
 
+#[cfg(windows)]
+impl Default for Font {
+    fn default() -> Font {
+        Font {
+            normal: FontDescription::new_with_family("Consolas"),
+            bold: FontDescription::new_with_family("Consolas"),
+            italic: FontDescription::new_with_family("Consolas"),
+            size: Size::new(11.0),
+            use_thin_strokes: false,
+            offset: Default::default(),
+            glyph_offset: Default::default(),
+            scale_with_dpi: false,
+        }
+    }
+}
+
 pub struct Monitor {
     _thread: ::std::thread::JoinHandle<()>,
     rx: mpsc::Receiver<Config>,
@@ -1977,7 +2018,10 @@ mod tests {
     #[cfg(target_os="macos")]
     static ALACRITTY_YML: &'static str =
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty_macos.yml"));
-    #[cfg(not(target_os="macos"))]
+    #[cfg(windows)]
+    static ALACRITTY_YML: &'static str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty_windows.yml"));
+    #[cfg(not(any(target_os="macos", windows)))]
     static ALACRITTY_YML: &'static str =
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty.yml"));
 

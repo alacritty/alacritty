@@ -1,0 +1,61 @@
+# Based on the "trust" template v0.1.1
+# https://github.com/japaric/trust/tree/v0.1.1
+
+environment:
+  global:
+    CRATE_NAME: alacritty
+    RUST_BACKTRACE: 1
+    APPVEYOR_SAVE_CACHE_ON_ERROR: true
+
+  matrix:
+    - platform: x86_64
+      TARGET: x86_64-pc-windows-msvc
+      RUST_VERSION: stable
+      CLIPPY: false
+
+    - platform: x86_64
+      TARGET: x86_64-pc-windows-msvc
+      RUST_VERSION: nightly
+      CLIPPY: true
+
+matrix:
+  allow_failures:
+    - CLIPPY: true
+
+shallow_clone: true
+
+install:
+  - curl -sSf -o rustup-init.exe https://win.rustup.rs/
+  - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
+  - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
+  - rustc -Vv
+  - cargo -V
+
+build_script:
+  # Only build once per architecture
+  - if [%CLIPPY%]==[false] (
+      cargo +%RUST_TOOLCHAIN% build --release
+    )
+
+before_test:
+  - If [%CLIPPY%]==[true] (
+      rustup component add clippy-preview
+    )
+
+test_script:
+  - if [%CLIPPY%] == [true] (
+      cargo %RUST_TOOLCHAIN% clippy
+    ) else (
+      cargo %RUST_TOOLCHAIN% test
+    )
+
+cache:
+  # Ideally we'd also cache the toolchain but it's too large to fit in the free cache.
+  # Building alacritty takes significantly longer than downloading the toolchain.
+  - target
+
+artifacts:
+  - path: target\release\alacritty.exe
+    name: Alacritty
+  - path: target\release\winpty-agent.exe
+    name: Winpty agent

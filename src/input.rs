@@ -22,6 +22,7 @@ use std::borrow::Cow;
 use std::mem;
 use std::process::Command;
 use std::time::Instant;
+#[cfg(not(windows))]
 use std::os::unix::process::CommandExt;
 
 use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
@@ -232,7 +233,9 @@ impl Action {
             },
             Action::Command(ref program, ref args) => {
                 trace!("running command: {} {:?}", program, args);
-                match Command::new(program)
+
+                #[cfg(not(windows))]
+                let spawned = Command::new(program)
                     .args(args)
                     .before_exec(|| {
                         // Detach forked process from Alacritty. This will cause
@@ -240,7 +243,14 @@ impl Action {
                         unsafe { ::libc::daemon(1, 0); }
                         Ok(())
                     })
-                    .spawn()
+                    .spawn();
+
+                #[cfg(windows)]
+                let spawned = Command::new(program)
+                    .args(args)
+                    .spawn();
+
+                match spawned
                 {
                     Ok(child) => {
                         debug!("spawned new proc with pid: {}", child.id());
