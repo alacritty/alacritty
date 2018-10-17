@@ -37,7 +37,7 @@ use std::io;
 use std::fs::OpenOptions;
 
 #[cfg(windows)]
-const WINPTY_PACKAGE_URL: &str = "https://www.nuget.org/api/v2/package/winpty.NET/0.4.2";
+const WINPTY_PACKAGE_URL: &str = "https://github.com/rprichard/winpty/releases/download/0.4.3/winpty-0.4.3-msvc2015.zip";
 
 fn main() {
     let dest = env::var("OUT_DIR").unwrap();
@@ -68,6 +68,7 @@ fn main() {
 fn aquire_winpty_agent(out_path: &Path) {
     let tmp_dir = TempDir::new("alacritty_build").unwrap();
 
+
     let mut response = reqwest::get(WINPTY_PACKAGE_URL).unwrap();
     let mut file = OpenOptions::new()
         .read(true)
@@ -80,12 +81,12 @@ fn aquire_winpty_agent(out_path: &Path) {
     let mut archive = zip::ZipArchive::new(file).unwrap();
 
     let target = match env::var("TARGET").unwrap().split("-").next().unwrap() {
-        "x86_64" => "x86",
-        "i386" => "x64",
+        "x86_64" => "x64",
+        "i386" => "ia32",
         _ => panic!("architecture has no winpty binary")
     };
 
-    let mut winpty_agent = archive.by_name(&format!("content/winpty/{}/winpty-agent.exe", target)).unwrap();
+    let mut winpty_agent = archive.by_name(&format!("{}/bin/winpty-agent.exe", target)).unwrap();
 
     io::copy(&mut winpty_agent, &mut File::create(out_path).unwrap()).unwrap();
 }
