@@ -83,10 +83,17 @@ impl ::Rasterize for RustTypeRasterizer {
                 let metrics = self.metrics(glyph_key.font_key, glyph_key.size)?;
 
                 return if glyph_key.c == super::BEAM_CURSOR_CHAR {
-                    super::get_beam_cursor_glyph((metrics.line_height + metrics.descent as f64) as i32, metrics.line_height as i32, metrics.average_advance as i32)
+                    super::get_beam_cursor_glyph(
+                        (metrics.line_height + metrics.descent as f64).round() as i32,
+                        metrics.line_height.round() as i32,
+                        metrics.average_advance.round() as i32
+                    )
                 } else {
-                    // FIXME: This is not quite aligned with the normal rectangle cursor
-                    super::get_box_cursor_glyph((metrics.line_height + metrics.descent as f64) as i32, metrics.line_height as i32, metrics.average_advance as i32)
+                    super::get_box_cursor_glyph(
+                        (metrics.line_height + metrics.descent as f64).round() as i32,
+                        metrics.line_height.round() as i32,
+                        metrics.average_advance.round() as i32
+                    )
                 };
 
             }
