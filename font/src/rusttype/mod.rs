@@ -8,7 +8,6 @@ use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, 
 
 pub struct RustTypeRasterizer {
     fonts: Vec<rusttype::Font<'static>>,
-    dpi_ratio: f32,
 }
 
 impl ::Rasterize for RustTypeRasterizer {
@@ -21,7 +20,7 @@ impl ::Rasterize for RustTypeRasterizer {
     }
 
     fn metrics(&self, key: FontKey, size: Size) -> Result<Metrics, Error> {
-        let scale = Scale::uniform(size.as_f32_pts() * self.dpi_ratio * 96. / 72.);
+        let scale = Scale::uniform(size.as_f32_pts() * 96. / 72.);
         let vmetrics = self.fonts[key.token as usize].v_metrics(scale);
         let hmetrics = self.fonts[key.token as usize]
             .glyph(
@@ -75,7 +74,7 @@ impl ::Rasterize for RustTypeRasterizer {
             .glyph(glyph_key.c)
             .ok_or(Error::MissingGlyph)?
             .scaled(Scale::uniform(
-                glyph_key.size.as_f32_pts() * self.dpi_ratio * 96. / 72.,
+                glyph_key.size.as_f32_pts() * 96. / 72.,
             ));
 
         let glyph = scaled_glyph.positioned(point(0.0, 0.0));
