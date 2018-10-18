@@ -21,7 +21,7 @@
 // window for the program.
 // This is silently ignored on non-windows systems.
 // See https://msdn.microsoft.com/en-us/library/4cc7ya5b.aspx for more details.
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![windows_subsystem = "windows"]
 
 #[macro_use]
 extern crate alacritty;
@@ -33,10 +33,17 @@ extern crate dirs;
 
 use std::error::Error;
 use std::sync::Arc;
+
 #[cfg(target_os = "macos")]
 use std::env;
+
 #[cfg(not(windows))]
 use std::os::unix::io::AsRawFd;
+
+#[cfg(windows)]
+extern crate winapi;
+#[cfg(windows)]
+use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
@@ -52,6 +59,12 @@ use alacritty::tty::{self, process_should_exit};
 use alacritty::util::fmt::Red;
 
 fn main() {
+    // When linked with the windows subsystem windows won't automatically attach
+    // to the console of the parent process, so we do it explicitly. This fails
+    // silently if the parent has no console.
+    #[cfg(windows)]
+    unsafe {AttachConsole(ATTACH_PARENT_PROCESS);}
+
     // Load command line options and config
     let options = cli::Options::load();
     let config = load_config(&options).update_dynamic_title(&options);
