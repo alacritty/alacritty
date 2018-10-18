@@ -81,7 +81,6 @@ impl Descriptor {
 pub struct Rasterizer {
     fonts: HashMap<FontKey, Font>,
     keys: HashMap<(FontDesc, Size), FontKey>,
-    device_pixel_ratio: f32,
     use_thin_strokes: bool,
 }
 
@@ -128,12 +127,10 @@ impl ::std::fmt::Display for Error {
 impl ::Rasterize for Rasterizer {
     type Err = Error;
 
-    fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {
-        info!("device_pixel_ratio: {}", device_pixel_ratio);
+    fn new(use_thin_strokes: bool) -> Result<Rasterizer, Error> {
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
-            device_pixel_ratio,
             use_thin_strokes,
         })
     }
@@ -197,7 +194,7 @@ impl Rasterizer {
         for descriptor in descriptors {
             if descriptor.style_name == style {
                 // Found the font we want
-                let scaled_size = f64::from(size.as_f32_pts()) * f64::from(self.device_pixel_ratio);
+                let scaled_size = f64::from(size.as_f32_pts());
                 let font = descriptor.to_font(scaled_size, true);
                 return Ok(font);
             }
@@ -221,7 +218,7 @@ impl Rasterizer {
             Slant::Normal => false,
             _ => true,
         };
-        let scaled_size = f64::from(size.as_f32_pts()) * f64::from(self.device_pixel_ratio);
+        let scaled_size = f64::from(size.as_f32_pts());
 
         let descriptors = descriptors_for_family(&desc.name[..]);
         for descriptor in descriptors {
@@ -250,7 +247,7 @@ impl Rasterizer {
         glyph: GlyphKey,
         font: &Font,
     ) -> Option<Result<RasterizedGlyph, Error>> {
-        let scaled_size = self.device_pixel_ratio * glyph.size.as_f32_pts();
+        let scaled_size = glyph.size.as_f32_pts();
         font.get_glyph(glyph.c, f64::from(scaled_size), self.use_thin_strokes)
             .map(|r| Some(Ok(r)))
             .unwrap_or_else(|e| match e {
@@ -258,7 +255,6 @@ impl Rasterizer {
                 _ => Some(Err(e)),
             })
     }
-
 }
 
 /// Specifies the intended rendering orientation of the font for obtaining glyph metrics

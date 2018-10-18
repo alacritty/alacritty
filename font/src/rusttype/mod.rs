@@ -14,10 +14,9 @@ pub struct RustTypeRasterizer {
 impl ::Rasterize for RustTypeRasterizer {
     type Err = Error;
 
-    fn new(device_pixel_ratio: f32, _: bool) -> Result<RustTypeRasterizer, Error> {
+    fn new(_: bool) -> Result<RustTypeRasterizer, Error> {
         Ok(RustTypeRasterizer {
             fonts: Vec::new(),
-            dpi_ratio: device_pixel_ratio,
         })
     }
 

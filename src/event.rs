@@ -14,7 +14,7 @@ use ansi::{Handler, ClearMode};
 use grid::Scroll;
 use config::{self, Config};
 use cli::Options;
-use display::OnResize;
+use display::{OnResize, Message};
 use index::{Line, Column, Side, Point};
 use input::{self, MouseBinding, KeyBinding};
 use selection::Selection;
@@ -230,7 +230,7 @@ pub struct Processor<N> {
     wait_for_event: bool,
     notifier: N,
     mouse: Mouse,
-    resize_tx: mpsc::Sender<(u32, u32)>,
+    tx: mpsc::Sender<Message>,
     ref_test: bool,
     size_info: SizeInfo,
     hide_cursor_when_typing: bool,
@@ -259,7 +259,7 @@ impl<N: Notify> Processor<N> {
     /// pty.
     pub fn new(
         notifier: N,
-        resize_tx: mpsc::Sender<(u32, u32)>,
+        tx: mpsc::Sender<Message>,
         options: &Options,
         config: &Config,
         ref_test: bool,
@@ -273,7 +273,7 @@ impl<N: Notify> Processor<N> {
             print_events: options.print_events,
             wait_for_event: true,
             notifier,
-            resize_tx,
+            tx,
             ref_test,
             mouse: Default::default(),
             size_info,
@@ -295,7 +295,7 @@ impl<N: Notify> Processor<N> {
         processor: &mut input::Processor<'a, ActionContext<'a, N>>,
         event: Event,
         ref_test: bool,
-        resize_tx: &mpsc::Sender<(u32, u32)>,
+        tx: &mpsc::Sender<Message>,
         hide_cursor: &mut bool,
         window_is_focused: &mut bool,
     ) {
@@ -330,7 +330,7 @@ impl<N: Notify> Processor<N> {
                         ::std::process::exit(0);
                     },
                     Resized(w, h) => {
-                        resize_tx.send((w, h)).expect("send new size");
+                        tx.send(Message::Resize(w, h)).expect("send new size");
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
@@ -381,7 +381,10 @@ impl<N: Notify> Processor<N> {
                         use input::ActionContext;
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty(path.into_bytes());
-                    }
+                    },
+                    HiDPIFactorChanged(factor) => {
+                        tx.send(Message::SetDevicePixelRatio(factor)).expect("send new size");
+                    },
                     _ => (),
                 }
             },
@@ -413,7 +416,7 @@ impl<N: Notify> Processor<N> {
             let print_events = self.print_events;
 
             let ref_test = self.ref_test;
-            let resize_tx = &self.resize_tx;
+            let tx = &self.tx;
 
             if self.wait_for_event {
                 // A Vec is used here since wait_events can potentially yield
@@ -462,7 +465,7 @@ impl<N: Notify> Processor<N> {
                         &mut processor,
                         event,
                         ref_test,
-                        resize_tx,
+                        tx,
                         hide_cursor,
                         &mut window_is_focused,
                     );

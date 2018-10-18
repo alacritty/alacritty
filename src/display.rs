@@ -29,6 +29,11 @@ use sync::FairMutex;
 
 use window::{self, Pixels, SetInnerSize, Size, Window};
 
+pub enum Message {
+    Resize(u32, u32),
+    SetDevicePixelRatio(f32)
+}
+
 #[derive(Debug)]
 pub enum Error {
     /// Error with window management
@@ -93,11 +98,12 @@ pub struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
-    rx: mpsc::Receiver<(u32, u32)>,
-    tx: mpsc::Sender<(u32, u32)>,
+    rx: mpsc::Receiver<Message>,
+    tx: mpsc::Sender<Message>,
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
+    device_pixel_ratio: f32,
 }
 
 /// Can wakeup the render loop from other threads
@@ -138,20 +144,19 @@ impl Display {
         // get window properties for initializing the other subsystems
         let mut viewport_size = window.inner_size_pixels()
             .expect("glutin returns window size");
-        let dpr = if config.font().scale_with_dpi() {
+        let device_pixel_ratio = if config.font().scale_with_dpi() {
             window.hidpi_factor()
         } else {
             1.0
         };
 
-        info!("device_pixel_ratio: {}", dpr);
+        info!("device_pixel_ratio: {}", device_pixel_ratio);
 
         // Create renderer
         let mut renderer = QuadRenderer::new(config, viewport_size)?;
 
         let (glyph_cache, cell_width, cell_height) =
-            Self::new_glyph_cache(dpr, &mut renderer, config)?;
-
+            Self::new_glyph_cache(&mut renderer, config, device_pixel_ratio)?;
 
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
@@ -212,14 +217,16 @@ impl Display {
             meter: Meter::new(),
             font_size: font::Size::new(0.),
             size_info,
+            device_pixel_ratio,
         })
     }
 
-    fn new_glyph_cache(dpr: f32, renderer: &mut QuadRenderer, config: &Config)
+    fn new_glyph_cache(renderer: &mut QuadRenderer, config: &Config, device_pixel_ratio: f32)
         -> Result<(GlyphCache, f32, f32), Error>
     {
-        let font = config.font().clone();
-        let rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
+        let font_size = config.font().size;
+        let font = config.font().clone().with_size(font_size * device_pixel_ratio);
+        let rasterizer = font::Rasterizer::new(config.use_thin_strokes())?;
 
         // Initialize glyph cache
         let glyph_cache = {
@@ -253,7 +260,7 @@ impl Display {
 
     pub fn update_glyph_cache(&mut self, config: &Config) {
         let cache = &mut self.glyph_cache;
-        let size = self.font_size;
+        let size = self.font_size * self.device_pixel_ratio;
         self.renderer.with_loader(|mut api| {
             let _ = cache.update_font_size(config.font(), size, &mut api);
         });
@@ -264,7 +271,7 @@ impl Display {
     }
 
     #[inline]
-    pub fn resize_channel(&self) -> mpsc::Sender<(u32, u32)> {
+    pub fn message_channel(&self) -> mpsc::Sender<Message> {
         self.tx.clone()
     }
 
@@ -283,15 +290,30 @@ impl Display {
         // iterator. This has the effect of coalescing multiple resize
         // events into one.
         let mut new_size = None;
+        let mut new_dpr = None;
 
         // Take most recent resize event, if any
-        while let Ok(sz) = self.rx.try_recv() {
-            new_size = Some(sz);
+        while let Ok(event) = self.rx.try_recv() {
+            match event {
+                Message::Resize(w, h) => new_size = Some((w, h)),
+                Message::SetDevicePixelRatio(factor) => new_dpr = Some(factor)
+            }
+        }
+
+        let mut need_size_update = false;
+
+        if let Some(dpr) = new_dpr {
+            self.device_pixel_ratio = dpr;
+            need_size_update = true;
         }
 
         // Font size modification detected
         if terminal.font_size != self.font_size {
             self.font_size = terminal.font_size;
+            need_size_update = true;
+        }
+
+        if need_size_update {
             self.update_glyph_cache(config);
 
             if new_size == None {
@@ -419,4 +441,3 @@ impl Display {
         self.window().set_ime_spot(nspot_x, nspot_y);
     }
 }
-

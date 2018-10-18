@@ -217,6 +217,14 @@ impl ::std::ops::Add for Size {
     }
 }
 
+impl ::std::ops::Mul<f32> for Size {
+    type Output = Size;
+
+    fn mul(self, other: f32) -> Size {
+        Size(self.0 * other as i16)
+    }
+}
+
 pub struct RasterizedGlyph {
     pub c: char,
     pub width: i32,
@@ -343,7 +351,7 @@ pub trait Rasterize {
     type Err: ::std::error::Error + Send + Sync + 'static;
 
     /// Create a new Rasterizer
-    fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
+    fn new(use_thin_strokes: bool) -> Result<Self, Self::Err>
     where
         Self: Sized;
 
