@@ -139,7 +139,7 @@ impl ::Rasterize for Rasterizer {
     }
 
     /// Get metrics for font specified by FontKey
-    fn metrics(&self, key: FontKey) -> Result<Metrics, Error> {
+    fn metrics(&self, key: FontKey, _size: Size) -> Result<Metrics, Error> {
         let font = self.fonts
             .get(&key)
             .ok_or(Error::FontNotLoaded)?;

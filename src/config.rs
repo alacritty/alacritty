@@ -40,12 +40,15 @@ fn true_bool() -> bool {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Selection {
     pub semantic_escape_chars: String,
+    #[serde(default, deserialize_with = "failure_default")]
+    pub save_to_clipboard: bool,
 }
 
 impl Default for Selection {
     fn default() -> Selection {
         Selection {
-            semantic_escape_chars: String::new()
+            semantic_escape_chars: String::new(),
+            save_to_clipboard: false
         }
     }
 }
@@ -276,29 +279,27 @@ impl<'de> Deserialize<'de> for Decorations {
                 f.write_str("Some subset of full|transparent|buttonless|none")
             }
 
-            fn visit_bool<E>(self, value: bool) -> ::std::result::Result<Decorations, E>
-                where E: de::Error
-            {
-                if value {
-                    eprintln!("deprecated decorations boolean value, use one of \
-                              default|transparent|buttonless|none instead; Falling back to \"full\"");
-                    Ok(Decorations::Full)
-                } else {
-                    eprintln!("deprecated decorations boolean value, use one of \
-                              default|transparent|buttonless|none instead; Falling back to \"none\"");
-                    Ok(Decorations::None)
-                }
-            }
-
             #[cfg(target_os = "macos")]
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<Decorations, E>
                 where E: de::Error
             {
-                match value {
+                match value.to_lowercase().as_str() {
                     "transparent" => Ok(Decorations::Transparent),
                     "buttonless" => Ok(Decorations::Buttonless),
                     "none" => Ok(Decorations::None),
                     "full" => Ok(Decorations::Full),
+                    "true" => {
+                        eprintln!("deprecated decorations boolean value, \
+                                   use one of transparent|buttonless|none|full instead; \
+                                   Falling back to \"full\"");
+                        Ok(Decorations::Full)
+                    },
+                    "false" => {
+                        eprintln!("deprecated decorations boolean value, \
+                                   use one of transparent|buttonless|none|full instead; \
+                                   Falling back to \"none\"");
+                        Ok(Decorations::None)
+                    },
                     _ => {
                         eprintln!("invalid decorations value: {}; Using default value", value);
                         Ok(Decorations::Full)
@@ -313,14 +314,22 @@ impl<'de> Deserialize<'de> for Decorations {
                 match value.to_lowercase().as_str() {
                     "none" => Ok(Decorations::None),
                     "full" => Ok(Decorations::Full),
-                    "transparent" => {
+                    "true" => {
+                        eprintln!("deprecated decorations boolean value, \
+                                   use one of none|full instead; \
+                                   Falling back to \"full\"");
+                        Ok(Decorations::Full)
+                    },
+                    "false" => {
+                        eprintln!("deprecated decorations boolean value, \
+                                   use one of none|full instead; \
+                                   Falling back to \"none\"");
+                        Ok(Decorations::None)
+                    },
+                    "transparent" | "buttonless" => {
                         eprintln!("macos-only decorations value: {}; Using default value", value);
                         Ok(Decorations::Full)
                     },
-                    "buttonless" => {
-                        eprintln!("macos-only decorations value: {}; Using default value", value);
-                        Ok(Decorations::Full)
-                    }
                     _ => {
                         eprintln!("invalid decorations value: {}; Using default value", value);
                         Ok(Decorations::Full)
@@ -546,10 +555,12 @@ fn failure_default<'a, D, T>(deserializer: D)
     }
 }
 
-#[cfg(not(target_os="macos"))]
+#[cfg(not(any(windows, target_os="macos")))]
 static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty.yml");
 #[cfg(target_os="macos")]
 static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty_macos.yml");
+#[cfg(windows)]
+static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty_windows.yml");
 
 impl Default for Config {
     fn default() -> Self {
@@ -826,7 +837,7 @@ impl<'a> de::Deserialize<'a> for MouseButton {
 /// Bindings are deserialized into a `RawBinding` before being parsed as a
 /// `KeyBinding` or `MouseBinding`.
 struct RawBinding {
-    key: Option<::glutin::VirtualKeyCode>,
+    key: Option<Key>,
     mouse: Option<::glutin::MouseButton>,
     mods: ModifiersState,
     mode: TermMode,
@@ -930,7 +941,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
                 where V: MapAccess<'a>,
             {
                 let mut mods: Option<ModifiersState> = None;
-                let mut key: Option<::glutin::VirtualKeyCode> = None;
+                let mut key: Option<Key> = None;
                 let mut chars: Option<String> = None;
                 let mut action: Option<::input::Action> = None;
                 let mut mode: Option<TermMode> = None;
@@ -947,8 +958,21 @@ impl<'a> de::Deserialize<'a> for RawBinding {
                                 return Err(<V::Error as Error>::duplicate_field("key"));
                             }
 
-                            let coherent_key = map.next_value::<Key>()?;
-                            key = Some(coherent_key.to_glutin_key());
+                            let val = map.next_value::<serde_yaml::Value>()?;
+                            if val.is_u64() {
+                                let scancode = val.as_u64().unwrap();
+                                if scancode > u64::from(::std::u32::MAX) {
+                                    return Err(<V::Error as Error>::custom(format!(
+                                        "invalid key binding, scancode too big: {}",
+                                        scancode
+                                    )));
+                                }
+                                key = Some(Key::Scancode(scancode as u32));
+                            } else {
+                                let k = Key::deserialize(val)
+                                    .map_err(V::Error::custom)?;
+                                key = Some(k);
+                            }
                         },
                         Field::Mods => {
                             if mods.is_some() {
@@ -1100,16 +1124,42 @@ pub struct Colors {
     pub bright: AnsiColors,
     #[serde(default, deserialize_with = "failure_default")]
     pub dim: Option<AnsiColors>,
+    #[serde(default, deserialize_with = "failure_default_vec")]
+    pub indexed_colors: Vec<IndexedColor>,
 }
 
-fn deserialize_cursor_colors<'a, D>(deserializer: D) -> ::std::result::Result<CursorColors, D::Error>
+#[derive(Debug, Deserialize)]
+pub struct IndexedColor {
+    #[serde(deserialize_with = "deserialize_color_index")]
+    pub index: u8,
+    #[serde(deserialize_with = "rgb_from_hex")]
+    pub color: Rgb,
+}
+
+fn deserialize_color_index<'a, D>(deserializer: D) -> ::std::result::Result<u8, D::Error>
     where D: de::Deserializer<'a>
 {
-    match CursorOrPrimaryColors::deserialize(deserializer) {
-        Ok(either) => Ok(either.into_cursor_colors()),
+    match u8::deserialize(deserializer) {
+        Ok(index) => {
+            if index < 16 {
+                eprintln!(
+                    "problem with config: indexed_color's index is '{}', \
+                     but a value bigger than 15 was expected; \
+                     Ignoring setting",
+                    index
+                );
+
+                // Return value out of range to ignore this color
+                Ok(0)
+            } else {
+                Ok(index)
+            }
+        },
         Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(CursorColors::default())
+            eprintln!("problem with config: {}; Ignoring setting", err);
+
+            // Return value out of range to ignore this color
+            Ok(0)
         },
     }
 }
@@ -1166,6 +1216,18 @@ impl Default for CursorColors {
             text: Rgb { r: 0, g: 0, b: 0 },
             cursor: Rgb { r: 0xff, g: 0xff, b: 0xff },
         }
+    }
+}
+
+fn deserialize_cursor_colors<'a, D>(deserializer: D) -> ::std::result::Result<CursorColors, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match CursorOrPrimaryColors::deserialize(deserializer) {
+        Ok(either) => Ok(either.into_cursor_colors()),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(CursorColors::default())
+        },
     }
 }
 
@@ -1234,6 +1296,7 @@ impl Default for Colors {
                 white: Rgb {r: 0xff, g: 0xff, b: 0xff},
             },
             dim: None,
+            indexed_colors: Vec::new(),
         }
     }
 }
@@ -1396,6 +1459,7 @@ impl Config {
     /// 2. $XDG_CONFIG_HOME/alacritty.yml
     /// 3. $HOME/.config/alacritty/alacritty.yml
     /// 4. $HOME/.alacritty.yml
+      #[cfg(not(windows))]
     pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
         // Try using XDG location by default
         ::xdg::BaseDirectories::with_prefix("alacritty")
@@ -1424,10 +1488,32 @@ impl Config {
             .map(|path| path.into())
     }
 
+    #[cfg(windows)]
+    pub fn installed_config() -> Option<Cow<'static, Path>> {
+        if let Some(mut path) = ::std::env::home_dir() {
+            path.push("alacritty");
+            path.set_extension("yml");
+            if path.exists() {
+                return Some(path.into());
+            }
+        }
+        None
+    }
+
+    #[cfg(not(windows))]
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
         let path = ::xdg::BaseDirectories::with_prefix("alacritty")
             .map_err(|err| io::Error::new(io::ErrorKind::NotFound, ::std::error::Error::description(&err)))
             .and_then(|p| p.place_config_file("alacritty.yml"))?;
+        File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
+        Ok(path.into())
+    }
+
+    #[cfg(windows)]
+    pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
+        let path = ::std::env::home_dir()
+            .ok_or(io::Error::new(io::ErrorKind::NotFound, "could not find profile directory"))
+            .and_then(|mut p| {p.push("alacritty"); p.set_extension("yml"); Ok(p)})?;
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
         Ok(path.into())
     }
@@ -1854,6 +1940,22 @@ impl Default for Font {
     }
 }
 
+#[cfg(windows)]
+impl Default for Font {
+    fn default() -> Font {
+        Font {
+            normal: FontDescription::new_with_family("Consolas"),
+            bold: FontDescription::new_with_family("Consolas"),
+            italic: FontDescription::new_with_family("Consolas"),
+            size: Size::new(11.0),
+            use_thin_strokes: false,
+            offset: Default::default(),
+            glyph_offset: Default::default(),
+            scale_with_dpi: false,
+        }
+    }
+}
+
 pub struct Monitor {
     _thread: ::std::thread::JoinHandle<()>,
     rx: mpsc::Receiver<Config>,
@@ -1937,7 +2039,10 @@ mod tests {
     #[cfg(target_os="macos")]
     static ALACRITTY_YML: &'static str =
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty_macos.yml"));
-    #[cfg(not(target_os="macos"))]
+    #[cfg(windows)]
+    static ALACRITTY_YML: &'static str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty_windows.yml"));
+    #[cfg(not(any(target_os="macos", windows)))]
     static ALACRITTY_YML: &'static str =
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty.yml"));
 
@@ -1975,8 +2080,9 @@ mod tests {
 }
 
 #[cfg_attr(feature = "cargo-clippy", allow(enum_variant_names))]
-#[derive(Deserialize, Copy, Clone)]
-enum Key {
+#[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Key {
+    Scancode(u32),
     Key1,
     Key2,
     Key3,
@@ -2029,6 +2135,15 @@ enum Key {
     F13,
     F14,
     F15,
+    F16,
+    F17,
+    F18,
+    F19,
+    F20,
+    F21,
+    F22,
+    F23,
+    F24,
     Snapshot,
     Scroll,
     Pause,
@@ -2132,162 +2247,171 @@ enum Key {
 }
 
 impl Key {
-    fn to_glutin_key(self) -> ::glutin::VirtualKeyCode {
-        use ::glutin::VirtualKeyCode::*;
-        // Thank you, vim macros!
-        match self {
-            Key::Key1 => Key1,
-            Key::Key2 => Key2,
-            Key::Key3 => Key3,
-            Key::Key4 => Key4,
-            Key::Key5 => Key5,
-            Key::Key6 => Key6,
-            Key::Key7 => Key7,
-            Key::Key8 => Key8,
-            Key::Key9 => Key9,
-            Key::Key0 => Key0,
-            Key::A => A,
-            Key::B => B,
-            Key::C => C,
-            Key::D => D,
-            Key::E => E,
-            Key::F => F,
-            Key::G => G,
-            Key::H => H,
-            Key::I => I,
-            Key::J => J,
-            Key::K => K,
-            Key::L => L,
-            Key::M => M,
-            Key::N => N,
-            Key::O => O,
-            Key::P => P,
-            Key::Q => Q,
-            Key::R => R,
-            Key::S => S,
-            Key::T => T,
-            Key::U => U,
-            Key::V => V,
-            Key::W => W,
-            Key::X => X,
-            Key::Y => Y,
-            Key::Z => Z,
-            Key::Escape => Escape,
-            Key::F1 => F1,
-            Key::F2 => F2,
-            Key::F3 => F3,
-            Key::F4 => F4,
-            Key::F5 => F5,
-            Key::F6 => F6,
-            Key::F7 => F7,
-            Key::F8 => F8,
-            Key::F9 => F9,
-            Key::F10 => F10,
-            Key::F11 => F11,
-            Key::F12 => F12,
-            Key::F13 => F13,
-            Key::F14 => F14,
-            Key::F15 => F15,
-            Key::Snapshot => Snapshot,
-            Key::Scroll => Scroll,
-            Key::Pause => Pause,
-            Key::Insert => Insert,
-            Key::Home => Home,
-            Key::Delete => Delete,
-            Key::End => End,
-            Key::PageDown => PageDown,
-            Key::PageUp => PageUp,
-            Key::Left => Left,
-            Key::Up => Up,
-            Key::Right => Right,
-            Key::Down => Down,
-            Key::Back => Back,
-            Key::Return => Return,
-            Key::Space => Space,
-            Key::Compose => Compose,
-            Key::Numlock => Numlock,
-            Key::Numpad0 => Numpad0,
-            Key::Numpad1 => Numpad1,
-            Key::Numpad2 => Numpad2,
-            Key::Numpad3 => Numpad3,
-            Key::Numpad4 => Numpad4,
-            Key::Numpad5 => Numpad5,
-            Key::Numpad6 => Numpad6,
-            Key::Numpad7 => Numpad7,
-            Key::Numpad8 => Numpad8,
-            Key::Numpad9 => Numpad9,
-            Key::AbntC1 => AbntC1,
-            Key::AbntC2 => AbntC2,
-            Key::Add => Add,
-            Key::Apostrophe => Apostrophe,
-            Key::Apps => Apps,
-            Key::At => At,
-            Key::Ax => Ax,
-            Key::Backslash => Backslash,
-            Key::Calculator => Calculator,
-            Key::Capital => Capital,
-            Key::Colon => Colon,
-            Key::Comma => Comma,
-            Key::Convert => Convert,
-            Key::Decimal => Decimal,
-            Key::Divide => Divide,
-            Key::Equals => Equals,
-            Key::Grave => Grave,
-            Key::Kana => Kana,
-            Key::Kanji => Kanji,
-            Key::LAlt => LAlt,
-            Key::LBracket => LBracket,
-            Key::LControl => LControl,
-            Key::LShift => LShift,
-            Key::LWin => LWin,
-            Key::Mail => Mail,
-            Key::MediaSelect => MediaSelect,
-            Key::MediaStop => MediaStop,
-            Key::Minus => Minus,
-            Key::Multiply => Multiply,
-            Key::Mute => Mute,
-            Key::MyComputer => MyComputer,
-            Key::NavigateForward => NavigateForward,
-            Key::NavigateBackward => NavigateBackward,
-            Key::NextTrack => NextTrack,
-            Key::NoConvert => NoConvert,
-            Key::NumpadComma => NumpadComma,
-            Key::NumpadEnter => NumpadEnter,
-            Key::NumpadEquals => NumpadEquals,
-            Key::OEM102 => OEM102,
-            Key::Period => Period,
-            Key::PlayPause => PlayPause,
-            Key::Power => Power,
-            Key::PrevTrack => PrevTrack,
-            Key::RAlt => RAlt,
-            Key::RBracket => RBracket,
-            Key::RControl => RControl,
-            Key::RShift => RShift,
-            Key::RWin => RWin,
-            Key::Semicolon => Semicolon,
-            Key::Slash => Slash,
-            Key::Sleep => Sleep,
-            Key::Stop => Stop,
-            Key::Subtract => Subtract,
-            Key::Sysrq => Sysrq,
-            Key::Tab => Tab,
-            Key::Underline => Underline,
-            Key::Unlabeled => Unlabeled,
-            Key::VolumeDown => VolumeDown,
-            Key::VolumeUp => VolumeUp,
-            Key::Wake => Wake,
-            Key::WebBack => WebBack,
-            Key::WebFavorites => WebFavorites,
-            Key::WebForward => WebForward,
-            Key::WebHome => WebHome,
-            Key::WebRefresh => WebRefresh,
-            Key::WebSearch => WebSearch,
-            Key::WebStop => WebStop,
-            Key::Yen => Yen,
-            Key::Caret => Caret,
-            Key::Copy => Copy,
-            Key::Paste => Paste,
-            Key::Cut => Cut,
+    pub fn from_glutin_input(key: ::glutin::VirtualKeyCode) -> Self {
+        use glutin::VirtualKeyCode::*;
+        // Thank you, vim macros and regex!
+        match key {
+            Key1 => Key::Key1,
+            Key2 => Key::Key2,
+            Key3 => Key::Key3,
+            Key4 => Key::Key4,
+            Key5 => Key::Key5,
+            Key6 => Key::Key6,
+            Key7 => Key::Key7,
+            Key8 => Key::Key8,
+            Key9 => Key::Key9,
+            Key0 => Key::Key0,
+            A => Key::A,
+            B => Key::B,
+            C => Key::C,
+            D => Key::D,
+            E => Key::E,
+            F => Key::F,
+            G => Key::G,
+            H => Key::H,
+            I => Key::I,
+            J => Key::J,
+            K => Key::K,
+            L => Key::L,
+            M => Key::M,
+            N => Key::N,
+            O => Key::O,
+            P => Key::P,
+            Q => Key::Q,
+            R => Key::R,
+            S => Key::S,
+            T => Key::T,
+            U => Key::U,
+            V => Key::V,
+            W => Key::W,
+            X => Key::X,
+            Y => Key::Y,
+            Z => Key::Z,
+            Escape => Key::Escape,
+            F1 => Key::F1,
+            F2 => Key::F2,
+            F3 => Key::F3,
+            F4 => Key::F4,
+            F5 => Key::F5,
+            F6 => Key::F6,
+            F7 => Key::F7,
+            F8 => Key::F8,
+            F9 => Key::F9,
+            F10 => Key::F10,
+            F11 => Key::F11,
+            F12 => Key::F12,
+            F13 => Key::F13,
+            F14 => Key::F14,
+            F15 => Key::F15,
+            F16 => Key::F16,
+            F17 => Key::F17,
+            F18 => Key::F18,
+            F19 => Key::F19,
+            F20 => Key::F20,
+            F21 => Key::F21,
+            F22 => Key::F22,
+            F23 => Key::F23,
+            F24 => Key::F24,
+            Snapshot => Key::Snapshot,
+            Scroll => Key::Scroll,
+            Pause => Key::Pause,
+            Insert => Key::Insert,
+            Home => Key::Home,
+            Delete => Key::Delete,
+            End => Key::End,
+            PageDown => Key::PageDown,
+            PageUp => Key::PageUp,
+            Left => Key::Left,
+            Up => Key::Up,
+            Right => Key::Right,
+            Down => Key::Down,
+            Back => Key::Back,
+            Return => Key::Return,
+            Space => Key::Space,
+            Compose => Key::Compose,
+            Numlock => Key::Numlock,
+            Numpad0 => Key::Numpad0,
+            Numpad1 => Key::Numpad1,
+            Numpad2 => Key::Numpad2,
+            Numpad3 => Key::Numpad3,
+            Numpad4 => Key::Numpad4,
+            Numpad5 => Key::Numpad5,
+            Numpad6 => Key::Numpad6,
+            Numpad7 => Key::Numpad7,
+            Numpad8 => Key::Numpad8,
+            Numpad9 => Key::Numpad9,
+            AbntC1 => Key::AbntC1,
+            AbntC2 => Key::AbntC2,
+            Add => Key::Add,
+            Apostrophe => Key::Apostrophe,
+            Apps => Key::Apps,
+            At => Key::At,
+            Ax => Key::Ax,
+            Backslash => Key::Backslash,
+            Calculator => Key::Calculator,
+            Capital => Key::Capital,
+            Colon => Key::Colon,
+            Comma => Key::Comma,
+            Convert => Key::Convert,
+            Decimal => Key::Decimal,
+            Divide => Key::Divide,
+            Equals => Key::Equals,
+            Grave => Key::Grave,
+            Kana => Key::Kana,
+            Kanji => Key::Kanji,
+            LAlt => Key::LAlt,
+            LBracket => Key::LBracket,
+            LControl => Key::LControl,
+            LShift => Key::LShift,
+            LWin => Key::LWin,
+            Mail => Key::Mail,
+            MediaSelect => Key::MediaSelect,
+            MediaStop => Key::MediaStop,
+            Minus => Key::Minus,
+            Multiply => Key::Multiply,
+            Mute => Key::Mute,
+            MyComputer => Key::MyComputer,
+            NavigateForward => Key::NavigateForward,
+            NavigateBackward => Key::NavigateBackward,
+            NextTrack => Key::NextTrack,
+            NoConvert => Key::NoConvert,
+            NumpadComma => Key::NumpadComma,
+            NumpadEnter => Key::NumpadEnter,
+            NumpadEquals => Key::NumpadEquals,
+            OEM102 => Key::OEM102,
+            Period => Key::Period,
+            PlayPause => Key::PlayPause,
+            Power => Key::Power,
+            PrevTrack => Key::PrevTrack,
+            RAlt => Key::RAlt,
+            RBracket => Key::RBracket,
+            RControl => Key::RControl,
+            RShift => Key::RShift,
+            RWin => Key::RWin,
+            Semicolon => Key::Semicolon,
+            Slash => Key::Slash,
+            Sleep => Key::Sleep,
+            Stop => Key::Stop,
+            Subtract => Key::Subtract,
+            Sysrq => Key::Sysrq,
+            Tab => Key::Tab,
+            Underline => Key::Underline,
+            Unlabeled => Key::Unlabeled,
+            VolumeDown => Key::VolumeDown,
+            VolumeUp => Key::VolumeUp,
+            Wake => Key::Wake,
+            WebBack => Key::WebBack,
+            WebFavorites => Key::WebFavorites,
+            WebForward => Key::WebForward,
+            WebHome => Key::WebHome,
+            WebRefresh => Key::WebRefresh,
+            WebSearch => Key::WebSearch,
+            WebStop => Key::WebStop,
+            Yen => Key::Yen,
+            Caret => Key::Caret,
+            Copy => Key::Copy,
+            Paste => Key::Paste,
+            Cut => Key::Cut,
         }
     }
 }

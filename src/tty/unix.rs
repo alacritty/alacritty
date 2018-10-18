@@ -14,19 +14,27 @@
 //
 //! tty related functionality
 //!
-use std::ffi::CStr;
-use std::fs::File;
-use std::os::unix::io::FromRawFd;
-use std::os::unix::process::CommandExt;
-use std::ptr;
-use std::process::{Command, Stdio};
 
-use libc::{self, winsize, c_int, pid_t, WNOHANG, SIGCHLD, TIOCSCTTY};
-
+use tty::EventedReadWrite;
 use term::SizeInfo;
 use display::OnResize;
 use config::{Config, Shell};
 use cli::Options;
+use mio;
+
+use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
+use terminfo::Database;
+
+use std::os::unix::io::{FromRawFd, RawFd};
+use std::fs::File;
+use std::os::unix::process::CommandExt;
+use std::process::{Command, Stdio};
+use std::ffi::CStr;
+use std::ptr;
+use mio::unix::EventedFd;
+use std::io;
+use std::os::unix::io::AsRawFd;
+
 
 /// Process ID of child process
 ///
@@ -162,7 +170,6 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
         die!("pw not found");
     }
 
-
     // sanity check
     assert_eq!(entry.pw_uid, uid);
 
@@ -178,8 +185,37 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
     }
 }
 
+pub struct Pty {
+    pub fd: File,
+    pub raw_fd: RawFd,
+    token: mio::Token,
+}
+
+impl Pty {
+    /// Resize the pty
+    ///
+    /// Tells the kernel that the window size changed with the new pixel
+    /// dimensions and line/column counts.
+    pub fn resize<T: ToWinsize>(&self, size: &T) {
+        let win = size.to_winsize();
+
+        let res = unsafe {
+            libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _)
+        };
+
+        if res < 0 {
+            die!("ioctl TIOCSWINSZ failed: {}", errno());
+        }
+    }
+}
+
 /// Create a new tty and return a handle to interact with it.
-pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id: Option<usize>) -> Pty {
+pub fn new<T: ToWinsize>(
+    config: &Config,
+    options: &Options,
+    size: &T,
+    window_id: Option<usize>,
+) -> Pty {
     let win = size.to_winsize();
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
@@ -210,7 +246,17 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id
     builder.env("USER", pw.name);
     builder.env("SHELL", shell.program());
     builder.env("HOME", pw.dir);
-    builder.env("TERM", "xterm-256color"); // default term until we can supply our own
+
+    // TERM; default to 'alacritty' if it is available, otherwise
+    // default to 'xterm-256color'. May be overridden by user's config
+    // below.
+    let term = if Database::from_name("alacritty").is_ok() {
+        "alacritty"
+    } else {
+        "xterm-256color"
+    };
+    builder.env("TERM", term);
+
     builder.env("COLORTERM", "truecolor"); // advertise 24-bit support
     if let Some(window_id) = window_id {
         builder.env("WINDOWID", format!("{}", window_id));
@@ -267,7 +313,11 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id
                 set_nonblocking(master);
             }
 
-            let pty = Pty { fd: master };
+            let pty = Pty {
+                fd: unsafe {File::from_raw_fd(master) },
+                raw_fd: master,
+                token: mio::Token::from(0)
+            };
             pty.resize(size);
             pty
         },
@@ -277,34 +327,60 @@ pub fn new<T: ToWinsize>(config: &Config, options: &Options, size: &T, window_id
     }
 }
 
-pub struct Pty {
-    fd: c_int,
-}
+impl EventedReadWrite for Pty {
+    type Reader = File;
+    type Writer = File;
 
-impl Pty {
-    /// Get reader for the TTY
-    ///
-    /// XXX File is a bad abstraction here; it closes the fd on drop
-    pub fn reader(&self) -> File {
-        unsafe {
-            File::from_raw_fd(self.fd)
-        }
+    #[inline]
+    fn register(
+        &mut self,
+        poll: &mio::Poll,
+        token: &mut Iterator<Item = &usize>,
+        interest: mio::Ready,
+        poll_opts: mio::PollOpt,
+    ) -> io::Result<()> {
+        self.token = (*token.next().unwrap()).into();
+        poll.register(
+            &EventedFd(&self.raw_fd),
+            self.token,
+            interest,
+            poll_opts
+        )
     }
 
-    /// Resize the pty
-    ///
-    /// Tells the kernel that the window size changed with the new pixel
-    /// dimensions and line/column counts.
-    pub fn resize<T: ToWinsize>(&self, size: &T) {
-        let win = size.to_winsize();
+    #[inline]
+    fn reregister(&mut self, poll: &mio::Poll, interest: mio::Ready, poll_opts: mio::PollOpt) -> io::Result<()> {
+        poll.reregister(
+            &EventedFd(&self.raw_fd),
+            self.token,
+            interest,
+            poll_opts
+        )
+    }
 
-        let res = unsafe {
-            libc::ioctl(self.fd, libc::TIOCSWINSZ, &win as *const _)
-        };
+    #[inline]
+    fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
+        poll.deregister(&EventedFd(&self.raw_fd))
+    }
 
-        if res < 0 {
-            die!("ioctl TIOCSWINSZ failed: {}", errno());
-        }
+    #[inline]
+    fn reader(&mut self) -> &mut File {
+        &mut self.fd
+    }
+
+    #[inline]
+    fn read_token(&self) -> mio::Token {
+        self.token
+    }
+
+    #[inline]
+    fn writer(&mut self) -> &mut File {
+        &mut self.fd
+    }
+
+    #[inline]
+    fn write_token(&self) -> mio::Token {
+        self.token
     }
 }
 
@@ -325,14 +401,22 @@ impl<'a> ToWinsize for &'a SizeInfo {
     }
 }
 
-impl OnResize for Pty {
+impl OnResize for i32 {
     fn on_resize(&mut self, size: &SizeInfo) {
-        self.resize(&size);
+        let win = size.to_winsize();
+
+        let res = unsafe {
+            libc::ioctl(*self, libc::TIOCSWINSZ, &win as *const _)
+        };
+
+        if res < 0 {
+            die!("ioctl TIOCSWINSZ failed: {}", errno());
+        }
     }
 }
 
 unsafe fn set_nonblocking(fd: c_int) {
-    use libc::{fcntl, F_SETFL, F_GETFL, O_NONBLOCK};
+    use libc::{fcntl, F_GETFL, F_SETFL, O_NONBLOCK};
 
     let res = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
     assert_eq!(res, 0);

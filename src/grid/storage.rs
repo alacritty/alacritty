@@ -32,7 +32,7 @@ pub struct Storage<T> {
     /// having to truncate the raw `inner` buffer.
     /// As long as `len` is bigger than `inner`, it is also possible to grow the scrollback buffer
     /// without any additional insertions.
-    #[serde(skip)]
+    #[serde(default)]
     len: usize,
 }
 
@@ -79,18 +79,18 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Storage<T> {
 
 impl<T> Storage<T> {
     #[inline]
-    pub fn with_capacity(cap: usize, lines: Line, template: Row<T>) -> Storage<T>
+    pub fn with_capacity(lines: Line, template: Row<T>) -> Storage<T>
     where
         T: Clone,
     {
-        // Allocate all lines in the buffer, including scrollback history
-        let inner = vec![template; cap];
+        // Initialize visible lines, the scrollback buffer is initialized dynamically
+        let inner = vec![template; lines.0];
 
         Storage {
             inner,
             zero: 0,
             visible_lines: lines - 1,
-            len: cap,
+            len: lines.0,
         }
     }
 
@@ -169,23 +169,24 @@ impl<T> Storage<T> {
 
     /// Truncate the invisible elements from the raw buffer
     pub fn truncate(&mut self) {
-        // Calculate shrinkage/offset for indexing
-        let shrinkage = self.inner.len() - self.len;
-        let shrinkage_start = ::std::cmp::min(self.zero, shrinkage);
+        self.inner.rotate_left(self.zero);
+        self.inner.truncate(self.len);
 
-        // Create two vectors with correct ordering
-        let mut split = self.inner.split_off(self.zero);
-
-        // Truncate the buffers
-        let len = self.inner.len();
-        let split_len = split.len();
-        self.inner.truncate(len - shrinkage_start);
-        split.truncate(split_len - (shrinkage - shrinkage_start));
-
-        // Merge buffers again and reset zero
-        split.append(&mut self.inner);
-        self.inner = split;
         self.zero = 0;
+    }
+
+    /// Dynamically grow the storage buffer at runtime
+    pub fn initialize(&mut self, num_rows: usize, template_row: Row<T>)
+        where T: Clone
+    {
+        let mut new = vec![template_row; num_rows];
+
+        let mut split = self.inner.split_off(self.zero);
+        self.inner.append(&mut new);
+        self.inner.append(&mut split);
+
+        self.zero += num_rows;
+        self.len += num_rows;
     }
 
     #[inline]
@@ -648,4 +649,46 @@ fn shrink_then_grow() {
     assert_eq!(storage.inner, growing_expected.inner);
     assert_eq!(storage.zero, growing_expected.zero);
     assert_eq!(storage.len, growing_expected.len);
+}
+
+#[test]
+fn initialize() {
+    // Setup storage area
+    let mut storage = Storage {
+        inner: vec![
+            Row::new(Column(1), &'4'),
+            Row::new(Column(1), &'5'),
+            Row::new(Column(1), &'0'),
+            Row::new(Column(1), &'1'),
+            Row::new(Column(1), &'2'),
+            Row::new(Column(1), &'3'),
+        ],
+        zero: 2,
+        visible_lines: Line(0),
+        len: 6,
+    };
+
+    // Initialize additional lines
+    storage.initialize(3, Row::new(Column(1), &'-'));
+
+    // Make sure the lines are present and at the right location
+    let shrinking_expected = Storage {
+        inner: vec![
+            Row::new(Column(1), &'4'),
+            Row::new(Column(1), &'5'),
+            Row::new(Column(1), &'-'),
+            Row::new(Column(1), &'-'),
+            Row::new(Column(1), &'-'),
+            Row::new(Column(1), &'0'),
+            Row::new(Column(1), &'1'),
+            Row::new(Column(1), &'2'),
+            Row::new(Column(1), &'3'),
+        ],
+        zero: 5,
+        visible_lines: Line(0),
+        len: 9,
+    };
+    assert_eq!(storage.inner, shrinking_expected.inner);
+    assert_eq!(storage.zero, shrinking_expected.zero);
+    assert_eq!(storage.len, shrinking_expected.len);
 }

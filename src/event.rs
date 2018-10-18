@@ -8,7 +8,7 @@ use std::time::{Instant};
 use serde_json as json;
 use parking_lot::MutexGuard;
 use glutin::{self, ModifiersState, Event, ElementState};
-use copypasta::{Clipboard, Load, Store};
+use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
 
 use ansi::{Handler, ClearMode};
 use grid::Scroll;
@@ -65,7 +65,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.clear_screen(ClearMode::Saved);
     }
 
-    fn copy_selection(&self, buffer: ::copypasta::Buffer) {
+    fn copy_selection(&self, buffer: ClipboardBuffer) {
         if let Some(selected) = self.terminal.selection_to_string() {
             if !selected.is_empty() {
                 Clipboard::new()
@@ -83,17 +83,14 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn update_selection(&mut self, point: Point, side: Side) {
-        self.terminal.dirty = true;
         let point = self.terminal.visible_to_buffer(point);
 
         // Update selection if one exists
-        if let Some(ref mut selection) = *self.terminal.selection_mut() {
+        if let Some(ref mut selection) = self.terminal.selection_mut() {
             selection.update(point, side);
-            return;
         }
 
-        // Otherwise, start a regular selection
-        *self.terminal.selection_mut() = Some(Selection::simple(point, side));
+        self.terminal.dirty = true;
     }
 
     fn simple_selection(&mut self, point: Point, side: Side) {
@@ -128,6 +125,11 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     #[inline]
     fn mouse_mut(&mut self) -> &mut Mouse {
+        self.mouse
+    }
+
+    #[inline]
+    fn mouse(&self) -> &Mouse {
         self.mouse
     }
 
@@ -239,6 +241,7 @@ pub struct Processor<N> {
     last_modifiers: ModifiersState,
     pending_events: Vec<Event>,
     window_changes: WindowChanges,
+    save_to_clipboard: bool,
 }
 
 /// Notify that the terminal was resized
@@ -282,6 +285,7 @@ impl<N: Notify> Processor<N> {
             last_modifiers: Default::default(),
             pending_events: Vec::with_capacity(4),
             window_changes: Default::default(),
+            save_to_clipboard: config.selection().save_to_clipboard,
         }
     }
 
@@ -336,9 +340,8 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
-                        let glutin::KeyboardInput { state, virtual_keycode, modifiers, .. } = input;
-                        processor.process_key(state, virtual_keycode, modifiers);
-                        if state == ElementState::Pressed {
+                        processor.process_key(input);
+                        if input.state == ElementState::Pressed {
                             // Hide cursor while typing
                             *hide_cursor = true;
                         }
@@ -453,6 +456,7 @@ impl<N: Notify> Processor<N> {
                 mouse_config: &self.mouse_config,
                 key_bindings: &self.key_bindings[..],
                 mouse_bindings: &self.mouse_bindings[..],
+                save_to_clipboard: self.save_to_clipboard,
             };
 
             let mut window_is_focused = window.is_focused;
@@ -507,5 +511,6 @@ impl<N: Notify> Processor<N> {
         self.key_bindings = config.key_bindings().to_vec();
         self.mouse_bindings = config.mouse_bindings().to_vec();
         self.mouse_config = config.mouse().to_owned();
+        self.save_to_clipboard = config.selection().save_to_clipboard;
     }
 }

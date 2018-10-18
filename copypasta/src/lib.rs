@@ -4,16 +4,20 @@
 
 // This has to be here due to macro_use
 #[cfg(target_os = "macos")]
-#[macro_use] extern crate objc;
+#[macro_use]
+extern crate objc;
+
+#[cfg(windows)]
+extern crate clipboard;
 
 /// An enumeration describing available clipboard buffers
 pub enum Buffer {
     Primary,
-    Selection
+    Selection,
 }
 
 /// Types that can get the system clipboard contents
-pub trait Load : Sized {
+pub trait Load: Sized {
     /// Errors encountered when working with a clipboard. Each implementation is
     /// allowed to define its own error type, but it must conform to std error.
     type Err: ::std::error::Error + Send + Sync + 'static;
@@ -45,18 +49,21 @@ pub trait Load : Sized {
 ///
 /// Note that some platforms require the clipboard context to stay active in
 /// order to load the contents from other applications.
-pub trait Store : Load {
+pub trait Store: Load {
     /// Sets the primary clipboard contents
     fn store_primary<S>(&mut self, contents: S) -> Result<(), Self::Err>
-        where S: Into<String>;
+    where
+        S: Into<String>;
 
     /// Sets the secondary clipboard contents
     fn store_selection<S>(&mut self, contents: S) -> Result<(), Self::Err>
-        where S: Into<String>;
+    where
+        S: Into<String>;
 
     /// Store into the specified `buffer`.
     fn store<S>(&mut self, contents: S, buffer: Buffer) -> Result<(), Self::Err>
-        where S: Into<String>
+    where
+        S: Into<String>,
     {
         match buffer {
             Buffer::Selection => self.store_selection(contents),
@@ -74,3 +81,8 @@ pub use x11::{Clipboard, Error};
 mod macos;
 #[cfg(target_os = "macos")]
 pub use macos::{Clipboard, Error};
+
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+pub use windows::{Clipboard, Error};

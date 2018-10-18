@@ -20,13 +20,11 @@
 
 #![cfg_attr(feature = "cargo-clippy", deny(clippy, if_not_else, enum_glob_use, wrong_pub_self_convention))]
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 extern crate fontconfig;
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 extern crate freetype;
 
-#[cfg(target_os = "macos")]
-extern crate core_text;
 #[cfg(target_os = "macos")]
 extern crate core_foundation;
 #[cfg(target_os = "macos")]
@@ -34,26 +32,33 @@ extern crate core_foundation_sys;
 #[cfg(target_os = "macos")]
 extern crate core_graphics;
 #[cfg(target_os = "macos")]
+extern crate core_text;
+#[cfg(target_os = "macos")]
 extern crate euclid;
 
 extern crate libc;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 #[macro_use]
 extern crate foreign_types;
 
-#[macro_use]
+#[cfg_attr(not(windows), macro_use)]
 extern crate log;
 
 use std::hash::{Hash, Hasher};
 use std::{fmt, cmp};
 use std::sync::atomic::{AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
 
-// If target isn't macos, reexport everything from ft
-#[cfg(not(target_os = "macos"))]
+// If target isn't macos or windows, reexport everything from ft
+#[cfg(not(any(target_os = "macos", windows)))]
 pub mod ft;
-#[cfg(not(target_os = "macos"))]
-pub use ft::{FreeTypeRasterizer as Rasterizer, Error};
+#[cfg(not(any(target_os = "macos", windows)))]
+pub use ft::{Error, FreeTypeRasterizer as Rasterizer};
+
+#[cfg(windows)]
+pub mod rusttype;
+#[cfg(windows)]
+pub use rusttype::{Error, RustTypeRasterizer as Rasterizer};
 
 // If target is macos, reexport everything from darwin
 #[cfg(target_os = "macos")]
@@ -92,14 +97,14 @@ pub enum Slant {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Weight {
     Normal,
-    Bold
+    Bold,
 }
 
 /// Style of font
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Style {
     Specific(String),
-    Description { slant: Slant, weight: Weight }
+    Description { slant: Slant, weight: Weight },
 }
 
 impl fmt::Display for Style {
@@ -108,14 +113,15 @@ impl fmt::Display for Style {
             Style::Specific(ref s) => f.write_str(&s),
             Style::Description { slant, weight } => {
                 write!(f, "slant={:?}, weight={:?}", slant, weight)
-            },
+            }
         }
     }
 }
 
 impl FontDesc {
     pub fn new<S>(name: S, style: Style) -> FontDesc
-        where S: Into<String>
+    where
+        S: Into<String>,
     {
         FontDesc {
             name: name.into(),
@@ -336,12 +342,13 @@ pub trait Rasterize {
     /// Errors occurring in Rasterize methods
     type Err: ::std::error::Error + Send + Sync + 'static;
 
-    /// Create a new Rasterize
+    /// Create a new Rasterizer
     fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
-        where Self: Sized;
+    where
+        Self: Sized;
 
     /// Get `Metrics` for the given `FontKey`
-    fn metrics(&self, FontKey) -> Result<Metrics, Self::Err>;
+    fn metrics(&self, FontKey, Size) -> Result<Metrics, Self::Err>;
 
     /// Load the font described by `FontDesc` and `Size`
     fn load_font(&mut self, &FontDesc, Size) -> Result<FontKey, Self::Err>;

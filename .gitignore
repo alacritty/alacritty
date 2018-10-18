@@ -3,7 +3,9 @@ FlameGraph
 
 # Temp files
 .idea
+.vscode
 *.iml
+*~
 
 # vim temporary files
 *.swp

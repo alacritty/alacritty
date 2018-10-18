@@ -31,7 +31,7 @@ struct FixedSize {
 }
 
 struct Face {
-    ft_face: freetype::Face<'static>,
+    ft_face: freetype::Face,
     key: FontKey,
     load_flags: freetype::face::LoadFlag,
     render_mode: freetype::RenderMode,
@@ -85,7 +85,7 @@ impl ::Rasterize for FreeTypeRasterizer {
         })
     }
 
-    fn metrics(&self, key: FontKey) -> Result<Metrics, Error> {
+    fn metrics(&self, key: FontKey, _size: Size) -> Result<Metrics, Error> {
         let full = self.full_metrics(key)?;
 
         let height = (full.size_metrics.height / 64) as f64;
@@ -368,12 +368,11 @@ impl FreeTypeRasterizer {
         let hinting = pat.hintstyle().next().unwrap_or(fc::HintStyle::Slight);
         let rgba = pat.rgba().next().unwrap_or(fc::Rgba::Unknown);
 
-        use freetype::face::*;
-
+        use freetype::face::LoadFlag;
         match (antialias, hinting, rgba) {
-            (false, fc::HintStyle::None, _) => NO_HINTING | MONOCHROME,
-            (false, _, _) => TARGET_MONO | MONOCHROME,
-            (true, fc::HintStyle::None, _) => NO_HINTING | TARGET_NORMAL,
+            (false, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::MONOCHROME,
+            (false, _, _) => LoadFlag::TARGET_MONO | LoadFlag::MONOCHROME,
+            (true, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::TARGET_NORMAL,
             // hintslight does *not* use LCD hinting even when a subpixel mode
             // is selected.
             //
@@ -388,19 +387,17 @@ impl FreeTypeRasterizer {
             // subpixel render modes like `FT_RENDER_MODE_LCD`. Libraries like
             // cairo take the same approach and consider `hintslight` to always
             // prefer `FT_LOAD_TARGET_LIGHT`
-            (true, fc::HintStyle::Slight, _) => TARGET_LIGHT,
+            (true, fc::HintStyle::Slight, _) => LoadFlag::TARGET_LIGHT,
             // If LCD hinting is to be used, must select hintmedium or hintfull,
             // have AA enabled, and select a subpixel mode.
-            (true, _, fc::Rgba::Rgb) |
-            (true, _, fc::Rgba::Bgr) => TARGET_LCD,
-            (true, _, fc::Rgba::Vrgb) |
-            (true, _, fc::Rgba::Vbgr) => TARGET_LCD_V,
+            (true, _, fc::Rgba::Rgb) | (true, _, fc::Rgba::Bgr) => LoadFlag::TARGET_LCD,
+            (true, _, fc::Rgba::Vrgb) | (true, _, fc::Rgba::Vbgr) => LoadFlag::TARGET_LCD_V,
             // For non-rgba modes with either Medium or Full hinting, just use
             // the default hinting algorithm.
             //
             // TODO should Medium/Full control whether to use the auto hinter?
-            (true, _, fc::Rgba::Unknown) => TARGET_NORMAL,
-            (true, _, fc::Rgba::None) => TARGET_NORMAL,
+            (true, _, fc::Rgba::Unknown) => LoadFlag::TARGET_NORMAL,
+            (true, _, fc::Rgba::None) => LoadFlag::TARGET_NORMAL,
         }
     }
 
@@ -410,10 +407,8 @@ impl FreeTypeRasterizer {
 
         match (antialias, rgba) {
             (false, _) => freetype::RenderMode::Mono,
-            (_, fc::Rgba::Rgb) |
-            (_, fc::Rgba::Bgr) => freetype::RenderMode::Lcd,
-            (_, fc::Rgba::Vrgb) |
-            (_, fc::Rgba::Vbgr) => freetype::RenderMode::LcdV,
+            (_, fc::Rgba::Rgb) | (_, fc::Rgba::Bgr) => freetype::RenderMode::Lcd,
+            (_, fc::Rgba::Vrgb) | (_, fc::Rgba::Vbgr) => freetype::RenderMode::LcdV,
             (true, _) => freetype::RenderMode::Normal,
         }
     }

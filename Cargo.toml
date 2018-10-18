@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 build = "build.rs"
@@ -38,13 +38,19 @@ arraydeque = "0.4"
 glutin = "0.18"
 env_logger = "0.5"
 base64 = "0.9.0"
+winit = { version = "0.15", features = ["icon_loading"] }
+image = "0.19"
 static_assertions = "0.2.5"
-
-[patch.crates-io]
-"winit" = { git = "https://github.com/vberger/winit.git" }
+terminfo = "0.6.1"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
+
+[target.'cfg(windows)'.dependencies]
+winpty = { path = "./winpty" }
+mio-named-pipes = "0.1"
+winapi = { version = "0.3.5", features = ["winuser", "synchapi", "roerrorapi", "winerror"]}
+dunce = "0.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"
@@ -59,6 +65,12 @@ bench = []
 
 [build-dependencies]
 gl_generator = "0.9"
+
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "1.1.4"
+reqwest = "0.8"
+tempdir = "0.3"
+zip = "0.4"
 
 [profile.release]
 lto = true
@@ -83,3 +95,7 @@ assets = [
     ["alacritty-completions.zsh", "usr/share/zsh/vendor-completions/_alacritty", "644"],
     ["alacritty.info", "usr/share/terminfo/a/alacritty", "644"],
 ]
+
+[patch.crates-io]
+servo-freetype-sys = { path = "servo-freetype-proxy" }
+winit = { git = "https://github.com/vberger/winit.git" }

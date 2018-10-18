@@ -17,7 +17,7 @@
 use std::sync::mpsc;
 use std::f64;
 
-use parking_lot::{MutexGuard};
+use parking_lot::MutexGuard;
 
 use {LogicalPosition, PhysicalSize, Rgb};
 use cli;
@@ -25,7 +25,7 @@ use config::Config;
 use font::{self, Rasterize};
 use meter::Meter;
 use renderer::{self, GlyphCache, QuadRenderer};
-use term::{Term, SizeInfo};
+use term::{Term, SizeInfo, RenderableCell};
 use sync::FairMutex;
 
 use window::{self, Window};
@@ -130,10 +130,7 @@ impl Display {
         &self.size_info
     }
 
-    pub fn new(
-        config: &Config,
-        options: &cli::Options,
-    ) -> Result<Display, Error> {
+    pub fn new(config: &Config, options: &cli::Options) -> Result<Display, Error> {
         // Extract some properties from config
         let render_timer = config.render_timer();
 
@@ -194,9 +191,14 @@ impl Display {
 
         // Clear screen
         let background_color = config.colors().primary.background;
-        renderer.with_api(config, &size_info, 0. /* visual bell intensity */, |api| {
-            api.clear(background_color);
-        });
+        renderer.with_api(
+            config,
+            &size_info,
+            0., /* visual bell intensity */
+            |api| {
+                api.clear(background_color);
+            },
+        );
 
         Ok(Display {
             window,
@@ -222,9 +224,8 @@ impl Display {
             info!("Initializing glyph cache");
             let init_start = ::std::time::Instant::now();
 
-            let cache = renderer.with_loader(|mut api| {
-                GlyphCache::new(rasterizer, &font, &mut api)
-            })?;
+            let cache =
+                renderer.with_loader(|mut api| GlyphCache::new(rasterizer, &font, &mut api))?;
 
             let stop = init_start.elapsed();
             let stop_f = stop.as_secs() as f64 + f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
@@ -275,7 +276,7 @@ impl Display {
         &mut self,
         terminal: &mut MutexGuard<Term>,
         config: &Config,
-        items: &mut [&mut OnResize]
+        items: &mut [&mut OnResize],
     ) {
         // Resize events new_size and are handled outside the poll_events
         // iterator. This has the effect of coalescing multiple resize
@@ -323,7 +324,6 @@ impl Display {
             self.window.resize(psize);
             self.renderer.resize(psize, dpr);
         }
-
     }
 
     /// Draw the screen
@@ -332,27 +332,15 @@ impl Display {
     ///
     /// This call may block if vsync is enabled
     pub fn draw(&mut self, terminal: &FairMutex<Term>, config: &Config) {
-        let terminal_locked = terminal.lock();
-        let size_info = *terminal_locked.size_info();
-        let visual_bell_intensity = terminal_locked.visual_bell.intensity();
-        let background_color = terminal_locked.background_color();
-
-        // Clear when terminal mutex isn't held. Mesa for
-        // some reason takes a long time to call glClear(). The driver descends
-        // into xcb_connect_to_fd() which ends up calling __poll_nocancel()
-        // which blocks for a while.
-        //
-        // By keeping this outside of the critical region, the Mesa bug is
-        // worked around to some extent. Since this doesn't actually address the
-        // issue of glClear being slow, less time is available for input
-        // handling and rendering.
-        drop(terminal_locked);
-
-        self.renderer.with_api(config, &size_info, visual_bell_intensity, |api| {
-            api.clear(background_color);
-        });
-
         let mut terminal = terminal.lock();
+        let size_info = *terminal.size_info();
+        let visual_bell_intensity = terminal.visual_bell.intensity();
+        let background_color = terminal.background_color();
+
+        let window_focused = self.window.is_focused;
+        let grid_cells: Vec<RenderableCell> = terminal
+            .renderable_cells(config, window_focused)
+            .collect();
 
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
@@ -373,6 +361,21 @@ impl Display {
             }
         }
 
+        // Clear when terminal mutex isn't held. Mesa for
+        // some reason takes a long time to call glClear(). The driver descends
+        // into xcb_connect_to_fd() which ends up calling __poll_nocancel()
+        // which blocks for a while.
+        //
+        // By keeping this outside of the critical region, the Mesa bug is
+        // worked around to some extent. Since this doesn't actually address the
+        // issue of glClear being slow, less time is available for input
+        // handling and rendering.
+        drop(terminal);
+
+        self.renderer.with_api(config, &size_info, visual_bell_intensity, |api| {
+            api.clear(background_color);
+        });
+
         {
             let glyph_cache = &mut self.glyph_cache;
 
@@ -380,33 +383,27 @@ impl Display {
             {
                 let _sampler = self.meter.sampler();
 
-                // Make a copy of size_info since the closure passed here
-                // borrows terminal mutably
-                //
-                // TODO I wonder if the renderable cells iter could avoid the
-                // mutable borrow
-                let window_focused = self.window.is_focused;
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
                     // Draw the grid
-                    api.render_cells(
-                        terminal.renderable_cells(config, window_focused),
-                        glyph_cache,
-                    );
+                    api.render_cells(grid_cells.iter(), glyph_cache);
                 });
             }
 
             // Draw render timer
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());
-                let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
-                    api.render_string(&timing[..], glyph_cache, color);
-                });
+                let color = Rgb {
+                    r: 0xd5,
+                    g: 0x4e,
+                    b: 0x53,
+                };
+                self.renderer
+                    .with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                        api.render_string(&timing[..], glyph_cache, color);
+                    });
             }
         }
 
-        // Unlock the terminal mutex; following call to swap_buffers() may block
-        drop(terminal);
         self.window
             .swap_buffers()
             .expect("swap buffers");
@@ -418,7 +415,7 @@ impl Display {
 
     /// Adjust the IME editor position according to the new location of the cursor
     pub fn update_ime_position(&mut self, terminal: &Term) {
-        use index::{Point, Line, Column};
+        use index::{Column, Line, Point};
         use term::SizeInfo;
         let Point{line: Line(row), col: Column(col)} = terminal.cursor().point;
         let SizeInfo{cell_width: cw,
@@ -430,3 +427,4 @@ impl Display {
         self.window().set_ime_spot(LogicalPosition::from((nspot_x, nspot_y)));
     }
 }
+

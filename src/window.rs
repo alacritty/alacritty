@@ -15,15 +15,24 @@ use std::convert::From;
 use std::fmt::Display;
 
 use gl;
-use glutin::{self, ContextBuilder, ControlFlow, Event, EventsLoop,
-             MouseCursor as GlutinMouseCursor, WindowBuilder};
 use glutin::GlContext;
+#[cfg(windows)]
+use winit::Icon;
+#[cfg(windows)]
+use image::ImageFormat;
+use glutin::{
+    self, ContextBuilder, ControlFlow, Event, EventsLoop,
+    MouseCursor as GlutinMouseCursor, WindowBuilder,
+};
 
 use {LogicalPosition, LogicalSize, MouseCursor, PhysicalSize};
 
 
 use cli::Options;
 use config::{Decorations, WindowConfig};
+
+#[cfg(windows)]
+static WINDOW_ICON: &'static [u8] = include_bytes!("../assets/windows/alacritty.ico");
 
 /// Default text for the window's title bar, if not overriden.
 ///
@@ -141,7 +150,7 @@ impl Window {
         let event_loop = EventsLoop::new();
 
         let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
-        let class = options.class.as_ref().map_or(DEFAULT_CLASS, |c| c);
+        let class = options.class.as_ref().map_or(DEFAULT_TITLE, |c| c);
         let window_builder = Window::get_platform_window(title, window_config);
         let window_builder = Window::platform_builder_ext(window_builder, &class);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
@@ -151,13 +160,13 @@ impl Window {
         // Text cursor
         window.set_cursor(GlutinMouseCursor::Text);
 
-        // Set OpenGL symbol loader
-        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
-
         // Make the context current so OpenGL operations can run
         unsafe {
             window.make_current()?;
         }
+
+        // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
+        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
         let window = Window {
             event_loop,
@@ -231,8 +240,11 @@ impl Window {
 
     /// Set the window title
     #[inline]
-    pub fn set_title(&self, title: &str) {
-        self.window.set_title(title);
+    pub fn set_title(&self, _title: &str) {
+        // Because winpty doesn't know anything about OSC escapes this gets set to an empty
+        // string on windows
+        #[cfg(not(windows))]
+        self.window.set_title(_title);
     }
 
     #[inline]
@@ -278,7 +290,7 @@ impl Window {
         window_builder
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", windows)))]
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
         let decorations = match window_config.decorations() {
             Decorations::None => false,
@@ -290,6 +302,23 @@ impl Window {
             .with_visibility(false)
             .with_transparency(true)
             .with_decorations(decorations)
+    }
+
+    #[cfg(windows)]
+    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+        let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO).unwrap();
+
+        let decorations = match window_config.decorations() {
+            Decorations::None => false,
+            _ => true,
+        };
+
+        WindowBuilder::new()
+            .with_title(title)
+            .with_visibility(cfg!(windows))
+            .with_decorations(decorations)
+            .with_transparency(true)
+            .with_window_icon(Some(icon))
     }
 
     #[cfg(target_os = "macos")]
@@ -346,7 +375,7 @@ impl Window {
         self.window.set_ime_spot(pos);
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     pub fn get_window_id(&self) -> Option<usize> {
         use glutin::os::unix::WindowExt;
 
@@ -356,7 +385,7 @@ impl Window {
         }
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn get_window_id(&self) -> Option<usize> {
         None
     }
