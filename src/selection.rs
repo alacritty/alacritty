@@ -54,7 +54,7 @@ pub enum Selection {
 
         /// The line under the initial point. This is always selected regardless
         /// of which way the cursor is moved.
-        initial_line: usize
+        initial_line: isize
     }
 }
 
@@ -111,7 +111,7 @@ impl Selection {
             Selection::Lines { ref mut region, ref mut initial_line } => {
                 region.start.line = region.start.line + offset;
                 region.end.line = region.end.line + offset;
-                *initial_line = (*initial_line as isize + offset) as usize;
+                *initial_line = *initial_line + offset;
             }
         }
     }
@@ -131,7 +131,7 @@ impl Selection {
                 start: point.into(),
                 end: point.into(),
             },
-            initial_line: point.line
+            initial_line: point.line as isize,
         }
     }
 
@@ -149,16 +149,19 @@ impl Selection {
         }
     }
 
-    pub fn to_span<G: SemanticSearch + Dimensions>(&self, grid: &G) -> Option<Span> {
+    pub fn to_span<G>(&self, grid: &G, alt_screen: bool) -> Option<Span>
+    where
+        G: SemanticSearch + Dimensions,
+    {
         match *self {
             Selection::Simple { ref region } => {
-                Selection::span_simple(grid, region)
+                Selection::span_simple(grid, region, alt_screen)
             },
             Selection::Semantic { ref region } => {
-                Selection::span_semantic(grid, region)
+                Selection::span_semantic(grid, region, alt_screen)
             },
             Selection::Lines { ref region, initial_line } => {
-                Selection::span_lines(grid, region, initial_line)
+                Selection::span_lines(grid, region, initial_line, alt_screen)
             }
         }
     }
@@ -166,15 +169,43 @@ impl Selection {
     fn span_semantic<G>(
         grid: &G,
         region: &Range<Point<isize>>,
+        alt_screen: bool,
     ) -> Option<Span>
         where G: SemanticSearch + Dimensions
     {
+        let cols = grid.dimensions().col;
+        let lines = grid.dimensions().line.0 as isize;
+
         // Normalize ordering of selected cells
-        let (front, tail) = if region.start < region.end {
+        let (mut front, mut tail) = if region.start < region.end {
             (region.start, region.end)
         } else {
             (region.end, region.start)
         };
+
+        if alt_screen {
+            if tail.line >= lines {
+                // Don't show selection above visible region
+                if front.line >= lines {
+                    return None;
+                }
+
+                // Clamp selection above viewport to visible region
+                tail.line = lines - 1;
+                tail.col = Column(0);
+            }
+
+            if front.line < 0 {
+                // Don't show selection below visible region
+                if tail.line < 0 {
+                    return None;
+                }
+
+                // Clamp selection below viewport to visible region
+                front.line = 0;
+                front.col = cols - 1;
+            }
+        }
 
         let (mut start, mut end) = if front < tail && front.line == tail.line {
             (grid.semantic_search_left(front.into()), grid.semantic_search_right(tail.into()))
@@ -187,20 +218,29 @@ impl Selection {
         }
 
         Some(Span {
-            cols: grid.dimensions().col,
+            cols: cols,
             front: start,
             tail: end,
             ty: SpanType::Inclusive,
         })
     }
 
-    fn span_lines<G>(grid: &G, region: &Range<Point<isize>>, initial_line: usize) -> Option<Span>
-        where G: Dimensions
+    fn span_lines<G>(
+        grid: &G,
+        region: &Range<Point<isize>>,
+        initial_line: isize,
+        alt_screen: bool,
+    ) -> Option<Span>
+    where
+        G: Dimensions
     {
+        let cols = grid.dimensions().col;
+        let lines = grid.dimensions().line.0 as isize;
+
         // First, create start and end points based on initial line and the grid
         // dimensions.
         let mut start = Point {
-            col: grid.dimensions().col - 1,
+            col: cols - 1,
             line: initial_line
         };
         let mut end = Point {
@@ -208,26 +248,59 @@ impl Selection {
             line: initial_line
         };
 
+        // Clamp selection below viewport to visible region
+        if alt_screen && start.line < 0 {
+            start.line = 0;
+            start.col = cols - 1;
+        }
+
         // Now, expand lines based on where cursor started and ended.
         if region.start.line < region.end.line {
             // Start is below end
-            start.line = min(start.line, region.start.line as usize);
-            end.line = max(end.line, region.end.line as usize);
+            start.line = min(start.line, region.start.line);
+            end.line = max(end.line, region.end.line);
         } else {
             // Start is above end
-            start.line = min(start.line, region.end.line as usize);
-            end.line = max(end.line, region.start.line as usize);
+            start.line = min(start.line, region.end.line);
+            end.line = max(end.line, region.start.line);
+        }
+
+        if alt_screen {
+            if end.line >= lines {
+                // Don't show selection above visible region
+                if start.line >= lines {
+                    return None;
+                }
+
+                // Clamp selection above viewport to visible region
+                end.line = lines - 1;
+                end.col = Column(0);
+            }
+
+            if start.line < 0 {
+                // Don't show selection below visible region
+                if end.line < 0 {
+                    return None;
+                }
+
+                // Clamp selection below viewport to visible region
+                start.line = 0;
+                start.col = cols - 1;
+            }
         }
 
         Some(Span {
-            cols: grid.dimensions().col,
-            front: start,
-            tail: end,
+            cols,
+            front: start.into(),
+            tail: end.into(),
             ty: SpanType::Inclusive
         })
     }
 
-    fn span_simple<G: Dimensions>(grid: &G, region: &Range<Anchor>) -> Option<Span> {
+    fn span_simple<G>(grid: &G, region: &Range<Anchor>, alt_screen: bool) -> Option<Span>
+    where
+        G: Dimensions
+    {
         let start = region.start.point;
         let start_side = region.start.side;
         let end = region.end.point;
@@ -270,7 +343,7 @@ impl Selection {
         }
 
         // Clamp selection below viewport to visible region
-        if front.line < 0 {
+        if alt_screen && front.line < 0 {
             front.line = 0;
             front.col = cols - 1;
         }

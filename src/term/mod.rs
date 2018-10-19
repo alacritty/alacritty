@@ -973,8 +973,9 @@ impl Term {
             }
         }
 
+        let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
         let selection = self.grid.selection.clone()?;
-        let span = selection.to_span(self)?;
+        let span = selection.to_span(self, alt_screen)?;
 
         let mut res = String::new();
 
@@ -1058,8 +1059,9 @@ impl Term {
         config: &'b Config,
         window_focused: bool,
     ) -> RenderableCellsIter {
+        let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
         let selection = self.grid.selection.as_ref()
-            .and_then(|s| s.to_span(self))
+            .and_then(|s| s.to_span(self, alt_screen))
             .map(|span| {
                 span.to_locations()
             });
