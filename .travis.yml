@@ -39,3 +39,4 @@ script:
   - if [ -n "$CLIPPY" ]; then cargo clippy --all-features --all-targets; fi
   - if [ -z "$CLIPPY" ]; then cargo test; fi
   - if [ -z "$CLIPPY" ]; then cargo test -p font; fi
+  - if [ "$TRAVIS_OS_NAME" == "windows" ]; then cp target/debug/winpty-agent.exe target/debug/deps && cargo test -p winpty; fi
