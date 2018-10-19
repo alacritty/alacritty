@@ -76,7 +76,6 @@ impl ::Rasterize for RustTypeRasterizer {
             super::UNDERLINE_CURSOR_CHAR => {
                 let metrics = self.metrics(glyph_key.font_key, glyph_key.size)?;
                 return super::get_underline_cursor_glyph(metrics.descent as i32, metrics.average_advance as i32);
-
             }
             super::BEAM_CURSOR_CHAR => {
                 let metrics = self.metrics(glyph_key.font_key, glyph_key.size)?;
@@ -87,7 +86,7 @@ impl ::Rasterize for RustTypeRasterizer {
                     metrics.average_advance.round() as i32
                 );
             }
-            super::BEAM_CURSOR_CHAR | super::BOX_CURSOR_CHAR => {
+            super::BOX_CURSOR_CHAR => {
                 let metrics = self.metrics(glyph_key.font_key, glyph_key.size)?;
 
                 return super::get_box_cursor_glyph(

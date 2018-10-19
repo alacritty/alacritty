@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed erroneous results when using the `indexed_colors` config option
-- Fixed rendering cursors other than rectangular with the RustType backend.
+- Fixed rendering cursors other than rectangular with the RustType backend
 
 ## Version 0.2.1
 
