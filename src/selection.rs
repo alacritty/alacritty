@@ -465,8 +465,8 @@ mod test {
     }
 
     impl super::SemanticSearch for Dimensions {
-        fn semantic_search_left(&self, _: Point<usize>) -> Point<usize> { unimplemented!(); }
-        fn semantic_search_right(&self, _: Point<usize>) -> Point<usize> { unimplemented!(); }
+        fn semantic_search_left(&self, point: Point<usize>) -> Point<usize> { point }
+        fn semantic_search_right(&self, point: Point<usize>) -> Point<usize> { point }
     }
 
     /// Test case of single cell selection
@@ -480,7 +480,7 @@ mod test {
         let mut selection = Selection::simple(location, Side::Left);
         selection.update(location, Side::Right);
 
-        assert_eq!(selection.to_span(&Dimensions::new(1, 1)).unwrap(), Span {
+        assert_eq!(selection.to_span(&Dimensions::new(1, 1), false).unwrap(), Span {
             cols: Column(1),
             ty: SpanType::Inclusive,
             front: location,
@@ -499,7 +499,7 @@ mod test {
         let mut selection = Selection::simple(location, Side::Right);
         selection.update(location, Side::Left);
 
-        assert_eq!(selection.to_span(&Dimensions::new(1, 1)).unwrap(), Span {
+        assert_eq!(selection.to_span(&Dimensions::new(1, 1), false).unwrap(), Span {
             cols: Column(1),
             ty: SpanType::Inclusive,
             front: location,
@@ -517,7 +517,7 @@ mod test {
         let mut selection = Selection::simple(Point::new(0, Column(0)), Side::Right);
         selection.update(Point::new(0, Column(1)), Side::Left);
 
-        assert_eq!(selection.to_span(&Dimensions::new(1, 2)), None);
+        assert_eq!(selection.to_span(&Dimensions::new(1, 2), false), None);
     }
 
     /// Test adjacent cell selection from right to left
@@ -530,7 +530,7 @@ mod test {
         let mut selection = Selection::simple(Point::new(0, Column(1)), Side::Left);
         selection.update(Point::new(0, Column(0)), Side::Right);
 
-        assert_eq!(selection.to_span(&Dimensions::new(1, 2)), None);
+        assert_eq!(selection.to_span(&Dimensions::new(1, 2), false), None);
     }
 
     /// Test selection across adjacent lines
@@ -547,7 +547,7 @@ mod test {
         let mut selection = Selection::simple(Point::new(1, Column(1)), Side::Right);
         selection.update(Point::new(0, Column(1)), Side::Right);
 
-        assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
+        assert_eq!(selection.to_span(&Dimensions::new(2, 5), false).unwrap(), Span {
             cols: Column(5),
             front: Point::new(0, Column(1)),
             tail: Point::new(1, Column(2)),
@@ -572,10 +572,52 @@ mod test {
         selection.update(Point::new(1, Column(1)), Side::Right);
         selection.update(Point::new(1, Column(0)), Side::Right);
 
-        assert_eq!(selection.to_span(&Dimensions::new(2, 5)).unwrap(), Span {
+        assert_eq!(selection.to_span(&Dimensions::new(2, 5), false).unwrap(), Span {
             cols: Column(5),
             front: Point::new(0, Column(1)),
             tail: Point::new(1, Column(1)),
+            ty: SpanType::Inclusive,
+        });
+    }
+
+    #[test]
+    fn alt_scren_lines() {
+        let mut selection = Selection::lines(Point::new(0, Column(0)));
+        selection.update(Point::new(5, Column(3)), Side::Right);
+        selection.rotate(-3);
+
+        assert_eq!(selection.to_span(&Dimensions::new(10, 5), true).unwrap(), Span {
+            cols: Column(5),
+            front: Point::new(0, Column(4)),
+            tail: Point::new(2, Column(0)),
+            ty: SpanType::Inclusive,
+        });
+    }
+
+    #[test]
+    fn alt_screen_semantic() {
+        let mut selection = Selection::semantic(Point::new(0, Column(0)));
+        selection.update(Point::new(5, Column(3)), Side::Right);
+        selection.rotate(-3);
+
+        assert_eq!(selection.to_span(&Dimensions::new(10, 5), true).unwrap(), Span {
+            cols: Column(5),
+            front: Point::new(0, Column(4)),
+            tail: Point::new(2, Column(3)),
+            ty: SpanType::Inclusive,
+        });
+    }
+
+    #[test]
+    fn alt_screen_simple() {
+        let mut selection = Selection::simple(Point::new(0, Column(0)), Side::Right);
+        selection.update(Point::new(5, Column(3)), Side::Right);
+        selection.rotate(-3);
+
+        assert_eq!(selection.to_span(&Dimensions::new(10, 5), true).unwrap(), Span {
+            cols: Column(5),
+            front: Point::new(0, Column(4)),
+            tail: Point::new(2, Column(4)),
             ty: SpanType::Inclusive,
         });
     }
