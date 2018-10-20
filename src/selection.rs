@@ -101,17 +101,17 @@ impl Selection {
     pub fn rotate(&mut self, offset: isize) {
         match *self {
             Selection::Simple { ref mut region } => {
-                region.start.point.line = region.start.point.line + offset;
-                region.end.point.line = region.end.point.line + offset;
+                region.start.point.line += offset;
+                region.end.point.line += offset;
             },
             Selection::Semantic { ref mut region } => {
-                region.start.line = region.start.line + offset;
-                region.end.line = region.end.line + offset;
+                region.start.line += offset;
+                region.end.line += offset;
             },
             Selection::Lines { ref mut region, ref mut initial_line } => {
-                region.start.line = region.start.line + offset;
-                region.end.line = region.end.line + offset;
-                *initial_line = *initial_line + offset;
+                region.start.line += offset;
+                region.end.line += offset;
+                *initial_line += offset;
             }
         }
     }
@@ -227,12 +227,6 @@ impl Selection {
             col: Column(0),
             line: initial_line
         };
-
-        // Clamp selection below viewport to visible region
-        if alt_screen && start.line < 0 {
-            start.line = 0;
-            start.col = cols - 1;
-        }
 
         // Now, expand lines based on where cursor started and ended.
         if region.start.line < region.end.line {
