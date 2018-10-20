@@ -865,8 +865,8 @@ impl SizeInfo {
         let line = Line(y.saturating_sub(self.padding_y as usize) / (self.cell_height as usize));
 
         Point {
-            line: min(line, self.lines() - 1),
-            col: min(col, self.cols() - 1)
+            line: min(line, self.lines()),
+            col: min(col, self.cols())
         }
     }
 }

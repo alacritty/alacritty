@@ -276,8 +276,9 @@ impl<'a> EventedReadWrite for Pty<'a, NamedPipe, NamedPipe> {
 
 impl<'a> OnResize for Winpty<'a> {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
-        if sizeinfo.cols().0 > 0 && sizeinfo.lines().0 > 0 {
-            self.set_size(sizeinfo.cols().0, sizeinfo.lines().0)
+        let (cols, lines) = (sizeinfo.cols().0 as u16, sizeinfo.lines().0 as u16);
+        if cols > 0 && lines > 0 {
+            self.set_size(cols, lines)
                 .unwrap_or_else(|_| info!("Unable to set winpty size, did it die?"));
         }
     }

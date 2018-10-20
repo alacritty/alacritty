@@ -201,7 +201,7 @@ impl<'a, 'b> Winpty<'a> {
     /// Change the size of the Windows console window.
     /// 
     /// cols & rows MUST be greater than 0
-    pub fn set_size(&mut self, cols: usize, rows: usize) -> Result<(), Err> {
+    pub fn set_size(&mut self, cols: u16, rows: u16) -> Result<(), Err> {
         assert!(cols > 0 && rows > 0);
         let mut err = null_mut() as *mut winpty_error_t;
 
