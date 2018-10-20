@@ -184,27 +184,7 @@ impl Selection {
         };
 
         if alt_screen {
-            if tail.line >= lines {
-                // Don't show selection above visible region
-                if front.line >= lines {
-                    return None;
-                }
-
-                // Clamp selection above viewport to visible region
-                tail.line = lines - 1;
-                tail.col = Column(0);
-            }
-
-            if front.line < 0 {
-                // Don't show selection below visible region
-                if tail.line < 0 {
-                    return None;
-                }
-
-                // Clamp selection below viewport to visible region
-                front.line = 0;
-                front.col = cols - 1;
-            }
+            Selection::alt_screen_clamp(&mut front, &mut tail, lines, cols)?;
         }
 
         let (mut start, mut end) = if front < tail && front.line == tail.line {
@@ -266,27 +246,7 @@ impl Selection {
         }
 
         if alt_screen {
-            if end.line >= lines {
-                // Don't show selection above visible region
-                if start.line >= lines {
-                    return None;
-                }
-
-                // Clamp selection above viewport to visible region
-                end.line = lines - 1;
-                end.col = Column(0);
-            }
-
-            if start.line < 0 {
-                // Don't show selection below visible region
-                if end.line < 0 {
-                    return None;
-                }
-
-                // Clamp selection below viewport to visible region
-                start.line = 0;
-                start.col = cols - 1;
-            }
+            Selection::alt_screen_clamp(&mut start, &mut end, lines, cols)?;
         }
 
         Some(Span {
@@ -306,6 +266,7 @@ impl Selection {
         let end = region.end.point;
         let end_side = region.end.side;
         let cols = grid.dimensions().col;
+        let lines = grid.dimensions().line.0 as isize;
 
         // Make sure front is always the "bottom" and tail is always the "top"
         let (mut front, mut tail, front_side, tail_side) =
@@ -321,7 +282,6 @@ impl Selection {
         if (front == tail && front_side == tail_side)
             || (tail_side == Side::Right && front_side == Side::Left && front.line == tail.line
                 && front.col == tail.col + 1)
-            || tail.line < 0
         {
             return None;
         }
@@ -342,10 +302,8 @@ impl Selection {
             tail.col += 1;
         }
 
-        // Clamp selection below viewport to visible region
-        if alt_screen && front.line < 0 {
-            front.line = 0;
-            front.col = cols - 1;
+        if alt_screen {
+            Selection::alt_screen_clamp(&mut front, &mut tail, lines, cols)?;
         }
 
         // Return the selection with all cells inclusive
@@ -355,6 +313,38 @@ impl Selection {
             tail: tail.into(),
             ty: SpanType::Inclusive,
         })
+    }
+
+    // Clamp selection in the alternate screen to the visible region
+    fn alt_screen_clamp(
+        front: &mut Point<isize>,
+        tail: &mut Point<isize>,
+        lines: isize,
+        cols: Column,
+    ) -> Option<()> {
+        if tail.line >= lines {
+            // Don't show selection above visible region
+            if front.line >= lines {
+                return None;
+            }
+
+            // Clamp selection above viewport to visible region
+            tail.line = lines - 1;
+            tail.col = Column(0);
+        }
+
+        if front.line < 0 {
+            // Don't show selection below visible region
+            if tail.line < 0 {
+                return None;
+            }
+
+            // Clamp selection below viewport to visible region
+            front.line = 0;
+            front.col = cols - 1;
+        }
+
+        Some(())
     }
 }
 
