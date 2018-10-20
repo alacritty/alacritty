@@ -218,7 +218,7 @@ impl Selection {
         }
 
         Some(Span {
-            cols: cols,
+            cols,
             front: start,
             tail: end,
             ty: SpanType::Inclusive,
