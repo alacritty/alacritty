@@ -336,7 +336,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let motion_mode = TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG;
         let report_mode = TermMode::MOUSE_REPORT_CLICK | motion_mode;
 
-        // Don't launch URLs when mouse has moved
+        // Don't launch URLs if mouse has moved
         if prev_line != self.ctx.mouse().line
             || prev_col != self.ctx.mouse().column
             || prev_side != cell_side
@@ -468,7 +468,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 ClickState::TripleClick
             },
             _ => {
-                // Don't launch URLs when this click cleared a selection
+                // Don't launch URLs if this click cleared the selection
                 self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
 
                 self.ctx.clear_selection();
@@ -814,6 +814,10 @@ mod tests {
 
         fn line_selection(&mut self, _point: Point) {
             self.last_action = MultiClick::TripleClick;
+        }
+
+        fn selection_is_empty(&self) -> bool {
+            true
         }
 
         fn scroll(&mut self, scroll: Scroll) {
