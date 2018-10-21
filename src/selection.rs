@@ -441,7 +441,7 @@ mod test {
     impl super::Search for Dimensions {
         fn semantic_search_left(&self, point: Point<usize>) -> Point<usize> { point }
         fn semantic_search_right(&self, point: Point<usize>) -> Point<usize> { point }
-        fn url_search(&self, point: Point<usize>) -> Option<String> { point }
+        fn url_search(&self, _: Point<usize>) -> Option<String> { None }
     }
 
     /// Test case of single cell selection
