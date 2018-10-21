@@ -245,6 +245,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         // Maybe draw the terminal
         if terminal_lock.needs_draw() {
             // Try to update the position of the input method editor
+            #[cfg(not(windows))]
             display.update_ime_position(&terminal_lock);
             // Handle pending resize events
             //

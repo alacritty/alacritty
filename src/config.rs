@@ -1949,9 +1949,9 @@ impl Default for Font {
             italic: FontDescription::new_with_family("Consolas"),
             size: Size::new(11.0),
             use_thin_strokes: false,
-            offset: Default::default(),
+            scale_with_dpi: None,
             glyph_offset: Default::default(),
-            scale_with_dpi: false,
+            offset: Default::default(),
         }
     }
 }
