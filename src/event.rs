@@ -76,6 +76,10 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         }
     }
 
+    fn selection_is_empty(&self) -> bool {
+        self.terminal.selection().as_ref().map(|s| s.is_empty()).unwrap_or(true)
+    }
+
     fn clear_selection(&mut self) {
         *self.terminal.selection_mut() = None;
         self.terminal.dirty = true;
@@ -200,7 +204,7 @@ pub struct Mouse {
     pub column: Column,
     pub cell_side: Side,
     pub lines_scrolled: f32,
-    pub last_press_pos: (usize, usize),
+    pub block_url_launcher: bool,
 }
 
 impl Default for Mouse {
@@ -218,7 +222,7 @@ impl Default for Mouse {
             column: Column(0),
             cell_side: Side::Left,
             lines_scrolled: 0.0,
-            last_press_pos: (0, 0),
+            block_url_launcher: false,
         }
     }
 }

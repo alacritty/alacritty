@@ -156,6 +156,18 @@ impl Selection {
         }
     }
 
+    pub fn is_empty(&self) -> bool
+    {
+        match *self {
+            Selection::Simple { ref region } => {
+                region.start == region.end && region.start.side == region.end.side
+            },
+            Selection::Semantic { .. } | Selection::Lines { .. } => {
+                false
+            },
+        }
+    }
+
     fn span_semantic<G>(
         grid: &G,
         region: &Range<Point<isize>>,
