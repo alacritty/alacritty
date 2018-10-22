@@ -63,6 +63,7 @@ pub trait ActionContext {
     fn simple_selection(&mut self, point: Point, side: Side);
     fn semantic_selection(&mut self, point: Point);
     fn line_selection(&mut self, point: Point);
+    fn selection_is_empty(&self) -> bool;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
     fn mouse_coords(&self) -> Option<Point>;
@@ -74,6 +75,7 @@ pub trait ActionContext {
     fn scroll(&mut self, scroll: Scroll);
     fn clear_history(&mut self);
     fn hide_window(&mut self);
+    fn url(&self, _: Point<usize>) -> Option<String>;
 }
 
 /// Describes a state and action to take in that state
@@ -326,16 +328,25 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let size_info = self.ctx.size_info();
         let point = size_info.pixels_to_coords(x, y);
 
+        let cell_side = self.get_mouse_side();
+        let prev_side = mem::replace(&mut self.ctx.mouse_mut().cell_side, cell_side);
         let prev_line = mem::replace(&mut self.ctx.mouse_mut().line, point.line);
         let prev_col = mem::replace(&mut self.ctx.mouse_mut().column, point.col);
 
         let motion_mode = TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG;
         let report_mode = TermMode::MOUSE_REPORT_CLICK | motion_mode;
 
+        // Don't launch URLs if mouse has moved
+        if prev_line != self.ctx.mouse().line
+            || prev_col != self.ctx.mouse().column
+            || prev_side != cell_side
+        {
+            self.ctx.mouse_mut().block_url_launcher = true;
+        }
+
         if self.ctx.mouse().left_button_state == ElementState::Pressed &&
             ( modifiers.shift || !self.ctx.terminal_mode().intersects(report_mode))
         {
-            let cell_side = self.get_mouse_side();
             self.ctx.update_selection(Point {
                 line: point.line,
                 col: point.col
@@ -354,6 +365,26 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             } else if self.ctx.terminal_mode().contains(TermMode::MOUSE_MOTION) {
                 self.mouse_report(35, ElementState::Pressed, modifiers);
             }
+        }
+    }
+
+    fn get_mouse_side(&self) -> Side {
+        let size_info = self.ctx.size_info();
+        let x = self.ctx.mouse().x;
+
+        let cell_x = x.saturating_sub(size_info.padding_x as usize) % size_info.cell_width as usize;
+        let half_cell_width = (size_info.cell_width / 2.0) as usize;
+
+        let additional_padding = (size_info.width - size_info.padding_x * 2.) % size_info.cell_width;
+        let end_of_grid = size_info.width - size_info.padding_x - additional_padding;
+
+        if cell_x > half_cell_width
+            // Edge case when mouse leaves the window
+            || x as f32 >= end_of_grid
+        {
+            Side::Right
+        } else {
+            Side::Left
         }
     }
 
@@ -427,19 +458,24 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
             ClickState::Click if elapsed < self.mouse_config.double_click.threshold => {
+                self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_double_click();
                 ClickState::DoubleClick
             },
             ClickState::DoubleClick if elapsed < self.mouse_config.triple_click.threshold => {
+                self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_triple_click();
                 ClickState::TripleClick
             },
             _ => {
+                // Don't launch URLs if this click cleared the selection
+                self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
+
                 self.ctx.clear_selection();
 
                 // Start new empty selection
                 if let Some(point) = self.ctx.mouse_coords() {
-                    let side = self.get_mouse_side();
+                    let side = self.ctx.mouse().cell_side;
                     self.ctx.simple_selection(point, side);
                 }
 
@@ -460,26 +496,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         };
     }
 
-    fn get_mouse_side(&self) -> Side {
-        let size_info = self.ctx.size_info();
-        let x = self.ctx.mouse().x;
-
-        let cell_x = x.saturating_sub(size_info.padding_x as usize) % size_info.cell_width as usize;
-        let half_cell_width = (size_info.cell_width / 2.0) as usize;
-
-        let additional_padding = (size_info.width - size_info.padding_x * 2.) % size_info.cell_width;
-        let end_of_grid = size_info.width - size_info.padding_x - additional_padding;
-
-        if cell_x > half_cell_width
-            // Edge case when mouse leaves the window
-            || x as f32 >= end_of_grid
-        {
-            Side::Right
-        } else {
-            Side::Left
-        }
-    }
-
     pub fn on_mouse_release(&mut self, button: MouseButton, modifiers: ModifiersState) {
         let report_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
         if !modifiers.shift && self.ctx.terminal_mode().intersects(report_modes)
@@ -492,12 +508,35 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 MouseButton::Other(_) => (),
             };
             return;
+        } else {
+            self.launch_url(modifiers);
         }
 
         if self.save_to_clipboard {
             self.ctx.copy_selection(ClipboardBuffer::Primary);
         }
         self.ctx.copy_selection(ClipboardBuffer::Selection);
+    }
+
+    // Spawn URL launcher when clicking on URLs
+    fn launch_url(&self, modifiers: ModifiersState) -> Option<()> {
+        if modifiers != self.mouse_config.url.modifiers || self.ctx.mouse().block_url_launcher {
+            return None;
+        }
+
+        let point = self.ctx.mouse_coords()?;
+        let text = self.ctx.url(point.into())?;
+
+        let launcher = self.mouse_config.url.launcher.as_ref()?;
+        let mut args = launcher.args().to_vec();
+        args.push(text);
+
+        match Command::new(launcher.program()).args(&args).spawn() {
+            Ok(_) => debug!("Launched: {} {:?}", launcher.program(), args),
+            Err(_) => warn!("Unable to launch: {} {:?}", launcher.program(), args),
+        }
+
+        Some(())
     }
 
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase, modifiers: ModifiersState) {
@@ -777,6 +816,10 @@ mod tests {
             self.last_action = MultiClick::TripleClick;
         }
 
+        fn selection_is_empty(&self) -> bool {
+            true
+        }
+
         fn scroll(&mut self, scroll: Scroll) {
             self.terminal.scroll_display(scroll);
         }
@@ -793,6 +836,10 @@ mod tests {
         #[inline]
         fn mouse(&self) -> &Mouse {
             self.mouse
+        }
+
+        fn url(&self, _: Point<usize>) -> Option<String> {
+            None
         }
 
         fn received_count(&mut self) -> &mut usize {
@@ -863,11 +910,12 @@ mod tests {
                             threshold: Duration::from_millis(1000),
                         },
                         faux_scrollback_lines: None,
+                        url: Default::default(),
                     },
                     scrolling_config: &config::Scrolling::default(),
                     key_bindings: &config.key_bindings()[..],
                     mouse_bindings: &config.mouse_bindings()[..],
-                    save_to_clipboard: config.selection().save_to_clipboard
+                    save_to_clipboard: config.selection().save_to_clipboard,
                 };
 
                 if let Event::WindowEvent { event: WindowEvent::MouseInput { state, button, modifiers, .. }, .. } = $input {

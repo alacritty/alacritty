@@ -22,6 +22,7 @@ use std::cmp::{min, max};
 use std::ops::Range;
 
 use index::{Point, Column, Side};
+use term::Search;
 
 /// Describes a region of a 2-dimensional area
 ///
@@ -69,17 +70,6 @@ impl Anchor {
     fn new(point: Point<isize>, side: Side) -> Anchor {
         Anchor { point, side }
     }
-}
-
-/// A type that can expand a given point to a region
-///
-/// Usually this is implemented for some 2-D array type since
-/// points are two dimensional indices.
-pub trait SemanticSearch {
-    /// Find the nearest semantic boundary _to the left_ of provided point.
-    fn semantic_search_left(&self, _: Point<usize>) -> Point<usize>;
-    /// Find the nearest semantic boundary _to the point_ of provided point.
-    fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
 }
 
 /// A type that has 2-dimensional boundaries
@@ -151,7 +141,7 @@ impl Selection {
 
     pub fn to_span<G>(&self, grid: &G, alt_screen: bool) -> Option<Span>
     where
-        G: SemanticSearch + Dimensions,
+        G: Search + Dimensions,
     {
         match *self {
             Selection::Simple { ref region } => {
@@ -166,12 +156,24 @@ impl Selection {
         }
     }
 
+    pub fn is_empty(&self) -> bool
+    {
+        match *self {
+            Selection::Simple { ref region } => {
+                region.start == region.end && region.start.side == region.end.side
+            },
+            Selection::Semantic { .. } | Selection::Lines { .. } => {
+                false
+            },
+        }
+    }
+
     fn span_semantic<G>(
         grid: &G,
         region: &Range<Point<isize>>,
         alt_screen: bool,
     ) -> Option<Span>
-        where G: SemanticSearch + Dimensions
+        where G: Search + Dimensions
     {
         let cols = grid.dimensions().col;
         let lines = grid.dimensions().line.0 as isize;
@@ -448,9 +450,10 @@ mod test {
         }
     }
 
-    impl super::SemanticSearch for Dimensions {
+    impl super::Search for Dimensions {
         fn semantic_search_left(&self, point: Point<usize>) -> Point<usize> { point }
         fn semantic_search_right(&self, point: Point<usize>) -> Point<usize> { point }
+        fn url_search(&self, _: Point<usize>) -> Option<String> { None }
     }
 
     /// Test case of single cell selection

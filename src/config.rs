@@ -87,10 +87,29 @@ pub struct Mouse {
     pub double_click: ClickHandler,
     #[serde(default, deserialize_with = "failure_default")]
     pub triple_click: ClickHandler,
+    #[serde(default, deserialize_with = "failure_default")]
+    pub url: Url,
 
     // TODO: DEPRECATED
     #[serde(default)]
     pub faux_scrollback_lines: Option<usize>,
+}
+
+#[derive(Default, Clone, Debug, Deserialize)]
+pub struct Url {
+    // Program for opening links
+    #[serde(default, deserialize_with = "failure_default")]
+    pub launcher: Option<CommandWrapper>,
+
+    // Modifier used to open links
+    #[serde(default, deserialize_with = "deserialize_modifiers")]
+    pub modifiers: ModifiersState,
+}
+
+fn deserialize_modifiers<'a, D>(deserializer: D) -> ::std::result::Result<ModifiersState, D::Error>
+    where D: de::Deserializer<'a>
+{
+    ModsWrapper::deserialize(deserializer).map(|wrapper| wrapper.into_inner())
 }
 
 impl Default for Mouse {
@@ -102,6 +121,7 @@ impl Default for Mouse {
             triple_click: ClickHandler {
                 threshold: Duration::from_millis(300),
             },
+            url: Url::default(),
             faux_scrollback_lines: None,
         }
     }
@@ -644,6 +664,7 @@ fn deserialize_scrolling_multiplier<'a, D>(deserializer: D) -> ::std::result::Re
 ///
 /// Our deserialize impl wouldn't be covered by a derive(Deserialize); see the
 /// impl below.
+#[derive(Debug, Copy, Clone, Hash, Default, Eq, PartialEq)]
 struct ModsWrapper(ModifiersState);
 
 impl ModsWrapper {
@@ -735,15 +756,31 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
-enum CommandWrapper {
+pub enum CommandWrapper {
     Just(String),
     WithArgs {
         program: String,
         #[serde(default)]
         args: Vec<String>,
     },
+}
+
+impl CommandWrapper {
+    pub fn program(&self) -> &str {
+        match self {
+            CommandWrapper::Just(program) => program,
+            CommandWrapper::WithArgs { program, .. } => program,
+        }
+    }
+
+    pub fn args(&self) -> &[String] {
+        match self {
+            CommandWrapper::Just(_) => &[],
+            CommandWrapper::WithArgs { args, .. } => args,
+        }
+    }
 }
 
 use ::term::{mode, TermMode};

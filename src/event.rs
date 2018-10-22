@@ -19,7 +19,7 @@ use index::{Line, Column, Side, Point};
 use input::{self, MouseBinding, KeyBinding};
 use selection::Selection;
 use sync::FairMutex;
-use term::{Term, SizeInfo, TermMode};
+use term::{Term, SizeInfo, TermMode, Search};
 use util::limit;
 use util::fmt::Red;
 use window::Window;
@@ -76,6 +76,10 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         }
     }
 
+    fn selection_is_empty(&self) -> bool {
+        self.terminal.selection().as_ref().map(|s| s.is_empty()).unwrap_or(true)
+    }
+
     fn clear_selection(&mut self) {
         *self.terminal.selection_mut() = None;
         self.terminal.dirty = true;
@@ -102,6 +106,10 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         let point = self.terminal.visible_to_buffer(point);
         *self.terminal.selection_mut() = Some(Selection::semantic(point));
         self.terminal.dirty = true;
+    }
+
+    fn url(&self, point: Point<usize>) -> Option<String> {
+        self.terminal.url_search(point)
     }
 
     fn line_selection(&mut self, point: Point) {
@@ -196,6 +204,7 @@ pub struct Mouse {
     pub column: Column,
     pub cell_side: Side,
     pub lines_scrolled: f32,
+    pub block_url_launcher: bool,
 }
 
 impl Default for Mouse {
@@ -213,6 +222,7 @@ impl Default for Mouse {
             column: Column(0),
             cell_side: Side::Left,
             lines_scrolled: 0.0,
+            block_url_launcher: false,
         }
     }
 }
