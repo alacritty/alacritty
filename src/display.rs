@@ -16,7 +16,7 @@
 //! GPU drawing.
 use std::sync::mpsc;
 
-use parking_lot::{MutexGuard};
+use parking_lot::MutexGuard;
 
 use Rgb;
 use cli;
@@ -27,7 +27,7 @@ use renderer::{self, GlyphCache, QuadRenderer};
 use term::{Term, SizeInfo, RenderableCell};
 use sync::FairMutex;
 
-use window::{self, Size, Pixels, Window, SetInnerSize};
+use window::{self, Pixels, SetInnerSize, Size, Window};
 
 #[derive(Debug)]
 pub enum Error {
@@ -128,10 +128,7 @@ impl Display {
         &self.size_info
     }
 
-    pub fn new(
-        config: &Config,
-        options: &cli::Options,
-    ) -> Result<Display, Error> {
+    pub fn new(config: &Config, options: &cli::Options) -> Result<Display, Error> {
         // Extract some properties from config
         let render_timer = config.render_timer();
 
@@ -196,9 +193,14 @@ impl Display {
 
         // Clear screen
         let background_color = config.colors().primary.background;
-        renderer.with_api(config, &size_info, 0. /* visual bell intensity */, |api| {
-            api.clear(background_color);
-        });
+        renderer.with_api(
+            config,
+            &size_info,
+            0., /* visual bell intensity */
+            |api| {
+                api.clear(background_color);
+            },
+        );
 
         Ok(Display {
             window,
@@ -224,9 +226,8 @@ impl Display {
             info!("Initializing glyph cache");
             let init_start = ::std::time::Instant::now();
 
-            let cache = renderer.with_loader(|mut api| {
-                GlyphCache::new(rasterizer, &font, &mut api)
-            })?;
+            let cache =
+                renderer.with_loader(|mut api| GlyphCache::new(rasterizer, &font, &mut api))?;
 
             let stop = init_start.elapsed();
             let stop_f = stop.as_secs() as f64 + f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
@@ -276,7 +277,7 @@ impl Display {
         &mut self,
         terminal: &mut MutexGuard<Term>,
         config: &Config,
-        items: &mut [&mut OnResize]
+        items: &mut [&mut OnResize],
     ) {
         // Resize events new_size and are handled outside the poll_events
         // iterator. This has the effect of coalescing multiple resize
@@ -295,8 +296,7 @@ impl Display {
 
             if new_size == None {
                 // Force a resize to refresh things
-                new_size = Some((self.size_info.width as u32,
-                                 self.size_info.height as u32));
+                new_size = Some((self.size_info.width as u32, self.size_info.height as u32));
             }
         }
 
@@ -316,7 +316,6 @@ impl Display {
             self.window.resize(w, h);
             self.renderer.resize(w as i32, h as i32);
         }
-
     }
 
     /// Draw the screen
@@ -385,10 +384,15 @@ impl Display {
             // Draw render timer
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());
-                let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
-                    api.render_string(&timing[..], glyph_cache, color);
-                });
+                let color = Rgb {
+                    r: 0xd5,
+                    g: 0x4e,
+                    b: 0x53,
+                };
+                self.renderer
+                    .with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                        api.render_string(&timing[..], glyph_cache, color);
+                    });
             }
         }
 
@@ -403,7 +407,7 @@ impl Display {
 
     /// Adjust the IME editor position according to the new location of the cursor
     pub fn update_ime_position(&mut self, terminal: &Term) {
-        use index::{Point, Line, Column};
+        use index::{Column, Line, Point};
         use term::SizeInfo;
         let Point{line: Line(row), col: Column(col)} = terminal.cursor().point;
         let SizeInfo{cell_width: cw,

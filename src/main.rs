@@ -17,6 +17,12 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
+// With the default subsystem, 'console', windows creates an additional console
+// window for the program.
+// This is silently ignored on non-windows systems.
+// See https://msdn.microsoft.com/en-us/library/4cc7ya5b.aspx for more details.
+#![windows_subsystem = "windows"]
+
 #[macro_use]
 extern crate alacritty;
 
@@ -27,8 +33,17 @@ extern crate dirs;
 
 use std::error::Error;
 use std::sync::Arc;
+
 #[cfg(target_os = "macos")]
 use std::env;
+
+#[cfg(not(windows))]
+use std::os::unix::io::AsRawFd;
+
+#[cfg(windows)]
+extern crate winapi;
+#[cfg(windows)]
+use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
@@ -39,11 +54,17 @@ use alacritty::event_loop::{self, EventLoop, Msg};
 use alacritty::locale;
 use alacritty::logging;
 use alacritty::sync::FairMutex;
-use alacritty::term::{Term};
+use alacritty::term::Term;
 use alacritty::tty::{self, process_should_exit};
 use alacritty::util::fmt::Red;
 
 fn main() {
+    // When linked with the windows subsystem windows won't automatically attach
+    // to the console of the parent process, so we do it explicitly. This fails
+    // silently if the parent has no console.
+    #[cfg(windows)]
+    unsafe {AttachConsole(ATTACH_PARENT_PROCESS);}
+
     // Load command line options and config
     let options = cli::Options::load();
     let config = load_config(&options).update_dynamic_title(&options);
@@ -67,7 +88,8 @@ fn main() {
 ///
 /// If a configuration file is given as a command line argument we don't
 /// generate a default file. If an empty configuration file is given, i.e.
-/// /dev/null, we load the compiled-in defaults.
+/// /dev/null, we load the compiled-in defaults.)
+#[cfg(not(windows))]
 fn load_config(options: &cli::Options) -> Config {
     let config_path = options.config_path()
         .or_else(Config::installed_config)
@@ -79,6 +101,27 @@ fn load_config(options: &cli::Options) -> Config {
     Config::load_from(&*config_path).unwrap_or_else(|err| {
         eprintln!("Error: {}; Loading default config", err);
         Config::default()
+    })
+}
+#[cfg(windows)]
+fn load_config(options: &cli::Options) -> Config {
+    let config_path = options
+        .config_path()
+        .or_else(|| Config::installed_config())
+        .unwrap_or_else(|| {
+            Config::write_defaults()
+                .unwrap_or_else(|err| die!("Write defaults config failure: {}", err))
+        });
+
+    Config::load_from(&*config_path).unwrap_or_else(|err| match err {
+        config::Error::NotFound => {
+            die!("Config file not found after writing: {}", config_path.display());
+        }
+        config::Error::Empty => {
+            eprintln!("Empty config; Loading defaults");
+            Config::default()
+        }
+        _ => die!("{}", err),
     })
 }
 
@@ -122,7 +165,17 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // The pty forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-    let mut pty = tty::new(&config, options, &display.size(), window_id);
+    let pty = tty::new(&config, options, &display.size(), window_id);
+
+    // Get a reference to something that we can resize
+    //
+    // This exists because rust doesn't know the interface is thread-safe
+    // and we need to be able to resize the PTY from the main thread while the IO
+    // thread owns the EventedRW object.
+    #[cfg(windows)]
+    let resize_handle = unsafe { &mut *pty.winpty.get() };
+    #[cfg(not(windows))]
+    let mut resize_handle = pty.fd.as_raw_fd();
 
     // Create the pseudoterminal I/O loop
     //
@@ -133,7 +186,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     let event_loop = EventLoop::new(
         Arc::clone(&terminal),
         display.notifier(),
-        pty.reader(),
+        pty,
         options.ref_test,
     );
 
@@ -168,7 +221,9 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     };
 
     // Kick off the I/O thread
-    let io_thread = event_loop.spawn(None);
+    let _io_thread = event_loop.spawn(None);
+
+    info!("Initialisation complete");
 
     // Main display loop
     loop {
@@ -195,7 +250,11 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
-            display.handle_resize(&mut terminal_lock, &config, &mut [&mut pty, &mut processor]);
+            #[cfg(windows)]
+            display.handle_resize(&mut terminal_lock, &config, &mut [resize_handle, &mut processor]);
+            #[cfg(not(windows))]
+            display.handle_resize(&mut terminal_lock, &config, &mut [&mut resize_handle, &mut processor]);
+
             drop(terminal_lock);
 
             // Draw the current state of the terminal
@@ -208,13 +267,12 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         }
     }
 
-    loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to event loop");
+    loop_tx
+        .send(Msg::Shutdown)
+        .expect("Error sending shutdown to event loop");
 
     // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();
-
-    // Wait for the I/O thread thread to finish
-    let _ = io_thread.join();
 
     Ok(())
 }

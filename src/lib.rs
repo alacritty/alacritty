@@ -23,8 +23,22 @@
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate static_assertions;
 
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))]
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
+          target_os = "openbsd"))]
 extern crate x11_dl;
+
+#[cfg(windows)]
+extern crate mio_named_pipes;
+#[cfg(windows)]
+extern crate winapi;
+#[cfg(windows)]
+extern crate winpty;
+#[cfg(windows)]
+extern crate dunce;
+#[cfg(windows)]
+extern crate winit;
+#[cfg(windows)]
+extern crate image;
 
 #[cfg(target_os = "macos")]
 #[macro_use]
@@ -33,8 +47,8 @@ extern crate objc;
 extern crate arraydeque;
 extern crate cgmath;
 extern crate copypasta;
-extern crate errno;
 extern crate env_logger;
+extern crate errno;
 extern crate fnv;
 extern crate font;
 extern crate glutin;
@@ -51,6 +65,7 @@ extern crate vte;
 extern crate xdg;
 extern crate base64;
 extern crate terminfo;
+extern crate url;
 
 #[macro_use]
 pub mod macros;

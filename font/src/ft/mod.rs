@@ -85,7 +85,7 @@ impl ::Rasterize for FreeTypeRasterizer {
         })
     }
 
-    fn metrics(&self, key: FontKey) -> Result<Metrics, Error> {
+    fn metrics(&self, key: FontKey, _size: Size) -> Result<Metrics, Error> {
         let full = self.full_metrics(key)?;
 
         let height = (full.size_metrics.height / 64) as f64;

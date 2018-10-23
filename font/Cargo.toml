@@ -11,7 +11,7 @@ libc = "0.2"
 foreign-types = "0.3"
 log = "0.4"
 
-[target.'cfg(not(target_os = "macos"))'.dependencies]
+[target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]
 servo-fontconfig = "0.4.0"
 freetype-rs = "0.19"
 
@@ -20,3 +20,7 @@ core-foundation = "0.6"
 core-text = "13"
 core-graphics = "0.17"
 core-foundation-sys = "0.6"
+
+[target.'cfg(windows)'.dependencies]
+font-loader = "0.6.0"
+rusttype = "0.4.1"

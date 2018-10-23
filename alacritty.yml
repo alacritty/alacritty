@@ -266,6 +266,19 @@ mouse:
   double_click: { threshold: 300 }
   triple_click: { threshold: 300 }
 
+  url:
+    # URL launcher
+    #
+    # This program is executed when clicking on a text which is recognized as a URL.
+    # The URL is always added to the command as the last parameter.
+    launcher: xdg-open
+
+    # URL modifiers
+    #
+    # These are the modifiers that need to be held down for opening URLs when clicking
+    # on them. The available modifiers are documented in the key binding section.
+    #modifiers: Control|Shift
+
 selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>"
 
@@ -328,6 +341,12 @@ live_config_reload: true
 #
 #   A full list with available key codes can be found here:
 #   https://docs.rs/glutin/*/glutin/enum.VirtualKeyCode.html#variants
+#
+#   Instead of using the name of the keys, the `key` field also supports using
+#   the scancode of the desired key. Scancodes have to be specified as a
+#   decimal number.
+#   This command will allow you to display the hex scancodes for certain keys:
+#     `showkey --scancodes`
 #
 # Values for `mods`:
 #   - Command
