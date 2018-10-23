@@ -40,12 +40,15 @@ fn true_bool() -> bool {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Selection {
     pub semantic_escape_chars: String,
+    #[serde(default, deserialize_with = "failure_default")]
+    pub save_to_clipboard: bool,
 }
 
 impl Default for Selection {
     fn default() -> Selection {
         Selection {
-            semantic_escape_chars: String::new()
+            semantic_escape_chars: String::new(),
+            save_to_clipboard: false
         }
     }
 }
@@ -248,6 +251,97 @@ impl Default for Alpha {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum Decorations {
+    Full,
+    Transparent,
+    Buttonless,
+    None,
+}
+
+impl Default for Decorations {
+    fn default() -> Decorations {
+        Decorations::Full
+    }
+}
+
+impl<'de> Deserialize<'de> for Decorations {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Decorations, D::Error>
+        where D: de::Deserializer<'de>
+    {
+
+        struct DecorationsVisitor;
+
+        impl<'de> Visitor<'de> for DecorationsVisitor {
+            type Value = Decorations;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("Some subset of full|transparent|buttonless|none")
+            }
+
+            #[cfg(target_os = "macos")]
+            fn visit_str<E>(self, value: &str) -> ::std::result::Result<Decorations, E>
+                where E: de::Error
+            {
+                match value.to_lowercase().as_str() {
+                    "transparent" => Ok(Decorations::Transparent),
+                    "buttonless" => Ok(Decorations::Buttonless),
+                    "none" => Ok(Decorations::None),
+                    "full" => Ok(Decorations::Full),
+                    "true" => {
+                        eprintln!("deprecated decorations boolean value, \
+                                   use one of transparent|buttonless|none|full instead; \
+                                   Falling back to \"full\"");
+                        Ok(Decorations::Full)
+                    },
+                    "false" => {
+                        eprintln!("deprecated decorations boolean value, \
+                                   use one of transparent|buttonless|none|full instead; \
+                                   Falling back to \"none\"");
+                        Ok(Decorations::None)
+                    },
+                    _ => {
+                        eprintln!("invalid decorations value: {}; Using default value", value);
+                        Ok(Decorations::Full)
+                    }
+                }
+            }
+
+            #[cfg(not(target_os = "macos"))]
+            fn visit_str<E>(self, value: &str) -> ::std::result::Result<Decorations, E>
+                where E: de::Error
+            {
+                match value.to_lowercase().as_str() {
+                    "none" => Ok(Decorations::None),
+                    "full" => Ok(Decorations::Full),
+                    "true" => {
+                        eprintln!("deprecated decorations boolean value, \
+                                   use one of none|full instead; \
+                                   Falling back to \"full\"");
+                        Ok(Decorations::Full)
+                    },
+                    "false" => {
+                        eprintln!("deprecated decorations boolean value, \
+                                   use one of none|full instead; \
+                                   Falling back to \"none\"");
+                        Ok(Decorations::None)
+                    },
+                    "transparent" | "buttonless" => {
+                        eprintln!("macos-only decorations value: {}; Using default value", value);
+                        Ok(Decorations::Full)
+                    },
+                    _ => {
+                        eprintln!("invalid decorations value: {}; Using default value", value);
+                        Ok(Decorations::Full)
+                    }
+                }
+            }
+        }
+
+        deserializer.deserialize_str(DecorationsVisitor)
+    }
+}
+
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct WindowConfig {
     /// Initial dimensions
@@ -263,8 +357,12 @@ pub struct WindowConfig {
     padding: Delta<u8>,
 
     /// Draw the window with title bar / borders
-    #[serde(default, deserialize_with = "failure_default")]
-    decorations: bool,
+    #[serde(default)]
+    decorations: Decorations,
+
+    /// Initialize in fullscreen mode
+    #[serde(default)]
+    fullscreen: bool,
 }
 
 fn default_padding() -> Delta<u8> {
@@ -284,12 +382,12 @@ fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Delta<u8
 }
 
 impl WindowConfig {
-    pub fn fullscreen(&self) -> bool {
-        self.fullscreen
-    }
-
     pub fn decorations(&self) -> bool {
         self.decorations
+    }
+
+    pub fn fullscreen(&self) -> bool {
+        self.fullscreen
     }
 }
 
@@ -299,7 +397,8 @@ impl Default for WindowConfig {
             dimensions: Default::default(),
             fullscreen: false,
             padding: default_padding(),
-            decorations: true,
+            decorations: Default::default(),
+            fullscreen: false,
         }
     }
 }
@@ -620,7 +719,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 f.write_str("Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, \
                             ResetFontSize, ScrollPageUp, ScrollPageDown, ScrollToTop, \
-                            ScrollToBottom, ClearHistory, Hide, or Quit")
+                            ScrollToBottom, ClearHistory, Hide, Quit, or ToggleFullscreen")
             }
 
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<ActionWrapper, E>
@@ -640,6 +739,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "ClearHistory" => Action::ClearHistory,
                     "Hide" => Action::Hide,
                     "Quit" => Action::Quit,
+                    "ToggleFullscreen" => Action::ToggleFullscreen,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
             }
@@ -1024,16 +1124,42 @@ pub struct Colors {
     pub bright: AnsiColors,
     #[serde(default, deserialize_with = "failure_default")]
     pub dim: Option<AnsiColors>,
+    #[serde(default, deserialize_with = "failure_default_vec")]
+    pub indexed_colors: Vec<IndexedColor>,
 }
 
-fn deserialize_cursor_colors<'a, D>(deserializer: D) -> ::std::result::Result<CursorColors, D::Error>
+#[derive(Debug, Deserialize)]
+pub struct IndexedColor {
+    #[serde(deserialize_with = "deserialize_color_index")]
+    pub index: u8,
+    #[serde(deserialize_with = "rgb_from_hex")]
+    pub color: Rgb,
+}
+
+fn deserialize_color_index<'a, D>(deserializer: D) -> ::std::result::Result<u8, D::Error>
     where D: de::Deserializer<'a>
 {
-    match CursorOrPrimaryColors::deserialize(deserializer) {
-        Ok(either) => Ok(either.into_cursor_colors()),
+    match u8::deserialize(deserializer) {
+        Ok(index) => {
+            if index < 16 {
+                eprintln!(
+                    "problem with config: indexed_color's index is '{}', \
+                     but a value bigger than 15 was expected; \
+                     Ignoring setting",
+                    index
+                );
+
+                // Return value out of range to ignore this color
+                Ok(0)
+            } else {
+                Ok(index)
+            }
+        },
         Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(CursorColors::default())
+            eprintln!("problem with config: {}; Ignoring setting", err);
+
+            // Return value out of range to ignore this color
+            Ok(0)
         },
     }
 }
@@ -1090,6 +1216,18 @@ impl Default for CursorColors {
             text: Rgb { r: 0, g: 0, b: 0 },
             cursor: Rgb { r: 0xff, g: 0xff, b: 0xff },
         }
+    }
+}
+
+fn deserialize_cursor_colors<'a, D>(deserializer: D) -> ::std::result::Result<CursorColors, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match CursorOrPrimaryColors::deserialize(deserializer) {
+        Ok(either) => Ok(either.into_cursor_colors()),
+        Err(err) => {
+            eprintln!("problem with config: {}; Using default value", err);
+            Ok(CursorColors::default())
+        },
     }
 }
 
@@ -1158,6 +1296,7 @@ impl Default for Colors {
                 white: Rgb {r: 0xff, g: 0xff, b: 0xff},
             },
             dim: None,
+            indexed_colors: Vec::new(),
         }
     }
 }

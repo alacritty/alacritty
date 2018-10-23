@@ -374,7 +374,7 @@ pub struct RenderApi<'a> {
     current_atlas: &'a mut usize,
     program: &'a mut ShaderProgram,
     config: &'a Config,
-    visual_bell_intensity: f32
+    visual_bell_intensity: f32,
 }
 
 #[derive(Debug)]
@@ -799,7 +799,7 @@ impl<'a> RenderApi<'a> {
             })
             .collect::<Vec<_>>();
 
-        self.render_cells(cells.into_iter(), glyph_cache);
+        self.render_cells(cells.iter(), glyph_cache);
     }
 
     #[inline]
@@ -817,12 +817,12 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_cells<I>(
+    pub fn render_cells<'b, I>(
         &mut self,
         cells: I,
         glyph_cache: &mut GlyphCache
     )
-        where I: Iterator<Item=RenderableCell>
+        where I: Iterator<Item=&'b RenderableCell>
     {
         for cell in cells {
             // Get font key for cell

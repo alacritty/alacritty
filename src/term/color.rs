@@ -23,8 +23,8 @@ impl<'a> From<&'a Colors> for List {
         let mut list: List = unsafe { ::std::mem::uninitialized() };
 
         list.fill_named(colors);
-        list.fill_cube();
-        list.fill_gray_ramp();
+        list.fill_cube(colors);
+        list.fill_gray_ramp(colors);
 
         list
     }
@@ -95,16 +95,25 @@ impl List {
         }
     }
 
-    fn fill_cube(&mut self) {
+    pub fn fill_cube(&mut self, colors: &Colors) {
         let mut index: usize = 16;
         // Build colors
         for r in 0..6 {
             for g in 0..6 {
                 for b in 0..6 {
-                    self[index] = Rgb { r: if r == 0 { 0 } else { r * 40 + 55 },
-                        b: if b == 0 { 0 } else { b * 40 + 55 },
-                        g: if g == 0 { 0 } else { g * 40 + 55 },
-                    };
+                    // Override colors 16..232 with the config (if present)
+                    if let Some(indexed_color) = colors
+                        .indexed_colors
+                        .iter()
+                        .find(|ic| ic.index == index as u8)
+                    {
+                        self[index] = indexed_color.color;
+                    } else {
+                        self[index] = Rgb { r: if r == 0 { 0 } else { r * 40 + 55 },
+                            b: if b == 0 { 0 } else { b * 40 + 55 },
+                            g: if g == 0 { 0 } else { g * 40 + 55 },
+                        };
+                    }
                     index += 1;
                 }
             }
@@ -113,10 +122,24 @@ impl List {
         debug_assert!(index == 232);
     }
 
-    fn fill_gray_ramp(&mut self) {
+    pub fn fill_gray_ramp(&mut self, colors: &Colors) {
         let mut index: usize = 232;
 
         for i in 0..24 {
+            // Index of the color is number of named colors + number of cube colors + i
+            let color_index = 16 + 216 + i;
+
+            // Override colors 232..256 with the config (if present)
+            if let Some(indexed_color) = colors
+                .indexed_colors
+                .iter()
+                .find(|ic| ic.index == color_index)
+            {
+                self[index] = indexed_color.color;
+                index += 1;
+                continue;
+            }
+
             let value = i * 10 + 8;
             self[index] = Rgb {
                 r: value,

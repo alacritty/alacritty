@@ -1,0 +1,11 @@
+[package]
+name = "servo-freetype-sys"
+version = "4.0.3"
+authors = ["Jon Gjengset <jon@thesquareplanet.com>"]
+
+[lib]
+name = "freetype_sys"
+path = "src/lib.rs"
+
+[dependencies]
+freetype-sys = "*"

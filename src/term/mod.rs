@@ -23,7 +23,7 @@ use unicode_width::UnicodeWidthChar;
 
 use font::{self, Size};
 use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter, Scroll};
+use grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter, Scroll, ViewportPosition};
 use index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
 use selection::{self, Selection, Locations};
 use config::{Config, VisualBellAnimation};
@@ -136,16 +136,19 @@ impl<'a> RenderableCellsIter<'a> {
 
             // Get start/end locations based on what part of selection is on screen
             let locations = match (start_line, end_line) {
-                (Some(start_line), Some(end_line)) => {
+                (ViewportPosition::Visible(start_line), ViewportPosition::Visible(end_line)) => {
                     Some((start_line, loc.start.col, end_line, loc.end.col))
                 },
-                (Some(start_line), None) => {
+                (ViewportPosition::Visible(start_line), ViewportPosition::Above) => {
                     Some((start_line, loc.start.col, Line(0), Column(0)))
                 },
-                (None, Some(end_line)) => {
+                (ViewportPosition::Below, ViewportPosition::Visible(end_line)) => {
                     Some((grid.num_lines(), Column(0), end_line, loc.end.col))
                 },
-                (None, None) => None,
+                (ViewportPosition::Below, ViewportPosition::Above) =>  {
+                    Some((grid.num_lines(), Column(0), Line(0), Column(0)))
+                },
+                _ => None,
             };
 
             if let Some((start_line, start_col, end_line, end_col)) = locations {
@@ -369,6 +372,7 @@ impl<'a> RenderableCellsIter<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct RenderableCell {
     /// A _Display_ line (not necessarily an _Active_ line)
     pub line: Line,
@@ -900,6 +904,8 @@ impl Term {
     pub fn update_config(&mut self, config: &Config) {
         self.semantic_escape_chars = config.selection().semantic_escape_chars.clone();
         self.original_colors.fill_named(config.colors());
+        self.original_colors.fill_cube(config.colors());
+        self.original_colors.fill_gray_ramp(config.colors());
         for i in 0..color::COUNT {
             if !self.color_modified[i] {
                 self.colors[i] = self.original_colors[i];
@@ -939,16 +945,11 @@ impl Term {
         use std::ops::Range;
 
         trait Append : PushChar {
-            fn append(&mut self, grid: &Grid<Cell>, line: usize, cols: Range<Column>) -> Option<Range<Column>>;
+            fn append(&mut self, grid: &Grid<Cell>, line: usize, cols: Range<Column>);
         }
 
         impl Append for String {
-            fn append(
-                &mut self,
-                grid: &Grid<Cell>,
-                mut line: usize,
-                cols: Range<Column>
-            ) -> Option<Range<Column>> {
+            fn append(&mut self, grid: &Grid<Cell>, mut line: usize, cols: Range<Column>) {
                 // Select until last line still within the buffer
                 line = min(line, grid.len() - 1);
 
@@ -956,23 +957,18 @@ impl Term {
                 let line_length = grid_line.line_length();
                 let line_end = min(line_length, cols.end + 1);
 
-                if cols.start >= line_end {
-                    None
-                } else {
+                if line_end.0 == 0 && cols.end >= grid.num_cols() - 1 {
+                    self.push('\n');
+                } else if cols.start < line_end {
                     for cell in &grid_line[cols.start..line_end] {
                         if !cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
                             self.push(cell.c);
                         }
                     }
 
-                    let range = Some(cols.start..line_end);
                     if cols.end >= grid.num_cols() - 1 {
-                        if let Some(ref range) = range {
-                            self.maybe_newline(grid, line, range.end);
-                        }
+                        self.maybe_newline(grid, line, line_end);
                     }
-
-                    range
                 }
             }
         }
@@ -1465,12 +1461,16 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn move_down_and_cr(&mut self, lines: Line) {
-        trace!("[unimplemented] move_down_and_cr: {}", lines);
+        trace!("move_down_and_cr: {}", lines);
+        let move_to = self.cursor.point.line + lines;
+        self.goto(move_to, Column(0))
     }
 
     #[inline]
     fn move_up_and_cr(&mut self, lines: Line) {
-        trace!("[unimplemented] move_up_and_cr: {}", lines);
+        trace!("move_up_and_cr: {}", lines);
+        let move_to = Line(self.cursor.point.line.0.saturating_sub(lines.0));
+        self.goto(move_to, Column(0))
     }
 
     #[inline]
@@ -2000,7 +2000,7 @@ mod tests {
     use term::cell;
 
     use grid::{Grid, Scroll};
-    use index::{Point, Line, Column};
+    use index::{Point, Line, Column, Side};
     use ansi::{self, Handler, CharsetIndex, StandardCharset};
     use selection::Selection;
     use std::mem;
@@ -2074,6 +2074,34 @@ mod tests {
 
         *term.selection_mut() = Some(Selection::lines(Point { line: 0, col: Column(3) }));
         assert_eq!(term.selection_to_string(), Some(String::from("\"aa\"a\n")));
+    }
+
+    #[test]
+    fn selecting_empty_line() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+        };
+        let mut term = Term::new(&Default::default(), size);
+        let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0, Cell::default());
+        for l in 0..3 {
+            if l != 1 {
+                for c in 0..3 {
+                    grid[Line(l)][Column(c)].c = 'a';
+                }
+            }
+        }
+
+        mem::swap(&mut term.grid, &mut grid);
+
+        let mut selection = Selection::simple(Point { line: 2, col: Column(0) }, Side::Left);
+        selection.update(Point { line: 0, col: Column(2) }, Side::Right);
+        *term.selection_mut() = Some(selection);
+        assert_eq!(term.selection_to_string(), Some("aaa\n\naaa\n".into()));
     }
 
     /// Check that the grid can be serialized back and forth losslessly

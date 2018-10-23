@@ -72,6 +72,11 @@ zypper in alacritty
 xbps-install alacritty
 ```
 
+### FreeBSD
+```sh
+pkg install alacritty
+```
+
 ## Manual Installation
 
 ### Prerequisites
@@ -334,6 +339,27 @@ To install the completions for fish, run
 
 ```
 sudo cp alacritty-completions.fish $__fish_datadir/vendor_completions.d/alacritty.fish
+```
+
+## Terminfo
+
+The terminfo database contains entries describing the terminal
+emulator's capabilities. Programs need these in order to function
+properly.
+
+Alacritty should work with the standard `xterm-256color` definition,
+but to allow programs to make best use of alacritty's capabilities,
+use its own terminfo definition instead.
+
+Unless the user has set the `TERM` environment variable in the
+alacritty configuration, the `alacritty` terminfo definition will be
+used if it has been installed. If not, then `xterm-256color` is used
+instead.
+
+To install alacritty's terminfo entry globally:
+
+```sh
+sudo tic -e alacritty,alacritty-direct alacritty.info
 ```
 
 ## Configuration
