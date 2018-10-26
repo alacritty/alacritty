@@ -1,10 +1,7 @@
 language: rust
-sudo: false
 
 git:
   depth: 1
-
-cache: cargo
 
 os:
   - linux
@@ -12,56 +9,23 @@ os:
   - windows
 
 rust:
-- stable
-- nightly
-
-env:
-  - CLIPPY="true"
-  - CLIPPY=""
-
-install:
-  - if [ -n "$CLIPPY" ]; then rustup component add clippy-preview; fi
+  - stable
+  - nightly
 
 matrix:
   fast_finish: true
-  exclude:
-    - rust: stable
-      env: CLIPPY="true"
-    - rust: nightly
-      env: CLIPPY=""
   allow_failures:
     - rust: nightly
     - os: windows
 
-script:
-  - if [ "$TRAVIS_OS_NAME" == "windows" ]; then choco install llvm --norestart --nosilent; fi
-  - if [ -n "$CLIPPY" ]; then cargo clippy --all-features --all-targets; fi
-  - if [ -z "$CLIPPY" ] && [ -n "$TRAVIS_TAG" ]; then cargo test --release; fi
-  - if [ -z "$CLIPPY" ] && [ -z "$TRAVIS_TAG" ]; then cargo test; fi
-  - if [ -z "$CLIPPY" ]; then cargo test -p font; fi
-
-before_deploy:
-  - ARCH=$(uname -m)
-  - mkdir "./target/deploy"
-  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then
-      make dmg;
-      mv "./target/release/osx/Alacritty.dmg" "./target/deploy/Alacritty-$TRAVIS_TAG.dmg";
-    fi
-  - if [ "$TRAVIS_OS_NAME" == "linux" ]; then
-      cargo install cargo-deb;
-      DEB=$(cargo deb --no-build);
-      mv "./target/release/alacritty" "./target/deploy/Alacritty-$TRAVIS_TAG-$ARCH";
-      mv "$DEB" "./target/deploy/Alacritty-$TRAVIS_TAG-$ARCH.deb";
-    fi
-  - if [ "$TRAVIS_OS_NAME" == "windows" ]; then
-      mv "./target/release/alacritty.exe" "./target/deploy/Alacritty-$TRAVIS_TAG-$ARCH.exe";
-      mv "./target/release/winpty-agent.exe" "./target/deploy/winpty-agent.exe";
-    fi
+install: ci/install.sh
+script: ci/script.sh
+before_deploy: ci/before_deploy.sh
 
 deploy:
   provider: releases
   api_key:
-    secure: oHQYpFE9Ess83Q7+cO9U544BARN9SAaunE2RgEt5YR+KyFeW0wQfAKrdtMyv8BvAlFuk22VqdKlBEy537N9aZYPixOAyN/gcN9++4BsB2l9mqIlfU7EbAe6PdAGHlDiWgt1U7RAxJxdHC4auODDl2HFKZJAO8NQ94sM+/zmNp8xThKtbAm3j80fDIsFjCK562JlvlLtJHlEFFsPqyjJEfJi1BmAA+WpBcDwDzy5RGKnT0yKHShxh+iOEaOUeZTgtKkwr8ZTpaVTsQBbN/tw4JCBfyWFxsKb26DhWgrY3gmDq0DrrHeO1B38PREAK1MbWtbaQuN0XeOZp9NflBo+QxeRlIfYh+Zz8JDPBhBpJXp0xPwyH1BaeUoswSSkD6xANPxg6oMIe+z8W9wkCQz44nFyDaPgA0A+sdgtmJIYE9PvKirJPrjse+M0DAgm1Mzbm4g4HeJzAEIPnLp9STfLERXEmnUc+rVzuMboLjAW84bbO1cxLpfkSXsSx7Z1yqOKbmhi12WsSf5avQWJ95zv7+dnKBsZQx0xRqJ1agdPi80XgvFm4juX5plxKjipNZNXR9hbjK94qAqY/6/2RYmzZ7L+e31mVkkxLW/mVEp1h+VO0kBkZErNLjz6/WqzHIfG5yFr/OnbkGDVmq2BVJdE7JlfcaMEWMeTA0USr0dqYC7U=
+    secure: f/dzzrB8MmZsLl1BpeGw7Koz4+KmWlF8PCvLA7361TJHEZ+9WX95AB6IDsICzzwQR7+uyX14Qv+Xx7LQfUMrL8EBQDVU8cNFrEhhth+E8G+LwbJnG7DhlBXNz/GmPvz5r2fsuecVSyDhZr+t0Z2v1D/6qyEqruVTRGC76RgezzASb2ecJ0BQFfvwOWnX+J5mk9Ss8FQEohipu+EF9ItKP+QlTeWhl5qC9XNhiumYG/KHjujch8xX0TElY3AeRvqk2jyCoTFn17r4DI3/bh/4FuKMtNun5gh+qRkD79PT02qhZ1qFpaJqzO5HK0xQpUpnmHb1SGvizfHsCbioYXaSS1QmFIbEMUsBJ+Q/yKPGYWijjAmFfFtnd41J8631d1cgJrI+NyIehSgWCOliTHsdabiaFPO+o2zpKyr0eFX4VGiKdrf920dtMJMslhq4AEUG/nyv85SPbf3XMQ094O1jMJ9jOBnldfQL1u3udNQpgKwiKjLlQ/o4veWgBpujRdqKQzgaK7ntTKzplfgVx50OVxUhfIjDv9xhLIsKQEGVIcFlDMFBuNTI/B9WqwaMit3N9GX+yI+eBPs6hdKTLeUxs3sbBBNtVCKJPM1sz5B46KHE2wHQq+FTcyP7bO8D1Pvs/PhCJreE0WDHH2c++yeCzh368jkhbSpj2EOCSAho9VY=
   skip_cleanup: true
   file_glob: true
   file: "./target/deploy/*"
