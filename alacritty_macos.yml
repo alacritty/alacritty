@@ -275,11 +275,11 @@ selection:
 cursor:
   # Cursor style
   #
-  # Values for 'cursor_style':
+  # Values for 'style':
   #   - ▇ Block
   #   - _ Underline
   #   - | Beam
-  cursor_style: Block
+  style: Block
 
   # If this is `true`, the cursor is temporarily hidden when typing.
   hide_when_typing: false
