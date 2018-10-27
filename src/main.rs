@@ -175,7 +175,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     #[cfg(windows)]
     let resize_handle = unsafe { &mut *pty.winpty.get() };
     #[cfg(not(windows))]
-    let mut resize_handle = pty.fd.as_raw_fd();
+    let resize_handle = &mut pty.fd.as_raw_fd();
 
     // Create the pseudoterminal I/O loop
     //
@@ -246,14 +246,12 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         if terminal_lock.needs_draw() {
             // Try to update the position of the input method editor
             display.update_ime_position(&terminal_lock);
+
             // Handle pending resize events
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
-            #[cfg(windows)]
             display.handle_resize(&mut terminal_lock, &config, &mut [resize_handle, &mut processor]);
-            #[cfg(not(windows))]
-            display.handle_resize(&mut terminal_lock, &config, &mut [&mut resize_handle, &mut processor]);
 
             drop(terminal_lock);
 
