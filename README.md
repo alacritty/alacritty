@@ -68,6 +68,26 @@ zypper in alacritty
 xbps-install alacritty
 ```
 
+### Gentoo
+
+On Gentoo, there's a portage overlay available. Make sure `layman` is installed
+and run:
+
+```sh
+sudo layman -a slyfox
+```
+
+Then, add `x11-terms/alacritty **` to `/etc/portage/package.accept_keywords` and
+emerge alacritty:
+
+```sh
+sudo emerge alacritty
+```
+
+Note that you still need to download system build dependencies via your package
+manager as mentioned above. The binary `alacritty` will be placed into `$HOME/.cargo/bin`.
+Make sure it is in your path (default if you use `rustup`).
+
 ### Windows
 
 Prebuilt binaries can be downloaded from the artifacts section of [appveyor](https://ci.appveyor.com/project/jwilm/alacritty).
