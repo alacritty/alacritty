@@ -113,7 +113,8 @@ impl<T: Eq> Binding<T> {
         &self,
         mode: TermMode,
         mods: ModifiersState,
-        input: &T
+        input: &T,
+        relaxed: bool,
     ) -> bool {
         // Check input first since bindings are stored in one big list. This is
         // the most likely item to fail so prioritizing it here allows more
@@ -121,15 +122,15 @@ impl<T: Eq> Binding<T> {
         self.trigger == *input &&
             self.mode_matches(mode) &&
             self.not_mode_matches(mode) &&
-            self.mods_match(mods)
+            self.mods_match(mods, relaxed)
     }
 }
 
 impl<T> Binding<T> {
     /// Execute the action associate with this binding
     #[inline]
-    fn execute<A: ActionContext>(&self, ctx: &mut A) {
-        self.action.execute(ctx)
+    fn execute<A: ActionContext>(&self, ctx: &mut A, mouse_mode: bool) {
+        self.action.execute(ctx, mouse_mode)
     }
 
     #[inline]
@@ -143,13 +144,12 @@ impl<T> Binding<T> {
     }
 
     /// Check that two mods descriptions for equivalence
-    ///
-    /// Optimized to use single check instead of four (one per modifier)
     #[inline]
-    fn mods_match(&self, mods: ModifiersState) -> bool {
-        assert_eq_size!(ModifiersState, u32);
-        unsafe {
-            mem::transmute_copy::<_, u32>(&self.mods) == mem::transmute_copy::<_, u32>(&mods)
+    fn mods_match(&self, mods: ModifiersState, relaxed: bool) -> bool {
+        if relaxed {
+            self.mods.relaxed_eq(mods)
+        } else {
+            self.mods == mods
         }
     }
 }
@@ -204,7 +204,7 @@ pub enum Action {
 
 impl Action {
     #[inline]
-    fn execute<A: ActionContext>(&self, ctx: &mut A) {
+    fn execute<A: ActionContext>(&self, ctx: &mut A, mouse_mode: bool) {
         match *self {
             Action::Esc(ref s) => {
                 ctx.scroll(Scroll::Bottom);
@@ -223,8 +223,7 @@ impl Action {
             },
             Action::PasteSelection => {
                 // Only paste if mouse events are not captured by an application
-                let mouse_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
-                if !ctx.terminal_mode().intersects(mouse_modes) {
+                if !mouse_mode {
                     Clipboard::new()
                         .and_then(|clipboard| clipboard.load_selection() )
                         .map(|contents| { self.paste(ctx, &contents) })
@@ -313,6 +312,21 @@ impl Action {
     }
 }
 
+trait RelaxedEq<T: ?Sized = Self> {
+    fn relaxed_eq(&self, other: T) -> bool;
+}
+
+impl RelaxedEq for ModifiersState {
+    // Make sure that modifiers in the config are always present,
+    // but ignore surplus modifiers.
+    fn relaxed_eq(&self, other: Self) -> bool {
+        !((self.shift && !other.shift)
+            || (self.ctrl && !other.ctrl)
+            || (self.alt && !other.alt)
+            || (self.logo && !other.logo))
+    }
+}
+
 impl From<&'static str> for Action {
     fn from(s: &'static str) -> Action {
         Action::Esc(s.into())
@@ -344,13 +358,16 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.ctx.mouse_mut().block_url_launcher = true;
         }
 
-        if self.ctx.mouse().left_button_state == ElementState::Pressed &&
-            ( modifiers.shift || !self.ctx.terminal_mode().intersects(report_mode))
+        if self.ctx.mouse().left_button_state == ElementState::Pressed
+            && (modifiers.shift || !self.ctx.terminal_mode().intersects(report_mode))
         {
-            self.ctx.update_selection(Point {
-                line: point.line,
-                col: point.col
-            }, cell_side);
+            self.ctx.update_selection(
+                Point {
+                    line: point.line,
+                    col: point.col,
+                },
+                cell_side,
+            );
         } else if self.ctx.terminal_mode().intersects(motion_mode)
             // Only report motion when changing cells
             && (prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column)
@@ -520,7 +537,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     // Spawn URL launcher when clicking on URLs
     fn launch_url(&self, modifiers: ModifiersState) -> Option<()> {
-        if !self.mouse_config.url.mods_match_relaxed(modifiers)
+        if !self.mouse_config.url.modifiers.relaxed_eq(modifiers)
             || self.ctx.mouse().block_url_launcher
         {
             return None;
@@ -711,10 +728,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     self.ctx.terminal_mode(),
                     input.modifiers,
                     &Key::Scancode(input.scancode),
+                    false,
                 ),
                 _ => if let Some(key) = input.virtual_keycode {
                     let key = Key::from_glutin_input(key);
-                    binding.is_triggered_by(self.ctx.terminal_mode(), input.modifiers, &key)
+                    binding.is_triggered_by(self.ctx.terminal_mode(), input.modifiers, &key, false)
                 } else {
                     false
                 },
@@ -722,7 +740,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
             if is_triggered {
                 // binding was triggered; run the action
-                binding.execute(&mut self.ctx);
+                binding.execute(&mut self.ctx, false);
                 has_binding = true;
             }
         }
@@ -739,9 +757,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     fn process_mouse_bindings(&mut self, mods: ModifiersState, button: MouseButton) -> bool {
         let mut has_binding = false;
         for binding in self.mouse_bindings {
-            if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &button) {
+            if binding.is_triggered_by(self.ctx.terminal_mode(), mods, &button, true) {
                 // binding was triggered; run the action
-                binding.execute(&mut self.ctx);
+                let mouse_mode = !mods.shift && self.ctx.terminal_mode().intersects(
+                    TermMode::MOUSE_REPORT_CLICK
+                    | TermMode::MOUSE_DRAG
+                    | TermMode::MOUSE_MOTION
+                );
+                binding.execute(&mut self.ctx, mouse_mode);
                 has_binding = true;
             }
         }
@@ -944,9 +967,9 @@ mod tests {
             #[test]
             fn $name() {
                 if $triggers {
-                    assert!($binding.is_triggered_by($mode, $mods, &KEY));
+                    assert!($binding.is_triggered_by($mode, $mods, &KEY, false));
                 } else {
-                    assert!(!$binding.is_triggered_by($mode, $mods, &KEY));
+                    assert!(!$binding.is_triggered_by($mode, $mods, &KEY, false));
                 }
             }
         }
