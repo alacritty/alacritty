@@ -278,16 +278,9 @@ impl<'a> RenderableCellsIter<'a> {
     }
 
     fn populate_block_cursor(&mut self) {
-        let (text_color, cursor_color) = if self.config.custom_cursor_colors() {
-            (
-                Color::Named(NamedColor::CursorText),
-                Color::Named(NamedColor::Cursor)
-            )
-        } else {
-            // Swap fg, bg
-            let cell = &self.grid[self.cursor];
-            (cell.bg, cell.fg)
-        };
+        let cell = &self.grid[self.cursor];
+        let text_color = self.config.cursor_text_color().unwrap_or(cell.bg);
+        let cursor_color = self.config.cursor_cursor_color().unwrap_or(cell.fg);
 
         let original_cell = self.grid[self.cursor];
 
@@ -305,7 +298,7 @@ impl<'a> RenderableCellsIter<'a> {
         let original_cell = self.grid[self.cursor];
 
         let mut cursor_cell = self.grid[self.cursor];
-        let cursor_color = self.text_cursor_color(&cursor_cell);
+        let cursor_color = self.config.cursor_cursor_color().unwrap_or(cursor_cell.fg);
         cursor_cell.c = cursor_cell_char;
         cursor_cell.fg = cursor_color;
 
@@ -330,15 +323,6 @@ impl<'a> RenderableCellsIter<'a> {
     #[inline]
     fn is_wide_cursor(&self, cell: &Cell) -> bool {
         cell.flags.contains(cell::Flags::WIDE_CHAR) && (self.cursor.col + 1) < self.grid.num_cols()
-    }
-
-    fn text_cursor_color(&self, cell: &Cell) -> Color {
-        if self.config.custom_cursor_colors() {
-            Color::Named(NamedColor::Cursor)
-        } else {
-            // Cursor is same color as text
-            cell.fg
-        }
     }
 
     /// Populates list of cursor cells with the original cell
