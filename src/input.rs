@@ -520,7 +520,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     // Spawn URL launcher when clicking on URLs
     fn launch_url(&self, modifiers: ModifiersState) -> Option<()> {
-        if modifiers != self.mouse_config.url.modifiers || self.ctx.mouse().block_url_launcher {
+        if !self.mouse_config.url.mods_match_relaxed(modifiers)
+            || self.ctx.mouse().block_url_launcher
+        {
             return None;
         }
 
