@@ -43,7 +43,7 @@ use std::os::unix::io::AsRawFd;
 #[cfg(windows)]
 extern crate winapi;
 #[cfg(windows)]
-use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
+use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
@@ -63,7 +63,7 @@ fn main() {
     // to the console of the parent process, so we do it explicitly. This fails
     // silently if the parent has no console.
     #[cfg(windows)]
-    unsafe {AttachConsole(ATTACH_PARENT_PROCESS);}
+    unsafe { AttachConsole(ATTACH_PARENT_PROCESS); }
 
     // Load command line options and config
     let options = cli::Options::load();
@@ -271,6 +271,10 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
 
     // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();
+
+    // Without explicitly detaching the console cmd won't redraw it's prompt
+    #[cfg(windows)]
+    unsafe { FreeConsole(); }
 
     Ok(())
 }
