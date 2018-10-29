@@ -75,6 +75,7 @@ default = []
 live-shader-reload = []
 nightly = []
 bench = []
+fontkit = ["font/fontkit"]
 
 [build-dependencies]
 gl_generator = "0.10.0"

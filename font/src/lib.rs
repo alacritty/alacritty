@@ -55,10 +55,15 @@ pub mod ft;
 #[cfg(not(any(target_os = "macos", windows)))]
 pub use ft::{Error, FreeTypeRasterizer as Rasterizer};
 
-#[cfg(windows)]
+#[cfg(all(windows, not(feature = "fontkit")))]
 pub mod rusttype;
-#[cfg(windows)]
+#[cfg(all(windows, not(feature = "fontkit")))]
 pub use crate::rusttype::{Error, RustTypeRasterizer as Rasterizer};
+
+#[cfg(feature = "fontkit")]
+pub mod fontkit;
+#[cfg(feature = "fontkit")]
+pub use fontkit::{Error, FontKitRasterizer as Rasterizer};
 
 // If target is macos, reexport everything from darwin
 #[cfg(target_os = "macos")]
@@ -327,11 +332,12 @@ impl fmt::Debug for RasterizedGlyph {
             .field("height", &self.height)
             .field("top", &self.top)
             .field("left", &self.left)
-            .field("buf", &BufDebugger(&self.buf[..]))
+            //.field("buf", &BufDebugger(&self.buf[..]))
             .finish()
     }
 }
 
+#[derive(Debug)]
 pub struct Metrics {
     pub average_advance: f64,
     pub line_height: f64,

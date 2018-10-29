@@ -5,11 +5,15 @@ authors = ["Joe Wilm <joe@jwilm.com>"]
 description = "Font rendering using the best available solution per platform"
 license = "Apache-2.0"
 
+[features]
+fontkit = ["font-kit"]
+
 [dependencies]
 euclid = "0.19.2"
 libc = "0.2"
 foreign-types = "0.3"
 log = "0.4"
+font-kit = { version = "*", optional = true }
 
 [target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]
 servo-fontconfig = "0.4.0"
