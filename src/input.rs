@@ -911,6 +911,7 @@ mod tests {
                         triple_click: ClickHandler {
                             threshold: Duration::from_millis(1000),
                         },
+                        hide_when_typing: false,
                         faux_scrollback_lines: None,
                         url: Default::default(),
                     },

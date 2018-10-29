@@ -148,9 +148,9 @@ colors:
   #
   # Colors which should be used to draw the terminal cursor. If these are unset,
   # the cursor color will be the inverse of the cell color.
-  cursor:
-    #text: '0x000000'
-    #cursor: '0xffffff'
+  #cursor:
+  #  text: '0x000000'
+  #  cursor: '0xffffff'
 
   # Normal colors
   normal:
@@ -253,6 +253,9 @@ mouse:
   double_click: { threshold: 300 }
   triple_click: { threshold: 300 }
 
+  # If this is `true`, the cursor is temporarily hidden when typing.
+  hide_when_typing: false
+
   url:
     # URL launcher
     #
@@ -280,9 +283,6 @@ cursor:
   #   - _ Underline
   #   - | Beam
   style: Block
-
-  # If this is `true`, the cursor is temporarily hidden when typing.
-  hide_when_typing: false
 
   # If this is `true`, the cursor will be rendered as a hollow box when the
   # window is not focused.

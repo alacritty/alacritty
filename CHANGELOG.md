@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `colors.cursor.text` and `colors.cursor.cursor` fields are optional now
 - Moved `cursor_style` to `cursor.style`
 - Moved `unfocused_hollow_cursor` to `cursor.unfocused_hollow`
-- Moved `hide_cursor_when_typing` to `cursor.hide_when_typing`
+- Moved `hide_cursor_when_typing` to `mouse.hide_when_typing`
 
 ### Removed
 

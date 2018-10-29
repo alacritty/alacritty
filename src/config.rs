@@ -86,6 +86,8 @@ pub struct Mouse {
     #[serde(default, deserialize_with = "failure_default")]
     pub triple_click: ClickHandler,
     #[serde(default, deserialize_with = "failure_default")]
+    pub hide_when_typing: bool,
+    #[serde(default, deserialize_with = "failure_default")]
     pub url: Url,
 
     // TODO: DEPRECATED
@@ -130,6 +132,7 @@ impl Default for Mouse {
             triple_click: ClickHandler {
                 threshold: Duration::from_millis(300),
             },
+            hide_when_typing: false,
             url: Url::default(),
             faux_scrollback_lines: None,
         }
@@ -1218,8 +1221,6 @@ fn deserialize_color_index<'a, D>(deserializer: D) -> ::std::result::Result<u8, 
 pub struct Cursor {
     #[serde(default, deserialize_with = "failure_default")]
     pub style: CursorStyle,
-    #[serde(default, deserialize_with = "failure_default")]
-    pub hide_when_typing: bool,
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
     pub unfocused_hollow: bool,
 }
@@ -1611,10 +1612,10 @@ impl Config {
         &self.env
     }
 
-    /// Should hide cursor when typing
+    /// Should hide mouse cursor when typing
     #[inline]
-    pub fn hide_cursor_when_typing(&self) -> bool {
-        self.hide_cursor_when_typing.unwrap_or(self.cursor.hide_when_typing)
+    pub fn hide_mouse_when_typing(&self) -> bool {
+        self.hide_cursor_when_typing.unwrap_or(self.mouse.hide_when_typing)
     }
 
     /// Style of the cursor
@@ -1725,7 +1726,7 @@ impl Config {
 
         if self.hide_cursor_when_typing.is_some() {
             eprintln!("{}", fmt::Yellow("Config `hide_cursor_when_typing` is deprecated. \
-                                         Please use `cursor.hide_when_typing` instead."));
+                                         Please use `mouse.hide_when_typing` instead."));
         }
 
         if self.unfocused_hollow_cursor.is_some() {
