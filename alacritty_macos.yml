@@ -10,7 +10,6 @@
   # each instance of Alacritty. If it is not present, alacritty will
   # check the local terminfo database and use 'alacritty' if it is
   # available, otherwise 'xterm-256color' is used.
-  #
   #TERM: xterm-256color
 
 window:
@@ -84,19 +83,19 @@ font:
   normal:
     family: Menlo
     # The `style` can be specified to pick a specific face.
-    # style: Regular
+    #style: Regular
 
   # Italic font face
   bold:
     family: Menlo
     # The `style` can be specified to pick a specific face.
-    # style: Bold
+    #style: Bold
 
   # Italic font face
   italic:
     family: Menlo
     # The `style` can be specified to pick a specific face.
-    # style: Italic
+    #style: Italic
 
   # Point size
   size: 12.0
@@ -147,7 +146,6 @@ colors:
     # The dimmed foreground color is calculated automatically if it is not present.
     # If the bright foreground color is not set, or `draw_bold_text_with_bright_colors`
     # is `false`, the normal foreground color will be used.
-    #
     #dim_foreground: '0x9a9a9a'
     #bright_foreground: '0xffffff'
 
@@ -198,7 +196,6 @@ colors:
   #
   # The indexed colors include all colors from 16 to 256.
   # When these are not set, they're filled with sensible defaults.
-  #
   #indexed_colors:
   #  - { index: 16, color: '0x000000' }
 
@@ -302,7 +299,6 @@ live_config_reload: true
 #
 # You can set `shell.program` to the path of your favorite shell, e.g. `/bin/fish`.
 # Entries in `shell.args` are passed unmodified as arguments to the shell.
-#
 #shell:
 #  program: /bin/bash
 #  args:
