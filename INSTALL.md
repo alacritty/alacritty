@@ -64,7 +64,7 @@ libraries to build Alacritty. Here's an apt command that should install all of
 them. If something is still found to be missing, please open an issue.
 
 ```sh
-apt-get install cmake libfreetype6-dev libfontconfig1-dev xclip
+sudo apt-get install cmake libfreetype6-dev libfontconfig1-dev xclip
 ```
 
 #### Arch Linux
