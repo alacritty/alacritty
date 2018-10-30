@@ -1,10 +1,9 @@
 use std::error::Error;
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 use std::result::Result;
 use std::os::windows::io::RawHandle;
 use std::ptr::{null, null_mut};
-use fmt::{Display, Formatter};
 
 use winpty_sys::*;
 
