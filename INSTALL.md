@@ -16,7 +16,8 @@
         10. [Solus](#solus)
         11. [NixOS/Nixpkgs](#nixosnixpkgs)
         12. [Gentoo](#gentoo)
-        13. [Other](#other)
+        13. [Windows](#windows)
+        14. [Other](#other)
 2. [Building](#building)
     1. [Linux](#linux)
         1. [Desktop Entry](#desktop-entry)
@@ -65,10 +66,6 @@ them. If something is still found to be missing, please open an issue.
 ```sh
 apt-get install cmake libfreetype6-dev libfontconfig1-dev xclip
 ```
-
-#### Windows
-
-On windows you will need to have the `{architecture}-pc-windows-msvc` toolchain installed as well as [Clang 3.9 or greater](http://releases.llvm.org/download.html).
 
 #### Arch Linux
 
@@ -166,29 +163,9 @@ dependencies on [NixOS](https://nixos.org).
 nix-shell -A alacritty '<nixpkgs>'
 ```
 
-#### Gentoo
+#### Windows
 
-On Gentoo, there's a portage overlay available. Make sure `layman` is installed
-and run:
-
-```sh
-sudo layman -a slyfox
-```
-
-Then, add `x11-terms/alacritty **` to `/etc/portage/package.accept_keywords` and
-emerge alacritty:
-
-```sh
-sudo emerge alacritty
-```
-
-It might be handy to mask all other packages provided in the `slyfox` overlay by
-adding `*/*::slyfox` to `/etc/portage/package.mask` and adding
-`x11-terms/alacritty::slyfox` to `/etc/portage/package.unmask`.
-
-Note that you still need to download system build dependencies via your package
-manager as mentioned above. The binary `alacritty` will be placed into `$HOME/.cargo/bin`.
-Make sure it is in your path (default if you use `rustup`).
+On windows you will need to have the `{architecture}-pc-windows-msvc` toolchain installed as well as [Clang 3.9 or greater](http://releases.llvm.org/download.html).
 
 #### Other
 

@@ -356,8 +356,6 @@ mod tests {
     use self::named_pipe::PipeClient;
     use self::winapi::um::processthreadsapi::OpenProcess;
     use self::winapi::um::winnt::READ_CONTROL;
-    
-    use std::ptr::null_mut;
 
     use {Config, ConfigFlags, SpawnConfig, SpawnFlags, Winpty};
 
@@ -443,6 +441,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     // Test that each id returned by cosole_process_list points to an actual process
     fn console_process_list_valid() {
         let mut winpty = Winpty::open(
@@ -470,7 +469,7 @@ mod tests {
                     *id as u32
                 )
             };
-            assert!(handle != null_mut());
+            assert!(!handle.is_null());
         });
     }
 }

@@ -8,6 +8,13 @@ description = "GPU-accelerated terminal emulator"
 readme = "README.md"
 homepage = "https://github.com/jwilm/alacritty"
 
+[workspace]
+members = [
+    "font",
+    "copypasta",
+    "winpty"
+]
+
 [[bin]]
 doc = false
 path = "src/main.rs"

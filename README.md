@@ -68,6 +68,12 @@ zypper in alacritty
 xbps-install alacritty
 ```
 
+### Gentoo Linux
+
+```sh
+emerge x11-terms/alacritty
+```
+
 ### Windows
 
 Prebuilt binaries can be downloaded from the artifacts section of [appveyor](https://ci.appveyor.com/project/jwilm/alacritty).

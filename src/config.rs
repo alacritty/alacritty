@@ -106,6 +106,17 @@ pub struct Url {
     pub modifiers: ModifiersState,
 }
 
+impl Url {
+    // Make sure that modifiers in the config are always present,
+    // but ignore surplus modifiers.
+    pub fn mods_match_relaxed(&self, mods: ModifiersState) -> bool {
+        !((self.modifiers.shift && !mods.shift)
+            || (self.modifiers.ctrl && !mods.ctrl)
+            || (self.modifiers.alt && !mods.alt)
+            || (self.modifiers.logo && !mods.logo))
+    }
+}
+
 fn deserialize_modifiers<'a, D>(deserializer: D) -> ::std::result::Result<ModifiersState, D::Error>
     where D: de::Deserializer<'a>
 {
