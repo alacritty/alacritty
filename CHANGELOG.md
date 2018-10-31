@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed erroneous results when using the `indexed_colors` config option
 - Fixed rendering cursors other than rectangular with the RustType backend
 - Selection memory leak and glitches in the alternate screen buffer
+- Invalid default configuration on macOS and Linux
 
 ## Version 0.2.1
 
