@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved `cursor_style` to `cursor.style`
 - Moved `unfocused_hollow_cursor` to `cursor.unfocused_hollow`
 - Moved `hide_cursor_when_typing` to `mouse.hide_when_typing`
+- Mouse bindings now ignore additional modifiers
 
 ### Removed
 
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed rendering cursors other than rectangular with the RustType backend
 - Selection memory leak and glitches in the alternate screen buffer
 - Invalid default configuration on macOS and Linux
+- Middle mouse pasting if mouse mode is enabled
 
 ## Version 0.2.1
 
