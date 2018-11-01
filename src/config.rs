@@ -970,7 +970,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
                     }
                 }
 
-                deserializer.deserialize_struct("Field", FIELDS, FieldVisitor)
+                deserializer.deserialize_str(FieldVisitor)
             }
         }
 
