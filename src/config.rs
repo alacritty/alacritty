@@ -1206,12 +1206,21 @@ fn deserialize_color_index<'a, D>(deserializer: D) -> ::std::result::Result<u8, 
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Deserialize)]
+#[derive(Copy, Clone, Debug, Deserialize)]
 pub struct Cursor {
     #[serde(default, deserialize_with = "failure_default")]
     pub style: CursorStyle,
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
     pub unfocused_hollow: bool,
+}
+
+impl Default for Cursor {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            unfocused_hollow: true,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
