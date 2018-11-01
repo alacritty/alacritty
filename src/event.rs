@@ -243,8 +243,8 @@ pub struct Processor<N> {
     resize_tx: mpsc::Sender<(u32, u32)>,
     ref_test: bool,
     size_info: SizeInfo,
-    hide_cursor_when_typing: bool,
-    hide_cursor: bool,
+    hide_mouse_when_typing: bool,
+    hide_mouse: bool,
     received_count: usize,
     suppress_chars: bool,
     last_modifiers: ModifiersState,
@@ -287,8 +287,8 @@ impl<N: Notify> Processor<N> {
             ref_test,
             mouse: Default::default(),
             size_info,
-            hide_cursor_when_typing: config.hide_cursor_when_typing(),
-            hide_cursor: false,
+            hide_mouse_when_typing: config.hide_mouse_when_typing(),
+            hide_mouse: false,
             received_count: 0,
             suppress_chars: false,
             last_modifiers: Default::default(),
@@ -306,7 +306,7 @@ impl<N: Notify> Processor<N> {
         event: Event,
         ref_test: bool,
         resize_tx: &mpsc::Sender<(u32, u32)>,
-        hide_cursor: &mut bool,
+        hide_mouse: &mut bool,
         window_is_focused: &mut bool,
     ) {
         match event {
@@ -347,7 +347,7 @@ impl<N: Notify> Processor<N> {
                         processor.process_key(input);
                         if input.state == ElementState::Pressed {
                             // Hide cursor while typing
-                            *hide_cursor = true;
+                            *hide_mouse = true;
                         }
                     },
                     ReceivedCharacter(c) => {
@@ -355,7 +355,7 @@ impl<N: Notify> Processor<N> {
                     },
                     MouseInput { state, button, modifiers, .. } => {
                         if !cfg!(target_os = "macos") || *window_is_focused {
-                            *hide_cursor = false;
+                            *hide_mouse = false;
                             processor.mouse_input(state, button, modifiers);
                             processor.ctx.terminal.dirty = true;
                         }
@@ -364,11 +364,11 @@ impl<N: Notify> Processor<N> {
                         let x = limit(x as i32, 0, processor.ctx.size_info.width as i32);
                         let y = limit(y as i32, 0, processor.ctx.size_info.height as i32);
 
-                        *hide_cursor = false;
+                        *hide_mouse = false;
                         processor.mouse_moved(x as usize, y as usize, modifiers);
                     },
                     MouseWheel { delta, phase, modifiers, .. } => {
-                        *hide_cursor = false;
+                        *hide_mouse = false;
                         processor.on_mouse_wheel(delta, phase, modifiers);
                     },
                     Refresh => {
@@ -382,7 +382,7 @@ impl<N: Notify> Processor<N> {
                             processor.ctx.terminal.next_is_urgent = Some(false);
                         } else {
                             processor.ctx.terminal.dirty = true;
-                            *hide_cursor = false;
+                            *hide_mouse = false;
                         }
 
                         processor.on_focus_change(is_focused);
@@ -460,10 +460,10 @@ impl<N: Notify> Processor<N> {
 
             let mut window_is_focused = window.is_focused;
 
-            // Scope needed to that hide_cursor isn't borrowed after the scope
+            // Scope needed to that hide_mouse isn't borrowed after the scope
             // ends.
             {
-                let hide_cursor = &mut self.hide_cursor;
+                let hide_mouse = &mut self.hide_mouse;
                 let mut process = |event| {
                     if print_events {
                         println!("glutin event: {:?}", event);
@@ -473,7 +473,7 @@ impl<N: Notify> Processor<N> {
                         event,
                         ref_test,
                         resize_tx,
-                        hide_cursor,
+                        hide_mouse,
                         &mut window_is_focused,
                     );
                 };
@@ -485,8 +485,8 @@ impl<N: Notify> Processor<N> {
                 window.poll_events(process);
             }
 
-            if self.hide_cursor_when_typing {
-                window.set_cursor_visible(!self.hide_cursor);
+            if self.hide_mouse_when_typing {
+                window.set_mouse_visible(!self.hide_mouse);
             }
 
             window.is_focused = window_is_focused;
