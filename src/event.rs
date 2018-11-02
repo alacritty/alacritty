@@ -58,6 +58,17 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn scroll(&mut self, scroll: Scroll) {
         self.terminal.scroll_display(scroll);
+
+        if let ElementState::Pressed = self.mouse().left_button_state {
+            let (x, y) = (self.mouse().x, self.mouse().y);
+            let size_info = self.size_info();
+            let point = size_info.pixels_to_coords(x, y);
+            let cell_side = self.mouse().cell_side;
+            self.update_selection(Point {
+                line: point.line,
+                col: point.col
+            }, cell_side);
+        }
     }
 
     fn clear_history(&mut self) {
