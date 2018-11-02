@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Selection memory leak and glitches in the alternate screen buffer
 - Invalid default configuration on macOS and Linux
 - Middle mouse pasting if mouse mode is enabled
-- Selections now properly update as you scroll the scrollback buffer while selecting.
+- Selections now properly update as you scroll the scrollback buffer while selecting
 
 ## Version 0.2.1
 
