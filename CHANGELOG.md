@@ -15,11 +15,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `mouse.url.modifiers` option to specify keyboard modifiers for opening URLs on click
 - Binaries for macOS, Windows and Debian-based Systems are now published with Github releases
 
+### Changed
+
+- The `colors.cursor.text` and `colors.cursor.cursor` fields are optional now
+- Moved `cursor_style` to `cursor.style`
+- Moved `unfocused_hollow_cursor` to `cursor.unfocused_hollow`
+- Moved `hide_cursor_when_typing` to `mouse.hide_when_typing`
+- Mouse bindings now ignore additional modifiers
+
+### Removed
+
+- The `custom_cursor_colors` config field was deleted, remove the `colors.cursor.*` options
+  to achieve the same behavior as setting it to `false`
+
 ### Fixed
 
 - Fixed erroneous results when using the `indexed_colors` config option
 - Fixed rendering cursors other than rectangular with the RustType backend
 - Selection memory leak and glitches in the alternate screen buffer
+- Invalid default configuration on macOS and Linux
+- Middle mouse pasting if mouse mode is enabled
+- Selections now properly update as you scroll the scrollback buffer while selecting
 
 ## Version 0.2.1
 

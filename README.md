@@ -74,6 +74,11 @@ xbps-install alacritty
 emerge x11-terms/alacritty
 ```
 
+### FreeBSD
+```sh
+pkg install alacritty
+```
+
 ### Windows
 
 Prebuilt binaries can be downloaded from the artifacts section of [appveyor](https://ci.appveyor.com/project/jwilm/alacritty).

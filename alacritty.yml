@@ -10,7 +10,6 @@
   # each instance of Alacritty. If it is not present, alacritty will
   # check the local terminfo database and use 'alacritty' if it is
   # available, otherwise 'xterm-256color' is used.
-  #
   #TERM: xterm-256color
 
 window:
@@ -89,19 +88,19 @@ font:
   normal:
     family: monospace
     # The `style` can be specified to pick a specific face.
-    # style: Regular
+    #style: Regular
 
   # Bold font face
   bold:
     family: monospace
     # The `style` can be specified to pick a specific face.
-    # style: Bold
+    #style: Bold
 
   # Italic font face
   italic:
     family: monospace
     # The `style` can be specified to pick a specific face.
-    # style: Italic
+    #style: Italic
 
   # Point size
   size: 11.0
@@ -128,11 +127,6 @@ font:
 # Display the time it takes to redraw each frame.
 render_timer: false
 
-# Use custom cursor colors. If `true`, the `colors.cursor.foreground` and
-# `colors.cursor.background` colors will be used to display the cursor.
-# Otherwise the cell colors are inverted for the cursor.
-custom_cursor_colors: false
-
 # If `true`, bold text is drawn using the bright color variants.
 draw_bold_text_with_bright_colors: true
 
@@ -148,16 +142,16 @@ colors:
     # The dimmed foreground color is calculated automatically if it is not present.
     # If the bright foreground color is not set, or `draw_bold_text_with_bright_colors`
     # is `false`, the normal foreground color will be used.
-    #
     #dim_foreground: '0x9a9a9a'
     #bright_foreground: '0xffffff'
 
   # Cursor colors
   #
-  # These will only be used when the `custom_cursor_colors` field is set to `true`.
-  cursor:
-    text: '0x000000'
-    cursor: '0xffffff'
+  # Colors which should be used to draw the terminal cursor. If these are unset,
+  # the cursor color will be the inverse of the cell color.
+  #cursor:
+  #  text: '0x000000'
+  #  cursor: '0xffffff'
 
   # Normal colors
   normal:
@@ -199,7 +193,6 @@ colors:
   #
   # The indexed colors include all colors from 16 to 256.
   # When these are not set, they're filled with sensible defaults.
-  #
   #indexed_colors:
   #  - { index: 16, color: '0x000000' }
 
@@ -261,6 +254,9 @@ mouse:
   double_click: { threshold: 300 }
   triple_click: { threshold: 300 }
 
+  # If this is `true`, the cursor is temporarily hidden when typing.
+  hide_when_typing: false
+
   url:
     # URL launcher
     #
@@ -284,19 +280,18 @@ selection:
 
 dynamic_title: true
 
-hide_cursor_when_typing: false
+cursor:
+  # Cursor style
+  #
+  # Values for 'style':
+  #   - ▇ Block
+  #   - _ Underline
+  #   - | Beam
+  style: Block
 
-# Cursor style
-#
-# Values for 'cursor_style':
-#   - Block
-#   - Underline
-#   - Beam
-cursor_style: Block
-
-# If this is `true`, the cursor will be rendered as a hollow box when the
-# window is not focused.
-unfocused_hollow_cursor: true
+  # If this is `true`, the cursor will be rendered as a hollow box when the
+  # window is not focused.
+  unfocused_hollow: true
 
 # Live config reload (changes require restart)
 live_config_reload: true
@@ -305,7 +300,6 @@ live_config_reload: true
 #
 # You can set `shell.program` to the path of your favorite shell, e.g. `/bin/fish`.
 # Entries in `shell.args` are passed unmodified as arguments to the shell.
-#
 #shell:
 #  program: /bin/bash
 #  args:
