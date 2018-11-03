@@ -320,10 +320,10 @@ impl RelaxedEq for ModifiersState {
     // Make sure that modifiers in the config are always present,
     // but ignore surplus modifiers.
     fn relaxed_eq(&self, other: Self) -> bool {
-        !((self.shift && !other.shift)
-            || (self.ctrl && !other.ctrl)
-            || (self.alt && !other.alt)
-            || (self.logo && !other.logo))
+        (!self.logo || other.logo)
+            && (!self.alt || other.alt)
+            && (!self.ctrl || other.ctrl)
+            && (!self.shift || other.shift)
     }
 }
 

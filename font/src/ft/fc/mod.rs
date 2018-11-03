@@ -72,7 +72,6 @@ pub fn font_match(
 }
 
 /// list fonts by closeness to the pattern
-#[allow(dead_code)]
 pub fn font_sort(
     config: &ConfigRef,
     pattern: &mut PatternRef,
@@ -104,7 +103,6 @@ pub fn font_sort(
 }
 
 /// List fonts matching pattern
-#[allow(dead_code)]
 pub fn font_list(
     config: &ConfigRef,
     pattern: &mut PatternRef,

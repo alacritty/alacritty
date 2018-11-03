@@ -127,9 +127,7 @@ impl Mul<f32> for Rgb {
 }
 
 
-#[allow(unused_mut)]
 pub mod gl {
-    #![allow(non_upper_case_globals)]
     #![cfg_attr(feature = "cargo-clippy", allow(clippy))]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
