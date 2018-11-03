@@ -20,8 +20,13 @@ cargo test -p font || error=true
 
 # Test the winpty subcrate
 if [ "$TRAVIS_OS_NAME" == "windows" ]; then
-    cp ./target/debug/winpty-agent.exe ./target/debug/deps && \
-        cargo test -p winpty || error=true
+    if [ -n "$TRAVIS_TAG" ]; then
+        mkdir -p "./target/debug/deps"
+        cp "./target/release/winpty-agent.exe" "./target/debug/deps"
+    else
+        cp "./target/debug/winpty-agent.exe" "./target/debug/deps"
+    fi
+    cargo test -p winpty || error=true
 fi
 
 if [ $error == "true" ]; then
