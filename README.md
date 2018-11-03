@@ -79,9 +79,9 @@ emerge x11-terms/alacritty
 pkg install alacritty
 ```
 
-### Windows
+### Other
 
-Prebuilt binaries can be downloaded from the artifacts section of [appveyor](https://ci.appveyor.com/project/jwilm/alacritty).
+Prebuilt binaries for Linux, macOS and Windows can be downloaded from the [github releases](https://github.com/jwilm/alacritty/releases).
 
 ## Configuration
 
