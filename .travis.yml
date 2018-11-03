@@ -1,5 +1,9 @@
 language: rust
 
+sudo: required
+services:
+  - docker
+
 git:
   depth: 1
 
