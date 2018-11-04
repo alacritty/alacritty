@@ -21,27 +21,36 @@ mkdir "./target/deploy"
 # Output binary name
 name="Alacritty-${TRAVIS_TAG}"
 
-# Create macOS binary
 if [ "$TRAVIS_OS_NAME" == "osx" ]; then
     make dmg
     mv "./target/release/osx/Alacritty.dmg" "./target/deploy/${name}.dmg"
-fi
+elif [ "$TRAVIS_OS_NAME" == "linux" ]; then
+    cargo install cargo-deb
 
-# Create Linux binaries
-if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+    # x86_64
     docker pull undeadleech/alacritty-ubuntu
     docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu \
         /root/.cargo/bin/cargo build --release --manifest-path /source/Cargo.toml
     sudo chown -R $USER:$USER "./target"
-    tar -cvzf "./target/deploy/${name}-$(uname -m).tar.gz" -C "./target/release/" "alacritty"
+    tar -cvzf "./target/deploy/${name}-x86_64.tar.gz" -C "./target/release/" "alacritty"
 
-    cargo install cargo-deb
+    # x86_64 deb
     DEB=$(cargo deb --no-build)
     mv "$DEB" "./target/deploy/${name}_amd64.deb"
-fi
 
-# Create windows binary
-if [ "$TRAVIS_OS_NAME" == "windows" ]; then
+    rm -rf "./target"
+
+    # i386
+    docker pull undeadleech/alacritty-ubuntu-i386
+    docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu \
+        /root/.cargo/bin/cargo build --release --manifest-path /source/Cargo.toml
+    sudo chown -R $USER:$USER "./target"
+    tar -cvzf "./target/deploy/${name}-i386.tar.gz" -C "./target/release/" "alacritty"
+
+    # i386 deb
+    DEB=$(cargo deb --no-build)
+    mv "$DEB" "./target/deploy/${name}_i386.deb"
+elif [ "$TRAVIS_OS_NAME" == "windows" ]; then
     mv "./target/release/alacritty.exe" "./target/deploy/${name}.exe"
     mv "./target/release/winpty-agent.exe" "./target/deploy/winpty-agent.exe"
 fi
