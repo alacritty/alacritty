@@ -347,7 +347,6 @@ macro_rules! ops {
 
         impl $ty {
             #[inline]
-            #[allow(trivial_numeric_casts)]
             fn steps_between(start: $ty, end: $ty, by: $ty) -> Option<usize> {
                 if by == $construct(0) { return None; }
                 if start < end {

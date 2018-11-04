@@ -1459,7 +1459,7 @@ impl Config {
     /// 2. $XDG_CONFIG_HOME/alacritty.yml
     /// 3. $HOME/.config/alacritty/alacritty.yml
     /// 4. $HOME/.alacritty.yml
-      #[cfg(not(windows))]
+    #[cfg(not(windows))]
     pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
         // Try using XDG location by default
         ::xdg::BaseDirectories::with_prefix("alacritty")
@@ -1489,7 +1489,7 @@ impl Config {
     }
 
     #[cfg(windows)]
-    pub fn installed_config() -> Option<Cow<'static, Path>> {
+    pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
         if let Some(mut path) = ::std::env::home_dir() {
             path.push("alacritty");
             path.set_extension("yml");
@@ -1512,7 +1512,7 @@ impl Config {
     #[cfg(windows)]
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
         let path = ::std::env::home_dir()
-            .ok_or(io::Error::new(io::ErrorKind::NotFound, "could not find profile directory"))
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "could not find profile directory"))
             .and_then(|mut p| {p.push("alacritty"); p.set_extension("yml"); Ok(p)})?;
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
         Ok(path.into())
@@ -2101,7 +2101,6 @@ mod tests {
     }
 }
 
-#[cfg_attr(feature = "cargo-clippy", allow(enum_variant_names))]
 #[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Key {
     Scancode(u32),

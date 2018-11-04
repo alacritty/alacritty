@@ -89,7 +89,6 @@ fn main() {
 /// If a configuration file is given as a command line argument we don't
 /// generate a default file. If an empty configuration file is given, i.e.
 /// /dev/null, we load the compiled-in defaults.)
-#[cfg(not(windows))]
 fn load_config(options: &cli::Options) -> Config {
     let config_path = options.config_path()
         .or_else(Config::installed_config)
@@ -101,27 +100,6 @@ fn load_config(options: &cli::Options) -> Config {
     Config::load_from(&*config_path).unwrap_or_else(|err| {
         eprintln!("Error: {}; Loading default config", err);
         Config::default()
-    })
-}
-#[cfg(windows)]
-fn load_config(options: &cli::Options) -> Config {
-    let config_path = options
-        .config_path()
-        .or_else(|| Config::installed_config())
-        .unwrap_or_else(|| {
-            Config::write_defaults()
-                .unwrap_or_else(|err| die!("Write defaults config failure: {}", err))
-        });
-
-    Config::load_from(&*config_path).unwrap_or_else(|err| match err {
-        config::Error::NotFound => {
-            die!("Config file not found after writing: {}", config_path.display());
-        }
-        config::Error::Empty => {
-            eprintln!("Empty config; Loading defaults");
-            Config::default()
-        }
-        _ => die!("{}", err),
     })
 }
 
