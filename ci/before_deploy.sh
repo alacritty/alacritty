@@ -38,7 +38,7 @@ elif [ "$TRAVIS_OS_NAME" == "linux" ]; then
     DEB=$(cargo deb --no-build)
     mv "$DEB" "./target/deploy/${name}_amd64.deb"
 
-    rm -rf "./target"
+    rm -rf "./target/release"
 
     # i386
     docker pull undeadleech/alacritty-ubuntu-i386
