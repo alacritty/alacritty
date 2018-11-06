@@ -14,14 +14,14 @@
 #[cfg(windows)]
 extern crate embed_resource;
 #[cfg(windows)]
-extern crate tempdir;
+extern crate tempfile;
 #[cfg(windows)]
 extern crate reqwest;
 #[cfg(windows)]
 extern crate zip;
 
 #[cfg(windows)]
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 extern crate gl_generator;
 

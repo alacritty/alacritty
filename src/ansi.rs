@@ -60,7 +60,7 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
 
             let r = parse_hex!();
             let val = next!();
-            if val != Some('/') { println!("val={:?}", val); return None; }
+            if val != Some('/') { return None; }
             let g = parse_hex!();
             if next!() != Some('/') { return None; }
             let b = parse_hex!();
@@ -901,7 +901,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
 
         macro_rules! unhandled {
             () => {{
-                warn!("[Unhandled CSI] action={:?}, args={:?}, intermediates={:?}",
+                debug!("[Unhandled CSI] action={:?}, args={:?}, intermediates={:?}",
                              action, args, intermediates);
                 return;
             }}
@@ -1137,7 +1137,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
     ) {
         macro_rules! unhandled {
             () => {{
-                warn!("[unhandled] esc_dispatch params={:?}, ints={:?}, byte={:?} ({:02x})",
+                debug!("[unhandled] esc_dispatch params={:?}, ints={:?}, byte={:?} ({:02x})",
                              params, intermediates, byte as char, byte);
                 return;
             }}

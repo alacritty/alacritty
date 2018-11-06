@@ -17,42 +17,96 @@
 //! The main executable is supposed to call `initialize()` exactly once during
 //! startup. All logging messages are written to stdout, given that their
 //! log-level is sufficient for the level configured in `cli::Options`.
-use log;
-use std::sync;
-use std::io;
 use cli;
+use log;
+use tempfile;
 
-pub struct Logger<T> {
+use std::fs::File;
+use std::io::{self, LineWriter, Stdout, Write};
+use std::sync::Mutex;
+
+pub struct Logger {
     level: log::LevelFilter,
-    output: sync::Mutex<T>
+    logfile: Mutex<OnDemandTempFile>,
+    stdout: Mutex<LineWriter<Stdout>>,
 }
 
-impl<T: Send + io::Write> Logger<T> {
+impl Logger {
     // False positive, see: https://github.com/rust-lang-nursery/rust-clippy/issues/734
     #[cfg_attr(feature = "cargo-clippy", allow(new_ret_no_self))]
-    pub fn new(output: T, level: log::LevelFilter) -> Logger<io::LineWriter<T>> {
+    pub fn new(level: log::LevelFilter) -> Self {
         log::set_max_level(level);
+
+        let logfile = Mutex::new(OnDemandTempFile::new("alacritty", String::from(".log")));
+
+        let stdout = Mutex::new(LineWriter::new(io::stdout()));
+
         Logger {
             level,
-            output: sync::Mutex::new(io::LineWriter::new(output))
+            logfile,
+            stdout,
         }
     }
 }
 
-impl<T: Send + io::Write> log::Log for Logger<T> {
+impl log::Log for Logger {
     fn enabled(&self, metadata: &log::Metadata) -> bool {
         metadata.level() <= self.level
     }
 
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) && record.target().starts_with("alacritty") {
-            if let Ok(ref mut writer) = self.output.lock() {
-                let _ = writer.write_all(format!("{}\n", record.args()).as_ref());
+            if let Ok(ref mut logfile) = self.logfile.lock() {
+                let _ = logfile.write_all(format!("{}\n", record.args()).as_ref());
+            }
+
+            if let Ok(ref mut stdout) = self.stdout.lock() {
+                let _ = stdout.write_all(format!("{}\n", record.args()).as_ref());
             }
         }
     }
 
     fn flush(&self) {}
+}
+
+struct OnDemandTempFile {
+    file: Option<LineWriter<File>>,
+    prefix: String,
+    suffix: String,
+}
+
+impl OnDemandTempFile {
+    fn new<T: Into<String>, J: Into<String>>(prefix: T, suffix: J) -> Self {
+        OnDemandTempFile {
+            file: None,
+            prefix: prefix.into(),
+            suffix: suffix.into(),
+        }
+    }
+
+    fn file(&mut self) -> Result<&mut LineWriter<File>, io::Error> {
+        if self.file.is_none() {
+            let file = tempfile::Builder::new()
+                .prefix(&self.prefix)
+                .suffix(&self.suffix)
+                .tempfile()?;
+            let path = file.path().to_owned();
+            self.file = Some(io::LineWriter::new(file.persist(&path)?));
+            println!("Created log file at {:?}", path);
+        }
+
+        Ok(self.file.as_mut().unwrap())
+    }
+}
+
+impl Write for OnDemandTempFile {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
+        self.file()?.write(buf)
+    }
+
+    fn flush(&mut self) -> Result<(), io::Error> {
+        self.file()?.flush()
+    }
 }
 
 pub fn initialize(options: &cli::Options) -> Result<(), log::SetLoggerError> {
@@ -61,6 +115,6 @@ pub fn initialize(options: &cli::Options) -> Result<(), log::SetLoggerError> {
     if ::std::env::var("RUST_LOG").is_ok() {
         ::env_logger::try_init()
     } else {
-        log::set_boxed_logger(Box::new(Logger::new(io::stdout(), options.log_level)))
+        log::set_boxed_logger(Box::new(Logger::new(options.log_level)))
     }
 }

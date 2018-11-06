@@ -65,8 +65,13 @@ fn main() {
     #[cfg(windows)]
     unsafe { AttachConsole(ATTACH_PARENT_PROCESS); }
 
-    // Load command line options and config
+    // Load command line options
     let options = cli::Options::load();
+
+    // Initialize the logger as soon as possible as to capture output from other subsystems
+    logging::initialize(&options).expect("Unable to initialize logger");
+
+    // Load configuration file
     let config = load_config(&options).update_dynamic_title(&options);
 
     // Switch to home directory
@@ -98,7 +103,7 @@ fn load_config(options: &cli::Options) -> Config {
         });
 
     Config::load_from(&*config_path).unwrap_or_else(|err| {
-        eprintln!("Error: {}; Loading default config", err);
+        error!("Error: {}; Loading default config", err);
         Config::default()
     })
 }
@@ -108,9 +113,6 @@ fn load_config(options: &cli::Options) -> Config {
 /// Creates a window, the terminal state, pty, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
 fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
-    // Initialize the logger first as to capture output from other subsystems
-    logging::initialize(options)?;
-
     info!("Welcome to Alacritty.");
     if let Some(config_path) = config.path() {
         info!("Configuration loaded from {}", config_path.display());
