@@ -28,6 +28,7 @@ use renderer::{self, GlyphCache, QuadRenderer};
 use term::{Term, SizeInfo, RenderableCell};
 use sync::FairMutex;
 use window::{self, Window};
+use logging;
 use Rgb;
 
 #[derive(Debug)]
@@ -396,10 +397,32 @@ impl Display {
                     g: 0x4e,
                     b: 0x53,
                 };
-                self.renderer
-                    .with_api(config, &size_info, visual_bell_intensity, |mut api| {
-                        api.render_string(&timing[..], glyph_cache, color);
-                    });
+                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                    api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, color);
+                });
+            }
+
+            // Display errors and warnings
+            if logging::errors() {
+                let msg = " ERROR: Full log at /tmp/alacritty-todo.log ";
+                let color = Rgb {
+                    r: 0xff,
+                    g: 0x00,
+                    b: 0x00
+                };
+                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                    api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
+                });
+            } else if logging::warnings() {
+                let msg = " WARNING: Full log at /tmp/alacritty-todo.log ";
+                let color = Rgb {
+                    r: 0xff,
+                    g: 0xff,
+                    b: 0x00
+                };
+                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                    api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
+                });
             }
         }
 

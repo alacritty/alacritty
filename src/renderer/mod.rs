@@ -819,10 +819,16 @@ impl<'a> RenderApi<'a> {
 
         self.batch.clear();
     }
-    /// Render a string in a predefined location. Used for printing render time for profiling and
-    /// optimization.
-    pub fn render_string(&mut self, string: &str, glyph_cache: &mut GlyphCache, color: Rgb) {
-        let line = Line(23);
+
+    /// Render a string in a variable location. Used for printing the render timer, warnings and
+    /// errors.
+    pub fn render_string(
+        &mut self,
+        string: &str,
+        line: Line,
+        glyph_cache: &mut GlyphCache,
+        color: Rgb
+    ) {
         let col = Column(0);
 
         let cells = string
