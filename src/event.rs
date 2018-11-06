@@ -488,7 +488,7 @@ impl<N: Notify> Processor<N> {
                 let hide_mouse = &mut self.hide_mouse;
                 let mut process = |event| {
                     if print_events {
-                        println!("glutin event: {:?}", event);
+                        info!("glutin event: {:?}", event);
                     }
                     Processor::handle_event(
                         &mut processor,

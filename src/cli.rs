@@ -147,8 +147,8 @@ impl Options {
         }
 
         match matches.occurrences_of("v") {
-            0 => {},
-            1 => options.log_level = log::LevelFilter::Info,
+            0 if !options.print_events => {},
+            0 | 1 => options.log_level = log::LevelFilter::Info,
             2 => options.log_level = log::LevelFilter::Debug,
             3 | _ => options.log_level = log::LevelFilter::Trace
         }
