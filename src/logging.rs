@@ -18,12 +18,42 @@
 //! startup. All logging messages are written to stdout, given that their
 //! log-level is sufficient for the level configured in `cli::Options`.
 use cli;
-use log;
+use log::{self, Level};
 use tempfile;
 
 use std::fs::File;
 use std::io::{self, LineWriter, Stdout, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+
+static ERRORS: AtomicBool = AtomicBool::new(false);
+static WARNINGS: AtomicBool = AtomicBool::new(false);
+
+pub fn initialize(options: &cli::Options) -> Result<(), log::SetLoggerError> {
+    // Use env_logger if RUST_LOG environment variable is defined. Otherwise,
+    // use the alacritty-only logger.
+    if ::std::env::var("RUST_LOG").is_ok() {
+        ::env_logger::try_init()
+    } else {
+        log::set_boxed_logger(Box::new(Logger::new(options.log_level)))
+    }
+}
+
+pub fn warnings() -> bool {
+    WARNINGS.load(Ordering::Relaxed)
+}
+
+pub fn errors() -> bool {
+    ERRORS.load(Ordering::Relaxed)
+}
+
+pub fn clear_errors() {
+    ERRORS.store(false, Ordering::Relaxed);
+}
+
+pub fn clear_warnings() {
+    WARNINGS.store(false, Ordering::Relaxed);
+}
 
 pub struct Logger {
     level: log::LevelFilter,
@@ -62,6 +92,12 @@ impl log::Log for Logger {
 
             if let Ok(ref mut stdout) = self.stdout.lock() {
                 let _ = stdout.write_all(format!("{}\n", record.args()).as_ref());
+            }
+
+            match record.level() {
+                Level::Error => ERRORS.store(true, Ordering::Relaxed),
+                Level::Warn => WARNINGS.store(true, Ordering::Relaxed),
+                _ => (),
             }
         }
     }
@@ -106,15 +142,5 @@ impl Write for OnDemandTempFile {
 
     fn flush(&mut self) -> Result<(), io::Error> {
         self.file()?.flush()
-    }
-}
-
-pub fn initialize(options: &cli::Options) -> Result<(), log::SetLoggerError> {
-    // Use env_logger if RUST_LOG environment variable is defined. Otherwise,
-    // use the alacritty-only logger.
-    if ::std::env::var("RUST_LOG").is_ok() {
-        ::env_logger::try_init()
-    } else {
-        log::set_boxed_logger(Box::new(Logger::new(options.log_level)))
     }
 }

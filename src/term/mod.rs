@@ -31,6 +31,7 @@ use config::{Config, VisualBellAnimation};
 use {MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
 use input::FONT_SIZE_STEP;
+use logging;
 
 pub mod cell;
 pub mod color;
@@ -1822,6 +1823,10 @@ impl ansi::Handler for Term {
                 }
             },
             ansi::ClearMode::All => {
+                // Clear errors and warnings
+                logging::clear_errors();
+                logging::clear_warnings();
+
                 self.grid.region_mut(..).each(|c| c.reset(&template));
             },
             ansi::ClearMode::Above => {

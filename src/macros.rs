@@ -19,13 +19,3 @@ macro_rules! die {
         ::std::process::exit(1);
     }}
 }
-
-#[macro_export]
-macro_rules! maybe {
-    ($option:expr) => {
-        match $option {
-            Some(value) => value,
-            None => return None,
-        }
-    }
-}
