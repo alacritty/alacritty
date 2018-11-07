@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `mouse.url.modifiers` option to specify keyboard modifiers for opening URLs on click
 - Binaries for macOS, Windows and Debian-based systems are now published with GitHub releases
 - The keys F16-F24 have been added as options for key bindings
+- Display notice about errors and warnings inside Alacritty
 
 ### Changed
 
