@@ -8,12 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add support for windows
+- Add support for Windows
 - Add terminfo capabilities advertising support for changing the window title
 - Allow using scancodes in the key_bindings section
 - When `mouse.url.launcher` is set, clicking on URLs will now open them with the specified program
 - New `mouse.url.modifiers` option to specify keyboard modifiers for opening URLs on click
-- Binaries for macOS, Windows and Debian-based Systems are now published with Github releases
+- Binaries for macOS, Windows and Debian-based systems are now published with GitHub releases
 
 ### Changed
 
