@@ -31,7 +31,7 @@ use config::{Config, VisualBellAnimation};
 use {MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
 use input::FONT_SIZE_STEP;
-use logging;
+use logging::LoggerProxy;
 
 pub mod cell;
 pub mod color;
@@ -811,6 +811,9 @@ pub struct Term {
 
     /// Automatically scroll to bottom when new lines are added
     auto_scroll: bool,
+
+    /// Proxy object for clearing displayed errors and warnings
+    logger_proxy: LoggerProxy,
 }
 
 /// Terminal size info
@@ -893,7 +896,7 @@ impl Term {
         self.next_mouse_cursor.take()
     }
 
-    pub fn new(config: &Config, size: SizeInfo) -> Term {
+    pub fn new(config: &Config, size: SizeInfo, logger_proxy: LoggerProxy) -> Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
@@ -937,6 +940,7 @@ impl Term {
             dynamic_title: config.dynamic_title(),
             tabspaces,
             auto_scroll: config.scrolling().auto_scroll,
+            logger_proxy,
         }
     }
 
@@ -1823,9 +1827,8 @@ impl ansi::Handler for Term {
                 }
             },
             ansi::ClearMode::All => {
-                // Clear errors and warnings
-                logging::clear_errors();
-                logging::clear_warnings();
+                // Clear displayed errors and warnings
+                self.logger_proxy.clear();
 
                 self.grid.region_mut(..).each(|c| c.reset(&template));
             },

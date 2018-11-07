@@ -52,7 +52,7 @@ use alacritty::event;
 use alacritty::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
 use alacritty::locale;
-use alacritty::logging;
+use alacritty::logging::{self, LoggerProxy};
 use alacritty::sync::FairMutex;
 use alacritty::term::Term;
 use alacritty::tty::{self, process_should_exit};
@@ -69,7 +69,7 @@ fn main() {
     let options = cli::Options::load();
 
     // Initialize the logger as soon as possible as to capture output from other subsystems
-    logging::initialize(&options).expect("Unable to initialize logger");
+    let logger_proxy = logging::initialize(&options).expect("Unable to initialize logger");
 
     // Load configuration file
     let config = load_config(&options).update_dynamic_title(&options);
@@ -82,7 +82,7 @@ fn main() {
     locale::set_locale_environment();
 
     // Run alacritty
-    if let Err(err) = run(config, &options) {
+    if let Err(err) = run(config, &options, logger_proxy) {
         die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
     }
 
@@ -112,7 +112,11 @@ fn load_config(options: &cli::Options) -> Config {
 ///
 /// Creates a window, the terminal state, pty, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
+fn run(
+    mut config: Config,
+    options: &cli::Options,
+    logger_proxy: LoggerProxy,
+) -> Result<(), Box<Error>> {
     info!("Welcome to Alacritty.");
     if let Some(config_path) = config.path() {
         info!("Configuration loaded from {}", config_path.display());
@@ -121,7 +125,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // Create a display.
     //
     // The display manages a window and can draw the terminal
-    let mut display = Display::new(&config, options)?;
+    let mut display = Display::new(&config, options, logger_proxy.clone())?;
 
     info!(
         "PTY Dimensions: {:?} x {:?}",
@@ -134,7 +138,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let terminal = Term::new(&config, display.size().to_owned());
+    let terminal = Term::new(&config, display.size().to_owned(), logger_proxy);
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Find the window ID for setting $WINDOWID

@@ -19,55 +19,82 @@
 //! log-level is sufficient for the level configured in `cli::Options`.
 use cli;
 use log::{self, Level};
-use tempfile;
 
-use std::fs::File;
+use std::borrow::Cow;
+use std::env;
+use std::fs::{File, OpenOptions};
 use std::io::{self, LineWriter, Stdout, Write};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-static ERRORS: AtomicBool = AtomicBool::new(false);
-static WARNINGS: AtomicBool = AtomicBool::new(false);
+const LOG_FILE_NAME: &'static str = "Alacritty.log";
 
-pub fn initialize(options: &cli::Options) -> Result<(), log::SetLoggerError> {
+pub fn initialize(options: &cli::Options) -> Result<LoggerProxy, log::SetLoggerError> {
     // Use env_logger if RUST_LOG environment variable is defined. Otherwise,
     // use the alacritty-only logger.
     if ::std::env::var("RUST_LOG").is_ok() {
-        ::env_logger::try_init()
+        ::env_logger::try_init()?;
+        Ok(LoggerProxy::default())
     } else {
-        log::set_boxed_logger(Box::new(Logger::new(options.log_level)))
+        let logger = Logger::new(options.log_level);
+        let proxy = logger.proxy();
+
+        log::set_boxed_logger(Box::new(logger))?;
+
+        Ok(proxy)
     }
 }
 
-pub fn warnings() -> bool {
-    WARNINGS.load(Ordering::Relaxed)
+/// Proxy object for bidirectional communicating with the global logger.
+#[derive(Clone, Default)]
+pub struct LoggerProxy {
+    errors: Arc<AtomicBool>,
+    warnings: Arc<AtomicBool>,
+    log_path: String,
 }
 
-pub fn errors() -> bool {
-    ERRORS.load(Ordering::Relaxed)
+impl LoggerProxy {
+    /// Check for new logged errors.
+    pub fn errors(&self) -> bool {
+        self.errors.load(Ordering::Relaxed)
+    }
+
+    /// Check for new logged warnings.
+    pub fn warnings(&self) -> bool {
+        self.warnings.load(Ordering::Relaxed)
+    }
+
+    /// Get the path of the log file.
+    pub fn log_path(&self) -> &str {
+        &self.log_path
+    }
+
+    /// Clear log warnings/errors from the Alacritty UI.
+    pub fn clear(&mut self) {
+        self.errors.store(false, Ordering::Relaxed);
+        self.warnings.store(false, Ordering::Relaxed);
+    }
 }
 
-pub fn clear_errors() {
-    ERRORS.store(false, Ordering::Relaxed);
-}
-
-pub fn clear_warnings() {
-    WARNINGS.store(false, Ordering::Relaxed);
-}
-
-pub struct Logger {
+struct Logger {
     level: log::LevelFilter,
-    logfile: Mutex<OnDemandTempFile>,
+    logfile: Mutex<OnDemandLogFile>,
     stdout: Mutex<LineWriter<Stdout>>,
+    errors: Arc<AtomicBool>,
+    warnings: Arc<AtomicBool>,
+    log_path: String,
 }
 
 impl Logger {
     // False positive, see: https://github.com/rust-lang-nursery/rust-clippy/issues/734
     #[cfg_attr(feature = "cargo-clippy", allow(new_ret_no_self))]
-    pub fn new(level: log::LevelFilter) -> Self {
+    fn new(level: log::LevelFilter) -> Self {
         log::set_max_level(level);
 
-        let logfile = Mutex::new(OnDemandTempFile::new("alacritty", String::from(".log")));
+        let logfile = OnDemandLogFile::new();
+        let log_path = logfile.path().to_string();
+        let logfile = Mutex::new(logfile);
 
         let stdout = Mutex::new(LineWriter::new(io::stdout()));
 
@@ -75,6 +102,17 @@ impl Logger {
             level,
             logfile,
             stdout,
+            log_path,
+            errors: Arc::new(AtomicBool::new(false)),
+            warnings: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    fn proxy(&self) -> LoggerProxy {
+        LoggerProxy {
+            errors: self.errors.clone(),
+            warnings: self.warnings.clone(),
+            log_path: self.log_path.clone(),
         }
     }
 }
@@ -95,8 +133,8 @@ impl log::Log for Logger {
             }
 
             match record.level() {
-                Level::Error => ERRORS.store(true, Ordering::Relaxed),
-                Level::Warn => WARNINGS.store(true, Ordering::Relaxed),
+                Level::Error => self.errors.store(true, Ordering::Relaxed),
+                Level::Warn => self.warnings.store(true, Ordering::Relaxed),
                 _ => (),
             }
         }
@@ -105,37 +143,38 @@ impl log::Log for Logger {
     fn flush(&self) {}
 }
 
-struct OnDemandTempFile {
+struct OnDemandLogFile {
     file: Option<LineWriter<File>>,
-    prefix: String,
-    suffix: String,
+    path: PathBuf,
 }
 
-impl OnDemandTempFile {
-    fn new<T: Into<String>, J: Into<String>>(prefix: T, suffix: J) -> Self {
-        OnDemandTempFile {
-            file: None,
-            prefix: prefix.into(),
-            suffix: suffix.into(),
-        }
+impl OnDemandLogFile {
+    fn new() -> Self {
+        let mut path = env::temp_dir();
+        path.push(LOG_FILE_NAME);
+
+        OnDemandLogFile { file: None, path }
     }
 
     fn file(&mut self) -> Result<&mut LineWriter<File>, io::Error> {
         if self.file.is_none() {
-            let file = tempfile::Builder::new()
-                .prefix(&self.prefix)
-                .suffix(&self.suffix)
-                .tempfile()?;
-            let path = file.path().to_owned();
-            self.file = Some(io::LineWriter::new(file.persist(&path)?));
-            println!("Created log file at {:?}", path);
+            let file = OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(&self.path)?;
+            self.file = Some(io::LineWriter::new(file));
+            println!("Created log file at {:?}", self.path);
         }
 
         Ok(self.file.as_mut().unwrap())
     }
+
+    fn path(&self) -> Cow<str> {
+        self.path.to_string_lossy()
+    }
 }
 
-impl Write for OnDemandTempFile {
+impl Write for OnDemandLogFile {
     fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
         self.file()?.write(buf)
     }
