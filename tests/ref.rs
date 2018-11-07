@@ -90,7 +90,7 @@ fn ref_test(dir: &Path) {
     let mut config: Config = Default::default();
     config.set_history(ref_config.history_size);
 
-    let mut terminal = Term::new(&config, size);
+    let mut terminal = Term::new(&config, size, None);
     let mut parser = ansi::Processor::new();
 
     for byte in recording {

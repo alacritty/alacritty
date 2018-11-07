@@ -138,7 +138,7 @@ fn run(
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let terminal = Term::new(&config, display.size().to_owned(), logger_proxy);
+    let terminal = Term::new(&config, display.size().to_owned(), Some(logger_proxy));
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Find the window ID for setting $WINDOWID
