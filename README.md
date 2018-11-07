@@ -24,7 +24,7 @@ The software is considered to be at an **alpha** level of readiness--there are
 missing features and bugs to be fixed, but it is already used by many as a daily
 driver.
 
-Precompiled binaries are available from the [GitHub release page](https://github.com/jwilm/alacritty/releases).
+Precompiled binaries are available from the [GitHub releases page](https://github.com/jwilm/alacritty/releases).
 
 ## Further information
 
@@ -80,7 +80,7 @@ pkg install alacritty
 
 ### Other
 
-Prebuilt binaries for Linux, macOS, and Windows can be downloaded from the [GitHub release page](https://github.com/jwilm/alacritty/releases).
+Prebuilt binaries for Linux, macOS, and Windows can be downloaded from the [GitHub releases page](https://github.com/jwilm/alacritty/releases).
 
 ## Configuration
 
