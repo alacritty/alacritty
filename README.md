@@ -6,7 +6,7 @@ Alacritty
 
 Alacritty is the fastest terminal emulator in existence. Using the GPU for
 rendering enables optimizations that simply aren't possible in other emulators.
-Alacritty currently supports macOS and Linux, and Windows.
+Alacritty currently supports macOS, Linux, and Windows.
 
 <p align="center">
   <img width="600" alt="Alacritty running vim inside tmux" src="https://cloud.githubusercontent.com/assets/4285147/21585004/2ebd0288-d06c-11e6-95d3-4a2889dbbd6f.png">
@@ -24,20 +24,18 @@ The software is considered to be at an **alpha** level of readiness--there are
 missing features and bugs to be fixed, but it is already used by many as a daily
 driver.
 
-Precompiled binaries are available for Windows through [appveyor](https://ci.appveyor.com/project/jwilm/alacritty).
-Precompiled binaries for other platforms are minimally blocked on a stable config format. For now, Alacritty must be
-built from source.
+Precompiled binaries are available from the [GitHub release page](https://github.com/jwilm/alacritty/releases).
 
 ## Further information
 
-- [Announcing Alacritty, a GPU-Accelerated Terminal Emulator](http://jwilm.io/blog/announcing-alacritty/) January 6, 2017
+- [Announcing Alacritty, a GPU-Accelerated Terminal Emulator](https://jwilm.io/blog/announcing-alacritty/) January 6, 2017
 - [A short talk about Alacritty at the Rust Meetup January 2017](https://air.mozilla.org/rust-meetup-january-2017/) (starts at 57:00)
 - [Alacritty Lands Scrollback, Publishes Benchmarks](https://jwilm.io/blog/alacritty-lands-scrollback/) September 17, 2018
 
 ## Installation
 
 Some operating systems already provide binaries for Alacritty, for everyone else the instructions
-to build Alacritty from source, can be found [here](INSTALL.md).
+to build Alacritty from source can be found [here](INSTALL.md).
 
 ### Arch Linux
 
@@ -56,7 +54,7 @@ cargo install cargo-deb
 cargo deb --install
 ```
 
-### openSUSE Tumbleweed Linux
+### openSUSE Tumbleweed
 
 ```sh
 zypper in alacritty
@@ -75,19 +73,20 @@ emerge x11-terms/alacritty
 ```
 
 ### FreeBSD
+
 ```sh
 pkg install alacritty
 ```
 
 ### Other
 
-Prebuilt binaries for Linux, macOS and Windows can be downloaded from the [github releases](https://github.com/jwilm/alacritty/releases).
+Prebuilt binaries for Linux, macOS, and Windows can be downloaded from the [GitHub release page](https://github.com/jwilm/alacritty/releases).
 
 ## Configuration
 
 Although it's possible the default configuration would work on your system,
 you'll probably end up wanting to customize it anyhow. There is a default
-`alacritty.yml`, `alacritty_macos.yml`, and `alacritty_windows.yml` at the git repository root.
+`alacritty.yml`, `alacritty_macos.yml`, and `alacritty_windows.yml` at the Git repository root.
 Alacritty looks for the configuration file as the following paths:
 
 1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
@@ -96,7 +95,7 @@ Alacritty looks for the configuration file as the following paths:
 4. `$HOME/.alacritty.yml`
 
 If none of these paths are found then
-`$XDG_CONFIG_HOME/alacritty/alacritty.yml` is created once alacritty is first
+`$XDG_CONFIG_HOME/alacritty/alacritty.yml` is created once Alacritty is first
 run. On most systems this often defaults to
 `$HOME/.config/alacritty/alacritty.yml`.
 
@@ -107,11 +106,11 @@ file, please consult the comments in the default config file.
 
 ### Windows
 
-On windows the config file is located at:
+On Windows the config file is located at:
 
 `%UserProfile%\alacritty.yml`
 
-## Issues (known, unknown, feature requests, etc)
+## Issues (known, unknown, feature requests, etc.)
 
 If you run into a problem with Alacritty, please file an issue. If you've got a
 feature request, feel free to ask about it. Keep in mind that Alacritty is very
@@ -123,7 +122,7 @@ Just Works.
 
 **_Is it really the fastest terminal emulator?_**
 
-In the terminals I've benchmarked against, alacritty is either faster, WAY
+In the terminals I've benchmarked against, Alacritty is either faster, WAY
 faster, or at least neutral. There are no benchmarks in which I've found
 Alacritty to be slower.
 
