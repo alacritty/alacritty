@@ -184,7 +184,7 @@ impl OnDemandLogFile {
                     let _ = writeln!(io::stdout(), "Created log file at {:?}", self.path);
                 }
                 Err(e) => {
-                    let _ = writeln!(io::stdout(), "Unable to create log file: {:?}", e);
+                    let _ = writeln!(io::stdout(), "Unable to create log file: {}", e);
                     return Err(e);
                 }
             }
