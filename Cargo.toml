@@ -54,7 +54,6 @@ url = "1.7.1"
 x11-dl = "2"
 
 [target.'cfg(windows)'.dependencies]
-tempfile = "3.0.4"
 winpty = { path = "./winpty" }
 mio-named-pipes = "0.1"
 winapi = { version = "0.3.5", features = ["winuser", "synchapi", "roerrorapi", "winerror"]}
@@ -76,6 +75,7 @@ gl_generator = "0.9"
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "1.1.4"
+tempfile = "3.0.4"
 reqwest = "0.8"
 zip = "0.4"
 

@@ -410,7 +410,10 @@ impl Display {
 
             // Display errors and warnings
             if self.logger_proxy.errors() {
-                let msg = format!(" ERROR: Full log at {} ", self.logger_proxy.log_path());
+                let msg = match self.logger_proxy.log_path() {
+                    Some(path) => format!(" ERROR: Full log at {} ", path),
+                    None => " ERROR: Full log in stderr ".into(),
+                };
                 let color = Rgb {
                     r: 0xff,
                     g: 0x00,
@@ -420,7 +423,10 @@ impl Display {
                     api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
                 });
             } else if self.logger_proxy.warnings() {
-                let msg = format!(" WARNING: Full log at {} ", self.logger_proxy.log_path());
+                let msg = match self.logger_proxy.log_path() {
+                    Some(path) => format!(" WARNING: Full log at {} ", path),
+                    None => " WARNING: Full log in stderr ".into(),
+                };
                 let color = Rgb {
                     r: 0xff,
                     g: 0xff,

@@ -2447,7 +2447,7 @@ mod benches {
 
         let config = Config::default();
 
-        let mut terminal = Term::new(&config, size);
+        let mut terminal = Term::new(&config, size, None);
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {
