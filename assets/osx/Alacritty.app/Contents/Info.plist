@@ -34,5 +34,23 @@
   <string>Alacritty</string>
   <key>NSRequiresAquaSystemAppearance</key>
   <string>NO</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>An application in alacritty wants to use AppleScript.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>An application in alacritty wants to use Calendar data.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>An application in alacritty wants to use the camera.</string>
+    <key>NSContactsUsageDescription</key>
+    <string>An application in alacritty wants to use your contacts.</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>An application in alacritty wants to use your location information, even in the background.</string>
+    <key>NSLocationUsageDescription</key>
+    <string>An application in alacritty wants to use your location information.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>An application in alacritty wants to use your location information while active.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>An application in alacritty wants to use your microphone.</string>
+    <key>NSRemindersUsageDescription</key>
+    <string>An application in alacritty wants to use your reminders.</string>
 </dict>
 </plist>
