@@ -20,15 +20,13 @@
 use cli;
 use log::{self, Level};
 
-use std::borrow::Cow;
 use std::env;
 use std::fs::{File, OpenOptions};
 use std::io::{self, LineWriter, Stdout, Write};
 use std::path::PathBuf;
+use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-
-const LOG_FILE_NAME: &'static str = "Alacritty.log";
 
 pub fn initialize(options: &cli::Options) -> Result<LoggerProxy, log::SetLoggerError> {
     // Use env_logger if RUST_LOG environment variable is defined. Otherwise,
@@ -51,7 +49,7 @@ pub fn initialize(options: &cli::Options) -> Result<LoggerProxy, log::SetLoggerE
 pub struct LoggerProxy {
     errors: Arc<AtomicBool>,
     warnings: Arc<AtomicBool>,
-    log_path: String,
+    logfile_proxy: OnDemandLogFileProxy,
 }
 
 impl LoggerProxy {
@@ -65,9 +63,13 @@ impl LoggerProxy {
         self.warnings.load(Ordering::Relaxed)
     }
 
-    /// Get the path of the log file.
-    pub fn log_path(&self) -> &str {
-        &self.log_path
+    /// Get the path of the log file if it has been created.
+    pub fn log_path(&self) -> Option<&str> {
+        if self.logfile_proxy.created.load(Ordering::Relaxed) {
+            Some(&self.logfile_proxy.path)
+        } else {
+            None
+        }
     }
 
     /// Clear log warnings/errors from the Alacritty UI.
@@ -83,7 +85,6 @@ struct Logger {
     stdout: Mutex<LineWriter<Stdout>>,
     errors: Arc<AtomicBool>,
     warnings: Arc<AtomicBool>,
-    log_path: String,
 }
 
 impl Logger {
@@ -92,17 +93,13 @@ impl Logger {
     fn new(level: log::LevelFilter) -> Self {
         log::set_max_level(level);
 
-        let logfile = OnDemandLogFile::new();
-        let log_path = logfile.path().to_string();
-        let logfile = Mutex::new(logfile);
-
+        let logfile = Mutex::new(OnDemandLogFile::new());
         let stdout = Mutex::new(LineWriter::new(io::stdout()));
 
         Logger {
             level,
             logfile,
             stdout,
-            log_path,
             errors: Arc::new(AtomicBool::new(false)),
             warnings: Arc::new(AtomicBool::new(false)),
         }
@@ -112,7 +109,7 @@ impl Logger {
         LoggerProxy {
             errors: self.errors.clone(),
             warnings: self.warnings.clone(),
-            log_path: self.log_path.clone(),
+            logfile_proxy: self.logfile.lock().expect("").proxy(),
         }
     }
 }
@@ -143,34 +140,64 @@ impl log::Log for Logger {
     fn flush(&self) {}
 }
 
+#[derive(Clone, Default)]
+struct OnDemandLogFileProxy {
+    created: Arc<AtomicBool>,
+    path: String,
+}
+
 struct OnDemandLogFile {
     file: Option<LineWriter<File>>,
+    created: Arc<AtomicBool>,
     path: PathBuf,
 }
 
 impl OnDemandLogFile {
     fn new() -> Self {
         let mut path = env::temp_dir();
-        path.push(LOG_FILE_NAME);
+        path.push(format!("Alacritty-{}.log", process::id()));
 
-        OnDemandLogFile { file: None, path }
+        OnDemandLogFile {
+            path,
+            file: None,
+            created: Arc::new(AtomicBool::new(false)),
+        }
     }
 
     fn file(&mut self) -> Result<&mut LineWriter<File>, io::Error> {
+        // Allow to recreate the file if it has been deleted at runtime
+        if self.file.is_some() && !self.path.as_path().exists() {
+            self.file = None;
+        }
+
+        // Create the file if it doesn't exist yet
         if self.file.is_none() {
             let file = OpenOptions::new()
                 .append(true)
                 .create(true)
-                .open(&self.path)?;
-            self.file = Some(io::LineWriter::new(file));
-            println!("Created log file at {:?}", self.path);
+                .open(&self.path);
+
+            match file {
+                Ok(file) => {
+                    self.file = Some(io::LineWriter::new(file));
+                    self.created.store(true, Ordering::Relaxed);
+                    let _ = writeln!(io::stdout(), "Created log file at {:?}", self.path);
+                }
+                Err(e) => {
+                    let _ = writeln!(io::stdout(), "Unable to create log file: {:?}", e);
+                    return Err(e);
+                }
+            }
         }
 
         Ok(self.file.as_mut().unwrap())
     }
 
-    fn path(&self) -> Cow<str> {
-        self.path.to_string_lossy()
+    fn proxy(&self) -> OnDemandLogFileProxy {
+        OnDemandLogFileProxy {
+            created: self.created.clone(),
+            path: self.path.to_string_lossy().to_string(),
+        }
     }
 }
 
