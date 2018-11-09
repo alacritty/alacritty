@@ -19,6 +19,7 @@
 //! log-level is sufficient for the level configured in `cli::Options`.
 use cli;
 use log::{self, Level};
+use time;
 
 use std::env;
 use std::fs::{File, OpenOptions};
@@ -121,12 +122,19 @@ impl log::Log for Logger {
 
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) && record.target().starts_with("alacritty") {
+            let msg = format!(
+                "[{}] [{}] {}\n",
+                time::now().strftime("%F %R").unwrap(),
+                record.level(),
+                record.args()
+            );
+
             if let Ok(ref mut logfile) = self.logfile.lock() {
-                let _ = logfile.write_all(format!("{}\n", record.args()).as_ref());
+                let _ = logfile.write_all(msg.as_ref());
             }
 
             if let Ok(ref mut stdout) = self.stdout.lock() {
-                let _ = stdout.write_all(format!("{}\n", record.args()).as_ref());
+                let _ = stdout.write_all(msg.as_ref());
             }
 
             match record.level() {
