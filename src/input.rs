@@ -764,7 +764,7 @@ mod tests {
     use crate::term::{SizeInfo, Term, TermMode};
     use crate::event::{Mouse, ClickState, WindowChanges};
     use crate::config::{self, Config, ClickHandler};
-    use crate::index::{Point, Side};
+    use crate::index::{Line, Point, Side};
     use crate::selection::Selection;
     use crate::grid::Scroll;
 
@@ -844,7 +844,7 @@ mod tests {
             self.mouse
         }
 
-        fn url(&self, _: Point<usize>) -> Option<String> {
+        fn url(&self, _: Point<Line>) -> Option<String> {
             None
         }
 

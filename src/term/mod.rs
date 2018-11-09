@@ -101,8 +101,7 @@ impl Search for Term {
         let num_cols = self.grid.num_cols().0;
         let content = self.to_string();
         let links = linkify::LinkFinder::new().links(&content);
-        let result = links.map(|link| Link::new(&link, num_lines, num_cols)).collect();
-        result
+        links.map(|link| Link::new(&link, num_lines, num_cols)).collect()
     }
 }
 
@@ -2406,9 +2405,10 @@ mod tests {
         mem::swap(&mut term.grid, &mut grid);
 
         // Search for URL in grid
-        let url = term.url_search(Point::new(0, Column(4)));
+        let urls = term.url_search();
 
-        assert_eq!(url, Some("ftp://a.de".into()));
+        assert_eq!(urls.len(), 1);
+        assert_eq!(urls[0].url, "ftp://a.de".to_string());
     }
 
     // `ftp://a.de/()` -> `Some("ftp://a.de/()")`
@@ -2441,9 +2441,10 @@ mod tests {
         mem::swap(&mut term.grid, &mut grid);
 
         // Search for URL in grid
-        let url = term.url_search(Point::new(0, Column(4)));
+        let urls = term.url_search();
 
-        assert_eq!(url, Some("ftp://a.de/()".into()));
+        assert_eq!(urls.len(), 1);
+        assert_eq!(urls[0].url, "ftp://a.de/()".to_string());
     }
 
     // `aze` -> `None`
@@ -2466,9 +2467,9 @@ mod tests {
         mem::swap(&mut term.grid, &mut grid);
 
         // Search for URL in grid
-        let url = term.url_search(Point::new(0, Column(1)));
+        let urls = term.url_search();
 
-        assert_eq!(url, None);
+        assert_eq!(urls.len(), 0);
     }
 }
 
