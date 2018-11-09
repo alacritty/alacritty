@@ -20,9 +20,6 @@ extern crate reqwest;
 #[cfg(windows)]
 extern crate zip;
 
-#[cfg(windows)]
-use tempfile::TempDir;
-
 extern crate gl_generator;
 
 use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
@@ -66,8 +63,7 @@ fn main() {
 
 #[cfg(windows)]
 fn aquire_winpty_agent(out_path: &Path) {
-    let tmp_dir = TempDir::new("alacritty_build").unwrap();
-
+    let tmp_dir = tempfile::Builder::new().prefix("alacritty_build").tempdir().unwrap();
 
     let mut response = reqwest::get(WINPTY_PACKAGE_URL).unwrap();
     let mut file = OpenOptions::new()
