@@ -73,7 +73,7 @@ pub trait ActionContext {
     fn scroll(&mut self, scroll: Scroll);
     fn clear_history(&mut self);
     fn hide_window(&mut self);
-    fn url(&self, _: Point<usize>) -> Option<String>;
+    fn url(&self, _: Point<Line>) -> Option<String>;
     fn clear_log(&mut self);
 }
 
@@ -532,7 +532,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
 
         let point = self.ctx.mouse_coords()?;
-        let text = self.ctx.url(point.into())?;
+        let text = self.ctx.url(point)?;
 
         let launcher = self.mouse_config.url.launcher.as_ref()?;
         let mut args = launcher.args().to_vec();

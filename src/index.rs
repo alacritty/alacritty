@@ -64,12 +64,6 @@ impl From<Point<isize>> for Point<usize> {
     }
 }
 
-impl From<Point> for Point<usize> {
-    fn from(point: Point) -> Self {
-        Point::new(point.line.0, point.col)
-    }
-}
-
 /// A line
 ///
 /// Newtype to avoid passing values incorrectly
@@ -228,6 +222,7 @@ impl<T> From<Range<T>> for IndexRange<T> {
     }
 }
 
+#[derive(Debug)]
 pub enum RangeInclusive<Idx> {
     Empty {
         at: Idx,

@@ -121,8 +121,14 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.dirty = true;
     }
 
-    fn url(&self, point: Point<usize>) -> Option<String> {
-        self.terminal.url_search(point)
+    fn url(&self, point: Point<Line>) -> Option<String> {
+        let point = self.terminal.grid().visible_to_buffer(point);
+        for link in self.terminal.url_search() {
+            if point >= link.start && point <= link.end {
+                return Some(link.url);
+            }
+        }
+        None
     }
 
     fn line_selection(&mut self, point: Point) {

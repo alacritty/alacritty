@@ -116,7 +116,7 @@ pub enum Scroll {
     Bottom,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum ViewportPosition {
     Visible(Line),
     Above,
@@ -464,6 +464,12 @@ impl<T> Grid<T> {
     #[inline]
     pub fn contains(&self, point: &Point) -> bool {
         self.lines > point.line && self.cols > point.col
+    }
+
+    // TODO: Does this method exist already somewhere?!
+    #[inline]
+    pub fn num_occupied_lines(&self) -> usize {
+        self.scroll_limit + self.lines.0
     }
 }
 

@@ -13,14 +13,14 @@
 // limitations under the License.
 //
 //! Exports the `Term` type which is a high-level API for the Grid
-use std::ops::{Range, Index, IndexMut};
-use std::{ptr, io, mem};
+use std::{ptr, io, mem, fmt};
 use std::cmp::{min, max};
+use std::ops::{Range, Index, IndexMut};
 use std::time::{Duration, Instant};
 
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
-use url::Url;
+use linkify;
 
 use font::{self, Size};
 use crate::ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
@@ -38,8 +38,6 @@ pub mod color;
 pub use self::cell::Cell;
 use self::cell::LineLength;
 
-const URL_SEPARATOR_CHARS: [char; 3] = [' ', '"', '\''];
-
 /// A type that can expand a given point to a region
 ///
 /// Usually this is implemented for some 2-D array type since
@@ -49,8 +47,8 @@ pub trait Search {
     fn semantic_search_left(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest semantic boundary _to the point_ of provided point.
     fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
-    /// Find the nearest URL boundary in both directions.
-    fn url_search(&self, _: Point<usize>) -> Option<String>;
+    /// Find all URLs.
+    fn url_search(&self) -> Vec<Link>;
 }
 
 impl Search for Term {
@@ -98,49 +96,40 @@ impl Search for Term {
         point
     }
 
-    fn url_search(&self, mut point: Point<usize>) -> Option<String> {
-        point.line = self.grid.num_lines().0 - point.line - 1;
+    fn url_search(&self) -> Vec<Link> {
+        let num_lines = self.grid.num_occupied_lines();
+        let num_cols = self.grid.num_cols().0;
+        let content = self.to_string();
+        let links = linkify::LinkFinder::new().links(&content);
+        let result = links.map(|link| Link::new(&link, num_lines, num_cols)).collect();
+        result
+    }
+}
 
-        // Limit the starting point to the last line in the history
-        point.line = min(point.line, self.grid.len() - 1);
+#[derive(Debug)]
+pub struct Link {
+    pub url: String,
+    pub start: Point<usize>,
+    pub end: Point<usize>
+}
 
-        // Create forwards and backwards iterators
-        let iterf = self.grid.iter_from(point);
-        point.col += 1;
-        let mut iterb = self.grid.iter_from(point);
+impl Link {
+    fn new(link: &linkify::Link, num_lines: usize, num_cols: usize) -> Self {
+        debug_assert!(num_lines > 0);
+        debug_assert!(num_cols > 0);
 
-        // Put all characters until separators into a string
-        let mut buf = String::new();
-        while let Some(cell) = iterb.prev() {
-            if URL_SEPARATOR_CHARS.contains(&cell.c) {
-                break;
-            }
-            buf.insert(0, cell.c);
-        }
-        for cell in iterf {
-            if URL_SEPARATOR_CHARS.contains(&cell.c) {
-                break;
-            }
-            buf.push(cell.c);
-        }
+        let start_line = num_lines - link.start() / num_cols - 1;
+        let start_col = Column(link.start() % num_cols);
+        let start = Point::new(start_line, start_col);
 
-        // Heuristic to remove all leading '('
-        while buf.starts_with('(') {
-            buf.remove(0);
-        }
+        let end_line = num_lines - link.end() / num_cols - 1;
+        let end_col = Column(link.end() % num_cols - 1);
+        let end = Point::new(end_line, end_col);
 
-        // Heuristic to remove all ')' from end of URLs without matching '('
-        let str_count = |text: &str, c: char| {
-            text.chars().filter(|tc| *tc == c).count()
-        };
-        while buf.ends_with(')') && str_count(&buf, '(') < str_count(&buf, ')') {
-            buf.pop();
-        }
-
-        // Check if string is valid url
-        match Url::parse(&buf) {
-            Ok(_) => Some(buf),
-            Err(_) => None,
+        Self {
+            url: link.as_str().to_owned(),
+            start,
+            end,
         }
     }
 }
@@ -1327,6 +1316,20 @@ impl Term {
     #[inline]
     pub fn background_color(&self) -> Rgb {
         self.colors[NamedColor::Background]
+    }
+}
+
+impl fmt::Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let num_lines = self.grid.num_occupied_lines();
+        let mut buf = String::with_capacity(num_lines * self.grid.num_cols().0);
+        for i in (0..num_lines).rev() {
+            for j in 0..self.grid.num_cols().0 {
+                let cell = self.grid[i][Column(j)];
+                buf.push(cell.c);
+            }
+        }
+        write!(f, "{}", buf)
     }
 }
 
