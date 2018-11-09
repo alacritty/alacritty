@@ -35,22 +35,22 @@
   <key>NSRequiresAquaSystemAppearance</key>
   <string>NO</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>An application in Alacritty wants to use AppleScript.</string>
+    <string>An application in Alacritty would like to access AppleScript.</string>
     <key>NSCalendarsUsageDescription</key>
-    <string>An application in Alacritty wants to use Calendar data.</string>
+    <string>An application in Alacritty would like to access calendar data.</string>
     <key>NSCameraUsageDescription</key>
-    <string>An application in Alacritty wants to use the camera.</string>
+    <string>An application in Alacritty would like to access the camera.</string>
     <key>NSContactsUsageDescription</key>
-    <string>An application in Alacritty wants to use your contacts.</string>
+    <string>An application in Alacritty wants to access your contacts.</string>
     <key>NSLocationAlwaysUsageDescription</key>
-    <string>An application in Alacritty wants to use your location information, even in the background.</string>
+    <string>An application in Alacritty would like to access your location information, even in the background.</string>
     <key>NSLocationUsageDescription</key>
-    <string>An application in Alacritty wants to use your location information.</string>
+    <string>An application in Alacritty would like to access your location information.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>An application in Alacritty wants to use your location information while active.</string>
+    <string>An application in Alacritty would like to access your location information while active.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>An application in Alacritty wants to use your microphone.</string>
+    <string>An application in Alacritty would like to access your microphone.</string>
     <key>NSRemindersUsageDescription</key>
-    <string>An application in Alacritty wants to use your reminders.</string>
+    <string>An application in Alacritty would like to access your reminders.</string>
 </dict>
 </plist>
