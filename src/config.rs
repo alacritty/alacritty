@@ -26,9 +26,7 @@ use glutin::ModifiersState;
 use cli::Options;
 use input::{Action, Binding, MouseBinding, KeyBinding};
 use index::{Line, Column};
-use ansi::CursorStyle;
-
-use util::fmt::Yellow;
+use ansi::{CursorStyle, NamedColor, Color};
 
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
 
@@ -87,10 +85,31 @@ pub struct Mouse {
     pub double_click: ClickHandler,
     #[serde(default, deserialize_with = "failure_default")]
     pub triple_click: ClickHandler,
+    #[serde(default, deserialize_with = "failure_default")]
+    pub hide_when_typing: bool,
+    #[serde(default, deserialize_with = "failure_default")]
+    pub url: Url,
 
     // TODO: DEPRECATED
     #[serde(default)]
     pub faux_scrollback_lines: Option<usize>,
+}
+
+#[derive(Default, Clone, Debug, Deserialize)]
+pub struct Url {
+    // Program for opening links
+    #[serde(default, deserialize_with = "failure_default")]
+    pub launcher: Option<CommandWrapper>,
+
+    // Modifier used to open links
+    #[serde(default, deserialize_with = "deserialize_modifiers")]
+    pub modifiers: ModifiersState,
+}
+
+fn deserialize_modifiers<'a, D>(deserializer: D) -> ::std::result::Result<ModifiersState, D::Error>
+    where D: de::Deserializer<'a>
+{
+    ModsWrapper::deserialize(deserializer).map(|wrapper| wrapper.into_inner())
 }
 
 impl Default for Mouse {
@@ -102,6 +121,8 @@ impl Default for Mouse {
             triple_click: ClickHandler {
                 threshold: Duration::from_millis(300),
             },
+            hide_when_typing: false,
+            url: Url::default(),
             faux_scrollback_lines: None,
         }
     }
@@ -412,10 +433,6 @@ pub struct Config {
     #[serde(default, deserialize_with = "failure_default")]
     render_timer: bool,
 
-    /// Should use custom cursor colors
-    #[serde(default, deserialize_with = "failure_default")]
-    custom_cursor_colors: bool,
-
     /// Should draw bold text with brighter colors instead of bold font
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
     draw_bold_text_with_bright_colors: bool,
@@ -461,18 +478,6 @@ pub struct Config {
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
     dynamic_title: bool,
 
-    /// Hide cursor when typing
-    #[serde(default, deserialize_with = "failure_default")]
-    hide_cursor_when_typing: bool,
-
-    /// Style of the cursor
-    #[serde(default, deserialize_with = "failure_default")]
-    cursor_style: CursorStyle,
-
-    /// Use hollow block cursor when unfocused
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
-    unfocused_hollow_cursor: bool,
-
     /// Live config reload
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
     live_config_reload: bool,
@@ -484,6 +489,26 @@ pub struct Config {
     /// How much scrolling history to keep
     #[serde(default, deserialize_with="failure_default")]
     scrolling: Scrolling,
+
+    /// Cursor configuration
+    #[serde(default, deserialize_with="failure_default")]
+    cursor: Cursor,
+
+    // TODO: DEPRECATED
+    #[serde(default, deserialize_with = "failure_default")]
+    custom_cursor_colors: Option<bool>,
+
+    // TODO: DEPRECATED
+    #[serde(default, deserialize_with = "failure_default")]
+    hide_cursor_when_typing: Option<bool>,
+
+    // TODO: DEPRECATED
+    #[serde(default, deserialize_with = "failure_default")]
+    cursor_style: Option<CursorStyle>,
+
+    // TODO: DEPRECATED
+    #[serde(default, deserialize_with = "failure_default")]
+    unfocused_hollow_cursor: Option<bool>,
 }
 
 fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T>, D::Error>
@@ -644,6 +669,7 @@ fn deserialize_scrolling_multiplier<'a, D>(deserializer: D) -> ::std::result::Re
 ///
 /// Our deserialize impl wouldn't be covered by a derive(Deserialize); see the
 /// impl below.
+#[derive(Debug, Copy, Clone, Hash, Default, Eq, PartialEq)]
 struct ModsWrapper(ModifiersState);
 
 impl ModsWrapper {
@@ -735,15 +761,31 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
-enum CommandWrapper {
+pub enum CommandWrapper {
     Just(String),
     WithArgs {
         program: String,
         #[serde(default)]
         args: Vec<String>,
     },
+}
+
+impl CommandWrapper {
+    pub fn program(&self) -> &str {
+        match self {
+            CommandWrapper::Just(program) => program,
+            CommandWrapper::WithArgs { program, .. } => program,
+        }
+    }
+
+    pub fn args(&self) -> &[String] {
+        match self {
+            CommandWrapper::Just(_) => &[],
+            CommandWrapper::WithArgs { args, .. } => args,
+        }
+    }
 }
 
 use ::term::{mode, TermMode};
@@ -922,7 +964,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
                     }
                 }
 
-                deserializer.deserialize_struct("Field", FIELDS, FieldVisitor)
+                deserializer.deserialize_str(FieldVisitor)
             }
         }
 
@@ -1118,7 +1160,7 @@ pub enum Error {
 pub struct Colors {
     #[serde(default, deserialize_with = "failure_default")]
     pub primary: PrimaryColors,
-    #[serde(default, deserialize_with = "deserialize_cursor_colors")]
+    #[serde(default, deserialize_with = "failure_default")]
     pub cursor: CursorColors,
     pub normal: AnsiColors,
     pub bright: AnsiColors,
@@ -1164,71 +1206,29 @@ fn deserialize_color_index<'a, D>(deserializer: D) -> ::std::result::Result<u8, 
     }
 }
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-pub enum CursorOrPrimaryColors {
-    Cursor {
-        #[serde(deserialize_with = "rgb_from_hex")]
-        text: Rgb,
-        #[serde(deserialize_with = "rgb_from_hex")]
-        cursor: Rgb,
-    },
-    Primary {
-        #[serde(deserialize_with = "rgb_from_hex")]
-        foreground: Rgb,
-        #[serde(deserialize_with = "rgb_from_hex")]
-        background: Rgb,
-    }
+#[derive(Copy, Clone, Debug, Deserialize)]
+pub struct Cursor {
+    #[serde(default, deserialize_with = "failure_default")]
+    pub style: CursorStyle,
+    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    pub unfocused_hollow: bool,
 }
 
-impl CursorOrPrimaryColors {
-    fn into_cursor_colors(self) -> CursorColors {
-        match self {
-            CursorOrPrimaryColors::Cursor { text, cursor } => CursorColors {
-                text,
-                cursor,
-            },
-            CursorOrPrimaryColors::Primary { foreground, background } => {
-                // Must print in config since logger isn't setup yet.
-                eprintln!("{}",
-                    Yellow("Config `colors.cursor.foreground` and `colors.cursor.background` \
-                            are deprecated. Please use `colors.cursor.text` and \
-                            `colors.cursor.cursor` instead.")
-                );
-                CursorColors {
-                    text: foreground,
-                    cursor: background
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct CursorColors {
-    pub text: Rgb,
-    pub cursor: Rgb,
-}
-
-impl Default for CursorColors {
+impl Default for Cursor {
     fn default() -> Self {
-        CursorColors {
-            text: Rgb { r: 0, g: 0, b: 0 },
-            cursor: Rgb { r: 0xff, g: 0xff, b: 0xff },
+        Self {
+            style: Default::default(),
+            unfocused_hollow: true,
         }
     }
 }
 
-fn deserialize_cursor_colors<'a, D>(deserializer: D) -> ::std::result::Result<CursorColors, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match CursorOrPrimaryColors::deserialize(deserializer) {
-        Ok(either) => Ok(either.into_cursor_colors()),
-        Err(err) => {
-            eprintln!("problem with config: {}; Using default value", err);
-            Ok(CursorColors::default())
-        },
-    }
+#[derive(Debug, Copy, Clone, Default, Deserialize)]
+pub struct CursorColors {
+    #[serde(default, deserialize_with = "deserialize_optional_color")]
+    pub text: Option<Rgb>,
+    #[serde(default, deserialize_with = "deserialize_optional_color")]
+    pub cursor: Option<Rgb>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1459,7 +1459,7 @@ impl Config {
     /// 2. $XDG_CONFIG_HOME/alacritty.yml
     /// 3. $HOME/.config/alacritty/alacritty.yml
     /// 4. $HOME/.alacritty.yml
-      #[cfg(not(windows))]
+    #[cfg(not(windows))]
     pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
         // Try using XDG location by default
         ::xdg::BaseDirectories::with_prefix("alacritty")
@@ -1489,7 +1489,7 @@ impl Config {
     }
 
     #[cfg(windows)]
-    pub fn installed_config() -> Option<Cow<'static, Path>> {
+    pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
         if let Some(mut path) = ::std::env::home_dir() {
             path.push("alacritty");
             path.set_extension("yml");
@@ -1512,7 +1512,7 @@ impl Config {
     #[cfg(windows)]
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
         let path = ::std::env::home_dir()
-            .ok_or(io::Error::new(io::ErrorKind::NotFound, "could not find profile directory"))
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "could not find profile directory"))
             .and_then(|mut p| {p.push("alacritty"); p.set_extension("yml"); Ok(p)})?;
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
         Ok(path.into())
@@ -1596,12 +1596,6 @@ impl Config {
         self.font.use_thin_strokes
     }
 
-    /// show cursor as inverted
-    #[inline]
-    pub fn custom_cursor_colors(&self) -> bool {
-        self.custom_cursor_colors
-    }
-
     pub fn path(&self) -> Option<&Path> {
         self.config_path
             .as_ref()
@@ -1616,22 +1610,22 @@ impl Config {
         &self.env
     }
 
-    /// Should hide cursor when typing
+    /// Should hide mouse cursor when typing
     #[inline]
-    pub fn hide_cursor_when_typing(&self) -> bool {
-        self.hide_cursor_when_typing
+    pub fn hide_mouse_when_typing(&self) -> bool {
+        self.hide_cursor_when_typing.unwrap_or(self.mouse.hide_when_typing)
     }
 
     /// Style of the cursor
     #[inline]
     pub fn cursor_style(&self) -> CursorStyle {
-        self.cursor_style
+        self.cursor_style.unwrap_or(self.cursor.style)
     }
 
     /// Use hollow block cursor when unfocused
     #[inline]
     pub fn unfocused_hollow_cursor(&self) -> bool {
-        self.unfocused_hollow_cursor
+        self.unfocused_hollow_cursor.unwrap_or(self.cursor.unfocused_hollow)
     }
 
     /// Live config reload
@@ -1649,6 +1643,18 @@ impl Config {
     #[inline]
     pub fn scrolling(&self) -> Scrolling {
         self.scrolling
+    }
+
+    /// Cursor foreground color
+    #[inline]
+    pub fn cursor_text_color(&self) -> Option<Color> {
+        self.colors.cursor.text.map(|_| Color::Named(NamedColor::CursorText))
+    }
+
+    /// Cursor background color
+    #[inline]
+    pub fn cursor_cursor_color(&self) -> Option<Color> {
+        self.colors.cursor.cursor.map(|_| Color::Named(NamedColor::Cursor))
     }
 
     // Update the history size, used in ref tests
@@ -1685,7 +1691,7 @@ impl Config {
         Ok(contents)
     }
 
-    fn print_deprecation_warnings(&self) {
+    fn print_deprecation_warnings(&mut self) {
         use ::util::fmt;
         if self.dimensions.is_some() {
             eprintln!("{}", fmt::Yellow("Config `dimensions` is deprecated. \
@@ -1700,6 +1706,30 @@ impl Config {
         if self.mouse.faux_scrollback_lines.is_some() {
             println!("{}", fmt::Yellow("Config `mouse.faux_scrollback_lines` is deprecated. \
                                         Please use `mouse.faux_scrolling_lines` instead."));
+        }
+
+        if let Some(custom_cursor_colors) = self.custom_cursor_colors {
+            eprintln!("{}", fmt::Yellow("Config `custom_cursor_colors` is deprecated."));
+
+            if !custom_cursor_colors {
+                self.colors.cursor.cursor = None;
+                self.colors.cursor.text = None;
+            }
+        }
+
+        if self.cursor_style.is_some() {
+            eprintln!("{}", fmt::Yellow("Config `cursor_style` is deprecated. \
+                                        Please use `cursor.style` instead."));
+        }
+
+        if self.hide_cursor_when_typing.is_some() {
+            eprintln!("{}", fmt::Yellow("Config `hide_cursor_when_typing` is deprecated. \
+                                         Please use `mouse.hide_when_typing` instead."));
+        }
+
+        if self.unfocused_hollow_cursor.is_some() {
+            eprintln!("{}", fmt::Yellow("Config `unfocused_hollow_cursor` is deprecated. \
+                                         Please use `cursor.unfocused_hollow` instead."));
         }
     }
 }
@@ -1845,13 +1875,18 @@ pub struct Font {
 }
 
 fn deserialize_scale_with_dpi<'a, D>(deserializer: D) -> ::std::result::Result<Option<()>, D::Error>
-    where D: de::Deserializer<'a>
+where
+    D: de::Deserializer<'a>,
 {
+    use ::util::fmt;
     // This is necessary in order to get serde to complete deserialization of the configuration
     let _ignored = bool::deserialize(deserializer);
-    eprintln!("{}",
-        Yellow("The `scale_with_dpi` setting has been removed, \
-                on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead.")
+    eprintln!(
+        "{}",
+        fmt::Yellow(
+            "The `scale_with_dpi` setting has been removed, \
+             on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead."
+        )
     );
     Ok(None)
 }
@@ -2079,7 +2114,6 @@ mod tests {
     }
 }
 
-#[cfg_attr(feature = "cargo-clippy", allow(enum_variant_names))]
 #[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Key {
     Scancode(u32),

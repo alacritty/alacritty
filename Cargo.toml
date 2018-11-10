@@ -8,6 +8,13 @@ description = "GPU-accelerated terminal emulator"
 readme = "README.md"
 homepage = "https://github.com/jwilm/alacritty"
 
+[workspace]
+members = [
+    "font",
+    "copypasta",
+    "winpty"
+]
+
 [[bin]]
 doc = false
 path = "src/main.rs"
@@ -24,7 +31,7 @@ parking_lot = "0.6"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
-serde_yaml = "0.7"
+serde_yaml = "0.8"
 vte = "0.3"
 mio = "0.6"
 mio-more = "0.1"
@@ -42,6 +49,7 @@ winit = { version = "0.18", features = ["icon_loading"] }
 image = "0.19"
 static_assertions = "0.2.5"
 terminfo = "0.6.1"
+url = "1.7.1"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
@@ -84,7 +92,7 @@ Alacritty is the fastest terminal emulator in existence. Using the GPU for \
 rendering enables optimizations that simply aren't possible in other emulators. \
 Alacritty currently supports FreeBSD, Linux, macOS, and OpenBSD. Windows \
 support is planned before the 1.0 release.  """
-depends = "$auto, cmake, libfreetype6-dev, libfontconfig1-dev, xclip"
+depends = "$auto"
 section = "rust"
 priority = "optional"
 assets = [

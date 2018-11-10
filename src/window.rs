@@ -70,7 +70,7 @@ type Result<T> = ::std::result::Result<T, Error>;
 pub struct Window {
     event_loop: EventsLoop,
     window: glutin::GlWindow,
-    cursor_visible: bool,
+    mouse_visible: bool,
 
     /// Whether or not the window is the focused window.
     pub is_focused: bool,
@@ -171,7 +171,7 @@ impl Window {
         let window = Window {
             event_loop,
             window,
-            cursor_visible: true,
+            mouse_visible: true,
             is_focused: false,
         };
 
@@ -255,10 +255,10 @@ impl Window {
         });
     }
 
-    /// Set cursor visible
-    pub fn set_cursor_visible(&mut self, visible: bool) {
-        if visible != self.cursor_visible {
-            self.cursor_visible = visible;
+    /// Set mouse cursor visible
+    pub fn set_mouse_visible(&mut self, visible: bool) {
+        if visible != self.mouse_visible {
+            self.mouse_visible = visible;
             self.window.hide_cursor(!visible);
         }
     }

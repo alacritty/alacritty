@@ -43,7 +43,7 @@ use std::os::unix::io::AsRawFd;
 #[cfg(windows)]
 extern crate winapi;
 #[cfg(windows)]
-use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
+use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 use alacritty::cli;
 use alacritty::config::{self, Config};
@@ -63,7 +63,7 @@ fn main() {
     // to the console of the parent process, so we do it explicitly. This fails
     // silently if the parent has no console.
     #[cfg(windows)]
-    unsafe {AttachConsole(ATTACH_PARENT_PROCESS);}
+    unsafe { AttachConsole(ATTACH_PARENT_PROCESS); }
 
     // Load command line options and config
     let options = cli::Options::load();
@@ -89,7 +89,6 @@ fn main() {
 /// If a configuration file is given as a command line argument we don't
 /// generate a default file. If an empty configuration file is given, i.e.
 /// /dev/null, we load the compiled-in defaults.)
-#[cfg(not(windows))]
 fn load_config(options: &cli::Options) -> Config {
     let config_path = options.config_path()
         .or_else(Config::installed_config)
@@ -101,27 +100,6 @@ fn load_config(options: &cli::Options) -> Config {
     Config::load_from(&*config_path).unwrap_or_else(|err| {
         eprintln!("Error: {}; Loading default config", err);
         Config::default()
-    })
-}
-#[cfg(windows)]
-fn load_config(options: &cli::Options) -> Config {
-    let config_path = options
-        .config_path()
-        .or_else(|| Config::installed_config())
-        .unwrap_or_else(|| {
-            Config::write_defaults()
-                .unwrap_or_else(|err| die!("Write defaults config failure: {}", err))
-        });
-
-    Config::load_from(&*config_path).unwrap_or_else(|err| match err {
-        config::Error::NotFound => {
-            die!("Config file not found after writing: {}", config_path.display());
-        }
-        config::Error::Empty => {
-            eprintln!("Empty config; Loading defaults");
-            Config::default()
-        }
-        _ => die!("{}", err),
     })
 }
 
@@ -175,7 +153,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     #[cfg(windows)]
     let resize_handle = unsafe { &mut *pty.winpty.get() };
     #[cfg(not(windows))]
-    let mut resize_handle = pty.fd.as_raw_fd();
+    let resize_handle = &mut pty.fd.as_raw_fd();
 
     // Create the pseudoterminal I/O loop
     //
@@ -247,14 +225,12 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
             // Try to update the position of the input method editor
             #[cfg(not(windows))]
             display.update_ime_position(&terminal_lock);
+
             // Handle pending resize events
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
-            #[cfg(windows)]
             display.handle_resize(&mut terminal_lock, &config, &mut [resize_handle, &mut processor]);
-            #[cfg(not(windows))]
-            display.handle_resize(&mut terminal_lock, &config, &mut [&mut resize_handle, &mut processor]);
 
             drop(terminal_lock);
 
@@ -274,6 +250,10 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
 
     // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();
+
+    // Without explicitly detaching the console cmd won't redraw it's prompt
+    #[cfg(windows)]
+    unsafe { FreeConsole(); }
 
     Ok(())
 }

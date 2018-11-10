@@ -19,7 +19,7 @@ use index::{Line, Column, Side, Point};
 use input::{self, MouseBinding, KeyBinding};
 use selection::Selection;
 use sync::FairMutex;
-use term::{Term, SizeInfo, TermMode};
+use term::{Term, SizeInfo, TermMode, Search};
 use util::limit;
 use util::fmt::Red;
 use window::Window;
@@ -59,6 +59,17 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn scroll(&mut self, scroll: Scroll) {
         self.terminal.scroll_display(scroll);
+
+        if let ElementState::Pressed = self.mouse().left_button_state {
+            let (x, y) = (self.mouse().x, self.mouse().y);
+            let size_info = self.size_info();
+            let point = size_info.pixels_to_coords(x, y);
+            let cell_side = self.mouse().cell_side;
+            self.update_selection(Point {
+                line: point.line,
+                col: point.col
+            }, cell_side);
+        }
     }
 
     fn clear_history(&mut self) {
@@ -75,6 +86,10 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
                     });
             }
         }
+    }
+
+    fn selection_is_empty(&self) -> bool {
+        self.terminal.selection().as_ref().map(|s| s.is_empty()).unwrap_or(true)
     }
 
     fn clear_selection(&mut self) {
@@ -103,6 +118,10 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         let point = self.terminal.visible_to_buffer(point);
         *self.terminal.selection_mut() = Some(Selection::semantic(point));
         self.terminal.dirty = true;
+    }
+
+    fn url(&self, point: Point<usize>) -> Option<String> {
+        self.terminal.url_search(point)
     }
 
     fn line_selection(&mut self, point: Point) {
@@ -197,6 +216,7 @@ pub struct Mouse {
     pub column: Column,
     pub cell_side: Side,
     pub lines_scrolled: f32,
+    pub block_url_launcher: bool,
 }
 
 impl Default for Mouse {
@@ -214,6 +234,7 @@ impl Default for Mouse {
             column: Column(0),
             cell_side: Side::Left,
             lines_scrolled: 0.0,
+            block_url_launcher: false,
         }
     }
 }
@@ -234,8 +255,8 @@ pub struct Processor<N> {
     resize_tx: mpsc::Sender<PhysicalSize>,
     ref_test: bool,
     size_info: SizeInfo,
-    hide_cursor_when_typing: bool,
-    hide_cursor: bool,
+    hide_mouse_when_typing: bool,
+    hide_mouse: bool,
     received_count: usize,
     suppress_chars: bool,
     last_modifiers: ModifiersState,
@@ -278,8 +299,8 @@ impl<N: Notify> Processor<N> {
             ref_test,
             mouse: Default::default(),
             size_info,
-            hide_cursor_when_typing: config.hide_cursor_when_typing(),
-            hide_cursor: false,
+            hide_mouse_when_typing: config.hide_mouse_when_typing(),
+            hide_mouse: false,
             received_count: 0,
             suppress_chars: false,
             last_modifiers: Default::default(),
@@ -297,7 +318,7 @@ impl<N: Notify> Processor<N> {
         event: Event,
         ref_test: bool,
         resize_tx: &mpsc::Sender<PhysicalSize>,
-        hide_cursor: &mut bool,
+        hide_mouse: &mut bool,
         window_is_focused: &mut bool,
     ) {
         match event {
@@ -343,7 +364,7 @@ impl<N: Notify> Processor<N> {
                         processor.process_key(input);
                         if input.state == ElementState::Pressed {
                             // Hide cursor while typing
-                            *hide_cursor = true;
+                            *hide_mouse = true;
                         }
                     },
                     ReceivedCharacter(c) => {
@@ -351,7 +372,7 @@ impl<N: Notify> Processor<N> {
                     },
                     MouseInput { state, button, modifiers, .. } => {
                         if !cfg!(target_os = "macos") || *window_is_focused {
-                            *hide_cursor = false;
+                            *hide_mouse = false;
                             processor.mouse_input(state, button, modifiers);
                             processor.ctx.terminal.dirty = true;
                         }
@@ -361,11 +382,11 @@ impl<N: Notify> Processor<N> {
                         let x: i32 = limit(x, 0, processor.ctx.size_info.width as i32);
                         let y: i32 = limit(y, 0, processor.ctx.size_info.height as i32);
 
-                        *hide_cursor = false;
+                        *hide_mouse = false;
                         processor.mouse_moved(x as usize, y as usize, modifiers);
                     },
                     MouseWheel { delta, phase, modifiers, .. } => {
-                        *hide_cursor = false;
+                        *hide_mouse = false;
                         processor.on_mouse_wheel(delta, phase, modifiers);
                     },
                     Refresh => {
@@ -379,7 +400,7 @@ impl<N: Notify> Processor<N> {
                             processor.ctx.terminal.next_is_urgent = Some(false);
                         } else {
                             processor.ctx.terminal.dirty = true;
-                            *hide_cursor = false;
+                            *hide_mouse = false;
                         }
 
                         processor.on_focus_change(is_focused);
@@ -461,10 +482,10 @@ impl<N: Notify> Processor<N> {
 
             let mut window_is_focused = window.is_focused;
 
-            // Scope needed to that hide_cursor isn't borrowed after the scope
+            // Scope needed to that hide_mouse isn't borrowed after the scope
             // ends.
             {
-                let hide_cursor = &mut self.hide_cursor;
+                let hide_mouse = &mut self.hide_mouse;
                 let mut process = |event| {
                     if print_events {
                         println!("glutin event: {:?}", event);
@@ -474,7 +495,7 @@ impl<N: Notify> Processor<N> {
                         event,
                         ref_test,
                         resize_tx,
-                        hide_cursor,
+                        hide_mouse,
                         &mut window_is_focused,
                     );
                 };
@@ -486,8 +507,8 @@ impl<N: Notify> Processor<N> {
                 window.poll_events(process);
             }
 
-            if self.hide_cursor_when_typing {
-                window.set_cursor_visible(!self.hide_cursor);
+            if self.hide_mouse_when_typing {
+                window.set_mouse_visible(!self.hide_mouse);
             }
 
             window.is_focused = window_is_focused;

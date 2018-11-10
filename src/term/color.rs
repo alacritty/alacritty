@@ -61,8 +61,8 @@ impl List {
         self[ansi::NamedColor::Background] = colors.primary.background;
 
         // Foreground and background for custom cursor colors
-        self[ansi::NamedColor::CursorText] = colors.cursor.text;
-        self[ansi::NamedColor::Cursor]     = colors.cursor.cursor;
+        self[ansi::NamedColor::CursorText] = colors.cursor.text.unwrap_or_else(Rgb::default);
+        self[ansi::NamedColor::Cursor]     = colors.cursor.cursor.unwrap_or_else(Rgb::default);
 
         // Dims
         self[ansi::NamedColor::DimForeground] = colors
