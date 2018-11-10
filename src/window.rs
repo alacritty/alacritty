@@ -19,7 +19,7 @@ use glutin::GlContext;
 #[cfg(windows)]
 use glutin::Icon;
 #[cfg(windows)]
-use image::image::ImageFormat;
+use image::ImageFormat;
 use glutin::{
     self, ContextBuilder, ControlFlow, Event, EventsLoop,
     MouseCursor as GlutinMouseCursor, WindowBuilder,
