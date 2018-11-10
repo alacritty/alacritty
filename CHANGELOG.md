@@ -36,6 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Invalid default configuration on macOS and Linux
 - Middle mouse pasting if mouse mode is enabled
 - Selections now properly update as you scroll the scrollback buffer while selecting
+- NUL character at the end of window titles
+- DPI Scaling when moving windows across monitors
+- On macOS, issues with Command-[KEY] and Control-Tab keybindings have been fixed
+- Incorrect number of columns/lines when using the `window.dimensions` option
+- On Wayland, windows will no longer be spawned outside of the visible region
+- Resizing of windows without decorations
+- On Wayland, key repetition works again
+- On macOS, Alacritty will now use the integrated GPU again when available
 
 ## Version 0.2.1
 
