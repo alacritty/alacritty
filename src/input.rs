@@ -575,14 +575,15 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
                 self.ctx.mouse_mut().lines_scrolled = to_scroll % 1.0;
             },
-            MouseScrollDelta::PixelDelta(_x, y) => {
+            MouseScrollDelta::PixelDelta(lpos) => {
                 match phase {
                     TouchPhase::Started => {
                         // Reset offset to zero
                         self.ctx.mouse_mut().scroll_px = 0;
                     },
                     TouchPhase::Moved => {
-                        self.ctx.mouse_mut().scroll_px += y as i32;
+                        let (_x, y): (i32, i32) = lpos.into();
+                        self.ctx.mouse_mut().scroll_px += y;
                         let height = self.ctx.size_info().cell_height as i32;
 
                         while self.ctx.mouse().scroll_px.abs() >= height {
@@ -904,6 +905,7 @@ mod tests {
                     cell_height: 3.0,
                     padding_x: 0.0,
                     padding_y: 0.0,
+                    dpr: 1.0,
                 };
 
                 let mut terminal = Term::new(&config, size);

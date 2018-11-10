@@ -31,9 +31,7 @@ use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
 use config::{self, Config, Delta};
 use term::{self, cell, RenderableCell};
-use window::{Pixels, Size};
-
-use Rgb;
+use {PhysicalSize, Rgb};
 
 // Shader paths for live reload
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
@@ -291,19 +289,24 @@ impl GlyphCache {
         &mut self,
         font: &config::Font,
         size: font::Size,
+        dpr: f64,
         loader: &mut L
     ) -> Result<(), font::Error> {
         // Clear currently cached data in both GL and the registry
         loader.clear();
         self.cache = HashMap::default();
 
+        // Update dpi scaling
+        self.rasterizer.update_dpr(dpr as f32);
+
         // Recompute font keys
         let font = font.to_owned().with_size(size);
-        info!("Font size changed: {:?}", font.size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
       
         self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
+
+        info!("Font size changed: {:?} [DPR: {}]", font.size, dpr);
 
         self.font_size = font.size;
         self.font_key = regular;
@@ -468,8 +471,8 @@ const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
-    pub fn new(config: &Config, size: Size<Pixels<u32>>) -> Result<QuadRenderer, Error> {
-        let program = ShaderProgram::new(config, size)?;
+    pub fn new(config: &Config, size: PhysicalSize, dpr: f64) -> Result<QuadRenderer, Error> {
+        let program = ShaderProgram::new(config, size, dpr)?;
 
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
@@ -664,13 +667,7 @@ impl QuadRenderer {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::ShaderReload => {
-                    self.reload_shaders(
-                        config,
-                        Size {
-                            width: Pixels(props.width as u32),
-                            height: Pixels(props.height as u32),
-                        },
-                    );
+                    self.reload_shaders(config, PhysicalSize::new(f64::from(props.width), f64::from(props.height)), props.dpr);
                 }
             }
         }
@@ -722,9 +719,9 @@ impl QuadRenderer {
         })
     }
 
-    pub fn reload_shaders(&mut self, config: &Config, size: Size<Pixels<u32>>) {
+    pub fn reload_shaders(&mut self, config: &Config, size: PhysicalSize, dpr: f64) {
         warn!("Reloading shaders ...");
-        let program = match ShaderProgram::new(config, size) {
+        let program = match ShaderProgram::new(config, size, dpr) {
             Ok(program) => {
                 warn!(" ... OK");
                 program
@@ -750,23 +747,20 @@ impl QuadRenderer {
         self.program = program;
     }
 
-    pub fn resize(&mut self, width: i32, height: i32) {
-        let padding_x = i32::from(self.program.padding_x);
-        let padding_y = i32::from(self.program.padding_y);
+    pub fn resize(&mut self, size: PhysicalSize, dpr: f64) {
+        let (width, height) : (u32, u32) = size.into();
+
+        let padding_x = (f64::from(self.program.padding_x) * dpr) as i32;
+        let padding_y = (f64::from(self.program.padding_y) * dpr) as i32;
 
         // viewport
         unsafe {
-            gl::Viewport(
-                padding_x,
-                padding_y,
-                width - 2 * padding_x,
-                height - 2 * padding_y,
-            );
+            gl::Viewport(padding_x, padding_y, (width as i32) - 2 * padding_x, (height as i32) - 2 * padding_y);
         }
 
         // update projection
         self.program.activate();
-        self.program.update_projection(width as f32, height as f32);
+        self.program.update_projection(width as f32, height as f32, dpr as f32);
         self.program.deactivate();
     }
 }
@@ -1004,7 +998,8 @@ impl ShaderProgram {
 
     pub fn new(
         config: &Config,
-        size: Size<Pixels<u32>>,
+        size: PhysicalSize,
+        dpr: f64
     ) -> Result<ShaderProgram, ShaderCreationError> {
         let vertex_source = if cfg!(feature = "live-shader-reload") {
             None
@@ -1066,17 +1061,20 @@ impl ShaderProgram {
             padding_y: config.padding().y,
         };
 
-        shader.update_projection(*size.width as f32, *size.height as f32);
+        shader.update_projection(size.width as f32, size.height as f32, dpr as f32);
 
         shader.deactivate();
 
         Ok(shader)
     }
 
-    fn update_projection(&self, width: f32, height: f32) {
+    fn update_projection(&self, width: f32, height: f32, dpr: f32) {
+        let padding_x = (f32::from(self.padding_x) * dpr).floor();
+        let padding_y = (f32::from(self.padding_y) * dpr).floor();
+        
         // Bounds check
-        if (width as u32) < (2 * u32::from(self.padding_x)) ||
-            (height as u32) < (2 * u32::from(self.padding_y))
+        if (width as u32) < (2 * padding_x as u32) ||
+            (height as u32) < (2 * padding_y as u32)
         {
             return;
         }
@@ -1088,8 +1086,8 @@ impl ShaderProgram {
         //    correctly.
         let ortho = cgmath::ortho(
             0.,
-            width - 2. * f32::from(self.padding_x),
-            2. * f32::from(self.padding_y),
+            width - (2. * padding_x),
+            2. * padding_y,
             height,
             -1.,
             1.,

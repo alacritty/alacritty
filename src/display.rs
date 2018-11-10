@@ -15,10 +15,11 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
 use std::sync::mpsc;
+use std::f64;
 
 use parking_lot::MutexGuard;
 
-use Rgb;
+use {LogicalPosition, PhysicalSize, Rgb};
 use cli;
 use config::Config;
 use font::{self, Rasterize};
@@ -27,7 +28,8 @@ use renderer::{self, GlyphCache, QuadRenderer};
 use term::{Term, SizeInfo, RenderableCell};
 use sync::FairMutex;
 
-use window::{self, Pixels, SetInnerSize, Size, Window};
+use window::{self, Window};
+
 
 #[derive(Debug)]
 pub enum Error {
@@ -93,8 +95,8 @@ pub struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     render_timer: bool,
-    rx: mpsc::Receiver<(u32, u32)>,
-    tx: mpsc::Sender<(u32, u32)>,
+    rx: mpsc::Receiver<PhysicalSize>,
+    tx: mpsc::Sender<PhysicalSize>,
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
@@ -135,19 +137,15 @@ impl Display {
         // Create the window where Alacritty will be displayed
         let mut window = Window::new(&options, config.window())?;
 
-        // get window properties for initializing the other subsystems
-        let mut viewport_size = window.inner_size_pixels()
-            .expect("glutin returns window size");
-        let dpr = if config.font().scale_with_dpi() {
-            window.hidpi_factor()
-        } else {
-            1.0
-        };
-
+        let dpr = window.hidpi_factor();
         info!("device_pixel_ratio: {}", dpr);
 
+        // get window properties for initializing the other subsystems
+        let mut viewport_size = window.inner_size_pixels()
+            .expect("glutin returns window size").to_physical(dpr);
+
         // Create renderer
-        let mut renderer = QuadRenderer::new(config, viewport_size)?;
+        let mut renderer = QuadRenderer::new(config, viewport_size, dpr)?;
 
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
@@ -161,25 +159,25 @@ impl Display {
             let width = cell_width as u32 * dimensions.columns_u32();
             let height = cell_height as u32 * dimensions.lines_u32();
 
-            let new_viewport_size = Size {
-                width: Pixels(width + 2 * u32::from(config.padding().x)),
-                height: Pixels(height + 2 * u32::from(config.padding().y)),
-            };
+            let new_viewport_size = PhysicalSize::new(
+                f64::from(width + 2 * (f64::from(config.padding().x) * dpr) as u32),
+                f64::from(height + 2 * (f64::from(config.padding().y) * dpr) as u32) as f64);
 
-            window.set_inner_size(&new_viewport_size);
-            renderer.resize(new_viewport_size.width.0 as _, new_viewport_size.height.0 as _);
-            viewport_size = new_viewport_size
+            window.set_inner_size(new_viewport_size.to_logical(dpr));
+            renderer.resize(new_viewport_size, dpr);
+            viewport_size = new_viewport_size;
         }
 
         info!("Cell Size: ({} x {})", cell_width, cell_height);
 
         let size_info = SizeInfo {
-            width: viewport_size.width.0 as f32,
-            height: viewport_size.height.0 as f32,
+            dpr,
+            width: viewport_size.width as f32,
+            height: viewport_size.height as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
-            padding_x: f32::from(config.padding().x),
-            padding_y: f32::from(config.padding().y),
+            padding_x: (f64::from(config.padding().x) * dpr).floor() as f32,
+            padding_y: (f64::from(config.padding().y) * dpr).floor() as f32,
         };
 
         // Channel for resize events
@@ -215,11 +213,11 @@ impl Display {
         })
     }
 
-    fn new_glyph_cache(dpr: f32, renderer: &mut QuadRenderer, config: &Config)
+    fn new_glyph_cache(dpr: f64, renderer: &mut QuadRenderer, config: &Config)
         -> Result<(GlyphCache, f32, f32), Error>
     {
         let font = config.font().clone();
-        let rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
+        let rasterizer = font::Rasterizer::new(dpr as f32, config.use_thin_strokes())?;
 
         // Initialize glyph cache
         let glyph_cache = {
@@ -252,10 +250,11 @@ impl Display {
     }
 
     pub fn update_glyph_cache(&mut self, config: &Config) {
+        let dpr = self.size_info.dpr;
         let cache = &mut self.glyph_cache;
         let size = self.font_size;
         self.renderer.with_loader(|mut api| {
-            let _ = cache.update_font_size(config.font(), size, &mut api);
+            let _ = cache.update_font_size(config.font(), size, dpr, &mut api);
         });
 
         let metrics = cache.font_metrics();
@@ -264,7 +263,7 @@ impl Display {
     }
 
     #[inline]
-    pub fn resize_channel(&self) -> mpsc::Sender<(u32, u32)> {
+    pub fn resize_channel(&self) -> mpsc::Sender<PhysicalSize> {
         self.tx.clone()
     }
 
@@ -285,26 +284,35 @@ impl Display {
         let mut new_size = None;
 
         // Take most recent resize event, if any
-        while let Ok(sz) = self.rx.try_recv() {
-            new_size = Some(sz);
+        while let Ok(size) = self.rx.try_recv() {
+            new_size = Some(size);
         }
 
-        // Font size modification detected
-        if terminal.font_size != self.font_size {
-            self.font_size = terminal.font_size;
-            self.update_glyph_cache(config);
+        // Update the DPR
+        let dpr = self.window.hidpi_factor();
 
+        // Font size/DPI factor modification detected
+        if terminal.font_size != self.font_size || (dpr - self.size_info.dpr).abs() > f64::EPSILON {
             if new_size == None {
                 // Force a resize to refresh things
-                new_size = Some((self.size_info.width as u32, self.size_info.height as u32));
+                new_size = Some(PhysicalSize::new(
+                    f64::from(self.size_info.width) / self.size_info.dpr * dpr,
+                    f64::from(self.size_info.height) / self.size_info.dpr * dpr,
+                ));
             }
+
+            self.font_size = terminal.font_size;
+            self.size_info.dpr = dpr;
+            self.size_info.padding_x = (f64::from(config.padding().x) * dpr).floor() as f32;
+            self.size_info.padding_y = (f64::from(config.padding().y) * dpr).floor() as f32;
+            self.update_glyph_cache(config);
         }
 
         // Receive any resize events; only call gl::Viewport on last
         // available
-        if let Some((w, h)) = new_size.take() {
-            self.size_info.width = w as f32;
-            self.size_info.height = h as f32;
+        if let Some(psize) = new_size.take() {
+            self.size_info.width = psize.width as f32;
+            self.size_info.height = psize.height as f32;
 
             let size = &self.size_info;
             terminal.resize(size);
@@ -313,8 +321,8 @@ impl Display {
                 item.on_resize(size)
             }
 
-            self.window.resize(w, h);
-            self.renderer.resize(w as i32, h as i32);
+            self.window.resize(psize);
+            self.renderer.resize(psize, dpr);
         }
     }
 
@@ -416,7 +424,7 @@ impl Display {
                     padding_y: py, ..} = *terminal.size_info();
         let nspot_y = (py + (row + 1) as f32 * ch) as i32;
         let nspot_x = (px + col as f32 * cw) as i32;
-        self.window().set_ime_spot(nspot_x, nspot_y);
+        self.window().set_ime_spot(LogicalPosition::from((nspot_x, nspot_y)));
     }
 }
 

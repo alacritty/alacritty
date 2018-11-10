@@ -1869,8 +1869,26 @@ pub struct Font {
     #[serde(default="true_bool", deserialize_with = "default_true_bool")]
     use_thin_strokes: bool,
 
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
-    scale_with_dpi: bool,
+    // TODO: Deprecated
+    #[serde(default, deserialize_with = "deserialize_scale_with_dpi")]
+    scale_with_dpi: Option<()>,
+}
+
+fn deserialize_scale_with_dpi<'a, D>(deserializer: D) -> ::std::result::Result<Option<()>, D::Error>
+where
+    D: de::Deserializer<'a>,
+{
+    use ::util::fmt;
+    // This is necessary in order to get serde to complete deserialization of the configuration
+    let _ignored = bool::deserialize(deserializer);
+    eprintln!(
+        "{}",
+        fmt::Yellow(
+            "The `scale_with_dpi` setting has been removed, \
+             on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead."
+        )
+    );
+    Ok(None)
 }
 
 fn default_bold_desc() -> FontDescription {
@@ -1923,11 +1941,6 @@ impl Font {
             .. self
         }
     }
-
-    /// Check whether dpi should be applied
-    pub fn scale_with_dpi(&self) -> bool {
-        self.scale_with_dpi
-    }
 }
 
 #[cfg(target_os = "macos")]
@@ -1939,7 +1952,7 @@ impl Default for Font {
             italic: FontDescription::new_with_family("Menlo"),
             size: Size::new(11.0),
             use_thin_strokes: true,
-            scale_with_dpi: true,
+            scale_with_dpi: None,
             glyph_offset: Default::default(),
             offset: Default::default(),
         }
@@ -1955,7 +1968,7 @@ impl Default for Font {
             italic: FontDescription::new_with_family("monospace"),
             size: Size::new(11.0),
             use_thin_strokes: false,
-            scale_with_dpi: true,
+            scale_with_dpi: None,
             glyph_offset: Default::default(),
             offset: Default::default(),
         }
@@ -1971,9 +1984,9 @@ impl Default for Font {
             italic: FontDescription::new_with_family("Consolas"),
             size: Size::new(11.0),
             use_thin_strokes: false,
-            offset: Default::default(),
+            scale_with_dpi: None,
             glyph_offset: Default::default(),
-            scale_with_dpi: false,
+            offset: Default::default(),
         }
     }
 }
@@ -2156,6 +2169,15 @@ pub enum Key {
     F13,
     F14,
     F15,
+    F16,
+    F17,
+    F18,
+    F19,
+    F20,
+    F21,
+    F22,
+    F23,
+    F24,
     Snapshot,
     Scroll,
     Pause,
@@ -2206,7 +2228,6 @@ pub enum Key {
     LAlt,
     LBracket,
     LControl,
-    LMenu,
     LShift,
     LWin,
     Mail,
@@ -2231,7 +2252,6 @@ pub enum Key {
     RAlt,
     RBracket,
     RControl,
-    RMenu,
     RShift,
     RWin,
     Semicolon,
@@ -2317,6 +2337,15 @@ impl Key {
             F13 => Key::F13,
             F14 => Key::F14,
             F15 => Key::F15,
+            F16 => Key::F16,
+            F17 => Key::F17,
+            F18 => Key::F18,
+            F19 => Key::F19,
+            F20 => Key::F20,
+            F21 => Key::F21,
+            F22 => Key::F22,
+            F23 => Key::F23,
+            F24 => Key::F24,
             Snapshot => Key::Snapshot,
             Scroll => Key::Scroll,
             Pause => Key::Pause,
@@ -2367,7 +2396,6 @@ impl Key {
             LAlt => Key::LAlt,
             LBracket => Key::LBracket,
             LControl => Key::LControl,
-            LMenu => Key::LMenu,
             LShift => Key::LShift,
             LWin => Key::LWin,
             Mail => Key::Mail,
@@ -2392,7 +2420,6 @@ impl Key {
             RAlt => Key::RAlt,
             RBracket => Key::RBracket,
             RControl => Key::RControl,
-            RMenu => Key::RMenu,
             RShift => Key::RShift,
             RWin => Key::RWin,
             Semicolon => Key::Semicolon,

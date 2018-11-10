@@ -148,15 +148,16 @@ impl ::Rasterize for Rasterizer {
     }
 
     fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
+        let scaled_size = Size::new(size.as_f32_pts() * self.device_pixel_ratio);
         self.keys
-            .get(&(desc.to_owned(), size))
+            .get(&(desc.to_owned(), scaled_size))
             .map(|k| Ok(*k))
             .unwrap_or_else(|| {
                 let font = self.get_font(desc, size)?;
                 let key = FontKey::next();
 
                 self.fonts.insert(key, font);
-                self.keys.insert((desc.clone(), size), key);
+                self.keys.insert((desc.clone(), scaled_size), key);
 
                 Ok(key)
             })
@@ -183,6 +184,10 @@ impl ::Rasterize for Rasterizer {
                 // no fallback, give up.
                 Err(Error::MissingGlyph(glyph.c))
             })
+    }
+
+    fn update_dpr(&mut self, device_pixel_ratio: f32) {
+        self.device_pixel_ratio = device_pixel_ratio;
     }
 }
 

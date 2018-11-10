@@ -133,6 +133,10 @@ impl ::Rasterize for RustTypeRasterizer {
             buf,
         })
     }
+
+    fn update_dpr(&mut self, device_pixel_ratio: f32) {
+        self.dpi_ratio = device_pixel_ratio;
+    }
 }
 
 #[derive(Debug)]

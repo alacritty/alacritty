@@ -23,6 +23,7 @@ use term::{Term, SizeInfo, TermMode, Search};
 use util::limit;
 use util::fmt::Red;
 use window::Window;
+use PhysicalSize;
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
@@ -35,7 +36,7 @@ pub trait Notify {
 pub struct ActionContext<'a, N: 'a> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term,
-    pub size_info: &'a SizeInfo,
+    pub size_info: &'a mut SizeInfo,
     pub mouse: &'a mut Mouse,
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
@@ -251,7 +252,7 @@ pub struct Processor<N> {
     wait_for_event: bool,
     notifier: N,
     mouse: Mouse,
-    resize_tx: mpsc::Sender<(u32, u32)>,
+    resize_tx: mpsc::Sender<PhysicalSize>,
     ref_test: bool,
     size_info: SizeInfo,
     hide_mouse_when_typing: bool,
@@ -280,7 +281,7 @@ impl<N: Notify> Processor<N> {
     /// pty.
     pub fn new(
         notifier: N,
-        resize_tx: mpsc::Sender<(u32, u32)>,
+        resize_tx: mpsc::Sender<PhysicalSize>,
         options: &Options,
         config: &Config,
         ref_test: bool,
@@ -316,7 +317,7 @@ impl<N: Notify> Processor<N> {
         processor: &mut input::Processor<'a, ActionContext<'a, N>>,
         event: Event,
         ref_test: bool,
-        resize_tx: &mpsc::Sender<(u32, u32)>,
+        resize_tx: &mpsc::Sender<PhysicalSize>,
         hide_mouse: &mut bool,
         window_is_focused: &mut bool,
     ) {
@@ -350,8 +351,13 @@ impl<N: Notify> Processor<N> {
                         // FIXME should do a more graceful shutdown
                         ::std::process::exit(0);
                     },
-                    Resized(w, h) => {
-                        resize_tx.send((w, h)).expect("send new size");
+                    Resized(lsize) => {
+                        // Resize events are emitted via glutin/winit with logical sizes
+                        // However the terminal, window and renderer use physical sizes
+                        // so a conversion must be done here
+                        resize_tx
+                            .send(lsize.to_physical(processor.ctx.size_info.dpr))
+                            .expect("send new size");
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
@@ -371,9 +377,10 @@ impl<N: Notify> Processor<N> {
                             processor.ctx.terminal.dirty = true;
                         }
                     },
-                    CursorMoved { position: (x, y), modifiers, .. } => {
-                        let x = limit(x as i32, 0, processor.ctx.size_info.width as i32);
-                        let y = limit(y as i32, 0, processor.ctx.size_info.height as i32);
+                    CursorMoved { position: lpos, modifiers, .. } => {
+                        let (x, y) = lpos.to_physical(processor.ctx.size_info.dpr).into();
+                        let x: i32 = limit(x, 0, processor.ctx.size_info.width as i32);
+                        let y: i32 = limit(y, 0, processor.ctx.size_info.height as i32);
 
                         *hide_mouse = false;
                         processor.mouse_moved(x as usize, y as usize, modifiers);
@@ -402,7 +409,11 @@ impl<N: Notify> Processor<N> {
                         use input::ActionContext;
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty(path.into_bytes());
-                    }
+                    },
+                    HiDpiFactorChanged(new_dpr) => {
+                        processor.ctx.size_info.dpr = new_dpr;
+                        processor.ctx.terminal.dirty = true;
+                    },
                     _ => (),
                 }
             },
@@ -453,7 +464,7 @@ impl<N: Notify> Processor<N> {
                 terminal: &mut terminal,
                 notifier: &mut self.notifier,
                 mouse: &mut self.mouse,
-                size_info: &self.size_info,
+                size_info: &mut self.size_info,
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
                 last_modifiers: &mut self.last_modifiers,
