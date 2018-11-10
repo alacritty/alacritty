@@ -35,10 +35,10 @@ clap = "2"
 fnv = "1"
 unicode-width = "0.1"
 arraydeque = "0.4"
-glutin = "0.18"
+glutin = "0.19"
 env_logger = "0.5"
 base64 = "0.9.0"
-winit = { version = "0.17", features = ["icon_loading"] }
+winit = { version = "0.18", features = ["icon_loading"] }
 image = "0.19"
 static_assertions = "0.2.5"
 terminfo = "0.6.1"
@@ -98,4 +98,3 @@ assets = [
 
 [patch.crates-io]
 servo-freetype-sys = { path = "servo-freetype-proxy" }
-winit = { git = "https://github.com/vberger/winit.git" }
