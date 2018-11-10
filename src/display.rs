@@ -18,8 +18,8 @@ use std::sync::mpsc;
 use std::f64;
 
 use parking_lot::MutexGuard;
+use glutin::dpi::{LogicalPosition, PhysicalSize};
 
-use {LogicalPosition, PhysicalSize, Rgb};
 use cli;
 use config::Config;
 use font::{self, Rasterize};
@@ -27,9 +27,8 @@ use meter::Meter;
 use renderer::{self, GlyphCache, QuadRenderer};
 use term::{Term, SizeInfo, RenderableCell};
 use sync::FairMutex;
-
 use window::{self, Window};
-
+use Rgb;
 
 #[derive(Debug)]
 pub enum Error {

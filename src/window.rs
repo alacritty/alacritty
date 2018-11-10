@@ -24,12 +24,11 @@ use glutin::{
     self, ContextBuilder, ControlFlow, Event, EventsLoop,
     MouseCursor as GlutinMouseCursor, WindowBuilder,
 };
-
-use {LogicalPosition, LogicalSize, MouseCursor, PhysicalSize};
-
+use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 
 use cli::Options;
 use config::{Decorations, WindowConfig};
+use MouseCursor;
 
 #[cfg(windows)]
 static WINDOW_ICON: &'static [u8] = include_bytes!("../assets/windows/alacritty.ico");
