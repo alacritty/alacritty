@@ -28,10 +28,11 @@ use gl::types::*;
 use gl;
 use index::{Column, Line, RangeInclusive};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
+use Rgb;
 
 use config::{self, Config, Delta};
 use term::{self, cell, RenderableCell};
-use {PhysicalSize, Rgb};
+use glutin::dpi::PhysicalSize;
 
 // Shader paths for live reload
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");

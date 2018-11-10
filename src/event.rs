@@ -23,7 +23,7 @@ use term::{Term, SizeInfo, TermMode, Search};
 use util::limit;
 use util::fmt::Red;
 use window::Window;
-use PhysicalSize;
+use glutin::dpi::PhysicalSize;
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
