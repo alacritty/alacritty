@@ -42,11 +42,10 @@ clap = "2"
 fnv = "1"
 unicode-width = "0.1"
 arraydeque = "0.4"
-glutin = "0.19"
+glutin = { version = "0.19", features = ["icon_loading"] }
 env_logger = "0.5"
 base64 = "0.9.0"
-winit = { version = "0.18", features = ["icon_loading"] }
-image = "0.19"
+image = "0.20.1"
 static_assertions = "0.2.5"
 terminfo = "0.6.1"
 url = "1.7.1"

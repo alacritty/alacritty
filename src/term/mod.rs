@@ -2300,6 +2300,7 @@ mod tests {
             cell_height: 3.0,
             padding_x: 0.0,
             padding_y: 0.0,
+            dpr: 1.0,
         };
         let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
@@ -2335,6 +2336,7 @@ mod tests {
             cell_height: 3.0,
             padding_x: 0.0,
             padding_y: 0.0,
+            dpr: 1.0,
         };
         let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
@@ -2369,6 +2371,7 @@ mod tests {
             cell_height: 3.0,
             padding_x: 0.0,
             padding_y: 0.0,
+            dpr: 1.0,
         };
         let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());

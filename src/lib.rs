@@ -36,8 +36,6 @@ extern crate winpty;
 #[cfg(windows)]
 extern crate dunce;
 #[cfg(windows)]
-extern crate winit;
-#[cfg(windows)]
 extern crate image;
 
 #[cfg(target_os = "macos")]

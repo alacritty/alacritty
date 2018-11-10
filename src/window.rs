@@ -17,9 +17,9 @@ use std::fmt::Display;
 use gl;
 use glutin::GlContext;
 #[cfg(windows)]
-use winit::Icon;
+use glutin::Icon;
 #[cfg(windows)]
-use image::ImageFormat;
+use image::image::ImageFormat;
 use glutin::{
     self, ContextBuilder, ControlFlow, Event, EventsLoop,
     MouseCursor as GlutinMouseCursor, WindowBuilder,
