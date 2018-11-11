@@ -303,7 +303,7 @@ impl GlyphCache {
         // Recompute font keys
         let font = font.to_owned().with_size(size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
-      
+
         self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
 
@@ -748,20 +748,30 @@ impl QuadRenderer {
         self.program = program;
     }
 
-    pub fn resize(&mut self, size: PhysicalSize, dpr: f64) {
-        let (width, height) : (u32, u32) = size.into();
+    pub fn resize(&mut self, size: PhysicalSize, dpr: f64, cell_width: i32, cell_height: i32) {
+        let (width, height): (u32, u32) = size.into();
+        let (width, height) = (width as i32, height as i32);
 
-        let padding_x = (f64::from(self.program.padding_x) * dpr) as i32;
-        let padding_y = (f64::from(self.program.padding_y) * dpr) as i32;
+        let mut padding_x = (f64::from(self.program.padding_x) * dpr) as i32;
+        let mut padding_y = (f64::from(self.program.padding_y) * dpr) as i32;
+
+        // Add padding to center the grid inside the window
+        padding_y += ((height - 2 * padding_y) % cell_height) / 2;
+        padding_x += ((width - 2 * padding_x) % cell_width) / 2;
 
         // viewport
         unsafe {
-            gl::Viewport(padding_x, padding_y, (width as i32) - 2 * padding_x, (height as i32) - 2 * padding_y);
+            gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
         }
 
         // update projection
         self.program.activate();
-        self.program.update_projection(width as f32, height as f32, dpr as f32);
+        self.program.update_projection(
+            width as f32,
+            height as f32,
+            padding_x as f32,
+            padding_y as f32,
+        );
         self.program.deactivate();
     }
 }
@@ -1051,6 +1061,9 @@ impl ShaderProgram {
 
         assert_uniform_valid!(projection, term_dim, cell_dim);
 
+        let padding_x = (f32::from(config.padding().x) * dpr as f32).floor();
+        let padding_y = (f32::from(config.padding().y) * dpr as f32).floor();
+
         let shader = ShaderProgram {
             id: program,
             u_projection: projection,
@@ -1058,21 +1071,18 @@ impl ShaderProgram {
             u_cell_dim: cell_dim,
             u_visual_bell: visual_bell,
             u_background: background,
-            padding_x: config.padding().x,
-            padding_y: config.padding().y,
+            padding_x: padding_x as u8,
+            padding_y: padding_y as u8,
         };
 
-        shader.update_projection(size.width as f32, size.height as f32, dpr as f32);
+        shader.update_projection(size.width as f32, size.height as f32, padding_x, padding_y);
 
         shader.deactivate();
 
         Ok(shader)
     }
 
-    fn update_projection(&self, width: f32, height: f32, dpr: f32) {
-        let padding_x = (f32::from(self.padding_x) * dpr).floor();
-        let padding_y = (f32::from(self.padding_y) * dpr).floor();
-        
+    fn update_projection(&self, width: f32, height: f32, padding_x: f32, padding_y: f32) {
         // Bounds check
         if (width as u32) < (2 * padding_x as u32) ||
             (height as u32) < (2 * padding_y as u32)
