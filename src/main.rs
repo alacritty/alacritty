@@ -116,6 +116,9 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
         info!("Configuration loaded from {}", config_path.display());
     };
 
+    // Set environment variables
+    tty::setup_env(&config);
+
     // Create a display.
     //
     // The display manages a window and can draw the terminal

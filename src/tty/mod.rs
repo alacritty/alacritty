@@ -13,9 +13,12 @@
 // limitations under the License.
 //
 //! tty related functionality
-
 use mio;
-use std::io;
+use std::{env, io};
+
+use terminfo::Database;
+
+use config::Config;
 
 #[cfg(not(windows))]
 mod unix;
@@ -34,7 +37,13 @@ pub trait EventedReadWrite {
     type Reader: io::Read;
     type Writer: io::Write;
 
-    fn register(&mut self, &mio::Poll, &mut Iterator<Item = &usize>, mio::Ready, mio::PollOpt) -> io::Result<()>;
+    fn register(
+        &mut self,
+        &mio::Poll,
+        &mut Iterator<Item = &usize>,
+        mio::Ready,
+        mio::PollOpt,
+    ) -> io::Result<()>;
     fn reregister(&mut self, &mio::Poll, mio::Ready, mio::PollOpt) -> io::Result<()>;
     fn deregister(&mut self, &mio::Poll) -> io::Result<()>;
 
@@ -42,4 +51,27 @@ pub trait EventedReadWrite {
     fn read_token(&self) -> mio::Token;
     fn writer(&mut self) -> &mut Self::Writer;
     fn write_token(&self) -> mio::Token;
+}
+
+// Setup environment variables
+pub fn setup_env(config: &Config) {
+    // Default to 'alacritty' terminfo if it is available, otherwise
+    // default to 'xterm-256color'. May be overridden by user's config
+    // below.
+    env::set_var(
+        "TERM",
+        if Database::from_name("alacritty").is_ok() {
+            "alacritty"
+        } else {
+            "xterm-256color"
+        },
+    );
+
+    // Advertise 24-bit color support
+    env::set_var("COLORTERM", "truecolor");
+
+    // Set env vars from config
+    for (key, value) in config.env().iter() {
+        env::set_var(key, value);
+    }
 }

@@ -23,7 +23,6 @@ use cli::Options;
 use mio;
 
 use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
-use terminfo::Database;
 
 use std::os::unix::io::{FromRawFd, RawFd};
 use std::fs::File;
@@ -241,28 +240,14 @@ pub fn new<T: ToWinsize>(
     builder.stderr(unsafe { Stdio::from_raw_fd(slave) });
     builder.stdout(unsafe { Stdio::from_raw_fd(slave) });
 
-    // Setup environment
+    // Setup shell environment
     builder.env("LOGNAME", pw.name);
     builder.env("USER", pw.name);
     builder.env("SHELL", shell.program());
     builder.env("HOME", pw.dir);
 
-    // TERM; default to 'alacritty' if it is available, otherwise
-    // default to 'xterm-256color'. May be overridden by user's config
-    // below.
-    let term = if Database::from_name("alacritty").is_ok() {
-        "alacritty"
-    } else {
-        "xterm-256color"
-    };
-    builder.env("TERM", term);
-
-    builder.env("COLORTERM", "truecolor"); // advertise 24-bit support
     if let Some(window_id) = window_id {
         builder.env("WINDOWID", format!("{}", window_id));
-    }
-    for (key, value) in config.env().iter() {
-        builder.env(key, value);
     }
 
     builder.before_exec(move || {
