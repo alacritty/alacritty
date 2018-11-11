@@ -34,6 +34,9 @@ extern crate dirs;
 use std::error::Error;
 use std::sync::Arc;
 
+#[cfg(target_os = "macos")]
+use std::env;
+
 #[cfg(not(windows))]
 use std::os::unix::io::AsRawFd;
 

@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resizing of windows without decorations
 - On Wayland, key repetition works again
 - On macOS, Alacritty will now use the integrated GPU again when available
+- On Linux, the `WINIT_HIDPI_FACTOR` environment variable can be set from the config now
 
 ## Version 0.2.1
 
