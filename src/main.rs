@@ -34,9 +34,6 @@ extern crate dirs;
 use std::error::Error;
 use std::sync::Arc;
 
-#[cfg(target_os = "macos")]
-use std::env;
-
 #[cfg(not(windows))]
 use std::os::unix::io::AsRawFd;
 
@@ -115,6 +112,9 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     if let Some(config_path) = config.path() {
         info!("Configuration loaded from {}", config_path.display());
     };
+
+    // Set environment variables
+    tty::setup_env(&config);
 
     // Create a display.
     //
