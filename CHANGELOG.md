@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved `unfocused_hollow_cursor` to `cursor.unfocused_hollow`
 - Moved `hide_cursor_when_typing` to `mouse.hide_when_typing`
 - Mouse bindings now ignore additional modifiers
+- Extra padding is now spread evenly around the terminal grid
 
 ### Removed
 

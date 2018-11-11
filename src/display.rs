@@ -163,7 +163,7 @@ impl Display {
                 f64::from(height + 2 * (f64::from(config.padding().y) * dpr) as u32) as f64);
 
             window.set_inner_size(new_viewport_size.to_logical(dpr));
-            renderer.resize(new_viewport_size, dpr);
+            renderer.resize(new_viewport_size, dpr, cell_width as i32, cell_height as i32);
             viewport_size = new_viewport_size;
         }
 
@@ -320,8 +320,11 @@ impl Display {
                 item.on_resize(size)
             }
 
+            let cw = self.size_info.cell_width as i32;
+            let ch = self.size_info.cell_height as i32;
+
             self.window.resize(psize);
-            self.renderer.resize(psize, dpr);
+            self.renderer.resize(psize, dpr, cw, ch);
         }
     }
 
