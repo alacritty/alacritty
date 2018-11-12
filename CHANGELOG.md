@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Mouse cursor alignment issues and truncated last line caused by incorrect padding calculations
 
+### Added
+
+- Configuration option for evenly spreading padding is now available (`window.dynamic_padding`)
+
 ## Version 0.2.2
 
 ### Added
