@@ -156,6 +156,7 @@ impl Display {
         let mut padding_y = f64::from(config.padding().y) * dpr;
 
         if dimensions.columns_u32() > 0 && dimensions.lines_u32() > 0 {
+            // Calculate new size based on cols/lines specified in config
             let width = cell_width as u32 * dimensions.columns_u32();
             let height = cell_height as u32 * dimensions.lines_u32();
 
@@ -167,6 +168,7 @@ impl Display {
                 f64::from(height) + 2. * padding_y,
             );
         } else {
+            // Make sure additional padding is spread evenly
             let cw = f64::from(cell_width);
             let ch = f64::from(cell_height);
             padding_x = (padding_x + (viewport_size.width - 2. * padding_x) % cw / 2.).floor();
