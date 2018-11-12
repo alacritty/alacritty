@@ -35,6 +35,7 @@ build_script:
   # Only build once per architecture
   - if [%CLIPPY%]==[false] (
       cargo +%RUST_TOOLCHAIN% build --release
+      .\scripts\create-installer.ps1
     )
 
 before_test:
