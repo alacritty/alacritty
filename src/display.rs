@@ -159,22 +159,25 @@ impl Display {
             let width = cell_width as u32 * dimensions.columns_u32();
             let height = cell_height as u32 * dimensions.lines_u32();
 
-            padding_x = padding_x + (f64::from(width) - 2. * padding_x) % f64::from(cell_width) / 2.;
-            padding_y = padding_y + (f64::from(height) - 2. * padding_y) % f64::from(cell_height) / 2.;
+            padding_x = padding_x.floor();
+            padding_y = padding_y.floor();
 
             viewport_size = PhysicalSize::new(
                 f64::from(width) + 2. * padding_x,
                 f64::from(height) + 2. * padding_y,
             );
+        } else {
+            let cw = f64::from(cell_width);
+            let ch = f64::from(cell_height);
+            padding_x = (padding_x + (viewport_size.width - 2. * padding_x) % cw / 2.).floor();
+            padding_y = (padding_y + (viewport_size.height - 2. * padding_y) % ch / 2.).floor();
         }
-
-        padding_x = padding_x.floor();
-        padding_y = padding_y.floor();
 
         window.set_inner_size(viewport_size.to_logical(dpr));
         renderer.resize(viewport_size, padding_x as f32, padding_y as f32);
 
         info!("Cell Size: ({} x {})", cell_width, cell_height);
+        info!("Padding: ({} x {})", padding_x, padding_y);
 
         let size_info = SizeInfo {
             dpr,
