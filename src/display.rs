@@ -152,23 +152,24 @@ impl Display {
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
 
-        debug_assert!(dimensions.columns_u32() > 0);
-        debug_assert!(dimensions.lines_u32() > 0);
-
-        let width = cell_width as u32 * dimensions.columns_u32();
-        let height = cell_height as u32 * dimensions.lines_u32();
-
         let mut padding_x = f64::from(config.padding().x) * dpr;
         let mut padding_y = f64::from(config.padding().y) * dpr;
-        padding_x = padding_x + (f64::from(width) - 2. * padding_x) % f64::from(cell_width) / 2.;
-        padding_y = padding_y + (f64::from(height) - 2. * padding_y) % f64::from(cell_height) / 2.;
+
+        if dimensions.columns_u32() > 0 && dimensions.lines_u32() > 0 {
+            let width = cell_width as u32 * dimensions.columns_u32();
+            let height = cell_height as u32 * dimensions.lines_u32();
+
+            padding_x = padding_x + (f64::from(width) - 2. * padding_x) % f64::from(cell_width) / 2.;
+            padding_y = padding_y + (f64::from(height) - 2. * padding_y) % f64::from(cell_height) / 2.;
+
+            viewport_size = PhysicalSize::new(
+                f64::from(width) + 2. * padding_x,
+                f64::from(height) + 2. * padding_y,
+            );
+        }
+
         padding_x = padding_x.floor();
         padding_y = padding_y.floor();
-
-        viewport_size = PhysicalSize::new(
-            f64::from(width) + 2. * padding_x,
-            f64::from(height) + 2. * padding_y,
-        );
 
         window.set_inner_size(viewport_size.to_logical(dpr));
         renderer.resize(viewport_size, padding_x as f32, padding_y as f32);
