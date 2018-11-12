@@ -118,9 +118,6 @@ pub struct ShaderProgram {
     ///
     /// Rendering is split into two passes; 1 for backgrounds, and one for text
     u_background: GLint,
-
-    padding_x: u8,
-    padding_y: u8,
 }
 
 #[derive(Debug, Clone)]
@@ -472,8 +469,8 @@ const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
-    pub fn new(config: &Config, size: PhysicalSize, dpr: f64) -> Result<QuadRenderer, Error> {
-        let program = ShaderProgram::new(config, size, dpr)?;
+    pub fn new(size: PhysicalSize) -> Result<QuadRenderer, Error> {
+        let program = ShaderProgram::new(size)?;
 
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
@@ -668,7 +665,7 @@ impl QuadRenderer {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::ShaderReload => {
-                    self.reload_shaders(config, PhysicalSize::new(f64::from(props.width), f64::from(props.height)), props.dpr);
+                    self.reload_shaders(PhysicalSize::new(f64::from(props.width), f64::from(props.height)));
                 }
             }
         }
@@ -720,9 +717,9 @@ impl QuadRenderer {
         })
     }
 
-    pub fn reload_shaders(&mut self, config: &Config, size: PhysicalSize, dpr: f64) {
+    pub fn reload_shaders(&mut self, size: PhysicalSize) {
         warn!("Reloading shaders ...");
-        let program = match ShaderProgram::new(config, size, dpr) {
+        let program = match ShaderProgram::new(size) {
             Ok(program) => {
                 warn!(" ... OK");
                 program
@@ -748,30 +745,21 @@ impl QuadRenderer {
         self.program = program;
     }
 
-    pub fn resize(&mut self, size: PhysicalSize, dpr: f64, cell_width: i32, cell_height: i32) {
+    pub fn resize(&mut self, size: PhysicalSize, padding_x: f32, padding_y: f32) {
         let (width, height): (u32, u32) = size.into();
-        let (width, height) = (width as i32, height as i32);
-
-        let mut padding_x = (f64::from(self.program.padding_x) * dpr) as i32;
-        let mut padding_y = (f64::from(self.program.padding_y) * dpr) as i32;
-
-        // Add padding to center the grid inside the window
-        padding_y += ((height - 2 * padding_y) % cell_height) / 2;
-        padding_x += ((width - 2 * padding_x) % cell_width) / 2;
 
         // viewport
         unsafe {
+            let width = width as i32;
+            let height = height as i32;
+            let padding_x = padding_x as i32;
+            let padding_y = padding_y as i32;
             gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
         }
 
         // update projection
         self.program.activate();
-        self.program.update_projection(
-            width as f32,
-            height as f32,
-            padding_x as f32,
-            padding_y as f32,
-        );
+        self.program.update_projection(width as f32, height as f32, padding_x, padding_y);
         self.program.deactivate();
     }
 }
@@ -1007,11 +995,7 @@ impl ShaderProgram {
         }
     }
 
-    pub fn new(
-        config: &Config,
-        size: PhysicalSize,
-        dpr: f64
-    ) -> Result<ShaderProgram, ShaderCreationError> {
+    pub fn new(size: PhysicalSize) -> Result<ShaderProgram, ShaderCreationError> {
         let vertex_source = if cfg!(feature = "live-shader-reload") {
             None
         } else {
@@ -1061,9 +1045,6 @@ impl ShaderProgram {
 
         assert_uniform_valid!(projection, term_dim, cell_dim);
 
-        let padding_x = (f32::from(config.padding().x) * dpr as f32).floor();
-        let padding_y = (f32::from(config.padding().y) * dpr as f32).floor();
-
         let shader = ShaderProgram {
             id: program,
             u_projection: projection,
@@ -1071,11 +1052,9 @@ impl ShaderProgram {
             u_cell_dim: cell_dim,
             u_visual_bell: visual_bell,
             u_background: background,
-            padding_x: padding_x as u8,
-            padding_y: padding_y as u8,
         };
 
-        shader.update_projection(size.width as f32, size.height as f32, padding_x, padding_y);
+        shader.update_projection(size.width as f32, size.height as f32, 0., 0.);
 
         shader.deactivate();
 

@@ -144,28 +144,34 @@ impl Display {
             .expect("glutin returns window size").to_physical(dpr);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(config, viewport_size, dpr)?;
+        let mut renderer = QuadRenderer::new(viewport_size)?;
 
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
-
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
 
-        // Resize window to specified dimensions unless one or both dimensions are 0
-        if dimensions.columns_u32() > 0 && dimensions.lines_u32() > 0 {
-            let width = cell_width as u32 * dimensions.columns_u32();
-            let height = cell_height as u32 * dimensions.lines_u32();
+        debug_assert!(dimensions.columns_u32() > 0);
+        debug_assert!(dimensions.lines_u32() > 0);
 
-            let new_viewport_size = PhysicalSize::new(
-                f64::from(width + 2 * (f64::from(config.padding().x) * dpr) as u32),
-                f64::from(height + 2 * (f64::from(config.padding().y) * dpr) as u32) as f64);
+        let width = cell_width as u32 * dimensions.columns_u32();
+        let height = cell_height as u32 * dimensions.lines_u32();
 
-            window.set_inner_size(new_viewport_size.to_logical(dpr));
-            renderer.resize(new_viewport_size, dpr, cell_width as i32, cell_height as i32);
-            viewport_size = new_viewport_size;
-        }
+        let mut padding_x = f64::from(config.padding().x) * dpr;
+        let mut padding_y = f64::from(config.padding().y) * dpr;
+        padding_x = padding_x + (f64::from(width) - 2. * padding_x) % f64::from(cell_width) / 2.;
+        padding_y = padding_y + (f64::from(height) - 2. * padding_y) % f64::from(cell_height) / 2.;
+        padding_x = padding_x.floor();
+        padding_y = padding_y.floor();
+
+        viewport_size = PhysicalSize::new(
+            f64::from(width) + 2. * padding_x,
+            f64::from(height) + 2. * padding_y,
+        );
+
+        window.set_inner_size(viewport_size.to_logical(dpr));
+        renderer.resize(viewport_size, padding_x as f32, padding_y as f32);
 
         info!("Cell Size: ({} x {})", cell_width, cell_height);
 
@@ -175,8 +181,8 @@ impl Display {
             height: viewport_size.height as f32,
             cell_width: cell_width as f32,
             cell_height: cell_height as f32,
-            padding_x: (f64::from(config.padding().x) * dpr).floor() as f32,
-            padding_y: (f64::from(config.padding().y) * dpr).floor() as f32,
+            padding_x: padding_x as f32,
+            padding_y: padding_y as f32,
         };
 
         // Channel for resize events
@@ -302,16 +308,27 @@ impl Display {
 
             self.font_size = terminal.font_size;
             self.size_info.dpr = dpr;
-            self.size_info.padding_x = (f64::from(config.padding().x) * dpr).floor() as f32;
-            self.size_info.padding_y = (f64::from(config.padding().y) * dpr).floor() as f32;
+
             self.update_glyph_cache(config);
         }
 
         // Receive any resize events; only call gl::Viewport on last
         // available
         if let Some(psize) = new_size.take() {
-            self.size_info.width = psize.width as f32;
-            self.size_info.height = psize.height as f32;
+            let width = psize.width as f32;
+            let height = psize.height as f32;
+            let cell_width = self.size_info.cell_width;
+            let cell_height = self.size_info.cell_height;
+
+            self.size_info.width = width;
+            self.size_info.height = height;
+
+            let mut padding_x = f32::from(config.padding().x) * dpr as f32;
+            let mut padding_y = f32::from(config.padding().y) * dpr as f32;
+            padding_x = (padding_x + ((width - 2. * padding_x) % cell_width) / 2.).floor();
+            padding_y = (padding_y + ((height - 2. * padding_y) % cell_height) / 2.).floor();
+            self.size_info.padding_x = padding_x;
+            self.size_info.padding_y = padding_y;
 
             let size = &self.size_info;
             terminal.resize(size);
@@ -320,11 +337,8 @@ impl Display {
                 item.on_resize(size)
             }
 
-            let cw = self.size_info.cell_width as i32;
-            let ch = self.size_info.cell_height as i32;
-
             self.window.resize(psize);
-            self.renderer.resize(psize, dpr, cw, ch);
+            self.renderer.resize(psize, padding_x, padding_y);
         }
     }
 
