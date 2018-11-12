@@ -85,7 +85,7 @@ font:
     # The `style` can be specified to pick a specific face.
     #style: Regular
 
-  # Italic font face
+  # Bold font face
   bold:
     family: Menlo
     # The `style` can be specified to pick a specific face.
