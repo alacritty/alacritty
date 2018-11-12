@@ -57,7 +57,7 @@ fi
 
 # Convert and add manpage if it changed
 if [ -n "$(git diff $prev_tag HEAD alacritty.man)" ]; then
-    gzip -z "./alacritty.man" > "./target/deploy/alacritty.1.gz"
+    gzip -c "./alacritty.man" > "./target/deploy/alacritty.1.gz"
 fi
 
 # Offer extra files if they changed
