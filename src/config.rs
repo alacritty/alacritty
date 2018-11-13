@@ -378,7 +378,7 @@ pub struct WindowConfig {
     decorations: Decorations,
 
     /// Spread out additional padding evenly
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    #[serde(default, deserialize_with = "failure_default")]
     dynamic_padding: bool,
 }
 
