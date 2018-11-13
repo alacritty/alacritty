@@ -63,6 +63,9 @@ dunce = "0.1"
 objc = "0.2.2"
 dirs = "1.0.2"
 
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+jemallocator = "0.1.9"
+
 [features]
 default = []
 # Enabling this feature makes shaders automatically reload when changed

@@ -27,6 +27,9 @@
           target_os = "openbsd"))]
 extern crate x11_dl;
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+extern crate jemallocator;
+
 #[cfg(windows)]
 extern crate mio_named_pipes;
 #[cfg(windows)]
@@ -92,6 +95,10 @@ use std::ops::Mul;
 
 pub use grid::Grid;
 pub use term::Term;
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 /// Facade around [winit's `MouseCursor`](glutin::MouseCursor)
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
