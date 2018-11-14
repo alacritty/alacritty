@@ -43,17 +43,6 @@ to build Alacritty from source can be found [here](INSTALL.md).
 pacman -S alacritty
 ```
 
-### Debian/Ubuntu
-
-Using `cargo deb`, you can create and install a deb file.
-
-```sh
-git clone https://github.com/jwilm/alacritty.git
-cd alacritty
-cargo install cargo-deb
-cargo deb --install
-```
-
 ### openSUSE Tumbleweed
 
 ```sh
