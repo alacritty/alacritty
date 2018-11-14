@@ -18,6 +18,11 @@ rust:
 
 matrix:
   fast_finish: true
+  include:
+    - if: tag IS present
+      os: linux
+      rust: stable
+      env: ARCH=i386
   allow_failures:
     - rust: nightly
     - os: windows
