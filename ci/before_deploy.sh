@@ -52,7 +52,7 @@ elif [ "$TRAVIS_OS_NAME" == "linux" ]; then
     sudo docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu-i386 \
         sh -c "cd /source && /root/.cargo/bin/cargo deb"
     sudo chown -R $USER:$USER "./target"
-    mv "./target/debian/*.deb" "./target/deploy/${name}_amd64.deb"
+    mv "./target/debian/*.deb" "./target/deploy/${name}_i386.deb"
 elif [ "$TRAVIS_OS_NAME" == "windows" ]; then
     mv "./target/release/alacritty.exe" "./target/deploy/${name}.exe"
     mv "./target/release/winpty-agent.exe" "./target/deploy/winpty-agent.exe"
