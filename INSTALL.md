@@ -23,6 +23,7 @@
         1. [Desktop Entry](#desktop-entry)
     2. [MacOS](#macos)
     3. [Cargo](#cargo)
+    4. [Debian/Ubuntu](#debianubuntu-1)
 3. [Manual Page](#manual-page)
 4. [Shell Completions](#shell-completions)
     1. [Zsh](#zsh)
@@ -210,6 +211,15 @@ If you don't want to clone the repository, you can install Alacritty directly us
 
 ```sh
 cargo install --git https://github.com/jwilm/alacritty
+```
+
+### Debian/Ubuntu
+
+Using `cargo deb`, you can create and install a deb file.
+
+```sh
+cargo install cargo-deb
+cargo deb --install
 ```
 
 ## Manual Page
