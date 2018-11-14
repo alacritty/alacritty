@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The `custom_cursor_colors` config field was deleted, remove the `colors.cursor.*` options
   to achieve the same behavior as setting it to `false`
+- The `scale_with_dpi` configuration value has been removed, on Linux the env
+    variable `WINIT_HIDPI_FACTOR=1` can be set instead to disable DPI scaling
 
 ### Fixed
 
