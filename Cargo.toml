@@ -43,10 +43,10 @@ fnv = "1"
 unicode-width = "0.1"
 arraydeque = "0.4"
 glutin = { version = "0.19", features = ["icon_loading"] }
-env_logger = "0.5"
-base64 = "0.9.0"
+env_logger = "0.6.0"
+base64 = "0.10.0"
 image = "0.20.1"
-static_assertions = "0.2.5"
+static_assertions = "0.3.0"
 terminfo = "0.6.1"
 url = "1.7.1"
 
@@ -71,7 +71,7 @@ nightly = []
 bench = []
 
 [build-dependencies]
-gl_generator = "0.9"
+gl_generator = "0.10.0"
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "1.1.4"
