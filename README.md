@@ -67,6 +67,14 @@ emerge x11-terms/alacritty
 pkg install alacritty
 ```
 
+### macOS
+
+```sh
+brew cask install alacritty
+```
+
+Once the cask is installed, it is recommended to setup the [manual page](INSTALL.md#manual-page), [shell completions](INSTALL.md#shell-completions), and [terminfo definitions](INSTALL.md#terminfo).
+
 ### Other
 
 Prebuilt binaries for Linux, macOS, and Windows can be downloaded from the [GitHub releases page](https://github.com/jwilm/alacritty/releases).
