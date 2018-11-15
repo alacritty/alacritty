@@ -73,7 +73,7 @@ pkg install alacritty
 brew cask install alacritty
 ```
 
-Note: See the relevant installation instructions to install Alacritty's [manual page](INSTALL.md#manual-page), [shell completions](INSTALL.md#shell-completions), and [Terminfo](INSTALL.md#terminfo).
+Once the cask is installed, it is recommended to setup the [manual page](INSTALL.md#manual-page), [shell completions](INSTALL.md#shell-completions), and [terminfo definitions](INSTALL.md#terminfo).
 
 ### Other
 
