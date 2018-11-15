@@ -376,6 +376,10 @@ pub struct WindowConfig {
     /// Draw the window with title bar / borders
     #[serde(default)]
     decorations: Decorations,
+
+    /// Spread out additional padding evenly
+    #[serde(default, deserialize_with = "failure_default")]
+    dynamic_padding: bool,
 }
 
 fn default_padding() -> Delta<u8> {
@@ -398,6 +402,10 @@ impl WindowConfig {
     pub fn decorations(&self) -> Decorations {
         self.decorations
     }
+
+    pub fn dynamic_padding(&self) -> bool {
+        self.dynamic_padding
+    }
 }
 
 impl Default for WindowConfig {
@@ -406,6 +414,7 @@ impl Default for WindowConfig {
             dimensions: Default::default(),
             padding: default_padding(),
             decorations: Default::default(),
+            dynamic_padding: false,
         }
     }
 }

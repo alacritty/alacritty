@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Option for evenly spreading extra padding around the terminal (`window.dynamic_padding`)
+
+### Changed
+
+- Extra padding is not evenly spread around the terminal by default anymore
+
 ## Version 0.2.3
 
 ### Fixed

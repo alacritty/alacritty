@@ -152,22 +152,19 @@ impl Display {
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
 
-        let mut padding_x = f64::from(config.padding().x) * dpr;
-        let mut padding_y = f64::from(config.padding().y) * dpr;
+        let mut padding_x = (f64::from(config.padding().x) * dpr).floor();
+        let mut padding_y = (f64::from(config.padding().y) * dpr).floor();
 
         if dimensions.columns_u32() > 0 && dimensions.lines_u32() > 0 {
             // Calculate new size based on cols/lines specified in config
             let width = cell_width as u32 * dimensions.columns_u32();
             let height = cell_height as u32 * dimensions.lines_u32();
 
-            padding_x = padding_x.floor();
-            padding_y = padding_y.floor();
-
             viewport_size = PhysicalSize::new(
                 f64::from(width) + 2. * padding_x,
                 f64::from(height) + 2. * padding_y,
             );
-        } else {
+        } else if config.window().dynamic_padding() {
             // Make sure additional padding is spread evenly
             let cw = f64::from(cell_width);
             let ch = f64::from(cell_height);
@@ -331,8 +328,12 @@ impl Display {
 
             let mut padding_x = f32::from(config.padding().x) * dpr as f32;
             let mut padding_y = f32::from(config.padding().y) * dpr as f32;
-            padding_x = (padding_x + ((width - 2. * padding_x) % cell_width) / 2.).floor();
-            padding_y = (padding_y + ((height - 2. * padding_y) % cell_height) / 2.).floor();
+
+            if config.window().dynamic_padding() {
+                padding_x = (padding_x + ((width - 2. * padding_x) % cell_width) / 2.).floor();
+                padding_y = (padding_y + ((height - 2. * padding_y) % cell_height) / 2.).floor();
+            }
+
             self.size_info.padding_x = padding_x;
             self.size_info.padding_y = padding_y;
 
