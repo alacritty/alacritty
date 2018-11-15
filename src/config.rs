@@ -414,7 +414,7 @@ impl Default for WindowConfig {
             dimensions: Default::default(),
             padding: default_padding(),
             decorations: Default::default(),
-            dynamic_padding: true,
+            dynamic_padding: false,
         }
     }
 }
