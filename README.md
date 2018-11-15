@@ -73,6 +73,8 @@ pkg install alacritty
 brew cask install alacritty
 ```
 
+Note: See the relevant installation instructions to install Alacritty's [manual page](INSTALL.md#manual-page), [shell completions](INSTALL.md#shell-completions), and [Terminfo](INSTALL.md#terminfo).
+
 ### Other
 
 Prebuilt binaries for Linux, macOS, and Windows can be downloaded from the [GitHub releases page](https://github.com/jwilm/alacritty/releases).
