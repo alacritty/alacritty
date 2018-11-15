@@ -67,6 +67,12 @@ emerge x11-terms/alacritty
 pkg install alacritty
 ```
 
+### macOS
+
+```sh
+brew cask install alacritty
+```
+
 ### Other
 
 Prebuilt binaries for Linux, macOS, and Windows can be downloaded from the [GitHub releases page](https://github.com/jwilm/alacritty/releases).
