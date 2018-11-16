@@ -19,6 +19,9 @@ Enable automatic config reloading
 .TP
 \fB\-\-no\-live\-config\-reload\fR
 Disable automatic config reloading
+.TP
+\fB\-\-persistent\-logging\fR
+Keep the log file after quitting Alacritty
 .HP
 \fB\-\-print\-events\fR
 .TP

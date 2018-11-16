@@ -435,8 +435,8 @@ impl Display {
             // Display errors and warnings
             if self.logger_proxy.errors() {
                 let msg = match self.logger_proxy.log_path() {
-                    Some(path) => format!(" ERROR: Full log at {} ", path),
-                    None => " ERROR: Full log in stderr ".into(),
+                    Some(path) => format!(" ERROR! See log at {} ", path),
+                    None => " ERROR! See log in stderr ".into(),
                 };
                 let color = Rgb {
                     r: 0xff,
@@ -448,8 +448,8 @@ impl Display {
                 });
             } else if self.logger_proxy.warnings() {
                 let msg = match self.logger_proxy.log_path() {
-                    Some(path) => format!(" WARNING: Full log at {} ", path),
-                    None => " WARNING: Full log in stderr ".into(),
+                    Some(path) => format!(" WARNING! See log at {} ", path),
+                    None => " WARNING! See log in stderr ".into(),
                 };
                 let color = Rgb {
                     r: 0xff,

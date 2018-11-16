@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binaries for macOS, Windows and Debian-based systems are now published with GitHub releases
 - The keys F16-F24 have been added as options for key bindings
 - Display notice about errors and warnings inside Alacritty
+- Log all messages to both stderr and a log file in the system's temporary directory
+- New configuration option `persistent_logging` and CLI flag `--persistent-logging`,
+    for keeping the log file after closing Alacritty
 
 ### Changed
 

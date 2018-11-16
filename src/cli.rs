@@ -31,6 +31,7 @@ pub struct Options {
     pub command: Option<Shell<'static>>,
     pub working_dir: Option<PathBuf>,
     pub config: Option<PathBuf>,
+    pub persistent_logging: bool,
 }
 
 impl Default for Options {
@@ -46,6 +47,7 @@ impl Default for Options {
             command: None,
             working_dir: None,
             config: None,
+            persistent_logging: false,
         }
     }
 }
@@ -71,6 +73,9 @@ impl Options {
                  .conflicts_with("live-config-reload"))
             .arg(Arg::with_name("print-events")
                 .long("print-events"))
+            .arg(Arg::with_name("persistent-logging")
+                .long("persistent-logging")
+                .help("Keep the log file after quitting Alacritty"))
             .arg(Arg::with_name("dimensions")
                 .long("dimensions")
                 .short("d")
@@ -127,6 +132,10 @@ impl Options {
             options.live_config_reload = Some(true);
         } else if matches.is_present("no-live-config-reload") {
             options.live_config_reload = Some(false);
+        }
+
+        if matches.is_present("persistent-logging") {
+            options.persistent_logging = true;
         }
 
         if let Some(mut dimensions) = matches.values_of("dimensions") {
