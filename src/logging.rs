@@ -22,7 +22,7 @@ use log::{self, Level};
 use time;
 
 use std::env;
-use std::fs::{File, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, LineWriter, Stdout, Write};
 use std::path::PathBuf;
 use std::process;
@@ -77,6 +77,10 @@ impl LoggerProxy {
     pub fn clear(&mut self) {
         self.errors.store(false, Ordering::Relaxed);
         self.warnings.store(false, Ordering::Relaxed);
+    }
+
+    pub fn delete_log(&mut self) {
+        self.logfile_proxy.delete_log();
     }
 }
 
@@ -152,6 +156,17 @@ impl log::Log for Logger {
 struct OnDemandLogFileProxy {
     created: Arc<AtomicBool>,
     path: String,
+}
+
+impl OnDemandLogFileProxy {
+    fn delete_log(&mut self) {
+        if self.created.load(Ordering::Relaxed) {
+            if fs::remove_file(&self.path).is_ok() {
+                let _ = writeln!(io::stdout(), "Deleted log file at {:?}", self.path);
+                self.created.store(false, Ordering::Relaxed);
+            }
+        }
+    }
 }
 
 struct OnDemandLogFile {

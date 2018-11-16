@@ -494,6 +494,10 @@ pub struct Config {
     #[serde(default, deserialize_with="failure_default")]
     cursor: Cursor,
 
+    /// Keep the log file after quitting
+    #[serde(default, deserialize_with="failure_default")]
+    persistent_logging: bool,
+
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]
     custom_cursor_colors: Option<bool>,
@@ -1660,6 +1664,12 @@ impl Config {
     // Update the history size, used in ref tests
     pub fn set_history(&mut self, history: u32) {
         self.scrolling.history = history;
+    }
+
+    /// Keep the log file after quitting Alacritty
+    #[inline]
+    pub fn persistent_logging(&self) -> bool {
+        self.persistent_logging
     }
 
     pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {

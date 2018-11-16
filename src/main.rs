@@ -85,8 +85,6 @@ fn main() {
     if let Err(err) = run(config, &options, logger_proxy) {
         die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
     }
-
-    info!("Goodbye.");
 }
 
 /// Load configuration
@@ -115,7 +113,7 @@ fn load_config(options: &cli::Options) -> Config {
 fn run(
     mut config: Config,
     options: &cli::Options,
-    logger_proxy: LoggerProxy,
+    mut logger_proxy: LoggerProxy,
 ) -> Result<(), Box<Error>> {
     info!("Welcome to Alacritty.");
     if let Some(config_path) = config.path() {
@@ -138,7 +136,7 @@ fn run(
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let terminal = Term::new(&config, display.size().to_owned(), Some(logger_proxy));
+    let terminal = Term::new(&config, display.size().to_owned(), Some(logger_proxy.clone()));
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Find the window ID for setting $WINDOWID
@@ -260,6 +258,12 @@ fn run(
     // Without explicitly detaching the console cmd won't redraw it's prompt
     #[cfg(windows)]
     unsafe { FreeConsole(); }
+
+    info!("Goodbye.");
+
+    if !options.persistent_logging && !config.persistent_logging() {
+        logger_proxy.delete_log();
+    }
 
     Ok(())
 }
