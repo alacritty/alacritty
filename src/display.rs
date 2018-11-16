@@ -330,12 +330,12 @@ impl Display {
             let mut padding_y = f32::from(config.padding().y) * dpr as f32;
 
             if config.window().dynamic_padding() {
-                padding_x = (padding_x + ((width - 2. * padding_x) % cell_width) / 2.).floor();
-                padding_y = (padding_y + ((height - 2. * padding_y) % cell_height) / 2.).floor();
+                padding_x = padding_x + ((width - 2. * padding_x) % cell_width) / 2.;
+                padding_y = padding_y + ((height - 2. * padding_y) % cell_height) / 2.;
             }
 
-            self.size_info.padding_x = padding_x;
-            self.size_info.padding_y = padding_y;
+            self.size_info.padding_x = padding_x.floor();
+            self.size_info.padding_y = padding_y.floor();
 
             let size = &self.size_info;
             terminal.resize(size);
@@ -345,7 +345,7 @@ impl Display {
             }
 
             self.window.resize(psize);
-            self.renderer.resize(psize, padding_x, padding_y);
+            self.renderer.resize(psize, self.size_info.padding_x, self.size_info.padding_y);
         }
     }
 
