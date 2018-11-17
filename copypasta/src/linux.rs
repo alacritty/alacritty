@@ -26,10 +26,7 @@ use sctk::data_device::DataSourceEvent;
 use sctk::data_device::ReadPipe;
 use sctk::data_device::{DataDevice, DndEvent};
 use sctk::keyboard::{map_keyboard_auto, Event as KbEvent};
-use sctk::reexports::client::protocol::wl_display::RequestsTrait as DisplayRequests;
-use sctk::reexports::client::protocol::wl_seat;
 use sctk::reexports::client::Display;
-use sctk::wayland_client::protocol::wl_seat::RequestsTrait;
 use sctk::wayland_client::sys::client::wl_display;
 use sctk::Environment;
 

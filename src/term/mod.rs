@@ -2235,7 +2235,8 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let clipboard = Clipboard::new().unwrap();
+        let mut term = Term::new(&Default::default(), size, clipboard);
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0, Cell::default());
         for l in 0..3 {
             if l != 1 {
@@ -2401,7 +2402,8 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let clipboard = Clipboard::new().unwrap();
+        let mut term = Term::new(&Default::default(), size, clipboard);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
         grid[Line(0)][Column(0)].c = '(';
         grid[Line(0)][Column(1)].c = '(';
@@ -2437,7 +2439,8 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let clipboard = Clipboard::new().unwrap();
+        let mut term = Term::new(&Default::default(), size, clipboard);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
         grid[Line(0)][Column(0)].c = 'f';
         grid[Line(0)][Column(1)].c = 't';
@@ -2472,7 +2475,8 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let clipboard = Clipboard::new().unwrap();
+        let mut term = Term::new(&Default::default(), size, clipboard);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
         grid[Line(0)][Column(0)].c = 'a';
         grid[Line(0)][Column(1)].c = 'z';
@@ -2536,7 +2540,8 @@ mod benches {
 
         let config = Config::default();
 
-        let mut terminal = Term::new(&config, size);
+        let clipboard = Clipboard::new().unwrap();
+        let mut terminal = Term::new(&config, size, clipboard);
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {
