@@ -160,11 +160,9 @@ struct OnDemandLogFileProxy {
 
 impl OnDemandLogFileProxy {
     fn delete_log(&mut self) {
-        if self.created.load(Ordering::Relaxed) {
-            if fs::remove_file(&self.path).is_ok() {
-                let _ = writeln!(io::stdout(), "Deleted log file at {:?}", self.path);
-                self.created.store(false, Ordering::Relaxed);
-            }
+        if self.created.load(Ordering::Relaxed) && fs::remove_file(&self.path).is_ok() {
+            let _ = writeln!(io::stdout(), "Deleted log file at {:?}", self.path);
+            self.created.store(false, Ordering::Relaxed);
         }
     }
 }

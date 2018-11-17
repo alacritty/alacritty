@@ -441,7 +441,7 @@ impl Display {
                 let color = Rgb {
                     r: 0xff,
                     g: 0x00,
-                    b: 0x00
+                    b: 0x00,
                 };
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
                     api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
@@ -454,7 +454,7 @@ impl Display {
                 let color = Rgb {
                     r: 0xff,
                     g: 0xff,
-                    b: 0x00
+                    b: 0x00,
                 };
                 self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
                     api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);

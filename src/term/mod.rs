@@ -896,7 +896,7 @@ impl Term {
         self.next_mouse_cursor.take()
     }
 
-    pub fn new(config: &Config, size: SizeInfo, logger_proxy: Option<LoggerProxy>) -> Term {
+    pub fn new(config: &Config, size: SizeInfo) -> Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
@@ -940,8 +940,12 @@ impl Term {
             dynamic_title: config.dynamic_title(),
             tabspaces,
             auto_scroll: config.scrolling().auto_scroll,
-            logger_proxy,
+            logger_proxy: None,
         }
+    }
+
+    pub fn set_logger_proxy(&mut self, logger_proxy: LoggerProxy) {
+        self.logger_proxy = Some(logger_proxy);
     }
 
     pub fn change_font_size(&mut self, delta: f32) {
@@ -2081,7 +2085,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, None);
+        let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0, Cell::default());
         for i in 0..5 {
             for j in 0..2 {
@@ -2125,7 +2129,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, None);
+        let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0, Cell::default());
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2151,7 +2155,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, None);
+        let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0, Cell::default());
         for l in 0..3 {
             if l != 1 {
@@ -2196,7 +2200,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, None);
+        let mut term = Term::new(&Default::default(), size);
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0,
                                StandardCharset::SpecialCharacterAndLineDrawing);
@@ -2216,7 +2220,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size, None);
+        let mut term: Term = Term::new(&config, size);
         term.change_font_size(font_size);
 
         let expected_font_size: Size = config.font().size() + Size::new(font_size);
@@ -2245,7 +2249,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size, None);
+        let mut term: Term = Term::new(&config, size);
 
         term.change_font_size(-100.0);
 
@@ -2265,7 +2269,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size, None);
+        let mut term: Term = Term::new(&config, size);
 
         term.change_font_size(10.0);
         term.reset_font_size();
@@ -2286,7 +2290,7 @@ mod tests {
             dpr: 1.0
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size, None);
+        let mut term: Term = Term::new(&config, size);
 
         // Add one line of scrollback
         term.grid.scroll_up(&(Line(0)..Line(1)), Line(1), &Cell::default());
@@ -2312,7 +2316,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, None);
+        let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
         grid[Line(0)][Column(0)].c = '(';
         grid[Line(0)][Column(1)].c = '(';
@@ -2348,7 +2352,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, None);
+        let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
         grid[Line(0)][Column(0)].c = 'f';
         grid[Line(0)][Column(1)].c = 't';
@@ -2383,7 +2387,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, None);
+        let mut term = Term::new(&Default::default(), size);
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
         grid[Line(0)][Column(0)].c = 'a';
         grid[Line(0)][Column(1)].c = 'z';
@@ -2447,7 +2451,7 @@ mod benches {
 
         let config = Config::default();
 
-        let mut terminal = Term::new(&config, size, None);
+        let mut terminal = Term::new(&config, size);
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {

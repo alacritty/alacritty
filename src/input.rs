@@ -908,7 +908,7 @@ mod tests {
                     dpr: 1.0,
                 };
 
-                let mut terminal = Term::new(&config, size, None);
+                let mut terminal = Term::new(&config, size);
 
                 let mut mouse = Mouse::default();
                 mouse.click_state = $initial_state;
