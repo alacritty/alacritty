@@ -67,6 +67,12 @@ emerge x11-terms/alacritty
 pkg install alacritty
 ```
 
+### NixOS
+
+```sh
+nix-env -iA nixos.alacritty
+```
+
 ### macOS
 
 ```sh
