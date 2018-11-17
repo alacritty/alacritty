@@ -9,6 +9,7 @@ _alacritty() {
         "(-V --version)"{-V,--version}"[Prints version information]" \
         "(--no-live-config-reload)--live-config-reload[Enable automatic config reloading]" \
         "(--live-config-reload)--no-live-config-reload[Disable automatic config reloading]" \
+        "(--persistent-logging)--persistent-logging[Keep the log file after quitting Alacritty]" \
         "--print-events[Print all events to stdout]" \
         {-q,-qq}"[Reduces the level of verbosity (min is -qq)]" \
         {-v,-vv,-vvv}"[Increases the level of verbosity (max is -vvv)]" \

@@ -108,6 +108,9 @@ font:
 # Display the time it takes to redraw each frame.
 render_timer: false
 
+# Keep the log file after quitting Alacritty.
+persistent_logging: false
+
 # Colors (Tomorrow Night Bright)
 colors:
   # Default colors

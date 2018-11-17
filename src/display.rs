@@ -28,6 +28,7 @@ use renderer::{self, GlyphCache, QuadRenderer};
 use term::{Term, SizeInfo, RenderableCell};
 use sync::FairMutex;
 use window::{self, Window};
+use logging::LoggerProxy;
 use Rgb;
 
 #[derive(Debug)]
@@ -99,6 +100,7 @@ pub struct Display {
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
+    logger_proxy: LoggerProxy,
 }
 
 /// Can wakeup the render loop from other threads
@@ -129,7 +131,11 @@ impl Display {
         &self.size_info
     }
 
-    pub fn new(config: &Config, options: &cli::Options) -> Result<Display, Error> {
+    pub fn new(
+        config: &Config,
+        options: &cli::Options,
+        logger_proxy: LoggerProxy
+    ) -> Result<Display, Error> {
         // Extract some properties from config
         let render_timer = config.render_timer();
 
@@ -218,6 +224,7 @@ impl Display {
             meter: Meter::new(),
             font_size: font::Size::new(0.),
             size_info,
+            logger_proxy,
         })
     }
 
@@ -420,10 +427,38 @@ impl Display {
                     g: 0x4e,
                     b: 0x53,
                 };
-                self.renderer
-                    .with_api(config, &size_info, visual_bell_intensity, |mut api| {
-                        api.render_string(&timing[..], glyph_cache, color);
-                    });
+                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                    api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, color);
+                });
+            }
+
+            // Display errors and warnings
+            if self.logger_proxy.errors() {
+                let msg = match self.logger_proxy.log_path() {
+                    Some(path) => format!(" ERROR! See log at {} ", path),
+                    None => " ERROR! See log in stderr ".into(),
+                };
+                let color = Rgb {
+                    r: 0xff,
+                    g: 0x00,
+                    b: 0x00,
+                };
+                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                    api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
+                });
+            } else if self.logger_proxy.warnings() {
+                let msg = match self.logger_proxy.log_path() {
+                    Some(path) => format!(" WARNING! See log at {} ", path),
+                    None => " WARNING! See log in stderr ".into(),
+                };
+                let color = Rgb {
+                    r: 0xff,
+                    g: 0xff,
+                    b: 0x00,
+                };
+                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                    api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
+                });
             }
         }
 

@@ -20,18 +20,12 @@ use index::{Point, Line, Column};
 // Scroll up moves lines upwards
 #[test]
 fn scroll_up() {
-    println!();
-
     let mut grid = Grid::new(Line(10), Column(1), 0, 0);
     for i in 0..10 {
         grid[Line(i)][Column(0)] = i;
     }
 
-    println!("grid: {:?}", grid);
-
     grid.scroll_up(&(Line(0)..Line(10)), Line(2), &0);
-
-    println!("grid: {:?}", grid);
 
     assert_eq!(grid[Line(0)][Column(0)], 2);
     assert_eq!(grid[Line(0)].occ, 1);
@@ -58,18 +52,12 @@ fn scroll_up() {
 // Scroll down moves lines downwards
 #[test]
 fn scroll_down() {
-    println!();
-
     let mut grid = Grid::new(Line(10), Column(1), 0, 0);
     for i in 0..10 {
         grid[Line(i)][Column(0)] = i;
     }
 
-    println!("grid: {:?}", grid);
-
     grid.scroll_down(&(Line(0)..Line(10)), Line(2), &0);
-
-    println!("grid: {:?}", grid);
 
     assert_eq!(grid[Line(0)][Column(0)], 0); // was 8
     assert_eq!(grid[Line(0)].occ, 0);

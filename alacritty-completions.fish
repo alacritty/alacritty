@@ -16,6 +16,9 @@ complete -c alacritty \
   -l "no-live-config-reload" \
   -d "Disable automatic config reloading"
 complete -c alacritty \
+  -l "persistent-logging" \
+  -d "Keep the log file after quitting Alacritty"
+complete -c alacritty \
   -f \
   -l "config-file" \
   -d "Specify an alternative config file"

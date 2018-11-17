@@ -64,6 +64,7 @@ extern crate xdg;
 extern crate base64;
 extern crate terminfo;
 extern crate url;
+extern crate time;
 
 #[macro_use]
 pub mod macros;

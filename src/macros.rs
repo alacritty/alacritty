@@ -15,33 +15,7 @@
 #[macro_export]
 macro_rules! die {
     ($($arg:tt)*) => {{
-        eprintln!($($arg)*);
+        error!($($arg)*);
         ::std::process::exit(1);
     }}
-}
-
-#[macro_export]
-macro_rules! maybe {
-    ($option:expr) => {
-        match $option {
-            Some(value) => value,
-            None => return None,
-        }
-    }
-}
-
-#[macro_export]
-macro_rules! print {
-    ($($arg:tt)*) => {{
-        use std::io::Write;
-        let _ = write!(::std::io::stdout(), $($arg)*);
-    }};
-}
-
-#[macro_export]
-macro_rules! eprint {
-    ($($arg:tt)*) => {{
-        use std::io::Write;
-        let _ = write!(::std::io::stderr(), $($arg)*);
-    }};
 }

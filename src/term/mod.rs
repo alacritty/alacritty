@@ -31,6 +31,7 @@ use config::{Config, VisualBellAnimation};
 use {MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
 use input::FONT_SIZE_STEP;
+use logging::LoggerProxy;
 
 pub mod cell;
 pub mod color;
@@ -810,6 +811,9 @@ pub struct Term {
 
     /// Automatically scroll to bottom when new lines are added
     auto_scroll: bool,
+
+    /// Proxy object for clearing displayed errors and warnings
+    logger_proxy: Option<LoggerProxy>,
 }
 
 /// Terminal size info
@@ -936,7 +940,12 @@ impl Term {
             dynamic_title: config.dynamic_title(),
             tabspaces,
             auto_scroll: config.scrolling().auto_scroll,
+            logger_proxy: None,
         }
+    }
+
+    pub fn set_logger_proxy(&mut self, logger_proxy: LoggerProxy) {
+        self.logger_proxy = Some(logger_proxy);
     }
 
     pub fn change_font_size(&mut self, delta: f32) {
@@ -1822,6 +1831,11 @@ impl ansi::Handler for Term {
                 }
             },
             ansi::ClearMode::All => {
+                // Clear displayed errors and warnings
+                if let Some(ref mut logger_proxy) = self.logger_proxy {
+                    logger_proxy.clear();
+                }
+
                 self.grid.region_mut(..).each(|c| c.reset(&template));
             },
             ansi::ClearMode::Above => {

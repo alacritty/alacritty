@@ -52,7 +52,7 @@ use alacritty::event;
 use alacritty::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
 use alacritty::locale;
-use alacritty::logging;
+use alacritty::logging::{self, LoggerProxy};
 use alacritty::sync::FairMutex;
 use alacritty::term::Term;
 use alacritty::tty::{self, process_should_exit};
@@ -65,8 +65,13 @@ fn main() {
     #[cfg(windows)]
     unsafe { AttachConsole(ATTACH_PARENT_PROCESS); }
 
-    // Load command line options and config
+    // Load command line options
     let options = cli::Options::load();
+
+    // Initialize the logger as soon as possible as to capture output from other subsystems
+    let logger_proxy = logging::initialize(&options).expect("Unable to initialize logger");
+
+    // Load configuration file
     let config = load_config(&options).update_dynamic_title(&options);
 
     // Switch to home directory
@@ -77,11 +82,9 @@ fn main() {
     locale::set_locale_environment();
 
     // Run alacritty
-    if let Err(err) = run(config, &options) {
+    if let Err(err) = run(config, &options, logger_proxy) {
         die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
     }
-
-    info!("Goodbye.");
 }
 
 /// Load configuration
@@ -98,7 +101,7 @@ fn load_config(options: &cli::Options) -> Config {
         });
 
     Config::load_from(&*config_path).unwrap_or_else(|err| {
-        eprintln!("Error: {}; Loading default config", err);
+        error!("Error: {}; Loading default config", err);
         Config::default()
     })
 }
@@ -107,10 +110,11 @@ fn load_config(options: &cli::Options) -> Config {
 ///
 /// Creates a window, the terminal state, pty, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
-    // Initialize the logger first as to capture output from other subsystems
-    logging::initialize(options)?;
-
+fn run(
+    mut config: Config,
+    options: &cli::Options,
+    mut logger_proxy: LoggerProxy,
+) -> Result<(), Box<Error>> {
     info!("Welcome to Alacritty.");
     if let Some(config_path) = config.path() {
         info!("Configuration loaded from {}", config_path.display());
@@ -122,7 +126,7 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // Create a display.
     //
     // The display manages a window and can draw the terminal
-    let mut display = Display::new(&config, options)?;
+    let mut display = Display::new(&config, options, logger_proxy.clone())?;
 
     info!(
         "PTY Dimensions: {:?} x {:?}",
@@ -135,7 +139,8 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let terminal = Term::new(&config, display.size().to_owned());
+    let mut terminal = Term::new(&config, display.size().to_owned());
+    terminal.set_logger_proxy(logger_proxy.clone());
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Find the window ID for setting $WINDOWID
@@ -257,6 +262,12 @@ fn run(mut config: Config, options: &cli::Options) -> Result<(), Box<Error>> {
     // Without explicitly detaching the console cmd won't redraw it's prompt
     #[cfg(windows)]
     unsafe { FreeConsole(); }
+
+    info!("Goodbye.");
+
+    if !options.persistent_logging && !config.persistent_logging() {
+        logger_proxy.delete_log();
+    }
 
     Ok(())
 }

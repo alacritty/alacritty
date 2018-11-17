@@ -14,14 +14,11 @@
 #[cfg(windows)]
 extern crate embed_resource;
 #[cfg(windows)]
-extern crate tempdir;
+extern crate tempfile;
 #[cfg(windows)]
 extern crate reqwest;
 #[cfg(windows)]
 extern crate zip;
-
-#[cfg(windows)]
-use tempdir::TempDir;
 
 extern crate gl_generator;
 
@@ -66,8 +63,7 @@ fn main() {
 
 #[cfg(windows)]
 fn aquire_winpty_agent(out_path: &Path) {
-    let tmp_dir = TempDir::new("alacritty_build").unwrap();
-
+    let tmp_dir = tempfile::Builder::new().prefix("alacritty_build").tempdir().unwrap();
 
     let mut response = reqwest::get(WINPTY_PACKAGE_URL).unwrap();
     let mut file = OpenOptions::new()
