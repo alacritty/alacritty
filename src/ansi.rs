@@ -751,7 +751,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                 }
                 buf.push_str("],");
             }
-            warn!("[unhandled osc_dispatch]: [{}] at line {}", &buf, line!());
+            debug!("[unhandled osc_dispatch]: [{}] at line {}", &buf, line!());
         }
 
         if params.is_empty() || params[0].is_empty() {
@@ -931,7 +931,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     }
                 }
                 else {
-                    warn!("tried to repeat with no preceding char");
+                    debug!("tried to repeat with no preceding char");
                 }
             },
             'B' | 'e' => handler.move_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
@@ -1195,7 +1195,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
         2 => {
             // RGB color spec
             if attrs.len() < 5 {
-                warn!("Expected RGB color spec; got {:?}", attrs);
+                debug!("Expected RGB color spec; got {:?}", attrs);
                 return None;
             }
 
@@ -1207,7 +1207,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
 
             let range = 0..256;
             if !range.contains_(r) || !range.contains_(g) || !range.contains_(b) {
-                warn!("Invalid RGB color spec: ({}, {}, {})", r, g, b);
+                debug!("Invalid RGB color spec: ({}, {}, {})", r, g, b);
                 return None;
             }
 
@@ -1219,7 +1219,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
         },
         5 => {
             if attrs.len() < 3 {
-                warn!("Expected color index; got {:?}", attrs);
+                debug!("Expected color index; got {:?}", attrs);
                 None
             } else {
                 *i += 2;
@@ -1229,14 +1229,14 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
                         Some(Color::Indexed(idx as u8))
                     },
                     _ => {
-                        warn!("Invalid color index: {}", idx);
+                        debug!("Invalid color index: {}", idx);
                         None
                     }
                 }
             }
         },
         _ => {
-            warn!("Unexpected color attr: {}", attrs[*i+1]);
+            debug!("Unexpected color attr: {}", attrs[*i+1]);
             None
         }
     }
