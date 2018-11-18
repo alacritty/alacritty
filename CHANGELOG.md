@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Option for evenly spreading extra padding around the terminal (`window.dynamic_padding`)
+- Display notice about errors and warnings inside Alacritty
+- Log all messages to both stderr and a log file in the system's temporary directory
+- New configuration option `persistent_logging` and CLI flag `--persistent-logging`,
+    for keeping the log file after closing Alacritty
+- `ClearLogNotice` action for removing the warning and error message
 
 ### Changed
 
@@ -31,11 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `mouse.url.modifiers` option to specify keyboard modifiers for opening URLs on click
 - Binaries for macOS, Windows and Debian-based systems are now published with GitHub releases
 - The keys F16-F24 have been added as options for key bindings
-- Display notice about errors and warnings inside Alacritty
-- Log all messages to both stderr and a log file in the system's temporary directory
-- New configuration option `persistent_logging` and CLI flag `--persistent-logging`,
-    for keeping the log file after closing Alacritty
-- `ClearLogNotice` action for removing the warning and error message
 
 ### Changed
 
