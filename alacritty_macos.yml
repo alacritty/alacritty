@@ -366,6 +366,7 @@ live_config_reload: true
 #   - ClearHistory
 #   - Hide
 #   - Quit
+#   - ClearLogNotice
 #
 # Values for `command`:
 #   The `command` field must be a map containing a `program` string and
@@ -396,6 +397,8 @@ key_bindings:
   - { key: Minus,    mods: Command, action: DecreaseFontSize             }
   - { key: K,        mods: Command, action: ClearHistory                 }
   - { key: K,        mods: Command, chars: "\x0c"                        }
+  - { key: L,        mods: Control, action: ClearLogNotice               }
+  - { key: L,        mods: Control, chars: "\x0c"                        }
   - { key: PageUp,   mods: Shift,   chars: "\x1b[5;2~"                   }
   - { key: PageUp,   mods: Control, chars: "\x1b[5;5~"                   }
   - { key: PageUp,                  chars: "\x1b[5~"                     }

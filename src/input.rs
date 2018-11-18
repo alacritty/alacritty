@@ -76,6 +76,7 @@ pub trait ActionContext {
     fn clear_history(&mut self);
     fn hide_window(&mut self);
     fn url(&self, _: Point<usize>) -> Option<String>;
+    fn clear_log(&mut self);
 }
 
 /// Describes a state and action to take in that state
@@ -200,6 +201,9 @@ pub enum Action {
 
     /// Quits Alacritty.
     Quit,
+
+    /// Clears warning and error notices.
+    ClearLogNotice,
 }
 
 impl Action {
@@ -292,6 +296,9 @@ impl Action {
             Action::ClearHistory => {
                 ctx.clear_history();
             },
+            Action::ClearLogNotice => {
+                ctx.clear_log();
+            }
         }
     }
 
@@ -885,6 +892,7 @@ mod tests {
         }
         fn hide_window(&mut self) {
         }
+        fn clear_log(&mut self) {}
     }
 
     macro_rules! test_clickstate {

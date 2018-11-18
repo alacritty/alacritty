@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Log all messages to both stderr and a log file in the system's temporary directory
 - New configuration option `persistent_logging` and CLI flag `--persistent-logging`,
     for keeping the log file after closing Alacritty
+- `ClearLogNotice` action for removing the warning and error message
 
 ### Changed
 

@@ -877,6 +877,14 @@ impl Term {
         &self.grid.selection
     }
 
+    /// Clear displayed errors and warnings.
+    pub fn clear_log(&mut self) {
+        if let Some(ref mut logger_proxy) = self.logger_proxy {
+            logger_proxy.clear();
+        }
+    }
+
+
     pub fn selection_mut(&mut self) -> &mut Option<Selection> {
         &mut self.grid.selection
     }
@@ -1831,11 +1839,7 @@ impl ansi::Handler for Term {
                 }
             },
             ansi::ClearMode::All => {
-                // Clear displayed errors and warnings
-                if let Some(ref mut logger_proxy) = self.logger_proxy {
-                    logger_proxy.clear();
-                }
-
+                self.clear_log();
                 self.grid.region_mut(..).each(|c| c.reset(&template));
             },
             ansi::ClearMode::Above => {
