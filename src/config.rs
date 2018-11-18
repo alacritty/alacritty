@@ -1894,16 +1894,10 @@ fn deserialize_scale_with_dpi<'a, D>(deserializer: D) -> ::std::result::Result<O
 where
     D: de::Deserializer<'a>,
 {
-    use ::util::fmt;
     // This is necessary in order to get serde to complete deserialization of the configuration
     let _ignored = bool::deserialize(deserializer);
-    eprintln!(
-        "{}",
-        fmt::Yellow(
-            "The `scale_with_dpi` setting has been removed, \
-             on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead."
-        )
-    );
+    error!("The `scale_with_dpi` setting has been removed, \
+            on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead.");
     Ok(None)
 }
 
