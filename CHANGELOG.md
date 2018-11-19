@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `mouse.url.modifiers` option to specify keyboard modifiers for opening URLs on click
 - Binaries for macOS, Windows and Debian-based systems are now published with GitHub releases
 - The keys F16-F24 have been added as options for key bindings
+- DEB file adds Alacritty as option to `update-alternatives --config x-terminal-emulator`
 
 ### Changed
 
@@ -30,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved `hide_cursor_when_typing` to `mouse.hide_when_typing`
 - Mouse bindings now ignore additional modifiers
 - Extra padding is now spread evenly around the terminal grid
+- DEB file installs to `usr/bin` instead of `usr/local/bin`
 
 ### Removed
 
