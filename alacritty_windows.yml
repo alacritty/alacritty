@@ -39,6 +39,9 @@ window:
   #     - none: Neither borders nor title bar
   decorations: full
 
+  # When true, alacritty starts maximized.
+  maximized: false
+
 scrolling:
   # Maximum number of lines in the scrollback buffer.
   # Specifying '0' will disable scrolling.
