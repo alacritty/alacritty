@@ -171,6 +171,11 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     fn hide_window(&mut self) {
         self.window_changes.hide = true;
     }
+
+    #[inline]
+    fn clear_log(&mut self) {
+        self.terminal.clear_log();
+    }
 }
 
 /// The ActionContext can't really have direct access to the Window
