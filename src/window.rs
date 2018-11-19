@@ -300,6 +300,7 @@ impl Window {
             .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
+            .with_maximized(window_config.start_maximized())
             .with_decorations(decorations)
     }
 
@@ -317,6 +318,7 @@ impl Window {
             .with_visibility(cfg!(windows))
             .with_decorations(decorations)
             .with_transparency(true)
+            .with_maximized(window_config.start_maximized())
             .with_window_icon(Some(icon))
     }
 
@@ -327,7 +329,8 @@ impl Window {
         let window = WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
-            .with_transparency(true);
+            .with_transparency(true)
+            .with_maximized(window_config.start_maximized());
 
         match window_config.decorations() {
             Decorations::Full => window,

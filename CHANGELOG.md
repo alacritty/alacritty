@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Option for evenly spreading extra padding around the terminal (`window.dynamic_padding`)
+- Option for maximizing alacritty on start (`window.start_maximized`)
 - Display notice about errors and warnings inside Alacritty
 - Log all messages to both stderr and a log file in the system's temporary directory
 - New configuration option `persistent_logging` and CLI flag `--persistent-logging`,
