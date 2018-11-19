@@ -222,6 +222,12 @@ cargo install cargo-deb
 cargo deb --install
 ```
 
+To choose a default terminal app, use Debian's `update-alternatives`.
+
+```sh
+update-alternatives --config x-terminal-emulator
+``` 
+
 ## Manual Page
 
 Installing the manual page requires the additional dependency `gzip`.

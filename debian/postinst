@@ -1,0 +1,3 @@
+#!/bin/sh -e
+
+update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/bin/alacritty 20
