@@ -156,10 +156,6 @@ impl Window {
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();
 
-        if window_config.start_maximized() {
-            window.set_maximized(true);
-        }
-
         // Text cursor
         window.set_cursor(GlutinMouseCursor::Text);
 
@@ -300,10 +296,13 @@ impl Window {
             _ => true,
         };
 
+        let maximized = window_config.maximized();
+
         WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
+            .with_maximized(maximized)
             .with_decorations(decorations)
     }
 
@@ -316,11 +315,14 @@ impl Window {
             _ => true,
         };
 
+        let maximized = window_config.maximized();
+
         WindowBuilder::new()
             .with_title(title)
             .with_visibility(cfg!(windows))
             .with_decorations(decorations)
             .with_transparency(true)
+            .with_maximized(maximized)
             .with_window_icon(Some(icon))
     }
 
@@ -328,10 +330,13 @@ impl Window {
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
         use glutin::os::macos::WindowBuilderExt;
 
+        let maximized = window_config.maximized();
+
         let window = WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
-            .with_transparency(true);
+            .with_transparency(true)
+            .with_maximized(maximized);
 
         match window_config.decorations() {
             Decorations::Full => window,
