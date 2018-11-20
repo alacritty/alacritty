@@ -35,7 +35,7 @@ use logging::LoggerProxy;
 
 pub mod cell;
 pub mod color;
-pub use self::cell::Cell;
+pub use self::cell::{Cell, CellContent};
 use self::cell::LineLength;
 
 const URL_SEPARATOR_CHARS: [char; 3] = [' ', '"', '\''];
@@ -62,7 +62,7 @@ impl Search for Term {
         let last_col = self.grid.num_cols() - Column(1);
 
         while let Some(cell) = iter.prev() {
-            if self.semantic_escape_chars.contains(cell.c) {
+            if self.semantic_escape_chars.contains(cell.c.primary()) {
                 break;
             }
 
@@ -84,7 +84,7 @@ impl Search for Term {
         let last_col = self.grid.num_cols() - Column(1);
 
         while let Some(cell) = iter.next() {
-            if self.semantic_escape_chars.contains(cell.c) {
+            if self.semantic_escape_chars.contains(cell.c.primary()) {
                 break;
             }
 
@@ -112,16 +112,16 @@ impl Search for Term {
         // Put all characters until separators into a string
         let mut buf = String::new();
         while let Some(cell) = iterb.prev() {
-            if URL_SEPARATOR_CHARS.contains(&cell.c) {
+            if URL_SEPARATOR_CHARS.contains(&cell.c.primary()) {
                 break;
             }
-            buf.insert(0, cell.c);
+            buf.insert(0, cell.c.primary());
         }
         for cell in iterf {
-            if URL_SEPARATOR_CHARS.contains(&cell.c) {
+            if URL_SEPARATOR_CHARS.contains(&cell.c.primary()) {
                 break;
             }
-            buf.push(cell.c);
+            buf.push(cell.c.primary());
         }
 
         // Heuristic to remove all leading '('
@@ -290,7 +290,7 @@ impl<'a> RenderableCellsIter<'a> {
         cursor_cell.bg = cursor_color;
 
         let mut wide_cell = cursor_cell;
-        wide_cell.c = ' ';
+        wide_cell.c = CellContent::SingleChar(' ');
 
         self.push_cursor_cells(original_cell, cursor_cell, wide_cell);
     }
@@ -300,11 +300,11 @@ impl<'a> RenderableCellsIter<'a> {
 
         let mut cursor_cell = self.grid[self.cursor];
         let cursor_color = self.config.cursor_cursor_color().unwrap_or(cursor_cell.fg);
-        cursor_cell.c = cursor_cell_char;
+        cursor_cell.c = CellContent::SingleChar(cursor_cell_char);
         cursor_cell.fg = cursor_color;
 
         let mut wide_cell = cursor_cell;
-        wide_cell.c = wide_cell_char;
+        wide_cell.c = CellContent::SingleChar(wide_cell_char);
 
         self.push_cursor_cells(original_cell, cursor_cell, wide_cell);
     }
@@ -424,7 +424,7 @@ pub struct RenderableCell {
     /// A _Display_ line (not necessarily an _Active_ line)
     pub line: Line,
     pub column: Column,
-    pub c: char,
+    pub c: CellContent,
     pub fg: Rgb,
     pub bg: Rgb,
     pub bg_alpha: f32,
@@ -1029,7 +1029,9 @@ impl Term {
                 } else if cols.start < line_end {
                     for cell in &grid_line[cols.start..line_end] {
                         if !cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
-                            self.push(cell.c);
+                            for character in cell.c.iter() {
+                                self.push(character);
+                            }
                         }
                     }
 
@@ -1386,7 +1388,7 @@ impl ansi::Handler for Term {
 
                     let cell = &mut self.grid[&self.cursor.point];
                     *cell = self.cursor.template;
-                    cell.c = self.cursor.charsets[self.active_charset].map(c);
+                    cell.c = CellContent::SingleChar(self.cursor.charsets[self.active_charset].map(c));
 
                     // Handle wide chars
                     if width == 2 {
@@ -1416,7 +1418,7 @@ impl ansi::Handler for Term {
     fn dectest(&mut self) {
         trace!("dectest");
         let mut template = self.cursor.template;
-        template.c = 'E';
+        template.c = CellContent::SingleChar('E');
 
         self.grid.region_mut(..)
             .each(|c| c.reset(&template));

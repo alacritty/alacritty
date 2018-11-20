@@ -11,6 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+use std::fmt;
+
+use smallvec::SmallVec;
+use serde::de::{SeqAccess, Visitor};
+use serde::ser::SerializeSeq;
+use serde::{Serialize, Deserialize, Serializer, Deserializer};
+
 use ansi::{NamedColor, Color};
 use grid;
 use index::Column;
@@ -31,9 +38,128 @@ bitflags! {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum CellContent {
+    SingleChar(char),
+    MultiChar([char; 3]),
+}
+
+impl CellContent {
+    #[inline]
+    fn is_empty(&self) -> bool {
+        match *self {
+            CellContent::SingleChar(c) => c == ' ',
+            CellContent::MultiChar(_) => false,
+        }
+    }
+
+    #[inline]
+    pub fn primary(&self) -> char {
+        match self {
+            CellContent::SingleChar(c) => *c,
+            CellContent::MultiChar(c) => c[0],
+        }
+    }
+
+    #[inline]
+    pub fn iter<'a>(&'a self) -> CellContentIter<'a> {
+        CellContentIter::new(self)
+    }
+}
+
+impl Serialize for CellContent {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            CellContent::SingleChar(c) => serializer.serialize_char(*c),
+            CellContent::MultiChar(c) => {
+                let mut seq = serializer.serialize_seq(Some(c.len()))?;
+                for element in c {
+                    seq.serialize_element(&element)?;
+                }
+                seq.end()
+            },
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for CellContent {
+    fn deserialize<D>(deserializer: D) -> Result<CellContent, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct CellContentVisitor;
+
+        impl<'a> Visitor<'a> for CellContentVisitor {
+            type Value = CellContent;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "a char or an array of chars")
+            }
+
+            fn visit_char<E>(self, value: char) -> ::std::result::Result<CellContent, E>
+                where E: ::serde::de::Error
+            {
+                Ok(CellContent::SingleChar(value))
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'a>,
+            {
+                let mut array = [' ', 3];
+                let index = 0;
+                while let Some(value) = seq.next_element::<char>()? {
+                    array[index] = value;
+                }
+                Ok(CellContent::MultiChar(array))
+            }
+        }
+
+        deserializer.deserialize_any(CellContentVisitor)
+    }
+}
+
+pub struct CellContentIter<'a> {
+    inner: &'a CellContent,
+    index: usize,
+}
+
+impl<'a> CellContentIter<'a> {
+    fn new(inner: &'a CellContent) -> CellContentIter<'a> {
+        CellContentIter {
+            inner,
+            index: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for CellContentIter<'a> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<char> {
+        let res = match self.inner {
+            CellContent::SingleChar(c) => if self.index > 0 {
+                None
+            } else {
+                Some(*c)
+            },
+            CellContent::MultiChar(c) => if self.index >= c.len() {
+                None
+            } else {
+                Some(c[self.index])
+            }
+        };
+        self.index += 1;
+        res
+    }
+}
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Cell {
-    pub c: char,
+    pub c: CellContent,
     pub fg: Color,
     pub bg: Color,
     pub flags: Flags,
@@ -65,7 +191,7 @@ impl LineLength for grid::Row<Cell> {
         }
 
         for (index, cell) in self[..].iter().rev().enumerate() {
-            if cell.c != ' ' {
+            if !cell.c.is_empty() {
                 length = Column(self.len() - index);
                 break;
             }
@@ -93,7 +219,7 @@ impl Cell {
 
     pub fn new(c: char, fg: Color, bg: Color) -> Cell {
         Cell {
-            c,
+            c: CellContent::SingleChar(c),
             bg,
             fg,
             flags: Flags::empty(),
@@ -102,9 +228,9 @@ impl Cell {
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.c == ' ' &&
-            self.bg == Color::Named(NamedColor::Background) &&
-            !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE)
+        self.c.is_empty()
+            && self.bg == Color::Named(NamedColor::Background)
+            && !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE)
     }
 
     #[inline]

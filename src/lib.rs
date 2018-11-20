@@ -65,6 +65,7 @@ extern crate base64;
 extern crate terminfo;
 extern crate url;
 extern crate time;
+extern crate smallvec;
 
 #[macro_use]
 pub mod macros;

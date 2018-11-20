@@ -758,7 +758,7 @@ impl<'a, T: 'a> DisplayIter<'a, T> {
     }
 }
 
-impl<'a, T: Copy + 'a> Iterator for DisplayIter<'a, T> {
+impl<'a, T: Copy + Clone + 'a> Iterator for DisplayIter<'a, T> {
     type Item = Indexed<T>;
 
     #[inline]

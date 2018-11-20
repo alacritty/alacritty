@@ -31,7 +31,7 @@ use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use Rgb;
 
 use config::{self, Config, Delta};
-use term::{self, cell, RenderableCell};
+use term::{self, cell, RenderableCell, CellContent};
 use glutin::dpi::PhysicalSize;
 
 // Shader paths for live reload
@@ -835,7 +835,7 @@ impl<'a> RenderApi<'a> {
             .map(|(i, c)| RenderableCell {
                 line,
                 column: col + i,
-                c,
+                c: CellContent::SingleChar(c),
                 bg: color,
                 fg: Rgb { r: 0, g: 0, b: 0 },
                 flags: cell::Flags::empty(),
@@ -879,35 +879,38 @@ impl<'a> RenderApi<'a> {
                 glyph_cache.font_key
             };
 
-            let mut glyph_key = GlyphKey {
-                font_key,
-                size: glyph_cache.font_size,
-                c: cell.c,
-            };
-
-            // Don't render text of HIDDEN cells
-            if cell.flags.contains(cell::Flags::HIDDEN) {
-                glyph_key.c = ' ';
-            }
-
-            // Add cell to batch
-            {
-                let glyph = glyph_cache.get(glyph_key, self);
-                self.add_render_item(&cell, glyph);
-            }
-
-            // FIXME This is a super hacky way to do underlined text. During
-            //       a time crunch to release 0.1, this seemed like a really
-            //       easy, clean hack.
-            if cell.flags.contains(cell::Flags::UNDERLINE) {
-                let glyph_key = GlyphKey {
+            // TODO: Skip this iteration if cell is hidden, don't draw underline multiple times
+            for character in cell.c.iter() {
+                let mut glyph_key = GlyphKey {
                     font_key,
                     size: glyph_cache.font_size,
-                    c: '_',
+                    c: character,
                 };
 
-                let underscore = glyph_cache.get(glyph_key, self);
-                self.add_render_item(&cell, underscore);
+                // Don't render text of HIDDEN cells
+                if cell.flags.contains(cell::Flags::HIDDEN) {
+                    glyph_key.c = ' ';
+                }
+
+                // Add cell to batch
+                {
+                    let glyph = glyph_cache.get(glyph_key, self);
+                    self.add_render_item(&cell, glyph);
+                }
+
+                // FIXME This is a super hacky way to do underlined text. During
+                //       a time crunch to release 0.1, this seemed like a really
+                //       easy, clean hack.
+                if cell.flags.contains(cell::Flags::UNDERLINE) {
+                    let glyph_key = GlyphKey {
+                        font_key,
+                        size: glyph_cache.font_size,
+                        c: '_',
+                    };
+
+                    let underscore = glyph_cache.get(glyph_key, self);
+                    self.add_render_item(&cell, underscore);
+                }
             }
         }
     }
