@@ -150,7 +150,8 @@ impl Window {
 
         let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
         let class = options.class.as_ref().map_or(DEFAULT_TITLE, |c| c);
-        let window_builder = Window::get_platform_window(title, window_config);
+        let start_maximized = options.start_maximized.unwrap_or(window_config.start_maximized());
+        let window_builder = Window::get_platform_window(title, start_maximized, window_config);
         let window_builder = Window::platform_builder_ext(window_builder, &class);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
@@ -290,7 +291,7 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(title: &str, start_maximized: bool, window_config: &WindowConfig) -> WindowBuilder {
         let decorations = match window_config.decorations() {
             Decorations::None => false,
             _ => true,
@@ -300,12 +301,12 @@ impl Window {
             .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
-            .with_maximized(window_config.start_maximized())
+            .with_maximized(start_maximized)
             .with_decorations(decorations)
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(title: &str, start_maximized: bool, window_config: &WindowConfig) -> WindowBuilder {
         let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO).unwrap();
 
         let decorations = match window_config.decorations() {
@@ -318,19 +319,19 @@ impl Window {
             .with_visibility(cfg!(windows))
             .with_decorations(decorations)
             .with_transparency(true)
-            .with_maximized(window_config.start_maximized())
+            .with_maximized(start_maximized)
             .with_window_icon(Some(icon))
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(title: &str, start_maximized: bool, window_config: &WindowConfig) -> WindowBuilder {
         use glutin::os::macos::WindowBuilderExt;
 
         let window = WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
-            .with_maximized(window_config.start_maximized());
+            .with_maximized(start_maximized);
 
         match window_config.decorations() {
             Decorations::Full => window,

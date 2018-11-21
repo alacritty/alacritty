@@ -25,6 +25,7 @@ pub struct Options {
     pub print_events: bool,
     pub ref_test: bool,
     pub dimensions: Option<Dimensions>,
+    pub start_maximized: Option<bool>,
     pub title: Option<String>,
     pub class: Option<String>,
     pub log_level: log::LevelFilter,
@@ -41,6 +42,7 @@ impl Default for Options {
             print_events: false,
             ref_test: false,
             dimensions: None,
+            start_maximized: None,
             title: None,
             class: None,
             log_level: log::LevelFilter::Warn,
@@ -82,6 +84,10 @@ impl Options {
                 .value_names(&["columns", "lines"])
                 .help("Defines the window dimensions. Falls back to size specified by \
                        window manager if set to 0x0 [default: 80x24]"))
+            .arg(Arg::with_name("start-maximized")
+                .long("start-maximized")
+                .short("m")
+                .help("Start window maximized. Overrides dimensions if set."))
             .arg(Arg::with_name("title")
                 .long("title")
                 .short("t")
@@ -146,6 +152,10 @@ impl Options {
             }
         }
 
+        if matches.is_present("start-maximized") {
+            options.start_maximized = Some(true);
+        }
+
         options.class = matches.value_of("class").map(|c| c.to_owned());
         options.title = matches.value_of("title").map(|t| t.to_owned());
 
@@ -184,6 +194,10 @@ impl Options {
 
     pub fn dimensions(&self) -> Option<Dimensions> {
         self.dimensions
+    }
+
+    pub fn start_maximized(&self) -> Option<bool> {
+        self.start_maximized
     }
 
     pub fn command(&self) -> Option<&Shell> {
