@@ -76,19 +76,19 @@ tabspaces: 8
 font:
   # Normal (roman) font face
   normal:
-    family: &font_face Consolas
+    family: &font_family Consolas
     # The `style` can be specified to pick a specific face.
     #style: Regular
 
   # Bold font face
   bold:
-    family: *font_face
+    family: *font_family
     # The `style` can be specified to pick a specific face.
     #style: Bold
 
   # Italic font face
   italic:
-    family: *font_face
+    family: *font_family
     # The `style` can be specified to pick a specific face.
     #style: Italic
 
