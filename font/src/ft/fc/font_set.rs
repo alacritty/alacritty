@@ -63,7 +63,7 @@ impl<'a> IntoIterator for &'a FontSet {
             (*self.as_ptr()).nfont as isize
         };
 
-        info!("num fonts = {}", num_fonts);
+        trace!("num fonts = {}", num_fonts);
 
         Iter {
             font_set: self.deref(),
@@ -81,7 +81,7 @@ impl<'a> IntoIterator for &'a FontSetRef {
             (*self.as_ptr()).nfont as isize
         };
 
-        info!("num fonts = {}", num_fonts);
+        trace!("num fonts = {}", num_fonts);
 
         Iter {
             font_set: self,

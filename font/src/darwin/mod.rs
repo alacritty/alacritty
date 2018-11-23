@@ -129,7 +129,8 @@ impl ::Rasterize for Rasterizer {
     type Err = Error;
 
     fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {
-        info!("device_pixel_ratio: {}", device_pixel_ratio);
+        // TODO: Is this really needed still?
+        trace!("device_pixel_ratio: {}", device_pixel_ratio);
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
@@ -332,7 +333,7 @@ fn cascade_list_for_languages(
 pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
     let mut out = Vec::new();
 
-    info!("family: {}", family);
+    trace!("family: {}", family);
     let ct_collection = match create_for_family(family) {
         Some(c) => c,
         None => return out,
@@ -627,7 +628,7 @@ mod tests {
     fn get_descriptors_and_build_font() {
         let list = super::descriptors_for_family("Menlo");
         assert!(!list.is_empty());
-        info!("{:?}", list);
+        println!("{:?}", list);
 
         // Check to_font
         let fonts = list.iter()

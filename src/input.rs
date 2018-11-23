@@ -242,7 +242,7 @@ impl Action {
                         debug!("spawned new proc");
                     },
                     Err(err) => {
-                        warn!("couldn't run command: {}", err);
+                        warn!("Couldn't run command: {}", err);
                     },
                 }
             },

@@ -144,7 +144,7 @@ impl Display {
         let mut window = Window::new(&options, config.window())?;
 
         let dpr = window.hidpi_factor();
-        info!("device_pixel_ratio: {}", dpr);
+        info!("Device Pixel Ratio: {}", dpr);
 
         // get window properties for initializing the other subsystems
         let mut viewport_size = window.inner_size_pixels()
@@ -187,8 +187,8 @@ impl Display {
         window.set_inner_size(viewport_size.to_logical(dpr));
         renderer.resize(viewport_size, padding_x as f32, padding_y as f32);
 
-        info!("Cell Size: ({} x {})", cell_width, cell_height);
-        info!("Padding: ({} x {})", padding_x, padding_y);
+        trace!("cell size: ({} x {})", cell_width, cell_height);
+        trace!("padding: ({} x {})", padding_x, padding_y);
 
         let size_info = SizeInfo {
             dpr,
@@ -241,15 +241,16 @@ impl Display {
 
         // Initialize glyph cache
         let glyph_cache = {
-            info!("Initializing glyph cache");
+            trace!("initializing glyph cache");
             let init_start = ::std::time::Instant::now();
 
             let cache =
                 renderer.with_loader(|mut api| GlyphCache::new(rasterizer, &font, &mut api))?;
 
             let stop = init_start.elapsed();
-            let stop_f = stop.as_secs() as f64 + f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
-            info!("Finished initializing glyph cache in {}", stop_f);
+            let stop_f = stop.as_secs() as f64 +
+                         f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
+            trace!("finished initializing glyph cache in {}s", stop_f);
 
             cache
         };

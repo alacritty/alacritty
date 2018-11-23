@@ -1774,7 +1774,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn save_cursor_position(&mut self) {
-        trace!("CursorSave");
+        trace!("save cursor");
         let cursor = if self.alt {
             &mut self.cursor_save_alt
         } else {
@@ -1786,7 +1786,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn restore_cursor_position(&mut self) {
-        trace!("CursorRestore");
+        trace!("restore cursor");
         let source = if self.alt {
             &self.cursor_save_alt
         } else {
@@ -1944,7 +1944,7 @@ impl ansi::Handler for Term {
     /// set a terminal attribute
     #[inline]
     fn terminal_attribute(&mut self, attr: Attr) {
-        trace!("Set Attribute: {:?}", attr);
+        trace!("set_attribute: {:?}", attr);
         match attr {
             Attr::Foreground(color) => self.cursor.template.fg = color,
             Attr::Background(color) => self.cursor.template.bg = color,
@@ -2008,7 +2008,7 @@ impl ansi::Handler for Term {
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.insert(mode::TermMode::INSERT), // heh
             _ => {
-                trace!(".. ignoring set_mode");
+                trace!("... ignoring set_mode");
             }
         }
     }
@@ -2048,7 +2048,7 @@ impl ansi::Handler for Term {
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.remove(mode::TermMode::INSERT),
             _ => {
-                trace!(".. ignoring unset_mode");
+                trace!("... ignoring unset_mode");
             }
         }
     }
@@ -2081,7 +2081,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn set_active_charset(&mut self, index: CharsetIndex) {
-        trace!("Activate {:?} character set", index);
+        trace!("activate {:?} character set", index);
         self.active_charset = index;
     }
 

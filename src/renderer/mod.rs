@@ -1234,7 +1234,7 @@ impl TextShaderProgram {
         );
         let projection: [[f32; 4]; 4] = ortho.into();
 
-        info!("width: {}, height: {}", width, height);
+        trace!("width: {}, height: {}", width, height);
 
         unsafe {
             gl::UniformMatrix4fv(

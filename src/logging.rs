@@ -161,6 +161,7 @@ struct OnDemandLogFileProxy {
 impl OnDemandLogFileProxy {
     fn delete_log(&mut self) {
         if self.created.load(Ordering::Relaxed) && fs::remove_file(&self.path).is_ok() {
+            // TODO: Fix the format here...
             let _ = writeln!(io::stdout(), "Deleted log file at {:?}", self.path);
             self.created.store(false, Ordering::Relaxed);
         }
@@ -202,9 +203,11 @@ impl OnDemandLogFile {
                 Ok(file) => {
                     self.file = Some(io::LineWriter::new(file));
                     self.created.store(true, Ordering::Relaxed);
+                    // TODO: Fix the format here...
                     let _ = writeln!(io::stdout(), "Created log file at {:?}", self.path);
                 }
                 Err(e) => {
+                    // TODO: Fix the format here...
                     let _ = writeln!(io::stdout(), "Unable to create log file: {}", e);
                     return Err(e);
                 }

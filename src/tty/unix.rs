@@ -166,6 +166,7 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
     }
 
     if res.is_null() {
+        // TODO: More informative error? Even just passwd not found?
         die!("pw not found");
     }
 
@@ -316,7 +317,7 @@ pub fn new<T: ToWinsize>(
             pty
         },
         Err(err) => {
-            die!("Command::spawn() failed: {}", err);
+            die!("Failed to spawn command: {}", err);
         }
     }
 }
