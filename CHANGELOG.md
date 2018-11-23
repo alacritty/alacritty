@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Extra padding is not evenly spread around the terminal by default anymore
+- When the config file is empty, Alacritty now logs an `info!` instead of an `error!`
 
 ## Version 0.2.3
 
