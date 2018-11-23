@@ -161,7 +161,10 @@ impl Display {
         let mut padding_x = (f64::from(config.padding().x) * dpr).floor();
         let mut padding_y = (f64::from(config.padding().y) * dpr).floor();
 
-        if dimensions.columns_u32() > 0 && dimensions.lines_u32() > 0 {
+        if dimensions.columns_u32() > 0
+            && dimensions.lines_u32() > 0
+            && !config.window().start_maximized()
+        {
             // Calculate new size based on cols/lines specified in config
             let width = cell_width as u32 * dimensions.columns_u32();
             let height = cell_height as u32 * dimensions.lines_u32();
