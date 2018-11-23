@@ -206,7 +206,7 @@ impl<'a, 'b> Winpty<'a> {
         let mut err = null_mut() as *mut winpty_error_t;
 
         unsafe {
-            winpty_set_size(self.0, cols as i32, rows as i32, &mut err);
+            winpty_set_size(self.0, i32::from(cols), i32::from(rows), &mut err);
         }
 
         if let Some(err) = check_err(err) {
