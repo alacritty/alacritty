@@ -86,7 +86,6 @@ impl Options {
                        window manager if set to 0x0 [default: 80x24]"))
             .arg(Arg::with_name("start-maximized")
                 .long("start-maximized")
-                .short("m")
                 .help("Start window maximized. Overrides dimensions if set."))
             .arg(Arg::with_name("title")
                 .long("title")
