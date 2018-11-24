@@ -150,7 +150,7 @@ impl Window {
 
         let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
         let class = options.class.as_ref().map_or(DEFAULT_TITLE, |c| c);
-        let start_maximized = options.start_maximized.unwrap_or(window_config.start_maximized());
+        let start_maximized = options.start_maximized.unwrap_or_else(|| window_config.start_maximized());
         let window_builder = Window::get_platform_window(title, start_maximized, window_config);
         let window_builder = Window::platform_builder_ext(window_builder, &class);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
