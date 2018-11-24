@@ -19,6 +19,7 @@ use std::os::windows::io::{FromRawHandle, IntoRawHandle};
 use std::os::windows::fs::OpenOptionsExt;
 use std::env;
 use std::cell::UnsafeCell;
+use std::u16;
 
 use dunce::canonicalize;
 use mio;
@@ -276,8 +277,9 @@ impl<'a> EventedReadWrite for Pty<'a, NamedPipe, NamedPipe> {
 
 impl<'a> OnResize for Winpty<'a> {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
-        if sizeinfo.cols().0 > 0 && sizeinfo.lines().0 > 0 {
-            self.set_size(sizeinfo.cols().0, sizeinfo.lines().0)
+        let (cols, lines) = (sizeinfo.cols().0, sizeinfo.lines().0);
+        if cols > 0 && cols <= u16::MAX as usize && lines > 0 && lines <= u16::MAX as usize {
+            self.set_size(cols as u16, lines as u16)
                 .unwrap_or_else(|_| info!("Unable to set winpty size, did it die?"));
         }
     }

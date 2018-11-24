@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Extra padding is not evenly spread around the terminal by default anymore
 
+### Fixed
+
+- Fixed a bad type conversion which could cause underflow on a window resize
+
 ## Version 0.2.3
 
 ### Fixed
