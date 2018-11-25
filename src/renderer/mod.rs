@@ -816,11 +816,11 @@ impl QuadRenderer {
     }
 
     pub fn reload_shaders(&mut self, size: PhysicalSize) {
-        warn!("Reloading shaders ...");
+        warn!("Reloading shaders...");
         let result = (TextShaderProgram::new(size), RectShaderProgram::new());
         let (program, rect_program) = match result {
             (Ok(program), Ok(rect_program)) => {
-                warn!(" ... OK");
+                info!("Successfully reloaded shaders");
                 (program, rect_program)
             }
             (Err(err), _) | (_, Err(err)) => {
@@ -1234,7 +1234,7 @@ impl TextShaderProgram {
         );
         let projection: [[f32; 4]; 4] = ortho.into();
 
-        trace!("width: {}, height: {}", width, height);
+        info!("Width: {}, Height: {}", width, height);
 
         unsafe {
             gl::UniformMatrix4fv(

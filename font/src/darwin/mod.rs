@@ -129,8 +129,6 @@ impl ::Rasterize for Rasterizer {
     type Err = Error;
 
     fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {
-        // TODO: Is this really needed still?
-        trace!("device_pixel_ratio: {}", device_pixel_ratio);
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),

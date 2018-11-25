@@ -187,8 +187,8 @@ impl Display {
         window.set_inner_size(viewport_size.to_logical(dpr));
         renderer.resize(viewport_size, padding_x as f32, padding_y as f32);
 
-        trace!("cell size: ({} x {})", cell_width, cell_height);
-        trace!("padding: ({} x {})", padding_x, padding_y);
+        info!("Cell Size: ({} x {})", cell_width, cell_height);
+        info!("Padding: ({} x {})", padding_x, padding_y);
 
         let size_info = SizeInfo {
             dpr,
@@ -241,7 +241,7 @@ impl Display {
 
         // Initialize glyph cache
         let glyph_cache = {
-            trace!("initializing glyph cache");
+            info!("Initializing glyph cache...");
             let init_start = ::std::time::Instant::now();
 
             let cache =
@@ -250,7 +250,7 @@ impl Display {
             let stop = init_start.elapsed();
             let stop_f = stop.as_secs() as f64 +
                          f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
-            trace!("finished initializing glyph cache in {}s", stop_f);
+            info!("Finished initializing glyph cache in {}s", stop_f);
 
             cache
         };
