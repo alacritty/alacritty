@@ -1,12 +1,14 @@
 use std::error;
 use std::fmt::{self, Display, Formatter};
 
+use log::trace;
+
 use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
 
 // TODO: Move into parent crate
 extern crate font_kit;
 
-use self::font_kit::source::{SystemSource, Source};
+use self::font_kit::source::SystemSource;
 use self::font_kit::properties::{self, Properties};
 use self::font_kit::family_name::FamilyName;
 use self::font_kit::font::Font;
@@ -46,8 +48,8 @@ pub struct FontKitRasterizer {
 impl Into<properties::Weight> for Weight {
     fn into(self) -> properties::Weight {
         match self {
-            Normal => properties::Weight::NORMAL,
-            Bold => properties::Weight::BOLD,
+            Weight::Normal => properties::Weight::NORMAL,
+            Weight::Bold => properties::Weight::BOLD,
         }
     }
 }
@@ -55,9 +57,9 @@ impl Into<properties::Weight> for Weight {
 impl Into<properties::Style> for Slant {
     fn into(self) -> properties::Style {
         match self {
-            Normal => properties::Style::Normal,
-            Italic => properties::Style::Italic,
-            Oblique => properties::Style::Oblique
+            Slant::Normal => properties::Style::Normal,
+            Slant::Italic => properties::Style::Italic,
+            Slant::Oblique => properties::Style::Oblique
         }
     }
 }
@@ -66,10 +68,11 @@ impl ::Rasterize for FontKitRasterizer {
     type Err = Error;
 
     #[cfg(windows)]
-    fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err> {
+    fn new(device_pixel_ratio: f32, _use_thin_strokes: bool) -> Result<Self, Self::Err> {
         Ok(
             Self{
                 source: SystemSource::new(),
+                dpi: device_pixel_ratio,
                 fonts: Vec::new()
             }
         )
@@ -83,19 +86,25 @@ impl ::Rasterize for FontKitRasterizer {
         let font = &self.fonts[key.token as usize];
         let metrics = font.metrics();
 
-        let metrics = Metrics{
+        let scale = size.as_f32_pts() * self.dpi * 96. / 72. / metrics.units_per_em as f32;
+
+        let raw_advance = font.advance(33).unwrap().x;
+        let line_height = (Into::<f32>::into(metrics.line_gap - metrics.descent + metrics.ascent)) as f64;
+
+        trace!("FONTKIT {:#?}", metrics);
+
+        let metrics = Metrics {
             // If the font is monospaced all glyphs *should* have the same width
             // 33 '!' is the first displaying character
-            // FIXME: Error handling
-            average_advance: (Into::<f32>::into(font.advance(33).unwrap().x) / size.as_f32_pts()) as f64,
-            line_height: (Into::<f32>::into(metrics.line_gap + metrics.descent + metrics.ascent) / size.as_f32_pts()) as f64,
-            descent: metrics.descent / size.as_f32_pts()
+            average_advance: (raw_advance * scale) as f64,
+            line_height: (line_height * scale as f64),
+            descent: metrics.descent * scale
         };
-        println!("{:#?}", metrics);
+        trace!("FINAL {:#?}", metrics);
         Ok(metrics)
     }
 
-    fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Self::Err> {
+    fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Self::Err> {
         let mut p = Properties::new();
         self.fonts.push(self.source.select_best_match(
             &[FamilyName::Title(desc.name.clone())],
@@ -111,37 +120,42 @@ impl ::Rasterize for FontKitRasterizer {
 
     fn get_glyph(&mut self, glyph_key: GlyphKey) -> Result<RasterizedGlyph, Self::Err> {
         let font = &self.fonts[glyph_key.font_key.token as usize];
+        // TODO: Error/fallback handling
+        let glyph = font.glyph_for_char(glyph_key.c).unwrap();
+        let metrics = font.metrics();
+        let scale = glyph_key.size.as_f32_pts() * self.dpi * 96. / 72. / metrics.units_per_em as f32;
 
-        // TODO: Ideally this should be provided by the renderer
-        let origin = font.origin(glyph_key.c as u32).unwrap();
+        let mut origin = font.origin(glyph).unwrap();
 
         let bounds = font.raster_bounds(
-            glyph_key.c as u32, 
+            glyph,
             glyph_key.size.as_f32_pts(),
             &origin, 
-            HintingOptions::None, 
-            RasterizationOptions::GrayscaleAa
-        ).unwrap();
-
-        // TODO: Investigate subpixel rendering (coloured)
-        // move alloc out of get_glyph function?
-        let mut canvas = Canvas::new(&bounds.size.ceil().cast::<u32>(), Format::A8);
-
-        font.rasterize_glyph(
-            &mut canvas,
-            glyph_key.c as u32,
-            glyph_key.size.as_f32_pts(),
-            &origin,
             HintingOptions::None, // TODO:
-            RasterizationOptions::GrayscaleAa
+            RasterizationOptions::GrayscaleAa // TODO:
         ).unwrap();
-        // FIXME: Error handling
+
+        // move alloc out of get_glyph function?
+        let mut canvas = Canvas::new(&bounds.size.ceil().cast::<u32>(), Format::Rgb24);
+
+        if !glyph_key.c.is_whitespace() {
+            font.rasterize_glyph(
+                &mut canvas,
+                glyph,
+                glyph_key.size.as_f32_pts(),
+                &origin,
+                HintingOptions::None, // TODO:
+                RasterizationOptions::GrayscaleAa // TODO:
+            ).unwrap();
+            // FIXME: Error handling
+        }
+        let tbounds = font.typographic_bounds(glyph).unwrap();
 
         let glyph = RasterizedGlyph {
             c: glyph_key.c,
             width: bounds.size.width,
             height: bounds.size.height,
-            top: bounds.origin.y,
+            top: -(tbounds.origin.y * scale).round() as i32, // FIXME: TARGET VALUE
             left: bounds.origin.x,
             buf: canvas.pixels,
         };
