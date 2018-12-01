@@ -30,6 +30,8 @@ extern crate winpty;
 extern crate dunce;
 #[cfg(windows)]
 extern crate image;
+#[cfg(windows)]
+extern crate dirs;
 
 #[cfg(target_os = "macos")]
 #[macro_use]

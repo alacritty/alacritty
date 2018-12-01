@@ -1523,14 +1523,22 @@ impl Config {
 
     #[cfg(windows)]
     pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
-        if let Some(mut path) = ::std::env::home_dir() {
-            path.push("alacritty");
-            path.set_extension("yml");
-            if path.exists() {
-                return Some(path.into());
-            }
+        #[allow(deprecated)]
+        let old = ::std::env::home_dir()
+            .map(|path| path.join("alacritty.yml"));
+        let new = dirs::config_dir()
+            .map(|path| path.join("alacritty\\alacritty.yml"));
+        // TODO: Remove old configuration location warning (Deprecated 03/12/2018)
+        if let Some(old) = old.as_ref().filter(|old| old.exists()) {
+            warn!(
+                "Found old configuration at: '{}'. The file should be moved to the new location: '{}'.", 
+                old.to_string_lossy(), 
+                new.as_ref().map(|new| new.to_string_lossy()).unwrap_or_else(|| Cow::from("(UNKNOWN)"))
+            );
         }
-        None
+
+        new.filter(|new| new.exists()).map(Cow::from)
+            .or_else(|| old.filter(|old| old.exists()).map(Cow::from))
     }
 
     #[cfg(not(windows))]
@@ -1544,9 +1552,12 @@ impl Config {
 
     #[cfg(windows)]
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
-        let path = ::std::env::home_dir()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "could not find profile directory"))
-            .and_then(|mut p| {p.push("alacritty"); p.set_extension("yml"); Ok(p)})?;
+        let mut path = dirs::config_dir()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "could not find profile directory"))?;
+        if !path.exists() {
+            fs::create_dir(&path)?
+        }
+        path = path.join("alacritty/alacritty.yml");
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
         Ok(path.into())
     }

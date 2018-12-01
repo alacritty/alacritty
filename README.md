@@ -126,7 +126,7 @@ file, please consult the comments in the default config file.
 
 On Windows the config file is located at:
 
-`%UserProfile%\alacritty.yml`
+`%APPDATA%\Roaming\alacritty\alacritty.yml`
 
 ## Issues (known, unknown, feature requests, etc.)
 
