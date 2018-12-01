@@ -231,6 +231,7 @@ impl Clipboard {
                                 }
                             });
                             display.flush().unwrap();
+                            event_queue.sync_roundtrip().unwrap();
                             if let Some(mut reader) = reader {
                                 let mut contents = String::new();
                                 reader.read_to_string(&mut contents).unwrap();
