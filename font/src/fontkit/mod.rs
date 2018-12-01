@@ -101,7 +101,8 @@ impl ::Rasterize for FontKitRasterizer {
 
     fn get_glyph(&mut self, glyph_key: GlyphKey) -> Result<RasterizedGlyph, Self::Err> {
         let font = &self.fonts[glyph_key.font_key.token as usize];
-        // TODO: Error/fallback handling
+        // TODO: Error/fallback handling.
+        // TODO: This should use a shaper e.g. Harfbuzz
         let glyph = font.glyph_for_char(glyph_key.c).unwrap();
         let metrics = font.metrics();
         //let scale = glyph_key.size.as_f32_pts() * self.dpi * 96. / 72. / metrics.units_per_em as f32;
@@ -127,7 +128,7 @@ impl ::Rasterize for FontKitRasterizer {
                 glyph,
                 glyph_key.size.as_f32_pts(),
                 &origin,
-                HintingOptions::None, // TODO:
+                HintingOptions::None, // TODO: Hinting is not yet supported in directwrite font-kit
                 RasterizationOptions::GrayscaleAa // TODO:
             )?;
         }
@@ -136,7 +137,7 @@ impl ::Rasterize for FontKitRasterizer {
             c: glyph_key.c,
             width: bounds.size.width,
             height: bounds.size.height,
-            top: ((glyph_key.size.as_f32_pts() / (metrics.ascent + metrics.descent)) * metrics.ascent).round() as i32, // FIXME: TARGET VALUE
+            top: bounds.origin.y, // FIXME: This is wrong
             left: bounds.origin.x,
             buf: canvas.pixels,
         };
