@@ -49,10 +49,11 @@ use std::hash::{Hash, Hasher};
 use std::{fmt, cmp};
 use std::sync::atomic::{AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
 
-// If target isn't macos or windows, reexport everything from ft
-#[cfg(not(any(target_os = "macos", windows)))]
+// Re-export relevant implementor
+
+#[cfg(not(any(target_os = "macos", windows, feature = "fontkit")))]
 pub mod ft;
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(not(any(target_os = "macos", windows, feature = "fontkit")))]
 pub use ft::{Error, FreeTypeRasterizer as Rasterizer};
 
 #[cfg(all(windows, not(feature = "fontkit")))]
@@ -61,14 +62,17 @@ pub mod rusttype;
 pub use crate::rusttype::{Error, RustTypeRasterizer as Rasterizer};
 
 #[cfg(feature = "fontkit")]
+#[macro_use] extern crate derive_more;
+#[cfg(feature = "fontkit")]
+extern crate font_kit;
+#[cfg(feature = "fontkit")]
 pub mod fontkit;
 #[cfg(feature = "fontkit")]
 pub use fontkit::{Error, FontKitRasterizer as Rasterizer};
 
-// If target is macos, reexport everything from darwin
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "fontkit")))]
 mod darwin;
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "fontkit")))]
 pub use darwin::*;
 
 /// Width/Height of the cursor relative to the font width
@@ -313,6 +317,7 @@ pub fn get_box_cursor_glyph(
     })
 }
 
+#[allow(dead_code)]
 struct BufDebugger<'a>(&'a [u8]);
 
 impl<'a> fmt::Debug for BufDebugger<'a> {
