@@ -361,16 +361,13 @@ impl Window {
         self.window.set_urgent(is_urgent);
     }
 
-    #[cfg(
-        not(
-            any(
-                target_os = "linux",
-                target_os = "freebsd",
-                target_os = "dragonfly",
-                target_os = "openbsd"
-            )
-        )
-    )]
+    #[cfg(target_os = "macos")]
+    pub fn set_urgent(&self, is_urgent: bool) {
+        use glutin::os::macos::WindowExt;
+        self.window.request_user_attention(is_urgent);
+    }
+
+    #[cfg(windows)]
     pub fn set_urgent(&self, _is_urgent: bool) {}
 
     pub fn set_ime_spot(&self, pos: LogicalPosition) {

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New configuration option `persistent_logging` and CLI flag `--persistent-logging`,
     for keeping the log file after closing Alacritty
 - `ClearLogNotice` action for removing the warning and error message
+- Terminal bells on macOS will now request the user's attention in the window
 - Alacritty now requests privacy permissions on macOS
 
 ### Changed
