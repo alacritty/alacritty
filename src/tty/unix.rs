@@ -221,9 +221,18 @@ pub fn new<T: ToWinsize>(
 
     let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
 
-    let default_shell = &Shell::new(pw.shell);
-    let shell = config.shell()
-        .unwrap_or(default_shell);
+    let default_shell = if cfg!(target_os = "macos") {
+        let shell_name = pw.shell.rsplit('/').next().unwrap();
+        let argv = vec![
+            String::from("-c"),
+            format!("exec -a -{} {}", shell_name, pw.shell),
+        ];
+
+        Shell::new_with_args("/bin/bash", argv)
+    } else {
+        Shell::new(pw.shell)
+    };
+    let shell = config.shell().unwrap_or(&default_shell);
 
     let initial_command = options.command().unwrap_or(shell);
 
@@ -243,7 +252,7 @@ pub fn new<T: ToWinsize>(
     // Setup shell environment
     builder.env("LOGNAME", pw.name);
     builder.env("USER", pw.name);
-    builder.env("SHELL", shell.program());
+    builder.env("SHELL", pw.shell);
     builder.env("HOME", pw.dir);
 
     if let Some(window_id) = window_id {
