@@ -252,7 +252,7 @@ pub fn new<T: ToWinsize>(
     // Setup shell environment
     builder.env("LOGNAME", pw.name);
     builder.env("USER", pw.name);
-    builder.env("SHELL", shell.program());
+    builder.env("SHELL", pw.shell);
     builder.env("HOME", pw.dir);
 
     if let Some(window_id) = window_id {
