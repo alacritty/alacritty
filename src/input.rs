@@ -557,10 +557,30 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let mut args = launcher.args().to_vec();
         args.push(text);
 
-        match Command::new(launcher.program()).args(&args).spawn() {
-            Ok(_) => debug!("Launched: {} {:?}", launcher.program(), args),
-            Err(_) => warn!("Unable to launch: {} {:?}", launcher.program(), args),
-        }
+        #[cfg(not(windows))]
+        let _spawned = Command::new(launcher.program())
+                    .args(&args)
+                    .before_exec(|| {
+                        // Detach forked process from Alacritty. This will cause
+                        // init or whatever to clean up child processes for us.
+                        unsafe { ::libc::daemon(1, 0); }
+                        Ok(())
+                    })
+                    .spawn();
+        #[cfg(windows)]
+        let _spawned = Command::new(launcher.program())
+                    .args(&args)
+                    .spawn();
+
+        match _spawned
+                {
+                    Ok(child) => {
+                        debug!("spawned new proc with pid: {}", child.id());
+                    },
+                    Err(err) => {
+                        warn!("couldn't run command: {}", err);
+                    },
+                }
 
         Some(())
     }
