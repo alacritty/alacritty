@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed a bad type conversion which could cause underflow on a window resize
 - Alacritty now spawns a login shell on macOS, as with Terminal.app and iTerm2
+- Fixed zombie processes sticking around after launching URLs
 
 ## Version 0.2.3
 

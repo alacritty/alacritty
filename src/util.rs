@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::cmp;
+use std::process::Command;
+use std::io;
+#[cfg(not(windows))]
+use std::os::unix::process::CommandExt;
 
 #[cfg(not(feature = "nightly"))]
 #[inline(always)]
@@ -92,3 +96,25 @@ mod tests {
         assert_eq!(100, limit(1000, 10, 100));
     }
 }
+
+#[cfg(not(windows))]
+pub fn start_daemon(program: &str, args: &Vec<String>) -> io::Result<std::process::Child> {
+
+    Command::new(program)
+        .args(args)
+        .before_exec(|| {
+            // Detach forked process from Alacritty. This will cause
+            // init or whatever to clean up child processes for us.
+            unsafe { ::libc::daemon(1, 0); }
+            Ok(())
+        })
+        .spawn()
+}
+
+#[cfg(windows)]
+pub fn start_daemon(program: &str, args: &Vec<String>) -> io::Result<std::process::Child> {
+    Command::new(program)
+        .args(args)
+        .spawn()
+}
+
