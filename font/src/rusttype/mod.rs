@@ -148,9 +148,13 @@ impl crate::Rasterize for RustTypeRasterizer {
             height: bb.height(),
             top: -bb.min.y,
             left: bb.min.x,
-            buf,
+            buf: buf.clone(),
         };
-        trace!("glyph {} top {} left {} width {} height {}", glyph_key.c, -bb.min.y, bb.min.x, bb.width(), bb.height());
+        // trace!("glyph {} top {} left {} width {} height {}", glyph_key.c, -bb.min.y, bb.min.x, bb.width(), bb.height());
+        // let image = image::RgbImage::from_raw(bb.width() as u32, bb.height() as u32, buf);
+        // if let Some(image) = image {
+        //     let _ = image.save(format!("'{}'.png", glyph_key.c));
+        // }
         Ok(glyph)
     }
 

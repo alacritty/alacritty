@@ -38,6 +38,10 @@ extern crate euclid;
 
 extern crate libc;
 
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+
 #[cfg(not(any(target_os = "macos", windows)))]
 #[macro_use]
 extern crate foreign_types;
@@ -353,12 +357,44 @@ pub struct Metrics {
     pub strikeout_thickness: f32,
 }
 
+#[derive(Debug, Deserialize, Clone, Copy)]
+pub enum RasterizationMethod {
+    GrayScaleAa,
+    SubpixelAa
+}
+
+#[derive(Debug, Deserialize, Clone, Copy)]
+pub enum HintingOptions {
+    None,
+    Vertical,
+    VerticalSubpixel,
+    Full
+}
+
+impl HintingOptions {
+    fn scale(self, size: f32) -> font_kit::hinting::HintingOptions {
+        match self {
+            HintingOptions::None => font_kit::hinting::HintingOptions::None,
+            HintingOptions::Vertical => font_kit::hinting::HintingOptions::Vertical(size),
+            HintingOptions::VerticalSubpixel => font_kit::hinting::HintingOptions::VerticalSubpixel(size),
+            HintingOptions::Full => font_kit::hinting::HintingOptions::Full(size),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Options {
+    pub use_thin_strokes: bool,
+    pub rasterization_method: RasterizationMethod,
+    pub hinting: HintingOptions
+}
+
 pub trait Rasterize {
     /// Errors occurring in Rasterize methods
     type Err: ::std::error::Error + Send + Sync + 'static;
 
     /// Create a new Rasterizer
-    fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
+    fn new(device_pixel_ratio: f32, options: &Options) -> Result<Self, Self::Err>
     where
         Self: Sized;
 

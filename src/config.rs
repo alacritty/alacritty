@@ -14,7 +14,7 @@ use std::time::Duration;
 use std::collections::HashMap;
 
 use crate::Rgb;
-use font::Size;
+use font::{self, Size};
 use serde_yaml;
 use serde::{self, de, Deserialize};
 use serde::de::Error as SerdeError;
@@ -1654,6 +1654,16 @@ impl Config {
         self.font.use_thin_strokes
     }
 
+    #[inline]
+    pub fn rasterization_method(&self) -> font::RasterizationMethod {
+        self.font.rasterization_method
+    }
+
+    #[inline]
+    pub fn hinting(&self) -> font::HintingOptions {
+        self.font.hinting
+    }
+
     pub fn path(&self) -> Option<&Path> {
         self.config_path
             .as_ref()
@@ -1940,6 +1950,10 @@ pub struct Font {
     // TODO: Deprecated
     #[serde(default, deserialize_with = "deserialize_scale_with_dpi")]
     scale_with_dpi: Option<()>,
+
+    rasterization_method: font::RasterizationMethod,
+    
+    hinting: font::HintingOptions
 }
 
 fn deserialize_scale_with_dpi<'a, D>(deserializer: D) -> ::std::result::Result<Option<()>, D::Error>
@@ -2049,6 +2063,8 @@ impl Default for Font {
             scale_with_dpi: None,
             glyph_offset: Default::default(),
             offset: Default::default(),
+            rasterization_method: font::RasterizationMethod::SubpixelAa,
+            hinting: font::HintingOptions::Vertical
         }
     }
 }

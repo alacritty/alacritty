@@ -237,7 +237,11 @@ impl Display {
         -> Result<(GlyphCache, f32, f32), Error>
     {
         let font = config.font().clone();
-        let rasterizer = font::Rasterizer::new(dpr as f32, config.use_thin_strokes())?;
+        let rasterizer = font::Rasterizer::new(dpr as f32, &font::Options{
+            use_thin_strokes: config.use_thin_strokes(),
+            rasterization_method: config.rasterization_method(),
+            hinting: config.hinting()
+        })?;
 
         // Initialize glyph cache
         let glyph_cache = {

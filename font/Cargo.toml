@@ -13,8 +13,10 @@ euclid = "0.19.2"
 libc = "0.2"
 foreign-types = "0.3"
 log = "0.4"
-font-kit = { version = "*", optional = true }
+font-kit = { git = "https://github.com/zacps/font-kit", branch = "alacritty-patched", optional = true }
 derive_more = "*"
+serde = "*"
+serde_derive = "*"
 
 [target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]
 servo-fontconfig = "0.4.0"
