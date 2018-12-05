@@ -25,7 +25,7 @@ use libc::c_uint;
 
 pub mod fc;
 
-use super::{FontDesc, RasterizedGlyph, Metrics, Size, FontKey, GlyphKey, Weight, Slant, Style};
+use super::*;
 
 struct FixedSize {
     pixelsize: f64,
@@ -75,7 +75,7 @@ fn to_freetype_26_6(f: f32) -> isize {
 impl ::Rasterize for FreeTypeRasterizer {
     type Err = Error;
 
-    fn new(device_pixel_ratio: f32, _: bool) -> Result<FreeTypeRasterizer, Error> {
+    fn new(device_pixel_ratio: f32, _options: &Options) -> Result<FreeTypeRasterizer, Error> {
         let library = Library::init()?;
 
         Ok(FreeTypeRasterizer {

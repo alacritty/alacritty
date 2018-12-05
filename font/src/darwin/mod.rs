@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::ptr;
 use std::path::PathBuf;
 
-use ::{Slant, Weight, Style};
+use ::*;
 
 use core_foundation::string::{CFString};
 use core_foundation::array::{CFIndex, CFArray};
@@ -128,13 +128,13 @@ impl ::std::fmt::Display for Error {
 impl ::Rasterize for Rasterizer {
     type Err = Error;
 
-    fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {
+    fn new(device_pixel_ratio: f32, options: &Options) -> Result<Rasterizer, Error> {
         info!("device_pixel_ratio: {}", device_pixel_ratio);
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
+            use_thin_strokes:options.use_thin_strokes,
             device_pixel_ratio,
-            use_thin_strokes,
         })
     }
 

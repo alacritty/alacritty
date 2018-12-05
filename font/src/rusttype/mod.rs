@@ -4,9 +4,7 @@ use self::font_loader::system_fonts;
 extern crate rusttype;
 use self::rusttype::{point, Codepoint, FontCollection, Scale};
 
-use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
-
-use log::trace;
+use super::*;
 
 pub struct RustTypeRasterizer {
     fonts: Vec<rusttype::Font<'static>>,
@@ -16,7 +14,7 @@ pub struct RustTypeRasterizer {
 impl crate::Rasterize for RustTypeRasterizer {
     type Err = Error;
 
-    fn new(device_pixel_ratio: f32, _: bool) -> Result<RustTypeRasterizer, Error> {
+    fn new(device_pixel_ratio: f32, _options: &Options) -> Result<RustTypeRasterizer, Error> {
         Ok(RustTypeRasterizer {
             fonts: Vec::new(),
             dpi_ratio: device_pixel_ratio,

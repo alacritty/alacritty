@@ -371,6 +371,7 @@ pub enum HintingOptions {
     Full
 }
 
+#[cfg(feature = "fontkit")]
 impl HintingOptions {
     fn scale(self, size: f32) -> font_kit::hinting::HintingOptions {
         match self {
