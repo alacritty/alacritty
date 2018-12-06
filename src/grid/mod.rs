@@ -404,7 +404,7 @@ impl<T: Copy + Clone> Grid<T> {
     }
 }
 
-#[cfg_attr(feature = "cargo-clippy", allow(len_without_is_empty))]
+#[allow(clippy::len_without_is_empty)]
 impl<T> Grid<T> {
     #[inline]
     pub fn num_lines(&self) -> index::Line {

@@ -1,6 +1,6 @@
 //! A cross-platform clipboard library
 
-#![cfg_attr(feature = "cargo-clippy", deny(clippy, if_not_else, enum_glob_use, wrong_pub_self_convention))]
+#![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 
 // This has to be here due to macro_use
 #[cfg(target_os = "macos")]
