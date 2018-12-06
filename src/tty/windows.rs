@@ -31,11 +31,11 @@ use winapi::shared::winerror::WAIT_TIMEOUT;
 use winpty::{ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
 use winpty::Config as WinptyConfig;
 
-use config::{Config, Shell};
-use display::OnResize;
-use cli::Options;
-use tty::EventedReadWrite;
-use term::SizeInfo;
+use crate::config::{Config, Shell};
+use crate::display::OnResize;
+use crate::cli::Options;
+use crate::tty::EventedReadWrite;
+use crate::term::SizeInfo;
 
 /// Handle to the winpty agent process. Required so we know when it closes.
 static mut HANDLE: *mut c_void = 0usize as *mut c_void;

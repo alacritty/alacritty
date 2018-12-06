@@ -11,7 +11,7 @@ pub struct RustTypeRasterizer {
     dpi_ratio: f32,
 }
 
-impl ::Rasterize for RustTypeRasterizer {
+impl crate::Rasterize for RustTypeRasterizer {
     type Err = Error;
 
     fn new(device_pixel_ratio: f32, _: bool) -> Result<RustTypeRasterizer, Error> {
