@@ -1366,53 +1366,47 @@ impl ansi::Handler for Term {
             self.input_needs_wrap = false;
         }
 
-        {
-            // Number of cells the char will occupy
-            if let Some(width) = c.width() {
-                // Sigh, borrowck making us check the width twice. Hopefully the
-                // optimizer can fix it.
-                let num_cols = self.grid.num_cols();
-                {
-                    // If in insert mode, first shift cells to the right.
-                    if self.mode.contains(mode::TermMode::INSERT)
-                        && self.cursor.point.col + width < num_cols
-                    {
-                        let line = self.cursor.point.line; // borrowck
-                        let col = self.cursor.point.col;
-                        let line = &mut self.grid[line];
+        // Number of cells the char will occupy
+        if let Some(width) = c.width() {
+            let num_cols = self.grid.num_cols();
 
-                        let src = line[col..].as_ptr();
-                        let dst = line[(col + width)..].as_mut_ptr();
-                        unsafe {
-                            // memmove
-                            ptr::copy(src, dst, (num_cols - col - width).0);
-                        }
-                    }
-                    if width == 0 {
-                        let mut col = self.cursor.point.col.0.saturating_sub(1);
-                        let line = self.cursor.point.line;
-                        if self.grid[line][Column(col)]
-                            .flags
-                            .contains(cell::Flags::WIDE_CHAR_SPACER)
-                        {
-                            col.saturating_sub(1);
-                        }
-                        self.grid[line][Column(col)].push_extra(c);
-                        return;
-                    }
+            // If in insert mode, first shift cells to the right.
+            if self.mode.contains(mode::TermMode::INSERT)
+                && self.cursor.point.col + width < num_cols
+            {
+                let line = self.cursor.point.line;
+                let col = self.cursor.point.col;
+                let line = &mut self.grid[line];
 
-                    let cell = &mut self.grid[&self.cursor.point];
-                    *cell = self.cursor.template;
-                    cell.c = self.cursor.charsets[self.active_charset].map(c);
-
-                    // Handle wide chars
-                    if width == 2 {
-                        cell.flags.insert(cell::Flags::WIDE_CHAR);
-                    }
+                let src = line[col..].as_ptr();
+                let dst = line[(col + width)..].as_mut_ptr();
+                unsafe {
+                    // memmove
+                    ptr::copy(src, dst, (num_cols - col - width).0);
                 }
+            }
 
-                // Set spacer cell for wide chars.
-                if width == 2 && self.cursor.point.col + 1 < num_cols {
+            // Handle zero-width characters
+            if width == 0 {
+                let col = self.cursor.point.col.0.saturating_sub(1);
+                let line = self.cursor.point.line;
+                if self.grid[line][Column(col)].flags.contains(cell::Flags::WIDE_CHAR_SPACER)
+                {
+                    col.saturating_sub(1);
+                }
+                self.grid[line][Column(col)].push_extra(c);
+                return;
+            }
+
+            let cell = &mut self.grid[&self.cursor.point];
+            *cell = self.cursor.template;
+            cell.c = self.cursor.charsets[self.active_charset].map(c);
+
+            // Handle wide chars
+            if width == 2 {
+                cell.flags.insert(cell::Flags::WIDE_CHAR);
+
+                if self.cursor.point.col + 1 < num_cols {
                     self.cursor.point.col += 1;
                     let spacer = &mut self.grid[&self.cursor.point];
                     *spacer = self.cursor.template;
@@ -1455,15 +1449,13 @@ impl ansi::Handler for Term {
     #[inline]
     fn goto_line(&mut self, line: Line) {
         trace!("goto_line: {}", line);
-        let col = self.cursor.point.col; // borrowck
-        self.goto(line, col)
+        self.goto(line, self.cursor.point.col)
     }
 
     #[inline]
     fn goto_col(&mut self, col: Column) {
         trace!("goto_col: {}", col);
-        let line = self.cursor.point.line; // borrowck
-        self.goto(line, col)
+        self.goto(self.cursor.point.line, col)
     }
 
     #[inline]
@@ -1476,8 +1468,7 @@ impl ansi::Handler for Term {
         let destination = self.cursor.point.col + count;
         let num_cells = (self.size_info.cols() - destination).0;
 
-        let line = self.cursor.point.line; // borrowck
-        let line = &mut self.grid[line];
+        let line = &mut self.grid[self.cursor.point.line];
 
         unsafe {
             let src = line[source..].as_ptr();
@@ -1498,16 +1489,14 @@ impl ansi::Handler for Term {
     fn move_up(&mut self, lines: Line) {
         trace!("move_up: {}", lines);
         let move_to = Line(self.cursor.point.line.0.saturating_sub(lines.0));
-        let col = self.cursor.point.col; // borrowck
-        self.goto(move_to, col)
+        self.goto(move_to, self.cursor.point.col)
     }
 
     #[inline]
     fn move_down(&mut self, lines: Line) {
         trace!("move_down: {}", lines);
         let move_to = self.cursor.point.line + lines;
-        let col = self.cursor.point.col; // borrowck
-        self.goto(move_to, col)
+        self.goto(move_to, self.cursor.point.col)
     }
 
     #[inline]
@@ -1715,8 +1704,7 @@ impl ansi::Handler for Term {
         let end = min(start + count, self.grid.num_cols() - 1);
         let n = (self.size_info.cols() - end).0;
 
-        let line = self.cursor.point.line; // borrowck
-        let line = &mut self.grid[line];
+        let line = &mut self.grid[self.cursor.point.line];
 
         unsafe {
             let src = line[end..].as_ptr();

@@ -257,12 +257,8 @@ macro_rules! inclusive {
             fn next(&mut self) -> Option<$ty> {
                 use crate::index::RangeInclusive::*;
 
-                // this function has a sort of odd structure due to borrowck issues
-                // we may need to replace self.range, so borrows of start and end need to end early
-
-                let at_end;
                 match *self {
-                    Empty { .. } => return None, // empty iterators yield no values
+                    Empty { .. } => None, // empty iterators yield no values
 
                     NonEmpty { ref mut start, ref mut end } => {
 
@@ -270,15 +266,13 @@ macro_rules! inclusive {
                         if start <= end {
                             let old = *start;
                             *start = old + 1;
-                            return Some(old);
+                            Some(old)
+                        } else {
+                            *self = Empty { at: *end };
+                            None
                         }
-                        at_end = *end;
                     }
-                };
-
-                // got this far; the range is empty, replace it
-                *self = Empty { at: at_end };
-                None
+                }
             }
 
             #[inline]

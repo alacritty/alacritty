@@ -75,9 +75,7 @@ impl<'a> Sampler<'a> {
 
 impl<'a> Drop for Sampler<'a> {
     fn drop(&mut self) {
-        // Work around borrowck
-        let duration = self.alive_duration();
-        self.meter.add_sample(duration);
+        self.meter.add_sample(self.alive_duration());
     }
 }
 

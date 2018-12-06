@@ -897,10 +897,8 @@ impl<'a> RenderApi<'a> {
             };
 
             // Add cell to batch
-            {
-                let glyph = glyph_cache.get(glyph_key, self);
-                self.add_render_item(&cell, glyph);
-            }
+            let glyph = glyph_cache.get(glyph_key, self); // borrowck multiple mutable borrows
+            self.add_render_item(&cell, glyph);
 
             // Render zero-width characters
             for c in (&chars[1..]).iter().filter(|c| **c != ' ') {

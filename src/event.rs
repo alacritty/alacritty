@@ -20,6 +20,7 @@ use crate::input::{self, MouseBinding, KeyBinding};
 use crate::selection::Selection;
 use crate::sync::FairMutex;
 use crate::term::{Term, SizeInfo, TermMode, Search};
+use crate::term::cell::Cell;
 use crate::util::limit;
 use crate::util::fmt::Red;
 use crate::window::Window;
@@ -336,7 +337,7 @@ impl<N: Notify> Processor<N> {
                         if ref_test {
                             // dump grid state
                             let mut grid = processor.ctx.terminal.grid().clone();
-                            grid.initialize_all(&::term::cell::Cell::default());
+                            grid.initialize_all(&Cell::default());
                             grid.truncate();
 
                             let serialized_grid = json::to_string(&grid)

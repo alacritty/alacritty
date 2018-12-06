@@ -270,9 +270,7 @@ impl FreeTypeRasterizer {
     fn face_for_glyph(&mut self, glyph_key: GlyphKey, have_recursed: bool) -> Result<FontKey, Error> {
         let c = glyph_key.c;
 
-        let use_initial_face = if self.faces.contains_key(&glyph_key.font_key) {
-            // Get face and unwrap since we just checked for presence.
-            let face = &self.faces[&glyph_key.font_key];
+        let use_initial_face = if let Some(face) = self.faces.get(&glyph_key.font_key) {
             let index = face.ft_face.get_char_index(c as usize);
 
             index != 0 || have_recursed

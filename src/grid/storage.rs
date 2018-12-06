@@ -277,8 +277,7 @@ impl<T> Index<usize> for Storage<T> {
     type Output = Row<T>;
     #[inline]
     fn index(&self, index: usize) -> &Self::Output {
-        let index = self.compute_index(index); // borrowck
-        &self.inner[index]
+        &self.inner[self.compute_index(index)]
     }
 }
 
