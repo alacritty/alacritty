@@ -1,8 +1,8 @@
 use std::ops::{Index, IndexMut};
 use std::fmt;
 
-use {Rgb, ansi};
-use config::Colors;
+use crate::{Rgb, ansi};
+use crate::config::Colors;
 
 pub const COUNT: usize = 270;
 

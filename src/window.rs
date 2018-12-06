@@ -14,7 +14,7 @@
 use std::convert::From;
 use std::fmt::Display;
 
-use gl;
+use crate::gl;
 use glutin::GlContext;
 #[cfg(windows)]
 use glutin::Icon;
@@ -26,9 +26,9 @@ use glutin::{
 };
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 
-use cli::Options;
-use config::{Decorations, WindowConfig};
-use MouseCursor;
+use crate::cli::Options;
+use crate::config::{Decorations, WindowConfig};
+use crate::MouseCursor;
 
 #[cfg(windows)]
 static WINDOW_ICON: &'static [u8] = include_bytes!("../assets/windows/alacritty.ico");

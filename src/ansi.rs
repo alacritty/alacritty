@@ -19,9 +19,9 @@ use std::str;
 
 use vte;
 use base64;
-use index::{Column, Line, Contains};
+use crate::index::{Column, Line, Contains};
 
-use ::{MouseCursor, Rgb};
+use crate::{MouseCursor, Rgb};
 
 // Parse color arguments
 //
@@ -176,10 +176,10 @@ pub trait TermInfo {
 /// writing specific handler impls for tests far easier.
 pub trait Handler {
     /// OSC to set window title
-    fn set_title(&mut self, &str) {}
+    fn set_title(&mut self, _: &str) {}
 
     /// Set the window's mouse cursor
-    fn set_mouse_cursor(&mut self, MouseCursor) {}
+    fn set_mouse_cursor(&mut self, _: MouseCursor) {}
 
     /// Set the cursor style
     fn set_cursor_style(&mut self, _: Option<CursorStyle>) {}
@@ -188,42 +188,42 @@ pub trait Handler {
     fn input(&mut self, _c: char) {}
 
     /// Set cursor to position
-    fn goto(&mut self, Line, Column) {}
+    fn goto(&mut self, _: Line, _: Column) {}
 
     /// Set cursor to specific row
-    fn goto_line(&mut self, Line) {}
+    fn goto_line(&mut self, _: Line) {}
 
     /// Set cursor to specific column
-    fn goto_col(&mut self, Column) {}
+    fn goto_col(&mut self, _: Column) {}
 
     /// Insert blank characters in current line starting from cursor
-    fn insert_blank(&mut self, Column) {}
+    fn insert_blank(&mut self, _: Column) {}
 
     /// Move cursor up `rows`
-    fn move_up(&mut self, Line) {}
+    fn move_up(&mut self, _: Line) {}
 
     /// Move cursor down `rows`
-    fn move_down(&mut self, Line) {}
+    fn move_down(&mut self, _: Line) {}
 
     /// Identify the terminal (should write back to the pty stream)
     ///
     /// TODO this should probably return an io::Result
-    fn identify_terminal<W: io::Write>(&mut self, &mut W) {}
+    fn identify_terminal<W: io::Write>(&mut self, _: &mut W) {}
 
     // Report device status
-    fn device_status<W: io::Write>(&mut self, &mut W, usize) {}
+    fn device_status<W: io::Write>(&mut self, _: &mut W, _: usize) {}
 
     /// Move cursor forward `cols`
-    fn move_forward(&mut self, Column) {}
+    fn move_forward(&mut self, _: Column) {}
 
     /// Move cursor backward `cols`
-    fn move_backward(&mut self, Column) {}
+    fn move_backward(&mut self, _: Column) {}
 
     /// Move cursor down `rows` and set to column 1
-    fn move_down_and_cr(&mut self, Line) {}
+    fn move_down_and_cr(&mut self, _: Line) {}
 
     /// Move cursor up `rows` and set to column 1
-    fn move_up_and_cr(&mut self, Line) {}
+    fn move_up_and_cr(&mut self, _: Line) {}
 
     /// Put `count` tabs
     fn put_tab(&mut self, _count: i64) {}
@@ -252,28 +252,28 @@ pub trait Handler {
     fn set_horizontal_tabstop(&mut self) {}
 
     /// Scroll up `rows` rows
-    fn scroll_up(&mut self, Line) {}
+    fn scroll_up(&mut self, _: Line) {}
 
     /// Scroll down `rows` rows
-    fn scroll_down(&mut self, Line) {}
+    fn scroll_down(&mut self, _: Line) {}
 
     /// Insert `count` blank lines
-    fn insert_blank_lines(&mut self, Line) {}
+    fn insert_blank_lines(&mut self, _: Line) {}
 
     /// Delete `count` lines
-    fn delete_lines(&mut self, Line) {}
+    fn delete_lines(&mut self, _: Line) {}
 
     /// Erase `count` chars in current line following cursor
     ///
     /// Erase means resetting to the default state (default colors, no content,
     /// no mode flags)
-    fn erase_chars(&mut self, Column) {}
+    fn erase_chars(&mut self, _: Column) {}
 
     /// Delete `count` chars
     ///
     /// Deleting a character is like the delete key on the keyboard - everything
     /// to the right of the deleted things is shifted left.
-    fn delete_chars(&mut self, Column) {}
+    fn delete_chars(&mut self, _: Column) {}
 
     /// Move backward `count` tabs
     fn move_backward_tabs(&mut self, _count: i64) {}
@@ -313,10 +313,10 @@ pub trait Handler {
     fn set_mode(&mut self, _mode: Mode) {}
 
     /// Unset mode
-    fn unset_mode(&mut self, Mode) {}
+    fn unset_mode(&mut self, _: Mode) {}
 
     /// DECSTBM - Set the terminal scrolling region
-    fn set_scrolling_region(&mut self, Range<Line>) {}
+    fn set_scrolling_region(&mut self, _: Range<Line>) {}
 
     /// DECKPAM - Set keypad to applications mode (ESCape instead of digits)
     fn set_keypad_application_mode(&mut self) {}
@@ -328,22 +328,22 @@ pub trait Handler {
     ///
     /// 'Invoke' one of G0 to G3 in the GL area. Also referred to as shift in,
     /// shift out and locking shift depending on the set being activated
-    fn set_active_charset(&mut self, CharsetIndex) {}
+    fn set_active_charset(&mut self, _: CharsetIndex) {}
 
     /// Assign a graphic character set to G0, G1, G2 or G3
     ///
     /// 'Designate' a graphic character set as one of G0 to G3, so that it can
     /// later be 'invoked' by `set_active_charset`
-    fn configure_charset(&mut self, CharsetIndex, StandardCharset) {}
+    fn configure_charset(&mut self, _: CharsetIndex, _: StandardCharset) {}
 
     /// Set an indexed color value
-    fn set_color(&mut self, usize, Rgb) {}
+    fn set_color(&mut self, _: usize, _: Rgb) {}
 
     /// Reset an indexed color to original value
-    fn reset_color(&mut self, usize) {}
+    fn reset_color(&mut self, _: usize) {}
 
     /// Set the clipboard
-    fn set_clipboard(&mut self, &str) {}
+    fn set_clipboard(&mut self, _: &str) {}
 
     /// Run the dectest routine
     fn dectest(&mut self) {}
@@ -1393,9 +1393,9 @@ pub mod C1 {
 #[cfg(test)]
 mod tests {
     use std::io;
-    use index::{Line, Column};
+    use crate::index::{Line, Column};
     use super::{Processor, Handler, Attr, TermInfo, Color, StandardCharset, CharsetIndex, parse_rgb_color, parse_number};
-    use ::Rgb;
+    use crate::Rgb;
 
     /// The /dev/null of `io::Write`
     struct Void;

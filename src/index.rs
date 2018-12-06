@@ -255,7 +255,7 @@ macro_rules! inclusive {
 
             #[inline]
             fn next(&mut self) -> Option<$ty> {
-                use index::RangeInclusive::*;
+                use crate::index::RangeInclusive::*;
 
                 // this function has a sort of odd structure due to borrowck issues
                 // we may need to replace self.range, so borrows of start and end need to end early
@@ -283,7 +283,7 @@ macro_rules! inclusive {
 
             #[inline]
             fn size_hint(&self) -> (usize, Option<usize>) {
-                use index::RangeInclusive::*;
+                use crate::index::RangeInclusive::*;
 
                 match *self {
                     Empty { .. } => (0, Some(0)),

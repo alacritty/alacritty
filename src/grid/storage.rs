@@ -14,7 +14,7 @@
 use std::ops::{Index, IndexMut};
 use std::slice;
 
-use index::Line;
+use crate::index::Line;
 use super::Row;
 
 /// Maximum number of invisible lines before buffer is resized
@@ -308,7 +308,7 @@ impl<T> IndexMut<Line> for Storage<T> {
 }
 
 #[cfg(test)]
-use index::Column;
+use crate::index::Column;
 
 /// Grow the buffer one line at the end of the buffer
 ///

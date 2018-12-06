@@ -25,14 +25,14 @@ use std::time::Instant;
 use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
 use glutin::{ElementState, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState, KeyboardInput};
 
-use config::{self, Key};
-use grid::Scroll;
-use event::{ClickState, Mouse};
-use index::{Line, Column, Side, Point};
-use term::SizeInfo;
-use term::mode::TermMode;
-use util::fmt::Red;
-use util::start_daemon;
+use crate::config::{self, Key};
+use crate::grid::Scroll;
+use crate::event::{ClickState, Mouse};
+use crate::index::{Line, Column, Side, Point};
+use crate::term::SizeInfo;
+use crate::term::mode::TermMode;
+use crate::util::fmt::Red;
+use crate::util::start_daemon;
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
 
@@ -52,10 +52,10 @@ pub struct Processor<'a, A: 'a> {
 }
 
 pub trait ActionContext {
-    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, B);
+    fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _: B);
     fn terminal_mode(&self) -> TermMode;
     fn size_info(&self) -> SizeInfo;
-    fn copy_selection(&self, ClipboardBuffer);
+    fn copy_selection(&self, _: ClipboardBuffer);
     fn clear_selection(&mut self);
     fn update_selection(&mut self, point: Point, side: Side);
     fn simple_selection(&mut self, point: Point, side: Side);
@@ -769,12 +769,12 @@ mod tests {
 
     use glutin::{VirtualKeyCode, Event, WindowEvent, ElementState, MouseButton, ModifiersState};
 
-    use term::{SizeInfo, Term, TermMode};
-    use event::{Mouse, ClickState, WindowChanges};
-    use config::{self, Config, ClickHandler};
-    use index::{Point, Side};
-    use selection::Selection;
-    use grid::Scroll;
+    use crate::term::{SizeInfo, Term, TermMode};
+    use crate::event::{Mouse, ClickState, WindowChanges};
+    use crate::config::{self, Config, ClickHandler};
+    use crate::index::{Point, Side};
+    use crate::selection::Selection;
+    use crate::grid::Scroll;
 
     use super::{Action, Binding, Processor};
     use copypasta::Buffer as ClipboardBuffer;

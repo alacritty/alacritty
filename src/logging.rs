@@ -17,7 +17,7 @@
 //! The main executable is supposed to call `initialize()` exactly once during
 //! startup. All logging messages are written to stdout, given that their
 //! log-level is sufficient for the level configured in `cli::Options`.
-use cli;
+use crate::cli;
 use log::{self, Level};
 use time;
 

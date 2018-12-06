@@ -15,7 +15,7 @@
 //! Tests for the Gird
 
 use super::{Grid, BidirectionalIterator};
-use index::{Point, Line, Column};
+use crate::index::{Point, Line, Column};
 
 // Scroll up moves lines upwards
 #[test]

@@ -11,9 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use ansi::{NamedColor, Color};
-use grid;
-use index::Column;
+use crate::ansi::{NamedColor, Color};
+use crate::grid;
+use crate::index::Column;
 
 // Maximum number of zerowidth characters which will be stored per cell.
 pub const MAX_ZEROWIDTH_CHARS: usize = 5;
@@ -153,8 +153,8 @@ impl Cell {
 mod tests {
     use super::{Cell, LineLength};
 
-    use grid::Row;
-    use index::Column;
+    use crate::grid::Row;
+    use crate::index::Column;
 
     #[test]
     fn line_length_works() {

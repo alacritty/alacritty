@@ -15,11 +15,11 @@
 //! tty related functionality
 //!
 
-use tty::EventedReadWrite;
-use term::SizeInfo;
-use display::OnResize;
-use config::{Config, Shell};
-use cli::Options;
+use crate::tty::EventedReadWrite;
+use crate::term::SizeInfo;
+use crate::display::OnResize;
+use crate::config::{Config, Shell};
+use crate::cli::Options;
 use mio;
 
 use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};

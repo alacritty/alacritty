@@ -91,8 +91,8 @@ pub mod window;
 
 use std::ops::Mul;
 
-pub use grid::Grid;
-pub use term::Term;
+pub use crate::grid::Grid;
+pub use crate::term::Term;
 
 /// Facade around [winit's `MouseCursor`](glutin::MouseCursor)
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]

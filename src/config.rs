@@ -13,7 +13,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 use std::collections::HashMap;
 
-use ::Rgb;
+use crate::Rgb;
 use font::Size;
 use serde_yaml;
 use serde::{self, de, Deserialize};
@@ -23,10 +23,10 @@ use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
 
 use glutin::ModifiersState;
 
-use cli::Options;
-use input::{Action, Binding, MouseBinding, KeyBinding};
-use index::{Line, Column};
-use ansi::{CursorStyle, NamedColor, Color};
+use crate::cli::Options;
+use crate::input::{Action, Binding, MouseBinding, KeyBinding};
+use crate::index::{Line, Column};
+use crate::ansi::{CursorStyle, NamedColor, Color};
 
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
 
@@ -735,10 +735,10 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
     }
 }
 
-struct ActionWrapper(::input::Action);
+struct ActionWrapper(crate::input::Action);
 
 impl ActionWrapper {
-    fn into_inner(self) -> ::input::Action {
+    fn into_inner(self) -> crate::input::Action {
         self.0
     }
 }
@@ -811,7 +811,7 @@ impl CommandWrapper {
     }
 }
 
-use ::term::{mode, TermMode};
+use crate::term::{mode, TermMode};
 
 struct ModeWrapper {
     pub mode: TermMode,
@@ -1008,7 +1008,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
                 let mut mods: Option<ModifiersState> = None;
                 let mut key: Option<Key> = None;
                 let mut chars: Option<String> = None;
-                let mut action: Option<::input::Action> = None;
+                let mut action: Option<crate::input::Action> = None;
                 let mut mode: Option<TermMode> = None;
                 let mut not_mode: Option<TermMode> = None;
                 let mut mouse: Option<::glutin::MouseButton> = None;
@@ -1812,7 +1812,7 @@ pub struct Delta<T: Default> {
 }
 
 trait DeserializeSize : Sized {
-    fn deserialize<'a, D>(D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<'a, D>(_: D) -> ::std::result::Result<Self, D::Error>
         where D: serde::de::Deserializer<'a>;
 }
 
@@ -2020,7 +2020,7 @@ pub trait OnConfigReload {
     fn on_config_reload(&mut self);
 }
 
-impl OnConfigReload for ::display::Notifier {
+impl OnConfigReload for crate::display::Notifier {
     fn on_config_reload(&mut self) {
         self.notify();
     }
@@ -2045,7 +2045,7 @@ impl Monitor {
         let (config_tx, config_rx) = mpsc::channel();
 
         Monitor {
-            _thread: ::util::thread::spawn_named("config watcher", move || {
+            _thread: crate::util::thread::spawn_named("config watcher", move || {
                 let (tx, rx) = mpsc::channel();
                 // The Duration argument is a debouncing period.
                 let mut watcher = watcher(tx, Duration::from_millis(10))
@@ -2088,7 +2088,7 @@ impl Monitor {
 
 #[cfg(test)]
 mod tests {
-    use cli::Options;
+    use crate::cli::Options;
     use super::Config;
 
     #[cfg(target_os="macos")]

@@ -23,15 +23,15 @@ use unicode_width::UnicodeWidthChar;
 use url::Url;
 
 use font::{self, Size};
-use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter, Scroll, ViewportPosition};
-use index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
-use selection::{self, Selection, Locations};
-use config::{Config, VisualBellAnimation};
-use {MouseCursor, Rgb};
+use crate::ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
+use crate::grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter, Scroll, ViewportPosition};
+use crate::index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
+use crate::selection::{self, Selection, Locations};
+use crate::config::{Config, VisualBellAnimation};
+use crate::{MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
-use input::FONT_SIZE_STEP;
-use logging::LoggerProxy;
+use crate::input::FONT_SIZE_STEP;
+use crate::logging::LoggerProxy;
 
 pub mod cell;
 pub mod color;
@@ -2083,16 +2083,16 @@ mod tests {
     extern crate serde_json;
 
     use super::{Cell, Term, SizeInfo};
-    use term::{cell, Search};
+    use crate::term::{cell, Search};
 
-    use grid::{Grid, Scroll};
-    use index::{Point, Line, Column, Side};
-    use ansi::{self, Handler, CharsetIndex, StandardCharset};
-    use selection::Selection;
+    use crate::grid::{Grid, Scroll};
+    use crate::index::{Point, Line, Column, Side};
+    use crate::ansi::{self, Handler, CharsetIndex, StandardCharset};
+    use crate::selection::Selection;
     use std::mem;
-    use input::FONT_SIZE_STEP;
+    use crate::input::FONT_SIZE_STEP;
     use font::Size;
-    use config::Config;
+    use crate::config::Config;
 
     #[test]
     fn semantic_selection_works() {

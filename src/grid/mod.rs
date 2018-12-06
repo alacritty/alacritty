@@ -17,8 +17,8 @@
 use std::cmp::{min, max, Ordering};
 use std::ops::{Deref, Range, Index, IndexMut, RangeTo, RangeFrom, RangeFull};
 
-use index::{self, Point, Line, Column, IndexRange};
-use selection::Selection;
+use crate::index::{self, Point, Line, Column, IndexRange};
+use crate::selection::Selection;
 
 mod row;
 pub use self::row::Row;

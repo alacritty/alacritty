@@ -24,14 +24,14 @@ use std::time::Duration;
 use cgmath;
 use fnv::FnvHasher;
 use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
-use gl::types::*;
-use gl;
-use index::{Column, Line, RangeInclusive};
+use crate::gl::types::*;
+use crate::gl;
+use crate::index::{Column, Line, RangeInclusive};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
-use Rgb;
+use crate::Rgb;
 
-use config::{self, Config, Delta};
-use term::{self, cell, RenderableCell};
+use crate::config::{self, Config, Delta};
+use crate::term::{self, cell, RenderableCell};
 use glutin::dpi::PhysicalSize;
 
 // Shader paths for live reload

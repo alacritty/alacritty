@@ -13,9 +13,9 @@
 // limitations under the License.
 extern crate log;
 use clap::{Arg, App};
-use index::{Line, Column};
-use config::{Dimensions, Shell};
-use window::{DEFAULT_TITLE, DEFAULT_CLASS};
+use crate::index::{Line, Column};
+use crate::config::{Dimensions, Shell};
+use crate::window::{DEFAULT_TITLE, DEFAULT_CLASS};
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 

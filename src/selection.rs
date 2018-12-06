@@ -21,8 +21,8 @@
 use std::cmp::{min, max};
 use std::ops::Range;
 
-use index::{Point, Column, Side};
-use term::Search;
+use crate::index::{Point, Column, Side};
+use crate::term::Search;
 
 /// Describes a region of a 2-dimensional area
 ///
@@ -431,7 +431,7 @@ impl Span {
 /// look like [ B] and [E ].
 #[cfg(test)]
 mod test {
-    use index::{Line, Column, Side, Point};
+    use crate::index::{Line, Column, Side, Point};
     use super::{Selection, Span, SpanType};
 
     struct Dimensions(Point);
