@@ -1951,8 +1951,10 @@ pub struct Font {
     #[serde(default, deserialize_with = "deserialize_scale_with_dpi")]
     scale_with_dpi: Option<()>,
 
+    #[serde(default)]
     rasterization_method: font::RasterizationMethod,
     
+    #[serde(default)]
     hinting: font::HintingOptions
 }
 
