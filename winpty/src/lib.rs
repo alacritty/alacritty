@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "cargo-clippy", deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention))]
+#![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 
 #[macro_use]
 #[cfg(windows)]
