@@ -1,6 +1,5 @@
 language: rust
 
-sudo: required
 services:
   - docker
 
