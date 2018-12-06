@@ -11,29 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::cmp;
-use std::process::Command;
-use std::io;
 #[cfg(not(windows))]
 use std::os::unix::process::CommandExt;
-
-#[cfg(not(feature = "nightly"))]
-#[inline(always)]
-pub unsafe fn unlikely(x: bool) -> bool {
-    x
-}
-
-#[cfg(feature = "nightly")]
-pub use ::std::intrinsics::unlikely;
+use std::process::Command;
+use std::{cmp, io};
 
 /// Threading utilities
 pub mod thread {
     /// Like `thread::spawn`, but with a `name` argument
     pub fn spawn_named<F, T, S>(name: S, f: F) -> ::std::thread::JoinHandle<T>
-        where F: FnOnce() -> T,
-              F: Send + 'static,
-              T: Send + 'static,
-              S: Into<String>
+    where
+        F: FnOnce() -> T,
+        F: Send + 'static,
+        T: Send + 'static,
+        S: Into<String>,
     {
         ::std::thread::Builder::new()
             .name(name.into())
@@ -41,7 +32,7 @@ pub mod thread {
             .expect("thread spawn works")
     }
 
-    pub use ::std::thread::*;
+    pub use std::thread::*;
 }
 
 pub fn limit<T: Ord>(value: T, min: T, max: T) -> T {
@@ -85,6 +76,24 @@ pub mod fmt {
     }
 }
 
+#[cfg(not(windows))]
+pub fn start_daemon(program: &str, args: &[String]) -> io::Result<()> {
+    Command::new(program)
+        .args(args)
+        .before_exec(|| unsafe {
+            ::libc::daemon(1, 0);
+            Ok(())
+        })
+        .spawn()?
+        .wait()
+        .map(|_| ())
+}
+
+#[cfg(windows)]
+pub fn start_daemon(program: &str, args: &[String]) -> io::Result<()> {
+    Command::new(program).args(args).spawn().map(|_| ())
+}
+
 #[cfg(test)]
 mod tests {
     use super::limit;
@@ -96,25 +105,3 @@ mod tests {
         assert_eq!(100, limit(1000, 10, 100));
     }
 }
-
-#[cfg(not(windows))]
-pub fn start_daemon(program: &str, args: &Vec<String>) -> io::Result<std::process::Child> {
-
-    Command::new(program)
-        .args(args)
-        .before_exec(|| {
-            // Detach forked process from Alacritty. This will cause
-            // init or whatever to clean up child processes for us.
-            unsafe { ::libc::daemon(1, 0); }
-            Ok(())
-        })
-        .spawn()
-}
-
-#[cfg(windows)]
-pub fn start_daemon(program: &str, args: &Vec<String>) -> io::Result<std::process::Child> {
-    Command::new(program)
-        .args(args)
-        .spawn()
-}
-

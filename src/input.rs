@@ -238,8 +238,8 @@ impl Action {
                 trace!("running command: {} {:?}", program, args);
 
                 match start_daemon(program, args) {
-                    Ok(child) => {
-                        debug!("spawned new proc with pid: {}", child.id());
+                    Ok(_) => {
+                        debug!("spawned new proc");
                     },
                     Err(err) => {
                         warn!("couldn't run command: {}", err);
