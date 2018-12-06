@@ -20,10 +20,7 @@
 //! determine what to do when a non-modifier key is pressed.
 use std::borrow::Cow;
 use std::mem;
-use std::process::Command;
 use std::time::Instant;
-#[cfg(not(windows))]
-use std::os::unix::process::CommandExt;
 
 use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
 use glutin::{ElementState, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState, KeyboardInput};
@@ -35,6 +32,7 @@ use index::{Line, Column, Side, Point};
 use term::SizeInfo;
 use term::mode::TermMode;
 use util::fmt::Red;
+use util::start_daemon;
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
 
@@ -239,26 +237,9 @@ impl Action {
             Action::Command(ref program, ref args) => {
                 trace!("running command: {} {:?}", program, args);
 
-                #[cfg(not(windows))]
-                let spawned = Command::new(program)
-                    .args(args)
-                    .before_exec(|| {
-                        // Detach forked process from Alacritty. This will cause
-                        // init or whatever to clean up child processes for us.
-                        unsafe { ::libc::daemon(1, 0); }
-                        Ok(())
-                    })
-                    .spawn();
-
-                #[cfg(windows)]
-                let spawned = Command::new(program)
-                    .args(args)
-                    .spawn();
-
-                match spawned
-                {
-                    Ok(child) => {
-                        debug!("spawned new proc with pid: {}", child.id());
+                match start_daemon(program, args) {
+                    Ok(_) => {
+                        debug!("spawned new proc");
                     },
                     Err(err) => {
                         warn!("couldn't run command: {}", err);
@@ -557,7 +538,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let mut args = launcher.args().to_vec();
         args.push(text);
 
-        match Command::new(launcher.program()).args(&args).spawn() {
+        match start_daemon(launcher.program(), &args) {
             Ok(_) => debug!("Launched: {} {:?}", launcher.program(), args),
             Err(_) => warn!("Unable to launch: {} {:?}", launcher.program(), args),
         }

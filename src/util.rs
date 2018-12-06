@@ -11,25 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::cmp;
-
-#[cfg(not(feature = "nightly"))]
-#[inline(always)]
-pub unsafe fn unlikely(x: bool) -> bool {
-    x
-}
-
-#[cfg(feature = "nightly")]
-pub use ::std::intrinsics::unlikely;
+#[cfg(not(windows))]
+use std::os::unix::process::CommandExt;
+use std::process::Command;
+use std::{cmp, io};
 
 /// Threading utilities
 pub mod thread {
     /// Like `thread::spawn`, but with a `name` argument
     pub fn spawn_named<F, T, S>(name: S, f: F) -> ::std::thread::JoinHandle<T>
-        where F: FnOnce() -> T,
-              F: Send + 'static,
-              T: Send + 'static,
-              S: Into<String>
+    where
+        F: FnOnce() -> T,
+        F: Send + 'static,
+        T: Send + 'static,
+        S: Into<String>,
     {
         ::std::thread::Builder::new()
             .name(name.into())
@@ -37,7 +32,7 @@ pub mod thread {
             .expect("thread spawn works")
     }
 
-    pub use ::std::thread::*;
+    pub use std::thread::*;
 }
 
 pub fn limit<T: Ord>(value: T, min: T, max: T) -> T {
@@ -79,6 +74,24 @@ pub mod fmt {
         /// Write a `Display` or `Debug` escaped with Yellow
         pub struct Yellow => "33";
     }
+}
+
+#[cfg(not(windows))]
+pub fn start_daemon(program: &str, args: &[String]) -> io::Result<()> {
+    Command::new(program)
+        .args(args)
+        .before_exec(|| unsafe {
+            ::libc::daemon(1, 0);
+            Ok(())
+        })
+        .spawn()?
+        .wait()
+        .map(|_| ())
+}
+
+#[cfg(windows)]
+pub fn start_daemon(program: &str, args: &[String]) -> io::Result<()> {
+    Command::new(program).args(args).spawn().map(|_| ())
 }
 
 #[cfg(test)]
