@@ -58,7 +58,7 @@ use std::sync::atomic::{AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
 #[cfg(not(any(target_os = "macos", windows, feature = "fontkit")))]
 pub mod ft;
 #[cfg(not(any(target_os = "macos", windows, feature = "fontkit")))]
-pub use ft::{Error, FreeTypeRasterizer as Rasterizer};
+pub use crate::ft::{Error, FreeTypeRasterizer as Rasterizer};
 
 #[cfg(all(windows, not(feature = "fontkit")))]
 pub mod rusttype;
@@ -66,18 +66,16 @@ pub mod rusttype;
 pub use crate::rusttype::{Error, RustTypeRasterizer as Rasterizer};
 
 #[cfg(feature = "fontkit")]
-#[macro_use] extern crate derive_more;
-#[cfg(feature = "fontkit")]
-extern crate font_kit;
+use font_kit::canvas::RasterizationOptions;
 #[cfg(feature = "fontkit")]
 pub mod fontkit;
 #[cfg(feature = "fontkit")]
-pub use fontkit::{Error, FontKitRasterizer as Rasterizer};
+pub use crate::fontkit::{Error, FontKitRasterizer as Rasterizer};
 
 #[cfg(all(target_os = "macos", not(feature = "fontkit")))]
 mod darwin;
 #[cfg(all(target_os = "macos", not(feature = "fontkit")))]
-pub use darwin::*;
+pub use crate::darwin::*;
 
 /// Width/Height of the cursor relative to the font width
 pub const CURSOR_WIDTH_PERCENTAGE: i32 = 15;
@@ -366,6 +364,16 @@ pub enum RasterizationMethod {
 impl Default for RasterizationMethod {
     fn default() -> Self {
         RasterizationMethod::SubpixelAa
+    }
+}
+
+#[cfg(features = "fontkit")]
+impl Into<font_kit::canvas::RasterizationOptions> for RasterizationMethod {
+    fn into(self) -> font_kit::canvas::RasterizationOptions {
+        match self {
+            RasterizationMethod::SubpixelAa => RasterizationOptions::SubpixelAa,
+            RasterizationMethod::GrayScaleAa => RasterizationOptions::GrayscaleAa
+        }
     }
 }
 

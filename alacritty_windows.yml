@@ -95,8 +95,11 @@ font:
   # Point size
   size: 11.0
 
+  # Either SubpixelAa or GrayScaleAa.
   rasterization_method: SubpixelAa
 
+  # Either None, Vertical, VerticalSubpixel, or Full.
+  # These might not have the same behaviour on all platforms.
   hinting: Vertical
 
   # Offset is the extra space around each character. `offset.y` can be thought of

@@ -72,7 +72,7 @@ fn to_freetype_26_6(f: f32) -> isize {
     ((1i32 << 6) as f32 * f) as isize
 }
 
-impl ::Rasterize for FreeTypeRasterizer {
+impl crate::Rasterize for FreeTypeRasterizer {
     type Err = Error;
 
     fn new(device_pixel_ratio: f32, _options: &Options) -> Result<FreeTypeRasterizer, Error> {

@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::ptr;
 use std::path::PathBuf;
 
-use ::*;
+use crate::*;
 
 use core_foundation::string::{CFString};
 use core_foundation::array::{CFIndex, CFArray};
@@ -43,8 +43,8 @@ use euclid::{Point2D, Rect, Size2D};
 use super::{FontDesc, RasterizedGlyph, Metrics, FontKey, GlyphKey};
 
 pub mod byte_order;
-use self::byte_order::kCGBitmapByteOrder32Host;
-use self::byte_order::extract_rgb;
+use crate::byte_order::kCGBitmapByteOrder32Host;
+use crate::byte_order::extract_rgb;
 
 use super::Size;
 
@@ -125,7 +125,7 @@ impl ::std::fmt::Display for Error {
     }
 }
 
-impl ::Rasterize for Rasterizer {
+impl Rasterize for Rasterizer {
     type Err = Error;
 
     fn new(device_pixel_ratio: f32, options: &Options) -> Result<Rasterizer, Error> {

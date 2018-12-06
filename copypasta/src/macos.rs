@@ -4,18 +4,16 @@
 //! https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/PasteboardGuide106/Articles/pbReading.html#//apple_ref/doc/uid/TP40008123-SW1
 
 mod ns {
-    extern crate objc_id;
-    extern crate objc_foundation;
-
     #[link(name = "AppKit", kind = "framework")]
     extern {}
 
     use std::mem;
 
     use objc::runtime::{Class, Object};
-    use self::objc_id::{Id, Owned};
-    use self::objc_foundation::{NSArray, NSObject, NSDictionary, NSString};
-    use self::objc_foundation::{INSString, INSArray, INSObject};
+    use objc::{msg_send, sel, sel_impl};
+    use objc_id::{Id, Owned};
+    use objc_foundation::{NSArray, NSObject, NSDictionary, NSString};
+    use objc_foundation::{INSString, INSArray, INSObject};
 
     /// Rust API for NSPasteboard
     pub struct Pasteboard(Id<Object>);
@@ -50,7 +48,7 @@ mod ns {
     /// A trait for writing contents to the pasteboard
     pub trait PasteboardWriteObject<T> {
         type Err;
-        fn write_object(&mut self, T) -> Result<(), Self::Err>;
+        fn write_object(&mut self, object: T) -> Result<(), Self::Err>;
     }
 
     impl PasteboardReadObject<String> for Pasteboard {

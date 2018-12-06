@@ -140,20 +140,14 @@ impl crate::Rasterize for RustTypeRasterizer {
             buf.push((v * 255.0) as u8);
             buf.push((v * 255.0) as u8);
         });
-        let glyph = RasterizedGlyph {
+        Ok(RasterizedGlyph {
             c: glyph_key.c,
             width: bb.width(),
             height: bb.height(),
             top: -bb.min.y,
             left: bb.min.x,
-            buf: buf.clone(),
-        };
-        // trace!("glyph {} top {} left {} width {} height {}", glyph_key.c, -bb.min.y, bb.min.x, bb.width(), bb.height());
-        // let image = image::RgbImage::from_raw(bb.width() as u32, bb.height() as u32, buf);
-        // if let Some(image) = image {
-        //     let _ = image.save(format!("'{}'.png", glyph_key.c));
-        // }
-        Ok(glyph)
+            buf: buf,
+        })
     }
 
     fn update_dpr(&mut self, device_pixel_ratio: f32) {

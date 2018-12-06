@@ -2,14 +2,6 @@
 
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 
-// This has to be here due to macro_use
-#[cfg(target_os = "macos")]
-#[macro_use]
-extern crate objc;
-
-#[cfg(windows)]
-extern crate clipboard;
-
 /// An enumeration describing available clipboard buffers
 pub enum Buffer {
     Primary,
@@ -75,12 +67,12 @@ pub trait Store: Load {
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
 mod x11;
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
-pub use x11::{Clipboard, Error};
+pub use crate::x11::{Clipboard, Error};
 
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "macos")]
-pub use macos::{Clipboard, Error};
+pub use crate::macos::{Clipboard, Error};
 
 #[cfg(windows)]
 mod windows;

@@ -154,7 +154,7 @@ impl Clipboard {
 #[cfg(test)]
 mod tests {
     use super::Clipboard;
-    use ::{Load, Store};
+    use crate::{Load, Store};
 
     #[test]
     fn clipboard_works() {

@@ -2,11 +2,12 @@ use std::error;
 
 use super::*;
 
+use derive_more::{From, Display};
 use font_kit::source::SystemSource;
 use font_kit::properties::{self, Properties};
 use font_kit::family_name::FamilyName;
 use font_kit::font::Font;
-use font_kit::canvas::{Canvas, RasterizationOptions, Format};
+use font_kit::canvas::{Canvas, Format};
 
 #[derive(Debug, From, Display)]
 pub enum Error {
@@ -45,16 +46,7 @@ pub struct FontKitRasterizer {
     fonts: Vec<Font>
 }
 
-impl Into<RasterizationOptions> for RasterizationMethod {
-    fn into(self) -> RasterizationOptions {
-        match self {
-            RasterizationMethod::SubpixelAa => RasterizationOptions::SubpixelAa,
-            RasterizationMethod::GrayScaleAa => RasterizationOptions::GrayscaleAa
-        }
-    }
-}
-
-impl ::Rasterize for FontKitRasterizer {
+impl crate::Rasterize for FontKitRasterizer {
     type Err = Error;
 
     fn new(device_pixel_ratio: f32, options: &Options) -> Result<Self, Self::Err> {
@@ -76,7 +68,7 @@ impl ::Rasterize for FontKitRasterizer {
         let font = &self.fonts[key.token as usize];
         let metrics = font.metrics();
 
-        let scale = size.as_f32_pts() * self.dpi * 96. / 72. / metrics.units_per_em as f32;
+        let scale = size.as_f32_pts() * self.dpi / metrics.units_per_em as f32;
 
         let line_height = (Into::<f32>::into(metrics.line_gap - metrics.descent + metrics.ascent)) as f64;
 
@@ -133,9 +125,6 @@ impl ::Rasterize for FontKitRasterizer {
         let glyph = font.glyph_for_char(glyph_key.c).unwrap();
         let metrics = font.metrics();
         let scale = glyph_key.size.as_f32_pts() * self.dpi  / metrics.units_per_em as f32;
-        // TODO: This is too small currently
-        let baseline = (glyph_key.size.as_f32_pts() / (metrics.ascent + metrics.descent)) * metrics.ascent;
-        let line_height = (Into::<f32>::into(metrics.line_gap - metrics.descent + metrics.ascent)) as f64;
 
         let origin = font.origin(glyph)? * scale;
 
@@ -165,7 +154,7 @@ impl ::Rasterize for FontKitRasterizer {
             c: glyph_key.c,
             width: bounds.size.width,
             height: bounds.size.height,
-            top: bounds.size.height + bounds.origin.y - (baseline.round() / 2.0) as i32,
+            top: bounds.size.height + bounds.origin.y - (metrics.ascent * scale).round() as i32,
             left: bounds.origin.x,
             buf: canvas.pixels.clone(),
         })
