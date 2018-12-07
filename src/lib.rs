@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
-#![cfg_attr(feature = "cargo-clippy", deny(clippy, if_not_else, enum_glob_use, wrong_pub_self_convention))]
+#![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
@@ -127,6 +127,6 @@ impl Mul<f32> for Rgb {
 
 
 pub mod gl {
-    #![cfg_attr(feature = "cargo-clippy", allow(clippy))]
+    #![allow(clippy::all)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }

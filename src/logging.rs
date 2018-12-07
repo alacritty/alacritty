@@ -94,7 +94,7 @@ struct Logger {
 
 impl Logger {
     // False positive, see: https://github.com/rust-lang-nursery/rust-clippy/issues/734
-    #[cfg_attr(feature = "cargo-clippy", allow(new_ret_no_self))]
+    #[allow(clippy::new_ret_no_self)]
     fn new(level: log::LevelFilter) -> Self {
         log::set_max_level(level);
 

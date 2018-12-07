@@ -124,7 +124,7 @@ fn set_controlling_terminal(fd: c_int) {
         // based on architecture (32/64). So a generic cast is used to make sure
         // there are no issues. To allow such a generic cast the clippy warning
         // is disabled.
-        #[cfg_attr(feature = "cargo-clippy", allow(cast_lossless))]
+        #[allow(clippy::cast_lossless)]
         libc::ioctl(fd, TIOCSCTTY as _, 0)
     };
 
