@@ -102,7 +102,7 @@ fn load_config(options: &cli::Options) -> Config {
 
     Config::load_from(&*config_path).unwrap_or_else(|err| {
         match err {
-            ConfigError::Empty => info!("Config file: {}; Loading default config", err),
+            ConfigError::Empty => info!("Config file {:?} is empty; Loading default", config_path),
             _ => error!("Error: {}; Loading default config", err),
         }
 
