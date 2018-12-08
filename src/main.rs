@@ -46,7 +46,7 @@ extern crate winapi;
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 use alacritty::cli;
-use alacritty::config::{self, Config};
+use alacritty::config::{self, Config, Error as ConfigError};
 use alacritty::display::Display;
 use alacritty::event;
 use alacritty::event_loop::{self, EventLoop, Msg};
@@ -101,7 +101,11 @@ fn load_config(options: &cli::Options) -> Config {
         });
 
     Config::load_from(&*config_path).unwrap_or_else(|err| {
-        error!("Error: {}; Loading default config", err);
+        match err {
+            ConfigError::Empty => info!("Config file {:?} is empty; Loading default", config_path),
+            _ => error!("Error: {}; Loading default config", err),
+        }
+
         Config::default()
     })
 }
