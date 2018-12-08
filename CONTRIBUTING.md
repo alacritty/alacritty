@@ -1,68 +1,96 @@
-## Contributing to Alacritty
+# Contributing to Alacritty
 
-Looks like you are interested in contributing to alacritty, thank you for your time.The following are just guidelines except for the code formatting which should be adhered to. So if you know something that can be done in fewer commands, use that or
-even better submit a PR.
+Thank you for your interest in contributing to Alacritty!
 
-This document will introduce some things that will get you started with 
-- Setting up local development environment.
-- Formatting Code before PR's 
+Table of Contents:
 
-## Setting up local development environment.
+1. [Feature Requests](#feature-requests)
+2. [Bug Reports](#bug-reports)
+3. [Pull Requests](#pull-requests)
+    1. [Testing](#testing)
+    2. [Performance](#performance)
+    3. [Documentation](#documentation)
+    4. [Style](#style)
+4. [Contact](#contact)
 
-1. Clone a copy of Alacritty from source 
+## Feature Requests
 
-    ``` git clone --origin upstream https://github.com/jwilm/alacritty.git ```
+Feature requests should be reported in the [Alacritty issue tracker](https://github.com/jwilm/alacritty/issues). To reduce the number of duplicates, please make sure to check the existing [enhancement](https://github.com/jwilm/alacritty/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Aenhancement) and [missing feature](https://github.com/jwilm/alacritty/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3A%22B+-+missing+feature%22) issues.
 
-   The above command does two things for you, it clones the repository into your local directory
-   and it checksout the master branch. It sets the remote name as upstream because this branch is
-   used to track changes that are made on the main repository.If you're new to git don't worry the 
-   jargon gets clear as you follow along.
+## Bug Reports
 
-2. Got to alacritty's main github repository and fork it. It's on the top right corner.
+Bug reports should be reported in the [Alacritty issue tracker](https://github.com/jwilm/alacritty/issues).
 
-3. Now you have your own copy of the repository. Now copy the repository link of your forked repository.
-   It can be found on the top right corner saying clone or download.
+If a bug was not present in a previous version of Alacritty, providing the exact commit which introduced the regression helps out a lot.
 
-   ``` 
-   cd alacritty
-   
-   git remote add fork https://github.com/yourusername/alacritty.git
-   ```
-4. Now the issue you want to tackle will have a number, go to that issue remember the number.
-   Use the following commands in your shell.
-   ```
-   git checkout -b FIX-#issue_number
-   ```
-5. Make the required changes,in your working directory there will be file called changelog add an 
-   entry to it about the issue you are trying to fix.Keep it short and concise, do not end them with
-   a period or a punctuation mark. If your happy with the changes you've made commit them using
-   ```
-    git add changed_files
-    git commit 
-   ```
-   Guidelines for writing good commit messages can be found.[here](https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html).
+Since a multitude of operating systems are supported by Alacritty, not all issues might apply to every OS. So make sure to specify on which OS the bug has been found. Since Linux has a variety of window managers, compositors and display servers, please also specify those when encountering an issue on Linux.
 
-6. Now before pushing,you'll have to be sure that some changes made on the main repository while you were working on the patch 
-   do not create merge conflicts,so use the following commands before you push so that it'll be easier for the maintainers to
-   merge your PR into the main branch.
-   ```
-   git checkout master
-   git pull
-   git checkout FIX-#issue_number
-   git rebase master #if there are merge conflicts git will shout at you which is ok,just resolve them,the error messages(if they are conflicts)
-   will be very informative just follow them.
+Depending on the bug, it might also be useful to provide some of the following information:
+ - Configuration file
+ - `alacritty -v(vv)` output
+ - `alacritty --print-events` output
+ - `glxinfo` output
+ - `xrandr` output
 
-   git push -u fork HEAD:FIX-#issue_number #if you're pushing for the first time, if you have done this just use git push and git will know where to send changes
-   ```
-7. Now go to your forked repository and Open a [PR](https://help.github.com/articles/creating-a-pull-request/).
+Here's a template that you can use to file a bug, though it's not necessary to use it exactly:
 
-8. Once you have made a PR, the maintainer will tell you if there are changes to be made. Go to step 6 and follow the same rules, instead of the push command use
-   ```
-   #if the changes are merely formatting/style issues use git commit --amend instead of git commit.
-   git push -f
-   ```
-The following 6-8 works without any side-effects if you're working alone. Do not ammend commits if you're working with a different person, the rebase works just fine but make sure that they know you have rebased.
+```
+# System
+|                  |                               |
+|------------------|-------------------------------|
+| Operating System | [Linux/BSD/macOS/Windows]     |
+| Rust Version     | [stable/beta/nightly/X.Y.Z]   |
+| Display Server   | [X11/Wayland] (only on Linux) |
+| Window Manager   | [i3/xfwm/...] (only on Linux) |
+| Compositor       | [compton/...] (only on Linux) |
 
-## Formatting Code before PR's Style
+# Summary
+[Short summary of the Bug]
 
-To be added.
+# Behavior
+[Description of Alacritty's current behavior]
+
+# Expectation
+[Description of expected behavior]
+
+# Extra
+[Additional information like config or logs]
+```
+
+## Patches / Pull Requests
+
+All patches have to be sent on Github as [pull requests](https://github.com/jwilm/alacritty/pulls).
+
+### Testing
+
+To make sure no regressions were introduced, all tests should be run before sending a pull request. The following command can be run to test Alacritty:
+
+```
+cargo test
+```
+
+Additionally if there's any functionality included which would lend itself to additional testing, new tests should be added. These can either be in the form of Rust tests using the `#[test]` annotation, or Alacritty's ref tests.
+
+To record a new ref test, a release version of the patched binary should be created and run with the `--ref-test` flag. After closing the Alacritty window, or killing it (`exit` and `^D` do not work), some new files should have been generated in the working directory. Those can then be copied to the `./tests/ref/NEW_TEST_NAME` directory and the test can be enabled by editing the `ref_tests!` macro in the `./tests/ref.rs` file. When fixing a bug, it should be checked that the ref test does not complete correctly with the unpatched version, to make sure the test case is covered properly.
+
+### Performance
+
+Alacritty mainly uses the [vtebench](https://github.com/jwilm/vtebench) tool for testing Alacritty's performance. Any change which could have an impact on Alacritty's performance, should be tested with it to prevent potential regressions.
+
+### Documentation
+
+Code should be documented where appropriate. The existing code can be used as a guidance here and the general `rustfmt` rules can be followed for formatting.
+
+If any change has been made to the `config.rs` file, these changes should be documented in the example configuration files `alacritty.yml`, `alacritty_macos.yml` and `alacritty_windows.yml`. Only changes which are exclusive to a specific platform do not need to be added to all configuration files.
+
+Changes compared to the latest Alacritty release which have a direct effect on the user (opposed to things like code refactorings or documentation/tests) additionally need to be documented in the `CHANGELOG.md`. The existing entries should be used as a style guideline. The change log should be used to document changes from a user-perspective, instead of explaining the technical background (like commit messages). More information about Alacritty's change log format can be found [here](https://keepachangelog.com).
+
+### Style
+
+Alacritty currently does not have any automatically enforced style guidelines. As a result of that, it is not possible to run `rustfmt` on existing files. New code should however follow the default ruleset of `rustfmt` and for newly created files it is possible to run the `rustfmt` tool directly.
+
+# Contact
+
+If there are any outstanding questions about contributing to Alacritty, they can be asked on the [Alacritty issue tracker](https://github.com/jwilm/alacritty/issues).
+
+As a more immediate and direct form of communication, the Alacritty IRC channel (`#alacritty` on Freenode) can be used to contact many of the Alacritty contributors.
