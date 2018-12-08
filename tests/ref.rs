@@ -51,6 +51,7 @@ ref_tests! {
     zsh_tab_completion
     history
     grid_reset
+    zerowidth
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>

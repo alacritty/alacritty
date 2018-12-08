@@ -120,7 +120,7 @@ pub struct ShaderProgram {
     u_background: GLint,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Copy, Debug, Clone)]
 pub struct Glyph {
     tex_id: GLuint,
     top: f32,
@@ -835,7 +835,7 @@ impl<'a> RenderApi<'a> {
             .map(|(i, c)| RenderableCell {
                 line,
                 column: col + i,
-                c,
+                chars: [c, ' ', ' ', ' ', ' ', ' '],
                 bg: color,
                 fg: Rgb { r: 0, g: 0, b: 0 },
                 flags: cell::Flags::empty(),
@@ -879,21 +879,38 @@ impl<'a> RenderApi<'a> {
                 glyph_cache.font_key
             };
 
+            // Don't render text of HIDDEN cells
+            let chars = if cell.flags.contains(cell::Flags::HIDDEN) {
+                [' '; 6]
+            } else {
+                cell.chars
+            };
+
             let mut glyph_key = GlyphKey {
                 font_key,
                 size: glyph_cache.font_size,
-                c: cell.c,
+                c: chars[0],
             };
-
-            // Don't render text of HIDDEN cells
-            if cell.flags.contains(cell::Flags::HIDDEN) {
-                glyph_key.c = ' ';
-            }
 
             // Add cell to batch
             {
                 let glyph = glyph_cache.get(glyph_key, self);
                 self.add_render_item(&cell, glyph);
+            }
+
+            // Render zero-width characters
+            for c in (&chars[1..]).iter().filter(|c| **c != ' ') {
+                glyph_key.c = *c;
+                let mut glyph = *glyph_cache.get(glyph_key, self);
+
+                // The metrics of zero-width characters are based on rendering
+                // the character after the current cell, with the anchor at the
+                // right side of the preceding character. Since we render the
+                // zero-width characters inside the preceding character, the
+                // anchor has been moved to the right by one cell.
+                glyph.left += glyph_cache.metrics.average_advance as f32;
+
+                self.add_render_item(&cell, &glyph);
             }
 
             // FIXME This is a super hacky way to do underlined text. During

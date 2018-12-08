@@ -17,7 +17,7 @@ use index::Column;
 
 bitflags! {
     #[derive(Serialize, Deserialize)]
-    pub struct Flags: u32 {
+    pub struct Flags: u16 {
         const INVERSE           = 0b0_0000_0001;
         const BOLD              = 0b0_0000_0010;
         const ITALIC            = 0b0_0000_0100;
@@ -31,12 +31,18 @@ bitflags! {
     }
 }
 
+const fn default_extra() -> [char; 5] {
+    [' '; 5]
+}
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Cell {
     pub c: char,
     pub fg: Color,
     pub bg: Color,
     pub flags: Flags,
+    #[serde(default="default_extra")]
+    pub extra: [char; 5],
 }
 
 impl Default for Cell {
@@ -65,7 +71,7 @@ impl LineLength for grid::Row<Cell> {
         }
 
         for (index, cell) in self[..].iter().rev().enumerate() {
-            if cell.c != ' ' {
+            if cell.c != ' ' || cell.extra[0] != ' ' {
                 length = Column(self.len() - index);
                 break;
             }
@@ -93,6 +99,7 @@ impl Cell {
 
     pub fn new(c: char, fg: Color, bg: Color) -> Cell {
         Cell {
+            extra: [' '; 5],
             c,
             bg,
             fg,
@@ -102,15 +109,40 @@ impl Cell {
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.c == ' ' &&
-            self.bg == Color::Named(NamedColor::Background) &&
-            !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE)
+        self.c == ' '
+            && self.extra[0] == ' '
+            && self.bg == Color::Named(NamedColor::Background)
+            && !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE)
     }
 
     #[inline]
     pub fn reset(&mut self, template: &Cell) {
         // memcpy template to self
         *self = *template;
+    }
+
+    #[inline]
+    pub fn chars(&self) -> [char; 6] {
+        unsafe {
+            let mut chars = [std::mem::uninitialized(); 6];
+            std::ptr::write(&mut chars[0], self.c);
+            std::ptr::copy_nonoverlapping(
+                self.extra.as_ptr(),
+                chars.as_mut_ptr().offset(1),
+                self.extra.len(),
+            );
+            chars
+        }
+    }
+
+    #[inline]
+    pub fn push_extra(&mut self, c: char) {
+        for elem in self.extra.iter_mut() {
+            if elem == &' ' {
+                *elem = c;
+                break;
+            }
+        }
     }
 }
 
