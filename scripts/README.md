@@ -11,9 +11,7 @@ as the only output to STDOUT.
 ./create-flamegraph.sh
 ```
 
-Running this script depends on an installation of `perf`. Running the included
-`create-flamegraph/ubuntu-install-perf.sh` takes care of this on Ubuntu. For
-other operating systems refer to thier package manager.
+Running this script depends on an installation of `perf`.
 
 ## ANSI Color Tests
 
