@@ -336,6 +336,7 @@ impl<N: Notify> Processor<N> {
                         if ref_test {
                             // dump grid state
                             let mut grid = processor.ctx.terminal.grid().clone();
+                            grid.initialize_all(&::term::cell::Cell::default());
                             grid.truncate();
 
                             let serialized_grid = json::to_string(&grid)
@@ -344,6 +345,11 @@ impl<N: Notify> Processor<N> {
                             let serialized_size = json::to_string(processor.ctx.terminal.size_info())
                                 .expect("serialize size");
 
+                            let serialized_config = format!(
+                                "{{\"history_size\":{}}}",
+                                grid.history_size()
+                            );
+
                             File::create("./grid.json")
                                 .and_then(|mut f| f.write_all(serialized_grid.as_bytes()))
                                 .expect("write grid.json");
@@ -351,6 +357,10 @@ impl<N: Notify> Processor<N> {
                             File::create("./size.json")
                                 .and_then(|mut f| f.write_all(serialized_size.as_bytes()))
                                 .expect("write size.json");
+
+                            File::create("./config.json")
+                                .and_then(|mut f| f.write_all(serialized_config.as_bytes()))
+                                .expect("write config.json");
                         }
 
                         // FIXME should do a more graceful shutdown

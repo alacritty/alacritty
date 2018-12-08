@@ -435,6 +435,20 @@ impl<T> Grid<T> {
         self.raw.len()
     }
 
+    #[inline]
+    pub fn history_size(&self) -> usize {
+        self.raw.len().saturating_sub(*self.lines)
+    }
+
+    /// This is used only for initializing after loading ref-tests
+    pub fn initialize_all(&mut self, template: &T)
+    where
+        T: Copy
+    {
+        let history_size = self.raw.len().saturating_sub(*self.lines);
+        self.raw.initialize(self.max_scroll_limit - history_size, Row::new(self.cols, template));
+    }
+
     /// This is used only for truncating before saving ref-tests
     pub fn truncate(&mut self) {
         self.raw.truncate();

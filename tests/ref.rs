@@ -99,12 +99,13 @@ fn ref_test(dir: &Path) {
 
     // Truncate invisible lines from the grid
     let mut term_grid = terminal.grid().clone();
+    term_grid.initialize_all(&Cell::default());
     term_grid.truncate();
 
     if grid != term_grid {
         for i in 0..grid.len() {
             for j in 0..grid.num_cols().0 {
-                let cell = terminal.grid()[i][Column(j)];
+                let cell = term_grid[i][Column(j)];
                 let original_cell = grid[i][Column(j)];
                 if original_cell != cell {
                     println!("[{i}][{j}] {original:?} => {now:?}",
