@@ -424,7 +424,7 @@ pub struct RenderableCell {
     /// A _Display_ line (not necessarily an _Active_ line)
     pub line: Line,
     pub column: Column,
-    pub chars: [char; 6],
+    pub chars: [char; cell::MAX_ZEROWIDTH_CHARS + 1],
     pub fg: Rgb,
     pub bg: Rgb,
     pub bg_alpha: f32,

@@ -15,6 +15,9 @@ use ansi::{NamedColor, Color};
 use grid;
 use index::Column;
 
+// Maximum number of zerowidth characters which will be stored per cell.
+pub const MAX_ZEROWIDTH_CHARS: usize = 5;
+
 bitflags! {
     #[derive(Serialize, Deserialize)]
     pub struct Flags: u16 {
@@ -31,8 +34,8 @@ bitflags! {
     }
 }
 
-const fn default_extra() -> [char; 5] {
-    [' '; 5]
+const fn default_extra() -> [char; MAX_ZEROWIDTH_CHARS] {
+    [' '; MAX_ZEROWIDTH_CHARS]
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
@@ -42,7 +45,7 @@ pub struct Cell {
     pub bg: Color,
     pub flags: Flags,
     #[serde(default="default_extra")]
-    pub extra: [char; 5],
+    pub extra: [char; MAX_ZEROWIDTH_CHARS],
 }
 
 impl Default for Cell {
@@ -99,7 +102,7 @@ impl Cell {
 
     pub fn new(c: char, fg: Color, bg: Color) -> Cell {
         Cell {
-            extra: [' '; 5],
+            extra: [' '; MAX_ZEROWIDTH_CHARS],
             c,
             bg,
             fg,
@@ -122,9 +125,9 @@ impl Cell {
     }
 
     #[inline]
-    pub fn chars(&self) -> [char; 6] {
+    pub fn chars(&self) -> [char; MAX_ZEROWIDTH_CHARS + 1] {
         unsafe {
-            let mut chars = [std::mem::uninitialized(); 6];
+            let mut chars = [std::mem::uninitialized(); MAX_ZEROWIDTH_CHARS + 1];
             std::ptr::write(&mut chars[0], self.c);
             std::ptr::copy_nonoverlapping(
                 self.extra.as_ptr(),

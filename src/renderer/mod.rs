@@ -835,7 +835,11 @@ impl<'a> RenderApi<'a> {
             .map(|(i, c)| RenderableCell {
                 line,
                 column: col + i,
-                chars: [c, ' ', ' ', ' ', ' ', ' '],
+                chars: {
+                    let mut chars = [' '; cell::MAX_ZEROWIDTH_CHARS + 1];
+                    chars[0] = c;
+                    chars
+                },
                 bg: color,
                 fg: Rgb { r: 0, g: 0, b: 0 },
                 flags: cell::Flags::empty(),
@@ -881,7 +885,7 @@ impl<'a> RenderApi<'a> {
 
             // Don't render text of HIDDEN cells
             let chars = if cell.flags.contains(cell::Flags::HIDDEN) {
-                [' '; 6]
+                [' '; cell::MAX_ZEROWIDTH_CHARS + 1]
             } else {
                 cell.chars
             };
