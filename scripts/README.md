@@ -1,20 +1,26 @@
-scripts
+Scripts
 =======
 
-There are two scripts included at the time this README was written, and they
-both support flamegraph generation on Ubuntu. The first script installs the
-required dependencies:
+## Flamegraph
+
+Run the release version of Alacritty while recording call stacks. After the
+Alacritty process exits, a flamegraph will be generated and it's URI printed
+as the only output to STDOUT.
 
 ```sh
-scripts/ubuntu-install-perf.sh
+./create-flamegraph.sh
 ```
 
-The second script will run Alacritty while recording call stacks. After the
-Alacritty process exits, a flamegraph will be generated  and its URI printed.
+Running this script depends on an installation of `perf`.
+
+## ANSI Color Tests
+
+We include a few scripts for testing the color of text inside a terminal. The
+first shows various foreground and background varients. The second enumerates
+all the colors of a standard terminal. The third enumerates the 24-bit colors.
 
 ```sh
-scripts/create-flamegraph.sh
+./fg-bg.sh
+./colors.sh
+./24-bit-colors.sh
 ```
-
-**NOTE**: The _create-flamegraph.sh_ script is intended to be run from the
-alacritty project root.
