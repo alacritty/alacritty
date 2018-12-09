@@ -23,10 +23,6 @@
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate static_assertions;
 
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
-          target_os = "openbsd"))]
-extern crate x11_dl;
-
 #[cfg(windows)]
 extern crate mio_named_pipes;
 #[cfg(windows)]
@@ -41,30 +37,6 @@ extern crate image;
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;
-
-extern crate arraydeque;
-extern crate cgmath;
-extern crate copypasta;
-extern crate env_logger;
-extern crate errno;
-extern crate fnv;
-extern crate font;
-extern crate glutin;
-extern crate libc;
-extern crate mio;
-extern crate mio_more;
-extern crate notify;
-extern crate parking_lot;
-extern crate serde;
-extern crate serde_json;
-extern crate serde_yaml;
-extern crate unicode_width;
-extern crate vte;
-extern crate xdg;
-extern crate base64;
-extern crate terminfo;
-extern crate url;
-extern crate time;
 
 #[macro_use]
 pub mod macros;

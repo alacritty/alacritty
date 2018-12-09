@@ -34,7 +34,7 @@ pub trait Notify {
     fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, _: B);
 }
 
-pub struct ActionContext<'a, N: 'a> {
+pub struct ActionContext<'a, N> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term,
     pub size_info: &'a mut SizeInfo,
@@ -456,7 +456,7 @@ impl<N: Notify> Processor<N> {
         {
             // Ditto on lazy initialization for context and processor.
             let context;
-            let mut processor: input::Processor<ActionContext<N>>;
+            let mut processor: input::Processor<'_, ActionContext<'_, N>>;
 
             let print_events = self.print_events;
 

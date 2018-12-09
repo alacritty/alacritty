@@ -296,7 +296,7 @@ impl<'de> Deserialize<'de> for Decorations {
         impl<'de> Visitor<'de> for DecorationsVisitor {
             type Value = Decorations;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("Some subset of full|transparent|buttonless|none")
             }
 
@@ -709,7 +709,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
         impl<'a> Visitor<'a> for ModsVisitor {
             type Value = ModsWrapper;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("Some subset of Command|Shift|Super|Alt|Option|Control")
             }
 
@@ -752,7 +752,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
         impl<'a> Visitor<'a> for ActionVisitor {
             type Value = ActionWrapper;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, \
                             ResetFontSize, ScrollPageUp, ScrollPageDown, ScrollToTop, \
                             ScrollToBottom, ClearHistory, Hide, ClearLogNotice or Quit")
@@ -827,7 +827,7 @@ impl<'a> de::Deserialize<'a> for ModeWrapper {
         impl<'a> Visitor<'a> for ModeVisitor {
             type Value = ModeWrapper;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("Combination of AppCursor | AppKeypad, possibly with negation (~)")
             }
 
@@ -873,7 +873,7 @@ impl<'a> de::Deserialize<'a> for MouseButton {
         impl<'a> Visitor<'a> for MouseButtonVisitor {
             type Value = MouseButton;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("Left, Right, Middle, or a number")
             }
 
@@ -967,7 +967,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
                 impl<'a> Visitor<'a> for FieldVisitor {
                     type Value = Field;
 
-                    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                         f.write_str("binding fields")
                     }
 
@@ -995,7 +995,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
         impl<'a> Visitor<'a> for RawBindingVisitor {
             type Value = RawBinding;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("binding specification")
             }
 
@@ -1357,7 +1357,7 @@ fn rgb_from_hex<'a, D>(deserializer: D) -> ::std::result::Result<Rgb, D::Error>
     impl<'a> Visitor<'a> for RgbVisitor {
         type Value = Rgb;
 
-        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.write_str("Hex colors spec like 'ffaabb'")
         }
 
@@ -1416,7 +1416,7 @@ impl FromStr for Rgb {
 }
 
 impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&::std::error::Error> {
+    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
         match *self {
             Error::NotFound | Error::Empty => None,
             Error::ReadingEnvHome(ref err) => Some(err),
@@ -1437,7 +1437,7 @@ impl ::std::error::Error for Error {
 }
 
 impl ::std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Error::NotFound | Error::Empty => write!(f, "{}", ::std::error::Error::description(self)),
             Error::ReadingEnvHome(ref err) => {
@@ -1625,7 +1625,7 @@ impl Config {
             .map(|p| p.as_path())
     }
 
-    pub fn shell(&self) -> Option<&Shell> {
+    pub fn shell(&self) -> Option<&Shell<'_>> {
         self.shell.as_ref()
     }
 
@@ -1831,7 +1831,7 @@ impl DeserializeSize for Size {
         {
             type Value = f64;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("f64 or u64")
             }
 

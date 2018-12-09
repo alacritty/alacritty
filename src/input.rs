@@ -939,7 +939,7 @@ mod tests {
                     processor.mouse_input(state, button, modifiers);
                 };
 
-                assert!(match mouse.click_state {
+                assert!(match processor.ctx.mouse.click_state {
                     $end_state => processor.ctx.last_action == $last_action,
                     _ => false
                 });

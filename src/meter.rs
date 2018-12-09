@@ -86,7 +86,7 @@ impl Meter {
     }
 
     /// Get a sampler
-    pub fn sampler(&mut self) -> Sampler {
+    pub fn sampler(&mut self) -> Sampler<'_> {
         Sampler::new(self)
     }
 

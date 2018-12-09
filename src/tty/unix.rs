@@ -149,7 +149,7 @@ struct Passwd<'a> {
 /// # Unsafety
 ///
 /// If `buf` is changed while `Passwd` is alive, bad thing will almost certainly happen.
-fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd {
+fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
     // Create zeroed passwd struct
     let mut entry: libc::passwd = unsafe { ::std::mem::uninitialized() };
 
@@ -329,7 +329,7 @@ impl EventedReadWrite for Pty {
     fn register(
         &mut self,
         poll: &mio::Poll,
-        token: &mut Iterator<Item = &usize>,
+        token: &mut dyn Iterator<Item = &usize>,
         interest: mio::Ready,
         poll_opts: mio::PollOpt,
     ) -> io::Result<()> {

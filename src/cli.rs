@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-extern crate log;
+use ::log;
 use clap::{Arg, App};
 use crate::index::{Line, Column};
 use crate::config::{Dimensions, Shell};
@@ -186,11 +186,11 @@ impl Options {
         self.dimensions
     }
 
-    pub fn command(&self) -> Option<&Shell> {
+    pub fn command(&self) -> Option<&Shell<'_>> {
         self.command.as_ref()
     }
 
-    pub fn config_path(&self) -> Option<Cow<Path>> {
+    pub fn config_path(&self) -> Option<Cow<'_, Path>> {
         self.config.as_ref().map(|p| Cow::Borrowed(p.as_path()))
     }
 }

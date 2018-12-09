@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #[cfg(windows)]
-extern crate embed_resource;
+use embed_resource;
 #[cfg(windows)]
-extern crate tempfile;
+use tempfile;
 #[cfg(windows)]
-extern crate reqwest;
+use reqwest;
 #[cfg(windows)]
-extern crate zip;
-
-extern crate gl_generator;
+use zip;
 
 use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
 

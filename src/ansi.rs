@@ -112,7 +112,7 @@ struct ProcessorState {
 ///
 /// Processor creates a Performer when running advance and passes the Performer
 /// to `vte::Parser`.
-struct Performer<'a, H: Handler + TermInfo + 'a, W: io::Write + 'a> {
+struct Performer<'a, H: Handler + TermInfo, W: io::Write> {
     _state: &'a mut ProcessorState,
     handler: &'a mut H,
     writer: &'a mut W
@@ -1225,7 +1225,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
                 *i += 2;
                 let idx = attrs[*i];
                 match idx {
-                    0 ... 255 => {
+                    0 ..= 255 => {
                         Some(Color::Indexed(idx as u8))
                     },
                     _ => {

@@ -118,7 +118,7 @@ fn run(
     mut config: Config,
     options: &cli::Options,
     mut logger_proxy: LoggerProxy,
-) -> Result<(), Box<Error>> {
+) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty.");
     if let Some(config_path) = config.path() {
         info!("Configuration loaded from {}", config_path.display());

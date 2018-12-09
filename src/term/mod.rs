@@ -391,9 +391,9 @@ impl<'a> RenderableCellsIter<'a> {
                     cell.flags & Flags::DIM_BOLD,
                     idx
                 ) {
-                    (true,  self::cell::Flags::BOLD, 0...7)  => idx as usize + 8,
-                    (false, self::cell::Flags::DIM,  8...15) => idx as usize - 8,
-                    (false, self::cell::Flags::DIM,  0...7)  => idx as usize + 260,
+                    (true,  self::cell::Flags::BOLD, 0..=7)  => idx as usize + 8,
+                    (false, self::cell::Flags::DIM,  8..=15) => idx as usize - 8,
+                    (false, self::cell::Flags::DIM,  0..=7)  => idx as usize + 260,
                     _ => idx as usize,
                 };
 
@@ -1128,7 +1128,7 @@ impl Term {
         &'b self,
         config: &'b Config,
         window_focused: bool,
-    ) -> RenderableCellsIter {
+    ) -> RenderableCellsIter<'_> {
         let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
         let selection = self.grid.selection.as_ref()
             .and_then(|s| s.to_span(self, alt_screen))
@@ -2068,7 +2068,7 @@ impl ansi::Handler for Term {
 
 #[cfg(test)]
 mod tests {
-    extern crate serde_json;
+    use serde_json;
 
     use super::{Cell, Term, SizeInfo};
     use crate::term::{cell, Search};
@@ -2419,8 +2419,8 @@ mod benches {
     use std::mem;
     use std::path::Path;
 
-    use grid::Grid;
-    use config::Config;
+    use crate::grid::Grid;
+    use crate::config::Config;
 
     use super::{SizeInfo, Term};
     use super::cell::Cell;

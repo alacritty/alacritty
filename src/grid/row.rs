@@ -85,7 +85,7 @@ impl<T> Row<T> {
         self.inner.len()
     }
 
-    pub fn iter(&self) -> slice::Iter<T> {
+    pub fn iter(&self) -> slice::Iter<'_, T> {
         self.inner.iter()
     }
 }

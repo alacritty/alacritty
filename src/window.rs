@@ -93,7 +93,7 @@ pub struct DeviceProperties {
 }
 
 impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&::std::error::Error> {
+    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
         match *self {
             Error::ContextCreation(ref err) => Some(err),
             Error::Context(ref err) => Some(err),
@@ -109,7 +109,7 @@ impl ::std::error::Error for Error {
 }
 
 impl Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Error::ContextCreation(ref err) => write!(f, "Error creating GL context; {}", err),
             Error::Context(ref err) => write!(f, "Error operating on render context; {}", err),
