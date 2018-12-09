@@ -424,7 +424,7 @@ pub struct RenderableCell {
     /// A _Display_ line (not necessarily an _Active_ line)
     pub line: Line,
     pub column: Column,
-    pub c: char,
+    pub chars: [char; cell::MAX_ZEROWIDTH_CHARS + 1],
     pub fg: Rgb,
     pub bg: Rgb,
     pub bg_alpha: f32,
@@ -488,7 +488,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 line: cell.line,
                 column: cell.column,
                 flags: cell.flags,
-                c: cell.c,
+                chars: cell.chars(),
                 fg: fg_rgb,
                 bg: bg_rgb,
                 bg_alpha,
@@ -1030,6 +1030,9 @@ impl Term {
                     for cell in &grid_line[cols.start..line_end] {
                         if !cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
                             self.push(cell.c);
+                            for c in (&cell.chars()[1..]).iter().filter(|c| **c != ' ') {
+                                self.push(*c);
+                            }
                         }
                     }
 
@@ -1371,7 +1374,9 @@ impl ansi::Handler for Term {
                 let num_cols = self.grid.num_cols();
                 {
                     // If in insert mode, first shift cells to the right.
-                    if self.mode.contains(mode::TermMode::INSERT) && self.cursor.point.col + width < num_cols {
+                    if self.mode.contains(mode::TermMode::INSERT)
+                        && self.cursor.point.col + width < num_cols
+                    {
                         let line = self.cursor.point.line; // borrowck
                         let col = self.cursor.point.col;
                         let line = &mut self.grid[line];
@@ -1382,6 +1387,18 @@ impl ansi::Handler for Term {
                             // memmove
                             ptr::copy(src, dst, (num_cols - col - width).0);
                         }
+                    }
+                    if width == 0 {
+                        let mut col = self.cursor.point.col.0.saturating_sub(1);
+                        let line = self.cursor.point.line;
+                        if self.grid[line][Column(col)]
+                            .flags
+                            .contains(cell::Flags::WIDE_CHAR_SPACER)
+                        {
+                            col.saturating_sub(1);
+                        }
+                        self.grid[line][Column(col)].push_extra(c);
+                        return;
                     }
 
                     let cell = &mut self.grid[&self.cursor.point];
@@ -1409,7 +1426,6 @@ impl ansi::Handler for Term {
         } else {
             self.input_needs_wrap = true;
         }
-
     }
 
     #[inline]
