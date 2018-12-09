@@ -61,6 +61,8 @@ Here's a template that you can use to file a bug, though it's not necessary to u
 
 All patches have to be sent on Github as [pull requests](https://github.com/jwilm/alacritty/pulls).
 
+If you are looking for a place to start contributing to Alacritty, take a look at the [help wanted](https://github.com/jwilm/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) and [easy](https://github.com/jwilm/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22D+-+easy%22) issues.
+
 ### Testing
 
 To make sure no regressions were introduced, all tests should be run before sending a pull request. The following command can be run to test Alacritty:
