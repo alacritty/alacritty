@@ -150,7 +150,8 @@ impl Display {
             .expect("glutin returns window size").to_physical(dpr);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(viewport_size)?;
+        let alpha = config.window().background_opacity().get();
+        let mut renderer = QuadRenderer::new(viewport_size, alpha)?;
 
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
@@ -209,7 +210,6 @@ impl Display {
         // Clear screen
         let background_color = config.colors().primary.background;
         renderer.with_api(
-            config,
             &size_info,
             0., /* visual bell intensity */
             |api| {
@@ -405,7 +405,7 @@ impl Display {
         // handling and rendering.
         drop(terminal);
 
-        self.renderer.with_api(config, &size_info, visual_bell_intensity, |api| {
+        self.renderer.with_api(&size_info, visual_bell_intensity, |api| {
             api.clear(background_color);
         });
 
@@ -416,7 +416,7 @@ impl Display {
             {
                 let _sampler = self.meter.sampler();
 
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                self.renderer.with_api(&size_info, visual_bell_intensity, |mut api| {
                     // Draw the grid
                     api.render_cells(grid_cells.iter(), glyph_cache);
                 });
@@ -430,7 +430,7 @@ impl Display {
                     g: 0x4e,
                     b: 0x53,
                 };
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                self.renderer.with_api(&size_info, visual_bell_intensity, |mut api| {
                     api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, color);
                 });
             }
@@ -446,7 +446,7 @@ impl Display {
                     g: 0x00,
                     b: 0x00,
                 };
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                self.renderer.with_api(&size_info, visual_bell_intensity, |mut api| {
                     api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
                 });
             } else if self.logger_proxy.warnings() {
@@ -459,7 +459,7 @@ impl Display {
                     g: 0xff,
                     b: 0x00,
                 };
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                self.renderer.with_api(&size_info, visual_bell_intensity, |mut api| {
                     api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
                 });
             }

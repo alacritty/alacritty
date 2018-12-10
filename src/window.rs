@@ -13,6 +13,7 @@
 // limitations under the License.
 use std::convert::From;
 use std::fmt::Display;
+use std::f32::EPSILON;
 
 use crate::gl;
 use glutin::GlContext;
@@ -296,10 +297,11 @@ impl Window {
             _ => true,
         };
 
+        let transparent = (window_config.background_opacity().get() - 1.0).abs() > EPSILON;
         WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
-            .with_transparency(true)
+            .with_transparency(transparent)
             .with_maximized(window_config.start_maximized())
             .with_decorations(decorations)
     }
@@ -313,11 +315,12 @@ impl Window {
             _ => true,
         };
 
+        let transparent = (window_config.background_opacity().get() - 1.0).abs() > EPSILON;
         WindowBuilder::new()
             .with_title(title)
             .with_visibility(cfg!(windows))
             .with_decorations(decorations)
-            .with_transparency(true)
+            .with_transparency(transparent)
             .with_maximized(window_config.start_maximized())
             .with_window_icon(Some(icon))
     }
@@ -326,10 +329,11 @@ impl Window {
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
         use glutin::os::macos::WindowBuilderExt;
 
+        let transparent = (window_config.background_opacity().get() - 1.0).abs() > EPSILON;
         let window = WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
-            .with_transparency(true)
+            .with_transparency(transparent)
             .with_maximized(window_config.start_maximized());
 
         match window_config.decorations() {

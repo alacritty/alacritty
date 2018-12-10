@@ -30,7 +30,7 @@ use crate::index::{Column, Line, RangeInclusive};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use crate::Rgb;
 
-use crate::config::{self, Config, Delta};
+use crate::config::{self, Delta};
 use crate::term::{self, cell, RenderableCell};
 use glutin::dpi::PhysicalSize;
 
@@ -361,6 +361,7 @@ pub struct QuadRenderer {
     active_tex: GLuint,
     batch: Batch,
     rx: mpsc::Receiver<Msg>,
+    alpha: f32,
 }
 
 #[derive(Debug)]
@@ -370,8 +371,8 @@ pub struct RenderApi<'a> {
     atlas: &'a mut Vec<Atlas>,
     current_atlas: &'a mut usize,
     program: &'a mut ShaderProgram,
-    config: &'a Config,
     visual_bell_intensity: f32,
+    alpha: f32,
 }
 
 #[derive(Debug)]
@@ -469,7 +470,7 @@ const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
     // TODO should probably hand this a transform instead of width/height
-    pub fn new(size: PhysicalSize) -> Result<QuadRenderer, Error> {
+    pub fn new(size: PhysicalSize, alpha: f32) -> Result<QuadRenderer, Error> {
         let program = ShaderProgram::new(size)?;
 
         let mut vao: GLuint = 0;
@@ -644,6 +645,7 @@ impl QuadRenderer {
             active_tex: 0,
             batch: Batch::new(),
             rx: msg_rx,
+            alpha,
         };
 
         let atlas = Atlas::new(ATLAS_SIZE);
@@ -654,7 +656,6 @@ impl QuadRenderer {
 
     pub fn with_api<F, T>(
         &mut self,
-        config: &Config,
         props: &term::SizeInfo,
         visual_bell_intensity: f64,
         func: F,
@@ -688,7 +689,7 @@ impl QuadRenderer {
             current_atlas: &mut self.current_atlas,
             program: &mut self.program,
             visual_bell_intensity: visual_bell_intensity as _,
-            config,
+            alpha: self.alpha,
         });
 
         unsafe {
@@ -766,13 +767,12 @@ impl QuadRenderer {
 
 impl<'a> RenderApi<'a> {
     pub fn clear(&self, color: Rgb) {
-        let alpha = self.config.background_opacity().get();
         unsafe {
             gl::ClearColor(
-                (self.visual_bell_intensity + f32::from(color.r) / 255.0).min(1.0) * alpha,
-                (self.visual_bell_intensity + f32::from(color.g) / 255.0).min(1.0) * alpha,
-                (self.visual_bell_intensity + f32::from(color.b) / 255.0).min(1.0) * alpha,
-                alpha
+                (self.visual_bell_intensity + f32::from(color.r) / 255.0).min(1.0) * self.alpha,
+                (self.visual_bell_intensity + f32::from(color.g) / 255.0).min(1.0) * self.alpha,
+                (self.visual_bell_intensity + f32::from(color.b) / 255.0).min(1.0) * self.alpha,
+                self.alpha
                 );
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }

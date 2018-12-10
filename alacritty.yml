@@ -42,6 +42,12 @@ window:
   # When true, alacritty starts maximized.
   start_maximized: false
 
+  # Background opacity (changes require restart)
+  #
+  # Window opacity as a floating point number from `0.0` to `1.0`.
+  # The value `0.0` is completely transparent and `1.0` is opaque.
+  background_opacity: 1.0
+
 scrolling:
   # Maximum number of lines in the scrollback buffer.
   # Specifying '0' will disable scrolling.
@@ -223,12 +229,6 @@ colors:
 visual_bell:
   animation: EaseOutExpo
   duration: 0
-
-# Background opacity
-#
-# Window opacity as a floating point number from `0.0` to `1.0`.
-# The value `0.0` is completely transparent and `1.0` is opaque.
-background_opacity: 1.0
 
 # Mouse bindings
 #

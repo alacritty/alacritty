@@ -384,6 +384,10 @@ pub struct WindowConfig {
     /// Start maximized
     #[serde(default, deserialize_with = "failure_default")]
     start_maximized: bool,
+
+    /// Window opacity from 0.0 to 1.0
+    #[serde(default, deserialize_with = "failure_default")]
+    background_opacity: Alpha,
 }
 
 fn default_padding() -> Delta<u8> {
@@ -414,6 +418,10 @@ impl WindowConfig {
     pub fn start_maximized(&self) -> bool {
         self.start_maximized
     }
+
+    pub fn background_opacity(&self) -> Alpha {
+        self.background_opacity
+    }
 }
 
 impl Default for WindowConfig {
@@ -424,6 +432,7 @@ impl Default for WindowConfig {
             decorations: Default::default(),
             dynamic_padding: false,
             start_maximized: false,
+            background_opacity: Default::default(),
         }
     }
 }
@@ -457,10 +466,6 @@ pub struct Config {
 
     #[serde(default, deserialize_with = "failure_default")]
     colors: Colors,
-
-    /// Background opacity from 0.0 to 1.0
-    #[serde(default, deserialize_with = "failure_default")]
-    background_opacity: Alpha,
 
     /// Window configuration
     #[serde(default, deserialize_with = "failure_default")]
@@ -531,6 +536,10 @@ pub struct Config {
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]
     unfocused_hollow_cursor: Option<bool>,
+
+    // TODO: DEPRECATED
+    #[serde(default, deserialize_with = "failure_default")]
+    background_opacity: Option<Alpha>,
 }
 
 fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T>, D::Error>
@@ -1549,11 +1558,6 @@ impl Config {
         &self.colors
     }
 
-    #[inline]
-    pub fn background_opacity(&self) -> Alpha {
-        self.background_opacity
-    }
-
     pub fn key_bindings(&self) -> &[KeyBinding] {
         &self.key_bindings[..]
     }
@@ -1756,6 +1760,12 @@ impl Config {
         if self.unfocused_hollow_cursor.is_some() {
             warn!("{}", "Config `unfocused_hollow_cursor` is deprecated. \
                   Please use `cursor.unfocused_hollow` instead.");
+        }
+
+        if let Some(alpha) = self.background_opacity {
+            warn!("{}", "Config `background_opacity` is deprecated. \
+                  Please use `window.background_opacity` instead.");
+            self.window.background_opacity = alpha;
         }
     }
 }

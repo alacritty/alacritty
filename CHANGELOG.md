@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The `background_opacity` config option has been moved to `window.background_opacity`
+- Live config reload has been disabled for window opacity
+
 ## Version 0.2.4
 
 ### Added
