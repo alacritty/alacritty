@@ -17,11 +17,8 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
-#[macro_use] extern crate bitflags;
-#[macro_use] extern crate clap;
 #[macro_use] extern crate log;
 #[macro_use] extern crate serde_derive;
-#[macro_use] extern crate static_assertions;
 
 #[cfg(windows)]
 extern crate mio_named_pipes;
@@ -40,7 +37,6 @@ extern crate objc;
 
 #[macro_use]
 pub mod macros;
-
 pub mod ansi;
 pub mod cli;
 pub mod config;

@@ -14,6 +14,8 @@
 use std::ops::{Index, IndexMut};
 use std::slice;
 
+use static_assertions::assert_eq_size;
+
 use crate::index::Line;
 use super::Row;
 

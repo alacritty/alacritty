@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use ::log;
-use clap::{Arg, App};
+use clap::{Arg, App, crate_name, crate_version, crate_authors, crate_description};
+
 use crate::index::{Line, Column};
 use crate::config::{Dimensions, Shell};
 use crate::window::{DEFAULT_TITLE, DEFAULT_CLASS};

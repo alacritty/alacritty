@@ -499,6 +499,8 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 }
 
 pub mod mode {
+    use bitflags::bitflags;
+
     bitflags! {
         pub struct TermMode: u16 {
             const SHOW_CURSOR         = 0b00_0000_0000_0001;
