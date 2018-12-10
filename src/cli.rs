@@ -11,11 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-extern crate log;
-use clap::{Arg, App};
-use index::{Line, Column};
-use config::{Dimensions, Shell};
-use window::{DEFAULT_TITLE, DEFAULT_CLASS};
+use ::log;
+use clap::{Arg, App, crate_name, crate_version, crate_authors, crate_description};
+
+use crate::index::{Line, Column};
+use crate::config::{Dimensions, Shell};
+use crate::window::{DEFAULT_TITLE, DEFAULT_CLASS};
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 
@@ -186,11 +187,11 @@ impl Options {
         self.dimensions
     }
 
-    pub fn command(&self) -> Option<&Shell> {
+    pub fn command(&self) -> Option<&Shell<'_>> {
         self.command.as_ref()
     }
 
-    pub fn config_path(&self) -> Option<Cow<Path>> {
+    pub fn config_path(&self) -> Option<Cow<'_, Path>> {
         self.config.as_ref().map(|p| Cow::Borrowed(p.as_path()))
     }
 }

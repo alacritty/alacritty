@@ -12,13 +12,13 @@ use mio_more::channel::{self, Receiver, Sender};
 #[cfg(not(windows))]
 use mio::unix::UnixReady;
 
-use ansi;
-use display;
-use event;
-use tty;
-use term::Term;
-use util::thread;
-use sync::FairMutex;
+use crate::ansi;
+use crate::display;
+use crate::event;
+use crate::tty;
+use crate::term::Term;
+use crate::util::thread;
+use crate::sync::FairMutex;
 
 /// Messages that may be sent to the `EventLoop`
 #[derive(Debug)]
@@ -393,7 +393,7 @@ impl<T> EventLoop<T>
                                         break 'event_loop;
                                     }
 
-                                if ::tty::process_should_exit() {
+                                if crate::tty::process_should_exit() {
                                     break 'event_loop;
                                 }
                             }

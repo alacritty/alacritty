@@ -17,7 +17,7 @@
 //! The main executable is supposed to call `initialize()` exactly once during
 //! startup. All logging messages are written to stdout, given that their
 //! log-level is sufficient for the level configured in `cli::Options`.
-use cli;
+use crate::cli;
 use log::{self, Level};
 use time;
 
@@ -120,11 +120,11 @@ impl Logger {
 }
 
 impl log::Log for Logger {
-    fn enabled(&self, metadata: &log::Metadata) -> bool {
+    fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
         metadata.level() <= self.level
     }
 
-    fn log(&self, record: &log::Record) {
+    fn log(&self, record: &log::Record<'_>) {
         if self.enabled(record.metadata()) && record.target().starts_with("alacritty") {
             let msg = format!(
                 "[{}] [{}] {}\n",

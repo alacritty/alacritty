@@ -50,13 +50,13 @@ pub mod fmt {
                 pub struct $s<T>(pub T);
 
                 impl<T: fmt::Display> fmt::Display for $s<T> {
-                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                         write!(f, concat!("\x1b[", $color, "m{}\x1b[0m"), self.0)
                     }
                 }
 
                 impl<T: fmt::Debug> fmt::Debug for $s<T> {
-                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                         write!(f, concat!("\x1b[", $color, "m{:?}\x1b[0m"), self.0)
                     }
                 }

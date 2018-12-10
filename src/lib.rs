@@ -17,15 +17,8 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
-#[macro_use] extern crate bitflags;
-#[macro_use] extern crate clap;
 #[macro_use] extern crate log;
 #[macro_use] extern crate serde_derive;
-#[macro_use] extern crate static_assertions;
-
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly",
-          target_os = "openbsd"))]
-extern crate x11_dl;
 
 #[cfg(windows)]
 extern crate mio_named_pipes;
@@ -42,33 +35,8 @@ extern crate image;
 #[macro_use]
 extern crate objc;
 
-extern crate arraydeque;
-extern crate cgmath;
-extern crate copypasta;
-extern crate env_logger;
-extern crate errno;
-extern crate fnv;
-extern crate font;
-extern crate glutin;
-extern crate libc;
-extern crate mio;
-extern crate mio_more;
-extern crate notify;
-extern crate parking_lot;
-extern crate serde;
-extern crate serde_json;
-extern crate serde_yaml;
-extern crate unicode_width;
-extern crate vte;
-extern crate xdg;
-extern crate base64;
-extern crate terminfo;
-extern crate url;
-extern crate time;
-
 #[macro_use]
 pub mod macros;
-
 pub mod ansi;
 pub mod cli;
 pub mod config;
@@ -91,8 +59,8 @@ pub mod window;
 
 use std::ops::Mul;
 
-pub use grid::Grid;
-pub use term::Term;
+pub use crate::grid::Grid;
+pub use crate::term::Term;
 
 /// Facade around [winit's `MouseCursor`](glutin::MouseCursor)
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]

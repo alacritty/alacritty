@@ -349,7 +349,7 @@ mod tests {
     use self::winapi::um::processthreadsapi::OpenProcess;
     use self::winapi::um::winnt::READ_CONTROL;
 
-    use {Config, ConfigFlags, SpawnConfig, SpawnFlags, Winpty};
+    use crate::{Config, ConfigFlags, SpawnConfig, SpawnFlags, Winpty};
 
     #[test]
     // Test that we can start a process in winpty

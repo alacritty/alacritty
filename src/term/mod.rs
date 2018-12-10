@@ -23,15 +23,15 @@ use unicode_width::UnicodeWidthChar;
 use url::Url;
 
 use font::{self, Size};
-use ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter, Scroll, ViewportPosition};
-use index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
-use selection::{self, Selection, Locations};
-use config::{Config, VisualBellAnimation};
-use {MouseCursor, Rgb};
+use crate::ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
+use crate::grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter, Scroll, ViewportPosition};
+use crate::index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
+use crate::selection::{self, Selection, Locations};
+use crate::config::{Config, VisualBellAnimation};
+use crate::{MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
-use input::FONT_SIZE_STEP;
-use logging::LoggerProxy;
+use crate::input::FONT_SIZE_STEP;
+use crate::logging::LoggerProxy;
 
 pub mod cell;
 pub mod color;
@@ -391,9 +391,9 @@ impl<'a> RenderableCellsIter<'a> {
                     cell.flags & Flags::DIM_BOLD,
                     idx
                 ) {
-                    (true,  self::cell::Flags::BOLD, 0...7)  => idx as usize + 8,
-                    (false, self::cell::Flags::DIM,  8...15) => idx as usize - 8,
-                    (false, self::cell::Flags::DIM,  0...7)  => idx as usize + 260,
+                    (true,  self::cell::Flags::BOLD, 0..=7)  => idx as usize + 8,
+                    (false, self::cell::Flags::DIM,  8..=15) => idx as usize - 8,
+                    (false, self::cell::Flags::DIM,  0..=7)  => idx as usize + 260,
                     _ => idx as usize,
                 };
 
@@ -499,6 +499,8 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 }
 
 pub mod mode {
+    use bitflags::bitflags;
+
     bitflags! {
         pub struct TermMode: u16 {
             const SHOW_CURSOR         = 0b00_0000_0000_0001;
@@ -1128,7 +1130,7 @@ impl Term {
         &'b self,
         config: &'b Config,
         window_focused: bool,
-    ) -> RenderableCellsIter {
+    ) -> RenderableCellsIter<'_> {
         let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
         let selection = self.grid.selection.as_ref()
             .and_then(|s| s.to_span(self, alt_screen))
@@ -1366,53 +1368,47 @@ impl ansi::Handler for Term {
             self.input_needs_wrap = false;
         }
 
-        {
-            // Number of cells the char will occupy
-            if let Some(width) = c.width() {
-                // Sigh, borrowck making us check the width twice. Hopefully the
-                // optimizer can fix it.
-                let num_cols = self.grid.num_cols();
-                {
-                    // If in insert mode, first shift cells to the right.
-                    if self.mode.contains(mode::TermMode::INSERT)
-                        && self.cursor.point.col + width < num_cols
-                    {
-                        let line = self.cursor.point.line; // borrowck
-                        let col = self.cursor.point.col;
-                        let line = &mut self.grid[line];
+        // Number of cells the char will occupy
+        if let Some(width) = c.width() {
+            let num_cols = self.grid.num_cols();
 
-                        let src = line[col..].as_ptr();
-                        let dst = line[(col + width)..].as_mut_ptr();
-                        unsafe {
-                            // memmove
-                            ptr::copy(src, dst, (num_cols - col - width).0);
-                        }
-                    }
-                    if width == 0 {
-                        let mut col = self.cursor.point.col.0.saturating_sub(1);
-                        let line = self.cursor.point.line;
-                        if self.grid[line][Column(col)]
-                            .flags
-                            .contains(cell::Flags::WIDE_CHAR_SPACER)
-                        {
-                            col.saturating_sub(1);
-                        }
-                        self.grid[line][Column(col)].push_extra(c);
-                        return;
-                    }
+            // If in insert mode, first shift cells to the right.
+            if self.mode.contains(mode::TermMode::INSERT)
+                && self.cursor.point.col + width < num_cols
+            {
+                let line = self.cursor.point.line;
+                let col = self.cursor.point.col;
+                let line = &mut self.grid[line];
 
-                    let cell = &mut self.grid[&self.cursor.point];
-                    *cell = self.cursor.template;
-                    cell.c = self.cursor.charsets[self.active_charset].map(c);
-
-                    // Handle wide chars
-                    if width == 2 {
-                        cell.flags.insert(cell::Flags::WIDE_CHAR);
-                    }
+                let src = line[col..].as_ptr();
+                let dst = line[(col + width)..].as_mut_ptr();
+                unsafe {
+                    // memmove
+                    ptr::copy(src, dst, (num_cols - col - width).0);
                 }
+            }
 
-                // Set spacer cell for wide chars.
-                if width == 2 && self.cursor.point.col + 1 < num_cols {
+            // Handle zero-width characters
+            if width == 0 {
+                let col = self.cursor.point.col.0.saturating_sub(1);
+                let line = self.cursor.point.line;
+                if self.grid[line][Column(col)].flags.contains(cell::Flags::WIDE_CHAR_SPACER)
+                {
+                    col.saturating_sub(1);
+                }
+                self.grid[line][Column(col)].push_extra(c);
+                return;
+            }
+
+            let cell = &mut self.grid[&self.cursor.point];
+            *cell = self.cursor.template;
+            cell.c = self.cursor.charsets[self.active_charset].map(c);
+
+            // Handle wide chars
+            if width == 2 {
+                cell.flags.insert(cell::Flags::WIDE_CHAR);
+
+                if self.cursor.point.col + 1 < num_cols {
                     self.cursor.point.col += 1;
                     let spacer = &mut self.grid[&self.cursor.point];
                     *spacer = self.cursor.template;
@@ -1455,15 +1451,13 @@ impl ansi::Handler for Term {
     #[inline]
     fn goto_line(&mut self, line: Line) {
         trace!("goto_line: {}", line);
-        let col = self.cursor.point.col; // borrowck
-        self.goto(line, col)
+        self.goto(line, self.cursor.point.col)
     }
 
     #[inline]
     fn goto_col(&mut self, col: Column) {
         trace!("goto_col: {}", col);
-        let line = self.cursor.point.line; // borrowck
-        self.goto(line, col)
+        self.goto(self.cursor.point.line, col)
     }
 
     #[inline]
@@ -1476,8 +1470,7 @@ impl ansi::Handler for Term {
         let destination = self.cursor.point.col + count;
         let num_cells = (self.size_info.cols() - destination).0;
 
-        let line = self.cursor.point.line; // borrowck
-        let line = &mut self.grid[line];
+        let line = &mut self.grid[self.cursor.point.line];
 
         unsafe {
             let src = line[source..].as_ptr();
@@ -1498,16 +1491,14 @@ impl ansi::Handler for Term {
     fn move_up(&mut self, lines: Line) {
         trace!("move_up: {}", lines);
         let move_to = Line(self.cursor.point.line.0.saturating_sub(lines.0));
-        let col = self.cursor.point.col; // borrowck
-        self.goto(move_to, col)
+        self.goto(move_to, self.cursor.point.col)
     }
 
     #[inline]
     fn move_down(&mut self, lines: Line) {
         trace!("move_down: {}", lines);
         let move_to = self.cursor.point.line + lines;
-        let col = self.cursor.point.col; // borrowck
-        self.goto(move_to, col)
+        self.goto(move_to, self.cursor.point.col)
     }
 
     #[inline]
@@ -1715,8 +1706,7 @@ impl ansi::Handler for Term {
         let end = min(start + count, self.grid.num_cols() - 1);
         let n = (self.size_info.cols() - end).0;
 
-        let line = self.cursor.point.line; // borrowck
-        let line = &mut self.grid[line];
+        let line = &mut self.grid[self.cursor.point.line];
 
         unsafe {
             let src = line[end..].as_ptr();
@@ -2080,19 +2070,19 @@ impl ansi::Handler for Term {
 
 #[cfg(test)]
 mod tests {
-    extern crate serde_json;
+    use serde_json;
 
     use super::{Cell, Term, SizeInfo};
-    use term::{cell, Search};
+    use crate::term::{cell, Search};
 
-    use grid::{Grid, Scroll};
-    use index::{Point, Line, Column, Side};
-    use ansi::{self, Handler, CharsetIndex, StandardCharset};
-    use selection::Selection;
+    use crate::grid::{Grid, Scroll};
+    use crate::index::{Point, Line, Column, Side};
+    use crate::ansi::{self, Handler, CharsetIndex, StandardCharset};
+    use crate::selection::Selection;
     use std::mem;
-    use input::FONT_SIZE_STEP;
+    use crate::input::FONT_SIZE_STEP;
     use font::Size;
-    use config::Config;
+    use crate::config::Config;
 
     #[test]
     fn semantic_selection_works() {
@@ -2431,8 +2421,8 @@ mod benches {
     use std::mem;
     use std::path::Path;
 
-    use grid::Grid;
-    use config::Config;
+    use crate::grid::Grid;
+    use crate::config::Config;
 
     use super::{SizeInfo, Term};
     use super::cell::Cell;

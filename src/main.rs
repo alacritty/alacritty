@@ -23,13 +23,13 @@
 // See https://msdn.microsoft.com/en-us/library/4cc7ya5b.aspx for more details.
 #![windows_subsystem = "windows"]
 
-#[macro_use]
-extern crate alacritty;
-
-#[macro_use]
-extern crate log;
 #[cfg(target_os = "macos")]
-extern crate dirs;
+use dirs;
+
+#[cfg(windows)]
+use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
+
+use log::{info, error};
 
 use std::error::Error;
 use std::sync::Arc;
@@ -40,18 +40,12 @@ use std::env;
 #[cfg(not(windows))]
 use std::os::unix::io::AsRawFd;
 
-#[cfg(windows)]
-extern crate winapi;
-#[cfg(windows)]
-use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
-
-use alacritty::cli;
-use alacritty::config::{self, Config, Error as ConfigError};
-use alacritty::display::Display;
-use alacritty::event;
-use alacritty::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
 use alacritty::locale;
+use alacritty::{cli, event, die};
+use alacritty::config::{self, Config, Error as ConfigError};
+use alacritty::display::Display;
+use alacritty::event_loop::{self, EventLoop, Msg};
 use alacritty::logging::{self, LoggerProxy};
 use alacritty::sync::FairMutex;
 use alacritty::term::Term;
@@ -118,7 +112,7 @@ fn run(
     mut config: Config,
     options: &cli::Options,
     mut logger_proxy: LoggerProxy,
-) -> Result<(), Box<Error>> {
+) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty.");
     if let Some(config_path) = config.path() {
         info!("Configuration loaded from {}", config_path.display());

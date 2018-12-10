@@ -20,16 +20,16 @@ use std::f64;
 use parking_lot::MutexGuard;
 use glutin::dpi::{LogicalPosition, PhysicalSize};
 
-use cli;
-use config::Config;
+use crate::cli;
+use crate::config::Config;
 use font::{self, Rasterize};
-use meter::Meter;
-use renderer::{self, GlyphCache, QuadRenderer};
-use term::{Term, SizeInfo, RenderableCell};
-use sync::FairMutex;
-use window::{self, Window};
-use logging::LoggerProxy;
-use Rgb;
+use crate::meter::Meter;
+use crate::renderer::{self, GlyphCache, QuadRenderer};
+use crate::term::{Term, SizeInfo, RenderableCell};
+use crate::sync::FairMutex;
+use crate::window::{self, Window};
+use crate::logging::LoggerProxy;
+use crate::Rgb;
 
 #[derive(Debug)]
 pub enum Error {
@@ -44,7 +44,7 @@ pub enum Error {
 }
 
 impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&::std::error::Error> {
+    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
         match *self {
             Error::Window(ref err) => Some(err),
             Error::Font(ref err) => Some(err),
@@ -62,7 +62,7 @@ impl ::std::error::Error for Error {
 }
 
 impl ::std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Error::Window(ref err) => err.fmt(f),
             Error::Font(ref err) => err.fmt(f),
@@ -292,9 +292,9 @@ impl Display {
     /// Process pending resize events
     pub fn handle_resize(
         &mut self,
-        terminal: &mut MutexGuard<Term>,
+        terminal: &mut MutexGuard<'_, Term>,
         config: &Config,
-        items: &mut [&mut OnResize],
+        items: &mut [&mut dyn OnResize],
     ) {
         // Resize events new_size and are handled outside the poll_events
         // iterator. This has the effect of coalescing multiple resize
@@ -476,8 +476,8 @@ impl Display {
 
     /// Adjust the IME editor position according to the new location of the cursor
     pub fn update_ime_position(&mut self, terminal: &Term) {
-        use index::{Column, Line, Point};
-        use term::SizeInfo;
+        use crate::index::{Column, Line, Point};
+        use crate::term::SizeInfo;
         let Point{line: Line(row), col: Column(col)} = terminal.cursor().point;
         let SizeInfo{cell_width: cw,
                     cell_height: ch,

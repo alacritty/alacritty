@@ -14,7 +14,9 @@
 use std::ops::{Index, IndexMut};
 use std::slice;
 
-use index::Line;
+use static_assertions::assert_eq_size;
+
+use crate::index::Line;
 use super::Row;
 
 /// Maximum number of invisible lines before buffer is resized
@@ -277,8 +279,7 @@ impl<T> Index<usize> for Storage<T> {
     type Output = Row<T>;
     #[inline]
     fn index(&self, index: usize) -> &Self::Output {
-        let index = self.compute_index(index); // borrowck
-        &self.inner[index]
+        &self.inner[self.compute_index(index)]
     }
 }
 
@@ -308,7 +309,7 @@ impl<T> IndexMut<Line> for Storage<T> {
 }
 
 #[cfg(test)]
-use index::Column;
+use crate::index::Column;
 
 /// Grow the buffer one line at the end of the buffer
 ///

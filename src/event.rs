@@ -10,19 +10,20 @@ use parking_lot::MutexGuard;
 use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
 
-use ansi::{Handler, ClearMode};
-use grid::Scroll;
-use config::{self, Config};
-use cli::Options;
-use display::OnResize;
-use index::{Line, Column, Side, Point};
-use input::{self, MouseBinding, KeyBinding};
-use selection::Selection;
-use sync::FairMutex;
-use term::{Term, SizeInfo, TermMode, Search};
-use util::limit;
-use util::fmt::Red;
-use window::Window;
+use crate::ansi::{Handler, ClearMode};
+use crate::grid::Scroll;
+use crate::config::{self, Config};
+use crate::cli::Options;
+use crate::display::OnResize;
+use crate::index::{Line, Column, Side, Point};
+use crate::input::{self, MouseBinding, KeyBinding};
+use crate::selection::Selection;
+use crate::sync::FairMutex;
+use crate::term::{Term, SizeInfo, TermMode, Search};
+use crate::term::cell::Cell;
+use crate::util::limit;
+use crate::util::fmt::Red;
+use crate::window::Window;
 use glutin::dpi::PhysicalSize;
 
 /// Byte sequences are sent to a `Notify` in response to some events
@@ -30,10 +31,10 @@ pub trait Notify {
     /// Notify that an escape sequence should be written to the pty
     ///
     /// TODO this needs to be able to error somehow
-    fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, B);
+    fn notify<B: Into<Cow<'static, [u8]>>>(&mut self, _: B);
 }
 
-pub struct ActionContext<'a, N: 'a> {
+pub struct ActionContext<'a, N> {
     pub notifier: &'a mut N,
     pub terminal: &'a mut Term,
     pub size_info: &'a mut SizeInfo,
@@ -336,7 +337,7 @@ impl<N: Notify> Processor<N> {
                         if ref_test {
                             // dump grid state
                             let mut grid = processor.ctx.terminal.grid().clone();
-                            grid.initialize_all(&::term::cell::Cell::default());
+                            grid.initialize_all(&Cell::default());
                             grid.truncate();
 
                             let serialized_grid = json::to_string(&grid)
@@ -421,7 +422,7 @@ impl<N: Notify> Processor<N> {
                         processor.on_focus_change(is_focused);
                     },
                     DroppedFile(path) => {
-                        use input::ActionContext;
+                        use crate::input::ActionContext;
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty(path.into_bytes());
                     },
@@ -455,7 +456,7 @@ impl<N: Notify> Processor<N> {
         {
             // Ditto on lazy initialization for context and processor.
             let context;
-            let mut processor: input::Processor<ActionContext<N>>;
+            let mut processor: input::Processor<'_, ActionContext<'_, N>>;
 
             let print_events = self.print_events;
 

@@ -24,14 +24,14 @@ use std::time::Duration;
 use cgmath;
 use fnv::FnvHasher;
 use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
-use gl::types::*;
-use gl;
-use index::{Column, Line, RangeInclusive};
+use crate::gl::types::*;
+use crate::gl;
+use crate::index::{Column, Line, RangeInclusive};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
-use Rgb;
+use crate::Rgb;
 
-use config::{self, Config, Delta};
-use term::{self, cell, RenderableCell};
+use crate::config::{self, Config, Delta};
+use crate::term::{self, cell, RenderableCell};
 use glutin::dpi::PhysicalSize;
 
 // Shader paths for live reload
@@ -65,7 +65,7 @@ pub enum Error {
 }
 
 impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&::std::error::Error> {
+    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
         match *self {
             Error::ShaderCreation(ref err) => Some(err),
         }
@@ -79,7 +79,7 @@ impl ::std::error::Error for Error {
 }
 
 impl ::std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Error::ShaderCreation(ref err) => {
                 write!(f, "There was an error initializing the shaders: {}", err)
@@ -660,7 +660,7 @@ impl QuadRenderer {
         func: F,
     ) -> T
     where
-        F: FnOnce(RenderApi) -> T,
+        F: FnOnce(RenderApi<'_>) -> T,
     {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
@@ -704,7 +704,7 @@ impl QuadRenderer {
 
     pub fn with_loader<F, T>(&mut self, func: F) -> T
     where
-        F: FnOnce(LoaderApi) -> T,
+        F: FnOnce(LoaderApi<'_>) -> T,
     {
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
@@ -897,10 +897,8 @@ impl<'a> RenderApi<'a> {
             };
 
             // Add cell to batch
-            {
-                let glyph = glyph_cache.get(glyph_key, self);
-                self.add_render_item(&cell, glyph);
-            }
+            let glyph = glyph_cache.get(glyph_key, self);
+            self.add_render_item(&cell, glyph);
 
             // Render zero-width characters
             for c in (&chars[1..]).iter().filter(|c| **c != ' ') {
@@ -1290,7 +1288,7 @@ pub enum ShaderCreationError {
 }
 
 impl ::std::error::Error for ShaderCreationError {
-    fn cause(&self) -> Option<&::std::error::Error> {
+    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
         match *self {
             ShaderCreationError::Io(ref err) => Some(err),
             _ => None,
@@ -1307,7 +1305,7 @@ impl ::std::error::Error for ShaderCreationError {
 }
 
 impl ::std::fmt::Display for ShaderCreationError {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             ShaderCreationError::Io(ref err) => write!(f, "couldn't read shader: {}", err),
             ShaderCreationError::Compile(ref _path, ref s) => {

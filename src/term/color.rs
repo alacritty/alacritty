@@ -1,8 +1,8 @@
 use std::ops::{Index, IndexMut};
 use std::fmt;
 
-use {Rgb, ansi};
-use config::Colors;
+use crate::{Rgb, ansi};
+use crate::config::Colors;
 
 pub const COUNT: usize = 270;
 
@@ -154,7 +154,7 @@ impl List {
 }
 
 impl fmt::Debug for List {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("List[..]")
     }
 }

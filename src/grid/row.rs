@@ -19,7 +19,7 @@ use std::ops::{Range, RangeTo, RangeFrom, RangeFull, RangeToInclusive};
 use std::cmp::{max, min};
 use std::slice;
 
-use index::Column;
+use crate::index::Column;
 
 /// A row in the grid
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
@@ -85,7 +85,7 @@ impl<T> Row<T> {
         self.inner.len()
     }
 
-    pub fn iter(&self) -> slice::Iter<T> {
+    pub fn iter(&self) -> slice::Iter<'_, T> {
         self.inner.iter()
     }
 }

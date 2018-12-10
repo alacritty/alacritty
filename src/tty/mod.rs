@@ -18,7 +18,7 @@ use std::{env, io};
 
 use terminfo::Database;
 
-use config::Config;
+use crate::config::Config;
 
 #[cfg(not(windows))]
 mod unix;
@@ -39,13 +39,13 @@ pub trait EventedReadWrite {
 
     fn register(
         &mut self,
-        &mio::Poll,
-        &mut Iterator<Item = &usize>,
-        mio::Ready,
-        mio::PollOpt,
+        _: &mio::Poll,
+        _: &mut dyn Iterator<Item = &usize>,
+        _: mio::Ready,
+        _: mio::PollOpt,
     ) -> io::Result<()>;
-    fn reregister(&mut self, &mio::Poll, mio::Ready, mio::PollOpt) -> io::Result<()>;
-    fn deregister(&mut self, &mio::Poll) -> io::Result<()>;
+    fn reregister(&mut self, _: &mio::Poll, _: mio::Ready, _: mio::PollOpt) -> io::Result<()>;
+    fn deregister(&mut self, _: &mio::Poll) -> io::Result<()>;
 
     fn reader(&mut self) -> &mut Self::Reader;
     fn read_token(&self) -> mio::Token;

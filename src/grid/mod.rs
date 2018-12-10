@@ -17,8 +17,8 @@
 use std::cmp::{min, max, Ordering};
 use std::ops::{Deref, Range, Index, IndexMut, RangeTo, RangeFrom, RangeFull};
 
-use index::{self, Point, Line, Column, IndexRange};
-use selection::Selection;
+use crate::index::{self, Point, Line, Column, IndexRange};
+use crate::selection::Selection;
 
 mod row;
 pub use self::row::Row;
@@ -99,7 +99,7 @@ pub struct Grid<T> {
     max_scroll_limit: usize,
 }
 
-pub struct GridIterator<'a, T: 'a> {
+pub struct GridIterator<'a, T> {
     /// Immutable grid reference
     grid: &'a Grid<T>,
 
@@ -411,7 +411,7 @@ impl<T> Grid<T> {
         self.lines
     }
 
-    pub fn display_iter(&self) -> DisplayIter<T> {
+    pub fn display_iter(&self) -> DisplayIter<'_, T> {
         DisplayIter::new(self)
     }
 
@@ -454,7 +454,7 @@ impl<T> Grid<T> {
         self.raw.truncate();
     }
 
-    pub fn iter_from(&self, point: Point<usize>) -> GridIterator<T> {
+    pub fn iter_from(&self, point: Point<usize>) -> GridIterator<'_, T> {
         GridIterator {
             grid: self,
             cur: point,
@@ -557,7 +557,7 @@ impl<'point, T> IndexMut<&'point Point> for Grid<T> {
 /// A subset of lines in the grid
 ///
 /// May be constructed using Grid::region(..)
-pub struct Region<'a, T: 'a> {
+pub struct Region<'a, T> {
     start: Line,
     end: Line,
     raw: &'a Storage<T>,
@@ -566,7 +566,7 @@ pub struct Region<'a, T: 'a> {
 /// A mutable subset of lines in the grid
 ///
 /// May be constructed using Grid::region_mut(..)
-pub struct RegionMut<'a, T: 'a> {
+pub struct RegionMut<'a, T> {
     start: Line,
     end: Line,
     raw: &'a mut Storage<T>,
@@ -585,14 +585,14 @@ impl<'a, T> RegionMut<'a, T> {
 
 pub trait IndexRegion<I, T> {
     /// Get an immutable region of Self
-    fn region(&self, _: I) -> Region<T>;
+    fn region(&self, _: I) -> Region<'_, T>;
 
     /// Get a mutable region of Self
-    fn region_mut(&mut self, _: I) -> RegionMut<T>;
+    fn region_mut(&mut self, _: I) -> RegionMut<'_, T>;
 }
 
 impl<T> IndexRegion<Range<Line>, T> for Grid<T> {
-    fn region(&self, index: Range<Line>) -> Region<T> {
+    fn region(&self, index: Range<Line>) -> Region<'_, T> {
         assert!(index.start < self.num_lines());
         assert!(index.end <= self.num_lines());
         assert!(index.start <= index.end);
@@ -602,7 +602,7 @@ impl<T> IndexRegion<Range<Line>, T> for Grid<T> {
             raw: &self.raw
         }
     }
-    fn region_mut(&mut self, index: Range<Line>) -> RegionMut<T> {
+    fn region_mut(&mut self, index: Range<Line>) -> RegionMut<'_, T> {
         assert!(index.start < self.num_lines());
         assert!(index.end <= self.num_lines());
         assert!(index.start <= index.end);
@@ -615,7 +615,7 @@ impl<T> IndexRegion<Range<Line>, T> for Grid<T> {
 }
 
 impl<T> IndexRegion<RangeTo<Line>, T> for Grid<T> {
-    fn region(&self, index: RangeTo<Line>) -> Region<T> {
+    fn region(&self, index: RangeTo<Line>) -> Region<'_, T> {
         assert!(index.end <= self.num_lines());
         Region {
             start: Line(0),
@@ -623,7 +623,7 @@ impl<T> IndexRegion<RangeTo<Line>, T> for Grid<T> {
             raw: &self.raw
         }
     }
-    fn region_mut(&mut self, index: RangeTo<Line>) -> RegionMut<T> {
+    fn region_mut(&mut self, index: RangeTo<Line>) -> RegionMut<'_, T> {
         assert!(index.end <= self.num_lines());
         RegionMut {
             start: Line(0),
@@ -634,7 +634,7 @@ impl<T> IndexRegion<RangeTo<Line>, T> for Grid<T> {
 }
 
 impl<T> IndexRegion<RangeFrom<Line>, T> for Grid<T> {
-    fn region(&self, index: RangeFrom<Line>) -> Region<T> {
+    fn region(&self, index: RangeFrom<Line>) -> Region<'_, T> {
         assert!(index.start < self.num_lines());
         Region {
             start: index.start,
@@ -642,7 +642,7 @@ impl<T> IndexRegion<RangeFrom<Line>, T> for Grid<T> {
             raw: &self.raw
         }
     }
-    fn region_mut(&mut self, index: RangeFrom<Line>) -> RegionMut<T> {
+    fn region_mut(&mut self, index: RangeFrom<Line>) -> RegionMut<'_, T> {
         assert!(index.start < self.num_lines());
         RegionMut {
             start: index.start,
@@ -653,7 +653,7 @@ impl<T> IndexRegion<RangeFrom<Line>, T> for Grid<T> {
 }
 
 impl<T> IndexRegion<RangeFull, T> for Grid<T> {
-    fn region(&self, _: RangeFull) -> Region<T> {
+    fn region(&self, _: RangeFull) -> Region<'_, T> {
         Region {
             start: Line(0),
             end: self.num_lines(),
@@ -661,7 +661,7 @@ impl<T> IndexRegion<RangeFull, T> for Grid<T> {
         }
     }
 
-    fn region_mut(&mut self, _: RangeFull) -> RegionMut<T> {
+    fn region_mut(&mut self, _: RangeFull) -> RegionMut<'_, T> {
         RegionMut {
             start: Line(0),
             end: self.num_lines(),
@@ -670,13 +670,13 @@ impl<T> IndexRegion<RangeFull, T> for Grid<T> {
     }
 }
 
-pub struct RegionIter<'a, T: 'a> {
+pub struct RegionIter<'a, T> {
     end: Line,
     cur: Line,
     raw: &'a Storage<T>,
 }
 
-pub struct RegionIterMut<'a, T: 'a> {
+pub struct RegionIterMut<'a, T> {
     end: Line,
     cur: Line,
     raw: &'a mut Storage<T>,
@@ -741,7 +741,7 @@ impl<'a, T> Iterator for RegionIterMut<'a, T> {
 // -------------------------------------------------------------------------------------------------
 
 /// Iterates over the visible area accounting for buffer transform
-pub struct DisplayIter<'a, T: 'a> {
+pub struct DisplayIter<'a, T> {
     grid: &'a Grid<T>,
     offset: usize,
     limit: usize,

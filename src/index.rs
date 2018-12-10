@@ -77,7 +77,7 @@ impl From<Point> for Point<usize> {
 pub struct Line(pub usize);
 
 impl fmt::Display for Line {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -89,7 +89,7 @@ impl fmt::Display for Line {
 pub struct Column(pub usize);
 
 impl fmt::Display for Column {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -101,7 +101,7 @@ impl fmt::Display for Column {
 pub struct Linear(pub usize);
 
 impl fmt::Display for Linear {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Linear({})", self.0)
     }
 }
@@ -255,14 +255,10 @@ macro_rules! inclusive {
 
             #[inline]
             fn next(&mut self) -> Option<$ty> {
-                use index::RangeInclusive::*;
+                use crate::index::RangeInclusive::*;
 
-                // this function has a sort of odd structure due to borrowck issues
-                // we may need to replace self.range, so borrows of start and end need to end early
-
-                let at_end;
                 match *self {
-                    Empty { .. } => return None, // empty iterators yield no values
+                    Empty { .. } => None, // empty iterators yield no values
 
                     NonEmpty { ref mut start, ref mut end } => {
 
@@ -270,20 +266,18 @@ macro_rules! inclusive {
                         if start <= end {
                             let old = *start;
                             *start = old + 1;
-                            return Some(old);
+                            Some(old)
+                        } else {
+                            *self = Empty { at: *end };
+                            None
                         }
-                        at_end = *end;
                     }
-                };
-
-                // got this far; the range is empty, replace it
-                *self = Empty { at: at_end };
-                None
+                }
             }
 
             #[inline]
             fn size_hint(&self) -> (usize, Option<usize>) {
-                use index::RangeInclusive::*;
+                use crate::index::RangeInclusive::*;
 
                 match *self {
                     Empty { .. } => (0, Some(0)),

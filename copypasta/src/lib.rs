@@ -85,4 +85,4 @@ pub use macos::{Clipboard, Error};
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub use windows::{Clipboard, Error};
+pub use crate::windows::{Clipboard, Error};

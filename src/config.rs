@@ -13,7 +13,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 use std::collections::HashMap;
 
-use ::Rgb;
+use crate::Rgb;
 use font::Size;
 use serde_yaml;
 use serde::{self, de, Deserialize};
@@ -23,10 +23,10 @@ use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
 
 use glutin::ModifiersState;
 
-use cli::Options;
-use input::{Action, Binding, MouseBinding, KeyBinding};
-use index::{Line, Column};
-use ansi::{CursorStyle, NamedColor, Color};
+use crate::cli::Options;
+use crate::input::{Action, Binding, MouseBinding, KeyBinding};
+use crate::index::{Line, Column};
+use crate::ansi::{CursorStyle, NamedColor, Color};
 
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
 
@@ -296,7 +296,7 @@ impl<'de> Deserialize<'de> for Decorations {
         impl<'de> Visitor<'de> for DecorationsVisitor {
             type Value = Decorations;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("Some subset of full|transparent|buttonless|none")
             }
 
@@ -709,7 +709,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
         impl<'a> Visitor<'a> for ModsVisitor {
             type Value = ModsWrapper;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("Some subset of Command|Shift|Super|Alt|Option|Control")
             }
 
@@ -735,10 +735,10 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
     }
 }
 
-struct ActionWrapper(::input::Action);
+struct ActionWrapper(crate::input::Action);
 
 impl ActionWrapper {
-    fn into_inner(self) -> ::input::Action {
+    fn into_inner(self) -> crate::input::Action {
         self.0
     }
 }
@@ -752,7 +752,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
         impl<'a> Visitor<'a> for ActionVisitor {
             type Value = ActionWrapper;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, \
                             ResetFontSize, ScrollPageUp, ScrollPageDown, ScrollToTop, \
                             ScrollToBottom, ClearHistory, Hide, ClearLogNotice or Quit")
@@ -811,7 +811,7 @@ impl CommandWrapper {
     }
 }
 
-use ::term::{mode, TermMode};
+use crate::term::{mode, TermMode};
 
 struct ModeWrapper {
     pub mode: TermMode,
@@ -827,7 +827,7 @@ impl<'a> de::Deserialize<'a> for ModeWrapper {
         impl<'a> Visitor<'a> for ModeVisitor {
             type Value = ModeWrapper;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("Combination of AppCursor | AppKeypad, possibly with negation (~)")
             }
 
@@ -873,7 +873,7 @@ impl<'a> de::Deserialize<'a> for MouseButton {
         impl<'a> Visitor<'a> for MouseButtonVisitor {
             type Value = MouseButton;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("Left, Right, Middle, or a number")
             }
 
@@ -967,7 +967,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
                 impl<'a> Visitor<'a> for FieldVisitor {
                     type Value = Field;
 
-                    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                         f.write_str("binding fields")
                     }
 
@@ -995,7 +995,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
         impl<'a> Visitor<'a> for RawBindingVisitor {
             type Value = RawBinding;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("binding specification")
             }
 
@@ -1008,7 +1008,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
                 let mut mods: Option<ModifiersState> = None;
                 let mut key: Option<Key> = None;
                 let mut chars: Option<String> = None;
-                let mut action: Option<::input::Action> = None;
+                let mut action: Option<crate::input::Action> = None;
                 let mut mode: Option<TermMode> = None;
                 let mut not_mode: Option<TermMode> = None;
                 let mut mouse: Option<::glutin::MouseButton> = None;
@@ -1357,7 +1357,7 @@ fn rgb_from_hex<'a, D>(deserializer: D) -> ::std::result::Result<Rgb, D::Error>
     impl<'a> Visitor<'a> for RgbVisitor {
         type Value = Rgb;
 
-        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.write_str("Hex colors spec like 'ffaabb'")
         }
 
@@ -1416,7 +1416,7 @@ impl FromStr for Rgb {
 }
 
 impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&::std::error::Error> {
+    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
         match *self {
             Error::NotFound | Error::Empty => None,
             Error::ReadingEnvHome(ref err) => Some(err),
@@ -1437,7 +1437,7 @@ impl ::std::error::Error for Error {
 }
 
 impl ::std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Error::NotFound | Error::Empty => write!(f, "{}", ::std::error::Error::description(self)),
             Error::ReadingEnvHome(ref err) => {
@@ -1625,7 +1625,7 @@ impl Config {
             .map(|p| p.as_path())
     }
 
-    pub fn shell(&self) -> Option<&Shell> {
+    pub fn shell(&self) -> Option<&Shell<'_>> {
         self.shell.as_ref()
     }
 
@@ -1812,7 +1812,7 @@ pub struct Delta<T: Default> {
 }
 
 trait DeserializeSize : Sized {
-    fn deserialize<'a, D>(D) -> ::std::result::Result<Self, D::Error>
+    fn deserialize<'a, D>(_: D) -> ::std::result::Result<Self, D::Error>
         where D: serde::de::Deserializer<'a>;
 }
 
@@ -1831,7 +1831,7 @@ impl DeserializeSize for Size {
         {
             type Value = f64;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("f64 or u64")
             }
 
@@ -2020,7 +2020,7 @@ pub trait OnConfigReload {
     fn on_config_reload(&mut self);
 }
 
-impl OnConfigReload for ::display::Notifier {
+impl OnConfigReload for crate::display::Notifier {
     fn on_config_reload(&mut self) {
         self.notify();
     }
@@ -2045,7 +2045,7 @@ impl Monitor {
         let (config_tx, config_rx) = mpsc::channel();
 
         Monitor {
-            _thread: ::util::thread::spawn_named("config watcher", move || {
+            _thread: crate::util::thread::spawn_named("config watcher", move || {
                 let (tx, rx) = mpsc::channel();
                 // The Duration argument is a debouncing period.
                 let mut watcher = watcher(tx, Duration::from_millis(10))
@@ -2088,7 +2088,7 @@ impl Monitor {
 
 #[cfg(test)]
 mod tests {
-    use cli::Options;
+    use crate::cli::Options;
     use super::Config;
 
     #[cfg(target_os="macos")]

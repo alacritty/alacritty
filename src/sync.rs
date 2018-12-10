@@ -38,7 +38,7 @@ impl<T> FairMutex<T> {
     }
 
     /// Lock the mutex
-    pub fn lock(&self) -> MutexGuard<T> {
+    pub fn lock(&self) -> MutexGuard<'_, T> {
         // Must bind to a temporary or the lock will be freed before going
         // into data.lock()
         let _next = self.next.lock();

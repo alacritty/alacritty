@@ -14,7 +14,7 @@
 use std::convert::From;
 use std::fmt::Display;
 
-use gl;
+use crate::gl;
 use glutin::GlContext;
 #[cfg(windows)]
 use glutin::Icon;
@@ -26,9 +26,9 @@ use glutin::{
 };
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 
-use cli::Options;
-use config::{Decorations, WindowConfig};
-use MouseCursor;
+use crate::cli::Options;
+use crate::config::{Decorations, WindowConfig};
+use crate::MouseCursor;
 
 #[cfg(windows)]
 static WINDOW_ICON: &'static [u8] = include_bytes!("../assets/windows/alacritty.ico");
@@ -93,7 +93,7 @@ pub struct DeviceProperties {
 }
 
 impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&::std::error::Error> {
+    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
         match *self {
             Error::ContextCreation(ref err) => Some(err),
             Error::Context(ref err) => Some(err),
@@ -109,7 +109,7 @@ impl ::std::error::Error for Error {
 }
 
 impl Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Error::ContextCreation(ref err) => write!(f, "Error creating GL context; {}", err),
             Error::Context(ref err) => write!(f, "Error operating on render context; {}", err),

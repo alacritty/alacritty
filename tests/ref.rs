@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate serde_derive;
-extern crate serde_json as json;
-extern crate alacritty;
+use serde_json as json;
 
 use std::fs::File;
 use std::io::{self, Read};

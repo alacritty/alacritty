@@ -58,7 +58,7 @@ pub use ft::{Error, FreeTypeRasterizer as Rasterizer};
 #[cfg(windows)]
 pub mod rusttype;
 #[cfg(windows)]
-pub use rusttype::{Error, RustTypeRasterizer as Rasterizer};
+pub use crate::rusttype::{Error, RustTypeRasterizer as Rasterizer};
 
 // If target is macos, reexport everything from darwin
 #[cfg(target_os = "macos")]
@@ -348,13 +348,13 @@ pub trait Rasterize {
         Self: Sized;
 
     /// Get `Metrics` for the given `FontKey`
-    fn metrics(&self, FontKey, Size) -> Result<Metrics, Self::Err>;
+    fn metrics(&self, _: FontKey, _: Size) -> Result<Metrics, Self::Err>;
 
     /// Load the font described by `FontDesc` and `Size`
-    fn load_font(&mut self, &FontDesc, Size) -> Result<FontKey, Self::Err>;
+    fn load_font(&mut self, _: &FontDesc, _: Size) -> Result<FontKey, Self::Err>;
 
     /// Rasterize the glyph described by `GlyphKey`.
-    fn get_glyph(&mut self, GlyphKey) -> Result<RasterizedGlyph, Self::Err>;
+    fn get_glyph(&mut self, _: GlyphKey) -> Result<RasterizedGlyph, Self::Err>;
 
     /// Update the Rasterizer's DPI factor
     fn update_dpr(&mut self, device_pixel_ratio: f32);
