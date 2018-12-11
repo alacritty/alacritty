@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Changed number of color pairs in alacritty terminfo file from 65,536 to 32,767 to fix color issues in certain ncurses-based programs.
+- Fix color issue in ncurses programs by updating terminfo pairs from 0x10000 to 0x7FFF
 
 ## Version 0.2.4
 
