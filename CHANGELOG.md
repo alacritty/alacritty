@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fix color issue in ncurses programs by updating terminfo pairs from 0x10000 to 0x7FFF
+- Fix panic on releasing event loop
 
 ## Version 0.2.4
 
