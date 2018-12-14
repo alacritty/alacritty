@@ -426,7 +426,7 @@ impl<T> EventLoop<T>
             // The evented instances are not dropped here so deregister them explicitly
             // TODO: Is this still necessary?
             let _ = self.poll.deregister(&self.rx);
-            self.pty.deregister(&self.poll).unwrap();
+            let _ = self.pty.deregister(&self.poll);
 
             (self, state)
         })
