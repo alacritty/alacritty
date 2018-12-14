@@ -81,7 +81,9 @@ brew cask install alacritty
 
 Once the cask is installed, it is recommended to setup the [manual page](INSTALL.md#manual-page), [shell completions](INSTALL.md#shell-completions), and [terminfo definitions](INSTALL.md#terminfo).
 
-### Windows (via [Scoop](https://scoop.sh))
+### Windows 
+
+#### Via [Scoop](https://scoop.sh)
 
 ```batch
 scoop bucket add extras
