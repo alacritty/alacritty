@@ -114,7 +114,7 @@ impl Cell {
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.c == ' '
+        (self.c == ' ' || self.c == '\t')
             && self.extra[0] == ' '
             && self.bg == Color::Named(NamedColor::Background)
             && !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE)
