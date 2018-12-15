@@ -1259,7 +1259,6 @@ impl Term {
 
         // Recreate tabs list
         self.tabs = TabStops::new(self.grid.num_cols(), self.tabspaces);
-
     }
 
     #[inline]
