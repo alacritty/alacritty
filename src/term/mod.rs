@@ -1045,7 +1045,7 @@ impl Term {
                         let cell = grid_line[col];
 
                         if tab_mode {
-                            // While in tab mode, skipping over whitespace until the next tab-stop
+                            // Skip over whitespace until next tab-stop once a tab was found
                             if tabs[col] {
                                 tab_mode = false;
                             } else if cell.c == ' ' {
@@ -1581,11 +1581,9 @@ impl ansi::Handler for Term {
         while self.cursor.point.col < self.grid.num_cols() && count != 0 {
             count -= 1;
 
-            {
-                let cell = &mut self.grid[&self.cursor.point];
-                *cell = self.cursor.template;
-                cell.c = self.cursor.charsets[self.active_charset].map('\t');
-            }
+            let cell = &mut self.grid[&self.cursor.point];
+            *cell = self.cursor.template;
+            cell.c = self.cursor.charsets[self.active_charset].map('\t');
 
             loop {
                 if (self.cursor.point.col + 1) == self.grid.num_cols() {
@@ -2107,11 +2105,8 @@ impl TabStops {
     }
 
     fn clear_all(&mut self) {
-        let len = self.tabs.len();
-        // Safe since false boolean is null, each item occupies only 1
-        // byte, and called on the length of the vec.
         unsafe {
-            ::std::ptr::write_bytes(self.tabs.as_mut_ptr(), 0, len);
+            ptr::write_bytes(self.tabs.as_mut_ptr(), 0, self.tabs.len());
         }
     }
 }
