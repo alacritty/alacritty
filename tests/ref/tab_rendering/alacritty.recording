@@ -1,6 +1,5 @@
-[1m[7m%[27m[1m[0m                                                                                ]2;jwilm@jwilm-desk: ~/code/alacritty]1;..ode/alacritty[0m[27m[24m[Jjwilm@jwilm-desk [01;32m➜ [01;32m [36m~/code/alacritty [00m [K[?1h=[?2004h
-bck-i-search: _[K[A[23Ctarget/debug/alacritty --ref-test --title alacritty-reft[4me[24mst
-bck-i-search: e_[K[A[A[24C[4me[4mc[24mho '\tb\na\tb\naa\tb\naaa\tb\naaaa\tb\naaaaa\tb\naaaaa[24ma\tb\naaaaaaa\tb\naaaaaaaa\tb\naaaaaaaaa\tb\naaaaaaaaaa\tb'[1B[58Dc_[A[A[21C[4me[4mc[4mh[24m[2B[25Dh_[A[A[20C[2C[4mh[4mo[24m[2B[25Do_[A[A[19C[24m[35me[24m[35mc[24m[35mh[24m[35mo[39m [33m'[33m\[33mt[33mb[33m\[33mn[33ma[33m\[33mt[33mb[33m\[33mn[33ma[33ma[33m\[33mt[33mb[33m\[33mn[33ma[33ma[33ma[33m\[33mt[33mb[33m\[33mn[33ma[33ma[33ma[33ma[33m\[33mt[33mb[33m\[33mn[33ma[33ma[33ma[33ma[33ma[33m\[33mt[33mb[33m\[33mn[33ma[33ma[33ma[33ma[33ma[33ma[33m\[33mt[33mb[33m\[33mn[33ma[33ma[33ma[33ma[33ma[33ma[33ma[33m\[33mt[33mb[33m\[33mn[33ma[33ma[33ma[33ma[33ma[33ma[33ma[33ma[33m\[33mt[33mb[33m\[33mn[33ma[33ma[33ma[33ma[33ma[33ma[33ma[33ma[33ma[33m\[33mt[33mb[33m\[33mn[33ma[33ma[33ma[33ma[33ma[33ma[33ma[33ma[33ma[33ma[33m\[33mt[33mb[33m'[39m[1B[K[A[A[38C[?1l>[?2004l[2B]2;echo ]1;echo	b
+[1m[7m%[27m[1m[0m                                                                                                                    [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~/…/tests/ref/tab_rendering [0m[0;30;101m copy-tabs [0m [K[?2004hecho '\tb\na\tb\naa\tb\naaa\tb\naaaa\tb\naaaaa\tb\naaaaaa\tb\naaaaaaa\tb\naaaaaaaa\tb\naaaaaaaaa\tb\naaaaaaaaaa\tb'[K[?2004l
+	b
 a	b
 aa	b
 aaa	b
@@ -11,4 +10,4 @@ aaaaaaa	b
 aaaaaaaa	b
 aaaaaaaaa	b
 aaaaaaaaaa	b
-[1m[7m%[27m[1m[0m                                                                                ]2;jwilm@jwilm-desk: ~/code/alacritty]1;..ode/alacritty[0m[27m[24m[Jjwilm@jwilm-desk [01;32m➜ [01;32m [36m~/code/alacritty [00m [K[?1h=[?2004h
+[1m[7m%[27m[1m[0m                                                                                                                    [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~/…/tests/ref/tab_rendering [0m[0;30;101m copy-tabs [0m [K[?2004h

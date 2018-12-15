@@ -884,11 +884,16 @@ impl<'a> RenderApi<'a> {
             };
 
             // Don't render text of HIDDEN cells
-            let chars = if cell.flags.contains(cell::Flags::HIDDEN) {
+            let mut chars = if cell.flags.contains(cell::Flags::HIDDEN) {
                 [' '; cell::MAX_ZEROWIDTH_CHARS + 1]
             } else {
                 cell.chars
             };
+
+            // Render tabs as spaces in case the font doesn't support it
+            if chars[0] == '\t' {
+                chars[0] = ' ';
+            }
 
             let mut glyph_key = GlyphKey {
                 font_key,

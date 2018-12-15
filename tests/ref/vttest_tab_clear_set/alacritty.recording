@@ -1,5 +1,5 @@
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[Jjwilm@sanctuary.local [01;32m➜ [01;32m [36m~/code/alacritty [00m [K[?1h=[?2004h[1m[31mv[0m[39m[1m[31mv[1m[31mt[0m[39m[1m[31mv[1m[31mt[1m[31mt[0m[39m[1m[31mt[1m[31me[0m[39m[1m[31me[1m[31ms[0m[39m[0m[35mv[0m[35mt[0m[35mt[0m[35me[0m[35ms[35mt[39m[?1l>[?2004l
-[0c[?1l[?3l[?4l[?5l[?6l[?7h[?8l[?40h[?45l[r[0m[2J[3;10HVT100 test program, version 2.7 (20140305)[4;10H[5;10HChoose test type:
+[1m[7m%[27m[1m[0m                                                                                                                    [0m[27m[24m[J[0;30;101m UL [0m[0;37;100m ~/…/tests/ref/vttest_tab_cle… [0m[0;30;101m copy-tabs [0m [K[?2004hv[90mttest[39mv[39mt[39mt[39me[39ms[39mt[?2004l
+[0c[?1l[?3l[?4l[?5l[?6l[?7h[?8l[?40h[?45l[r[0m[2J[3;10HVT100 test program, version 2.7 (20180911)[4;10HLine speed 38400bd [5;10HChoose test type:
 [6;1H[0J
           0. Exit
           1. Test of cursor movements

@@ -763,7 +763,7 @@ pub struct Term {
     active_charset: CharsetIndex,
 
     /// Tabstops
-    tabs: Vec<bool>,
+    tabs: TabStops,
 
     /// Mode flags
     mode: TermMode,
@@ -915,9 +915,7 @@ impl Term {
         let alt = Grid::new(num_lines, num_cols, 0 /* scroll history */, Cell::default());
 
         let tabspaces = config.tabspaces();
-        let tabs = IndexRange::from(Column(0)..grid.num_cols())
-            .map(|i| (*i as usize) % tabspaces == 0)
-            .collect::<Vec<bool>>();
+        let tabs = TabStops::new(grid.num_cols(), tabspaces);
 
         let scroll_region = Line(0)..grid.num_lines();
 
@@ -1014,11 +1012,23 @@ impl Term {
         use std::ops::Range;
 
         trait Append : PushChar {
-            fn append(&mut self, grid: &Grid<Cell>, line: usize, cols: Range<Column>);
+            fn append(
+                &mut self,
+                grid: &Grid<Cell>,
+                tabs: &TabStops,
+                line: usize,
+                cols: Range<Column>,
+            );
         }
 
         impl Append for String {
-            fn append(&mut self, grid: &Grid<Cell>, mut line: usize, cols: Range<Column>) {
+            fn append(
+                &mut self,
+                grid: &Grid<Cell>,
+                tabs: &TabStops,
+                mut line: usize,
+                cols: Range<Column>
+            ) {
                 // Select until last line still within the buffer
                 line = min(line, grid.len() - 1);
 
@@ -1029,12 +1039,29 @@ impl Term {
                 if line_end.0 == 0 && cols.end >= grid.num_cols() - 1 {
                     self.push('\n');
                 } else if cols.start < line_end {
-                    for cell in &grid_line[cols.start..line_end] {
+                    let mut tab_mode = false;
+
+                    for col in IndexRange::from(cols.start..line_end) {
+                        let cell = grid_line[col];
+
+                        if tab_mode {
+                            // Skip over whitespace until next tab-stop once a tab was found
+                            if tabs[col] {
+                                tab_mode = false;
+                            } else if cell.c == ' ' {
+                                continue;
+                            }
+                        }
+
                         if !cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
                             self.push(cell.c);
                             for c in (&cell.chars()[1..]).iter().filter(|c| **c != ' ') {
                                 self.push(*c);
                             }
+                        }
+
+                        if cell.c == '\t' {
+                            tab_mode = true;
                         }
                     }
 
@@ -1063,32 +1090,31 @@ impl Term {
         match line_count {
             // Selection within single line
             0 => {
-                res.append(&self.grid, start.line, start.col..end.col);
+                res.append(&self.grid, &self.tabs, start.line, start.col..end.col);
             },
 
             // Selection ends on line following start
             1 => {
                 // Ending line
-                res.append(&self.grid, end.line, end.col..max_col);
+                res.append(&self.grid, &self.tabs, end.line, end.col..max_col);
 
                 // Starting line
-                res.append(&self.grid, start.line, Column(0)..start.col);
+                res.append(&self.grid, &self.tabs, start.line, Column(0)..start.col);
 
             },
 
             // Multi line selection
             _ => {
                 // Ending line
-                res.append(&self.grid, end.line, end.col..max_col);
+                res.append(&self.grid, &self.tabs, end.line, end.col..max_col);
 
                 let middle_range = (start.line + 1)..(end.line);
                 for line in middle_range.rev() {
-                    res.append(&self.grid, line, Column(0)..max_col);
+                    res.append(&self.grid, &self.tabs, line, Column(0)..max_col);
                 }
 
                 // Starting line
-                res.append(&self.grid, start.line, Column(0)..start.col);
-
+                res.append(&self.grid, &self.tabs, start.line, Column(0)..start.col);
             }
         }
 
@@ -1232,9 +1258,7 @@ impl Term {
         self.cursor_save_alt.point.line = min(self.cursor_save_alt.point.line, num_lines - 1);
 
         // Recreate tabs list
-        self.tabs = IndexRange::from(Column(0)..self.grid.num_cols())
-            .map(|i| (*i as usize) % self.tabspaces == 0)
-            .collect::<Vec<bool>>();
+        self.tabs = TabStops::new(self.grid.num_cols(), self.tabspaces);
     }
 
     #[inline]
@@ -1553,23 +1577,26 @@ impl ansi::Handler for Term {
     fn put_tab(&mut self, mut count: i64) {
         trace!("put_tab: {}", count);
 
-        let mut col = self.cursor.point.col;
-        while col < self.grid.num_cols() && count != 0 {
+        while self.cursor.point.col < self.grid.num_cols() && count != 0 {
             count -= 1;
+
+            let cell = &mut self.grid[&self.cursor.point];
+            *cell = self.cursor.template;
+            cell.c = self.cursor.charsets[self.active_charset].map('\t');
+
             loop {
-                if (col + 1) == self.grid.num_cols() {
+                if (self.cursor.point.col + 1) == self.grid.num_cols() {
                     break;
                 }
 
-                col += 1;
+                self.cursor.point.col += 1;
 
-                if self.tabs[*col as usize] {
+                if self.tabs[self.cursor.point.col] {
                     break;
                 }
             }
         }
 
-        self.cursor.point.col = col;
         self.input_needs_wrap = false;
     }
 
@@ -1651,7 +1678,7 @@ impl ansi::Handler for Term {
     fn set_horizontal_tabstop(&mut self) {
         trace!("set_horizontal_tabstop");
         let column = self.cursor.point.col;
-        self.tabs[column.0] = true;
+        self.tabs[column] = true;
     }
 
     #[inline]
@@ -1731,7 +1758,7 @@ impl ansi::Handler for Term {
         for _ in 0..count {
             let mut col = self.cursor.point.col;
             for i in (0..(col.0)).rev() {
-                if self.tabs[i as usize] {
+                if self.tabs[index::Column(i)] {
                     col = index::Column(i);
                     break;
                 }
@@ -1874,15 +1901,10 @@ impl ansi::Handler for Term {
         match mode {
             ansi::TabulationClearMode::Current => {
                 let column = self.cursor.point.col;
-                self.tabs[column.0] = false;
+                self.tabs[column] = false;
             },
             ansi::TabulationClearMode::All => {
-                let len = self.tabs.len();
-                // Safe since false boolean is null, each item occupies only 1
-                // byte, and called on the length of the vec.
-                unsafe {
-                    ::std::ptr::write_bytes(self.tabs.as_mut_ptr(), 0, len);
-                }
+                self.tabs.clear_all();
             }
         }
     }
@@ -2065,6 +2087,40 @@ impl ansi::Handler for Term {
     fn set_cursor_style(&mut self, style: Option<CursorStyle>) {
         trace!("set_cursor_style {:?}", style);
         self.cursor_style = style;
+    }
+}
+
+struct TabStops {
+    tabs: Vec<bool>
+}
+
+impl TabStops {
+    fn new(num_cols: Column, tabspaces: usize) -> TabStops {
+        TabStops {
+            tabs: IndexRange::from(Column(0)..num_cols)
+                .map(|i| (*i as usize) % tabspaces == 0)
+                .collect::<Vec<bool>>()
+        }
+    }
+
+    fn clear_all(&mut self) {
+        unsafe {
+            ptr::write_bytes(self.tabs.as_mut_ptr(), 0, self.tabs.len());
+        }
+    }
+}
+
+impl Index<Column> for TabStops {
+    type Output = bool;
+
+    fn index(&self, index: Column) -> &bool {
+        &self.tabs[index.0]
+    }
+}
+
+impl IndexMut<Column> for TabStops {
+    fn index_mut(&mut self, index: Column) -> &mut bool {
+        self.tabs.index_mut(index.0)
     }
 }
 
