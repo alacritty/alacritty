@@ -158,8 +158,8 @@ impl Display {
         let dimensions = options.dimensions()
             .unwrap_or_else(|| config.dimensions());
 
-        let mut padding_x = (f64::from(config.padding().x) * dpr).floor();
-        let mut padding_y = (f64::from(config.padding().y) * dpr).floor();
+        let mut padding_x = f64::from(config.padding().x) * dpr;
+        let mut padding_y = f64::from(config.padding().y) * dpr;
 
         if dimensions.columns_u32() > 0
             && dimensions.lines_u32() > 0
@@ -168,6 +168,8 @@ impl Display {
             // Calculate new size based on cols/lines specified in config
             let width = cell_width as u32 * dimensions.columns_u32();
             let height = cell_height as u32 * dimensions.lines_u32();
+            padding_x = padding_x.floor();
+            padding_y = padding_y.floor();
 
             viewport_size = PhysicalSize::new(
                 f64::from(width) + 2. * padding_x,
@@ -211,7 +213,6 @@ impl Display {
         renderer.with_api(
             config,
             &size_info,
-            0., /* visual bell intensity */
             |api| {
                 api.clear(background_color);
             },
@@ -325,8 +326,6 @@ impl Display {
             self.update_glyph_cache(config);
         }
 
-        // Receive any resize events; only call gl::Viewport on last
-        // available
         if let Some(psize) = new_size.take() {
             let width = psize.width as f32;
             let height = psize.height as f32;
@@ -405,7 +404,7 @@ impl Display {
         // handling and rendering.
         drop(terminal);
 
-        self.renderer.with_api(config, &size_info, visual_bell_intensity, |api| {
+        self.renderer.with_api(config, &size_info, |api| {
             api.clear(background_color);
         });
 
@@ -416,11 +415,14 @@ impl Display {
             {
                 let _sampler = self.meter.sampler();
 
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                self.renderer.with_api(config, &size_info, |mut api| {
                     // Draw the grid
                     api.render_cells(grid_cells.iter(), glyph_cache);
                 });
             }
+
+            // Draw rectangles
+            self.renderer.draw_rects(config, &size_info, visual_bell_intensity);
 
             // Draw render timer
             if self.render_timer {
@@ -430,7 +432,7 @@ impl Display {
                     g: 0x4e,
                     b: 0x53,
                 };
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                self.renderer.with_api(config, &size_info, |mut api| {
                     api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, color);
                 });
             }
@@ -446,7 +448,7 @@ impl Display {
                     g: 0x00,
                     b: 0x00,
                 };
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                self.renderer.with_api(config, &size_info, |mut api| {
                     api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
                 });
             } else if self.logger_proxy.warnings() {
@@ -459,7 +461,7 @@ impl Display {
                     g: 0xff,
                     b: 0x00,
                 };
-                self.renderer.with_api(config, &size_info, visual_bell_intensity, |mut api| {
+                self.renderer.with_api(config, &size_info, |mut api| {
                     api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
                 });
             }

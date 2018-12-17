@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New configuration field `visual_bell.color` allows changing the visual bell color
+
 ### Fixed
 
 - Fix color issue in ncurses programs by updating terminfo pairs from 0x10000 to 0x7FFF

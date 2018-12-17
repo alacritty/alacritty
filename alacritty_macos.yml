@@ -234,6 +234,7 @@ colors:
 visual_bell:
   animation: EaseOutExpo
   duration: 0
+  color: '0xffffff'
 
 # Background opacity
 #
@@ -244,15 +245,15 @@ background_opacity: 1.0
 # Mouse bindings
 #
 # Available fields:
-# - mouse
-# - action
-# - mods (optional)
+#   - mouse
+#   - action
+#   - mods (optional)
 #
 # Values for `mouse`:
-# - Middle
-# - Left
-# - Right
-# - Numeric identifier such as `5`
+#   - Middle
+#   - Left
+#   - Right
+#   - Numeric identifier such as `5`
 #
 # All available `mods` and `action` values are documented in the key binding
 # section.
