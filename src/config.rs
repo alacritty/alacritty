@@ -157,17 +157,12 @@ pub struct VisualBellConfig {
     animation: VisualBellAnimation,
 
     /// Visual bell duration in milliseconds
-    #[serde(deserialize_with = "deserialize_visual_bell_duration")]
-    #[serde(default="default_visual_bell_duration")]
+    #[serde(default, deserialize_with = "deserialize_visual_bell_duration")]
     duration: u16,
 
     /// Visual bell flash color
     #[serde(default="default_visual_bell_color", deserialize_with = "rgb_from_hex")]
     color: Rgb,
-}
-
-fn default_visual_bell_duration() -> u16 {
-    0
 }
 
 fn deserialize_visual_bell_duration<'a, D>(deserializer: D) -> ::std::result::Result<u16, D::Error>
@@ -177,7 +172,7 @@ fn deserialize_visual_bell_duration<'a, D>(deserializer: D) -> ::std::result::Re
         Ok(duration) => Ok(duration),
         Err(err) => {
             error!("problem with config: {}; Using default value", err);
-            Ok(default_visual_bell_duration())
+            Ok(0)
         },
     }
 }
@@ -210,8 +205,8 @@ impl Default for VisualBellConfig {
     fn default() -> VisualBellConfig {
         VisualBellConfig {
             animation: VisualBellAnimation::default(),
-            duration: default_visual_bell_duration(),
             color: default_visual_bell_color(),
+            duration: 0,
         }
     }
 }
