@@ -37,6 +37,15 @@ Precompiled binaries are available from the [GitHub releases page](https://githu
 Some operating systems already provide binaries for Alacritty, for everyone else the instructions
 to build Alacritty from source can be found [here](INSTALL.md).
 
+### Mageia 7
+
+```sh
+urpmi alacritty
+```
+The shell completions are separated into their own packages.
+
+`alacritty-bash-completion`, `alacritty-fish-completion` and `alacritty-zsh-completion`.
+
 ### Arch Linux
 
 ```sh
