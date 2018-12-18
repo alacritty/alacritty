@@ -61,7 +61,7 @@ xbps-install alacritty
 emerge x11-terms/alacritty
 ```
 
-### Mageia 7
+### Mageia 7+
 
 ```sh
 urpmi alacritty
