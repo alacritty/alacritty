@@ -336,6 +336,10 @@ pub struct Metrics {
     pub average_advance: f64,
     pub line_height: f64,
     pub descent: f32,
+    pub underline_position: f32,
+    pub underline_thickness: f32,
+    pub strikeout_position: f32,
+    pub strikeout_thickness: f32,
 }
 
 pub trait Rasterize {

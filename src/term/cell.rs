@@ -23,16 +23,17 @@ pub const MAX_ZEROWIDTH_CHARS: usize = 5;
 bitflags! {
     #[derive(Serialize, Deserialize)]
     pub struct Flags: u16 {
-        const INVERSE           = 0b0_0000_0001;
-        const BOLD              = 0b0_0000_0010;
-        const ITALIC            = 0b0_0000_0100;
-        const UNDERLINE         = 0b0_0000_1000;
-        const WRAPLINE          = 0b0_0001_0000;
-        const WIDE_CHAR         = 0b0_0010_0000;
-        const WIDE_CHAR_SPACER  = 0b0_0100_0000;
-        const DIM               = 0b0_1000_0000;
-        const DIM_BOLD          = 0b0_1000_0010;
-        const HIDDEN            = 0b1_0000_0000;
+        const INVERSE           = 0b00_0000_0001;
+        const BOLD              = 0b00_0000_0010;
+        const ITALIC            = 0b00_0000_0100;
+        const UNDERLINE         = 0b00_0000_1000;
+        const WRAPLINE          = 0b00_0001_0000;
+        const WIDE_CHAR         = 0b00_0010_0000;
+        const WIDE_CHAR_SPACER  = 0b00_0100_0000;
+        const DIM               = 0b00_1000_0000;
+        const DIM_BOLD          = 0b00_1000_0010;
+        const HIDDEN            = 0b01_0000_0000;
+        const STRIKEOUT         = 0b10_0000_0000;
     }
 }
 
@@ -117,7 +118,7 @@ impl Cell {
         (self.c == ' ' || self.c == '\t')
             && self.extra[0] == ' '
             && self.bg == Color::Named(NamedColor::Background)
-            && !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE)
+            && !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE | Flags::STRIKEOUT)
     }
 
     #[inline]

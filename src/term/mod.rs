@@ -419,7 +419,7 @@ impl<'a> RenderableCellsIter<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct RenderableCell {
     /// A _Display_ line (not necessarily an _Active_ line)
     pub line: Line,
@@ -1965,6 +1965,8 @@ impl ansi::Handler for Term {
             Attr::CancelUnderline => self.cursor.template.flags.remove(cell::Flags::UNDERLINE),
             Attr::Hidden => self.cursor.template.flags.insert(cell::Flags::HIDDEN),
             Attr::CancelHidden => self.cursor.template.flags.remove(cell::Flags::HIDDEN),
+            Attr::Strike => self.cursor.template.flags.insert(cell::Flags::STRIKEOUT),
+            Attr::CancelStrike => self.cursor.template.flags.remove(cell::Flags::STRIKEOUT),
             _ => {
                 debug!("Term got unhandled attr: {:?}", attr);
             }
