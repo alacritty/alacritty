@@ -687,14 +687,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.ctx.clear_selection();
 
             let utf8_len = c.len_utf8();
-            if *self.ctx.received_count() == 0 && self.ctx.last_modifiers().alt && utf8_len == 1 {
-                self.ctx.write_to_pty(b"\x1b".to_vec());
-            }
-
             let mut bytes = Vec::with_capacity(utf8_len);
             unsafe {
                 bytes.set_len(utf8_len);
                 c.encode_utf8(&mut bytes[..]);
+            }
+
+            if *self.ctx.received_count() == 0 && self.ctx.last_modifiers().alt && utf8_len == 1 {
+                bytes.insert(0, b'\x1b');
             }
 
             self.ctx.write_to_pty(bytes);
