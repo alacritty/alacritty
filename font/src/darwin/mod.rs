@@ -445,10 +445,10 @@ impl Font {
             average_advance,
             line_height,
             descent: -(self.ct_font.descent() as f32),
-            underline_position
-            underline_thickness
-            strikeout_position
-            strikeout_thickness
+            underline_position,
+            underline_thickness,
+            strikeout_position,
+            strikeout_thickness,
         }
     }
 
