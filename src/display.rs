@@ -22,10 +22,11 @@ use glutin::dpi::{LogicalPosition, PhysicalSize};
 
 use crate::cli;
 use crate::config::Config;
-use font::{self, Rasterize, Metrics};
+use font::{self, Rasterize};
 use crate::meter::Meter;
-use crate::renderer::{self, GlyphCache, QuadRenderer, Rect};
-use crate::term::{cell, Term, SizeInfo, RenderableCell};
+use crate::renderer::{self, GlyphCache, QuadRenderer};
+use crate::renderer::lines::Lines;
+use crate::term::{Term, SizeInfo, RenderableCell};
 use crate::sync::FairMutex;
 use crate::window::{self, Window};
 use crate::logging::LoggerProxy;
@@ -411,73 +412,20 @@ impl Display {
         {
             let glyph_cache = &mut self.glyph_cache;
             let metrics = glyph_cache.font_metrics();
-            let mut cell_line_rects = Vec::new();
+            let mut cell_line_rects = Lines::new(&metrics, &size_info);
 
             // Draw grid
             {
                 let _sampler = self.meter.sampler();
 
                 self.renderer.with_api(config, &size_info, |mut api| {
-                    // Store underline/strikeout information beyond current cell
-                    let mut last_cell = None;
-                    let mut start_underline: Option<RenderableCell> = None;
-                    let mut start_strikeout: Option<RenderableCell> = None;
-
                     // Iterate over all non-empty cells in the grid
                     for cell in grid_cells {
-                        // Check if there is a new underline
-                        if let Some(underline) = calculate_cell_line_state(
-                            cell,
-                            &mut start_underline,
-                            &last_cell,
-                            &metrics,
-                            &size_info,
-                            cell::Flags::UNDERLINE,
-                        ) {
-                            cell_line_rects.push(underline);
-                        }
-
-                        // Check if there is a new strikeout
-                        if let Some(strikeout) = calculate_cell_line_state(
-                            cell,
-                            &mut start_strikeout,
-                            &last_cell,
-                            &metrics,
-                            &size_info,
-                            cell::Flags::STRIKEOUT,
-                        ) {
-                            cell_line_rects.push(strikeout);
-                        }
-
-                        // Change the last checked cell for underline/strikeout
-                        last_cell = Some(cell);
+                        // Update underline/strikeout
+                        cell_line_rects.update_lines(&cell);
 
                         // Draw the cell
                         api.render_cell(cell, glyph_cache);
-                    }
-
-                    // If underline hasn't been reset, draw until the last cell
-                    if let Some(start) = start_underline {
-                        cell_line_rects.push(
-                            cell_line_rect(
-                                &start,
-                                &last_cell.unwrap(),
-                                &metrics, &size_info,
-                                cell::Flags::UNDERLINE
-                            )
-                        );
-                    }
-
-                    // If strikeout hasn't been reset, draw until the last cell
-                    if let Some(start) = start_strikeout {
-                        cell_line_rects.push(
-                            cell_line_rect(
-                                &start,
-                                &last_cell.unwrap(),
-                                &metrics, &size_info,
-                                cell::Flags::STRIKEOUT
-                            )
-                        );
                     }
                 });
             }
@@ -550,107 +498,4 @@ impl Display {
         let nspot_x = (px + col as f32 * cw) as i32;
         self.window().set_ime_spot(LogicalPosition::from((nspot_x, nspot_y)));
     }
-}
-
-// Check if the underline/strikeout state has changed
-// This returns a new rectangle whenever an underline/strikeout ends
-fn calculate_cell_line_state(
-    cell: RenderableCell,
-    start_cell_line: &mut Option<RenderableCell>,
-    last_cell: &Option<RenderableCell>,
-    metrics: &Metrics,
-    size_info: &SizeInfo,
-    flag: cell::Flags,
-) -> Option<(Rect<f32>, Rgb)> {
-    match *start_cell_line {
-        // If line is already started, check for end
-        Some(start) => {
-            // No change in line
-            if cell.line == start.line && cell.flags.contains(flag) && cell.fg == start.fg {
-                return None;
-            }
-
-            // Check if we need to start a new line
-            *start_cell_line = if cell.flags.contains(flag) {
-                // Start a new line
-                Some(cell)
-            } else {
-                // Disable line
-                None
-            };
-
-            return Some(cell_line_rect(
-                &start,
-                &last_cell.unwrap(),
-                metrics,
-                size_info,
-                flag,
-            ));
-        }
-        // Check for new start of line
-        None => if cell.flags.contains(flag) {
-            *start_cell_line = Some(cell);
-        },
-    }
-    None
-}
-
-// Create a colored rectangle for an underline/strikeout based on two cells
-fn cell_line_rect(
-    start: &RenderableCell,
-    end: &RenderableCell,
-    metrics: &Metrics,
-    size: &SizeInfo,
-    flag: cell::Flags,
-) -> (Rect<f32>, Rgb) {
-    let x = (start.column.0 as f64 * metrics.average_advance) as f32;
-    let end_x = ((end.column.0 + 1) as f64 * metrics.average_advance) as f32;
-    let width = end_x - x;
-
-    let (y, height) = match flag {
-        cell::Flags::UNDERLINE => {
-            // Calculate the bottom point of the underline
-            let underline_bottom = metrics.line_height as f32 + metrics.descent
-                - metrics.underline_position
-                + metrics.underline_thickness / 2.;
-
-            // Check if underline is out of bounds
-            let y = if underline_bottom > metrics.line_height as f32 {
-                // Put underline at the bottom of the cell rect
-                ((start.line.0 as f32 + 1.) * metrics.line_height as f32
-                    - metrics.underline_thickness)
-                    .round()
-            } else {
-                // Get the baseline position and offset it down by (-) underline position
-                // then move it up by half the underline thickness
-                ((start.line.0 as f32 + 1.) * metrics.line_height as f32 + metrics.descent
-                    - metrics.underline_position
-                    - metrics.underline_thickness / 2.)
-                    .round()
-            };
-            let height = metrics.underline_thickness;
-            (y, height)
-        }
-        cell::Flags::STRIKEOUT => {
-            // Get the baseline position and offset it up by strikeout position
-            // then move it up by half the strikeout thickness
-            let y = ((start.line.0 as f32 + 1.) * metrics.line_height as f32 + metrics.descent
-                - metrics.strikeout_position
-                - metrics.strikeout_thickness / 2.)
-                .round();
-            let height = metrics.strikeout_thickness;
-            (y, height)
-        }
-        _ => panic!("Invalid flag for cell line drawing specified"),
-    };
-
-    let rect = Rect::new(
-        x + size.padding_x,
-        y + size.padding_y,
-        width,
-        height,
-    );
-    let color = start.fg;
-
-    (rect, color)
 }

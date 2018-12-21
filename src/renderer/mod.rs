@@ -23,16 +23,19 @@ use std::time::Duration;
 
 use cgmath;
 use fnv::FnvHasher;
+use glutin::dpi::PhysicalSize;
 use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
+use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
+
 use crate::gl::types::*;
 use crate::gl;
 use crate::index::{Column, Line, RangeInclusive};
-use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use crate::Rgb;
-
 use crate::config::{self, Config, Delta};
 use crate::term::{self, cell, RenderableCell};
-use glutin::dpi::PhysicalSize;
+use crate::renderer::lines::Lines;
+
+pub mod lines;
 
 // Shader paths for live reload
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
@@ -699,7 +702,7 @@ impl QuadRenderer {
         config: &Config,
         props: &term::SizeInfo,
         visual_bell_intensity: f64,
-        cell_line_rects: Vec<(Rect<f32>, Rgb)>,
+        cell_line_rects: Lines,
     ) {
         // Swap to rectangle rendering program
         unsafe {
@@ -727,7 +730,7 @@ impl QuadRenderer {
         self.render_rect(&rect, color, visual_bell_intensity as f32, props);
 
         // Draw underlines and strikeouts
-        for cell_line_rect in cell_line_rects {
+        for cell_line_rect in cell_line_rects.rects() {
             self.render_rect(&cell_line_rect.0, cell_line_rect.1, 255., props);
         }
 
