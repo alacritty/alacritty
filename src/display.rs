@@ -25,6 +25,7 @@ use crate::config::Config;
 use font::{self, Rasterize};
 use crate::meter::Meter;
 use crate::renderer::{self, GlyphCache, QuadRenderer};
+use crate::renderer::lines::Lines;
 use crate::term::{Term, SizeInfo, RenderableCell};
 use crate::sync::FairMutex;
 use crate::window::{self, Window};
@@ -410,19 +411,27 @@ impl Display {
 
         {
             let glyph_cache = &mut self.glyph_cache;
+            let metrics = glyph_cache.font_metrics();
+            let mut cell_line_rects = Lines::new(&metrics, &size_info);
 
             // Draw grid
             {
                 let _sampler = self.meter.sampler();
 
                 self.renderer.with_api(config, &size_info, |mut api| {
-                    // Draw the grid
-                    api.render_cells(grid_cells.iter(), glyph_cache);
+                    // Iterate over all non-empty cells in the grid
+                    for cell in grid_cells {
+                        // Update underline/strikeout
+                        cell_line_rects.update_lines(&cell);
+
+                        // Draw the cell
+                        api.render_cell(cell, glyph_cache);
+                    }
                 });
             }
 
             // Draw rectangles
-            self.renderer.draw_rects(config, &size_info, visual_bell_intensity);
+            self.renderer.draw_rects(config, &size_info, visual_bell_intensity, cell_line_rects);
 
             // Draw render timer
             if self.render_timer {
@@ -490,4 +499,3 @@ impl Display {
         self.window().set_ime_spot(LogicalPosition::from((nspot_x, nspot_y)));
     }
 }
-

@@ -33,10 +33,25 @@ impl crate::Rasterize for RustTypeRasterizer {
             .ok_or(Error::MissingGlyph)?
             .scaled(scale)
             .h_metrics();
+
+        let line_height = f64::from(vmetrics.ascent - vmetrics.descent + vmetrics.line_gap);
+        let average_advance = f64::from(hmetrics.advance_width);
+        let descent = vmetrics.descent;
+
+        // Strikeout and underline metrics
+        // RustType doesn't support these, so we make up our own
+        let thickness = (descent / 5.).round();
+        let underline_position = descent / 2. + thickness / 2.;
+        let strikeout_position = (line_height as f32 / 2. - descent).round();
+
         Ok(Metrics {
-            descent: vmetrics.descent,
-            average_advance: f64::from(hmetrics.advance_width),
-            line_height: f64::from(vmetrics.ascent - vmetrics.descent + vmetrics.line_gap),
+            descent,
+            average_advance,
+            line_height,
+            underline_position,
+            underline_thickness: thickness,
+            strikeout_position,
+            strikeout_thickness: thickness,
         })
     }
 

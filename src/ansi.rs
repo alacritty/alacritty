@@ -642,7 +642,7 @@ pub enum Attr {
     Reverse,
     /// Do not display characters
     Hidden,
-    /// Strikethrough text
+    /// Strikeout text
     Strike,
     /// Cancel bold
     CancelBold,
@@ -658,7 +658,7 @@ pub enum Attr {
     CancelReverse,
     /// Cancel text hiding
     CancelHidden,
-    /// Cancel strike through
+    /// Cancel strikeout
     CancelStrike,
     /// Set indexed foreground color
     Foreground(Color),

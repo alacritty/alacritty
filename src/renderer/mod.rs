@@ -23,16 +23,19 @@ use std::time::Duration;
 
 use cgmath;
 use fnv::FnvHasher;
+use glutin::dpi::PhysicalSize;
 use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
+use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
+
 use crate::gl::types::*;
 use crate::gl;
 use crate::index::{Column, Line, RangeInclusive};
-use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use crate::Rgb;
-
 use crate::config::{self, Config, Delta};
 use crate::term::{self, cell, RenderableCell};
-use glutin::dpi::PhysicalSize;
+use crate::renderer::lines::Lines;
+
+pub mod lines;
 
 // Shader paths for live reload
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
@@ -699,6 +702,7 @@ impl QuadRenderer {
         config: &Config,
         props: &term::SizeInfo,
         visual_bell_intensity: f64,
+        cell_line_rects: Lines,
     ) {
         // Swap to rectangle rendering program
         unsafe {
@@ -724,6 +728,11 @@ impl QuadRenderer {
         let color = config.visual_bell().color();
         let rect = Rect::new(0., 0., props.width, props.height);
         self.render_rect(&rect, color, visual_bell_intensity as f32, props);
+
+        // Draw underlines and strikeouts
+        for cell_line_rect in cell_line_rects.rects() {
+            self.render_rect(&cell_line_rect.0, cell_line_rect.1, 255., props);
+        }
 
         // Deactivate rectangle program again
         unsafe {
@@ -902,7 +911,8 @@ impl QuadRenderer {
     }
 }
 
-struct Rect<T> {
+#[derive(Debug, Copy, Clone)]
+pub struct Rect<T> {
     x: T,
     y: T,
     width: T,
@@ -910,7 +920,7 @@ struct Rect<T> {
 }
 
 impl<T> Rect<T> {
-    fn new(x: T, y: T, width: T, height: T) -> Self {
+    pub fn new(x: T, y: T, width: T, height: T) -> Self {
         Rect { x, y, width, height }
     }
 }
@@ -998,7 +1008,9 @@ impl<'a> RenderApi<'a> {
             })
             .collect::<Vec<_>>();
 
-        self.render_cells(cells.iter(), glyph_cache);
+        for cell in cells {
+            self.render_cell(cell, glyph_cache);
+        }
     }
 
     #[inline]
@@ -1016,74 +1028,52 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    pub fn render_cells<'b, I>(
-        &mut self,
-        cells: I,
-        glyph_cache: &mut GlyphCache
-    )
-        where I: Iterator<Item=&'b RenderableCell>
-    {
-        for cell in cells {
-            // Get font key for cell
-            // FIXME this is super inefficient.
-            let font_key = if cell.flags.contains(cell::Flags::BOLD) {
-                glyph_cache.bold_key
-            } else if cell.flags.contains(cell::Flags::ITALIC) {
-                glyph_cache.italic_key
-            } else {
-                glyph_cache.font_key
-            };
+    pub fn render_cell(&mut self, cell: RenderableCell, glyph_cache: &mut GlyphCache) {
+        // Get font key for cell
+        // FIXME this is super inefficient.
+        let font_key = if cell.flags.contains(cell::Flags::BOLD) {
+            glyph_cache.bold_key
+        } else if cell.flags.contains(cell::Flags::ITALIC) {
+            glyph_cache.italic_key
+        } else {
+            glyph_cache.font_key
+        };
 
-            // Don't render text of HIDDEN cells
-            let mut chars = if cell.flags.contains(cell::Flags::HIDDEN) {
-                [' '; cell::MAX_ZEROWIDTH_CHARS + 1]
-            } else {
-                cell.chars
-            };
+        // Don't render text of HIDDEN cells
+        let mut chars = if cell.flags.contains(cell::Flags::HIDDEN) {
+            [' '; cell::MAX_ZEROWIDTH_CHARS + 1]
+        } else {
+            cell.chars
+        };
 
-            // Render tabs as spaces in case the font doesn't support it
-            if chars[0] == '\t' {
-                chars[0] = ' ';
-            }
+        // Render tabs as spaces in case the font doesn't support it
+        if chars[0] == '\t' {
+            chars[0] = ' ';
+        }
 
-            let mut glyph_key = GlyphKey {
-                font_key,
-                size: glyph_cache.font_size,
-                c: chars[0],
-            };
+        let mut glyph_key = GlyphKey {
+            font_key,
+            size: glyph_cache.font_size,
+            c: chars[0],
+        };
 
-            // Add cell to batch
-            let glyph = glyph_cache.get(glyph_key, self);
-            self.add_render_item(&cell, glyph);
+        // Add cell to batch
+        let glyph = glyph_cache.get(glyph_key, self);
+        self.add_render_item(&cell, glyph);
 
-            // Render zero-width characters
-            for c in (&chars[1..]).iter().filter(|c| **c != ' ') {
-                glyph_key.c = *c;
-                let mut glyph = *glyph_cache.get(glyph_key, self);
+        // Render zero-width characters
+        for c in (&chars[1..]).iter().filter(|c| **c != ' ') {
+            glyph_key.c = *c;
+            let mut glyph = *glyph_cache.get(glyph_key, self);
 
-                // The metrics of zero-width characters are based on rendering
-                // the character after the current cell, with the anchor at the
-                // right side of the preceding character. Since we render the
-                // zero-width characters inside the preceding character, the
-                // anchor has been moved to the right by one cell.
-                glyph.left += glyph_cache.metrics.average_advance as f32;
+            // The metrics of zero-width characters are based on rendering
+            // the character after the current cell, with the anchor at the
+            // right side of the preceding character. Since we render the
+            // zero-width characters inside the preceding character, the
+            // anchor has been moved to the right by one cell.
+            glyph.left += glyph_cache.metrics.average_advance as f32;
 
-                self.add_render_item(&cell, &glyph);
-            }
-
-            // FIXME This is a super hacky way to do underlined text. During
-            //       a time crunch to release 0.1, this seemed like a really
-            //       easy, clean hack.
-            if cell.flags.contains(cell::Flags::UNDERLINE) {
-                let glyph_key = GlyphKey {
-                    font_key,
-                    size: glyph_cache.font_size,
-                    c: '_',
-                };
-
-                let underscore = glyph_cache.get(glyph_key, self);
-                self.add_render_item(&cell, underscore);
-            }
+            self.add_render_item(&cell, &glyph);
         }
     }
 }
