@@ -47,12 +47,15 @@ use alacritty::config::{self, Config, Error as ConfigError};
 use alacritty::display::Display;
 use alacritty::event_loop::{self, EventLoop, Msg};
 use alacritty::logging::{self, LoggerProxy};
+use alacritty::panic;
 use alacritty::sync::FairMutex;
 use alacritty::term::Term;
 use alacritty::tty::{self, process_should_exit};
 use alacritty::util::fmt::Red;
 
 fn main() {
+    panic::attach_handler();
+
     // When linked with the windows subsystem windows won't automatically attach
     // to the console of the parent process, so we do it explicitly. This fails
     // silently if the parent has no console.

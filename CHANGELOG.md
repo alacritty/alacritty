@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New configuration field `visual_bell.color` allows changing the visual bell color
+- Crashes on Windows are now also reported with a popup in addition to stderr
 
 ### Fixed
 

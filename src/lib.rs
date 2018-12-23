@@ -49,6 +49,7 @@ pub mod input;
 pub mod locale;
 pub mod logging;
 pub mod meter;
+pub mod panic;
 pub mod renderer;
 pub mod selection;
 pub mod sync;
