@@ -126,7 +126,7 @@ fn create_rect(
     let cell_bottom = (start.line.0 as f32 + 1.) * size.cell_height;
     let baseline = cell_bottom + metrics.descent;
 
-    let mut y = baseline - position - height / 2.;
+    let mut y = baseline - position + height / 2.;
     let max_y = cell_bottom - height;
     if y > max_y {
         y = max_y;
