@@ -35,7 +35,7 @@ serde_json = "1"
 serde_yaml = "0.8"
 vte = "0.3"
 mio = "0.6"
-mio-more = "0.1"
+mio-extras = "2"
 copypasta = { path = "./copypasta" }
 xdg = "2"
 log = "0.4"

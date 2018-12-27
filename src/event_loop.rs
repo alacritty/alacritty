@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::marker::Send;
 
 use mio::{self, Events, PollOpt, Ready};
-use mio_more::channel::{self, Receiver, Sender};
+use mio_extras::channel::{self, Receiver, Sender};
 
 #[cfg(not(windows))]
 use mio::unix::UnixReady;
