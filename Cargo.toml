@@ -60,6 +60,7 @@ winpty = { path = "./winpty" }
 mio-named-pipes = "0.1"
 winapi = { version = "0.3.5", features = ["winuser", "synchapi", "roerrorapi", "winerror"]}
 dunce = "0.1"
+dirs = "1.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"

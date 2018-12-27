@@ -1521,33 +1521,52 @@ impl Config {
             .map(|path| path.into())
     }
 
+    // TODO: Remove old configuration location warning (Deprecated 03/12/2018)
     #[cfg(windows)]
     pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
-        if let Some(mut path) = ::std::env::home_dir() {
-            path.push("alacritty");
-            path.set_extension("yml");
-            if path.exists() {
-                return Some(path.into());
-            }
+        let old = dirs::home_dir()
+            .map(|path| path.join("alacritty.yml"));
+        let new = dirs::config_dir()
+            .map(|path| path.join("alacritty\\alacritty.yml"));
+
+        if let Some(old_path) = old.as_ref().filter(|old| old.exists()) {
+            warn!(
+                "Found configuration at: '{}'. The file should be moved to the new location: '{}'.",
+                old_path.to_string_lossy(),
+                new.as_ref().map(|new| new.to_string_lossy()).unwrap(),
+            );
+
+            old.map(Cow::from)
+        } else {
+            new.filter(|new| new.exists()).map(Cow::from)
         }
-        None
     }
 
     #[cfg(not(windows))]
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
-        let path = ::xdg::BaseDirectories::with_prefix("alacritty")
-            .map_err(|err| io::Error::new(io::ErrorKind::NotFound, ::std::error::Error::description(&err)))
+        let path = xdg::BaseDirectories::with_prefix("alacritty")
+            .map_err(|err| io::Error::new(io::ErrorKind::NotFound, err.to_string().as_str()))
             .and_then(|p| p.place_config_file("alacritty.yml"))?;
+
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
+
         Ok(path.into())
     }
 
     #[cfg(windows)]
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
-        let path = ::std::env::home_dir()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "could not find profile directory"))
-            .and_then(|mut p| {p.push("alacritty"); p.set_extension("yml"); Ok(p)})?;
+        let mut path = dirs::config_dir()
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::NotFound, "could not find profile directory")
+            }
+        )?;
+
+        path = path.join("alacritty/alacritty.yml");
+
+        fs::create_dir_all(path.parent().unwrap())?;
+
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
+
         Ok(path.into())
     }
 

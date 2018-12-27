@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New configuration field `visual_bell.color` allows changing the visual bell color
 - Crashes on Windows are now also reported with a popup in addition to stderr
 
+### Changed
+
+- Windows configuration location has been moved from %USERPROFILE\alacritty.yml
+    to %APPDATA%\Roaming\alacritty\alacritty.yml
+
 ### Fixed
 
 - Fix color issue in ncurses programs by updating terminfo pairs from 0x10000 to 0x7FFF
