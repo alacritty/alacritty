@@ -51,8 +51,10 @@ dependencies = [
  "libc 0.2.45 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "mio 0.6.16 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mio-anonymous-pipes 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "mio-extras 2.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "mio-named-pipes 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "miow 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "notify 4.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "objc 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -68,6 +70,7 @@ dependencies = [
  "unicode-width 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "vte 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "widestring 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "winpty 0.1.0",
  "x11-dl 2.18.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1269,6 +1272,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "mio-anonymous-pipes"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "mio 0.6.16 (registry+https://github.com/rust-lang/crates.io-index)",
+ "miow 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "spsc-buffer 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "mio-extras"
 version = "2.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2129,7 +2143,7 @@ dependencies = [
 
 [[package]]
 name = "smithay-client-toolkit"
-version = "0.4.3"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "andrew 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2154,6 +2168,11 @@ dependencies = [
  "redox_syscall 0.1.44 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "spsc-buffer"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "stable_deref_trait"
@@ -2646,6 +2665,11 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "widestring"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "winapi"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2707,7 +2731,7 @@ dependencies = [
  "objc 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "percent-encoding 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "smithay-client-toolkit 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smithay-client-toolkit 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "wayland-client 0.21.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "x11-dl 2.18.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2947,6 +2971,7 @@ dependencies = [
 "checksum miniz_oxide 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5ad30a47319c16cde58d0314f5d98202a80c9083b5f61178457403dfb14e509c"
 "checksum miniz_oxide_c_api 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "28edaef377517fd9fe3e085c37d892ce7acd1fbeab9239c5a36eec352d8a8b7e"
 "checksum mio 0.6.16 (registry+https://github.com/rust-lang/crates.io-index)" = "71646331f2619b1026cc302f87a2b8b648d5c6dd6937846a16cc8ce0f347f432"
+"checksum mio-anonymous-pipes 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f8c274c3c52dcd1d78c5d7ed841eca1e9ea2db8353f3b8ec25789cc62c471aaf"
 "checksum mio-extras 2.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "46e73a04c2fa6250b8d802134d56d554a9ec2922bf977777c805ea5def61ce40"
 "checksum mio-named-pipes 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "f5e374eff525ce1c5b7687c4cef63943e7686524a387933ad27ca7ec43779cb3"
 "checksum mio-uds 0.6.7 (registry+https://github.com/rust-lang/crates.io-index)" = "966257a94e196b11bb43aca423754d87429960a768de9414f3691d6957abf125"
@@ -3042,8 +3067,9 @@ dependencies = [
 "checksum siphasher 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "0b8de496cf83d4ed58b6be86c3a275b8602f6ffe98d3024a869e124147a9a3ac"
 "checksum slab 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "5f9776d6b986f77b35c6cf846c11ad986ff128fe0b2b63a3628e3755e8d3102d"
 "checksum smallvec 0.6.7 (registry+https://github.com/rust-lang/crates.io-index)" = "b73ea3738b47563803ef814925e69be00799a8c07420be8b996f8e98fb2336db"
-"checksum smithay-client-toolkit 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "4bfd1c912756e610ab598d60fb16adeb3b6745ac0b0a4a2cc1a6b9fa88111409"
+"checksum smithay-client-toolkit 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "d858330eeed4efaf71c560555e2a6a0597d01b7d52685c3cc964ab1cc360f8c6"
 "checksum socket2 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)" = "c4d11a52082057d87cb5caa31ad812f4504b97ab44732cd8359df2e9ff9f48e7"
+"checksum spsc-buffer 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "be6c3f39c37a4283ee4b43d1311c828f2e1fb0541e76ea0cb1a2abd9ef2f5b3b"
 "checksum stable_deref_trait 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
 "checksum static_assertions 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "389ce475f424f267dbed6479cbd8f126c5e1afb053b0acdaa019c74305fc65d1"
 "checksum stb_truetype 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "71a7d260b43b6129a22dc341be18a231044ca67a48b7e32625f380cc5ec9ad70"
@@ -3099,6 +3125,7 @@ dependencies = [
 "checksum wayland-sys 0.21.7 (registry+https://github.com/rust-lang/crates.io-index)" = "a0931c24c91e4e56c1119e4137e237df2ccc3696df94f64b1e2f61982d89cc32"
 "checksum which 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "e84a603e7e0b1ce1aa1ee2b109c7be00155ce52df5081590d1ffb93f4f515cb2"
 "checksum widestring 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7157704c2e12e3d2189c507b7482c52820a16dfa4465ba91add92f266667cadb"
+"checksum widestring 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "effc0e4ff8085673ea7b9b2e3c73f6bd4d118810c9009ed8f1e16bd96c331db6"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
 "checksum winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "92c1eb33641e276cfa214a0522acad57be5c56b10cb348b3c5117db75f3ac4b0"
 "checksum winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2d315eee3b34aca4797b2da6b13ed88266e6d612562a0c46390af8299fc699bc"

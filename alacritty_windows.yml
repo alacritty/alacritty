@@ -283,6 +283,17 @@ shell:
   #args:
   #  - --login
 
+# Use the Windows 10 native conpty backend.
+# This will enable better color support and may resolve other issues,
+# however this API and its implementation is still young and so is
+# disabled by default, as performance and stability may not be as good
+# as the winpty backend.
+#
+# If set to true and Alacritty cannot initialize the conpty API
+# (for example on systems older than Windows 10 October 2018 update),
+# then Alacritty will fall back to the winpty backend.
+enable_experimental_conpty_api: false
+
 # Key bindings
 #
 # Key bindings are specified as a list of objects. Each binding will specify

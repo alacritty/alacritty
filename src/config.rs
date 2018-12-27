@@ -541,6 +541,12 @@ pub struct Config {
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]
     unfocused_hollow_cursor: Option<bool>,
+
+    /// Enable experimental conpty backend instead of using winpty.
+    /// Will only take effect on Windows 10 Oct 2018 and later.
+    #[cfg(windows)]
+    #[serde(default, deserialize_with="failure_default")]
+    enable_experimental_conpty_backend: bool
 }
 
 fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T>, D::Error>
@@ -1707,6 +1713,13 @@ impl Config {
     #[inline]
     pub fn cursor_cursor_color(&self) -> Option<Color> {
         self.colors.cursor.cursor.map(|_| Color::Named(NamedColor::Cursor))
+    }
+
+    /// Enable experimental conpty backend (Windows only)
+    #[cfg(windows)]
+    #[inline]
+    pub fn enable_experimental_conpty_backend(&self) -> bool {
+        self.enable_experimental_conpty_backend
     }
 
     // Update the history size, used in ref tests
