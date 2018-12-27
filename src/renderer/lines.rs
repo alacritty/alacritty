@@ -105,7 +105,8 @@ impl<'a> Lines<'a> {
     }
 }
 
-/// Create a rectangle between two cells.
+/// Create a rectangle that starts on the left of `start` and ends on the right
+/// of `end`, based on the given flag and size metrics.
 fn create_rect(
     start: &RenderableCell,
     end: &RenderableCell,
