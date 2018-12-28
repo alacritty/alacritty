@@ -88,7 +88,7 @@ impl ConptyApi {
 /// RAII Pseudoconsole
 pub struct Conpty {
     pub handle: HPCON,
-    api: ConptyApi
+    api: ConptyApi,
 }
 
 /// Handle can be cloned freely and moved between threads.
@@ -264,7 +264,10 @@ pub fn new<'a>(
     let conin = EventedAnonWrite::new(conin);
     let conout = EventedAnonRead::new(conout);
 
-    let agent = Conpty { handle: pty_handle, api };
+    let agent = Conpty {
+        handle: pty_handle,
+        api,
+    };
 
     Some(Pty {
         handle: super::PtyHandle::Conpty(ConptyHandle::new(agent)),

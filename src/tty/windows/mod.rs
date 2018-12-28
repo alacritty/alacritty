@@ -19,15 +19,15 @@ use mio::{self, Evented, Poll, PollOpt, Ready, Token};
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
 use mio_named_pipes::NamedPipe;
 
+use winapi::shared::winerror::WAIT_TIMEOUT;
 use winapi::um::synchapi::WaitForSingleObject;
 use winapi::um::winbase::WAIT_OBJECT_0;
-use winapi::shared::winerror::WAIT_TIMEOUT;
 
+use crate::cli::Options;
 use crate::config::Config;
 use crate::display::OnResize;
-use crate::cli::Options;
-use crate::tty::EventedReadWrite;
 use crate::term::SizeInfo;
+use crate::tty::EventedReadWrite;
 
 mod conpty;
 mod winpty;
@@ -57,7 +57,7 @@ pub fn process_should_exit() -> bool {
 #[derive(Clone)]
 pub enum PtyHandle<'a> {
     Winpty(winpty::WinptyHandle<'a>),
-    Conpty(conpty::ConptyHandle)
+    Conpty(conpty::ConptyHandle),
 }
 
 pub struct Pty<'a> {
@@ -102,41 +102,45 @@ pub fn new<'a>(
 // everything can just use NamedPipe.
 pub enum EventedReadablePipe {
     Anonymous(EventedAnonRead),
-    Named(NamedPipe)
+    Named(NamedPipe),
 }
 
 pub enum EventedWritablePipe {
     Anonymous(EventedAnonWrite),
-    Named(NamedPipe)
+    Named(NamedPipe),
 }
 
 impl Evented for EventedReadablePipe {
-    fn register(&self,
-                poll: &Poll,
-                token: Token,
-                interest: Ready,
-                opts: PollOpt) -> io::Result<()> {
+    fn register(
+        &self,
+        poll: &Poll,
+        token: Token,
+        interest: Ready,
+        opts: PollOpt,
+    ) -> io::Result<()> {
         match self {
             EventedReadablePipe::Anonymous(p) => p.register(poll, token, interest, opts),
-            EventedReadablePipe::Named(p) => p.register(poll, token, interest, opts)
+            EventedReadablePipe::Named(p) => p.register(poll, token, interest, opts),
         }
     }
 
-    fn reregister(&self,
-                poll: &Poll,
-                token: Token,
-                interest: Ready,
-                opts: PollOpt) -> io::Result<()> {
+    fn reregister(
+        &self,
+        poll: &Poll,
+        token: Token,
+        interest: Ready,
+        opts: PollOpt,
+    ) -> io::Result<()> {
         match self {
             EventedReadablePipe::Anonymous(p) => p.reregister(poll, token, interest, opts),
-            EventedReadablePipe::Named(p) => p.reregister(poll, token, interest, opts)
+            EventedReadablePipe::Named(p) => p.reregister(poll, token, interest, opts),
         }
     }
 
     fn deregister(&self, poll: &Poll) -> io::Result<()> {
         match self {
             EventedReadablePipe::Anonymous(p) => p.deregister(poll),
-            EventedReadablePipe::Named(p) => p.deregister(poll)
+            EventedReadablePipe::Named(p) => p.deregister(poll),
         }
     }
 }
@@ -145,38 +149,42 @@ impl Read for EventedReadablePipe {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
             EventedReadablePipe::Anonymous(p) => p.read(buf),
-            EventedReadablePipe::Named(p) => p.read(buf)
+            EventedReadablePipe::Named(p) => p.read(buf),
         }
     }
 }
 
 impl Evented for EventedWritablePipe {
-    fn register(&self,
-                poll: &Poll,
-                token: Token,
-                interest: Ready,
-                opts: PollOpt) -> io::Result<()> {
+    fn register(
+        &self,
+        poll: &Poll,
+        token: Token,
+        interest: Ready,
+        opts: PollOpt,
+    ) -> io::Result<()> {
         match self {
             EventedWritablePipe::Anonymous(p) => p.register(poll, token, interest, opts),
-            EventedWritablePipe::Named(p) => p.register(poll, token, interest, opts)
+            EventedWritablePipe::Named(p) => p.register(poll, token, interest, opts),
         }
     }
 
-    fn reregister(&self,
-                poll: &Poll,
-                token: Token,
-                interest: Ready,
-                opts: PollOpt) -> io::Result<()> {
+    fn reregister(
+        &self,
+        poll: &Poll,
+        token: Token,
+        interest: Ready,
+        opts: PollOpt,
+    ) -> io::Result<()> {
         match self {
             EventedWritablePipe::Anonymous(p) => p.reregister(poll, token, interest, opts),
-            EventedWritablePipe::Named(p) => p.reregister(poll, token, interest, opts)
+            EventedWritablePipe::Named(p) => p.reregister(poll, token, interest, opts),
         }
     }
 
     fn deregister(&self, poll: &Poll) -> io::Result<()> {
         match self {
             EventedWritablePipe::Anonymous(p) => p.deregister(poll),
-            EventedWritablePipe::Named(p) => p.deregister(poll)
+            EventedWritablePipe::Named(p) => p.deregister(poll),
         }
     }
 }
@@ -185,14 +193,14 @@ impl Write for EventedWritablePipe {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
             EventedWritablePipe::Anonymous(p) => p.write(buf),
-            EventedWritablePipe::Named(p) => p.write(buf)
+            EventedWritablePipe::Named(p) => p.write(buf),
         }
     }
 
     fn flush(&mut self) -> io::Result<()> {
         match self {
             EventedWritablePipe::Anonymous(p) => p.flush(),
-            EventedWritablePipe::Named(p) => p.flush()
+            EventedWritablePipe::Named(p) => p.flush(),
         }
     }
 }
@@ -258,7 +266,12 @@ impl<'a> EventedReadWrite for Pty<'a> {
     }
 
     #[inline]
-    fn reregister(&mut self, poll: &mio::Poll, interest: mio::Ready, poll_opts: mio::PollOpt) -> io::Result<()> {
+    fn reregister(
+        &mut self,
+        poll: &mio::Poll,
+        interest: mio::Ready,
+        poll_opts: mio::PollOpt,
+    ) -> io::Result<()> {
         if interest.is_readable() {
             poll.reregister(
                 &self.conout,
