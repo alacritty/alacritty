@@ -42,7 +42,7 @@ impl crate::Rasterize for RustTypeRasterizer {
         // RustType doesn't support these, so we make up our own
         let thickness = (descent / 5.).round();
         let underline_position = descent / 2. + thickness / 2.;
-        let strikeout_position = (line_height as f32 / 2. - descent).round();
+        let strikeout_position = line_height as f32 / 2. - descent;
 
         Ok(Metrics {
             descent,

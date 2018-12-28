@@ -132,6 +132,10 @@ fn create_rect(
         y = max_y;
     }
 
+    if flag == Flags::UNDERLINE {
+        println!("UNDERLINE:\n    CELL BOTTOM: {}\n    BASELINE: {}\n    UL POS: {}\n    UL HEIGHT: {}\n    MAX Y: {}\n    Y: {}", cell_bottom, baseline, position, height, max_y, y);
+    }
+
     let rect = Rect::new(
         start_x + size.padding_x,
         y.round() + size.padding_y,

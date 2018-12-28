@@ -97,22 +97,24 @@ impl ::Rasterize for FreeTypeRasterizer {
 
         // Get underline position and thickness in device pixels
         let x_scale = full.size_metrics.x_scale as f32 / 65536.0;
-        let underline_position =
-            (f32::from(face.ft_face.underline_position()) * x_scale / 64.).round();
-        let underline_thickness =
-            (f32::from(face.ft_face.underline_thickness()) * x_scale / 64.)
-            .round()
-            .max(1.);
+        let mut underline_position =
+            f32::from(face.ft_face.underline_position()) * x_scale / 64.;
+        let mut underline_thickness =
+            (f32::from(face.ft_face.underline_thickness()) * x_scale / 64.).max(1.);
+
+        // Fallback for bitmap fonts which do not provide underline metrics
+        if underline_position == 0. {
+            underline_thickness = (descent / 5.).round();
+            underline_position = descent / 2. + underline_thickness / 2.;
+        }
 
         // Get strikeout position and thickness in device pixels
         let (strikeout_position, strikeout_thickness) =
             match TrueTypeOS2Table::from_face(&mut face.ft_face.clone())
         {
             Some(os2) => {
-                let strikeout_position =
-                    (f32::from(os2.y_strikeout_position()) * x_scale / 64.).round();
-                let strikeout_thickness =
-                    (f32::from(os2.y_strikeout_size()) * x_scale / 64.).round();
+                let strikeout_position = f32::from(os2.y_strikeout_position()) * x_scale / 64.;
+                let strikeout_thickness = f32::from(os2.y_strikeout_size()) * x_scale / 64.;
                 (strikeout_position, strikeout_thickness)
             },
             _ => {
