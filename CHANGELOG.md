@@ -13,8 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Windows configuration location has been moved from %USERPROFILE\alacritty.yml
-    to %APPDATA%\Roaming\alacritty\alacritty.yml
+- Windows configuration location has been moved from %USERPROFILE%\alacritty.yml
+    to %APPDATA%\alacritty\alacritty.yml
 
 ### Fixed
 
