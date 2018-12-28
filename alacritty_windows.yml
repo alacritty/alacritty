@@ -292,7 +292,7 @@ shell:
 #
 # Alacritty will fall back to the WinPTY automatically if the ConPTY
 # backend cannot be initialized.
-enable_experimental_conpty_api: false
+enable_experimental_conpty_backend: false
 
 # Key bindings
 #
