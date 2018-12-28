@@ -20,19 +20,6 @@
 #[macro_use] extern crate log;
 #[macro_use] extern crate serde_derive;
 
-#[cfg(windows)]
-extern crate mio_named_pipes;
-#[cfg(windows)]
-extern crate winapi;
-#[cfg(windows)]
-extern crate winpty;
-#[cfg(windows)]
-extern crate dunce;
-#[cfg(windows)]
-extern crate image;
-#[cfg(windows)]
-extern crate dirs;
-
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;

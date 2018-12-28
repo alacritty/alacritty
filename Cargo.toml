@@ -58,9 +58,12 @@ x11-dl = "2"
 [target.'cfg(windows)'.dependencies]
 winpty = { path = "./winpty" }
 mio-named-pipes = "0.1"
-winapi = { version = "0.3.5", features = ["winuser", "synchapi", "roerrorapi", "winerror"]}
+miow = "0.3"
+winapi = { version = "0.3.5", features = ["impl-default", "winuser", "synchapi", "roerrorapi", "winerror", "wincon"]}
 dunce = "0.1"
 dirs = "1.0"
+widestring = "0.4"
+mio-anonymous-pipes = "0.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"

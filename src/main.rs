@@ -160,9 +160,9 @@ fn run(
     // and we need to be able to resize the PTY from the main thread while the IO
     // thread owns the EventedRW object.
     #[cfg(windows)]
-    let resize_handle = unsafe { &mut *pty.winpty.get() };
+    let mut resize_handle = pty.resize_handle();
     #[cfg(not(windows))]
-    let resize_handle = &mut pty.fd.as_raw_fd();
+    let mut resize_handle = pty.fd.as_raw_fd();
 
     // Create the pseudoterminal I/O loop
     //
@@ -239,7 +239,7 @@ fn run(
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
-            display.handle_resize(&mut terminal_lock, &config, &mut [resize_handle, &mut processor]);
+            display.handle_resize(&mut terminal_lock, &config, &mut [&mut resize_handle, &mut processor]);
 
             drop(terminal_lock);
 

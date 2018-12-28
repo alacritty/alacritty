@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New configuration field `visual_bell.color` allows changing the visual bell color
 - Crashes on Windows are now also reported with a popup in addition to stderr
+- Windows: New configuration field `enable_experimental_conpty_backend` which enables support
+    for the Pseudoconsole API (ConPTY) added in Windows 10 October 2018 (1809) update
 
 ### Changed
 
@@ -22,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix panic after quitting Alacritty on macOS
 - Tabs are no longer replaced by spaces when copying them to the clipboard
 - Alt modifier is no longer sent separately from the modified key
+- Various Windows issues, like color support and performance, through the new ConPTY
 
 ## Version 0.2.4
 
