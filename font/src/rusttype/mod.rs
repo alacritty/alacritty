@@ -38,10 +38,10 @@ impl crate::Rasterize for RustTypeRasterizer {
         let average_advance = f64::from(hmetrics.advance_width);
         let descent = vmetrics.descent;
 
-        // Strikeout and underline metrics
-        // RustType doesn't support these, so we make up our own
+        // Strikeout and underline metrics.
+        // RustType doesn't support these, so we make up our own.
         let thickness = (descent / 5.).round();
-        let underline_position = descent / 2. + thickness / 2.;
+        let underline_position = descent / 2.;
         let strikeout_position = line_height as f32 / 2. - descent;
 
         Ok(Metrics {

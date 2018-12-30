@@ -117,11 +117,14 @@ fn create_rect(
     let end_x = (end.column.0 + 1) as f32 * size.cell_width;
     let width = end_x - start_x;
 
-    let (position, height) = match flag {
+    let (position, mut height) = match flag {
         Flags::UNDERLINE => (metrics.underline_position, metrics.underline_thickness),
         Flags::STRIKEOUT => (metrics.strikeout_position, metrics.strikeout_thickness),
         _ => unimplemented!("Invalid flag for cell line drawing specified"),
     };
+
+    // Make sure lines are always visible
+    height = height.max(1.);
 
     let cell_bottom = (start.line.0 as f32 + 1.) * size.cell_height;
     let baseline = cell_bottom + metrics.descent;
@@ -132,15 +135,11 @@ fn create_rect(
         y = max_y;
     }
 
-    if flag == Flags::UNDERLINE {
-        println!("UNDERLINE:\n    CELL BOTTOM: {}\n    BASELINE: {}\n    UL POS: {}\n    UL HEIGHT: {}\n    MAX Y: {}\n    Y: {}", cell_bottom, baseline, position, height, max_y, y);
-    }
-
     let rect = Rect::new(
         start_x + size.padding_x,
         y.round() + size.padding_y,
         width,
-        height,
+        height.round(),
     );
 
     (rect, start.fg)
