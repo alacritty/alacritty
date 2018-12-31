@@ -13,11 +13,11 @@
 // limitations under the License.
 use std::collections::HashMap;
 
-use crate::term::{ SizeInfo, RenderableCell};
-use crate::term::cell::Flags;
 use crate::renderer::Rect;
-use font::Metrics;
+use crate::term::cell::Flags;
+use crate::term::{RenderableCell, SizeInfo};
 use crate::Rgb;
+use font::Metrics;
 
 /// Lines for underline and strikeout.
 pub struct Lines<'a> {
@@ -70,20 +70,24 @@ impl<'a> Lines<'a> {
             *start_cell = match *start_cell {
                 // Check for end if line is present
                 Some(ref mut start) => {
+                    let last_cell = self.last_cell.unwrap();
+
                     // No change in line
-                    if cell.line == start.line && cell.flags.contains(flag) && cell.fg == start.fg {
+                    if cell.line == start.line
+                        && cell.flags.contains(flag)
+                        && cell.fg == start.fg
+                        && cell.column == last_cell.column + 1
+                    {
                         continue;
                     }
 
-                    self.inner.push(
-                        create_rect(
-                            &start,
-                            &self.last_cell.unwrap(),
-                            flag,
-                            &self.metrics,
-                            &self.size,
-                        )
-                    );
+                    self.inner.push(create_rect(
+                        &start,
+                        &last_cell,
+                        flag,
+                        &self.metrics,
+                        &self.size,
+                    ));
 
                     // Start a new line if the flag is present
                     if cell.flags.contains(flag) {
