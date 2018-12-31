@@ -430,21 +430,17 @@ impl Font {
         let leading = self.ct_font.leading() as f64;
         let line_height = (ascent + descent + leading + 0.5).floor();
 
-        // Strikeout and underline metrics
-        // CoreText doesn't provide strikeout so we provide our own
-        let underline_position =
-            (self.ct_font.underline_position() - descent)
-            .round() as f32;
-        let underline_thickness = self.ct_font.underline_thickness()
-            .round()
-            .max(1.) as f32;
-        let strikeout_position = (line_height as f32 / 2. - descent as f32).round();
+        // Strikeout and underline metrics.
+        // CoreText doesn't provide strikeout so we provide our own.
+        let underline_position = (self.ct_font.underline_position() - descent) as f32;
+        let underline_thickness = self.ct_font.underline_thickness() as f32;
+        let strikeout_position = (line_height / 2. - descent) as f32;
         let strikeout_thickness = underline_thickness;
 
         Metrics {
             average_advance,
             line_height,
-            descent: -(self.ct_font.descent() as f32),
+            descent: -(descent as f32),
             underline_position,
             underline_thickness,
             strikeout_position,
