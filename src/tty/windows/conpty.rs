@@ -212,7 +212,7 @@ pub fn new<'a>(
     }
 
     // Get process commandline
-    let default_shell = &Shell::new(env::var("COMSPEC").unwrap_or_else(|_| "cmd".into()));
+    let default_shell = &Shell::new(env::var("COMSPEC").unwrap_or_else(|_| "powershell".into()));
     let shell = config.shell().unwrap_or(default_shell);
     let initial_command = options.command().unwrap_or(shell);
     let mut cmdline = initial_command.args().to_vec();
