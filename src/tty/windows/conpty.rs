@@ -14,7 +14,6 @@
 
 use super::{process_should_exit, Pty, HANDLE};
 
-use std::env;
 use std::i16;
 use std::mem;
 use std::os::windows::io::IntoRawHandle;
@@ -212,7 +211,7 @@ pub fn new<'a>(
     }
 
     // Get process commandline
-    let default_shell = &Shell::new(env::var("COMSPEC").unwrap_or_else(|_| "powershell".into()));
+    let default_shell = &Shell::new("powershell");
     let shell = config.shell().unwrap_or(default_shell);
     let initial_command = options.command().unwrap_or(shell);
     let mut cmdline = initial_command.args().to_vec();

@@ -18,7 +18,6 @@ use std::io;
 use std::fs::OpenOptions;
 use std::os::windows::io::{FromRawHandle, IntoRawHandle};
 use std::os::windows::fs::OpenOptionsExt;
-use std::env;
 use std::sync::Arc;
 use std::u16;
 
@@ -96,7 +95,7 @@ pub fn new<'a>(
     let (conin, conout) = (winpty.conin_name(), winpty.conout_name());
 
     // Get process commandline
-    let default_shell = &Shell::new(env::var("COMSPEC").unwrap_or_else(|_| "powershell".into()));
+    let default_shell = &Shell::new("powershell");
     let shell = config.shell().unwrap_or(default_shell);
     let initial_command = options.command().unwrap_or(shell);
     let mut cmdline = initial_command.args().to_vec();

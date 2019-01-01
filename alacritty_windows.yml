@@ -276,12 +276,12 @@ live_config_reload: true
 
 # Shell
 #
-# You can set `shell.program` to the path of your favorite shell, e.g. `/bin/fish`.
+# You can set `shell.program` to the path of your favorite shell, e.g. `powershell`.
 # Entries in `shell.args` are passed unmodified as arguments to the shell.
-shell:
-  program: powershell
-  #args:
-  #  - --login
+#shell:
+#  program: cmd
+#  args:
+#    - /K env.cmd
 
 # Windows 10 ConPTY backend
 #
