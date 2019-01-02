@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tabs are no longer replaced by spaces when copying them to the clipboard
 - Alt modifier is no longer sent separately from the modified key
 - Various Windows issues, like color support and performance, through the new ConPTY
+- Fixed rendering non default mouse cursors in terminal mouse mode (linux)
 
 ## Version 0.2.4
 

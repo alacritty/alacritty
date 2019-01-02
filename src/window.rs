@@ -249,7 +249,7 @@ impl Window {
     #[inline]
     pub fn set_mouse_cursor(&self, cursor: MouseCursor) {
         self.window.set_cursor(match cursor {
-            MouseCursor::Arrow => GlutinMouseCursor::Arrow,
+            MouseCursor::Arrow => GlutinMouseCursor::Default,
             MouseCursor::Text => GlutinMouseCursor::Text,
         });
     }
