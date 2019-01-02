@@ -646,6 +646,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             MouseButton::Other(_) => None,
         };
 
+        self.process_mouse_bindings(modifiers, button);
+
         if let Some(prev_state) = prev_state {
             if prev_state != state {
                 match state {
@@ -658,8 +660,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         if let ElementState::Released = state {
             return;
         }
-
-        self.process_mouse_bindings(modifiers, button);
     }
 
     /// Process key input
