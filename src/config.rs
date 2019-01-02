@@ -1391,7 +1391,7 @@ fn rgb_from_hex<'a, D>(deserializer: D) -> ::std::result::Result<Rgb, D::Error>
     match rgb {
         Ok(rgb) => Ok(rgb),
         Err(err) => {
-            error!("Problem with config: {}; Using color #ff00ff", err);
+            error!("Problem with config: {}; Using color `#ff00ff`", err);
             Ok(Rgb { r: 255, g: 0, b: 255 })
         },
     }

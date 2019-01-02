@@ -144,7 +144,7 @@ impl Display {
         let mut window = Window::new(&options, config.window())?;
 
         let dpr = window.hidpi_factor();
-        info!("Device Pixel Ratio: {}", dpr);
+        info!("Device pixel ratio: {}", dpr);
 
         // get window properties for initializing the other subsystems
         let mut viewport_size = window.inner_size_pixels()

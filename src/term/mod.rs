@@ -1370,7 +1370,7 @@ impl ansi::Handler for Term {
                 return;
             }
 
-            trace!("wrapping");
+            trace!("wrapping input");
 
             {
                 let location = Point {
@@ -1546,7 +1546,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn device_status<W: io::Write>(&mut self, writer: &mut W, arg: usize) {
-        trace!("device status: {}", arg);
+        trace!("device_status: {}", arg);
         match arg {
             5 => {
                 let _ = writer.write_all(b"\x1b[0n");
@@ -1774,7 +1774,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn save_cursor_position(&mut self) {
-        trace!("save cursor");
+        trace!("save_cursor_position");
         let cursor = if self.alt {
             &mut self.cursor_save_alt
         } else {
@@ -1786,7 +1786,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn restore_cursor_position(&mut self) {
-        trace!("restore cursor");
+        trace!("restore_cursor_position");
         let source = if self.alt {
             &self.cursor_save_alt
         } else {
@@ -1944,7 +1944,7 @@ impl ansi::Handler for Term {
     /// set a terminal attribute
     #[inline]
     fn terminal_attribute(&mut self, attr: Attr) {
-        trace!("set_attribute: {:?}", attr);
+        trace!("setting attribute: {:?}", attr);
         match attr {
             Attr::Foreground(color) => self.cursor.template.fg = color,
             Attr::Background(color) => self.cursor.template.bg = color,
@@ -2055,7 +2055,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn set_scrolling_region(&mut self, region: Range<Line>) {
-        trace!("set scroll region: {:?}", region);
+        trace!("set_scrolling_region: {:?}", region);
         self.scroll_region.start = min(region.start, self.grid.num_lines());
         self.scroll_region.end = min(region.end, self.grid.num_lines());
         self.goto(Line(0), Column(0));
@@ -2063,25 +2063,25 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn set_keypad_application_mode(&mut self) {
-        trace!("set mode::TermMode::APP_KEYPAD");
+        trace!("set_keypad_application_mode");
         self.mode.insert(mode::TermMode::APP_KEYPAD);
     }
 
     #[inline]
     fn unset_keypad_application_mode(&mut self) {
-        trace!("unset mode::TermMode::APP_KEYPAD");
+        trace!("unset_keypad_application_mode");
         self.mode.remove(mode::TermMode::APP_KEYPAD);
     }
 
     #[inline]
     fn configure_charset(&mut self, index: CharsetIndex, charset: StandardCharset) {
-        trace!("designate {:?} character set as {:?}", index, charset);
+        trace!("configure_charset {:?} as {:?}", index, charset);
         self.cursor.charsets[index] = charset;
     }
 
     #[inline]
     fn set_active_charset(&mut self, index: CharsetIndex) {
-        trace!("activate {:?} character set", index);
+        trace!("set_active_charset {:?}", index);
         self.active_charset = index;
     }
 

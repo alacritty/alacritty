@@ -117,7 +117,7 @@ impl ::Rasterize for FreeTypeRasterizer {
             },
             _ => {
                 // Fallback if font doesn't provide info about strikeout
-                trace!("No strikeout data available for font, using fallback.");
+                trace!("using fallback strikeout metrics");
                 let strikeout_position = height as f32 / 2. + descent;
                 (strikeout_position, underline_thickness)
             },
