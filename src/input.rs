@@ -513,7 +513,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 MouseButton::Other(_) => (),
             };
             return;
-        } else {
+        } else if button == MouseButton::Left {
             self.launch_url(modifiers);
         }
 
