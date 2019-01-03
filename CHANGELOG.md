@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Windows configuration location has been moved from %USERPROFILE%\alacritty.yml
     to %APPDATA%\alacritty\alacritty.yml
 - Windows default shell is now PowerShell instead of cmd
+- URL schemes have been limited to http, https, mailto, news, file, git, ssh and ftp
 
 ### Fixed
 

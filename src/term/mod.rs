@@ -41,6 +41,7 @@ use self::cell::LineLength;
 // See https://tools.ietf.org/html/rfc3987#page-13
 const URL_SEPARATOR_CHARS: [char; 10] = ['<', '>', '"', ' ', '{', '}', '|', '\\', '^', '`'];
 const URL_DENY_END_CHARS: [char; 7] = ['.', ',', ';', ':', '?', '!', '/'];
+const URL_SCHEMES: [&str; 8] = ["http", "https", "mailto", "news", "file", "git", "ssh", "ftp"];
 
 /// A type that can expand a given point to a region
 ///
@@ -148,7 +149,13 @@ impl Search for Term {
 
         // Check if string is valid url
         match Url::parse(&buf) {
-            Ok(_) => Some(buf),
+            Ok(url) => {
+                if URL_SCHEMES.contains(&url.scheme()) {
+                    Some(buf)
+                } else {
+                    None
+                }
+            }
             Err(_) => None,
         }
     }
