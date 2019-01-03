@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Various Windows issues, like color support and performance, through the new ConPTY
 - Fixed rendering non default mouse cursors in terminal mouse mode (linux)
 - Fix the `Copy` `mouse_bindings` action ([#1963](https://github.com/jwilm/alacritty/issues/1963))
+- URLs are only launched when left-clicking
 
 ## Version 0.2.4
 
