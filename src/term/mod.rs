@@ -38,7 +38,9 @@ pub mod color;
 pub use self::cell::Cell;
 use self::cell::LineLength;
 
-const URL_SEPARATOR_CHARS: [char; 3] = [' ', '"', '\''];
+// See https://tools.ietf.org/html/rfc3987#page-13
+const URL_SEPARATOR_CHARS: [char; 10] = ['<', '>', '"', ' ', '{', '}', '|', '\\', '^', '`'];
+const URL_DENY_END_CHARS: [char; 7] = ['.', ',', ';', ':', '?', '!', '/'];
 
 /// A type that can expand a given point to a region
 ///
@@ -124,17 +126,24 @@ impl Search for Term {
             buf.push(cell.c);
         }
 
-        // Heuristic to remove all leading '('
+        // Remove all leading '('
         while buf.starts_with('(') {
             buf.remove(0);
         }
 
-        // Heuristic to remove all ')' from end of URLs without matching '('
-        let str_count = |text: &str, c: char| {
-            text.chars().filter(|tc| *tc == c).count()
-        };
-        while buf.ends_with(')') && str_count(&buf, '(') < str_count(&buf, ')') {
-            buf.pop();
+        // Remove all ')' from end of URLs without matching '('
+        let open_count = buf.chars().filter(|&c| c == '(').count();
+        let closed_count = buf.chars().filter(|&c| c == ')').count();
+        let mut parens_diff = closed_count - open_count;
+
+        // Remove all characters which aren't allowed at the end of a URL
+        while !buf.is_empty()
+            && (URL_DENY_END_CHARS.contains(&buf.chars().last().unwrap())
+                || (parens_diff > 0 && buf.ends_with(')')))
+        {
+            if buf.pop().unwrap() == ')' {
+                parens_diff -= 1;
+            }
         }
 
         // Check if string is valid url
@@ -2466,6 +2475,46 @@ mod tests {
         let url = term.url_search(Point::new(0, Column(1)));
 
         assert_eq!(url, None);
+    }
+
+    // `ftp://a.de.,;:)!/?` -> `Some("ftp://a.de")`
+    #[test]
+    fn url_remove_end_chars() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&Default::default(), size);
+        let mut grid: Grid<Cell> = Grid::new(Line(1), Column(18), 0, Cell::default());
+        grid[Line(0)][Column(0)].c = 'f';
+        grid[Line(0)][Column(1)].c = 't';
+        grid[Line(0)][Column(2)].c = 'p';
+        grid[Line(0)][Column(3)].c = ':';
+        grid[Line(0)][Column(4)].c = '/';
+        grid[Line(0)][Column(5)].c = '/';
+        grid[Line(0)][Column(6)].c = 'a';
+        grid[Line(0)][Column(7)].c = '.';
+        grid[Line(0)][Column(8)].c = 'd';
+        grid[Line(0)][Column(9)].c = 'e';
+        grid[Line(0)][Column(10)].c = '.';
+        grid[Line(0)][Column(11)].c = ',';
+        grid[Line(0)][Column(12)].c = ';';
+        grid[Line(0)][Column(13)].c = ':';
+        grid[Line(0)][Column(14)].c = ')';
+        grid[Line(0)][Column(15)].c = '!';
+        grid[Line(0)][Column(16)].c = '/';
+        grid[Line(0)][Column(17)].c = '?';
+        mem::swap(&mut term.grid, &mut grid);
+
+        // Search for URL in grid
+        let url = term.url_search(Point::new(0, Column(4)));
+
+        assert_eq!(url, Some("ftp://a.de".into()));
     }
 }
 
