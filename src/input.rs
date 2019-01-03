@@ -646,7 +646,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             MouseButton::Other(_) => None,
         };
 
-        self.process_mouse_bindings(modifiers, button);
+        if let ElementState::Pressed = state {
+            self.process_mouse_bindings(modifiers, button);
+        }
 
         if let Some(prev_state) = prev_state {
             if prev_state != state {
@@ -655,10 +657,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     ElementState::Released => self.on_mouse_release(button, modifiers),
                 };
             }
-        }
-
-        if let ElementState::Released = state {
-            return;
         }
     }
 
