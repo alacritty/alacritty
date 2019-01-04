@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix the `Copy` `mouse_bindings` action ([#1963](https://github.com/jwilm/alacritty/issues/1963))
 - URLs are only launched when left-clicking
 - Removal of extra characters (like `,`) at the end of URLs has been improved
+- Single quotes (`'`) are removed from URLs when there is no matching opening quote
 
 ## Version 0.2.4
 

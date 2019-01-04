@@ -46,6 +46,7 @@ pub mod term;
 pub mod tty;
 pub mod util;
 pub mod window;
+mod url;
 
 use std::ops::Mul;
 
