@@ -20,7 +20,6 @@ use std::time::{Duration, Instant};
 
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
-use url::Url;
 
 use font::{self, Size};
 use crate::ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
@@ -32,16 +31,12 @@ use crate::{MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
 use crate::input::FONT_SIZE_STEP;
 use crate::logging::LoggerProxy;
+use crate::url::UrlParser;
 
 pub mod cell;
 pub mod color;
 pub use self::cell::Cell;
 use self::cell::LineLength;
-
-// See https://tools.ietf.org/html/rfc3987#page-13
-const URL_SEPARATOR_CHARS: [char; 10] = ['<', '>', '"', ' ', '{', '}', '|', '\\', '^', '`'];
-const URL_DENY_END_CHARS: [char; 7] = ['.', ',', ';', ':', '?', '!', '/'];
-const URL_SCHEMES: [&str; 8] = ["http", "https", "mailto", "news", "file", "git", "ssh", "ftp"];
 
 /// A type that can expand a given point to a region
 ///
@@ -112,52 +107,19 @@ impl Search for Term {
         point.col += 1;
         let mut iterb = self.grid.iter_from(point);
 
-        // Put all characters until separators into a string
-        let mut buf = String::new();
+        // Find URLs
+        let mut url_parser = UrlParser::new();
         while let Some(cell) = iterb.prev() {
-            if URL_SEPARATOR_CHARS.contains(&cell.c) {
+            if url_parser.advance_left(cell.c) {
                 break;
             }
-            buf.insert(0, cell.c);
         }
         for cell in iterf {
-            if URL_SEPARATOR_CHARS.contains(&cell.c) {
+            if url_parser.advance_right(cell.c) {
                 break;
             }
-            buf.push(cell.c);
         }
-
-        // Remove all leading '('
-        while buf.starts_with('(') {
-            buf.remove(0);
-        }
-
-        // Remove all ')' from end of URLs without matching '('
-        let open_count = buf.chars().filter(|&c| c == '(').count();
-        let closed_count = buf.chars().filter(|&c| c == ')').count();
-        let mut parens_diff = closed_count - open_count;
-
-        // Remove all characters which aren't allowed at the end of a URL
-        while !buf.is_empty()
-            && (URL_DENY_END_CHARS.contains(&buf.chars().last().unwrap())
-                || (parens_diff > 0 && buf.ends_with(')')))
-        {
-            if buf.pop().unwrap() == ')' {
-                parens_diff -= 1;
-            }
-        }
-
-        // Check if string is valid url
-        match Url::parse(&buf) {
-            Ok(url) => {
-                if URL_SCHEMES.contains(&url.scheme()) {
-                    Some(buf)
-                } else {
-                    None
-                }
-            }
-            Err(_) => None,
-        }
+        url_parser.url()
     }
 }
 
@@ -1163,6 +1125,12 @@ impl Term {
         &self.grid
     }
 
+    // Mutable access for swapping out the grid during tests
+    #[cfg(test)]
+    pub fn grid_mut(&mut self) -> &mut Grid<Cell> {
+        &mut self.grid
+    }
+
     /// Iterate over the *renderable* cells in the terminal
     ///
     /// A renderable cell is any cell which has content other than the default
@@ -2147,7 +2115,7 @@ mod tests {
     use serde_json;
 
     use super::{Cell, Term, SizeInfo};
-    use crate::term::{cell, Search};
+    use crate::term::cell;
 
     use crate::grid::{Grid, Scroll};
     use crate::index::{Point, Line, Column, Side};
@@ -2386,142 +2354,6 @@ mod tests {
         let mut scrolled_grid = term.grid.clone();
         scrolled_grid.scroll_display(Scroll::Top);
         assert_eq!(term.grid, scrolled_grid);
-    }
-
-    // `((ftp://a.de))` -> `Some("ftp://a.de")`
-    #[test]
-    fn url_trim_unmatched_parens() {
-        let size = SizeInfo {
-            width: 21.0,
-            height: 51.0,
-            cell_width: 3.0,
-            cell_height: 3.0,
-            padding_x: 0.0,
-            padding_y: 0.0,
-            dpr: 1.0,
-        };
-        let mut term = Term::new(&Default::default(), size);
-        let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
-        grid[Line(0)][Column(0)].c = '(';
-        grid[Line(0)][Column(1)].c = '(';
-        grid[Line(0)][Column(2)].c = 'f';
-        grid[Line(0)][Column(3)].c = 't';
-        grid[Line(0)][Column(4)].c = 'p';
-        grid[Line(0)][Column(5)].c = ':';
-        grid[Line(0)][Column(6)].c = '/';
-        grid[Line(0)][Column(7)].c = '/';
-        grid[Line(0)][Column(8)].c = 'a';
-        grid[Line(0)][Column(9)].c = '.';
-        grid[Line(0)][Column(10)].c = 'd';
-        grid[Line(0)][Column(11)].c = 'e';
-        grid[Line(0)][Column(12)].c = ')';
-        grid[Line(0)][Column(13)].c = ')';
-        mem::swap(&mut term.grid, &mut grid);
-
-        // Search for URL in grid
-        let url = term.url_search(Point::new(0, Column(4)));
-
-        assert_eq!(url, Some("ftp://a.de".into()));
-    }
-
-    // `ftp://a.de/()` -> `Some("ftp://a.de/()")`
-    #[test]
-    fn url_allow_matching_parens() {
-        let size = SizeInfo {
-            width: 21.0,
-            height: 51.0,
-            cell_width: 3.0,
-            cell_height: 3.0,
-            padding_x: 0.0,
-            padding_y: 0.0,
-            dpr: 1.0,
-        };
-        let mut term = Term::new(&Default::default(), size);
-        let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
-        grid[Line(0)][Column(0)].c = 'f';
-        grid[Line(0)][Column(1)].c = 't';
-        grid[Line(0)][Column(2)].c = 'p';
-        grid[Line(0)][Column(3)].c = ':';
-        grid[Line(0)][Column(4)].c = '/';
-        grid[Line(0)][Column(5)].c = '/';
-        grid[Line(0)][Column(6)].c = 'a';
-        grid[Line(0)][Column(7)].c = '.';
-        grid[Line(0)][Column(8)].c = 'd';
-        grid[Line(0)][Column(9)].c = 'e';
-        grid[Line(0)][Column(10)].c = '/';
-        grid[Line(0)][Column(11)].c = '(';
-        grid[Line(0)][Column(12)].c = ')';
-        mem::swap(&mut term.grid, &mut grid);
-
-        // Search for URL in grid
-        let url = term.url_search(Point::new(0, Column(4)));
-
-        assert_eq!(url, Some("ftp://a.de/()".into()));
-    }
-
-    // `aze` -> `None`
-    #[test]
-    fn url_skip_invalid() {
-        let size = SizeInfo {
-            width: 21.0,
-            height: 51.0,
-            cell_width: 3.0,
-            cell_height: 3.0,
-            padding_x: 0.0,
-            padding_y: 0.0,
-            dpr: 1.0,
-        };
-        let mut term = Term::new(&Default::default(), size);
-        let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
-        grid[Line(0)][Column(0)].c = 'a';
-        grid[Line(0)][Column(1)].c = 'z';
-        grid[Line(0)][Column(2)].c = 'e';
-        mem::swap(&mut term.grid, &mut grid);
-
-        // Search for URL in grid
-        let url = term.url_search(Point::new(0, Column(1)));
-
-        assert_eq!(url, None);
-    }
-
-    // `ftp://a.de.,;:)!/?` -> `Some("ftp://a.de")`
-    #[test]
-    fn url_remove_end_chars() {
-        let size = SizeInfo {
-            width: 21.0,
-            height: 51.0,
-            cell_width: 3.0,
-            cell_height: 3.0,
-            padding_x: 0.0,
-            padding_y: 0.0,
-            dpr: 1.0,
-        };
-        let mut term = Term::new(&Default::default(), size);
-        let mut grid: Grid<Cell> = Grid::new(Line(1), Column(18), 0, Cell::default());
-        grid[Line(0)][Column(0)].c = 'f';
-        grid[Line(0)][Column(1)].c = 't';
-        grid[Line(0)][Column(2)].c = 'p';
-        grid[Line(0)][Column(3)].c = ':';
-        grid[Line(0)][Column(4)].c = '/';
-        grid[Line(0)][Column(5)].c = '/';
-        grid[Line(0)][Column(6)].c = 'a';
-        grid[Line(0)][Column(7)].c = '.';
-        grid[Line(0)][Column(8)].c = 'd';
-        grid[Line(0)][Column(9)].c = 'e';
-        grid[Line(0)][Column(10)].c = '.';
-        grid[Line(0)][Column(11)].c = ',';
-        grid[Line(0)][Column(12)].c = ';';
-        grid[Line(0)][Column(13)].c = ':';
-        grid[Line(0)][Column(14)].c = ')';
-        grid[Line(0)][Column(15)].c = '!';
-        grid[Line(0)][Column(16)].c = '/';
-        grid[Line(0)][Column(17)].c = '?';
-        mem::swap(&mut term.grid, &mut grid);
-
-        // Search for URL in grid
-        let url = term.url_search(Point::new(0, Column(4)));
-
-        assert_eq!(url, Some("ftp://a.de".into()));
     }
 }
 
