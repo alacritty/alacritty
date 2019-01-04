@@ -872,6 +872,7 @@ mod tests {
         fn hide_window(&mut self) {
         }
         fn clear_log(&mut self) {}
+        fn new_instance_same_dir(&mut self) {}
     }
 
     macro_rules! test_clickstate {
