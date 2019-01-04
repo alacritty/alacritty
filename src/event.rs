@@ -4,6 +4,11 @@ use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc;
 use std::time::{Instant};
+use std::process;
+use std::process::Command;
+use std::env;
+
+use crate::tty;
 
 use serde_json as json;
 use parking_lot::MutexGuard;
@@ -177,6 +182,38 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     fn clear_log(&mut self) {
         self.terminal.clear_log();
     }
+
+    fn new_instance_same_dir(&mut self) {
+        unsafe {
+        let current_working_dir = Command::new("pwdx")
+            .arg(tty::PID.to_string())
+            .output()
+            .expect("Failed to get shelll current working dir")
+            .stdout;
+        let current_working_dir = String::from_utf8(current_working_dir)
+            .expect("Failed to convert to string");
+        
+        let space_pos = current_working_dir
+            .find(" ")
+            .expect("Failed to find space");
+
+        let current_working_dir: String = current_working_dir
+            .chars()
+            .skip(space_pos + 1)
+            .take(current_working_dir.len() - space_pos + 1)
+            .collect(); 
+
+        let args:Vec<String> = env::args().collect();
+
+        Command::new(&args[0])
+            .arg("--working-directory")
+            .arg(&current_working_dir.trim())
+            .spawn()
+            .expect("");
+            
+        }
+    }
+
 }
 
 /// The ActionContext can't really have direct access to the Window

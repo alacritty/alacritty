@@ -792,6 +792,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Hide" => Action::Hide,
                     "Quit" => Action::Quit,
                     "ClearLogNotice" => Action::ClearLogNotice,
+                    "NewInstanceSameDir" => Action::NewInstanceSameDir,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
             }

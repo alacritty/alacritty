@@ -75,6 +75,7 @@ pub trait ActionContext {
     fn hide_window(&mut self);
     fn url(&self, _: Point<usize>) -> Option<String>;
     fn clear_log(&mut self);
+    fn new_instance_same_dir(&mut self);
 }
 
 /// Describes a state and action to take in that state
@@ -202,6 +203,8 @@ pub enum Action {
 
     /// Clears warning and error notices.
     ClearLogNotice,
+    /// Create new instance of alacritty with the current directory
+    NewInstanceSameDir,
 }
 
 impl Action {
@@ -279,7 +282,10 @@ impl Action {
             },
             Action::ClearLogNotice => {
                 ctx.clear_log();
-            }
+            },
+            Action::NewInstanceSameDir => {
+                ctx.new_instance_same_dir();
+            },
         }
     }
 

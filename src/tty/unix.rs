@@ -38,7 +38,7 @@ use std::os::unix::io::AsRawFd;
 /// Process ID of child process
 ///
 /// Necessary to put this in static storage for `sigchld` to have access
-static mut PID: pid_t = 0;
+pub static mut PID: pid_t = 0;
 
 /// Exit flag
 ///
