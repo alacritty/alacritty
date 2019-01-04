@@ -1,6 +1,6 @@
 //! Process window events
 use std::borrow::Cow;
-use std::fs::File;
+use std::fs::{self,File};
 use std::io::Write;
 use std::sync::mpsc;
 use std::time::{Instant};
@@ -183,34 +183,18 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn new_instance_same_dir(&mut self) {
-        #[cfg(target_os = "linux")]
+        #[cfg(not(target_os = "windows"))]
         unsafe {
-            let current_working_dir = Command::new("pwdx")
-                .arg(tty::PID.to_string())
-                .output()
-                .expect("Failed to get shelll current working dir")
-                .stdout;
-            let current_working_dir = String::from_utf8(current_working_dir)
-                .expect("Failed to convert to string");
+        let current_working_dir =  fs::read_link(format!("/proc/{}/cwd", tty::PID))
+            .expect("Failed to get shell cwd");
+        let args:Vec<String> = env::args().collect();
 
-            let space_pos = current_working_dir
-                .find(" ")
-                .expect("Failed to find space");
-
-            let current_working_dir: String = current_working_dir
-                .chars()
-                .skip(space_pos + 1)
-                .take(current_working_dir.len() - space_pos + 1)
-                .collect(); 
-
-            let args:Vec<String> = env::args().collect();
-
-            Command::new(&args[0])
-                .arg("--working-directory")
-                .arg(&current_working_dir.trim())
-                .spawn()
-                .expect("");
-
+        Command::new(&args[0])
+            .arg("--working-directory")
+            .arg(&current_working_dir.into_os_string())
+            .spawn()
+            .expect("Failed to spawn new alacritty");
+            
         }
     }
 
