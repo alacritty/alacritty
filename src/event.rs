@@ -200,6 +200,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     #[cfg(target_os = "windows")]
     fn new_instance_same_dir(&mut self) {
+        let args:Vec<String> = env::args().collect();
         Command::new(&args[0])
             .spawn()
             .expect("Failed to spawn new alacritty");
