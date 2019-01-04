@@ -182,8 +182,8 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.clear_log();
     }
 
+    #[cfg(not(target_os = "windows"))]
     fn new_instance_same_dir(&mut self) {
-        #[cfg(not(target_os = "windows"))]
         unsafe {
         let current_working_dir =  fs::read_link(format!("/proc/{}/cwd", tty::PID))
             .expect("Failed to get shell cwd");
@@ -197,6 +197,13 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
             
         }
     }
+
+    #[cfg(target_os = "windows")]
+    fn new_instance_same_dir(&mut self) {
+        Command::new(&args[0])
+            .spawn()
+            .expect("Failed to spawn new alacritty");
+        }
 
 }
 
