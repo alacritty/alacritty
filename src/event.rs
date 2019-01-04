@@ -183,36 +183,35 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn new_instance_same_dir(&mut self) {
-       if cfg!(target_os = "linux"){
+        #[cfg(target_os = "linux")]
         unsafe {
-        let current_working_dir = Command::new("pwdx")
-            .arg(tty::PID.to_string())
-            .output()
-            .expect("Failed to get shelll current working dir")
-            .stdout;
-        let current_working_dir = String::from_utf8(current_working_dir)
-            .expect("Failed to convert to string");
-        
-        let space_pos = current_working_dir
-            .find(" ")
-            .expect("Failed to find space");
+            let current_working_dir = Command::new("pwdx")
+                .arg(tty::PID.to_string())
+                .output()
+                .expect("Failed to get shelll current working dir")
+                .stdout;
+            let current_working_dir = String::from_utf8(current_working_dir)
+                .expect("Failed to convert to string");
 
-        let current_working_dir: String = current_working_dir
-            .chars()
-            .skip(space_pos + 1)
-            .take(current_working_dir.len() - space_pos + 1)
-            .collect(); 
+            let space_pos = current_working_dir
+                .find(" ")
+                .expect("Failed to find space");
 
-        let args:Vec<String> = env::args().collect();
+            let current_working_dir: String = current_working_dir
+                .chars()
+                .skip(space_pos + 1)
+                .take(current_working_dir.len() - space_pos + 1)
+                .collect(); 
 
-        Command::new(&args[0])
-            .arg("--working-directory")
-            .arg(&current_working_dir.trim())
-            .spawn()
-            .expect("");
-            
+            let args:Vec<String> = env::args().collect();
+
+            Command::new(&args[0])
+                .arg("--working-directory")
+                .arg(&current_working_dir.trim())
+                .spawn()
+                .expect("");
+
         }
-       }
     }
 
 }
