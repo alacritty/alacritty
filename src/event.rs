@@ -182,7 +182,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.clear_log();
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(unix)]
     fn new_instance_same_dir(&mut self) {
         unsafe {
         let current_working_dir =  fs::read_link(format!("/proc/{}/cwd", tty::PID))
@@ -198,16 +198,14 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         }
     }
 
-    #[cfg(target_os = "windows")]
+    #[cfg(windows)]
     fn new_instance_same_dir(&mut self) {
         let args:Vec<String> = env::args().collect();
         Command::new(&args[0])
             .spawn()
             .expect("Failed to spawn new alacritty");
-        }
-
+    }
 }
-
 /// The ActionContext can't really have direct access to the Window
 /// with the current design. Event handlers that want to change the
 /// window must set these flags instead. The processor will trigger
