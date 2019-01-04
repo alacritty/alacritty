@@ -1,17 +1,16 @@
 //! Process window events
 use std::borrow::Cow;
-use std::fs::{self,File};
+use std::fs::{self, File};
 use std::io::Write;
 use std::sync::mpsc;
 use std::time::{Instant};
 use std::env;
 
-use crate::tty;
-
 use serde_json as json;
 use parking_lot::MutexGuard;
 use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
+use glutin::dpi::PhysicalSize;
 
 use crate::ansi::{Handler, ClearMode};
 use crate::grid::Scroll;
@@ -27,7 +26,7 @@ use crate::term::cell::Cell;
 use crate::util::{limit, start_daemon};
 use crate::util::fmt::Red;
 use crate::window::Window;
-use glutin::dpi::PhysicalSize;
+use crate::tty;
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
