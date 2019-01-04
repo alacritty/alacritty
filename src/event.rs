@@ -1,6 +1,8 @@
 //! Process window events
+#[cfg(unix)]
+use std::fs;
 use std::borrow::Cow;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc;
 use std::time::{Instant};
@@ -12,6 +14,8 @@ use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
 use glutin::dpi::PhysicalSize;
 
+#[cfg(unix)]
+use crate::tty;
 use crate::ansi::{Handler, ClearMode};
 use crate::grid::Scroll;
 use crate::config::{self, Config};
@@ -26,7 +30,6 @@ use crate::term::cell::Cell;
 use crate::util::{limit, start_daemon};
 use crate::util::fmt::Red;
 use crate::window::Window;
-use crate::tty;
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
@@ -189,7 +192,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
                 .expect("shell working directory"),
         ];
         #[cfg(not(unix))]
-        let args = [];
+        let args: [&str; 0] = [];
 
         match (start_daemon(&alacritty, &args), args.get(1)) {
             (Ok(_), Some(dir)) => println!("Started new Alacritty process in {:?}", dir),
