@@ -183,6 +183,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn new_instance_same_dir(&mut self) {
+       if cfg!(target_os = "linux"){
         unsafe {
         let current_working_dir = Command::new("pwdx")
             .arg(tty::PID.to_string())
@@ -211,6 +212,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
             .expect("");
             
         }
+       }
     }
 
 }
