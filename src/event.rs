@@ -4,7 +4,6 @@ use std::fs::{self,File};
 use std::io::Write;
 use std::sync::mpsc;
 use std::time::{Instant};
-use std::process::Command;
 use std::env;
 
 use crate::tty;
@@ -25,7 +24,7 @@ use crate::selection::Selection;
 use crate::sync::FairMutex;
 use crate::term::{Term, SizeInfo, TermMode, Search};
 use crate::term::cell::Cell;
-use crate::util::limit;
+use crate::util::{limit, start_daemon};
 use crate::util::fmt::Red;
 use crate::window::Window;
 use glutin::dpi::PhysicalSize;
@@ -182,30 +181,26 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.clear_log();
     }
 
-    #[cfg(unix)]
-    fn new_instance_same_dir(&mut self) {
-        unsafe {
-        let current_working_dir =  fs::read_link(format!("/proc/{}/cwd", tty::PID))
-            .expect("Failed to get shell cwd");
-        let args:Vec<String> = env::args().collect();
+    fn spawn_new_instance(&mut self) {
+        let alacritty = env::args().next().unwrap();
+        #[cfg(unix)]
+        let args = [
+            "--working-directory".into(),
+            fs::read_link(format!("/proc/{}/cwd", unsafe { tty::PID }))
+                .expect("shell working directory"),
+        ];
+        #[cfg(not(unix))]
+        let args = [];
 
-        Command::new(&args[0])
-            .arg("--working-directory")
-            .arg(&current_working_dir.into_os_string())
-            .spawn()
-            .expect("Failed to spawn new alacritty");
-            
+        match (start_daemon(&alacritty, &args), args.get(1)) {
+            (Ok(_), Some(dir)) => println!("Started new Alacritty process in {:?}", dir),
+            (Ok(_), _) => println!("Started new Alacritty process"),
+            (Err(_), Some(dir)) => println!("Unable to start new Alacritty process in {:?}", dir),
+            (Err(_), _) => println!("Unable to start new Alacritty process"),
         }
     }
-
-    #[cfg(windows)]
-    fn new_instance_same_dir(&mut self) {
-        let args:Vec<String> = env::args().collect();
-        Command::new(&args[0])
-            .spawn()
-            .expect("Failed to spawn new alacritty");
-    }
 }
+
 /// The ActionContext can't really have direct access to the Window
 /// with the current design. Event handlers that want to change the
 /// window must set these flags instead. The processor will trigger

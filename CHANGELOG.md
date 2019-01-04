@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Crashes on Windows are now also reported with a popup in addition to stderr
 - Windows: New configuration field `enable_experimental_conpty_backend` which enables support
     for the Pseudoconsole API (ConPTY) added in Windows 10 October 2018 (1809) update
+- New key action `SpawnNewInstance` for launching another instance of Alacritty
 
 ### Changed
 
