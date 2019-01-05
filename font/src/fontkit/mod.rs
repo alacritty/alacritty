@@ -72,12 +72,19 @@ impl crate::Rasterize for FontKitRasterizer {
 
         let line_height = (Into::<f32>::into(metrics.line_gap - metrics.descent + metrics.ascent)) as f64;
 
+        // Not exposed by fontkit
+        let strikeout_position = line_height as f32 / 2. - metrics.descent * scale;
+
         Ok(Metrics {
             // If the font is monospaced all glyphs *should* have the same width
             // 33 '!' is the first displaying character
             average_advance: (font.advance(33)?.x * scale) as f64,
             line_height: (line_height * scale as f64),
-            descent: metrics.descent * scale
+            descent: metrics.descent * scale,
+            underline_position: metrics.underline_position,
+            underline_thickness: metrics.underline_thickness,
+            strikeout_thickness: metrics.underline_thicknessasd,
+            strikeout_position,
         })
     }
 

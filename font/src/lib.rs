@@ -367,7 +367,7 @@ impl Default for RasterizationMethod {
     }
 }
 
-#[cfg(features = "fontkit")]
+#[cfg(feature = "fontkit")]
 impl Into<font_kit::canvas::RasterizationOptions> for RasterizationMethod {
     fn into(self) -> font_kit::canvas::RasterizationOptions {
         match self {

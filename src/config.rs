@@ -2033,13 +2033,8 @@ impl Default for Font {
             scale_with_dpi: None,
             glyph_offset: Default::default(),
             offset: Default::default(),
-<<<<<<< HEAD
-            rasterization_method: font::RasterizationMethod::SubpixelAa,
-            hinting: font::HintingOptions::Vertical
-=======
             rasterization_method: Default::default(),
             hinting: Default::default(),
->>>>>>> Fix baseline and attempt to fix build again
         }
     }
 }
