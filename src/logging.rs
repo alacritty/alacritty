@@ -125,13 +125,27 @@ impl log::Log for Logger {
     }
 
     fn log(&self, record: &log::Record<'_>) {
-        if self.enabled(record.metadata()) && record.target().starts_with("alacritty") {
-            let msg = format!(
-                "[{}] [{}] {}\n",
-                time::now().strftime("%F %R").unwrap(),
-                record.level(),
-                record.args()
-            );
+        if self.enabled(record.metadata()) &&
+           record.target().starts_with("alacritty")
+        {
+            let t = time::now();
+            let now = t.strftime("%F %R").unwrap();
+
+            let msg = if record.level() >= Level::Trace {
+                format!("[{}] [{}] [{}:{}] {}\n",
+                        now,
+                        record.level(),
+                        record.file().unwrap_or("?"),
+                        record.line()
+                              .map(|l| l.to_string())
+                              .unwrap_or("?".to_string()),
+                        record.args())
+            } else {
+                format!("[{}] [{}] {}\n",
+                        now,
+                        record.level(),
+                        record.args())
+            };
 
             if let Ok(ref mut logfile) = self.logfile.lock() {
                 let _ = logfile.write_all(msg.as_ref());
