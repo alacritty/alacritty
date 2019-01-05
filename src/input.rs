@@ -75,6 +75,7 @@ pub trait ActionContext {
     fn hide_window(&mut self);
     fn url(&self, _: Point<usize>) -> Option<String>;
     fn clear_log(&mut self);
+    fn spawn_new_instance(&mut self);
 }
 
 /// Describes a state and action to take in that state
@@ -202,6 +203,9 @@ pub enum Action {
 
     /// Clears warning and error notices.
     ClearLogNotice,
+
+    /// Spawn a new instance of Alacritty.
+    SpawnNewInstance,
 }
 
 impl Action {
@@ -279,7 +283,10 @@ impl Action {
             },
             Action::ClearLogNotice => {
                 ctx.clear_log();
-            }
+            },
+            Action::SpawnNewInstance => {
+                ctx.spawn_new_instance();
+            },
         }
     }
 
@@ -793,9 +800,17 @@ mod tests {
     }
 
     impl <'a>super::ActionContext for ActionContext<'a> {
-        fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _val: B) {
-            // STUBBED
-        }
+        fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _val: B) {}
+        fn update_selection(&mut self, _point: Point, _side: Side) {}
+        fn simple_selection(&mut self, _point: Point, _side: Side) {}
+        fn copy_selection(&self, _buffer: ClipboardBuffer) {}
+        fn clear_selection(&mut self) {}
+        fn change_font_size(&mut self, _delta: f32) {}
+        fn reset_font_size(&mut self) {}
+        fn clear_history(&mut self) {}
+        fn clear_log(&mut self) {}
+        fn hide_window(&mut self) {}
+        fn spawn_new_instance(&mut self) {}
 
         fn terminal_mode(&self) -> TermMode {
             *self.terminal.mode()
@@ -804,14 +819,6 @@ mod tests {
         fn size_info(&self) -> SizeInfo {
             *self.size_info
         }
-
-        fn copy_selection(&self, _buffer: ClipboardBuffer) {
-            // STUBBED
-        }
-
-        fn clear_selection(&mut self) {}
-        fn update_selection(&mut self, _point: Point, _side: Side) {}
-        fn simple_selection(&mut self, _point: Point, _side: Side) {}
 
         fn semantic_selection(&mut self, _point: Point) {
             // set something that we can check for here
@@ -851,21 +858,14 @@ mod tests {
         fn received_count(&mut self) -> &mut usize {
             &mut self.received_count
         }
+
         fn suppress_chars(&mut self) -> &mut bool {
             &mut self.suppress_chars
         }
+
         fn last_modifiers(&mut self) -> &mut ModifiersState {
             &mut self.last_modifiers
         }
-        fn change_font_size(&mut self, _delta: f32) {
-        }
-        fn reset_font_size(&mut self) {
-        }
-        fn clear_history(&mut self) {
-        }
-        fn hide_window(&mut self) {
-        }
-        fn clear_log(&mut self) {}
     }
 
     macro_rules! test_clickstate {

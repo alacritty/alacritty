@@ -14,6 +14,7 @@
 #[cfg(not(windows))]
 use std::os::unix::process::CommandExt;
 use std::process::Command;
+use std::ffi::OsStr;
 use std::{cmp, io};
 
 /// Threading utilities
@@ -77,7 +78,11 @@ pub mod fmt {
 }
 
 #[cfg(not(windows))]
-pub fn start_daemon(program: &str, args: &[String]) -> io::Result<()> {
+pub fn start_daemon<I, S>(program: &str, args: I) -> io::Result<()>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+{
     Command::new(program)
         .args(args)
         .before_exec(|| unsafe {
@@ -90,7 +95,11 @@ pub fn start_daemon(program: &str, args: &[String]) -> io::Result<()> {
 }
 
 #[cfg(windows)]
-pub fn start_daemon(program: &str, args: &[String]) -> io::Result<()> {
+pub fn start_daemon<I, S>(program: &str, args: I) -> io::Result<()>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+{
     Command::new(program).args(args).spawn().map(|_| ())
 }
 
