@@ -204,7 +204,7 @@ pub enum Action {
     /// Clears warning and error notices.
     ClearLogNotice,
 
-    /// Create new instance of alacritty with the current directory
+    /// Spawn a new instance of Alacritty.
     SpawnNewInstance,
 }
 

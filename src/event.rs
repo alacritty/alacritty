@@ -194,11 +194,9 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         #[cfg(not(unix))]
         let args: [&str; 0] = [];
 
-        match (start_daemon(&alacritty, &args), args.get(1)) {
-            (Ok(_), Some(dir)) => println!("Started new Alacritty process in {:?}", dir),
-            (Ok(_), _) => println!("Started new Alacritty process"),
-            (Err(_), Some(dir)) => println!("Unable to start new Alacritty process in {:?}", dir),
-            (Err(_), _) => println!("Unable to start new Alacritty process"),
+        match start_daemon(&alacritty, &args) {
+            Ok(_) => debug!("Started new Alacritty process: {} {:?}", alacritty, args),
+            Err(_) => warn!("Unable to start new Alacritty process: {} {:?}", alacritty, args),
         }
     }
 }
