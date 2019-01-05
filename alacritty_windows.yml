@@ -358,6 +358,7 @@ enable_experimental_conpty_backend: false
 #   - Hide
 #   - Quit
 #   - ClearLogNotice
+#   - SpawnNewInstance
 #
 # Values for `command`:
 #   The `command` field must be a map containing a `program` string and

@@ -374,6 +374,7 @@ live_config_reload: true
 #   - Hide
 #   - Quit
 #   - ClearLogNotice
+#   - SpawnNewInstance
 #
 # Values for `command`:
 #   The `command` field must be a map containing a `program` string and
