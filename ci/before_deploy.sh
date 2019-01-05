@@ -22,6 +22,7 @@ mkdir "./target/deploy"
 name="Alacritty-${TRAVIS_TAG}"
 
 if [ "$TRAVIS_OS_NAME" == "osx" ]; then
+    export MACOSX_DEPLOYMENT_TARGET=10.11
     make dmg
     mv "./target/release/osx/Alacritty.dmg" "./target/deploy/${name}.dmg"
 elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" != "i386" ]; then
