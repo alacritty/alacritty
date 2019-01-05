@@ -321,7 +321,7 @@ impl GlyphCache {
         self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
 
-        info!("Font size changed: {:?} [DPR: {}]", font.size, dpr);
+        info!("Font size changed to `{:?}` with DPR of `{}`", font.size, dpr);
 
         self.font_size = font.size;
         self.font_key = regular;
@@ -829,10 +829,11 @@ impl QuadRenderer {
                         error!("Error reading shader file: {}", err);
                     }
                     ShaderCreationError::Compile(path, log) => {
-                        error!("Error compiling shader at {:?}\n{}", path, log);
+                        error!("Error compiling shader at `{:?}`\n```\n{}\n```",
+                               path, log);
                     }
                     ShaderCreationError::Link(log) => {
-                        error!("Error reloading shaders: {}", log);
+                        error!("Error reloading shaders: \n```\n{}\n```", log);
                     }
                 }
 
@@ -1234,7 +1235,7 @@ impl TextShaderProgram {
         );
         let projection: [[f32; 4]; 4] = ortho.into();
 
-        info!("Width: {}, Height: {}", width, height);
+        info!("Width: `{}`, Height: `{}`", width, height);
 
         unsafe {
             gl::UniformMatrix4fv(
@@ -1487,7 +1488,7 @@ impl ::std::fmt::Display for ShaderCreationError {
             ShaderCreationError::Compile(ref _path, ref s) => {
                 write!(f, "failed compiling shader: {}", s)
             }
-            ShaderCreationError::Link(ref s) => write!(f, "failed linking shader: {}", s),
+            ShaderCreationError::Link(ref s) => write!(f, "failed linking shader: `{}`", s),
         }
     }
 }

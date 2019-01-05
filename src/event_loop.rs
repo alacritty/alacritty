@@ -385,10 +385,10 @@ impl<T> EventLoop<T>
                                 if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut())
                                     {
                                         error!(
-                                            "Event loop exitting due to error: {} [{}:{}]",
-                                            err,
+                                            "[{}:{}] Event loop exitting due to error: {}",
                                             file!(),
-                                            line!()
+                                            line!(),
+                                            err
                                         );
                                         break 'event_loop;
                                     }
@@ -401,10 +401,10 @@ impl<T> EventLoop<T>
                             if event.readiness().is_writable() {
                                 if let Err(err) = self.pty_write(&mut state) {
                                     error!(
-                                        "Event loop exitting due to error: {} [{}:{}]",
-                                        err,
+                                        "[{}:{}] Event loop exitting due to error: {}",
                                         file!(),
-                                        line!()
+                                        line!(),
+                                        err
                                     );
                                     break 'event_loop;
                                 }

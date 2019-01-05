@@ -179,7 +179,7 @@ impl ::std::fmt::Display for Error {
         match *self {
             Error::MissingFont(ref desc) => write!(
                 f,
-                "Couldn't find a font with {}\
+                "Couldn't find a font with `{}`\
                  \n\tPlease check the font config in your alacritty.yml.",
                 desc
             ),

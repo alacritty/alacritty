@@ -77,7 +77,7 @@ impl Mul<f32> for Rgb {
             b: (f32::from(self.b) * rhs).max(0.0).min(255.0) as u8
         };
 
-        trace!("scaling RGB by {} from {:?} to {:?}", rhs, self, result);
+        trace!("Scaling RGB by `{}` from `{:?}` to `{:?}`", rhs, self, result);
 
         result
     }

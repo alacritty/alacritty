@@ -118,7 +118,7 @@ fn run(
 ) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty");
     if let Some(config_path) = config.path() {
-        info!("Configuration loaded from {}", config_path.display());
+        info!("Configuration loaded from `{}`", config_path.display());
     };
 
     // Set environment variables
@@ -130,7 +130,7 @@ fn run(
     let mut display = Display::new(&config, options, logger_proxy.clone())?;
 
     info!(
-        "PTY Dimensions: {:?} x {:?}",
+        "PTY Dimensions: `{:?}` x `{:?}`",
         display.size().lines(),
         display.size().cols()
     );

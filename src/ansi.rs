@@ -445,7 +445,7 @@ impl Mode {
                 1049 => Mode::SwapScreenAndSetRestoreCursor,
                 2004 => Mode::BracketedPaste,
                 _ => {
-                    trace!("from_primitive [unhandled] mode={:?}", num);
+                    trace!("Unhandled primitive mode: `{}`", num);
                     return None
                 }
             })
@@ -1229,14 +1229,14 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
                         Some(Color::Indexed(idx as u8))
                     },
                     _ => {
-                        debug!("Invalid color index: {}", idx);
+                        debug!("Invalid color index: `{}`", idx);
                         None
                     }
                 }
             }
         },
         _ => {
-            debug!("Unexpected color attr: {}", attrs[*i+1]);
+            debug!("Unexpected color attr: `{}`", attrs[*i+1]);
             None
         }
     }

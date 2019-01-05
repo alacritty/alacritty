@@ -71,7 +71,7 @@ impl List {
             .unwrap_or(colors.primary.foreground * 0.66);
         match colors.dim {
             Some(ref dim) => {
-                trace!("using config-provided dim colors");
+                trace!("Using config-provided dim colors");
                 self[ansi::NamedColor::DimBlack]   = dim.black;
                 self[ansi::NamedColor::DimRed]     = dim.red;
                 self[ansi::NamedColor::DimGreen]   = dim.green;
@@ -82,7 +82,7 @@ impl List {
                 self[ansi::NamedColor::DimWhite]   = dim.white;
             }
             None => {
-                trace!("deriving dim colors from normal colors");
+                trace!("Deriving dim colors from normal colors");
                 self[ansi::NamedColor::DimBlack]   = colors.normal.black   * 0.66;
                 self[ansi::NamedColor::DimRed]     = colors.normal.red     * 0.66;
                 self[ansi::NamedColor::DimGreen]   = colors.normal.green   * 0.66;

@@ -144,7 +144,7 @@ impl Display {
         let mut window = Window::new(&options, config.window())?;
 
         let dpr = window.hidpi_factor();
-        info!("Device pixel ratio: {}", dpr);
+        info!("Device pixel ratio: `{}`", dpr);
 
         // get window properties for initializing the other subsystems
         let mut viewport_size = window.inner_size_pixels()
@@ -187,8 +187,8 @@ impl Display {
         window.set_inner_size(viewport_size.to_logical(dpr));
         renderer.resize(viewport_size, padding_x as f32, padding_y as f32);
 
-        info!("Cell Size: ({} x {})", cell_width, cell_height);
-        info!("Padding: ({} x {})", padding_x, padding_y);
+        info!("Cell Size: `({} x {})`", cell_width, cell_height);
+        info!("Padding: `({} x {})`", padding_x, padding_y);
 
         let size_info = SizeInfo {
             dpr,
@@ -450,7 +450,7 @@ impl Display {
             // Display errors and warnings
             if self.logger_proxy.errors() {
                 let msg = match self.logger_proxy.log_path() {
-                    Some(path) => format!(" ERROR! See log at {} ", path),
+                    Some(path) => format!(" ERROR! See log at `{}` ", path),
                     None => " ERROR! See log in stderr ".into(),
                 };
                 let color = Rgb {
@@ -463,7 +463,7 @@ impl Display {
                 });
             } else if self.logger_proxy.warnings() {
                 let msg = match self.logger_proxy.log_path() {
-                    Some(path) => format!(" WARNING! See log at {} ", path),
+                    Some(path) => format!(" WARNING! See log at `{}` ", path),
                     None => " WARNING! See log in stderr ".into(),
                 };
                 let color = Rgb {

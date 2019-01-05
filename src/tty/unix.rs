@@ -52,7 +52,7 @@ extern "C" fn sigchld(_a: c_int) {
     unsafe {
         let p = libc::waitpid(PID, &mut status, WNOHANG);
         if p < 0 {
-            die!("Waiting for pid {} failed: {}\n", PID, errno());
+            die!("Waiting for pid `{}` failed: `{}`\n", PID, errno());
         }
 
         if PID == p {
@@ -129,7 +129,7 @@ fn set_controlling_terminal(fd: c_int) {
     };
 
     if res < 0 {
-        die!("ioctl TIOCSCTTY failed: {}", errno());
+        die!("ioctl TIOCSCTTY failed: `{}`", errno());
     }
 }
 
@@ -203,7 +203,7 @@ impl Pty {
         };
 
         if res < 0 {
-            die!("ioctl TIOCSWINSZ failed: {}", errno());
+            die!("ioctl TIOCSWINSZ failed: `{}`", errno());
         }
     }
 }
@@ -264,7 +264,7 @@ pub fn new<T: ToWinsize>(
         unsafe {
             let err = libc::setsid();
             if err == -1 {
-                die!("Failed to set session id: {}", errno());
+                die!("Failed to set session id: `{}`", errno());
             }
         }
 
@@ -404,7 +404,7 @@ impl OnResize for i32 {
         };
 
         if res < 0 {
-            die!("ioctl TIOCSWINSZ failed: {}", errno());
+            die!("ioctl TIOCSWINSZ failed: `{}`", errno());
         }
     }
 }
