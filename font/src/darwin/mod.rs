@@ -115,7 +115,7 @@ impl ::std::fmt::Display for Error {
                 write!(f, "Glyph not found for char {:?}", c)
             },
             Error::MissingFont(ref desc) => {
-                write!(f, "Couldn't find a font with `{}`\
+                write!(f, "Couldn't find a font with {}\
                        \n\tPlease check the font config in your alacritty.yml.", desc)
             },
             Error::FontNotLoaded => {
@@ -331,7 +331,7 @@ fn cascade_list_for_languages(
 pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
     let mut out = Vec::new();
 
-    trace!("Family: `{}`", family);
+    trace!("Family: {}", family);
     let ct_collection = match create_for_family(family) {
         Some(c) => c,
         None => return out,

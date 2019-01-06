@@ -267,7 +267,7 @@ impl FreeTypeRasterizer {
                 return Ok(Some(*key));
             }
 
-            trace!("Got font path=`{:?}`", path);
+            trace!("Got font path={:?}", path);
             let ft_face = self.library.new_face(&path, index)?;
 
             // Get available pixel sizes if font isn't scalable.
@@ -618,7 +618,7 @@ impl ::std::fmt::Display for Error {
                 err.fmt(f)
             },
             Error::MissingFont(ref desc) => {
-                write!(f, "Couldn't find a font with `{}`\
+                write!(f, "Couldn't find a font with {}\
                        \n\tPlease check the font config in your alacritty.yml.", desc)
             },
             Error::FontNotLoaded => {
