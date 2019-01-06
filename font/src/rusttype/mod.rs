@@ -166,10 +166,10 @@ pub enum Error {
 impl ::std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
-            Error::MissingFont(ref _desc) => "couldn't find the requested font",
-            Error::UnsupportedFont => "only TrueType fonts are supported",
-            Error::UnsupportedStyle => "the selected style is not supported by rusttype",
-            Error::MissingGlyph => "the selected font did not have the requested glyph",
+            Error::MissingFont(ref _desc) => "Couldn't find the requested font",
+            Error::UnsupportedFont => "Only TrueType fonts are supported",
+            Error::UnsupportedStyle => "The selected style is not supported by rusttype",
+            Error::MissingGlyph => "The selected font did not have the requested glyph",
         }
     }
 }

@@ -604,9 +604,9 @@ impl ::std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
             Error::FreeType(ref err) => err.description(),
-            Error::MissingFont(ref _desc) => "couldn't find the requested font",
-            Error::FontNotLoaded => "tried to operate on font that hasn't been loaded",
-            Error::MissingSizeMetrics => "tried to get size metrics from a face without a size",
+            Error::MissingFont(ref _desc) => "Couldn't find the requested font",
+            Error::FontNotLoaded => "Tried to operate on font that hasn't been loaded",
+            Error::MissingSizeMetrics => "Tried to get size metrics from a face without a size",
         }
     }
 }

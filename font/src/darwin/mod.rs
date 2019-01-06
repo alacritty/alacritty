@@ -101,9 +101,9 @@ pub enum Error {
 impl ::std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
-            Error::MissingGlyph(ref _c) => "couldn't find the requested glyph",
-            Error::MissingFont(ref _desc) => "couldn't find the requested font",
-            Error::FontNotLoaded => "tried to operate on font that hasn't been loaded",
+            Error::MissingGlyph(ref _c) => "Couldn't find the requested glyph",
+            Error::MissingFont(ref _desc) => "Couldn't find the requested font",
+            Error::FontNotLoaded => "Tried to operate on font that hasn't been loaded",
         }
     }
 }
