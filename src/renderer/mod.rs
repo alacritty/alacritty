@@ -321,7 +321,7 @@ impl GlyphCache {
         self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
 
-        info!("Font size changed to `{:?}` with DPR of `{}`", font.size, dpr);
+        info!("Font size changed to {:?} with DPR of {}", font.size, dpr);
 
         self.font_size = font.size;
         self.font_key = regular;
@@ -1223,7 +1223,7 @@ impl TextShaderProgram {
         );
         let projection: [[f32; 4]; 4] = ortho.into();
 
-        info!("Width: `{}`, Height: `{}`", width, height);
+        info!("Width: {}, Height: {}", width, height);
 
         unsafe {
             gl::UniformMatrix4fv(
@@ -1476,11 +1476,10 @@ impl ::std::fmt::Display for ShaderCreationError {
                 write!(f, "Couldn't read shader: {}", err)
             },
             ShaderCreationError::Compile(ref path, ref log) => {
-                write!(f, "Failed compiling shader at `{}`: {}",
-                       path.to_string_lossy(), log)
+                write!(f, "Failed compiling shader at {}: {}", path.display(), log)
             },
             ShaderCreationError::Link(ref log) => {
-                write!(f, "Failed linking shader: `{}`", log)
+                write!(f, "Failed linking shader: {}", log)
             },
         }
     }

@@ -235,14 +235,14 @@ impl Action {
                 }
             },
             Action::Command(ref program, ref args) => {
-                trace!("Running command `{}` with args `{:?}`", program, args);
+                trace!("Running command {} with args {:?}", program, args);
 
                 match start_daemon(program, args) {
                     Ok(_) => {
                         debug!("Spawned new proc");
                     },
                     Err(err) => {
-                        warn!("Couldn't run command `{}`", err);
+                        warn!("Couldn't run command {}", err);
                     },
                 }
             },
@@ -539,8 +539,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         args.push(text);
 
         match start_daemon(launcher.program(), &args) {
-            Ok(_) => debug!("Launched `{}` with args `{:?}`", launcher.program(), args),
-            Err(_) => warn!("Unable to launch `{}` with args `{:?}`", launcher.program(), args),
+            Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
+            Err(_) => warn!("Unable to launch {} with args {:?}", launcher.program(), args),
         }
 
         Some(())
