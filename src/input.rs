@@ -220,7 +220,7 @@ impl Action {
                     .and_then(|clipboard| clipboard.load_primary() )
                     .map(|contents| { self.paste(ctx, &contents) })
                     .unwrap_or_else(|err| {
-                        error!("Error loading data from clipboard. {}", Red(err));
+                        error!("Error loading data from clipboard: {}", Red(err));
                     });
             },
             Action::PasteSelection => {
@@ -230,7 +230,7 @@ impl Action {
                         .and_then(|clipboard| clipboard.load_selection() )
                         .map(|contents| { self.paste(ctx, &contents) })
                         .unwrap_or_else(|err| {
-                            error!("Error loading data from clipboard. {}", Red(err));
+                            error!("Error loading data from clipboard: {}", Red(err));
                         });
                 }
             },

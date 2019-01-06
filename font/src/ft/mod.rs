@@ -550,12 +550,12 @@ impl FreeTypeRasterizer {
                         // We've previously loaded this font, so don't
                         // load it again.
                         Some(&key) => {
-                            debug!("Hit for font {:?}; no need to load.", path);
+                            debug!("Hit for font {:?}; no need to load", path);
                             Ok(key)
                         },
 
                         None => {
-                            debug!("Miss for font {:?}; loading now.", path);
+                            debug!("Miss for font {:?}; loading now", path);
                             // Safe to unwrap the option since we've already checked for the path
                             // and index above.
                             let key = self.face_from_pattern(&pattern)?.unwrap();

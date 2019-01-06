@@ -1537,7 +1537,7 @@ impl Config {
 
         if let Some(old_path) = old.as_ref().filter(|old| old.exists()) {
             warn!(
-                "Found configuration at: `{}`. The file should be moved to the new location: `{}`",
+                "Found configuration at: `{}`; this file should be moved to the new location: `{}`",
                 old_path.to_string_lossy(),
                 new.as_ref().map(|new| new.to_string_lossy()).unwrap(),
             );
@@ -1764,18 +1764,18 @@ impl Config {
 
     fn print_deprecation_warnings(&mut self) {
         if self.dimensions.is_some() {
-            warn!("Config `dimensions` is deprecated. \
-                  Please use `window.dimensions` instead");
+            warn!("Config `dimensions` is deprecated; \
+                  please use `window.dimensions` instead");
         }
 
         if self.padding.is_some() {
-            warn!("Config `padding` is deprecated. \
-                  Please use `window.padding` instead");
+            warn!("Config `padding` is deprecated; \
+                  please use `window.padding` instead");
         }
 
         if self.mouse.faux_scrollback_lines.is_some() {
-            warn!("Config `mouse.faux_scrollback_lines` is deprecated. \
-                  Please use `mouse.faux_scrolling_lines` instead");
+            warn!("Config `mouse.faux_scrollback_lines` is deprecated; \
+                  please use `mouse.faux_scrolling_lines` instead");
         }
 
         if let Some(custom_cursor_colors) = self.custom_cursor_colors {
@@ -1788,18 +1788,18 @@ impl Config {
         }
 
         if self.cursor_style.is_some() {
-            warn!("Config `cursor_style` is deprecated. \
-                  Please use `cursor.style` instead");
+            warn!("Config `cursor_style` is deprecated; \
+                  please use `cursor.style` instead");
         }
 
         if self.hide_cursor_when_typing.is_some() {
-            warn!("Config `hide_cursor_when_typing` is deprecated. \
-                  Please use `mouse.hide_when_typing` instead");
+            warn!("Config `hide_cursor_when_typing` is deprecated; \
+                  please use `mouse.hide_when_typing` instead");
         }
 
         if self.unfocused_hollow_cursor.is_some() {
-            warn!("Config `unfocused_hollow_cursor` is deprecated. \
-                  Please use `cursor.unfocused_hollow` instead");
+            warn!("Config `unfocused_hollow_cursor` is deprecated; \
+                  please use `cursor.unfocused_hollow` instead");
         }
     }
 }

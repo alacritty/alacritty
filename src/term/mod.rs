@@ -1851,7 +1851,7 @@ impl ansi::Handler for Term {
         Clipboard::new()
             .and_then(|mut clipboard| clipboard.store_primary(string))
             .unwrap_or_else(|err| {
-                warn!("Error storing selection to clipboard. {}", err);
+                warn!("Error storing selection to clipboard: {}", err);
             });
     }
 
