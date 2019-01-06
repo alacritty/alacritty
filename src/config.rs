@@ -1443,7 +1443,7 @@ impl ::std::error::Error for Error {
 
     fn description(&self) -> &str {
         match *self {
-            Error::NotFound => "Could not locate config file",
+            Error::NotFound => "Couldn't locate config file",
             Error::Empty => "Empty config file",
             Error::ReadingEnvHome(ref err) => err.description(),
             Error::Io(ref err) => err.description(),
@@ -1457,7 +1457,7 @@ impl ::std::fmt::Display for Error {
         match *self {
             Error::NotFound | Error::Empty => write!(f, "{}", ::std::error::Error::description(self)),
             Error::ReadingEnvHome(ref err) => {
-                write!(f, "Could not read $HOME environment variable: {}", err)
+                write!(f, "Couldn't read $HOME environment variable: {}", err)
             },
             Error::Io(ref err) => write!(f, "Error reading config file: {}", err),
             Error::Yaml(ref err) => write!(f, "Problem with config: {}", err),
@@ -1563,7 +1563,7 @@ impl Config {
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
         let mut path = dirs::config_dir()
             .ok_or_else(|| {
-                io::Error::new(io::ErrorKind::NotFound, "Could not find profile directory")
+                io::Error::new(io::ErrorKind::NotFound, "Couldn't find profile directory")
             }
         )?;
 
