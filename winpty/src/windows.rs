@@ -72,7 +72,7 @@ impl<'a> Drop for Err<'a> {
 }
 impl<'a> Display for Err<'a> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        write!(f, "Code: `{}`, Message: `{}`", self.code, self.message)
+        write!(f, "Code: {}, Message: {}", self.code, self.message)
     }
 }
 impl<'a> Error for Err<'a> {

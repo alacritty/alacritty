@@ -73,7 +73,7 @@ fn deserialize_duration_ms<'a, D>(deserializer: D) -> ::std::result::Result<Dura
     match u64::deserialize(deserializer) {
         Ok(threshold_ms) => Ok(Duration::from_millis(threshold_ms)),
         Err(err) => {
-            error!("Problem with config: {}; Using default value", err);
+            error!("Problem with config: {}; using default value", err);
             Ok(default_threshold_ms())
         },
     }
@@ -171,7 +171,7 @@ fn deserialize_visual_bell_duration<'a, D>(deserializer: D) -> ::std::result::Re
     match u16::deserialize(deserializer) {
         Ok(duration) => Ok(duration),
         Err(err) => {
-            error!("Problem with config: {}; Using default value", err);
+            error!("Problem with config: {}; using default value", err);
             Ok(0)
         },
     }
@@ -322,17 +322,17 @@ impl<'de> Deserialize<'de> for Decorations {
                     "true" => {
                         error!("Deprecated decorations boolean value, \
                                    use one of transparent|buttonless|none|full instead; \
-                                   Falling back to \"full\"");
+                                   falling back to \"full\"");
                         Ok(Decorations::Full)
                     },
                     "false" => {
                         error!("Deprecated decorations boolean value, \
                                    use one of transparent|buttonless|none|full instead; \
-                                   Falling back to \"none\"");
+                                   falling back to \"none\"");
                         Ok(Decorations::None)
                     },
                     _ => {
-                        error!("Invalid decorations value: {}; Using default value", value);
+                        error!("Invalid decorations value: {}; using default value", value);
                         Ok(Decorations::Full)
                     }
                 }
@@ -348,21 +348,21 @@ impl<'de> Deserialize<'de> for Decorations {
                     "true" => {
                         error!("Deprecated decorations boolean value, \
                                    use one of none|full instead; \
-                                   Falling back to \"full\"");
+                                   falling back to \"full\"");
                         Ok(Decorations::Full)
                     },
                     "false" => {
                         error!("Deprecated decorations boolean value, \
                                    use one of none|full instead; \
-                                   Falling back to \"none\"");
+                                   falling back to \"none\"");
                         Ok(Decorations::None)
                     },
                     "transparent" | "buttonless" => {
-                        error!("macOS-only decorations value: {}; Using default value", value);
+                        error!("macOS-only decorations value: {}; using default value", value);
                         Ok(Decorations::Full)
                     },
                     _ => {
-                        error!("Invalid decorations value: {}; Using default value", value);
+                        error!("Invalid decorations value: {}; using default value", value);
                         Ok(Decorations::Full)
                     }
                 }
@@ -406,7 +406,7 @@ fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Delta<u8
     match Delta::deserialize(deserializer) {
         Ok(delta) => Ok(delta),
         Err(err) => {
-            error!("Problem with config: {}; Using default value", err);
+            error!("Problem with config: {}; using default value", err);
             Ok(default_padding())
         },
     }
@@ -557,7 +557,7 @@ fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T
     let vec = match Vec::<serde_yaml::Value>::deserialize(deserializer) {
         Ok(vec) => vec,
         Err(err) => {
-            error!("Problem with config: {}; Using empty vector", err);
+            error!("Problem with config: {}; using empty vector", err);
             return Ok(Vec::new());
         },
     };
@@ -568,7 +568,7 @@ fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T
         match T::deserialize(value) {
             Ok(binding) => bindings.push(binding),
             Err(err) => {
-                error!("Problem with config: {}; Skipping value", err);
+                error!("Problem with config: {}; skipping value", err);
             },
         }
     }
@@ -586,7 +586,7 @@ fn deserialize_tabspaces<'a, D>(deserializer: D) -> ::std::result::Result<usize,
     match usize::deserialize(deserializer) {
         Ok(value) => Ok(value),
         Err(err) => {
-            error!("Problem with config: {}; Using 8", err);
+            error!("Problem with config: {}; using 8", err);
             Ok(default_tabspaces())
         },
     }
@@ -598,7 +598,7 @@ fn default_true_bool<'a, D>(deserializer: D) -> ::std::result::Result<bool, D::E
     match bool::deserialize(deserializer) {
         Ok(value) => Ok(value),
         Err(err) => {
-            error!("Problem with config: {}; Using true", err);
+            error!("Problem with config: {}; using true", err);
             Ok(true)
         },
     }
@@ -612,7 +612,7 @@ fn failure_default<'a, D, T>(deserializer: D)
     match T::deserialize(deserializer) {
         Ok(value) => Ok(value),
         Err(err) => {
-            error!("Problem with config: {}; Using default value", err);
+            error!("Problem with config: {}; using default value", err);
             Ok(T::default())
         },
     }
@@ -676,7 +676,7 @@ fn deserialize_scrolling_history<'a, D>(deserializer: D) -> ::std::result::Resul
             if lines > MAX_SCROLLBACK_LINES {
                 error!(
                     "Problem with config: scrollback size is {}, but expected a maximum of {}; \
-                     Using {1} instead",
+                     using {1} instead",
                     lines, MAX_SCROLLBACK_LINES,
                 );
                 Ok(MAX_SCROLLBACK_LINES)
@@ -685,7 +685,7 @@ fn deserialize_scrolling_history<'a, D>(deserializer: D) -> ::std::result::Resul
             }
         },
         Err(err) => {
-            error!("Problem with config: {}; Using default value", err);
+            error!("Problem with config: {}; using default value", err);
             Ok(default_scrolling_history())
         },
     }
@@ -697,7 +697,7 @@ fn deserialize_scrolling_multiplier<'a, D>(deserializer: D) -> ::std::result::Re
     match u8::deserialize(deserializer) {
         Ok(lines) => Ok(lines),
         Err(err) => {
-            error!("Problem with config: {}; Using default value", err);
+            error!("Problem with config: {}; using default value", err);
             Ok(default_scrolling_multiplier())
         },
     }
@@ -1226,7 +1226,7 @@ fn deserialize_color_index<'a, D>(deserializer: D) -> ::std::result::Result<u8, 
                 error!(
                     "Problem with config: indexed_color's index is {}, \
                      but a value bigger than 15 was expected; \
-                     Ignoring setting",
+                     ignoring setting",
                     index
                 );
 
@@ -1237,7 +1237,7 @@ fn deserialize_color_index<'a, D>(deserializer: D) -> ::std::result::Result<u8, 
             }
         },
         Err(err) => {
-            error!("Problem with config: {}; Ignoring setting", err);
+            error!("Problem with config: {}; ignoring setting", err);
 
             // Return value out of range to ignore this color
             Ok(0)
@@ -1292,7 +1292,7 @@ fn deserialize_optional_color<'a, D>(deserializer: D) -> ::std::result::Result<O
         },
         Ok(None) => Ok(None),
         Err(err) => {
-            error!("Problem with config: {}; Using standard foreground color", err);
+            error!("Problem with config: {}; using standard foreground color", err);
             Ok(None)
         },
     }
@@ -1374,14 +1374,14 @@ fn rgb_from_hex<'a, D>(deserializer: D) -> ::std::result::Result<Rgb, D::Error>
         type Value = Rgb;
 
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("Hex colors spec like ffaabb")
+            f.write_str("hex color like 0xff00ff")
         }
 
         fn visit_str<E>(self, value: &str) -> ::std::result::Result<Rgb, E>
             where E: ::serde::de::Error
         {
             Rgb::from_str(&value[..])
-                .map_err(|_| E::custom("failed to parse rgb; expect 0xrrggbb"))
+                .map_err(|_| E::custom("failed to parse rgb; hex color like 0xff00ff"))
         }
     }
 
@@ -1391,7 +1391,7 @@ fn rgb_from_hex<'a, D>(deserializer: D) -> ::std::result::Result<Rgb, D::Error>
     match rgb {
         Ok(rgb) => Ok(rgb),
         Err(err) => {
-            error!("Problem with config: {}; Using color #ff00ff", err);
+            error!("Problem with config: {}; using color #ff00ff", err);
             Ok(Rgb { r: 255, g: 0, b: 255 })
         },
     }
@@ -1900,7 +1900,7 @@ impl DeserializeSize for Size {
         match size {
             Ok(size) => Ok(size),
             Err(err) => {
-                error!("Problem with config: {}; Using size 12", err);
+                error!("Problem with config: {}; using size 12", err);
                 Ok(Size::new(12.))
             },
         }

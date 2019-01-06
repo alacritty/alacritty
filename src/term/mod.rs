@@ -2047,8 +2047,8 @@ impl ansi::Handler for Term {
             ansi::Mode::Origin => self.mode.remove(mode::TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.remove(mode::TermMode::INSERT),
-            _ => {
-                trace!("... ignoring unset_mode");
+            ansi::Mode::BlinkingCursor => {
+                trace!("... unimplemented mode");
             }
         }
     }
