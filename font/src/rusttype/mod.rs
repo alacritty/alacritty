@@ -169,7 +169,7 @@ impl ::std::error::Error for Error {
             Error::MissingFont(ref _desc) => "Couldn't find the requested font",
             Error::UnsupportedFont => "Only TrueType fonts are supported",
             Error::UnsupportedStyle => "The selected style is not supported by rusttype",
-            Error::MissingGlyph => "The selected font did not have the requested glyph",
+            Error::MissingGlyph => "The selected font does not have the requested glyph",
         }
     }
 }
