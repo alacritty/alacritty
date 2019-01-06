@@ -820,23 +820,11 @@ impl QuadRenderer {
         let result = (TextShaderProgram::new(size), RectShaderProgram::new());
         let (program, rect_program) = match result {
             (Ok(program), Ok(rect_program)) => {
-                info!("Successfully reloaded shaders");
+                info!("... successfully reloaded shaders");
                 (program, rect_program)
             }
             (Err(err), _) | (_, Err(err)) => {
-                match err {
-                    ShaderCreationError::Io(err) => {
-                        error!("Error reading shader file: {}", err);
-                    }
-                    ShaderCreationError::Compile(path, log) => {
-                        error!("Error compiling shader at `{}`: {}",
-                               path.to_string_lossy(), log);
-                    }
-                    ShaderCreationError::Link(log) => {
-                        error!("Error reloading shaders: {}", log);
-                    }
-                }
-
+                error!("{}", err);
                 return;
             }
         };

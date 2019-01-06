@@ -2007,8 +2007,8 @@ impl ansi::Handler for Term {
             ansi::Mode::Origin => self.mode.insert(mode::TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.insert(mode::TermMode::INSERT), // heh
-            _ => {
-                trace!("... ignoring set_mode");
+            ansi::Mode::BlinkingCursor => {
+                trace!("... unimplemented mode");
             }
         }
     }

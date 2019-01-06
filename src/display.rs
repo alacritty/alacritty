@@ -250,7 +250,7 @@ impl Display {
             let stop = init_start.elapsed();
             let stop_f = stop.as_secs() as f64 +
                          f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
-            info!("Finished initializing glyph cache in {}s", stop_f);
+            info!("... finished initializing glyph cache in {}s", stop_f);
 
             cache
         };
