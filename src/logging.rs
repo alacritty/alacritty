@@ -128,8 +128,7 @@ impl log::Log for Logger {
         if self.enabled(record.metadata()) &&
            record.target().starts_with("alacritty")
         {
-            let t = time::now();
-            let now = t.strftime("%F %R").unwrap();
+            let now = time::strftime("%F %R", &time::now()).unwrap();
 
             let msg = if record.level() >= Level::Trace {
                 format!("[{}] [{}] [{}:{}] {}\n",
