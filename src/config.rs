@@ -1381,7 +1381,7 @@ fn rgb_from_hex<'a, D>(deserializer: D) -> ::std::result::Result<Rgb, D::Error>
             where E: ::serde::de::Error
         {
             Rgb::from_str(&value[..])
-                .map_err(|_| E::custom("failed to parse rgb; hex color like 0xff00ff"))
+                .map_err(|_| E::custom("failed to parse rgb; expected hex color like 0xff00ff"))
         }
     }
 
