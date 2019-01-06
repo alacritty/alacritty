@@ -829,11 +829,11 @@ impl QuadRenderer {
                         error!("Error reading shader file: {}", err);
                     }
                     ShaderCreationError::Compile(path, log) => {
-                        error!("Error compiling shader at `{:?}`\n```\n{}\n```",
-                               path, log);
+                        error!("Error compiling shader at `{}`: {}",
+                               path.to_string_lossy(), log);
                     }
                     ShaderCreationError::Link(log) => {
-                        error!("Error reloading shaders: \n```\n{}\n```", log);
+                        error!("Error reloading shaders: {}", log);
                     }
                 }
 
@@ -1484,11 +1484,16 @@ impl ::std::error::Error for ShaderCreationError {
 impl ::std::fmt::Display for ShaderCreationError {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
-            ShaderCreationError::Io(ref err) => write!(f, "couldn't read shader: {}", err),
-            ShaderCreationError::Compile(ref _path, ref s) => {
-                write!(f, "failed compiling shader: {}", s)
-            }
-            ShaderCreationError::Link(ref s) => write!(f, "failed linking shader: `{}`", s),
+            ShaderCreationError::Io(ref err) => {
+                write!(f, "Couldn't read shader: {}", err)
+            },
+            ShaderCreationError::Compile(ref path, ref log) => {
+                write!(f, "Failed compiling shader at `{}`: {}",
+                       path.to_string_lossy(), log)
+            },
+            ShaderCreationError::Link(ref log) => {
+                write!(f, "Failed linking shader: `{}`", log)
+            },
         }
     }
 }
