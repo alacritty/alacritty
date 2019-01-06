@@ -264,7 +264,7 @@ fn run(
     #[cfg(windows)]
     unsafe { FreeConsole(); }
 
-    info!("Goodbye.");
+    info!("Goodbye");
 
     if !options.persistent_logging && !config.persistent_logging() {
         logger_proxy.delete_log();
