@@ -739,7 +739,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
                         "Shift" => res.shift = true,
                         "Alt" | "Option" => res.alt = true,
                         "Control" => res.ctrl = true,
-                        _ => error!("Unknown modifier {:?}", modifier),
+                        _ => error!("Unknown modifier `{:?}`", modifier),
                     }
                 }
 
@@ -861,7 +861,7 @@ impl<'a> de::Deserialize<'a> for ModeWrapper {
                         "~AppCursor" => res.not_mode |= mode::TermMode::APP_CURSOR,
                         "AppKeypad" => res.mode |= mode::TermMode::APP_KEYPAD,
                         "~AppKeypad" => res.not_mode |= mode::TermMode::APP_KEYPAD,
-                        _ => error!("Unknown mode {:?}", modifier),
+                        _ => error!("Unknown mode `{:?}`", modifier),
                     }
                 }
 
