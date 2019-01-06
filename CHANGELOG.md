@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - URLs are only launched when left-clicking
 - Removal of extra characters (like `,`) at the end of URLs has been improved
 - Single quotes (`'`) are removed from URLs when there is no matching opening quote
+- Precompiled binaries now work with macOS versions before 10.13 (10.11 and above)
 
 ## Version 0.2.4
 
