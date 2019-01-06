@@ -445,7 +445,7 @@ impl Mode {
                 1049 => Mode::SwapScreenAndSetRestoreCursor,
                 2004 => Mode::BracketedPaste,
                 _ => {
-                    trace!("Unhandled primitive mode: `{}`", num);
+                    trace!("[unimplemented] primitive mode: `{}`", num);
                     return None
                 }
             })
