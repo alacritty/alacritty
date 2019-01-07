@@ -84,16 +84,12 @@ fn scroll_down() {
 // Test that GridIterator works
 #[test]
 fn test_iter() {
-    info!("");
-
     let mut grid = Grid::new(Line(5), Column(5), 0, 0);
     for i in 0..5 {
         for j in 0..5 {
             grid[Line(i)][Column(j)] = i*5 + j;
         }
     }
-
-    info!("grid: {:?}", grid);
 
     let mut iter = grid.iter_from(Point {
         line: 4,

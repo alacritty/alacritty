@@ -99,8 +99,8 @@ fn load_config(options: &cli::Options) -> Config {
 
     Config::load_from(&*config_path).unwrap_or_else(|err| {
         match err {
-            ConfigError::Empty => info!("Config file {:?} is empty; Loading default", config_path),
-            _ => error!("Error: {}; Loading default config", err),
+            ConfigError::Empty => info!("Config file {:?} is empty; loading default", config_path),
+            _ => error!("Error: {}; loading default config", err),
         }
 
         Config::default()
@@ -116,9 +116,9 @@ fn run(
     options: &cli::Options,
     mut logger_proxy: LoggerProxy,
 ) -> Result<(), Box<dyn Error>> {
-    info!("Welcome to Alacritty.");
+    info!("Welcome to Alacritty");
     if let Some(config_path) = config.path() {
-        info!("Configuration loaded from {}", config_path.display());
+        info!("Configuration loaded from {:?}", config_path.display());
     };
 
     // Set environment variables
@@ -264,7 +264,7 @@ fn run(
     #[cfg(windows)]
     unsafe { FreeConsole(); }
 
-    info!("Goodbye.");
+    info!("Goodbye");
 
     if !options.persistent_logging && !config.persistent_logging() {
         logger_proxy.delete_log();

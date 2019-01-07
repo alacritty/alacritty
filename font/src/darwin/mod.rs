@@ -101,9 +101,9 @@ pub enum Error {
 impl ::std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
-            Error::MissingGlyph(ref _c) => "couldn't find the requested glyph",
-            Error::MissingFont(ref _desc) => "couldn't find the requested font",
-            Error::FontNotLoaded => "tried to operate on font that hasn't been loaded",
+            Error::MissingGlyph(ref _c) => "Couldn't find the requested glyph",
+            Error::MissingFont(ref _desc) => "Couldn't find the requested font",
+            Error::FontNotLoaded => "Tried to operate on font that hasn't been loaded",
         }
     }
 }
@@ -129,7 +129,6 @@ impl ::Rasterize for Rasterizer {
     type Err = Error;
 
     fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {
-        info!("device_pixel_ratio: {}", device_pixel_ratio);
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
@@ -332,7 +331,7 @@ fn cascade_list_for_languages(
 pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
     let mut out = Vec::new();
 
-    info!("family: {}", family);
+    trace!("Family: {}", family);
     let ct_collection = match create_for_family(family) {
         Some(c) => c,
         None => return out,
@@ -627,7 +626,7 @@ mod tests {
     fn get_descriptors_and_build_font() {
         let list = super::descriptors_for_family("Menlo");
         assert!(!list.is_empty());
-        info!("{:?}", list);
+        println!("{:?}", list);
 
         // Check to_font
         let fonts = list.iter()

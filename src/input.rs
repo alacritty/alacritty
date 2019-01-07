@@ -224,7 +224,7 @@ impl Action {
                     .and_then(|clipboard| clipboard.load_primary() )
                     .map(|contents| { self.paste(ctx, &contents) })
                     .unwrap_or_else(|err| {
-                        error!("Error loading data from clipboard. {}", Red(err));
+                        error!("Error loading data from clipboard: {}", Red(err));
                     });
             },
             Action::PasteSelection => {
@@ -234,19 +234,19 @@ impl Action {
                         .and_then(|clipboard| clipboard.load_selection() )
                         .map(|contents| { self.paste(ctx, &contents) })
                         .unwrap_or_else(|err| {
-                            error!("Error loading data from clipboard. {}", Red(err));
+                            error!("Error loading data from clipboard: {}", Red(err));
                         });
                 }
             },
             Action::Command(ref program, ref args) => {
-                trace!("running command: {} {:?}", program, args);
+                trace!("Running command {} with args {:?}", program, args);
 
                 match start_daemon(program, args) {
                     Ok(_) => {
-                        debug!("spawned new proc");
+                        debug!("Spawned new proc");
                     },
                     Err(err) => {
-                        warn!("couldn't run command: {}", err);
+                        warn!("Couldn't run command {}", err);
                     },
                 }
             },
@@ -546,8 +546,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         args.push(text);
 
         match start_daemon(launcher.program(), &args) {
-            Ok(_) => debug!("Launched: {} {:?}", launcher.program(), args),
-            Err(_) => warn!("Unable to launch: {} {:?}", launcher.program(), args),
+            Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
+            Err(_) => warn!("Unable to launch {} with args {:?}", launcher.program(), args),
         }
 
         Some(())

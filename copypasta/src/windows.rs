@@ -13,7 +13,7 @@ pub enum Error {
 impl ::std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
-            Error::Clipboard(..) => "error opening clipboard",
+            Error::Clipboard(..) => "Error opening clipboard",
         }
     }
 }

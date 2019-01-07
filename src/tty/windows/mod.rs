@@ -85,10 +85,10 @@ pub fn new<'a>(
     window_id: Option<usize>,
 ) -> Pty<'a> {
     if let Some(pty) = conpty::new(config, options, size, window_id) {
-        info!("Using Conpty agent.");
+        info!("Using Conpty agent");
         pty
     } else {
-        info!("Using Winpty agent.");
+        info!("Using Winpty agent");
         winpty::new(config, options, size, window_id)
     }
 }
