@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Replaced `Command` with `Super` in the Linux and Windows config documentation
+- Prevent semantic and line selection from starting with the right or middle mouse button
 
 ## Version 0.2.5
 

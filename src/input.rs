@@ -451,14 +451,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn on_mouse_double_click(&mut self) {
-        if let Some(point) = self.ctx.mouse_coords() {
+    pub fn on_mouse_double_click(&mut self, button: MouseButton) {
+        if let (Some(point) , MouseButton::Left) = (self.ctx.mouse_coords(), button) {
             self.ctx.semantic_selection(point);
         }
     }
 
-    pub fn on_mouse_triple_click(&mut self) {
-        if let Some(point) = self.ctx.mouse_coords() {
+    pub fn on_mouse_triple_click(&mut self, button: MouseButton) {
+        if let (Some(point), MouseButton::Left) = (self.ctx.mouse_coords(), button) {
             self.ctx.line_selection(point);
         }
     }
@@ -468,15 +468,21 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let elapsed = self.ctx.mouse().last_click_timestamp.elapsed();
         self.ctx.mouse_mut().last_click_timestamp = now;
 
+        let button_changed = self.ctx.mouse().last_button != button;
+
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
-            ClickState::Click if elapsed < self.mouse_config.double_click.threshold => {
+            ClickState::Click
+                if !button_changed && elapsed < self.mouse_config.double_click.threshold =>
+            {
                 self.ctx.mouse_mut().block_url_launcher = true;
-                self.on_mouse_double_click();
+                self.on_mouse_double_click(button);
                 ClickState::DoubleClick
             },
-            ClickState::DoubleClick if elapsed < self.mouse_config.triple_click.threshold => {
+            ClickState::DoubleClick
+                if !button_changed && elapsed < self.mouse_config.triple_click.threshold =>
+            {
                 self.ctx.mouse_mut().block_url_launcher = true;
-                self.on_mouse_triple_click();
+                self.on_mouse_triple_click(button);
                 ClickState::TripleClick
             },
             _ => {
@@ -659,6 +665,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             },
             ElementState::Released => self.on_mouse_release(button, modifiers),
         }
+
+        self.ctx.mouse_mut().last_button = button;
     }
 
     /// Process key input
@@ -872,6 +880,7 @@ mod tests {
         {
             name: $name:ident,
             initial_state: $initial_state:expr,
+            initial_button: $initial_button:expr,
             input: $input:expr,
             end_state: $end_state:pat,
             last_action: $last_action:expr
@@ -893,6 +902,7 @@ mod tests {
 
                 let mut mouse = Mouse::default();
                 mouse.click_state = $initial_state;
+                mouse.last_button = $initial_button;
 
                 let mut selection = None;
 
@@ -961,6 +971,7 @@ mod tests {
     test_clickstate! {
         name: single_click,
         initial_state: ClickState::None,
+        initial_button: MouseButton::Other(0),
         input: Event::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
@@ -977,6 +988,7 @@ mod tests {
     test_clickstate! {
         name: double_click,
         initial_state: ClickState::Click,
+        initial_button: MouseButton::Left,
         input: Event::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
@@ -993,6 +1005,7 @@ mod tests {
     test_clickstate! {
         name: triple_click,
         initial_state: ClickState::DoubleClick,
+        initial_button: MouseButton::Left,
         input: Event::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
@@ -1004,6 +1017,23 @@ mod tests {
         },
         end_state: ClickState::TripleClick,
         last_action: MultiClick::TripleClick
+    }
+
+    test_clickstate! {
+        name: multi_click_separate_buttons,
+        initial_state: ClickState::DoubleClick,
+        initial_button: MouseButton::Left,
+        input: Event::WindowEvent {
+            event: WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Right,
+                device_id: unsafe { ::std::mem::transmute_copy(&0) },
+                modifiers: ModifiersState::default(),
+            },
+            window_id: unsafe { ::std::mem::transmute_copy(&0) },
+        },
+        end_state: ClickState::Click,
+        last_action: MultiClick::None
     }
 
     test_process_binding! {
