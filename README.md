@@ -153,6 +153,10 @@ running on another machine which is connected to Alacritty via SSH, this issue
 disappears. Actual throughput and rendering performance are still better in
 Alacritty.
 
+**_How do I get tabs on Windows?_**
+
+Alacritty's design goals are to be as minimal as possible, so it doesn't implement tabs or other window management features. On Windows, you can use an app like [Groupy](https://www.stardock.com/products/groupy) to enable tabs on selected apps, including Alacritty. Future versions of Windows may include the 'Sets' feature, although ['Sets' is no longer in current Windows builds](https://arstechnica.com/gadgets/2018/06/windows-sets-tabs-in-every-window-feature-wont-be-in-the-next-big-update/).
+
 **_My arrow keys don't work._**
 
 It sounds like you deleted some key bindings from your config file. Please
