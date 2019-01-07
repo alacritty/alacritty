@@ -326,7 +326,7 @@ enable_experimental_conpty_backend: false
 #     `showkey --scancodes`
 #
 # Values for `mods`:
-#   - Command
+#   - Super
 #   - Control
 #   - Shift
 #   - Alt

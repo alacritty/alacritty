@@ -342,7 +342,7 @@ live_config_reload: true
 #     `showkey --scancodes`
 #
 # Values for `mods`:
-#   - Command
+#   - Super
 #   - Control
 #   - Shift
 #   - Alt
