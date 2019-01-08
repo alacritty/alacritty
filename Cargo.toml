@@ -68,7 +68,6 @@ mio-anonymous-pipes = "0.1"
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"
 dirs = "1.0.2"
-libproc = "0.3.2"
 
 [features]
 default = []

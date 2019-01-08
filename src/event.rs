@@ -31,9 +31,6 @@ use crate::util::{limit, start_daemon};
 use crate::util::fmt::Red;
 use crate::window::Window;
 
-#[cfg(target_os = "macos")]
-use libproc::libproc::proc_pid;
-
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
     /// Notify that an escape sequence should be written to the pty
@@ -188,15 +185,8 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn spawn_new_instance(&mut self) {
         let alacritty = env::args().next().unwrap();
-        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        #[cfg(not(target_os = "linux"))]
         let args: [&str; 0] = [];
-
-        #[cfg(target_os = "macos")]
-        let args = [
-            "--working-directory".into(),
-            proc_pid::pidpath(unsafe { tty::PID })
-                .expect("shell working directory"),
-        ];
 
         #[cfg(target_os = "linux")]
         let args = [
