@@ -132,7 +132,7 @@ impl FontDesc {
 
 impl fmt::Display for FontDesc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "name '{}' and style '{}'", self.name, self.style)
+        write!(f, "name {} and style {}", self.name, self.style)
     }
 }
 

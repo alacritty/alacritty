@@ -35,9 +35,9 @@ impl ::std::error::Error for Error {
 
     fn description(&self) -> &str {
         match *self {
-            Error::Io(..) => "error calling xclip",
-            Error::Xclip(..) => "error reported by xclip",
-            Error::Utf8(..) => "clipboard contents not utf8",
+            Error::Io(..) => "Error calling xclip",
+            Error::Xclip(..) => "Error reported by xclip",
+            Error::Utf8(..) => "Clipboard contents not utf8",
         }
     }
 }
@@ -50,11 +50,11 @@ impl ::std::fmt::Display for Error {
                     io::ErrorKind::NotFound => {
                         write!(f, "Please install `xclip` to enable clipboard support")
                     },
-                    _ => write!(f, "error calling xclip: {}", err),
+                    _ => write!(f, "Error calling xclip: {}", err),
                 }
             },
-            Error::Xclip(ref s) => write!(f, "error from xclip: {}", s),
-            Error::Utf8(ref err) => write!(f, "error parsing xclip output: {}", err),
+            Error::Xclip(ref s) => write!(f, "Error from xclip: {}", s),
+            Error::Utf8(ref err) => write!(f, "Error parsing xclip output: {}", err),
         }
     }
 }

@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Replaced `Command` with `Super` in the Linux and Windows config documentation
+
+## Version 0.2.5
+
 ### Added
 
 - New configuration field `visual_bell.color` allows changing the visual bell color
@@ -16,9 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Log messages are now consistent in style, and some have been removed
 - Windows configuration location has been moved from %USERPROFILE%\alacritty.yml
     to %APPDATA%\alacritty\alacritty.yml
 - Windows default shell is now PowerShell instead of cmd
+- URL schemes have been limited to http, https, mailto, news, file, git, ssh and ftp
 
 ### Fixed
 
@@ -29,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Various Windows issues, like color support and performance, through the new ConPTY
 - Fixed rendering non default mouse cursors in terminal mouse mode (linux)
 - Fix the `Copy` `mouse_bindings` action ([#1963](https://github.com/jwilm/alacritty/issues/1963))
+- URLs are only launched when left-clicking
+- Removal of extra characters (like `,`) at the end of URLs has been improved
+- Single quotes (`'`) are removed from URLs when there is no matching opening quote
+- Precompiled binaries now work with macOS versions before 10.13 (10.11 and above)
 
 ## Version 0.2.4
 

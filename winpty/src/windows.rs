@@ -140,8 +140,8 @@ impl<'a> Drop for Config<'a> {
 pub struct Winpty<'a>(&'a mut winpty_t);
 
 impl<'a, 'b> Winpty<'a> {
-    /// Starts the agent. This process will connect to the agent 
-    /// over a control pipe, and the agent will open data pipes 
+    /// Starts the agent. This process will connect to the agent
+    /// over a control pipe, and the agent will open data pipes
     /// (e.g. CONIN and CONOUT).
     pub fn open(cfg: &Config) -> Result<Self, Err<'b>> {
         let mut err = null_mut() as *mut winpty_error_t;
@@ -199,7 +199,7 @@ impl<'a, 'b> Winpty<'a> {
     }
 
     /// Change the size of the Windows console window.
-    /// 
+    ///
     /// cols & rows MUST be greater than 0
     pub fn set_size(&mut self, cols: u16, rows: u16) -> Result<(), Err> {
         assert!(cols > 0 && rows > 0);
@@ -339,7 +339,7 @@ impl<'a> Drop for SpawnConfig<'a> {
         }
     }
 }
- 
+
 #[cfg(test)]
 mod tests {
     extern crate named_pipe;

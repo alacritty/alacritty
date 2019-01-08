@@ -14,7 +14,6 @@ use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
 use glutin::dpi::PhysicalSize;
 
-
 #[cfg(unix)]
 use crate::tty;
 use crate::ansi::{Handler, ClearMode};
@@ -35,7 +34,7 @@ use crate::window::Window;
 #[cfg(macos)]
 use crate::libproc::libproc::proc_pid;
 
-//#[cfg(any(freebsd, openbsd))]
+#[cfg(any(freebsd, openbsd))]
 use std::process::Command;
 
 /// Byte sequences are sent to a `Notify` in response to some events

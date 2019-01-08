@@ -117,7 +117,7 @@ impl ::Rasterize for FreeTypeRasterizer {
             },
             _ => {
                 // Fallback if font doesn't provide info about strikeout
-                trace!("No strikeout data available for font, using fallback.");
+                trace!("Using fallback strikeout metrics");
                 let strikeout_position = height as f32 / 2. + descent;
                 (strikeout_position, underline_thickness)
             },
@@ -267,7 +267,7 @@ impl FreeTypeRasterizer {
                 return Ok(Some(*key));
             }
 
-            trace!("got font path={:?}", path);
+            trace!("Got font path={:?}", path);
             let ft_face = self.library.new_face(&path, index)?;
 
             // Get available pixel sizes if font isn't scalable.
@@ -550,12 +550,12 @@ impl FreeTypeRasterizer {
                         // We've previously loaded this font, so don't
                         // load it again.
                         Some(&key) => {
-                            debug!("Hit for font {:?}; no need to load.", path);
+                            debug!("Hit for font {:?}; no need to load", path);
                             Ok(key)
                         },
 
                         None => {
-                            debug!("Miss for font {:?}; loading now.", path);
+                            debug!("Miss for font {:?}; loading now", path);
                             // Safe to unwrap the option since we've already checked for the path
                             // and index above.
                             let key = self.face_from_pattern(&pattern)?.unwrap();
@@ -604,9 +604,9 @@ impl ::std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
             Error::FreeType(ref err) => err.description(),
-            Error::MissingFont(ref _desc) => "couldn't find the requested font",
-            Error::FontNotLoaded => "tried to operate on font that hasn't been loaded",
-            Error::MissingSizeMetrics => "tried to get size metrics from a face without a size",
+            Error::MissingFont(ref _desc) => "Couldn't find the requested font",
+            Error::FontNotLoaded => "Tried to operate on font that hasn't been loaded",
+            Error::MissingSizeMetrics => "Tried to get size metrics from a face without a size",
         }
     }
 }

@@ -20,7 +20,6 @@ use std::time::{Duration, Instant};
 
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
-use url::Url;
 
 use font::{self, Size};
 use crate::ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
@@ -32,13 +31,12 @@ use crate::{MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
 use crate::input::FONT_SIZE_STEP;
 use crate::logging::LoggerProxy;
+use crate::url::UrlParser;
 
 pub mod cell;
 pub mod color;
 pub use self::cell::Cell;
 use self::cell::LineLength;
-
-const URL_SEPARATOR_CHARS: [char; 3] = [' ', '"', '\''];
 
 /// A type that can expand a given point to a region
 ///
@@ -109,39 +107,19 @@ impl Search for Term {
         point.col += 1;
         let mut iterb = self.grid.iter_from(point);
 
-        // Put all characters until separators into a string
-        let mut buf = String::new();
+        // Find URLs
+        let mut url_parser = UrlParser::new();
         while let Some(cell) = iterb.prev() {
-            if URL_SEPARATOR_CHARS.contains(&cell.c) {
+            if url_parser.advance_left(cell.c) {
                 break;
             }
-            buf.insert(0, cell.c);
         }
         for cell in iterf {
-            if URL_SEPARATOR_CHARS.contains(&cell.c) {
+            if url_parser.advance_right(cell.c) {
                 break;
             }
-            buf.push(cell.c);
         }
-
-        // Heuristic to remove all leading '('
-        while buf.starts_with('(') {
-            buf.remove(0);
-        }
-
-        // Heuristic to remove all ')' from end of URLs without matching '('
-        let str_count = |text: &str, c: char| {
-            text.chars().filter(|tc| *tc == c).count()
-        };
-        while buf.ends_with(')') && str_count(&buf, '(') < str_count(&buf, ')') {
-            buf.pop();
-        }
-
-        // Check if string is valid url
-        match Url::parse(&buf) {
-            Ok(_) => Some(buf),
-            Err(_) => None,
-        }
+        url_parser.url()
     }
 }
 
@@ -1147,6 +1125,12 @@ impl Term {
         &self.grid
     }
 
+    // Mutable access for swapping out the grid during tests
+    #[cfg(test)]
+    pub fn grid_mut(&mut self) -> &mut Grid<Cell> {
+        &mut self.grid
+    }
+
     /// Iterate over the *renderable* cells in the terminal
     ///
     /// A renderable cell is any cell which has content other than the default
@@ -1183,7 +1167,7 @@ impl Term {
 
     /// Resize terminal to new dimensions
     pub fn resize(&mut self, size : &SizeInfo) {
-        debug!("Term::resize");
+        debug!("Resizing terminal");
 
         // Bounds check; lots of math assumes width and height are > 0
         if size.width as usize <= 2 * self.size_info.padding_x as usize ||
@@ -1240,7 +1224,7 @@ impl Term {
             }
         }
 
-        debug!("num_cols, num_lines = {}, {}", num_cols, num_lines);
+        debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
 
         // Resize grids to new size
         self.grid.resize(num_lines, num_cols, &Cell::default());
@@ -1292,7 +1276,7 @@ impl Term {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_down_relative(&mut self, origin: Line, mut lines: Line) {
-        trace!("scroll_down_relative: origin={}, lines={}", origin, lines);
+        trace!("Scrolling down relative: origin={}, lines={}", origin, lines);
         lines = min(lines, self.scroll_region.end - self.scroll_region.start);
         lines = min(lines, self.scroll_region.end - origin);
 
@@ -1306,7 +1290,7 @@ impl Term {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_up_relative(&mut self, origin: Line, lines: Line) {
-        trace!("scroll_up_relative: origin={}, lines={}", origin, lines);
+        trace!("Scrolling up relative: origin={}, lines={}", origin, lines);
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Scroll from origin to bottom less number of lines
@@ -1370,7 +1354,7 @@ impl ansi::Handler for Term {
                 return;
             }
 
-            trace!("wrapping");
+            trace!("Wrapping input");
 
             {
                 let location = Point {
@@ -1450,7 +1434,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn dectest(&mut self) {
-        trace!("dectest");
+        trace!("Dectesting");
         let mut template = self.cursor.template;
         template.c = 'E';
 
@@ -1460,7 +1444,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn goto(&mut self, line: Line, col: Column) {
-        trace!("goto: line={}, col={}", line, col);
+        trace!("Going to: line={}, col={}", line, col);
         let (y_offset, max_y) = if self.mode.contains(mode::TermMode::ORIGIN) {
             (self.scroll_region.start, self.scroll_region.end - 1)
         } else {
@@ -1474,13 +1458,13 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn goto_line(&mut self, line: Line) {
-        trace!("goto_line: {}", line);
+        trace!("Going to line: {}", line);
         self.goto(line, self.cursor.point.col)
     }
 
     #[inline]
     fn goto_col(&mut self, col: Column) {
-        trace!("goto_col: {}", col);
+        trace!("Going to column: {}", col);
         self.goto(self.cursor.point.line, col)
     }
 
@@ -1513,28 +1497,28 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn move_up(&mut self, lines: Line) {
-        trace!("move_up: {}", lines);
+        trace!("Moving up: {}", lines);
         let move_to = Line(self.cursor.point.line.0.saturating_sub(lines.0));
         self.goto(move_to, self.cursor.point.col)
     }
 
     #[inline]
     fn move_down(&mut self, lines: Line) {
-        trace!("move_down: {}", lines);
+        trace!("Moving down: {}", lines);
         let move_to = self.cursor.point.line + lines;
         self.goto(move_to, self.cursor.point.col)
     }
 
     #[inline]
     fn move_forward(&mut self, cols: Column) {
-        trace!("move_forward: {}", cols);
+        trace!("Moving forward: {}", cols);
         self.cursor.point.col = min(self.cursor.point.col + cols, self.grid.num_cols() - 1);
         self.input_needs_wrap = false;
     }
 
     #[inline]
     fn move_backward(&mut self, cols: Column) {
-        trace!("move_backward: {}", cols);
+        trace!("Moving backward: {}", cols);
         self.cursor.point.col -= min(self.cursor.point.col, cols);
         self.input_needs_wrap = false;
     }
@@ -1546,7 +1530,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn device_status<W: io::Write>(&mut self, writer: &mut W, arg: usize) {
-        trace!("device status: {}", arg);
+        trace!("Reporting device status: {}", arg);
         match arg {
             5 => {
                 let _ = writer.write_all(b"\x1b[0n");
@@ -1561,21 +1545,21 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn move_down_and_cr(&mut self, lines: Line) {
-        trace!("move_down_and_cr: {}", lines);
+        trace!("Moving down and cr: {}", lines);
         let move_to = self.cursor.point.line + lines;
         self.goto(move_to, Column(0))
     }
 
     #[inline]
     fn move_up_and_cr(&mut self, lines: Line) {
-        trace!("move_up_and_cr: {}", lines);
+        trace!("Moving up and cr: {}", lines);
         let move_to = Line(self.cursor.point.line.0.saturating_sub(lines.0));
         self.goto(move_to, Column(0))
     }
 
     #[inline]
     fn put_tab(&mut self, mut count: i64) {
-        trace!("put_tab: {}", count);
+        trace!("Putting tab: {}", count);
 
         while self.cursor.point.col < self.grid.num_cols() && count != 0 {
             count -= 1;
@@ -1603,7 +1587,7 @@ impl ansi::Handler for Term {
     /// Backspace `count` characters
     #[inline]
     fn backspace(&mut self) {
-        trace!("backspace");
+        trace!("Backspace");
         if self.cursor.point.col > Column(0) {
             self.cursor.point.col -= 1;
             self.input_needs_wrap = false;
@@ -1613,7 +1597,7 @@ impl ansi::Handler for Term {
     /// Carriage return
     #[inline]
     fn carriage_return(&mut self) {
-        trace!("carriage_return");
+        trace!("Carriage return");
         self.cursor.point.col = Column(0);
         self.input_needs_wrap = false;
     }
@@ -1621,7 +1605,7 @@ impl ansi::Handler for Term {
     /// Linefeed
     #[inline]
     fn linefeed(&mut self) {
-        trace!("linefeed");
+        trace!("Linefeed");
         let next = self.cursor.point.line + 1;
         if next == self.scroll_region.end {
             self.scroll_up(Line(1));
@@ -1633,14 +1617,14 @@ impl ansi::Handler for Term {
     /// Set current position as a tabstop
     #[inline]
     fn bell(&mut self) {
-        trace!("bell");
+        trace!("Bell");
         self.visual_bell.ring();
         self.next_is_urgent = Some(true);
     }
 
     #[inline]
     fn substitute(&mut self) {
-        trace!("[unimplemented] substitute");
+        trace!("[unimplemented] Substitute");
     }
 
     /// Run LF/NL
@@ -1676,7 +1660,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn set_horizontal_tabstop(&mut self) {
-        trace!("set_horizontal_tabstop");
+        trace!("Setting horizontal tabstop");
         let column = self.cursor.point.col;
         self.tabs[column] = true;
     }
@@ -1695,7 +1679,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn insert_blank_lines(&mut self, lines: Line) {
-        trace!("insert_blank_lines: {}", lines);
+        trace!("Inserting blank {} lines", lines);
         if self.scroll_region.contains_(self.cursor.point.line) {
             let origin = self.cursor.point.line;
             self.scroll_down_relative(origin, lines);
@@ -1704,7 +1688,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn delete_lines(&mut self, lines: Line) {
-        trace!("delete_lines: {}", lines);
+        trace!("Deleting {} lines", lines);
         if self.scroll_region.contains_(self.cursor.point.line) {
             let origin = self.cursor.point.line;
             self.scroll_up_relative(origin, lines);
@@ -1713,7 +1697,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn erase_chars(&mut self, count: Column) {
-        trace!("erase_chars: {}, {}", count, self.cursor.point.col);
+        trace!("Erasing chars: count={}, col={}", count, self.cursor.point.col);
         let start = self.cursor.point.col;
         let end = min(start + count, self.grid.num_cols() - 1);
 
@@ -1753,7 +1737,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn move_backward_tabs(&mut self, count: i64) {
-        trace!("move_backward_tabs: {}", count);
+        trace!("Moving backward {} tabs", count);
 
         for _ in 0..count {
             let mut col = self.cursor.point.col;
@@ -1769,12 +1753,12 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn move_forward_tabs(&mut self, count: i64) {
-        trace!("[unimplemented] move_forward_tabs: {}", count);
+        trace!("[unimplemented] Moving forward {} tabs", count);
     }
 
     #[inline]
     fn save_cursor_position(&mut self) {
-        trace!("CursorSave");
+        trace!("Saving cursor position");
         let cursor = if self.alt {
             &mut self.cursor_save_alt
         } else {
@@ -1786,7 +1770,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn restore_cursor_position(&mut self) {
-        trace!("CursorRestore");
+        trace!("Restoring cursor position");
         let source = if self.alt {
             &self.cursor_save_alt
         } else {
@@ -1800,7 +1784,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
-        trace!("clear_line: {:?}", mode);
+        trace!("Clearing line: {:?}", mode);
         let mut template = self.cursor.template;
         template.flags ^= template.flags;
 
@@ -1831,7 +1815,7 @@ impl ansi::Handler for Term {
     /// Set the indexed color value
     #[inline]
     fn set_color(&mut self, index: usize, color: Rgb) {
-        trace!("set_color[{}] = {:?}", index, color);
+        trace!("Setting color[{}] = {:?}", index, color);
         self.colors[index] = color;
         self.color_modified[index] = true;
     }
@@ -1839,7 +1823,7 @@ impl ansi::Handler for Term {
     /// Reset the indexed color to original value
     #[inline]
     fn reset_color(&mut self, index: usize) {
-        trace!("reset_color[{}]", index);
+        trace!("Reseting color[{}]", index);
         self.colors[index] = self.original_colors[index];
         self.color_modified[index] = false;
     }
@@ -1851,13 +1835,13 @@ impl ansi::Handler for Term {
         Clipboard::new()
             .and_then(|mut clipboard| clipboard.store_primary(string))
             .unwrap_or_else(|err| {
-                warn!("Error storing selection to clipboard. {}", err);
+                warn!("Error storing selection to clipboard: {}", err);
             });
     }
 
     #[inline]
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
-        trace!("clear_screen: {:?}", mode);
+        trace!("Clearing screen: {:?}", mode);
         let mut template = self.cursor.template;
         template.flags ^= template.flags;
 
@@ -1897,7 +1881,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn clear_tabs(&mut self, mode: ansi::TabulationClearMode) {
-        trace!("clear_tabs: {:?}", mode);
+        trace!("Clearing tabs: {:?}", mode);
         match mode {
             ansi::TabulationClearMode::Current => {
                 let column = self.cursor.point.col;
@@ -1932,7 +1916,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn reverse_index(&mut self) {
-        trace!("reverse_index");
+        trace!("Reversing index");
         // if cursor is at the top
         if self.cursor.point.line == self.scroll_region.start {
             self.scroll_down(Line(1));
@@ -1944,7 +1928,7 @@ impl ansi::Handler for Term {
     /// set a terminal attribute
     #[inline]
     fn terminal_attribute(&mut self, attr: Attr) {
-        trace!("Set Attribute: {:?}", attr);
+        trace!("Setting attribute: {:?}", attr);
         match attr {
             Attr::Foreground(color) => self.cursor.template.fg = color,
             Attr::Background(color) => self.cursor.template.bg = color,
@@ -1975,7 +1959,7 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn set_mode(&mut self, mode: ansi::Mode) {
-        trace!("set_mode: {:?}", mode);
+        trace!("Setting mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 self.mode.insert(mode::TermMode::ALT_SCREEN);
@@ -2007,15 +1991,15 @@ impl ansi::Handler for Term {
             ansi::Mode::Origin => self.mode.insert(mode::TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.insert(mode::TermMode::INSERT), // heh
-            _ => {
-                trace!(".. ignoring set_mode");
+            ansi::Mode::BlinkingCursor => {
+                trace!("... unimplemented mode");
             }
         }
     }
 
     #[inline]
     fn unset_mode(&mut self,mode: ansi::Mode) {
-        trace!("unset_mode: {:?}", mode);
+        trace!("Unsetting mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 self.mode.remove(mode::TermMode::ALT_SCREEN);
@@ -2047,15 +2031,15 @@ impl ansi::Handler for Term {
             ansi::Mode::Origin => self.mode.remove(mode::TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => self.mode.remove(mode::TermMode::INSERT),
-            _ => {
-                trace!(".. ignoring unset_mode");
+            ansi::Mode::BlinkingCursor => {
+                trace!("... unimplemented mode");
             }
         }
     }
 
     #[inline]
     fn set_scrolling_region(&mut self, region: Range<Line>) {
-        trace!("set scroll region: {:?}", region);
+        trace!("Setting scrolling region: {:?}", region);
         self.scroll_region.start = min(region.start, self.grid.num_lines());
         self.scroll_region.end = min(region.end, self.grid.num_lines());
         self.goto(Line(0), Column(0));
@@ -2063,31 +2047,31 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn set_keypad_application_mode(&mut self) {
-        trace!("set mode::TermMode::APP_KEYPAD");
+        trace!("Setting keypad application mode");
         self.mode.insert(mode::TermMode::APP_KEYPAD);
     }
 
     #[inline]
     fn unset_keypad_application_mode(&mut self) {
-        trace!("unset mode::TermMode::APP_KEYPAD");
+        trace!("Unsetting keypad application mode");
         self.mode.remove(mode::TermMode::APP_KEYPAD);
     }
 
     #[inline]
     fn configure_charset(&mut self, index: CharsetIndex, charset: StandardCharset) {
-        trace!("designate {:?} character set as {:?}", index, charset);
+        trace!("Configuring charset {:?} as {:?}", index, charset);
         self.cursor.charsets[index] = charset;
     }
 
     #[inline]
     fn set_active_charset(&mut self, index: CharsetIndex) {
-        trace!("Activate {:?} character set", index);
+        trace!("Setting active charset {:?}", index);
         self.active_charset = index;
     }
 
     #[inline]
     fn set_cursor_style(&mut self, style: Option<CursorStyle>) {
-        trace!("set_cursor_style {:?}", style);
+        trace!("Setting cursor style {:?}", style);
         self.cursor_style = style;
     }
 }
@@ -2131,7 +2115,7 @@ mod tests {
     use serde_json;
 
     use super::{Cell, Term, SizeInfo};
-    use crate::term::{cell, Search};
+    use crate::term::cell;
 
     use crate::grid::{Grid, Scroll};
     use crate::index::{Point, Line, Column, Side};
@@ -2370,102 +2354,6 @@ mod tests {
         let mut scrolled_grid = term.grid.clone();
         scrolled_grid.scroll_display(Scroll::Top);
         assert_eq!(term.grid, scrolled_grid);
-    }
-
-    // `((ftp://a.de))` -> `Some("ftp://a.de")`
-    #[test]
-    fn url_trim_unmatched_parens() {
-        let size = SizeInfo {
-            width: 21.0,
-            height: 51.0,
-            cell_width: 3.0,
-            cell_height: 3.0,
-            padding_x: 0.0,
-            padding_y: 0.0,
-            dpr: 1.0,
-        };
-        let mut term = Term::new(&Default::default(), size);
-        let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
-        grid[Line(0)][Column(0)].c = '(';
-        grid[Line(0)][Column(1)].c = '(';
-        grid[Line(0)][Column(2)].c = 'f';
-        grid[Line(0)][Column(3)].c = 't';
-        grid[Line(0)][Column(4)].c = 'p';
-        grid[Line(0)][Column(5)].c = ':';
-        grid[Line(0)][Column(6)].c = '/';
-        grid[Line(0)][Column(7)].c = '/';
-        grid[Line(0)][Column(8)].c = 'a';
-        grid[Line(0)][Column(9)].c = '.';
-        grid[Line(0)][Column(10)].c = 'd';
-        grid[Line(0)][Column(11)].c = 'e';
-        grid[Line(0)][Column(12)].c = ')';
-        grid[Line(0)][Column(13)].c = ')';
-        mem::swap(&mut term.grid, &mut grid);
-
-        // Search for URL in grid
-        let url = term.url_search(Point::new(0, Column(4)));
-
-        assert_eq!(url, Some("ftp://a.de".into()));
-    }
-
-    // `ftp://a.de/()` -> `Some("ftp://a.de/()")`
-    #[test]
-    fn url_allow_matching_parens() {
-        let size = SizeInfo {
-            width: 21.0,
-            height: 51.0,
-            cell_width: 3.0,
-            cell_height: 3.0,
-            padding_x: 0.0,
-            padding_y: 0.0,
-            dpr: 1.0,
-        };
-        let mut term = Term::new(&Default::default(), size);
-        let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
-        grid[Line(0)][Column(0)].c = 'f';
-        grid[Line(0)][Column(1)].c = 't';
-        grid[Line(0)][Column(2)].c = 'p';
-        grid[Line(0)][Column(3)].c = ':';
-        grid[Line(0)][Column(4)].c = '/';
-        grid[Line(0)][Column(5)].c = '/';
-        grid[Line(0)][Column(6)].c = 'a';
-        grid[Line(0)][Column(7)].c = '.';
-        grid[Line(0)][Column(8)].c = 'd';
-        grid[Line(0)][Column(9)].c = 'e';
-        grid[Line(0)][Column(10)].c = '/';
-        grid[Line(0)][Column(11)].c = '(';
-        grid[Line(0)][Column(12)].c = ')';
-        mem::swap(&mut term.grid, &mut grid);
-
-        // Search for URL in grid
-        let url = term.url_search(Point::new(0, Column(4)));
-
-        assert_eq!(url, Some("ftp://a.de/()".into()));
-    }
-
-    // `aze` -> `None`
-    #[test]
-    fn url_skip_invalid() {
-        let size = SizeInfo {
-            width: 21.0,
-            height: 51.0,
-            cell_width: 3.0,
-            cell_height: 3.0,
-            padding_x: 0.0,
-            padding_y: 0.0,
-            dpr: 1.0,
-        };
-        let mut term = Term::new(&Default::default(), size);
-        let mut grid: Grid<Cell> = Grid::new(Line(1), Column(15), 0, Cell::default());
-        grid[Line(0)][Column(0)].c = 'a';
-        grid[Line(0)][Column(1)].c = 'z';
-        grid[Line(0)][Column(2)].c = 'e';
-        mem::swap(&mut term.grid, &mut grid);
-
-        // Search for URL in grid
-        let url = term.url_search(Point::new(0, Column(1)));
-
-        assert_eq!(url, None);
     }
 }
 

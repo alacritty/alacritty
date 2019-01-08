@@ -316,7 +316,7 @@ pub fn new<T: ToWinsize>(
             pty
         },
         Err(err) => {
-            die!("Command::spawn() failed: {}", err);
+            die!("Failed to spawn command: {}", err);
         }
     }
 }

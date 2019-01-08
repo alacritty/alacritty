@@ -321,7 +321,7 @@ impl GlyphCache {
         self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
 
-        info!("Font size changed: {:?} [DPR: {}]", font.size, dpr);
+        info!("Font size changed to {:?} with DPR of {}", font.size, dpr);
 
         self.font_size = font.size;
         self.font_key = regular;
@@ -816,26 +816,15 @@ impl QuadRenderer {
     }
 
     pub fn reload_shaders(&mut self, size: PhysicalSize) {
-        warn!("Reloading shaders ...");
+        warn!("Reloading shaders...");
         let result = (TextShaderProgram::new(size), RectShaderProgram::new());
         let (program, rect_program) = match result {
             (Ok(program), Ok(rect_program)) => {
-                warn!(" ... OK");
+                info!("... successfully reloaded shaders");
                 (program, rect_program)
             }
             (Err(err), _) | (_, Err(err)) => {
-                match err {
-                    ShaderCreationError::Io(err) => {
-                        error!("Error reading shader file: {}", err);
-                    }
-                    ShaderCreationError::Compile(path, log) => {
-                        error!("Error compiling shader at {:?}\n{}", path, log);
-                    }
-                    ShaderCreationError::Link(log) => {
-                        error!("Error reloading shaders: {}", log);
-                    }
-                }
-
+                error!("{}", err);
                 return;
             }
         };
@@ -1234,7 +1223,7 @@ impl TextShaderProgram {
         );
         let projection: [[f32; 4]; 4] = ortho.into();
 
-        info!("width: {}, height: {}", width, height);
+        info!("Width: {}, Height: {}", width, height);
 
         unsafe {
             gl::UniformMatrix4fv(
@@ -1483,11 +1472,15 @@ impl ::std::error::Error for ShaderCreationError {
 impl ::std::fmt::Display for ShaderCreationError {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
-            ShaderCreationError::Io(ref err) => write!(f, "couldn't read shader: {}", err),
-            ShaderCreationError::Compile(ref _path, ref s) => {
-                write!(f, "failed compiling shader: {}", s)
-            }
-            ShaderCreationError::Link(ref s) => write!(f, "failed linking shader: {}", s),
+            ShaderCreationError::Io(ref err) => {
+                write!(f, "Couldn't read shader: {}", err)
+            },
+            ShaderCreationError::Compile(ref path, ref log) => {
+                write!(f, "Failed compiling shader at {}: {}", path.display(), log)
+            },
+            ShaderCreationError::Link(ref log) => {
+                write!(f, "Failed linking shader: {}", log)
+            },
         }
     }
 }

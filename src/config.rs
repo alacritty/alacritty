@@ -73,7 +73,7 @@ fn deserialize_duration_ms<'a, D>(deserializer: D) -> ::std::result::Result<Dura
     match u64::deserialize(deserializer) {
         Ok(threshold_ms) => Ok(Duration::from_millis(threshold_ms)),
         Err(err) => {
-            error!("problem with config: {}; Using default value", err);
+            error!("Problem with config: {}; using default value", err);
             Ok(default_threshold_ms())
         },
     }
@@ -171,7 +171,7 @@ fn deserialize_visual_bell_duration<'a, D>(deserializer: D) -> ::std::result::Re
     match u16::deserialize(deserializer) {
         Ok(duration) => Ok(duration),
         Err(err) => {
-            error!("problem with config: {}; Using default value", err);
+            error!("Problem with config: {}; using default value", err);
             Ok(0)
         },
     }
@@ -320,19 +320,19 @@ impl<'de> Deserialize<'de> for Decorations {
                     "none" => Ok(Decorations::None),
                     "full" => Ok(Decorations::Full),
                     "true" => {
-                        error!("deprecated decorations boolean value, \
+                        error!("Deprecated decorations boolean value, \
                                    use one of transparent|buttonless|none|full instead; \
-                                   Falling back to \"full\"");
+                                   falling back to \"full\"");
                         Ok(Decorations::Full)
                     },
                     "false" => {
-                        error!("deprecated decorations boolean value, \
+                        error!("Deprecated decorations boolean value, \
                                    use one of transparent|buttonless|none|full instead; \
-                                   Falling back to \"none\"");
+                                   falling back to \"none\"");
                         Ok(Decorations::None)
                     },
                     _ => {
-                        error!("invalid decorations value: {}; Using default value", value);
+                        error!("Invalid decorations value: {}; using default value", value);
                         Ok(Decorations::Full)
                     }
                 }
@@ -346,23 +346,23 @@ impl<'de> Deserialize<'de> for Decorations {
                     "none" => Ok(Decorations::None),
                     "full" => Ok(Decorations::Full),
                     "true" => {
-                        error!("deprecated decorations boolean value, \
+                        error!("Deprecated decorations boolean value, \
                                    use one of none|full instead; \
-                                   Falling back to \"full\"");
+                                   falling back to \"full\"");
                         Ok(Decorations::Full)
                     },
                     "false" => {
-                        error!("deprecated decorations boolean value, \
+                        error!("Deprecated decorations boolean value, \
                                    use one of none|full instead; \
-                                   Falling back to \"none\"");
+                                   falling back to \"none\"");
                         Ok(Decorations::None)
                     },
                     "transparent" | "buttonless" => {
-                        error!("macos-only decorations value: {}; Using default value", value);
+                        error!("macOS-only decorations value: {}; using default value", value);
                         Ok(Decorations::Full)
                     },
                     _ => {
-                        error!("invalid decorations value: {}; Using default value", value);
+                        error!("Invalid decorations value: {}; using default value", value);
                         Ok(Decorations::Full)
                     }
                 }
@@ -406,7 +406,7 @@ fn deserialize_padding<'a, D>(deserializer: D) -> ::std::result::Result<Delta<u8
     match Delta::deserialize(deserializer) {
         Ok(delta) => Ok(delta),
         Err(err) => {
-            error!("problem with config: {}; Using default value", err);
+            error!("Problem with config: {}; using default value", err);
             Ok(default_padding())
         },
     }
@@ -557,7 +557,7 @@ fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T
     let vec = match Vec::<serde_yaml::Value>::deserialize(deserializer) {
         Ok(vec) => vec,
         Err(err) => {
-            error!("problem with config: {}; Using empty vector", err);
+            error!("Problem with config: {}; using empty vector", err);
             return Ok(Vec::new());
         },
     };
@@ -568,7 +568,7 @@ fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T
         match T::deserialize(value) {
             Ok(binding) => bindings.push(binding),
             Err(err) => {
-                error!("problem with config: {}; Skipping value", err);
+                error!("Problem with config: {}; skipping value", err);
             },
         }
     }
@@ -586,7 +586,7 @@ fn deserialize_tabspaces<'a, D>(deserializer: D) -> ::std::result::Result<usize,
     match usize::deserialize(deserializer) {
         Ok(value) => Ok(value),
         Err(err) => {
-            error!("problem with config: {}; Using `8`", err);
+            error!("Problem with config: {}; using 8", err);
             Ok(default_tabspaces())
         },
     }
@@ -598,7 +598,7 @@ fn default_true_bool<'a, D>(deserializer: D) -> ::std::result::Result<bool, D::E
     match bool::deserialize(deserializer) {
         Ok(value) => Ok(value),
         Err(err) => {
-            error!("problem with config: {}; Using `true`", err);
+            error!("Problem with config: {}; using true", err);
             Ok(true)
         },
     }
@@ -612,7 +612,7 @@ fn failure_default<'a, D, T>(deserializer: D)
     match T::deserialize(deserializer) {
         Ok(value) => Ok(value),
         Err(err) => {
-            error!("problem with config: {}; Using default value", err);
+            error!("Problem with config: {}; using default value", err);
             Ok(T::default())
         },
     }
@@ -675,8 +675,8 @@ fn deserialize_scrolling_history<'a, D>(deserializer: D) -> ::std::result::Resul
         Ok(lines) => {
             if lines > MAX_SCROLLBACK_LINES {
                 error!(
-                    "problem with config: scrollback size is {}, but expected a maximum of {}; \
-                     Using {1} instead",
+                    "Problem with config: scrollback size is {}, but expected a maximum of {}; \
+                     using {1} instead",
                     lines, MAX_SCROLLBACK_LINES,
                 );
                 Ok(MAX_SCROLLBACK_LINES)
@@ -685,7 +685,7 @@ fn deserialize_scrolling_history<'a, D>(deserializer: D) -> ::std::result::Resul
             }
         },
         Err(err) => {
-            error!("problem with config: {}; Using default value", err);
+            error!("Problem with config: {}; using default value", err);
             Ok(default_scrolling_history())
         },
     }
@@ -697,7 +697,7 @@ fn deserialize_scrolling_multiplier<'a, D>(deserializer: D) -> ::std::result::Re
     match u8::deserialize(deserializer) {
         Ok(lines) => Ok(lines),
         Err(err) => {
-            error!("problem with config: {}; Using default value", err);
+            error!("Problem with config: {}; using default value", err);
             Ok(default_scrolling_multiplier())
         },
     }
@@ -739,7 +739,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
                         "Shift" => res.shift = true,
                         "Alt" | "Option" => res.alt = true,
                         "Control" => res.ctrl = true,
-                        _ => error!("unknown modifier {:?}", modifier),
+                        _ => error!("Unknown modifier {:?}", modifier),
                     }
                 }
 
@@ -862,7 +862,7 @@ impl<'a> de::Deserialize<'a> for ModeWrapper {
                         "~AppCursor" => res.not_mode |= mode::TermMode::APP_CURSOR,
                         "AppKeypad" => res.mode |= mode::TermMode::APP_KEYPAD,
                         "~AppKeypad" => res.not_mode |= mode::TermMode::APP_KEYPAD,
-                        _ => error!("unknown mode {:?}", modifier),
+                        _ => error!("Unknown mode {:?}", modifier),
                     }
                 }
 
@@ -1045,7 +1045,7 @@ impl<'a> de::Deserialize<'a> for RawBinding {
                                 let scancode = val.as_u64().unwrap();
                                 if scancode > u64::from(::std::u32::MAX) {
                                     return Err(<V::Error as Error>::custom(format!(
-                                        "invalid key binding, scancode too big: {}",
+                                        "Invalid key binding, scancode too big: {}",
                                         scancode
                                     )));
                                 }
@@ -1225,9 +1225,9 @@ fn deserialize_color_index<'a, D>(deserializer: D) -> ::std::result::Result<u8, 
         Ok(index) => {
             if index < 16 {
                 error!(
-                    "problem with config: indexed_color's index is '{}', \
+                    "Problem with config: indexed_color's index is {}, \
                      but a value bigger than 15 was expected; \
-                     Ignoring setting",
+                     ignoring setting",
                     index
                 );
 
@@ -1238,7 +1238,7 @@ fn deserialize_color_index<'a, D>(deserializer: D) -> ::std::result::Result<u8, 
             }
         },
         Err(err) => {
-            error!("problem with config: {}; Ignoring setting", err);
+            error!("Problem with config: {}; ignoring setting", err);
 
             // Return value out of range to ignore this color
             Ok(0)
@@ -1293,7 +1293,7 @@ fn deserialize_optional_color<'a, D>(deserializer: D) -> ::std::result::Result<O
         },
         Ok(None) => Ok(None),
         Err(err) => {
-            error!("problem with config: {}; Using standard foreground color", err);
+            error!("Problem with config: {}; using standard foreground color", err);
             Ok(None)
         },
     }
@@ -1375,14 +1375,14 @@ fn rgb_from_hex<'a, D>(deserializer: D) -> ::std::result::Result<Rgb, D::Error>
         type Value = Rgb;
 
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("Hex colors spec like 'ffaabb'")
+            f.write_str("hex color like 0xff00ff")
         }
 
         fn visit_str<E>(self, value: &str) -> ::std::result::Result<Rgb, E>
             where E: ::serde::de::Error
         {
             Rgb::from_str(&value[..])
-                .map_err(|_| E::custom("failed to parse rgb; expect 0xrrggbb"))
+                .map_err(|_| E::custom("failed to parse rgb; expected hex color like 0xff00ff"))
         }
     }
 
@@ -1392,7 +1392,7 @@ fn rgb_from_hex<'a, D>(deserializer: D) -> ::std::result::Result<Rgb, D::Error>
     match rgb {
         Ok(rgb) => Ok(rgb),
         Err(err) => {
-            error!("problem with config: {}; Using color #ff00ff", err);
+            error!("Problem with config: {}; using color #ff00ff", err);
             Ok(Rgb { r: 255, g: 0, b: 255 })
         },
     }
@@ -1444,8 +1444,8 @@ impl ::std::error::Error for Error {
 
     fn description(&self) -> &str {
         match *self {
-            Error::NotFound => "could not locate config file",
-            Error::Empty => "empty config file",
+            Error::NotFound => "Couldn't locate config file",
+            Error::Empty => "Empty config file",
             Error::ReadingEnvHome(ref err) => err.description(),
             Error::Io(ref err) => err.description(),
             Error::Yaml(ref err) => err.description(),
@@ -1458,10 +1458,10 @@ impl ::std::fmt::Display for Error {
         match *self {
             Error::NotFound | Error::Empty => write!(f, "{}", ::std::error::Error::description(self)),
             Error::ReadingEnvHome(ref err) => {
-                write!(f, "could not read $HOME environment variable: {}", err)
+                write!(f, "Couldn't read $HOME environment variable: {}", err)
             },
-            Error::Io(ref err) => write!(f, "error reading config file: {}", err),
-            Error::Yaml(ref err) => write!(f, "problem with config: {}", err),
+            Error::Io(ref err) => write!(f, "Error reading config file: {}", err),
+            Error::Yaml(ref err) => write!(f, "Problem with config: {}", err),
         }
     }
 }
@@ -1538,7 +1538,7 @@ impl Config {
 
         if let Some(old_path) = old.as_ref().filter(|old| old.exists()) {
             warn!(
-                "Found configuration at: '{}'. The file should be moved to the new location: '{}'.",
+                "Found configuration at: {}; this file should be moved to the new location: {}",
                 old_path.to_string_lossy(),
                 new.as_ref().map(|new| new.to_string_lossy()).unwrap(),
             );
@@ -1564,7 +1564,7 @@ impl Config {
     pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
         let mut path = dirs::config_dir()
             .ok_or_else(|| {
-                io::Error::new(io::ErrorKind::NotFound, "could not find profile directory")
+                io::Error::new(io::ErrorKind::NotFound, "Couldn't find profile directory")
             }
         )?;
 
@@ -1765,21 +1765,22 @@ impl Config {
 
     fn print_deprecation_warnings(&mut self) {
         if self.dimensions.is_some() {
-            warn!("{}", "Config `dimensions` is deprecated. \
-                  Please use `window.dimensions` instead.");
+            warn!("Config dimensions is deprecated; \
+                  please use window.dimensions instead");
         }
 
         if self.padding.is_some() {
-            warn!("{}", "Config `padding` is deprecated. Please use `window.padding` instead.");
+            warn!("Config padding is deprecated; \
+                  please use window.padding instead");
         }
 
         if self.mouse.faux_scrollback_lines.is_some() {
-            warn!("{}", "Config `mouse.faux_scrollback_lines` is deprecated. \
-                  Please use `mouse.faux_scrolling_lines` instead.");
+            warn!("Config mouse.faux_scrollback_lines is deprecated; \
+                  please use mouse.faux_scrolling_lines instead");
         }
 
         if let Some(custom_cursor_colors) = self.custom_cursor_colors {
-            warn!("{}", "Config `custom_cursor_colors` is deprecated.");
+            warn!("Config custom_cursor_colors is deprecated");
 
             if !custom_cursor_colors {
                 self.colors.cursor.cursor = None;
@@ -1788,17 +1789,18 @@ impl Config {
         }
 
         if self.cursor_style.is_some() {
-            warn!("{}", "Config `cursor_style` is deprecated. Please use `cursor.style` instead.");
+            warn!("Config cursor_style is deprecated; \
+                  please use cursor.style instead");
         }
 
         if self.hide_cursor_when_typing.is_some() {
-            warn!("{}", "Config `hide_cursor_when_typing` is deprecated. \
-                  Please use `mouse.hide_when_typing` instead.");
+            warn!("Config hide_cursor_when_typing is deprecated; \
+                  please use mouse.hide_when_typing instead");
         }
 
         if self.unfocused_hollow_cursor.is_some() {
-            warn!("{}", "Config `unfocused_hollow_cursor` is deprecated. \
-                  Please use `cursor.unfocused_hollow` instead.");
+            warn!("Config unfocused_hollow_cursor is deprecated; \
+                  please use cursor.unfocused_hollow instead");
         }
     }
 }
@@ -1899,7 +1901,7 @@ impl DeserializeSize for Size {
         match size {
             Ok(size) => Ok(size),
             Err(err) => {
-                error!("problem with config: {}; Using size 12", err);
+                error!("Problem with config: {}; using size 12", err);
                 Ok(Size::new(12.))
             },
         }
@@ -1949,7 +1951,7 @@ where
 {
     // This is necessary in order to get serde to complete deserialization of the configuration
     let _ignored = bool::deserialize(deserializer);
-    error!("The `scale_with_dpi` setting has been removed, \
+    error!("The scale_with_dpi setting has been removed, \
             on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead.");
     Ok(None)
 }
