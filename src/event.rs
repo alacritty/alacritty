@@ -191,6 +191,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn spawn_new_instance(&mut self) {
         let alacritty = env::args().next().unwrap();
+        #[cfg(not(any(macos, linux, freebsd, openbsd)))]
         let args: [&str; 0] = [];
 
         #[cfg(any(freebsd, openbsd))]
