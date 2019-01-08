@@ -32,8 +32,7 @@ use crate::util::fmt::Red;
 use crate::window::Window;
 
 #[cfg(target_os = "macos")]
-use crate::libproc::proc_pid;
-
+use libproc::libproc::proc_pid;
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
