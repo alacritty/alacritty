@@ -31,10 +31,10 @@ use crate::util::{limit, start_daemon};
 use crate::util::fmt::Red;
 use crate::window::Window;
 
-#[cfg(macos)]
+#[cfg(target_os = "macos")]
 use crate::libproc::libproc::proc_pid;
 
-#[cfg(any(freebsd, openbsd))]
+#[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
 use std::process::Command;
 
 /// Byte sequences are sent to a `Notify` in response to some events
@@ -191,23 +191,23 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn spawn_new_instance(&mut self) {
         let alacritty = env::args().next().unwrap();
-        #[cfg(not(any(macos, linux, freebsd, openbsd)))]
+        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "freebsd", target_os = "openbsd")))]
         let args: [&str; 0] = [];
 
-        #[cfg(any(freebsd, openbsd))]
+        #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
         let args = [
             "--working-directory".into(),
             get_bsd_process_cwd(unsafe { tty::PID })
                 .expect("shell working directory"),
         ];
-        #[cfg(macos)]
+        #[cfg(target_os = "macos")]
         let args = [
             "--working-directory".into(),
             proc_pid::pidpath(unsafe { tty::PID })
                 .expect("shell working directory"),
         ];
 
-        #[cfg(linux)]
+        #[cfg(target_os = "linux")]
         let args = [
             "--working-directory".into(),
             fs::read_link(format!("/proc/{}/cwd", unsafe { tty::PID }))
@@ -222,7 +222,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 }
 
-#[cfg(any(freebsd, openbsd))]
+#[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
 fn get_bsd_process_cwd(pid: u32) -> Result<String, String> {
     let cwd = Command::new("procstat")
         .args(&["-f", &pid.to_string()])
