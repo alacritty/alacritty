@@ -44,7 +44,6 @@ pub struct ActionContext<'a, N> {
     pub terminal: &'a mut Term,
     pub size_info: &'a mut SizeInfo,
     pub mouse: &'a mut Mouse,
-    pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
     pub last_modifiers: &'a mut ModifiersState,
     pub window_changes: &'a mut WindowChanges,
@@ -156,11 +155,6 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     #[inline]
     fn mouse(&self) -> &Mouse {
         self.mouse
-    }
-
-    #[inline]
-    fn received_count(&mut self) -> &mut usize {
-        &mut self.received_count
     }
 
     #[inline]
@@ -287,7 +281,6 @@ pub struct Processor<N> {
     size_info: SizeInfo,
     hide_mouse_when_typing: bool,
     hide_mouse: bool,
-    received_count: usize,
     suppress_chars: bool,
     last_modifiers: ModifiersState,
     pending_events: Vec<Event>,
@@ -331,7 +324,6 @@ impl<N: Notify> Processor<N> {
             size_info,
             hide_mouse_when_typing: config.hide_mouse_when_typing(),
             hide_mouse: false,
-            received_count: 0,
             suppress_chars: false,
             last_modifiers: Default::default(),
             pending_events: Vec::with_capacity(4),
@@ -505,7 +497,6 @@ impl<N: Notify> Processor<N> {
                 notifier: &mut self.notifier,
                 mouse: &mut self.mouse,
                 size_info: &mut self.size_info,
-                received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
                 last_modifiers: &mut self.last_modifiers,
                 window_changes: &mut self.window_changes,

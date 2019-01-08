@@ -65,7 +65,6 @@ pub trait ActionContext {
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
     fn mouse_coords(&self) -> Option<Point>;
-    fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
     fn last_modifiers(&mut self) -> &mut ModifiersState;
     fn change_font_size(&mut self, delta: f32);
@@ -676,7 +675,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         match input.state {
             ElementState::Pressed => {
                 *self.ctx.last_modifiers() = input.modifiers;
-                *self.ctx.received_count() = 0;
                 *self.ctx.suppress_chars() = false;
 
                 if self.process_key_bindings(input) {
@@ -705,8 +703,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             }
 
             self.ctx.write_to_pty(bytes);
-
-            *self.ctx.received_count() += 1;
         }
     }
 
@@ -801,7 +797,6 @@ mod tests {
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
         pub last_action: MultiClick,
-        pub received_count: usize,
         pub suppress_chars: bool,
         pub last_modifiers: ModifiersState,
         pub window_changes: &'a mut WindowChanges,
@@ -863,10 +858,6 @@ mod tests {
             None
         }
 
-        fn received_count(&mut self) -> &mut usize {
-            &mut self.received_count
-        }
-
         fn suppress_chars(&mut self) -> &mut bool {
             &mut self.suppress_chars
         }
@@ -912,7 +903,6 @@ mod tests {
                     mouse: &mut mouse,
                     size_info: &size,
                     last_action: MultiClick::None,
-                    received_count: 0,
                     suppress_chars: false,
                     last_modifiers: ModifiersState::default(),
                     window_changes: &mut WindowChanges::default(),
