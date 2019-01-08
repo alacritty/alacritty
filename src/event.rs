@@ -14,6 +14,7 @@ use glutin::{self, ModifiersState, Event, ElementState};
 use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
 use glutin::dpi::PhysicalSize;
 
+
 #[cfg(unix)]
 use crate::tty;
 use crate::ansi::{Handler, ClearMode};
@@ -30,6 +31,12 @@ use crate::term::cell::Cell;
 use crate::util::{limit, start_daemon};
 use crate::util::fmt::Red;
 use crate::window::Window;
+
+#[cfg(macos)]
+use crate::libproc::libproc::proc_pid;
+
+//#[cfg(any(freebsd, openbsd))]
+use std::process::Command;
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
@@ -185,19 +192,51 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn spawn_new_instance(&mut self) {
         let alacritty = env::args().next().unwrap();
-        #[cfg(unix)]
+        let args: [&str; 0] = [];
+
+        #[cfg(any(freebsd, openbsd))]
+        let args = [
+            "--working-directory".into(),
+            get_bsd_process_cwd(unsafe { tty::PID })
+                .expect("shell working directory"),
+        ];
+        #[cfg(macos)]
+        let args = [
+            "--working-directory".into(),
+            proc_pid::pidpath(unsafe { tty::PID })
+                .expect("shell working directory"),
+        ];
+
+        #[cfg(linux)]
         let args = [
             "--working-directory".into(),
             fs::read_link(format!("/proc/{}/cwd", unsafe { tty::PID }))
                 .expect("shell working directory"),
         ];
-        #[cfg(not(unix))]
-        let args: [&str; 0] = [];
+
 
         match start_daemon(&alacritty, &args) {
             Ok(_) => debug!("Started new Alacritty process: {} {:?}", alacritty, args),
             Err(_) => warn!("Unable to start new Alacritty process: {} {:?}", alacritty, args),
         }
+    }
+}
+
+#[cfg(any(freebsd, openbsd))]
+fn get_bsd_process_cwd(pid: u32) -> Result<String, String> {
+    let cwd = Command::new("procstat")
+        .args(&["-f", &pid.to_string()])
+        .output()
+        .expect("Failed to get current working directory.")
+        .stdout;
+    let cwd = std::str::from_utf8(&cwd)
+        .expect("Failed to parse current working directory.")
+        .split("\n");
+    let cwd = cwd.filter(|line| line.find("cwd").is_some())
+        .next();
+    match cwd {
+        Some(c) => Ok(c.to_string()),
+        None => Err("Failed to get BSD shell current working_directory.".to_string())
     }
 }
 

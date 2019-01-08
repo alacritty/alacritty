@@ -51,6 +51,7 @@ static_assertions = "0.3.0"
 terminfo = "0.6.1"
 url = "1.7.1"
 time = "0.1.40"
+libproc = "0.3.2"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
