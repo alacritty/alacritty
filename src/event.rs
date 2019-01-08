@@ -34,8 +34,6 @@ use crate::window::Window;
 #[cfg(target_os = "macos")]
 use crate::libproc::libproc::proc_pid;
 
-#[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
-use std::process::Command;
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
@@ -191,15 +189,9 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn spawn_new_instance(&mut self) {
         let alacritty = env::args().next().unwrap();
-        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "freebsd", target_os = "openbsd")))]
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
         let args: [&str; 0] = [];
 
-        #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
-        let args = [
-            "--working-directory".into(),
-            get_bsd_process_cwd(unsafe { tty::PID })
-                .expect("shell working directory"),
-        ];
         #[cfg(target_os = "macos")]
         let args = [
             "--working-directory".into(),
@@ -222,23 +214,6 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 }
 
-#[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
-fn get_bsd_process_cwd(pid: u32) -> Result<String, String> {
-    let cwd = Command::new("procstat")
-        .args(&["-f", &pid.to_string()])
-        .output()
-        .expect("Failed to get current working directory.")
-        .stdout;
-    let cwd = std::str::from_utf8(&cwd)
-        .expect("Failed to parse current working directory.")
-        .split("\n");
-    let cwd = cwd.filter(|line| line.find("cwd").is_some())
-        .next();
-    match cwd {
-        Some(c) => Ok(c.to_string()),
-        None => Err("Failed to get BSD shell current working_directory.".to_string())
-    }
-}
 
 /// The ActionContext can't really have direct access to the Window
 /// with the current design. Event handlers that want to change the
