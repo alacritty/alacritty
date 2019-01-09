@@ -98,7 +98,7 @@ fn load_config(options: &cli::Options) -> Config {
         Config::load_from(&*config_path).unwrap_or_else(|err| {
             match err {
                 ConfigError::Empty => info!("Config file {:?} is empty; loading default", config_path),
-                _ => error!("Error: {}; loading default config", err),
+                _ => error!("Unable to load default config: {}", err),
             }
 
             Config::default()
