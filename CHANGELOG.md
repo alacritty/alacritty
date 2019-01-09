@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prevent semantic and line selection from starting with the right or middle mouse button
 - Prevent Alacritty from crashing when started on a system without any free space
 - Resolve issue with high CPU usage after moving Alacritty between displays
+- Characters will no longer be deleted when using ncurses with the hard tab optimization
 
 ## Version 0.2.5
 

@@ -1565,8 +1565,9 @@ impl ansi::Handler for Term {
             count -= 1;
 
             let cell = &mut self.grid[&self.cursor.point];
-            *cell = self.cursor.template;
-            cell.c = self.cursor.charsets[self.active_charset].map('\t');
+            if cell.c == ' ' {
+                cell.c = self.cursor.charsets[self.active_charset].map('\t');
+            }
 
             loop {
                 if (self.cursor.point.col + 1) == self.grid.num_cols() {
