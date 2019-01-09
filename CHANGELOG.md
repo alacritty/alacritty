@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced `Command` with `Super` in the Linux and Windows config documentation
 - Prevent semantic and line selection from starting with the right or middle mouse button
 - Prevent Alacritty from crashing when started on a system without any free space
+- Resolve issue with high CPU usage after moving Alacritty between displays
 
 ## Version 0.2.5
 
