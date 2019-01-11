@@ -298,7 +298,7 @@ enable_experimental_conpty_backend: false
 # Key bindings are specified as a list of objects. Each binding will specify
 # a key and modifiers required to trigger it, terminal modes where the binding
 # is applicable, and what should be done when the key binding fires. It can
-# either send a byte sequnce to the running application (`chars`), execute
+# either send a byte sequence to the running application (`chars`), execute
 # a predefined action (`action`) or fork and execute a specified command plus
 # arguments (`command`).
 #
