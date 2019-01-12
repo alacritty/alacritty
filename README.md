@@ -79,6 +79,12 @@ pkg install alacritty
 nix-env -iA nixos.alacritty
 ```
 
+### Solus
+
+```sh
+eopkg install alacritty
+```
+
 ### macOS
 
 ```sh
