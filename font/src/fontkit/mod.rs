@@ -2,6 +2,8 @@ use std::error;
 
 use super::*;
 
+use log::warn;
+
 use derive_more::{From, Display};
 use font_kit::source::SystemSource;
 use font_kit::properties::{self, Properties};
@@ -68,7 +70,7 @@ impl crate::Rasterize for FontKitRasterizer {
         let font = &self.fonts[key.token as usize];
         let metrics = font.metrics();
 
-        let scale = size.as_f32_pts() * self.dpi * (96 / 72) / metrics.units_per_em as f32;
+        let scale = size.as_f32_pts() * self.dpi * (96.0 / 72.0) / metrics.units_per_em as f32;
 
         let line_height = (Into::<f32>::into(metrics.line_gap - metrics.descent + metrics.ascent)) as f64;
 
@@ -165,11 +167,16 @@ impl crate::Rasterize for FontKitRasterizer {
             )?;
         }
 
+        let mut top = bounds.size.height + bounds.origin.y;
+        if cfg!(windows) {
+            top -= (metrics.ascent * scale).round() as i32
+        }
+
         Ok(RasterizedGlyph {
             c: glyph_key.c,
             width: bounds.size.width,
             height: bounds.size.height,
-            top: bounds.size.height + bounds.origin.y ,
+            top,
             left: bounds.origin.x,
             buf: canvas.pixels.clone(),
         })
