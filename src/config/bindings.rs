@@ -22,24 +22,24 @@ macro_rules! bindings {
         $ty:ident;
         $(
             $key:path
-            $(,[$($mod:ident: $enabled:expr),*])?
-            $(,+$mode:expr)?
-            $(,~$notmode:expr)?
+            $(,[$($mod:ident: $enabled:expr),*])*
+            $(,+$mode:expr)*
+            $(,~$notmode:expr)*
             ;$action:expr
         );*
-        $(;)?
+        $(;)*
     ) => {{
         let mut v = Vec::new();
 
         $(
             let mut _mods = ModifiersState {
-                $($($mod: $enabled),*,)?
+                $($($mod: $enabled),*,)*
                 ..Default::default()
             };
             let mut _mode = TermMode::empty();
-            $(_mode = $mode;)?
+            $(_mode = $mode;)*
             let mut _notmode = TermMode::empty();
-            $(_notmode = $notmode;)?
+            $(_notmode = $notmode;)*
 
             v.push($ty {
                 trigger: $key,
