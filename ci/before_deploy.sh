@@ -6,9 +6,7 @@ aux_files=("alacritty-completions.bash"
            "alacritty-completions.zsh"
            "alacritty.desktop"
            "alacritty.info"
-           "alacritty.yml"
-           "alacritty_macos.yml"
-           "alacritty_windows.yml")
+           "alacritty.yml")
 
 # Get previous tag to check for changes
 git fetch --tags

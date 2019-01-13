@@ -897,6 +897,8 @@ impl Term {
 
         let scroll_region = Line(0)..grid.num_lines();
 
+        let colors = color::List::from(config.colors());
+
         Term {
             next_title: None,
             next_mouse_cursor: None,
@@ -917,9 +919,9 @@ impl Term {
             mode: Default::default(),
             scroll_region,
             size_info: size,
-            colors: color::List::from(config.colors()),
+            colors,
             color_modified: [false; color::COUNT],
-            original_colors: color::List::from(config.colors()),
+            original_colors: colors,
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
             cursor_style: None,
             default_cursor_style: config.cursor_style(),

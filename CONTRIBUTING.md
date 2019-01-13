@@ -83,7 +83,7 @@ Alacritty mainly uses the [vtebench](https://github.com/jwilm/vtebench) tool for
 
 Code should be documented where appropriate. The existing code can be used as a guidance here and the general `rustfmt` rules can be followed for formatting.
 
-If any change has been made to the `config.rs` file, these changes should be documented in the example configuration files `alacritty.yml`, `alacritty_macos.yml` and `alacritty_windows.yml`. Only changes which are exclusive to a specific platform do not need to be added to all configuration files.
+If any change has been made to the `config.rs` file, these changes should also be documented in the example configuration file `alacritty.yml`.
 
 Changes compared to the latest Alacritty release which have a direct effect on the user (opposed to things like code refactorings or documentation/tests) additionally need to be documented in the `CHANGELOG.md`. The existing entries should be used as a style guideline. The change log should be used to document changes from a user-perspective, instead of explaining the technical background (like commit messages). More information about Alacritty's change log format can be found [here](https://keepachangelog.com).
 

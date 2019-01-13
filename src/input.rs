@@ -81,7 +81,7 @@ pub trait ActionContext {
 /// Describes a state and action to take in that state
 ///
 /// This is the shared component of `MouseBinding` and `KeyBinding`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Binding<T> {
     /// Modifier keys required to activate binding
     pub mods: ModifiersState,
@@ -107,6 +107,36 @@ pub type KeyBinding = Binding<Key>;
 /// Bindings that are triggered by a mouse button
 pub type MouseBinding = Binding<MouseButton>;
 
+impl Default for Action {
+    fn default() -> Action {
+        Action::PasteSelection
+    }
+}
+
+impl Default for KeyBinding {
+    fn default() -> KeyBinding {
+        KeyBinding {
+            mods: Default::default(),
+            action: Action::Esc(String::new()),
+            mode: TermMode::NONE,
+            notmode: TermMode::NONE,
+            trigger: Key::A,
+        }
+    }
+}
+
+impl Default for MouseBinding {
+    fn default() -> MouseBinding {
+        MouseBinding {
+            mods: Default::default(),
+            action: Action::Esc(String::new()),
+            mode: TermMode::NONE,
+            notmode: TermMode::NONE,
+            trigger: MouseButton::Left,
+        }
+    }
+}
+
 impl<T: Eq> Binding<T> {
     #[inline]
     fn is_triggered_by(
@@ -123,6 +153,14 @@ impl<T: Eq> Binding<T> {
             self.mode_matches(mode) &&
             self.not_mode_matches(mode) &&
             self.mods_match(mods, relaxed)
+    }
+
+    #[inline]
+    pub fn triggers_match(&self, binding: &Binding<T>) -> bool {
+        self.trigger == binding.trigger
+            && self.mode == binding.mode
+            && self.notmode == binding.notmode
+            && self.mods == binding.mods
     }
 }
 
@@ -154,7 +192,7 @@ impl<T> Binding<T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     /// Write an escape sequence
     Esc(String),
