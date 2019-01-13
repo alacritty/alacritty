@@ -68,12 +68,12 @@ impl crate::Rasterize for FontKitRasterizer {
         let font = &self.fonts[key.token as usize];
         let metrics = font.metrics();
 
-        let scale = size.as_f32_pts() * self.dpi / metrics.units_per_em as f32;
+        let scale = size.as_f32_pts() * self.dpi * (96 / 72) / metrics.units_per_em as f32;
 
         let line_height = (Into::<f32>::into(metrics.line_gap - metrics.descent + metrics.ascent)) as f64;
 
         // Not exposed by fontkit
-        let strikeout_position = line_height as f32 / 2. - metrics.descent * scale;
+        let strikeout_position = line_height as f32 / 2. - metrics.descent;
 
         Ok(Metrics {
             // If the font is monospaced all glyphs *should* have the same width
@@ -81,10 +81,10 @@ impl crate::Rasterize for FontKitRasterizer {
             average_advance: (font.advance(33)?.x * scale) as f64,
             line_height: (line_height * scale as f64),
             descent: metrics.descent * scale,
-            underline_position: metrics.underline_position,
-            underline_thickness: metrics.underline_thickness,
-            strikeout_thickness: metrics.underline_thicknessasd,
-            strikeout_position,
+            underline_position: metrics.underline_position * scale,
+            underline_thickness: metrics.underline_thickness * scale,
+            strikeout_thickness: metrics.underline_thickness * scale,
+            strikeout_position: strikeout_position * scale,
         })
     }
 
@@ -93,7 +93,15 @@ impl crate::Rasterize for FontKitRasterizer {
         self.fonts.push(self.source.select_best_match(
             &[FamilyName::Title(desc.name.clone())],
             match desc.style {
-                Style::Specific(_) => unimplemented!(),
+                Style::Specific(ref s) => match s.as_ref() {
+                    "Semibold" => p.weight(properties::Weight::SEMIBOLD),
+                    "Bold" => p.weight(properties::Weight::BOLD),
+                    "Extrabold" => p.weight(properties::Weight::EXTRA_BOLD),
+                    _ => {
+                        warn!("Unknown style {}", s);
+                        &p
+                    }
+                },
                 Style::Description{slant, weight} => p.weight(weight.into()).style(slant.into())
             }
         )?.load()?);
@@ -161,7 +169,7 @@ impl crate::Rasterize for FontKitRasterizer {
             c: glyph_key.c,
             width: bounds.size.width,
             height: bounds.size.height,
-            top: bounds.size.height + bounds.origin.y - (metrics.ascent * scale).round() as i32,
+            top: bounds.size.height + bounds.origin.y ,
             left: bounds.origin.x,
             buf: canvas.pixels.clone(),
         })
