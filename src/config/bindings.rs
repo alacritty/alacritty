@@ -193,7 +193,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Key::Equals, [logo: true]; Action::IncreaseFontSize;
         Key::Minus, [logo: true]; Action::DecreaseFontSize;
         Key::K, [logo: true]; Action::ClearHistory;
-        Key::K, [logo: true]; Action::ESC("\x0c".into());
+        Key::K, [logo: true]; Action::Esc("\x0c".into());
         Key::V, [logo: true]; Action::Paste;
         Key::C, [logo: true]; Action::Copy;
         Key::H, [logo: true]; Action::Hide;
