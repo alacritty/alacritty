@@ -89,33 +89,29 @@ font:
     #family: monospace
 
     # The `style` can be specified to pick a specific face.
-    style: Regular
+    #style: Regular
 
   # Bold font face
   bold:
     # Font family
     #
-    # Default:
-    #   - (macOS) Menlo
-    #   - (Linux) monospace
-    #   - (Windows) Consolas
+    # If the bold family is not specified, it will fall back to the
+    # value specified for the normal font.
     #family: monospace
 
     # The `style` can be specified to pick a specific face.
-    style: Bold
+    #style: Bold
 
   # Italic font face
   italic:
     # Font family
     #
-    # Default:
-    #   - (macOS) Menlo
-    #   - (Linux) monospace
-    #   - (Windows) Consolas
+    # If the italic family is not specified, it will fall back to the
+    # value specified for the normal font.
     #family: monospace
 
     # The `style` can be specified to pick a specific face.
-    style: Italic
+    #style: Italic
 
   # Point size
   size: 11.0

@@ -234,7 +234,7 @@ impl GlyphCache {
         let size = font.size();
 
         // Load regular font
-        let regular_desc = Self::make_desc(&font.normal, font::Slant::Normal, font::Weight::Normal);
+        let regular_desc = Self::make_desc(&font.normal(), font::Slant::Normal, font::Weight::Normal);
 
         let regular = rasterizer.load_font(&regular_desc, size)?;
 
@@ -250,12 +250,12 @@ impl GlyphCache {
         };
 
         // Load bold font
-        let bold_desc = Self::make_desc(&font.bold, font::Slant::Normal, font::Weight::Bold);
+        let bold_desc = Self::make_desc(&font.bold(), font::Slant::Normal, font::Weight::Bold);
 
         let bold = load_or_regular(bold_desc);
 
         // Load italic font
-        let italic_desc = Self::make_desc(&font.italic, font::Slant::Italic, font::Weight::Normal);
+        let italic_desc = Self::make_desc(&font.italic(), font::Slant::Italic, font::Weight::Normal);
 
         let italic = load_or_regular(italic_desc);
 
@@ -272,7 +272,7 @@ impl GlyphCache {
         } else {
             font::Style::Description { slant, weight }
         };
-        FontDesc::new(&desc.family[..], style)
+        FontDesc::new(desc.family.clone(), style)
     }
 
     pub fn font_metrics(&self) -> font::Metrics {

@@ -1991,12 +1991,13 @@ impl DeserializeSize for Size {
             .deserialize_any(NumVisitor::<D>{ _marker: PhantomData })
             .map(|v| Size::new(v as _));
 
-        // Use font size 12 as fallback
+        // Use default font size as fallback
         match size {
             Ok(size) => Ok(size),
             Err(err) => {
-                error!("Problem with config: {}; using size 12", err);
-                Ok(Size::new(12.))
+                let size = default_font_size();
+                error!("Problem with config: {}; using size {}", err, size.as_f32_pts());
+                Ok(size)
             },
         }
     }
@@ -2013,15 +2014,15 @@ impl DeserializeSize for Size {
 pub struct Font {
     /// Normal font face
     #[serde(deserialize_with = "failure_default")]
-    pub normal: FontDescription,
+    normal: FontDescription,
 
     /// Bold font face
     #[serde(deserialize_with = "failure_default")]
-    pub italic: FontDescription,
+    italic: SecondaryFontDescription,
 
     /// Italic font face
     #[serde(deserialize_with = "failure_default")]
-    pub bold: FontDescription,
+    bold: SecondaryFontDescription,
 
     /// Font size in points
     #[serde(deserialize_with = "DeserializeSize::deserialize")]
@@ -2049,10 +2050,10 @@ impl Default for Font {
         Font {
             #[cfg(target_os = "macos")]
             use_thin_strokes: true,
-            size: Size::new(11.0),
-            normal: FontDescription::new_with_style("Regular"),
-            bold: FontDescription::new_with_style("Bold"),
-            italic: FontDescription::new_with_style("Italic"),
+            size: default_font_size(),
+            normal: Default::default(),
+            bold: Default::default(),
+            italic: Default::default(),
             scale_with_dpi: Default::default(),
             glyph_offset: Default::default(),
             offset: Default::default(),
@@ -2086,6 +2087,25 @@ impl Font {
             .. self
         }
     }
+
+    // Get normal font description
+    pub fn normal(&self) -> &FontDescription {
+        &self.normal
+    }
+
+    // Get italic font description
+    pub fn italic(&self) -> FontDescription {
+        self.italic.desc(&self.normal)
+    }
+
+    // Get bold font description
+    pub fn bold(&self) -> FontDescription {
+        self.bold.desc(&self.normal)
+    }
+}
+
+fn default_font_size() -> Size {
+    Size::new(11.)
 }
 
 fn deserialize_scale_with_dpi<'a, D>(deserializer: D) -> ::std::result::Result<Option<()>, D::Error>
@@ -2099,7 +2119,7 @@ where
     Ok(None)
 }
 
-/// Description of a single font
+/// Description of the normal font
 #[serde(default)]
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 pub struct FontDescription {
@@ -2123,11 +2143,21 @@ impl Default for FontDescription {
     }
 }
 
-impl FontDescription {
-    fn new_with_style<S: Into<String>>(style: S) -> FontDescription {
+/// Description of the italic and bold font
+#[serde(default)]
+#[derive(Debug, Default, Deserialize, Clone, PartialEq, Eq)]
+pub struct SecondaryFontDescription {
+    #[serde(deserialize_with = "failure_default")]
+    family: Option<String>,
+    #[serde(deserialize_with = "failure_default")]
+    style: Option<String>,
+}
+
+impl SecondaryFontDescription {
+    pub fn desc(&self, fallback: &FontDescription) -> FontDescription {
         FontDescription {
-            style: Some(style.into()),
-            ..Default::default()
+            family: self.family.clone().unwrap_or_else(|| fallback.family.clone()),
+            style: self.style.clone(),
         }
     }
 }
