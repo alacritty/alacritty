@@ -107,12 +107,6 @@ pub type KeyBinding = Binding<Key>;
 /// Bindings that are triggered by a mouse button
 pub type MouseBinding = Binding<MouseButton>;
 
-impl Default for Action {
-    fn default() -> Action {
-        Action::PasteSelection
-    }
-}
-
 impl Default for KeyBinding {
     fn default() -> KeyBinding {
         KeyBinding {
@@ -244,6 +238,15 @@ pub enum Action {
 
     /// Spawn a new instance of Alacritty.
     SpawnNewInstance,
+
+    /// No action.
+    None,
+}
+
+impl Default for Action {
+    fn default() -> Action {
+        Action::None
+    }
 }
 
 impl Action {
@@ -325,6 +328,7 @@ impl Action {
             Action::SpawnNewInstance => {
                 ctx.spawn_new_instance();
             },
+            Action::None => (),
         }
     }
 

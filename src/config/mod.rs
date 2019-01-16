@@ -592,10 +592,7 @@ where
     let mut bindings: Vec<Binding<T>> = failure_default_vec(deserializer)?;
 
     for binding in bindings.iter() {
-        if let Some(pos) = default.iter().position(|b| b.triggers_match(binding))
-        {
-            default.remove(pos);
-        }
+        default.retain(|b| !b.triggers_match(binding));
     }
 
     bindings.extend(default);
@@ -814,7 +811,8 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, \
                             ResetFontSize, ScrollPageUp, ScrollPageDown, ScrollToTop, \
-                            ScrollToBottom, ClearHistory, Hide, ClearLogNotice, SpawnNewInstance or Quit")
+                            ScrollToBottom, ClearHistory, Hide, ClearLogNotice, SpawnNewInstance, \
+                            None or Quit")
             }
 
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<ActionWrapper, E>
@@ -836,6 +834,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Quit" => Action::Quit,
                     "ClearLogNotice" => Action::ClearLogNotice,
                     "SpawnNewInstance" => Action::SpawnNewInstance,
+                    "None" => Action::None,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
             }
