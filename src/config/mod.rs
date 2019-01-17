@@ -538,6 +538,10 @@ pub struct Config {
     #[serde(default, deserialize_with = "failure_default")]
     enable_experimental_conpty_backend: bool,
 
+    /// Send escape sequences using the alt key.
+    #[serde(default = "default_true_bool", deserialize_with = "deserialize_true_bool")]
+    alt_send_esc: bool,
+
     // TODO: DEPRECATED
     custom_cursor_colors: Option<bool>,
 
@@ -1817,6 +1821,12 @@ impl Config {
     #[inline]
     pub fn enable_experimental_conpty_backend(&self) -> bool {
         self.enable_experimental_conpty_backend
+    }
+
+    /// Send escape sequences using the alt key
+    #[inline]
+    pub fn alt_send_esc(&self) -> bool {
+        self.alt_send_esc
     }
 
     // Update the history size, used in ref tests

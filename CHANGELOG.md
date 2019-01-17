@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New `alt_send_esc` option for controlling if alt key should send escape sequences
+
 ### Changed
 
 - All options in the configuration file are now optional
