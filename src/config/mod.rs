@@ -20,7 +20,6 @@ use serde::{self, de, Deserialize};
 use serde::de::Error as SerdeError;
 use serde::de::{Visitor, MapAccess, Unexpected};
 use notify::{Watcher, watcher, DebouncedEvent, RecursiveMode};
-
 use glutin::ModifiersState;
 
 use crate::cli::Options;
@@ -28,32 +27,50 @@ use crate::input::{Action, Binding, MouseBinding, KeyBinding};
 use crate::index::{Line, Column};
 use crate::ansi::{CursorStyle, NamedColor, Color};
 
+mod bindings;
+
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
+static DEFAULT_ALACRITTY_CONFIG: &'static str =
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty.yml"));
 
-/// Function that returns true for serde default
-fn true_bool() -> bool {
-    true
-}
-
-#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct Selection {
+    #[serde(deserialize_with = "deserialize_escape_chars")]
     pub semantic_escape_chars: String,
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     pub save_to_clipboard: bool,
 }
 
 impl Default for Selection {
     fn default() -> Selection {
         Selection {
-            semantic_escape_chars: String::new(),
-            save_to_clipboard: false
+            semantic_escape_chars: default_escape_chars(),
+            save_to_clipboard: Default::default(),
         }
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+fn deserialize_escape_chars<'a, D>(deserializer: D) -> ::std::result::Result<String, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match String::deserialize(deserializer) {
+        Ok(escape_chars) => Ok(escape_chars),
+        Err(err) => {
+            error!("Problem with config: {}; using default value", err);
+            Ok(default_escape_chars())
+        },
+    }
+}
+
+fn default_escape_chars() -> String {
+    String::from(",│`|:\"' ()[]{}<>")
+}
+
+#[serde(default)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct ClickHandler {
-    #[serde(deserialize_with="deserialize_duration_ms")]
+    #[serde(deserialize_with = "deserialize_duration_ms")]
     pub threshold: Duration,
 }
 
@@ -79,31 +96,46 @@ fn deserialize_duration_ms<'a, D>(deserializer: D) -> ::std::result::Result<Dura
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
+#[derive(Default, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct Mouse {
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     pub double_click: ClickHandler,
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     pub triple_click: ClickHandler,
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     pub hide_when_typing: bool,
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     pub url: Url,
 
     // TODO: DEPRECATED
-    #[serde(default)]
     pub faux_scrollback_lines: Option<usize>,
 }
 
-#[derive(Default, Clone, Debug, Deserialize)]
+#[serde(default)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct Url {
     // Program for opening links
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     pub launcher: Option<CommandWrapper>,
 
     // Modifier used to open links
-    #[serde(default, deserialize_with = "deserialize_modifiers")]
+    #[serde(deserialize_with = "deserialize_modifiers")]
     pub modifiers: ModifiersState,
+}
+
+impl Default for Url {
+    fn default() -> Url {
+        Url {
+            #[cfg(not(any(target_os = "macos", windows)))]
+            launcher: Some(CommandWrapper::Just(String::from("xdg-open"))),
+            #[cfg(target_os = "macos")]
+            launcher: Some(CommandWrapper::Just(String::from("open"))),
+            #[cfg(windows)]
+            launcher: Some(CommandWrapper::Just(String::from("explorer"))),
+            modifiers: Default::default(),
+        }
+    }
 }
 
 fn deserialize_modifiers<'a, D>(deserializer: D) -> ::std::result::Result<ModifiersState, D::Error>
@@ -112,25 +144,9 @@ fn deserialize_modifiers<'a, D>(deserializer: D) -> ::std::result::Result<Modifi
     ModsWrapper::deserialize(deserializer).map(|wrapper| wrapper.into_inner())
 }
 
-impl Default for Mouse {
-    fn default() -> Mouse {
-        Mouse {
-            double_click: ClickHandler {
-                threshold: Duration::from_millis(300),
-            },
-            triple_click: ClickHandler {
-                threshold: Duration::from_millis(300),
-            },
-            hide_when_typing: false,
-            url: Url::default(),
-            faux_scrollback_lines: None,
-        }
-    }
-}
-
 /// `VisualBellAnimations` are modeled after a subset of CSS transitions and Robert
 /// Penner's Easing Functions.
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 pub enum VisualBellAnimation {
     Ease,          // CSS
     EaseOut,       // CSS
@@ -150,30 +166,29 @@ impl Default for VisualBellAnimation {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[serde(default)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct VisualBellConfig {
     /// Visual bell animation function
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     animation: VisualBellAnimation,
 
     /// Visual bell duration in milliseconds
-    #[serde(default, deserialize_with = "deserialize_visual_bell_duration")]
+    #[serde(deserialize_with = "failure_default")]
     duration: u16,
 
     /// Visual bell flash color
-    #[serde(default="default_visual_bell_color", deserialize_with = "rgb_from_hex")]
+    #[serde(deserialize_with = "rgb_from_hex")]
     color: Rgb,
 }
 
-fn deserialize_visual_bell_duration<'a, D>(deserializer: D) -> ::std::result::Result<u16, D::Error>
-    where D: de::Deserializer<'a>
-{
-    match u16::deserialize(deserializer) {
-        Ok(duration) => Ok(duration),
-        Err(err) => {
-            error!("Problem with config: {}; using default value", err);
-            Ok(0)
-        },
+impl Default for VisualBellConfig {
+    fn default() -> VisualBellConfig {
+        VisualBellConfig {
+            animation: Default::default(),
+            duration: Default::default(),
+            color: default_visual_bell_color(),
+        }
     }
 }
 
@@ -201,17 +216,7 @@ impl VisualBellConfig {
     }
 }
 
-impl Default for VisualBellConfig {
-    fn default() -> VisualBellConfig {
-        VisualBellConfig {
-            animation: VisualBellAnimation::default(),
-            color: default_visual_bell_color(),
-            duration: 0,
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct Shell<'a> {
     program: Cow<'a, str>,
 
@@ -248,7 +253,7 @@ impl<'a> Shell<'a> {
 }
 
 /// Wrapper around f32 that represents an alpha value between 0.0 and 1.0
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Alpha(f32);
 
 impl Alpha {
@@ -282,7 +287,7 @@ impl Default for Alpha {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Decorations {
     Full,
     Transparent,
@@ -373,27 +378,40 @@ impl<'de> Deserialize<'de> for Decorations {
     }
 }
 
-#[derive(Debug, Copy, Clone, Deserialize)]
+#[serde(default)]
+#[derive(Debug, Copy, Clone, Deserialize, PartialEq, Eq)]
 pub struct WindowConfig {
     /// Initial dimensions
     #[serde(default, deserialize_with = "failure_default")]
     dimensions: Dimensions,
 
     /// Pixel padding
-    #[serde(default="default_padding", deserialize_with = "deserialize_padding")]
+    #[serde(deserialize_with = "deserialize_padding")]
     padding: Delta<u8>,
 
     /// Draw the window with title bar / borders
-    #[serde(default)]
+    #[serde(deserialize_with = "failure_default")]
     decorations: Decorations,
 
     /// Spread out additional padding evenly
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     dynamic_padding: bool,
 
     /// Start maximized
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     start_maximized: bool,
+}
+
+impl Default for WindowConfig {
+    fn default() -> Self {
+        WindowConfig{
+            dimensions: Default::default(),
+            padding: default_padding(),
+            decorations: Default::default(),
+            dynamic_padding: Default::default(),
+            start_maximized: Default::default(),
+        }
+    }
 }
 
 fn default_padding() -> Delta<u8> {
@@ -426,20 +444,8 @@ impl WindowConfig {
     }
 }
 
-impl Default for WindowConfig {
-    fn default() -> Self {
-        WindowConfig{
-            dimensions: Default::default(),
-            padding: default_padding(),
-            decorations: Default::default(),
-            dynamic_padding: false,
-            start_maximized: false,
-        }
-    }
-}
-
 /// Top-level config type
-#[derive(Debug, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize)]
 pub struct Config {
     /// Initial dimensions
     #[serde(default, deserialize_with = "failure_default")]
@@ -462,7 +468,7 @@ pub struct Config {
     render_timer: bool,
 
     /// Should draw bold text with brighter colors instead of bold font
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    #[serde(default = "default_true_bool", deserialize_with = "deserialize_true_bool")]
     draw_bold_text_with_bright_colors: bool,
 
     #[serde(default, deserialize_with = "failure_default")]
@@ -477,11 +483,11 @@ pub struct Config {
     window: WindowConfig,
 
     /// Keybindings
-    #[serde(default, deserialize_with = "failure_default_vec")]
+    #[serde(default="default_key_bindings", deserialize_with = "deserialize_key_bindings")]
     key_bindings: Vec<KeyBinding>,
 
     /// Bindings for the mouse
-    #[serde(default, deserialize_with = "failure_default_vec")]
+    #[serde(default="default_mouse_bindings", deserialize_with = "deserialize_mouse_bindings")]
     mouse_bindings: Vec<MouseBinding>,
 
     #[serde(default, deserialize_with = "failure_default")]
@@ -503,50 +509,95 @@ pub struct Config {
     visual_bell: VisualBellConfig,
 
     /// Use dynamic title
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    #[serde(default = "default_true_bool", deserialize_with = "deserialize_true_bool")]
     dynamic_title: bool,
 
     /// Live config reload
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    #[serde(default = "default_true_bool", deserialize_with = "deserialize_true_bool")]
     live_config_reload: bool,
 
     /// Number of spaces in one tab
-    #[serde(default="default_tabspaces", deserialize_with = "deserialize_tabspaces")]
+    #[serde(default = "default_tabspaces", deserialize_with = "deserialize_tabspaces")]
     tabspaces: usize,
 
     /// How much scrolling history to keep
-    #[serde(default, deserialize_with="failure_default")]
+    #[serde(default, deserialize_with = "failure_default")]
     scrolling: Scrolling,
 
     /// Cursor configuration
-    #[serde(default, deserialize_with="failure_default")]
+    #[serde(default, deserialize_with = "failure_default")]
     cursor: Cursor,
 
     /// Keep the log file after quitting
-    #[serde(default, deserialize_with="failure_default")]
+    #[serde(default, deserialize_with = "failure_default")]
     persistent_logging: bool,
-
-    // TODO: DEPRECATED
-    #[serde(default, deserialize_with = "failure_default")]
-    custom_cursor_colors: Option<bool>,
-
-    // TODO: DEPRECATED
-    #[serde(default, deserialize_with = "failure_default")]
-    hide_cursor_when_typing: Option<bool>,
-
-    // TODO: DEPRECATED
-    #[serde(default, deserialize_with = "failure_default")]
-    cursor_style: Option<CursorStyle>,
-
-    // TODO: DEPRECATED
-    #[serde(default, deserialize_with = "failure_default")]
-    unfocused_hollow_cursor: Option<bool>,
 
     /// Enable experimental conpty backend instead of using winpty.
     /// Will only take effect on Windows 10 Oct 2018 and later.
     #[cfg(windows)]
-    #[serde(default, deserialize_with="failure_default")]
-    enable_experimental_conpty_backend: bool
+    #[serde(default, deserialize_with = "failure_default")]
+    enable_experimental_conpty_backend: bool,
+
+    // TODO: DEPRECATED
+    custom_cursor_colors: Option<bool>,
+
+    // TODO: DEPRECATED
+    hide_cursor_when_typing: Option<bool>,
+
+    // TODO: DEPRECATED
+    cursor_style: Option<CursorStyle>,
+
+    // TODO: DEPRECATED
+    unfocused_hollow_cursor: Option<bool>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG)
+            .expect("default config is invalid")
+    }
+}
+
+fn default_key_bindings() -> Vec<KeyBinding> {
+    bindings::default_key_bindings()
+}
+
+fn default_mouse_bindings() -> Vec<MouseBinding> {
+    bindings::default_mouse_bindings()
+}
+
+fn deserialize_key_bindings<'a, D>(deserializer: D)
+    -> ::std::result::Result<Vec<KeyBinding>, D::Error>
+where
+    D: de::Deserializer<'a>,
+{
+    deserialize_bindings(deserializer, bindings::default_key_bindings())
+}
+
+fn deserialize_mouse_bindings<'a, D>(deserializer: D)
+    -> ::std::result::Result<Vec<MouseBinding>, D::Error>
+where
+    D: de::Deserializer<'a>,
+{
+    deserialize_bindings(deserializer, bindings::default_mouse_bindings())
+}
+
+fn deserialize_bindings<'a, D, T>(deserializer: D, mut default: Vec<Binding<T>>)
+    -> ::std::result::Result<Vec<Binding<T>>, D::Error>
+where
+    D: de::Deserializer<'a>,
+    T: Copy + Eq + std::hash::Hash + std::fmt::Debug,
+    Binding<T>: de::Deserialize<'a>,
+{
+    let mut bindings: Vec<Binding<T>> = failure_default_vec(deserializer)?;
+
+    for binding in bindings.iter() {
+        default.retain(|b| !b.triggers_match(binding));
+    }
+
+    bindings.extend(default);
+
+    Ok(bindings)
 }
 
 fn failure_default_vec<'a, D, T>(deserializer: D) -> ::std::result::Result<Vec<T>, D::Error>
@@ -592,7 +643,7 @@ fn deserialize_tabspaces<'a, D>(deserializer: D) -> ::std::result::Result<usize,
     }
 }
 
-fn default_true_bool<'a, D>(deserializer: D) -> ::std::result::Result<bool, D::Error>
+fn deserialize_true_bool<'a, D>(deserializer: D) -> ::std::result::Result<bool, D::Error>
     where D: de::Deserializer<'a>
 {
     match bool::deserialize(deserializer) {
@@ -602,6 +653,10 @@ fn default_true_bool<'a, D>(deserializer: D) -> ::std::result::Result<bool, D::E
             Ok(true)
         },
     }
+}
+
+fn default_true_bool() -> bool {
+    true
 }
 
 fn failure_default<'a, D, T>(deserializer: D)
@@ -618,34 +673,29 @@ fn failure_default<'a, D, T>(deserializer: D)
     }
 }
 
-#[cfg(not(any(windows, target_os="macos")))]
-static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty.yml");
-#[cfg(target_os="macos")]
-static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty_macos.yml");
-#[cfg(windows)]
-static DEFAULT_ALACRITTY_CONFIG: &'static str = include_str!("../alacritty_windows.yml");
-
-impl Default for Config {
-    fn default() -> Self {
-        serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG)
-            .expect("default config is invalid")
-    }
+/// Struct for scrolling related settings
+#[serde(default)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct Scrolling {
+    #[serde(deserialize_with = "deserialize_scrolling_history")]
+    pub history: u32,
+    #[serde(deserialize_with = "deserialize_scrolling_multiplier")]
+    pub multiplier: u8,
+    #[serde(deserialize_with = "deserialize_scrolling_multiplier")]
+    pub faux_multiplier: u8,
+    #[serde(deserialize_with = "failure_default")]
+    pub auto_scroll: bool,
 }
 
-/// Struct for scrolling related settings
-#[derive(Copy, Clone, Debug, Deserialize)]
-pub struct Scrolling {
-    #[serde(deserialize_with="deserialize_scrolling_history")]
-    #[serde(default="default_scrolling_history")]
-    pub history: u32,
-    #[serde(deserialize_with="deserialize_scrolling_multiplier")]
-    #[serde(default="default_scrolling_multiplier")]
-    pub multiplier: u8,
-    #[serde(deserialize_with="deserialize_scrolling_multiplier")]
-    #[serde(default="default_scrolling_multiplier")]
-    pub faux_multiplier: u8,
-    #[serde(default, deserialize_with="failure_default")]
-    pub auto_scroll: bool,
+impl Default for Scrolling {
+    fn default() -> Self {
+        Self {
+            history: default_scrolling_history(),
+            multiplier: default_scrolling_multiplier(),
+            faux_multiplier: default_scrolling_multiplier(),
+            auto_scroll: Default::default(),
+        }
+    }
 }
 
 fn default_scrolling_history() -> u32 {
@@ -655,17 +705,6 @@ fn default_scrolling_history() -> u32 {
 // Default for normal and faux scrolling
 fn default_scrolling_multiplier() -> u8 {
     3
-}
-
-impl Default for Scrolling {
-    fn default() -> Self {
-        Self {
-            history: default_scrolling_history(),
-            multiplier: default_scrolling_multiplier(),
-            faux_multiplier: default_scrolling_multiplier(),
-            auto_scroll: false,
-        }
-    }
 }
 
 fn deserialize_scrolling_history<'a, D>(deserializer: D) -> ::std::result::Result<u32, D::Error>
@@ -739,6 +778,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
                         "Shift" => res.shift = true,
                         "Alt" | "Option" => res.alt = true,
                         "Control" => res.ctrl = true,
+                        "None" => (),
                         _ => error!("Unknown modifier {:?}", modifier),
                     }
                 }
@@ -771,7 +811,8 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, \
                             ResetFontSize, ScrollPageUp, ScrollPageDown, ScrollToTop, \
-                            ScrollToBottom, ClearHistory, Hide, ClearLogNotice, SpawnNewInstance or Quit")
+                            ScrollToBottom, ClearHistory, Hide, ClearLogNotice, SpawnNewInstance, \
+                            None or Quit")
             }
 
             fn visit_str<E>(self, value: &str) -> ::std::result::Result<ActionWrapper, E>
@@ -793,6 +834,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Quit" => Action::Quit,
                     "ClearLogNotice" => Action::ClearLogNotice,
                     "SpawnNewInstance" => Action::SpawnNewInstance,
+                    "None" => Action::None,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
             }
@@ -801,8 +843,8 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 pub enum CommandWrapper {
     Just(String),
     WithArgs {
@@ -918,6 +960,7 @@ impl<'a> de::Deserialize<'a> for MouseButton {
 
 /// Bindings are deserialized into a `RawBinding` before being parsed as a
 /// `KeyBinding` or `MouseBinding`.
+#[derive(PartialEq, Eq)]
 struct RawBinding {
     key: Option<Key>,
     mouse: Option<::glutin::MouseButton>,
@@ -1196,21 +1239,87 @@ pub enum Error {
     Yaml(serde_yaml::Error),
 }
 
-#[derive(Debug, Deserialize)]
+#[serde(default)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct Colors {
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     pub primary: PrimaryColors,
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     pub cursor: CursorColors,
+    #[serde(deserialize_with = "deserialize_normal_colors")]
     pub normal: AnsiColors,
+    #[serde(deserialize_with = "deserialize_bright_colors")]
     pub bright: AnsiColors,
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     pub dim: Option<AnsiColors>,
-    #[serde(default, deserialize_with = "failure_default_vec")]
+    #[serde(deserialize_with = "failure_default_vec")]
     pub indexed_colors: Vec<IndexedColor>,
 }
 
-#[derive(Debug, Deserialize)]
+impl Default for Colors {
+    fn default() -> Colors {
+        Colors {
+            primary: Default::default(),
+            cursor: Default::default(),
+            normal: default_normal_colors(),
+            bright: default_bright_colors(),
+            dim: Default::default(),
+            indexed_colors: Default::default(),
+        }
+    }
+}
+
+fn default_normal_colors() -> AnsiColors {
+    AnsiColors {
+        black: Rgb {r: 0x00, g: 0x00, b: 0x00},
+        red: Rgb {r: 0xd5, g: 0x4e, b: 0x53},
+        green: Rgb {r: 0xb9, g: 0xca, b: 0x4a},
+        yellow: Rgb {r: 0xe6, g: 0xc5, b: 0x47},
+        blue: Rgb {r: 0x7a, g: 0xa6, b: 0xda},
+        magenta: Rgb {r: 0xc3, g: 0x97, b: 0xd8},
+        cyan: Rgb {r: 0x70, g: 0xc0, b: 0xba},
+        white: Rgb {r: 0xea, g: 0xea, b: 0xea},
+    }
+}
+
+fn default_bright_colors() -> AnsiColors {
+    AnsiColors {
+        black: Rgb {r: 0x66, g: 0x66, b: 0x66},
+        red: Rgb {r: 0xff, g: 0x33, b: 0x34},
+        green: Rgb {r: 0x9e, g: 0xc4, b: 0x00},
+        yellow: Rgb {r: 0xe7, g: 0xc5, b: 0x47},
+        blue: Rgb {r: 0x7a, g: 0xa6, b: 0xda},
+        magenta: Rgb {r: 0xb7, g: 0x7e, b: 0xe0},
+        cyan: Rgb {r: 0x54, g: 0xce, b: 0xd6},
+        white: Rgb {r: 0xff, g: 0xff, b: 0xff},
+    }
+}
+
+fn deserialize_normal_colors<'a, D>(deserializer: D) -> ::std::result::Result<AnsiColors, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match AnsiColors::deserialize(deserializer) {
+        Ok(escape_chars) => Ok(escape_chars),
+        Err(err) => {
+            error!("Problem with config: {}; using default value", err);
+            Ok(default_normal_colors())
+        },
+    }
+}
+
+fn deserialize_bright_colors<'a, D>(deserializer: D) -> ::std::result::Result<AnsiColors, D::Error>
+    where D: de::Deserializer<'a>
+{
+    match AnsiColors::deserialize(deserializer) {
+        Ok(escape_chars) => Ok(escape_chars),
+        Err(err) => {
+            error!("Problem with config: {}; using default value", err);
+            Ok(default_bright_colors())
+        },
+    }
+}
+
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct IndexedColor {
     #[serde(deserialize_with = "deserialize_color_index")]
     pub index: u8,
@@ -1246,11 +1355,12 @@ fn deserialize_color_index<'a, D>(deserializer: D) -> ::std::result::Result<u8, 
     }
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[serde(default)]
+#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct Cursor {
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     pub style: CursorStyle,
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    #[serde(deserialize_with = "deserialize_true_bool")]
     pub unfocused_hollow: bool,
 }
 
@@ -1263,24 +1373,37 @@ impl Default for Cursor {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default, Deserialize)]
+#[serde(default)]
+#[derive(Debug, Copy, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct CursorColors {
-    #[serde(default, deserialize_with = "deserialize_optional_color")]
+    #[serde(deserialize_with = "deserialize_optional_color")]
     pub text: Option<Rgb>,
-    #[serde(default, deserialize_with = "deserialize_optional_color")]
+    #[serde(deserialize_with = "deserialize_optional_color")]
     pub cursor: Option<Rgb>,
 }
 
-#[derive(Debug, Deserialize)]
+#[serde(default)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct PrimaryColors {
     #[serde(deserialize_with = "rgb_from_hex")]
     pub background: Rgb,
     #[serde(deserialize_with = "rgb_from_hex")]
     pub foreground: Rgb,
-    #[serde(default, deserialize_with = "deserialize_optional_color")]
+    #[serde(deserialize_with = "deserialize_optional_color")]
     pub bright_foreground: Option<Rgb>,
-    #[serde(default, deserialize_with = "deserialize_optional_color")]
+    #[serde(deserialize_with = "deserialize_optional_color")]
     pub dim_foreground: Option<Rgb>,
+}
+
+impl Default for PrimaryColors {
+    fn default() -> Self {
+        PrimaryColors {
+            background: default_background(),
+            foreground: default_foreground(),
+            bright_foreground: Default::default(),
+            dim_foreground: Default::default(),
+        }
+    }
 }
 
 fn deserialize_optional_color<'a, D>(deserializer: D) -> ::std::result::Result<Option<Rgb>, D::Error>
@@ -1299,50 +1422,16 @@ fn deserialize_optional_color<'a, D>(deserializer: D) -> ::std::result::Result<O
     }
 }
 
-impl Default for PrimaryColors {
-    fn default() -> Self {
-        PrimaryColors {
-            background: Rgb { r: 0, g: 0, b: 0 },
-            foreground: Rgb { r: 0xea, g: 0xea, b: 0xea },
-            bright_foreground: None,
-            dim_foreground: None,
-        }
-    }
+fn default_background() -> Rgb {
+    Rgb { r: 0, g: 0, b: 0 }
 }
 
-impl Default for Colors {
-    fn default() -> Colors {
-        Colors {
-            primary: PrimaryColors::default(),
-            cursor: CursorColors::default(),
-            normal: AnsiColors {
-                black: Rgb {r: 0x00, g: 0x00, b: 0x00},
-                red: Rgb {r: 0xd5, g: 0x4e, b: 0x53},
-                green: Rgb {r: 0xb9, g: 0xca, b: 0x4a},
-                yellow: Rgb {r: 0xe6, g: 0xc5, b: 0x47},
-                blue: Rgb {r: 0x7a, g: 0xa6, b: 0xda},
-                magenta: Rgb {r: 0xc3, g: 0x97, b: 0xd8},
-                cyan: Rgb {r: 0x70, g: 0xc0, b: 0xba},
-                white: Rgb {r: 0xea, g: 0xea, b: 0xea},
-            },
-            bright: AnsiColors {
-                black: Rgb {r: 0x66, g: 0x66, b: 0x66},
-                red: Rgb {r: 0xff, g: 0x33, b: 0x34},
-                green: Rgb {r: 0x9e, g: 0xc4, b: 0x00},
-                yellow: Rgb {r: 0xe7, g: 0xc5, b: 0x47},
-                blue: Rgb {r: 0x7a, g: 0xa6, b: 0xda},
-                magenta: Rgb {r: 0xb7, g: 0x7e, b: 0xe0},
-                cyan: Rgb {r: 0x54, g: 0xce, b: 0xd6},
-                white: Rgb {r: 0xff, g: 0xff, b: 0xff},
-            },
-            dim: None,
-            indexed_colors: Vec::new(),
-        }
-    }
+fn default_foreground() -> Rgb {
+    Rgb { r: 0xea, g: 0xea, b: 0xea }
 }
 
 /// The 8-colors sections of config
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct AnsiColors {
     #[serde(deserialize_with = "rgb_from_hex")]
     pub black: Rgb,
@@ -1650,9 +1739,16 @@ impl Config {
         self.render_timer
     }
 
+    #[cfg(target_os = "macos")]
     #[inline]
     pub fn use_thin_strokes(&self) -> bool {
         self.font.use_thin_strokes
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[inline]
+    pub fn use_thin_strokes(&self) -> bool {
+        false
     }
 
     pub fn path(&self) -> Option<&Path> {
@@ -1808,19 +1904,16 @@ impl Config {
 /// Window Dimensions
 ///
 /// Newtype to avoid passing values incorrectly
-#[derive(Debug, Copy, Clone, Deserialize)]
+#[serde(default)]
+#[derive(Default, Debug, Copy, Clone, Deserialize, PartialEq, Eq)]
 pub struct Dimensions {
     /// Window width in character columns
+    #[serde(deserialize_with = "failure_default")]
     columns: Column,
 
     /// Window Height in character lines
+    #[serde(deserialize_with = "failure_default")]
     lines: Line,
-}
-
-impl Default for Dimensions {
-    fn default() -> Dimensions {
-        Dimensions::new(Column(80), Line(24))
-    }
 }
 
 impl Dimensions {
@@ -1845,14 +1938,14 @@ impl Dimensions {
 }
 
 /// A delta for a point in a 2 dimensional plane
-#[derive(Clone, Copy, Debug, Default, Deserialize)]
-#[serde(bound(deserialize = "T: Deserialize<'de> + Default"))]
-pub struct Delta<T: Default> {
+#[serde(default, bound(deserialize = "T: Deserialize<'de> + Default"))]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+pub struct Delta<T: Default + PartialEq + Eq> {
     /// Horizontal change
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     pub x: T,
     /// Vertical change
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     pub y: T,
 }
 
@@ -1897,12 +1990,13 @@ impl DeserializeSize for Size {
             .deserialize_any(NumVisitor::<D>{ _marker: PhantomData })
             .map(|v| Size::new(v as _));
 
-        // Use font size 12 as fallback
+        // Use default font size as fallback
         match size {
             Ok(size) => Ok(size),
             Err(err) => {
-                error!("Problem with config: {}; using size 12", err);
-                Ok(Size::new(12.))
+                let size = default_font_size();
+                error!("Problem with config: {}; using size {}", err, size.as_f32_pts());
+                Ok(size)
             },
         }
     }
@@ -1914,68 +2008,54 @@ impl DeserializeSize for Size {
 /// field in this struct. It might be nice in the future to have defaults for
 /// each value independently. Alternatively, maybe erroring when the user
 /// doesn't provide complete config is Ok.
-#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 pub struct Font {
-    /// Font family
-    pub normal: FontDescription,
+    /// Normal font face
+    #[serde(deserialize_with = "failure_default")]
+    normal: FontDescription,
 
-    #[serde(default="default_italic_desc")]
-    pub italic: FontDescription,
+    /// Bold font face
+    #[serde(deserialize_with = "failure_default")]
+    italic: SecondaryFontDescription,
 
-    #[serde(default="default_bold_desc")]
-    pub bold: FontDescription,
+    /// Italic font face
+    #[serde(deserialize_with = "failure_default")]
+    bold: SecondaryFontDescription,
 
-    // Font size in points
-    #[serde(deserialize_with="DeserializeSize::deserialize")]
+    /// Font size in points
+    #[serde(deserialize_with = "DeserializeSize::deserialize")]
     pub size: Size,
 
     /// Extra spacing per character
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     offset: Delta<i8>,
 
     /// Glyph offset within character cell
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "failure_default")]
     glyph_offset: Delta<i8>,
 
-    #[serde(default="true_bool", deserialize_with = "default_true_bool")]
+    #[cfg(target_os = "macos")]
+    #[serde(deserialize_with = "deserialize_true_bool")]
     use_thin_strokes: bool,
 
     // TODO: Deprecated
-    #[serde(default, deserialize_with = "deserialize_scale_with_dpi")]
+    #[serde(deserialize_with = "deserialize_scale_with_dpi")]
     scale_with_dpi: Option<()>,
 }
 
-fn deserialize_scale_with_dpi<'a, D>(deserializer: D) -> ::std::result::Result<Option<()>, D::Error>
-where
-    D: de::Deserializer<'a>,
-{
-    // This is necessary in order to get serde to complete deserialization of the configuration
-    let _ignored = bool::deserialize(deserializer);
-    error!("The scale_with_dpi setting has been removed, \
-            on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead.");
-    Ok(None)
-}
-
-fn default_bold_desc() -> FontDescription {
-    Font::default().bold
-}
-
-fn default_italic_desc() -> FontDescription {
-    Font::default().italic
-}
-
-/// Description of a single font
-#[derive(Debug, Deserialize, Clone)]
-pub struct FontDescription {
-    pub family: String,
-    pub style: Option<String>,
-}
-
-impl FontDescription {
-    fn new_with_family<S: Into<String>>(family: S) -> FontDescription {
-        FontDescription {
-            family: family.into(),
-            style: None,
+impl Default for Font {
+    fn default() -> Font {
+        Font {
+            #[cfg(target_os = "macos")]
+            use_thin_strokes: true,
+            size: default_font_size(),
+            normal: FontDescription::new_with_style("Regular"),
+            bold: SecondaryFontDescription::new_with_style("Bold"),
+            italic: SecondaryFontDescription::new_with_style("Italic"),
+            scale_with_dpi: Default::default(),
+            glyph_offset: Default::default(),
+            offset: Default::default(),
         }
     }
 }
@@ -2006,52 +2086,95 @@ impl Font {
             .. self
         }
     }
+
+    // Get normal font description
+    pub fn normal(&self) -> &FontDescription {
+        &self.normal
+    }
+
+    // Get italic font description
+    pub fn italic(&self) -> FontDescription {
+        self.italic.desc(&self.normal)
+    }
+
+    // Get bold font description
+    pub fn bold(&self) -> FontDescription {
+        self.bold.desc(&self.normal)
+    }
 }
 
-#[cfg(target_os = "macos")]
-impl Default for Font {
-    fn default() -> Font {
-        Font {
-            normal: FontDescription::new_with_family("Menlo"),
-            bold: FontDescription::new_with_family("Menlo"),
-            italic: FontDescription::new_with_family("Menlo"),
-            size: Size::new(11.0),
-            use_thin_strokes: true,
-            scale_with_dpi: None,
-            glyph_offset: Default::default(),
-            offset: Default::default(),
+fn default_font_size() -> Size {
+    Size::new(11.)
+}
+
+fn deserialize_scale_with_dpi<'a, D>(deserializer: D) -> ::std::result::Result<Option<()>, D::Error>
+where
+    D: de::Deserializer<'a>,
+{
+    // This is necessary in order to get serde to complete deserialization of the configuration
+    let _ignored = bool::deserialize(deserializer);
+    error!("The scale_with_dpi setting has been removed, \
+            on X11 the WINIT_HIDPI_FACTOR environment variable can be used instead.");
+    Ok(None)
+}
+
+/// Description of the normal font
+#[serde(default)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
+pub struct FontDescription {
+    #[serde(deserialize_with = "failure_default")]
+    pub family: String,
+    #[serde(deserialize_with = "failure_default")]
+    pub style: Option<String>,
+}
+
+impl Default for FontDescription {
+    fn default() -> FontDescription {
+        FontDescription {
+            #[cfg(not(any(target_os = "macos", windows)))]
+            family: "monospace".into(),
+            #[cfg(target_os = "macos")]
+            family: "Menlo".into(),
+            #[cfg(windows)]
+            family: "Consolas".into(),
+            style: None,
         }
     }
 }
 
-#[cfg(any(target_os = "linux",target_os = "freebsd",target_os = "openbsd"))]
-impl Default for Font {
-    fn default() -> Font {
-        Font {
-            normal: FontDescription::new_with_family("monospace"),
-            bold: FontDescription::new_with_family("monospace"),
-            italic: FontDescription::new_with_family("monospace"),
-            size: Size::new(11.0),
-            use_thin_strokes: false,
-            scale_with_dpi: None,
-            glyph_offset: Default::default(),
-            offset: Default::default(),
+impl FontDescription {
+    fn new_with_style(style: &str) -> Self {
+        Self {
+            style: Some(style.into()),
+            ..Default::default()
         }
     }
 }
 
-#[cfg(windows)]
-impl Default for Font {
-    fn default() -> Font {
-        Font {
-            normal: FontDescription::new_with_family("Consolas"),
-            bold: FontDescription::new_with_family("Consolas"),
-            italic: FontDescription::new_with_family("Consolas"),
-            size: Size::new(11.0),
-            use_thin_strokes: false,
-            scale_with_dpi: None,
-            glyph_offset: Default::default(),
-            offset: Default::default(),
+/// Description of the italic and bold font
+#[serde(default)]
+#[derive(Debug, Default, Deserialize, Clone, PartialEq, Eq)]
+pub struct SecondaryFontDescription {
+    #[serde(deserialize_with = "failure_default")]
+    family: Option<String>,
+    #[serde(deserialize_with = "failure_default")]
+    style: Option<String>,
+}
+
+impl SecondaryFontDescription {
+    pub fn desc(&self, fallback: &FontDescription) -> FontDescription {
+        FontDescription {
+            family: self.family.clone().unwrap_or_else(|| fallback.family.clone()),
+            style: self.style.clone(),
+        }
+    }
+}
+
+impl SecondaryFontDescription {
+    fn new_with_style(style: &str) -> Self {
+        Self {
+            style: Some(style.into()),
+            ..Default::default()
         }
     }
 }
@@ -2131,55 +2254,7 @@ impl Monitor {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::cli::Options;
-    use super::Config;
-
-    #[cfg(target_os="macos")]
-    static ALACRITTY_YML: &'static str =
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty_macos.yml"));
-    #[cfg(windows)]
-    static ALACRITTY_YML: &'static str =
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty_windows.yml"));
-    #[cfg(not(any(target_os="macos", windows)))]
-    static ALACRITTY_YML: &'static str =
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty.yml"));
-
-    #[test]
-    fn parse_config() {
-        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
-            .expect("deserialize config");
-
-        // Sanity check that mouse bindings are being parsed
-        assert!(!config.mouse_bindings.is_empty());
-
-        // Sanity check that key bindings are being parsed
-        assert!(!config.key_bindings.is_empty());
-    }
-
-    #[test]
-    fn dynamic_title_ignoring_options_by_default() {
-        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
-            .expect("deserialize config");
-        let old_dynamic_title = config.dynamic_title;
-        let options = Options::default();
-        let config = config.update_dynamic_title(&options);
-        assert_eq!(old_dynamic_title, config.dynamic_title);
-    }
-
-    #[test]
-    fn dynamic_title_overridden_by_options() {
-        let config: Config = ::serde_yaml::from_str(ALACRITTY_YML)
-            .expect("deserialize config");
-        let mut options = Options::default();
-        options.title = Some("foo".to_owned());
-        let config = config.update_dynamic_title(&options);
-        assert!(!config.dynamic_title);
-    }
-}
-
-#[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Key {
     Scancode(u32),
     Key1,
@@ -2512,5 +2587,52 @@ impl Key {
             Paste => Key::Paste,
             Cut => Key::Cut,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::cli::Options;
+    use super::{Config, DEFAULT_ALACRITTY_CONFIG};
+
+    #[test]
+    fn parse_config() {
+        let config: Config = ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG)
+            .expect("deserialize config");
+
+        // Sanity check that mouse bindings are being parsed
+        assert!(!config.mouse_bindings.is_empty());
+
+        // Sanity check that key bindings are being parsed
+        assert!(!config.key_bindings.is_empty());
+    }
+
+    #[test]
+    fn dynamic_title_ignoring_options_by_default() {
+        let config: Config = ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG)
+            .expect("deserialize config");
+        let old_dynamic_title = config.dynamic_title;
+        let options = Options::default();
+        let config = config.update_dynamic_title(&options);
+        assert_eq!(old_dynamic_title, config.dynamic_title);
+    }
+
+    #[test]
+    fn dynamic_title_overridden_by_options() {
+        let config: Config = ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG)
+            .expect("deserialize config");
+        let mut options = Options::default();
+        options.title = Some("foo".to_owned());
+        let config = config.update_dynamic_title(&options);
+        assert!(!config.dynamic_title);
+    }
+
+    #[test]
+    fn default_match_empty() {
+        let default = Config::default();
+
+        let empty = serde_yaml::from_str("key: val\n").unwrap();
+
+        assert_eq!(default, empty);
     }
 }

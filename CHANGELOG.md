@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- All options in the configuration file are now optional
+
+### Removed
+
+- Windows and macOS configuration files (`alacritty.yml` is now platform independent)
+
 ### Fixed
 
 - Replaced `Command` with `Super` in the Linux and Windows config documentation

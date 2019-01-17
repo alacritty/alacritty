@@ -110,8 +110,8 @@ Prebuilt binaries for Linux, macOS, and Windows can be downloaded from the [GitH
 
 Although it's possible the default configuration would work on your system,
 you'll probably end up wanting to customize it anyhow. There is a default
-`alacritty.yml`, `alacritty_macos.yml`, and `alacritty_windows.yml` at the Git repository root.
-Alacritty looks for the configuration file as the following paths:
+`alacritty.yml` at the Git repository root. Alacritty looks for the
+configuration file at the following paths:
 
 1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
 2. `$XDG_CONFIG_HOME/alacritty.yml`
