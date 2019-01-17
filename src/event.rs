@@ -293,6 +293,7 @@ pub struct Processor<N> {
     pending_events: Vec<Event>,
     window_changes: WindowChanges,
     save_to_clipboard: bool,
+    alt_send_esc: bool,
 }
 
 /// Notify that the terminal was resized
@@ -337,6 +338,7 @@ impl<N: Notify> Processor<N> {
             pending_events: Vec::with_capacity(4),
             window_changes: Default::default(),
             save_to_clipboard: config.selection().save_to_clipboard,
+            alt_send_esc: config.alt_send_esc(),
         }
     }
 
@@ -518,6 +520,7 @@ impl<N: Notify> Processor<N> {
                 key_bindings: &self.key_bindings[..],
                 mouse_bindings: &self.mouse_bindings[..],
                 save_to_clipboard: self.save_to_clipboard,
+                alt_send_esc: self.alt_send_esc,
             };
 
             let mut window_is_focused = window.is_focused;
@@ -573,5 +576,6 @@ impl<N: Notify> Processor<N> {
         self.mouse_bindings = config.mouse_bindings().to_vec();
         self.mouse_config = config.mouse().to_owned();
         self.save_to_clipboard = config.selection().save_to_clipboard;
+        self.alt_send_esc = config.alt_send_esc();
     }
 }

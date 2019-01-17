@@ -49,6 +49,7 @@ pub struct Processor<'a, A: 'a> {
     pub scrolling_config: &'a config::Scrolling,
     pub ctx: A,
     pub save_to_clipboard: bool,
+    pub alt_send_esc: bool,
 }
 
 pub trait ActionContext {
@@ -742,7 +743,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 c.encode_utf8(&mut bytes[..]);
             }
 
-            if *self.ctx.received_count() == 0 && self.ctx.last_modifiers().alt && utf8_len == 1 {
+            if self.alt_send_esc
+                && *self.ctx.received_count() == 0
+                && self.ctx.last_modifiers().alt
+                && utf8_len == 1
+            {
                 bytes.insert(0, b'\x1b');
             }
 
@@ -977,6 +982,7 @@ mod tests {
                     key_bindings: &config.key_bindings()[..],
                     mouse_bindings: &config.mouse_bindings()[..],
                     save_to_clipboard: config.selection().save_to_clipboard,
+                    alt_send_esc: config.alt_send_esc(),
                 };
 
                 if let Event::WindowEvent { event: WindowEvent::MouseInput { state, button, modifiers, .. }, .. } = $input {
