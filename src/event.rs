@@ -1,4 +1,5 @@
 //! Process window events
+#[cfg(unix)]
 use std::fs;
 use std::borrow::Cow;
 use std::fs::File;
@@ -13,6 +14,7 @@ use glutin::{self, ModifiersState, Event, ElementState, MouseButton};
 use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
 use glutin::dpi::PhysicalSize;
 
+#[cfg(unix)]
 use crate::tty;
 use crate::ansi::{Handler, ClearMode};
 use crate::grid::Scroll;
@@ -184,11 +186,16 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     fn spawn_new_instance(&mut self) {
         let alacritty = env::args().next().unwrap();
 
-        let mut args = Vec::new();
-        if let Ok(path) = fs::read_link(format!("/proc/{}/cwd", unsafe { tty::PID })) {
-            args.push("--working-directory".into());
-            args.push(path);
-        }
+        #[cfg(unix)]
+        let args = {
+            if let Ok(path) = fs::read_link(format!("/proc/{}/cwd", unsafe { tty::PID })) {
+                vec!["--working-directory".into(), path]
+            } else {
+                Vec::new()
+            }
+        };
+        #[cfg(not(unix))]
+        let args: Vec<String> = Vec::new();
 
         match start_daemon(&alacritty, &args) {
             Ok(_) => debug!("Started new Alacritty process: {} {:?}", alacritty, args),
