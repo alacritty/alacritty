@@ -49,6 +49,7 @@ pub struct Processor<'a, A: 'a> {
     pub scrolling_config: &'a config::Scrolling,
     pub ctx: A,
     pub save_to_clipboard: bool,
+    pub alt_send_esc: bool,
 }
 
 pub trait ActionContext {
@@ -81,7 +82,7 @@ pub trait ActionContext {
 /// Describes a state and action to take in that state
 ///
 /// This is the shared component of `MouseBinding` and `KeyBinding`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Binding<T> {
     /// Modifier keys required to activate binding
     pub mods: ModifiersState,
@@ -107,6 +108,30 @@ pub type KeyBinding = Binding<Key>;
 /// Bindings that are triggered by a mouse button
 pub type MouseBinding = Binding<MouseButton>;
 
+impl Default for KeyBinding {
+    fn default() -> KeyBinding {
+        KeyBinding {
+            mods: Default::default(),
+            action: Action::Esc(String::new()),
+            mode: TermMode::NONE,
+            notmode: TermMode::NONE,
+            trigger: Key::A,
+        }
+    }
+}
+
+impl Default for MouseBinding {
+    fn default() -> MouseBinding {
+        MouseBinding {
+            mods: Default::default(),
+            action: Action::Esc(String::new()),
+            mode: TermMode::NONE,
+            notmode: TermMode::NONE,
+            trigger: MouseButton::Left,
+        }
+    }
+}
+
 impl<T: Eq> Binding<T> {
     #[inline]
     fn is_triggered_by(
@@ -123,6 +148,14 @@ impl<T: Eq> Binding<T> {
             self.mode_matches(mode) &&
             self.not_mode_matches(mode) &&
             self.mods_match(mods, relaxed)
+    }
+
+    #[inline]
+    pub fn triggers_match(&self, binding: &Binding<T>) -> bool {
+        self.trigger == binding.trigger
+            && self.mode == binding.mode
+            && self.notmode == binding.notmode
+            && self.mods == binding.mods
     }
 }
 
@@ -154,7 +187,7 @@ impl<T> Binding<T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     /// Write an escape sequence
     Esc(String),
@@ -206,6 +239,15 @@ pub enum Action {
 
     /// Spawn a new instance of Alacritty.
     SpawnNewInstance,
+
+    /// No action.
+    None,
+}
+
+impl Default for Action {
+    fn default() -> Action {
+        Action::None
+    }
 }
 
 impl Action {
@@ -287,6 +329,7 @@ impl Action {
             Action::SpawnNewInstance => {
                 ctx.spawn_new_instance();
             },
+            Action::None => (),
         }
     }
 
@@ -451,14 +494,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn on_mouse_double_click(&mut self) {
-        if let Some(point) = self.ctx.mouse_coords() {
+    pub fn on_mouse_double_click(&mut self, button: MouseButton) {
+        if let (Some(point) , MouseButton::Left) = (self.ctx.mouse_coords(), button) {
             self.ctx.semantic_selection(point);
         }
     }
 
-    pub fn on_mouse_triple_click(&mut self) {
-        if let Some(point) = self.ctx.mouse_coords() {
+    pub fn on_mouse_triple_click(&mut self, button: MouseButton) {
+        if let (Some(point), MouseButton::Left) = (self.ctx.mouse_coords(), button) {
             self.ctx.line_selection(point);
         }
     }
@@ -468,15 +511,21 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let elapsed = self.ctx.mouse().last_click_timestamp.elapsed();
         self.ctx.mouse_mut().last_click_timestamp = now;
 
+        let button_changed = self.ctx.mouse().last_button != button;
+
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
-            ClickState::Click if elapsed < self.mouse_config.double_click.threshold => {
+            ClickState::Click
+                if !button_changed && elapsed < self.mouse_config.double_click.threshold =>
+            {
                 self.ctx.mouse_mut().block_url_launcher = true;
-                self.on_mouse_double_click();
+                self.on_mouse_double_click(button);
                 ClickState::DoubleClick
             },
-            ClickState::DoubleClick if elapsed < self.mouse_config.triple_click.threshold => {
+            ClickState::DoubleClick
+                if !button_changed && elapsed < self.mouse_config.triple_click.threshold =>
+            {
                 self.ctx.mouse_mut().block_url_launcher = true;
-                self.on_mouse_triple_click();
+                self.on_mouse_triple_click(button);
                 ClickState::TripleClick
             },
             _ => {
@@ -659,6 +708,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             },
             ElementState::Released => self.on_mouse_release(button, modifiers),
         }
+
+        self.ctx.mouse_mut().last_button = button;
     }
 
     /// Process key input
@@ -692,7 +743,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 c.encode_utf8(&mut bytes[..]);
             }
 
-            if *self.ctx.received_count() == 0 && self.ctx.last_modifiers().alt && utf8_len == 1 {
+            if self.alt_send_esc
+                && *self.ctx.received_count() == 0
+                && self.ctx.last_modifiers().alt
+                && utf8_len == 1
+            {
                 bytes.insert(0, b'\x1b');
             }
 
@@ -872,6 +927,7 @@ mod tests {
         {
             name: $name:ident,
             initial_state: $initial_state:expr,
+            initial_button: $initial_button:expr,
             input: $input:expr,
             end_state: $end_state:pat,
             last_action: $last_action:expr
@@ -893,6 +949,7 @@ mod tests {
 
                 let mut mouse = Mouse::default();
                 mouse.click_state = $initial_state;
+                mouse.last_button = $initial_button;
 
                 let mut selection = None;
 
@@ -925,6 +982,7 @@ mod tests {
                     key_bindings: &config.key_bindings()[..],
                     mouse_bindings: &config.mouse_bindings()[..],
                     save_to_clipboard: config.selection().save_to_clipboard,
+                    alt_send_esc: config.alt_send_esc(),
                 };
 
                 if let Event::WindowEvent { event: WindowEvent::MouseInput { state, button, modifiers, .. }, .. } = $input {
@@ -961,6 +1019,7 @@ mod tests {
     test_clickstate! {
         name: single_click,
         initial_state: ClickState::None,
+        initial_button: MouseButton::Other(0),
         input: Event::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
@@ -977,6 +1036,7 @@ mod tests {
     test_clickstate! {
         name: double_click,
         initial_state: ClickState::Click,
+        initial_button: MouseButton::Left,
         input: Event::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
@@ -993,6 +1053,7 @@ mod tests {
     test_clickstate! {
         name: triple_click,
         initial_state: ClickState::DoubleClick,
+        initial_button: MouseButton::Left,
         input: Event::WindowEvent {
             event: WindowEvent::MouseInput {
                 state: ElementState::Pressed,
@@ -1004,6 +1065,23 @@ mod tests {
         },
         end_state: ClickState::TripleClick,
         last_action: MultiClick::TripleClick
+    }
+
+    test_clickstate! {
+        name: multi_click_separate_buttons,
+        initial_state: ClickState::DoubleClick,
+        initial_button: MouseButton::Left,
+        input: Event::WindowEvent {
+            event: WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Right,
+                device_id: unsafe { ::std::mem::transmute_copy(&0) },
+                modifiers: ModifiersState::default(),
+            },
+            window_id: unsafe { ::std::mem::transmute_copy(&0) },
+        },
+        end_state: ClickState::Click,
+        last_action: MultiClick::None
     }
 
     test_process_binding! {

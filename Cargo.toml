@@ -83,7 +83,7 @@ gl_generator = "0.10.0"
 embed-resource = "1.1.4"
 tempfile = "3.0.4"
 reqwest = "0.9"
-zip = "0.4"
+zip = "0.5"
 
 [profile.release]
 lto = true

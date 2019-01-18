@@ -92,19 +92,21 @@ fn main() {
 fn load_config(options: &cli::Options) -> Config {
     let config_path = options.config_path()
         .or_else(Config::installed_config)
-        .unwrap_or_else(|| {
-            Config::write_defaults()
-                .unwrap_or_else(|err| die!("Write defaults config failure: {}", err))
-        });
+        .or_else(|| Config::write_defaults().ok());
 
-    Config::load_from(&*config_path).unwrap_or_else(|err| {
-        match err {
-            ConfigError::Empty => info!("Config file {:?} is empty; loading default", config_path),
-            _ => error!("Error: {}; loading default config", err),
-        }
+    if let Some(config_path) = config_path {
+        Config::load_from(&*config_path).unwrap_or_else(|err| {
+            match err {
+                ConfigError::Empty => info!("Config file {:?} is empty; loading default", config_path),
+                _ => error!("Unable to load default config: {}", err),
+            }
 
+            Config::default()
+        })
+    } else {
+        error!("Unable to write the default config");
         Config::default()
-    })
+    }
 }
 
 /// Run Alacritty

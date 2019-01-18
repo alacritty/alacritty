@@ -6,9 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New `alt_send_esc` option for controlling if alt key should send escape sequences
+
+### Changed
+
+- All options in the configuration file are now optional
+
+### Removed
+
+- Windows and macOS configuration files (`alacritty.yml` is now platform independent)
+
 ### Fixed
 
 - Replaced `Command` with `Super` in the Linux and Windows config documentation
+- Prevent semantic and line selection from starting with the right or middle mouse button
+- Prevent Alacritty from crashing when started on a system without any free space
+- Resolve issue with high CPU usage after moving Alacritty between displays
+- Characters will no longer be deleted when using ncurses with the hard tab optimization
+- Crash on non-linux operating systems when using the `SpawnNewInstance` action
 
 ## Version 0.2.5
 

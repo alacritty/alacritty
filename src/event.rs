@@ -1,5 +1,4 @@
 //! Process window events
-#[cfg(unix)]
 use std::fs;
 use std::borrow::Cow;
 use std::fs::File;
@@ -10,11 +9,10 @@ use std::env;
 
 use serde_json as json;
 use parking_lot::MutexGuard;
-use glutin::{self, ModifiersState, Event, ElementState};
+use glutin::{self, ModifiersState, Event, ElementState, MouseButton};
 use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
 use glutin::dpi::PhysicalSize;
 
-#[cfg(unix)]
 use crate::tty;
 use crate::ansi::{Handler, ClearMode};
 use crate::grid::Scroll;
@@ -185,16 +183,12 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn spawn_new_instance(&mut self) {
         let alacritty = env::args().next().unwrap();
-        #[cfg(not(target_os = "linux"))]
-        let args: [&str; 0] = [];
 
-        #[cfg(target_os = "linux")]
-        let args = [
-            "--working-directory".into(),
-            fs::read_link(format!("/proc/{}/cwd", unsafe { tty::PID }))
-                .expect("shell working directory"),
-        ];
-
+        let mut args = Vec::new();
+        if let Ok(path) = fs::read_link(format!("/proc/{}/cwd", unsafe { tty::PID })) {
+            args.push("--working-directory".into());
+            args.push(path);
+        }
 
         match start_daemon(&alacritty, &args) {
             Ok(_) => debug!("Started new Alacritty process: {} {:?}", alacritty, args),
@@ -202,7 +196,6 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         }
     }
 }
-
 
 /// The ActionContext can't really have direct access to the Window
 /// with the current design. Event handlers that want to change the
@@ -248,6 +241,7 @@ pub struct Mouse {
     pub cell_side: Side,
     pub lines_scrolled: f32,
     pub block_url_launcher: bool,
+    pub last_button: MouseButton,
 }
 
 impl Default for Mouse {
@@ -266,6 +260,7 @@ impl Default for Mouse {
             cell_side: Side::Left,
             lines_scrolled: 0.0,
             block_url_launcher: false,
+            last_button: MouseButton::Other(0),
         }
     }
 }
@@ -294,6 +289,7 @@ pub struct Processor<N> {
     pending_events: Vec<Event>,
     window_changes: WindowChanges,
     save_to_clipboard: bool,
+    alt_send_esc: bool,
 }
 
 /// Notify that the terminal was resized
@@ -338,6 +334,7 @@ impl<N: Notify> Processor<N> {
             pending_events: Vec::with_capacity(4),
             window_changes: Default::default(),
             save_to_clipboard: config.selection().save_to_clipboard,
+            alt_send_esc: config.alt_send_esc(),
         }
     }
 
@@ -519,6 +516,7 @@ impl<N: Notify> Processor<N> {
                 key_bindings: &self.key_bindings[..],
                 mouse_bindings: &self.mouse_bindings[..],
                 save_to_clipboard: self.save_to_clipboard,
+                alt_send_esc: self.alt_send_esc,
             };
 
             let mut window_is_focused = window.is_focused;
@@ -574,5 +572,6 @@ impl<N: Notify> Processor<N> {
         self.mouse_bindings = config.mouse_bindings().to_vec();
         self.mouse_config = config.mouse().to_owned();
         self.save_to_clipboard = config.selection().save_to_clipboard;
+        self.alt_send_esc = config.alt_send_esc();
     }
 }
