@@ -185,14 +185,17 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn spawn_new_instance(&mut self) {
         let alacritty = env::args().next().unwrap();
+
         #[cfg(unix)]
-        let args = [
-            "--working-directory".into(),
-            fs::read_link(format!("/proc/{}/cwd", unsafe { tty::PID }))
-                .expect("shell working directory"),
-        ];
+        let args = {
+            if let Ok(path) = fs::read_link(format!("/proc/{}/cwd", unsafe { tty::PID })) {
+                vec!["--working-directory".into(), path]
+            } else {
+                Vec::new()
+            }
+        };
         #[cfg(not(unix))]
-        let args: [&str; 0] = [];
+        let args: Vec<String> = Vec::new();
 
         match start_daemon(&alacritty, &args) {
             Ok(_) => debug!("Started new Alacritty process: {} {:?}", alacritty, args),

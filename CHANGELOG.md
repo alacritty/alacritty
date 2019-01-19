@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prevent Alacritty from crashing when started on a system without any free space
 - Resolve issue with high CPU usage after moving Alacritty between displays
 - Characters will no longer be deleted when using ncurses with the hard tab optimization
+- Crash on non-linux operating systems when using the `SpawnNewInstance` action
 
 ## Version 0.2.5
 
