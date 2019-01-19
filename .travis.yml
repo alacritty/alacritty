@@ -24,7 +24,6 @@ matrix:
       env: ARCH=i386
   allow_failures:
     - rust: nightly
-    - os: windows
 
 install: ci/install.sh
 script: ci/script.sh
