@@ -5,7 +5,7 @@ error=false
 
 # Run clippy checks
 if [ "$CLIPPY" == "true" ]; then
-    cargo clippy --all-features --all-targets
+    cargo clippy --all-targets
     exit
 fi
 
