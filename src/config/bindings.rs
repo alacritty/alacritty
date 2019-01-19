@@ -47,7 +47,6 @@ macro_rules! bindings {
                 mode: _mode,
                 notmode: _notmode,
                 action: $action,
-                ..Default::default()
             });
         )*
 
