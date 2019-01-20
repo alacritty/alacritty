@@ -61,7 +61,13 @@ impl crate::Rasterize for RustTypeRasterizer {
             .monospace();
 
         let fp = match desc.style {
-            Style::Specific(_) => unimplemented!(""),
+            Style::Specific(ref style) => {
+                match style.to_lowercase().as_str() {
+                    "italic" => fp.italic(),
+                    "bold" => fp.bold(),
+                    _ => fp,
+                }
+            },
             Style::Description { slant, weight } => {
                 let fp = match slant {
                     Slant::Normal => fp,
