@@ -2060,9 +2060,9 @@ impl Default for Font {
             #[cfg(target_os = "macos")]
             use_thin_strokes: true,
             size: default_font_size(),
-            normal: FontDescription::new_with_style("Regular"),
-            bold: SecondaryFontDescription::new_with_style("Bold"),
-            italic: SecondaryFontDescription::new_with_style("Italic"),
+            normal: Default::default(),
+            bold: Default::default(),
+            italic: Default::default(),
             scale_with_dpi: Default::default(),
             glyph_offset: Default::default(),
             offset: Default::default(),
@@ -2152,15 +2152,6 @@ impl Default for FontDescription {
     }
 }
 
-impl FontDescription {
-    fn new_with_style(style: &str) -> Self {
-        Self {
-            style: Some(style.into()),
-            ..Default::default()
-        }
-    }
-}
-
 /// Description of the italic and bold font
 #[serde(default)]
 #[derive(Debug, Default, Deserialize, Clone, PartialEq, Eq)]
@@ -2176,15 +2167,6 @@ impl SecondaryFontDescription {
         FontDescription {
             family: self.family.clone().unwrap_or_else(|| fallback.family.clone()),
             style: self.style.clone(),
-        }
-    }
-}
-
-impl SecondaryFontDescription {
-    fn new_with_style(style: &str) -> Self {
-        Self {
-            style: Some(style.into()),
-            ..Default::default()
         }
     }
 }
