@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Line's last character will no longer escape erasing
+- Resolved off-by-one issue with erasing characters in the last column
 
 ## Version 0.2.7
 
