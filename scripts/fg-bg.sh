@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 printf "Fg=Black  Bg=Black           \e[30;40mTEST\e[m\n"
 printf "Fg=Black  Bg=White           \e[30;107mTEST\e[m\n"
