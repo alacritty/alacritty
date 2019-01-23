@@ -59,9 +59,7 @@ impl<'a> Agent<'a> {
     }
 
     pub fn resize(&self, size: &SizeInfo) {
-        /// Get mutable access to Winpty.
-        /// Can offer internal mutability like this because Winpty uses
-        /// a mutex internally.
+        // This is safe since Winpty uses a mutex internally.
         unsafe {
             (&mut *self.winpty).on_resize(size);
         }
