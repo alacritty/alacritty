@@ -208,7 +208,7 @@ impl Write for EventedWritablePipe {
 impl<'a> OnResize for PtyHandle<'a> {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
         match self {
-            PtyHandle::Winpty(w) => w.winpty_mut().on_resize(sizeinfo),
+            PtyHandle::Winpty(w) => w.resize(sizeinfo),
             PtyHandle::Conpty(c) => {
                 let mut handle = c.clone();
                 handle.on_resize(sizeinfo)
