@@ -13,6 +13,7 @@ os:
 
 rust:
   - stable
+  - beta
   - nightly
 
 matrix:
@@ -22,6 +23,18 @@ matrix:
       os: linux
       rust: stable
       env: ARCH=i386
+    - name: "Clippy Linux"
+      os: linux
+      env: CLIPPY=true
+      rust: stable
+    - name: "Clippy OSX"
+      os: osx
+      env: CLIPPY=true
+      rust: stable
+    - name: "Clippy Windows"
+      os: windows
+      env: CLIPPY=true
+      rust: stable
   allow_failures:
     - rust: nightly
 

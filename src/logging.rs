@@ -137,7 +137,7 @@ impl log::Log for Logger {
                         record.file().unwrap_or("?"),
                         record.line()
                               .map(|l| l.to_string())
-                              .unwrap_or("?".to_string()),
+                              .unwrap_or_else(|| "?".into()),
                         record.args())
             } else {
                 format!("[{}] [{}] {}\n",

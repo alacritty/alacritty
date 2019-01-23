@@ -3,9 +3,10 @@
 # Check if any command failed
 error=false
 
-# Run clippy on nightly builds
-if [ "$TRAVIS_RUST_VERSION" == "nightly" ]; then
-    cargo clippy --all-features --all-targets || error=true
+# Run clippy checks
+if [ "$CLIPPY" == "true" ]; then
+    cargo clippy --all-targets
+    exit
 fi
 
 # Run test in release mode if a tag is present, to produce an optimized binary
