@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Resolved off-by-one issue with erasing characters in the last column
+- Excessive polling every 100ms with `live_config_reload` enabled
 
 ## Version 0.2.7
 
