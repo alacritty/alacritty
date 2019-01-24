@@ -166,11 +166,8 @@ nix-shell -A alacritty '<nixpkgs>'
 
 #### Windows
 
-On windows you will need to have the `{architecture}-pc-windows-msvc` toolchain installed as well as [Clang 3.9 or greater](http://releases.llvm.org/download.html).
-
-Alacritty requires winpty on windows to emulate UNIX's PTY API. 
-The agent is a single binary (`winpty-agent.exe`) which MUST be in the same directory as `alacritty.exe`.
-It's included in binary releases and fetched by `build.rs` when compiled from source.
+On windows you will need to have the `{architecture}-pc-windows-msvc` toolchain
+installed as well as [Clang 3.9 or greater](http://releases.llvm.org/download.html).
 
 #### Other
 
@@ -179,7 +176,7 @@ filling in this section of the README.
 
 ## Building
 
-### Linux
+### Linux / Windows
 
 Once all the prerequisites are installed, compiling Alacritty should be easy:
 
@@ -188,6 +185,7 @@ cargo build --release
 ```
 
 If all goes well, this should place a binary at `target/release/alacritty`.
+On Windows this directory should also contain the `winpty-agent.exe`.
 
 #### Desktop Entry
 
@@ -230,7 +228,7 @@ To choose a default terminal app, use Debian's `update-alternatives`.
 
 ```sh
 update-alternatives --config x-terminal-emulator
-``` 
+```
 
 ## Manual Page
 

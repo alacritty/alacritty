@@ -55,8 +55,9 @@ elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" == "i386" ]; then
     # Make sure all files can be uploaded without permission errors
     sudo chown -R $USER:$USER "./target"
 elif [ "$TRAVIS_OS_NAME" == "windows" ]; then
-    mv "./target/release/alacritty.exe" "./target/deploy/${name}.exe"
-    mv "./target/release/winpty-agent.exe" "./target/deploy/winpty-agent.exe"
+    choco install 7zip
+    7z a -tzip "./target/deploy/${name}-windows.zip" "./target/release/alacritty.exe" \
+        "./target/release/winpty-agent.exe"
 fi
 
 # Convert and add manpage if it changed
