@@ -605,8 +605,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase, modifiers: ModifiersState) {
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
-                let height = self.ctx.size_info().cell_height;
-                let new_scroll_px = lines * (height as f32);
+                let new_scroll_px = lines * self.ctx.size_info().cell_height;
                 self.scroll_terminal(modifiers, new_scroll_px as i32);
             },
             MouseScrollDelta::PixelDelta(lpos) => {
@@ -625,53 +624,50 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     fn scroll_terminal(&mut self, modifiers: ModifiersState, new_scroll_px: i32) {
-        let mouse_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
+        let mouse_modes =
+            TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
+        let height = self.ctx.size_info().cell_height as i32;
 
         // Make sure the new and deprecated setting are both allowed
-        let faux_multiplier = self.mouse_config
+        let faux_multiplier = self
+            .mouse_config
             .faux_scrollback_lines
             .unwrap_or(self.scrolling_config.faux_multiplier as usize);
 
-        let height = self.ctx.size_info().cell_height as i32;
+        self.ctx.mouse_mut().scroll_px += new_scroll_px;
 
         if self.ctx.terminal_mode().intersects(mouse_modes) {
-            self.ctx.mouse_mut().scroll_px += new_scroll_px;
-            let to_scroll_lines = self.ctx.mouse().scroll_px / height;
-            let code = if to_scroll_lines > 0 {
-                64
-            } else {
-                65
-            };
-            for _ in 0..to_scroll_lines.abs() {
+            let code = if new_scroll_px > 0 { 64 } else { 65 };
+            let lines = (self.ctx.mouse().scroll_px / height).abs();
+
+            for _ in 0..lines {
                 self.mouse_report(code, ElementState::Pressed, modifiers);
             }
-            self.ctx.mouse_mut().scroll_px %= height;
         } else if self.ctx.terminal_mode().contains(TermMode::ALT_SCREEN)
-            && faux_multiplier > 0 && !modifiers.shift
+            && faux_multiplier > 0
+            && !modifiers.shift
         {
-            // Faux scrolling
-            self.ctx.mouse_mut().scroll_px += new_scroll_px * faux_multiplier as i32;
-            let to_scroll_lines = self.ctx.mouse().scroll_px / height;
-            let cmd = if to_scroll_lines > 0 {
-                b'A'
-            } else {
-                b'B'
-            };
-            let mut content = Vec::with_capacity(to_scroll_lines.abs() as usize * 3);
-            for _ in 0..to_scroll_lines.abs() {
+            self.ctx.mouse_mut().scroll_px *= faux_multiplier as i32;
+
+            let cmd = if new_scroll_px > 0 { b'A' } else { b'B' };
+            let lines = (self.ctx.mouse().scroll_px / height).abs();
+
+            let mut content = Vec::with_capacity(lines as usize * 3);
+            for _ in 0..lines {
                 content.push(0x1b);
                 content.push(b'O');
                 content.push(cmd);
             }
             self.ctx.write_to_pty(content);
-            self.ctx.mouse_mut().scroll_px %= height;
         } else {
-            let scroll_multiplier = self.scrolling_config.multiplier;
-            self.ctx.mouse_mut().scroll_px += new_scroll_px * scroll_multiplier as i32;
-            let to_scroll_lines = self.ctx.mouse().scroll_px / height;
-            self.ctx.scroll(Scroll::Lines(to_scroll_lines as isize));
-            self.ctx.mouse_mut().scroll_px %= height;
+            self.ctx.mouse_mut().scroll_px *= i32::from(self.scrolling_config.multiplier);
+
+            let lines = self.ctx.mouse().scroll_px / height;
+
+            self.ctx.scroll(Scroll::Lines(lines as isize));
         }
+
+        self.ctx.mouse_mut().scroll_px %= height;
     }
 
     pub fn on_focus_change(&mut self, is_focused: bool) {
