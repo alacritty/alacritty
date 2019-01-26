@@ -634,9 +634,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             .faux_scrollback_lines
             .unwrap_or(self.scrolling_config.faux_multiplier as usize);
 
-        self.ctx.mouse_mut().scroll_px += new_scroll_px;
-
         if self.ctx.terminal_mode().intersects(mouse_modes) {
+            self.ctx.mouse_mut().scroll_px += new_scroll_px;
+
             let code = if new_scroll_px > 0 { 64 } else { 65 };
             let lines = (self.ctx.mouse().scroll_px / height).abs();
 
@@ -647,7 +647,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             && faux_multiplier > 0
             && !modifiers.shift
         {
-            self.ctx.mouse_mut().scroll_px *= faux_multiplier as i32;
+            self.ctx.mouse_mut().scroll_px += new_scroll_px * faux_multiplier as i32;
 
             let cmd = if new_scroll_px > 0 { b'A' } else { b'B' };
             let lines = (self.ctx.mouse().scroll_px / height).abs();
@@ -660,7 +660,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             }
             self.ctx.write_to_pty(content);
         } else {
-            self.ctx.mouse_mut().scroll_px *= i32::from(self.scrolling_config.multiplier);
+            let multiplier = i32::from(self.scrolling_config.multiplier);
+            self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
             let lines = self.ctx.mouse().scroll_px / height;
 
