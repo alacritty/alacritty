@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Smoother scrolling for touchpads (also affects scrolling with some mice that send fractional scrolling values)
+- `scrolling.multiplier` now affects normal scrolling with touchpads
 
 ### Fixed
 
