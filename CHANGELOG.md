@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Smoother scrolling for touchpads (also affects scrolling with some mice that send fractional scrolling values)
+
 ### Fixed
 
 - Resolved off-by-one issue with erasing characters in the last column
