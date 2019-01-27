@@ -46,12 +46,16 @@ pub mod term;
 pub mod tty;
 pub mod util;
 pub mod window;
+pub mod message_bar;
 mod url;
 
 use std::ops::Mul;
 
 pub use crate::grid::Grid;
 pub use crate::term::Term;
+
+const RED: Rgb = Rgb { r: 0xff, g: 0x0, b: 0x0 };
+const YELLOW: Rgb = Rgb { r: 0xff, g: 0xff, b: 0x0 };
 
 /// Facade around [winit's `MouseCursor`](glutin::MouseCursor)
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]

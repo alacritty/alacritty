@@ -29,8 +29,8 @@ use crate::renderer::lines::Lines;
 use crate::term::{Term, SizeInfo, RenderableCell};
 use crate::sync::FairMutex;
 use crate::window::{self, Window};
-use crate::logging::LoggerProxy;
 use crate::Rgb;
+use crate::message_bar::MessageBar;
 
 #[derive(Debug)]
 pub enum Error {
@@ -101,7 +101,7 @@ pub struct Display {
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
-    logger_proxy: LoggerProxy,
+    message_bar: MessageBar,
 }
 
 /// Can wakeup the render loop from other threads
@@ -135,7 +135,7 @@ impl Display {
     pub fn new(
         config: &Config,
         options: &cli::Options,
-        logger_proxy: LoggerProxy
+        message_bar: MessageBar,
     ) -> Result<Display, Error> {
         // Extract some properties from config
         let render_timer = config.render_timer();
@@ -229,7 +229,7 @@ impl Display {
             meter: Meter::new(),
             font_size: font::Size::new(0.),
             size_info,
-            logger_proxy,
+            message_bar,
         })
     }
 
@@ -447,32 +447,17 @@ impl Display {
                 });
             }
 
-            // Display errors and warnings
-            if self.logger_proxy.errors() {
-                let msg = match self.logger_proxy.log_path() {
-                    Some(path) => format!(" ERROR! See log at {} ", path),
-                    None => " ERROR! See log in stderr ".into(),
-                };
-                let color = Rgb {
-                    r: 0xff,
-                    g: 0x00,
-                    b: 0x00,
-                };
+            // Relay messages to the user
+            if !self.message_bar.is_empty() {
+                let msg = self.message_bar.message();
+                let col = self.message_bar.color();
                 self.renderer.with_api(config, &size_info, |mut api| {
-                    api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
-                });
-            } else if self.logger_proxy.warnings() {
-                let msg = match self.logger_proxy.log_path() {
-                    Some(path) => format!(" WARNING! See log at {} ", path),
-                    None => " WARNING! See log in stderr ".into(),
-                };
-                let color = Rgb {
-                    r: 0xff,
-                    g: 0xff,
-                    b: 0x00,
-                };
-                self.renderer.with_api(config, &size_info, |mut api| {
-                    api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
+                    api.render_string(
+                        &msg,
+                        size_info.lines() - 1,
+                        glyph_cache,
+                        col,
+                    );
                 });
             }
         }

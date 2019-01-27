@@ -46,12 +46,13 @@ use alacritty::{cli, event, die};
 use alacritty::config::{self, Config, Error as ConfigError};
 use alacritty::display::Display;
 use alacritty::event_loop::{self, EventLoop, Msg};
-use alacritty::logging::{self, LoggerProxy};
+use alacritty::logging;
 use alacritty::panic;
 use alacritty::sync::FairMutex;
 use alacritty::term::Term;
 use alacritty::tty::{self, process_should_exit};
 use alacritty::util::fmt::Red;
+use alacritty::message_bar::MessageBar;
 
 fn main() {
     panic::attach_handler();
@@ -65,8 +66,10 @@ fn main() {
     // Load command line options
     let options = cli::Options::load();
 
+    let message_bar = MessageBar::new();
+
     // Initialize the logger as soon as possible as to capture output from other subsystems
-    let logger_proxy = logging::initialize(&options).expect("Unable to initialize logger");
+    logging::initialize(&options, message_bar.clone()).expect("Unable to initialize logger");
 
     // Load configuration file
     let config = load_config(&options).update_dynamic_title(&options);
@@ -79,7 +82,7 @@ fn main() {
     locale::set_locale_environment();
 
     // Run alacritty
-    if let Err(err) = run(config, &options, logger_proxy) {
+    if let Err(err) = run(config, &options, message_bar) {
         die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
     }
 }
@@ -116,7 +119,7 @@ fn load_config(options: &cli::Options) -> Config {
 fn run(
     mut config: Config,
     options: &cli::Options,
-    mut logger_proxy: LoggerProxy,
+    message_bar: MessageBar,
 ) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty");
     if let Some(config_path) = config.path() {
@@ -129,7 +132,7 @@ fn run(
     // Create a display.
     //
     // The display manages a window and can draw the terminal
-    let mut display = Display::new(&config, options, logger_proxy.clone())?;
+    let mut display = Display::new(&config, options, message_bar.clone())?;
 
     info!(
         "PTY Dimensions: {:?} x {:?}",
@@ -142,8 +145,7 @@ fn run(
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let mut terminal = Term::new(&config, display.size().to_owned());
-    terminal.set_logger_proxy(logger_proxy.clone());
+    let terminal = Term::new(&config, display.size().to_owned(), message_bar);
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Find the window ID for setting $WINDOWID
@@ -267,10 +269,6 @@ fn run(
     unsafe { FreeConsole(); }
 
     info!("Goodbye");
-
-    if !options.persistent_logging && !config.persistent_logging() {
-        logger_proxy.delete_log();
-    }
 
     Ok(())
 }

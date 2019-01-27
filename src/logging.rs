@@ -17,10 +17,6 @@
 //! The main executable is supposed to call `initialize()` exactly once during
 //! startup. All logging messages are written to stdout, given that their
 //! log-level is sufficient for the level configured in `cli::Options`.
-use crate::cli;
-use log::{self, Level};
-use time;
-
 use std::env;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, LineWriter, Stdout, Write};
@@ -29,92 +25,49 @@ use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-pub fn initialize(options: &cli::Options) -> Result<LoggerProxy, log::SetLoggerError> {
+use log::{self, Level};
+use time;
+
+use crate::cli;
+use crate::message_bar::MessageBar;
+
+pub fn initialize(
+    options: &cli::Options,
+    message_bar: MessageBar,
+) -> Result<(), log::SetLoggerError> {
     // Use env_logger if RUST_LOG environment variable is defined. Otherwise,
     // use the alacritty-only logger.
     if ::std::env::var("RUST_LOG").is_ok() {
         ::env_logger::try_init()?;
-        Ok(LoggerProxy::default())
     } else {
-        let logger = Logger::new(options.log_level);
-        let proxy = logger.proxy();
-
+        let logger = Logger::new(options.log_level, message_bar);
         log::set_boxed_logger(Box::new(logger))?;
-
-        Ok(proxy)
     }
+    Ok(())
 }
 
-/// Proxy object for bidirectional communicating with the global logger.
-#[derive(Clone, Default)]
-pub struct LoggerProxy {
-    errors: Arc<AtomicBool>,
-    warnings: Arc<AtomicBool>,
-    logfile_proxy: OnDemandLogFileProxy,
-}
-
-impl LoggerProxy {
-    /// Check for new logged errors.
-    pub fn errors(&self) -> bool {
-        self.errors.load(Ordering::Relaxed)
-    }
-
-    /// Check for new logged warnings.
-    pub fn warnings(&self) -> bool {
-        self.warnings.load(Ordering::Relaxed)
-    }
-
-    /// Get the path of the log file if it has been created.
-    pub fn log_path(&self) -> Option<&str> {
-        if self.logfile_proxy.created.load(Ordering::Relaxed) {
-            Some(&self.logfile_proxy.path)
-        } else {
-            None
-        }
-    }
-
-    /// Clear log warnings/errors from the Alacritty UI.
-    pub fn clear(&mut self) {
-        self.errors.store(false, Ordering::Relaxed);
-        self.warnings.store(false, Ordering::Relaxed);
-    }
-
-    pub fn delete_log(&mut self) {
-        self.logfile_proxy.delete_log();
-    }
-}
-
-struct Logger {
+pub struct Logger {
     level: log::LevelFilter,
     logfile: Mutex<OnDemandLogFile>,
     stdout: Mutex<LineWriter<Stdout>>,
-    errors: Arc<AtomicBool>,
-    warnings: Arc<AtomicBool>,
+    message_bar: Mutex<MessageBar>,
 }
 
 impl Logger {
     // False positive, see: https://github.com/rust-lang-nursery/rust-clippy/issues/734
     #[allow(clippy::new_ret_no_self)]
-    fn new(level: log::LevelFilter) -> Self {
+    fn new(level: log::LevelFilter, message_bar: MessageBar) -> Self {
         log::set_max_level(level);
 
         let logfile = Mutex::new(OnDemandLogFile::new());
         let stdout = Mutex::new(LineWriter::new(io::stdout()));
+        let message_bar = Mutex::new(message_bar);
 
         Logger {
             level,
             logfile,
             stdout,
-            errors: Arc::new(AtomicBool::new(false)),
-            warnings: Arc::new(AtomicBool::new(false)),
-        }
-    }
-
-    fn proxy(&self) -> LoggerProxy {
-        LoggerProxy {
-            errors: self.errors.clone(),
-            warnings: self.warnings.clone(),
-            logfile_proxy: self.logfile.lock().expect("").proxy(),
+            message_bar,
         }
     }
 }
@@ -125,25 +78,23 @@ impl log::Log for Logger {
     }
 
     fn log(&self, record: &log::Record<'_>) {
-        if self.enabled(record.metadata()) &&
-           record.target().starts_with("alacritty")
-        {
+        if self.enabled(record.metadata()) && record.target().starts_with("alacritty") {
             let now = time::strftime("%F %R", &time::now()).unwrap();
 
             let msg = if record.level() >= Level::Trace {
-                format!("[{}] [{}] [{}:{}] {}\n",
-                        now,
-                        record.level(),
-                        record.file().unwrap_or("?"),
-                        record.line()
-                              .map(|l| l.to_string())
-                              .unwrap_or_else(|| "?".into()),
-                        record.args())
+                format!(
+                    "[{}] [{}] [{}:{}] {}\n",
+                    now,
+                    record.level(),
+                    record.file().unwrap_or("?"),
+                    record
+                        .line()
+                        .map(|l| l.to_string())
+                        .unwrap_or_else(|| "?".into()),
+                    record.args()
+                )
             } else {
-                format!("[{}] [{}] {}\n",
-                        now,
-                        record.level(),
-                        record.args())
+                format!("[{}] [{}] {}\n", now, record.level(), record.args())
             };
 
             if let Ok(ref mut logfile) = self.logfile.lock() {
@@ -154,10 +105,16 @@ impl log::Log for Logger {
                 let _ = stdout.write_all(msg.as_ref());
             }
 
-            match record.level() {
-                Level::Error => self.errors.store(true, Ordering::Relaxed),
-                Level::Warn => self.warnings.store(true, Ordering::Relaxed),
-                _ => (),
+            if let Ok(ref mut message_bar) = self.message_bar.lock() {
+                match record.level() {
+                    Level::Error => {
+                        let _ = message_bar.push(format!("{}", record.args()), crate::RED);
+                    }
+                    Level::Warn => {
+                        let _ = message_bar.push(format!("{}", record.args()), crate::YELLOW);
+                    }
+                    _ => (),
+                }
             }
         }
     }
@@ -165,25 +122,19 @@ impl log::Log for Logger {
     fn flush(&self) {}
 }
 
-#[derive(Clone, Default)]
-struct OnDemandLogFileProxy {
-    created: Arc<AtomicBool>,
-    path: String,
-}
-
-impl OnDemandLogFileProxy {
-    fn delete_log(&mut self) {
-        if self.created.load(Ordering::Relaxed) && fs::remove_file(&self.path).is_ok() {
-            let _ = writeln!(io::stdout(), "Deleted log file at {:?}", self.path);
-            self.created.store(false, Ordering::Relaxed);
-        }
-    }
-}
-
 struct OnDemandLogFile {
     file: Option<LineWriter<File>>,
     created: Arc<AtomicBool>,
     path: PathBuf,
+}
+
+impl Drop for OnDemandLogFile {
+    fn drop(&mut self) {
+        // TODO: Check for persistent logging again
+        if self.created.load(Ordering::Relaxed) && fs::remove_file(&self.path).is_ok() {
+            let _ = writeln!(io::stdout(), "Deleted log file at {:?}", self.path);
+        }
+    }
 }
 
 impl OnDemandLogFile {
@@ -225,13 +176,6 @@ impl OnDemandLogFile {
         }
 
         Ok(self.file.as_mut().unwrap())
-    }
-
-    fn proxy(&self) -> OnDemandLogFileProxy {
-        OnDemandLogFileProxy {
-            created: self.created.clone(),
-            path: self.path.to_string_lossy().to_string(),
-        }
     }
 }
 

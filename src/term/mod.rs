@@ -30,8 +30,8 @@ use crate::config::{Config, VisualBellAnimation};
 use crate::{MouseCursor, Rgb};
 use copypasta::{Clipboard, Load, Store};
 use crate::input::FONT_SIZE_STEP;
-use crate::logging::LoggerProxy;
 use crate::url::UrlParser;
+use crate::message_bar::MessageBar;
 
 pub mod cell;
 pub mod color;
@@ -793,8 +793,8 @@ pub struct Term {
     /// Automatically scroll to bottom when new lines are added
     auto_scroll: bool,
 
-    /// Proxy object for clearing displayed errors and warnings
-    logger_proxy: Option<LoggerProxy>,
+    /// Bar for relaying messages to the user
+    message_bar: MessageBar,
 }
 
 /// Terminal size info
@@ -858,11 +858,12 @@ impl Term {
         &self.grid.selection
     }
 
-    /// Clear displayed errors and warnings.
+    /// Clear the current bar message.
     pub fn clear_log(&mut self) {
-        if let Some(ref mut logger_proxy) = self.logger_proxy {
-            logger_proxy.clear();
-        }
+        self.message_bar.pop();
+
+        let size_info = self.size_info;
+        self.resize(&size_info);
     }
 
 
@@ -885,7 +886,7 @@ impl Term {
         self.next_mouse_cursor.take()
     }
 
-    pub fn new(config: &Config, size: SizeInfo) -> Term {
+    pub fn new(config: &Config, size: SizeInfo, message_bar: MessageBar) -> Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
@@ -929,12 +930,8 @@ impl Term {
             dynamic_title: config.dynamic_title(),
             tabspaces,
             auto_scroll: config.scrolling().auto_scroll,
-            logger_proxy: None,
+            message_bar,
         }
-    }
-
-    pub fn set_logger_proxy(&mut self, logger_proxy: LoggerProxy) {
-        self.logger_proxy = Some(logger_proxy);
     }
 
     pub fn change_font_size(&mut self, delta: f32) {
@@ -1183,6 +1180,10 @@ impl Term {
         let old_lines = self.grid.num_lines();
         let mut num_cols = size.cols();
         let mut num_lines = size.lines();
+
+        if !self.message_bar.is_empty() {
+            num_lines -= 1;
+        }
 
         self.size_info = *size;
 
