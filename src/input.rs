@@ -605,19 +605,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     pub fn on_mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase, modifiers: ModifiersState) {
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
-                let to_scroll = self.ctx.mouse().lines_scrolled + lines;
-                let code = if to_scroll > 0.0 {
-                    64
-                } else {
-                    65
-                };
-
-                let scrolling_multiplier = self.scrolling_config.multiplier;
-                for _ in 0..(to_scroll.abs() as usize) {
-                    self.scroll_terminal(code, modifiers, scrolling_multiplier)
-                }
-
-                self.ctx.mouse_mut().lines_scrolled = to_scroll % 1.0;
+                let new_scroll_px = lines * self.ctx.size_info().cell_height;
+                self.scroll_terminal(modifiers, new_scroll_px as i32);
             },
             MouseScrollDelta::PixelDelta(lpos) => {
                 match phase {
@@ -626,21 +615,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                         self.ctx.mouse_mut().scroll_px = 0;
                     },
                     TouchPhase::Moved => {
-                        let (_x, y): (i32, i32) = lpos.into();
-                        self.ctx.mouse_mut().scroll_px += y;
-                        let height = self.ctx.size_info().cell_height as i32;
-
-                        while self.ctx.mouse().scroll_px.abs() >= height {
-                            let code = if self.ctx.mouse().scroll_px > 0 {
-                                self.ctx.mouse_mut().scroll_px -= height;
-                                64
-                            } else {
-                                self.ctx.mouse_mut().scroll_px += height;
-                                65
-                            };
-
-                            self.scroll_terminal(code, modifiers, 1)
-                        }
+                        self.scroll_terminal(modifiers, lpos.y as i32);
                     },
                     _ => (),
                 }
@@ -648,36 +623,52 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    fn scroll_terminal(&mut self, code: u8, modifiers: ModifiersState, scroll_multiplier: u8) {
-        debug_assert!(code == 64 || code == 65);
-
-        let mouse_modes = TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
+    fn scroll_terminal(&mut self, modifiers: ModifiersState, new_scroll_px: i32) {
+        let mouse_modes =
+            TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
+        let height = self.ctx.size_info().cell_height as i32;
 
         // Make sure the new and deprecated setting are both allowed
-        let faux_scrolling_lines = self.mouse_config
+        let faux_multiplier = self
+            .mouse_config
             .faux_scrollback_lines
             .unwrap_or(self.scrolling_config.faux_multiplier as usize);
 
         if self.ctx.terminal_mode().intersects(mouse_modes) {
-            self.mouse_report(code, ElementState::Pressed, modifiers);
+            self.ctx.mouse_mut().scroll_px += new_scroll_px;
+
+            let code = if new_scroll_px > 0 { 64 } else { 65 };
+            let lines = (self.ctx.mouse().scroll_px / height).abs();
+
+            for _ in 0..lines {
+                self.mouse_report(code, ElementState::Pressed, modifiers);
+            }
         } else if self.ctx.terminal_mode().contains(TermMode::ALT_SCREEN)
-            && faux_scrolling_lines > 0 && !modifiers.shift
+            && faux_multiplier > 0
+            && !modifiers.shift
         {
-            // Faux scrolling
-            let cmd = code + 1; // 64 + 1 = A, 65 + 1 = B
-            let mut content = Vec::with_capacity(faux_scrolling_lines as usize * 3);
-            for _ in 0..faux_scrolling_lines {
+            self.ctx.mouse_mut().scroll_px += new_scroll_px * faux_multiplier as i32;
+
+            let cmd = if new_scroll_px > 0 { b'A' } else { b'B' };
+            let lines = (self.ctx.mouse().scroll_px / height).abs();
+
+            let mut content = Vec::with_capacity(lines as usize * 3);
+            for _ in 0..lines {
                 content.push(0x1b);
                 content.push(b'O');
                 content.push(cmd);
             }
             self.ctx.write_to_pty(content);
         } else {
-            for _ in 0..scroll_multiplier {
-                // Transform the reported button codes 64 and 65 into 1 and -1 lines to scroll
-                self.ctx.scroll(Scroll::Lines(-(code as isize * 2 - 129)));
-            }
+            let multiplier = i32::from(self.scrolling_config.multiplier);
+            self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
+
+            let lines = self.ctx.mouse().scroll_px / height;
+
+            self.ctx.scroll(Scroll::Lines(lines as isize));
         }
+
+        self.ctx.mouse_mut().scroll_px %= height;
     }
 
     pub fn on_focus_change(&mut self, is_focused: bool) {
