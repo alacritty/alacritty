@@ -45,13 +45,19 @@ impl UrlParser {
 
     /// Returns the URL if the parser has found any.
     pub fn url(mut self) -> Option<String> {
-        // Remove non-alphabetical characters before scheme
+        // Remove non-alphabetical characters before the scheme
+        // https://tools.ietf.org/html/rfc3986#section-3.1
         if let Some(index) = self.state.find("://") {
-            for i in (0..index - 1).rev() {
-                match self.state.chars().nth(i).unwrap() {
+            let iter = self
+                .state
+                .char_indices()
+                .rev()
+                .skip_while(|(byte_index, _)| *byte_index >= index);
+            for (byte_index, c) in iter {
+                match c {
                     'a'...'z' | 'A'...'Z' => (),
                     _ => {
-                        self.state = self.state.split_off(i + 1);
+                        self.state = self.state.split_off(byte_index + c.len_utf8());
                         break;
                     }
                 }
@@ -206,6 +212,7 @@ mod tests {
         url_test("complicated:https://example.org", "https://example.org", 15);
         url_test("test.https://example.org", "https://example.org", 10);
         url_test(",https://example.org", "https://example.org", 5);
+        url_test("\u{2502}https://example.org", "https://example.org", 5);
     }
 
     #[test]

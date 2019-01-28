@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Resolved off-by-one issue with erasing characters in the last column
 - Excessive polling every 100ms with `live_config_reload` enabled
+- Unicode characters at the beginning of URLs are now properly ignored
 
 ## Version 0.2.7
 
