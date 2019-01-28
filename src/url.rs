@@ -52,7 +52,7 @@ impl UrlParser {
                 .state
                 .char_indices()
                 .rev()
-                .skip_while(|(byte_index, _)| byte_index >= &index);
+                .skip_while(|(byte_index, _)| *byte_index >= index);
             for (byte_index, c) in iter {
                 match c {
                     'a'...'z' | 'A'...'Z' => (),
