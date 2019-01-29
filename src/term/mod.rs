@@ -2126,6 +2126,7 @@ mod tests {
     use crate::input::FONT_SIZE_STEP;
     use font::Size;
     use crate::config::Config;
+    use crate::message_bar::MessageBar;
 
     #[test]
     fn semantic_selection_works() {
@@ -2138,7 +2139,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let mut term = Term::new(&Default::default(), size, MessageBar::new());
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0, Cell::default());
         for i in 0..5 {
             for j in 0..2 {
@@ -2182,7 +2183,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let mut term = Term::new(&Default::default(), size, MessageBar::new());
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0, Cell::default());
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2208,7 +2209,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let mut term = Term::new(&Default::default(), size, MessageBar::new());
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0, Cell::default());
         for l in 0..3 {
             if l != 1 {
@@ -2253,7 +2254,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let mut term = Term::new(&Default::default(), size, MessageBar::new());
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0,
                                StandardCharset::SpecialCharacterAndLineDrawing);
@@ -2273,7 +2274,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size);
+        let mut term: Term = Term::new(&config, size, MessageBar::new());
         term.change_font_size(font_size);
 
         let expected_font_size: Size = config.font().size() + Size::new(font_size);
@@ -2302,7 +2303,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size);
+        let mut term: Term = Term::new(&config, size, MessageBar::new());
 
         term.change_font_size(-100.0);
 
@@ -2322,7 +2323,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size);
+        let mut term: Term = Term::new(&config, size, MessageBar::new());
 
         term.change_font_size(10.0);
         term.reset_font_size();
@@ -2343,7 +2344,7 @@ mod tests {
             dpr: 1.0
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size);
+        let mut term: Term = Term::new(&config, size, MessageBar::new());
 
         // Add one line of scrollback
         term.grid.scroll_up(&(Line(0)..Line(1)), Line(1), &Cell::default());
@@ -2408,7 +2409,7 @@ mod benches {
 
         let config = Config::default();
 
-        let mut terminal = Term::new(&config, size);
+        let mut terminal = Term::new(&config, size, MessageBar::new());
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {

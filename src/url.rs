@@ -129,6 +129,7 @@ mod tests {
     use crate::grid::Grid;
     use crate::index::{Column, Line, Point};
     use crate::term::{Cell, Search, SizeInfo, Term};
+    use crate::message_bar::MessageBar;
 
     fn url_create_term(input: &str) -> Term {
         let size = SizeInfo {
@@ -141,7 +142,7 @@ mod tests {
             dpr: 1.0,
         };
 
-        let mut term = Term::new(&Default::default(), size);
+        let mut term = Term::new(&Default::default(), size, MessageBar::new());
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(input.len()), 0, Cell::default());
 
         for (i, c) in input.chars().enumerate() {

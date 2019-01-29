@@ -820,6 +820,7 @@ mod tests {
     use crate::index::{Point, Side};
     use crate::selection::Selection;
     use crate::grid::Scroll;
+    use crate::message_bar::MessageBar;
 
     use super::{Action, Binding, Processor};
     use copypasta::Buffer as ClipboardBuffer;
@@ -936,7 +937,7 @@ mod tests {
                     dpr: 1.0,
                 };
 
-                let mut terminal = Term::new(&config, size);
+                let mut terminal = Term::new(&config, size, MessageBar::new());
 
                 let mut mouse = Mouse::default();
                 mouse.click_state = $initial_state;
