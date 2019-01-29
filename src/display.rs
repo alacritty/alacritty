@@ -102,6 +102,7 @@ pub struct Display {
     font_size: font::Size,
     size_info: SizeInfo,
     message_bar: MessageBar,
+    bar_present: bool,
 }
 
 /// Can wakeup the render loop from other threads
@@ -230,6 +231,7 @@ impl Display {
             font_size: font::Size::new(0.),
             size_info,
             message_bar,
+            bar_present: false,
         })
     }
 
@@ -313,7 +315,10 @@ impl Display {
         let dpr = self.window.hidpi_factor();
 
         // Font size/DPI factor modification detected
-        if terminal.font_size != self.font_size || (dpr - self.size_info.dpr).abs() > f64::EPSILON {
+        let font_changed = terminal.font_size != self.font_size
+            || (dpr - self.size_info.dpr).abs() > f64::EPSILON;
+
+        if font_changed || self.bar_present == self.message_bar.is_empty() {
             if new_size == None {
                 // Force a resize to refresh things
                 new_size = Some(PhysicalSize::new(
@@ -323,9 +328,12 @@ impl Display {
             }
 
             self.font_size = terminal.font_size;
+            self.bar_present = !self.message_bar.is_empty();
             self.size_info.dpr = dpr;
 
-            self.update_glyph_cache(config);
+            if font_changed {
+                self.update_glyph_cache(config);
+            }
         }
 
         if let Some(psize) = new_size.take() {
@@ -352,7 +360,13 @@ impl Display {
             terminal.resize(size);
 
             for item in items {
-                item.on_resize(size)
+                // Subtract a line when message bar is present
+                let mut size = *size;
+                if !self.message_bar.is_empty() {
+                    size.height -= size.cell_height;
+                }
+
+                item.on_resize(&size)
             }
 
             self.window.resize(psize);
@@ -448,9 +462,14 @@ impl Display {
             }
 
             // Relay messages to the user
-            if !self.message_bar.is_empty() {
-                let msg = self.message_bar.message();
+            if self.bar_present {
+                let mut msg = self.message_bar.message();
                 let col = self.message_bar.color();
+
+                // Add padding to make the bar take the full width
+                let padding_len = size_info.cols().0.saturating_sub(msg.len());
+                msg.extend(vec![' '; padding_len]);
+
                 self.renderer.with_api(config, &size_info, |mut api| {
                     api.render_string(
                         &msg,

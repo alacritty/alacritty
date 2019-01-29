@@ -99,22 +99,23 @@ impl log::Log for Logger {
 
             if let Ok(ref mut logfile) = self.logfile.lock() {
                 let _ = logfile.write_all(msg.as_ref());
+
+                if let Ok(ref mut message_bar) = self.message_bar.lock() {
+                    let msg = format!("Error! See log at {}", logfile.path.to_string_lossy());
+                    match record.level() {
+                        Level::Error => {
+                            let _ = message_bar.push(msg, crate::RED);
+                        }
+                        Level::Warn => {
+                            let _ = message_bar.push(msg, crate::YELLOW);
+                        }
+                        _ => (),
+                    }
+                }
             }
 
             if let Ok(ref mut stdout) = self.stdout.lock() {
                 let _ = stdout.write_all(msg.as_ref());
-            }
-
-            if let Ok(ref mut message_bar) = self.message_bar.lock() {
-                match record.level() {
-                    Level::Error => {
-                        let _ = message_bar.push(format!("{}", record.args()), crate::RED);
-                    }
-                    Level::Warn => {
-                        let _ = message_bar.push(format!("{}", record.args()), crate::YELLOW);
-                    }
-                    _ => (),
-                }
             }
         }
     }

@@ -861,11 +861,7 @@ impl Term {
     /// Clear the current bar message.
     pub fn clear_log(&mut self) {
         self.message_bar.pop();
-
-        let size_info = self.size_info;
-        self.resize(&size_info);
     }
-
 
     pub fn selection_mut(&mut self) -> &mut Option<Selection> {
         &mut self.grid.selection
