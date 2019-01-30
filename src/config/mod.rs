@@ -2224,18 +2224,31 @@ impl Monitor {
                 loop {
                     match rx.recv().expect("watcher event") {
                         DebouncedEvent::Rename(_, _) => continue,
-                        DebouncedEvent::Write(path) | DebouncedEvent::Create(path)
-                         | DebouncedEvent::Chmod(path) => {
-                            // Reload file
-                            if path == config_path {
-                                match Config::load_from(path) {
-                                    Ok(config) => {
-                                        let _ = config_tx.send(config);
-                                        handler.on_config_reload();
-                                    },
-                                    Err(err) => error!("Ignoring invalid config: {}", err),
+                        DebouncedEvent::Write(path)
+                            | DebouncedEvent::Create(path)
+                            | DebouncedEvent::Chmod(path) =>
+                        {
+                            if path != config_path {
+                                continue;
+                            }
+
+                            let config = match Config::load_from(&path) {
+                                Ok(config) => {
+                                    config
+                                },
+                                Err(err) => {
+                                    if let Error::Empty = err {
+                                        info!("Config file {:?} is empty; loading default", path);
+                                        Config::default()
+                                    } else {
+                                        error!("Ignoring invalid config: {}", err);
+                                        continue;
+                                    }
                                 }
-                             }
+                            };
+
+                            let _ = config_tx.send(config);
+                            handler.on_config_reload();
                         }
                         _ => {}
                     }
