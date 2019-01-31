@@ -12,74 +12,75 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::{Arc, Mutex};
+use crossbeam_channel::{Sender, Receiver};
 
 use crate::Rgb;
 
+pub const CLOSE_BUTTON_TEXT: &'static str = "[X]";
+
 #[derive(Debug, Eq, PartialEq, Clone)]
-struct Message {
-    message: String,
+pub struct Message {
+    text: String,
     color: Rgb,
-    id: usize,
 }
 
 impl Message {
-    fn new(message: String, color: Rgb, id: usize) -> Message {
-        Message { message, color, id }
+    pub fn new(text: String, color: Rgb) -> Message {
+        Message { text, color }
+    }
+
+    // TODO: multi-line text
+    pub fn text(&self, num_cols: usize) -> Vec<String> {
+        let mut text = self.text.clone();
+
+        // Add padding to make the bar take the full width
+        let padding_len = num_cols.saturating_sub(text.len() + CLOSE_BUTTON_TEXT.len());
+        text.extend(vec![' '; padding_len]);
+        text.extend(CLOSE_BUTTON_TEXT.chars());
+
+        vec![text]
+    }
+
+    pub fn color(&self) -> Rgb {
+        self.color
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MessageBar {
-    inner: Arc<Mutex<SharedMessageBar>>,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone)]
-struct SharedMessageBar {
-    messages: Vec<Message>,
-    id: usize,
+    current: Option<Message>,
+    messages: Receiver<Message>,
+    tx: Sender<Message>,
 }
 
 impl MessageBar {
     pub fn new() -> MessageBar {
+        let (tx, messages) = crossbeam_channel::unbounded();
         MessageBar {
-            inner: Arc::new(Mutex::new(SharedMessageBar {
-                messages: Vec::new(),
-                id: 0,
-            })),
+            current: None,
+            messages,
+            tx,
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        let lock = self.inner.lock().unwrap();
-        lock.messages.is_empty()
+        self.current.is_none()
     }
 
-    pub fn message(&self) -> Option<String> {
-        let lock = self.inner.lock().unwrap();
-        lock.messages.iter().next().map(|m| m.message.clone())
+    pub fn message(&mut self) -> Option<Message> {
+        if let Some(current) = &self.current {
+            Some(current.clone())
+        } else {
+            self.current = self.messages.try_recv().ok();
+            self.current.clone()
+        }
     }
 
-    pub fn color(&self) -> Option<Rgb> {
-        let lock = self.inner.lock().unwrap();
-        lock.messages.iter().next().map(|m| m.color)
-    }
-
-    pub fn push(&mut self, message: String, color: Rgb) -> usize {
-        let mut lock = self.inner.lock().unwrap();
-        lock.id += 1;
-        let id = lock.id;
-        lock.messages.push(Message::new(message, color, id));
-        id
+    pub fn tx(&self) -> Sender<Message> {
+        self.tx.clone()
     }
 
     pub fn pop(&mut self) {
-        let mut lock = self.inner.lock().unwrap();
-        lock.messages.pop();
-    }
-
-    pub fn remove(&mut self, id: usize) {
-        let mut lock = self.inner.lock().unwrap();
-        lock.messages.retain(|msg| msg.id != id);
+        self.current = self.messages.try_recv().ok();
     }
 }

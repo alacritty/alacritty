@@ -858,11 +858,6 @@ impl Term {
         &self.grid.selection
     }
 
-    /// Clear the current bar message.
-    pub fn clear_log(&mut self) {
-        self.message_bar.pop();
-    }
-
     pub fn selection_mut(&mut self) -> &mut Option<Selection> {
         &mut self.grid.selection
     }
@@ -1314,8 +1309,8 @@ impl Term {
     }
 
     #[inline]
-    pub fn message_bar(&self) -> &MessageBar {
-        &self.message_bar
+    pub fn message_bar(&mut self) -> &mut MessageBar {
+        &mut self.message_bar
     }
 }
 
@@ -1861,10 +1856,7 @@ impl ansi::Handler for Term {
                         .each(|cell| cell.reset(&template));
                 }
             },
-            ansi::ClearMode::All => {
-                self.clear_log();
-                self.grid.region_mut(..).each(|c| c.reset(&template));
-            },
+            ansi::ClearMode::All => self.grid.region_mut(..).each(|c| c.reset(&template)),
             ansi::ClearMode::Above => {
                 // If clearing more than one line
                 if self.cursor.point.line > Line(1) {

@@ -30,6 +30,7 @@ use crate::term::cell::Cell;
 use crate::util::{limit, start_daemon};
 use crate::util::fmt::Red;
 use crate::window::Window;
+use crate::message_bar::MessageBar;
 
 /// Byte sequences are sent to a `Notify` in response to some events
 pub trait Notify {
@@ -179,8 +180,8 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     #[inline]
-    fn clear_log(&mut self) {
-        self.terminal.clear_log();
+    fn message_bar(&mut self) -> &mut MessageBar {
+        self.terminal.message_bar()
     }
 
     fn spawn_new_instance(&mut self) {

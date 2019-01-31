@@ -39,6 +39,7 @@ dependencies = [
  "bitflags 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "copypasta 0.0.1",
+ "crossbeam-channel 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "dirs 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "dunce 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "embed-resource 1.1.4 (registry+https://github.com/rust-lang/crates.io-index)",

@@ -385,7 +385,6 @@ impl Display {
 
         // Get message from terminal to ignore modifications after lock is dropped
         let bar_message = terminal.message_bar().message();
-        let bar_color = terminal.message_bar().color();
 
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
@@ -459,17 +458,14 @@ impl Display {
             }
 
             // Relay messages to the user
-            if let (Some(ref mut bar_message), Some(bar_color)) = (bar_message, bar_color) {
-                // Add padding to make the bar take the full width
-                let padding_len = size_info.cols().0.saturating_sub(bar_message.len());
-                bar_message.extend(vec![' '; padding_len]);
-
+            if let Some(message) = bar_message {
                 self.renderer.with_api(config, &size_info, |mut api| {
                     api.render_string(
-                        bar_message,
+                        // TODO: Handle multi-line text
+                        &message.text(size_info.cols().0)[0],
                         size_info.lines() - 1,
                         glyph_cache,
-                        bar_color,
+                        message.color(),
                     );
                 });
             }

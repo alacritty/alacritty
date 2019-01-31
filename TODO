@@ -1,0 +1,9 @@
+ - Put log path into $ALACRITTY_LOG and tell user where that is
+ - Figure out how to delete outdated errors
+ - Figure out how to display the errors themselves
+ - Move alacritty::Rgb to separate file
+
+ DONE:
+ - Switch from Arc<Mutex<_>> to channels with term as single owner for message bar
+ - Fix issue with clicking in the message bar
+ - Allow clicking on [X] to close message bar

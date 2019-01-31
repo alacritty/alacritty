@@ -69,7 +69,7 @@ fn main() {
     let message_bar = MessageBar::new();
 
     // Initialize the logger as soon as possible as to capture output from other subsystems
-    logging::initialize(&options, message_bar.clone()).expect("Unable to initialize logger");
+    logging::initialize(&options, message_bar.tx()).expect("Unable to initialize logger");
 
     // Load configuration file
     let config = load_config(&options).update_dynamic_title(&options);

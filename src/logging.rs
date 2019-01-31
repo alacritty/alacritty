@@ -26,21 +26,22 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use log::{self, Level};
+use crossbeam_channel::Sender;
 use time;
 
 use crate::cli;
-use crate::message_bar::MessageBar;
+use crate::message_bar::Message;
 
 pub fn initialize(
     options: &cli::Options,
-    message_bar: MessageBar,
+    message_tx: Sender<Message>,
 ) -> Result<(), log::SetLoggerError> {
     // Use env_logger if RUST_LOG environment variable is defined. Otherwise,
     // use the alacritty-only logger.
     if ::std::env::var("RUST_LOG").is_ok() {
         ::env_logger::try_init()?;
     } else {
-        let logger = Logger::new(options.log_level, message_bar);
+        let logger = Logger::new(options.log_level, message_tx);
         log::set_boxed_logger(Box::new(logger))?;
     }
     Ok(())
@@ -50,24 +51,23 @@ pub struct Logger {
     level: log::LevelFilter,
     logfile: Mutex<OnDemandLogFile>,
     stdout: Mutex<LineWriter<Stdout>>,
-    message_bar: Mutex<MessageBar>,
+    message_tx: Sender<Message>,
 }
 
 impl Logger {
     // False positive, see: https://github.com/rust-lang-nursery/rust-clippy/issues/734
     #[allow(clippy::new_ret_no_self)]
-    fn new(level: log::LevelFilter, message_bar: MessageBar) -> Self {
+    fn new(level: log::LevelFilter, message_tx: Sender<Message>) -> Self {
         log::set_max_level(level);
 
         let logfile = Mutex::new(OnDemandLogFile::new());
         let stdout = Mutex::new(LineWriter::new(io::stdout()));
-        let message_bar = Mutex::new(message_bar);
 
         Logger {
             level,
             logfile,
             stdout,
-            message_bar,
+            message_tx,
         }
     }
 }
@@ -100,17 +100,15 @@ impl log::Log for Logger {
             if let Ok(ref mut logfile) = self.logfile.lock() {
                 let _ = logfile.write_all(msg.as_ref());
 
-                if let Ok(ref mut message_bar) = self.message_bar.lock() {
-                    let msg = format!("Error! See log at {}", logfile.path.to_string_lossy());
-                    match record.level() {
-                        Level::Error => {
-                            let _ = message_bar.push(msg, crate::RED);
-                        }
-                        Level::Warn => {
-                            let _ = message_bar.push(msg, crate::YELLOW);
-                        }
-                        _ => (),
+                let msg = format!("Error! See log at {}", logfile.path.to_string_lossy());
+                match record.level() {
+                    Level::Error => {
+                        let _ = self.message_tx.send(Message::new(msg, crate::RED));
                     }
+                    Level::Warn => {
+                        let _ = self.message_tx.send(Message::new(msg, crate::YELLOW));
+                    }
+                    _ => (),
                 }
             }
 

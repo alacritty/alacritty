@@ -33,6 +33,7 @@ use crate::term::SizeInfo;
 use crate::term::mode::TermMode;
 use crate::util::fmt::Red;
 use crate::util::start_daemon;
+use crate::message_bar::{self, MessageBar};
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
 
@@ -75,7 +76,7 @@ pub trait ActionContext {
     fn clear_history(&mut self);
     fn hide_window(&mut self);
     fn url(&self, _: Point<usize>) -> Option<String>;
-    fn clear_log(&mut self);
+    fn message_bar(&mut self) -> &mut MessageBar;
     fn spawn_new_instance(&mut self);
 }
 
@@ -324,7 +325,7 @@ impl Action {
                 ctx.clear_history();
             },
             Action::ClearLogNotice => {
-                ctx.clear_log();
+                ctx.message_bar().pop();
             },
             Action::SpawnNewInstance => {
                 ctx.spawn_new_instance();
@@ -692,12 +693,15 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             _ => (),
         }
 
-        match state {
-            ElementState::Pressed => {
-                self.process_mouse_bindings(modifiers, button);
-                self.on_mouse_press(button, modifiers);
-            },
-            ElementState::Released => self.on_mouse_release(button, modifiers),
+        // Skip normal mouse events if the message bar has been clicked
+        if !self.on_message_bar_click() {
+            match state {
+                ElementState::Pressed => {
+                    self.process_mouse_bindings(modifiers, button);
+                    self.on_mouse_press(button, modifiers);
+                },
+                ElementState::Released => self.on_mouse_release(button, modifiers),
+            }
         }
 
         self.ctx.mouse_mut().last_button = button;
@@ -805,6 +809,23 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         has_binding
     }
+
+    // TODO: Handle multi-line message bars
+    /// Handle clicks on the message bar.
+    ///
+    /// Returns `true` if the click was within the message bar.
+    fn on_message_bar_click(&mut self) -> bool {
+        if let Some(point) = self.ctx.mouse_coords() {
+            let last_line = self.ctx.size_info().lines();
+            if point.line == last_line && !self.ctx.message_bar().is_empty() {
+                if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= self.ctx.size_info().cols() {
+                    self.ctx.message_bar().pop();
+                }
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[cfg(test)]
@@ -855,7 +876,7 @@ mod tests {
         fn change_font_size(&mut self, _delta: f32) {}
         fn reset_font_size(&mut self) {}
         fn clear_history(&mut self) {}
-        fn clear_log(&mut self) {}
+        fn message_bar(&mut self) -> &mut MessageBar {}
         fn hide_window(&mut self) {}
         fn spawn_new_instance(&mut self) {}
 
