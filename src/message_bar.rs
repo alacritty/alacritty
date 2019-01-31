@@ -55,16 +55,14 @@ impl MessageBar {
         lock.messages.is_empty()
     }
 
-    pub fn message(&self) -> String {
+    pub fn message(&self) -> Option<String> {
         let lock = self.inner.lock().unwrap();
-        let len = lock.messages.len();
-        lock.messages[len - 1].message.clone()
+        lock.messages.iter().next().map(|m| m.message.clone())
     }
 
-    pub fn color(&self) -> Rgb {
+    pub fn color(&self) -> Option<Rgb> {
         let lock = self.inner.lock().unwrap();
-        let len = lock.messages.len();
-        lock.messages[len - 1].color
+        lock.messages.iter().next().map(|m| m.color)
     }
 
     pub fn push(&mut self, message: String, color: Rgb) -> usize {

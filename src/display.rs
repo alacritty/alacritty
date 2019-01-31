@@ -30,7 +30,6 @@ use crate::term::{Term, SizeInfo, RenderableCell};
 use crate::sync::FairMutex;
 use crate::window::{self, Window};
 use crate::Rgb;
-use crate::message_bar::MessageBar;
 
 #[derive(Debug)]
 pub enum Error {
@@ -101,7 +100,6 @@ pub struct Display {
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
-    message_bar: MessageBar,
     bar_present: bool,
 }
 
@@ -133,11 +131,7 @@ impl Display {
         &self.size_info
     }
 
-    pub fn new(
-        config: &Config,
-        options: &cli::Options,
-        message_bar: MessageBar,
-    ) -> Result<Display, Error> {
+    pub fn new(config: &Config, options: &cli::Options) -> Result<Display, Error> {
         // Extract some properties from config
         let render_timer = config.render_timer();
 
@@ -230,7 +224,6 @@ impl Display {
             meter: Meter::new(),
             font_size: font::Size::new(0.),
             size_info,
-            message_bar,
             bar_present: false,
         })
     }
@@ -318,7 +311,7 @@ impl Display {
         let font_changed = terminal.font_size != self.font_size
             || (dpr - self.size_info.dpr).abs() > f64::EPSILON;
 
-        if font_changed || self.bar_present == self.message_bar.is_empty() {
+        if font_changed || self.bar_present == terminal.message_bar().is_empty() {
             if new_size == None {
                 // Force a resize to refresh things
                 new_size = Some(PhysicalSize::new(
@@ -328,7 +321,7 @@ impl Display {
             }
 
             self.font_size = terminal.font_size;
-            self.bar_present = !self.message_bar.is_empty();
+            self.bar_present = !terminal.message_bar().is_empty();
             self.size_info.dpr = dpr;
 
             if font_changed {
@@ -362,7 +355,7 @@ impl Display {
             for item in items {
                 // Subtract a line when message bar is present
                 let mut size = *size;
-                if !self.message_bar.is_empty() {
+                if self.bar_present {
                     size.height -= size.cell_height;
                 }
 
@@ -389,6 +382,10 @@ impl Display {
         let grid_cells: Vec<RenderableCell> = terminal
             .renderable_cells(config, window_focused)
             .collect();
+
+        // Get message from terminal to ignore modifications after lock is dropped
+        let bar_message = terminal.message_bar().message();
+        let bar_color = terminal.message_bar().color();
 
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
@@ -462,20 +459,17 @@ impl Display {
             }
 
             // Relay messages to the user
-            if self.bar_present {
-                let mut msg = self.message_bar.message();
-                let col = self.message_bar.color();
-
+            if let (Some(ref mut bar_message), Some(bar_color)) = (bar_message, bar_color) {
                 // Add padding to make the bar take the full width
-                let padding_len = size_info.cols().0.saturating_sub(msg.len());
-                msg.extend(vec![' '; padding_len]);
+                let padding_len = size_info.cols().0.saturating_sub(bar_message.len());
+                bar_message.extend(vec![' '; padding_len]);
 
                 self.renderer.with_api(config, &size_info, |mut api| {
                     api.render_string(
-                        &msg,
+                        bar_message,
                         size_info.lines() - 1,
                         glyph_cache,
-                        col,
+                        bar_color,
                     );
                 });
             }

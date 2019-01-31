@@ -1312,6 +1312,11 @@ impl Term {
     pub fn background_color(&self) -> Rgb {
         self.colors[NamedColor::Background]
     }
+
+    #[inline]
+    pub fn message_bar(&self) -> &MessageBar {
+        &self.message_bar
+    }
 }
 
 impl ansi::TermInfo for Term {
@@ -2371,6 +2376,7 @@ mod benches {
 
     use crate::grid::Grid;
     use crate::config::Config;
+    use crate::message_bar::MessageBar;
 
     use super::{SizeInfo, Term};
     use super::cell::Cell;

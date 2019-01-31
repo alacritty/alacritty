@@ -132,7 +132,7 @@ fn run(
     // Create a display.
     //
     // The display manages a window and can draw the terminal
-    let mut display = Display::new(&config, options, message_bar.clone())?;
+    let mut display = Display::new(&config, options)?;
 
     info!(
         "PTY Dimensions: {:?} x {:?}",
