@@ -10,7 +10,7 @@ use alacritty::Grid;
 use alacritty::Term;
 use alacritty::ansi;
 use alacritty::index::Column;
-use alacritty::term::Cell;
+use alacritty::term::cell::Cell;
 use alacritty::term::SizeInfo;
 use alacritty::util::fmt::{Red, Green};
 use alacritty::config::Config;

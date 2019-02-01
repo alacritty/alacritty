@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use crate::renderer::Rect;
 use crate::term::cell::Flags;
 use crate::term::{RenderableCell, SizeInfo};
-use crate::Rgb;
+use crate::term::color::Rgb;
 use font::Metrics;
 
 /// Lines for underline and strikeout.

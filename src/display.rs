@@ -29,7 +29,7 @@ use crate::renderer::lines::Lines;
 use crate::term::{Term, SizeInfo, RenderableCell};
 use crate::sync::FairMutex;
 use crate::window::{self, Window};
-use crate::Rgb;
+use crate::term::color::Rgb;
 
 #[derive(Debug)]
 pub enum Error {

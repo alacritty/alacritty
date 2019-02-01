@@ -27,16 +27,16 @@ use crate::grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter
 use crate::index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
 use crate::selection::{self, Selection, Locations};
 use crate::config::{Config, VisualBellAnimation};
-use crate::{MouseCursor, Rgb};
+use crate::MouseCursor;
 use copypasta::{Clipboard, Load, Store};
 use crate::input::FONT_SIZE_STEP;
 use crate::url::UrlParser;
 use crate::message_bar::MessageBar;
+use crate::term::color::Rgb;
+use crate::term::cell::{LineLength, Cell};
 
 pub mod cell;
 pub mod color;
-pub use self::cell::Cell;
-use self::cell::LineLength;
 
 /// A type that can expand a given point to a region
 ///

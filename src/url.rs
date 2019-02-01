@@ -128,7 +128,8 @@ mod tests {
 
     use crate::grid::Grid;
     use crate::index::{Column, Line, Point};
-    use crate::term::{Cell, Search, SizeInfo, Term};
+    use crate::term::{Search, SizeInfo, Term};
+    use crate::term::cell::Cell;
     use crate::message_bar::MessageBar;
 
     fn url_create_term(input: &str) -> Term {

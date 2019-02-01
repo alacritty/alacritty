@@ -1,4 +1,3 @@
- - Move alacritty::Rgb to separate file
  - Render multi-line errors (and render full errors instead of path to log)
  - Figure out how to delete outdated errors
  - Figure out how to display the errors themselves
@@ -8,3 +7,4 @@
  - Fix issue with clicking in the message bar
  - Allow clicking on [X] to close message bar
  - Put log path into $ALACRITTY_LOG and tell user where that is
+ - Move alacritty::Rgb to separate file

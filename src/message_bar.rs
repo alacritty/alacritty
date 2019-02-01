@@ -14,7 +14,7 @@
 
 use crossbeam_channel::{Sender, Receiver};
 
-use crate::Rgb;
+use crate::term::color::Rgb;
 
 pub const CLOSE_BUTTON_TEXT: &str = "[X]";
 

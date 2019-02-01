@@ -29,7 +29,7 @@ use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use crate::gl::types::*;
 use crate::gl;
 use crate::index::{Column, Line, RangeInclusive};
-use crate::Rgb;
+use crate::term::color::Rgb;
 use crate::config::{self, Config, Delta};
 use crate::term::{self, cell, RenderableCell};
 use crate::renderer::lines::Lines;

@@ -31,6 +31,7 @@ use time;
 
 use crate::cli;
 use crate::message_bar::Message;
+use crate::term::color;
 
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
 
@@ -114,10 +115,10 @@ impl log::Log for Logger {
                 );
                 match record.level() {
                     Level::Error => {
-                        let _ = self.message_tx.send(Message::new(msg, crate::RED));
+                        let _ = self.message_tx.send(Message::new(msg, color::RED));
                     }
                     Level::Warn => {
-                        let _ = self.message_tx.send(Message::new(msg, crate::YELLOW));
+                        let _ = self.message_tx.send(Message::new(msg, color::YELLOW));
                     }
                     _ => (),
                 }

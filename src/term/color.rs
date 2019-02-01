@@ -1,10 +1,37 @@
-use std::ops::{Index, IndexMut};
+use std::ops::{Index, IndexMut, Mul};
 use std::fmt;
 
-use crate::{Rgb, ansi};
+use crate::ansi;
 use crate::config::Colors;
 
 pub const COUNT: usize = 270;
+
+pub const RED: Rgb = Rgb { r: 0xff, g: 0x0, b: 0x0 };
+pub const YELLOW: Rgb = Rgb { r: 0xff, g: 0xff, b: 0x0 };
+
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Default, Serialize, Deserialize)]
+pub struct Rgb {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+// a multiply function for Rgb, as the default dim is just *2/3
+impl Mul<f32> for Rgb {
+    type Output = Rgb;
+
+    fn mul(self, rhs: f32) -> Rgb {
+        let result = Rgb {
+            r: (f32::from(self.r) * rhs).max(0.0).min(255.0) as u8,
+            g: (f32::from(self.g) * rhs).max(0.0).min(255.0) as u8,
+            b: (f32::from(self.b) * rhs).max(0.0).min(255.0) as u8
+        };
+
+        trace!("Scaling RGB by {} from {:?} to {:?}", rhs, self, result);
+
+        result
+    }
+}
 
 /// List of indexed colors
 ///

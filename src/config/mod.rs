@@ -13,7 +13,6 @@ use std::sync::mpsc;
 use std::time::Duration;
 use std::collections::HashMap;
 
-use crate::Rgb;
 use font::Size;
 use serde_yaml;
 use serde::{self, de, Deserialize};
@@ -26,6 +25,7 @@ use crate::cli::Options;
 use crate::input::{Action, Binding, MouseBinding, KeyBinding};
 use crate::index::{Line, Column};
 use crate::ansi::{CursorStyle, NamedColor, Color};
+use crate::term::color::Rgb;
 
 mod bindings;
 

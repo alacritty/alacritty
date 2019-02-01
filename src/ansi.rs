@@ -21,7 +21,8 @@ use vte;
 use base64;
 use crate::index::{Column, Line, Contains};
 
-use crate::{MouseCursor, Rgb};
+use crate::MouseCursor;
+use crate::term::color::Rgb;
 
 // Parse color arguments
 //
@@ -1395,7 +1396,7 @@ mod tests {
     use std::io;
     use crate::index::{Line, Column};
     use super::{Processor, Handler, Attr, TermInfo, Color, StandardCharset, CharsetIndex, parse_rgb_color, parse_number};
-    use crate::Rgb;
+    use crate::term::color::Rgb;
 
     /// The /dev/null of `io::Write`
     struct Void;
