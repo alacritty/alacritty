@@ -384,7 +384,7 @@ impl Display {
             .collect();
 
         // Get message from terminal to ignore modifications after lock is dropped
-        let bar_message = terminal.message_bar().message();
+        let bar_message = terminal.message_bar_mut().message();
 
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();

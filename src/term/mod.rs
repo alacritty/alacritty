@@ -1309,8 +1309,13 @@ impl Term {
     }
 
     #[inline]
-    pub fn message_bar(&mut self) -> &mut MessageBar {
+    pub fn message_bar_mut(&mut self) -> &mut MessageBar {
         &mut self.message_bar
+    }
+
+    #[inline]
+    pub fn message_bar(&self) -> &MessageBar {
+        &self.message_bar
     }
 }
 

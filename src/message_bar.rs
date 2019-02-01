@@ -16,7 +16,7 @@ use crossbeam_channel::{Sender, Receiver};
 
 use crate::Rgb;
 
-pub const CLOSE_BUTTON_TEXT: &'static str = "[X]";
+pub const CLOSE_BUTTON_TEXT: &str = "[X]";
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Message {
@@ -36,7 +36,7 @@ impl Message {
         // Add padding to make the bar take the full width
         let padding_len = num_cols.saturating_sub(text.len() + CLOSE_BUTTON_TEXT.len());
         text.extend(vec![' '; padding_len]);
-        text.extend(CLOSE_BUTTON_TEXT.chars());
+        text.push_str(CLOSE_BUTTON_TEXT);
 
         vec![text]
     }
@@ -82,5 +82,11 @@ impl MessageBar {
 
     pub fn pop(&mut self) {
         self.current = self.messages.try_recv().ok();
+    }
+}
+
+impl Default for MessageBar {
+    fn default() -> MessageBar {
+        MessageBar::new()
     }
 }
