@@ -25,12 +25,14 @@ use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use log::{self, Level};
 use crossbeam_channel::Sender;
+use log::{self, Level};
 use time;
 
 use crate::cli;
 use crate::message_bar::Message;
+
+const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
 
 pub fn initialize(
     options: &cli::Options,
@@ -100,7 +102,16 @@ impl log::Log for Logger {
             if let Ok(ref mut logfile) = self.logfile.lock() {
                 let _ = logfile.write_all(msg.as_ref());
 
-                let msg = format!("Error! See log at {}", logfile.path.to_string_lossy());
+                #[cfg(not(windows))]
+                let env_var = format!("${}", ALACRITTY_LOG_ENV);
+                #[cfg(windows)]
+                let env_var = format!("%{}%", ALACRITTY_LOG_ENV);
+
+                let msg = format!(
+                    "Error! See log at {} ({})",
+                    logfile.path.to_string_lossy(),
+                    env_var
+                );
                 match record.level() {
                     Level::Error => {
                         let _ = self.message_tx.send(Message::new(msg, crate::RED));
@@ -140,6 +151,9 @@ impl OnDemandLogFile {
     fn new() -> Self {
         let mut path = env::temp_dir();
         path.push(format!("Alacritty-{}.log", process::id()));
+
+        // Set log path as an environment variable
+        env::set_var(ALACRITTY_LOG_ENV, path.as_os_str());
 
         OnDemandLogFile {
             path,
