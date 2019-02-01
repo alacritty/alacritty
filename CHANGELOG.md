@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Smoother scrolling for touchpads (also affects scrolling with some mice that send fractional scrolling values)
+- Improve scrolling accuracy with devices sending fractional updates (like touchpads)
 - `scrolling.multiplier` now affects normal scrolling with touchpads
 
 ### Fixed
@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Excessive polling every 100ms with `live_config_reload` enabled
 - Unicode characters at the beginning of URLs are now properly ignored
 - Remove error message when reloading an empty config
+- Allow disabling URL launching by setting the value of `mouse.url.launcher` to `None`
 
 ## Version 0.2.7
 
