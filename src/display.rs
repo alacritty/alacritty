@@ -31,6 +31,7 @@ use crate::sync::FairMutex;
 use crate::window::{self, Window};
 use crate::term::color::Rgb;
 use crate::index::Line;
+use crate::message_bar::Message;
 
 #[derive(Debug)]
 pub enum Error {
@@ -101,7 +102,7 @@ pub struct Display {
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
-    bar_present: bool,
+    last_message: Option<Message>,
 }
 
 /// Can wakeup the render loop from other threads
@@ -225,7 +226,7 @@ impl Display {
             meter: Meter::new(),
             font_size: font::Size::new(0.),
             size_info,
-            bar_present: false,
+            last_message: None,
         })
     }
 
@@ -313,7 +314,7 @@ impl Display {
         let font_changed = terminal.font_size != self.font_size
             || (dpr - self.size_info.dpr).abs() > f64::EPSILON;
 
-        if font_changed || self.bar_present == terminal.message_bar().is_empty() {
+        if font_changed || self.last_message != terminal.message_bar_mut().message() {
             if new_size == None {
                 // Force a resize to refresh things
                 new_size = Some(PhysicalSize::new(
@@ -323,7 +324,7 @@ impl Display {
             }
 
             self.font_size = terminal.font_size;
-            self.bar_present = !terminal.message_bar().is_empty();
+            self.last_message = terminal.message_bar_mut().message();
             self.size_info.dpr = dpr;
 
             if font_changed {
@@ -360,7 +361,6 @@ impl Display {
                 if let Some(message) = terminal.message_bar_mut().message() {
                     size.height -= size.cell_height * message.text(&size).len() as f32;
                 }
-
                 pty_resize_handle.on_resize(&size)
             }
 

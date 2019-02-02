@@ -851,8 +851,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     /// Check if a point is within the message bar
     fn mouse_over_message_bar(&mut self, point: Point) -> bool {
+        // println!("SIZE: {:?}", self.ctx.size_info());
+        // println!("POINT LINE: {}", point.line.0);
         if let Some(message) = self.ctx.terminal_mut().message_bar_mut().message() {
             let size = self.ctx.size_info();
+            // println!("MESSAGE LINES: {}", message.text(&size).len());
             point.line.0 >= size.lines().saturating_sub(message.text(&size).len())
         } else {
             false
@@ -861,16 +864,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     /// Handle clicks on the message bar.
     fn on_message_bar_click(&mut self, button_state: ElementState, point: Point) {
-        let size = self.ctx.size_info();
-        if let Some(message) = self.ctx.terminal_mut().message_bar_mut().message() {
-            let num_messages = message.text(&size).len();
-            if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
-                && point.line == size.lines() - num_messages
-            {
-                self.ctx.terminal_mut().message_bar_mut().pop();
-            }
-        }
-
         match button_state {
             ElementState::Released => {
                 if self.save_to_clipboard {
@@ -878,7 +871,19 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 }
                 self.ctx.copy_selection(ClipboardBuffer::Selection);
             },
-            _ => self.ctx.clear_selection(),
+            ElementState::Pressed => {
+                let size = self.ctx.size_info();
+                if let Some(message) = self.ctx.terminal_mut().message_bar_mut().message() {
+                    let num_messages = message.text(&size).len();
+                    if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
+                        && point.line == size.lines() - num_messages
+                    {
+                        self.ctx.terminal_mut().message_bar_mut().pop();
+                    }
+                }
+
+                self.ctx.clear_selection();
+            }
         }
     }
 }
