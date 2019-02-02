@@ -38,16 +38,18 @@ const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
 pub fn initialize(
     options: &cli::Options,
     message_tx: Sender<Message>,
-) -> Result<(), log::SetLoggerError> {
+) -> Result<Option<PathBuf>, log::SetLoggerError> {
     // Use env_logger if RUST_LOG environment variable is defined. Otherwise,
     // use the alacritty-only logger.
     if ::std::env::var("RUST_LOG").is_ok() {
         ::env_logger::try_init()?;
+        Ok(None)
     } else {
         let logger = Logger::new(options.log_level, message_tx);
+        let path = logger.file_path();
         log::set_boxed_logger(Box::new(logger))?;
+        Ok(path)
     }
-    Ok(())
 }
 
 pub struct Logger {
@@ -71,6 +73,14 @@ impl Logger {
             logfile,
             stdout,
             message_tx,
+        }
+    }
+
+    fn file_path(&self) -> Option<PathBuf> {
+        if let Ok(logfile) = self.logfile.lock() {
+            Some(logfile.path().clone())
+        } else {
+            None
         }
     }
 }
@@ -141,15 +151,6 @@ struct OnDemandLogFile {
     path: PathBuf,
 }
 
-impl Drop for OnDemandLogFile {
-    fn drop(&mut self) {
-        // TODO: Check for persistent logging again
-        if self.created.load(Ordering::Relaxed) && fs::remove_file(&self.path).is_ok() {
-            let _ = writeln!(io::stdout(), "Deleted log file at {:?}", self.path);
-        }
-    }
-}
-
 impl OnDemandLogFile {
     fn new() -> Self {
         let mut path = env::temp_dir();
@@ -192,6 +193,10 @@ impl OnDemandLogFile {
         }
 
         Ok(self.file.as_mut().unwrap())
+    }
+
+    fn path(&self) -> &PathBuf {
+        &self.path
     }
 }
 

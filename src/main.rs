@@ -33,6 +33,8 @@ use log::{info, error};
 
 use std::error::Error;
 use std::sync::Arc;
+use std::io::{self, Write};
+use std::fs;
 
 #[cfg(target_os = "macos")]
 use std::env;
@@ -69,10 +71,12 @@ fn main() {
     let message_bar = MessageBar::new();
 
     // Initialize the logger as soon as possible as to capture output from other subsystems
-    logging::initialize(&options, message_bar.tx()).expect("Unable to initialize logger");
+    let log_file =
+        logging::initialize(&options, message_bar.tx()).expect("Unable to initialize logger");
 
     // Load configuration file
     let config = load_config(&options).update_dynamic_title(&options);
+    let persistent_logging = options.persistent_logging || config.persistent_logging();
 
     // Switch to home directory
     #[cfg(target_os = "macos")]
@@ -84,6 +88,13 @@ fn main() {
     // Run alacritty
     if let Err(err) = run(config, &options, message_bar) {
         die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
+    }
+
+    // Clean up logfile
+    if let Some(log_file) = log_file {
+        if !persistent_logging && fs::remove_file(&log_file).is_ok() {
+            let _ = writeln!(io::stdout(), "Deleted log file at {:?}", log_file);
+        }
     }
 }
 
@@ -233,6 +244,11 @@ fn run(
             terminal_lock.dirty = true;
         }
 
+        // Begin shutdown if the flag was raised.
+        if terminal_lock.should_exit() {
+            break;
+        }
+
         // Maybe draw the terminal
         if terminal_lock.needs_draw() {
             // Try to update the position of the input method editor
@@ -249,11 +265,6 @@ fn run(
 
             // Draw the current state of the terminal
             display.draw(&terminal, &config);
-        }
-
-        // Begin shutdown if the flag was raised.
-        if process_should_exit() {
-            break;
         }
     }
 

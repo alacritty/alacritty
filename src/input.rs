@@ -294,8 +294,7 @@ impl Action {
                 ctx.hide_window();
             },
             Action::Quit => {
-                // FIXME should do a more graceful shutdown
-                ::std::process::exit(0);
+                ctx.terminal_mut().exit();
             },
             Action::IncreaseFontSize => {
                ctx.terminal_mut().change_font_size(FONT_SIZE_STEP);

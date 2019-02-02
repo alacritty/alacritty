@@ -377,8 +377,7 @@ impl<N: Notify> Processor<N> {
                                 .expect("write config.json");
                         }
 
-                        // FIXME should do a more graceful shutdown
-                        ::std::process::exit(0);
+                        processor.ctx.terminal.exit();
                     },
                     Resized(lsize) => {
                         // Resize events are emitted via glutin/winit with logical sizes

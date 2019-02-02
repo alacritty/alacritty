@@ -34,6 +34,7 @@ use crate::url::UrlParser;
 use crate::message_bar::MessageBar;
 use crate::term::color::Rgb;
 use crate::term::cell::{LineLength, Cell};
+use crate::tty;
 
 pub mod cell;
 pub mod color;
@@ -795,6 +796,9 @@ pub struct Term {
 
     /// Bar for relaying messages to the user
     message_bar: MessageBar,
+
+    /// Hint that Alacritty should be closed
+    should_exit: bool,
 }
 
 /// Terminal size info
@@ -922,6 +926,7 @@ impl Term {
             tabspaces,
             auto_scroll: config.scrolling().auto_scroll,
             message_bar,
+            should_exit: false,
         }
     }
 
@@ -1316,6 +1321,16 @@ impl Term {
     #[inline]
     pub fn message_bar(&self) -> &MessageBar {
         &self.message_bar
+    }
+
+    #[inline]
+    pub fn exit(&mut self) {
+        self.should_exit = true;
+    }
+
+    #[inline]
+    pub fn should_exit(&self) -> bool {
+        tty::process_should_exit() || self.should_exit
     }
 }
 
