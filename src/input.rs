@@ -728,7 +728,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         // Skip normal mouse events if the message bar has been clicked
         if self.mouse_over_message_bar(point) {
-            self.on_message_bar_click(point);
+            self.on_message_bar_click(state, point);
         } else {
             match state {
                 ElementState::Pressed => {
@@ -861,7 +861,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     /// Handle clicks on the message bar.
-    fn on_message_bar_click(&mut self, point: Point) {
+    fn on_message_bar_click(&mut self, button_state: ElementState, point: Point) {
         let size = self.ctx.size_info();
         if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
             && point.line == size.lines() - 1
@@ -869,7 +869,15 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.ctx.terminal_mut().message_bar_mut().pop();
         }
 
-        self.ctx.clear_selection();
+        match button_state {
+            ElementState::Released => {
+                if self.save_to_clipboard {
+                    self.ctx.copy_selection(ClipboardBuffer::Primary);
+                }
+                self.ctx.copy_selection(ClipboardBuffer::Selection);
+            },
+            _ => self.ctx.clear_selection(),
+        }
     }
 }
 
