@@ -32,9 +32,7 @@ flat out vec3 fg;
 flat out vec4 bg;
 
 // Terminal properties
-uniform vec2 termDim;
 uniform vec2 cellDim;
-// Shift+scale*X projection
 uniform vec4 projection;
 
 uniform int backgroundPass;
@@ -42,37 +40,33 @@ uniform int backgroundPass;
 
 void main()
 {
-    vec2 glyphOffset = glyph.xy;
-    vec2 glyphSize = glyph.zw;
-    vec2 uvOffset = uv.xy;
-    vec2 uvSize = uv.zw;
     vec2 projectionOffset = projection.xy;
     vec2 projectionScale = projection.zw;
 
     // Compute vertex corner position
     vec2 position;
     position.x = (gl_VertexID == 0 || gl_VertexID == 1) ? 1. : 0;
-    position.y = (gl_VertexID == 0 || gl_VertexID == 3) ? 1. : 0;
+    position.y = (gl_VertexID == 0 || gl_VertexID == 3) ? 0. : 1;
 
     // Position of cell from top-left
-    vec2 cellPosition = (cellDim) * gridCoords;
-
-    // Invert Y since framebuffer origin is bottom-left
-    cellPosition.y = termDim.y - cellPosition.y - cellDim.y;
+    vec2 cellPosition = cellDim * gridCoords;
 
     if (backgroundPass != 0) {
-        vec2 finalPosition = cellDim * position + cellPosition;
+        vec2 finalPosition = cellPosition + cellDim * position;
         gl_Position = vec4(projectionOffset + projectionScale * finalPosition, 0.0, 1.0);
+
         TexCoords = vec2(0, 0);
     } else {
-        // Glyphs are offset within their cell; account for y-flip
-        vec2 cellOffset = vec2(glyphOffset.x, glyphOffset.y - glyphSize.y);
+        vec2 glyphSize = glyph.zw;
+        vec2 glyphOffset = glyph.xy;
+        glyphOffset.y = cellDim.y - glyphOffset.y;
 
-        // position coordinates are normalized on [0, 1]
-        vec2 finalPosition = glyphSize * position + cellPosition + cellOffset;
-
+        vec2 finalPosition = cellPosition + glyphSize * position + glyphOffset;
         gl_Position = vec4(projectionOffset + projectionScale * finalPosition, 0.0, 1.0);
-        TexCoords = uvOffset + vec2(position.x, 1 - position.y) * uvSize;
+
+        vec2 uvOffset = uv.xy;
+        vec2 uvSize = uv.zw;
+        TexCoords = uvOffset + position * uvSize;
     }
 
     bg = vec4(backgroundColor.rgb / 255.0, backgroundColor.a);

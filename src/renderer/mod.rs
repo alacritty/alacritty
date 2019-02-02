@@ -110,11 +110,8 @@ pub struct TextShaderProgram {
     // Program id
     id: GLuint,
 
-    /// projection matrix uniform
+    /// projection scale and offset uniform
     u_projection: GLint,
-
-    /// Terminal dimensions (pixels)
-    u_term_dim: GLint,
 
     /// Cell dimensions (pixels)
     u_cell_dim: GLint,
@@ -1140,21 +1137,19 @@ impl TextShaderProgram {
         }
 
         // get uniform locations
-        let (projection, term_dim, cell_dim, background) = unsafe {
+        let (projection, cell_dim, background) = unsafe {
             (
                 gl::GetUniformLocation(program, cptr!(b"projection\0")),
-                gl::GetUniformLocation(program, cptr!(b"termDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"cellDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"backgroundPass\0")),
             )
         };
 
-        assert_uniform_valid!(projection, term_dim, cell_dim);
+        assert_uniform_valid!(projection, cell_dim, background);
 
         let shader = TextShaderProgram {
             id: program,
             u_projection: projection,
-            u_term_dim: term_dim,
             u_cell_dim: cell_dim,
             u_background: background,
         };
@@ -1174,13 +1169,13 @@ impl TextShaderProgram {
             return;
         }
 
-        // Compute scale and shift factors for the map
+        // Compute scale and offset factors, from pixel to ndc space. Y is inverted
         //   [0, width - 2 * padding_x] to [-1, 1]
-        //   [2 * padding_y, height] to [-1, 1]
+        //   [height - 2 * padding_y, 0] to [-1, 1]
         let scale_x = 2. / (width - 2. * padding_x);
-        let scale_y = 2. / (height - 2. * padding_y);
+        let scale_y = -2. / (height - 2. * padding_y);
         let offset_x = -1.;
-        let offset_y = -1. - 2. * padding_y * scale_y;
+        let offset_y = 1.;
 
         info!("Width: {}, Height: {}", width, height);
 
@@ -1191,7 +1186,6 @@ impl TextShaderProgram {
 
     fn set_term_uniforms(&self, props: &term::SizeInfo) {
         unsafe {
-            gl::Uniform2f(self.u_term_dim, props.width, props.height);
             gl::Uniform2f(self.u_cell_dim, props.cell_width, props.cell_height);
         }
     }
