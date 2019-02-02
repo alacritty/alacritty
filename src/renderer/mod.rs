@@ -21,7 +21,6 @@ use std::ptr;
 use std::sync::mpsc;
 use std::time::Duration;
 
-use cgmath;
 use fnv::FnvHasher;
 use glutin::dpi::PhysicalSize;
 use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
@@ -1208,30 +1207,18 @@ impl TextShaderProgram {
             return;
         }
 
-        // set projection uniform
-        //
-        // NB Not sure why padding change only requires changing the vertical
-        //    translation in the projection, but this makes everything work
-        //    correctly.
-        let ortho = cgmath::ortho(
-            0.,
-            width - (2. * padding_x),
-            2. * padding_y,
-            height,
-            -1.,
-            1.,
-        );
-        let projection: [[f32; 4]; 4] = ortho.into();
+        // Compute scale and shift factors for the map
+        //   [0, width - 2 * padding_x] to [-1, 1]
+        //   [2 * padding_y, height] to [-1, 1]
+        let scale_x = 2. / (width - 2. * padding_x);
+        let scale_y = 2. / (height - 2. * padding_y);
+        let offset_x = -1.;
+        let offset_y = -1. - 2. * padding_y * scale_y;
 
         info!("Width: {}, Height: {}", width, height);
 
         unsafe {
-            gl::UniformMatrix4fv(
-                self.u_projection,
-                1,
-                gl::FALSE,
-                projection.as_ptr() as *const _,
-            );
+            gl::Uniform4f(self.u_projection, offset_x, offset_y, scale_x, scale_y);
         }
     }
 

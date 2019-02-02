@@ -39,8 +39,8 @@ uniform vec2 cellDim;
 
 uniform int backgroundPass;
 
-// Orthographic projection
-uniform mat4 projection;
+// Shift+scale*X projection
+uniform vec4 projection;
 flat out int background;
 
 void main()
@@ -49,6 +49,8 @@ void main()
     vec2 glyphSize = glyph.zw;
     vec2 uvOffset = uv.xy;
     vec2 uvSize = uv.zw;
+    vec2 projectionOffset = projection.xy;
+    vec2 projectionScale = projection.zw;
 
     // Position of cell from top-left
     vec2 cellPosition = (cellDim) * gridCoords;
@@ -59,7 +61,7 @@ void main()
     if (backgroundPass != 0) {
         cellPosition.y = cellPosition.y;
         vec2 finalPosition = cellDim * position + cellPosition;
-        gl_Position = projection * vec4(finalPosition.xy, 0.0, 1.0);
+        gl_Position = vec4(projectionOffset + projectionScale * finalPosition, 0.0, 1.0);
         TexCoords = vec2(0, 0);
     } else {
         // Glyphs are offset within their cell; account for y-flip
@@ -68,7 +70,7 @@ void main()
         // position coordinates are normalized on [0, 1]
         vec2 finalPosition = glyphSize * position + cellPosition + cellOffset;
 
-        gl_Position = projection * vec4(finalPosition.xy, 0.0, 1.0);
+        gl_Position = vec4(projectionOffset + projectionScale * finalPosition, 0.0, 1.0);
         TexCoords = uvOffset + vec2(position.x, 1 - position.y) * uvSize;
     }
 

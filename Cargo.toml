@@ -23,7 +23,6 @@ name = "alacritty"
 
 [dependencies]
 libc = "0.2"
-cgmath = "0.17"
 notify = "4"
 bitflags = "1"
 font = { path = "./font" }
