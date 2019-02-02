@@ -485,13 +485,11 @@ const BATCH_MAX: usize = 0x1_0000;
 const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
-    // TODO should probably hand this a transform instead of width/height
     pub fn new(size: PhysicalSize) -> Result<QuadRenderer, Error> {
         let program = TextShaderProgram::new(size)?;
         let rect_program = RectShaderProgram::new()?;
 
         let mut vao: GLuint = 0;
-        let mut vbo: GLuint = 0;
         let mut ebo: GLuint = 0;
 
         let mut vbo_instance: GLuint = 0;
@@ -506,40 +504,9 @@ impl QuadRenderer {
             gl::Enable(gl::MULTISAMPLE);
 
             gl::GenVertexArrays(1, &mut vao);
-            gl::GenBuffers(1, &mut vbo);
             gl::GenBuffers(1, &mut ebo);
             gl::GenBuffers(1, &mut vbo_instance);
             gl::BindVertexArray(vao);
-
-            // ----------------------------
-            // setup vertex position buffer
-            // ----------------------------
-            // Top right, Bottom right, Bottom left, Top left
-            let vertices = [
-                PackedVertex { x: 1.0, y: 1.0 },
-                PackedVertex { x: 1.0, y: 0.0 },
-                PackedVertex { x: 0.0, y: 0.0 },
-                PackedVertex { x: 0.0, y: 1.0 },
-            ];
-
-            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-
-            gl::VertexAttribPointer(
-                0,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<PackedVertex>() as i32,
-                ptr::null(),
-            );
-            gl::EnableVertexAttribArray(0);
-
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (size_of::<PackedVertex>() * vertices.len()) as GLsizeiptr,
-                vertices.as_ptr() as *const _,
-                gl::STATIC_DRAW,
-            );
 
             // ---------------------
             // Set up element buffer
@@ -566,59 +533,59 @@ impl QuadRenderer {
             );
             // coords
             gl::VertexAttribPointer(
-                1,
+                0,
                 2,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<InstanceData>() as i32,
                 ptr::null(),
             );
-            gl::EnableVertexAttribArray(1);
-            gl::VertexAttribDivisor(1, 1);
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribDivisor(0, 1);
             // glyphoffset
             gl::VertexAttribPointer(
-                2,
+                1,
                 4,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<InstanceData>() as i32,
                 (2 * size_of::<f32>()) as *const _,
             );
-            gl::EnableVertexAttribArray(2);
-            gl::VertexAttribDivisor(2, 1);
+            gl::EnableVertexAttribArray(1);
+            gl::VertexAttribDivisor(1, 1);
             // uv
             gl::VertexAttribPointer(
-                3,
+                2,
                 4,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<InstanceData>() as i32,
                 (6 * size_of::<f32>()) as *const _,
             );
-            gl::EnableVertexAttribArray(3);
-            gl::VertexAttribDivisor(3, 1);
+            gl::EnableVertexAttribArray(2);
+            gl::VertexAttribDivisor(2, 1);
             // color
             gl::VertexAttribPointer(
-                4,
+                3,
                 3,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<InstanceData>() as i32,
                 (10 * size_of::<f32>()) as *const _,
             );
-            gl::EnableVertexAttribArray(4);
-            gl::VertexAttribDivisor(4, 1);
+            gl::EnableVertexAttribArray(3);
+            gl::VertexAttribDivisor(3, 1);
             // color
             gl::VertexAttribPointer(
-                5,
+                4,
                 4,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<InstanceData>() as i32,
                 (13 * size_of::<f32>()) as *const _,
             );
-            gl::EnableVertexAttribArray(5);
-            gl::VertexAttribDivisor(5, 1);
+            gl::EnableVertexAttribArray(4);
+            gl::VertexAttribDivisor(4, 1);
 
             // Rectangle setup
             gl::GenVertexArrays(1, &mut rect_vao);
