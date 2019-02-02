@@ -127,12 +127,14 @@ pub struct Url {
 fn deserialize_launcher<'a, D>(deserializer: D) -> ::std::result::Result<Option<CommandWrapper>, D::Error>
     where D: de::Deserializer<'a>
 {
+    let default = Url::default().launcher;
+
     // Deserialize to generic value
     let val = match serde_yaml::Value::deserialize(deserializer) {
         Ok(val) => val,
         Err(err) => {
-            error!("Problem with config: {}; using default value", err);
-            return Ok(None);
+            error!("Problem with config: {}; using {}", err, default.clone().unwrap().program());
+            return Ok(default);
         },
     };
 
@@ -144,8 +146,8 @@ fn deserialize_launcher<'a, D>(deserializer: D) -> ::std::result::Result<Option<
     match <Option<CommandWrapper>>::deserialize(val) {
         Ok(launcher) => Ok(launcher),
         Err(err) => {
-            error!("Problem with config: {}; using default value", err);
-            Ok(None)
+            error!("Problem with config: {}; using {}", err, default.clone().unwrap().program());
+            Ok(default)
         },
     }
 }
