@@ -136,8 +136,8 @@ mod test {
     #[test]
     fn appends_close_button() {
         let input = "test";
-        let mut bar = MessageBar::new();
-        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let mut message_bar = MessageBar::new();
+        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 7.,
             height: 10.,
@@ -148,7 +148,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = bar.message().unwrap().text(&size);
+        let lines = message_bar.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("test[X]")]);
     }
@@ -156,8 +156,8 @@ mod test {
     #[test]
     fn multiline_appends_close_button() {
         let input = "foo\nbar";
-        let mut bar = MessageBar::new();
-        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let mut message_bar = MessageBar::new();
+        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -168,7 +168,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = bar.message().unwrap().text(&size);
+        let lines = message_bar.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("foo   "), String::from("bar[X]")]);
     }
@@ -176,8 +176,8 @@ mod test {
     #[test]
     fn splits_on_newline() {
         let input = "foo\nbar";
-        let mut bar = MessageBar::new();
-        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let mut message_bar = MessageBar::new();
+        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -188,7 +188,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = bar.message().unwrap().text(&size);
+        let lines = message_bar.message().unwrap().text(&size);
 
         assert_eq!(lines.len(), 2);
     }
@@ -196,8 +196,8 @@ mod test {
     #[test]
     fn splits_on_length() {
         let input = "foobar123";
-        let mut bar = MessageBar::new();
-        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let mut message_bar = MessageBar::new();
+        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -208,7 +208,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = bar.message().unwrap().text(&size);
+        let lines = message_bar.message().unwrap().text(&size);
 
         assert_eq!(lines.len(), 2);
     }
@@ -216,8 +216,8 @@ mod test {
     #[test]
     fn empty_with_shortterm() {
         let input = "foobar";
-        let mut bar = MessageBar::new();
-        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let mut message_bar = MessageBar::new();
+        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 6.,
             height: 0.,
@@ -228,7 +228,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = bar.message().unwrap().text(&size);
+        let lines = message_bar.message().unwrap().text(&size);
 
         assert_eq!(lines.len(), 0);
     }
@@ -236,8 +236,8 @@ mod test {
     #[test]
     fn truncates_long_messages() {
         let input = "hahahahahahahahahahaha truncate this because it's too long for the term";
-        let mut bar = MessageBar::new();
-        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let mut message_bar = MessageBar::new();
+        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 22.,
             height: (MIN_FREE_LINES + 2) as f32,
@@ -248,7 +248,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = bar.message().unwrap().text(&size);
+        let lines = message_bar.message().unwrap().text(&size);
 
         assert_eq!(
             lines,
@@ -259,8 +259,8 @@ mod test {
     #[test]
     fn hide_button_when_too_narrow() {
         let input = "ha";
-        let mut bar = MessageBar::new();
-        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let mut message_bar = MessageBar::new();
+        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 2.,
             height: 10.,
@@ -271,7 +271,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = bar.message().unwrap().text(&size);
+        let lines = message_bar.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("ha")]);
     }
@@ -279,8 +279,8 @@ mod test {
     #[test]
     fn hide_truncated_when_too_narrow() {
         let input = "hahahahahahahahaha";
-        let mut bar = MessageBar::new();
-        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let mut message_bar = MessageBar::new();
+        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 2.,
             height: (MIN_FREE_LINES + 2) as f32,
@@ -291,7 +291,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = bar.message().unwrap().text(&size);
+        let lines = message_bar.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("ha"), String::from("ha")]);
     }
@@ -299,8 +299,8 @@ mod test {
     #[test]
     fn replace_message_for_button() {
         let input = "test";
-        let mut bar = MessageBar::new();
-        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let mut message_bar = MessageBar::new();
+        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 5.,
             height: 10.,
@@ -311,7 +311,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = bar.message().unwrap().text(&size);
+        let lines = message_bar.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("te[X]")]);
     }
