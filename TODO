@@ -1,6 +1,5 @@
  - Figure out how to delete outdated errors
  - Figure out how to display the errors themselves
- - Think about moving the [X] to the first, not last line?
 
  DONE:
  - Switch from Arc<Mutex<_>> to channels with term as single owner for message bar
@@ -10,3 +9,4 @@
  - Move alacritty::Rgb to separate file
  - Render multi-line errors (and render full errors instead of path to log)
  - Check for persistent logging again before dropping log file
+ - Think about moving the [X] to the first, not last line?

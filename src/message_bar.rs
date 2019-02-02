@@ -61,9 +61,9 @@ impl Message {
             }
         }
 
-        // Append close button
+        // Append close button to first line
         if CLOSE_BUTTON_TEXT.len() <= num_cols {
-            if let Some(line) = lines.iter_mut().last() {
+            if let Some(line) = lines.get_mut(0) {
                 line.truncate(num_cols - CLOSE_BUTTON_TEXT.len());
                 line.push_str(CLOSE_BUTTON_TEXT);
             }
@@ -170,7 +170,7 @@ mod test {
 
         let lines = message_bar.message().unwrap().text(&size);
 
-        assert_eq!(lines, vec![String::from("foo   "), String::from("bar[X]")]);
+        assert_eq!(lines, vec![String::from("foo[X]"), String::from("bar   ")]);
     }
 
     #[test]
@@ -252,7 +252,7 @@ mod test {
 
         assert_eq!(
             lines,
-            vec![String::from("hahahahahahahahahahaha"), String::from("[MESSAGE TRUNCATED][X]")]
+            vec![String::from("hahahahahahahahahah[X]"), String::from("[MESSAGE TRUNCATED]   ")]
         );
     }
 

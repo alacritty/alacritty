@@ -862,10 +862,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// Handle clicks on the message bar.
     fn on_message_bar_click(&mut self, button_state: ElementState, point: Point) {
         let size = self.ctx.size_info();
-        if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
-            && point.line == size.lines() - 1
-        {
-            self.ctx.terminal_mut().message_bar_mut().pop();
+        if let Some(message) = self.ctx.terminal_mut().message_bar_mut().message() {
+            let num_messages = message.text(&size).len();
+            if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
+                && point.line == size.lines() - num_messages
+            {
+                self.ctx.terminal_mut().message_bar_mut().pop();
+            }
         }
 
         match button_state {

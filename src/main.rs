@@ -52,7 +52,7 @@ use alacritty::logging;
 use alacritty::panic;
 use alacritty::sync::FairMutex;
 use alacritty::term::Term;
-use alacritty::tty::{self, process_should_exit};
+use alacritty::tty;
 use alacritty::util::fmt::Red;
 use alacritty::message_bar::MessageBar;
 
