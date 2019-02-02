@@ -495,8 +495,10 @@ impl Display {
                     cell_height: ch,
                     padding_x: px,
                     padding_y: py, ..} = *terminal.size_info();
-        let nspot_y = (py + (row + 1) as f32 * ch) as i32;
-        let nspot_x = (px + col as f32 * cw) as i32;
+        let dpr = self.window().hidpi_factor() as f32;
+
+        let nspot_y = (py + (row + 1) as f32 * ch / dpr) as i32;
+        let nspot_x = (px + col as f32 * cw / dpr) as i32;
         self.window().set_ime_spot(LogicalPosition::from((nspot_x, nspot_y)));
     }
 }
