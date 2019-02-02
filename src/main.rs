@@ -243,7 +243,7 @@ fn run(
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
-            display.handle_resize(&mut terminal_lock, &config, &mut [&mut resize_handle, &mut processor]);
+            display.handle_resize(&mut terminal_lock, &config, &mut resize_handle, &mut processor);
 
             drop(terminal_lock);
 

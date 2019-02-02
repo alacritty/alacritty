@@ -109,9 +109,11 @@ impl log::Log for Logger {
                 let env_var = format!("%{}%", ALACRITTY_LOG_ENV);
 
                 let msg = format!(
-                    "Error! See log at {} ({})",
+                    "[{}] See log at {} ({}):\n{}",
+                    record.level(),
                     logfile.path.to_string_lossy(),
-                    env_var
+                    env_var,
+                    record.args(),
                 );
                 match record.level() {
                     Level::Error => {

@@ -835,10 +835,10 @@ impl SizeInfo {
     }
 
     pub fn contains_point(&self, x: usize, y:usize) -> bool {
-        x <= (self.width - self.padding_x) as usize &&
-            x >= self.padding_x as usize &&
-            y <= (self.height - self.padding_y) as usize &&
-            y >= self.padding_y as usize
+        x < (self.width - self.padding_x) as usize
+            && x >= self.padding_x as usize
+            && y < (self.height - self.padding_y) as usize
+            && y >= self.padding_y as usize
     }
 
     pub fn pixels_to_coords(&self, x: usize, y: usize) -> Point {
@@ -1157,7 +1157,7 @@ impl Term {
     }
 
     /// Resize terminal to new dimensions
-    pub fn resize(&mut self, size : &SizeInfo) {
+    pub fn resize(&mut self, size: &SizeInfo) {
         debug!("Resizing terminal");
 
         // Bounds check; lots of math assumes width and height are > 0
@@ -1172,8 +1172,8 @@ impl Term {
         let mut num_cols = size.cols();
         let mut num_lines = size.lines();
 
-        if !self.message_bar.is_empty() {
-            num_lines -= 1;
+        if let Some(message) = self.message_bar.message() {
+            num_lines -= message.text(size).len();
         }
 
         self.size_info = *size;

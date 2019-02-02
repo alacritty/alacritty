@@ -394,6 +394,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.ctx.mouse_mut().block_url_launcher = true;
         }
 
+        // Ignore motions above the message bar
+        if self.mouse_over_message_bar(point) {
+            return;
+        }
+
         if self.ctx.mouse().left_button_state == ElementState::Pressed
             && (modifiers.shift || !self.ctx.terminal().mode().intersects(report_mode))
         {
@@ -722,7 +727,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         };
 
         // Skip normal mouse events if the message bar has been clicked
-        if self.is_message_bar_click(point) {
+        if self.mouse_over_message_bar(point) {
             self.on_message_bar_click(point);
         } else {
             match state {
@@ -846,17 +851,25 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     /// Check if a point is within the message bar
-    fn is_message_bar_click(&self, point: Point) -> bool {
-        let last_line = self.ctx.size_info().lines();
-        point.line == last_line && !self.ctx.terminal().message_bar().is_empty()
+    fn mouse_over_message_bar(&mut self, point: Point) -> bool {
+        if let Some(message) = self.ctx.terminal_mut().message_bar_mut().message() {
+            let size = self.ctx.size_info();
+            point.line.0 >= size.lines().saturating_sub(message.text(&size).len())
+        } else {
+            false
+        }
     }
 
-    // TODO: Handle multi-line message bars
     /// Handle clicks on the message bar.
     fn on_message_bar_click(&mut self, point: Point) {
-        if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= self.ctx.size_info().cols() {
+        let size = self.ctx.size_info();
+        if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
+            && point.line == size.lines() - 1
+        {
             self.ctx.terminal_mut().message_bar_mut().pop();
         }
+
+        self.ctx.clear_selection();
     }
 }
 

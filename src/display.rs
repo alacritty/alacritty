@@ -30,6 +30,7 @@ use crate::term::{Term, SizeInfo, RenderableCell};
 use crate::sync::FairMutex;
 use crate::window::{self, Window};
 use crate::term::color::Rgb;
+use crate::index::Line;
 
 #[derive(Debug)]
 pub enum Error {
@@ -292,7 +293,8 @@ impl Display {
         &mut self,
         terminal: &mut MutexGuard<'_, Term>,
         config: &Config,
-        items: &mut [&mut dyn OnResize],
+        pty_resize_handle: &mut dyn OnResize,
+        processor_resize_handle: &mut dyn OnResize,
     ) {
         // Resize events new_size and are handled outside the poll_events
         // iterator. This has the effect of coalescing multiple resize
@@ -352,15 +354,17 @@ impl Display {
             let size = &self.size_info;
             terminal.resize(size);
 
-            for item in items {
+            {
                 // Subtract a line when message bar is present
                 let mut size = *size;
-                if self.bar_present {
-                    size.height -= size.cell_height;
+                if let Some(message) = terminal.message_bar_mut().message() {
+                    size.height -= size.cell_height * message.text(&size).len() as f32;
                 }
 
-                item.on_resize(&size)
+                pty_resize_handle.on_resize(&size)
             }
+
+            processor_resize_handle.on_resize(size);
 
             self.window.resize(psize);
             self.renderer.resize(psize, self.size_info.padding_x, self.size_info.padding_y);
@@ -459,15 +463,18 @@ impl Display {
 
             // Relay messages to the user
             if let Some(message) = bar_message {
-                self.renderer.with_api(config, &size_info, |mut api| {
-                    api.render_string(
-                        // TODO: Handle multi-line text
-                        &message.text(size_info.cols().0)[0],
-                        size_info.lines() - 1,
-                        glyph_cache,
-                        message.color(),
-                    );
-                });
+                let mut offset = 1;
+                for message_text in message.text(&size_info).iter().rev() {
+                    self.renderer.with_api(config, &size_info, |mut api| {
+                        api.render_string(
+                            &message_text,
+                            Line(size_info.lines().saturating_sub(offset)),
+                            glyph_cache,
+                            message.color(),
+                        );
+                    });
+                    offset += 1;
+                }
             }
         }
 

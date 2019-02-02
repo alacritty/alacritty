@@ -15,8 +15,11 @@
 use crossbeam_channel::{Sender, Receiver};
 
 use crate::term::color::Rgb;
+use crate::term::SizeInfo;
 
 pub const CLOSE_BUTTON_TEXT: &str = "[X]";
+const MIN_FREE_LINES: usize = 3;
+const TRUNCATED_MESSAGE: &str = "[MESSAGE TRUNCATED]";
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Message {
@@ -29,20 +32,54 @@ impl Message {
         Message { text, color }
     }
 
-    // TODO: multi-line text
-    pub fn text(&self, num_cols: usize) -> Vec<String> {
-        let mut text = self.text.clone();
+    pub fn text(&self, size_info: &SizeInfo) -> Vec<String> {
+        let num_cols = size_info.cols().0;
+        let max_lines = size_info.lines().saturating_sub(MIN_FREE_LINES);
 
-        // Add padding to make the bar take the full width
-        let padding_len = num_cols.saturating_sub(text.len() + CLOSE_BUTTON_TEXT.len());
-        text.extend(vec![' '; padding_len]);
-        text.push_str(CLOSE_BUTTON_TEXT);
+        // Split line to fit the screen
+        let mut lines = Vec::new();
+        let mut line = String::new();
+        for c in self.text.trim().chars() {
+            if c == '\n' || line.len() == num_cols {
+                lines.push(Self::pad_text(line, num_cols));
+                line = String::new();
+            }
 
-        vec![text]
+            if c != '\n' {
+                line.push(c);
+            }
+        }
+        lines.push(Self::pad_text(line, num_cols));
+
+        // Truncate output if it's too long
+        if lines.len() > max_lines {
+            lines.truncate(max_lines);
+            if TRUNCATED_MESSAGE.len() <= num_cols {
+                if let Some(line) = lines.iter_mut().last() {
+                    *line = Self::pad_text(TRUNCATED_MESSAGE.into(), num_cols);
+                }
+            }
+        }
+
+        // Append close button
+        if CLOSE_BUTTON_TEXT.len() <= num_cols {
+            if let Some(line) = lines.iter_mut().last() {
+                line.truncate(num_cols - CLOSE_BUTTON_TEXT.len());
+                line.push_str(CLOSE_BUTTON_TEXT);
+            }
+        }
+
+        lines
     }
 
     pub fn color(&self) -> Rgb {
         self.color
+    }
+
+    fn pad_text(mut text: String, num_cols: usize) -> String {
+        let padding_len = num_cols.saturating_sub(text.len());
+        text.extend(vec![' '; padding_len]);
+        text
     }
 }
 
@@ -88,5 +125,194 @@ impl MessageBar {
 impl Default for MessageBar {
     fn default() -> MessageBar {
         MessageBar::new()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{Message, MessageBar, MIN_FREE_LINES};
+    use crate::term::{SizeInfo, color};
+
+    #[test]
+    fn appends_close_button() {
+        let input = "test";
+        let mut bar = MessageBar::new();
+        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let size = SizeInfo {
+            width: 7.,
+            height: 10.,
+            cell_width: 1.,
+            cell_height: 1.,
+            padding_x: 0.,
+            padding_y: 0.,
+            dpr: 0.,
+        };
+
+        let lines = bar.message().unwrap().text(&size);
+
+        assert_eq!(lines, vec![String::from("test[X]")]);
+    }
+
+    #[test]
+    fn multiline_appends_close_button() {
+        let input = "foo\nbar";
+        let mut bar = MessageBar::new();
+        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let size = SizeInfo {
+            width: 6.,
+            height: 10.,
+            cell_width: 1.,
+            cell_height: 1.,
+            padding_x: 0.,
+            padding_y: 0.,
+            dpr: 0.,
+        };
+
+        let lines = bar.message().unwrap().text(&size);
+
+        assert_eq!(lines, vec![String::from("foo   "), String::from("bar[X]")]);
+    }
+
+    #[test]
+    fn splits_on_newline() {
+        let input = "foo\nbar";
+        let mut bar = MessageBar::new();
+        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let size = SizeInfo {
+            width: 6.,
+            height: 10.,
+            cell_width: 1.,
+            cell_height: 1.,
+            padding_x: 0.,
+            padding_y: 0.,
+            dpr: 0.,
+        };
+
+        let lines = bar.message().unwrap().text(&size);
+
+        assert_eq!(lines.len(), 2);
+    }
+
+    #[test]
+    fn splits_on_length() {
+        let input = "foobar123";
+        let mut bar = MessageBar::new();
+        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let size = SizeInfo {
+            width: 6.,
+            height: 10.,
+            cell_width: 1.,
+            cell_height: 1.,
+            padding_x: 0.,
+            padding_y: 0.,
+            dpr: 0.,
+        };
+
+        let lines = bar.message().unwrap().text(&size);
+
+        assert_eq!(lines.len(), 2);
+    }
+
+    #[test]
+    fn empty_with_shortterm() {
+        let input = "foobar";
+        let mut bar = MessageBar::new();
+        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let size = SizeInfo {
+            width: 6.,
+            height: 0.,
+            cell_width: 1.,
+            cell_height: 1.,
+            padding_x: 0.,
+            padding_y: 0.,
+            dpr: 0.,
+        };
+
+        let lines = bar.message().unwrap().text(&size);
+
+        assert_eq!(lines.len(), 0);
+    }
+
+    #[test]
+    fn truncates_long_messages() {
+        let input = "hahahahahahahahahahaha truncate this because it's too long for the term";
+        let mut bar = MessageBar::new();
+        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let size = SizeInfo {
+            width: 22.,
+            height: (MIN_FREE_LINES + 2) as f32,
+            cell_width: 1.,
+            cell_height: 1.,
+            padding_x: 0.,
+            padding_y: 0.,
+            dpr: 0.,
+        };
+
+        let lines = bar.message().unwrap().text(&size);
+
+        assert_eq!(
+            lines,
+            vec![String::from("hahahahahahahahahahaha"), String::from("[MESSAGE TRUNCATED][X]")]
+        );
+    }
+
+    #[test]
+    fn hide_button_when_too_narrow() {
+        let input = "ha";
+        let mut bar = MessageBar::new();
+        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let size = SizeInfo {
+            width: 2.,
+            height: 10.,
+            cell_width: 1.,
+            cell_height: 1.,
+            padding_x: 0.,
+            padding_y: 0.,
+            dpr: 0.,
+        };
+
+        let lines = bar.message().unwrap().text(&size);
+
+        assert_eq!(lines, vec![String::from("ha")]);
+    }
+
+    #[test]
+    fn hide_truncated_when_too_narrow() {
+        let input = "hahahahahahahahaha";
+        let mut bar = MessageBar::new();
+        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let size = SizeInfo {
+            width: 2.,
+            height: (MIN_FREE_LINES + 2) as f32,
+            cell_width: 1.,
+            cell_height: 1.,
+            padding_x: 0.,
+            padding_y: 0.,
+            dpr: 0.,
+        };
+
+        let lines = bar.message().unwrap().text(&size);
+
+        assert_eq!(lines, vec![String::from("ha"), String::from("ha")]);
+    }
+
+    #[test]
+    fn replace_message_for_button() {
+        let input = "test";
+        let mut bar = MessageBar::new();
+        bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        let size = SizeInfo {
+            width: 5.,
+            height: 10.,
+            cell_width: 1.,
+            cell_height: 1.,
+            padding_x: 0.,
+            padding_y: 0.,
+            dpr: 0.,
+        };
+
+        let lines = bar.message().unwrap().text(&size);
+
+        assert_eq!(lines, vec![String::from("te[X]")]);
     }
 }
