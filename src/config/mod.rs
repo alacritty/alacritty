@@ -29,6 +29,7 @@ use crate::term::color::Rgb;
 
 mod bindings;
 
+pub const SOURCE_FILE_PATH: &str = file!();
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
 static DEFAULT_ALACRITTY_CONFIG: &'static str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty.yml"));
@@ -2201,7 +2202,7 @@ impl SecondaryFontDescription {
 
 pub struct Monitor {
     _thread: ::std::thread::JoinHandle<()>,
-    rx: mpsc::Receiver<Config>,
+    rx: mpsc::Receiver<PathBuf>,
 }
 
 pub trait OnConfigReload {
@@ -2216,7 +2217,7 @@ impl OnConfigReload for crate::display::Notifier {
 
 impl Monitor {
     /// Get pending config changes
-    pub fn pending_config(&self) -> Option<Config> {
+    pub fn pending(&self) -> Option<PathBuf> {
         let mut config = None;
         while let Ok(new) = self.rx.try_recv() {
             config = Some(new);
@@ -2224,6 +2225,7 @@ impl Monitor {
 
         config
     }
+
     pub fn new<H, P>(path: P, mut handler: H) -> Monitor
         where H: OnConfigReload + Send + 'static,
               P: Into<PathBuf>
@@ -2260,22 +2262,7 @@ impl Monitor {
                                 continue;
                             }
 
-                            let config = match Config::load_from(&path) {
-                                Ok(config) => {
-                                    config
-                                },
-                                Err(err) => {
-                                    if let Error::Empty = err {
-                                        info!("Config file {:?} is empty; loading default", path);
-                                        Config::default()
-                                    } else {
-                                        error!("Ignoring invalid config: {}", err);
-                                        continue;
-                                    }
-                                }
-                            };
-
-                            let _ = config_tx.send(config);
+                            let _ = config_tx.send(path);
                             handler.on_config_reload();
                         }
                         _ => {}

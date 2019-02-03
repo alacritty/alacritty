@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crossbeam_channel::{Sender, Receiver};
+use crossbeam_channel::{Receiver, Sender};
 
 use crate::term::color::Rgb;
 use crate::term::SizeInfo;
@@ -25,11 +25,16 @@ const TRUNCATED_MESSAGE: &str = "[MESSAGE TRUNCATED]";
 pub struct Message {
     text: String,
     color: Rgb,
+    topic: Option<String>,
 }
 
 impl Message {
     pub fn new(text: String, color: Rgb) -> Message {
-        Message { text, color }
+        Message {
+            text,
+            color,
+            topic: None,
+        }
     }
 
     pub fn text(&self, size_info: &SizeInfo) -> Vec<String> {
@@ -76,6 +81,14 @@ impl Message {
         self.color
     }
 
+    pub fn topic(&self) -> Option<&String> {
+        self.topic.as_ref()
+    }
+
+    pub fn set_topic(&mut self, topic: String) {
+        self.topic = Some(topic);
+    }
+
     fn pad_text(mut text: String, num_cols: usize) -> String {
         let padding_len = num_cols.saturating_sub(text.len());
         text.extend(vec![' '; padding_len]);
@@ -117,8 +130,25 @@ impl MessageBar {
         self.tx.clone()
     }
 
-    pub fn pop(&mut self) {
-        self.current = self.messages.try_recv().ok();
+    pub fn pop(&mut self) -> Option<Message> {
+        std::mem::replace(&mut self.current, self.messages.try_recv().ok())
+    }
+
+    pub fn remove_topic(&mut self, topic: String) {
+        // Remove the currently active message
+        while self.current.as_ref().and_then(|m| m.topic()) == Some(&topic) {
+            self.pop();
+        }
+
+        // Filter messages currently pending
+        for msg in self
+            .messages
+            .try_iter()
+            .take(self.messages.len())
+            .filter(|m| m.topic() != Some(&topic))
+        {
+            let _ = self.tx.send(msg);
+        }
     }
 }
 
@@ -131,13 +161,16 @@ impl Default for MessageBar {
 #[cfg(test)]
 mod test {
     use super::{Message, MessageBar, MIN_FREE_LINES};
-    use crate::term::{SizeInfo, color};
+    use crate::term::{color, SizeInfo};
 
     #[test]
     fn appends_close_button() {
         let input = "test";
         let mut message_bar = MessageBar::new();
-        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_bar
+            .tx()
+            .send(Message::new(input.into(), color::RED))
+            .unwrap();
         let size = SizeInfo {
             width: 7.,
             height: 10.,
@@ -157,7 +190,10 @@ mod test {
     fn multiline_appends_close_button() {
         let input = "foo\nbar";
         let mut message_bar = MessageBar::new();
-        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_bar
+            .tx()
+            .send(Message::new(input.into(), color::RED))
+            .unwrap();
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -177,7 +213,10 @@ mod test {
     fn splits_on_newline() {
         let input = "foo\nbar";
         let mut message_bar = MessageBar::new();
-        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_bar
+            .tx()
+            .send(Message::new(input.into(), color::RED))
+            .unwrap();
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -197,7 +236,10 @@ mod test {
     fn splits_on_length() {
         let input = "foobar123";
         let mut message_bar = MessageBar::new();
-        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_bar
+            .tx()
+            .send(Message::new(input.into(), color::RED))
+            .unwrap();
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -217,7 +259,10 @@ mod test {
     fn empty_with_shortterm() {
         let input = "foobar";
         let mut message_bar = MessageBar::new();
-        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_bar
+            .tx()
+            .send(Message::new(input.into(), color::RED))
+            .unwrap();
         let size = SizeInfo {
             width: 6.,
             height: 0.,
@@ -237,7 +282,10 @@ mod test {
     fn truncates_long_messages() {
         let input = "hahahahahahahahahahaha truncate this because it's too long for the term";
         let mut message_bar = MessageBar::new();
-        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_bar
+            .tx()
+            .send(Message::new(input.into(), color::RED))
+            .unwrap();
         let size = SizeInfo {
             width: 22.,
             height: (MIN_FREE_LINES + 2) as f32,
@@ -252,7 +300,10 @@ mod test {
 
         assert_eq!(
             lines,
-            vec![String::from("hahahahahahahahahah[X]"), String::from("[MESSAGE TRUNCATED]   ")]
+            vec![
+                String::from("hahahahahahahahahah[X]"),
+                String::from("[MESSAGE TRUNCATED]   ")
+            ]
         );
     }
 
@@ -260,7 +311,10 @@ mod test {
     fn hide_button_when_too_narrow() {
         let input = "ha";
         let mut message_bar = MessageBar::new();
-        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_bar
+            .tx()
+            .send(Message::new(input.into(), color::RED))
+            .unwrap();
         let size = SizeInfo {
             width: 2.,
             height: 10.,
@@ -280,7 +334,10 @@ mod test {
     fn hide_truncated_when_too_narrow() {
         let input = "hahahahahahahahaha";
         let mut message_bar = MessageBar::new();
-        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_bar
+            .tx()
+            .send(Message::new(input.into(), color::RED))
+            .unwrap();
         let size = SizeInfo {
             width: 2.,
             height: (MIN_FREE_LINES + 2) as f32,
@@ -300,7 +357,10 @@ mod test {
     fn replace_message_for_button() {
         let input = "test";
         let mut message_bar = MessageBar::new();
-        message_bar.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_bar
+            .tx()
+            .send(Message::new(input.into(), color::RED))
+            .unwrap();
         let size = SizeInfo {
             width: 5.,
             height: 10.,
@@ -314,5 +374,28 @@ mod test {
         let lines = message_bar.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("te[X]")]);
+    }
+
+    #[test]
+    fn remove_topic() {
+        let mut message_bar = MessageBar::new();
+        for i in 0..10 {
+            let mut msg = Message::new(String::new(), color::RED);
+            if i % 2 == 0 {
+                msg.set_topic("topic".into());
+            }
+            message_bar.tx().send(msg).unwrap();
+        }
+
+        message_bar.remove_topic("topic".into());
+
+        // Count number of messages
+        message_bar.pop();
+        let mut num_messages = 0;
+        while message_bar.pop().is_some() {
+            num_messages += 1;
+        }
+
+        assert_eq!(num_messages, 5);
     }
 }

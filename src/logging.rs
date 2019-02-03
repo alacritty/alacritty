@@ -113,26 +113,28 @@ impl log::Log for Logger {
             if let Ok(ref mut logfile) = self.logfile.lock() {
                 let _ = logfile.write_all(msg.as_ref());
 
-                #[cfg(not(windows))]
-                let env_var = format!("${}", ALACRITTY_LOG_ENV);
-                #[cfg(windows)]
-                let env_var = format!("%{}%", ALACRITTY_LOG_ENV);
+                if record.level() <= Level::Warn {
+                    #[cfg(not(windows))]
+                    let env_var = format!("${}", ALACRITTY_LOG_ENV);
+                    #[cfg(windows)]
+                    let env_var = format!("%{}%", ALACRITTY_LOG_ENV);
 
-                let msg = format!(
-                    "[{}] See log at {} ({}):\n{}",
-                    record.level(),
-                    logfile.path.to_string_lossy(),
-                    env_var,
-                    record.args(),
-                );
-                match record.level() {
-                    Level::Error => {
-                        let _ = self.message_tx.send(Message::new(msg, color::RED));
-                    }
-                    Level::Warn => {
-                        let _ = self.message_tx.send(Message::new(msg, color::YELLOW));
-                    }
-                    _ => (),
+                    let msg = format!(
+                        "[{}] See log at {} ({}):\n{}",
+                        record.level(),
+                        logfile.path.to_string_lossy(),
+                        env_var,
+                        record.args(),
+                    );
+                    let color = match record.level() {
+                        Level::Error => color::RED,
+                        Level::Warn => color::YELLOW,
+                        _ => unreachable!(),
+                    };
+
+                    let mut message = Message::new(msg, color);
+                    message.set_topic(record.file().unwrap_or("?").into());
+                    let _ = self.message_tx.send(message);
                 }
             }
 

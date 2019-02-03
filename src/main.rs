@@ -34,6 +34,7 @@ use log::{info, error};
 use std::error::Error;
 use std::sync::Arc;
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::fs;
 
 #[cfg(target_os = "macos")]
@@ -75,8 +76,17 @@ fn main() {
         logging::initialize(&options, message_bar.tx()).expect("Unable to initialize logger");
 
     // Load configuration file
-    let config = load_config(&options).update_dynamic_title(&options);
-    let persistent_logging = options.persistent_logging || config.persistent_logging();
+    // If the file is a command line argument, we won't write a generated default file
+    let config_path = options.config_path()
+        .or_else(Config::installed_config)
+        .or_else(|| Config::write_defaults().ok())
+        .map(|path| path.to_path_buf());
+    let config = if let Some(path) = config_path {
+        load_config(&path).unwrap_or_else(|_| Config::default()).update_dynamic_title(&options)
+    } else {
+        error!("Unable to write the default config");
+        Config::default()
+    };
 
     // Switch to home directory
     #[cfg(target_os = "macos")]
@@ -84,6 +94,8 @@ fn main() {
     // Set locale
     #[cfg(target_os = "macos")]
     locale::set_locale_environment();
+
+    let persistent_logging = options.persistent_logging || config.persistent_logging();
 
     // Run alacritty
     if let Err(err) = run(config, &options, message_bar) {
@@ -103,23 +115,19 @@ fn main() {
 /// If a configuration file is given as a command line argument we don't
 /// generate a default file. If an empty configuration file is given, i.e.
 /// /dev/null, we load the compiled-in defaults.)
-fn load_config(options: &cli::Options) -> Config {
-    let config_path = options.config_path()
-        .or_else(Config::installed_config)
-        .or_else(|| Config::write_defaults().ok());
-
-    if let Some(config_path) = config_path {
-        Config::load_from(&*config_path).unwrap_or_else(|err| {
-            match err {
-                ConfigError::Empty => info!("Config file {:?} is empty; loading default", config_path),
-                _ => error!("Unable to load default config: {}", err),
-            }
-
-            Config::default()
-        })
-    } else {
-        error!("Unable to write the default config");
-        Config::default()
+fn load_config(config_path: &PathBuf) -> Result<Config, ConfigError> {
+    match Config::load_from(config_path) {
+        Err(err) => match err {
+            ConfigError::Empty => {
+                info!("Config file {:?} is empty; loading default", config_path);
+                Ok(Config::default())
+            },
+            _ => {
+                error!("Unable to load default config: {}", err);
+                Err(err)
+            },
+        },
+        Ok(config) => Ok(config),
     }
 }
 
@@ -233,14 +241,17 @@ fn run(
         let mut terminal_lock = processor.process_events(&terminal, display.window());
 
         // Handle config reloads
-        if let Some(new_config) = config_monitor
-            .as_ref()
-            .and_then(|monitor| monitor.pending_config())
-        {
-            config = new_config.update_dynamic_title(options);
-            display.update_config(&config);
-            processor.update_config(&config);
-            terminal_lock.update_config(&config);
+        if let Some(ref path) = config_monitor.as_ref().and_then(|monitor| monitor.pending()) {
+            terminal_lock.message_bar_mut().remove_topic(config::SOURCE_FILE_PATH.into());
+
+            let new_config = load_config(path);
+            if let Ok(new_config) = new_config {
+                config = new_config.update_dynamic_title(options);
+                display.update_config(&config);
+                processor.update_config(&config);
+                terminal_lock.update_config(&config);
+            }
+
             terminal_lock.dirty = true;
         }
 
