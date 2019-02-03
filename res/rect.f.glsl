@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #version 330 core
-in vec4 color;
+
+uniform vec4 color;
 
 out vec4 FragColor;
 

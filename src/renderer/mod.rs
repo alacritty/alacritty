@@ -134,7 +134,7 @@ pub struct RectShaderProgram {
     // Program id
     id: GLuint,
     /// Rectangle color
-    u_col: GLint,
+    u_color: GLint,
 }
 
 #[derive(Copy, Debug, Clone)]
@@ -720,7 +720,7 @@ impl QuadRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.rect_vbo);
 
             // Position
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, (size_of::<f32>() * 3) as _, ptr::null());
+            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, (size_of::<f32>() * 2) as _, ptr::null());
             gl::EnableVertexAttribArray(0);
         }
 
@@ -876,11 +876,11 @@ impl QuadRenderer {
 
         unsafe {
             // Setup vertices
-            let vertices: [f32; 12] = [
-                x + width, y         , 0.0,
-                x + width, y - height, 0.0,
-                x        , y - height, 0.0,
-                x        , y         , 0.0,
+            let vertices: [f32; 8] = [
+                x + width, y         ,
+                x + width, y - height,
+                x        , y - height,
+                x        , y         ,
             ];
 
             // Load vertex data into array buffer
@@ -1285,13 +1285,13 @@ impl RectShaderProgram {
         }
 
         // get uniform locations
-        let u_col = unsafe {
-            gl::GetUniformLocation(program, b"col\0".as_ptr() as *const _)
+        let u_color = unsafe {
+            gl::GetUniformLocation(program, b"color\0".as_ptr() as *const _)
         };
 
         let shader = RectShaderProgram {
             id: program,
-            u_col,
+            u_color,
         };
 
         unsafe { gl::UseProgram(0) }
@@ -1302,7 +1302,7 @@ impl RectShaderProgram {
     fn set_color(&self, color: Rgb, alpha: f32) {
         unsafe {
             gl::Uniform4f(
-                self.u_col,
+                self.u_color,
                 f32::from(color.r) / 255.,
                 f32::from(color.g) / 255.,
                 f32::from(color.b) / 255.,
