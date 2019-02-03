@@ -410,6 +410,8 @@ impl Display {
             api.clear(background_color);
         });
 
+        self.renderer.draw_image(config, &size_info, 0.5);
+
         {
             let glyph_cache = &mut self.glyph_cache;
             let metrics = glyph_cache.font_metrics();
