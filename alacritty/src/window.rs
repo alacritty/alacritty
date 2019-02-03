@@ -21,7 +21,9 @@ use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::{RequestUserAttentionType, WindowBuilderExtMacOS, WindowExtMacOS};
 #[cfg(not(any(target_os = "macos", windows)))]
-use glutin::platform::unix::{EventLoopWindowTargetExtUnix, WindowBuilderExtUnix, WindowExtUnix};
+use glutin::platform::unix::{
+    EventLoopWindowTargetExtUnix, WaylandTheme, WindowBuilderExtUnix, WindowExtUnix,
+};
 #[cfg(not(target_os = "macos"))]
 use glutin::window::Icon;
 use glutin::window::{CursorIcon, Fullscreen, Window as GlutinWindow, WindowBuilder, WindowId};
@@ -150,6 +152,9 @@ impl Window {
         let windowed_context =
             create_gl_window(window_builder.clone(), &event_loop, false, logical)
                 .or_else(|_| create_gl_window(window_builder, &event_loop, true, logical))?;
+
+        // Set Wayland client-side decorations theme
+        Window::set_wayland_theme(event_loop, windowed_context.window(), config);
 
         // Text cursor
         windowed_context.window().set_cursor_icon(CursorIcon::Text);
@@ -391,6 +396,33 @@ impl Window {
     fn window(&self) -> &GlutinWindow {
         self.windowed_context.window()
     }
+
+    #[cfg(not(any(windows, target_os = "macos")))]
+    fn set_wayland_theme(event_loop: &EventLoop<Event>, window: &GlutinWindow, config: &Config) {
+        if config.window.decorations == Decorations::Transparent && event_loop.is_wayland() {
+            let bg = config.colors.primary.background;
+            let fg = config.colors.primary.foreground;
+            let red = config.colors.normal().red;
+            let green = config.colors.normal().green;
+            let blue = config.colors.normal().blue;
+
+            window.set_wayland_theme(WaylandTheme {
+                primary_active: [0xFF, fg.r, fg.g, fg.b],
+                primary_inactive: [0xFF, fg.r, fg.g, fg.b],
+                secondary_active: [0xFF, bg.r, bg.g, bg.b],
+                secondary_inactive: [0x00, 0x00, 0x00, 0x00],
+                close_button_hovered: [0xFF, red.r, red.g, red.b],
+                close_button: [0x00, 0x00, 0x00, 0x00],
+                maximize_button_hovered: [0xFF, green.r, green.g, green.b],
+                maximize_button: [0x00, 0x00, 0x00, 0x00],
+                minimize_button_hovered: [0xFF, blue.r, blue.g, blue.b],
+                minimize_button: [0x00, 0x00, 0x00, 0x00],
+            });
+        }
+    }
+
+    #[cfg(any(windows, target_os = "macos"))]
+    fn set_wayland_theme(_: &EventLoop<Event>, _: &GlutinWindow, _: &Config) {}
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]

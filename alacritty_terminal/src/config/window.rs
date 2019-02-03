@@ -84,7 +84,7 @@ impl Default for StartupMode {
 pub enum Decorations {
     #[serde(rename = "full")]
     Full,
-    #[cfg(target_os = "macos")]
+    #[cfg(not(windows))]
     #[serde(rename = "transparent")]
     Transparent,
     #[cfg(target_os = "macos")]
