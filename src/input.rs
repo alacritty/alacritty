@@ -393,7 +393,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.ctx.mouse_mut().block_url_launcher = true;
         }
 
-        // Ignore motions above the message bar
+        // Ignore motions over the message bar
         if self.mouse_over_message_bar(point) {
             return;
         }
@@ -549,19 +549,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 let report_modes =
                     TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
                 if !modifiers.shift && self.ctx.terminal().mode().intersects(report_modes) {
-                    match button {
-                        MouseButton::Left => {
-                            self.mouse_report(0, ElementState::Pressed, modifiers)
-                        },
-                        MouseButton::Middle => {
-                            self.mouse_report(1, ElementState::Pressed, modifiers)
-                        },
-                        MouseButton::Right => {
-                            self.mouse_report(2, ElementState::Pressed, modifiers)
-                        },
+                    let code = match button {
+                        MouseButton::Left => 0,
+                        MouseButton::Middle => 1,
+                        MouseButton::Right => 2,
                         // Can't properly report more than three buttons.
-                        MouseButton::Other(_) => (),
+                        MouseButton::Other(_) => return,
                     };
+                    self.mouse_report(code, ElementState::Pressed, modifiers);
                     return;
                 }
 
@@ -578,15 +573,15 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     ) {
         let report_modes =
             TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
-        if !modifiers.shift && self.ctx.terminal().mode().intersects(report_modes)
-        {
-            match button {
-                MouseButton::Left   => self.mouse_report(0, ElementState::Released, modifiers),
-                MouseButton::Middle => self.mouse_report(1, ElementState::Released, modifiers),
-                MouseButton::Right  => self.mouse_report(2, ElementState::Released, modifiers),
+        if !modifiers.shift && self.ctx.terminal().mode().intersects(report_modes) {
+            let code = match button {
+                MouseButton::Left => 0,
+                MouseButton::Middle => 1,
+                MouseButton::Right => 2,
                 // Can't properly report more than three buttons.
-                MouseButton::Other(_) => (),
+                MouseButton::Other(_) => return,
             };
+            self.mouse_report(code, ElementState::Released, modifiers);
             return;
         } else if button == MouseButton::Left {
             self.launch_url(modifiers, point);
@@ -851,11 +846,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     /// Check if a point is within the message bar
     fn mouse_over_message_bar(&mut self, point: Point) -> bool {
-        // println!("SIZE: {:?}", self.ctx.size_info());
-        // println!("POINT LINE: {}", point.line.0);
         if let Some(message) = self.ctx.terminal_mut().message_bar_mut().message() {
             let size = self.ctx.size_info();
-            // println!("MESSAGE LINES: {}", message.text(&size).len());
             point.line.0 >= size.lines().saturating_sub(message.text(&size).len())
         } else {
             false
@@ -874,9 +866,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             ElementState::Pressed => {
                 let size = self.ctx.size_info();
                 if let Some(message) = self.ctx.terminal_mut().message_bar_mut().message() {
-                    let num_messages = message.text(&size).len();
                     if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
-                        && point.line == size.lines() - num_messages
+                        && point.line == size.lines() - message.text(&size).len()
                     {
                         self.ctx.terminal_mut().message_bar_mut().pop();
                     }

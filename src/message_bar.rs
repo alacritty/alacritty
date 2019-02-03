@@ -21,6 +21,7 @@ pub const CLOSE_BUTTON_TEXT: &str = "[X]";
 const MIN_FREE_LINES: usize = 3;
 const TRUNCATED_MESSAGE: &str = "[MESSAGE TRUNCATED]";
 
+/// Message for display in the MessageBar
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Message {
     text: String,
@@ -29,6 +30,7 @@ pub struct Message {
 }
 
 impl Message {
+    /// Create a new message
     pub fn new(text: String, color: Rgb) -> Message {
         Message {
             text,
@@ -37,6 +39,7 @@ impl Message {
         }
     }
 
+    /// Formatted message text lines
     pub fn text(&self, size_info: &SizeInfo) -> Vec<String> {
         let num_cols = size_info.cols().0;
         let max_lines = size_info.lines().saturating_sub(MIN_FREE_LINES);
@@ -77,18 +80,26 @@ impl Message {
         lines
     }
 
+    /// Message color
+    #[inline]
     pub fn color(&self) -> Rgb {
         self.color
     }
 
+    /// Message topic
+    #[inline]
     pub fn topic(&self) -> Option<&String> {
         self.topic.as_ref()
     }
 
+    /// Update the message topic
+    #[inline]
     pub fn set_topic(&mut self, topic: String) {
         self.topic = Some(topic);
     }
 
+    /// Right-pad text to fit a specific number of columns
+    #[inline]
     fn pad_text(mut text: String, num_cols: usize) -> String {
         let padding_len = num_cols.saturating_sub(text.len());
         text.extend(vec![' '; padding_len]);
@@ -96,6 +107,7 @@ impl Message {
     }
 }
 
+/// Storage for message bar
 #[derive(Debug)]
 pub struct MessageBar {
     current: Option<Message>,
@@ -104,6 +116,7 @@ pub struct MessageBar {
 }
 
 impl MessageBar {
+    /// Create new message bar
     pub fn new() -> MessageBar {
         let (tx, messages) = crossbeam_channel::unbounded();
         MessageBar {
@@ -113,10 +126,14 @@ impl MessageBar {
         }
     }
 
+    /// Check if there are any messages queued
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.current.is_none()
     }
 
+    /// Current message
+    #[inline]
     pub fn message(&mut self) -> Option<Message> {
         if let Some(current) = &self.current {
             Some(current.clone())
@@ -126,14 +143,20 @@ impl MessageBar {
         }
     }
 
+    /// Channel for adding new messages
+    #[inline]
     pub fn tx(&self) -> Sender<Message> {
         self.tx.clone()
     }
 
+    /// Remove the currently visible message
+    #[inline]
     pub fn pop(&mut self) -> Option<Message> {
         std::mem::replace(&mut self.current, self.messages.try_recv().ok())
     }
 
+    /// Remove all messages with a specific topic
+    #[inline]
     pub fn remove_topic(&mut self, topic: String) {
         // Remove the currently active message
         while self.current.as_ref().and_then(|m| m.topic()) == Some(&topic) {
@@ -397,5 +420,20 @@ mod test {
         }
 
         assert_eq!(num_messages, 5);
+    }
+
+    #[test]
+    fn pop() {
+        let mut message_bar = MessageBar::new();
+        let one = Message::new(String::from("one"), color::RED);
+        message_bar.tx().send(one.clone()).unwrap();
+        let two = Message::new(String::from("two"), color::YELLOW);
+        message_bar.tx().send(two.clone()).unwrap();
+
+        assert_eq!(message_bar.message(), Some(one));
+
+        message_bar.pop();
+
+        assert_eq!(message_bar.message(), Some(two));
     }
 }

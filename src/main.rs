@@ -69,6 +69,7 @@ fn main() {
     // Load command line options
     let options = cli::Options::load();
 
+    // Setup storage for message UI
     let message_bar = MessageBar::new();
 
     // Initialize the logger as soon as possible as to capture output from other subsystems
@@ -95,6 +96,7 @@ fn main() {
     #[cfg(target_os = "macos")]
     locale::set_locale_environment();
 
+    // Store if log file should be deleted before moving config
     let persistent_logging = options.persistent_logging || config.persistent_logging();
 
     // Run alacritty
@@ -110,11 +112,7 @@ fn main() {
     }
 }
 
-/// Load configuration
-///
-/// If a configuration file is given as a command line argument we don't
-/// generate a default file. If an empty configuration file is given, i.e.
-/// /dev/null, we load the compiled-in defaults.)
+/// Load configuration file
 fn load_config(config_path: &PathBuf) -> Result<Config, ConfigError> {
     match Config::load_from(config_path) {
         Err(err) => match err {
@@ -242,10 +240,10 @@ fn run(
 
         // Handle config reloads
         if let Some(ref path) = config_monitor.as_ref().and_then(|monitor| monitor.pending()) {
+            // Clear old config messages from bar
             terminal_lock.message_bar_mut().remove_topic(config::SOURCE_FILE_PATH.into());
 
-            let new_config = load_config(path);
-            if let Ok(new_config) = new_config {
+            if let Ok(new_config) = load_config(path) {
                 config = new_config.update_dynamic_title(options);
                 display.update_config(&config);
                 processor.update_config(&config);
@@ -255,7 +253,7 @@ fn run(
             terminal_lock.dirty = true;
         }
 
-        // Begin shutdown if the flag was raised.
+        // Begin shutdown if the flag was raised
         if terminal_lock.should_exit() {
             break;
         }

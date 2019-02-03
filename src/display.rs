@@ -355,14 +355,12 @@ impl Display {
             let size = &self.size_info;
             terminal.resize(size);
 
-            {
-                // Subtract a line when message bar is present
-                let mut size = *size;
-                if let Some(message) = terminal.message_bar_mut().message() {
-                    size.height -= size.cell_height * message.text(&size).len() as f32;
-                }
-                pty_resize_handle.on_resize(&size)
+            // Subtract message bar lines for pty size
+            let mut pty_size = *size;
+            if let Some(message) = terminal.message_bar_mut().message() {
+                pty_size.height -= pty_size.cell_height * message.text(&size).len() as f32;
             }
+            pty_resize_handle.on_resize(&pty_size);
 
             processor_resize_handle.on_resize(size);
 
