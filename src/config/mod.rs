@@ -116,12 +116,40 @@ pub struct Mouse {
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct Url {
     // Program for opening links
-    #[serde(deserialize_with = "failure_default")]
+    #[serde(deserialize_with = "deserialize_launcher")]
     pub launcher: Option<CommandWrapper>,
 
     // Modifier used to open links
     #[serde(deserialize_with = "deserialize_modifiers")]
     pub modifiers: ModifiersState,
+}
+
+fn deserialize_launcher<'a, D>(deserializer: D) -> ::std::result::Result<Option<CommandWrapper>, D::Error>
+    where D: de::Deserializer<'a>
+{
+    let default = Url::default().launcher;
+
+    // Deserialize to generic value
+    let val = match serde_yaml::Value::deserialize(deserializer) {
+        Ok(val) => val,
+        Err(err) => {
+            error!("Problem with config: {}; using {}", err, default.clone().unwrap().program());
+            return Ok(default);
+        },
+    };
+
+    // Accept `None` to disable the launcher
+    if val.as_str().filter(|v| v.to_lowercase() == "none").is_some() {
+        return Ok(None);
+    }
+
+    match <Option<CommandWrapper>>::deserialize(val) {
+        Ok(launcher) => Ok(launcher),
+        Err(err) => {
+            error!("Problem with config: {}; using {}", err, default.clone().unwrap().program());
+            Ok(default)
+        },
+    }
 }
 
 impl Default for Url {
