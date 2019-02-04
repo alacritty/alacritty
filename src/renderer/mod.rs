@@ -21,7 +21,6 @@ use std::ptr;
 use std::sync::mpsc;
 use std::time::Duration;
 
-use cgmath;
 use fnv::FnvHasher;
 use glutin::dpi::PhysicalSize;
 use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
@@ -111,11 +110,8 @@ pub struct TextShaderProgram {
     // Program id
     id: GLuint,
 
-    /// projection matrix uniform
+    /// projection scale and offset uniform
     u_projection: GLint,
-
-    /// Terminal dimensions (pixels)
-    u_term_dim: GLint,
 
     /// Cell dimensions (pixels)
     u_cell_dim: GLint,
@@ -486,13 +482,11 @@ const BATCH_MAX: usize = 0x1_0000;
 const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
-    // TODO should probably hand this a transform instead of width/height
     pub fn new(size: PhysicalSize) -> Result<QuadRenderer, Error> {
         let program = TextShaderProgram::new(size)?;
         let rect_program = RectShaderProgram::new()?;
 
         let mut vao: GLuint = 0;
-        let mut vbo: GLuint = 0;
         let mut ebo: GLuint = 0;
 
         let mut vbo_instance: GLuint = 0;
@@ -506,41 +500,13 @@ impl QuadRenderer {
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
             gl::Enable(gl::MULTISAMPLE);
 
+            // Disable depth mask, as the renderer never uses depth tests
+            gl::DepthMask(gl::FALSE);
+
             gl::GenVertexArrays(1, &mut vao);
-            gl::GenBuffers(1, &mut vbo);
             gl::GenBuffers(1, &mut ebo);
             gl::GenBuffers(1, &mut vbo_instance);
             gl::BindVertexArray(vao);
-
-            // ----------------------------
-            // setup vertex position buffer
-            // ----------------------------
-            // Top right, Bottom right, Bottom left, Top left
-            let vertices = [
-                PackedVertex { x: 1.0, y: 1.0 },
-                PackedVertex { x: 1.0, y: 0.0 },
-                PackedVertex { x: 0.0, y: 0.0 },
-                PackedVertex { x: 0.0, y: 1.0 },
-            ];
-
-            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-
-            gl::VertexAttribPointer(
-                0,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<PackedVertex>() as i32,
-                ptr::null(),
-            );
-            gl::EnableVertexAttribArray(0);
-
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (size_of::<PackedVertex>() * vertices.len()) as GLsizeiptr,
-                vertices.as_ptr() as *const _,
-                gl::STATIC_DRAW,
-            );
 
             // ---------------------
             // Set up element buffer
@@ -567,59 +533,59 @@ impl QuadRenderer {
             );
             // coords
             gl::VertexAttribPointer(
-                1,
+                0,
                 2,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<InstanceData>() as i32,
                 ptr::null(),
             );
-            gl::EnableVertexAttribArray(1);
-            gl::VertexAttribDivisor(1, 1);
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribDivisor(0, 1);
             // glyphoffset
             gl::VertexAttribPointer(
-                2,
+                1,
                 4,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<InstanceData>() as i32,
                 (2 * size_of::<f32>()) as *const _,
             );
-            gl::EnableVertexAttribArray(2);
-            gl::VertexAttribDivisor(2, 1);
+            gl::EnableVertexAttribArray(1);
+            gl::VertexAttribDivisor(1, 1);
             // uv
             gl::VertexAttribPointer(
-                3,
+                2,
                 4,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<InstanceData>() as i32,
                 (6 * size_of::<f32>()) as *const _,
             );
-            gl::EnableVertexAttribArray(3);
-            gl::VertexAttribDivisor(3, 1);
+            gl::EnableVertexAttribArray(2);
+            gl::VertexAttribDivisor(2, 1);
             // color
             gl::VertexAttribPointer(
-                4,
+                3,
                 3,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<InstanceData>() as i32,
                 (10 * size_of::<f32>()) as *const _,
             );
-            gl::EnableVertexAttribArray(4);
-            gl::VertexAttribDivisor(4, 1);
+            gl::EnableVertexAttribArray(3);
+            gl::VertexAttribDivisor(3, 1);
             // color
             gl::VertexAttribPointer(
-                5,
+                4,
                 4,
                 gl::FLOAT,
                 gl::FALSE,
                 size_of::<InstanceData>() as i32,
                 (13 * size_of::<f32>()) as *const _,
             );
-            gl::EnableVertexAttribArray(5);
-            gl::VertexAttribDivisor(5, 1);
+            gl::EnableVertexAttribArray(4);
+            gl::VertexAttribDivisor(4, 1);
 
             // Rectangle setup
             gl::GenVertexArrays(1, &mut rect_vao);
@@ -1174,21 +1140,19 @@ impl TextShaderProgram {
         }
 
         // get uniform locations
-        let (projection, term_dim, cell_dim, background) = unsafe {
+        let (projection, cell_dim, background) = unsafe {
             (
                 gl::GetUniformLocation(program, cptr!(b"projection\0")),
-                gl::GetUniformLocation(program, cptr!(b"termDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"cellDim\0")),
                 gl::GetUniformLocation(program, cptr!(b"backgroundPass\0")),
             )
         };
 
-        assert_uniform_valid!(projection, term_dim, cell_dim);
+        assert_uniform_valid!(projection, cell_dim, background);
 
         let shader = TextShaderProgram {
             id: program,
             u_projection: projection,
-            u_term_dim: term_dim,
             u_cell_dim: cell_dim,
             u_background: background,
         };
@@ -1208,36 +1172,23 @@ impl TextShaderProgram {
             return;
         }
 
-        // set projection uniform
-        //
-        // NB Not sure why padding change only requires changing the vertical
-        //    translation in the projection, but this makes everything work
-        //    correctly.
-        let ortho = cgmath::ortho(
-            0.,
-            width - (2. * padding_x),
-            2. * padding_y,
-            height,
-            -1.,
-            1.,
-        );
-        let projection: [[f32; 4]; 4] = ortho.into();
+        // Compute scale and offset factors, from pixel to ndc space. Y is inverted
+        //   [0, width - 2 * padding_x] to [-1, 1]
+        //   [height - 2 * padding_y, 0] to [-1, 1]
+        let scale_x = 2. / (width - 2. * padding_x);
+        let scale_y = -2. / (height - 2. * padding_y);
+        let offset_x = -1.;
+        let offset_y = 1.;
 
         info!("Width: {}, Height: {}", width, height);
 
         unsafe {
-            gl::UniformMatrix4fv(
-                self.u_projection,
-                1,
-                gl::FALSE,
-                projection.as_ptr() as *const _,
-            );
+            gl::Uniform4f(self.u_projection, offset_x, offset_y, scale_x, scale_y);
         }
     }
 
     fn set_term_uniforms(&self, props: &term::SizeInfo) {
         unsafe {
-            gl::Uniform2f(self.u_term_dim, props.width, props.height);
             gl::Uniform2f(self.u_cell_dim, props.cell_width, props.cell_height);
         }
     }
