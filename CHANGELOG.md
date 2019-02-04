@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unicode characters at the beginning of URLs are now properly ignored
 - Remove error message when reloading an empty config
 - Allow disabling URL launching by setting the value of `mouse.url.launcher` to `None`
+- Corrected the `window.decorations` config documentation for macOS
 
 ## Version 0.2.7
 
