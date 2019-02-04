@@ -1,5 +1,11 @@
-target
+# FlameGraph script
 FlameGraph
+
+# Rust build directory
+**/target
+
+# Rust subcrate lockfiles
+*/Cargo.lock
 
 # Temp files
 .idea
