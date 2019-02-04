@@ -25,7 +25,7 @@ use crate::config::Config;
 use font::{self, Rasterize};
 use crate::meter::Meter;
 use crate::renderer::{self, GlyphCache, QuadRenderer};
-use crate::renderer::lines::Lines;
+use crate::renderer::rects::{Rects, Rect};
 use crate::term::{Term, SizeInfo, RenderableCell};
 use crate::sync::FairMutex;
 use crate::window::{self, Window};
@@ -425,7 +425,7 @@ impl Display {
         {
             let glyph_cache = &mut self.glyph_cache;
             let metrics = glyph_cache.font_metrics();
-            let mut cell_line_rects = Lines::new(&metrics, &size_info);
+            let mut rects = Rects::new(&metrics, &size_info);
 
             // Draw grid
             {
@@ -435,7 +435,7 @@ impl Display {
                     // Iterate over all non-empty cells in the grid
                     for cell in grid_cells {
                         // Update underline/strikeout
-                        cell_line_rects.update_lines(&cell);
+                        rects.update_rects(&cell);
 
                         // Draw the cell
                         api.render_cell(cell, glyph_cache);
@@ -443,8 +443,35 @@ impl Display {
                 });
             }
 
-            // Draw rectangles
-            self.renderer.draw_rects(config, &size_info, visual_bell_intensity, cell_line_rects);
+            if let Some(message) = bar_message {
+                // Create a new rectangle for the background
+                let text = message.text(&size_info);
+
+                let start_line = (size_info.lines().0 - text.len()) as f32;
+                let y = size_info.padding_y + size_info.cell_height * start_line;
+                let rect = Rect::new(0., y, size_info.width, size_info.height - y);
+                rects.push(rect, message.color());
+
+                // Draw rectangles including the new background
+                self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
+
+                // Relay messages to the user
+                let mut offset = 1;
+                for message_text in text.iter().rev() {
+                    self.renderer.with_api(config, &size_info, |mut api| {
+                        api.render_string(
+                            &message_text,
+                            Line(size_info.lines().saturating_sub(offset)),
+                            glyph_cache,
+                            None,
+                        );
+                    });
+                    offset += 1;
+                }
+            } else {
+                // Draw rectangles
+                self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
+            }
 
             // Draw render timer
             if self.render_timer {
@@ -455,24 +482,8 @@ impl Display {
                     b: 0x53,
                 };
                 self.renderer.with_api(config, &size_info, |mut api| {
-                    api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, color);
+                    api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, Some(color));
                 });
-            }
-
-            // Relay messages to the user
-            if let Some(message) = bar_message {
-                let mut offset = 1;
-                for message_text in message.text(&size_info).iter().rev() {
-                    self.renderer.with_api(config, &size_info, |mut api| {
-                        api.render_string(
-                            &message_text,
-                            Line(size_info.lines().saturating_sub(offset)),
-                            glyph_cache,
-                            message.color(),
-                        );
-                    });
-                    offset += 1;
-                }
             }
         }
 

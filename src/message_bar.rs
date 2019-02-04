@@ -17,7 +17,7 @@ use crossbeam_channel::{Receiver, Sender};
 use crate::term::color::Rgb;
 use crate::term::SizeInfo;
 
-pub const CLOSE_BUTTON_TEXT: &str = "[X]";
+pub const CLOSE_BUTTON_TEXT: &str = " [X]";
 const MIN_FREE_LINES: usize = 3;
 const TRUNCATED_MESSAGE: &str = "[MESSAGE TRUNCATED]";
 
@@ -48,7 +48,13 @@ impl Message {
         let mut lines = Vec::new();
         let mut line = String::new();
         for c in self.text.trim().chars() {
-            if c == '\n' || line.len() == num_cols {
+            if c == '\n'
+                || line.len() == num_cols
+                // Keep space in first line for button
+                || (lines.is_empty()
+                    && num_cols >= CLOSE_BUTTON_TEXT.len()
+                    && line.len() == num_cols.saturating_sub(CLOSE_BUTTON_TEXT.len()))
+            {
                 lines.push(Self::pad_text(line, num_cols));
                 line = String::new();
             }
@@ -188,7 +194,7 @@ mod test {
 
     #[test]
     fn appends_close_button() {
-        let input = "test";
+        let input = "a";
         let mut message_bar = MessageBar::new();
         message_bar
             .tx()
@@ -206,12 +212,12 @@ mod test {
 
         let lines = message_bar.message().unwrap().text(&size);
 
-        assert_eq!(lines, vec![String::from("test[X]")]);
+        assert_eq!(lines, vec![String::from("a   [X]")]);
     }
 
     #[test]
-    fn multiline_appends_close_button() {
-        let input = "foo\nbar";
+    fn multiline_close_button_first_line() {
+        let input = "fo\nbar";
         let mut message_bar = MessageBar::new();
         message_bar
             .tx()
@@ -229,12 +235,12 @@ mod test {
 
         let lines = message_bar.message().unwrap().text(&size);
 
-        assert_eq!(lines, vec![String::from("foo[X]"), String::from("bar   ")]);
+        assert_eq!(lines, vec![String::from("fo [X]"), String::from("bar   ")]);
     }
 
     #[test]
     fn splits_on_newline() {
-        let input = "foo\nbar";
+        let input = "a\nb";
         let mut message_bar = MessageBar::new();
         message_bar
             .tx()
@@ -257,7 +263,7 @@ mod test {
 
     #[test]
     fn splits_on_length() {
-        let input = "foobar123";
+        let input = "foobar1";
         let mut message_bar = MessageBar::new();
         message_bar
             .tx()
@@ -324,7 +330,7 @@ mod test {
         assert_eq!(
             lines,
             vec![
-                String::from("hahahahahahahahahah[X]"),
+                String::from("hahahahahahahahaha [X]"),
                 String::from("[MESSAGE TRUNCATED]   ")
             ]
         );
@@ -377,7 +383,7 @@ mod test {
     }
 
     #[test]
-    fn replace_message_for_button() {
+    fn add_newline_for_button() {
         let input = "test";
         let mut message_bar = MessageBar::new();
         message_bar
@@ -396,7 +402,7 @@ mod test {
 
         let lines = message_bar.message().unwrap().text(&size);
 
-        assert_eq!(lines, vec![String::from("te[X]")]);
+        assert_eq!(lines, vec![String::from("t [X]"), String::from("est  ")]);
     }
 
     #[test]
