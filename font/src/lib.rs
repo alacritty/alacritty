@@ -47,7 +47,7 @@ extern crate log;
 
 use std::hash::{Hash, Hasher};
 use std::{fmt, cmp};
-use std::sync::atomic::{AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 // If target isn't macos or windows, reexport everything from ft
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -147,7 +147,7 @@ impl FontKey {
     ///
     /// The generated key will be globally unique
     pub fn next() -> FontKey {
-        static TOKEN: AtomicUsize = ATOMIC_USIZE_INIT;
+        static TOKEN: AtomicUsize = AtomicUsize::new(0);
 
         FontKey {
             token: TOKEN.fetch_add(1, Ordering::SeqCst) as _,
