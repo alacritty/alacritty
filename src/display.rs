@@ -435,7 +435,7 @@ impl Display {
                     // Iterate over all non-empty cells in the grid
                     for cell in grid_cells {
                         // Update underline/strikeout
-                        rects.update_rects(&cell);
+                        rects.update_lines(&cell);
 
                         // Draw the cell
                         api.render_cell(cell, glyph_cache);

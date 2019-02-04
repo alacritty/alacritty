@@ -76,8 +76,8 @@ impl<'a> Rects<'a> {
         self.inner
     }
 
-    /// Update the stored rects with the next cell info.
-    pub fn update_rects(&mut self, cell: &RenderableCell) {
+    /// Update the stored lines with the next cell info.
+    pub fn update_lines(&mut self, cell: &RenderableCell) {
         for (flag, start_cell) in self.last_starts.iter_mut() {
             let flag = *flag;
             *start_cell = match *start_cell {
@@ -146,7 +146,7 @@ fn create_rect(
         _ => unimplemented!("Invalid flag for cell line drawing specified"),
     };
 
-    // Make sure rects are always visible
+    // Make sure lines are always visible
     height = height.max(1.);
 
     let cell_bottom = (start.line.0 as f32 + 1.) * size.cell_height;

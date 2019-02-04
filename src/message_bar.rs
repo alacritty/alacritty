@@ -55,8 +55,16 @@ impl Message {
                     && num_cols >= CLOSE_BUTTON_TEXT.len()
                     && line.len() == num_cols.saturating_sub(CLOSE_BUTTON_TEXT.len()))
             {
-                lines.push(Self::pad_text(line, num_cols));
-                line = String::new();
+                // Attempt to wrap on word boundaries
+                if let (Some(index), true) = (line.rfind(char::is_whitespace), c != '\n') {
+                    let split = line.split_off(index + 1);
+                    line.pop();
+                    lines.push(Self::pad_text(line, num_cols));
+                    line = split
+                } else {
+                    lines.push(Self::pad_text(line, num_cols));
+                    line = String::new();
+                }
             }
 
             if c != '\n' {
@@ -441,5 +449,28 @@ mod test {
         message_bar.pop();
 
         assert_eq!(message_bar.message(), Some(two));
+    }
+
+    #[test]
+    fn wrap_on_words() {
+        let input = "a\nbc defg";
+        let mut message_bar = MessageBar::new();
+        message_bar
+            .tx()
+            .send(Message::new(input.into(), color::RED))
+            .unwrap();
+        let size = SizeInfo {
+            width: 5.,
+            height: 10.,
+            cell_width: 1.,
+            cell_height: 1.,
+            padding_x: 0.,
+            padding_y: 0.,
+            dpr: 0.,
+        };
+
+        let lines = message_bar.message().unwrap().text(&size);
+
+        assert_eq!(lines, vec![String::from("a [X]"), String::from("bc   "), String::from("defg ")]);
     }
 }
