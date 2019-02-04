@@ -499,6 +499,7 @@ impl QuadRenderer {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
             gl::Enable(gl::MULTISAMPLE);
+
             // Disable depth mask, as the renderer never uses depth tests
             gl::DepthMask(gl::FALSE);
 
