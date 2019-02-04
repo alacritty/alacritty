@@ -488,17 +488,17 @@ impl Display {
 
     /// Adjust the IME editor position according to the new location of the cursor
     pub fn update_ime_position(&mut self, terminal: &Term) {
-        use crate::index::{Column, Line, Point};
-        use crate::term::SizeInfo;
-        let Point{line: Line(row), col: Column(col)} = terminal.cursor().point;
-        let SizeInfo{cell_width: cw,
-                    cell_height: ch,
-                    padding_x: px,
-                    padding_y: py, ..} = *terminal.size_info();
+        let point = terminal.cursor().point;
+        let SizeInfo{
+            cell_width: cw,
+            cell_height: ch,
+            padding_x: px,
+            padding_y: py, ..
+        } = *terminal.size_info();
         let dpr = self.window().hidpi_factor() as f32;
 
-        let nspot_y = (py + (row + 1) as f32 * ch / dpr) as i32;
-        let nspot_x = (px + col as f32 * cw / dpr) as i32;
+        let nspot_x = ((px + point.col.0 as f32 * cw) / dpr) as i32;
+        let nspot_y = ((py + (point.line.0 + 1) as f32 * ch) / dpr) as i32;
         self.window().set_ime_spot(LogicalPosition::from((nspot_x, nspot_y)));
     }
 }
