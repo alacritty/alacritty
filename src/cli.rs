@@ -16,7 +16,7 @@ use clap::{Arg, App, crate_name, crate_version, crate_authors, crate_description
 
 use crate::index::{Line, Column};
 use crate::config::{Dimensions, Shell};
-use crate::window::{DEFAULT_TITLE, DEFAULT_CLASS};
+use crate::window::{DEFAULT_TITLE};
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
 
@@ -91,7 +91,7 @@ impl Options {
             .arg(Arg::with_name("class")
                  .long("class")
                  .takes_value(true)
-                 .help(&format!("Defines window class on X11 [default: {}]", DEFAULT_CLASS)))
+                 .help(&format!("Defines window class on X11 [default: {}]", DEFAULT_TITLE)))
             .arg(Arg::with_name("q")
                 .short("q")
                 .multiple(true)

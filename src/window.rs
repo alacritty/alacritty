@@ -38,18 +38,6 @@ static WINDOW_ICON: &'static [u8] = include_bytes!("../assets/windows/alacritty.
 /// In X11, this the default value for the `WM_NAME` property.
 pub const DEFAULT_TITLE: &str = "Alacritty";
 
-/// Default text for general window class, X11 specific.
-///
-/// In X11, this is the default value for the `WM_CLASS` property. The
-/// second value of `WM_CLASS` is **never** changed to anything but
-/// the default value.
-///
-/// ```ignore
-/// $ xprop | grep WM_CLASS
-/// WM_CLASS(STRING) = "Alacritty", "Alacritty"
-/// ```
-pub const DEFAULT_CLASS: &str = "Alacritty";
-
 /// Window errors
 #[derive(Debug)]
 pub enum Error {
@@ -150,8 +138,7 @@ impl Window {
 
         let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
         let class = options.class.as_ref().map_or(DEFAULT_TITLE, |c| c);
-        let window_builder = Window::get_platform_window(title, window_config);
-        let window_builder = Window::platform_builder_ext(window_builder, &class);
+        let window_builder = Window::get_platform_window(title, class, window_config);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();
@@ -262,39 +249,14 @@ impl Window {
         }
     }
 
-    #[cfg(
-        any(
-            target_os = "linux",
-            target_os = "freebsd",
-            target_os = "dragonfly",
-            target_os = "openbsd"
-        )
-    )]
-    fn platform_builder_ext(window_builder: WindowBuilder, wm_class: &str) -> WindowBuilder {
-        use glutin::os::unix::WindowBuilderExt;
-        window_builder
-            // X11
-            .with_class(wm_class.to_owned(), "Alacritty".to_owned())
-            // Wayland
-            .with_app_id("Alacritty".to_owned())
-    }
-
-    #[cfg(
-        not(
-            any(
-                target_os = "linux",
-                target_os = "freebsd",
-                target_os = "dragonfly",
-                target_os = "openbsd"
-            )
-        )
-    )]
-    fn platform_builder_ext(window_builder: WindowBuilder, _: &str) -> WindowBuilder {
-        window_builder
-    }
-
     #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(
+        title: &str,
+        class: &str,
+        window_config: &WindowConfig
+    ) -> WindowBuilder {
+        use glutin::os::unix::WindowBuilderExt;
+
         let decorations = match window_config.decorations() {
             Decorations::None => false,
             _ => true,
@@ -306,10 +268,18 @@ impl Window {
             .with_transparency(true)
             .with_maximized(window_config.start_maximized())
             .with_decorations(decorations)
+            // X11
+            .with_class(class.into(), DEFAULT_TITLE.into())
+            // Wayland
+            .with_app_id(class.into())
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(
+        title: &str,
+        _class: &str,
+        window_config: &WindowConfig
+    ) -> WindowBuilder {
         let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO).unwrap();
 
         let decorations = match window_config.decorations() {
@@ -327,7 +297,11 @@ impl Window {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
+    pub fn get_platform_window(
+        title: &str,
+        _class: &str,
+        window_config: &WindowConfig
+    ) -> WindowBuilder {
         use glutin::os::macos::WindowBuilderExt;
 
         let window = WindowBuilder::new()
