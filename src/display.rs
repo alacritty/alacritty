@@ -314,7 +314,7 @@ impl Display {
         let font_changed = terminal.font_size != self.font_size
             || (dpr - self.size_info.dpr).abs() > f64::EPSILON;
 
-        if font_changed || self.last_message != terminal.message_bar_mut().message() {
+        if font_changed || self.last_message != terminal.message_buffer_mut().message() {
             if new_size == None {
                 // Force a resize to refresh things
                 new_size = Some(PhysicalSize::new(
@@ -324,12 +324,12 @@ impl Display {
             }
 
             self.font_size = terminal.font_size;
-            self.last_message = terminal.message_bar_mut().message();
+            self.last_message = terminal.message_buffer_mut().message();
             self.size_info.dpr = dpr;
+        }
 
-            if font_changed {
-                self.update_glyph_cache(config);
-            }
+        if font_changed {
+            self.update_glyph_cache(config);
         }
 
         if let Some(psize) = new_size.take() {
@@ -354,15 +354,14 @@ impl Display {
 
             let size = &self.size_info;
             terminal.resize(size);
+            processor_resize_handle.on_resize(size);
 
             // Subtract message bar lines for pty size
             let mut pty_size = *size;
-            if let Some(message) = terminal.message_bar_mut().message() {
+            if let Some(message) = terminal.message_buffer_mut().message() {
                 pty_size.height -= pty_size.cell_height * message.text(&size).len() as f32;
             }
             pty_resize_handle.on_resize(&pty_size);
-
-            processor_resize_handle.on_resize(size);
 
             self.window.resize(psize);
             self.renderer.resize(psize, self.size_info.padding_x, self.size_info.padding_y);
@@ -386,7 +385,7 @@ impl Display {
             .collect();
 
         // Get message from terminal to ignore modifications after lock is dropped
-        let bar_message = terminal.message_bar_mut().message();
+        let message_buffer = terminal.message_buffer_mut().message();
 
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
@@ -443,12 +442,12 @@ impl Display {
                 });
             }
 
-            if let Some(message) = bar_message {
-                // Create a new rectangle for the background
+            if let Some(message) = message_buffer {
                 let text = message.text(&size_info);
 
-                let start_line = (size_info.lines().0 - text.len()) as f32;
-                let y = size_info.padding_y + size_info.cell_height * start_line;
+                // Create a new rectangle for the background
+                let start_line = size_info.lines().0 - text.len();
+                let y = size_info.padding_y + size_info.cell_height * start_line as f32;
                 let rect = Rect::new(0., y, size_info.width, size_info.height - y);
                 rects.push(rect, message.color());
 

@@ -21,7 +21,7 @@ pub const CLOSE_BUTTON_TEXT: &str = " [X]";
 const MIN_FREE_LINES: usize = 3;
 const TRUNCATED_MESSAGE: &str = "[MESSAGE TRUNCATED]";
 
-/// Message for display in the MessageBar
+/// Message for display in the MessageBuffer
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Message {
     text: String,
@@ -123,17 +123,17 @@ impl Message {
 
 /// Storage for message bar
 #[derive(Debug)]
-pub struct MessageBar {
+pub struct MessageBuffer {
     current: Option<Message>,
     messages: Receiver<Message>,
     tx: Sender<Message>,
 }
 
-impl MessageBar {
-    /// Create new message bar
-    pub fn new() -> MessageBar {
+impl MessageBuffer {
+    /// Create new message buffer
+    pub fn new() -> MessageBuffer {
         let (tx, messages) = crossbeam_channel::unbounded();
-        MessageBar {
+        MessageBuffer {
             current: None,
             messages,
             tx,
@@ -171,9 +171,9 @@ impl MessageBar {
 
     /// Remove all messages with a specific topic
     #[inline]
-    pub fn remove_topic(&mut self, topic: String) {
+    pub fn remove_topic(&mut self, topic: &str) {
         // Remove the currently active message
-        while self.current.as_ref().and_then(|m| m.topic()) == Some(&topic) {
+        while self.current.as_ref().and_then(|m| m.topic()).map(|s| s.as_str()) == Some(topic) {
             self.pop();
         }
 
@@ -182,29 +182,29 @@ impl MessageBar {
             .messages
             .try_iter()
             .take(self.messages.len())
-            .filter(|m| m.topic() != Some(&topic))
+            .filter(|m| m.topic().map(|s| s.as_str()) != Some(topic))
         {
             let _ = self.tx.send(msg);
         }
     }
 }
 
-impl Default for MessageBar {
-    fn default() -> MessageBar {
-        MessageBar::new()
+impl Default for MessageBuffer {
+    fn default() -> MessageBuffer {
+        MessageBuffer::new()
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::{Message, MessageBar, MIN_FREE_LINES};
+    use super::{Message, MessageBuffer, MIN_FREE_LINES};
     use crate::term::{color, SizeInfo};
 
     #[test]
     fn appends_close_button() {
         let input = "a";
-        let mut message_bar = MessageBar::new();
-        message_bar
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer
             .tx()
             .send(Message::new(input.into(), color::RED))
             .unwrap();
@@ -218,7 +218,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = message_bar.message().unwrap().text(&size);
+        let lines = message_buffer.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("a   [X]")]);
     }
@@ -226,8 +226,8 @@ mod test {
     #[test]
     fn multiline_close_button_first_line() {
         let input = "fo\nbar";
-        let mut message_bar = MessageBar::new();
-        message_bar
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer
             .tx()
             .send(Message::new(input.into(), color::RED))
             .unwrap();
@@ -241,7 +241,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = message_bar.message().unwrap().text(&size);
+        let lines = message_buffer.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("fo [X]"), String::from("bar   ")]);
     }
@@ -249,8 +249,8 @@ mod test {
     #[test]
     fn splits_on_newline() {
         let input = "a\nb";
-        let mut message_bar = MessageBar::new();
-        message_bar
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer
             .tx()
             .send(Message::new(input.into(), color::RED))
             .unwrap();
@@ -264,7 +264,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = message_bar.message().unwrap().text(&size);
+        let lines = message_buffer.message().unwrap().text(&size);
 
         assert_eq!(lines.len(), 2);
     }
@@ -272,8 +272,8 @@ mod test {
     #[test]
     fn splits_on_length() {
         let input = "foobar1";
-        let mut message_bar = MessageBar::new();
-        message_bar
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer
             .tx()
             .send(Message::new(input.into(), color::RED))
             .unwrap();
@@ -287,7 +287,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = message_bar.message().unwrap().text(&size);
+        let lines = message_buffer.message().unwrap().text(&size);
 
         assert_eq!(lines.len(), 2);
     }
@@ -295,8 +295,8 @@ mod test {
     #[test]
     fn empty_with_shortterm() {
         let input = "foobar";
-        let mut message_bar = MessageBar::new();
-        message_bar
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer
             .tx()
             .send(Message::new(input.into(), color::RED))
             .unwrap();
@@ -310,7 +310,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = message_bar.message().unwrap().text(&size);
+        let lines = message_buffer.message().unwrap().text(&size);
 
         assert_eq!(lines.len(), 0);
     }
@@ -318,8 +318,8 @@ mod test {
     #[test]
     fn truncates_long_messages() {
         let input = "hahahahahahahahahahaha truncate this because it's too long for the term";
-        let mut message_bar = MessageBar::new();
-        message_bar
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer
             .tx()
             .send(Message::new(input.into(), color::RED))
             .unwrap();
@@ -333,7 +333,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = message_bar.message().unwrap().text(&size);
+        let lines = message_buffer.message().unwrap().text(&size);
 
         assert_eq!(
             lines,
@@ -347,8 +347,8 @@ mod test {
     #[test]
     fn hide_button_when_too_narrow() {
         let input = "ha";
-        let mut message_bar = MessageBar::new();
-        message_bar
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer
             .tx()
             .send(Message::new(input.into(), color::RED))
             .unwrap();
@@ -362,7 +362,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = message_bar.message().unwrap().text(&size);
+        let lines = message_buffer.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("ha")]);
     }
@@ -370,8 +370,8 @@ mod test {
     #[test]
     fn hide_truncated_when_too_narrow() {
         let input = "hahahahahahahahaha";
-        let mut message_bar = MessageBar::new();
-        message_bar
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer
             .tx()
             .send(Message::new(input.into(), color::RED))
             .unwrap();
@@ -385,7 +385,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = message_bar.message().unwrap().text(&size);
+        let lines = message_buffer.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("ha"), String::from("ha")]);
     }
@@ -393,8 +393,8 @@ mod test {
     #[test]
     fn add_newline_for_button() {
         let input = "test";
-        let mut message_bar = MessageBar::new();
-        message_bar
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer
             .tx()
             .send(Message::new(input.into(), color::RED))
             .unwrap();
@@ -408,28 +408,28 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = message_bar.message().unwrap().text(&size);
+        let lines = message_buffer.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("t [X]"), String::from("est  ")]);
     }
 
     #[test]
     fn remove_topic() {
-        let mut message_bar = MessageBar::new();
+        let mut message_buffer = MessageBuffer::new();
         for i in 0..10 {
             let mut msg = Message::new(String::new(), color::RED);
             if i % 2 == 0 {
                 msg.set_topic("topic".into());
             }
-            message_bar.tx().send(msg).unwrap();
+            message_buffer.tx().send(msg).unwrap();
         }
 
-        message_bar.remove_topic("topic".into());
+        message_buffer.remove_topic("topic".into());
 
         // Count number of messages
-        message_bar.pop();
+        message_buffer.pop();
         let mut num_messages = 0;
-        while message_bar.pop().is_some() {
+        while message_buffer.pop().is_some() {
             num_messages += 1;
         }
 
@@ -438,24 +438,24 @@ mod test {
 
     #[test]
     fn pop() {
-        let mut message_bar = MessageBar::new();
+        let mut message_buffer = MessageBuffer::new();
         let one = Message::new(String::from("one"), color::RED);
-        message_bar.tx().send(one.clone()).unwrap();
+        message_buffer.tx().send(one.clone()).unwrap();
         let two = Message::new(String::from("two"), color::YELLOW);
-        message_bar.tx().send(two.clone()).unwrap();
+        message_buffer.tx().send(two.clone()).unwrap();
 
-        assert_eq!(message_bar.message(), Some(one));
+        assert_eq!(message_buffer.message(), Some(one));
 
-        message_bar.pop();
+        message_buffer.pop();
 
-        assert_eq!(message_bar.message(), Some(two));
+        assert_eq!(message_buffer.message(), Some(two));
     }
 
     #[test]
     fn wrap_on_words() {
         let input = "a\nbc defg";
-        let mut message_bar = MessageBar::new();
-        message_bar
+        let mut message_buffer = MessageBuffer::new();
+        message_buffer
             .tx()
             .send(Message::new(input.into(), color::RED))
             .unwrap();
@@ -469,7 +469,7 @@ mod test {
             dpr: 0.,
         };
 
-        let lines = message_bar.message().unwrap().text(&size);
+        let lines = message_buffer.message().unwrap().text(&size);
 
         assert_eq!(lines, vec![String::from("a [X]"), String::from("bc   "), String::from("defg ")]);
     }

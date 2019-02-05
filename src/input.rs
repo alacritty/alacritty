@@ -321,7 +321,7 @@ impl Action {
                 ctx.terminal_mut().clear_screen(ClearMode::Saved);
             },
             Action::ClearLogNotice => {
-                ctx.terminal_mut().message_bar_mut().pop();
+                ctx.terminal_mut().message_buffer_mut().pop();
             },
             Action::SpawnNewInstance => {
                 ctx.spawn_new_instance();
@@ -587,10 +587,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.launch_url(modifiers, point);
         }
 
-        if self.save_to_clipboard {
-            self.ctx.copy_selection(ClipboardBuffer::Primary);
-        }
-        self.ctx.copy_selection(ClipboardBuffer::Selection);
+        self.copy_selection();
     }
 
     // Spawn URL launcher when clicking on URLs
@@ -846,7 +843,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     /// Check if a point is within the message bar
     fn mouse_over_message_bar(&mut self, point: Point) -> bool {
-        if let Some(message) = self.ctx.terminal_mut().message_bar_mut().message() {
+        if let Some(message) = self.ctx.terminal_mut().message_buffer_mut().message() {
             let size = self.ctx.size_info();
             point.line.0 >= size.lines().saturating_sub(message.text(&size).len())
         } else {
@@ -857,25 +854,28 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// Handle clicks on the message bar.
     fn on_message_bar_click(&mut self, button_state: ElementState, point: Point) {
         match button_state {
-            ElementState::Released => {
-                if self.save_to_clipboard {
-                    self.ctx.copy_selection(ClipboardBuffer::Primary);
-                }
-                self.ctx.copy_selection(ClipboardBuffer::Selection);
-            },
+            ElementState::Released => self.copy_selection(),
             ElementState::Pressed => {
                 let size = self.ctx.size_info();
-                if let Some(message) = self.ctx.terminal_mut().message_bar_mut().message() {
+                if let Some(message) = self.ctx.terminal_mut().message_buffer_mut().message() {
                     if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
                         && point.line == size.lines() - message.text(&size).len()
                     {
-                        self.ctx.terminal_mut().message_bar_mut().pop();
+                        self.ctx.terminal_mut().message_buffer_mut().pop();
                     }
                 }
 
                 self.ctx.clear_selection();
             }
         }
+    }
+
+    /// Copy text selection.
+    fn copy_selection(&mut self) {
+        if self.save_to_clipboard {
+            self.ctx.copy_selection(ClipboardBuffer::Primary);
+        }
+        self.ctx.copy_selection(ClipboardBuffer::Selection);
     }
 }
 
@@ -892,7 +892,7 @@ mod tests {
     use crate::index::{Point, Side};
     use crate::selection::Selection;
     use crate::grid::Scroll;
-    use crate::message_bar::MessageBar;
+    use crate::message_bar::MessageBuffer;
 
     use super::{Action, Binding, Processor};
     use copypasta::Buffer as ClipboardBuffer;
@@ -1005,7 +1005,7 @@ mod tests {
                     dpr: 1.0,
                 };
 
-                let mut terminal = Term::new(&config, size, MessageBar::new());
+                let mut terminal = Term::new(&config, size, MessageBuffer::new());
 
                 let mut mouse = Mouse::default();
                 mouse.click_state = $initial_state;

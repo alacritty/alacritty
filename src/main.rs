@@ -55,7 +55,7 @@ use alacritty::sync::FairMutex;
 use alacritty::term::Term;
 use alacritty::tty;
 use alacritty::util::fmt::Red;
-use alacritty::message_bar::MessageBar;
+use alacritty::message_bar::MessageBuffer;
 
 fn main() {
     panic::attach_handler();
@@ -70,11 +70,11 @@ fn main() {
     let options = cli::Options::load();
 
     // Setup storage for message UI
-    let message_bar = MessageBar::new();
+    let message_buffer = MessageBuffer::new();
 
     // Initialize the logger as soon as possible as to capture output from other subsystems
     let log_file =
-        logging::initialize(&options, message_bar.tx()).expect("Unable to initialize logger");
+        logging::initialize(&options, message_buffer.tx()).expect("Unable to initialize logger");
 
     // Load configuration file
     // If the file is a command line argument, we won't write a generated default file
@@ -100,7 +100,7 @@ fn main() {
     let persistent_logging = options.persistent_logging || config.persistent_logging();
 
     // Run alacritty
-    if let Err(err) = run(config, &options, message_bar) {
+    if let Err(err) = run(config, &options, message_buffer) {
         die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
     }
 
@@ -136,7 +136,7 @@ fn load_config(config_path: &PathBuf) -> Result<Config, ConfigError> {
 fn run(
     mut config: Config,
     options: &cli::Options,
-    message_bar: MessageBar,
+    message_buffer: MessageBuffer,
 ) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty");
     if let Some(config_path) = config.path() {
@@ -162,7 +162,7 @@ fn run(
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let terminal = Term::new(&config, display.size().to_owned(), message_bar);
+    let terminal = Term::new(&config, display.size().to_owned(), message_buffer);
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Find the window ID for setting $WINDOWID
@@ -241,7 +241,7 @@ fn run(
         // Handle config reloads
         if let Some(ref path) = config_monitor.as_ref().and_then(|monitor| monitor.pending()) {
             // Clear old config messages from bar
-            terminal_lock.message_bar_mut().remove_topic(config::SOURCE_FILE_PATH.into());
+            terminal_lock.message_buffer_mut().remove_topic(config::SOURCE_FILE_PATH.into());
 
             if let Ok(new_config) = load_config(path) {
                 config = new_config.update_dynamic_title(options);

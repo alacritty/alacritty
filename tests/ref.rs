@@ -14,7 +14,7 @@ use alacritty::term::cell::Cell;
 use alacritty::term::SizeInfo;
 use alacritty::util::fmt::{Red, Green};
 use alacritty::config::Config;
-use alacritty::message_bar::MessageBar;
+use alacritty::message_bar::MessageBuffer;
 
 macro_rules! ref_tests {
     ($($name:ident)*) => {
@@ -91,7 +91,7 @@ fn ref_test(dir: &Path) {
     let mut config: Config = Default::default();
     config.set_history(ref_config.history_size);
 
-    let mut terminal = Term::new(&config, size, MessageBar::new());
+    let mut terminal = Term::new(&config, size, MessageBuffer::new());
     let mut parser = ansi::Processor::new();
 
     for byte in recording {

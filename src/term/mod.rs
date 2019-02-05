@@ -31,7 +31,7 @@ use crate::MouseCursor;
 use copypasta::{Clipboard, Load, Store};
 use crate::input::FONT_SIZE_STEP;
 use crate::url::UrlParser;
-use crate::message_bar::MessageBar;
+use crate::message_bar::MessageBuffer;
 use crate::term::color::Rgb;
 use crate::term::cell::{LineLength, Cell};
 use crate::tty;
@@ -794,8 +794,8 @@ pub struct Term {
     /// Automatically scroll to bottom when new lines are added
     auto_scroll: bool,
 
-    /// Bar for relaying messages to the user
-    message_bar: MessageBar,
+    /// Buffer to store messages for the message bar
+    message_buffer: MessageBuffer,
 
     /// Hint that Alacritty should be closed
     should_exit: bool,
@@ -881,7 +881,7 @@ impl Term {
         self.next_mouse_cursor.take()
     }
 
-    pub fn new(config: &Config, size: SizeInfo, message_bar: MessageBar) -> Term {
+    pub fn new(config: &Config, size: SizeInfo, message_buffer: MessageBuffer) -> Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
@@ -925,7 +925,7 @@ impl Term {
             dynamic_title: config.dynamic_title(),
             tabspaces,
             auto_scroll: config.scrolling().auto_scroll,
-            message_bar,
+            message_buffer,
             should_exit: false,
         }
     }
@@ -1177,7 +1177,7 @@ impl Term {
         let mut num_cols = size.cols();
         let mut num_lines = size.lines();
 
-        if let Some(message) = self.message_bar.message() {
+        if let Some(message) = self.message_buffer.message() {
             num_lines -= message.text(size).len();
         }
 
@@ -1314,13 +1314,13 @@ impl Term {
     }
 
     #[inline]
-    pub fn message_bar_mut(&mut self) -> &mut MessageBar {
-        &mut self.message_bar
+    pub fn message_buffer_mut(&mut self) -> &mut MessageBuffer {
+        &mut self.message_buffer
     }
 
     #[inline]
-    pub fn message_bar(&self) -> &MessageBar {
-        &self.message_bar
+    pub fn message_buffer(&self) -> &MessageBuffer {
+        &self.message_buffer
     }
 
     #[inline]
@@ -2143,7 +2143,7 @@ mod tests {
     use crate::input::FONT_SIZE_STEP;
     use font::Size;
     use crate::config::Config;
-    use crate::message_bar::MessageBar;
+    use crate::message_bar::MessageBuffer;
 
     #[test]
     fn semantic_selection_works() {
@@ -2156,7 +2156,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, MessageBar::new());
+        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0, Cell::default());
         for i in 0..5 {
             for j in 0..2 {
@@ -2200,7 +2200,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, MessageBar::new());
+        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0, Cell::default());
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2226,7 +2226,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, MessageBar::new());
+        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0, Cell::default());
         for l in 0..3 {
             if l != 1 {
@@ -2271,7 +2271,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, MessageBar::new());
+        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0,
                                StandardCharset::SpecialCharacterAndLineDrawing);
@@ -2291,7 +2291,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size, MessageBar::new());
+        let mut term: Term = Term::new(&config, size, MessageBuffer::new());
         term.change_font_size(font_size);
 
         let expected_font_size: Size = config.font().size() + Size::new(font_size);
@@ -2320,7 +2320,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size, MessageBar::new());
+        let mut term: Term = Term::new(&config, size, MessageBuffer::new());
 
         term.change_font_size(-100.0);
 
@@ -2340,7 +2340,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size, MessageBar::new());
+        let mut term: Term = Term::new(&config, size, MessageBuffer::new());
 
         term.change_font_size(10.0);
         term.reset_font_size();
@@ -2361,7 +2361,7 @@ mod tests {
             dpr: 1.0
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size, MessageBar::new());
+        let mut term: Term = Term::new(&config, size, MessageBuffer::new());
 
         // Add one line of scrollback
         term.grid.scroll_up(&(Line(0)..Line(1)), Line(1), &Cell::default());
@@ -2388,7 +2388,7 @@ mod benches {
 
     use crate::grid::Grid;
     use crate::config::Config;
-    use crate::message_bar::MessageBar;
+    use crate::message_bar::MessageBuffer;
 
     use super::{SizeInfo, Term};
     use super::cell::Cell;
@@ -2427,7 +2427,7 @@ mod benches {
 
         let config = Config::default();
 
-        let mut terminal = Term::new(&config, size, MessageBar::new());
+        let mut terminal = Term::new(&config, size, MessageBuffer::new());
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {
