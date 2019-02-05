@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove error message when reloading an empty config
 - Allow disabling URL launching by setting the value of `mouse.url.launcher` to `None`
 - Corrected the `window.decorations` config documentation for macOS
+- Fix IME position on HiDPI displays
 
 ## Version 0.2.7
 
