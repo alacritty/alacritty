@@ -18,7 +18,7 @@ use std::sync::mpsc;
 use std::f64;
 
 use parking_lot::MutexGuard;
-use glutin::dpi::{LogicalPosition, PhysicalSize};
+use glutin::dpi::{PhysicalPosition, PhysicalSize};
 
 use crate::cli;
 use crate::config::Config;
@@ -493,12 +493,14 @@ impl Display {
             cell_width: cw,
             cell_height: ch,
             padding_x: px,
-            padding_y: py, ..
+            padding_y: py,
+            ..
         } = *terminal.size_info();
-        let dpr = self.window().hidpi_factor() as f32;
+        let dpr = self.window().hidpi_factor();
 
-        let nspot_x = ((px + point.col.0 as f32 * cw) / dpr) as i32;
-        let nspot_y = ((py + (point.line.0 + 1) as f32 * ch) / dpr) as i32;
-        self.window().set_ime_spot(LogicalPosition::from((nspot_x, nspot_y)));
+        let nspot_x = (px + point.col.0 as f32 * cw) as f64;
+        let nspot_y = (py + (point.line.0 + 1) as f32 * ch) as f64;
+        self.window()
+            .set_ime_spot(PhysicalPosition::from((nspot_x, nspot_y)).to_logical(dpr));
     }
 }
