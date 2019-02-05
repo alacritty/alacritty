@@ -17,7 +17,8 @@ use crossbeam_channel::{Receiver, Sender};
 use crate::term::color::Rgb;
 use crate::term::SizeInfo;
 
-pub const CLOSE_BUTTON_TEXT: &str = " [X]";
+pub const CLOSE_BUTTON_TEXT: &str = "[X]";
+const CLOSE_BUTTON_PADDING: usize = 1;
 const MIN_FREE_LINES: usize = 3;
 const TRUNCATED_MESSAGE: &str = "[MESSAGE TRUNCATED]";
 
@@ -43,6 +44,7 @@ impl Message {
     pub fn text(&self, size_info: &SizeInfo) -> Vec<String> {
         let num_cols = size_info.cols().0;
         let max_lines = size_info.lines().saturating_sub(MIN_FREE_LINES);
+        let button_len = CLOSE_BUTTON_TEXT.len();
 
         // Split line to fit the screen
         let mut lines = Vec::new();
@@ -52,8 +54,8 @@ impl Message {
                 || line.len() == num_cols
                 // Keep space in first line for button
                 || (lines.is_empty()
-                    && num_cols >= CLOSE_BUTTON_TEXT.len()
-                    && line.len() == num_cols.saturating_sub(CLOSE_BUTTON_TEXT.len()))
+                    && num_cols >= button_len
+                    && line.len() == num_cols.saturating_sub(button_len + CLOSE_BUTTON_PADDING))
             {
                 // Attempt to wrap on word boundaries
                 if let (Some(index), true) = (line.rfind(char::is_whitespace), c != '\n') {
@@ -84,9 +86,9 @@ impl Message {
         }
 
         // Append close button to first line
-        if CLOSE_BUTTON_TEXT.len() <= num_cols {
+        if button_len <= num_cols {
             if let Some(line) = lines.get_mut(0) {
-                line.truncate(num_cols - CLOSE_BUTTON_TEXT.len());
+                line.truncate(num_cols - button_len);
                 line.push_str(CLOSE_BUTTON_TEXT);
             }
         }
@@ -173,7 +175,13 @@ impl MessageBuffer {
     #[inline]
     pub fn remove_topic(&mut self, topic: &str) {
         // Remove the currently active message
-        while self.current.as_ref().and_then(|m| m.topic()).map(|s| s.as_str()) == Some(topic) {
+        while self
+            .current
+            .as_ref()
+            .and_then(|m| m.topic())
+            .map(|s| s.as_str())
+            == Some(topic)
+        {
             self.pop();
         }
 
@@ -471,6 +479,13 @@ mod test {
 
         let lines = message_buffer.message().unwrap().text(&size);
 
-        assert_eq!(lines, vec![String::from("a [X]"), String::from("bc   "), String::from("defg ")]);
+        assert_eq!(
+            lines,
+            vec![
+                String::from("a [X]"),
+                String::from("bc   "),
+                String::from("defg ")
+            ]
+        );
     }
 }
