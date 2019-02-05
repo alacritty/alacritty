@@ -5,7 +5,7 @@
 //! the config file will also hold user and platform specific keybindings.
 use std::borrow::Cow;
 use std::{env, fmt};
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -1869,16 +1869,6 @@ impl Config {
         self.persistent_logging
     }
 
-    pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
-        let path = path.into();
-        let raw = Config::read_file(path.as_path())?;
-        let mut config: Config = serde_yaml::from_str(&raw)?;
-        config.config_path = Some(path);
-        config.print_deprecation_warnings();
-
-        Ok(config)
-    }
-
     /// Overrides the `dynamic_title` configuration based on `--title`.
     pub fn update_dynamic_title(mut self, options: &Options) -> Self {
         if options.title.is_some() {
@@ -1887,15 +1877,35 @@ impl Config {
         self
     }
 
-    fn read_file<P: AsRef<Path>>(path: P) -> Result<String> {
-        let mut f = fs::File::open(path)?;
+    pub fn load_from(path: PathBuf) -> Config {
+        let mut config = Config::reload_from(&path).unwrap_or_else(|_| Config::default());
+        config.config_path = Some(path);
+        config
+    }
+
+    pub fn reload_from(path: &PathBuf) -> Result<Config> {
+        match Config::read_config(path) {
+            Ok(config) => Ok(config),
+            Err(err) => {
+                error!("Unable to load config {:?}: {}", path, err);
+                Err(err)
+            }
+        }
+    }
+
+    fn read_config(path: &PathBuf) -> Result<Config> {
         let mut contents = String::new();
-        f.read_to_string(&mut contents)?;
+        File::open(path)?.read_to_string(&mut contents)?;
+
+        // Prevent parsing error with empty string
         if contents.is_empty() {
-            return Err(Error::Empty);
+            return Ok(Config::default());
         }
 
-        Ok(contents)
+        let mut config: Config = serde_yaml::from_str(&contents)?;
+        config.print_deprecation_warnings();
+
+        Ok(config)
     }
 
     fn print_deprecation_warnings(&mut self) {

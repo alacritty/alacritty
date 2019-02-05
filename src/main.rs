@@ -34,7 +34,6 @@ use log::{info, error};
 use std::error::Error;
 use std::sync::Arc;
 use std::io::{self, Write};
-use std::path::PathBuf;
 use std::fs;
 
 #[cfg(target_os = "macos")]
@@ -46,7 +45,7 @@ use std::os::unix::io::AsRawFd;
 #[cfg(target_os = "macos")]
 use alacritty::locale;
 use alacritty::{cli, event, die};
-use alacritty::config::{self, Config, Error as ConfigError};
+use alacritty::config::{self, Config};
 use alacritty::display::Display;
 use alacritty::event_loop::{self, EventLoop, Msg};
 use alacritty::logging;
@@ -83,7 +82,7 @@ fn main() {
         .or_else(|| Config::write_defaults().ok())
         .map(|path| path.to_path_buf());
     let config = if let Some(path) = config_path {
-        load_config(&path).unwrap_or_else(|_| Config::default()).update_dynamic_title(&options)
+        Config::load_from(path).update_dynamic_title(&options)
     } else {
         error!("Unable to write the default config");
         Config::default()
@@ -109,23 +108,6 @@ fn main() {
         if !persistent_logging && fs::remove_file(&log_file).is_ok() {
             let _ = writeln!(io::stdout(), "Deleted log file at {:?}", log_file);
         }
-    }
-}
-
-/// Load configuration file
-fn load_config(config_path: &PathBuf) -> Result<Config, ConfigError> {
-    match Config::load_from(config_path) {
-        Err(err) => match err {
-            ConfigError::Empty => {
-                info!("Config file {:?} is empty; loading default", config_path);
-                Ok(Config::default())
-            },
-            _ => {
-                error!("Unable to load default config: {}", err);
-                Err(err)
-            },
-        },
-        Ok(config) => Ok(config),
     }
 }
 
@@ -243,7 +225,7 @@ fn run(
             // Clear old config messages from bar
             terminal_lock.message_buffer_mut().remove_topic(config::SOURCE_FILE_PATH.into());
 
-            if let Ok(new_config) = load_config(path) {
+            if let Ok(new_config) = Config::reload_from(path) {
                 config = new_config.update_dynamic_title(options);
                 display.update_config(&config);
                 processor.update_config(&config);
