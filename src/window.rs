@@ -272,7 +272,11 @@ impl Window {
     )]
     fn platform_builder_ext(window_builder: WindowBuilder, wm_class: &str) -> WindowBuilder {
         use glutin::os::unix::WindowBuilderExt;
-        window_builder.with_class(wm_class.to_owned(), "Alacritty".to_owned())
+        window_builder
+            // X11
+            .with_class(wm_class.to_owned(), "Alacritty".to_owned())
+            // Wayland
+            .with_app_id("Alacritty".to_owned())
     }
 
     #[cfg(
