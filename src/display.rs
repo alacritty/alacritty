@@ -489,18 +489,18 @@ impl Display {
     /// Adjust the IME editor position according to the new location of the cursor
     pub fn update_ime_position(&mut self, terminal: &Term) {
         let point = terminal.cursor().point;
-        let SizeInfo{
+        let SizeInfo {
             cell_width: cw,
             cell_height: ch,
             padding_x: px,
             padding_y: py,
             ..
         } = *terminal.size_info();
-        let dpr = self.window().hidpi_factor();
 
+        let dpr = self.window().hidpi_factor();
         let nspot_x = f64::from(px + point.col.0 as f32 * cw);
         let nspot_y = f64::from(py + (point.line.0 + 1) as f32 * ch);
-        self.window()
-            .set_ime_spot(PhysicalPosition::from((nspot_x, nspot_y)).to_logical(dpr));
+
+        self.window().set_ime_spot(PhysicalPosition::from((nspot_x, nspot_y)).to_logical(dpr));
     }
 }
