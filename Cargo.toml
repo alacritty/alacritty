@@ -87,6 +87,7 @@ zip = "0.5"
 [profile.release]
 lto = true
 debug = 1
+incremental = false
 
 [package.metadata.deb]
 maintainer = "Joe Wilm <joe@jwilm.com>"
