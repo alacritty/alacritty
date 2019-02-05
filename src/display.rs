@@ -498,8 +498,8 @@ impl Display {
         } = *terminal.size_info();
         let dpr = self.window().hidpi_factor();
 
-        let nspot_x = (px + point.col.0 as f32 * cw) as f64;
-        let nspot_y = (py + (point.line.0 + 1) as f32 * ch) as f64;
+        let nspot_x = f64::from(px + point.col.0 as f32 * cw);
+        let nspot_y = f64::from(py + (point.line.0 + 1) as f32 * ch);
         self.window()
             .set_ime_spot(PhysicalPosition::from((nspot_x, nspot_y)).to_logical(dpr));
     }
