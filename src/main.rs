@@ -223,7 +223,7 @@ fn run(
         // Handle config reloads
         if let Some(ref path) = config_monitor.as_ref().and_then(|monitor| monitor.pending()) {
             // Clear old config messages from bar
-            terminal_lock.message_buffer_mut().remove_topic(config::SOURCE_FILE_PATH.into());
+            terminal_lock.message_buffer_mut().remove_topic(config::SOURCE_FILE_PATH);
 
             if let Ok(new_config) = Config::reload_from(path) {
                 config = new_config.update_dynamic_title(options);

@@ -167,24 +167,24 @@ impl MessageBuffer {
 
     /// Remove the currently visible message
     #[inline]
-    pub fn pop(&mut self) -> Option<Message> {
-        std::mem::replace(&mut self.current, self.messages.try_recv().ok())
+    pub fn pop(&mut self) {
+        // Remove all duplicates
+        for msg in self
+            .messages
+            .try_iter()
+            .take(self.messages.len())
+            .filter(|m| Some(m) != self.current.as_ref())
+        {
+            let _ = self.tx.send(msg);
+        }
+
+        // Remove the message itself
+        self.current = self.messages.try_recv().ok();
     }
 
     /// Remove all messages with a specific topic
     #[inline]
     pub fn remove_topic(&mut self, topic: &str) {
-        // Remove the currently active message
-        while self
-            .current
-            .as_ref()
-            .and_then(|m| m.topic())
-            .map(|s| s.as_str())
-            == Some(topic)
-        {
-            self.pop();
-        }
-
         // Filter messages currently pending
         for msg in self
             .messages
@@ -194,6 +194,9 @@ impl MessageBuffer {
         {
             let _ = self.tx.send(msg);
         }
+
+        // Remove the currently active message
+        self.current = self.messages.try_recv().ok();
     }
 }
 
@@ -425,23 +428,23 @@ mod test {
     fn remove_topic() {
         let mut message_buffer = MessageBuffer::new();
         for i in 0..10 {
-            let mut msg = Message::new(String::new(), color::RED);
-            if i % 2 == 0 {
+            let mut msg = Message::new(i.to_string(), color::RED);
+            if i % 2 == 0 && i < 5 {
                 msg.set_topic("topic".into());
             }
             message_buffer.tx().send(msg).unwrap();
         }
 
-        message_buffer.remove_topic("topic".into());
+        message_buffer.remove_topic("topic");
 
         // Count number of messages
-        message_buffer.pop();
         let mut num_messages = 0;
-        while message_buffer.pop().is_some() {
+        while message_buffer.message().is_some() {
             num_messages += 1;
+            message_buffer.pop();
         }
 
-        assert_eq!(num_messages, 5);
+        assert_eq!(num_messages, 7);
     }
 
     #[test]
@@ -487,5 +490,28 @@ mod test {
                 String::from("defg ")
             ]
         );
+    }
+
+    #[test]
+    fn remove_duplicates() {
+        let mut message_buffer = MessageBuffer::new();
+        for _ in 0..10 {
+            let msg = Message::new(String::from("test"), color::RED);
+            message_buffer.tx().send(msg).unwrap();
+        }
+        message_buffer.tx().send(Message::new(String::from("other"), color::RED)).unwrap();
+        message_buffer.tx().send(Message::new(String::from("test"), color::YELLOW)).unwrap();
+        let _ = message_buffer.message();
+
+        message_buffer.pop();
+
+        // Count number of messages
+        let mut num_messages = 0;
+        while message_buffer.message().is_some() {
+            num_messages += 1;
+            message_buffer.pop();
+        }
+
+        assert_eq!(num_messages, 2);
     }
 }
