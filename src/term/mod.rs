@@ -97,14 +97,11 @@ impl Search for Term {
     }
 
     fn url_search(&self, mut point: Point<usize>) -> Option<String> {
-        // Remove viewport scroll offset
-        point.line = point.line + self.grid.display_offset();
-
         // Switch first line from top to bottom
         point.line = self.grid.num_lines().0 - point.line - 1;
 
-        // Limit the starting point to the last line in the history
-        point.line = min(point.line, self.grid.len() - 1);
+        // Remove viewport scroll offset
+        point.line = point.line + self.grid.display_offset();
 
         // Create forwards and backwards iterators
         let iterf = self.grid.iter_from(point);
