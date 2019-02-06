@@ -1692,7 +1692,7 @@ impl Config {
 
         path = path.join("alacritty/alacritty.yml");
 
-        fs::create_dir_all(path.parent().unwrap())?;
+        std::fs::create_dir_all(path.parent().unwrap())?;
 
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
 
