@@ -101,7 +101,7 @@ impl Search for Term {
         point.line = self.grid.num_lines().0 - point.line - 1;
 
         // Remove viewport scroll offset
-        point.line = point.line + self.grid.display_offset();
+        point.line += self.grid.display_offset();
 
         // Create forwards and backwards iterators
         let iterf = self.grid.iter_from(point);
