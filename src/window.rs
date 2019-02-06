@@ -33,10 +33,8 @@ use crate::MouseCursor;
 #[cfg(windows)]
 static WINDOW_ICON: &'static [u8] = include_bytes!("../assets/windows/alacritty.ico");
 
-/// Default text for the window's title bar, if not overriden.
-///
-/// In X11, this the default value for the `WM_NAME` property.
-pub const DEFAULT_TITLE: &str = "Alacritty";
+/// Default Alacritty name, used for window title and class.
+pub const DEFAULT_NAME: &str = "Alacritty";
 
 /// Window errors
 #[derive(Debug)]
@@ -136,8 +134,8 @@ impl Window {
     pub fn new(options: &Options, window_config: &WindowConfig) -> Result<Window> {
         let event_loop = EventsLoop::new();
 
-        let title = options.title.as_ref().map_or(DEFAULT_TITLE, |t| t);
-        let class = options.class.as_ref().map_or(DEFAULT_TITLE, |c| c);
+        let title = options.title.as_ref().map_or(DEFAULT_NAME, |t| t);
+        let class = options.class.as_ref().map_or(DEFAULT_NAME, |c| c);
         let window_builder = Window::get_platform_window(title, class, window_config);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
@@ -269,7 +267,7 @@ impl Window {
             .with_maximized(window_config.start_maximized())
             .with_decorations(decorations)
             // X11
-            .with_class(class.into(), DEFAULT_TITLE.into())
+            .with_class(class.into(), DEFAULT_NAME.into())
             // Wayland
             .with_app_id(class.into())
     }
