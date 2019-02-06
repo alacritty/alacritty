@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Window class on Wayland is set to `Alacritty` by default
+
 ### Changed
 
 - Improve scrolling accuracy with devices sending fractional updates (like touchpads)
