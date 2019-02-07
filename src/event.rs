@@ -16,7 +16,6 @@ use glutin::dpi::PhysicalSize;
 
 #[cfg(unix)]
 use crate::tty;
-use crate::ansi::{Handler, ClearMode};
 use crate::grid::Scroll;
 use crate::config::{self, Config};
 use crate::cli::Options;
@@ -25,7 +24,7 @@ use crate::index::{Line, Column, Side, Point};
 use crate::input::{self, MouseBinding, KeyBinding};
 use crate::selection::Selection;
 use crate::sync::FairMutex;
-use crate::term::{Term, SizeInfo, TermMode, Search};
+use crate::term::{Term, SizeInfo};
 use crate::term::cell::Cell;
 use crate::util::{limit, start_daemon};
 use crate::util::fmt::Red;
@@ -55,10 +54,6 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.notifier.notify(val);
     }
 
-    fn terminal_mode(&self) -> TermMode {
-        *self.terminal.mode()
-    }
-
     fn size_info(&self) -> SizeInfo {
         *self.size_info
     }
@@ -76,10 +71,6 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
                 col: point.col
             }, cell_side);
         }
-    }
-
-    fn clear_history(&mut self) {
-        self.terminal.clear_screen(ClearMode::Saved);
     }
 
     fn copy_selection(&self, buffer: ClipboardBuffer) {
@@ -126,10 +117,6 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.dirty = true;
     }
 
-    fn url(&self, point: Point<usize>) -> Option<String> {
-        self.terminal.url_search(point)
-    }
-
     fn line_selection(&mut self, point: Point) {
         let point = self.terminal.visible_to_buffer(point);
         *self.terminal.selection_mut() = Some(Selection::lines(point));
@@ -138,14 +125,6 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn mouse_coords(&self) -> Option<Point> {
         self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
-    }
-
-    fn change_font_size(&mut self, delta: f32) {
-        self.terminal.change_font_size(delta);
-    }
-
-    fn reset_font_size(&mut self) {
-        self.terminal.reset_font_size();
     }
 
     #[inline]
@@ -179,8 +158,13 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     #[inline]
-    fn clear_log(&mut self) {
-        self.terminal.clear_log();
+    fn terminal(&self) -> &Term {
+        self.terminal
+    }
+
+    #[inline]
+    fn terminal_mut(&mut self) -> &mut Term {
+        self.terminal
     }
 
     fn spawn_new_instance(&mut self) {
@@ -393,8 +377,7 @@ impl<N: Notify> Processor<N> {
                                 .expect("write config.json");
                         }
 
-                        // FIXME should do a more graceful shutdown
-                        ::std::process::exit(0);
+                        processor.ctx.terminal.exit();
                     },
                     Resized(lsize) => {
                         // Resize events are emitted via glutin/winit with logical sizes

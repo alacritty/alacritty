@@ -29,12 +29,12 @@ use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use crate::gl::types::*;
 use crate::gl;
 use crate::index::{Column, Line, RangeInclusive};
-use crate::Rgb;
+use crate::term::color::Rgb;
 use crate::config::{self, Config, Delta};
 use crate::term::{self, cell, RenderableCell};
-use crate::renderer::lines::Lines;
+use crate::renderer::rects::{Rect, Rects};
 
-pub mod lines;
+pub mod rects;
 
 // Shader paths for live reload
 static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
@@ -668,7 +668,7 @@ impl QuadRenderer {
         config: &Config,
         props: &term::SizeInfo,
         visual_bell_intensity: f64,
-        cell_line_rects: Lines,
+        cell_line_rects: Rects,
     ) {
         // Swap to rectangle rendering program
         unsafe {
@@ -866,20 +866,6 @@ impl QuadRenderer {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct Rect<T> {
-    x: T,
-    y: T,
-    width: T,
-    height: T,
-}
-
-impl<T> Rect<T> {
-    pub fn new(x: T, y: T, width: T, height: T) -> Self {
-        Rect { x, y, width, height }
-    }
-}
-
 impl<'a> RenderApi<'a> {
     pub fn clear(&self, color: Rgb) {
         let alpha = self.config.background_opacity().get();
@@ -941,8 +927,9 @@ impl<'a> RenderApi<'a> {
         string: &str,
         line: Line,
         glyph_cache: &mut GlyphCache,
-        color: Rgb
+        color: Option<Rgb>
     ) {
+        let bg_alpha = color.map(|_| 1.0).unwrap_or(0.0);
         let col = Column(0);
 
         let cells = string
@@ -956,10 +943,10 @@ impl<'a> RenderApi<'a> {
                     chars[0] = c;
                     chars
                 },
-                bg: color,
+                bg: color.unwrap_or(Rgb { r: 0, g: 0, b: 0}),
                 fg: Rgb { r: 0, g: 0, b: 0 },
                 flags: cell::Flags::empty(),
-                bg_alpha: 1.0,
+                bg_alpha,
             })
             .collect::<Vec<_>>();
 

@@ -25,12 +25,13 @@ use crate::config::Config;
 use font::{self, Rasterize};
 use crate::meter::Meter;
 use crate::renderer::{self, GlyphCache, QuadRenderer};
-use crate::renderer::lines::Lines;
+use crate::renderer::rects::{Rects, Rect};
 use crate::term::{Term, SizeInfo, RenderableCell};
 use crate::sync::FairMutex;
 use crate::window::{self, Window};
-use crate::logging::LoggerProxy;
-use crate::Rgb;
+use crate::term::color::Rgb;
+use crate::index::Line;
+use crate::message_bar::Message;
 
 #[derive(Debug)]
 pub enum Error {
@@ -101,7 +102,7 @@ pub struct Display {
     meter: Meter,
     font_size: font::Size,
     size_info: SizeInfo,
-    logger_proxy: LoggerProxy,
+    last_message: Option<Message>,
 }
 
 /// Can wakeup the render loop from other threads
@@ -132,11 +133,7 @@ impl Display {
         &self.size_info
     }
 
-    pub fn new(
-        config: &Config,
-        options: &cli::Options,
-        logger_proxy: LoggerProxy
-    ) -> Result<Display, Error> {
+    pub fn new(config: &Config, options: &cli::Options) -> Result<Display, Error> {
         // Extract some properties from config
         let render_timer = config.render_timer();
 
@@ -229,7 +226,7 @@ impl Display {
             meter: Meter::new(),
             font_size: font::Size::new(0.),
             size_info,
-            logger_proxy,
+            last_message: None,
         })
     }
 
@@ -297,7 +294,8 @@ impl Display {
         &mut self,
         terminal: &mut MutexGuard<'_, Term>,
         config: &Config,
-        items: &mut [&mut dyn OnResize],
+        pty_resize_handle: &mut dyn OnResize,
+        processor_resize_handle: &mut dyn OnResize,
     ) {
         // Resize events new_size and are handled outside the poll_events
         // iterator. This has the effect of coalescing multiple resize
@@ -313,7 +311,10 @@ impl Display {
         let dpr = self.window.hidpi_factor();
 
         // Font size/DPI factor modification detected
-        if terminal.font_size != self.font_size || (dpr - self.size_info.dpr).abs() > f64::EPSILON {
+        let font_changed = terminal.font_size != self.font_size
+            || (dpr - self.size_info.dpr).abs() > f64::EPSILON;
+
+        if font_changed || self.last_message != terminal.message_buffer_mut().message() {
             if new_size == None {
                 // Force a resize to refresh things
                 new_size = Some(PhysicalSize::new(
@@ -323,8 +324,11 @@ impl Display {
             }
 
             self.font_size = terminal.font_size;
+            self.last_message = terminal.message_buffer_mut().message();
             self.size_info.dpr = dpr;
+        }
 
+        if font_changed {
             self.update_glyph_cache(config);
         }
 
@@ -350,10 +354,14 @@ impl Display {
 
             let size = &self.size_info;
             terminal.resize(size);
+            processor_resize_handle.on_resize(size);
 
-            for item in items {
-                item.on_resize(size)
+            // Subtract message bar lines for pty size
+            let mut pty_size = *size;
+            if let Some(message) = terminal.message_buffer_mut().message() {
+                pty_size.height -= pty_size.cell_height * message.text(&size).len() as f32;
             }
+            pty_resize_handle.on_resize(&pty_size);
 
             self.window.resize(psize);
             self.renderer.resize(psize, self.size_info.padding_x, self.size_info.padding_y);
@@ -375,6 +383,9 @@ impl Display {
         let grid_cells: Vec<RenderableCell> = terminal
             .renderable_cells(config, window_focused)
             .collect();
+
+        // Get message from terminal to ignore modifications after lock is dropped
+        let message_buffer = terminal.message_buffer_mut().message();
 
         // Clear dirty flag
         terminal.dirty = !terminal.visual_bell.completed();
@@ -413,7 +424,7 @@ impl Display {
         {
             let glyph_cache = &mut self.glyph_cache;
             let metrics = glyph_cache.font_metrics();
-            let mut cell_line_rects = Lines::new(&metrics, &size_info);
+            let mut rects = Rects::new(&metrics, &size_info);
 
             // Draw grid
             {
@@ -423,7 +434,7 @@ impl Display {
                     // Iterate over all non-empty cells in the grid
                     for cell in grid_cells {
                         // Update underline/strikeout
-                        cell_line_rects.update_lines(&cell);
+                        rects.update_lines(&cell);
 
                         // Draw the cell
                         api.render_cell(cell, glyph_cache);
@@ -431,8 +442,35 @@ impl Display {
                 });
             }
 
-            // Draw rectangles
-            self.renderer.draw_rects(config, &size_info, visual_bell_intensity, cell_line_rects);
+            if let Some(message) = message_buffer {
+                let text = message.text(&size_info);
+
+                // Create a new rectangle for the background
+                let start_line = size_info.lines().0 - text.len();
+                let y = size_info.padding_y + size_info.cell_height * start_line as f32;
+                let rect = Rect::new(0., y, size_info.width, size_info.height - y);
+                rects.push(rect, message.color());
+
+                // Draw rectangles including the new background
+                self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
+
+                // Relay messages to the user
+                let mut offset = 1;
+                for message_text in text.iter().rev() {
+                    self.renderer.with_api(config, &size_info, |mut api| {
+                        api.render_string(
+                            &message_text,
+                            Line(size_info.lines().saturating_sub(offset)),
+                            glyph_cache,
+                            None,
+                        );
+                    });
+                    offset += 1;
+                }
+            } else {
+                // Draw rectangles
+                self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
+            }
 
             // Draw render timer
             if self.render_timer {
@@ -443,36 +481,7 @@ impl Display {
                     b: 0x53,
                 };
                 self.renderer.with_api(config, &size_info, |mut api| {
-                    api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, color);
-                });
-            }
-
-            // Display errors and warnings
-            if self.logger_proxy.errors() {
-                let msg = match self.logger_proxy.log_path() {
-                    Some(path) => format!(" ERROR! See log at {} ", path),
-                    None => " ERROR! See log in stderr ".into(),
-                };
-                let color = Rgb {
-                    r: 0xff,
-                    g: 0x00,
-                    b: 0x00,
-                };
-                self.renderer.with_api(config, &size_info, |mut api| {
-                    api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
-                });
-            } else if self.logger_proxy.warnings() {
-                let msg = match self.logger_proxy.log_path() {
-                    Some(path) => format!(" WARNING! See log at {} ", path),
-                    None => " WARNING! See log in stderr ".into(),
-                };
-                let color = Rgb {
-                    r: 0xff,
-                    g: 0xff,
-                    b: 0x00,
-                };
-                self.renderer.with_api(config, &size_info, |mut api| {
-                    api.render_string(&msg, size_info.lines() - 1, glyph_cache, color);
+                    api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, Some(color));
                 });
             }
         }

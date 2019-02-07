@@ -33,6 +33,8 @@ use log::{info, error};
 
 use std::error::Error;
 use std::sync::Arc;
+use std::io::{self, Write};
+use std::fs;
 
 #[cfg(target_os = "macos")]
 use std::env;
@@ -43,15 +45,16 @@ use std::os::unix::io::AsRawFd;
 #[cfg(target_os = "macos")]
 use alacritty::locale;
 use alacritty::{cli, event, die};
-use alacritty::config::{self, Config, Error as ConfigError};
+use alacritty::config::{self, Config};
 use alacritty::display::Display;
 use alacritty::event_loop::{self, EventLoop, Msg};
-use alacritty::logging::{self, LoggerProxy};
+use alacritty::logging;
 use alacritty::panic;
 use alacritty::sync::FairMutex;
 use alacritty::term::Term;
-use alacritty::tty::{self, process_should_exit};
+use alacritty::tty;
 use alacritty::util::fmt::Red;
+use alacritty::message_bar::MessageBuffer;
 
 fn main() {
     panic::attach_handler();
@@ -65,11 +68,25 @@ fn main() {
     // Load command line options
     let options = cli::Options::load();
 
+    // Setup storage for message UI
+    let message_buffer = MessageBuffer::new();
+
     // Initialize the logger as soon as possible as to capture output from other subsystems
-    let logger_proxy = logging::initialize(&options).expect("Unable to initialize logger");
+    let log_file =
+        logging::initialize(&options, message_buffer.tx()).expect("Unable to initialize logger");
 
     // Load configuration file
-    let config = load_config(&options).update_dynamic_title(&options);
+    // If the file is a command line argument, we won't write a generated default file
+    let config_path = options.config_path()
+        .or_else(Config::installed_config)
+        .or_else(|| Config::write_defaults().ok())
+        .map(|path| path.to_path_buf());
+    let config = if let Some(path) = config_path {
+        Config::load_from(path).update_dynamic_title(&options)
+    } else {
+        error!("Unable to write the default config");
+        Config::default()
+    };
 
     // Switch to home directory
     #[cfg(target_os = "macos")]
@@ -78,34 +95,19 @@ fn main() {
     #[cfg(target_os = "macos")]
     locale::set_locale_environment();
 
+    // Store if log file should be deleted before moving config
+    let persistent_logging = options.persistent_logging || config.persistent_logging();
+
     // Run alacritty
-    if let Err(err) = run(config, &options, logger_proxy) {
+    if let Err(err) = run(config, &options, message_buffer) {
         die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
     }
-}
 
-/// Load configuration
-///
-/// If a configuration file is given as a command line argument we don't
-/// generate a default file. If an empty configuration file is given, i.e.
-/// /dev/null, we load the compiled-in defaults.)
-fn load_config(options: &cli::Options) -> Config {
-    let config_path = options.config_path()
-        .or_else(Config::installed_config)
-        .or_else(|| Config::write_defaults().ok());
-
-    if let Some(config_path) = config_path {
-        Config::load_from(&*config_path).unwrap_or_else(|err| {
-            match err {
-                ConfigError::Empty => info!("Config file {:?} is empty; loading default", config_path),
-                _ => error!("Unable to load default config: {}", err),
-            }
-
-            Config::default()
-        })
-    } else {
-        error!("Unable to write the default config");
-        Config::default()
+    // Clean up logfile
+    if let Some(log_file) = log_file {
+        if !persistent_logging && fs::remove_file(&log_file).is_ok() {
+            let _ = writeln!(io::stdout(), "Deleted log file at {:?}", log_file);
+        }
     }
 }
 
@@ -116,7 +118,7 @@ fn load_config(options: &cli::Options) -> Config {
 fn run(
     mut config: Config,
     options: &cli::Options,
-    mut logger_proxy: LoggerProxy,
+    message_buffer: MessageBuffer,
 ) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty");
     if let Some(config_path) = config.path() {
@@ -129,7 +131,7 @@ fn run(
     // Create a display.
     //
     // The display manages a window and can draw the terminal
-    let mut display = Display::new(&config, options, logger_proxy.clone())?;
+    let mut display = Display::new(&config, options)?;
 
     info!(
         "PTY Dimensions: {:?} x {:?}",
@@ -142,8 +144,7 @@ fn run(
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let mut terminal = Term::new(&config, display.size().to_owned());
-    terminal.set_logger_proxy(logger_proxy.clone());
+    let terminal = Term::new(&config, display.size().to_owned(), message_buffer);
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Find the window ID for setting $WINDOWID
@@ -220,15 +221,23 @@ fn run(
         let mut terminal_lock = processor.process_events(&terminal, display.window());
 
         // Handle config reloads
-        if let Some(new_config) = config_monitor
-            .as_ref()
-            .and_then(|monitor| monitor.pending_config())
-        {
-            config = new_config.update_dynamic_title(options);
-            display.update_config(&config);
-            processor.update_config(&config);
-            terminal_lock.update_config(&config);
+        if let Some(ref path) = config_monitor.as_ref().and_then(|monitor| monitor.pending()) {
+            // Clear old config messages from bar
+            terminal_lock.message_buffer_mut().remove_topic(config::SOURCE_FILE_PATH);
+
+            if let Ok(new_config) = Config::reload_from(path) {
+                config = new_config.update_dynamic_title(options);
+                display.update_config(&config);
+                processor.update_config(&config);
+                terminal_lock.update_config(&config);
+            }
+
             terminal_lock.dirty = true;
+        }
+
+        // Begin shutdown if the flag was raised
+        if terminal_lock.should_exit() {
+            break;
         }
 
         // Maybe draw the terminal
@@ -241,17 +250,12 @@ fn run(
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
-            display.handle_resize(&mut terminal_lock, &config, &mut [&mut resize_handle, &mut processor]);
+            display.handle_resize(&mut terminal_lock, &config, &mut resize_handle, &mut processor);
 
             drop(terminal_lock);
 
             // Draw the current state of the terminal
             display.draw(&terminal, &config);
-        }
-
-        // Begin shutdown if the flag was raised.
-        if process_should_exit() {
-            break;
         }
     }
 
@@ -267,10 +271,6 @@ fn run(
     unsafe { FreeConsole(); }
 
     info!("Goodbye");
-
-    if !options.persistent_logging && !config.persistent_logging() {
-        logger_proxy.delete_log();
-    }
 
     Ok(())
 }

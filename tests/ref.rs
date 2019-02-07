@@ -10,10 +10,11 @@ use alacritty::Grid;
 use alacritty::Term;
 use alacritty::ansi;
 use alacritty::index::Column;
-use alacritty::term::Cell;
+use alacritty::term::cell::Cell;
 use alacritty::term::SizeInfo;
 use alacritty::util::fmt::{Red, Green};
 use alacritty::config::Config;
+use alacritty::message_bar::MessageBuffer;
 
 macro_rules! ref_tests {
     ($($name:ident)*) => {
@@ -90,7 +91,7 @@ fn ref_test(dir: &Path) {
     let mut config: Config = Default::default();
     config.set_history(ref_config.history_size);
 
-    let mut terminal = Term::new(&config, size);
+    let mut terminal = Term::new(&config, size, MessageBuffer::new());
     let mut parser = ansi::Processor::new();
 
     for byte in recording {

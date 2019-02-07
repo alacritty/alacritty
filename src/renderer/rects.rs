@@ -13,14 +13,27 @@
 // limitations under the License.
 use std::collections::HashMap;
 
-use crate::renderer::Rect;
 use crate::term::cell::Flags;
 use crate::term::{RenderableCell, SizeInfo};
-use crate::Rgb;
+use crate::term::color::Rgb;
 use font::Metrics;
 
-/// Lines for underline and strikeout.
-pub struct Lines<'a> {
+#[derive(Debug, Copy, Clone)]
+pub struct Rect<T> {
+    pub x: T,
+    pub y: T,
+    pub width: T,
+    pub height: T,
+}
+
+impl<T> Rect<T> {
+    pub fn new(x: T, y: T, width: T, height: T) -> Self {
+        Rect { x, y, width, height }
+    }
+}
+
+/// Rects for underline, strikeout and more.
+pub struct Rects<'a> {
     inner: Vec<(Rect<f32>, Rgb)>,
     last_starts: HashMap<Flags, Option<RenderableCell>>,
     last_cell: Option<RenderableCell>,
@@ -28,7 +41,7 @@ pub struct Lines<'a> {
     size: &'a SizeInfo,
 }
 
-impl<'a> Lines<'a> {
+impl<'a> Rects<'a> {
     pub fn new(metrics: &'a Metrics, size: &'a SizeInfo) -> Self {
         let mut last_starts = HashMap::new();
         last_starts.insert(Flags::UNDERLINE, None);
@@ -43,7 +56,7 @@ impl<'a> Lines<'a> {
         }
     }
 
-    /// Convert the stored lines to rectangles for the renderer.
+    /// Convert the stored rects to rectangles for the renderer.
     pub fn rects(mut self) -> Vec<(Rect<f32>, Rgb)> {
         // If there's still a line pending, draw it until the last cell
         for (flag, start_cell) in self.last_starts.iter_mut() {
@@ -106,6 +119,11 @@ impl<'a> Lines<'a> {
         }
 
         self.last_cell = Some(*cell);
+    }
+
+    // Add a rectangle
+    pub fn push(&mut self, rect: Rect<f32>, color: Rgb) {
+        self.inner.push((rect, color));
     }
 }
 

@@ -27,16 +27,17 @@ use crate::grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter
 use crate::index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
 use crate::selection::{self, Selection, Locations};
 use crate::config::{Config, VisualBellAnimation};
-use crate::{MouseCursor, Rgb};
+use crate::MouseCursor;
 use copypasta::{Clipboard, Load, Store};
 use crate::input::FONT_SIZE_STEP;
-use crate::logging::LoggerProxy;
 use crate::url::UrlParser;
+use crate::message_bar::MessageBuffer;
+use crate::term::color::Rgb;
+use crate::term::cell::{LineLength, Cell};
+use crate::tty;
 
 pub mod cell;
 pub mod color;
-pub use self::cell::Cell;
-use self::cell::LineLength;
 
 /// A type that can expand a given point to a region
 ///
@@ -793,8 +794,11 @@ pub struct Term {
     /// Automatically scroll to bottom when new lines are added
     auto_scroll: bool,
 
-    /// Proxy object for clearing displayed errors and warnings
-    logger_proxy: Option<LoggerProxy>,
+    /// Buffer to store messages for the message bar
+    message_buffer: MessageBuffer,
+
+    /// Hint that Alacritty should be closed
+    should_exit: bool,
 }
 
 /// Terminal size info
@@ -835,10 +839,10 @@ impl SizeInfo {
     }
 
     pub fn contains_point(&self, x: usize, y:usize) -> bool {
-        x <= (self.width - self.padding_x) as usize &&
-            x >= self.padding_x as usize &&
-            y <= (self.height - self.padding_y) as usize &&
-            y >= self.padding_y as usize
+        x < (self.width - self.padding_x) as usize
+            && x >= self.padding_x as usize
+            && y < (self.height - self.padding_y) as usize
+            && y >= self.padding_y as usize
     }
 
     pub fn pixels_to_coords(&self, x: usize, y: usize) -> Point {
@@ -857,14 +861,6 @@ impl Term {
     pub fn selection(&self) -> &Option<Selection> {
         &self.grid.selection
     }
-
-    /// Clear displayed errors and warnings.
-    pub fn clear_log(&mut self) {
-        if let Some(ref mut logger_proxy) = self.logger_proxy {
-            logger_proxy.clear();
-        }
-    }
-
 
     pub fn selection_mut(&mut self) -> &mut Option<Selection> {
         &mut self.grid.selection
@@ -885,7 +881,7 @@ impl Term {
         self.next_mouse_cursor.take()
     }
 
-    pub fn new(config: &Config, size: SizeInfo) -> Term {
+    pub fn new(config: &Config, size: SizeInfo, message_buffer: MessageBuffer) -> Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
@@ -929,12 +925,9 @@ impl Term {
             dynamic_title: config.dynamic_title(),
             tabspaces,
             auto_scroll: config.scrolling().auto_scroll,
-            logger_proxy: None,
+            message_buffer,
+            should_exit: false,
         }
-    }
-
-    pub fn set_logger_proxy(&mut self, logger_proxy: LoggerProxy) {
-        self.logger_proxy = Some(logger_proxy);
     }
 
     pub fn change_font_size(&mut self, delta: f32) {
@@ -1169,7 +1162,7 @@ impl Term {
     }
 
     /// Resize terminal to new dimensions
-    pub fn resize(&mut self, size : &SizeInfo) {
+    pub fn resize(&mut self, size: &SizeInfo) {
         debug!("Resizing terminal");
 
         // Bounds check; lots of math assumes width and height are > 0
@@ -1183,6 +1176,10 @@ impl Term {
         let old_lines = self.grid.num_lines();
         let mut num_cols = size.cols();
         let mut num_lines = size.lines();
+
+        if let Some(message) = self.message_buffer.message() {
+            num_lines -= message.text(size).len();
+        }
 
         self.size_info = *size;
 
@@ -1314,6 +1311,26 @@ impl Term {
     #[inline]
     pub fn background_color(&self) -> Rgb {
         self.colors[NamedColor::Background]
+    }
+
+    #[inline]
+    pub fn message_buffer_mut(&mut self) -> &mut MessageBuffer {
+        &mut self.message_buffer
+    }
+
+    #[inline]
+    pub fn message_buffer(&self) -> &MessageBuffer {
+        &self.message_buffer
+    }
+
+    #[inline]
+    pub fn exit(&mut self) {
+        self.should_exit = true;
+    }
+
+    #[inline]
+    pub fn should_exit(&self) -> bool {
+        tty::process_should_exit() || self.should_exit
     }
 }
 
@@ -1859,10 +1876,7 @@ impl ansi::Handler for Term {
                         .each(|cell| cell.reset(&template));
                 }
             },
-            ansi::ClearMode::All => {
-                self.clear_log();
-                self.grid.region_mut(..).each(|c| c.reset(&template));
-            },
+            ansi::ClearMode::All => self.grid.region_mut(..).each(|c| c.reset(&template)),
             ansi::ClearMode::Above => {
                 // If clearing more than one line
                 if self.cursor.point.line > Line(1) {
@@ -2129,6 +2143,7 @@ mod tests {
     use crate::input::FONT_SIZE_STEP;
     use font::Size;
     use crate::config::Config;
+    use crate::message_bar::MessageBuffer;
 
     #[test]
     fn semantic_selection_works() {
@@ -2141,7 +2156,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0, Cell::default());
         for i in 0..5 {
             for j in 0..2 {
@@ -2185,7 +2200,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0, Cell::default());
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2211,7 +2226,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0, Cell::default());
         for l in 0..3 {
             if l != 1 {
@@ -2256,7 +2271,7 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size);
+        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0,
                                StandardCharset::SpecialCharacterAndLineDrawing);
@@ -2276,7 +2291,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size);
+        let mut term: Term = Term::new(&config, size, MessageBuffer::new());
         term.change_font_size(font_size);
 
         let expected_font_size: Size = config.font().size() + Size::new(font_size);
@@ -2305,7 +2320,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size);
+        let mut term: Term = Term::new(&config, size, MessageBuffer::new());
 
         term.change_font_size(-100.0);
 
@@ -2325,7 +2340,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size);
+        let mut term: Term = Term::new(&config, size, MessageBuffer::new());
 
         term.change_font_size(10.0);
         term.reset_font_size();
@@ -2346,7 +2361,7 @@ mod tests {
             dpr: 1.0
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size);
+        let mut term: Term = Term::new(&config, size, MessageBuffer::new());
 
         // Add one line of scrollback
         term.grid.scroll_up(&(Line(0)..Line(1)), Line(1), &Cell::default());
@@ -2373,6 +2388,7 @@ mod benches {
 
     use crate::grid::Grid;
     use crate::config::Config;
+    use crate::message_bar::MessageBuffer;
 
     use super::{SizeInfo, Term};
     use super::cell::Cell;
@@ -2411,7 +2427,7 @@ mod benches {
 
         let config = Config::default();
 
-        let mut terminal = Term::new(&config, size);
+        let mut terminal = Term::new(&config, size, MessageBuffer::new());
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {

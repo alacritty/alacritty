@@ -5,7 +5,7 @@
 //! the config file will also hold user and platform specific keybindings.
 use std::borrow::Cow;
 use std::{env, fmt};
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -13,7 +13,6 @@ use std::sync::mpsc;
 use std::time::Duration;
 use std::collections::HashMap;
 
-use crate::Rgb;
 use font::Size;
 use serde_yaml;
 use serde::{self, de, Deserialize};
@@ -26,9 +25,11 @@ use crate::cli::Options;
 use crate::input::{Action, Binding, MouseBinding, KeyBinding};
 use crate::index::{Line, Column};
 use crate::ansi::{CursorStyle, NamedColor, Color};
+use crate::term::color::Rgb;
 
 mod bindings;
 
+pub const SOURCE_FILE_PATH: &str = file!();
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
 static DEFAULT_ALACRITTY_CONFIG: &'static str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty.yml"));
@@ -1691,7 +1692,7 @@ impl Config {
 
         path = path.join("alacritty/alacritty.yml");
 
-        fs::create_dir_all(path.parent().unwrap())?;
+        std::fs::create_dir_all(path.parent().unwrap())?;
 
         File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
 
@@ -1868,16 +1869,6 @@ impl Config {
         self.persistent_logging
     }
 
-    pub fn load_from<P: Into<PathBuf>>(path: P) -> Result<Config> {
-        let path = path.into();
-        let raw = Config::read_file(path.as_path())?;
-        let mut config: Config = serde_yaml::from_str(&raw)?;
-        config.config_path = Some(path);
-        config.print_deprecation_warnings();
-
-        Ok(config)
-    }
-
     /// Overrides the `dynamic_title` configuration based on `--title`.
     pub fn update_dynamic_title(mut self, options: &Options) -> Self {
         if options.title.is_some() {
@@ -1886,15 +1877,35 @@ impl Config {
         self
     }
 
-    fn read_file<P: AsRef<Path>>(path: P) -> Result<String> {
-        let mut f = fs::File::open(path)?;
+    pub fn load_from(path: PathBuf) -> Config {
+        let mut config = Config::reload_from(&path).unwrap_or_else(|_| Config::default());
+        config.config_path = Some(path);
+        config
+    }
+
+    pub fn reload_from(path: &PathBuf) -> Result<Config> {
+        match Config::read_config(path) {
+            Ok(config) => Ok(config),
+            Err(err) => {
+                error!("Unable to load config {:?}: {}", path, err);
+                Err(err)
+            }
+        }
+    }
+
+    fn read_config(path: &PathBuf) -> Result<Config> {
         let mut contents = String::new();
-        f.read_to_string(&mut contents)?;
+        File::open(path)?.read_to_string(&mut contents)?;
+
+        // Prevent parsing error with empty string
         if contents.is_empty() {
-            return Err(Error::Empty);
+            return Ok(Config::default());
         }
 
-        Ok(contents)
+        let mut config: Config = serde_yaml::from_str(&contents)?;
+        config.print_deprecation_warnings();
+
+        Ok(config)
     }
 
     fn print_deprecation_warnings(&mut self) {
@@ -2201,7 +2212,7 @@ impl SecondaryFontDescription {
 
 pub struct Monitor {
     _thread: ::std::thread::JoinHandle<()>,
-    rx: mpsc::Receiver<Config>,
+    rx: mpsc::Receiver<PathBuf>,
 }
 
 pub trait OnConfigReload {
@@ -2216,7 +2227,7 @@ impl OnConfigReload for crate::display::Notifier {
 
 impl Monitor {
     /// Get pending config changes
-    pub fn pending_config(&self) -> Option<Config> {
+    pub fn pending(&self) -> Option<PathBuf> {
         let mut config = None;
         while let Ok(new) = self.rx.try_recv() {
             config = Some(new);
@@ -2224,6 +2235,7 @@ impl Monitor {
 
         config
     }
+
     pub fn new<H, P>(path: P, mut handler: H) -> Monitor
         where H: OnConfigReload + Send + 'static,
               P: Into<PathBuf>
@@ -2260,22 +2272,7 @@ impl Monitor {
                                 continue;
                             }
 
-                            let config = match Config::load_from(&path) {
-                                Ok(config) => {
-                                    config
-                                },
-                                Err(err) => {
-                                    if let Error::Empty = err {
-                                        info!("Config file {:?} is empty; loading default", path);
-                                        Config::default()
-                                    } else {
-                                        error!("Ignoring invalid config: {}", err);
-                                        continue;
-                                    }
-                                }
-                            };
-
-                            let _ = config_tx.send(config);
+                            let _ = config_tx.send(path);
                             handler.on_config_reload();
                         }
                         _ => {}

@@ -9,11 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Window class on Wayland is set to `Alacritty` by default
+- Log file location is stored in the `ALACRITTY_LOG` environment variable
+- Close button has been added to the error/warning messages
 
 ### Changed
 
 - Improve scrolling accuracy with devices sending fractional updates (like touchpads)
 - `scrolling.multiplier` now affects normal scrolling with touchpads
+- Error/Warning bar doesn't overwrite the terminal anymore
+- Full error/warning messages are displayed
+- Config error messages are automatically removed when the config is fixed
 
 ### Fixed
 
@@ -25,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Corrected the `window.decorations` config documentation for macOS
 - Fix IME position on HiDPI displays
 - URLs not opening while terminal is scrolled
+- Reliably remove log file when Alacritty is closed and persistent logging is disabled
+
+### Removed
+
+- `clear` doesn't remove error/warning messages anymore
 
 ## Version 0.2.7
 

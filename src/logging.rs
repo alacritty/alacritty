@@ -17,85 +17,52 @@
 //! The main executable is supposed to call `initialize()` exactly once during
 //! startup. All logging messages are written to stdout, given that their
 //! log-level is sufficient for the level configured in `cli::Options`.
-use crate::cli;
-use log::{self, Level};
-use time;
-
 use std::env;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::io::{self, LineWriter, Stdout, Write};
 use std::path::PathBuf;
 use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-pub fn initialize(options: &cli::Options) -> Result<LoggerProxy, log::SetLoggerError> {
+use crossbeam_channel::Sender;
+use log::{self, Level};
+use time;
+
+use crate::cli;
+use crate::message_bar::Message;
+use crate::term::color;
+
+const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
+
+pub fn initialize(
+    options: &cli::Options,
+    message_tx: Sender<Message>,
+) -> Result<Option<PathBuf>, log::SetLoggerError> {
     // Use env_logger if RUST_LOG environment variable is defined. Otherwise,
     // use the alacritty-only logger.
     if ::std::env::var("RUST_LOG").is_ok() {
         ::env_logger::try_init()?;
-        Ok(LoggerProxy::default())
+        Ok(None)
     } else {
-        let logger = Logger::new(options.log_level);
-        let proxy = logger.proxy();
-
+        let logger = Logger::new(options.log_level, message_tx);
+        let path = logger.file_path();
         log::set_boxed_logger(Box::new(logger))?;
-
-        Ok(proxy)
+        Ok(path)
     }
 }
 
-/// Proxy object for bidirectional communicating with the global logger.
-#[derive(Clone, Default)]
-pub struct LoggerProxy {
-    errors: Arc<AtomicBool>,
-    warnings: Arc<AtomicBool>,
-    logfile_proxy: OnDemandLogFileProxy,
-}
-
-impl LoggerProxy {
-    /// Check for new logged errors.
-    pub fn errors(&self) -> bool {
-        self.errors.load(Ordering::Relaxed)
-    }
-
-    /// Check for new logged warnings.
-    pub fn warnings(&self) -> bool {
-        self.warnings.load(Ordering::Relaxed)
-    }
-
-    /// Get the path of the log file if it has been created.
-    pub fn log_path(&self) -> Option<&str> {
-        if self.logfile_proxy.created.load(Ordering::Relaxed) {
-            Some(&self.logfile_proxy.path)
-        } else {
-            None
-        }
-    }
-
-    /// Clear log warnings/errors from the Alacritty UI.
-    pub fn clear(&mut self) {
-        self.errors.store(false, Ordering::Relaxed);
-        self.warnings.store(false, Ordering::Relaxed);
-    }
-
-    pub fn delete_log(&mut self) {
-        self.logfile_proxy.delete_log();
-    }
-}
-
-struct Logger {
+pub struct Logger {
     level: log::LevelFilter,
     logfile: Mutex<OnDemandLogFile>,
     stdout: Mutex<LineWriter<Stdout>>,
-    errors: Arc<AtomicBool>,
-    warnings: Arc<AtomicBool>,
+    message_tx: Sender<Message>,
 }
 
 impl Logger {
     // False positive, see: https://github.com/rust-lang-nursery/rust-clippy/issues/734
     #[allow(clippy::new_ret_no_self)]
-    fn new(level: log::LevelFilter) -> Self {
+    fn new(level: log::LevelFilter, message_tx: Sender<Message>) -> Self {
         log::set_max_level(level);
 
         let logfile = Mutex::new(OnDemandLogFile::new());
@@ -105,16 +72,15 @@ impl Logger {
             level,
             logfile,
             stdout,
-            errors: Arc::new(AtomicBool::new(false)),
-            warnings: Arc::new(AtomicBool::new(false)),
+            message_tx,
         }
     }
 
-    fn proxy(&self) -> LoggerProxy {
-        LoggerProxy {
-            errors: self.errors.clone(),
-            warnings: self.warnings.clone(),
-            logfile_proxy: self.logfile.lock().expect("").proxy(),
+    fn file_path(&self) -> Option<PathBuf> {
+        if let Ok(logfile) = self.logfile.lock() {
+            Some(logfile.path().clone())
+        } else {
+            None
         }
     }
 }
@@ -125,59 +91,60 @@ impl log::Log for Logger {
     }
 
     fn log(&self, record: &log::Record<'_>) {
-        if self.enabled(record.metadata()) &&
-           record.target().starts_with("alacritty")
-        {
+        if self.enabled(record.metadata()) && record.target().starts_with("alacritty") {
             let now = time::strftime("%F %R", &time::now()).unwrap();
 
             let msg = if record.level() >= Level::Trace {
-                format!("[{}] [{}] [{}:{}] {}\n",
-                        now,
-                        record.level(),
-                        record.file().unwrap_or("?"),
-                        record.line()
-                              .map(|l| l.to_string())
-                              .unwrap_or_else(|| "?".into()),
-                        record.args())
+                format!(
+                    "[{}] [{}] [{}:{}] {}\n",
+                    now,
+                    record.level(),
+                    record.file().unwrap_or("?"),
+                    record
+                        .line()
+                        .map(|l| l.to_string())
+                        .unwrap_or_else(|| "?".into()),
+                    record.args()
+                )
             } else {
-                format!("[{}] [{}] {}\n",
-                        now,
-                        record.level(),
-                        record.args())
+                format!("[{}] [{}] {}\n", now, record.level(), record.args())
             };
 
             if let Ok(ref mut logfile) = self.logfile.lock() {
                 let _ = logfile.write_all(msg.as_ref());
+
+                if record.level() <= Level::Warn {
+                    #[cfg(not(windows))]
+                    let env_var = format!("${}", ALACRITTY_LOG_ENV);
+                    #[cfg(windows)]
+                    let env_var = format!("%{}%", ALACRITTY_LOG_ENV);
+
+                    let msg = format!(
+                        "[{}] See log at {} ({}):\n{}",
+                        record.level(),
+                        logfile.path.to_string_lossy(),
+                        env_var,
+                        record.args(),
+                    );
+                    let color = match record.level() {
+                        Level::Error => color::RED,
+                        Level::Warn => color::YELLOW,
+                        _ => unreachable!(),
+                    };
+
+                    let mut message = Message::new(msg, color);
+                    message.set_topic(record.file().unwrap_or("?").into());
+                    let _ = self.message_tx.send(message);
+                }
             }
 
             if let Ok(ref mut stdout) = self.stdout.lock() {
                 let _ = stdout.write_all(msg.as_ref());
             }
-
-            match record.level() {
-                Level::Error => self.errors.store(true, Ordering::Relaxed),
-                Level::Warn => self.warnings.store(true, Ordering::Relaxed),
-                _ => (),
-            }
         }
     }
 
     fn flush(&self) {}
-}
-
-#[derive(Clone, Default)]
-struct OnDemandLogFileProxy {
-    created: Arc<AtomicBool>,
-    path: String,
-}
-
-impl OnDemandLogFileProxy {
-    fn delete_log(&mut self) {
-        if self.created.load(Ordering::Relaxed) && fs::remove_file(&self.path).is_ok() {
-            let _ = writeln!(io::stdout(), "Deleted log file at {:?}", self.path);
-            self.created.store(false, Ordering::Relaxed);
-        }
-    }
 }
 
 struct OnDemandLogFile {
@@ -190,6 +157,9 @@ impl OnDemandLogFile {
     fn new() -> Self {
         let mut path = env::temp_dir();
         path.push(format!("Alacritty-{}.log", process::id()));
+
+        // Set log path as an environment variable
+        env::set_var(ALACRITTY_LOG_ENV, path.as_os_str());
 
         OnDemandLogFile {
             path,
@@ -227,11 +197,8 @@ impl OnDemandLogFile {
         Ok(self.file.as_mut().unwrap())
     }
 
-    fn proxy(&self) -> OnDemandLogFileProxy {
-        OnDemandLogFileProxy {
-            created: self.created.clone(),
-            path: self.path.to_string_lossy().to_string(),
-        }
+    fn path(&self) -> &PathBuf {
+        &self.path
     }
 }
 
