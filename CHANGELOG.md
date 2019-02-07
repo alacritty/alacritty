@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow disabling URL launching by setting the value of `mouse.url.launcher` to `None`
 - Corrected the `window.decorations` config documentation for macOS
 - Fix IME position on HiDPI displays
+- URLs not opening while terminal is scrolled
 
 ## Version 0.2.7
 

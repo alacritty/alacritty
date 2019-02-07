@@ -465,6 +465,11 @@ impl<T> Grid<T> {
     pub fn contains(&self, point: &Point) -> bool {
         self.lines > point.line && self.cols > point.col
     }
+
+    #[inline]
+    pub fn display_offset(&self) -> usize {
+        self.display_offset
+    }
 }
 
 impl<'a, T> Iterator for GridIterator<'a, T> {
