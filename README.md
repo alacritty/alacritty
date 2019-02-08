@@ -5,11 +5,13 @@ Alacritty
 [![Appveyor build Status](https://ci.appveyor.com/api/projects/status/github/jwilm/alacritty?svg=true)](https://ci.appveyor.com/project/jwilm/alacritty)
 
 Alacritty is the fastest terminal emulator in existence. Using the GPU for
-rendering enables optimizations that simply aren't possible in other emulators.
-Alacritty currently supports macOS, Linux, and Windows.
+rendering enables optimizations that simply aren't possible in most other
+emulators. Alacritty currently supports macOS, Linux, and Windows.
 
 <p align="center">
-  <img width="600" alt="Alacritty running vim inside tmux" src="https://cloud.githubusercontent.com/assets/4285147/21585004/2ebd0288-d06c-11e6-95d3-4a2889dbbd6f.png">
+  <img width="600"
+       alt="Alacritty running vim inside tmux"
+       src="https://cloud.githubusercontent.com/assets/4285147/21585004/2ebd0288-d06c-11e6-95d3-4a2889dbbd6f.png">
 </p>
 
 ## About
@@ -20,9 +22,9 @@ goal means that it doesn't have features such as tabs or splits (which can be
 better provided by a window manager or [terminal multiplexer][tmux]) nor
 niceties like a GUI config editor.
 
-The software is considered to be at an **alpha** level of readiness--there are
-missing features and bugs to be fixed, but it is already used by many as a daily
-driver.
+The software is considered to be at a **beta** level of readiness -- there are
+a few missing features and bugs to be fixed, but it is already used by many as
+a daily driver.
 
 Precompiled binaries are available from the [GitHub releases page](https://github.com/jwilm/alacritty/releases).
 
@@ -34,8 +36,8 @@ Precompiled binaries are available from the [GitHub releases page](https://githu
 
 ## Installation
 
-Some operating systems already provide binaries for Alacritty, for everyone else the instructions
-to build Alacritty from source can be found [here](INSTALL.md).
+Some operating systems already provide binaries for Alacritty, for everyone
+else the instructions to build Alacritty from source can be found [here](INSTALL.md).
 
 ### Arch Linux
 
@@ -94,7 +96,7 @@ brew cask install alacritty
 Once the cask is installed, it is recommended to setup the [manual page](INSTALL.md#manual-page),
 [shell completions](INSTALL.md#shell-completions), and [terminfo definitions](INSTALL.md#terminfo).
 
-### Windows 
+### Windows
 
 #### Via [Scoop](https://scoop.sh)
 
@@ -108,9 +110,9 @@ scoop install alacritty
 Prebuilt binaries for Linux, macOS, and Windows can be downloaded from the
 [GitHub releases page](https://github.com/jwilm/alacritty/releases).
 
-To work properly on Windows, Alacritty requires winpty to emulate UNIX's PTY API.
-The agent is a single binary (`winpty-agent.exe`) which **must** be in the same
-directory as the Alacritty executable and is available through the
+To work properly on Windows, Alacritty requires winpty to emulate UNIX's PTY
+API. The agent is a single binary (`winpty-agent.exe`) which **must** be in
+the same directory as the Alacritty executable and is available through the
 [GitHub releases page](https://github.com/jwilm/alacritty/releases).
 
 ## Configuration
@@ -131,9 +133,8 @@ run. On most systems this often defaults to
 `$HOME/.config/alacritty/alacritty.yml`.
 
 Many configuration options will take effect immediately upon saving changes to
-the config file. The only exception is the `font` and `dimensions` sections
-which requires Alacritty to be restarted. For further explanation of the config
-file, please consult the comments in the default config file.
+the config file. For more information about the config file structure, refer to
+the default config file.
 
 ### Windows
 
@@ -146,16 +147,15 @@ On Windows the config file is located at:
 If you run into a problem with Alacritty, please file an issue. If you've got a
 feature request, feel free to ask about it. Keep in mind that Alacritty is very
 much not looking to be a feature-rich terminal emulator with all sorts of bells
-and widgets. It's primarily a cross-platform, blazing fast `tmux` renderer that
-Just Works.
+and widgets. It's primarily a cross-platform, blazing fast text renderer that
+"Just Works".
 
 ## FAQ
 
 **_Is it really the fastest terminal emulator?_**
 
-In the terminals I've benchmarked against, Alacritty is either faster, WAY
-faster, or at least neutral. There are no benchmarks in which I've found
-Alacritty to be slower.
+In the terminals we've benchmarked against, Alacritty is either faster, *way*
+faster, or at least neutral.
 
 **_macOS + tmux + vim is slow! I thought this was supposed to be fast!_**
 
@@ -182,7 +182,7 @@ have found a better experience using XWayland which can be achieved launching
 Alacritty with the `WAYLAND_DISPLAY` environment variable cleared:
 
 ```sh
-env WAYLAND_DISPLAY= alacritty
+env WAYLAND_DISPLAY=alacritty
 ```
 
 If you're interested in seeing our Wayland support improve, please head over to
