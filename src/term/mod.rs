@@ -1866,6 +1866,9 @@ impl ansi::Handler for Term {
         let mut template = self.cursor.template;
         template.flags ^= template.flags;
 
+        // Remove active selections
+        self.grid.selection = None;
+
         match mode {
             ansi::ClearMode::Below => {
                 for cell in &mut self.grid[self.cursor.point.line][self.cursor.point.col..] {
@@ -1891,9 +1894,7 @@ impl ansi::Handler for Term {
                 }
             },
             // If scrollback is implemented, this should clear it
-            ansi::ClearMode::Saved => {
-                self.grid.clear_history();
-            }
+            ansi::ClearMode::Saved => self.grid.clear_history(),
         }
     }
 

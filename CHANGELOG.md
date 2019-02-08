@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix IME position on HiDPI displays
 - URLs not opening while terminal is scrolled
 - Reliably remove log file when Alacritty is closed and persistent logging is disabled
+- Remove selections when clearing the screen partially (scrolling horizontally in less)
 
 ### Removed
 
