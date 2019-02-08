@@ -72,10 +72,12 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Key::Home, ~TermMode::APP_CURSOR; Action::Esc("\x1b[H".into());
         Key::End, +TermMode::APP_CURSOR; Action::Esc("\x1bOF".into());
         Key::End, ~TermMode::APP_CURSOR; Action::Esc("\x1b[F".into());
-        Key::PageUp, [shift: true]; Action::ScrollPageUp;
+        Key::PageUp, [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageUp;
+        Key::PageUp, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[5;2~".into());
         Key::PageUp, [ctrl: true]; Action::Esc("\x1b[5;5~".into());
         Key::PageUp; Action::Esc("\x1b[5~".into());
-        Key::PageDown, [shift: true]; Action::ScrollPageDown;
+        Key::PageDown, [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageDown;
+        Key::PageDown, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[6;2~".into());
         Key::PageDown, [ctrl: true]; Action::Esc("\x1b[6;5~".into());
         Key::PageDown; Action::Esc("\x1b[6~".into());
         Key::Tab, [shift: true]; Action::Esc("\x1b[Z".into());

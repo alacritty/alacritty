@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Error/Warning bar doesn't overwrite the terminal anymore
 - Full error/warning messages are displayed
 - Config error messages are automatically removed when the config is fixed
+- Scroll history on Shift+PgUp/PgDown when scrollback history is available
 
 ### Fixed
 

@@ -937,6 +937,8 @@ impl<'a> de::Deserialize<'a> for ModeWrapper {
                         "~AppCursor" => res.not_mode |= mode::TermMode::APP_CURSOR,
                         "AppKeypad" => res.mode |= mode::TermMode::APP_KEYPAD,
                         "~AppKeypad" => res.not_mode |= mode::TermMode::APP_KEYPAD,
+                        "~Alt" => res.not_mode |= mode::TermMode::ALT_SCREEN,
+                        "Alt" => res.mode |= mode::TermMode::ALT_SCREEN,
                         _ => error!("Unknown mode {:?}", modifier),
                     }
                 }
