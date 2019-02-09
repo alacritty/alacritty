@@ -43,6 +43,9 @@ pub enum Error {
 
     /// Error in renderer
     Render(renderer::Error),
+
+    /// Computed cell size is invalid
+    InvalidCellSize,
 }
 
 impl ::std::error::Error for Error {
@@ -51,6 +54,7 @@ impl ::std::error::Error for Error {
             Error::Window(ref err) => Some(err),
             Error::Font(ref err) => Some(err),
             Error::Render(ref err) => Some(err),
+            Error::InvalidCellSize => None,
         }
     }
 
@@ -59,16 +63,19 @@ impl ::std::error::Error for Error {
             Error::Window(ref err) => err.description(),
             Error::Font(ref err) => err.description(),
             Error::Render(ref err) => err.description(),
+            Error::InvalidCellSize => "cell size is invalid",
         }
     }
 }
 
 impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        use std::error::Error as StdError;
         match *self {
             Error::Window(ref err) => err.fmt(f),
             Error::Font(ref err) => err.fmt(f),
             Error::Render(ref err) => err.fmt(f),
+            Error::InvalidCellSize => write!(f, "{}", self.description()),
         }
     }
 }
@@ -255,29 +262,45 @@ impl Display {
         // Need font metrics to resize the window properly. This suggests to me the
         // font metrics should be computed before creating the window in the first
         // place so that a resize is not needed.
-        let metrics = glyph_cache.font_metrics();
-        let cell_width = metrics.average_advance as f32 + f32::from(font.offset().x);
-        let cell_height = metrics.line_height as f32 + f32::from(font.offset().y);
+        let (cell_width, cell_height) =
+            Self::compute_cell_size(&config, &glyph_cache.font_metrics())?;
 
-        // Prevent invalid cell sizes
-        if cell_width < 1. || cell_height < 1. {
-            panic!("font offset is too small");
-        }
-
-        Ok((glyph_cache, cell_width.floor(), cell_height.floor()))
+        Ok((glyph_cache, cell_width, cell_height))
     }
 
-    pub fn update_glyph_cache(&mut self, config: &Config) {
+    fn compute_cell_size(config: &Config, metrics: &font::Metrics) -> Result<(f32, f32), Error> {
+        let cell_width =
+            ((metrics.average_advance + f64::from(config.font().offset().x)) as f32).floor();
+        let cell_height =
+            ((metrics.line_height + f64::from(config.font().offset().y)) as f32).floor();
+
+        if cell_width < 1. || cell_height < 1. {
+            return Err(Error::InvalidCellSize)
+        }
+
+        Ok((cell_width, cell_height))
+    }
+
+    pub fn update_glyph_cache(
+        &mut self,
+        config: &Config,
+        size: font::Size
+    ) -> Result<(), Error> {
         let dpr = self.size_info.dpr;
         let cache = &mut self.glyph_cache;
-        let size = self.font_size;
+
+        let (cell_width, cell_height) = Self::compute_cell_size(config, &cache.font_metrics())?;
+
+        self.font_size = size;
+
         self.renderer.with_loader(|mut api| {
             let _ = cache.update_font_size(config.font(), size, dpr, &mut api);
         });
 
-        let metrics = cache.font_metrics();
-        self.size_info.cell_width = ((metrics.average_advance + f64::from(config.font().offset().x)) as f32).floor();
-        self.size_info.cell_height = ((metrics.line_height + f64::from(config.font().offset().y)) as f32).floor();
+        self.size_info.cell_width = cell_width;
+        self.size_info.cell_height = cell_height;
+
+        Ok(())
     }
 
     #[inline]
@@ -323,13 +346,13 @@ impl Display {
                 ));
             }
 
-            self.font_size = terminal.font_size;
             self.last_message = terminal.message_buffer_mut().message();
             self.size_info.dpr = dpr;
         }
 
-        if font_changed {
-            self.update_glyph_cache(config);
+        if font_changed && self.update_glyph_cache(config, terminal.font_size).is_err() {
+            // Revert the terminal font size back to last known good state
+            terminal.font_size = self.font_size;
         }
 
         if let Some(psize) = new_size.take() {
