@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reliably remove log file when Alacritty is closed and persistent logging is disabled
 - Remove selections when clearing the screen partially (scrolling horizontally in less)
 - Crash/Freeze when shrinking the font size too far
+- Documentation of the `--dimensions` flag have been updated to display the correct default
 
 ### Removed
 
