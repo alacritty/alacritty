@@ -52,5 +52,6 @@ deploy:
   on:
     tags: true
     rust: stable
+    condition: $CLIPPY != true
     repo: jwilm/alacritty
     branch: master
