@@ -178,8 +178,8 @@ Alacritty discussion can be found in `#alacritty` on freenode.
 ## Wayland
 
 Wayland support is available, but not everything works as expected. Many people
-have found a better experience using XWayland which can be achieved launching
-Alacritty with the `WAYLAND_DISPLAY` environment variable cleared:
+have found a better experience using XWayland which can be achieved by
+launching Alacritty with the `WAYLAND_DISPLAY` environment variable cleared:
 
 ```sh
 env WAYLAND_DISPLAY="" alacritty
