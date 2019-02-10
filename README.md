@@ -182,7 +182,7 @@ have found a better experience using XWayland which can be achieved launching
 Alacritty with the `WAYLAND_DISPLAY` environment variable cleared:
 
 ```sh
-env WAYLAND_DISPLAY=alacritty
+env WAYLAND_DISPLAY="" alacritty
 ```
 
 If you're interested in seeing our Wayland support improve, please head over to
