@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.2.7"
+version = "0.2.8"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 build = "build.rs"
