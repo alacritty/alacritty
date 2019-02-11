@@ -1,5 +1,5 @@
 name: alacritty
-version: '0.2.8' # just for humans, typically '1.2+git' or '1.3.2'
+version: '0.2.9' # just for humans, typically '1.2+git' or '1.3.2'
 summary: Modern, GPU accelerated terminal emulator
 description: |
   Alacritty is the fastest terminal emulator in existence. Using the GPU
