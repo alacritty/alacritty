@@ -255,29 +255,37 @@ impl Display {
         // Need font metrics to resize the window properly. This suggests to me the
         // font metrics should be computed before creating the window in the first
         // place so that a resize is not needed.
-        let metrics = glyph_cache.font_metrics();
-        let cell_width = metrics.average_advance as f32 + f32::from(font.offset().x);
-        let cell_height = metrics.line_height as f32 + f32::from(font.offset().y);
+        let (cw, ch) = Self::compute_cell_size(config, &glyph_cache.font_metrics());
 
-        // Prevent invalid cell sizes
-        if cell_width < 1. || cell_height < 1. {
-            panic!("font offset is too small");
-        }
-
-        Ok((glyph_cache, cell_width.floor(), cell_height.floor()))
+        Ok((glyph_cache, cw, ch))
     }
 
     pub fn update_glyph_cache(&mut self, config: &Config) {
-        let dpr = self.size_info.dpr;
         let cache = &mut self.glyph_cache;
+        let dpr = self.size_info.dpr;
         let size = self.font_size;
+
         self.renderer.with_loader(|mut api| {
             let _ = cache.update_font_size(config.font(), size, dpr, &mut api);
         });
 
-        let metrics = cache.font_metrics();
-        self.size_info.cell_width = ((metrics.average_advance + f64::from(config.font().offset().x)) as f32).floor();
-        self.size_info.cell_height = ((metrics.line_height + f64::from(config.font().offset().y)) as f32).floor();
+        let (cw, ch) = Self::compute_cell_size(config, &cache.font_metrics());
+        self.size_info.cell_width = cw;
+        self.size_info.cell_height = ch;
+    }
+
+    fn compute_cell_size(config: &Config, metrics: &font::Metrics) -> (f32, f32) {
+        let mut cell_width = ((metrics.average_advance + f64::from(config.font().offset().x)) as f32).floor();
+        let mut cell_height = ((metrics.line_height + f64::from(config.font().offset().y)) as f32).floor();
+
+        if cell_width < 1. {
+            cell_width = 1.;
+        }
+        if cell_height < 1. {
+            cell_height = 1.;
+        }
+
+        (cell_width, cell_height)
     }
 
     #[inline]
