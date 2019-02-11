@@ -278,8 +278,8 @@ impl Display {
         let offset_x = f64::from(config.font().offset().x);
         let offset_y = f64::from(config.font().offset().y);
         (
-            f32::min(1., ((metrics.average_advance + offset_x) as f32).floor()),
-            f32::min(1., ((metrics.line_height + offset_y) as f32).floor()),
+            f32::max(1., ((metrics.average_advance + offset_x) as f32).floor()),
+            f32::max(1., ((metrics.line_height + offset_y) as f32).floor()),
         )
     }
 
