@@ -5,8 +5,8 @@ Alacritty
 [![Appveyor build Status](https://ci.appveyor.com/api/projects/status/github/jwilm/alacritty?svg=true)](https://ci.appveyor.com/project/jwilm/alacritty)
 
 Alacritty is the fastest terminal emulator in existence. Using the GPU for
-rendering enables optimizations that simply aren't possible in most other
-emulators. Alacritty currently supports macOS, Linux, and Windows.
+rendering enables optimizations that simply aren't possible without it.
+Alacritty currently supports macOS, Linux, and Windows.
 
 <p align="center">
   <img width="600"
