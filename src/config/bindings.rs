@@ -82,9 +82,11 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Key::PageDown; Action::Esc("\x1b[6~".into());
         Key::Tab, [shift: true]; Action::Esc("\x1b[Z".into());
         Key::Back; Action::Esc("\x7f".into());
+        Key::Back, [ctrl: true]; Action::Esc("\x17".into());
         Key::Back, [alt: true]; Action::Esc("\x1b\x7f".into());
         Key::Insert; Action::Esc("\x1b[2~".into());
         Key::Delete; Action::Esc("\x1b[3~".into());
+        Key::Delete, [ctrl: true]; Action::Esc("\x1bD".into());
         Key::Left, [shift: true]; Action::Esc("\x1b[1;2D".into());
         Key::Left, [ctrl: true]; Action::Esc("\x1b[1;5D".into());
         Key::Left, [alt: true]; Action::Esc("\x1b[1;3D".into());

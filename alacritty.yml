@@ -481,9 +481,11 @@ key_bindings:
   - { key: PageDown,                chars: "\x1b[6~"                         }
   - { key: Tab,      mods: Shift,   chars: "\x1b[Z"                          }
   - { key: Back,                    chars: "\x7f"                            }
+  - { key: Back,     mods: Control, chars: "\x17"                            }
   - { key: Back,     mods: Alt,     chars: "\x1b\x7f"                        }
   - { key: Insert,                  chars: "\x1b[2~"                         }
   - { key: Delete,                  chars: "\x1b[3~"                         }
+  - { key: Delete,   mods: Control, chars: "\x1bD"                           }
   - { key: Left,     mods: Shift,   chars: "\x1b[1;2D"                       }
   - { key: Left,     mods: Control, chars: "\x1b[1;5D"                       }
   - { key: Left,     mods: Alt,     chars: "\x1b[1;3D"                       }
