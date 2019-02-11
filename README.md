@@ -16,11 +16,12 @@ Alacritty currently supports macOS, Linux, BSD, and Windows.
 
 ## About
 
-Alacritty is focused on simplicity and performance. The performance goal means
-it should be faster than any other terminal emulator available. The simplicity
-goal means that it doesn't have features such as tabs or splits (which can be
-better provided by a window manager or [terminal multiplexer][tmux]) nor
-niceties like a GUI config editor.
+Alacritty is a terminal emulator with a strong focus on simplicity and
+performance. Bloated features are avoided, and the features we do include are
+carefully considered. This means you won't find things like tabs or splits
+(which are best left to a window manager or [terminal multiplexer][tmux]) nor
+niceties like a GUI config editor. We also strive to keep alacritty faster than
+any other terminal available. Performance matters!
 
 The software is considered to be at a **beta** level of readiness -- there are
 a few missing features and bugs to be fixed, but it is already used by many as
