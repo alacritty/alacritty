@@ -275,17 +275,12 @@ impl Display {
     }
 
     fn compute_cell_size(config: &Config, metrics: &font::Metrics) -> (f32, f32) {
-        let mut cell_width = ((metrics.average_advance + f64::from(config.font().offset().x)) as f32).floor();
-        let mut cell_height = ((metrics.line_height + f64::from(config.font().offset().y)) as f32).floor();
-
-        if cell_width < 1. {
-            cell_width = 1.;
-        }
-        if cell_height < 1. {
-            cell_height = 1.;
-        }
-
-        (cell_width, cell_height)
+        let offset_x = f64::from(config.font().offset().x);
+        let offset_y = f64::from(config.font().offset().y);
+        (
+            f32::min(1., ((metrics.average_advance + offset_x) as f32).floor()),
+            f32::min(1., ((metrics.line_height + offset_y) as f32).floor()),
+        )
     }
 
     #[inline]
