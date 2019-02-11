@@ -147,8 +147,7 @@ On Windows the config file is located at:
 If you run into a problem with Alacritty, please file an issue. If you've got a
 feature request, feel free to ask about it. Keep in mind that Alacritty is very
 much not looking to be a feature-rich terminal emulator with all sorts of bells
-and widgets. It's primarily a cross-platform, blazing fast text renderer that
-"Just Works".
+and widgets.
 
 ## FAQ
 
