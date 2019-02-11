@@ -154,8 +154,9 @@ and widgets.
 
 **_Is it really the fastest terminal emulator?_**
 
-In the terminals we've benchmarked against, Alacritty is either faster, *way*
-faster, or at least neutral.
+In the terminals we've [benchmarked](http://github.com/jwilm/vtebench),
+Alacritty is either faster or **way** faster than the others. If you've found a
+case where this isn't true, please report a bug.
 
 **_macOS + tmux + vim is slow! I thought this was supposed to be fast!_**
 
