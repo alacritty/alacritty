@@ -17,11 +17,11 @@ Alacritty currently supports macOS, Linux, BSD, and Windows.
 ## About
 
 Alacritty is a terminal emulator with a strong focus on simplicity and
-performance. Bloated features are avoided, and the features we do include are
-carefully considered. This means you won't find things like tabs or splits
-(which are best left to a window manager or [terminal multiplexer][tmux]) nor
-niceties like a GUI config editor. We also strive to keep alacritty faster than
-any other terminal available. Performance matters!
+performance. Bloated features are avoided, and the included features are
+carefully considered. With such a strong focus on performance, you can expect
+Alacritty to be blazing fast, always. Alacritty should also "just work" by
+making sane choices in defaults, but allowing [configuration](#configuration)
+of many aspects of the terminal.
 
 The software is considered to be at a **beta** level of readiness -- there are
 a few missing features and bugs to be fixed, but it is already used by many as
@@ -146,9 +146,13 @@ On Windows the config file is located at:
 ## Issues (known, unknown, feature requests, etc.)
 
 If you run into a problem with Alacritty, please file an issue. If you've got a
-feature request, feel free to ask about it. Keep in mind that Alacritty is very
-much not looking to be a feature-rich terminal emulator with all sorts of bells
-and widgets.
+feature request, feel free to ask about it. Please just keep in mind Alacritty
+is focused on simplicity and performance, and not all features are in line with
+that goal.
+
+Before posting an issue try to give the existing issues a read over, there's a
+chance someone else has already reported it, and you can subscribe to that
+issue to keep up on the latest developments.
 
 ## FAQ
 
@@ -157,6 +161,14 @@ and widgets.
 In the terminals we've [benchmarked](http://github.com/jwilm/vtebench),
 Alacritty is either faster or **way** faster than the others. If you've found a
 case where this isn't true, please report a bug.
+
+**_Why isn't feature X implemented?_**
+
+Alacritty has many great features, but not every feature from every other
+terminal. This could be for a number of reasons, but sometimes it's just
+because we aren't interested in the added complexity. This means you won't find
+things like tabs or splits (which are best left to a window manager or
+[terminal multiplexer][tmux]) nor niceties like a GUI config editor.
 
 **_macOS + tmux + vim is slow! I thought this was supposed to be fast!_**
 
