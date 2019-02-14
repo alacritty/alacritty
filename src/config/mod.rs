@@ -1904,6 +1904,67 @@ impl Config {
             return Ok(Config::default());
         }
 
+        contents = {
+            let mut new_contents = String::new();
+
+            let env_vars = env::vars().collect();
+
+            struct IncludeFile {
+                file: PathBuf,
+                required: bool,
+            }
+
+            impl IncludeFile {
+                fn parse_line(line: &str) -> Option<Self> {
+                    if line.starts_with("include ") {
+                        Some(IncludeFile {
+                            file: PathBuf::from(&line["include ".len()..]),
+                            required: false,
+                        })
+                    } else if line.starts_with("include! ") {
+                        Some(IncludeFile {
+                            file: PathBuf::from(&line["include! ".len()..]),
+                            required: true,
+                        })
+                    } else {
+                        None
+                    }
+                }
+
+                fn substitute(line: &str, vars: &HashMap<String, String>) -> String {
+                    let mut line = String::from(line);
+                    for (key, value) in vars.iter() {
+                        line = line.replace(&format!("${}", key), value);
+                    }
+                    line
+                }
+            }
+
+            contents.lines()
+                .for_each(|line| {
+                    if let Some(include) = IncludeFile::parse_line(&IncludeFile::substitute(line, &env_vars)) {
+                        if include.file.exists() {
+                            if let Ok(mut file) = File::open(&include.file) {
+                                if let Err(err) = file.read_to_string(&mut new_contents) {
+                                    warn!("Failed to include config file {:?}: {}", &include.file, err);
+                                }
+                            }
+                        } else if include.required {
+                            error!("Include file does not exist {:?}!", &include.file);
+                        } else {
+                            warn!("Include file does not exist {:?}!", &include.file);
+                        }
+                        // TODO use \r\n for windows?
+                        new_contents.push('\n');
+                    } else {
+                        new_contents.push_str(line);
+                        new_contents.push('\n');
+                    }
+                });
+
+            new_contents
+        };
+
         let mut config: Config = serde_yaml::from_str(&contents)?;
         config.print_deprecation_warnings();
 
