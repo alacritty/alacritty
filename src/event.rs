@@ -1,33 +1,33 @@
 //! Process window events
+use std::borrow::Cow;
+use std::env;
 #[cfg(unix)]
 use std::fs;
-use std::borrow::Cow;
 use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc;
-use std::time::{Instant};
-use std::env;
+use std::time::Instant;
 
-use serde_json as json;
-use parking_lot::MutexGuard;
-use glutin::{self, ModifiersState, Event, ElementState, MouseButton};
-use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
+use copypasta::{Buffer as ClipboardBuffer, Clipboard, Load, Store};
 use glutin::dpi::PhysicalSize;
+use glutin::{self, ElementState, Event, ModifiersState, MouseButton};
+use parking_lot::MutexGuard;
+use serde_json as json;
 
-#[cfg(unix)]
-use crate::tty;
-use crate::grid::Scroll;
-use crate::config::{self, Config};
 use crate::cli::Options;
+use crate::config::{self, Config};
 use crate::display::OnResize;
-use crate::index::{Line, Column, Side, Point};
-use crate::input::{self, MouseBinding, KeyBinding};
+use crate::grid::Scroll;
+use crate::index::{Column, Line, Point, Side};
+use crate::input::{self, KeyBinding, MouseBinding};
 use crate::selection::Selection;
 use crate::sync::FairMutex;
-use crate::term::{Term, SizeInfo};
 use crate::term::cell::Cell;
-use crate::util::{limit, start_daemon};
+use crate::term::{SizeInfo, Term};
+#[cfg(unix)]
+use crate::tty;
 use crate::util::fmt::Red;
+use crate::util::{limit, start_daemon};
 use crate::window::Window;
 
 /// Byte sequences are sent to a `Notify` in response to some events
@@ -66,10 +66,13 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
             let size_info = self.size_info();
             let point = size_info.pixels_to_coords(x, y);
             let cell_side = self.mouse().cell_side;
-            self.update_selection(Point {
-                line: point.line,
-                col: point.col
-            }, cell_side);
+            self.update_selection(
+                Point {
+                    line: point.line,
+                    col: point.col,
+                },
+                cell_side,
+            );
         }
     }
 
@@ -86,7 +89,11 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn selection_is_empty(&self) -> bool {
-        self.terminal.selection().as_ref().map(|s| s.is_empty()).unwrap_or(true)
+        self.terminal
+            .selection()
+            .as_ref()
+            .map(|s| s.is_empty())
+            .unwrap_or(true)
     }
 
     fn clear_selection(&mut self) {
@@ -124,7 +131,8 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn mouse_coords(&self) -> Option<Point> {
-        self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
+        self.terminal
+            .pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
     }
 
     #[inline]
@@ -183,7 +191,10 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
         match start_daemon(&alacritty, &args) {
             Ok(_) => debug!("Started new Alacritty process: {} {:?}", alacritty, args),
-            Err(_) => warn!("Unable to start new Alacritty process: {} {:?}", alacritty, args),
+            Err(_) => warn!(
+                "Unable to start new Alacritty process: {} {:?}",
+                alacritty, args
+            ),
         }
     }
 }
@@ -204,9 +215,7 @@ impl WindowChanges {
 
 impl Default for WindowChanges {
     fn default() -> WindowChanges {
-        WindowChanges {
-            hide: false,
-        }
+        WindowChanges { hide: false }
     }
 }
 
@@ -353,16 +362,14 @@ impl<N: Notify> Processor<N> {
                             grid.initialize_all(&Cell::default());
                             grid.truncate();
 
-                            let serialized_grid = json::to_string(&grid)
-                                .expect("serialize grid");
+                            let serialized_grid = json::to_string(&grid).expect("serialize grid");
 
-                            let serialized_size = json::to_string(processor.ctx.terminal.size_info())
-                                .expect("serialize size");
+                            let serialized_size =
+                                json::to_string(processor.ctx.terminal.size_info())
+                                    .expect("serialize size");
 
-                            let serialized_config = format!(
-                                "{{\"history_size\":{}}}",
-                                grid.history_size()
-                            );
+                            let serialized_config =
+                                format!("{{\"history_size\":{}}}", grid.history_size());
 
                             File::create("./grid.json")
                                 .and_then(|mut f| f.write_all(serialized_grid.as_bytes()))
@@ -378,7 +385,7 @@ impl<N: Notify> Processor<N> {
                         }
 
                         processor.ctx.terminal.exit();
-                    },
+                    }
                     Resized(lsize) => {
                         // Resize events are emitted via glutin/winit with logical sizes
                         // However the terminal, window and renderer use physical sizes
@@ -387,39 +394,53 @@ impl<N: Notify> Processor<N> {
                             .send(lsize.to_physical(processor.ctx.size_info.dpr))
                             .expect("send new size");
                         processor.ctx.terminal.dirty = true;
-                    },
+                    }
                     KeyboardInput { input, .. } => {
                         processor.process_key(input);
                         if input.state == ElementState::Pressed {
                             // Hide cursor while typing
                             *hide_mouse = true;
                         }
-                    },
+                    }
                     ReceivedCharacter(c) => {
                         processor.received_char(c);
-                    },
-                    MouseInput { state, button, modifiers, .. } => {
+                    }
+                    MouseInput {
+                        state,
+                        button,
+                        modifiers,
+                        ..
+                    } => {
                         if !cfg!(target_os = "macos") || *window_is_focused {
                             *hide_mouse = false;
                             processor.mouse_input(state, button, modifiers);
                             processor.ctx.terminal.dirty = true;
                         }
-                    },
-                    CursorMoved { position: lpos, modifiers, .. } => {
+                    }
+                    CursorMoved {
+                        position: lpos,
+                        modifiers,
+                        ..
+                    } => {
                         let (x, y) = lpos.to_physical(processor.ctx.size_info.dpr).into();
                         let x: i32 = limit(x, 0, processor.ctx.size_info.width as i32);
                         let y: i32 = limit(y, 0, processor.ctx.size_info.height as i32);
 
                         *hide_mouse = false;
                         processor.mouse_moved(x as usize, y as usize, modifiers);
-                    },
-                    MouseWheel { delta, phase, modifiers, .. } => {
+                    }
+                    MouseWheel {
+                        delta,
+                        phase,
+                        modifiers,
+                        ..
+                    } => {
                         *hide_mouse = false;
                         processor.on_mouse_wheel(delta, phase, modifiers);
-                    },
+                    }
                     Refresh => {
                         processor.ctx.terminal.dirty = true;
-                    },
+                    }
                     Focused(is_focused) => {
                         *window_is_focused = is_focused;
 
@@ -432,19 +453,19 @@ impl<N: Notify> Processor<N> {
                         }
 
                         processor.on_focus_change(is_focused);
-                    },
+                    }
                     DroppedFile(path) => {
                         use crate::input::ActionContext;
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty(path.into_bytes());
-                    },
+                    }
                     HiDpiFactorChanged(new_dpr) => {
                         processor.ctx.size_info.dpr = new_dpr;
                         processor.ctx.terminal.dirty = true;
-                    },
+                    }
                     _ => (),
                 }
-            },
+            }
             Event::Awakened => {
                 processor.ctx.terminal.dirty = true;
             }
@@ -456,7 +477,7 @@ impl<N: Notify> Processor<N> {
     pub fn process_events<'a>(
         &mut self,
         term: &'a FairMutex<Term>,
-        window: &mut Window
+        window: &mut Window,
     ) -> MutexGuard<'a, Term> {
         // Terminal is lazily initialized the first time an event is returned
         // from the blocking WaitEventsIterator. Otherwise, the pty reader would
