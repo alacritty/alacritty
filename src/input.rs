@@ -734,8 +734,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     /// Process key input
-    ///
-    /// If a keybinding was run, returns true. Otherwise returns false.
     pub fn process_key(&mut self, input: KeyboardInput) {
         match input.state {
             ElementState::Pressed => {
