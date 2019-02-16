@@ -753,29 +753,31 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     /// Process a received character
     pub fn received_char(&mut self, c: char) {
-        if !*self.ctx.suppress_chars() {
-            self.ctx.scroll(Scroll::Bottom);
-            self.ctx.clear_selection();
-
-            let utf8_len = c.len_utf8();
-            let mut bytes = Vec::with_capacity(utf8_len);
-            unsafe {
-                bytes.set_len(utf8_len);
-                c.encode_utf8(&mut bytes[..]);
-            }
-
-            if self.alt_send_esc
-                && *self.ctx.received_count() == 0
-                && self.ctx.last_modifiers().alt
-                && utf8_len == 1
-            {
-                bytes.insert(0, b'\x1b');
-            }
-
-            self.ctx.write_to_pty(bytes);
-
-            *self.ctx.received_count() += 1;
+        if *self.ctx.suppress_chars() {
+            return;
         }
+
+        self.ctx.scroll(Scroll::Bottom);
+        self.ctx.clear_selection();
+
+        let utf8_len = c.len_utf8();
+        let mut bytes = Vec::with_capacity(utf8_len);
+        unsafe {
+            bytes.set_len(utf8_len);
+            c.encode_utf8(&mut bytes[..]);
+        }
+
+        if self.alt_send_esc
+            && *self.ctx.received_count() == 0
+            && self.ctx.last_modifiers().alt
+            && utf8_len == 1
+        {
+            bytes.insert(0, b'\x1b');
+        }
+
+        self.ctx.write_to_pty(bytes);
+
+        *self.ctx.received_count() += 1;
     }
 
     /// Attempts to find a binding and execute its action
