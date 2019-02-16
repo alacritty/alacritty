@@ -22,19 +22,21 @@ use std::borrow::Cow;
 use std::mem;
 use std::time::Instant;
 
-use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
-use glutin::{ElementState, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState, KeyboardInput};
+use copypasta::{Buffer as ClipboardBuffer, Clipboard, Load};
+use glutin::{
+    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
+};
 
+use crate::ansi::{ClearMode, Handler};
 use crate::config::{self, Key};
-use crate::grid::Scroll;
 use crate::event::{ClickState, Mouse};
-use crate::index::{Line, Column, Side, Point};
-use crate::term::{Term, SizeInfo, Search};
+use crate::grid::Scroll;
+use crate::index::{Column, Line, Point, Side};
+use crate::message_bar;
 use crate::term::mode::TermMode;
+use crate::term::{Search, SizeInfo, Term};
 use crate::util::fmt::Red;
 use crate::util::start_daemon;
-use crate::message_bar;
-use crate::ansi::{Handler, ClearMode};
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
 
@@ -142,10 +144,10 @@ impl<T: Eq> Binding<T> {
         // Check input first since bindings are stored in one big list. This is
         // the most likely item to fail so prioritizing it here allows more
         // checks to be short circuited.
-        self.trigger == *input &&
-            self.mode_matches(mode) &&
-            self.not_mode_matches(mode) &&
-            self.mods_match(mods, relaxed)
+        self.trigger == *input
+            && self.mode_matches(mode)
+            && self.not_mode_matches(mode)
+            && self.mods_match(mods, relaxed)
     }
 
     #[inline]
@@ -255,77 +257,77 @@ impl Action {
             Action::Esc(ref s) => {
                 ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
-            },
+            }
             Action::Copy => {
                 ctx.copy_selection(ClipboardBuffer::Primary);
-            },
+            }
             Action::Paste => {
                 Clipboard::new()
-                    .and_then(|clipboard| clipboard.load_primary() )
-                    .map(|contents| { self.paste(ctx, &contents) })
+                    .and_then(|clipboard| clipboard.load_primary())
+                    .map(|contents| self.paste(ctx, &contents))
                     .unwrap_or_else(|err| {
                         error!("Error loading data from clipboard: {}", Red(err));
                     });
-            },
+            }
             Action::PasteSelection => {
                 // Only paste if mouse events are not captured by an application
                 if !mouse_mode {
                     Clipboard::new()
-                        .and_then(|clipboard| clipboard.load_selection() )
-                        .map(|contents| { self.paste(ctx, &contents) })
+                        .and_then(|clipboard| clipboard.load_selection())
+                        .map(|contents| self.paste(ctx, &contents))
                         .unwrap_or_else(|err| {
                             error!("Error loading data from clipboard: {}", Red(err));
                         });
                 }
-            },
+            }
             Action::Command(ref program, ref args) => {
                 trace!("Running command {} with args {:?}", program, args);
 
                 match start_daemon(program, args) {
                     Ok(_) => {
                         debug!("Spawned new proc");
-                    },
+                    }
                     Err(err) => {
                         warn!("Couldn't run command {}", err);
-                    },
+                    }
                 }
-            },
+            }
             Action::Hide => {
                 ctx.hide_window();
-            },
+            }
             Action::Quit => {
                 ctx.terminal_mut().exit();
-            },
+            }
             Action::IncreaseFontSize => {
-               ctx.terminal_mut().change_font_size(FONT_SIZE_STEP);
-            },
+                ctx.terminal_mut().change_font_size(FONT_SIZE_STEP);
+            }
             Action::DecreaseFontSize => {
-               ctx.terminal_mut().change_font_size(-FONT_SIZE_STEP);
+                ctx.terminal_mut().change_font_size(-FONT_SIZE_STEP);
             }
             Action::ResetFontSize => {
-               ctx.terminal_mut().reset_font_size();
-            },
+                ctx.terminal_mut().reset_font_size();
+            }
             Action::ScrollPageUp => {
                 ctx.scroll(Scroll::PageUp);
-            },
+            }
             Action::ScrollPageDown => {
                 ctx.scroll(Scroll::PageDown);
-            },
+            }
             Action::ScrollToTop => {
                 ctx.scroll(Scroll::Top);
-            },
+            }
             Action::ScrollToBottom => {
                 ctx.scroll(Scroll::Bottom);
-            },
+            }
             Action::ClearHistory => {
                 ctx.terminal_mut().clear_screen(ClearMode::Saved);
-            },
+            }
             Action::ClearLogNotice => {
                 ctx.terminal_mut().message_buffer_mut().pop();
-            },
+            }
             Action::SpawnNewInstance => {
                 ctx.spawn_new_instance();
-            },
+            }
             Action::None => (),
         }
     }
@@ -333,7 +335,7 @@ impl Action {
     fn paste<A: ActionContext>(&self, ctx: &mut A, contents: &str) {
         if ctx.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
             ctx.write_to_pty(&b"\x1b[200~"[..]);
-            ctx.write_to_pty(contents.replace("\x1b","").into_bytes());
+            ctx.write_to_pty(contents.replace("\x1b", "").into_bytes());
             ctx.write_to_pty(&b"\x1b[201~"[..]);
         } else {
             // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
@@ -342,7 +344,12 @@ impl Action {
             // pasting... since that's neither practical nor sensible (and probably an impossible
             // task to solve in a general way), we'll just replace line breaks (windows and unix
             // style) with a singe carriage return (\r, which is what the Enter key produces).
-            ctx.write_to_pty(contents.replace("\r\n","\r").replace("\n","\r").into_bytes());
+            ctx.write_to_pty(
+                contents
+                    .replace("\r\n", "\r")
+                    .replace("\n", "\r")
+                    .into_bytes(),
+            );
         }
     }
 }
@@ -509,12 +516,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn on_mouse_press(
-        &mut self,
-        button: MouseButton,
-        modifiers: ModifiersState,
-        point: Point,
-    ) {
+    pub fn on_mouse_press(&mut self, button: MouseButton, modifiers: ModifiersState, point: Point) {
         let now = Instant::now();
         let elapsed = self.ctx.mouse().last_click_timestamp.elapsed();
         self.ctx.mouse_mut().last_click_timestamp = now;
@@ -528,14 +530,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_double_click(button, point);
                 ClickState::DoubleClick
-            },
+            }
             ClickState::DoubleClick
                 if !button_changed && elapsed < self.mouse_config.triple_click.threshold =>
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_triple_click(button, point);
                 ClickState::TripleClick
-            },
+            }
             _ => {
                 // Don't launch URLs if this click cleared the selection
                 self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
@@ -606,7 +608,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         match start_daemon(launcher.program(), &args) {
             Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
-            Err(_) => warn!("Unable to launch {} with args {:?}", launcher.program(), args),
+            Err(_) => warn!(
+                "Unable to launch {} with args {:?}",
+                launcher.program(),
+                args
+            ),
         }
 
         Some(())
@@ -622,16 +628,16 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let new_scroll_px = lines * self.ctx.size_info().cell_height;
                 self.scroll_terminal(modifiers, new_scroll_px as i32);
-            },
+            }
             MouseScrollDelta::PixelDelta(lpos) => {
                 match phase {
                     TouchPhase::Started => {
                         // Reset offset to zero
                         self.ctx.mouse_mut().scroll_px = 0;
-                    },
+                    }
                     TouchPhase::Moved => {
                         self.scroll_terminal(modifiers, lpos.y as i32);
-                    },
+                    }
                     _ => (),
                 }
             }
@@ -688,11 +694,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     pub fn on_focus_change(&mut self, is_focused: bool) {
         if self.ctx.terminal().mode().contains(TermMode::FOCUS_IN_OUT) {
-            let chr = if is_focused {
-                "I"
-            } else {
-                "O"
-            };
+            let chr = if is_focused { "I" } else { "O" };
 
             let msg = format!("\x1b[{}", chr);
             self.ctx.write_to_pty(msg.into_bytes());
@@ -703,7 +705,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         &mut self,
         state: ElementState,
         button: MouseButton,
-        modifiers: ModifiersState
+        modifiers: ModifiersState,
     ) {
         match button {
             MouseButton::Left => self.ctx.mouse_mut().left_button_state = state,
@@ -725,7 +727,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 ElementState::Pressed => {
                     self.process_mouse_bindings(modifiers, button);
                     self.on_mouse_press(button, modifiers, point);
-                },
+                }
                 ElementState::Released => self.on_mouse_release(button, modifiers, point),
             }
         }
@@ -746,7 +748,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 if self.process_key_bindings(input) {
                     *self.ctx.suppress_chars() = true;
                 }
-            },
+            }
             ElementState::Released => *self.ctx.suppress_chars() = false,
         }
     }
@@ -794,17 +796,19 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     &Key::Scancode(input.scancode),
                     false,
                 ),
-                _ => if let Some(key) = input.virtual_keycode {
-                    let key = Key::from_glutin_input(key);
-                    binding.is_triggered_by(
-                        *self.ctx.terminal().mode(),
-                        input.modifiers,
-                        &key,
+                _ => {
+                    if let Some(key) = input.virtual_keycode {
+                        let key = Key::from_glutin_input(key);
+                        binding.is_triggered_by(
+                            *self.ctx.terminal().mode(),
+                            input.modifiers,
+                            &key,
+                            false,
+                        )
+                    } else {
                         false
-                    )
-                } else {
-                    false
-                },
+                    }
+                }
             };
 
             if is_triggered {
@@ -828,11 +832,12 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         for binding in self.mouse_bindings {
             if binding.is_triggered_by(*self.ctx.terminal().mode(), mods, &button, true) {
                 // binding was triggered; run the action
-                let mouse_mode = !mods.shift && self.ctx.terminal().mode().intersects(
-                    TermMode::MOUSE_REPORT_CLICK
-                    | TermMode::MOUSE_DRAG
-                    | TermMode::MOUSE_MOTION
-                );
+                let mouse_mode = !mods.shift
+                    && self.ctx.terminal().mode().intersects(
+                        TermMode::MOUSE_REPORT_CLICK
+                            | TermMode::MOUSE_DRAG
+                            | TermMode::MOUSE_MOTION,
+                    );
                 binding.execute(&mut self.ctx, mouse_mode);
                 has_binding = true;
             }
@@ -884,15 +889,15 @@ mod tests {
     use std::borrow::Cow;
     use std::time::Duration;
 
-    use glutin::{VirtualKeyCode, Event, WindowEvent, ElementState, MouseButton, ModifiersState};
+    use glutin::{ElementState, Event, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent};
 
-    use crate::term::{SizeInfo, Term, TermMode};
-    use crate::event::{Mouse, ClickState, WindowChanges};
-    use crate::config::{self, Config, ClickHandler};
-    use crate::index::{Point, Side};
-    use crate::selection::Selection;
+    use crate::config::{self, ClickHandler, Config};
+    use crate::event::{ClickState, Mouse, WindowChanges};
     use crate::grid::Scroll;
+    use crate::index::{Point, Side};
     use crate::message_bar::MessageBuffer;
+    use crate::selection::Selection;
+    use crate::term::{SizeInfo, Term, TermMode};
 
     use super::{Action, Binding, Processor};
     use copypasta::Buffer as ClipboardBuffer;
@@ -918,7 +923,7 @@ mod tests {
         pub window_changes: &'a mut WindowChanges,
     }
 
-    impl <'a>super::ActionContext for ActionContext<'a> {
+    impl<'a> super::ActionContext for ActionContext<'a> {
         fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _val: B) {}
         fn update_selection(&mut self, _point: Point, _side: Side) {}
         fn simple_selection(&mut self, _point: Point, _side: Side) {}
@@ -957,7 +962,8 @@ mod tests {
         }
 
         fn mouse_coords(&self) -> Option<Point> {
-            self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
+            self.terminal
+                .pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
         }
 
         #[inline]
