@@ -6,7 +6,7 @@ Table of Contents:
 
 1. [Feature Requests](#feature-requests)
 2. [Bug Reports](#bug-reports)
-3. [Pull Requests](#pull-requests)
+3. [Pull Requests](#patches--pull-requests)
     1. [Testing](#testing)
     2. [Performance](#performance)
     3. [Documentation](#documentation)
