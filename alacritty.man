@@ -4,11 +4,12 @@ alacritty \- a cross-platform, gpu-accelerated terminal emulator
 .SH "SYNOPSIS"
 alacritty [FLAGS] [OPTIONS]
 .SH DESCRIPTION
-Alacritty is focused on simplicity and performance.
-.TP
-The performance goal means it should be faster than any other terminal emulator available.
-.TP
-The simplicity goal means that it doesn't have features such as tabs or splits (which can be better provided by a window manager or terminal multiplexer) nor niceties like a GUI config editor.
+Alacritty is a terminal emulator with a strong focus on simplicity and
+performance. It's cross-platform, and powered by the GPU. Alacritty comes with
+sane defaults, and many aspects of the terminal are configurable.
+.PP
+Alacritty is still beta quality software. You may find missing features or
+bugs, please report any issues to https://github.com/jwilm/alacritty/issues
 .SH "FLAGS"
 .TP
 \fB\-h\fR, \fB\-\-help\fR
