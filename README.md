@@ -19,8 +19,9 @@ Alacritty currently supports macOS, Linux, BSD, and Windows.
 Alacritty is a terminal emulator with a strong focus on simplicity and
 performance. With such a strong focus on performance, included features are
 carefully considered and you can always expect Alacritty to be blazingly fast.
-Alacritty should also "just work" by making sane choices in defaults, but
-allowing [configuration](#configuration) of many aspects of the terminal.
+By making sane choices for defaults, Alacritty requires no additional setup.
+However, it does allow [configuration](#configuration) of many aspects of the
+terminal.
 
 The software is considered to be at a **beta** level of readiness -- there are
 a few missing features and bugs to be fixed, but it is already used by many as
