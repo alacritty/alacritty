@@ -785,6 +785,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     ///
     /// Returns true if an action is executed.
     fn process_key_bindings(&mut self, input: KeyboardInput) -> bool {
+        trace!("SEB: Executing something: input: {:?}", input);
+        self.ctx.terminal_mut().increment_input_activity_level();
         let mut has_binding = false;
         for binding in self.key_bindings {
             let is_triggered = match binding.trigger {
