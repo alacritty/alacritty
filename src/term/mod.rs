@@ -786,6 +786,7 @@ pub struct Term {
     /// Default style for resetting the cursor
     default_cursor_style: CursorStyle,
 
+    /// Whether to permit updating the terminal title
     dynamic_title: bool,
 
     /// Number of spaces in one tab
@@ -798,7 +799,7 @@ pub struct Term {
     message_buffer: MessageBuffer,
 
     /// Hint that Alacritty should be closed
-    should_exit: bool,
+    should_exit: bool
 }
 
 /// Terminal size info
@@ -1356,7 +1357,19 @@ impl ansi::Handler for Term {
     #[inline]
     fn set_title(&mut self, title: &str) {
         if self.dynamic_title {
-            self.next_title = Some(title.to_owned());
+            let mut title = title.to_owned();
+
+            #[cfg(windows)]
+            {
+                // Winpty - the title is missing Alacritty
+                // at the front, must prepend it to get equivalent
+                // behaviour between Conpty and Winpty
+                if !tty::is_conpty() {
+                    title = String::from("Alacritty") + &title;
+                }
+            }
+
+            self.next_title = Some(title);
         }
     }
 

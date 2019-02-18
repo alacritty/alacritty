@@ -27,7 +27,7 @@ use widestring::U16CString;
 use winapi::ctypes::c_void;
 use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
 use winapi::shared::minwindef::{BYTE, DWORD};
-use winapi::shared::ntdef::{HANDLE, HRESULT, LPCWSTR, LPWSTR};
+use winapi::shared::ntdef::{HANDLE, HRESULT, LPWSTR};
 use winapi::shared::winerror::S_OK;
 use winapi::um::libloaderapi::{GetModuleHandleA, GetProcAddress};
 use winapi::um::processthreadsapi::{
@@ -147,6 +147,11 @@ pub fn new<'a>(
     let mut size: SIZE_T = 0;
 
     let mut startup_info_ex: STARTUPINFOEXW = Default::default();
+
+    let title = options.title.as_ref().map(|w| w.as_str()).unwrap_or("Alacritty");
+    let title = U16CString::from_str(title).unwrap();
+    startup_info_ex.StartupInfo.lpTitle = title.as_ptr() as LPWSTR;
+
     startup_info_ex.StartupInfo.cb = mem::size_of::<STARTUPINFOEXW>() as u32;
 
     // Create the appropriately sized thread attribute list.
@@ -212,34 +217,25 @@ pub fn new<'a>(
     let cwd = cwd.as_ref().map(|dir| dir.to_str().unwrap());
 
     // Create the client application, using startup info containing ConPTY info
-    let cmdline = U16CString::from_str(&cmdline.join(" ")).unwrap().into_raw();
+    let cmdline = U16CString::from_str(&cmdline.join(" ")).unwrap();
     let cwd = cwd.map(|s| U16CString::from_str(&s).unwrap());
-    let cwd_ptr = match &cwd {
-        Some(b) => b.as_ptr() as LPCWSTR,
-        None => ptr::null(),
-    };
 
     let mut proc_info: PROCESS_INFORMATION = Default::default();
     unsafe {
         success = CreateProcessW(
             ptr::null(),
-            cmdline as LPWSTR,
+            cmdline.as_ptr() as LPWSTR,
             ptr::null_mut(),
             ptr::null_mut(),
             true as i32,
             EXTENDED_STARTUPINFO_PRESENT,
             ptr::null_mut(),
-            cwd_ptr,
+            cwd.map_or_else(ptr::null, |s| s.as_ptr()),
             &mut startup_info_ex.StartupInfo as *mut STARTUPINFOW,
             &mut proc_info as *mut PROCESS_INFORMATION,
         ) > 0;
 
         assert!(success);
-    }
-
-    // Recover raw memory to cmdline so it can be freed
-    unsafe {
-        U16CString::from_raw(cmdline);
     }
 
     // Store handle to console
