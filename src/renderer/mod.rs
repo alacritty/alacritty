@@ -694,10 +694,84 @@ impl QuadRenderer {
         let color = config.visual_bell().color();
         let rect = Rect::new(0., 0., props.width, props.height);
         self.render_rect(&rect, color, visual_bell_intensity as f32, props);
+        //trace!("SEB: render_rect({:?},{:?},{},{:?})", &rect, color, visual_bell_intensity as f32, props);
 
         // Draw underlines and strikeouts
         for cell_line_rect in cell_line_rects.rects() {
             self.render_rect(&cell_line_rect.0, cell_line_rect.1, 255., props);
+        }
+
+        // Deactivate rectangle program again
+        unsafe {
+            // Reset blending strategy
+            gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
+
+            // Reset data and buffers
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+
+            let padding_x = props.padding_x as i32;
+            let padding_y = props.padding_y as i32;
+            let width = props.width as i32;
+            let height = props.height as i32;
+            gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
+
+            // Disable program
+            gl::UseProgram(0);
+        }
+    }
+
+    pub fn draw_activity_line(
+        &mut self,
+        _config: &Config,
+        props: &term::SizeInfo,
+        activity: &term::ActivityLevels
+    ) {
+        // Swap to rectangle rendering program
+        unsafe {
+            // Swap program
+            gl::UseProgram(self.rect_program.id);
+
+            // Remove padding from viewport
+            gl::Viewport(0, 0, props.width as i32, props.height as i32);
+
+            // Change blending strategy
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+
+            // Setup data and buffers
+            gl::BindVertexArray(self.rect_vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.rect_vbo);
+
+            // Position
+            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, (size_of::<f32>() * 2) as _, ptr::null());
+            gl::EnableVertexAttribArray(0);
+        }
+
+        // Draw activity line
+        let mut max_size = 100u64;
+        for level in activity.activity_levels.iter() {
+            if *level > max_size {
+                max_size = *level;
+            }
+        }
+        let activity_tick_width = 10f32;
+        let activity_tick_spacing = 100f32;
+        let activity_line_height = 100f32;
+        let mut current_tick = 0.;
+        for level in activity.activity_levels.iter() {
+            current_tick += 1.;
+            // 100      = X
+            // max_size   level
+            let tick_height = *level as f32 * activity_line_height / max_size as f32;
+            // XXX: Use props.width - (props.padding_x * 2.) with x_offset
+            let rect = Rect::new(
+                activity.x_offset + (current_tick * activity_tick_spacing) - (activity_tick_width / 2.),
+                props.height - props.padding_y - tick_height,
+                activity_tick_width / 2.,
+                tick_height
+            );
+            trace!("Activity Line: {:?}, color: {:?}, props: {:?}", rect, activity.color, props);
+            self.render_rect(&rect, activity.color, 128., props);
         }
 
         // Deactivate rectangle program again
