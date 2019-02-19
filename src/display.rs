@@ -408,7 +408,8 @@ impl Display {
                 self.window.set_urgent(is_urgent);
             }
         }
-
+        let input_activity_levels = terminal.get_input_activity_levels().clone();
+        let output_activity_levels = terminal.get_output_activity_levels().clone();
         // Clear when terminal mutex isn't held. Mesa for
         // some reason takes a long time to call glClear(). The driver descends
         // into xcb_connect_to_fd() which ends up calling __poll_nocancel()
@@ -456,6 +457,8 @@ impl Display {
 
                 // Draw rectangles including the new background
                 self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
+                self.renderer.draw_activity_line(config, &size_info, &input_activity_levels);
+                self.renderer.draw_activity_line(config, &size_info, &output_activity_levels);
 
                 // Relay messages to the user
                 let mut offset = 1;
@@ -473,6 +476,8 @@ impl Display {
             } else {
                 // Draw rectangles
                 self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
+                self.renderer.draw_activity_line(config, &size_info, &output_activity_levels);
+                self.renderer.draw_activity_line(config, &size_info, &input_activity_levels);
             }
 
             // Draw render timer
