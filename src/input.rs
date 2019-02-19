@@ -754,6 +754,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         if *self.ctx.suppress_chars() {
             return;
         }
+        self.ctx.terminal_mut().increment_output_activity_level();
 
         self.ctx.scroll(Scroll::Bottom);
         self.ctx.clear_selection();
