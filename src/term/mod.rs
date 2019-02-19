@@ -814,17 +814,23 @@ pub struct Term {
 pub struct ActivityLevels {
     /// Capture events/characters per second
     /// Contains one entry per second
-    activity_levels: Vec<u64>,
+    pub activity_levels: Vec<u64>,
 
     /// Last Activity Time
-    last_activity_time: u64,
+    pub last_activity_time: u64,
 
     /// Max activity ticks to show, ties to the activity_levels array
     /// it should cause it to throw away old items for newer records
-    max_activity_ticks: usize,
+    pub max_activity_ticks: usize,
 
     /// The color of the activity_line
-    color: Rgb,
+    pub color: Rgb,
+
+    /// The offset in which the activity line should be drawn
+    pub x_offset: f32,
+
+    /// The width of the activity chart/histogram
+    pub width: f32,
 }
 
 impl Default for ActivityLevels{
@@ -833,7 +839,7 @@ impl Default for ActivityLevels{
     /// just to avoid needed to reallocate the vector in memory the first 5mins.
     fn default() -> ActivityLevels{
         let activity_time = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        let activity_vector_capacity = 10usize; // 10 seconds, should be set to 300 seconds (5mins)
+        let activity_vector_capacity = 300usize; // 300 seconds (5mins)
         ActivityLevels{
             last_activity_time: activity_time,
             activity_levels: Vec::<u64>::with_capacity(activity_vector_capacity), // XXX: Maybe use vec![0; 300]; to pre-fill with zeros?
@@ -842,61 +848,68 @@ impl Default for ActivityLevels{
                 r: 255,
                 g: 0,
                 b: 0,
-            }
+            },
+            x_offset: 500f32,
+            width: 1500f32,
         }
     }
 }
 
 impl ActivityLevels {
     /// `with_color` Changes the color of the activity line
-    pub fn with_color(self, color: Rgb) -> ActivityLevels {
+    pub fn with_color(mut self, color: Rgb) -> ActivityLevels {
         self.color = color;
         self
     }
 
+    /// `with_x_offset` Changes the offset of the activity level drawing location
+    pub fn with_x_offset(mut self, new_offset: f32) -> ActivityLevels {
+        self.x_offset = new_offset;
+        self
+    }
+
+    /// `with_width` Changes the width of the activity level drawing location
+    pub fn with_width(mut self, width: f32) -> ActivityLevels {
+        self.width = width;
+        self
+    }
     /// `increment_activity_level` Deals with time ranges in the activity vector
     pub fn increment_activity_level(&mut self) {
         // XXX: Right now set to "as_secs", but could be used for other time units easily
+        let mut activity_time_length = self.activity_levels.len();
         let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        let activity_time_length = self.activity_levels.len();
-        // If vec is empty, just add a 1 to the list and set last_activity_time
+        // trace!("SEB: last_activity_time:{} activity_levels: {:?}", self.last_activity_time, self.activity_levels);
         if activity_time_length == 0 {
             self.activity_levels.push(1);
             self.last_activity_time = now;
             return;
         }
-        // trace!("SEB: last_activity_time:{} activity_levels: {:?}", self.last_activity_time, self.activity_levels);
         if now == self.last_activity_time {
             self.activity_levels[activity_time_length - 1] += 1;
         } else {
-            // max_ticks = 5
-            // t = 0  1  2  3  4
-            //    [9][8][7][6][9]
-            // inactive_time = 1
-            //    [8][7][6][9][0]
-            // inactive_time = 2
-            //    [7][6][9][0][0]
-            // inactive_time = 10 > max_ticks, becomes = 4
-            //    [0][0][0][0][0]
-            // now = 2, last_activity = 0
-            // is empty, but capacity pre-allocated:
-            // t = 0  1  2  3  4
-            //    [ ][ ][ ][ ][ ]
-            // inactive_time = 2
-            //    [1][ ][ ][ ][ ]
-            let inactive_time = (now - self.last_activity_time) as usize;
+            let mut inactive_time = (now - self.last_activity_time) as usize;
             if inactive_time > self.max_activity_ticks {
                 inactive_time = self.max_activity_ticks;
             }
-            // Shift left elements outside of visible time range, set empty entries to 0
-            for idx in 0..activity_time_length {
-                if idx + inactive_time >= activity_time_length {
+            if inactive_time + activity_time_length > self.max_activity_ticks {
+                let shift_left_times = inactive_time + activity_time_length - self.max_activity_ticks;
+                for idx in 0 .. activity_time_length - shift_left_times {
+                    self.activity_levels[idx] = self.activity_levels[idx + shift_left_times]
+                }
+                for idx in activity_time_length - shift_left_times .. activity_time_length {
                     self.activity_levels[idx] = 0;
-                } else {
-                    self.activity_levels[idx] = self.activity_levels[idx + inactive_time];
+                }
+            } else {
+                for _ in 0..inactive_time - 1 {
+                    self.activity_levels.push(0);
+                    activity_time_length += 1;
                 }
             }
-            self.activity_levels[activity_time_length - 1] += 1;
+            if activity_time_length < self.max_activity_ticks {
+                self.activity_levels.push(1);
+            } else {
+                self.activity_levels[activity_time_length - 1] = 1;
+            }
             self.last_activity_time = now;
         }
     }
@@ -1029,7 +1042,7 @@ impl Term {
             message_buffer,
             should_exit: false,
             input_activity_levels: ActivityLevels::default(),
-            output_activity_levels: ActivityLevels::default().with_color(Rgb{r:0,g:255,b:0}),
+            output_activity_levels: ActivityLevels::default().with_color(Rgb{r:0,g:255,b:0}).with_x_offset(1000f32),
         }
     }
 
@@ -1359,16 +1372,18 @@ impl Term {
     }
 
     #[inline]
-    pub fn get_outputput_activity_levels(&self) -> &ActivityLevels {
+    pub fn get_output_activity_levels(&self) -> &ActivityLevels {
         &self.output_activity_levels
     }
 
     pub fn increment_output_activity_level(&mut self) {
-        self.input_activity_levels.increment_activity_level();
+        self.output_activity_levels.increment_activity_level();
+        trace!("SEB: O-increment: {:?}",self.input_activity_levels);
     }
 
     pub fn increment_input_activity_level(&mut self) {
-        self.output_activity_levels.increment_activity_level();
+        self.input_activity_levels.increment_activity_level();
+        trace!("SEB: I-increment: {:?}",self.input_activity_levels);
     }
 
     #[inline]
@@ -1485,7 +1500,7 @@ impl ansi::Handler for Term {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
-
+        self.increment_output_activity_level();
         // If enabled, scroll to bottom when character is received
         if self.auto_scroll {
             self.scroll_display(Scroll::Bottom);
