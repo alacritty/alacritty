@@ -831,6 +831,19 @@ pub struct ActivityLevels {
 
     /// The width of the activity chart/histogram
     pub width: f32,
+
+    /// The opengl representation of the activity levels
+    /// Contains twice as many items because it's x,y
+    pub opengl_vecs: Vec<f32>,
+
+    /// The height of the activity line region
+    pub activity_line_height: f32,
+
+    /// The spacing between the activity line segments, could be renamed to line length
+    pub activity_tick_spacing: f32,
+
+    /// The transparency of the activity line
+    pub alpha: f32,
 }
 
 impl Default for ActivityLevels{
@@ -849,8 +862,12 @@ impl Default for ActivityLevels{
                 g: 0,
                 b: 0,
             },
-            x_offset: 500f32,
-            width: 1500f32,
+            x_offset: 100f32,
+            width: 600f32,
+            opengl_vecs: Vec::<f32>::with_capacity(activity_vector_capacity * 2),
+            activity_line_height: 50f32,
+            activity_tick_spacing: 5f32,
+            alpha: 64f32,
         }
     }
 }
@@ -874,7 +891,7 @@ impl ActivityLevels {
         self
     }
     /// `increment_activity_level` Deals with time ranges in the activity vector
-    pub fn increment_activity_level(&mut self) {
+    pub fn increment_activity_level(&mut self, size: SizeInfo) {
         // XXX: Right now set to "as_secs", but could be used for other time units easily
         let mut activity_time_length = self.activity_levels.len();
         let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
@@ -882,6 +899,9 @@ impl ActivityLevels {
         if activity_time_length == 0 {
             self.activity_levels.push(1);
             self.last_activity_time = now;
+            // Adding twice to a vec, could this be made into one operation? Is this slow?
+            self.opengl_vecs.push(self.x_offset);
+            self.opengl_vecs.push(size.height);
             return;
         }
         if now == self.last_activity_time {
@@ -911,6 +931,22 @@ impl ActivityLevels {
                 self.activity_levels[activity_time_length - 1] = 1;
             }
             self.last_activity_time = now;
+        }
+        // Get the maximum value
+        let mut max_activity_value = 0u64;
+        for idx in 0..self.activity_levels.len() {
+            if self.activity_levels[idx] > max_activity_value {
+                max_activity_value = self.activity_levels[idx];
+            }
+        }
+        // Get the opengl representation of the vector
+        for idx in 0..self.activity_levels.len() {
+            // Adding twice to a vec, could this be made into one operation? Is this slow?
+            // XXX: width is not being honored
+            self.opengl_vecs.push(size.padding_x + self.x_offset + (idx as f32 * self.activity_tick_spacing));
+            // width = x
+            // max    level
+            self.opengl_vecs.push(size.height - 2. * size.padding_y - (self.width * self.activity_levels[idx] as f32 / max_activity_value as f32));
         }
     }
 }
@@ -1042,7 +1078,7 @@ impl Term {
             message_buffer,
             should_exit: false,
             input_activity_levels: ActivityLevels::default(),
-            output_activity_levels: ActivityLevels::default().with_color(Rgb{r:0,g:255,b:0}).with_x_offset(1000f32),
+            output_activity_levels: ActivityLevels::default().with_color(Rgb{r:0,g:255,b:0}).with_x_offset(800f32),
         }
     }
 
@@ -1377,13 +1413,11 @@ impl Term {
     }
 
     pub fn increment_output_activity_level(&mut self) {
-        self.output_activity_levels.increment_activity_level();
-        trace!("SEB: O-increment: {:?}",self.input_activity_levels);
+        self.output_activity_levels.increment_activity_level(self.size_info);
     }
 
     pub fn increment_input_activity_level(&mut self) {
-        self.input_activity_levels.increment_activity_level();
-        trace!("SEB: I-increment: {:?}",self.input_activity_levels);
+        self.input_activity_levels.increment_activity_level(self.size_info);
     }
 
     #[inline]
