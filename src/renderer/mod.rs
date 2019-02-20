@@ -745,37 +745,21 @@ impl QuadRenderer {
             // Position
             gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, (size_of::<f32>() * 2) as _, ptr::null());
             gl::EnableVertexAttribArray(0);
-        }
 
-        // Draw activity line
-        let mut max_size = 100u64;
-        for level in activity.activity_levels.iter() {
-            if *level > max_size {
-                max_size = *level;
-            }
-        }
-        let activity_tick_width = 10f32;
-        let activity_tick_spacing = 100f32;
-        let activity_line_height = 100f32;
-        let mut current_tick = 0.;
-        for level in activity.activity_levels.iter() {
-            current_tick += 1.;
-            // 100      = X
-            // max_size   level
-            let tick_height = *level as f32 * activity_line_height / max_size as f32;
-            // XXX: Use props.width - (props.padding_x * 2.) with x_offset
-            let rect = Rect::new(
-                activity.x_offset + (current_tick * activity_tick_spacing) - (activity_tick_width / 2.),
-                props.height - props.padding_y - tick_height,
-                activity_tick_width / 2.,
-                tick_height
+            // Load vertex data into array buffer
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (size_of::<f32>() * activity.opengl_vecs.len()) as _,
+                activity.opengl_vecs.as_ptr() as *const _,
+                gl::STATIC_DRAW
             );
-            trace!("Activity Line: {:?}, color: {:?}, props: {:?}", rect, activity.color, props);
-            self.render_rect(&rect, activity.color, 128., props);
-        }
 
-        // Deactivate rectangle program again
-        unsafe {
+            // Color
+            self.rect_program.set_color(activity.color, activity.alpha);
+
+            // Draw the rectangle
+            gl::DrawElements(gl::LINES, 6, gl::UNSIGNED_INT, ptr::null());
+
             // Reset blending strategy
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
 
