@@ -895,13 +895,12 @@ impl ActivityLevels {
         // XXX: Right now set to "as_secs", but could be used for other time units easily
         let mut activity_time_length = self.activity_levels.len();
         let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        // trace!("SEB: last_activity_time:{} activity_levels: {:?}", self.last_activity_time, self.activity_levels);
         if activity_time_length == 0 {
             self.activity_levels.push(1);
             self.last_activity_time = now;
             // Adding twice to a vec, could this be made into one operation? Is this slow?
-            self.opengl_vecs.push(self.x_offset);
-            self.opengl_vecs.push(size.height);
+            self.opengl_vecs.push(size.padding_x + self.x_offset);
+            self.opengl_vecs.push(size.height - 2. * size.padding_y);
             return;
         }
         if now == self.last_activity_time {
@@ -940,14 +939,23 @@ impl ActivityLevels {
             }
         }
         // Get the opengl representation of the vector
+        let opengl_vecs_len = self.opengl_vecs.len();
         for idx in 0..self.activity_levels.len() {
             // Adding twice to a vec, could this be made into one operation? Is this slow?
             // XXX: width is not being honored
-            self.opengl_vecs.push(size.padding_x + self.x_offset + (idx as f32 * self.activity_tick_spacing));
-            // width = x
-            // max    level
-            self.opengl_vecs.push(size.height - 2. * size.padding_y - (self.width * self.activity_levels[idx] as f32 / max_activity_value as f32));
+            if (idx + 1) * 2 > opengl_vecs_len {
+                self.opengl_vecs.push(size.padding_x + self.x_offset + (idx as f32 * self.activity_tick_spacing));
+                // height/max = x/[idx]
+                // max    = x
+                // height   idx
+                self.opengl_vecs.push(size.height - 2. * size.padding_y - (self.activity_line_height * self.activity_levels[idx] as f32 / max_activity_value as f32));
+            } else {
+                self.opengl_vecs[idx * 2] = size.padding_x + self.x_offset + (idx as f32 * self.activity_tick_spacing);
+                self.opengl_vecs[idx * 2 + 1] = size.height - 2. * size.padding_y - (self.activity_line_height * self.activity_levels[idx] as f32 / max_activity_value as f32);
+            }
         }
+        trace!("SEB: last_activity_time:{}, max_activity_value: {}, x_offset: {}, size,activity_levels: {:?}, opengl_vecs: {:?}", self.last_activity_time, max_activity_value, self.x_offset, self.activity_levels,self.opengl_vecs);
+
     }
 }
 
