@@ -133,6 +133,17 @@ pub struct RectShaderProgram {
     u_color: GLint,
 }
 
+/// Activity Line program
+/// 
+/// Uniforms are prefixed with "u"
+#[derive(Debug)]
+pub struct ActivityLevelsShaderProgram {
+    // Program id,
+    id: GLuint,
+    /// Line color
+    u_color: GLint,
+}
+
 #[derive(Copy, Debug, Clone)]
 pub struct Glyph {
     tex_id: GLuint,
@@ -366,6 +377,7 @@ struct InstanceData {
 pub struct QuadRenderer {
     program: TextShaderProgram,
     rect_program: RectShaderProgram,
+    activity_line_program: ActivityLevelsShaderProgram,
     vao: GLuint,
     ebo: GLuint,
     vbo_instance: GLuint,
@@ -485,6 +497,7 @@ impl QuadRenderer {
     pub fn new(size: PhysicalSize) -> Result<QuadRenderer, Error> {
         let program = TextShaderProgram::new(size)?;
         let rect_program = RectShaderProgram::new()?;
+        let activity_line_program = ActivityLevelsShaderProgram::new()?;
 
         let mut vao: GLuint = 0;
         let mut ebo: GLuint = 0;
@@ -727,6 +740,9 @@ impl QuadRenderer {
         props: &term::SizeInfo,
         activity: &term::ActivityLevels
     ) {
+        if activity.activity_levels.len() < 2 {
+            return;
+        }
         // Swap to rectangle rendering program
         unsafe {
             // Swap program
@@ -758,7 +774,7 @@ impl QuadRenderer {
             self.rect_program.set_color(activity.color, activity.alpha);
 
             // Draw the rectangle
-            gl::DrawElements(gl::LINES, 6, gl::UNSIGNED_INT, ptr::null());
+            gl::DrawElements(gl::LINE_STRIP, 6, gl::UNSIGNED_INT, ptr::null());
 
             // Reset blending strategy
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
@@ -1309,6 +1325,67 @@ impl RectShaderProgram {
 }
 
 impl Drop for RectShaderProgram {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteProgram(self.id);
+        }
+    }
+}
+
+impl ActivityLinesShaderProgram {
+    pub fn new() -> Result<Self, ShaderCreationError> {
+        let (vertex_src, fragment_src) = if cfg!(feature = "live-shader-reload") {
+            (None, None)
+        } else {
+            (Some(RECT_SHADER_V), Some(RECT_SHADER_F))
+        };
+        let vertex_shader = create_shader(
+            RECT_SHADER_V_PATH,
+            gl::VERTEX_SHADER,
+            vertex_src
+        )?;
+        let fragment_shader = create_shader(
+            RECT_SHADER_F_PATH,
+            gl::FRAGMENT_SHADER,
+            fragment_src
+        )?;
+        let program = create_program(vertex_shader, fragment_shader)?;
+
+        unsafe {
+            gl::DeleteShader(fragment_shader);
+            gl::DeleteShader(vertex_shader);
+            gl::UseProgram(program);
+        }
+
+        // get uniform locations
+        let u_color = unsafe {
+            gl::GetUniformLocation(program, b"color\0".as_ptr() as *const _)
+        };
+
+        let shader = RectShaderProgram {
+            id: program,
+            u_color,
+        };
+
+        unsafe { gl::UseProgram(0) }
+
+        Ok(shader)
+    }
+
+    fn set_color(&self, color: Rgb, alpha: f32) {
+        unsafe {
+            gl::Uniform4f(
+                self.u_color,
+                f32::from(color.r) / 255.,
+                f32::from(color.g) / 255.,
+                f32::from(color.b) / 255.,
+                alpha,
+            );
+        }
+    }
+}
+
+impl Drop for ActivityLinesShaderProgram {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteProgram(self.id);
