@@ -33,7 +33,7 @@ use crate::term::{Term, SizeInfo, Search};
 use crate::term::mode::TermMode;
 use crate::util::fmt::Red;
 use crate::util::start_daemon;
-use crate::message_bar;
+use crate::message_bar::{self, Message};
 use crate::ansi::{Handler, ClearMode};
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
@@ -394,7 +394,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
 
         // Ignore motions over the message bar
-        if self.mouse_over_message_bar(point) {
+        if self.message_at_point(Some(point)).is_some() {
             return;
         }
 
@@ -497,14 +497,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn on_mouse_double_click(&mut self, button: MouseButton, point: Point) {
-        if button == MouseButton::Left {
+    pub fn on_mouse_double_click(&mut self, button: MouseButton, point: Option<Point>) {
+        if let (Some(point), true) = (point, button == MouseButton::Left) {
             self.ctx.semantic_selection(point);
         }
     }
 
-    pub fn on_mouse_triple_click(&mut self, button: MouseButton, point: Point) {
-        if button == MouseButton::Left {
+    pub fn on_mouse_triple_click(&mut self, button: MouseButton, point: Option<Point>) {
+        if let (Some(point), true) = (point, button == MouseButton::Left) {
             self.ctx.line_selection(point);
         }
     }
@@ -513,7 +513,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         &mut self,
         button: MouseButton,
         modifiers: ModifiersState,
-        point: Point,
+        point: Option<Point>,
     ) {
         let now = Instant::now();
         let elapsed = self.ctx.mouse().last_click_timestamp.elapsed();
@@ -544,7 +544,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
                 // Start new empty selection
                 let side = self.ctx.mouse().cell_side;
-                self.ctx.simple_selection(point, side);
+                if let Some(point) = point {
+                    self.ctx.simple_selection(point, side);
+                }
 
                 let report_modes =
                     TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
@@ -569,7 +571,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         &mut self,
         button: MouseButton,
         modifiers: ModifiersState,
-        point: Point,
+        point: Option<Point>,
     ) {
         let report_modes =
             TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
@@ -583,7 +585,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             };
             self.mouse_report(code, ElementState::Released, modifiers);
             return;
-        } else if button == MouseButton::Left {
+        } else if let (Some(point), true) = (point, button == MouseButton::Left) {
             self.launch_url(modifiers, point);
         }
 
@@ -712,14 +714,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             _ => (),
         }
 
-        let point = match self.ctx.mouse_coords() {
-            Some(point) => point,
-            None => return,
-        };
+        let point = self.ctx.mouse_coords();
 
         // Skip normal mouse events if the message bar has been clicked
-        if self.mouse_over_message_bar(point) {
-            self.on_message_bar_click(state, point);
+        if let Some(message) = self.message_at_point(point) {
+            // Message should never be `Some` if point is `None`
+            debug_assert!(point.is_some());
+            self.on_message_bar_click(state, point.unwrap(), message);
         } else {
             match state {
                 ElementState::Pressed => {
@@ -841,28 +842,31 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         has_binding
     }
 
-    /// Check if a point is within the message bar
-    fn mouse_over_message_bar(&mut self, point: Point) -> bool {
-        if let Some(message) = self.ctx.terminal_mut().message_buffer_mut().message() {
+    /// Return the message bar's message if there is some at the specified point
+    fn message_at_point(&mut self, point: Option<Point>) -> Option<Message> {
+        if let (Some(point), Some(message)) = (
+            point,
+            self.ctx.terminal_mut().message_buffer_mut().message(),
+        ) {
             let size = self.ctx.size_info();
-            point.line.0 >= size.lines().saturating_sub(message.text(&size).len())
-        } else {
-            false
+            if point.line.0 >= size.lines().saturating_sub(message.text(&size).len()) {
+                return Some(message);
+            }
         }
+
+        None
     }
 
     /// Handle clicks on the message bar.
-    fn on_message_bar_click(&mut self, button_state: ElementState, point: Point) {
+    fn on_message_bar_click(&mut self, button_state: ElementState, point: Point, message: Message) {
         match button_state {
             ElementState::Released => self.copy_selection(),
             ElementState::Pressed => {
                 let size = self.ctx.size_info();
-                if let Some(message) = self.ctx.terminal_mut().message_buffer_mut().message() {
-                    if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
-                        && point.line == size.lines() - message.text(&size).len()
-                    {
-                        self.ctx.terminal_mut().message_buffer_mut().pop();
-                    }
+                if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
+                    && point.line == size.lines() - message.text(&size).len()
+                {
+                    self.ctx.terminal_mut().message_buffer_mut().pop();
                 }
 
                 self.ctx.clear_selection();
