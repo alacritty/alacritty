@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{process_should_exit, Pty, HANDLE};
+use super::{Pty, HANDLE};
 
 use std::i16;
 use std::mem;
@@ -56,7 +56,7 @@ struct ConptyApi {
     CreatePseudoConsole:
         unsafe extern "system" fn(COORD, HANDLE, HANDLE, DWORD, *mut HPCON) -> HRESULT,
     ResizePseudoConsole: unsafe extern "system" fn(HPCON, COORD) -> HRESULT,
-    ClosePseudoConsole: unsafe extern "system" fn(HPCON) -> HRESULT,
+    ClosePseudoConsole: unsafe extern "system" fn(HPCON),
 }
 
 impl ConptyApi {
@@ -95,20 +95,7 @@ pub type ConptyHandle = Arc<Conpty>;
 
 impl Drop for Conpty {
     fn drop(&mut self) {
-        // The pseusdoconsole might already have been closed by the console process exiting.
-        // ClosePseudoConsole will fail with error code 1 in that case.
-        //
-        // This check should be sufficient to avoid that.
-        if !process_should_exit() {
-            let result = unsafe { (self.api.ClosePseudoConsole)(self.handle) };
-
-            // As noted above, if the pseudoconsole is already closed then
-            // ClosePseudoConsole will fail with the error code 1.
-            // (This was not in the MSDN docs as of Nov 2018.)
-            //
-            // If ClosePseudoConsole is successful then result is S_OK.
-            assert!(result == S_OK);
-        }
+        unsafe { (self.api.ClosePseudoConsole)(self.handle) }
     }
 }
 
