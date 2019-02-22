@@ -41,6 +41,8 @@ static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/
 static TEXT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
 static RECT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl");
 static RECT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl");
+static ACT_LEVELS_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl");
+static ACT_LEVELS_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl");
 
 // Shader source which is used when live-shader-reload feature is disable
 static TEXT_SHADER_F: &'static str =
@@ -51,7 +53,10 @@ static RECT_SHADER_F: &'static str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl"));
 static RECT_SHADER_V: &'static str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl"));
-
+static ACT_LEVELS_LINES_SHADER_F: &'static str =
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl"));
+static ACT_LEVELS_LINES_SHADER_V: &'static str =
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl"));
 /// `LoadGlyph` allows for copying a rasterized glyph into graphics memory
 pub trait LoadGlyph {
     /// Load the rasterized glyph into GPU memory
@@ -377,7 +382,7 @@ struct InstanceData {
 pub struct QuadRenderer {
     program: TextShaderProgram,
     rect_program: RectShaderProgram,
-    activity_line_program: ActivityLevelsShaderProgram,
+    activity_levels_program: ActivityLevelsShaderProgram,
     vao: GLuint,
     ebo: GLuint,
     vbo_instance: GLuint,
@@ -497,7 +502,7 @@ impl QuadRenderer {
     pub fn new(size: PhysicalSize) -> Result<QuadRenderer, Error> {
         let program = TextShaderProgram::new(size)?;
         let rect_program = RectShaderProgram::new()?;
-        let activity_line_program = ActivityLevelsShaderProgram::new()?;
+        let activity_levels_program = ActivityLevelsShaderProgram::new()?;
 
         let mut vao: GLuint = 0;
         let mut ebo: GLuint = 0;
@@ -657,6 +662,7 @@ impl QuadRenderer {
         let mut renderer = QuadRenderer {
             program,
             rect_program,
+            activity_levels_program,
             vao,
             ebo,
             vbo_instance,
@@ -707,7 +713,7 @@ impl QuadRenderer {
         let color = config.visual_bell().color();
         let rect = Rect::new(0., 0., props.width, props.height);
         self.render_rect(&rect, color, visual_bell_intensity as f32, props);
-        //trace!("SEB: render_rect({:?},{:?},{},{:?})", &rect, color, visual_bell_intensity as f32, props);
+        // trace!("SEB: render_rect({:?},{:?},{},{:?})", &rect, color, visual_bell_intensity as f32, props);
 
         // Draw underlines and strikeouts
         for cell_line_rect in cell_line_rects.rects() {
@@ -734,7 +740,7 @@ impl QuadRenderer {
         }
     }
 
-    pub fn draw_activity_line(
+    pub fn draw_activity_levels_line(
         &mut self,
         _config: &Config,
         props: &term::SizeInfo,
@@ -743,10 +749,11 @@ impl QuadRenderer {
         if activity.activity_levels.len() < 2 {
             return;
         }
-        // Swap to rectangle rendering program
+        trace!("SEB: draw_activity_levels_line({:?},{:?},{:?})", activity.opengl_vecs, activity.color, props);
+        // Use the Activity Levels Shader Program
         unsafe {
             // Swap program
-            gl::UseProgram(self.rect_program.id);
+            gl::UseProgram(self.activity_levels_program.id);
 
             // Remove padding from viewport
             gl::Viewport(0, 0, props.width as i32, props.height as i32);
@@ -759,7 +766,7 @@ impl QuadRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.rect_vbo);
 
             // Position
-            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, (size_of::<f32>() * 2) as _, ptr::null());
+            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, (size_of::<f32>() * activity.opengl_vecs.len()) as _, ptr::null());
             gl::EnableVertexAttribArray(0);
 
             // Load vertex data into array buffer
@@ -771,7 +778,7 @@ impl QuadRenderer {
             );
 
             // Color
-            self.rect_program.set_color(activity.color, activity.alpha);
+            self.activity_levels_program.set_color(activity.color, activity.alpha);
 
             // Draw the rectangle
             gl::DrawElements(gl::LINE_STRIP, 6, gl::UNSIGNED_INT, ptr::null());
@@ -1332,20 +1339,20 @@ impl Drop for RectShaderProgram {
     }
 }
 
-impl ActivityLinesShaderProgram {
+impl ActivityLevelsShaderProgram {
     pub fn new() -> Result<Self, ShaderCreationError> {
         let (vertex_src, fragment_src) = if cfg!(feature = "live-shader-reload") {
             (None, None)
         } else {
-            (Some(RECT_SHADER_V), Some(RECT_SHADER_F))
+            (Some(ACT_LEVELS_LINES_SHADER_V), Some(ACT_LEVELS_LINES_SHADER_F))
         };
         let vertex_shader = create_shader(
-            RECT_SHADER_V_PATH,
+            ACT_LEVELS_SHADER_V_PATH,
             gl::VERTEX_SHADER,
             vertex_src
         )?;
         let fragment_shader = create_shader(
-            RECT_SHADER_F_PATH,
+            ACT_LEVELS_SHADER_F_PATH,
             gl::FRAGMENT_SHADER,
             fragment_src
         )?;
@@ -1362,7 +1369,7 @@ impl ActivityLinesShaderProgram {
             gl::GetUniformLocation(program, b"color\0".as_ptr() as *const _)
         };
 
-        let shader = RectShaderProgram {
+        let shader = ActivityLevelsShaderProgram {
             id: program,
             u_color,
         };
@@ -1385,7 +1392,7 @@ impl ActivityLinesShaderProgram {
     }
 }
 
-impl Drop for ActivityLinesShaderProgram {
+impl Drop for ActivityLevelsShaderProgram {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteProgram(self.id);
