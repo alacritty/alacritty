@@ -863,9 +863,9 @@ impl Default for ActivityLevels{
                 b: 0,
             },
             x_offset: 100f32,
-            width: 600f32,
+            width: 200f32,
             opengl_vecs: Vec::<f32>::with_capacity(activity_vector_capacity * 2),
-            activity_line_height: 50f32,
+            activity_line_height: 25f32,
             activity_tick_spacing: 5f32,
             alpha: 64f32,
         }
@@ -895,12 +895,18 @@ impl ActivityLevels {
         // XXX: Right now set to "as_secs", but could be used for other time units easily
         let mut activity_time_length = self.activity_levels.len();
         let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let center_x = size.width / 2.;
+        let center_y = size.height / 2.;
         if activity_time_length == 0 {
             self.activity_levels.push(1);
             self.last_activity_time = now;
             // Adding twice to a vec, could this be made into one operation? Is this slow?
-            self.opengl_vecs.push(size.padding_x + self.x_offset);
-            self.opengl_vecs.push(size.height - 2. * size.padding_y);
+            let x = size.padding_x + self.x_offset;
+            let y = size.height - 2. * size.padding_y;
+            let scaled_x = (x - center_x) / center_x;
+            let scaled_y = -(y - center_y) / center_y;
+            self.opengl_vecs.push(scaled_x);
+            self.opengl_vecs.push(scaled_y);
             return;
         }
         if now == self.last_activity_time {
@@ -940,21 +946,24 @@ impl ActivityLevels {
         }
         // Get the opengl representation of the vector
         let opengl_vecs_len = self.opengl_vecs.len();
+        // Calculate the tick spacing
+        let tick_spacing = self.width / self.max_activity_ticks as f32;
         for idx in 0..self.activity_levels.len() {
             // Adding twice to a vec, could this be made into one operation? Is this slow?
-            // XXX: width is not being honored
+            // need to transform activity line values from varying levels into scaled [-1, 1]
+            let x = size.padding_x + self.x_offset + (idx as f32 * tick_spacing);
+            let y = size.height - 2. * size.padding_y - (self.activity_line_height * self.activity_levels[idx] as f32 / max_activity_value as f32);
+            let scaled_x = (x - center_x) / center_x;
+            let scaled_y = -(y - center_y) / center_y;
             if (idx + 1) * 2 > opengl_vecs_len {
-                self.opengl_vecs.push(size.padding_x + self.x_offset + (idx as f32 * self.activity_tick_spacing));
-                // height/max = x/[idx]
-                // max    = x
-                // height   idx
-                self.opengl_vecs.push(size.height - 2. * size.padding_y - (self.activity_line_height * self.activity_levels[idx] as f32 / max_activity_value as f32));
+                self.opengl_vecs.push(scaled_x);
+                self.opengl_vecs.push(scaled_y);
             } else {
-                self.opengl_vecs[idx * 2] = size.padding_x + self.x_offset + (idx as f32 * self.activity_tick_spacing);
-                self.opengl_vecs[idx * 2 + 1] = size.height - 2. * size.padding_y - (self.activity_line_height * self.activity_levels[idx] as f32 / max_activity_value as f32);
+                self.opengl_vecs[idx * 2] = scaled_x;
+                self.opengl_vecs[idx * 2 + 1] = scaled_y;
             }
         }
-        trace!("SEB: last_activity_time:{}, max_activity_value: {}, x_offset: {}, size,activity_levels: {:?}, opengl_vecs: {:?}", self.last_activity_time, max_activity_value, self.x_offset, self.activity_levels,self.opengl_vecs);
+        // trace!("SEB: last_activity_time:{}, max_activity_value: {}, x_offset: {}, size,activity_levels: {:?}, opengl_vecs: {:?}", self.last_activity_time, max_activity_value, self.x_offset, self.activity_levels,self.opengl_vecs);
 
     }
 }
