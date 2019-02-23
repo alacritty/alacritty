@@ -746,14 +746,14 @@ impl QuadRenderer {
         props: &term::SizeInfo,
         activity: &term::ActivityLevels
     ) {
-        if activity.activity_levels.len() < 2 {
+        // A line should have at least 2 points, so [x1, y1, x2, y2]
+        if activity.opengl_vecs.len() < 4 {
             return;
         }
-        trace!("SEB: draw_activity_levels_line({:?},{:?},{:?})", activity.opengl_vecs, activity.color, props);
-        // Use the Activity Levels Shader Program
+        // Use the Activity Levels Shader Program (For now a copy of rect)
         unsafe {
             // Swap program
-            gl::UseProgram(self.activity_levels_program.id);
+            gl::UseProgram(self.rect_program.id);
 
             // Remove padding from viewport
             gl::Viewport(0, 0, props.width as i32, props.height as i32);
@@ -766,7 +766,7 @@ impl QuadRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.rect_vbo);
 
             // Position
-            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, (size_of::<f32>() * activity.opengl_vecs.len()) as _, ptr::null());
+            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, (size_of::<f32>() * 2) as _, ptr::null());
             gl::EnableVertexAttribArray(0);
 
             // Load vertex data into array buffer
@@ -780,8 +780,8 @@ impl QuadRenderer {
             // Color
             self.activity_levels_program.set_color(activity.color, activity.alpha);
 
-            // Draw the rectangle
-            gl::DrawElements(gl::LINE_STRIP, 6, gl::UNSIGNED_INT, ptr::null());
+            // Draw the Activity Line, 2 points per vertex
+            gl::DrawArrays(gl::LINE_STRIP, 0, (activity.opengl_vecs.len() / 2usize) as i32);
 
             // Reset blending strategy
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
