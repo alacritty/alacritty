@@ -862,7 +862,7 @@ impl Default for ActivityLevels{
                 g: 0,
                 b: 0,
             },
-            x_offset: 100f32,
+            x_offset: 400f32,
             width: 200f32,
             opengl_vecs: Vec::<f32>::with_capacity(activity_vector_capacity * 2),
             activity_line_height: 25f32,
@@ -1095,7 +1095,7 @@ impl Term {
             message_buffer,
             should_exit: false,
             input_activity_levels: ActivityLevels::default(),
-            output_activity_levels: ActivityLevels::default().with_color(Rgb{r:0,g:255,b:0}).with_x_offset(800f32),
+            output_activity_levels: ActivityLevels::default().with_color(Rgb{r:0,g:255,b:0}).with_x_offset(1200f32),
         }
     }
 
