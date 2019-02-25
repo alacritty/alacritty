@@ -99,6 +99,12 @@ Once the cask is installed, it is recommended to setup the [manual page](INSTALL
 
 ### Windows
 
+#### Via [Chocolatey](https://chocolatey.org)
+
+```batch
+choco install alacritty
+```
+
 #### Via [Scoop](https://scoop.sh)
 
 ```batch
