@@ -54,10 +54,17 @@ elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" == "i386" ]; then
     # Make sure all files can be uploaded without permission errors
     sudo chown -R $USER:$USER "./target"
 elif [ "$TRAVIS_OS_NAME" == "windows" ]; then
-    choco install 7zip
+    choco install 7zip nuget.commandline
+    nuget install WiX
+
+    # Create zip archive
     7z a -tzip "./target/deploy/${name}-windows.zip" "./target/release/alacritty.exe" \
         "./target/release/winpty-agent.exe"
-    mv "./wix/alacritty.msi" "./target/deploy/${name}.msi"
+
+    # Create msi installer
+    "./WiX.3.11.1/tools/candle.exe" -nologo -arch "x64" -ext WixUIExtension -ext WixUtilExtension -out "wix/alacritty.wixobj" "wix/alacritty.wxs"
+    "./WiX.3.11.1/tools/light.exe" -nologo -ext WixUIExtension -ext WixUtilExtension -out "wix/alacritty.msi" -sice:ICE61 -sice:ICE91 "wix/alacritty.wixobj"
+    mv "./wix/alacritty.msi" "./target/deploy/${name}-windows.msi"
 fi
 
 # Convert and add manpage if it changed

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="windows-1252"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" 
     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
 
     <Product Name="Alacritty" Id="*" UpgradeCode="87c21c74-dbd5-4584-89d5-46d9cd0c40a7" Language="1033" Codepage="1252" Version="0.2.9" Manufacturer="Alacritty">
-        <Package InstallerVersion="200" Compressed="yes" InstallScope="perUser"/>
+        <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine"/>
         <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
         <Icon Id="AlacrittyIco" SourceFile="../assets/windows/alacritty.ico"/>
         <WixVariable Id="WixUILicenseRtf" Value="license.rtf"/>
@@ -16,6 +16,7 @@
             <ComponentRef Id="WinPtyAgentExe"/>
             <ComponentRef Id="AlacrittyConfig"/>
             <ComponentRef Id="AlacrittyShortcut"/>
+            <ComponentRef Id="ModifyPathEnv"/>
         </Feature>
 
         <!-- Create directories -->
@@ -31,8 +32,8 @@
             </Directory>
         </Directory>
 
+        <!-- Application binaries -->
         <DirectoryRef Id="AlacrittyProgramFiles">
-            <!-- Application binaries -->
             <Component Id="AlacrittyExe" Guid="*">
                 <File Id="AlacrittyExeFile" Source="../target/release/alacritty.exe" Name="alacritty.exe" KeyPath="yes"/>
             </Component>
@@ -48,12 +49,19 @@
             </Component>
         </DirectoryRef>
 
-        <!-- Application shortcut -->
         <DirectoryRef Id="AlacrittyProgramMenu">
-            <Component Id="AlacrittyShortcut" Guid="aa36e61a-23cd-4383-b744-2f78e912f0dc"> 
+            <!-- Application shortcut -->
+            <Component Id="AlacrittyShortcut" Guid="aa36e61a-23cd-4383-b744-2f78e912f0dc">
                 <Shortcut Id="AlacrittyShortcutFile" Name="Alacritty" Description="A cross-platform, GPU-accelerated terminal emulator" Target="[AlacrittyProgramFiles]alacritty.exe"/>
                 <RemoveFolder Id="AlacrittyProgramMenu" On="uninstall"/>
                 <RegistryValue Root="HKCU" Key="Software\Microsoft\Alacritty" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+            </Component>
+        </DirectoryRef>
+
+        <DirectoryRef Id="AlacrittyProgramFiles">
+            <!-- Add to PATH -->
+            <Component Id="ModifyPathEnv" Guid="edf0b679-9eb6-46f7-a5d1-5160f30acb34" KeyPath="yes">
+                <Environment Id="PathEnv" Value="[AlacrittyProgramFiles]" Name="PATH" Permanent="no" Part="first" Action="set" System="yes"/>
             </Component>
         </DirectoryRef>
     </Product>
