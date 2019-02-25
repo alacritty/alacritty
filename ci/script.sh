@@ -28,6 +28,9 @@ if [ "$TRAVIS_OS_NAME" == "windows" ]; then
         cp "./target/debug/winpty-agent.exe" "./target/debug/deps"
     fi
     cargo test -p winpty || error=true
+
+    choco install nuget.commandline
+    nuget install WiX
     ./wix/build.sh
 fi
 
