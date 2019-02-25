@@ -5,7 +5,7 @@
     <Product Name="Alacritty" Id="*" UpgradeCode="87c21c74-dbd5-4584-89d5-46d9cd0c40a7" Language="1033" Codepage="1252" Version="0.2.9" Manufacturer="Alacritty">
         <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine"/>
         <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
-        <Icon Id="AlacrittyIco" SourceFile="../assets/windows/alacritty.ico"/>
+        <Icon Id="AlacrittyIco" SourceFile="..\assets\windows\alacritty.ico"/>
         <WixVariable Id="WixUILicenseRtf" Value="license.rtf"/>
         <Property Id="ARPPRODUCTICON" Value="AlacrittyIco"/>
         <MediaTemplate EmbedCab="yes"/>
@@ -17,6 +17,7 @@
             <ComponentRef Id="AlacrittyConfig"/>
             <ComponentRef Id="AlacrittyShortcut"/>
             <ComponentRef Id="ModifyPathEnv"/>
+            <ComponentRef Id="ContextMenu"/>
         </Feature>
 
         <!-- Create directories -->
@@ -35,17 +36,17 @@
         <!-- Application binaries -->
         <DirectoryRef Id="AlacrittyProgramFiles">
             <Component Id="AlacrittyExe" Guid="*">
-                <File Id="AlacrittyExeFile" Source="../target/release/alacritty.exe" Name="alacritty.exe" KeyPath="yes"/>
+                <File Id="AlacrittyExeFile" Source="..\target\release\alacritty.exe" Name="alacritty.exe" KeyPath="yes"/>
             </Component>
             <Component Id="WinPtyAgentExe" Guid="*">
-                <File Id="WinPtyAgentExeFile" Source="../target/release/winpty-agent.exe" Name="winpty-agent.exe" KeyPath="yes"/>
+                <File Id="WinPtyAgentExeFile" Source="..\target\release\winpty-agent.exe" Name="winpty-agent.exe" KeyPath="yes"/>
             </Component>
         </DirectoryRef>
 
         <DirectoryRef Id="AlacrittyAppData">
             <!-- Copy default config -->
             <Component Id="AlacrittyConfig" Guid="*" Permanent="yes">
-                <File Id="AlacrittyConfigFile" Source="../alacritty.yml" Name="alacritty.yml" KeyPath="yes"/>
+                <File Id="AlacrittyConfigFile" Source="..\alacritty.yml" Name="alacritty.yml" KeyPath="yes"/>
             </Component>
         </DirectoryRef>
 
@@ -62,6 +63,18 @@
             <!-- Add to PATH -->
             <Component Id="ModifyPathEnv" Guid="edf0b679-9eb6-46f7-a5d1-5160f30acb34" KeyPath="yes">
                 <Environment Id="PathEnv" Value="[AlacrittyProgramFiles]" Name="PATH" Permanent="no" Part="first" Action="set" System="yes"/>
+            </Component>
+        </DirectoryRef>
+
+        <DirectoryRef Id="TARGETDIR">
+            <!-- Add context menu -->
+            <Component Id="ContextMenu" Guid="449f9121-f7b9-41fe-82da-52349ea8ff91">
+                <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Alacritty Here\command">
+                    <RegistryValue Type="string" Value="[AlacrittyProgramFiles]alacritty.exe --working-directory &quot;%V&quot;" KeyPath="yes"/>
+                </RegistryKey>
+                <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Alacritty Here">
+                    <RegistryValue Type="string" Name="Icon" Value="[AlacrittyProgramFiles]alacritty.exe"/>
+                </RegistryKey>
             </Component>
         </DirectoryRef>
     </Product>
