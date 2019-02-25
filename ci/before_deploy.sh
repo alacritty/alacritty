@@ -57,6 +57,8 @@ elif [ "$TRAVIS_OS_NAME" == "windows" ]; then
     choco install 7zip
     7z a -tzip "./target/deploy/${name}-windows.zip" "./target/release/alacritty.exe" \
         "./target/release/winpty-agent.exe"
+    ./wix/build.sh
+    mv "./wix/alacritty.msi" "./target/deploy/${name}.msi"
 fi
 
 # Convert and add manpage if it changed
