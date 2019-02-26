@@ -14,7 +14,6 @@
         <Feature Id="ProductFeature" Title="ConsoleApp" Level="1">
             <ComponentRef Id="AlacrittyExe"/>
             <ComponentRef Id="WinPtyAgentExe"/>
-            <ComponentRef Id="AlacrittyConfig"/>
             <ComponentRef Id="AlacrittyShortcut"/>
             <ComponentRef Id="ModifyPathEnv"/>
             <ComponentRef Id="ContextMenu"/>
@@ -24,9 +23,6 @@
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="ProgramFiles64Folder">
                 <Directory Id="AlacrittyProgramFiles" Name="Alacritty"/>
-            </Directory>
-            <Directory Id="AppDataFolder">
-                <Directory Id="AlacrittyAppData" Name="alacritty"/>
             </Directory>
             <Directory Id="ProgramMenuFolder">
                 <Directory Id="AlacrittyProgramMenu" Name="Alacritty"/>
@@ -40,13 +36,6 @@
             </Component>
             <Component Id="WinPtyAgentExe" Guid="*">
                 <File Id="WinPtyAgentExeFile" Source="..\target\release\winpty-agent.exe" Name="winpty-agent.exe" KeyPath="yes"/>
-            </Component>
-        </DirectoryRef>
-
-        <DirectoryRef Id="AlacrittyAppData">
-            <!-- Copy default config -->
-            <Component Id="AlacrittyConfig" Guid="*" Permanent="yes">
-                <File Id="AlacrittyConfigFile" Source="..\alacritty.yml" Name="alacritty.yml" KeyPath="yes"/>
             </Component>
         </DirectoryRef>
 
@@ -69,10 +58,10 @@
         <DirectoryRef Id="TARGETDIR">
             <!-- Add context menu -->
             <Component Id="ContextMenu" Guid="449f9121-f7b9-41fe-82da-52349ea8ff91">
-                <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Alacritty Here\command">
+                <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Open Alacritty here\command">
                     <RegistryValue Type="string" Value="[AlacrittyProgramFiles]alacritty.exe --working-directory &quot;%V&quot;" KeyPath="yes"/>
                 </RegistryKey>
-                <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Alacritty Here">
+                <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Open Alacritty here">
                     <RegistryValue Type="string" Name="Icon" Value="[AlacrittyProgramFiles]alacritty.exe"/>
                 </RegistryKey>
             </Component>
