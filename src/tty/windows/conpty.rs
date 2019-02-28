@@ -34,7 +34,7 @@ use winapi::um::processthreadsapi::{
     CreateProcessW, InitializeProcThreadAttributeList, UpdateProcThreadAttribute,
     PROCESS_INFORMATION, STARTUPINFOW,
 };
-use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTUPINFOEXW};
+use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW};
 use winapi::um::wincon::COORD;
 
 use crate::cli::Options;
@@ -149,6 +149,10 @@ pub fn new<'a>(
     let mut startup_info_ex: STARTUPINFOEXW = Default::default();
     startup_info_ex.StartupInfo.cb = mem::size_of::<STARTUPINFOEXW>() as u32;
 
+    // Setting this flag but leaving all the handles as default (null) ensures the
+    // pty process does not inherit any handles from this Alacritty process.
+    startup_info_ex.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
+
     // Create the appropriately sized thread attribute list.
     unsafe {
         success =
@@ -226,7 +230,7 @@ pub fn new<'a>(
             cmdline as LPWSTR,
             ptr::null_mut(),
             ptr::null_mut(),
-            true as i32,
+            false as i32,
             EXTENDED_STARTUPINFO_PRESENT,
             ptr::null_mut(),
             cwd_ptr,
