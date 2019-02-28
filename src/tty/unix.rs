@@ -24,7 +24,7 @@ use mio;
 
 use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
 
-use std::os::unix::io::{FromRawFd, RawFd};
+use std::os::unix::io::{FromRawFd};
 use std::fs::File;
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
@@ -186,7 +186,6 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
 
 pub struct Pty {
     pub fd: File,
-    pub raw_fd: RawFd,
     token: mio::Token,
 }
 
@@ -309,7 +308,6 @@ pub fn new<T: ToWinsize>(
 
             let pty = Pty {
                 fd: unsafe {File::from_raw_fd(master) },
-                raw_fd: master,
                 token: mio::Token::from(0)
             };
             pty.resize(size);
@@ -335,7 +333,7 @@ impl EventedReadWrite for Pty {
     ) -> io::Result<()> {
         self.token = (*token.next().unwrap()).into();
         poll.register(
-            &EventedFd(&self.raw_fd),
+            &EventedFd(&self.fd.as_raw_fd()),
             self.token,
             interest,
             poll_opts
@@ -345,7 +343,7 @@ impl EventedReadWrite for Pty {
     #[inline]
     fn reregister(&mut self, poll: &mio::Poll, interest: mio::Ready, poll_opts: mio::PollOpt) -> io::Result<()> {
         poll.reregister(
-            &EventedFd(&self.raw_fd),
+            &EventedFd(&self.fd.as_raw_fd()),
             self.token,
             interest,
             poll_opts
@@ -354,7 +352,7 @@ impl EventedReadWrite for Pty {
 
     #[inline]
     fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
-        poll.deregister(&EventedFd(&self.raw_fd))
+        poll.deregister(&EventedFd(&self.fd.as_raw_fd()))
     }
 
     #[inline]
