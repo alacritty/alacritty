@@ -23,6 +23,7 @@
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;
+extern crate num_traits;
 
 #[macro_use]
 pub mod macros;
