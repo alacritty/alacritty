@@ -35,6 +35,7 @@ use crate::message_bar::MessageBuffer;
 use crate::term::color::Rgb;
 use crate::term::cell::{LineLength, Cell};
 use crate::tty;
+use num_traits::*;
 
 pub mod cell;
 pub mod color;
@@ -802,19 +803,35 @@ pub struct Term {
 
     /// Input activity levels, from keyboard (maybe control characters for terminal)
     // XXX: How does this behave with ssh?, screen?, tmux?)
-    input_activity_levels: ActivityLevels,
+    // tmux shows redraws all the time (powerline)
+    //
+    input_activity_levels: ActivityLevels<u64>,
 
     /// Output activity levels, from data drawn on the screen
     /// XXX: Is this everything drawn in the screen including colors/etc?
-    output_activity_levels: ActivityLevels,
+    output_activity_levels: ActivityLevels<u64>,
+
+    /// From https://docs.rs/procinfo/0.4.2/procinfo/struct.LoadAvg.html
+    /// Load average over the last minute.
+    load_avg_1_min: ActivityLevels<f32>,
+    /// Load average of the last 5 minutes.
+    load_avg_5_min: ActivityLevels<f32>,
+    /// Load average of the last 10 minutes
+    load_avg_10_min: ActivityLevels<f32>,
+    /// the number of currently runnable kernel scheduling entities (processes, threads).
+    tasks_runnable: ActivityLevels<u32>,
+    /// the number of kernel scheduling entities that currently exist on the system.
+    tasks_total: ActivityLevels<u32>,
 }
 
 /// `ActivityLevels` keep track of the activity per second
 #[derive(Debug, Clone)]
-pub struct ActivityLevels {
+pub struct ActivityLevels<T>
+where T: Num + Clone + Copy
+{
     /// Capture events/characters per second
     /// Contains one entry per second
-    pub activity_levels: Vec<u64>,
+    pub activity_levels: Vec<T>,
 
     /// Last Activity Time
     pub last_activity_time: u64,
@@ -846,21 +863,23 @@ pub struct ActivityLevels {
     pub alpha: f32,
 }
 
-impl Default for ActivityLevels{
+impl<T> Default for ActivityLevels<T>
+where T: Num + Clone + Copy
+{
     /// `default` provides 5mins activity lines with red color
     /// The vector of activity_levels per second is created with reserved capacity,
     /// just to avoid needed to reallocate the vector in memory the first 5mins.
-    fn default() -> ActivityLevels{
+    fn default() -> ActivityLevels<T>{
         let activity_time = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let activity_vector_capacity = 300usize; // 300 seconds (5mins)
         ActivityLevels{
             last_activity_time: activity_time,
-            activity_levels: Vec::<u64>::with_capacity(activity_vector_capacity), // XXX: Maybe use vec![0; 300]; to pre-fill with zeros?
+            activity_levels: Vec::<T>::with_capacity(activity_vector_capacity), // XXX: Maybe use vec![0; 300]; to pre-fill with zeros?
             max_activity_ticks: activity_vector_capacity,
-            color: Rgb { // By default red, XXX: find something material
-                r: 255,
-                g: 0,
-                b: 0,
+            color: Rgb { // By default red
+                r: 183,
+                g: 28,
+                b: 28,
             },
             x_offset: 600f32,
             width: 200f32,
@@ -872,33 +891,37 @@ impl Default for ActivityLevels{
     }
 }
 
-impl ActivityLevels {
+impl<T> ActivityLevels<T>
+where T: Num + Clone + Copy
+{
     /// `with_color` Changes the color of the activity line
-    pub fn with_color(mut self, color: Rgb) -> ActivityLevels {
+    pub fn with_color(mut self, color: Rgb) -> ActivityLevels<T> {
         self.color = color;
         self
     }
 
     /// `with_x_offset` Changes the offset of the activity level drawing location
-    pub fn with_x_offset(mut self, new_offset: f32) -> ActivityLevels {
+    pub fn with_x_offset(mut self, new_offset: f32) -> ActivityLevels<T> {
         self.x_offset = new_offset;
         self
     }
 
     /// `with_width` Changes the width of the activity level drawing location
-    pub fn with_width(mut self, width: f32) -> ActivityLevels {
+    pub fn with_width(mut self, width: f32) -> ActivityLevels<T> {
         self.width = width;
         self
     }
     /// `increment_activity_level` Deals with time ranges in the activity vector
-    pub fn increment_activity_level(&mut self, size: SizeInfo) {
+    pub fn increment_activity_level(&mut self, size: SizeInfo, increment_amount: T)
+    where T: Num + Clone + Copy
+    {
         // XXX: Right now set to "as_secs", but could be used for other time units easily
         let mut activity_time_length = self.activity_levels.len();
         let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let center_x = size.width / 2.;
         let center_y = size.height / 2.;
         if activity_time_length == 0 {
-            self.activity_levels.push(1);
+            self.activity_levels.push(increment_amount);
             self.last_activity_time = now;
             // Adding twice to a vec, could this be made into one operation? Is this slow?
             let x = size.padding_x + self.x_offset;
@@ -910,7 +933,7 @@ impl ActivityLevels {
             return;
         }
         if now == self.last_activity_time {
-            self.activity_levels[activity_time_length - 1] += 1;
+            self.activity_levels[activity_time_length - 1] += increment_amount;
         } else {
             let mut inactive_time = (now - self.last_activity_time) as usize;
             if inactive_time > self.max_activity_ticks {
@@ -922,23 +945,23 @@ impl ActivityLevels {
                     self.activity_levels[idx] = self.activity_levels[idx + shift_left_times]
                 }
                 for idx in activity_time_length - shift_left_times .. activity_time_length {
-                    self.activity_levels[idx] = 0;
+                    self.activity_levels[idx] = T::zero();
                 }
             } else {
                 for _ in 0..inactive_time - 1 {
-                    self.activity_levels.push(0);
+                    self.activity_levels.push(T::zero());
                     activity_time_length += 1;
                 }
             }
             if activity_time_length < self.max_activity_ticks {
-                self.activity_levels.push(1);
+                self.activity_levels.push(increment_amount);
             } else {
-                self.activity_levels[activity_time_length - 1] = 1;
+                self.activity_levels[activity_time_length - 1] = increment_amount;
             }
             self.last_activity_time = now;
         }
         // Get the maximum value
-        let mut max_activity_value = 0u64;
+        let mut max_activity_value = T::zero();
         for idx in 0..self.activity_levels.len() {
             if self.activity_levels[idx] > max_activity_value {
                 max_activity_value = self.activity_levels[idx];
@@ -1094,8 +1117,13 @@ impl Term {
             auto_scroll: config.scrolling().auto_scroll,
             message_buffer,
             should_exit: false,
-            input_activity_levels: ActivityLevels::default(),
+            input_activity_levels: ActivityLevels::default().with_color(Rgb{r:255,g:0,b:0}).with_x_offset(600f32),
             output_activity_levels: ActivityLevels::default().with_color(Rgb{r:0,g:255,b:0}).with_x_offset(800f32),
+            load_avg_1_min: ActivityLevels::default().with_color(Rgb{r:92,g:2,b:238}).with_width(50f32).with_x_offset(1000f32),
+            load_avg_5_min: ActivityLevels::default().with_color(Rgb{r:92,g:2,b:238}).with_width(50f32).with_x_offset(1050f32), // XXX: Change color
+            load_avg_10_min: ActivityLevels::default().with_color(Rgb{r:92,g:2,b:238}).with_width(50f32).with_x_offset(1100f32), // XXX: Change color
+            tasks_runnable: ActivityLevels::default().with_color(Rgb{r:92,g:2,b:238}).with_width(50f32).with_x_offset(1150f32), // XXX: Change color
+            tasks_total: ActivityLevels::default().with_color(Rgb{r:92,g:2,b:238}).with_width(50f32).with_x_offset(1200f32), // XXX: Change color
         }
     }
 
@@ -1420,21 +1448,21 @@ impl Term {
     }
 
     #[inline]
-    pub fn get_input_activity_levels(&self) -> &ActivityLevels {
+    pub fn get_input_activity_levels(&self) -> &ActivityLevels<T> {
         &self.input_activity_levels
     }
 
     #[inline]
-    pub fn get_output_activity_levels(&self) -> &ActivityLevels {
+    pub fn get_output_activity_levels(&self) -> &ActivityLevels<T> {
         &self.output_activity_levels
     }
 
     pub fn increment_output_activity_level(&mut self) {
-        self.output_activity_levels.increment_activity_level(self.size_info);
+        self.output_activity_levels.increment_activity_level(self.size_info, 1u64);
     }
 
     pub fn increment_input_activity_level(&mut self) {
-        self.input_activity_levels.increment_activity_level(self.size_info);
+        self.input_activity_levels.increment_activity_level(self.size_info, 1u64);
     }
 
     #[inline]
