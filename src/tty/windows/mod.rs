@@ -14,6 +14,7 @@
 
 use std::io::{self, Read, Write};
 use std::os::raw::c_void;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use mio::{self, Evented, Poll, PollOpt, Ready, Token};
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
@@ -34,7 +35,7 @@ mod winpty;
 
 /// Handle to the winpty agent or conpty process. Required so we know when it closes.
 static mut HANDLE: *mut c_void = 0usize as *mut c_void;
-static mut IS_CONPTY: bool = false;
+static IS_CONPTY: AtomicBool = AtomicBool::new(false);
 
 pub fn process_should_exit() -> bool {
     unsafe {
@@ -56,7 +57,7 @@ pub fn process_should_exit() -> bool {
 }
 
 pub fn is_conpty() -> bool {
-    unsafe { IS_CONPTY }
+    IS_CONPTY.load(Ordering::Relaxed)
 }
 
 #[derive(Clone)]
@@ -91,7 +92,7 @@ pub fn new<'a>(
 ) -> Pty<'a> {
     if let Some(pty) = conpty::new(config, options, size, window_id) {
         info!("Using Conpty agent");
-        unsafe { IS_CONPTY = true; }
+        IS_CONPTY.store(true, Ordering::Relaxed);
         pty
     } else {
         info!("Using Winpty agent");
