@@ -160,9 +160,6 @@ impl Writing {
     }
 }
 
-/// `mio::Token` for the event loop channel
-const CHANNEL: mio::Token = mio::Token(0);
-
 impl<T> EventLoop<T>
     where
         T: tty::EventedReadWrite + Send + 'static,
@@ -217,13 +214,13 @@ impl<T> EventLoop<T>
 
     // Returns a `bool` indicating whether or not the event loop should continue running
     #[inline]
-    fn channel_event(&mut self, state: &mut State) -> bool {
+    fn channel_event(&mut self, token: mio::Token, state: &mut State) -> bool {
         if self.drain_recv_channel(state).is_shutdown() {
             return false;
         }
 
         self.poll
-            .reregister(&self.rx, CHANNEL, Ready::readable(), PollOpt::edge() | PollOpt::oneshot())
+            .reregister(&self.rx, token, Ready::readable(), PollOpt::edge() | PollOpt::oneshot())
             .unwrap();
 
         true
@@ -343,15 +340,16 @@ impl<T> EventLoop<T>
 
             let poll_opts = PollOpt::edge() | PollOpt::oneshot();
 
-            let tokens = [1, 2];
+            const CHANNEL_TOKEN: mio::Token = mio::Token(0);
+            let mut tokens = (1..).map(Into::into);
 
             self.poll
-                .register(&self.rx, CHANNEL, Ready::readable(), poll_opts)
+                .register(&self.rx, CHANNEL_TOKEN, Ready::readable(), poll_opts)
                 .unwrap();
 
             // Register TTY through EventedRW interface
             self.pty
-                .register(&self.poll, &mut tokens.iter(), Ready::readable(), poll_opts).unwrap();
+                .register(&self.poll, &mut tokens, Ready::readable(), poll_opts).unwrap();
 
             let mut events = Events::with_capacity(1024);
 
@@ -371,7 +369,7 @@ impl<T> EventLoop<T>
 
                 for event in events.iter() {
                     match event.token() {
-                        CHANNEL => if !self.channel_event(&mut state) {
+                        CHANNEL_TOKEN => if !self.channel_event(CHANNEL_TOKEN, &mut state) {
                             break 'event_loop;
                         },
                         token if token == self.pty.read_token() || token == self.pty.write_token() => {

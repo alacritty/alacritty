@@ -40,7 +40,7 @@ pub trait EventedReadWrite {
     fn register(
         &mut self,
         _: &mio::Poll,
-        _: &mut dyn Iterator<Item = &usize>,
+        _: &mut dyn Iterator<Item = mio::Token>,
         _: mio::Ready,
         _: mio::PollOpt,
     ) -> io::Result<()>;

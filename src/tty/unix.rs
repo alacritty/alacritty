@@ -327,11 +327,11 @@ impl EventedReadWrite for Pty {
     fn register(
         &mut self,
         poll: &mio::Poll,
-        token: &mut dyn Iterator<Item = &usize>,
+        token: &mut dyn Iterator<Item = mio::Token>,
         interest: mio::Ready,
         poll_opts: mio::PollOpt,
     ) -> io::Result<()> {
-        self.token = (*token.next().unwrap()).into();
+        self.token = token.next().unwrap();
         poll.register(
             &EventedFd(&self.fd.as_raw_fd()),
             self.token,
