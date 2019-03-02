@@ -744,10 +744,12 @@ impl QuadRenderer {
         &mut self,
         _config: &Config,
         props: &term::SizeInfo,
-        activity: &term::ActivityLevels
+        opengl_vecs: &Vec<f32>,
+        color: Rgb,
+        alpha: f32,
     ) {
         // A line should have at least 2 points, so [x1, y1, x2, y2]
-        if activity.opengl_vecs.len() < 4 {
+        if opengl_vecs.len() < 4 {
             return;
         }
         // Use the Activity Levels Shader Program (For now a copy of rect)
@@ -772,16 +774,16 @@ impl QuadRenderer {
             // Load vertex data into array buffer
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (size_of::<f32>() * activity.opengl_vecs.len()) as _,
-                activity.opengl_vecs.as_ptr() as *const _,
+                (size_of::<f32>() * opengl_vecs.len()) as _,
+                opengl_vecs.as_ptr() as *const _,
                 gl::STATIC_DRAW
             );
 
             // Color
-            self.activity_levels_program.set_color(activity.color, activity.alpha);
+            self.activity_levels_program.set_color(color, alpha);
 
             // Draw the Activity Line, 2 points per vertex
-            gl::DrawArrays(gl::LINE_STRIP, 0, (activity.opengl_vecs.len() / 2usize) as i32);
+            gl::DrawArrays(gl::LINE_STRIP, 0, (opengl_vecs.len() / 2usize) as i32);
 
             // Reset blending strategy
             gl::BlendFunc(gl::SRC1_COLOR, gl::ONE_MINUS_SRC1_COLOR);
