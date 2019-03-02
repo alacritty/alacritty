@@ -1336,7 +1336,7 @@ impl Term {
 
     #[inline]
     pub fn should_exit(&self) -> bool {
-        tty::process_should_exit() || self.should_exit
+        self.should_exit
     }
 }
 

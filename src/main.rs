@@ -236,7 +236,7 @@ fn run(
         }
 
         // Begin shutdown if the flag was raised
-        if terminal_lock.should_exit() {
+        if terminal_lock.should_exit() || tty::process_should_exit() {
             break;
         }
 
