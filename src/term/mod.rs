@@ -1915,10 +1915,12 @@ impl ansi::Handler for Term {
     // Reset all important fields in the term struct
     #[inline]
     fn reset_state(&mut self) {
+        if self.alt {
+            self.swap_alt();
+        }
         self.input_needs_wrap = false;
         self.next_title = None;
         self.next_mouse_cursor = None;
-        self.alt = false;
         self.cursor = Default::default();
         self.active_charset = Default::default();
         self.mode = Default::default();
@@ -1929,8 +1931,8 @@ impl ansi::Handler for Term {
         self.colors = self.original_colors;
         self.color_modified = [false; color::COUNT];
         self.cursor_style = None;
-        self.grid.clear_history();
-        self.grid.region_mut(..).each(|c| c.reset(&Cell::default()));
+        self.grid.reset(&Cell::default());
+        self.alt_grid.reset(&Cell::default());
     }
 
     #[inline]
@@ -1981,12 +1983,12 @@ impl ansi::Handler for Term {
         trace!("Setting mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
-                self.mode.insert(mode::TermMode::ALT_SCREEN);
-                self.save_cursor_position();
                 if !self.alt {
+                    self.mode.insert(mode::TermMode::ALT_SCREEN);
+                    self.save_cursor_position();
                     self.swap_alt();
+                    self.save_cursor_position();
                 }
-                self.save_cursor_position();
             },
             ansi::Mode::ShowCursor => self.mode.insert(mode::TermMode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.insert(mode::TermMode::APP_CURSOR),
@@ -2021,12 +2023,12 @@ impl ansi::Handler for Term {
         trace!("Unsetting mode: {:?}", mode);
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
-                self.mode.remove(mode::TermMode::ALT_SCREEN);
-                self.restore_cursor_position();
                 if self.alt {
+                    self.mode.remove(mode::TermMode::ALT_SCREEN);
+                    self.restore_cursor_position();
                     self.swap_alt();
+                    self.restore_cursor_position();
                 }
-                self.restore_cursor_position();
             },
             ansi::Mode::ShowCursor => self.mode.remove(mode::TermMode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.remove(mode::TermMode::APP_CURSOR),

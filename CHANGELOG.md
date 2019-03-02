@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic copying of selection to clipboard when mouse is released outside of Alacritty
 - Scrollback history live reload only working when shrinking lines
 - Crash when decreasing scrollback history in config while scrolled in history
+- Resetting the terminal while in the alt screen will no longer disable scrollback
+- Cursor jumping around when leaving alt screen while not in the alt screen
+- Text lingering around when resetting while scrolled up in the history
 
 ## Version 0.2.9
 

@@ -160,7 +160,7 @@ impl<T> Storage<T> {
     }
 
     // Shrink the number of lines in the buffer
-    fn shrink_lines(&mut self, shrinkage: usize) {
+    pub fn shrink_lines(&mut self, shrinkage: usize) {
         self.len -= shrinkage;
 
         // Free memory

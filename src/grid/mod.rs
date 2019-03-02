@@ -404,6 +404,22 @@ impl<T: Copy + Clone> Grid<T> {
             }
         }
     }
+
+    // Completely reset the grid state
+    pub fn reset(&mut self, template: &T) {
+        // Explicitly purge all lines from history
+        let shrinkage = self.raw.len() - self.lines.0;
+        self.raw.shrink_lines(shrinkage);
+        self.clear_history();
+
+        // Reset all visible lines
+        for row in 0..self.raw.len() {
+            self.raw[row].reset(template);
+        }
+
+        self.display_offset = 0;
+        self.selection = None;
+    }
 }
 
 #[allow(clippy::len_without_is_empty)]
