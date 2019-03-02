@@ -27,3 +27,9 @@ parts
 *.snap
 *.pyc
 alacritty_*_source.tar.bz2
+
+# WiX files
+/Wix.3.11.1
+*.msi
+*.wixobj
+*.wixpdb

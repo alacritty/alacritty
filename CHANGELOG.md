@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- MSI installer for Windows is now available
+
 ### Fixed
 
 - Fix panic which could occur when quitting Alacritty on Windows if using the Conpty backend
