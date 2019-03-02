@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix panic which could occur when quitting Alacritty on Windows if using the Conpty backend
 - Automatic copying of selection to clipboard when mouse is released outside of Alacritty
+- Scrollback history live reload only working when shrinking lines
+- Crash when decreasing scrollback history in config while scrolled in history
 
 ## Version 0.2.9
 
