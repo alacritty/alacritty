@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - MSI installer for Windows is now available
+- New default key bindings Alt+Home, Alt+End, Alt+PageUp and Alt+PageDown
 
 ### Fixed
 
