@@ -23,17 +23,15 @@ use crate::cli::Options;
 use mio;
 
 use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
+use nix::pty::openpty;
 
-use std::os::unix::io::{FromRawFd};
+use std::os::unix::{process::CommandExt, io::{FromRawFd, AsRawFd, RawFd}};
 use std::fs::File;
-use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::ffi::CStr;
 use std::ptr;
 use mio::unix::EventedFd;
 use std::io;
-use std::os::unix::io::AsRawFd;
-
 
 /// Process ID of child process
 ///
@@ -71,50 +69,15 @@ fn errno() -> c_int {
 }
 
 /// Get raw fds for master/slave ends of a new pty
-#[cfg(target_os = "linux")]
-fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
-    let mut master: c_int = 0;
-    let mut slave: c_int = 0;
+fn make_pty(size: winsize) -> (RawFd, RawFd) {
+    let mut win_size = size;
+    win_size.ws_xpixel = 0;
+    win_size.ws_ypixel = 0;
 
-    let win = winsize {
-        ws_row: libc::c_ushort::from(rows),
-        ws_col: libc::c_ushort::from(cols),
-        ws_xpixel: 0,
-        ws_ypixel: 0,
-    };
+    let ends = openpty(Some(&win_size), None)
+        .expect("openpty failed");
 
-    let res = unsafe {
-        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null(), &win)
-    };
-
-    if res < 0 {
-        die!("openpty failed");
-    }
-
-    (master, slave)
-}
-
-#[cfg(any(target_os = "macos",target_os = "freebsd",target_os = "openbsd"))]
-fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
-    let mut master: c_int = 0;
-    let mut slave: c_int = 0;
-
-    let mut win = winsize {
-        ws_row: libc::c_ushort::from(rows),
-        ws_col: libc::c_ushort::from(cols),
-        ws_xpixel: 0,
-        ws_ypixel: 0,
-    };
-
-    let res = unsafe {
-        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null_mut(), &mut win)
-    };
-
-    if res < 0 {
-        die!("openpty failed");
-    }
-
-    (master, slave)
+    (ends.master, ends.slave)
 }
 
 /// Really only needed on BSD, but should be fine elsewhere
@@ -214,11 +177,11 @@ pub fn new<T: ToWinsize>(
     size: &T,
     window_id: Option<usize>,
 ) -> Pty {
-    let win = size.to_winsize();
+    let win_size = size.to_winsize();
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
 
-    let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
+    let (master, slave) = make_pty(win_size);
 
     let default_shell = if cfg!(target_os = "macos") {
         let shell_name = pw.shell.rsplit('/').next().unwrap();
