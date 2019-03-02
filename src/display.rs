@@ -457,8 +457,16 @@ impl Display {
 
                 // Draw rectangles including the new background
                 self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
-                self.renderer.draw_activity_levels_line(config, &size_info, &input_activity_levels);
-                self.renderer.draw_activity_levels_line(config, &size_info, &output_activity_levels);
+                self.renderer.draw_activity_levels_line(config,
+                                                        &size_info,
+                                                        &input_activity_levels.opengl_vecs,
+                                                        input_activity_levels.color,
+                                                        input_activity_levels.alpha);
+                self.renderer.draw_activity_levels_line(config,
+                                                        &size_info,
+                                                        &output_activity_levels.opengl_vecs,
+                                                        output_activity_levels.color,
+                                                        output_activity_levels.alpha);
 
                 // Relay messages to the user
                 let mut offset = 1;
@@ -476,8 +484,16 @@ impl Display {
             } else {
                 // Draw rectangles
                 self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
-                self.renderer.draw_activity_levels_line(config, &size_info, &output_activity_levels);
-                self.renderer.draw_activity_levels_line(config, &size_info, &input_activity_levels);
+                self.renderer.draw_activity_levels_line(config,
+                                                        &size_info,
+                                                        &output_activity_levels.opengl_vecs,
+                                                        output_activity_levels.color,
+                                                        output_activity_levels.alpha);
+                self.renderer.draw_activity_levels_line(config,
+                                                        &size_info,
+                                                        &input_activity_levels.opengl_vecs,
+                                                        input_activity_levels.color,
+                                                        input_activity_levels.alpha);
             }
 
             // Draw render timer
