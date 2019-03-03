@@ -52,13 +52,6 @@ mod url;
 pub use crate::grid::Grid;
 pub use crate::term::Term;
 
-/// Facade around [winit's `MouseCursor`](glutin::MouseCursor)
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub enum MouseCursor {
-    Arrow,
-    Text,
-}
-
 pub mod gl {
     #![allow(clippy::all)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));

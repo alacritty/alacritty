@@ -20,6 +20,7 @@ use std::time::{Duration, Instant};
 
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
+use glutin::MouseCursor;
 
 use font::{self, Size};
 use crate::ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
@@ -30,7 +31,6 @@ use crate::grid::{
 use crate::index::{self, Point, Column, Line, IndexRange, Contains, Linear};
 use crate::selection::{self, Selection, Locations};
 use crate::config::{Config, VisualBellAnimation};
-use crate::MouseCursor;
 use copypasta::{Clipboard, Load, Store};
 use crate::input::FONT_SIZE_STEP;
 use crate::url::UrlParser;
@@ -2034,15 +2034,15 @@ impl ansi::Handler for Term {
             ansi::Mode::CursorKeys => self.mode.insert(mode::TermMode::APP_CURSOR),
             ansi::Mode::ReportMouseClicks => {
                 self.mode.insert(mode::TermMode::MOUSE_REPORT_CLICK);
-                self.set_mouse_cursor(MouseCursor::Arrow);
+                self.set_mouse_cursor(MouseCursor::Default);
             },
             ansi::Mode::ReportCellMouseMotion => {
                 self.mode.insert(mode::TermMode::MOUSE_DRAG);
-                self.set_mouse_cursor(MouseCursor::Arrow);
+                self.set_mouse_cursor(MouseCursor::Default);
             },
             ansi::Mode::ReportAllMouseMotion => {
                 self.mode.insert(mode::TermMode::MOUSE_MOTION);
-                self.set_mouse_cursor(MouseCursor::Arrow);
+                self.set_mouse_cursor(MouseCursor::Default);
             },
             ansi::Mode::ReportFocusInOut => self.mode.insert(mode::TermMode::FOCUS_IN_OUT),
             ansi::Mode::BracketedPaste => self.mode.insert(mode::TermMode::BRACKETED_PASTE),

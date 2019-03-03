@@ -19,9 +19,9 @@ use std::str;
 
 use vte;
 use base64;
+use glutin::MouseCursor;
 use crate::index::{Column, Line, Contains};
 
-use crate::MouseCursor;
 use crate::term::color::Rgb;
 
 // Parse color arguments

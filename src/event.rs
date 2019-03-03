@@ -10,7 +10,7 @@ use std::env;
 
 use serde_json as json;
 use parking_lot::MutexGuard;
-use glutin::{self, ModifiersState, Event, ElementState, MouseButton};
+use glutin::{self, ModifiersState, Event, ElementState, MouseButton, MouseCursor};
 use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
 use glutin::dpi::PhysicalSize;
 
@@ -238,6 +238,7 @@ pub struct Mouse {
     pub lines_scrolled: f32,
     pub block_url_launcher: bool,
     pub last_button: MouseButton,
+    pub last_cursor: Option<MouseCursor>,
 }
 
 impl Default for Mouse {
@@ -257,6 +258,7 @@ impl Default for Mouse {
             lines_scrolled: 0.0,
             block_url_launcher: false,
             last_button: MouseButton::Other(0),
+            last_cursor: None,
         }
     }
 }

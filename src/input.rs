@@ -23,7 +23,10 @@ use std::mem;
 use std::time::Instant;
 
 use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
-use glutin::{ElementState, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState, KeyboardInput};
+use glutin::{
+    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseCursor, MouseScrollDelta,
+    TouchPhase,
+};
 
 use crate::config::{self, Key};
 use crate::grid::Scroll;
@@ -398,6 +401,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return;
         }
 
+        // Cursor moved outside the last reported cell
+        let left_cell = prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column;
+
+        if left_cell {
+            self.update_url_cursor(point);
+        }
+
         if self.ctx.mouse().left_button_state == ElementState::Pressed
             && (modifiers.shift || !self.ctx.terminal().mode().intersects(report_mode))
         {
@@ -409,9 +419,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 cell_side,
             );
         } else if self.ctx.terminal().mode().intersects(motion_mode)
-            // Only report motion when changing cells
-            && (prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column)
             && size_info.contains_point(x, y, false)
+            && left_cell
         {
             if self.ctx.mouse().left_button_state == ElementState::Pressed {
                 self.mouse_report(32, ElementState::Pressed, modifiers);
@@ -422,6 +431,26 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             } else if self.ctx.terminal().mode().contains(TermMode::MOUSE_MOTION) {
                 self.mouse_report(35, ElementState::Pressed, modifiers);
             }
+        }
+    }
+
+    // Change mouse cursor when positioned over URLs
+    fn update_url_cursor(&mut self, point: Point) {
+        let mouse_mode =
+            TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
+
+        if self.ctx.terminal().url_search(point.into()).is_some() {
+            if self.ctx.terminal().mode().intersects(mouse_mode) {
+                self.ctx.mouse_mut().last_cursor = Some(MouseCursor::Default);
+            } else {
+                self.ctx.mouse_mut().last_cursor = Some(MouseCursor::Text);
+            }
+
+            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
+            self.ctx.terminal_mut().dirty = true;
+        } else if let Some(cursor) = self.ctx.mouse_mut().last_cursor.take() {
+            self.ctx.terminal_mut().set_mouse_cursor(cursor);
+            self.ctx.terminal_mut().dirty = true;
         }
     }
 

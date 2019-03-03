@@ -21,14 +21,12 @@ use glutin::Icon;
 use image::ImageFormat;
 use glutin::{
     self, ContextBuilder, ControlFlow, Event, EventsLoop,
-    MouseCursor as GlutinMouseCursor, WindowBuilder,
-    ContextTrait,
+    MouseCursor, WindowBuilder, ContextTrait
 };
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 
 use crate::cli::Options;
 use crate::config::{Decorations, WindowConfig};
-use crate::MouseCursor;
 
 #[cfg(windows)]
 static WINDOW_ICON: &'static [u8] = include_bytes!("../assets/windows/alacritty.ico");
@@ -142,7 +140,7 @@ impl Window {
         window.show();
 
         // Text cursor
-        window.set_cursor(GlutinMouseCursor::Text);
+        window.set_cursor(MouseCursor::Text);
 
         // Make the context current so OpenGL operations can run
         unsafe {
@@ -237,10 +235,7 @@ impl Window {
 
     #[inline]
     pub fn set_mouse_cursor(&self, cursor: MouseCursor) {
-        self.window.set_cursor(match cursor {
-            MouseCursor::Arrow => GlutinMouseCursor::Default,
-            MouseCursor::Text => GlutinMouseCursor::Text,
-        });
+        self.window.set_cursor(cursor);
     }
 
     /// Set mouse cursor visible
