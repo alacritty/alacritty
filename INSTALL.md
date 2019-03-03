@@ -307,5 +307,5 @@ instead.
 To install alacritty's terminfo entry globally:
 
 ```sh
-sudo tic -e alacritty,alacritty-direct alacritty.info
+sudo tic -xe alacritty,alacritty-direct alacritty.info
 ```
