@@ -124,7 +124,11 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn mouse_coords(&self) -> Option<Point> {
-        self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
+        if self.mouse.x == usize::max_value() {
+            None
+        } else {
+            Some( self.size_info.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize) )
+        }
     }
 
     #[inline]
@@ -238,8 +242,8 @@ pub struct Mouse {
 impl Default for Mouse {
     fn default() -> Mouse {
         Mouse {
-            x: 0,
-            y: 0,
+            x: usize::max_value(),
+            y: usize::max_value(),
             last_click_timestamp: Instant::now(),
             left_button_state: ElementState::Released,
             middle_button_state: ElementState::Released,
@@ -404,6 +408,9 @@ impl<N: Notify> Processor<N> {
                             processor.mouse_input(state, button, modifiers);
                             processor.ctx.terminal.dirty = true;
                         }
+                    },
+                    CursorLeft { .. } => {
+                        processor.mouse_left();
                     },
                     CursorMoved { position: lpos, modifiers, .. } => {
                         let (x, y) = lpos.to_physical(processor.ctx.size_info.dpr).into();

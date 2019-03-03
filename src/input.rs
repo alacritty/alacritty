@@ -370,6 +370,11 @@ impl From<&'static str> for Action {
 
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     #[inline]
+    pub fn mouse_left(&mut self) {
+        self.ctx.mouse_mut().x = usize::max_value();
+        self.ctx.mouse_mut().y = usize::max_value();
+    }
+
     pub fn mouse_moved(&mut self, x: usize, y: usize, modifiers: ModifiersState) {
         self.ctx.mouse_mut().x = x;
         self.ctx.mouse_mut().y = y;
@@ -961,7 +966,11 @@ mod tests {
         }
 
         fn mouse_coords(&self) -> Option<Point> {
-            self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
+            if self.mouse.x == usize::max_value() {
+                None
+            } else {
+                Some( self.ctx.size_info.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize) )
+            }
         }
 
         #[inline]
