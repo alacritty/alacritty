@@ -62,15 +62,14 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.scroll_display(scroll);
 
         if let ElementState::Pressed = self.mouse().left_button_state {
-            if let Some((x,y)) = self.mouse().position {
-                let size_info = self.size_info();
-                let point = size_info.pixels_to_coords(x, y);
-                let cell_side = self.mouse().cell_side;
-                self.update_selection(Point {
-                    line: point.line,
-                    col: point.col
-                }, cell_side);
-            }
+            let (x, y) = (self.mouse().x, self.mouse().y);
+            let size_info = self.size_info();
+            let point = size_info.pixels_to_coords(x, y);
+            let cell_side = self.mouse().cell_side;
+            self.update_selection(Point {
+                line: point.line,
+                col: point.col
+            }, cell_side);
         }
     }
 
@@ -125,11 +124,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn mouse_coords(&self) -> Option<Point> {
-        if let Some((x,y)) = self.mouse.position {
-            Some( self.size_info.pixels_to_coords(x as usize, y as usize) )
-        } else {
-            None
-        }
+        self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
     }
 
     #[inline]
@@ -224,7 +219,8 @@ pub enum ClickState {
 
 /// State of the mouse
 pub struct Mouse {
-    pub position: Option< (usize, usize ) >,
+    pub x: usize,
+    pub y: usize,
     pub left_button_state: ElementState,
     pub middle_button_state: ElementState,
     pub right_button_state: ElementState,
@@ -242,7 +238,8 @@ pub struct Mouse {
 impl Default for Mouse {
     fn default() -> Mouse {
         Mouse {
-            position: None,
+            x: 0,
+            y: 0,
             last_click_timestamp: Instant::now(),
             left_button_state: ElementState::Released,
             middle_button_state: ElementState::Released,
@@ -407,9 +404,6 @@ impl<N: Notify> Processor<N> {
                             processor.mouse_input(state, button, modifiers);
                             processor.ctx.terminal.dirty = true;
                         }
-                    },
-                    CursorLeft { .. } => {
-                        processor.mouse_left();
                     },
                     CursorMoved { position: lpos, modifiers, .. } => {
                         let (x, y) = lpos.to_physical(processor.ctx.size_info.dpr).into();

@@ -370,20 +370,14 @@ impl From<&'static str> for Action {
 
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     #[inline]
-    pub fn mouse_left(&mut self) {
-        self.ctx.mouse_mut().position = None
-    }
-
     pub fn mouse_moved(&mut self, x: usize, y: usize, modifiers: ModifiersState) {
+        self.ctx.mouse_mut().x = x;
+        self.ctx.mouse_mut().y = y;
+
         let size_info = self.ctx.size_info();
-        if size_info.contains_point(x,y) {
-            self.ctx.mouse_mut().position = Some( (x,y) );
-        } else {
-            self.ctx.mouse_mut().position = None
-        }
         let point = size_info.pixels_to_coords(x, y);
 
-        let cell_side = self.get_mouse_side(x);
+        let cell_side = self.get_mouse_side();
         let prev_side = mem::replace(&mut self.ctx.mouse_mut().cell_side, cell_side);
         let prev_line = mem::replace(&mut self.ctx.mouse_mut().line, point.line);
         let prev_col = mem::replace(&mut self.ctx.mouse_mut().column, point.col);
@@ -417,7 +411,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         } else if self.ctx.terminal().mode().intersects(motion_mode)
             // Only report motion when changing cells
             && (prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column)
-            && self.ctx.mouse().position.is_some()
+            && size_info.contains_point(x, y, false)
         {
             if self.ctx.mouse().left_button_state == ElementState::Pressed {
                 self.mouse_report(32, ElementState::Pressed, modifiers);
@@ -431,8 +425,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    fn get_mouse_side(&self, x: usize) -> Side {
+    fn get_mouse_side(&self) -> Side {
         let size_info = self.ctx.size_info();
+        let x = self.ctx.mouse().x;
 
         let cell_x = x.saturating_sub(size_info.padding_x as usize) % size_info.cell_width as usize;
         let half_cell_width = (size_info.cell_width / 2.0) as usize;
@@ -966,11 +961,7 @@ mod tests {
         }
 
         fn mouse_coords(&self) -> Option<Point> {
-            if let Some((x,y)) = self.mouse.position {
-                Some( self.ctx.size_info.pixels_to_coords(x as usize, y as usize) )
-            } else {
-                None
-            }
+            self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
         }
 
         #[inline]
