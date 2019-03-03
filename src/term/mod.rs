@@ -840,8 +840,7 @@ impl SizeInfo {
 
     pub fn contains_point(&self, x: usize, y: usize, include_padding: bool) -> bool {
         if include_padding {
-            x < self.width as usize
-            && y < self.height as usize
+            x < self.width as usize && y < self.height as usize
         } else {
             x < (self.width - self.padding_x) as usize
                 && x >= self.padding_x as usize
