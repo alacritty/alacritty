@@ -1099,20 +1099,6 @@ impl Term {
         self.grid.visible_to_buffer(point)
     }
 
-    /// Convert the given pixel values to a grid coordinate
-    ///
-    /// The mouse coordinates are expected to be relative to the top left. The
-    /// line and column returned are also relative to the top left.
-    ///
-    /// Returns None if the coordinates are outside the screen
-    pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<Point> {
-        if self.size_info.contains_point(x, y) {
-            Some(self.size_info.pixels_to_coords(x, y))
-        } else {
-            None
-        }
-    }
-
     /// Access to the raw grid data structure
     ///
     /// This is a bit of a hack; when the window is closed, the event processor

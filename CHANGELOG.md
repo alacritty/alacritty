@@ -249,6 +249,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empty lines in selections are now properly copied to the clipboard
 - Selection start point lagging behind initial cursor position
 - Rendering of selections which start above the visible area and end below it
+- Mouse press no longer ignored in padding width
 
 ### Deprecated
 
