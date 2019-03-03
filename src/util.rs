@@ -109,16 +109,10 @@ pub fn start_daemon<I, S>(program: &str, args: I) -> io::Result<()>
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
 {
-    // As per issue 2128 the decision was made to make this call as
-    // similar to the Unix behaviour as possible.
-    //
     // Setting all the I/O handles to null and setting the
     // CREATE_NEW_PROCESS_GROUP and CREATE_NO_WINDOW has the effect
     // that console applications will run without opening a new
     // console window.
-    //
-    // If visible output is desirable the DETACHED_PROCESS flag could
-    // be used instead of CREATE_NO_WINDOW.
     Command::new(program)
         .args(args)
         .stdin(Stdio::null())
