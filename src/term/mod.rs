@@ -839,10 +839,10 @@ impl SizeInfo {
     }
 
     pub fn contains_point(&self, x: usize, y:usize) -> bool {
-        x < (self.width - self.padding_x) as usize
-            && x >= self.padding_x as usize
-            && y < (self.height - self.padding_y) as usize
-            && y >= self.padding_y as usize
+        x < self.width as usize
+            && x >= 0 as usize
+            && y < self.height as usize
+            && y >= 0 as usize
     }
 
     pub fn pixels_to_coords(&self, x: usize, y: usize) -> Point {

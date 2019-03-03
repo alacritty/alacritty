@@ -375,9 +375,12 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     pub fn mouse_moved(&mut self, x: usize, y: usize, modifiers: ModifiersState) {
-        self.ctx.mouse_mut().position = Some( (x,y) );
-
         let size_info = self.ctx.size_info();
+        if size_info.contains_point(x,y) {
+            self.ctx.mouse_mut().position = Some( (x,y) );
+        } else {
+            self.ctx.mouse_mut().position = None
+        }
         let point = size_info.pixels_to_coords(x, y);
 
         let cell_side = self.get_mouse_side(x);
@@ -414,6 +417,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         } else if self.ctx.terminal().mode().intersects(motion_mode)
             // Only report motion when changing cells
             && (prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column)
+            && self.mouse().position.is_some()
         {
             if self.ctx.mouse().left_button_state == ElementState::Pressed {
                 self.mouse_report(32, ElementState::Pressed, modifiers);
