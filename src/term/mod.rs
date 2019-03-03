@@ -671,9 +671,9 @@ impl VisualBell {
 
                 let elapsed = instant.duration_since(earlier);
                 let elapsed_f = elapsed.as_secs() as f64 +
-                                f64::from(elapsed.subsec_nanos()) / 1e9f64;
+                                (elapsed.subsec_nanos() as f64) / 1e9f64;
                 let duration_f = self.duration.as_secs() as f64 +
-                                 f64::from(self.duration.subsec_nanos()) / 1e9f64;
+                                 (self.duration.subsec_nanos() as f64) / 1e9f64;
 
                 // Otherwise, we compute a value `time` from 0.0 to 1.0
                 // inclusive that represents the ratio of `elapsed` time to the
@@ -913,7 +913,7 @@ where T: Num + Clone + Copy
     }
     /// `increment_activity_level` Deals with time ranges in the activity vector
     pub fn increment_activity_level(&mut self, size: SizeInfo, increment_amount: T)
-    where T: Num + Clone + Copy
+    where T: Num + Clone + Copy + PartialOrd + ToPrimitive
     {
         // XXX: Right now set to "as_secs", but could be used for other time units easily
         let mut activity_time_length = self.activity_levels.len();
@@ -933,7 +933,7 @@ where T: Num + Clone + Copy
             return;
         }
         if now == self.last_activity_time {
-            self.activity_levels[activity_time_length - 1] += increment_amount;
+            self.activity_levels[activity_time_length - 1] = self.activity_levels[activity_time_length - 1] + increment_amount;
         } else {
             let mut inactive_time = (now - self.last_activity_time) as usize;
             if inactive_time > self.max_activity_ticks {
@@ -975,7 +975,12 @@ where T: Num + Clone + Copy
             // Adding twice to a vec, could this be made into one operation? Is this slow?
             // need to transform activity line values from varying levels into scaled [-1, 1]
             let x = size.padding_x + self.x_offset + (idx as f32 * tick_spacing);
-            let y = size.height - 2. * size.padding_y - (self.activity_line_height * self.activity_levels[idx] as f32 / max_activity_value as f32);
+            let y = size.height -
+                    2. * size.padding_y -
+                    ( self.activity_line_height *
+                      num_traits::ToPrimitive::to_f32(&self.activity_levels[idx]).unwrap() /
+                      num_traits::ToPrimitive::to_f32(&max_activity_value).unwrap()
+                    );
             let scaled_x = (x - center_x) / center_x;
             let scaled_y = -(y - center_y) / center_y;
             if (idx + 1) * 2 > opengl_vecs_len {
@@ -1448,12 +1453,12 @@ impl Term {
     }
 
     #[inline]
-    pub fn get_input_activity_levels(&self) -> &ActivityLevels<T> {
+    pub fn get_input_activity_levels(&self) -> &ActivityLevels<u64> {
         &self.input_activity_levels
     }
 
     #[inline]
-    pub fn get_output_activity_levels(&self) -> &ActivityLevels<T> {
+    pub fn get_output_activity_levels(&self) -> &ActivityLevels<u64> {
         &self.output_activity_levels
     }
 
