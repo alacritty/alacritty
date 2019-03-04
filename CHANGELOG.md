@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Command keybindings on Windows will no longer open new cmd.exe console windows
+
 ### Added
 
 - MSI installer for Windows is now available
@@ -22,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Text lingering around when resetting while scrolled up in the history
 - Terminfo support for extended capabilities
 - Allow mouse presses and beginning of mouse selection in padding
+- Windows: Conpty backend could close immediately on startup in certain situations
 
 ## Version 0.2.9
 

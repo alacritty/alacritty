@@ -11,11 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+use std::{cmp, io};
+use std::ffi::OsStr;
+use std::process::Command;
+
 #[cfg(not(windows))]
 use std::os::unix::process::CommandExt;
-use std::process::Command;
-use std::ffi::OsStr;
-use std::{cmp, io};
+
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+#[cfg(windows)]
+use std::process::Stdio;
+#[cfg(windows)]
+use winapi::um::winbase::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
 
 /// Threading utilities
 pub mod thread {
@@ -100,7 +109,18 @@ pub fn start_daemon<I, S>(program: &str, args: I) -> io::Result<()>
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
 {
-    Command::new(program).args(args).spawn().map(|_| ())
+    // Setting all the I/O handles to null and setting the
+    // CREATE_NEW_PROCESS_GROUP and CREATE_NO_WINDOW has the effect
+    // that console applications will run without opening a new
+    // console window.
+    Command::new(program)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW)
+        .spawn()
+        .map(|_| ())
 }
 
 #[cfg(test)]
