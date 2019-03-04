@@ -51,6 +51,7 @@ url = "1.7.1"
 time = "0.1.40"
 crossbeam-channel = "0.3.8"
 num-traits = "0.2"
+procinfo = "0.4.2"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
