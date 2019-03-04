@@ -411,7 +411,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         } else if self.ctx.terminal().mode().intersects(motion_mode)
             // Only report motion when changing cells
             && (prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column)
-            && size_info.contains_point(x, y)
+            && size_info.contains_point(x, y, false)
         {
             if self.ctx.mouse().left_button_state == ElementState::Pressed {
                 self.mouse_report(32, ElementState::Pressed, modifiers);

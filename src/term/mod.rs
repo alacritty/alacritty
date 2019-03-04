@@ -838,11 +838,15 @@ impl SizeInfo {
         Column(((self.width - 2. * self.padding_x) / self.cell_width) as usize)
     }
 
-    pub fn contains_point(&self, x: usize, y:usize) -> bool {
-        x < (self.width - self.padding_x) as usize
-            && x >= self.padding_x as usize
-            && y < (self.height - self.padding_y) as usize
-            && y >= self.padding_y as usize
+    pub fn contains_point(&self, x: usize, y: usize, include_padding: bool) -> bool {
+        if include_padding {
+            x < self.width as usize && y < self.height as usize
+        } else {
+            x < (self.width - self.padding_x) as usize
+                && x >= self.padding_x as usize
+                && y < (self.height - self.padding_y) as usize
+                && y >= self.padding_y as usize
+        }
     }
 
     pub fn pixels_to_coords(&self, x: usize, y: usize) -> Point {
@@ -1104,9 +1108,10 @@ impl Term {
     /// The mouse coordinates are expected to be relative to the top left. The
     /// line and column returned are also relative to the top left.
     ///
-    /// Returns None if the coordinates are outside the screen
+    /// Returns None if the coordinates are outside the window,
+    /// padding pixels are considered inside the window
     pub fn pixels_to_coords(&self, x: usize, y: usize) -> Option<Point> {
-        if self.size_info.contains_point(x, y) {
+        if self.size_info.contains_point(x, y, true) {
             Some(self.size_info.pixels_to_coords(x, y))
         } else {
             None

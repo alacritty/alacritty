@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cursor jumping around when leaving alt screen while not in the alt screen
 - Text lingering around when resetting while scrolled up in the history
 - Terminfo support for extended capabilities
+- Allow mouse presses and beginning of mouse selection in padding
 
 ## Version 0.2.9
 
