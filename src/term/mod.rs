@@ -911,8 +911,18 @@ where T: Num + Clone + Copy
         self.width = width;
         self
     }
-    /// `increment_activity_level` Deals with time ranges in the activity vector
-    pub fn increment_activity_level(&mut self, size: SizeInfo, increment_amount: T)
+    /// `update_activity_level` Ensures time slots are filled with 0s for
+    /// inactivity and increments the current epoch activity_level slot by an
+    /// new_value, it uses the size to calculate the position from the
+    /// bottom in which to display the activity levels
+    /// The overwrite parameter, when set to false will incremet the current
+    /// epoch slow by the new_value, otherwise the last entry is
+    /// overwritten.
+    pub fn update_activity_level(&mut self,
+                                 size: SizeInfo,
+                                 new_value: T,
+                                 overwrite: bool
+                                 )
     where T: Num + Clone + Copy + PartialOrd + ToPrimitive
     {
         // XXX: Right now set to "as_secs", but could be used for other time units easily
@@ -921,7 +931,7 @@ where T: Num + Clone + Copy
         let center_x = size.width / 2.;
         let center_y = size.height / 2.;
         if activity_time_length == 0 {
-            self.activity_levels.push(increment_amount);
+            self.activity_levels.push(new_value);
             self.last_activity_time = now;
             // Adding twice to a vec, could this be made into one operation? Is this slow?
             let x = size.padding_x + self.x_offset;
@@ -933,7 +943,11 @@ where T: Num + Clone + Copy
             return;
         }
         if now == self.last_activity_time {
-            self.activity_levels[activity_time_length - 1] = self.activity_levels[activity_time_length - 1] + increment_amount;
+            if overwrite {
+                self.activity_levels[activity_time_length - 1] = new_value;
+            } else {
+                self.activity_levels[activity_time_length - 1] = self.activity_levels[activity_time_length - 1] + new_value;
+            }
         } else {
             let mut inactive_time = (now - self.last_activity_time) as usize;
             if inactive_time > self.max_activity_ticks {
@@ -954,9 +968,9 @@ where T: Num + Clone + Copy
                 }
             }
             if activity_time_length < self.max_activity_ticks {
-                self.activity_levels.push(increment_amount);
+                self.activity_levels.push(new_value);
             } else {
-                self.activity_levels[activity_time_length - 1] = increment_amount;
+                self.activity_levels[activity_time_length - 1] = new_value;
             }
             self.last_activity_time = now;
         }
@@ -1124,11 +1138,11 @@ impl Term {
             should_exit: false,
             input_activity_levels: ActivityLevels::default().with_color(Rgb{r:255,g:0,b:0}).with_x_offset(600f32),
             output_activity_levels: ActivityLevels::default().with_color(Rgb{r:0,g:255,b:0}).with_x_offset(800f32),
-            load_avg_1_min: ActivityLevels::default().with_color(Rgb{r:92,g:2,b:238}).with_width(50f32).with_x_offset(1000f32),
-            load_avg_5_min: ActivityLevels::default().with_color(Rgb{r:92,g:2,b:238}).with_width(50f32).with_x_offset(1050f32), // XXX: Change color
-            load_avg_10_min: ActivityLevels::default().with_color(Rgb{r:92,g:2,b:238}).with_width(50f32).with_x_offset(1100f32), // XXX: Change color
-            tasks_runnable: ActivityLevels::default().with_color(Rgb{r:92,g:2,b:238}).with_width(50f32).with_x_offset(1150f32), // XXX: Change color
-            tasks_total: ActivityLevels::default().with_color(Rgb{r:92,g:2,b:238}).with_width(50f32).with_x_offset(1200f32), // XXX: Change color
+            load_avg_1_min: ActivityLevels::default().with_color(Rgb{r:229,g:57,b:53}).with_width(50f32).with_x_offset(1000f32),
+            load_avg_5_min: ActivityLevels::default().with_color(Rgb{r:92,g:83,b:80}).with_width(50f32).with_x_offset(1050f32),
+            load_avg_10_min: ActivityLevels::default().with_color(Rgb{r:239,g:154,b:154}).with_width(50f32).with_x_offset(1100f32),
+            tasks_runnable: ActivityLevels::default().with_color(Rgb{r:0,g:172,b:193}).with_width(50f32).with_x_offset(1150f32),
+            tasks_total: ActivityLevels::default().with_color(Rgb{r:27,g:160,b:71}).with_width(50f32).with_x_offset(1200f32),
         }
     }
 
@@ -1462,12 +1476,41 @@ impl Term {
         &self.output_activity_levels
     }
 
-    pub fn increment_output_activity_level(&mut self) {
-        self.output_activity_levels.increment_activity_level(self.size_info, 1u64);
+    pub fn get_system_load(&self, granularity: &'static str) -> &ActivityLevels<f32> {
+        match granularity {
+            "1_min" => &self.load_avg_1_min,
+            "5_min" => &self.load_avg_5_min,
+            "10_min" => &self.load_avg_10_min,
+            _ => &self.load_avg_1_min, // Unused default
+        }
+    }
+    pub fn get_system_task_status(&self, status_type: &'static str) -> &ActivityLevels<u32> {
+        match status_type {
+            "total" => &self.tasks_total,
+            "runnable" => &self.tasks_runnable,
+            _ => &self.tasks_total, // Unused default
+        }
+    }
+     
+    pub fn increment_output_activity_level(&mut self, increment: u64) {
+        self.output_activity_levels.update_activity_level(self.size_info, increment, false);
     }
 
-    pub fn increment_input_activity_level(&mut self) {
-        self.input_activity_levels.increment_activity_level(self.size_info, 1u64);
+    pub fn increment_input_activity_level(&mut self, increment: u64) {
+        self.input_activity_levels.update_activity_level(self.size_info, increment, false);
+    }
+
+    pub fn update_system_load(&mut self) {
+        match procinfo::loadavg() {
+            Ok(res) => {
+                self.load_avg_1_min.update_activity_level(self.size_info, res.load_avg_1_min, true);
+                self.load_avg_5_min.update_activity_level(self.size_info, res.load_avg_1_min, true);
+                self.load_avg_10_min.update_activity_level(self.size_info, res.load_avg_1_min, true);
+                self.tasks_runnable.update_activity_level(self.size_info, res.tasks_runnable, true);
+                self.tasks_total.update_activity_level(self.size_info, res.tasks_total, true);
+            },
+            Err(err) => { error!("Unable to get load average from system: {}", err);}
+        };
     }
 
     #[inline]
@@ -1584,7 +1627,11 @@ impl ansi::Handler for Term {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
-        self.increment_output_activity_level();
+        self.increment_output_activity_level(1u64);
+        // Update the input activity levels XXX: This should be a Timer
+        self.increment_input_activity_level(0u64);
+        // Update the system load average XXX: This should be a Timer
+        self.update_system_load();
         // If enabled, scroll to bottom when character is received
         if self.auto_scroll {
             self.scroll_display(Scroll::Bottom);
