@@ -410,6 +410,12 @@ impl Display {
         }
         let input_activity_levels = terminal.get_input_activity_levels().clone();
         let output_activity_levels = terminal.get_output_activity_levels().clone();
+        let load_avg_1_min = terminal.get_system_load("1_min").clone();
+        let load_avg_5_min = terminal.get_system_load("5_min").clone();
+        let load_avg_10_min = terminal.get_system_load("10_min").clone();
+        let tasks_runnable = terminal.get_system_task_status("runnable").clone();
+        let tasks_total = terminal.get_system_task_status("total").clone();
+
         // Clear when terminal mutex isn't held. Mesa for
         // some reason takes a long time to call glClear(). The driver descends
         // into xcb_connect_to_fd() which ends up calling __poll_nocancel()
@@ -457,16 +463,6 @@ impl Display {
 
                 // Draw rectangles including the new background
                 self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
-                self.renderer.draw_activity_levels_line(config,
-                                                        &size_info,
-                                                        &input_activity_levels.opengl_vecs,
-                                                        input_activity_levels.color,
-                                                        input_activity_levels.alpha);
-                self.renderer.draw_activity_levels_line(config,
-                                                        &size_info,
-                                                        &output_activity_levels.opengl_vecs,
-                                                        output_activity_levels.color,
-                                                        output_activity_levels.alpha);
 
                 // Relay messages to the user
                 let mut offset = 1;
@@ -484,17 +480,48 @@ impl Display {
             } else {
                 // Draw rectangles
                 self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
-                self.renderer.draw_activity_levels_line(config,
-                                                        &size_info,
-                                                        &output_activity_levels.opengl_vecs,
-                                                        output_activity_levels.color,
-                                                        output_activity_levels.alpha);
-                self.renderer.draw_activity_levels_line(config,
-                                                        &size_info,
-                                                        &input_activity_levels.opengl_vecs,
-                                                        input_activity_levels.color,
-                                                        input_activity_levels.alpha);
             }
+            // XXX: Make into array or Map
+            self.renderer.draw_activity_levels_line(config,
+                                                    &size_info,
+                                                    &output_activity_levels.opengl_vecs,
+                                                    output_activity_levels.color,
+                                                    output_activity_levels.alpha);
+            self.renderer.draw_activity_levels_line(config,
+                                                    &size_info,
+                                                    &input_activity_levels.opengl_vecs,
+                                                    input_activity_levels.color,
+                                                    input_activity_levels.alpha);
+
+            self.renderer.draw_activity_levels_line(config,
+                                                    &size_info,
+                                                    &load_avg_1_min.opengl_vecs,
+                                                    load_avg_1_min.color,
+                                                    load_avg_1_min.alpha);
+
+            self.renderer.draw_activity_levels_line(config,
+                                                    &size_info,
+                                                    &load_avg_5_min.opengl_vecs,
+                                                    load_avg_5_min.color,
+                                                    load_avg_5_min.alpha);
+
+            self.renderer.draw_activity_levels_line(config,
+                                                    &size_info,
+                                                    &load_avg_10_min.opengl_vecs,
+                                                    load_avg_10_min.color,
+                                                    load_avg_10_min.alpha);
+
+            self.renderer.draw_activity_levels_line(config,
+                                                    &size_info,
+                                                    &tasks_runnable.opengl_vecs,
+                                                    tasks_runnable.color,
+                                                    tasks_runnable.alpha);
+
+            self.renderer.draw_activity_levels_line(config,
+                                                    &size_info,
+                                                    &tasks_total.opengl_vecs,
+                                                    tasks_total.color,
+                                                    tasks_total.alpha);
 
             // Draw render timer
             if self.render_timer {
