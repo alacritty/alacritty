@@ -136,9 +136,14 @@ impl Window {
 
         let title = options.title.as_ref().map_or(DEFAULT_NAME, |t| t);
         let class = options.class.as_ref().map_or(DEFAULT_NAME, |c| c);
-        let window_builder = Window::get_platform_window(title, class, window_config, &event_loop);
+        let window_builder = Window::get_platform_window(title, class, window_config);
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
+
+        if window_config.start_maximized() {
+            window.set_fullscreen(Some(event_loop.get_primary_monitor()));
+        }
+
         window.show();
 
         // Text cursor
@@ -251,8 +256,7 @@ impl Window {
     pub fn get_platform_window(
         title: &str,
         class: &str,
-        window_config: &WindowConfig,
-        event_loop: &EventsLoop
+        window_config: &WindowConfig
     ) -> WindowBuilder {
         use glutin::os::unix::WindowBuilderExt;
 
@@ -277,8 +281,7 @@ impl Window {
     pub fn get_platform_window(
         title: &str,
         _class: &str,
-        window_config: &WindowConfig,
-        event_loop: &EventsLoop
+        window_config: &WindowConfig
     ) -> WindowBuilder {
         let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO).unwrap();
 
@@ -300,21 +303,15 @@ impl Window {
     pub fn get_platform_window(
         title: &str,
         _class: &str,
-        window_config: &WindowConfig,
-        event_loop: &EventsLoop
+        window_config: &WindowConfig
     ) -> WindowBuilder {
         use glutin::os::macos::WindowBuilderExt;
-
-        let monitor = Some(event_loop.get_primary_monitor());
 
         let window = WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
-            .with_transparency(true);
-
-        if window_config.start_maximized() {
-            return window.with_fullscreen(monitor)
-        }
+            .with_transparency(true)
+            .with_maximized(window_config.start_maximized());
 
         match window_config.decorations() {
             Decorations::Full => window,
