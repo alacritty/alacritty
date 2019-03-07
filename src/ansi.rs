@@ -543,6 +543,10 @@ pub enum NamedColor {
     CursorText,
     /// Color for the cursor itself
     Cursor,
+    /// Color for the selected text
+    SelectionText,
+    /// Color for the selection itself
+    Selection,
     /// Dim black
     DimBlack,
     /// Dim red

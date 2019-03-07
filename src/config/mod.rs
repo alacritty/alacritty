@@ -1285,6 +1285,8 @@ pub struct Colors {
     pub primary: PrimaryColors,
     #[serde(deserialize_with = "failure_default")]
     pub cursor: CursorColors,
+    #[serde(deserialize_with = "failure_default")]
+    pub selection: SelectionColors,
     #[serde(deserialize_with = "deserialize_normal_colors")]
     pub normal: AnsiColors,
     #[serde(deserialize_with = "deserialize_bright_colors")]
@@ -1300,6 +1302,7 @@ impl Default for Colors {
         Colors {
             primary: Default::default(),
             cursor: Default::default(),
+            selection: Default::default(),
             normal: default_normal_colors(),
             bright: default_bright_colors(),
             dim: Default::default(),
@@ -1419,6 +1422,15 @@ pub struct CursorColors {
     pub text: Option<Rgb>,
     #[serde(deserialize_with = "deserialize_optional_color")]
     pub cursor: Option<Rgb>,
+}
+
+#[serde(default)]
+#[derive(Debug, Copy, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct SelectionColors {
+    #[serde(deserialize_with = "deserialize_optional_color")]
+    pub text: Option<Rgb>,
+    #[serde(deserialize_with = "deserialize_optional_color")]
+    pub selection: Option<Rgb>,
 }
 
 #[serde(default)]
@@ -1854,6 +1866,18 @@ impl Config {
     #[inline]
     pub fn cursor_cursor_color(&self) -> Option<Color> {
         self.colors.cursor.cursor.map(|_| Color::Named(NamedColor::Cursor))
+    }
+
+    /// Selected text color.
+    #[inline]
+    pub fn selection_text_color(&self) -> Option<Color> {
+        self.colors.selection.text.map(|_| Color::Named(NamedColor::SelectionText))
+    }
+
+    /// Selected text background color.
+    #[inline]
+    pub fn selection_selection_color(&self) -> Option<Color> {
+        self.colors.selection.selection.map(|_| Color::Named(NamedColor::Selection))
     }
 
     /// Enable experimental conpty backend (Windows only)

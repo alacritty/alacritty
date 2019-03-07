@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dynamic title support on Windows
 - Ability to specify starting position with the `--position` flag
 - New configuration field `window.position` allows specifying the starting position
+- Added the ability to change the selection color
 
 ### Fixed
 
