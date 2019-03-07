@@ -834,9 +834,9 @@ where T: Num + Clone + Copy
     First,
     Last,
     Fixed(T),
-    Avg(T),
-    Max(T),
-    Min(T),
+    Avg,
+    Max,
+    Min,
 }
 /// `ActivityLevels` keep track of the activity per second
 #[derive(Debug, Clone)]
@@ -947,13 +947,33 @@ where T: Num + Clone + Copy
         self
     }
 
-    /// `with_alpha` Changes the transparency of the activity level
+    /// `with_overwrite_last_entry` overwrite instead of increment current time
+    /// entry
     pub fn with_overwrite_last_entry(mut self, value: bool) -> ActivityLevels<T> {
         self.overwrite_last_entry = value;
         self
     }
     
-    /// `with_alpha` Changes the transparency of the activity level
+    pub fn with_missing_values_policy(mut self, policy_type: String) -> ActivityLevels<T> {
+        self.missing_values_policy = match policy_type.as_ref() {
+            "zero"  => MissingValuesPolicy::Zero,
+            "one"   => MissingValuesPolicy::One,
+            "min"   => MissingValuesPolicy::Min,
+            "max"   => MissingValuesPolicy::Max,
+            "last"  => MissingValuesPolicy::Last,
+            "avg"   => MissingValuesPolicy::Avg,
+            "first" => MissingValuesPolicy::First,
+            _ => {
+                // Expect a number and transform it into T, this is the "Fixed"
+                // enum variant, basically any string incoming
+                // For now, let's set it to 1
+                MissingValuesPolicy::First
+            },
+        };
+        self
+    }
+
+    /// `with_marker_line` Changes the transparency of the activity level
     pub fn with_marker_line(mut self, value: T) -> ActivityLevels<T> {
         self.marker_line = Some(value);
         self
@@ -967,9 +987,11 @@ where T: Num + Clone + Copy
                                  size: SizeInfo,
                                  new_value: T
                                  )
-    where T: Num + Clone + Copy + PartialOrd + ToPrimitive + Ord
+    where T: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded
     {
         // XXX: Right now set to "as_secs", but could be used for other time units easily
+        // XXX: Use self.marker_line
+        // XXX: Add marker_line color
         let mut activity_time_length = self.activity_levels.len();
         let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let center_x = size.width / 2.;
@@ -995,7 +1017,7 @@ where T: Num + Clone + Copy
         } else {
             // Get the maximum value
             let mut max_activity_value = T::zero();
-            let mut min_activity_value = T::max();
+            let mut min_activity_value = T::max_value();
             for idx in 0..activity_time_length {
                 if self.activity_levels[idx] > max_activity_value {
                     max_activity_value = self.activity_levels[idx];
@@ -1013,9 +1035,9 @@ where T: Num + Clone + Copy
                 MissingValuesPolicy::One => T::one(),
                 MissingValuesPolicy::Min => min_activity_value,
                 MissingValuesPolicy::Max => max_activity_value,
-                MissingValuesPolicy::Last => self.activity_levels[activity_time_length],
+                MissingValuesPolicy::Last => self.activity_levels[activity_time_length - 1],
                 MissingValuesPolicy::First => self.activity_levels[0],
-                MissingValuesPolicy::Max => max_activity_value,
+                MissingValuesPolicy::Avg => max_activity_value, // TODO
                 MissingValuesPolicy::Fixed(val) => val,
             };
             if inactive_time + activity_time_length > self.max_activity_ticks {
@@ -1024,11 +1046,11 @@ where T: Num + Clone + Copy
                     self.activity_levels[idx] = self.activity_levels[idx + shift_left_times]
                 }
                 for idx in activity_time_length - shift_left_times .. activity_time_length {
-                    self.activity_levels[idx] = T::zero();
+                    self.activity_levels[idx] = missing_timeslots_fill;
                 }
             } else {
                 for _ in 0..inactive_time - 1 {
-                    self.activity_levels.push(T::zero());
+                    self.activity_levels.push(missing_timeslots_fill);
                     activity_time_length += 1;
                 }
             }
@@ -1211,24 +1233,32 @@ impl Term {
                 .with_color(Rgb{r:93,g:23,b:106})
                 .with_width(50f32)
                 .with_alpha(0.9)
+                .with_missing_values_policy("last".to_string())
+                .with_marker_line(1f32)
                 .with_x_offset(1000f32),
             load_avg_5_min: ActivityLevels::default()
                 .with_color(Rgb{r:146,g:75,b:158})
                 .with_width(50f32)
                 .with_alpha(0.6)
+                .with_missing_values_policy("last".to_string())
+                .with_marker_line(1f32)
                 .with_x_offset(1000f32),
             load_avg_10_min: ActivityLevels::default()
                 .with_color(Rgb{r:202,g:127,b:213})
                 .with_width(50f32)
                 .with_alpha(0.3)
+                .with_missing_values_policy("last".to_string())
+                .with_marker_line(1f32)
                 .with_x_offset(1000f32),
             tasks_runnable: ActivityLevels::default()
                 .with_color(Rgb{r:0,g:172,b:193})
                 .with_width(50f32)
+                .with_missing_values_policy("last".to_string())
                 .with_x_offset(1150f32),
             tasks_total: ActivityLevels::default()
                 .with_color(Rgb{r:27,g:160,b:71})
                 .with_width(50f32)
+                .with_missing_values_policy("last".to_string())
                 .with_x_offset(1200f32),
         }
     }
