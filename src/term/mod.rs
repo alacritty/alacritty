@@ -786,6 +786,7 @@ pub struct Term {
     /// Default style for resetting the cursor
     default_cursor_style: CursorStyle,
 
+    /// Whether to permit updating the terminal title
     dynamic_title: bool,
 
     /// Number of spaces in one tab
@@ -1357,6 +1358,19 @@ impl ansi::Handler for Term {
     fn set_title(&mut self, title: &str) {
         if self.dynamic_title {
             self.next_title = Some(title.to_owned());
+
+            #[cfg(windows)]
+            {
+                // cmd.exe in winpty: winpty incorrectly sets the title to ' ' instead of
+                // 'Alacritty' - thus we have to substitute this back to get equivalent
+                // behaviour as conpty.
+                //
+                // The starts_with check is necessary because other shells e.g. bash set a
+                // different title and don't need Alacritty prepended.
+                if !tty::is_conpty() && title.starts_with(' ') {
+                    self.next_title = Some(format!("Alacritty {}", title.trim()));
+                }
+            }
         }
     }
 
