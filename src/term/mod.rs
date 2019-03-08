@@ -802,7 +802,6 @@ pub struct Term {
     should_exit: bool,
 
     /// Input activity levels, from keyboard (maybe control characters for terminal)
-    // XXX: How does this behave with ssh?, screen?, tmux?)
     // tmux shows redraws all the time (powerline)
     //
     input_activity_levels: ActivityLevels<u64>,
@@ -884,6 +883,10 @@ where T: Num + Clone + Copy
     /// to show where the 1 task per core is
     pub marker_line: Option<T>,
 
+    /// The opengl representation of the activity levels
+    /// Contains twice as many items because it's x,y
+    pub marker_line_vecs: Vec<f32>,
+
     /// Missing values can be set to zero
     /// to show where the 1 task per core is
     pub missing_values_policy: MissingValuesPolicy<T>,
@@ -910,6 +913,7 @@ where T: Num + Clone + Copy
             x_offset: 600f32,
             width: 200f32,
             opengl_vecs: Vec::<f32>::with_capacity(activity_vector_capacity * 2),
+            marker_line_vecs: Vec::<f32>::with_capacity(16),
             activity_line_height: 25f32,
             activity_tick_spacing: 5f32,
             alpha: 1f32,
@@ -987,25 +991,17 @@ where T: Num + Clone + Copy
                                  size: SizeInfo,
                                  new_value: T
                                  )
-    where T: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded
+    where T: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded + FromPrimitive
     {
         // XXX: Right now set to "as_secs", but could be used for other time units easily
         // XXX: Use self.marker_line
         // XXX: Add marker_line color
         let mut activity_time_length = self.activity_levels.len();
         let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        let center_x = size.width / 2.;
-        let center_y = size.height / 2.;
         if activity_time_length == 0 {
             self.activity_levels.push(new_value);
             self.last_activity_time = now;
-            // Adding twice to a vec, could this be made into one operation? Is this slow?
-            let x = size.padding_x + self.x_offset;
-            let y = size.height - 2. * size.padding_y;
-            let scaled_x = (x - center_x) / center_x;
-            let scaled_y = -(y - center_y) / center_y;
-            self.opengl_vecs.push(scaled_x);
-            self.opengl_vecs.push(scaled_y);
+            self.update_opengl_vecs(size/* , add max parameter, equal to current value*/);
             return;
         }
         if now == self.last_activity_time {
@@ -1018,6 +1014,7 @@ where T: Num + Clone + Copy
             // Get the maximum value
             let mut max_activity_value = T::zero();
             let mut min_activity_value = T::max_value();
+            let mut sum_activity_values = T::zero();
             for idx in 0..activity_time_length {
                 if self.activity_levels[idx] > max_activity_value {
                     max_activity_value = self.activity_levels[idx];
@@ -1025,6 +1022,7 @@ where T: Num + Clone + Copy
                 if self.activity_levels[idx] < min_activity_value {
                     min_activity_value = self.activity_levels[idx];
                 }
+                sum_activity_values = sum_activity_values + self.activity_levels[idx];
             }
             let mut inactive_time = (now - self.last_activity_time) as usize;
             if inactive_time > self.max_activity_ticks {
@@ -1037,7 +1035,7 @@ where T: Num + Clone + Copy
                 MissingValuesPolicy::Max => max_activity_value,
                 MissingValuesPolicy::Last => self.activity_levels[activity_time_length - 1],
                 MissingValuesPolicy::First => self.activity_levels[0],
-                MissingValuesPolicy::Avg => max_activity_value, // TODO
+                MissingValuesPolicy::Avg => sum_activity_values / num_traits::FromPrimitive::from_usize(activity_time_length).unwrap(),
                 MissingValuesPolicy::Fixed(val) => val,
             };
             if inactive_time + activity_time_length > self.max_activity_ticks {
@@ -1061,6 +1059,20 @@ where T: Num + Clone + Copy
             }
             self.last_activity_time = now;
         }
+        self.update_opengl_vecs(size);
+        self.update_marker_line_vecs(size);
+    }
+    
+    pub fn update_opengl_vecs(&mut self, size: SizeInfo){
+        unimplemented!();
+    }
+    /// `update_opengl_vecs` Represents the activity levels values in a
+    /// drawable vector for opengl
+    pub fn update_opengl_vecs(&mut self, size: SizeInfo)
+    where T: Num + PartialOrd + ToPrimitive + Bounded + FromPrimitive
+    {
+        let center_x = size.width / 2.;
+        let center_y = size.height / 2.;
         // Get the maximum value
         let mut max_activity_value = T::zero();
         for idx in 0..self.activity_levels.len() {
@@ -1092,7 +1104,6 @@ where T: Num + Clone + Copy
                 self.opengl_vecs[idx * 2 + 1] = scaled_y;
             }
         }
-        // trace!("SEB: last_activity_time:{}, max_activity_value: {}, x_offset: {}, size,activity_levels: {:?}, opengl_vecs: {:?}", self.last_activity_time, max_activity_value, self.x_offset, self.activity_levels,self.opengl_vecs);
 
     }
 }
@@ -1238,28 +1249,28 @@ impl Term {
                 .with_x_offset(1000f32),
             load_avg_5_min: ActivityLevels::default()
                 .with_color(Rgb{r:146,g:75,b:158})
-                .with_width(50f32)
+                .with_width(30f32)
                 .with_alpha(0.6)
                 .with_missing_values_policy("last".to_string())
                 .with_marker_line(1f32)
-                .with_x_offset(1000f32),
+                .with_x_offset(1050f32),
             load_avg_10_min: ActivityLevels::default()
                 .with_color(Rgb{r:202,g:127,b:213})
-                .with_width(50f32)
+                .with_width(20f32)
                 .with_alpha(0.3)
                 .with_missing_values_policy("last".to_string())
                 .with_marker_line(1f32)
-                .with_x_offset(1000f32),
+                .with_x_offset(1080f32),
             tasks_runnable: ActivityLevels::default()
                 .with_color(Rgb{r:0,g:172,b:193})
                 .with_width(50f32)
                 .with_missing_values_policy("last".to_string())
-                .with_x_offset(1150f32),
+                .with_x_offset(1100f32),
             tasks_total: ActivityLevels::default()
                 .with_color(Rgb{r:27,g:160,b:71})
                 .with_width(50f32)
                 .with_missing_values_policy("last".to_string())
-                .with_x_offset(1200f32),
+                .with_x_offset(1150f32),
         }
     }
 
