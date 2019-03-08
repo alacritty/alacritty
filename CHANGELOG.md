@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for alternate keyboard layouts on macOS
 - Slow startup time on some X11 systems
 - The AltGr key no longer sends escapes (like Alt)
+- Fixes increase font-size keybinding on German keyboards
 
 ## Version 0.2.9
 

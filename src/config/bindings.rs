@@ -186,6 +186,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Key::Insert, [shift: true]; Action::PasteSelection;
         Key::Key0, [ctrl: true]; Action::ResetFontSize;
         Key::Equals, [ctrl: true]; Action::IncreaseFontSize;
+        Key::Add, [ctrl: true]; Action::IncreaseFontSize;
         Key::Subtract, [ctrl: true]; Action::DecreaseFontSize;
     )
 }
@@ -196,6 +197,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         KeyBinding;
         Key::Key0, [logo: true]; Action::ResetFontSize;
         Key::Equals, [logo: true]; Action::IncreaseFontSize;
+        Key::Add, [ctrl: true]; Action::IncreaseFontSize;
         Key::Minus, [logo: true]; Action::DecreaseFontSize;
         Key::K, [logo: true]; Action::ClearHistory;
         Key::K, [logo: true]; Action::Esc("\x0c".into());
