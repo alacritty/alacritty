@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Terminfo support for extended capabilities
 - Allow mouse presses and beginning of mouse selection in padding
 - Windows: Conpty backend could close immediately on startup in certain situations
+- FreeBSD: SpawnNewInstance will now open new instances in the shell's current
+    working directory as long as linprocfs(5) is mounted on `/compat/linux/proc`
 
 ## Version 0.2.9
 
