@@ -481,10 +481,6 @@ impl WindowConfig {
 /// Top-level config type
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct Config {
-    /// Initial dimensions
-    #[serde(default, deserialize_with = "failure_default")]
-    dimensions: Option<Dimensions>,
-
     /// Pixel padding
     #[serde(default, deserialize_with = "failure_default")]
     padding: Option<Delta<u8>>,
@@ -587,6 +583,9 @@ pub struct Config {
 
     // TODO: DEPRECATED
     unfocused_hollow_cursor: Option<bool>,
+
+    // TODO: DEPRECATED
+    dimensions: Option<Dimensions>,
 }
 
 impl Default for Config {
