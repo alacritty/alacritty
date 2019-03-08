@@ -172,7 +172,11 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
         #[cfg(unix)]
         let args = {
-            if let Ok(path) = fs::read_link(format!("/proc/{}/cwd", unsafe { tty::PID })) {
+            #[cfg(not(target_os = "freebsd"))]
+            let proc_prefix = "";
+            #[cfg(target_os = "freebsd")]
+            let proc_prefix = "/compat/linux";
+            if let Ok(path) = fs::read_link(format!("{}/proc/{}/cwd", proc_prefix, unsafe { tty::PID })) {
                 vec!["--working-directory".into(), path]
             } else {
                 Vec::new()
