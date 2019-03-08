@@ -24,7 +24,7 @@ use glutin::{
     self, ContextBuilder, ControlFlow, Event, EventsLoop,
     MouseCursor as GlutinMouseCursor, WindowBuilder,
 };
-use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
+use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 
 use crate::cli::Options;
 use crate::config::{Decorations, WindowConfig};
@@ -180,6 +180,13 @@ impl Window {
 
     pub fn set_inner_size(&mut self, size: LogicalSize) {
         self.window.set_inner_size(size);
+    }
+
+    // TODO: use `with_position` once available
+    // Upstream issue: https://github.com/tomaka/winit/issues/806
+    pub fn set_position(&mut self, x: i32, y: i32) {
+        let logical = PhysicalPosition::from((x, y)).to_logical(self.window.get_hidpi_factor());
+        self.window.set_position(logical);
     }
 
     #[inline]

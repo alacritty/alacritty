@@ -51,6 +51,10 @@ Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alac
 \fB\-d\fR, \fB\-\-dimensions\fR <columns> <lines>
 .IP
 Defines the window dimensions. Falls back to size specified by window manager if set to 0x0 [default: 0x0]
+.HP
+\fB\-\-position\fR <x-pos> <y-pos>
+.IP
+Defines the window position. Falls back to position specified by window manager if unset [default: unset]
 .TP
 \fB\-t\fR, \fB\-\-title\fR <title>
 Defines the window title [default: Alacritty]

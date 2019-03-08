@@ -70,6 +70,11 @@ complete \
 
 complete \
   -c alacritty \
+  -l "position" \
+  -d "Window position <x-pos> <y-pos>"
+
+complete \
+  -c alacritty \
   -s "e" \
   -l "command" \
   -d "Execute command (must be last arg)"
