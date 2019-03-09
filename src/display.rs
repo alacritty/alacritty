@@ -484,42 +484,42 @@ impl Display {
             // XXX: Make into array or Map
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
-                                                    &output_activity_levels.opengl_vecs,
+                                                    &output_activity_levels.activity_opengl_vecs,
                                                     output_activity_levels.color,
                                                     output_activity_levels.alpha);
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
-                                                    &input_activity_levels.opengl_vecs,
+                                                    &input_activity_levels.activity_opengl_vecs,
                                                     input_activity_levels.color,
                                                     input_activity_levels.alpha);
 
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
-                                                    &load_avg_1_min.opengl_vecs,
+                                                    &load_avg_1_min.activity_opengl_vecs,
                                                     load_avg_1_min.color,
                                                     load_avg_1_min.alpha);
 
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
-                                                    &load_avg_5_min.opengl_vecs,
+                                                    &load_avg_5_min.activity_opengl_vecs,
                                                     load_avg_5_min.color,
                                                     load_avg_5_min.alpha);
 
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
-                                                    &load_avg_10_min.opengl_vecs,
+                                                    &load_avg_10_min.activity_opengl_vecs,
                                                     load_avg_10_min.color,
                                                     load_avg_10_min.alpha);
 
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
-                                                    &tasks_runnable.opengl_vecs,
+                                                    &tasks_runnable.activity_opengl_vecs,
                                                     tasks_runnable.color,
                                                     tasks_runnable.alpha);
 
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
-                                                    &tasks_total.opengl_vecs,
+                                                    &tasks_total.activity_opengl_vecs,
                                                     tasks_total.color,
                                                     tasks_total.alpha);
 
