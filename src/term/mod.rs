@@ -864,7 +864,7 @@ where T: Num + Clone + Copy
 
     /// The opengl representation of the activity levels
     /// Contains twice as many items because it's x,y
-    pub opengl_vecs: Vec<f32>,
+    pub activity_opengl_vecs: Vec<f32>,
 
     /// The height of the activity line region
     pub activity_line_height: f32,
@@ -912,8 +912,8 @@ where T: Num + Clone + Copy
             },
             x_offset: 600f32,
             width: 200f32,
-            opengl_vecs: Vec::<f32>::with_capacity(activity_vector_capacity * 2),
-            marker_line_vecs: Vec::<f32>::with_capacity(16),
+            activity_opengl_vecs: Vec::<f32>::with_capacity(activity_vector_capacity * 2),
+            marker_line_vecs: vec![0f32; 18],
             activity_line_height: 25f32,
             activity_tick_spacing: 5f32,
             alpha: 1f32,
@@ -958,6 +958,14 @@ where T: Num + Clone + Copy
         self
     }
     
+    /// `with_marker_line` Changes the transparency of the activity level
+    pub fn with_marker_line(mut self, value: T) -> ActivityLevels<T> {
+        self.marker_line = Some(value);
+        self
+    }
+
+    /// `with_missing_values_policy` receives a String and returns 
+    /// a MissingValuesPolicy, TODO: the "Fixed" value is not implemented.
     pub fn with_missing_values_policy(mut self, policy_type: String) -> ActivityLevels<T> {
         self.missing_values_policy = match policy_type.as_ref() {
             "zero"  => MissingValuesPolicy::Zero,
@@ -977,10 +985,66 @@ where T: Num + Clone + Copy
         self
     }
 
-    /// `with_marker_line` Changes the transparency of the activity level
-    pub fn with_marker_line(mut self, value: T) -> ActivityLevels<T> {
-        self.marker_line = Some(value);
-        self
+    pub fn get_missing_values_fill(&self) -> T
+    where T: Num + Clone + Copy + PartialOrd + Bounded + FromPrimitive
+    {
+        // Recalculating seems to be necessary because we are constantly
+        // moving items out of the Vec<> so our cache can easily get out of
+        // sync
+        let mut max_activity_value = T::zero();
+        let mut min_activity_value = T::max_value();
+        let mut sum_activity_values = T::zero();
+        let activity_time_length = self.activity_levels.len();
+        for idx in 0..activity_time_length {
+            if self.activity_levels[idx] > max_activity_value {
+                max_activity_value = self.activity_levels[idx];
+            }
+            if self.activity_levels[idx] < min_activity_value {
+                min_activity_value = self.activity_levels[idx];
+            }
+            sum_activity_values = sum_activity_values + self.activity_levels[idx];
+        }
+        // XXX: If the values are being shifted, these min/max will be
+        // deceiving, on the other hand, it would just be deceiving for the
+        // first draw after long period of inactivity, which also shows
+        // visually how things are changing.
+        match self.missing_values_policy {
+            MissingValuesPolicy::Zero => T::zero(),
+            MissingValuesPolicy::One => T::one(),
+            MissingValuesPolicy::Min => min_activity_value,
+            MissingValuesPolicy::Max => max_activity_value,
+            MissingValuesPolicy::Last => self.activity_levels[activity_time_length - 1],
+            MissingValuesPolicy::First => self.activity_levels[0],
+            MissingValuesPolicy::Avg => sum_activity_values / num_traits::FromPrimitive::from_usize(activity_time_length).unwrap(),
+            MissingValuesPolicy::Fixed(val) => val,
+        }
+    }
+
+    /// `rotate_activity_levels_vec` when either we run out of our vector
+    /// capacity in the vector or when the terminal has been inactive enough
+    /// that in needs the vector to be rotated.
+    pub fn rotate_activity_levels_vec(&mut self, now: u64)
+    where T: Num + Clone + Copy + PartialOrd + Bounded + FromPrimitive
+    {
+        let activity_time_length = self.activity_levels.len();
+        let mut inactive_time = (now - self.last_activity_time) as usize;
+        if inactive_time > self.max_activity_ticks {
+            inactive_time = self.max_activity_ticks;
+        }
+        let missing_timeslots_fill = self.get_missing_values_fill();
+        if inactive_time + activity_time_length > self.max_activity_ticks {
+            let shift_left_times = inactive_time + activity_time_length - self.max_activity_ticks;
+            for idx in 0 .. activity_time_length - shift_left_times {
+                self.activity_levels[idx] = self.activity_levels[idx + shift_left_times]
+            }
+            for idx in activity_time_length - shift_left_times .. activity_time_length {
+                self.activity_levels[idx] = missing_timeslots_fill;
+            }
+        } else {
+            for _ in 0..inactive_time - 1 {
+                self.activity_levels.push(missing_timeslots_fill);
+            }
+        }
     }
 
     /// `update_activity_level` Ensures time slots are filled with 0s for
@@ -994,85 +1058,118 @@ where T: Num + Clone + Copy
     where T: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded + FromPrimitive
     {
         // XXX: Right now set to "as_secs", but could be used for other time units easily
-        // XXX: Use self.marker_line
         // XXX: Add marker_line color
         let mut activity_time_length = self.activity_levels.len();
-        let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         if activity_time_length == 0 {
+            // The vector is empty, no need to rotate or do anything special
             self.activity_levels.push(new_value);
             self.last_activity_time = now;
-            self.update_opengl_vecs(size/* , add max parameter, equal to current value*/);
+            self.update_activity_opengl_vecs(size);
             return;
         }
         if now == self.last_activity_time {
+            // The Vector is populated and has one active item at least which
+            // we can work on, no need to rotate or do anything special
             if self.overwrite_last_entry {
                 self.activity_levels[activity_time_length - 1] = new_value;
             } else {
                 self.activity_levels[activity_time_length - 1] = self.activity_levels[activity_time_length - 1] + new_value;
             }
-        } else {
-            // Get the maximum value
-            let mut max_activity_value = T::zero();
-            let mut min_activity_value = T::max_value();
-            let mut sum_activity_values = T::zero();
-            for idx in 0..activity_time_length {
-                if self.activity_levels[idx] > max_activity_value {
-                    max_activity_value = self.activity_levels[idx];
-                }
-                if self.activity_levels[idx] < min_activity_value {
-                    min_activity_value = self.activity_levels[idx];
-                }
-                sum_activity_values = sum_activity_values + self.activity_levels[idx];
-            }
-            let mut inactive_time = (now - self.last_activity_time) as usize;
-            if inactive_time > self.max_activity_ticks {
-                inactive_time = self.max_activity_ticks;
-            }
-            let missing_timeslots_fill = match self.missing_values_policy {
-                MissingValuesPolicy::Zero => T::zero(),
-                MissingValuesPolicy::One => T::one(),
-                MissingValuesPolicy::Min => min_activity_value,
-                MissingValuesPolicy::Max => max_activity_value,
-                MissingValuesPolicy::Last => self.activity_levels[activity_time_length - 1],
-                MissingValuesPolicy::First => self.activity_levels[0],
-                MissingValuesPolicy::Avg => sum_activity_values / num_traits::FromPrimitive::from_usize(activity_time_length).unwrap(),
-                MissingValuesPolicy::Fixed(val) => val,
-            };
-            if inactive_time + activity_time_length > self.max_activity_ticks {
-                let shift_left_times = inactive_time + activity_time_length - self.max_activity_ticks;
-                for idx in 0 .. activity_time_length - shift_left_times {
-                    self.activity_levels[idx] = self.activity_levels[idx + shift_left_times]
-                }
-                for idx in activity_time_length - shift_left_times .. activity_time_length {
-                    self.activity_levels[idx] = missing_timeslots_fill;
-                }
-            } else {
-                for _ in 0..inactive_time - 1 {
-                    self.activity_levels.push(missing_timeslots_fill);
-                    activity_time_length += 1;
-                }
-            }
-            if activity_time_length < self.max_activity_ticks {
-                self.activity_levels.push(new_value);
-            } else {
-                self.activity_levels[activity_time_length - 1] = new_value;
-            }
-            self.last_activity_time = now;
+            self.update_activity_opengl_vecs(size);
+            return;
         }
-        self.update_opengl_vecs(size);
-        self.update_marker_line_vecs(size);
+        // Every time unit (currently second) is stored as an item in the array
+        // Rotation may be needed due to inactivity or the array being filled
+        self.rotate_activity_levels_vec(now);
+        activity_time_length = self.activity_levels.len();
+        if activity_time_length < self.max_activity_ticks {
+            self.activity_levels.push(new_value);
+        } else {
+            self.activity_levels[activity_time_length - 1] = new_value;
+        }
+        self.last_activity_time = now;
+        self.update_activity_opengl_vecs(size);
     }
     
-    pub fn update_opengl_vecs(&mut self, size: SizeInfo){
-        unimplemented!();
+    /// `scale_to_size` Scales the value to the current display boundary
+    pub fn scale_y_to_size(&self, size: SizeInfo, input_value: T, max_activity_value: T) -> f32
+    where T: Num + ToPrimitive
+    {
+        let center_y = size.height / 2.;
+        let y = size.height -
+                2. * size.padding_y -
+                ( self.activity_line_height *
+                  num_traits::ToPrimitive::to_f32(&input_value).unwrap() /
+                  num_traits::ToPrimitive::to_f32(&max_activity_value).unwrap()
+                );
+        -(y - center_y) / center_y
     }
-    /// `update_opengl_vecs` Represents the activity levels values in a
-    /// drawable vector for opengl
-    pub fn update_opengl_vecs(&mut self, size: SizeInfo)
+
+    /// `update_marker_line_vecs` Scales the Marker Line to the current size of
+    /// the displayed points
+    pub fn update_marker_line_vecs(&mut self, size: SizeInfo, max_activity_value: T, marker_line_position: T)
     where T: Num + PartialOrd + ToPrimitive + Bounded + FromPrimitive
     {
-        let center_x = size.width / 2.;
-        let center_y = size.height / 2.;
+        // Draw a marker at a fixed position for reference: |>---------<|
+        // The vertexes of the above marker idea can be represented as
+        // connecting lines for these coordinates:
+        // x2,y2                                     x7,y7
+        //       x1,y1=x4,y4             x5,y5=x8,y8
+        // x3,y3                                     x6,y6
+        // |-         10%     -|-  80%  -|-      10%    -|
+
+        // Calculate X, the triangle width is 10% of the available draw space
+        let x1 = self.x_offset + self.width / 10f32;
+        let x2 = self.x_offset;
+        let x3 = self.x_offset;
+        let x5 = self.x_offset + self.width - self.width / 10f32;
+        let x6 = self.x_offset + self.width;
+        let x7 = self.x_offset + self.width;
+
+        // Calculate X, the triangle height is 10% of the available draw space
+        let y1 = self.scale_y_to_size(size,
+                                      marker_line_position,
+                                      max_activity_value); // = y4,y5,y8
+        let y2 = y1 - self.activity_line_height / 10f32; // = y7
+        let y3 = y2 + self.activity_line_height / 10f32; // = y6
+
+        // Left triangle |>
+        self.marker_line_vecs[0] = x1;
+        self.marker_line_vecs[1] = y1;
+        self.marker_line_vecs[2] = x2;
+        self.marker_line_vecs[3] = y2;
+        self.marker_line_vecs[4] = x3;
+        self.marker_line_vecs[5] = y3;
+
+        // Line from left triangle to right triangle ---
+        self.marker_line_vecs[6] = x1;
+        self.marker_line_vecs[7] = y1;
+        self.marker_line_vecs[8] = x5;
+        self.marker_line_vecs[9] = y1;
+
+        // Right triangle <|
+        self.marker_line_vecs[10] = x5;
+        self.marker_line_vecs[11] = y1;
+        self.marker_line_vecs[12] = x6;
+        self.marker_line_vecs[13] = y3;
+        self.marker_line_vecs[14] = x7;
+        self.marker_line_vecs[15] = y2;
+
+        // And loop back to x5,y5
+        self.marker_line_vecs[16] = x5;
+        self.marker_line_vecs[17] = y1;
+
+    }
+
+    /// `update_opengl_vecs` Represents the activity levels values in a
+    /// drawable vector for opengl
+    pub fn update_activity_opengl_vecs(&mut self, size: SizeInfo)
+    where T: Num + PartialOrd + ToPrimitive + Bounded + FromPrimitive
+    {
         // Get the maximum value
         let mut max_activity_value = T::zero();
         for idx in 0..self.activity_levels.len() {
@@ -1080,31 +1177,33 @@ where T: Num + Clone + Copy
                 max_activity_value = self.activity_levels[idx];
             }
         }
+        if let Some(marker_line_value) = self.marker_line {
+            if marker_line_value > max_activity_value {
+                max_activity_value = marker_line_value;
+            }
+        }
+        let center_x = size.width / 2.;
         // Get the opengl representation of the vector
-        let opengl_vecs_len = self.opengl_vecs.len();
+        let opengl_vecs_len = self.activity_opengl_vecs.len();
         // Calculate the tick spacing
         let tick_spacing = self.width / self.max_activity_ticks as f32;
         for idx in 0..self.activity_levels.len() {
             // Adding twice to a vec, could this be made into one operation? Is this slow?
             // need to transform activity line values from varying levels into scaled [-1, 1]
             let x = size.padding_x + self.x_offset + (idx as f32 * tick_spacing);
-            let y = size.height -
-                    2. * size.padding_y -
-                    ( self.activity_line_height *
-                      num_traits::ToPrimitive::to_f32(&self.activity_levels[idx]).unwrap() /
-                      num_traits::ToPrimitive::to_f32(&max_activity_value).unwrap()
-                    );
             let scaled_x = (x - center_x) / center_x;
-            let scaled_y = -(y - center_y) / center_y;
+            let scaled_y = self.scale_y_to_size(size, self.activity_levels[idx], max_activity_value);
             if (idx + 1) * 2 > opengl_vecs_len {
-                self.opengl_vecs.push(scaled_x);
-                self.opengl_vecs.push(scaled_y);
+                self.activity_opengl_vecs.push(scaled_x);
+                self.activity_opengl_vecs.push(scaled_y);
             } else {
-                self.opengl_vecs[idx * 2] = scaled_x;
-                self.opengl_vecs[idx * 2 + 1] = scaled_y;
+                self.activity_opengl_vecs[idx * 2] = scaled_x;
+                self.activity_opengl_vecs[idx * 2 + 1] = scaled_y;
             }
         }
-
+        if let Some(marker_line_value) = self.marker_line {
+            self.update_marker_line_vecs(size, max_activity_value, marker_line_value);
+        }
     }
 }
 
