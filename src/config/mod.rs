@@ -1876,7 +1876,7 @@ impl Config {
 
     /// Selected text background color.
     #[inline]
-    pub fn selection_selection_color(&self) -> Option<Color> {
+    pub fn selection_background_color(&self) -> Option<Color> {
         self.colors.selection.selection.map(|_| Color::Named(NamedColor::Selection))
     }
 

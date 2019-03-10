@@ -543,10 +543,6 @@ pub enum NamedColor {
     CursorText,
     /// Color for the cursor itself
     Cursor,
-    /// Color for the selected text
-    SelectionText,
-    /// Color for the selection itself
-    Selection,
     /// Dim black
     DimBlack,
     /// Dim red
@@ -567,6 +563,10 @@ pub enum NamedColor {
     BrightForeground,
     /// Dim foreground
     DimForeground,
+    /// Color for the selected text
+    SelectionText,
+    /// Color for the selection itself
+    Selection,
 }
 
 impl NamedColor {
