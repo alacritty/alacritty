@@ -53,6 +53,29 @@ pub trait EventedReadWrite {
     fn write_token(&self) -> mio::Token;
 }
 
+/// Events concerning TTY child processes
+#[derive(PartialEq)]
+pub enum ChildEvent {
+    /// Indicates the child has exited
+    Exited
+}
+
+/// A pseudoterminal (or PTY)
+///
+/// This is a refinement of EventedReadWrite that also provides a channel through which we can be
+/// notified if the PTY child process does something we care about (other than writing to the TTY).
+/// In particular, this allows for race-free child exit notification on UNIX (cf. `SIGCHLD`).
+pub trait EventedPty : EventedReadWrite {
+    #[cfg(unix)]
+    fn child_event_token(&self) -> mio::Token;
+
+    /// Tries to retrieve an event
+    ///
+    /// Returns `Some(event)` on success, or `None` if there are no events to retrieve.
+    #[cfg(unix)]
+    fn next_child_event(&mut self) -> Option<ChildEvent>;
+}
+
 // Setup environment variables
 pub fn setup_env(config: &Config) {
     // Default to 'alacritty' terminfo if it is available, otherwise

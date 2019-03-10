@@ -15,58 +15,33 @@
 //! tty related functionality
 //!
 
-use crate::tty::EventedReadWrite;
+use crate::tty::{EventedReadWrite, EventedPty, ChildEvent};
 use crate::term::SizeInfo;
 use crate::display::OnResize;
 use crate::config::{Config, Shell};
 use crate::cli::Options;
 use mio;
 
-use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
+use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
 use nix::pty::openpty;
+use signal_hook::{self as sighook, iterator::Signals};
 
 use std::os::unix::{process::CommandExt, io::{FromRawFd, AsRawFd, RawFd}};
 use std::fs::File;
-use std::process::{Command, Stdio};
+use std::process::{Command, Stdio, Child};
 use std::ffi::CStr;
 use std::ptr;
 use mio::unix::EventedFd;
 use std::io;
-use std::sync::atomic::{AtomicIsize, Ordering, ATOMIC_ISIZE_INIT};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Process ID of child process
 ///
 /// Necessary to put this in static storage for `sigchld` to have access
-static PID: AtomicIsize = ATOMIC_ISIZE_INIT;
+static PID: AtomicUsize = AtomicUsize::new(0);
 
 pub fn child_pid() -> pid_t {
     PID.load(Ordering::Relaxed) as pid_t
-}
-
-/// Exit flag
-///
-/// Calling exit() in the SIGCHLD handler sometimes causes opengl to deadlock,
-/// and the process hangs. Instead, this flag is set, and its status can be
-/// checked via `process_should_exit`.
-static mut SHOULD_EXIT: bool = false;
-
-extern "C" fn sigchld(_a: c_int) {
-    let mut status: c_int = 0;
-    unsafe {
-        let pid = child_pid();
-        let ret = libc::waitpid(child_pid(), &mut status, WNOHANG);
-        if ret < 0 {
-            die!("Waiting for pid {} failed: {}\n", pid, errno());
-        }
-
-        if ret == pid {
-            SHOULD_EXIT = true;
-        }
-    }
-}
-
-pub fn process_should_exit() -> bool {
-    unsafe { SHOULD_EXIT }
 }
 
 /// Get the current value of errno
@@ -154,8 +129,12 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
 }
 
 pub struct Pty {
+    child: Child,
     pub fd: File,
     token: mio::Token,
+    signals: Signals,
+    signals_token: mio::Token,
+
 }
 
 impl Pty {
@@ -260,23 +239,26 @@ pub fn new<T: ToWinsize>(
         builder.current_dir(dir.as_path());
     }
 
+    // Prepare signal handling before spawning child
+    let signals = Signals::new(&[sighook::SIGCHLD]).expect("error preparing signal handling");
+
     match builder.spawn() {
         Ok(child) => {
-            // Set PID for SIGCHLD handler
-            PID.store(child.id() as isize, Ordering::Relaxed);
+            // Remember child PID so other modules can use it
+            PID.store(child.id() as usize, Ordering::Relaxed);
 
             unsafe {
-                // Handle SIGCHLD
-                libc::signal(SIGCHLD, sigchld as _);
-
                 // Maybe this should be done outside of this function so nonblocking
                 // isn't forced upon consumers. Although maybe it should be?
                 set_nonblocking(master);
             }
 
             let pty = Pty {
-                fd: unsafe {File::from_raw_fd(master) },
-                token: mio::Token::from(0)
+                child,
+                fd: unsafe { File::from_raw_fd(master) },
+                token: mio::Token::from(0),
+                signals,
+                signals_token: mio::Token::from(0),
             };
             pty.resize(size);
             pty
@@ -305,22 +287,43 @@ impl EventedReadWrite for Pty {
             self.token,
             interest,
             poll_opts
+        )?;
+
+        self.signals_token = token.next().unwrap();
+        poll.register(
+            &self.signals,
+            self.signals_token,
+            mio::Ready::readable(),
+            mio::PollOpt::level()
         )
     }
 
     #[inline]
-    fn reregister(&mut self, poll: &mio::Poll, interest: mio::Ready, poll_opts: mio::PollOpt) -> io::Result<()> {
+    fn reregister(
+        &mut self,
+        poll: &mio::Poll,
+        interest: mio::Ready,
+        poll_opts: mio::PollOpt
+    ) -> io::Result<()> {
         poll.reregister(
             &EventedFd(&self.fd.as_raw_fd()),
             self.token,
             interest,
             poll_opts
+        )?;
+
+        poll.reregister(
+            &self.signals,
+            self.signals_token,
+            mio::Ready::readable(),
+            mio::PollOpt::level()
         )
     }
 
     #[inline]
     fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
-        poll.deregister(&EventedFd(&self.fd.as_raw_fd()))
+        poll.deregister(&EventedFd(&self.fd.as_raw_fd()))?;
+        poll.deregister(&self.signals)
     }
 
     #[inline]
@@ -342,6 +345,38 @@ impl EventedReadWrite for Pty {
     fn write_token(&self) -> mio::Token {
         self.token
     }
+}
+
+impl EventedPty for Pty {
+    #[inline]
+    fn next_child_event(&mut self) -> Option<ChildEvent> {
+        self.signals
+            .pending()
+            .next()
+            .and_then(|signal| {
+                if signal != sighook::SIGCHLD {
+                    return None;
+                }
+
+                match self.child.try_wait() {
+                    Err(e) => {
+                        error!("Error checking child process termination: {}", e);
+                        None
+                    },
+                    Ok(None) => None,
+                    Ok(_)    => Some(ChildEvent::Exited),
+                }
+            })
+    }
+
+    #[inline]
+    fn child_event_token(&self) -> mio::Token {
+        self.signals_token
+    }
+}
+
+pub fn process_should_exit() -> bool {
+    false
 }
 
 /// Types that can produce a `libc::winsize`
