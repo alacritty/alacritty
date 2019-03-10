@@ -177,6 +177,14 @@ colors:
   #  text: '0x000000'
   #  cursor: '0xffffff'
 
+  # Selection colors
+  #
+  # Colors which should be used to draw selections. If either are unset, the
+  # selection will be the inverse of the cell color.
+  #selection:
+  #  text: '0xff0000'
+  #  cursor: '0x00ff00'
+
   # Normal colors
   normal:
     black:   '0x000000'

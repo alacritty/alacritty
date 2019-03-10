@@ -458,7 +458,13 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
             let mut bg_rgb = self.compute_bg_rgb(cell.bg);
 
             let bg_alpha = if selected ^ cell.inverse() {
-                mem::swap(&mut fg_rgb, &mut bg_rgb);
+                let colors = self.config.colors().selection;
+		        if colors.text.is_none() || colors.cursor.is_none() {
+			        mem::swap(&mut fg_rgb, &mut bg_rgb);
+		        } else {
+                    fg_rgb = self.config.colors().selection.text.unwrap();
+                    bg_rgb = self.config.colors().selection.cursor.unwrap();
+                }
                 self.compute_bg_alpha(cell.fg)
             } else {
                 self.compute_bg_alpha(cell.bg)

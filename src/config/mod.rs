@@ -1281,6 +1281,8 @@ pub struct Colors {
     pub primary: PrimaryColors,
     #[serde(deserialize_with = "failure_default")]
     pub cursor: CursorColors,
+    #[serde(deserialize_with = "failure_default")]
+    pub selection: CursorColors,
     #[serde(deserialize_with = "deserialize_normal_colors")]
     pub normal: AnsiColors,
     #[serde(deserialize_with = "deserialize_bright_colors")]
@@ -1296,6 +1298,7 @@ impl Default for Colors {
         Colors {
             primary: Default::default(),
             cursor: Default::default(),
+            selection: Default::default(),
             normal: default_normal_colors(),
             bright: default_bright_colors(),
             dim: Default::default(),
