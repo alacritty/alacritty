@@ -39,9 +39,9 @@ impl Mul<f32> for Rgb {
 /// the color cube.  Items 233..256 are the grayscale ramp. Item 256 is
 /// the configured foreground color, item 257 is the configured background
 /// color, item 258 is the cursor foreground color, item 259 is the cursor
-/// Following that are 8 positions for dim colors.
+/// background color. Following that are 8 positions for dim colors.
 /// Item 268 is the bright foreground color, 269 the dim foreground.
-/// background color. Item 270 is the selected text color, item 271 is the selection color.
+/// Item 270 is the selected text color, item 271 is the selection color.
 #[derive(Copy, Clone)]
 pub struct List([Rgb; COUNT]);
 
