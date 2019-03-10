@@ -22,8 +22,9 @@ Disable automatic config reloading
 .TP
 \fB\-\-persistent\-logging\fR
 Keep the log file after quitting Alacritty
-.HP
+.TP
 \fB\-\-print\-events\fR
+Print all events to stdout
 .TP
 \fB\-q\fR
 Reduces the level of verbosity (the min level is \fB\-qq\fR)
@@ -43,17 +44,14 @@ Defines the window class on X11 [default: Alacritty]
 .TP
 \fB\-e\fR, \fB\-\-command\fR <command>...
 Command and args to execute (must be last argument)
-.HP
+.TP
 \fB\-\-config\-file\fR <config\-file>
-.IP
 Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]
-.HP
+.TP
 \fB\-d\fR, \fB\-\-dimensions\fR <columns> <lines>
-.IP
 Defines the window dimensions. Falls back to size specified by window manager if set to 0x0 [default: 0x0]
-.HP
+.TP
 \fB\-\-position\fR <x-pos> <y-pos>
-.IP
 Defines the window position. Falls back to position specified by window manager if unset [default: unset]
 .TP
 \fB\-t\fR, \fB\-\-title\fR <title>
