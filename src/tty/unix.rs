@@ -32,11 +32,16 @@ use std::ffi::CStr;
 use std::ptr;
 use mio::unix::EventedFd;
 use std::io;
+use std::sync::atomic::{AtomicIsize, Ordering, ATOMIC_ISIZE_INIT};
 
 /// Process ID of child process
 ///
 /// Necessary to put this in static storage for `sigchld` to have access
-pub static mut PID: pid_t = 0;
+static PID: AtomicIsize = ATOMIC_ISIZE_INIT;
+
+pub fn child_pid() -> pid_t {
+    PID.load(Ordering::Relaxed) as pid_t
+}
 
 /// Exit flag
 ///
@@ -48,12 +53,13 @@ static mut SHOULD_EXIT: bool = false;
 extern "C" fn sigchld(_a: c_int) {
     let mut status: c_int = 0;
     unsafe {
-        let p = libc::waitpid(PID, &mut status, WNOHANG);
-        if p < 0 {
-            die!("Waiting for pid {} failed: {}\n", PID, errno());
+        let pid = child_pid();
+        let ret = libc::waitpid(child_pid(), &mut status, WNOHANG);
+        if ret < 0 {
+            die!("Waiting for pid {} failed: {}\n", pid, errno());
         }
 
-        if PID == p {
+        if ret == pid {
             SHOULD_EXIT = true;
         }
     }
@@ -256,14 +262,13 @@ pub fn new<T: ToWinsize>(
 
     match builder.spawn() {
         Ok(child) => {
-            unsafe {
-                // Set PID for SIGCHLD handler
-                PID = child.id() as _;
+            // Set PID for SIGCHLD handler
+            PID.store(child.id() as isize, Ordering::Relaxed);
 
+            unsafe {
                 // Handle SIGCHLD
                 libc::signal(SIGCHLD, sigchld as _);
-            }
-            unsafe {
+
                 // Maybe this should be done outside of this function so nonblocking
                 // isn't forced upon consumers. Although maybe it should be?
                 set_nonblocking(master);
