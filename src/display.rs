@@ -481,7 +481,7 @@ impl Display {
                 // Draw rectangles
                 self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
             }
-            // XXX: Make into array or Map
+            // XXX: Make into array, read from the config yaml
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
                                                     &output_activity_levels.activity_opengl_vecs,
@@ -493,11 +493,21 @@ impl Display {
                                                     input_activity_levels.color,
                                                     input_activity_levels.alpha);
 
+            trace!("Load Avg 1 values: {:?}. vecs: {:?}",load_avg_1_min.activity_levels,  load_avg_1_min.activity_opengl_vecs);
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
                                                     &load_avg_1_min.activity_opengl_vecs,
                                                     load_avg_1_min.color,
                                                     load_avg_1_min.alpha);
+
+            if load_avg_1_min.marker_line.is_some() {
+                trace!("Marker Line Avg 1: {:?} -> {:?}", load_avg_1_min.marker_line, load_avg_1_min.marker_line_vecs);
+                self.renderer.draw_activity_levels_line(config,
+                                                        &size_info,
+                                                        &load_avg_1_min.marker_line_vecs,
+                                                        Rgb{r:0,g:255,b:0},
+                                                        load_avg_1_min.alpha);
+            }
 
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
@@ -505,11 +515,27 @@ impl Display {
                                                     load_avg_5_min.color,
                                                     load_avg_5_min.alpha);
 
+            if load_avg_5_min.marker_line.is_some() {
+                self.renderer.draw_activity_levels_line(config,
+                                                        &size_info,
+                                                        &load_avg_5_min.marker_line_vecs,
+                                                        Rgb{r:0,g:255,b:0},
+                                                        load_avg_5_min.alpha);
+            }
+
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
                                                     &load_avg_10_min.activity_opengl_vecs,
                                                     load_avg_10_min.color,
                                                     load_avg_10_min.alpha);
+
+            if load_avg_10_min.marker_line.is_some() {
+                self.renderer.draw_activity_levels_line(config,
+                                                        &size_info,
+                                                        &load_avg_10_min.marker_line_vecs,
+                                                        Rgb{r:0,g:255,b:0},
+                                                        load_avg_10_min.alpha);
+            }
 
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
