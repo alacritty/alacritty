@@ -414,6 +414,10 @@ pub struct WindowConfig {
     #[serde(default, deserialize_with = "failure_default")]
     dimensions: Dimensions,
 
+    /// Initial position
+    #[serde(default, deserialize_with = "failure_default")]
+    position: Option<Delta<i32>>,
+
     /// Pixel padding
     #[serde(deserialize_with = "deserialize_padding")]
     padding: Delta<u8>,
@@ -435,6 +439,7 @@ impl Default for WindowConfig {
     fn default() -> Self {
         WindowConfig{
             dimensions: Default::default(),
+            position: Default::default(),
             padding: default_padding(),
             decorations: Default::default(),
             dynamic_padding: Default::default(),
@@ -476,10 +481,6 @@ impl WindowConfig {
 /// Top-level config type
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct Config {
-    /// Initial dimensions
-    #[serde(default, deserialize_with = "failure_default")]
-    dimensions: Option<Dimensions>,
-
     /// Pixel padding
     #[serde(default, deserialize_with = "failure_default")]
     padding: Option<Delta<u8>>,
@@ -582,6 +583,9 @@ pub struct Config {
 
     // TODO: DEPRECATED
     unfocused_hollow_cursor: Option<bool>,
+
+    // TODO: DEPRECATED
+    dimensions: Option<Dimensions>,
 }
 
 impl Default for Config {
@@ -1754,6 +1758,11 @@ impl Config {
     #[inline]
     pub fn dimensions(&self) -> Dimensions {
         self.dimensions.unwrap_or(self.window.dimensions)
+    }
+
+    #[inline]
+    pub fn position(&self) -> Option<Delta<i32>> {
+        self.window.position
     }
 
     /// Get window config

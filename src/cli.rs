@@ -15,7 +15,7 @@ use ::log;
 use clap::{Arg, App, crate_name, crate_version, crate_authors, crate_description};
 
 use crate::index::{Line, Column};
-use crate::config::{Dimensions, Shell};
+use crate::config::{Dimensions, Delta, Shell};
 use crate::window::{DEFAULT_NAME};
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
@@ -26,6 +26,7 @@ pub struct Options {
     pub print_events: bool,
     pub ref_test: bool,
     pub dimensions: Option<Dimensions>,
+    pub position: Option<Delta<i32>>,
     pub title: Option<String>,
     pub class: Option<String>,
     pub log_level: log::LevelFilter,
@@ -42,6 +43,7 @@ impl Default for Options {
             print_events: false,
             ref_test: false,
             dimensions: None,
+            position: None,
             title: None,
             class: None,
             log_level: log::LevelFilter::Warn,
@@ -73,7 +75,8 @@ impl Options {
                  .help("Disable automatic config reloading")
                  .conflicts_with("live-config-reload"))
             .arg(Arg::with_name("print-events")
-                .long("print-events"))
+                .long("print-events")
+                .help("Print all events to stdout"))
             .arg(Arg::with_name("persistent-logging")
                 .long("persistent-logging")
                 .help("Keep the log file after quitting Alacritty"))
@@ -83,6 +86,12 @@ impl Options {
                 .value_names(&["columns", "lines"])
                 .help("Defines the window dimensions. Falls back to size specified by \
                        window manager if set to 0x0 [default: 0x0]"))
+            .arg(Arg::with_name("position")
+                 .long("position")
+                 .allow_hyphen_values(true)
+                 .value_names(&["x-pos", "y-pos"])
+                 .help("Defines the window position. Falls back to position specified by \
+                        window manager if unset [default: unset]"))
             .arg(Arg::with_name("title")
                 .long("title")
                 .short("t")
@@ -147,6 +156,14 @@ impl Options {
             }
         }
 
+        if let Some(mut position) = matches.values_of("position") {
+            let x = position.next().map(|x| x.parse::<i32>());
+            let y = position.next().map(|y| y.parse::<i32>());
+            if let (Some(Ok(x)), Some(Ok(y))) = (x, y) {
+                options.position = Some(Delta { x, y });
+            }
+        }
+
         options.class = matches.value_of("class").map(|c| c.to_owned());
         options.title = matches.value_of("title").map(|t| t.to_owned());
 
@@ -185,6 +202,10 @@ impl Options {
 
     pub fn dimensions(&self) -> Option<Dimensions> {
         self.dimensions
+    }
+
+    pub fn position(&self) -> Option<Delta<i32>> {
+        self.position
     }
 
     pub fn command(&self) -> Option<&Shell<'_>> {

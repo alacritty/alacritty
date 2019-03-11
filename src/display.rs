@@ -140,6 +140,14 @@ impl Display {
         // Create the window where Alacritty will be displayed
         let mut window = Window::new(&options, config.window())?;
 
+        // TODO: replace `set_position` with `with_position` once available
+        // Upstream issue: https://github.com/tomaka/winit/issues/806
+        // Set window position early so it doesn't "teleport"
+        let position = options.position().or_else(|| config.position());
+        if let Some(position) = position {
+            window.set_position(position.x, position.y);
+        }
+
         let dpr = window.hidpi_factor();
         info!("Device pixel ratio: {}", dpr);
 
