@@ -744,7 +744,7 @@ impl QuadRenderer {
         &mut self,
         _config: &Config,
         props: &term::SizeInfo,
-        opengl_vecs: &Vec<f32>,
+        opengl_vecs: &[f32],
         color: Rgb,
         alpha: f32,
     ) {
