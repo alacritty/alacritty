@@ -913,7 +913,7 @@ where T: Num + Clone + Copy
             x_offset: 600f32,
             width: 200f32,
             activity_opengl_vecs: Vec::<f32>::with_capacity(activity_vector_capacity * 2),
-            marker_line_vecs: vec![0f32; 18],
+            marker_line_vecs: vec![0f32; 16],
             activity_line_height: 25f32,
             activity_tick_spacing: 5f32,
             alpha: 1f32,
@@ -958,7 +958,7 @@ where T: Num + Clone + Copy
         self
     }
     
-    /// `with_marker_line` Changes the transparency of the activity level
+    /// `with_marker_line` initializes the marker line into a Some
     pub fn with_marker_line(mut self, value: T) -> ActivityLevels<T> {
         self.marker_line = Some(value);
         self
@@ -1058,7 +1058,6 @@ where T: Num + Clone + Copy
     where T: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded + FromPrimitive
     {
         // XXX: Right now set to "as_secs", but could be used for other time units easily
-        // XXX: Add marker_line color
         let mut activity_time_length = self.activity_levels.len();
         let now = std::time::SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1095,7 +1094,7 @@ where T: Num + Clone + Copy
         self.update_activity_opengl_vecs(size);
     }
     
-    /// `scale_to_size` Scales the value to the current display boundary
+    /// `scale_y_to_size` Scales the value to the current display boundary
     pub fn scale_y_to_size(&self, size: SizeInfo, input_value: T, max_activity_value: T) -> f32
     where T: Num + ToPrimitive
     {
@@ -1109,40 +1108,49 @@ where T: Num + Clone + Copy
         -(y - center_y) / center_y
     }
 
+    /// `scale_x_to_size` Scales the value to the current display boundary
+    pub fn scale_x_to_size(&self, size: SizeInfo, input_value: f32) -> f32
+    where T: Num + ToPrimitive
+    {
+        let center_x = size.width / 2.;
+        let x = size.padding_x + self.x_offset + input_value;
+        (x - center_x) / center_x
+    }
+
+
     /// `update_marker_line_vecs` Scales the Marker Line to the current size of
     /// the displayed points
     pub fn update_marker_line_vecs(&mut self, size: SizeInfo, max_activity_value: T, marker_line_position: T)
     where T: Num + PartialOrd + ToPrimitive + Bounded + FromPrimitive
     {
+        // TODO: Add marker_line color
         // Draw a marker at a fixed position for reference: |>---------<|
         // The vertexes of the above marker idea can be represented as
         // connecting lines for these coordinates:
-        // x2,y2                                     x7,y7
-        //       x1,y1=x4,y4             x5,y5=x8,y8
-        // x3,y3                                     x6,y6
-        // |-         10%     -|-  80%  -|-      10%    -|
+        // x2,y2                               x6,y2
+        //       x1,y1                   x5,y1
+        // x2,y3                               x6,y3
+        // |-   10%   -|-     80%     -|-   10%   -|
 
         // Calculate X, the triangle width is 10% of the available draw space
-        let x1 = self.x_offset + self.width / 10f32;
-        let x2 = self.x_offset;
-        let x3 = self.x_offset;
-        let x5 = self.x_offset + self.width - self.width / 10f32;
-        let x6 = self.x_offset + self.width;
-        let x7 = self.x_offset + self.width;
+        let x1 = self.scale_x_to_size(size, self.width / 10f32);
+        let x2 = self.scale_x_to_size(size, 0f32);
+        let x5 = self.scale_x_to_size(size, self.width - self.width / 10f32);
+        let x6 = self.scale_x_to_size(size, self.width);
 
         // Calculate X, the triangle height is 10% of the available draw space
         let y1 = self.scale_y_to_size(size,
                                       marker_line_position,
                                       max_activity_value); // = y4,y5,y8
-        let y2 = y1 - self.activity_line_height / 10f32; // = y7
-        let y3 = y2 + self.activity_line_height / 10f32; // = y6
+        let y2 = y1 - self.scale_y_to_size(size,max_activity_value,max_activity_value) / 10f32; // = y7
+        let y3 = y1 + self.scale_y_to_size(size,max_activity_value,max_activity_value) / 10f32; // = y7
 
         // Left triangle |>
         self.marker_line_vecs[0] = x1;
         self.marker_line_vecs[1] = y1;
         self.marker_line_vecs[2] = x2;
         self.marker_line_vecs[3] = y2;
-        self.marker_line_vecs[4] = x3;
+        self.marker_line_vecs[4] = x2;
         self.marker_line_vecs[5] = y3;
 
         // Line from left triangle to right triangle ---
@@ -1152,16 +1160,14 @@ where T: Num + Clone + Copy
         self.marker_line_vecs[9] = y1;
 
         // Right triangle <|
-        self.marker_line_vecs[10] = x5;
-        self.marker_line_vecs[11] = y1;
+        self.marker_line_vecs[10] = x6;
+        self.marker_line_vecs[11] = y3;
         self.marker_line_vecs[12] = x6;
-        self.marker_line_vecs[13] = y3;
-        self.marker_line_vecs[14] = x7;
-        self.marker_line_vecs[15] = y2;
+        self.marker_line_vecs[13] = y2;
 
         // And loop back to x5,y5
-        self.marker_line_vecs[16] = x5;
-        self.marker_line_vecs[17] = y1;
+        self.marker_line_vecs[14] = x5;
+        self.marker_line_vecs[15] = y1;
 
     }
 
@@ -1182,17 +1188,15 @@ where T: Num + Clone + Copy
                 max_activity_value = marker_line_value;
             }
         }
-        let center_x = size.width / 2.;
         // Get the opengl representation of the vector
         let opengl_vecs_len = self.activity_opengl_vecs.len();
         // Calculate the tick spacing
         let tick_spacing = self.width / self.max_activity_ticks as f32;
         for idx in 0..self.activity_levels.len() {
+            let scaled_x = self.scale_x_to_size(size, idx as f32 * tick_spacing);
+            let scaled_y = self.scale_y_to_size(size, self.activity_levels[idx], max_activity_value);
             // Adding twice to a vec, could this be made into one operation? Is this slow?
             // need to transform activity line values from varying levels into scaled [-1, 1]
-            let x = size.padding_x + self.x_offset + (idx as f32 * tick_spacing);
-            let scaled_x = (x - center_x) / center_x;
-            let scaled_y = self.scale_y_to_size(size, self.activity_levels[idx], max_activity_value);
             if (idx + 1) * 2 > opengl_vecs_len {
                 self.activity_opengl_vecs.push(scaled_x);
                 self.activity_opengl_vecs.push(scaled_y);
@@ -1345,6 +1349,7 @@ impl Term {
                 .with_alpha(0.9)
                 .with_missing_values_policy("last".to_string())
                 .with_marker_line(1f32)
+                .with_overwrite_last_entry(true)
                 .with_x_offset(1000f32),
             load_avg_5_min: ActivityLevels::default()
                 .with_color(Rgb{r:146,g:75,b:158})
@@ -1352,23 +1357,27 @@ impl Term {
                 .with_alpha(0.6)
                 .with_missing_values_policy("last".to_string())
                 .with_marker_line(1f32)
+                .with_overwrite_last_entry(true)
                 .with_x_offset(1050f32),
             load_avg_10_min: ActivityLevels::default()
                 .with_color(Rgb{r:202,g:127,b:213})
                 .with_width(20f32)
                 .with_alpha(0.3)
                 .with_missing_values_policy("last".to_string())
-                .with_marker_line(1f32)
+                .with_marker_line(1f32) // Set a reference point at load 1
+                .with_overwrite_last_entry(true)
                 .with_x_offset(1080f32),
             tasks_runnable: ActivityLevels::default()
                 .with_color(Rgb{r:0,g:172,b:193})
                 .with_width(50f32)
                 .with_missing_values_policy("last".to_string())
+                .with_overwrite_last_entry(true)
                 .with_x_offset(1100f32),
             tasks_total: ActivityLevels::default()
                 .with_color(Rgb{r:27,g:160,b:71})
                 .with_width(50f32)
                 .with_missing_values_policy("last".to_string())
+                .with_overwrite_last_entry(true)
                 .with_x_offset(1150f32),
         }
     }
@@ -1730,9 +1739,10 @@ impl Term {
     pub fn update_system_load(&mut self) {
         match procinfo::loadavg() {
             Ok(res) => {
+                trace!("Current loadavg: {:?}", res);
                 self.load_avg_1_min.update_activity_level(self.size_info, res.load_avg_1_min);
-                self.load_avg_5_min.update_activity_level(self.size_info, res.load_avg_1_min);
-                self.load_avg_10_min.update_activity_level(self.size_info, res.load_avg_1_min);
+                self.load_avg_5_min.update_activity_level(self.size_info, res.load_avg_5_min);
+                self.load_avg_10_min.update_activity_level(self.size_info, res.load_avg_10_min);
                 self.tasks_runnable.update_activity_level(self.size_info, res.tasks_runnable);
                 self.tasks_total.update_activity_level(self.size_info, res.tasks_total);
             },
