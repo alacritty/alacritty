@@ -566,7 +566,7 @@ pub enum NamedColor {
     /// Color for the selected text
     SelectionText,
     /// Color for the selection itself
-    Selection,
+    SelectionBackground,
 }
 
 impl NamedColor {

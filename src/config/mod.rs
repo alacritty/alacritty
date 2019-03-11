@@ -1430,7 +1430,7 @@ pub struct SelectionColors {
     #[serde(deserialize_with = "deserialize_optional_color")]
     pub text: Option<Rgb>,
     #[serde(deserialize_with = "deserialize_optional_color")]
-    pub selection: Option<Rgb>,
+    pub background: Option<Rgb>,
 }
 
 #[serde(default)]
@@ -1877,7 +1877,7 @@ impl Config {
     /// Selected text background color.
     #[inline]
     pub fn selection_background_color(&self) -> Option<Color> {
-        self.colors.selection.selection.map(|_| Color::Named(NamedColor::Selection))
+        self.colors.selection.background.map(|_| Color::Named(NamedColor::SelectionBackground))
     }
 
     /// Enable experimental conpty backend (Windows only)

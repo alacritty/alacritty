@@ -461,8 +461,10 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 
             // Set custom selection color and selection text color, if they were provided.
             let (bg_color, fg_color) = if selected {
-                (selection_background_color.unwrap_or_else(|| cell.bg ),
-                    self.config.selection_text_color().unwrap_or_else(|| cell.fg))
+                (
+                    selection_background_color.unwrap_or_else(|| cell.bg ),
+                    self.config.selection_text_color().unwrap_or_else(|| cell.fg),
+                )
             } else {
                 (cell.bg, cell.fg)
             };
