@@ -457,14 +457,20 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 
             // If selection color wasn't set by user we should invert cell colors.
             let selection_background_color = self.config.selection_background_color();
+            let selection_text_color = self.config.selection_text_color();
             let invert_selection = selected && selection_background_color.is_none();
 
             // Set custom selection color and selection text color, if they were provided.
             let (bg_color, fg_color) = if selected {
-                (
-                    selection_background_color.unwrap_or_else(|| cell.bg ),
-                    self.config.selection_text_color().unwrap_or_else(|| cell.fg),
-                )
+                // If selection text color was set by the user we shouldn't invert it.
+                if invert_selection && selection_text_color.is_some() {
+                    (selection_text_color.unwrap(), cell.fg)
+                } else {
+                    (
+                        selection_background_color.unwrap_or_else(|| cell.bg ),
+                        selection_text_color.unwrap_or_else(|| cell.fg),
+                    )
+                }
             } else {
                 (cell.bg, cell.fg)
             };
