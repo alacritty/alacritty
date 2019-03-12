@@ -506,7 +506,7 @@ impl Display {
                                                         &size_info,
                                                         &load_avg_1_min.marker_line_vecs,
                                                         Rgb{r:0,g:255,b:0},
-                                                        load_avg_1_min.alpha);
+                                                        0.3f32);
             }
 
             self.renderer.draw_activity_levels_line(config,
@@ -520,7 +520,7 @@ impl Display {
                                                         &size_info,
                                                         &load_avg_5_min.marker_line_vecs,
                                                         Rgb{r:0,g:255,b:0},
-                                                        load_avg_5_min.alpha);
+                                                        0.2f32);
             }
 
             self.renderer.draw_activity_levels_line(config,
@@ -534,7 +534,7 @@ impl Display {
                                                         &size_info,
                                                         &load_avg_10_min.marker_line_vecs,
                                                         Rgb{r:0,g:255,b:0},
-                                                        load_avg_10_min.alpha);
+                                                        0.1f32);
             }
 
             self.renderer.draw_activity_levels_line(config,
