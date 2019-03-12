@@ -296,7 +296,11 @@ impl Display {
         self.tx.clone()
     }
 
-    pub fn window(&mut self) -> &mut Window {
+    pub fn window(&self) -> &Window {
+        &self.window
+    }
+
+    pub fn window_mut(&mut self) -> &mut Window {
         &mut self.window
     }
 

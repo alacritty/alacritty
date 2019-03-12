@@ -19,7 +19,7 @@ use crate::tty;
 use crate::grid::Scroll;
 use crate::config::{self, Config};
 use crate::cli::Options;
-use crate::display::OnResize;
+use crate::display::{Display, OnResize};
 use crate::index::{Line, Column, Side, Point};
 use crate::input::{self, MouseBinding, KeyBinding};
 use crate::selection::Selection;
@@ -198,20 +198,23 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 /// window must set these flags instead. The processor will trigger
 /// the actual changes.
 pub struct WindowChanges {
+    pub last_focused: bool,
+    pub focused: bool,
     pub hide: bool,
 }
 
 impl WindowChanges {
-    fn clear(&mut self) {
-        self.hide = false;
-    }
-}
-
-impl Default for WindowChanges {
-    fn default() -> WindowChanges {
+    fn new(window: &Window) -> WindowChanges {
         WindowChanges {
+            last_focused: window.is_focused,
+            focused: window.is_focused,
             hide: false,
         }
+    }
+
+    fn clear(&mut self) {
+        self.last_focused = self.focused;
+        self.hide = false;
     }
 }
 
@@ -304,11 +307,10 @@ impl<N: Notify> Processor<N> {
     /// pty.
     pub fn new(
         notifier: N,
-        resize_tx: mpsc::Sender<PhysicalSize>,
         options: &Options,
         config: &Config,
         ref_test: bool,
-        size_info: SizeInfo,
+        display: &Display,
     ) -> Processor<N> {
         Processor {
             key_bindings: config.key_bindings().to_vec(),
@@ -318,17 +320,17 @@ impl<N: Notify> Processor<N> {
             print_events: options.print_events,
             wait_for_event: true,
             notifier,
-            resize_tx,
+            resize_tx: display.resize_channel(),
             ref_test,
             mouse: Default::default(),
-            size_info,
+            size_info: *display.size(),
             hide_mouse_when_typing: config.hide_mouse_when_typing(),
             hide_mouse: false,
             received_count: 0,
             suppress_chars: false,
             last_modifiers: Default::default(),
             pending_events: Vec::with_capacity(4),
-            window_changes: Default::default(),
+            window_changes: WindowChanges::new(display.window()),
             save_to_clipboard: config.selection().save_to_clipboard,
             alt_send_esc: config.alt_send_esc(),
         }
@@ -343,7 +345,6 @@ impl<N: Notify> Processor<N> {
         ref_test: bool,
         resize_tx: &mpsc::Sender<PhysicalSize>,
         hide_mouse: &mut bool,
-        window_is_focused: &mut bool,
     ) {
         match event {
             // Pass on device events
@@ -404,11 +405,17 @@ impl<N: Notify> Processor<N> {
                         processor.received_char(c);
                     },
                     MouseInput { state, button, modifiers, .. } => {
-                        if !cfg!(target_os = "macos") || *window_is_focused {
-                            *hide_mouse = false;
-                            processor.mouse_input(state, button, modifiers);
-                            processor.ctx.terminal.dirty = true;
+                        // Ignore clicks on unfocused window on macOS and Windows
+                        #[cfg(any(target_os = "macos", target_os = "windows"))]
+                        {
+                            if !processor.ctx.window_changes.last_focused {
+                                return;
+                            }
                         }
+
+                        *hide_mouse = false;
+                        processor.mouse_input(state, button, modifiers);
+                        processor.ctx.terminal.dirty = true;
                     },
                     CursorMoved { position: lpos, modifiers, .. } => {
                         let (x, y) = lpos.to_physical(processor.ctx.size_info.dpr).into();
@@ -426,7 +433,7 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.terminal.dirty = true;
                     },
                     Focused(is_focused) => {
-                        *window_is_focused = is_focused;
+                        processor.ctx.window_changes.focused = is_focused;
 
                         if is_focused {
                             processor.ctx.terminal.dirty = true;
@@ -514,8 +521,6 @@ impl<N: Notify> Processor<N> {
                 alt_send_esc: self.alt_send_esc,
             };
 
-            let mut window_is_focused = window.is_focused;
-
             // Scope needed to that hide_mouse isn't borrowed after the scope
             // ends.
             {
@@ -530,7 +535,6 @@ impl<N: Notify> Processor<N> {
                         ref_test,
                         resize_tx,
                         hide_mouse,
-                        &mut window_is_focused,
                     );
                 };
 
@@ -544,17 +548,13 @@ impl<N: Notify> Processor<N> {
             if self.hide_mouse_when_typing {
                 window.set_mouse_visible(!self.hide_mouse);
             }
-
-            window.is_focused = window_is_focused;
         }
 
         if self.window_changes.hide {
             window.hide();
         }
 
-        if self.window_changes.hide {
-            window.hide();
-        }
+        window.is_focused = self.window_changes.focused;
 
         self.window_changes.clear();
         self.wait_for_event = !terminal.dirty;

@@ -189,11 +189,10 @@ fn run(
     // Need the Rc<RefCell<_>> here since a ref is shared in the resize callback
     let mut processor = event::Processor::new(
         event_loop::Notifier(event_loop.channel()),
-        display.resize_channel(),
         options,
         &config,
         options.ref_test,
-        display.size().to_owned(),
+        &display,
     );
 
     // Create a config monitor when config was loaded from path
@@ -218,7 +217,7 @@ fn run(
     // Main display loop
     loop {
         // Process input and window events
-        let mut terminal_lock = processor.process_events(&terminal, display.window());
+        let mut terminal_lock = processor.process_events(&terminal, display.window_mut());
 
         // Handle config reloads
         if let Some(ref path) = config_monitor.as_ref().and_then(|monitor| monitor.pending()) {

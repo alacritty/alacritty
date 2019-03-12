@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Command keybindings on Windows will no longer open new cmd.exe console windows
+- On Windows, clicks on unfocused Alacritty windows are now ignored
 
 ### Added
 
