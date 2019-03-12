@@ -1142,8 +1142,8 @@ where T: Num + Clone + Copy
         let y1 = self.scale_y_to_size(size,
                                       marker_line_position,
                                       max_activity_value); // = y4,y5,y8
-        let y2 = y1 - self.scale_y_to_size(size,max_activity_value,max_activity_value) / 10f32; // = y7
-        let y3 = y1 + self.scale_y_to_size(size,max_activity_value,max_activity_value) / 10f32; // = y7
+        let y2 = y1 - self.scale_y_to_size(size,max_activity_value,max_activity_value) / 100f32; // = y7
+        let y3 = y1 + self.scale_y_to_size(size,max_activity_value,max_activity_value) / 100f32; // = y7
 
         // Left triangle |>
         self.marker_line_vecs[0] = x1;
