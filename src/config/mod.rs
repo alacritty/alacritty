@@ -1868,18 +1868,6 @@ impl Config {
         self.colors.cursor.cursor.map(|_| Color::Named(NamedColor::Cursor))
     }
 
-    /// Selected text color.
-    #[inline]
-    pub fn selection_text_color(&self) -> Option<Color> {
-        self.colors.selection.text.map(|_| Color::Named(NamedColor::SelectionText))
-    }
-
-    /// Selected text background color.
-    #[inline]
-    pub fn selection_background_color(&self) -> Option<Color> {
-        self.colors.selection.background.map(|_| Color::Named(NamedColor::SelectionBackground))
-    }
-
     /// Enable experimental conpty backend (Windows only)
     #[cfg(windows)]
     #[inline]

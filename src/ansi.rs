@@ -563,10 +563,6 @@ pub enum NamedColor {
     BrightForeground,
     /// Dim foreground
     DimForeground,
-    /// Color for the selected text
-    SelectionText,
-    /// Color for the selection itself
-    SelectionBackground,
 }
 
 impl NamedColor {

@@ -4,7 +4,7 @@ use std::fmt;
 use crate::ansi;
 use crate::config::Colors;
 
-pub const COUNT: usize = 272;
+pub const COUNT: usize = 270;
 
 pub const RED: Rgb = Rgb { r: 0xff, g: 0x0, b: 0x0 };
 pub const YELLOW: Rgb = Rgb { r: 0xff, g: 0xff, b: 0x0 };
@@ -41,7 +41,6 @@ impl Mul<f32> for Rgb {
 /// color, item 258 is the cursor foreground color, item 259 is the cursor
 /// background color. Following that are 8 positions for dim colors.
 /// Item 268 is the bright foreground color, 269 the dim foreground.
-/// Item 270 is the selected text color, item 271 is the selection background color.
 #[derive(Copy, Clone)]
 pub struct List([Rgb; COUNT]);
 
@@ -91,10 +90,6 @@ impl List {
         // Foreground and background for custom cursor colors
         self[ansi::NamedColor::CursorText] = colors.cursor.text.unwrap_or_else(Rgb::default);
         self[ansi::NamedColor::Cursor]     = colors.cursor.cursor.unwrap_or_else(Rgb::default);
-
-        // Foreground and background for custom selection colors
-        self[ansi::NamedColor::SelectionText] = colors.selection.text.unwrap_or_else(Rgb::default);
-        self[ansi::NamedColor::SelectionBackground] = colors.selection.background.unwrap_or_else(Rgb::default);
 
         // Dims
         self[ansi::NamedColor::DimForeground] = colors
