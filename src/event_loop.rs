@@ -34,7 +34,7 @@ pub enum Msg {
 ///
 /// Handles all the pty I/O and runs the pty parser which updates terminal
 /// state.
-pub struct EventLoop<T: tty::EventedReadWrite> {
+pub struct EventLoop<T: tty::EventedPty> {
     poll: mio::Poll,
     pty: T,
     rx: Receiver<Msg>,
@@ -160,12 +160,9 @@ impl Writing {
     }
 }
 
-/// `mio::Token` for the event loop channel
-const CHANNEL: mio::Token = mio::Token(0);
-
 impl<T> EventLoop<T>
     where
-        T: tty::EventedReadWrite + Send + 'static,
+        T: tty::EventedPty + Send + 'static,
 {
     /// Create a new event loop
     pub fn new(
@@ -217,13 +214,13 @@ impl<T> EventLoop<T>
 
     // Returns a `bool` indicating whether or not the event loop should continue running
     #[inline]
-    fn channel_event(&mut self, state: &mut State) -> bool {
+    fn channel_event(&mut self, token: mio::Token, state: &mut State) -> bool {
         if self.drain_recv_channel(state).is_shutdown() {
             return false;
         }
 
         self.poll
-            .reregister(&self.rx, CHANNEL, Ready::readable(), PollOpt::edge() | PollOpt::oneshot())
+            .reregister(&self.rx, token, Ready::readable(), PollOpt::edge() | PollOpt::oneshot())
             .unwrap();
 
         true
@@ -341,17 +338,19 @@ impl<T> EventLoop<T>
             let mut state = state.unwrap_or_else(Default::default);
             let mut buf = [0u8; 0x1000];
 
+            let mut tokens = (0..).map(Into::into);
+
             let poll_opts = PollOpt::edge() | PollOpt::oneshot();
 
-            let tokens = [1, 2];
-
+            let channel_token = tokens.next().unwrap();
             self.poll
-                .register(&self.rx, CHANNEL, Ready::readable(), poll_opts)
+                .register(&self.rx, channel_token, Ready::readable(), poll_opts)
                 .unwrap();
 
             // Register TTY through EventedRW interface
             self.pty
-                .register(&self.poll, &mut tokens.iter(), Ready::readable(), poll_opts).unwrap();
+                .register(&self.poll, &mut tokens, Ready::readable(), poll_opts)
+                .unwrap();
 
             let mut events = Events::with_capacity(1024);
 
@@ -371,41 +370,50 @@ impl<T> EventLoop<T>
 
                 for event in events.iter() {
                     match event.token() {
-                        CHANNEL => if !self.channel_event(&mut state) {
-                            break 'event_loop;
+                        token if token == channel_token => {
+                            if !self.channel_event(channel_token, &mut state) {
+                                break 'event_loop;
+                            }
                         },
+
+                        #[cfg(unix)]
+                        token if token == self.pty.child_event_token() => {
+                            if let Some(tty::ChildEvent::Exited) = self.pty.next_child_event() {
+                                self.terminal.lock().exit();
+                                self.display.notify();
+                                break 'event_loop;
+                            }
+                        },
+
                         token if token == self.pty.read_token() || token == self.pty.write_token() => {
-                            #[cfg(unix)]
-                                {
-                                    if UnixReady::from(event.readiness()).is_hup() {
-                                        break 'event_loop;
-                                    }
+                            #[cfg(unix)] {
+                                if UnixReady::from(event.readiness()).is_hup() {
+                                    // don't try to do I/O on a dead PTY
+                                    continue;
                                 }
+                            }
+
                             if event.readiness().is_readable() {
-                                if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut())
-                                    {
-                                        error!(
-                                            "[{}:{}] Event loop exiting due to error: {}",
-                                            file!(),
-                                            line!(),
-                                            err
-                                        );
-                                        break 'event_loop;
+                                if let Err(e) = self.pty_read(&mut state, &mut buf, pipe.as_mut()) {
+                                    #[cfg(target_os = "linux")] {
+                                        // On Linux, a `read` on the master side of a PTY can fail
+                                        // with `EIO` if the client side hangs up.  In that case,
+                                        // just loop back round for the inevitable `Exited` event.
+                                        // This sucks, but checking the process is either racy or
+                                        // blocking.
+                                        if e.kind() == ErrorKind::Other {
+                                            continue;
+                                        }
                                     }
 
-                                if crate::tty::process_should_exit() {
+                                    error!("Error reading from PTY in event loop: {}", e);
                                     break 'event_loop;
                                 }
                             }
 
                             if event.readiness().is_writable() {
-                                if let Err(err) = self.pty_write(&mut state) {
-                                    error!(
-                                        "[{}:{}] Event loop exiting due to error: {}",
-                                        file!(),
-                                        line!(),
-                                        err
-                                    );
+                                if let Err(e) = self.pty_write(&mut state) {
+                                    error!("Error writing to PTY in event loop: {}", e);
                                     break 'event_loop;
                                 }
                             }

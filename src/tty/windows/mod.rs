@@ -28,7 +28,7 @@ use crate::cli::Options;
 use crate::config::Config;
 use crate::display::OnResize;
 use crate::term::SizeInfo;
-use crate::tty::EventedReadWrite;
+use crate::tty::{EventedReadWrite, EventedPty};
 
 mod conpty;
 mod winpty;
@@ -232,12 +232,12 @@ impl<'a> EventedReadWrite for Pty<'a> {
     fn register(
         &mut self,
         poll: &mio::Poll,
-        token: &mut dyn Iterator<Item = &usize>,
+        token: &mut dyn Iterator<Item = mio::Token>,
         interest: mio::Ready,
         poll_opts: mio::PollOpt,
     ) -> io::Result<()> {
-        self.read_token = (*token.next().unwrap()).into();
-        self.write_token = (*token.next().unwrap()).into();
+        self.read_token = token.next().unwrap();
+        self.write_token = token.next().unwrap();
 
         if interest.is_readable() {
             poll.register(
@@ -339,3 +339,5 @@ impl<'a> EventedReadWrite for Pty<'a> {
         self.write_token
     }
 }
+
+impl<'a> EventedPty for Pty<'a> { }

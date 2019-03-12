@@ -34,6 +34,8 @@ use crate::url::UrlParser;
 use crate::message_bar::MessageBuffer;
 use crate::term::color::Rgb;
 use crate::term::cell::{LineLength, Cell};
+
+#[cfg(windows)]
 use crate::tty;
 
 pub mod cell;
@@ -1336,7 +1338,7 @@ impl Term {
 
     #[inline]
     pub fn should_exit(&self) -> bool {
-        tty::process_should_exit() || self.should_exit
+        self.should_exit
     }
 }
 
