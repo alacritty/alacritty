@@ -455,24 +455,24 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 (cell, selected)
             };
 
-            // Lookup RGB values.
+            // Lookup RGB values
             let mut fg_rgb = self.compute_fg_rgb(cell.fg, &cell);
             let mut bg_rgb = self.compute_bg_rgb(cell.bg);
 
             let selection_background = self.config.colors().selection.background;
-            // Update the selection background color if it was provided by the user.
             let bg_alpha = if let (true, Some(col)) = (selected, selection_background) {
+                // Override selection background with config colors
                 bg_rgb = col;
                 1.0
             } else if selected ^ cell.inverse() {
-                // Apply inversion.
+                // Invert cell fg and bg colors
                 mem::swap(&mut fg_rgb, &mut bg_rgb);
                 self.compute_bg_alpha(cell.fg)
             } else {
                 self.compute_bg_alpha(cell.bg)
             };
 
-            // Update the selection text color if it was provided by the user.
+            // Override selection text with config colors
             if let (true, Some(col)) = (selected, self.config.colors().selection.text) {
                 fg_rgb = col;
             }
