@@ -64,6 +64,12 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
     }
 }
 
+pub trait GridCell {
+    fn is_empty(&self) -> bool;
+    fn is_wrap(&self) -> bool;
+    fn set_wrap(&mut self, wrap: bool);
+}
+
 /// Represents the terminal display contents
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Grid<T> {
@@ -123,7 +129,7 @@ pub enum ViewportPosition {
     Below,
 }
 
-impl<T: Copy + Clone> Grid<T> {
+impl<T: GridCell + Copy + Clone> Grid<T> {
     pub fn new(lines: index::Line, cols: index::Column, scrollback: usize, template: T) -> Grid<T> {
         let raw = Storage::with_capacity(lines, Row::new(cols, &template));
         Grid {
@@ -197,6 +203,7 @@ impl<T: Copy + Clone> Grid<T> {
         &mut self,
         lines: index::Line,
         cols: index::Column,
+        cursor_pos: &mut Point,
         template: &T,
     ) {
         // Check that there's actually work to do and return early if not
@@ -211,8 +218,8 @@ impl<T: Copy + Clone> Grid<T> {
         }
 
         match self.cols.cmp(&cols) {
-            Ordering::Less => self.grow_cols(cols, template),
-            Ordering::Greater => self.shrink_cols(cols),
+            Ordering::Less => self.grow_cols(cols, cursor_pos, template),
+            Ordering::Greater => self.shrink_cols(cols, cursor_pos, template),
             Ordering::Equal => (),
         }
     }
@@ -259,20 +266,125 @@ impl<T: Copy + Clone> Grid<T> {
         }
 
         self.scroll_limit = self.scroll_limit.saturating_sub(*lines_added);
+        self.display_offset = self.display_offset.saturating_sub(*lines_added);
     }
 
-    fn grow_cols(&mut self, cols: index::Column, template: &T) {
-        for row in self.raw.iter_mut_raw() {
-            row.grow(cols, template);
+    fn grow_cols(&mut self, cols: index::Column, cursor_pos: &mut Point, template: &T) {
+        // Truncate all buffered lines
+        self.raw.grow_hidden(cols, template);
+
+        let max_lines = self.lines.0 + self.max_scroll_limit;
+
+        // Iterate backwards with indices for mutation during iteration
+        let mut i = self.raw.len();
+        while i > 0 {
+            i -= 1;
+
+            // Grow the current line if there's wrapped content available
+            while i >= 1
+                && self.raw[i].len() < cols.0
+                && self.raw[i].last().map(GridCell::is_wrap) == Some(true)
+            {
+                // Remove wrap flag before appending additional cells
+                if let Some(cell) = self.raw[i].last_mut() {
+                    cell.set_wrap(false);
+                }
+
+                // Append as many cells from the next line as possible
+                let len = min(self.raw[i - 1].len(), cols.0 - self.raw[i].len());
+                let mut cells = self.raw[i - 1].front_split_off(len);
+                self.raw[i].append(&mut cells);
+
+                if self.raw[i - 1].is_empty() {
+                    // Remove following line if all cells have been drained
+                    self.raw.remove(i - 1);
+
+                    if self.raw.len() < self.lines.0 || self.scroll_limit == 0 {
+                        // Add new line and move lines up if we can't pull from history
+                        self.raw.insert(0, Row::new(cols, template), max_lines);
+                        cursor_pos.line = Line(cursor_pos.line.saturating_sub(1));
+                    } else {
+                        // Make sure viewport doesn't move if line is outside of the visible area
+                        if i < self.display_offset {
+                            self.display_offset = self.display_offset.saturating_sub(1);
+                        }
+
+                        // Remove one line from scrollback, since we just moved it to the viewport
+                        self.scroll_limit = self.scroll_limit.saturating_sub(1);
+                        self.display_offset = min(self.display_offset, self.scroll_limit);
+                        i -= 1;
+                    }
+                } else if let Some(cell) = self.raw[i].last_mut() {
+                    // Set wrap flag if next line still has cells
+                    cell.set_wrap(true);
+                }
+            }
+
+            // Fill remaining cells
+            if self.raw[i].len() < cols.0 {
+                self.raw[i].grow(cols, template);
+            }
         }
 
-        // Update self cols
         self.cols = cols;
     }
 
-    fn shrink_cols(&mut self, cols: index::Column) {
-        for row in self.raw.iter_mut_raw() {
-            row.shrink(cols);
+    fn shrink_cols(&mut self, cols: index::Column, cursor_pos: &mut Point, template: &T) {
+        // Truncate all buffered lines
+        self.raw.shrink_hidden(cols);
+
+        let max_lines = self.lines.0 + self.max_scroll_limit;
+
+        // Iterate backwards with indices for mutation during iteration
+        let mut i = self.raw.len();
+        while i > 0 {
+            i -= 1;
+
+            if let Some(mut new_row) = self.raw[i].shrink(cols) {
+                // Set line as wrapped if cells got removed
+                if let Some(cell) = self.raw[i].last_mut() {
+                    cell.set_wrap(true);
+                }
+
+                if Some(true) == new_row.last().map(|c| c.is_wrap() && i >= 1)
+                    && new_row.len() < cols.0
+                {
+                    // Make sure previous wrap flag doesn't linger around
+                    if let Some(cell) = new_row.last_mut() {
+                        cell.set_wrap(false);
+                    }
+
+                    // Add removed cells to start of next row
+                    self.raw[i - 1].append_front(new_row);
+                } else {
+                    // Make sure viewport doesn't move if line is outside of the visible area
+                    if i < self.display_offset {
+                        self.display_offset = min(self.display_offset + 1, self.max_scroll_limit);
+                    }
+
+                    // Make sure new row is at least as long as new width
+                    let occ = new_row.len();
+                    if occ < cols.0 {
+                        new_row.append(&mut vec![*template; cols.0 - occ]);
+                    }
+                    let row = Row::from_vec(new_row, occ);
+
+                    // Add new row with all removed cells
+                    self.raw.insert(i, row, max_lines);
+
+                    if cursor_pos.line >= self.lines - 1 {
+                        // Increase scrollback history
+                        self.scroll_limit = min(self.scroll_limit + 1, self.max_scroll_limit);
+
+                        // Since inserted might exceed cols, we need to check the same line again
+                        i += 1;
+                    } else {
+                        // Pull content down if cursor is not at the bottom
+                        self.raw.rotate(1);
+                        cursor_pos.line += 1;
+                    }
+                }
+            }
         }
 
         self.cols = cols;

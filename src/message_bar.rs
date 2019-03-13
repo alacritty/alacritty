@@ -190,7 +190,7 @@ impl MessageBuffer {
             .messages
             .try_iter()
             .take(self.messages.len())
-            .filter(|m| m.topic().map(|s| s.as_str()) != Some(topic))
+            .filter(|m| m.topic().map(String::as_str) != Some(topic))
         {
             let _ = self.tx.send(msg);
         }

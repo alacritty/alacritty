@@ -170,7 +170,7 @@ impl Default for Url {
 fn deserialize_modifiers<'a, D>(deserializer: D) -> ::std::result::Result<ModifiersState, D::Error>
     where D: de::Deserializer<'a>
 {
-    ModsWrapper::deserialize(deserializer).map(|wrapper| wrapper.into_inner())
+    ModsWrapper::deserialize(deserializer).map(ModsWrapper::into_inner)
 }
 
 /// `VisualBellAnimations` are modeled after a subset of CSS transitions and Robert
@@ -1665,7 +1665,7 @@ impl Config {
                 }
                 None
             })
-            .map(|path| path.into())
+            .map(Into::into)
     }
 
     // TODO: Remove old configuration location warning (Deprecated 03/12/2018)
@@ -1810,7 +1810,7 @@ impl Config {
     pub fn path(&self) -> Option<&Path> {
         self.config_path
             .as_ref()
-            .map(|p| p.as_path())
+            .map(PathBuf::as_path)
     }
 
     pub fn shell(&self) -> Option<&Shell<'_>> {

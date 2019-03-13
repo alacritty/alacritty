@@ -23,7 +23,10 @@ use unicode_width::UnicodeWidthChar;
 
 use font::{self, Size};
 use crate::ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
-use crate::grid::{BidirectionalIterator, Grid, Indexed, IndexRegion, DisplayIter, Scroll, ViewportPosition};
+use crate::grid::{
+    BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
+    ViewportPosition,
+};
 use crate::index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
 use crate::selection::{self, Selection, Locations};
 use crate::config::{Config, VisualBellAnimation};
@@ -1246,8 +1249,13 @@ impl Term {
         debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
 
         // Resize grids to new size
-        self.grid.resize(num_lines, num_cols, &Cell::default());
-        self.alt_grid.resize(num_lines, num_cols, &Cell::default());
+        let alt_cursor_point = if self.mode.contains(TermMode::ALT_SCREEN) {
+            &mut self.cursor_save.point
+        } else {
+            &mut self.cursor_save_alt.point
+        };
+        self.grid.resize(num_lines, num_cols, &mut self.cursor.point, &Cell::default());
+        self.alt_grid.resize(num_lines, num_cols, alt_cursor_point, &Cell::default());
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();

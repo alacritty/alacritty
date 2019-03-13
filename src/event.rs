@@ -86,7 +86,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn selection_is_empty(&self) -> bool {
-        self.terminal.selection().as_ref().map(|s| s.is_empty()).unwrap_or(true)
+        self.terminal.selection().as_ref().map(Selection::is_empty).unwrap_or(true)
     }
 
     fn clear_selection(&mut self) {
