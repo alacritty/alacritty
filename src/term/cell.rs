@@ -14,7 +14,7 @@
 use bitflags::bitflags;
 
 use crate::ansi::{NamedColor, Color};
-use crate::grid;
+use crate::grid::{self, GridCell};
 use crate::index::Column;
 
 // Maximum number of zerowidth characters which will be stored per cell.
@@ -60,6 +60,32 @@ impl Default for Cell {
         )
     }
 
+}
+
+impl GridCell for Cell {
+    #[inline]
+    fn is_empty(&self) -> bool {
+        (self.c == ' ' || self.c == '\t')
+            && self.extra[0] == ' '
+            && self.bg == Color::Named(NamedColor::Background)
+            && !self
+                .flags
+                .intersects(Flags::INVERSE | Flags::UNDERLINE | Flags::STRIKEOUT | Flags::WRAPLINE)
+    }
+
+    #[inline]
+    fn is_wrap(&self) -> bool {
+        self.flags.contains(Flags::WRAPLINE)
+    }
+
+    #[inline]
+    fn set_wrap(&mut self, wrap: bool) {
+        if wrap {
+            self.flags.insert(Flags::WRAPLINE);
+        } else {
+            self.flags.remove(Flags::WRAPLINE);
+        }
+    }
 }
 
 /// Get the length of occupied cells in a line
@@ -111,14 +137,6 @@ impl Cell {
             fg,
             flags: Flags::empty(),
         }
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        (self.c == ' ' || self.c == '\t')
-            && self.extra[0] == ' '
-            && self.bg == Color::Named(NamedColor::Background)
-            && !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE | Flags::STRIKEOUT)
     }
 
     #[inline]

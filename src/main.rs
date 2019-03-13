@@ -45,7 +45,7 @@ use std::os::unix::io::AsRawFd;
 #[cfg(target_os = "macos")]
 use alacritty::locale;
 use alacritty::{cli, event, die};
-use alacritty::config::{self, Config};
+use alacritty::config::{self, Config, Monitor};
 use alacritty::display::Display;
 use alacritty::event_loop::{self, EventLoop, Msg};
 use alacritty::logging;
@@ -221,7 +221,7 @@ fn run(
         let mut terminal_lock = processor.process_events(&terminal, display.window());
 
         // Handle config reloads
-        if let Some(ref path) = config_monitor.as_ref().and_then(|monitor| monitor.pending()) {
+        if let Some(ref path) = config_monitor.as_ref().and_then(Monitor::pending) {
             // Clear old config messages from bar
             terminal_lock.message_buffer_mut().remove_topic(config::SOURCE_FILE_PATH);
 

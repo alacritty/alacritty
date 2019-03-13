@@ -164,8 +164,8 @@ impl Options {
             }
         }
 
-        options.class = matches.value_of("class").map(|c| c.to_owned());
-        options.title = matches.value_of("title").map(|t| t.to_owned());
+        options.class = matches.value_of("class").map(ToOwned::to_owned);
+        options.title = matches.value_of("title").map(ToOwned::to_owned);
 
         match matches.occurrences_of("q") {
             0 => {},
