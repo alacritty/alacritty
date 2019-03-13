@@ -493,15 +493,7 @@ impl Display {
                                                     input_activity_levels.color,
                                                     input_activity_levels.alpha);
 
-            trace!("Load Avg 1 values: {:?}. vecs: {:?}",load_avg_1_min.activity_levels,  load_avg_1_min.activity_opengl_vecs);
-            self.renderer.draw_activity_levels_line(config,
-                                                    &size_info,
-                                                    &load_avg_1_min.activity_opengl_vecs,
-                                                    load_avg_1_min.color,
-                                                    load_avg_1_min.alpha);
-
             if load_avg_1_min.marker_line.is_some() {
-                trace!("Marker Line Avg 1: {:?} -> {:?}", load_avg_1_min.marker_line, load_avg_1_min.marker_line_vecs);
                 self.renderer.draw_activity_levels_line(config,
                                                         &size_info,
                                                         &load_avg_1_min.marker_line_vecs,
@@ -511,9 +503,9 @@ impl Display {
 
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
-                                                    &load_avg_5_min.activity_opengl_vecs,
-                                                    load_avg_5_min.color,
-                                                    load_avg_5_min.alpha);
+                                                    &load_avg_1_min.activity_opengl_vecs,
+                                                    load_avg_1_min.color,
+                                                    load_avg_1_min.alpha);
 
             if load_avg_5_min.marker_line.is_some() {
                 self.renderer.draw_activity_levels_line(config,
@@ -525,9 +517,9 @@ impl Display {
 
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
-                                                    &load_avg_10_min.activity_opengl_vecs,
-                                                    load_avg_10_min.color,
-                                                    load_avg_10_min.alpha);
+                                                    &load_avg_5_min.activity_opengl_vecs,
+                                                    load_avg_5_min.color,
+                                                    load_avg_5_min.alpha);
 
             if load_avg_10_min.marker_line.is_some() {
                 self.renderer.draw_activity_levels_line(config,
@@ -536,6 +528,12 @@ impl Display {
                                                         Rgb{r:0,g:255,b:0},
                                                         0.1f32);
             }
+
+            self.renderer.draw_activity_levels_line(config,
+                                                    &size_info,
+                                                    &load_avg_10_min.activity_opengl_vecs,
+                                                    load_avg_10_min.color,
+                                                    load_avg_10_min.alpha);
 
             self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
