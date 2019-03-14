@@ -1191,9 +1191,20 @@ where T: Num + Clone + Copy
         // Get the opengl representation of the vector
         let opengl_vecs_len = self.activity_opengl_vecs.len();
         // Calculate the tick spacing
-        let tick_spacing = self.width / self.max_activity_ticks as f32;
+        let tick_spacing = if self.marker_line.is_some() {
+            // Subtract 20% of the horizonal draw space that is allocated for
+            // the Marker Line
+            self.width * 0.2 / self.max_activity_ticks as f32
+        } else {
+            self.width / self.max_activity_ticks as f32
+        };
         for idx in 0..self.activity_levels.len() {
-            let scaled_x = self.scale_x_to_size(size, idx as f32 * tick_spacing);
+            let mut x_value = idx as f32 * tick_spacing;
+            // If there is a Marker Line, it takes 10% of the initial horizontal space
+            if self.marker_line.is_some() {
+                x_value += self.width * 0.1;
+            }
+            let scaled_x = self.scale_x_to_size(size, x_value);
             let scaled_y = self.scale_y_to_size(size, self.activity_levels[idx], max_activity_value);
             // Adding twice to a vec, could this be made into one operation? Is this slow?
             // need to transform activity line values from varying levels into scaled [-1, 1]
@@ -1337,6 +1348,7 @@ impl Term {
             auto_scroll: config.scrolling().auto_scroll,
             message_buffer,
             should_exit: false,
+            // XXX: Move this to the configuration file
             input_activity_levels: ActivityLevels::default()
                 .with_color(Rgb{r:255,g:0,b:0})
                 .with_x_offset(600f32),
@@ -1350,7 +1362,7 @@ impl Term {
                 .with_missing_values_policy("last".to_string())
                 .with_marker_line(1f32)
                 .with_overwrite_last_entry(true)
-                .with_x_offset(1000f32),
+                .with_x_offset(1010f32),
             load_avg_5_min: ActivityLevels::default()
                 .with_color(Rgb{r:146,g:75,b:158})
                 .with_width(30f32)
@@ -1358,7 +1370,7 @@ impl Term {
                 .with_missing_values_policy("last".to_string())
                 .with_marker_line(1f32)
                 .with_overwrite_last_entry(true)
-                .with_x_offset(1050f32),
+                .with_x_offset(1070f32),
             load_avg_10_min: ActivityLevels::default()
                 .with_color(Rgb{r:202,g:127,b:213})
                 .with_width(20f32)
@@ -1366,19 +1378,19 @@ impl Term {
                 .with_missing_values_policy("last".to_string())
                 .with_marker_line(1f32) // Set a reference point at load 1
                 .with_overwrite_last_entry(true)
-                .with_x_offset(1080f32),
+                .with_x_offset(1110f32),
             tasks_runnable: ActivityLevels::default()
                 .with_color(Rgb{r:0,g:172,b:193})
                 .with_width(50f32)
                 .with_missing_values_policy("last".to_string())
                 .with_overwrite_last_entry(true)
-                .with_x_offset(1100f32),
+                .with_x_offset(1140f32),
             tasks_total: ActivityLevels::default()
                 .with_color(Rgb{r:27,g:160,b:71})
                 .with_width(50f32)
                 .with_missing_values_policy("last".to_string())
                 .with_overwrite_last_entry(true)
-                .with_x_offset(1150f32),
+                .with_x_offset(1190f32),
         }
     }
 
