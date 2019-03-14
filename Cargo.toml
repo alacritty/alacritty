@@ -42,7 +42,7 @@ clap = "2"
 fnv = "1"
 unicode-width = "0.1"
 arraydeque = "0.4"
-glutin = { version = "0.19", features = ["icon_loading"] }
+glutin = { version = "0.20", features = ["icon_loading"] }
 env_logger = "0.6.0"
 base64 = "0.10.0"
 static_assertions = "0.3.0"
@@ -67,7 +67,7 @@ dunce = "0.1"
 dirs = "1.0"
 widestring = "0.4"
 mio-anonymous-pipes = "0.1"
-image = "0.20.0"
+image = "0.21.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"
