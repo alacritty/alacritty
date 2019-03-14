@@ -234,7 +234,7 @@ pub fn new<'a>(
             false as i32,
             EXTENDED_STARTUPINFO_PRESENT,
             ptr::null_mut(),
-            cwd.map_or_else(ptr::null, |s| s.as_ptr()),
+            cwd.as_ref().map_or_else(ptr::null, |s| s.as_ptr()),
             &mut startup_info_ex.StartupInfo as *mut STARTUPINFOW,
             &mut proc_info as *mut PROCESS_INFORMATION,
         ) > 0;
