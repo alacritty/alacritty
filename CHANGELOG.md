@@ -6,11 +6,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-# TODO:
- - macOS keyboard layouts
- - altgr key fix
- - x11 startup time
-
 ### Changed
 
 - Command keybindings on Windows will no longer open new cmd.exe console windows
@@ -41,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     working directory as long as linprocfs(5) is mounted on `/compat/linux/proc`
 - Fix lingering Alacritty window after child process has exited
 - Growing the terminal while scrolled up will no longer move the content down
+- Support for alternate keyboard layouts on macOS
+- Slow startup time on some X11 systems
+- The AltGr key no longer sends escapes (like Alt)
 
 ## Version 0.2.9
 
