@@ -15,7 +15,6 @@ use std::convert::From;
 use std::fmt::Display;
 
 use crate::gl;
-use glutin::GlContext;
 #[cfg(windows)]
 use glutin::Icon;
 #[cfg(windows)]
@@ -23,6 +22,7 @@ use image::ImageFormat;
 use glutin::{
     self, ContextBuilder, ControlFlow, Event, EventsLoop,
     MouseCursor as GlutinMouseCursor, WindowBuilder,
+    ContextTrait,
 };
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 
@@ -54,7 +54,7 @@ type Result<T> = ::std::result::Result<T, Error>;
 /// Wraps the underlying windowing library to provide a stable API in Alacritty
 pub struct Window {
     event_loop: EventsLoop,
-    window: glutin::GlWindow,
+    window: glutin::WindowedContext,
     mouse_visible: bool,
 
     /// Whether or not the window is the focused window.
@@ -119,12 +119,12 @@ fn create_gl_window(
     window: WindowBuilder,
     event_loop: &EventsLoop,
     srgb: bool,
-) -> ::std::result::Result<glutin::GlWindow, glutin::CreationError> {
-    let context = ContextBuilder::new()
+) -> ::std::result::Result<glutin::WindowedContext, glutin::CreationError> {
+    ContextBuilder::new()
         .with_srgb(srgb)
         .with_vsync(true)
-        .with_hardware_acceleration(None);
-    ::glutin::GlWindow::new(window, context, event_loop)
+        .with_hardware_acceleration(None)
+        .build_windowed(window, event_loop)
 }
 
 impl Window {

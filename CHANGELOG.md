@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+# TODO:
+ - macOS keyboard layouts
+ - altgr key fix
+ - x11 startup time
+
 ### Changed
 
 - Command keybindings on Windows will no longer open new cmd.exe console windows
