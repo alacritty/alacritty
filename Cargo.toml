@@ -67,7 +67,7 @@ dunce = "0.1"
 dirs = "1.0"
 widestring = "0.4"
 mio-anonymous-pipes = "0.1"
-image = "0.20.0"
+image = "0.21.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"
