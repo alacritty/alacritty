@@ -188,6 +188,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Key::Equals, [ctrl: true]; Action::IncreaseFontSize;
         Key::Add, [ctrl: true]; Action::IncreaseFontSize;
         Key::Subtract, [ctrl: true]; Action::DecreaseFontSize;
+        Key::Minus, [ctrl: true]; Action::DecreaseFontSize;
     )
 }
 
