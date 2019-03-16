@@ -476,10 +476,18 @@ impl Display {
                         renderable_cells_rows.push(row.clone());
                         row.clear();
                     }
-                    row.push(rcell);
+                    if !rcell.flags.contains(crate::term::cell::Flags::HIDDEN) {
+                        row.push(rcell);
+                    }
                     if let None = i.peek() {
                         renderable_cells_rows.push(row.clone());
                     }
+                }
+                for row in &renderable_cells_rows {
+                    for cell in row {
+                        print!("{}", cell.chars[0]);
+                    }
+                    println!("");
                 }
                 //println!("{:?}", renderable_cells_rows);
 
@@ -507,9 +515,7 @@ impl Display {
                             row.clear();
                             rcell = Some(cmp_cell.clone());
                         }
-                        for _c in c.chars.iter().cloned() {
-                            run.push(_c);
-                        }
+                        run.push(c.chars[0]);
                         if let None = ii.peek() {
                             row.push((rcell.unwrap(), run.clone()));
                         }
@@ -526,23 +532,40 @@ impl Display {
                 // Shape each run of text.
                 let text_run_rows: Vec<Vec<(RenderableCell, Option<Vec<HbGlyph>>)>> = text_run_rows.into_iter().map(|row| {
                     row.into_iter().map(|(rc, run)| {
-                        //println!("Calling shape!");
-                        (rc, glyph_cache.rasterizer.shape(&run, if rc.flags.contains(crate::term::cell::Flags::BOLD) {
-                                glyph_cache.bold_key
-                            } else if rc.flags.contains(crate::term::cell::Flags::ITALIC) {
-                                glyph_cache.italic_key
-                            } else {
-                                glyph_cache.font_key
-                            }, glyph_cache.font_size))
+                        use font::{UNDERLINE_CURSOR_CHAR, BEAM_CURSOR_CHAR, BOX_CURSOR_CHAR};
+                        let ends_with_special = run.ends_with(UNDERLINE_CURSOR_CHAR) || run.ends_with(BEAM_CURSOR_CHAR) || run.ends_with(BOX_CURSOR_CHAR);
+                        if ends_with_special {
+                            let last_char = run.chars().last().unwrap();
+                            let rest = run.chars().take(run.len() - 1).collect::<String>();
+                            (rc, glyph_cache.rasterizer.shape(&rest, if rc.flags.contains(crate::term::cell::Flags::BOLD) {
+                                    glyph_cache.bold_key
+                                } else if rc.flags.contains(crate::term::cell::Flags::ITALIC) {
+                                    glyph_cache.italic_key
+                                } else {
+                                    glyph_cache.font_key
+                                }, glyph_cache.font_size))
+                        } else {
+                            //println!("Calling shape!");
+                            (rc, glyph_cache.rasterizer.shape(&run, if rc.flags.contains(crate::term::cell::Flags::BOLD) {
+                                    glyph_cache.bold_key
+                                } else if rc.flags.contains(crate::term::cell::Flags::ITALIC) {
+                                    glyph_cache.italic_key
+                                } else {
+                                    glyph_cache.font_key
+                                }, glyph_cache.font_size))
+                        }
                     }).collect()
                 }).collect();
+                /*
                 for row in &text_run_rows {
                     for (rc, run) in row {
                         //println!("RC: {:?}", rc);
                         //println!("Run: {:?}", run);
                     }
                 }
+                */
                 // Helper that rounds first arg to be a multiple of second arg.
+                #[inline]
                 fn u_round_to(a: f32, b: f32) -> usize {
                     let a = a as usize;
                     let b = b as usize;
@@ -555,14 +578,25 @@ impl Display {
                             rects.update_lines(&rc);
                             // Render each glyph, advancing based on the information provided.
                             if let Some(glyphs) = glyphs {
-                                println!("Got glyph run");
+                                //println!("Got glyph run");
                                 for g in glyphs.into_iter() {
                                     // Hold reference to glyph from cache
-                                    let glyph = glyph_cache.get(g.glyph, &mut api).clone();
+                                    let glyph = glyph_cache.get_raw(g.glyph, &mut api, g.glyph.c as u32).clone();
+                                    // Determine if the glyph is a special character
                                     //println!("Glyph = {}", g.glyph.c as u32);
-                                    api.render_glyph_at_position(&rc, glyph_cache, g.glyph.c);
-                                    println!("Glyph width: {}", glyph.width);
-                                    rc.column = crate::index::Column(u_round_to(rc.column.0 as f32 * size_info.cell_width + glyph.width, size_info.cell_width as f32) + 1);
+                                    let w = glyph.width;
+                                    match g.glyph.c {
+                                        font::UNDERLINE_CURSOR_CHAR | font::BEAM_CURSOR_CHAR
+                                        | font::BOX_CURSOR_CHAR => {
+                                            api.render_glyph_at_position(&rc, glyph_cache, g.glyph.c);
+                                            rc.column.0 += 1;
+                                        },
+                                        _ => {
+                                            api.add_render_item(&rc, &glyph);
+                                            rc.column = crate::index::Column(u_round_to(rc.column.0 as f32 * size_info.cell_width + glyph.width, size_info.cell_width as f32) + 1);
+                                        },
+                                    }
+                                    //println!("Glyph width: {}", glyph.width);
                                 }
                             }
                         }

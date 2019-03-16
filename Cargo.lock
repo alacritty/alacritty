@@ -737,8 +737,8 @@ dependencies = [
  "font-loader 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "freetype-rs 0.19.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.50 (registry+https://github.com/rust-lang/crates.io-index)",
  "harfbuzz 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.50 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusttype 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "servo-fontconfig 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -776,7 +776,7 @@ name = "freetype"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.50 (registry+https://github.com/rust-lang/crates.io-index)",
  "servo-freetype-sys 4.0.3",
 ]
 
@@ -2940,9 +2940,9 @@ dependencies = [
 "checksum glutin_glx_sys 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "6c7a6094a90a31a6d13ff6ca325582b4273062a0951aeb18db0fbd1c75a84ced"
 "checksum glutin_wgl_sys 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a43bdcfc241feacf7a78600ba61adc122e31a0f91912a5072ca4d97418432746"
 "checksum h2 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)" = "910a5e7be6283a9c91b3982fa5188368c8719cce2a3cf3b86048673bf9d9c36b"
-"checksum http 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)" = "fe67e3678f2827030e89cc4b9e7ecd16d52f132c0b940ab5005f88e821500f6a"
 "checksum harfbuzz 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2391774b0f90979b2aaf8017874d30b4c1a6b3221b6179a20537bd22228c1c4d"
 "checksum harfbuzz-sys 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2c51ca00736b830d7a534b9dde9973c5bf075505e2233017f8c2d5b68301fc92"
+"checksum http 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)" = "fe67e3678f2827030e89cc4b9e7ecd16d52f132c0b940ab5005f88e821500f6a"
 "checksum httparse 1.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "e8734b0cfd3bc3e101ec59100e101c2eecd19282202e87808b3037b442777a83"
 "checksum humantime 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3ca7e5f2e110db35f93b837c81797f3714500b81d517bf20c431b16d3ca4f114"
 "checksum hyper 0.12.25 (registry+https://github.com/rust-lang/crates.io-index)" = "7d5b6658b016965ae301fa995306db965c93677880ea70765a84235a96eae896"

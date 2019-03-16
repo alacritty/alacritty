@@ -171,11 +171,11 @@ fn hb_tag(f: &str) -> harfbuzz::sys::hb_tag_t {
 #[cfg(feature = "hb-ft")]
 impl ::HbFtExt for FreeTypeRasterizer {
     fn shape(&mut self, text: &str, font_key: FontKey, size: Size) -> Option<Vec<HbGlyph>> {
-        println!("shape() called!");
         if let Some(hb_font) = self.faces[&font_key].hb_font {
-            println!("Got harfbuzz font!");
             let mut buf = harfbuzz::Buffer::with(text);
-            buf.guess_segment_properties();
+            buf.set_direction(harfbuzz::Direction::LTR);
+            buf.set_script(harfbuzz::sys::HB_SCRIPT_LATIN);
+            buf.set_language(harfbuzz::Language::from_string("en"));
             // Shape
             unsafe {
                 // ::std::ptr::null() == NULL (with type *const _)
@@ -185,7 +185,6 @@ impl ::HbFtExt for FreeTypeRasterizer {
             let ginfo: &mut [harfbuzz::sys::hb_glyph_info_t] = unsafe {
                 let mut len = 0u32;
                 let res = harfbuzz::sys::hb_buffer_get_glyph_infos(buf.as_ptr(), &mut len as *mut _);
-                println!("Got glyph information");
                 ::std::slice::from_raw_parts_mut(
                     res,
                     len as _
@@ -195,7 +194,6 @@ impl ::HbFtExt for FreeTypeRasterizer {
             let gpos: &mut [harfbuzz::sys::hb_glyph_position_t] = unsafe {
                 let mut len = 0u32;
                 let res = harfbuzz::sys::hb_buffer_get_glyph_positions(buf.as_ptr(), &mut len as *mut _);
-                println!("Got glyph positions");
                 ::std::slice::from_raw_parts_mut(
                     res,
                     len as _
@@ -216,10 +214,8 @@ impl ::HbFtExt for FreeTypeRasterizer {
                     cluster: gi.cluster,
                 }
             }).collect();
-            println!("Got HbGlyphs's!");
             Some(hb_glyphs)
         } else {
-            println!("Couldn't get harfbuzz font");
             None
         }
     }
@@ -477,6 +473,38 @@ impl FreeTypeRasterizer {
         }
 
         face.ft_face.load_glyph(index as u32, face.load_flags)?;
+        let glyph = face.ft_face.glyph();
+        glyph.render_glyph(face.render_mode)?;
+
+        let (pixel_height, pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;
+
+        Ok(RasterizedGlyph {
+            c: glyph_key.c,
+            top: glyph.bitmap_top(),
+            left: glyph.bitmap_left(),
+            width: pixel_width,
+            height: pixel_height,
+            buf,
+        })
+    }
+
+    pub fn get_glyph_raw(&mut self, glyph_key: GlyphKey, glyph_i: u32)
+        -> Result<RasterizedGlyph, Error> {
+        let font_key = self.face_for_glyph(glyph_key, false)?;
+        let face = &self.faces[&font_key];
+
+        let size = face.non_scalable.as_ref()
+            .map(|v| v.pixelsize as f32)
+            .unwrap_or_else(|| glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
+
+        face.ft_face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
+
+        unsafe {
+            let ft_lib = self.library.raw();
+            freetype::ffi::FT_Library_SetLcdFilter(ft_lib, face.lcd_filter);
+        }
+
+        face.ft_face.load_glyph(glyph_i as u32, face.load_flags)?;
         let glyph = face.ft_face.glyph();
         glyph.render_glyph(face.render_mode)?;
 
