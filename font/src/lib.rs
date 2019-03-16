@@ -20,27 +20,34 @@
 
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 
-#[cfg(not(any(target_os = "macos", windows)))]
+/* Note: all applicable cfg statements have been modified to short-circuit
+ * to freetype if the feature hb-ft is enabled.
+ */
+
+#[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
 extern crate fontconfig;
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
 extern crate freetype;
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
 extern crate core_foundation;
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
 extern crate core_foundation_sys;
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
 extern crate core_graphics;
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
 extern crate core_text;
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
 extern crate euclid;
+#[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
+#[macro_use]
+extern crate foreign_types;
 
 extern crate libc;
 
-#[cfg(not(any(target_os = "macos", windows)))]
-#[macro_use]
-extern crate foreign_types;
+#[cfg(feature = "hb-ft")]
+extern crate harfbuzz;
+
 
 #[cfg_attr(not(windows), macro_use)]
 extern crate log;
@@ -50,20 +57,20 @@ use std::{fmt, cmp};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 // If target isn't macos or windows, reexport everything from ft
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
 pub mod ft;
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
 pub use ft::{Error, FreeTypeRasterizer as Rasterizer};
 
-#[cfg(windows)]
+#[cfg(all(windows, not(feature = "hb-ft")))]
 pub mod rusttype;
-#[cfg(windows)]
+#[cfg(all(windows, not(feature = "hb-ft")))]
 pub use crate::rusttype::{Error, RustTypeRasterizer as Rasterizer};
 
 // If target is macos, reexport everything from darwin
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
 mod darwin;
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
 pub use darwin::*;
 
 /// Width/Height of the cursor relative to the font width
@@ -362,4 +369,24 @@ pub trait Rasterize {
 
     /// Update the Rasterizer's DPI factor
     fn update_dpr(&mut self, device_pixel_ratio: f32);
+}
+
+#[cfg(feature = "hb-ft")]
+pub trait HbFtExt {
+    /// Shape the provided text into a set of glyphs.
+    /// TODO: properly report HarfBuzz errors
+    fn shape(&mut self, text: &str, font_key: FontKey, size: Size) -> Option<Vec<HbGlyph>>;
+}
+
+/// A HarfBuzz-shaped glyph with advance and offset information.
+#[cfg(feature = "hb-ft")]
+#[derive(Debug)]
+pub struct HbGlyph {
+    pub x_advance: harfbuzz::sys::hb_position_t,
+    pub y_advance: harfbuzz::sys::hb_position_t,
+    pub x_offset: harfbuzz::sys::hb_position_t,
+    pub y_offset: harfbuzz::sys::hb_position_t,
+    pub glyph: GlyphKey,
+    // Probably will never be used
+    pub cluster: u32,
 }

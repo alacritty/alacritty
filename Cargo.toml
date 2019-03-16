@@ -79,6 +79,8 @@ default = []
 live-shader-reload = []
 nightly = []
 bench = []
+# Use FreeType+FontConfig on all platforms, and enable HarfBuzz text shaping
+hb-ft = ["font/hb-ft"]
 
 [build-dependencies]
 gl_generator = "0.10.0"

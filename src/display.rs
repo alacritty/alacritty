@@ -23,6 +23,8 @@ use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use crate::cli;
 use crate::config::Config;
 use font::{self, Rasterize};
+#[cfg(feature = "hb-ft")]
+use font::{HbFtExt, HbGlyph};
 use crate::meter::Meter;
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::renderer::rects::{Rects, Rect};
@@ -417,6 +419,9 @@ impl Display {
             }
         }
 
+        let g_lines = terminal.grid().num_lines();
+        let g_cols = terminal.grid().num_cols();
+
         // Clear when terminal mutex isn't held. Mesa for
         // some reason takes a long time to call glClear(). The driver descends
         // into xcb_connect_to_fd() which ends up calling __poll_nocancel()
@@ -437,7 +442,8 @@ impl Display {
             let metrics = glyph_cache.font_metrics();
             let mut rects = Rects::new(&metrics, &size_info);
 
-            // Draw grid
+            // Draw grid (non-HarfBuzz)
+            #[cfg(not(feature = "hb-ft"))]
             {
                 let _sampler = self.meter.sampler();
 
@@ -451,6 +457,118 @@ impl Display {
                         api.render_cell(cell, glyph_cache);
                     }
                 });
+            }
+            // Draw grid (HarfBuzz)
+            #[cfg(feature = "hb-ft")]
+            {
+                let _sampler = self.meter.sampler();
+                // Separate the renderable_cells into rows
+                let mut renderable_cells_rows = Vec::with_capacity(g_lines.0);
+                let mut row = Vec::with_capacity(g_cols.0);
+                let mut last_line = None;
+                let mut i = grid_cells.into_iter().peekable();
+                while let Some(rcell) = i.next() {
+                    if last_line.is_none() {
+                        last_line = Some(rcell.line.0);
+                        // Safe to unwrap because we checked that it is not None
+                    } else if last_line.unwrap() != rcell.line.0 {
+                        last_line = Some(rcell.line.0);
+                        renderable_cells_rows.push(row.clone());
+                        row.clear();
+                    }
+                    row.push(rcell);
+                    if let None = i.peek() {
+                        renderable_cells_rows.push(row.clone());
+                    }
+                }
+                //println!("{:?}", renderable_cells_rows);
+
+                // Convert each row into a set of text runs
+                // (i.e. cells with the same display properties)
+                let mut text_run_rows = Vec::new();
+                let mut row = Vec::new();
+                let mut run = String::new();
+                let mut rcell = None;
+                for r in renderable_cells_rows.into_iter() {
+                    let mut ii = r.into_iter().peekable();
+                    while let Some(c) = ii.next() {
+                        //println!("Got cell: {:?}", c);
+                        let cmp_cell = RenderableCell {
+                            chars: [' '; crate::term::cell::MAX_ZEROWIDTH_CHARS + 1],
+                            column: crate::index::Column(0),
+                            ..(c.clone())
+                        };
+                        if rcell.is_none() {
+                            rcell = Some(cmp_cell.clone());
+                            // Safe to unwrap because we checked that it is not None
+                        } else if rcell.unwrap() != cmp_cell {
+                            //println!("Pushed run");
+                            row.push((rcell.unwrap(), run.clone()));
+                            row.clear();
+                            rcell = Some(cmp_cell.clone());
+                        }
+                        for _c in c.chars.iter().cloned() {
+                            run.push(_c);
+                        }
+                        if let None = ii.peek() {
+                            row.push((rcell.unwrap(), run.clone()));
+                        }
+                    }
+                    text_run_rows.push(row.clone());
+                    row.clear();
+                }
+                for row in &text_run_rows {
+                    for (rc, run) in row {
+                        //println!("RC: {:?}", rc);
+                        //println!("RUN: {}", run);
+                    }
+                }
+                // Shape each run of text.
+                let text_run_rows: Vec<Vec<(RenderableCell, Option<Vec<HbGlyph>>)>> = text_run_rows.into_iter().map(|row| {
+                    row.into_iter().map(|(rc, run)| {
+                        //println!("Calling shape!");
+                        (rc, glyph_cache.rasterizer.shape(&run, if rc.flags.contains(crate::term::cell::Flags::BOLD) {
+                                glyph_cache.bold_key
+                            } else if rc.flags.contains(crate::term::cell::Flags::ITALIC) {
+                                glyph_cache.italic_key
+                            } else {
+                                glyph_cache.font_key
+                            }, glyph_cache.font_size))
+                    }).collect()
+                }).collect();
+                for row in &text_run_rows {
+                    for (rc, run) in row {
+                        //println!("RC: {:?}", rc);
+                        //println!("Run: {:?}", run);
+                    }
+                }
+                // Helper that rounds first arg to be a multiple of second arg.
+                fn u_round_to(a: f32, b: f32) -> usize {
+                    let a = a as usize;
+                    let b = b as usize;
+                    a / b
+                }
+                self.renderer.with_api(config, &size_info, |mut api| {
+                    for row in text_run_rows.into_iter() {
+                        for (mut rc, glyphs) in row.into_iter() {
+                            // XXX: what does this do? (for text runs)
+                            rects.update_lines(&rc);
+                            // Render each glyph, advancing based on the information provided.
+                            if let Some(glyphs) = glyphs {
+                                println!("Got glyph run");
+                                for g in glyphs.into_iter() {
+                                    // Hold reference to glyph from cache
+                                    let glyph = glyph_cache.get(g.glyph, &mut api).clone();
+                                    //println!("Glyph = {}", g.glyph.c as u32);
+                                    api.render_glyph_at_position(&rc, glyph_cache, g.glyph.c);
+                                    println!("Glyph width: {}", glyph.width);
+                                    rc.column = crate::index::Column(u_round_to(rc.column.0 as f32 * size_info.cell_width + glyph.width, size_info.cell_width as f32) + 1);
+                                }
+                            }
+                        }
+                    }
+                });
+                println!("Successfully rendered glyphs with HarfBuzz!");
             }
 
             if let Some(message) = message_buffer {

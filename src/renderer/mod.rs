@@ -138,8 +138,8 @@ pub struct Glyph {
     tex_id: GLuint,
     top: f32,
     left: f32,
-    width: f32,
-    height: f32,
+    pub width: f32,
+    pub height: f32,
     uv_bot: f32,
     uv_left: f32,
     uv_width: f32,
@@ -155,19 +155,19 @@ pub struct GlyphCache {
     cache: HashMap<GlyphKey, Glyph, BuildHasherDefault<FnvHasher>>,
 
     /// Rasterizer for loading new glyphs
-    rasterizer: Rasterizer,
+    pub rasterizer: Rasterizer,
 
     /// regular font
-    font_key: FontKey,
+    pub font_key: FontKey,
 
     /// italic font
-    italic_key: FontKey,
+    pub italic_key: FontKey,
 
     /// bold font
-    bold_key: FontKey,
+    pub bold_key: FontKey,
 
     /// font size
-    font_size: font::Size,
+    pub font_size: font::Size,
 
     /// glyph offset
     glyph_offset: Delta<i8>,
@@ -189,7 +189,7 @@ impl GlyphCache {
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm' as _, size: font.size() })?;
 
         let metrics = rasterizer.metrics(regular, font.size())?;
 
@@ -216,7 +216,7 @@ impl GlyphCache {
         for i in RangeInclusive::new(32u8, 128u8) {
             self.get(GlyphKey {
                 font_key: font,
-                c: i as char,
+                c: i as _,
                 size,
             }, loader);
         }
@@ -314,7 +314,7 @@ impl GlyphCache {
         let font = font.to_owned().with_size(size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
 
-        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm' as _, size: font.size() })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
 
         info!("Font size changed to {:?} with DPR of {}", font.size, dpr);
@@ -969,6 +969,29 @@ impl<'a> RenderApi<'a> {
             self.render_batch();
         }
     }
+    
+    pub fn render_glyph_at_position(&mut self, cell: &RenderableCell,
+        glyph_cache: &mut GlyphCache, glyph: char) {
+        // Get font key for cell
+        // FIXME this is super inefficient.
+        let font_key = if cell.flags.contains(cell::Flags::BOLD) {
+            glyph_cache.bold_key
+        } else if cell.flags.contains(cell::Flags::ITALIC) {
+            glyph_cache.italic_key
+        } else {
+            glyph_cache.font_key
+        };
+
+        let glyph_key = GlyphKey {
+            font_key,
+            size: glyph_cache.font_size,
+            c: glyph,
+        };
+        
+        // Add cell to batch
+        let glyph = glyph_cache.get(glyph_key, self);
+        self.add_render_item(cell, &glyph);
+    }
 
     pub fn render_cell(&mut self, cell: RenderableCell, glyph_cache: &mut GlyphCache) {
         // Get font key for cell
@@ -996,7 +1019,7 @@ impl<'a> RenderApi<'a> {
         let mut glyph_key = GlyphKey {
             font_key,
             size: glyph_cache.font_size,
-            c: chars[0],
+            c: chars[0] as _,
         };
 
         // Add cell to batch
@@ -1005,7 +1028,7 @@ impl<'a> RenderApi<'a> {
 
         // Render zero-width characters
         for c in (&chars[1..]).iter().filter(|c| **c != ' ') {
-            glyph_key.c = *c;
+            glyph_key.c = *c as _;
             let mut glyph = *glyph_cache.get(glyph_key, self);
 
             // The metrics of zero-width characters are based on rendering

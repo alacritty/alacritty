@@ -11,6 +11,8 @@ libc = "0.2"
 foreign-types = "0.3"
 log = "0.4"
 
+harfbuzz = { version = "0.3.0", optional = true }
+
 [target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]
 servo-fontconfig = "0.4.0"
 freetype-rs = "0.19"
@@ -24,3 +26,7 @@ core-foundation-sys = "0.6"
 [target.'cfg(windows)'.dependencies]
 font-loader = "0.6.0"
 rusttype = "0.4.1"
+
+[features]
+default = []
+hb-ft = ["harfbuzz"]
