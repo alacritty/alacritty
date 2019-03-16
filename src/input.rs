@@ -220,6 +220,12 @@ pub enum Action {
     /// Scroll exactly one page down
     ScrollPageDown,
 
+    /// Scroll one line up
+    ScrollLineUp,
+
+    /// Scroll one line down
+    ScrollLineDown,
+
     /// Scroll all the way to the top
     ScrollToTop,
 
@@ -316,6 +322,12 @@ impl Action {
             },
             Action::ScrollPageDown => {
                 ctx.scroll(Scroll::PageDown);
+            },
+            Action::ScrollLineUp => {
+                ctx.scroll(Scroll::Lines(1));
+            },
+            Action::ScrollLineDown => {
+                ctx.scroll(Scroll::Lines(-1));
             },
             Action::ScrollToTop => {
                 ctx.scroll(Scroll::Top);

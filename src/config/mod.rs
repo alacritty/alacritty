@@ -868,8 +868,9 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str(
                     "Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, \
-                     ResetFontSize, ScrollPageUp, ScrollPageDown, ScrollToTop, ScrollToBottom, \
-                     ClearHistory, Hide, ClearLogNotice, SpawnNewInstance, None or Quit",
+                     ResetFontSize, ScrollPageUp, ScrollPageDown, ScrollLineUp, ScrollLineDown, \
+                     ScrollToTop, ScrollToBottom, ClearHistory, Hide, ClearLogNotice, \
+                     SpawnNewInstance, None or Quit",
                 )
             }
 
@@ -886,6 +887,8 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "ResetFontSize" => Action::ResetFontSize,
                     "ScrollPageUp" => Action::ScrollPageUp,
                     "ScrollPageDown" => Action::ScrollPageDown,
+                    "ScrollLineUp" => Action::ScrollLineUp,
+                    "ScrollLineDown" => Action::ScrollLineDown,
                     "ScrollToTop" => Action::ScrollToTop,
                     "ScrollToBottom" => Action::ScrollToBottom,
                     "ClearHistory" => Action::ClearHistory,
