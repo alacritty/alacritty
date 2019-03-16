@@ -1,8 +1,28 @@
-//! Exports the ActivityMetric Trait and the ActivityLevels
+//! Exports the TimeSeries Trait and the ActivityLevels class
+//! The ActivityLine is a way to draw the ActivityLevel through an opengl line
+//! Currently only 2D lines are supported and only one fragment shader is used.
+//! This could be renamed to Histograms/etc
+
+// TODO:
+// - Move to the config.yaml
+// -- The yaml should drive an array of activity dashboards
+// -- The dashboards should be toggable, some key combination
+// -- When activated on toggle it could blur a portion of the screen
+
 use crate::term::color::Rgb;
 use num_traits::*;
 use std::time::{Duration, Instant, UNIX_EPOCH};
-/// `MissingValuesPolicy` provides several ways to deal with missing variables
+
+/// `TimeSeries` makes an opengl line.
+pub trait TimeSeries {
+    /// `MetricType` has the type of data being collected
+    type MetricType;
+    /// `draw` sends the time series representation of the TimeSeries to OpenGL
+    /// context
+    fn draw(&mut self);
+}
+
+/// `MissingValuesPolicy` provides several ways to deal with missing values
 #[derive(Debug, Clone)]
 pub enum MissingValuesPolicy<T>
 where T: Num + Clone + Copy
@@ -17,7 +37,8 @@ where T: Num + Clone + Copy
     Min,
 }
 
-/// `ActivityLevels` keep track of the activity per second
+/// `ActivityLevels` keep track of the activity per time tick
+/// Currently this is a second as we use UNIX_EPOCH
 #[derive(Debug, Clone)]
 pub struct ActivityLevels<T>
 where T: Num + Clone + Copy
@@ -60,7 +81,7 @@ where T: Num + Clone + Copy
     pub overwrite_last_entry: bool,
 
     /// A marker line to indicate a reference point, for example for load
-    /// to show where the 1 task per core is
+    /// to show where the 1 loadavg is, or to show disk capacity
     pub marker_line: Option<T>,
 
     /// The opengl representation of the activity levels
@@ -402,7 +423,9 @@ where T: Num + Clone + Copy
     }
 }
 
-pub trait ActivityMetric {
-    type MetricType;
-    fn new(initial_value: Self::MetricType) -> Self;
+impl ActivityLine for ActivityLevels {
+    pub fn get_opengl_activity_line(self) -> (Rgb, Vec<f32>) {
+        return self.activity_opengl_vecs;
+    }
+    pub fn get_opengl_decorations
 }
