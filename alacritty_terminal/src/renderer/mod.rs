@@ -297,6 +297,24 @@ impl GlyphCache {
         })
     }
 
+    #[cfg(feature = "hb-ft")]
+    pub fn get_raw<'a, L>(&'a mut self, glyph_key: GlyphKey, loader: &mut L, glyph_i: u32) -> Glyph
+        where L: LoadGlyph
+    {
+        let glyph_offset = self.glyph_offset;
+        let rasterizer = &mut self.rasterizer;
+        let metrics = &self.metrics;
+        // Doesn't go through cache, making it suuuper slow.
+        let mut rasterized = rasterizer.get_glyph_raw(glyph_key, glyph_i)
+            .unwrap_or_else(|_| Default::default());
+
+        rasterized.left += i32::from(glyph_offset.x);
+        rasterized.top += i32::from(glyph_offset.y);
+        rasterized.top -= metrics.descent as i32;
+
+        loader.load_glyph(&rasterized)
+    }
+
     pub fn update_font_size<L: LoadGlyph>(
         &mut self,
         font: &config::Font,
@@ -973,8 +991,7 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    #[inline]
-    fn add_render_item(&mut self, cell: &RenderableCell, glyph: &Glyph) {
+    pub fn add_render_item(&mut self, cell: &RenderableCell, glyph: &Glyph) {
         // Flush batch if tex changing
         if !self.batch.is_empty() && self.batch.tex != glyph.tex_id {
             self.render_batch();
@@ -990,6 +1007,9 @@ impl<'a> RenderApi<'a> {
     
     pub fn render_glyph_at_position(&mut self, cell: &RenderableCell,
         glyph_cache: &mut GlyphCache, glyph: char) {
+        if cell.flags.contains(cell::Flags::HIDDEN) {
+            return;
+        }
         // Get font key for cell
         // FIXME this is super inefficient.
         let font_key = if cell.flags.contains(cell::Flags::BOLD) {
