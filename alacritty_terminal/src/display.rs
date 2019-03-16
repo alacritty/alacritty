@@ -606,28 +606,13 @@ impl Display {
                 // Shape each run of text.
                 let text_run_rows: Vec<Vec<(RenderableCell, Option<Vec<HbGlyph>>)>> = text_run_rows.into_iter().map(|row| {
                     row.into_iter().map(|(rc, run)| {
-                        use font::{UNDERLINE_CURSOR_CHAR, BEAM_CURSOR_CHAR, BOX_CURSOR_CHAR};
-                        let ends_with_special = run.ends_with(UNDERLINE_CURSOR_CHAR) || run.ends_with(BEAM_CURSOR_CHAR) || run.ends_with(BOX_CURSOR_CHAR);
-                        if ends_with_special {
-                            let last_char = run.chars().last().unwrap();
-                            let rest = run.chars().take(run.len() - 1).collect::<String>();
-                            (rc, glyph_cache.rasterizer.shape(&rest, if rc.flags.contains(crate::term::cell::Flags::BOLD) {
-                                    glyph_cache.bold_key
-                                } else if rc.flags.contains(crate::term::cell::Flags::ITALIC) {
-                                    glyph_cache.italic_key
-                                } else {
-                                    glyph_cache.font_key
-                                }, glyph_cache.font_size))
-                        } else {
-                            //println!("Calling shape!");
-                            (rc, glyph_cache.rasterizer.shape(&run, if rc.flags.contains(crate::term::cell::Flags::BOLD) {
-                                    glyph_cache.bold_key
-                                } else if rc.flags.contains(crate::term::cell::Flags::ITALIC) {
-                                    glyph_cache.italic_key
-                                } else {
-                                    glyph_cache.font_key
-                                }, glyph_cache.font_size))
-                        }
+                        (rc, glyph_cache.rasterizer.shape(&run, if rc.flags.contains(crate::term::cell::Flags::BOLD) {
+                                glyph_cache.bold_key
+                            } else if rc.flags.contains(crate::term::cell::Flags::ITALIC) {
+                                glyph_cache.italic_key
+                            } else {
+                                glyph_cache.font_key
+                            }, glyph_cache.font_size))
                     }).collect()
                 }).collect();
                 /*
@@ -660,11 +645,6 @@ impl Display {
                                     //println!("Glyph = {}", g.glyph.c as u32);
                                     let w = glyph.width;
                                     match g.glyph.c {
-                                        font::UNDERLINE_CURSOR_CHAR | font::BEAM_CURSOR_CHAR
-                                        | font::BOX_CURSOR_CHAR => {
-                                            api.render_glyph_at_position(&rc, glyph_cache, g.glyph.c);
-                                            rc.column.0 += 1;
-                                        },
                                         _ => {
                                             api.add_render_item(&rc, &glyph);
                                             rc.column = crate::index::Column(u_round_to(rc.column.0 as f32 * size_info.cell_width + glyph.width, size_info.cell_width as f32) + 1);
