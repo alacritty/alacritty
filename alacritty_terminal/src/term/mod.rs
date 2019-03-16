@@ -303,13 +303,23 @@ impl<'a> RenderableCellsIter<'a> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum RenderableCellContent {
     Chars([char; cell::MAX_ZEROWIDTH_CHARS + 1]),
     Cursor(CursorKey),
 }
+impl Into<RenderableCellContent> for [char; cell::MAX_ZEROWIDTH_CHARS + 1] {
+    fn into(self) -> RenderableCellContent {
+        RenderableCellContent::Chars(self)
+    }
+}
+impl Into<RenderableCellContent> for CursorKey {
+    fn into(self) -> RenderableCellContent {
+        RenderableCellContent::Cursor(self)
+    }
+}
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RenderableCell {
     /// A _Display_ line (not necessarily an _Active_ line)
     pub line: Line,

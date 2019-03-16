@@ -139,8 +139,8 @@ pub struct Glyph {
     tex_id: GLuint,
     top: f32,
     left: f32,
-    width: f32,
-    height: f32,
+    pub width: f32,
+    pub height: f32,
     uv_bot: f32,
     uv_left: f32,
     uv_width: f32,
@@ -159,19 +159,19 @@ pub struct GlyphCache {
     cursor_cache: HashMap<CursorKey, Glyph, BuildHasherDefault<FnvHasher>>,
 
     /// Rasterizer for loading new glyphs
-    rasterizer: Rasterizer,
+    pub rasterizer: Rasterizer,
 
     /// regular font
-    font_key: FontKey,
+    pub font_key: FontKey,
 
     /// italic font
-    italic_key: FontKey,
+    pub italic_key: FontKey,
 
     /// bold font
-    bold_key: FontKey,
+    pub bold_key: FontKey,
 
     /// font size
-    font_size: font::Size,
+    pub font_size: font::Size,
 
     /// glyph offset
     glyph_offset: Delta<i8>,
@@ -987,6 +987,29 @@ impl<'a> RenderApi<'a> {
             self.render_batch();
         }
     }
+    
+    pub fn render_glyph_at_position(&mut self, cell: &RenderableCell,
+        glyph_cache: &mut GlyphCache, glyph: char) {
+        // Get font key for cell
+        // FIXME this is super inefficient.
+        let font_key = if cell.flags.contains(cell::Flags::BOLD) {
+            glyph_cache.bold_key
+        } else if cell.flags.contains(cell::Flags::ITALIC) {
+            glyph_cache.italic_key
+        } else {
+            glyph_cache.font_key
+        };
+
+        let glyph_key = GlyphKey {
+            font_key,
+            size: glyph_cache.font_size,
+            c: glyph,
+        };
+        
+        // Add cell to batch
+        let glyph = glyph_cache.get(glyph_key, self);
+        self.add_render_item(cell, &glyph);
+    }
 
     pub fn render_cell(&mut self, cell: RenderableCell, glyph_cache: &mut GlyphCache) {
         let chars = match cell.inner {
@@ -1041,7 +1064,7 @@ impl<'a> RenderApi<'a> {
 
         // Render zero-width characters
         for c in (&chars[1..]).iter().filter(|c| **c != ' ') {
-            glyph_key.c = *c;
+            glyph_key.c = *c as _;
             let mut glyph = *glyph_cache.get(glyph_key, self);
 
             // The metrics of zero-width characters are based on rendering
