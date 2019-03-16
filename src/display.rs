@@ -487,7 +487,7 @@ impl Display {
                     for cell in row {
                         print!("{}", cell.chars[0]);
                     }
-                    println!("");
+                    println!();
                 }
                 //println!("{:?}", renderable_cells_rows);
 
