@@ -33,7 +33,7 @@ use crate::selection::{self, Selection, Locations};
 use crate::config::{Config, VisualBellAnimation};
 use copypasta::{Clipboard, Load, Store};
 use crate::input::FONT_SIZE_STEP;
-use crate::url::UrlParser;
+use crate::url::{Url, UrlParser};
 use crate::message_bar::MessageBuffer;
 use crate::term::color::Rgb;
 use crate::term::cell::{LineLength, Cell};
@@ -54,7 +54,7 @@ pub trait Search {
     /// Find the nearest semantic boundary _to the point_ of provided point.
     fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest URL boundary in both directions.
-    fn url_search(&self, _: Point<usize>) -> Option<String>;
+    fn url_search(&self, _: Point<usize>) -> Option<Url>;
 }
 
 impl Search for Term {
@@ -70,11 +70,11 @@ impl Search for Term {
                 break;
             }
 
-            if iter.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
+            if iter.cur().col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
                 break; // cut off if on new line or hit escape char
             }
 
-            point = iter.cur;
+            point = iter.cur();
         }
 
         point
@@ -92,9 +92,9 @@ impl Search for Term {
                 break;
             }
 
-            point = iter.cur;
+            point = iter.cur();
 
-            if iter.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
+            if point.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
                 break; // cut off if on new line or hit escape char
             }
         }
@@ -102,7 +102,7 @@ impl Search for Term {
         point
     }
 
-    fn url_search(&self, mut point: Point<usize>) -> Option<String> {
+    fn url_search(&self, mut point: Point<usize>) -> Option<Url> {
         // Switch first line from top to bottom
         point.line = self.grid.num_lines().0 - point.line - 1;
 
@@ -1143,8 +1143,7 @@ impl Term {
         &self.grid
     }
 
-    // Mutable access for swapping out the grid during tests
-    #[cfg(test)]
+    /// Mutable access to the raw grid data structure
     pub fn grid_mut(&mut self) -> &mut Grid<Cell> {
         &mut self.grid
     }

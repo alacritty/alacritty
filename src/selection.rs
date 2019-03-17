@@ -433,6 +433,7 @@ impl Span {
 mod test {
     use crate::index::{Line, Column, Side, Point};
     use super::{Selection, Span, SpanType};
+    use crate::url::Url;
 
     struct Dimensions(Point);
     impl super::Dimensions for Dimensions {
@@ -453,7 +454,7 @@ mod test {
     impl super::Search for Dimensions {
         fn semantic_search_left(&self, point: Point<usize>) -> Point<usize> { point }
         fn semantic_search_right(&self, point: Point<usize>) -> Point<usize> { point }
-        fn url_search(&self, _: Point<usize>) -> Option<String> { None }
+        fn url_search(&self, _: Point<usize>) -> Option<Url> { None }
     }
 
     /// Test case of single cell selection

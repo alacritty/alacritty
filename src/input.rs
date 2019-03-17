@@ -21,6 +21,7 @@
 use std::borrow::Cow;
 use std::mem;
 use std::time::Instant;
+use std::iter::once;
 
 use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
 use glutin::{
@@ -30,14 +31,16 @@ use glutin::{
 
 use crate::config::{self, Key};
 use crate::grid::Scroll;
-use crate::event::{ClickState, Mouse};
+use crate::event::{ClickState, Mouse, UrlHoverSaveState};
 use crate::index::{Line, Column, Side, Point};
 use crate::term::{Term, SizeInfo, Search};
 use crate::term::mode::TermMode;
+use crate::term::cell::Flags;
 use crate::util::fmt::Red;
 use crate::util::start_daemon;
 use crate::message_bar::{self, Message};
 use crate::ansi::{Handler, ClearMode};
+use crate::url::Url;
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
 
@@ -439,18 +442,67 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let mouse_mode =
             TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
 
-        if self.ctx.terminal().url_search(point.into()).is_some() {
-            if self.ctx.terminal().mode().intersects(mouse_mode) {
-                self.ctx.mouse_mut().last_cursor = Some(MouseCursor::Default);
+        if let Some(Url { text, origin }) = self.ctx.terminal().url_search(point.into()) {
+            let mouse_cursor = if self.ctx.terminal().mode().intersects(mouse_mode) {
+                MouseCursor::Default
             } else {
-                self.ctx.mouse_mut().last_cursor = Some(MouseCursor::Text);
+                MouseCursor::Text
+            };
+
+            let cols = self.ctx.size_info().cols().0;
+            let last_line = self.ctx.size_info().lines().0 - 1;
+
+            // Calculate the URL's start position
+            let col = (cols + point.col.0 - origin % cols) % cols;
+            let line = last_line - point.line.0 + (origin + cols - point.col.0 - 1) / cols;
+            let start = Point::new(line, Column(col));
+
+            // Update URLs only on change, so they don't all get marked as underlined
+            if self.ctx.mouse().url_hover_save.as_ref().map(|hs| hs.start) == Some(start) {
+                return;
             }
+
+            // Since the URL changed without reset, we need to clear the previous underline
+            if let Some(hover_save) = self.ctx.mouse_mut().url_hover_save.take() {
+                self.reset_underline(&hover_save);
+            }
+
+            // Underline all cells and store their current underline state
+            let mut underlined = Vec::with_capacity(text.len());
+            let iter = once(start).chain(start.iter(Column(cols - 1), last_line));
+            for point in iter.take(text.len()) {
+                let cell = &mut self.ctx.terminal_mut().grid_mut()[point.line][point.col];
+                underlined.push(cell.flags.contains(Flags::UNDERLINE));
+                cell.flags.insert(Flags::UNDERLINE);
+            }
+
+            // Save the higlight state for restoring it again
+            self.ctx.mouse_mut().url_hover_save = Some(UrlHoverSaveState {
+                mouse_cursor,
+                underlined,
+                start,
+            });
 
             self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
             self.ctx.terminal_mut().dirty = true;
-        } else if let Some(cursor) = self.ctx.mouse_mut().last_cursor.take() {
-            self.ctx.terminal_mut().set_mouse_cursor(cursor);
+        } else if let Some(hover_save) = self.ctx.mouse_mut().url_hover_save.take() {
+            self.ctx.terminal_mut().set_mouse_cursor(hover_save.mouse_cursor);
             self.ctx.terminal_mut().dirty = true;
+            self.reset_underline(&hover_save);
+        }
+    }
+
+    // Reset the underline state after unhovering a URL
+    fn reset_underline(&mut self, hover_save: &UrlHoverSaveState) {
+        let last_col = self.ctx.size_info().cols() - 1;
+        let last_line = self.ctx.size_info().lines().0 - 1;
+
+        let mut iter = once(hover_save.start).chain(hover_save.start.iter(last_col, last_line));
+        for underlined in &hover_save.underlined {
+            if let (Some(point), false) = (iter.next(), underlined) {
+                let cell = &mut self.ctx.terminal_mut().grid_mut()[point.line][point.col];
+                cell.flags.remove(Flags::UNDERLINE);
+            }
         }
     }
 
@@ -629,7 +681,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return None;
         }
 
-        let text = self.ctx.terminal().url_search(point.into())?;
+        let text = self.ctx.terminal().url_search(point.into())?.text;
 
         let launcher = self.mouse_config.url.launcher.as_ref()?;
         let mut args = launcher.args().to_vec();

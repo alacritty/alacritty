@@ -222,6 +222,13 @@ pub enum ClickState {
     TripleClick,
 }
 
+/// Temporary save state for restoring mouse cursor and underline after unhovering a URL.
+pub struct UrlHoverSaveState {
+    pub mouse_cursor: MouseCursor,
+    pub underlined: Vec<bool>,
+    pub start: Point<usize>,
+}
+
 /// State of the mouse
 pub struct Mouse {
     pub x: usize,
@@ -238,7 +245,7 @@ pub struct Mouse {
     pub lines_scrolled: f32,
     pub block_url_launcher: bool,
     pub last_button: MouseButton,
-    pub last_cursor: Option<MouseCursor>,
+    pub url_hover_save: Option<UrlHoverSaveState>,
 }
 
 impl Default for Mouse {
@@ -258,7 +265,7 @@ impl Default for Mouse {
             lines_scrolled: 0.0,
             block_url_launcher: false,
             last_button: MouseButton::Other(0),
-            last_cursor: None,
+            url_hover_save: None,
         }
     }
 }

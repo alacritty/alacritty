@@ -17,7 +17,7 @@
 use std::cmp::{min, max, Ordering};
 use std::ops::{Deref, Range, Index, IndexMut, RangeTo, RangeFrom, RangeFull};
 
-use crate::index::{self, Point, Line, Column, IndexRange};
+use crate::index::{self, Point, Line, Column, IndexRange, PointIterator};
 use crate::selection::Selection;
 
 mod row;
@@ -103,14 +103,6 @@ pub struct Grid<T> {
 
     #[serde(default)]
     max_scroll_limit: usize,
-}
-
-pub struct GridIterator<'a, T> {
-    /// Immutable grid reference
-    grid: &'a Grid<T>,
-
-    /// Current position of the iterator within the grid.
-    pub cur: Point<usize>,
 }
 
 #[derive(Copy, Clone)]
@@ -587,7 +579,7 @@ impl<T> Grid<T> {
     pub fn iter_from(&self, point: Point<usize>) -> GridIterator<'_, T> {
         GridIterator {
             grid: self,
-            cur: point,
+            point_iter: point.iter(self.num_cols() - 1, self.len() - 1),
         }
     }
 
@@ -602,43 +594,30 @@ impl<T> Grid<T> {
     }
 }
 
+pub struct GridIterator<'a, T> {
+    /// Immutable grid reference
+    grid: &'a Grid<T>,
+
+    point_iter: PointIterator<usize>,
+}
+
+impl<'a, T> GridIterator<'a, T> {
+    pub fn cur(&self) -> Point<usize> {
+        self.point_iter.cur
+    }
+}
+
 impl<'a, T> Iterator for GridIterator<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let last_col = self.grid.num_cols() - Column(1);
-        match self.cur {
-            Point { line, col } if line == 0 && col == last_col => None,
-            Point { col, .. } if
-                (col == last_col) => {
-                self.cur.line -= 1;
-                self.cur.col = Column(0);
-                Some(&self.grid[self.cur.line][self.cur.col])
-            },
-            _ => {
-                self.cur.col += Column(1);
-                Some(&self.grid[self.cur.line][self.cur.col])
-            }
-        }
+        self.point_iter.next().map(|p| &self.grid[p.line][p.col])
     }
 }
 
 impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     fn prev(&mut self) -> Option<Self::Item> {
-        let num_cols = self.grid.num_cols();
-
-        match self.cur {
-            Point { line, col: Column(0) } if line == self.grid.len() - 1 => None,
-            Point { col: Column(0), .. } => {
-                self.cur.line += 1;
-                self.cur.col = num_cols - Column(1);
-                Some(&self.grid[self.cur.line][self.cur.col])
-            },
-            _ => {
-                self.cur.col -= Column(1);
-                Some(&self.grid[self.cur.line][self.cur.col])
-            }
-        }
+        self.point_iter.prev().map(|p| &self.grid[p.line][p.col])
     }
 }
 
@@ -665,6 +644,13 @@ impl<T> Index<usize> for Grid<T> {
 impl<T> IndexMut<index::Line> for Grid<T> {
     #[inline]
     fn index_mut(&mut self, index: index::Line) -> &mut Row<T> {
+        &mut self.raw[index]
+    }
+}
+
+impl<T> IndexMut<usize> for Grid<T> {
+    #[inline]
+    fn index_mut(&mut self, index: usize) -> &mut Row<T> {
         &mut self.raw[index]
     }
 }
