@@ -49,6 +49,7 @@ pub mod tty;
 pub mod util;
 pub mod window;
 pub mod message_bar;
+pub mod activity_levels;
 mod url;
 
 pub use crate::grid::Grid;
