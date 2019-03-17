@@ -752,10 +752,10 @@ impl QuadRenderer {
         if opengl_vecs.len() < 4 {
             return;
         }
-        // Use the Activity Levels Shader Program (For now a copy of rect)
+        // TODO: Use the Activity Levels Shader Program (For now a copy of rect)
         unsafe {
             // Swap program
-            gl::UseProgram(self.rect_program.id);
+            gl::UseProgram(self.activity_levels_program.id);
 
             // Remove padding from viewport
             gl::Viewport(0, 0, props.width as i32, props.height as i32);
