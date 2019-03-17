@@ -35,7 +35,7 @@ use crate::message_bar::MessageBuffer;
 use crate::term::color::Rgb;
 use crate::term::cell::{LineLength, Cell};
 use crate::tty;
-use crate::ActivityLevels;
+use crate::activity_levels::ActivityLevels;
 
 pub mod cell;
 pub mod color;
