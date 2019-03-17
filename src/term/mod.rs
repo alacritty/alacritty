@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 //! Exports the `Term` type which is a high-level API for the Grid
-use std::ops::{Range, Index, IndexMut};
+use std::ops::{Range, Index, IndexMut, RangeInclusive};
 use std::{ptr, io, mem};
 use std::cmp::{min, max};
 use std::time::{Duration, Instant};
@@ -27,7 +27,7 @@ use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
     ViewportPosition,
 };
-use crate::index::{self, Point, Column, Line, IndexRange, Contains, RangeInclusive, Linear};
+use crate::index::{self, Point, Column, Line, IndexRange, Contains, Linear};
 use crate::selection::{self, Selection, Locations};
 use crate::config::{Config, VisualBellAnimation};
 use crate::MouseCursor;

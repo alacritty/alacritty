@@ -28,7 +28,7 @@ use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
 use crate::gl::types::*;
 use crate::gl;
-use crate::index::{Column, Line, RangeInclusive};
+use crate::index::{Column, Line};
 use crate::term::color::Rgb;
 use crate::config::{self, Config, Delta};
 use crate::term::{self, cell, RenderableCell};
@@ -213,7 +213,7 @@ impl GlyphCache {
 
     fn load_glyphs_for_font<L: LoadGlyph>(&mut self, font: FontKey, loader: &mut L) {
         let size = self.font_size;
-        for i in RangeInclusive::new(32u8, 128u8) {
+        for i in 32u8..=128u8 {
             self.get(GlyphKey {
                 font_key: font,
                 c: i as char,
