@@ -565,3 +565,28 @@ key_bindings:
   - { key: F11,      mods: Super,   chars: "\x1b[23;3~"                      }
   - { key: F12,      mods: Super,   chars: "\x1b[24;3~"                      }
   - { key: NumpadEnter,             chars: "\n"                              }
+# Visual Metrics like Load Average, Activity Lines, etc
+metrics: # XXX: This is not being used from the code yet.
+  enable: true
+  input_keys:
+    offset:
+      x: 600
+      # y:  not supported yet, can only be positioned on the bottom of the terminal
+    width: 200
+    color: '0xff0000'
+  output_chars:
+    offset:
+      x: 800
+    width: 200
+    color: '0x00ff00'
+  loadavg:
+    offset:
+      x: 1000
+    width: 100
+    marker_line: # A reference point to draw a line in
+      value: 1   # Tricky: This has to match the type of data being polled.
+      alpha: 0.8
+    color: '0x000000' # Fix
+  cpu:
+    offset: 1100
+    width: 100
