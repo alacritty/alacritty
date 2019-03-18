@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New configuration field `window.position` allows specifying the starting position
 - Added the ability to change the selection color
 - Text will reflow instead of truncating when resizing Alacritty
-- Underline and change the mouse cursor when hovering over URLs
+- Underline text and change cursor when hovering over URLs with required modifiers pressed
 
 ### Changed
 
