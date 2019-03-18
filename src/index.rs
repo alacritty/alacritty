@@ -73,8 +73,8 @@ impl From<Point> for Point<usize> {
 }
 
 impl<T> Point<T>
-    where
-        T: Copy + Default + SubAssign<usize> + PartialEq,
+where
+    T: Copy + Default + SubAssign<usize> + PartialEq,
 {
     pub fn iter(&self, last_col: Column, last_line: T) -> PointIterator<T> {
         PointIterator {
@@ -92,8 +92,8 @@ pub struct PointIterator<T> {
 }
 
 impl<T> Iterator for PointIterator<T>
-    where
-        T: Copy + Default + SubAssign<usize> + PartialEq,
+where
+    T: Copy + Default + SubAssign<usize> + PartialEq,
 {
     type Item = Point<T>;
 
@@ -114,8 +114,8 @@ impl<T> Iterator for PointIterator<T>
 }
 
 impl<T> BidirectionalIterator for PointIterator<T>
-    where
-        T: Copy + Default + AddAssign<usize> + SubAssign<usize> + PartialEq,
+where
+    T: Copy + Default + AddAssign<usize> + SubAssign<usize> + PartialEq,
 {
     fn prev(&mut self) -> Option<Self::Item> {
         match self.cur {

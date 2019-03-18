@@ -399,17 +399,15 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.ctx.mouse_mut().block_url_launcher = true;
         }
 
-        // Ignore motions over the message bar
-        if self.message_at_point(Some(point)).is_some() {
+        // Only report motions when cell changed and mouse is not over the message bar
+        if self.message_at_point(Some(point)).is_some()
+            || (prev_line == self.ctx.mouse().line && prev_col == self.ctx.mouse().column)
+        {
             return;
         }
 
-        // Cursor moved outside the last reported cell
-        let left_cell = prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column;
-
-        if left_cell {
-            self.update_url_cursor(point);
-        }
+        // Underline URLs and change cursor on hover
+        self.update_url_highlight(point);
 
         if self.ctx.mouse().left_button_state == ElementState::Pressed
             && (modifiers.shift || !self.ctx.terminal().mode().intersects(report_mode))
@@ -423,7 +421,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             );
         } else if self.ctx.terminal().mode().intersects(motion_mode)
             && size_info.contains_point(x, y, false)
-            && left_cell
         {
             if self.ctx.mouse().left_button_state == ElementState::Pressed {
                 self.mouse_report(32, ElementState::Pressed, modifiers);
@@ -437,8 +434,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    // Change mouse cursor when positioned over URLs
-    fn update_url_cursor(&mut self, point: Point) {
+    /// Underline URLs and change the mouse cursor when URL hover state changes.
+    fn update_url_highlight(&mut self, point: Point) {
         let mouse_mode =
             TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
 
@@ -492,7 +489,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    // Reset the underline state after unhovering a URL
+    /// Reset the underline state after unhovering a URL.
     fn reset_underline(&mut self, hover_save: &UrlHoverSaveState) {
         let last_col = self.ctx.size_info().cols() - 1;
         let last_line = self.ctx.size_info().lines().0 - 1;
