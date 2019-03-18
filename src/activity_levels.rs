@@ -11,16 +11,50 @@
 
 use crate::term::color::Rgb;
 use num_traits::*;
-use std::time::{Duration, Instant, UNIX_EPOCH};
+use std::time::UNIX_EPOCH;
+use crate::term::SizeInfo;
 
 /// `TimeSeries` makes an opengl line.
 pub trait TimeSeries {
     /// `MetricType` has the type of data being collected
     type MetricType;
     /// `draw` sends the time series representation of the TimeSeries to OpenGL
-    /// context
-    fn draw(&mut self);
+    /// context, this shouldn't be mut
+    fn draw(&self);
+    /// `max` returns the max value in the TimeSeries
+    fn max(&self, input: &Vec<Self::MetricType>) -> Self::MetricType 
+        where Self::MetricType: Num + PartialOrd
+    {
+        let mut max_activity_value = Self::MetricType::zero();
+        let activity_time_length = input.len();
+        for idx in 0..activity_time_length {
+            if input[idx] > max_activity_value {
+                max_activity_value = input[idx];
+            }
+        }
+        max_activity_value
+    }
+    // `init_opengl_context` provides a default initialization of OpengL
+    // context. This function is called previous to sending the vector data.
+    // This seems to be part of src/renderer/ mod tho...
+    // fn init_opengl_context(&self);
 }
+
+/// `TimeSeriesStats` contains statistics about the current TimeSeries
+#[derive(Debug, Clone)]
+pub struct TimeSeriesStats<T>
+where T: Num + Clone + Copy
+{
+    max: T,
+    min: T,
+    avg: T, // Calculation may lead to overflow
+    first: T,
+    last: T,
+    count: usize,
+    sum: T, // May overflow
+    is_dirty: bool,
+}
+
 
 /// `MissingValuesPolicy` provides several ways to deal with missing values
 #[derive(Debug, Clone)]
@@ -423,9 +457,38 @@ where T: Num + Clone + Copy
     }
 }
 
-impl ActivityLine for ActivityLevels {
-    pub fn get_opengl_activity_line(self) -> (Rgb, Vec<f32>) {
-        return self.activity_opengl_vecs;
+struct LoadAvg {
+    /// From https://docs.rs/procinfo/0.4.2/procinfo/struct.LoadAvg.html
+    /// Load average over the last minute.
+    load_avg_1_min: ActivityLevels<f32>,
+    /// Load average of the last 5 minutes.
+    load_avg_5_min: ActivityLevels<f32>,
+    /// Load average of the last 10 minutes
+    load_avg_10_min: ActivityLevels<f32>,
+    // These metrics are not that interesting to graph:
+    // the number of currently runnable kernel scheduling entities (processes, threads).
+    // tasks_runnable: ActivityLevels<u32>,
+    // the number of kernel scheduling entities that currently exist on the system.
+    // tasks_total: ActivityLevels<u32>,
+    /// If no metrics were collected for some time, fill them with the last 
+    /// known value
+    missing_values_policy: MissingValuesPolicy::Last,
+}
+
+impl TimeSeries for LoadAvg {
+    type MetricType = (f32, f32, f32);
+    fn draw(&self) {
     }
-    pub fn get_opengl_decorations
+}
+
+//impl TimeSeries for ActivityLevels {
+//    fn draw()
+//}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn it_parses_from_config(){
+        assert_eq!(1,1);
+    }
 }
