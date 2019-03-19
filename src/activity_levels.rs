@@ -14,6 +14,21 @@ use num_traits::*;
 use std::time::UNIX_EPOCH;
 use crate::term::SizeInfo;
 
+/// `TimeSeriesStats` contains statistics about the current TimeSeries
+#[derive(Debug, Clone)]
+pub struct TimeSeriesStats<T>
+where T: Num + Clone + Copy
+{
+    max: T,
+    min: T,
+    avg: T, // Calculation may lead to overflow
+    first: T,
+    last: T,
+    count: usize,
+    sum: T, // May overflow
+    is_dirty: bool,
+}
+
 /// `TimeSeries` makes an opengl line.
 pub trait TimeSeries {
     /// `MetricType` has the type of data being collected
@@ -39,22 +54,6 @@ pub trait TimeSeries {
     // This seems to be part of src/renderer/ mod tho...
     // fn init_opengl_context(&self);
 }
-
-/// `TimeSeriesStats` contains statistics about the current TimeSeries
-#[derive(Debug, Clone)]
-pub struct TimeSeriesStats<T>
-where T: Num + Clone + Copy
-{
-    max: T,
-    min: T,
-    avg: T, // Calculation may lead to overflow
-    first: T,
-    last: T,
-    count: usize,
-    sum: T, // May overflow
-    is_dirty: bool,
-}
-
 
 /// `MissingValuesPolicy` provides several ways to deal with missing values
 #[derive(Debug, Clone)]
@@ -472,13 +471,37 @@ struct LoadAvg {
     // tasks_total: ActivityLevels<u32>,
     /// If no metrics were collected for some time, fill them with the last 
     /// known value
-    missing_values_policy: MissingValuesPolicy::Last,
+    missing_values_policy: MissingValuesPolicy<f32>,
+}
+
+impl Default for LoadAvg{
+    fn default() -> LoadAvg {
+        LoadAvg{
+            load_avg_1_min: Vec::<T>::with_capacity(activity_vector_capacity),
+            load_avg_5_min: Vec::<T>::with_capacity(activity_vector_capacity),
+            load_avg_10_min: Vec::<T>::with_capacity(activity_vector_capacity),
+        }
+    }
 }
 
 impl TimeSeries for LoadAvg {
     type MetricType = (f32, f32, f32);
     fn draw(&self) {
     }
+    fn max(&self, input: &Vec<Self::MetricType>) -> Self::MetricType 
+        where Self::MetricType: Num + PartialOrd
+    {
+        let mut max_activity_value = TimeSeries::max(self, &self.load_avg_1_min.activity_levels);
+        let max_5_min = super::max(self.load_avg_5_min.activity_levels);
+        if max_activity_value < max_5_min {
+            max_activity_value = max_5_min;
+        }
+        let max_10_min = super::max(self.load_avg_10_min.activity_levels);
+        if max_activity_value < max_10_min {
+            max_activity_value = max_10_min;
+        }
+    }
+
 }
 
 //impl TimeSeries for ActivityLevels {
