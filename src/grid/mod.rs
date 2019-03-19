@@ -595,10 +595,8 @@ impl<T> Grid<T> {
 }
 
 pub struct GridIterator<'a, T> {
-    /// Immutable grid reference
-    grid: &'a Grid<T>,
-
     point_iter: PointIterator<usize>,
+    grid: &'a Grid<T>,
 }
 
 impl<'a, T> GridIterator<'a, T> {
