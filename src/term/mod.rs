@@ -85,7 +85,7 @@ impl Search for Term {
         point.line = min(point.line, self.grid.len() - 1);
 
         let mut iter = self.grid.iter_from(point);
-        let last_col = self.grid.num_cols() - Column(1);
+        let last_col = self.grid.num_cols() - 1;
 
         while let Some(cell) = iter.next() {
             if self.semantic_escape_chars.contains(cell.c) {
@@ -103,6 +103,8 @@ impl Search for Term {
     }
 
     fn url_search(&self, mut point: Point<usize>) -> Option<Url> {
+        let last_col = self.grid.num_cols() - 1;
+
         // Switch first line from top to bottom
         point.line = self.grid.num_lines().0 - point.line - 1;
 
@@ -110,19 +112,24 @@ impl Search for Term {
         point.line += self.grid.display_offset();
 
         // Create forwards and backwards iterators
-        let iterf = self.grid.iter_from(point);
+        let mut iterf = self.grid.iter_from(point);
         point.col += 1;
         let mut iterb = self.grid.iter_from(point);
 
         // Find URLs
         let mut url_parser = UrlParser::new();
         while let Some(cell) = iterb.prev() {
-            if url_parser.advance_left(cell.c) {
+            if (iterb.cur().col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
+                || url_parser.advance_left(cell.c)
+            {
                 break;
             }
         }
-        for cell in iterf {
-            if url_parser.advance_right(cell.c) {
+
+        while let Some(cell) = iterf.next() {
+            if url_parser.advance_right(cell.c)
+                || (iterf.cur().col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
+            {
                 break;
             }
         }
