@@ -17,6 +17,7 @@ use std::ops::{Range, Index, IndexMut, RangeInclusive};
 use std::{ptr, io, mem};
 use std::cmp::{min, max};
 use std::time::{Duration, Instant};
+use std::iter::once;
 
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
@@ -36,7 +37,7 @@ use crate::input::FONT_SIZE_STEP;
 use crate::url::{Url, UrlParser};
 use crate::message_bar::MessageBuffer;
 use crate::term::color::Rgb;
-use crate::term::cell::{LineLength, Cell};
+use crate::term::cell::{LineLength, Cell, Flags};
 
 #[cfg(windows)]
 use crate::tty;
@@ -823,6 +824,16 @@ pub struct Term {
 
     /// Hint that Alacritty should be closed
     should_exit: bool,
+
+    /// URL highlight save state
+    pub url_hover_save: Option<UrlHoverSaveState>,
+}
+
+/// Temporary save state for restoring mouse cursor and underline after unhovering a URL.
+pub struct UrlHoverSaveState {
+    pub mouse_cursor: MouseCursor,
+    pub underlined: Vec<bool>,
+    pub start: Point<usize>,
 }
 
 /// Terminal size info
@@ -955,6 +966,7 @@ impl Term {
             auto_scroll: config.scrolling().auto_scroll,
             message_buffer,
             should_exit: false,
+            url_hover_save: None,
         }
     }
 
@@ -1216,6 +1228,10 @@ impl Term {
             return;
         }
 
+        if let Some(hover_save) = self.url_hover_save.take() {
+            self.reset_url_highlight(&hover_save);
+        }
+
         self.grid.selection = None;
         self.alt_grid.selection = None;
 
@@ -1364,6 +1380,25 @@ impl Term {
     #[inline]
     pub fn should_exit(&self) -> bool {
         self.should_exit
+    }
+
+    pub fn reset_url_highlight(&mut self, hover_save: &UrlHoverSaveState) {
+        self.set_mouse_cursor(hover_save.mouse_cursor);
+        self.reset_url_underline(hover_save);
+    }
+
+    /// Reset the underline state after unhovering a URL.
+    pub fn reset_url_underline(&mut self, hover_save: &UrlHoverSaveState) {
+        let last_line = self.size_info.lines().0 - 1;
+        let last_col = self.size_info.cols() - 1;
+
+        let mut iter = once(hover_save.start).chain(hover_save.start.iter(last_col, last_line));
+        for underlined in &hover_save.underlined {
+            if let (Some(point), false) = (iter.next(), underlined) {
+                let cell = &mut self.grid[point.line][point.col];
+                cell.flags.remove(Flags::UNDERLINE);
+            }
+        }
     }
 }
 
