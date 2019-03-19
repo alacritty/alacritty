@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The AltGr key no longer sends escapes (like Alt)
 - Fixes increase/decrease font-size keybindings on international keyboards
 - On Wayland, the `--title` flag will set the Window title now
+- Parsing issues with URLs starting in the first or ending in the last column
 
 ## Version 0.2.9
 
