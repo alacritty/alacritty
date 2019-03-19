@@ -391,18 +391,17 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let motion_mode = TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG;
         let report_mode = TermMode::MOUSE_REPORT_CLICK | motion_mode;
 
-        // Don't launch URLs if mouse has moved
-        if prev_line != self.ctx.mouse().line
+        let mouse_moved = prev_line != self.ctx.mouse().line
             || prev_col != self.ctx.mouse().column
-            || prev_side != cell_side
-        {
+            || prev_side != cell_side;
+
+        // Don't launch URLs if mouse has moved
+        if mouse_moved {
             self.ctx.mouse_mut().block_url_launcher = true;
         }
 
         // Only report motions when cell changed and mouse is not over the message bar
-        if self.message_at_point(Some(point)).is_some()
-            || (prev_line == self.ctx.mouse().line && prev_col == self.ctx.mouse().column)
-        {
+        if self.message_at_point(Some(point)).is_some() || !mouse_moved {
             return;
         }
 
