@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use url::Url;
+use url;
 
 // See https://tools.ietf.org/html/rfc3987#page-13
 const URL_SEPARATOR_CHARS: [char; 10] = ['<', '>', '"', ' ', '{', '}', '|', '\\', '^', '`'];
@@ -21,21 +21,35 @@ const URL_SCHEMES: [&str; 8] = [
     "http", "https", "mailto", "news", "file", "git", "ssh", "ftp",
 ];
 
-// Parser for streaming inside-out detection of URLs.
+/// URL text and origin of the original click position.
+#[derive(Debug, PartialEq)]
+pub struct Url {
+    pub text: String,
+    pub origin: usize,
+}
+
+/// Parser for streaming inside-out detection of URLs.
 pub struct UrlParser {
     state: String,
+    origin: usize,
 }
 
 impl UrlParser {
     pub fn new() -> Self {
         UrlParser {
             state: String::new(),
+            origin: 0,
         }
     }
 
     /// Advance the parser one character to the left.
     pub fn advance_left(&mut self, c: char) -> bool {
-        self.advance(c, 0)
+        if self.advance(c, 0) {
+            true
+        } else {
+            self.origin += 1;
+            false
+        }
     }
 
     /// Advance the parser one character to the right.
@@ -44,7 +58,7 @@ impl UrlParser {
     }
 
     /// Returns the URL if the parser has found any.
-    pub fn url(mut self) -> Option<String> {
+    pub fn url(mut self) -> Option<Url> {
         // Remove non-alphabetical characters before the scheme
         // https://tools.ietf.org/html/rfc3986#section-3.1
         if let Some(index) = self.state.find("://") {
@@ -57,6 +71,7 @@ impl UrlParser {
                 match c {
                     'a'...'z' | 'A'...'Z' => (),
                     _ => {
+                        self.origin = self.origin.saturating_sub(byte_index + 1);
                         self.state = self.state.split_off(byte_index + c.len_utf8());
                         break;
                     }
@@ -97,10 +112,13 @@ impl UrlParser {
         }
 
         // Check if string is valid url
-        match Url::parse(&self.state) {
+        match url::Url::parse(&self.state) {
             Ok(url) => {
-                if URL_SCHEMES.contains(&url.scheme()) {
-                    Some(self.state)
+                if URL_SCHEMES.contains(&url.scheme()) && self.origin > 0 {
+                    Some(Url {
+                        text: self.state,
+                        origin: self.origin - 1,
+                    })
                 } else {
                     None
                 }
@@ -155,12 +173,10 @@ mod tests {
         term
     }
 
-    fn url_test(input: &str, expected: &str, click_index: usize) {
+    fn url_test(input: &str, expected: &str) {
         let term = url_create_term(input);
-
-        let url = term.url_search(Point::new(0, Column(click_index)));
-
-        assert_eq!(url, Some(expected.into()));
+        let url = term.url_search(Point::new(0, Column(15)));
+        assert_eq!(url.map(|u| u.text), Some(expected.into()));
     }
 
     #[test]
@@ -168,72 +184,87 @@ mod tests {
         let term = url_create_term("no url here");
         let url = term.url_search(Point::new(0, Column(4)));
         assert_eq!(url, None);
+
+        let term = url_create_term(" https://example.org");
+        let url = term.url_search(Point::new(0, Column(0)));
+        assert_eq!(url, None);
+    }
+
+    #[test]
+    fn url_origin() {
+        let term = url_create_term(" test https://example.org ");
+        let url = term.url_search(Point::new(0, Column(10)));
+        assert_eq!(url.map(|u| u.origin), Some(4));
+
+        let term = url_create_term("https://example.org");
+        let url = term.url_search(Point::new(0, Column(0)));
+        assert_eq!(url.map(|u| u.origin), Some(0));
     }
 
     #[test]
     fn url_matching_chars() {
-        url_test("(https://example.org/test(ing))", "https://example.org/test(ing)", 5);
-        url_test("https://example.org/test(ing)", "https://example.org/test(ing)", 5);
-        url_test("((https://example.org))", "https://example.org", 5);
-        url_test(")https://example.org(", "https://example.org", 5);
-        url_test("https://example.org)", "https://example.org", 5);
-        url_test("https://example.org(", "https://example.org", 5);
-        url_test("(https://one.org/)(https://two.org/)", "https://one.org", 5);
+        url_test("(https://example.org/test(ing))", "https://example.org/test(ing)");
+        url_test("https://example.org/test(ing)", "https://example.org/test(ing)");
+        url_test("((https://example.org))", "https://example.org");
+        url_test(")https://example.org(", "https://example.org");
+        url_test("https://example.org)", "https://example.org");
+        url_test("https://example.org(", "https://example.org");
+        url_test("(https://one.org/)(https://two.org/)", "https://one.org");
 
-        url_test("https://[2001:db8:a0b:12f0::1]:80", "https://[2001:db8:a0b:12f0::1]:80", 5);
-        url_test("([(https://example.org/test(ing))])", "https://example.org/test(ing)", 5);
-        url_test("https://example.org/]()", "https://example.org", 5);
-        url_test("[https://example.org]", "https://example.org", 5);
+        url_test("https://[2001:db8:a0b:12f0::1]:80", "https://[2001:db8:a0b:12f0::1]:80");
+        url_test("([(https://example.org/test(ing))])", "https://example.org/test(ing)");
+        url_test("https://example.org/]()", "https://example.org");
+        url_test("[https://example.org]", "https://example.org");
 
-        url_test("'https://example.org/test'ing'''", "https://example.org/test'ing'", 5);
-        url_test("https://example.org/test'ing'", "https://example.org/test'ing'", 5);
-        url_test("'https://example.org'", "https://example.org", 5);
-        url_test("'https://example.org", "https://example.org", 5);
-        url_test("https://example.org'", "https://example.org", 5);
+        url_test("'https://example.org/test'ing'''", "https://example.org/test'ing'");
+        url_test("https://example.org/test'ing'", "https://example.org/test'ing'");
+        url_test("'https://example.org'", "https://example.org");
+        url_test("'https://example.org", "https://example.org");
+        url_test("https://example.org'", "https://example.org");
     }
 
     #[test]
     fn url_detect_end() {
-        url_test("https://example.org/test\u{00}ing", "https://example.org/test", 5);
-        url_test("https://example.org/test\u{1F}ing", "https://example.org/test", 5);
-        url_test("https://example.org/test\u{7F}ing", "https://example.org/test", 5);
-        url_test("https://example.org/test\u{9F}ing", "https://example.org/test", 5);
-        url_test("https://example.org/test\ting", "https://example.org/test", 5);
-        url_test("https://example.org/test ing", "https://example.org/test", 5);
+        url_test("https://example.org/test\u{00}ing", "https://example.org/test");
+        url_test("https://example.org/test\u{1F}ing", "https://example.org/test");
+        url_test("https://example.org/test\u{7F}ing", "https://example.org/test");
+        url_test("https://example.org/test\u{9F}ing", "https://example.org/test");
+        url_test("https://example.org/test\ting", "https://example.org/test");
+        url_test("https://example.org/test ing", "https://example.org/test");
     }
 
     #[test]
     fn url_remove_end_chars() {
-        url_test("https://example.org/test?ing", "https://example.org/test?ing", 5);
-        url_test("https://example.org.,;:)'!/?", "https://example.org", 5);
-        url_test("https://example.org'.", "https://example.org", 5);
+        url_test("https://example.org/test?ing", "https://example.org/test?ing");
+        url_test("https://example.org.,;:)'!/?", "https://example.org");
+        url_test("https://example.org'.", "https://example.org");
     }
 
     #[test]
     fn url_remove_start_chars() {
-        url_test("complicated:https://example.org", "https://example.org", 15);
-        url_test("test.https://example.org", "https://example.org", 10);
-        url_test(",https://example.org", "https://example.org", 5);
-        url_test("\u{2502}https://example.org", "https://example.org", 5);
+        url_test("complicated:https://example.org", "https://example.org");
+        url_test("test.https://example.org", "https://example.org");
+        url_test(",https://example.org", "https://example.org");
+        url_test("\u{2502}https://example.org", "https://example.org");
     }
 
     #[test]
     fn url_unicode() {
-        url_test("https://xn--example-2b07f.org", "https://xn--example-2b07f.org", 5);
-        url_test("https://example.org/\u{2008A}", "https://example.org/\u{2008A}", 5);
-        url_test("https://example.org/\u{f17c}", "https://example.org/\u{f17c}", 5);
-        url_test("https://üñîçøðé.com/ä", "https://üñîçøðé.com/ä", 5);
+        url_test("https://xn--example-2b07f.org", "https://xn--example-2b07f.org");
+        url_test("https://example.org/\u{2008A}", "https://example.org/\u{2008A}");
+        url_test("https://example.org/\u{f17c}", "https://example.org/\u{f17c}");
+        url_test("https://üñîçøðé.com/ä", "https://üñîçøðé.com/ä");
     }
 
     #[test]
     fn url_schemes() {
-        url_test("mailto://example.org", "mailto://example.org", 5);
-        url_test("https://example.org", "https://example.org", 5);
-        url_test("http://example.org", "http://example.org", 5);
-        url_test("news://example.org", "news://example.org", 5);
-        url_test("file://example.org", "file://example.org", 5);
-        url_test("git://example.org", "git://example.org", 5);
-        url_test("ssh://example.org", "ssh://example.org", 5);
-        url_test("ftp://example.org", "ftp://example.org", 5);
+        url_test("mailto://example.org", "mailto://example.org");
+        url_test("https://example.org", "https://example.org");
+        url_test("http://example.org", "http://example.org");
+        url_test("news://example.org", "news://example.org");
+        url_test("file://example.org", "file://example.org");
+        url_test("git://example.org", "git://example.org");
+        url_test("ssh://example.org", "ssh://example.org");
+        url_test("ftp://example.org", "ftp://example.org");
     }
 }
