@@ -463,14 +463,12 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             let start = Point::new(line, Column(col));
 
             // Update URLs only on change, so they don't all get marked as underlined
-            if self.ctx.terminal().url_hover_save.as_ref().map(|hs| hs.start) == Some(start) {
+            if self.ctx.terminal().url_highlight_start() == Some(start) {
                 return;
             }
 
             // Since the URL changed without reset, we need to clear the previous underline
-            if let Some(hover_save) = self.ctx.terminal_mut().url_hover_save.take() {
-                self.ctx.terminal_mut().reset_url_underline(&hover_save);
-            }
+            self.ctx.terminal_mut().reset_url_highlight();
 
             // Underline all cells and store their current underline state
             let mut underlined = Vec::with_capacity(len);
@@ -482,7 +480,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             }
 
             // Save the higlight state for restoring it again
-            self.ctx.terminal_mut().url_hover_save = Some(UrlHoverSaveState {
+            self.ctx.terminal_mut().set_url_highlight(UrlHoverSaveState {
                 mouse_cursor,
                 underlined,
                 start,
@@ -490,9 +488,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
             self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
             self.ctx.terminal_mut().dirty = true;
-        } else if let Some(hover_save) = self.ctx.terminal_mut().url_hover_save.take() {
-            self.ctx.terminal_mut().reset_url_highlight(&hover_save);
-            self.ctx.terminal_mut().dirty = true;
+        } else {
+            self.ctx.terminal_mut().reset_url_highlight();
         }
     }
 

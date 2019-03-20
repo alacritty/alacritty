@@ -826,7 +826,7 @@ pub struct Term {
     should_exit: bool,
 
     /// URL highlight save state
-    pub url_hover_save: Option<UrlHoverSaveState>,
+    url_hover_save: Option<UrlHoverSaveState>,
 }
 
 /// Temporary save state for restoring mouse cursor and underline after unhovering a URL.
@@ -1228,9 +1228,7 @@ impl Term {
             return;
         }
 
-        if let Some(hover_save) = self.url_hover_save.take() {
-            self.reset_url_highlight(&hover_save);
-        }
+        self.reset_url_highlight();
 
         self.grid.selection = None;
         self.alt_grid.selection = None;
@@ -1382,16 +1380,30 @@ impl Term {
         self.should_exit
     }
 
-    pub fn reset_url_highlight(&mut self, hover_save: &UrlHoverSaveState) {
-        self.set_mouse_cursor(hover_save.mouse_cursor);
-        self.reset_url_underline(hover_save);
+    #[inline]
+    pub fn set_url_highlight(&mut self, hover_save: UrlHoverSaveState) {
+        self.url_hover_save = Some(hover_save);
     }
 
-    /// Reset the underline state after unhovering a URL.
-    pub fn reset_url_underline(&mut self, hover_save: &UrlHoverSaveState) {
+    #[inline]
+    pub fn url_highlight_start(&self) -> Option<Point<usize>> {
+        self.url_hover_save.as_ref().map(|hs| hs.start)
+    }
+
+    /// Remove the URL highlight and restore the previous mouse cursor and underline state.
+    pub fn reset_url_highlight(&mut self) {
+        let hover_save = match self.url_hover_save.take() {
+            Some(hover_save) => hover_save,
+            _ => return,
+        };
+
+        // Reset the mouse cursor
+        self.set_mouse_cursor(hover_save.mouse_cursor);
+
         let last_line = self.size_info.lines().0 - 1;
         let last_col = self.size_info.cols() - 1;
 
+        // Reset the underline state after unhovering a URL
         let mut iter = once(hover_save.start).chain(hover_save.start.iter(last_col, last_line));
         for underlined in &hover_save.underlined {
             if let (Some(point), false) = (iter.next(), underlined) {
@@ -1399,6 +1411,8 @@ impl Term {
                 cell.flags.remove(Flags::UNDERLINE);
             }
         }
+
+        self.dirty = true;
     }
 }
 
