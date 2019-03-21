@@ -120,14 +120,14 @@ impl Search for Term {
         let mut url_parser = UrlParser::new();
         while let Some(cell) = iterb.prev() {
             if (iterb.cur().col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
-                || url_parser.advance_left(cell.c)
+                || url_parser.advance_left(cell)
             {
                 break;
             }
         }
 
         while let Some(cell) = iterf.next() {
-            if url_parser.advance_right(cell.c)
+            if url_parser.advance_right(cell)
                 || (iterf.cur().col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
             {
                 break;

@@ -447,7 +447,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             None
         };
 
-        if let Some(Url { text, origin }) = url {
+        if let Some(Url { origin, len, .. }) = url {
             let mouse_cursor = if self.ctx.terminal().mode().intersects(mouse_mode) {
                 MouseCursor::Default
             } else {
@@ -473,9 +473,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             }
 
             // Underline all cells and store their current underline state
-            let mut underlined = Vec::with_capacity(text.len());
+            let mut underlined = Vec::with_capacity(len);
             let iter = once(start).chain(start.iter(Column(cols - 1), last_line));
-            for point in iter.take(text.len()) {
+            for point in iter.take(len) {
                 let cell = &mut self.ctx.terminal_mut().grid_mut()[point.line][point.col];
                 underlined.push(cell.flags.contains(Flags::UNDERLINE));
                 cell.flags.insert(Flags::UNDERLINE);
