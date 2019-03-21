@@ -138,6 +138,8 @@ impl Window {
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();
+
+        // Maximize window after mapping
         window.set_maximized(window_config.start_maximized());
 
         // Text cursor
