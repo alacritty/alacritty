@@ -138,6 +138,7 @@ impl Window {
         let window = create_gl_window(window_builder.clone(), &event_loop, false)
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();
+        window.set_maximized(window_config.start_maximized());
 
         // Text cursor
         window.set_cursor(MouseCursor::Text);
@@ -263,7 +264,6 @@ impl Window {
             .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
-            .with_maximized(window_config.start_maximized())
             .with_decorations(decorations)
             // X11
             .with_class(class.into(), DEFAULT_NAME.into())
