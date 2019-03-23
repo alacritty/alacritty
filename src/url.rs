@@ -251,17 +251,17 @@ mod tests {
 
     #[test]
     fn url_len() {
-        // let term = url_create_term(" test https://example.org ");
-        // let url = term.url_search(Point::new(0, Column(10)));
-        // assert_eq!(url.map(|u| u.len), Some(19));
+        let term = url_create_term(" test https://example.org ");
+        let url = term.url_search(Point::new(0, Column(10)));
+        assert_eq!(url.map(|u| u.len), Some(19));
 
-        // let term = url_create_term("https://全.org");
-        // let url = term.url_search(Point::new(0, Column(0)));
-        // assert_eq!(url.map(|u| u.len), Some(14));
+        let term = url_create_term("https://全.org");
+        let url = term.url_search(Point::new(0, Column(0)));
+        assert_eq!(url.map(|u| u.len), Some(14));
 
-        // let term = url_create_term("https://全.org");
-        // let url = term.url_search(Point::new(0, Column(10)));
-        // assert_eq!(url.map(|u| u.len), Some(14));
+        let term = url_create_term("https://全.org");
+        let url = term.url_search(Point::new(0, Column(10)));
+        assert_eq!(url.map(|u| u.len), Some(14));
 
         let term = url_create_term("https://全.org");
         let url = term.url_search(Point::new(0, Column(9)));
@@ -293,11 +293,11 @@ mod tests {
     #[test]
     fn url_detect_end() {
         url_test("https://example.org/test\u{00}ing", "https://example.org/test");
-        // url_test("https://example.org/test\u{1F}ing", "https://example.org/test");
-        // url_test("https://example.org/test\u{7F}ing", "https://example.org/test");
-        // url_test("https://example.org/test\u{9F}ing", "https://example.org/test");
-        // url_test("https://example.org/test\ting", "https://example.org/test");
-        // url_test("https://example.org/test ing", "https://example.org/test");
+        url_test("https://example.org/test\u{1F}ing", "https://example.org/test");
+        url_test("https://example.org/test\u{7F}ing", "https://example.org/test");
+        url_test("https://example.org/test\u{9F}ing", "https://example.org/test");
+        url_test("https://example.org/test\ting", "https://example.org/test");
+        url_test("https://example.org/test ing", "https://example.org/test");
     }
 
     #[test]
