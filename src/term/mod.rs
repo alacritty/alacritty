@@ -810,17 +810,6 @@ pub struct Term {
     /// XXX: Is this everything drawn in the screen including colors/etc?
     output_activity_levels: ActivityLevels<u64>,
 
-    /// From https://docs.rs/procinfo/0.4.2/procinfo/struct.LoadAvg.html
-    /// Load average over the last minute.
-    load_avg_1_min: ActivityLevels<f32>,
-    /// Load average of the last 5 minutes.
-    load_avg_5_min: ActivityLevels<f32>,
-    /// Load average of the last 10 minutes
-    load_avg_10_min: ActivityLevels<f32>,
-    /// the number of currently runnable kernel scheduling entities (processes, threads).
-    tasks_runnable: ActivityLevels<u32>,
-    /// the number of kernel scheduling entities that currently exist on the system.
-    tasks_total: ActivityLevels<u32>,
 }
 
 /// Terminal size info
