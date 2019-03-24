@@ -24,6 +24,7 @@ use glutin::{
     MouseCursor, WindowBuilder, ContextTrait
 };
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
+#[cfg(not(any(target_os = "macos", windows)))]
 use glutin::os::unix::EventsLoopExt;
 
 use crate::cli::Options;
