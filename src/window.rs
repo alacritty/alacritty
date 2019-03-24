@@ -141,8 +141,11 @@ impl Window {
         window.show();
 
         // Maximize window after mapping in X11
-        if cfg!(not(any(target_os = "macos", windows))) && event_loop.is_x11() {
-            window.set_maximized(window_config.start_maximized());
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            if event_loop.is_x11() {
+                window.set_maximized(window_config.start_maximized());
+            }
         }
 
         // Text cursor
