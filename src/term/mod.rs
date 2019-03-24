@@ -17,6 +17,7 @@ use std::ops::{Range, Index, IndexMut, RangeInclusive};
 use std::{ptr, io, mem};
 use std::cmp::{min, max};
 use std::time::{Duration, Instant};
+use std::iter::once;
 
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
@@ -36,7 +37,7 @@ use crate::input::FONT_SIZE_STEP;
 use crate::url::{Url, UrlParser};
 use crate::message_bar::MessageBuffer;
 use crate::term::color::Rgb;
-use crate::term::cell::{LineLength, Cell};
+use crate::term::cell::{LineLength, Cell, Flags};
 
 #[cfg(windows)]
 use crate::tty;
@@ -120,14 +121,14 @@ impl Search for Term {
         let mut url_parser = UrlParser::new();
         while let Some(cell) = iterb.prev() {
             if (iterb.cur().col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
-                || url_parser.advance_left(cell.c)
+                || url_parser.advance_left(cell)
             {
                 break;
             }
         }
 
         while let Some(cell) = iterf.next() {
-            if url_parser.advance_right(cell.c)
+            if url_parser.advance_right(cell)
                 || (iterf.cur().col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
             {
                 break;
@@ -823,6 +824,16 @@ pub struct Term {
 
     /// Hint that Alacritty should be closed
     should_exit: bool,
+
+    /// URL highlight save state
+    url_hover_save: Option<UrlHoverSaveState>,
+}
+
+/// Temporary save state for restoring mouse cursor and underline after unhovering a URL.
+pub struct UrlHoverSaveState {
+    pub mouse_cursor: MouseCursor,
+    pub underlined: Vec<bool>,
+    pub start: Point<usize>,
 }
 
 /// Terminal size info
@@ -955,6 +966,7 @@ impl Term {
             auto_scroll: config.scrolling().auto_scroll,
             message_buffer,
             should_exit: false,
+            url_hover_save: None,
         }
     }
 
@@ -1200,6 +1212,8 @@ impl Term {
             return;
         }
 
+        self.reset_url_highlight();
+
         let old_cols = self.grid.num_cols();
         let old_lines = self.grid.num_lines();
         let mut num_cols = size.cols();
@@ -1364,6 +1378,41 @@ impl Term {
     #[inline]
     pub fn should_exit(&self) -> bool {
         self.should_exit
+    }
+
+    #[inline]
+    pub fn set_url_highlight(&mut self, hover_save: UrlHoverSaveState) {
+        self.url_hover_save = Some(hover_save);
+    }
+
+    #[inline]
+    pub fn url_highlight_start(&self) -> Option<Point<usize>> {
+        self.url_hover_save.as_ref().map(|hs| hs.start)
+    }
+
+    /// Remove the URL highlight and restore the previous mouse cursor and underline state.
+    pub fn reset_url_highlight(&mut self) {
+        let hover_save = match self.url_hover_save.take() {
+            Some(hover_save) => hover_save,
+            _ => return,
+        };
+
+        // Reset the mouse cursor
+        self.set_mouse_cursor(hover_save.mouse_cursor);
+
+        let last_line = self.size_info.lines().0 - 1;
+        let last_col = self.size_info.cols() - 1;
+
+        // Reset the underline state after unhovering a URL
+        let mut iter = once(hover_save.start).chain(hover_save.start.iter(last_col, last_line));
+        for underlined in &hover_save.underlined {
+            if let (Some(point), false) = (iter.next(), underlined) {
+                let cell = &mut self.grid[point.line][point.col];
+                cell.flags.remove(Flags::UNDERLINE);
+            }
+        }
+
+        self.dirty = true;
     }
 }
 
