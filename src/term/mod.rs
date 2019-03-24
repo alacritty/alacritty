@@ -1212,6 +1212,8 @@ impl Term {
             return;
         }
 
+        self.reset_url_highlight();
+
         let old_cols = self.grid.num_cols();
         let old_lines = self.grid.num_lines();
         let mut num_cols = size.cols();
@@ -1227,8 +1229,6 @@ impl Term {
             debug!("Term::resize dimensions unchanged");
             return;
         }
-
-        self.reset_url_highlight();
 
         self.grid.selection = None;
         self.alt_grid.selection = None;
