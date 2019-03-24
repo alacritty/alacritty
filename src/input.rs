@@ -31,9 +31,9 @@ use glutin::{
 
 use crate::config::{self, Key};
 use crate::grid::Scroll;
-use crate::event::{ClickState, Mouse, UrlHoverSaveState};
+use crate::event::{ClickState, Mouse};
 use crate::index::{Line, Column, Side, Point};
-use crate::term::{Term, SizeInfo, Search};
+use crate::term::{Term, SizeInfo, Search, UrlHoverSaveState};
 use crate::term::mode::TermMode;
 use crate::term::cell::Flags;
 use crate::util::fmt::Red;
@@ -440,7 +440,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         // Only show URLs as launchable when all required modifiers are pressed
         let url = if self.mouse_config.url.modifiers.relaxed_eq(modifiers)
-            && (!self.ctx.terminal().mode().contains(TermMode::ALT_SCREEN) || modifiers.shift)
+            && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
         {
                 self.ctx.terminal().url_search(point.into())
         } else {
@@ -463,14 +463,12 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             let start = Point::new(line, Column(col));
 
             // Update URLs only on change, so they don't all get marked as underlined
-            if self.ctx.mouse().url_hover_save.as_ref().map(|hs| hs.start) == Some(start) {
+            if self.ctx.terminal().url_highlight_start() == Some(start) {
                 return;
             }
 
             // Since the URL changed without reset, we need to clear the previous underline
-            if let Some(hover_save) = self.ctx.mouse_mut().url_hover_save.take() {
-                self.reset_underline(&hover_save);
-            }
+            self.ctx.terminal_mut().reset_url_highlight();
 
             // Underline all cells and store their current underline state
             let mut underlined = Vec::with_capacity(len);
@@ -482,7 +480,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             }
 
             // Save the higlight state for restoring it again
-            self.ctx.mouse_mut().url_hover_save = Some(UrlHoverSaveState {
+            self.ctx.terminal_mut().set_url_highlight(UrlHoverSaveState {
                 mouse_cursor,
                 underlined,
                 start,
@@ -490,24 +488,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
             self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
             self.ctx.terminal_mut().dirty = true;
-        } else if let Some(hover_save) = self.ctx.mouse_mut().url_hover_save.take() {
-            self.ctx.terminal_mut().set_mouse_cursor(hover_save.mouse_cursor);
-            self.ctx.terminal_mut().dirty = true;
-            self.reset_underline(&hover_save);
-        }
-    }
-
-    /// Reset the underline state after unhovering a URL.
-    fn reset_underline(&mut self, hover_save: &UrlHoverSaveState) {
-        let last_col = self.ctx.size_info().cols() - 1;
-        let last_line = self.ctx.size_info().lines().0 - 1;
-
-        let mut iter = once(hover_save.start).chain(hover_save.start.iter(last_col, last_line));
-        for underlined in &hover_save.underlined {
-            if let (Some(point), false) = (iter.next(), underlined) {
-                let cell = &mut self.ctx.terminal_mut().grid_mut()[point.line][point.col];
-                cell.flags.remove(Flags::UNDERLINE);
-            }
+        } else {
+            self.ctx.terminal_mut().reset_url_highlight();
         }
     }
 
