@@ -144,8 +144,8 @@ impl Window {
         // Maximize window after mapping in X11
         #[cfg(not(any(target_os = "macos", windows)))]
         {
-            if event_loop.is_x11() {
-                window.set_maximized(window_config.start_maximized());
+            if event_loop.is_x11() && window_config.start_maximized() {
+                window.set_maximized(true);
             }
         }
 
