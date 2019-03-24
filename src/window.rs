@@ -24,6 +24,7 @@ use glutin::{
     MouseCursor, WindowBuilder, ContextTrait
 };
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
+use glutin::os::unix::WindowExt;
 
 use crate::cli::Options;
 use crate::config::{Decorations, WindowConfig};
@@ -139,8 +140,10 @@ impl Window {
             .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
         window.show();
 
-        // Maximize window after mapping
-        window.set_maximized(window_config.start_maximized());
+        // Maximize window after mapping in X11
+        if cfg!(not(any(target_os = "macos", windows))) && window.get_xlib_window().is_some() {
+            window.set_maximized(window_config.start_maximized());
+        }
 
         // Text cursor
         window.set_cursor(MouseCursor::Text);
@@ -267,6 +270,7 @@ impl Window {
             .with_visibility(false)
             .with_transparency(true)
             .with_decorations(decorations)
+            .with_maximized(window_config.start_maximized())
             // X11
             .with_class(class.into(), DEFAULT_NAME.into())
             // Wayland
