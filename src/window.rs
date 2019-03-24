@@ -24,7 +24,7 @@ use glutin::{
     MouseCursor, WindowBuilder, ContextTrait
 };
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
-use glutin::os::unix::WindowExt;
+use glutin::os::unix::EventsLoopExt;
 
 use crate::cli::Options;
 use crate::config::{Decorations, WindowConfig};
@@ -141,7 +141,7 @@ impl Window {
         window.show();
 
         // Maximize window after mapping in X11
-        if cfg!(not(any(target_os = "macos", windows))) && window.get_xlib_window().is_some() {
+        if cfg!(not(any(target_os = "macos", windows))) && event_loop.is_x11() {
             window.set_maximized(window_config.start_maximized());
         }
 
