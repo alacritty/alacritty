@@ -5,8 +5,14 @@ error=false
 
 # Run clippy checks
 if [ "$CLIPPY" == "true" ]; then
-    cargo clippy --all-targets
-    exit
+    cargo clippy --all-targets || error=true
+    cargo fmt -- --check || error=true
+
+    if [ $error == "true" ]; then
+        exit 1
+    else
+        exit
+    fi
 fi
 
 # Run test in release mode if a tag is present, to produce an optimized binary

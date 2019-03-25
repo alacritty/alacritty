@@ -89,7 +89,7 @@ Changes compared to the latest Alacritty release which have a direct effect on t
 
 ### Style
 
-Alacritty currently does not have any automatically enforced style guidelines. As a result of that, it is not possible to run `rustfmt` on existing files. New code should however follow the default ruleset of `rustfmt` and for newly created files it is possible to run the `rustfmt` tool directly.
+All Alacritty changes are automatically verified by CI to conform to its rustfmt guidelines. If a CI build is failing because of formatting issues, you can install rustfmt using `rustup component add rustfmt` and then format all code using `cargo fmt`.
 
 # Contact
 
