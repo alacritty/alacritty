@@ -8,6 +8,7 @@
 // -- The yaml should drive an array of activity dashboards
 // -- The dashboards should be toggable, some key combination
 // -- When activated on toggle it could blur a portion of the screen
+// -- derive builder
 
 use crate::term::color::Rgb;
 use num_traits::*;
@@ -460,46 +461,62 @@ struct LoadAvg {
     /// From https://docs.rs/procinfo/0.4.2/procinfo/struct.LoadAvg.html
     /// Load average over the last minute.
     load_avg_1_min: ActivityLevels<f32>,
+
     /// Load average of the last 5 minutes.
     load_avg_5_min: ActivityLevels<f32>,
+
     /// Load average of the last 10 minutes
     load_avg_10_min: ActivityLevels<f32>,
+
     // These metrics are not that interesting to graph:
     // the number of currently runnable kernel scheduling entities (processes, threads).
     // tasks_runnable: ActivityLevels<u32>,
     // the number of kernel scheduling entities that currently exist on the system.
     // tasks_total: ActivityLevels<u32>,
+
     /// If no metrics were collected for some time, fill them with the last 
     /// known value
     missing_values_policy: MissingValuesPolicy<f32>,
+
+    /// A marker line to indicate a reference point, for example for load
+    /// to show where the 1 loadavg is, or to show disk capacity
+    pub marker_line: Option<f32>,
+
+    /// The opengl representation of the activity levels
+    /// Contains twice as many items because it's x,y
+    pub marker_line_vecs: Vec<f32>,
 }
 
 impl Default for LoadAvg{
     fn default() -> LoadAvg {
         LoadAvg{
-            load_avg_1_min: Vec::<T>::with_capacity(activity_vector_capacity),
-            load_avg_5_min: Vec::<T>::with_capacity(activity_vector_capacity),
-            load_avg_10_min: Vec::<T>::with_capacity(activity_vector_capacity),
+            load_avg_1_min: ActivityLevels::default(),
+            load_avg_5_min: ActivityLevels::default(),
+            load_avg_10_min: ActivityLevels::default(),
+            missing_values_policy: MissingValuesPolicy::Last,
+            marker_line: Some(1f32),
+            marker_line_vecs: vec![0f32; 16],
         }
     }
 }
 
 impl TimeSeries for LoadAvg {
-    type MetricType = (f32, f32, f32);
+    type MetricType = f32;
     fn draw(&self) {
     }
-    fn max(&self, input: &Vec<Self::MetricType>) -> Self::MetricType 
+    fn max(&self, _input: &Vec<Self::MetricType>) -> Self::MetricType 
         where Self::MetricType: Num + PartialOrd
     {
         let mut max_activity_value = TimeSeries::max(self, &self.load_avg_1_min.activity_levels);
-        let max_5_min = super::max(self.load_avg_5_min.activity_levels);
+        let max_5_min = TimeSeries::max(self, &self.load_avg_5_min.activity_levels);
         if max_activity_value < max_5_min {
             max_activity_value = max_5_min;
         }
-        let max_10_min = super::max(self.load_avg_10_min.activity_levels);
+        let max_10_min = TimeSeries::max(self, &self.load_avg_10_min.activity_levels);
         if max_activity_value < max_10_min {
             max_activity_value = max_10_min;
         }
+        max_activity_value
     }
 
 }
