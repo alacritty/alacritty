@@ -528,7 +528,31 @@ impl TimeSeries for LoadAvg {
 mod tests {
     use super::*;
     #[test]
-    fn it_parses_from_config(){
-        assert_eq!(1,1);
+    fn it_adds_rotates() {
+        let mut test = ActivityLevels {
+            activity_levels: vec![],
+            last_activity_time: 0,
+            max_activity_ticks: 5,
+        };
+        test.increment_activity_level(0);
+        assert_eq!(test.activity_levels, vec![1]);
+        test.increment_activity_level(0);
+        assert_eq!(test.activity_levels, vec![2]);
+        test.increment_activity_level(2);
+        assert_eq!(test.activity_levels, vec![2, 0 , 1]);
+        test.increment_activity_level(2);
+        assert_eq!(test.activity_levels, vec![2, 0 , 2]);
+        test.increment_activity_level(2);
+        assert_eq!(test.activity_levels, vec![2, 0 , 3]);
+        test.increment_activity_level(4);
+        assert_eq!(test.activity_levels, vec![2, 0 , 3, 0, 1]);
+        test.increment_activity_level(5);
+        assert_eq!(test.activity_levels, vec![0 , 3, 0, 1, 1]);
+        test.increment_activity_level(5);
+        assert_eq!(test.activity_levels, vec![0 , 3, 0, 1, 2]);
+        test.increment_activity_level(7);
+        assert_eq!(test.activity_levels, vec![0, 1, 2, 0 , 3]);
+        test.increment_activity_level(15);
+        assert_eq!(test.activity_levels, vec![0, 0, 0, 0 , 1]);
     }
 }
