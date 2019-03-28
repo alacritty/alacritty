@@ -211,7 +211,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
 
         match self.cols.cmp(&cols) {
             Ordering::Less => self.grow_cols(cols, cursor_pos, template),
-            Ordering::Greater => self.shrink_cols(cols, cursor_pos, template),
+            Ordering::Greater => self.shrink_cols(cols, template),
             Ordering::Equal => (),
         }
     }
@@ -321,7 +321,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         self.cols = cols;
     }
 
-    fn shrink_cols(&mut self, cols: index::Column, cursor_pos: &mut Point, template: &T) {
+    fn shrink_cols(&mut self, cols: index::Column, template: &T) {
         // Truncate all buffered lines
         self.raw.shrink_hidden(cols);
 
@@ -364,17 +364,11 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
                     // Add new row with all removed cells
                     self.raw.insert(i, row, max_lines);
 
-                    if cursor_pos.line >= self.lines - 1 {
-                        // Increase scrollback history
-                        self.scroll_limit = min(self.scroll_limit + 1, self.max_scroll_limit);
+                    // Increase scrollback history
+                    self.scroll_limit = min(self.scroll_limit + 1, self.max_scroll_limit);
 
-                        // Since inserted might exceed cols, we need to check the same line again
-                        i += 1;
-                    } else {
-                        // Pull content down if cursor is not at the bottom
-                        self.raw.rotate(1);
-                        cursor_pos.line += 1;
-                    }
+                    // Since inserted might exceed cols, we need to check the same line again
+                    i += 1;
                 }
             }
         }
