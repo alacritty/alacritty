@@ -24,6 +24,7 @@ use std::time::Instant;
 use std::iter::once;
 
 use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
+use unicode_width::UnicodeWidthStr;
 use glutin::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseCursor, MouseScrollDelta,
     TouchPhase,
@@ -448,7 +449,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             None
         };
 
-        if let Some(Url { origin, len, .. }) = url {
+        if let Some(Url { origin, text }) = url {
             let mouse_cursor = if self.ctx.terminal().mode().intersects(mouse_mode) {
                 MouseCursor::Default
             } else {
@@ -470,6 +471,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
             // Since the URL changed without reset, we need to clear the previous underline
             self.ctx.terminal_mut().reset_url_highlight();
+
+            let len = text.width();
 
             // Underline all cells and store their current underline state
             let mut underlined = Vec::with_capacity(len);
