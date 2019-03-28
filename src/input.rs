@@ -441,6 +441,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         // Only show URLs as launchable when all required modifiers are pressed
         let url = if self.mouse_config.url.modifiers.relaxed_eq(modifiers)
             && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
+            && self.mouse_config.url.launcher.is_some()
         {
                 self.ctx.terminal().url_search(point.into())
         } else {
