@@ -26,7 +26,7 @@ use font::{self, Size};
 use crate::ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
 use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
-    ViewportPosition, UrlHighlight
+    ViewportPosition
 };
 use crate::index::{self, Point, Column, Line, IndexRange, Contains, Linear};
 use crate::selection::{self, Selection, Locations};
@@ -163,7 +163,7 @@ pub struct RenderableCellsIter<'a> {
     config: &'a Config,
     colors: &'a color::List,
     selection: Option<RangeInclusive<index::Linear>>,
-    url_highlight: Option<RangeInclusive<index::Linear>>,
+    url_highlight: &'a Option<RangeInclusive<index::Linear>>,
     cursor_cells: ArrayDeque<[Indexed<Cell>; 3]>,
 }
 
@@ -231,16 +231,6 @@ impl<'a> RenderableCellsIter<'a> {
             }
         }
 
-        let url_highlight = match grid.url_highlight {
-            Some(ref hl) => {
-                let cols = grid.num_cols();
-                let start = Linear::from_point(cols, hl.start);
-                let end = Linear::from_point(cols, hl.end);
-                Some(RangeInclusive::new(start, end))
-            },
-            None => None,
-        };
-
         RenderableCellsIter {
             cursor: &term.cursor.point,
             cursor_offset,
@@ -248,7 +238,7 @@ impl<'a> RenderableCellsIter<'a> {
             inner,
             mode: term.mode,
             selection: selection_range,
-            url_highlight,
+            url_highlight: &grid.url_highlight,
             config,
             colors: &term.colors,
             cursor_cells: ArrayDeque::new(),
@@ -1389,7 +1379,7 @@ impl Term {
     }
 
     #[inline]
-    pub fn set_url_highlight(&mut self, hl: UrlHighlight) {
+    pub fn set_url_highlight(&mut self, hl: RangeInclusive<index::Linear>) {
         self.grid.url_highlight = Some(hl);
     }
 

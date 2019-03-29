@@ -15,7 +15,7 @@
 //! A specialized 2d grid implementation optimized for use in a terminal.
 
 use std::cmp::{min, max, Ordering};
-use std::ops::{Deref, Range, Index, IndexMut, RangeTo, RangeFrom, RangeFull};
+use std::ops::{Deref, Range, Index, IndexMut, RangeTo, RangeFrom, RangeFull, RangeInclusive};
 
 use crate::index::{self, Point, Line, Column, IndexRange};
 use crate::selection::Selection;
@@ -105,16 +105,9 @@ pub struct Grid<T> {
     #[serde(default)]
     max_scroll_limit: usize,
 
-    /// Underline URL on hover
+    /// Range for URL hover highlights
     #[serde(default)]
-    pub url_highlight: Option<UrlHighlight>,
-}
-
-/// Temporary save state for restoring mouse cursor and underline after unhovering a URL.
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct UrlHighlight {
-    pub start: Point<usize>,
-    pub end: Point<usize>,
+    pub url_highlight: Option<RangeInclusive<index::Linear>>,
 }
 
 #[derive(Copy, Clone)]

@@ -21,6 +21,7 @@
 use std::borrow::Cow;
 use std::mem;
 use std::time::Instant;
+use std::ops::RangeInclusive;
 
 use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
 use unicode_width::UnicodeWidthStr;
@@ -30,9 +31,9 @@ use glutin::{
 };
 
 use crate::config::{self, Key};
-use crate::grid::{Scroll, UrlHighlight};
+use crate::grid::Scroll;
 use crate::event::{ClickState, Mouse};
-use crate::index::{Line, Column, Side, Point};
+use crate::index::{Line, Column, Side, Point, Linear};
 use crate::term::{Term, SizeInfo, Search};
 use crate::term::mode::TermMode;
 use crate::util::fmt::Red;
@@ -467,10 +468,10 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             let end_line = point.line.0 + (point.col.0 + len - origin) / cols;
             let end = Point::new(end_line, Column(end_col));
 
-            self.ctx.terminal_mut().set_url_highlight(UrlHighlight {
-                start,
-                end,
-            });
+            let start = Linear::from_point(Column(cols), start);
+            let end = Linear::from_point(Column(cols), end);
+
+            self.ctx.terminal_mut().set_url_highlight(RangeInclusive::new(start, end));
             self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
             self.ctx.terminal_mut().dirty = true;
         } else {
