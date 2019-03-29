@@ -66,11 +66,7 @@ impl UrlParser {
             return false;
         }
 
-        if self.advance(cell.c, self.state.len()) {
-            true
-        } else {
-            false
-        }
+        self.advance(cell.c, self.state.len())
     }
 
     /// Returns the URL if the parser has found any.

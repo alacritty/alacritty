@@ -173,16 +173,14 @@ impl<'a> RenderableCellsIter<'a> {
     /// The cursor and terminal mode are required for properly displaying the
     /// cursor.
     fn new<'b>(
-        grid: &'b Grid<Cell>,
-        cursor: &'b Point,
-        colors: &'b color::List,
-        mode: TermMode,
+        term: &'b Term,
         config: &'b Config,
         selection: Option<Locations>,
-        url_highlight: &Option<UrlHighlight>,
         cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b> {
-        let cursor_offset = grid.line_to_offset(cursor.line);
+        let grid = &term.grid;
+
+        let cursor_offset = grid.line_to_offset(term.cursor.point.line);
         let inner = grid.display_iter();
 
         let mut selection_range = None;
@@ -233,8 +231,8 @@ impl<'a> RenderableCellsIter<'a> {
             }
         }
 
-        let url_highlight = match url_highlight {
-            Some(hl) => {
+        let url_highlight = match grid.url_highlight {
+            Some(ref hl) => {
                 let cols = grid.num_cols();
                 let start = Linear::from_point(cols, hl.start);
                 let end = Linear::from_point(cols, hl.end);
@@ -244,15 +242,15 @@ impl<'a> RenderableCellsIter<'a> {
         };
 
         RenderableCellsIter {
-            cursor,
+            cursor: &term.cursor.point,
             cursor_offset,
             grid,
             inner,
-            mode,
+            mode: term.mode,
             selection: selection_range,
             url_highlight,
             config,
-            colors,
+            colors: &term.colors,
             cursor_cells: ArrayDeque::new(),
         }.initialize(cursor_style)
     }
@@ -1205,13 +1203,9 @@ impl Term {
         };
 
         RenderableCellsIter::new(
-            &self.grid,
-            &self.cursor.point,
-            &self.colors,
-            self.mode,
+            &self,
             config,
             selection,
-            &self.grid.url_highlight,
             cursor,
         )
     }
