@@ -94,7 +94,7 @@ impl UrlParser {
         // Remove non-matching parenthesis and brackets
         let mut open_parens_count: isize = 0;
         let mut open_bracks_count: isize = 0;
-        for (i, c) in self.state.chars().enumerate() {
+        for (i, c) in self.state.char_indices() {
             match c {
                 '(' => open_parens_count += 1,
                 ')' if open_parens_count > 0 => open_parens_count -= 1,
@@ -266,6 +266,8 @@ mod tests {
         url_test("'https://example.org'", "https://example.org");
         url_test("'https://example.org", "https://example.org");
         url_test("https://example.org'", "https://example.org");
+
+        url_test("(https://example.org/test全)", "https://example.org/test全");
     }
 
     #[test]
