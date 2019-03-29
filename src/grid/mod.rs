@@ -17,7 +17,7 @@
 use std::cmp::{min, max, Ordering};
 use std::ops::{Deref, Range, Index, IndexMut, RangeTo, RangeFrom, RangeFull};
 
-use crate::index::{self, Point, Line, Column, IndexRange, PointIterator};
+use crate::index::{self, Point, Line, Column, IndexRange};
 use crate::selection::Selection;
 
 mod row;
@@ -60,7 +60,8 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
             self.lines.eq(&other.lines) &&
             self.display_offset.eq(&other.display_offset) &&
             self.scroll_limit.eq(&other.scroll_limit) &&
-            self.selection.eq(&other.selection)
+            self.selection.eq(&other.selection) &&
+            self.url_highlight.eq(&other.url_highlight)
     }
 }
 
@@ -103,6 +104,17 @@ pub struct Grid<T> {
 
     #[serde(default)]
     max_scroll_limit: usize,
+
+    /// Underline URL on hover
+    #[serde(default)]
+    pub url_highlight: Option<UrlHighlight>,
+}
+
+/// Temporary save state for restoring mouse cursor and underline after unhovering a URL.
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct UrlHighlight {
+    pub start: Point<usize>,
+    pub end: Point<usize>,
 }
 
 #[derive(Copy, Clone)]
@@ -132,6 +144,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
             scroll_limit: 0,
             selection: None,
             max_scroll_limit: scrollback,
+            url_highlight: None,
         }
     }
 
@@ -387,6 +400,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         let prev = self.lines;
 
         self.selection = None;
+        self.url_highlight = None;
         self.raw.rotate(*prev as isize - *target as isize);
         self.raw.shrink_visible_lines(target);
         self.lines = target;
@@ -422,6 +436,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
             if let Some(ref mut selection) = self.selection {
                 selection.rotate(-(*positions as isize));
             }
+            self.url_highlight = None;
 
             self.decrease_scroll_limit(*positions);
 
@@ -473,6 +488,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
             if let Some(ref mut selection) = self.selection {
                 selection.rotate(*positions as isize);
             }
+            self.url_highlight = None;
 
             // // This next loop swaps "fixed" lines outside of a scroll region
             // // back into place after the rotation. The work is done in buffer-
@@ -517,6 +533,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
 
         self.display_offset = 0;
         self.selection = None;
+        self.url_highlight = None;
     }
 }
 
@@ -573,7 +590,7 @@ impl<T> Grid<T> {
     pub fn iter_from(&self, point: Point<usize>) -> GridIterator<'_, T> {
         GridIterator {
             grid: self,
-            point_iter: point.iter(self.num_cols() - 1, self.len() - 1),
+            cur: point,
         }
     }
 
@@ -589,27 +606,50 @@ impl<T> Grid<T> {
 }
 
 pub struct GridIterator<'a, T> {
-    point_iter: PointIterator<usize>,
+    /// Immutable grid reference
     grid: &'a Grid<T>,
-}
 
-impl<'a, T> GridIterator<'a, T> {
-    pub fn cur(&self) -> Point<usize> {
-        self.point_iter.cur
-    }
+    /// Current position of the iterator within the grid.
+    pub cur: Point<usize>,
 }
 
 impl<'a, T> Iterator for GridIterator<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.point_iter.next().map(|p| &self.grid[p.line][p.col])
+        let last_col = self.grid.num_cols() - Column(1);
+        match self.cur {
+            Point { line, col } if line == 0 && col == last_col => None,
+            Point { col, .. } if
+                (col == last_col) => {
+                self.cur.line -= 1;
+                self.cur.col = Column(0);
+                Some(&self.grid[self.cur.line][self.cur.col])
+            },
+            _ => {
+                self.cur.col += Column(1);
+                Some(&self.grid[self.cur.line][self.cur.col])
+            }
+        }
     }
 }
 
 impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
     fn prev(&mut self) -> Option<Self::Item> {
-        self.point_iter.prev().map(|p| &self.grid[p.line][p.col])
+        let num_cols = self.grid.num_cols();
+
+        match self.cur {
+            Point { line, col: Column(0) } if line == self.grid.len() - 1 => None,
+            Point { col: Column(0), .. } => {
+                self.cur.line += 1;
+                self.cur.col = num_cols - Column(1);
+                Some(&self.grid[self.cur.line][self.cur.col])
+            },
+            _ => {
+                self.cur.col -= Column(1);
+                Some(&self.grid[self.cur.line][self.cur.col])
+            }
+        }
     }
 }
 

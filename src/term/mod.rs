@@ -17,7 +17,6 @@ use std::ops::{Range, Index, IndexMut, RangeInclusive};
 use std::{ptr, io, mem};
 use std::cmp::{min, max};
 use std::time::{Duration, Instant};
-use std::iter::once;
 
 use arraydeque::ArrayDeque;
 use unicode_width::UnicodeWidthChar;
@@ -27,7 +26,7 @@ use font::{self, Size};
 use crate::ansi::{self, Color, NamedColor, Attr, Handler, CharsetIndex, StandardCharset, CursorStyle};
 use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
-    ViewportPosition,
+    ViewportPosition, UrlHighlight
 };
 use crate::index::{self, Point, Column, Line, IndexRange, Contains, Linear};
 use crate::selection::{self, Selection, Locations};
@@ -71,11 +70,11 @@ impl Search for Term {
                 break;
             }
 
-            if iter.cur().col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
+            if iter.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
                 break; // cut off if on new line or hit escape char
             }
 
-            point = iter.cur();
+            point = iter.cur;
         }
 
         point
@@ -93,7 +92,7 @@ impl Search for Term {
                 break;
             }
 
-            point = iter.cur();
+            point = iter.cur;
 
             if point.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
                 break; // cut off if on new line or hit escape char
@@ -120,7 +119,7 @@ impl Search for Term {
         // Find URLs
         let mut url_parser = UrlParser::new();
         while let Some(cell) = iterb.prev() {
-            if (iterb.cur().col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
+            if (iterb.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
                 || url_parser.advance_left(cell)
             {
                 break;
@@ -129,7 +128,7 @@ impl Search for Term {
 
         while let Some(cell) = iterf.next() {
             if url_parser.advance_right(cell)
-                || (iterf.cur().col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
+                || (iterf.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
             {
                 break;
             }
@@ -164,6 +163,7 @@ pub struct RenderableCellsIter<'a> {
     config: &'a Config,
     colors: &'a color::List,
     selection: Option<RangeInclusive<index::Linear>>,
+    url_highlight: Option<RangeInclusive<index::Linear>>,
     cursor_cells: ArrayDeque<[Indexed<Cell>; 3]>,
 }
 
@@ -179,6 +179,7 @@ impl<'a> RenderableCellsIter<'a> {
         mode: TermMode,
         config: &'b Config,
         selection: Option<Locations>,
+        url_highlight: &Option<UrlHighlight>,
         cursor_style: CursorStyle,
     ) -> RenderableCellsIter<'b> {
         let cursor_offset = grid.line_to_offset(cursor.line);
@@ -224,13 +225,23 @@ impl<'a> RenderableCellsIter<'a> {
                 }
 
                 let cols = grid.num_cols();
-                let start = Linear(start.line.0 * cols.0 + start.col.0);
-                let end = Linear(end.line.0 * cols.0 + end.col.0);
+                let start = Linear::from_point(cols, start.into());
+                let end = Linear::from_point(cols, end.into());
 
                 // Update the selection
                 selection_range = Some(RangeInclusive::new(start, end));
             }
         }
+
+        let url_highlight = match url_highlight {
+            Some(hl) => {
+                let cols = grid.num_cols();
+                let start = Linear::from_point(cols, hl.start);
+                let end = Linear::from_point(cols, hl.end);
+                Some(RangeInclusive::new(start, end))
+            },
+            None => None,
+        };
 
         RenderableCellsIter {
             cursor,
@@ -239,6 +250,7 @@ impl<'a> RenderableCellsIter<'a> {
             inner,
             mode,
             selection: selection_range,
+            url_highlight,
             config,
             colors,
             cursor_cells: ArrayDeque::new(),
@@ -435,7 +447,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             // Handle cursor
-            let (cell, selected) = if self.cursor_offset == self.inner.offset() &&
+            let (cell, selected, highlighted) = if self.cursor_offset == self.inner.offset() &&
                 self.inner.column() == self.cursor.col
             {
                 // Cursor cell
@@ -448,11 +460,11 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 if self.cursor_cells.is_empty() {
                     self.inner.next();
                 }
-                (cell, false)
+                (cell, false, false)
             } else {
                 let cell = self.inner.next()?;
 
-                let index = Linear(cell.line.0 * self.grid.num_cols().0 + cell.column.0);
+                let index = Linear::new(self.grid.num_cols(), cell.column, cell.line);
 
                 let selected = self.selection.as_ref()
                     .map(|range| range.contains_(index))
@@ -463,7 +475,12 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     continue;
                 }
 
-                (cell, selected)
+                // Underline URL highlights
+                let highlighted = self.url_highlight.as_ref()
+                    .map(|range| range.contains_(index))
+                    .unwrap_or(false);
+
+                (cell, selected, highlighted)
             };
 
             // Lookup RGB values
@@ -488,14 +505,19 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 fg_rgb = col;
             }
 
+            let mut flags = cell.flags;
+            if highlighted {
+                flags.insert(Flags::UNDERLINE);
+            }
+
             return Some(RenderableCell {
                 line: cell.line,
                 column: cell.column,
-                flags: cell.flags,
                 chars: cell.chars(),
                 fg: fg_rgb,
                 bg: bg_rgb,
                 bg_alpha,
+                flags,
             })
         }
     }
@@ -824,16 +846,6 @@ pub struct Term {
 
     /// Hint that Alacritty should be closed
     should_exit: bool,
-
-    /// URL highlight save state
-    url_hover_save: Option<UrlHoverSaveState>,
-}
-
-/// Temporary save state for restoring mouse cursor and underline after unhovering a URL.
-pub struct UrlHoverSaveState {
-    pub mouse_cursor: MouseCursor,
-    pub underlined: Vec<bool>,
-    pub start: Point<usize>,
 }
 
 /// Terminal size info
@@ -910,8 +922,10 @@ impl Term {
         self.next_title.take()
     }
 
+    #[inline]
     pub fn scroll_display(&mut self, scroll: Scroll) {
         self.grid.scroll_display(scroll);
+        self.reset_url_highlight();
         self.dirty = true;
     }
 
@@ -966,7 +980,6 @@ impl Term {
             auto_scroll: config.scrolling().auto_scroll,
             message_buffer,
             should_exit: false,
-            url_hover_save: None,
         }
     }
 
@@ -1162,7 +1175,8 @@ impl Term {
         &self.grid
     }
 
-    /// Mutable access to the raw grid data structure
+    /// Mutable access for swapping out the grid during tests
+    #[cfg(test)]
     pub fn grid_mut(&mut self) -> &mut Grid<Cell> {
         &mut self.grid
     }
@@ -1197,6 +1211,7 @@ impl Term {
             self.mode,
             config,
             selection,
+            &self.grid.url_highlight,
             cursor,
         )
     }
@@ -1211,8 +1226,6 @@ impl Term {
         {
             return;
         }
-
-        self.reset_url_highlight();
 
         let old_cols = self.grid.num_cols();
         let old_lines = self.grid.num_lines();
@@ -1232,6 +1245,7 @@ impl Term {
 
         self.grid.selection = None;
         self.alt_grid.selection = None;
+        self.grid.url_highlight = None;
 
         // Should not allow less than 1 col, causes all sorts of checks to be required.
         if num_cols <= Column(1) {
@@ -1381,37 +1395,22 @@ impl Term {
     }
 
     #[inline]
-    pub fn set_url_highlight(&mut self, hover_save: UrlHoverSaveState) {
-        self.url_hover_save = Some(hover_save);
+    pub fn set_url_highlight(&mut self, hl: UrlHighlight) {
+        self.grid.url_highlight = Some(hl);
     }
 
     #[inline]
-    pub fn url_highlight_start(&self) -> Option<Point<usize>> {
-        self.url_hover_save.as_ref().map(|hs| hs.start)
-    }
-
-    /// Remove the URL highlight and restore the previous mouse cursor and underline state.
     pub fn reset_url_highlight(&mut self) {
-        let hover_save = match self.url_hover_save.take() {
-            Some(hover_save) => hover_save,
-            _ => return,
+        let mouse_mode =
+            TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
+        let mouse_cursor = if self.mode().intersects(mouse_mode) {
+            MouseCursor::Default
+        } else {
+            MouseCursor::Text
         };
+        self.set_mouse_cursor(mouse_cursor);
 
-        // Reset the mouse cursor
-        self.set_mouse_cursor(hover_save.mouse_cursor);
-
-        let last_line = self.size_info.lines().0 - 1;
-        let last_col = self.size_info.cols() - 1;
-
-        // Reset the underline state after unhovering a URL
-        let mut iter = once(hover_save.start).chain(hover_save.start.iter(last_col, last_line));
-        for underlined in &hover_save.underlined {
-            if let (Some(point), false) = (iter.next(), underlined) {
-                let cell = &mut self.grid[point.line][point.col];
-                cell.flags.remove(Flags::UNDERLINE);
-            }
-        }
-
+        self.grid.url_highlight = None;
         self.dirty = true;
     }
 }
@@ -1961,8 +1960,9 @@ impl ansi::Handler for Term {
         let mut template = self.cursor.template;
         template.flags ^= template.flags;
 
-        // Remove active selections
+        // Remove active selections and URL highlights
         self.grid.selection = None;
+        self.grid.url_highlight = None;
 
         match mode {
             ansi::ClearMode::Below => {
