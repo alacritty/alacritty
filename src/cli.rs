@@ -100,7 +100,7 @@ impl Options {
             .arg(Arg::with_name("class")
                  .long("class")
                  .takes_value(true)
-                 .help(&format!("Defines window class on X11 [default: {}]", DEFAULT_NAME)))
+                 .help(&format!("Defines window class on Linux [default: {}]", DEFAULT_NAME)))
             .arg(Arg::with_name("q")
                 .short("q")
                 .multiple(true)
