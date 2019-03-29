@@ -40,7 +40,7 @@ Prints version information
 .SH "OPTIONS"
 .TP
 \fB\-\-class\fR <class>
-Defines the window class on X11 [default: Alacritty]
+Defines the window class on Linux [default: Alacritty]
 .TP
 \fB\-e\fR, \fB\-\-command\fR <command>...
 Command and args to execute (must be last argument)
