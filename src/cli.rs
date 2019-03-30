@@ -11,14 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use ::log;
-use clap::{Arg, App, crate_name, crate_version, crate_authors, crate_description};
+use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
+use log;
 
-use crate::index::{Line, Column};
-use crate::config::{Dimensions, Delta, Shell};
-use crate::window::{DEFAULT_NAME};
-use std::path::{Path, PathBuf};
+use crate::config::{Delta, Dimensions, Shell};
+use crate::index::{Column, Line};
+use crate::window::DEFAULT_NAME;
 use std::borrow::Cow;
+use std::path::{Path, PathBuf};
 
 /// Options specified on the command line
 pub struct Options {
@@ -64,70 +64,95 @@ impl Options {
             .version(crate_version!())
             .author(crate_authors!("\n"))
             .about(crate_description!())
-            .arg(Arg::with_name("ref-test")
-                .long("ref-test")
-                .help("Generates ref test"))
-            .arg(Arg::with_name("live-config-reload")
-                .long("live-config-reload")
-                .help("Enable automatic config reloading"))
-            .arg(Arg::with_name("no-live-config-reload")
-                 .long("no-live-config-reload")
-                 .help("Disable automatic config reloading")
-                 .conflicts_with("live-config-reload"))
-            .arg(Arg::with_name("print-events")
-                .long("print-events")
-                .help("Print all events to stdout"))
-            .arg(Arg::with_name("persistent-logging")
-                .long("persistent-logging")
-                .help("Keep the log file after quitting Alacritty"))
-            .arg(Arg::with_name("dimensions")
-                .long("dimensions")
-                .short("d")
-                .value_names(&["columns", "lines"])
-                .help("Defines the window dimensions. Falls back to size specified by \
-                       window manager if set to 0x0 [default: 0x0]"))
-            .arg(Arg::with_name("position")
-                 .long("position")
-                 .allow_hyphen_values(true)
-                 .value_names(&["x-pos", "y-pos"])
-                 .help("Defines the window position. Falls back to position specified by \
-                        window manager if unset [default: unset]"))
-            .arg(Arg::with_name("title")
-                .long("title")
-                .short("t")
-                .takes_value(true)
-                .help(&format!("Defines the window title [default: {}]", DEFAULT_NAME)))
-            .arg(Arg::with_name("class")
-                 .long("class")
-                 .takes_value(true)
-                 .help(&format!("Defines window class on Linux [default: {}]", DEFAULT_NAME)))
-            .arg(Arg::with_name("q")
-                .short("q")
-                .multiple(true)
-                .conflicts_with("v")
-                .help("Reduces the level of verbosity (the min level is -qq)"))
-            .arg(Arg::with_name("v")
-                .short("v")
-                .multiple(true)
-                .conflicts_with("q")
-                .help("Increases the level of verbosity (the max level is -vvv)"))
-            .arg(Arg::with_name("working-directory")
-                 .long("working-directory")
-                 .takes_value(true)
-                 .help("Start the shell in the specified working directory"))
-            .arg(Arg::with_name("config-file")
-                 .long("config-file")
-                 .takes_value(true)
-                 .help("Specify alternative configuration file \
-                       [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]"))
-            .arg(Arg::with_name("command")
-                .long("command")
-                .short("e")
-                .multiple(true)
-                .takes_value(true)
-                .min_values(1)
-                .allow_hyphen_values(true)
-                .help("Command and args to execute (must be last argument)"))
+            .arg(Arg::with_name("ref-test").long("ref-test").help("Generates ref test"))
+            .arg(
+                Arg::with_name("live-config-reload")
+                    .long("live-config-reload")
+                    .help("Enable automatic config reloading"),
+            )
+            .arg(
+                Arg::with_name("no-live-config-reload")
+                    .long("no-live-config-reload")
+                    .help("Disable automatic config reloading")
+                    .conflicts_with("live-config-reload"),
+            )
+            .arg(
+                Arg::with_name("print-events")
+                    .long("print-events")
+                    .help("Print all events to stdout"),
+            )
+            .arg(
+                Arg::with_name("persistent-logging")
+                    .long("persistent-logging")
+                    .help("Keep the log file after quitting Alacritty"),
+            )
+            .arg(
+                Arg::with_name("dimensions")
+                    .long("dimensions")
+                    .short("d")
+                    .value_names(&["columns", "lines"])
+                    .help(
+                        "Defines the window dimensions. Falls back to size specified by window \
+                         manager if set to 0x0 [default: 0x0]",
+                    ),
+            )
+            .arg(
+                Arg::with_name("position")
+                    .long("position")
+                    .allow_hyphen_values(true)
+                    .value_names(&["x-pos", "y-pos"])
+                    .help(
+                        "Defines the window position. Falls back to position specified by window \
+                         manager if unset [default: unset]",
+                    ),
+            )
+            .arg(
+                Arg::with_name("title")
+                    .long("title")
+                    .short("t")
+                    .takes_value(true)
+                    .help(&format!("Defines the window title [default: {}]", DEFAULT_NAME)),
+            )
+            .arg(
+                Arg::with_name("class")
+                    .long("class")
+                    .takes_value(true)
+                    .help(&format!("Defines window class on Linux [default: {}]", DEFAULT_NAME)),
+            )
+            .arg(
+                Arg::with_name("q")
+                    .short("q")
+                    .multiple(true)
+                    .conflicts_with("v")
+                    .help("Reduces the level of verbosity (the min level is -qq)"),
+            )
+            .arg(
+                Arg::with_name("v")
+                    .short("v")
+                    .multiple(true)
+                    .conflicts_with("q")
+                    .help("Increases the level of verbosity (the max level is -vvv)"),
+            )
+            .arg(
+                Arg::with_name("working-directory")
+                    .long("working-directory")
+                    .takes_value(true)
+                    .help("Start the shell in the specified working directory"),
+            )
+            .arg(Arg::with_name("config-file").long("config-file").takes_value(true).help(
+                "Specify alternative configuration file [default: \
+                 $XDG_CONFIG_HOME/alacritty/alacritty.yml]",
+            ))
+            .arg(
+                Arg::with_name("command")
+                    .long("command")
+                    .short("e")
+                    .multiple(true)
+                    .takes_value(true)
+                    .min_values(1)
+                    .allow_hyphen_values(true)
+                    .help("Command and args to execute (must be last argument)"),
+            )
             .get_matches();
 
         if matches.is_present("ref-test") {
@@ -170,14 +195,14 @@ impl Options {
         match matches.occurrences_of("q") {
             0 => {},
             1 => options.log_level = log::LevelFilter::Error,
-            2 | _ => options.log_level = log::LevelFilter::Off
+            2 | _ => options.log_level = log::LevelFilter::Off,
         }
 
         match matches.occurrences_of("v") {
             0 if !options.print_events => {},
             0 | 1 => options.log_level = log::LevelFilter::Info,
             2 => options.log_level = log::LevelFilter::Debug,
-            3 | _ => options.log_level = log::LevelFilter::Trace
+            3 | _ => options.log_level = log::LevelFilter::Trace,
         }
 
         if let Some(dir) = matches.value_of("working-directory") {

@@ -14,10 +14,10 @@
 
 //! Tests for the Gird
 
-use super::{Grid, BidirectionalIterator};
-use crate::index::{Point, Line, Column};
-use crate::term::cell::{Cell, Flags};
+use super::{BidirectionalIterator, Grid};
 use crate::grid::GridCell;
+use crate::index::{Column, Line, Point};
+use crate::term::cell::{Cell, Flags};
 
 impl GridCell for usize {
     fn is_empty(&self) -> bool {
@@ -101,14 +101,11 @@ fn test_iter() {
     let mut grid = Grid::new(Line(5), Column(5), 0, 0);
     for i in 0..5 {
         for j in 0..5 {
-            grid[Line(i)][Column(j)] = i*5 + j;
+            grid[Line(i)][Column(j)] = i * 5 + j;
         }
     }
 
-    let mut iter = grid.iter_from(Point {
-        line: 4,
-        col: Column(0),
-    });
+    let mut iter = grid.iter_from(Point { line: 4, col: Column(0) });
 
     assert_eq!(None, iter.prev());
     assert_eq!(Some(&1), iter.next());
@@ -128,12 +125,8 @@ fn test_iter() {
     assert_eq!(Column(4), iter.cur.col);
     assert_eq!(4, iter.cur.line);
 
-
     // test that iter ends at end of grid
-    let mut final_iter = grid.iter_from(Point {
-        line: 0,
-        col: Column(4),
-    });
+    let mut final_iter = grid.iter_from(Point { line: 0, col: Column(4) });
     assert_eq!(None, final_iter.next());
     assert_eq!(Some(&23), final_iter.prev());
 }

@@ -16,7 +16,6 @@
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
-
 // With the default subsystem, 'console', windows creates an additional console
 // window for the program.
 // This is silently ignored on non-windows systems.
@@ -29,12 +28,12 @@ use dirs;
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
-use log::{info, error};
+use log::{error, info};
 
 use std::error::Error;
-use std::sync::Arc;
-use std::io::{self, Write};
 use std::fs;
+use std::io::{self, Write};
+use std::sync::Arc;
 
 #[cfg(target_os = "macos")]
 use std::env;
@@ -42,19 +41,19 @@ use std::env;
 #[cfg(not(windows))]
 use std::os::unix::io::AsRawFd;
 
-#[cfg(target_os = "macos")]
-use alacritty::locale;
-use alacritty::{cli, event, die};
 use alacritty::config::{self, Config, Monitor};
 use alacritty::display::Display;
 use alacritty::event_loop::{self, EventLoop, Msg};
+#[cfg(target_os = "macos")]
+use alacritty::locale;
 use alacritty::logging;
+use alacritty::message_bar::MessageBuffer;
 use alacritty::panic;
 use alacritty::sync::FairMutex;
 use alacritty::term::Term;
 use alacritty::tty;
 use alacritty::util::fmt::Red;
-use alacritty::message_bar::MessageBuffer;
+use alacritty::{cli, die, event};
 
 fn main() {
     panic::attach_handler();
@@ -63,7 +62,9 @@ fn main() {
     // to the console of the parent process, so we do it explicitly. This fails
     // silently if the parent has no console.
     #[cfg(windows)]
-    unsafe { AttachConsole(ATTACH_PARENT_PROCESS); }
+    unsafe {
+        AttachConsole(ATTACH_PARENT_PROCESS);
+    }
 
     // Load command line options
     let options = cli::Options::load();
@@ -77,7 +78,8 @@ fn main() {
 
     // Load configuration file
     // If the file is a command line argument, we won't write a generated default file
-    let config_path = options.config_path()
+    let config_path = options
+        .config_path()
         .or_else(Config::installed_config)
         .or_else(|| Config::write_defaults().ok())
         .map(|path| path.to_path_buf());
@@ -133,11 +135,7 @@ fn run(
     // The display manages a window and can draw the terminal
     let mut display = Display::new(&config, options)?;
 
-    info!(
-        "PTY Dimensions: {:?} x {:?}",
-        display.size().lines(),
-        display.size().cols()
-    );
+    info!("PTY Dimensions: {:?} x {:?}", display.size().lines(), display.size().cols());
 
     // Create the terminal
     //
@@ -173,12 +171,8 @@ fn run(
     // renderer and input processing. Note that access to the terminal state is
     // synchronized since the I/O loop updates the state, and the display
     // consumes it periodically.
-    let event_loop = EventLoop::new(
-        Arc::clone(&terminal),
-        display.notifier(),
-        pty,
-        options.ref_test,
-    );
+    let event_loop =
+        EventLoop::new(Arc::clone(&terminal), display.notifier(), pty, options.ref_test);
 
     // The event loop channel allows write requests from the event processor
     // to be sent to the loop and ultimately written to the pty.
@@ -259,16 +253,16 @@ fn run(
         }
     }
 
-    loop_tx
-        .send(Msg::Shutdown)
-        .expect("Error sending shutdown to event loop");
+    loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to event loop");
 
     // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();
 
     // Without explicitly detaching the console cmd won't redraw it's prompt
     #[cfg(windows)]
-    unsafe { FreeConsole(); }
+    unsafe {
+        FreeConsole();
+    }
 
     info!("Goodbye");
 

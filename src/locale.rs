@@ -13,13 +13,13 @@
 // limitations under the License.
 #![allow(clippy::let_unit_value)]
 #![cfg(target_os = "macos")]
-use libc::{LC_CTYPE, setlocale};
-use std::ffi::{CString, CStr};
+use libc::{setlocale, LC_CTYPE};
+use std::env;
+use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::ptr::null;
 use std::slice;
 use std::str;
-use std::env;
 
 use objc::runtime::{Class, Object};
 
@@ -27,30 +27,32 @@ pub fn set_locale_environment() {
     let locale_id = unsafe {
         let locale_class = Class::get("NSLocale").unwrap();
         let locale: *const Object = msg_send![locale_class, currentLocale];
-        let _ : () = msg_send![locale_class, release];
+        let _: () = msg_send![locale_class, release];
         // `localeIdentifier` returns extra metadata with the locale (including currency and
         // collator) on newer versions of macOS. This is not a valid locale, so we use
         // `languageCode` and `countryCode`, if they're available (macOS 10.12+):
         // https://developer.apple.com/documentation/foundation/nslocale/1416263-localeidentifier?language=objc
         // https://developer.apple.com/documentation/foundation/nslocale/1643060-countrycode?language=objc
         // https://developer.apple.com/documentation/foundation/nslocale/1643026-languagecode?language=objc
-        let is_language_code_supported: bool = msg_send![locale, respondsToSelector:sel!(languageCode)];
-        let is_country_code_supported: bool = msg_send![locale, respondsToSelector:sel!(countryCode)];
+        let is_language_code_supported: bool =
+            msg_send![locale, respondsToSelector: sel!(languageCode)];
+        let is_country_code_supported: bool =
+            msg_send![locale, respondsToSelector: sel!(countryCode)];
         let locale_id = if is_language_code_supported && is_country_code_supported {
             let language_code: *const Object = msg_send![locale, languageCode];
             let country_code: *const Object = msg_send![locale, countryCode];
             let language_code_str = nsstring_as_str(language_code).to_owned();
-            let _ : () = msg_send![language_code, release];
+            let _: () = msg_send![language_code, release];
             let country_code_str = nsstring_as_str(country_code).to_owned();
-            let _ : () = msg_send![country_code, release];
+            let _: () = msg_send![country_code, release];
             format!("{}_{}.UTF-8", &language_code_str, &country_code_str)
         } else {
             let identifier: *const Object = msg_send![locale, localeIdentifier];
             let identifier_str = nsstring_as_str(identifier).to_owned();
-            let _ : () = msg_send![identifier, release];
+            let _: () = msg_send![identifier, release];
             identifier_str + ".UTF-8"
         };
-        let _ : () = msg_send![locale, release];
+        let _: () = msg_send![locale, release];
         locale_id
     };
     // check if locale_id is valid
@@ -66,11 +68,7 @@ pub fn set_locale_environment() {
         };
         // try setting `locale_id`
         let modified = setlocale(LC_CTYPE, locale_ptr);
-        let result = if modified.is_null() {
-            String::new()
-        } else {
-            locale_id
-        };
+        let result = if modified.is_null() { String::new() } else { locale_id };
         // restore original setting
         setlocale(LC_CTYPE, saved_original.as_ptr());
         result

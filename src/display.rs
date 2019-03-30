@@ -14,24 +14,24 @@
 
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
-use std::sync::mpsc;
 use std::f64;
+use std::sync::mpsc;
 
-use parking_lot::MutexGuard;
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
+use parking_lot::MutexGuard;
 
 use crate::cli;
 use crate::config::Config;
-use font::{self, Rasterize};
-use crate::meter::Meter;
-use crate::renderer::{self, GlyphCache, QuadRenderer};
-use crate::renderer::rects::{Rects, Rect};
-use crate::term::{Term, SizeInfo, RenderableCell};
-use crate::sync::FairMutex;
-use crate::window::{self, Window};
-use crate::term::color::Rgb;
 use crate::index::Line;
 use crate::message_bar::Message;
+use crate::meter::Meter;
+use crate::renderer::rects::{Rect, Rects};
+use crate::renderer::{self, GlyphCache, QuadRenderer};
+use crate::sync::FairMutex;
+use crate::term::color::Rgb;
+use crate::term::{RenderableCell, SizeInfo, Term};
+use crate::window::{self, Window};
+use font::{self, Rasterize};
 
 #[derive(Debug)]
 pub enum Error {
@@ -152,8 +152,8 @@ impl Display {
         info!("Device pixel ratio: {}", dpr);
 
         // get window properties for initializing the other subsystems
-        let mut viewport_size = window.inner_size_pixels()
-            .expect("glutin returns window size").to_physical(dpr);
+        let mut viewport_size =
+            window.inner_size_pixels().expect("glutin returns window size").to_physical(dpr);
 
         // Create renderer
         let mut renderer = QuadRenderer::new(viewport_size)?;
@@ -161,8 +161,7 @@ impl Display {
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
-        let dimensions = options.dimensions()
-            .unwrap_or_else(|| config.dimensions());
+        let dimensions = options.dimensions().unwrap_or_else(|| config.dimensions());
 
         let mut padding_x = f64::from(config.padding().x) * dpr;
         let mut padding_y = f64::from(config.padding().y) * dpr;
@@ -216,13 +215,9 @@ impl Display {
 
         // Clear screen
         let background_color = config.colors().primary.background;
-        renderer.with_api(
-            config,
-            &size_info,
-            |api| {
-                api.clear(background_color);
-            },
-        );
+        renderer.with_api(config, &size_info, |api| {
+            api.clear(background_color);
+        });
 
         Ok(Display {
             window,
@@ -238,9 +233,11 @@ impl Display {
         })
     }
 
-    fn new_glyph_cache(dpr: f64, renderer: &mut QuadRenderer, config: &Config)
-        -> Result<(GlyphCache, f32, f32), Error>
-    {
+    fn new_glyph_cache(
+        dpr: f64,
+        renderer: &mut QuadRenderer,
+        config: &Config,
+    ) -> Result<(GlyphCache, f32, f32), Error> {
         let font = config.font().clone();
         let rasterizer = font::Rasterizer::new(dpr as f32, config.use_thin_strokes())?;
 
@@ -253,8 +250,7 @@ impl Display {
                 renderer.with_loader(|mut api| GlyphCache::new(rasterizer, &font, &mut api))?;
 
             let stop = init_start.elapsed();
-            let stop_f = stop.as_secs() as f64 +
-                         f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
+            let stop_f = stop.as_secs() as f64 + f64::from(stop.subsec_nanos()) / 1_000_000_000f64;
             info!("... finished initializing glyph cache in {}s", stop_f);
 
             cache
@@ -322,8 +318,8 @@ impl Display {
         let dpr = self.window.hidpi_factor();
 
         // Font size/DPI factor modification detected
-        let font_changed = terminal.font_size != self.font_size
-            || (dpr - self.size_info.dpr).abs() > f64::EPSILON;
+        let font_changed =
+            terminal.font_size != self.font_size || (dpr - self.size_info.dpr).abs() > f64::EPSILON;
 
         if font_changed || self.last_message != terminal.message_buffer_mut().message() {
             if new_size == None {
@@ -391,9 +387,8 @@ impl Display {
         let background_color = terminal.background_color();
 
         let window_focused = self.window.is_focused;
-        let grid_cells: Vec<RenderableCell> = terminal
-            .renderable_cells(config, window_focused)
-            .collect();
+        let grid_cells: Vec<RenderableCell> =
+            terminal.renderable_cells(config, window_focused).collect();
 
         // Get message from terminal to ignore modifications after lock is dropped
         let message_buffer = terminal.message_buffer_mut().message();
@@ -486,20 +481,14 @@ impl Display {
             // Draw render timer
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());
-                let color = Rgb {
-                    r: 0xd5,
-                    g: 0x4e,
-                    b: 0x53,
-                };
+                let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
                 self.renderer.with_api(config, &size_info, |mut api| {
                     api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, Some(color));
                 });
             }
         }
 
-        self.window
-            .swap_buffers()
-            .expect("swap buffers");
+        self.window.swap_buffers().expect("swap buffers");
     }
 
     pub fn get_window_id(&self) -> Option<usize> {
@@ -509,13 +498,8 @@ impl Display {
     /// Adjust the IME editor position according to the new location of the cursor
     pub fn update_ime_position(&mut self, terminal: &Term) {
         let point = terminal.cursor().point;
-        let SizeInfo {
-            cell_width: cw,
-            cell_height: ch,
-            padding_x: px,
-            padding_y: py,
-            ..
-        } = *terminal.size_info();
+        let SizeInfo { cell_width: cw, cell_height: ch, padding_x: px, padding_y: py, .. } =
+            *terminal.size_info();
 
         let dpr = self.window().hidpi_factor();
         let nspot_x = f64::from(px + point.col.0 as f32 * cw);

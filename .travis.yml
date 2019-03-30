@@ -35,6 +35,10 @@ matrix:
       os: windows
       env: CLIPPY=true
       rust: stable
+    - name: "Rustfmt"
+      os: linux
+      env: RUSTFMT=true
+      rust: nightly
   allow_failures:
     - rust: nightly
 

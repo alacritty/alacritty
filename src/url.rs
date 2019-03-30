@@ -12,17 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use url;
 use unicode_width::UnicodeWidthChar;
+use url;
 
 use crate::term::cell::{Cell, Flags};
 
 // See https://tools.ietf.org/html/rfc3987#page-13
 const URL_SEPARATOR_CHARS: [char; 10] = ['<', '>', '"', ' ', '{', '}', '|', '\\', '^', '`'];
 const URL_DENY_END_CHARS: [char; 8] = ['.', ',', ';', ':', '?', '!', '/', '('];
-const URL_SCHEMES: [&str; 8] = [
-    "http", "https", "mailto", "news", "file", "git", "ssh", "ftp",
-];
+const URL_SCHEMES: [&str; 8] = ["http", "https", "mailto", "news", "file", "git", "ssh", "ftp"];
 
 /// URL text and origin of the original click position.
 #[derive(Debug, PartialEq)]
@@ -39,10 +37,7 @@ pub struct UrlParser {
 
 impl UrlParser {
     pub fn new() -> Self {
-        UrlParser {
-            state: String::new(),
-            origin: 0,
-        }
+        UrlParser { state: String::new(), origin: 0 }
     }
 
     /// Advance the parser one character to the left.
@@ -74,19 +69,17 @@ impl UrlParser {
         // Remove non-alphabetical characters before the scheme
         // https://tools.ietf.org/html/rfc3986#section-3.1
         if let Some(index) = self.state.find("://") {
-            let iter = self
-                .state
-                .char_indices()
-                .rev()
-                .skip_while(|(byte_index, _)| *byte_index >= index);
+            let iter =
+                self.state.char_indices().rev().skip_while(|(byte_index, _)| *byte_index >= index);
             for (byte_index, c) in iter {
                 match c {
                     'a'...'z' | 'A'...'Z' => (),
                     _ => {
-                        self.origin = self.origin.saturating_sub(byte_index + c.width().unwrap_or(1));
+                        self.origin =
+                            self.origin.saturating_sub(byte_index + c.width().unwrap_or(1));
                         self.state = self.state.split_off(byte_index + c.len_utf8());
                         break;
-                    }
+                    },
                 }
             }
         }
@@ -103,7 +96,7 @@ impl UrlParser {
                 ')' | ']' => {
                     self.state.truncate(i);
                     break;
-                }
+                },
                 _ => (),
             }
         }
@@ -127,14 +120,11 @@ impl UrlParser {
         match url::Url::parse(&self.state) {
             Ok(url) => {
                 if URL_SCHEMES.contains(&url.scheme()) && self.origin > 0 {
-                    Some(Url {
-                        origin: self.origin - 1,
-                        text: self.state,
-                    })
+                    Some(Url { origin: self.origin - 1, text: self.state })
                 } else {
                     None
                 }
-            }
+            },
             Err(_) => None,
         }
     }
@@ -160,9 +150,9 @@ mod tests {
 
     use crate::grid::Grid;
     use crate::index::{Column, Line, Point};
-    use crate::term::{Search, SizeInfo, Term};
-    use crate::term::cell::{Cell, Flags};
     use crate::message_bar::MessageBuffer;
+    use crate::term::cell::{Cell, Flags};
+    use crate::term::{Search, SizeInfo, Term};
 
     fn url_create_term(input: &str) -> Term {
         let size = SizeInfo {

@@ -14,8 +14,8 @@
 use std::collections::HashMap;
 
 use crate::term::cell::Flags;
-use crate::term::{RenderableCell, SizeInfo};
 use crate::term::color::Rgb;
+use crate::term::{RenderableCell, SizeInfo};
 use font::Metrics;
 
 #[derive(Debug, Copy, Clone)]
@@ -47,13 +47,7 @@ impl<'a> Rects<'a> {
         last_starts.insert(Flags::UNDERLINE, None);
         last_starts.insert(Flags::STRIKEOUT, None);
 
-        Self {
-            inner: Vec::new(),
-            last_cell: None,
-            last_starts,
-            metrics,
-            size,
-        }
+        Self { inner: Vec::new(), last_cell: None, last_starts, metrics, size }
     }
 
     /// Convert the stored rects to rectangles for the renderer.
@@ -61,15 +55,13 @@ impl<'a> Rects<'a> {
         // If there's still a line pending, draw it until the last cell
         for (flag, start_cell) in self.last_starts.iter_mut() {
             if let Some(start) = start_cell {
-                self.inner.push(
-                    create_rect(
-                        &start,
-                        &self.last_cell.unwrap(),
-                        *flag,
-                        &self.metrics,
-                        &self.size,
-                    )
-                );
+                self.inner.push(create_rect(
+                    &start,
+                    &self.last_cell.unwrap(),
+                    *flag,
+                    &self.metrics,
+                    &self.size,
+                ));
             }
         }
 
@@ -108,12 +100,14 @@ impl<'a> Rects<'a> {
                     } else {
                         None
                     }
-                }
+                },
                 // Check for new start of line
-                None => if cell.flags.contains(flag) {
-                    Some(*cell)
-                } else {
-                    None
+                None => {
+                    if cell.flags.contains(flag) {
+                        Some(*cell)
+                    } else {
+                        None
+                    }
                 },
             };
         }
@@ -158,12 +152,8 @@ fn create_rect(
         y = max_y;
     }
 
-    let rect = Rect::new(
-        start_x + size.padding_x,
-        y.round() + size.padding_y,
-        width,
-        height.round(),
-    );
+    let rect =
+        Rect::new(start_x + size.padding_x, y.round() + size.padding_y, width, height.round());
 
     (rect, start.fg)
 }

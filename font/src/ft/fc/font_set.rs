@@ -15,9 +15,9 @@ use std::ops::Deref;
 
 use foreign_types::{ForeignType, ForeignTypeRef};
 
-use super::{ConfigRef, PatternRef, ObjectSetRef};
+use super::{ConfigRef, ObjectSetRef, PatternRef};
 
-use super::ffi::{FcFontSetList, FcFontSetDestroy, FcFontSet};
+use super::ffi::{FcFontSet, FcFontSetDestroy, FcFontSetList};
 
 foreign_type! {
     type CType = FcFontSet;
@@ -33,13 +33,13 @@ impl FontSet {
         config: &ConfigRef,
         source: &mut FontSetRef,
         pattern: &PatternRef,
-        objects: &ObjectSetRef
+        objects: &ObjectSetRef,
     ) -> FontSet {
         let raw = unsafe {
             FcFontSetList(
                 config.as_ptr(),
                 &mut source.as_ptr(),
-                1 /* nsets */,
+                1, // nsets
                 pattern.as_ptr(),
                 objects.as_ptr(),
             )
@@ -56,38 +56,28 @@ pub struct Iter<'a> {
 }
 
 impl<'a> IntoIterator for &'a FontSet {
-    type Item = &'a PatternRef;
     type IntoIter = Iter<'a>;
+    type Item = &'a PatternRef;
+
     fn into_iter(self) -> Iter<'a> {
-        let num_fonts = unsafe {
-            (*self.as_ptr()).nfont as isize
-        };
+        let num_fonts = unsafe { (*self.as_ptr()).nfont as isize };
 
         trace!("Number of fonts is {}", num_fonts);
 
-        Iter {
-            font_set: self.deref(),
-            num_fonts: num_fonts as _,
-            current: 0,
-        }
+        Iter { font_set: self.deref(), num_fonts: num_fonts as _, current: 0 }
     }
 }
 
 impl<'a> IntoIterator for &'a FontSetRef {
-    type Item = &'a PatternRef;
     type IntoIter = Iter<'a>;
+    type Item = &'a PatternRef;
+
     fn into_iter(self) -> Iter<'a> {
-        let num_fonts = unsafe {
-            (*self.as_ptr()).nfont as isize
-        };
+        let num_fonts = unsafe { (*self.as_ptr()).nfont as isize };
 
         trace!("Number of fonts is {}", num_fonts);
 
-        Iter {
-            font_set: self,
-            num_fonts: num_fonts as _,
-            current: 0,
-        }
+        Iter { font_set: self, num_fonts: num_fonts as _, current: 0 }
     }
 }
 

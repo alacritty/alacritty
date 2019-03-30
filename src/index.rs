@@ -17,18 +17,18 @@
 /// Indexing types and implementations for Grid and Line
 use std::cmp::{Ord, Ordering};
 use std::fmt;
-use std::ops::{self, Deref, Range, RangeInclusive, Add, Sub, AddAssign, SubAssign};
+use std::ops::{self, Add, AddAssign, Deref, Range, RangeInclusive, Sub, SubAssign};
 
 /// The side of a cell
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Side {
     Left,
-    Right
+    Right,
 }
 
 /// Index in the grid using row, column notation
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
-pub struct Point<L=Line> {
+pub struct Point<L = Line> {
     pub line: L,
     pub col: Column,
 }
@@ -43,11 +43,10 @@ impl Ord for Point {
     fn cmp(&self, other: &Point) -> Ordering {
         use std::cmp::Ordering::*;
         match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
-            (Equal,   Equal) => Equal,
-            (Equal,   ord) |
-            (ord,     Equal) => ord,
-            (Less,    _)     => Less,
-            (Greater, _)     => Greater,
+            (Equal, Equal) => Equal,
+            (Equal, ord) | (ord, Equal) => ord,
+            (Less, _) => Less,
+            (Greater, _) => Greater,
         }
     }
 }
@@ -156,7 +155,7 @@ macro_rules! forward_ref_binop {
                 $imp::$method(*self, *other)
             }
         }
-    }
+    };
 }
 
 /// Macro for deriving deref
@@ -170,7 +169,7 @@ macro_rules! deref {
                 &self.0
             }
         }
-    }
+    };
 }
 
 macro_rules! add {
@@ -183,7 +182,7 @@ macro_rules! add {
                 $construct(self.0 + rhs.0)
             }
         }
-    }
+    };
 }
 
 macro_rules! sub {
@@ -223,7 +222,7 @@ macro_rules! sub {
                 $construct(self.0 - rhs.0)
             }
         }
-    }
+    };
 }
 
 /// This exists because we can't implement Iterator on Range
@@ -246,6 +245,7 @@ pub trait Contains {
 
 impl<T: PartialOrd<T>> Contains for Range<T> {
     type Content = T;
+
     fn contains_(&self, item: Self::Content) -> bool {
         (self.start <= item) && (item < self.end)
     }
@@ -253,6 +253,7 @@ impl<T: PartialOrd<T>> Contains for Range<T> {
 
 impl<T: PartialOrd<T>> Contains for RangeInclusive<T> {
     type Content = T;
+
     fn contains_(&self, item: Self::Content) -> bool {
         (self.start() <= &item) && (&item <= self.end())
     }
@@ -383,7 +384,7 @@ ops!(Linear, Linear);
 
 #[cfg(test)]
 mod tests {
-    use super::{Line, Column, Point};
+    use super::{Column, Line, Point};
 
     #[test]
     fn location_ordering() {

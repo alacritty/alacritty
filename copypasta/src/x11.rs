@@ -7,10 +7,10 @@
 //!
 //! FIXME: Implement actual X11 clipboard API using the ICCCM reference
 //!        https://tronche.com/gui/x/icccm/
-use std::io;
-use std::process::{Output, Command};
-use std::string::FromUtf8Error;
 use std::ffi::OsStr;
+use std::io;
+use std::process::{Command, Output};
+use std::string::FromUtf8Error;
 
 use super::{Load, Store};
 
@@ -45,13 +45,11 @@ impl ::std::error::Error for Error {
 impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            Error::Io(ref err) => {
-                match err.kind() {
-                    io::ErrorKind::NotFound => {
-                        write!(f, "Please install `xclip` to enable clipboard support")
-                    },
-                    _ => write!(f, "Error calling xclip: {}", err),
-                }
+            Error::Io(ref err) => match err.kind() {
+                io::ErrorKind::NotFound => {
+                    write!(f, "Please install `xclip` to enable clipboard support")
+                },
+                _ => write!(f, "Error calling xclip: {}", err),
             },
             Error::Xclip(ref s) => write!(f, "Error from xclip: {}", s),
             Error::Utf8(ref err) => write!(f, "Error parsing xclip output: {}", err),
@@ -79,17 +77,13 @@ impl Load for Clipboard {
     }
 
     fn load_primary(&self) -> Result<String, Self::Err> {
-        let output = Command::new("xclip")
-            .args(&["-o", "-selection", "clipboard"])
-            .output()?;
+        let output = Command::new("xclip").args(&["-o", "-selection", "clipboard"]).output()?;
 
         Clipboard::process_xclip_output(output)
     }
 
     fn load_selection(&self) -> Result<String, Self::Err> {
-        let output = Command::new("xclip")
-            .args(&["-o"])
-            .output()?;
+        let output = Command::new("xclip").args(&["-o"]).output()?;
 
         Clipboard::process_xclip_output(output)
     }
@@ -99,7 +93,8 @@ impl Store for Clipboard {
     /// Sets the primary clipboard contents
     #[inline]
     fn store_primary<S>(&mut self, contents: S) -> Result<(), Self::Err>
-        where S: Into<String>
+    where
+        S: Into<String>,
     {
         self.store(contents, &["-i", "-selection", "clipboard"])
     }
@@ -107,7 +102,8 @@ impl Store for Clipboard {
     /// Sets the secondary clipboard contents
     #[inline]
     fn store_selection<S>(&mut self, contents: S) -> Result<(), Self::Err>
-        where S: Into<String>
+    where
+        S: Into<String>,
     {
         self.store(contents, &["-i"])
     }
@@ -116,26 +112,22 @@ impl Store for Clipboard {
 impl Clipboard {
     fn process_xclip_output(output: Output) -> Result<String, Error> {
         if output.status.success() {
-            String::from_utf8(output.stdout)
-                .map_err(::std::convert::From::from)
+            String::from_utf8(output.stdout).map_err(::std::convert::From::from)
         } else {
-            String::from_utf8(output.stderr)
-                .map_err(::std::convert::From::from)
+            String::from_utf8(output.stderr).map_err(::std::convert::From::from)
         }
     }
 
     fn store<C, S>(&mut self, contents: C, args: &[S]) -> Result<(), Error>
-        where C: Into<String>,
-              S: AsRef<OsStr>,
+    where
+        C: Into<String>,
+        S: AsRef<OsStr>,
     {
         use std::io::Write;
         use std::process::{Command, Stdio};
 
         let contents = contents.into();
-        let mut child = Command::new("xclip")
-            .args(args)
-            .stdin(Stdio::piped())
-            .spawn()?;
+        let mut child = Command::new("xclip").args(args).stdin(Stdio::piped()).spawn()?;
 
         if let Some(stdin) = child.stdin.as_mut() {
             stdin.write_all(contents.as_bytes())?;
@@ -154,7 +146,7 @@ impl Clipboard {
 #[cfg(test)]
 mod tests {
     use super::Clipboard;
-    use ::{Load, Store};
+    use {Load, Store};
 
     #[test]
     fn clipboard_works() {

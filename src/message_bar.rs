@@ -33,11 +33,7 @@ pub struct Message {
 impl Message {
     /// Create a new message
     pub fn new(text: String, color: Rgb) -> Message {
-        Message {
-            text,
-            color,
-            topic: None,
-        }
+        Message { text, color, topic: None }
     }
 
     /// Formatted message text lines
@@ -135,11 +131,7 @@ impl MessageBuffer {
     /// Create new message buffer
     pub fn new() -> MessageBuffer {
         let (tx, messages) = crossbeam_channel::unbounded();
-        MessageBuffer {
-            current: None,
-            messages,
-            tx,
-        }
+        MessageBuffer { current: None, messages, tx }
     }
 
     /// Check if there are any messages queued
@@ -215,10 +207,7 @@ mod test {
     fn appends_close_button() {
         let input = "a";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer
-            .tx()
-            .send(Message::new(input.into(), color::RED))
-            .unwrap();
+        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 7.,
             height: 10.,
@@ -238,10 +227,7 @@ mod test {
     fn multiline_close_button_first_line() {
         let input = "fo\nbar";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer
-            .tx()
-            .send(Message::new(input.into(), color::RED))
-            .unwrap();
+        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -261,10 +247,7 @@ mod test {
     fn splits_on_newline() {
         let input = "a\nb";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer
-            .tx()
-            .send(Message::new(input.into(), color::RED))
-            .unwrap();
+        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -284,10 +267,7 @@ mod test {
     fn splits_on_length() {
         let input = "foobar1";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer
-            .tx()
-            .send(Message::new(input.into(), color::RED))
-            .unwrap();
+        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -307,10 +287,7 @@ mod test {
     fn empty_with_shortterm() {
         let input = "foobar";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer
-            .tx()
-            .send(Message::new(input.into(), color::RED))
-            .unwrap();
+        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 6.,
             height: 0.,
@@ -330,10 +307,7 @@ mod test {
     fn truncates_long_messages() {
         let input = "hahahahahahahahahahaha truncate this because it's too long for the term";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer
-            .tx()
-            .send(Message::new(input.into(), color::RED))
-            .unwrap();
+        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 22.,
             height: (MIN_FREE_LINES + 2) as f32,
@@ -346,23 +320,17 @@ mod test {
 
         let lines = message_buffer.message().unwrap().text(&size);
 
-        assert_eq!(
-            lines,
-            vec![
-                String::from("hahahahahahahahaha [X]"),
-                String::from("[MESSAGE TRUNCATED]   ")
-            ]
-        );
+        assert_eq!(lines, vec![
+            String::from("hahahahahahahahaha [X]"),
+            String::from("[MESSAGE TRUNCATED]   ")
+        ]);
     }
 
     #[test]
     fn hide_button_when_too_narrow() {
         let input = "ha";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer
-            .tx()
-            .send(Message::new(input.into(), color::RED))
-            .unwrap();
+        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 2.,
             height: 10.,
@@ -382,10 +350,7 @@ mod test {
     fn hide_truncated_when_too_narrow() {
         let input = "hahahahahahahahaha";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer
-            .tx()
-            .send(Message::new(input.into(), color::RED))
-            .unwrap();
+        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 2.,
             height: (MIN_FREE_LINES + 2) as f32,
@@ -405,10 +370,7 @@ mod test {
     fn add_newline_for_button() {
         let input = "test";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer
-            .tx()
-            .send(Message::new(input.into(), color::RED))
-            .unwrap();
+        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 5.,
             height: 10.,
@@ -466,10 +428,7 @@ mod test {
     fn wrap_on_words() {
         let input = "a\nbc defg";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer
-            .tx()
-            .send(Message::new(input.into(), color::RED))
-            .unwrap();
+        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
         let size = SizeInfo {
             width: 5.,
             height: 10.,
@@ -482,14 +441,11 @@ mod test {
 
         let lines = message_buffer.message().unwrap().text(&size);
 
-        assert_eq!(
-            lines,
-            vec![
-                String::from("a [X]"),
-                String::from("bc   "),
-                String::from("defg ")
-            ]
-        );
+        assert_eq!(lines, vec![
+            String::from("a [X]"),
+            String::from("bc   "),
+            String::from("defg ")
+        ]);
     }
 
     #[test]

@@ -17,8 +17,10 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
-#[macro_use] extern crate log;
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate serde_derive;
 
 #[cfg(target_os = "macos")]
 #[macro_use]
@@ -37,6 +39,7 @@ pub mod index;
 pub mod input;
 pub mod locale;
 pub mod logging;
+pub mod message_bar;
 pub mod meter;
 pub mod panic;
 pub mod renderer;
@@ -44,10 +47,9 @@ pub mod selection;
 pub mod sync;
 pub mod term;
 pub mod tty;
+mod url;
 pub mod util;
 pub mod window;
-pub mod message_bar;
-mod url;
 
 pub use crate::grid::Grid;
 pub use crate::term::Term;

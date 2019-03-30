@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use glutin::{MouseButton, ModifiersState};
+use glutin::{ModifiersState, MouseButton};
 
-use crate::input::{MouseBinding, KeyBinding, Action};
-use crate::term::TermMode;
 use super::Key;
+use crate::input::{Action, KeyBinding, MouseBinding};
+use crate::term::TermMode;
 
 macro_rules! bindings {
     (

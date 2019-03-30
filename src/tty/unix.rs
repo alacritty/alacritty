@@ -15,24 +15,27 @@
 //! tty related functionality
 //!
 
-use crate::tty::{EventedReadWrite, EventedPty, ChildEvent};
-use crate::term::SizeInfo;
-use crate::display::OnResize;
-use crate::config::{Config, Shell};
 use crate::cli::Options;
+use crate::config::{Config, Shell};
+use crate::display::OnResize;
+use crate::term::SizeInfo;
+use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 use mio;
 
 use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
 use nix::pty::openpty;
 use signal_hook::{self as sighook, iterator::Signals};
 
-use std::os::unix::{process::CommandExt, io::{FromRawFd, AsRawFd, RawFd}};
-use std::fs::File;
-use std::process::{Command, Stdio, Child};
-use std::ffi::CStr;
-use std::ptr;
 use mio::unix::EventedFd;
+use std::ffi::CStr;
+use std::fs::File;
 use std::io;
+use std::os::unix::{
+    io::{AsRawFd, FromRawFd, RawFd},
+    process::CommandExt,
+};
+use std::process::{Child, Command, Stdio};
+use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Process ID of child process
@@ -55,8 +58,7 @@ fn make_pty(size: winsize) -> (RawFd, RawFd) {
     win_size.ws_xpixel = 0;
     win_size.ws_ypixel = 0;
 
-    let ends = openpty(Some(&win_size), None)
-        .expect("openpty failed");
+    let ends = openpty(Some(&win_size), None).expect("openpty failed");
 
     (ends.master, ends.slave)
 }
@@ -134,7 +136,6 @@ pub struct Pty {
     token: mio::Token,
     signals: Signals,
     signals_token: mio::Token,
-
 }
 
 impl Pty {
@@ -145,9 +146,7 @@ impl Pty {
     pub fn resize<T: ToWinsize>(&self, size: &T) {
         let win = size.to_winsize();
 
-        let res = unsafe {
-            libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _)
-        };
+        let res = unsafe { libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
             die!("ioctl TIOCSWINSZ failed: {}", errno());
@@ -170,10 +169,7 @@ pub fn new<T: ToWinsize>(
 
     let default_shell = if cfg!(target_os = "macos") {
         let shell_name = pw.shell.rsplit('/').next().unwrap();
-        let argv = vec![
-            String::from("-c"),
-            format!("exec -a -{} {}", shell_name, pw.shell),
-        ];
+        let argv = vec![String::from("-c"), format!("exec -a -{} {}", shell_name, pw.shell)];
 
         Shell::new_with_args("/bin/bash", argv)
     } else {
@@ -265,7 +261,7 @@ pub fn new<T: ToWinsize>(
         },
         Err(err) => {
             die!("Failed to spawn command: {}", err);
-        }
+        },
     }
 }
 
@@ -282,19 +278,14 @@ impl EventedReadWrite for Pty {
         poll_opts: mio::PollOpt,
     ) -> io::Result<()> {
         self.token = token.next().unwrap();
-        poll.register(
-            &EventedFd(&self.fd.as_raw_fd()),
-            self.token,
-            interest,
-            poll_opts
-        )?;
+        poll.register(&EventedFd(&self.fd.as_raw_fd()), self.token, interest, poll_opts)?;
 
         self.signals_token = token.next().unwrap();
         poll.register(
             &self.signals,
             self.signals_token,
             mio::Ready::readable(),
-            mio::PollOpt::level()
+            mio::PollOpt::level(),
         )
     }
 
@@ -303,20 +294,15 @@ impl EventedReadWrite for Pty {
         &mut self,
         poll: &mio::Poll,
         interest: mio::Ready,
-        poll_opts: mio::PollOpt
+        poll_opts: mio::PollOpt,
     ) -> io::Result<()> {
-        poll.reregister(
-            &EventedFd(&self.fd.as_raw_fd()),
-            self.token,
-            interest,
-            poll_opts
-        )?;
+        poll.reregister(&EventedFd(&self.fd.as_raw_fd()), self.token, interest, poll_opts)?;
 
         poll.reregister(
             &self.signals,
             self.signals_token,
             mio::Ready::readable(),
-            mio::PollOpt::level()
+            mio::PollOpt::level(),
         )
     }
 
@@ -350,23 +336,20 @@ impl EventedReadWrite for Pty {
 impl EventedPty for Pty {
     #[inline]
     fn next_child_event(&mut self) -> Option<ChildEvent> {
-        self.signals
-            .pending()
-            .next()
-            .and_then(|signal| {
-                if signal != sighook::SIGCHLD {
-                    return None;
-                }
+        self.signals.pending().next().and_then(|signal| {
+            if signal != sighook::SIGCHLD {
+                return None;
+            }
 
-                match self.child.try_wait() {
-                    Err(e) => {
-                        error!("Error checking child process termination: {}", e);
-                        None
-                    },
-                    Ok(None) => None,
-                    Ok(_)    => Some(ChildEvent::Exited),
-                }
-            })
+            match self.child.try_wait() {
+                Err(e) => {
+                    error!("Error checking child process termination: {}", e);
+                    None
+                },
+                Ok(None) => None,
+                Ok(_) => Some(ChildEvent::Exited),
+            }
+        })
     }
 
     #[inline]
@@ -400,9 +383,7 @@ impl OnResize for i32 {
     fn on_resize(&mut self, size: &SizeInfo) {
         let win = size.to_winsize();
 
-        let res = unsafe {
-            libc::ioctl(*self, libc::TIOCSWINSZ, &win as *const _)
-        };
+        let res = unsafe { libc::ioctl(*self, libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
             die!("ioctl TIOCSWINSZ failed: {}", errno());

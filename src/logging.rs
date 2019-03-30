@@ -68,12 +68,7 @@ impl Logger {
         let logfile = Mutex::new(OnDemandLogFile::new());
         let stdout = Mutex::new(LineWriter::new(io::stdout()));
 
-        Logger {
-            level,
-            logfile,
-            stdout,
-            message_tx,
-        }
+        Logger { level, logfile, stdout, message_tx }
     }
 
     fn file_path(&self) -> Option<PathBuf> {
@@ -100,10 +95,7 @@ impl log::Log for Logger {
                     now,
                     record.level(),
                     record.file().unwrap_or("?"),
-                    record
-                        .line()
-                        .map(|l| l.to_string())
-                        .unwrap_or_else(|| "?".into()),
+                    record.line().map(|l| l.to_string()).unwrap_or_else(|| "?".into()),
                     record.args()
                 )
             } else {
@@ -161,11 +153,7 @@ impl OnDemandLogFile {
         // Set log path as an environment variable
         env::set_var(ALACRITTY_LOG_ENV, path.as_os_str());
 
-        OnDemandLogFile {
-            path,
-            file: None,
-            created: Arc::new(AtomicBool::new(false)),
-        }
+        OnDemandLogFile { path, file: None, created: Arc::new(AtomicBool::new(false)) }
     }
 
     fn file(&mut self) -> Result<&mut LineWriter<File>, io::Error> {
@@ -176,21 +164,18 @@ impl OnDemandLogFile {
 
         // Create the file if it doesn't exist yet
         if self.file.is_none() {
-            let file = OpenOptions::new()
-                .append(true)
-                .create(true)
-                .open(&self.path);
+            let file = OpenOptions::new().append(true).create(true).open(&self.path);
 
             match file {
                 Ok(file) => {
                     self.file = Some(io::LineWriter::new(file));
                     self.created.store(true, Ordering::Relaxed);
                     let _ = writeln!(io::stdout(), "Created log file at {:?}", self.path);
-                }
+                },
                 Err(e) => {
                     let _ = writeln!(io::stdout(), "Unable to create log file: {}", e);
                     return Err(e);
-                }
+                },
             }
         }
 

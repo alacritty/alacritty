@@ -13,7 +13,7 @@
 // limitations under the License.
 use bitflags::bitflags;
 
-use crate::ansi::{NamedColor, Color};
+use crate::ansi::{Color, NamedColor};
 use crate::grid::{self, GridCell};
 use crate::index::Column;
 
@@ -47,19 +47,14 @@ pub struct Cell {
     pub fg: Color,
     pub bg: Color,
     pub flags: Flags,
-    #[serde(default="default_extra")]
+    #[serde(default = "default_extra")]
     pub extra: [char; MAX_ZEROWIDTH_CHARS],
 }
 
 impl Default for Cell {
     fn default() -> Cell {
-        Cell::new(
-            ' ',
-            Color::Named(NamedColor::Foreground),
-            Color::Named(NamedColor::Background)
-        )
+        Cell::new(' ', Color::Named(NamedColor::Foreground), Color::Named(NamedColor::Background))
     }
-
 }
 
 impl GridCell for Cell {
@@ -130,13 +125,7 @@ impl Cell {
     }
 
     pub fn new(c: char, fg: Color, bg: Color) -> Cell {
-        Cell {
-            extra: [' '; MAX_ZEROWIDTH_CHARS],
-            c,
-            bg,
-            fg,
-            flags: Flags::empty(),
-        }
+        Cell { extra: [' '; MAX_ZEROWIDTH_CHARS], c, bg, fg, flags: Flags::empty() }
     }
 
     #[inline]

@@ -20,27 +20,27 @@
 //! determine what to do when a non-modifier key is pressed.
 use std::borrow::Cow;
 use std::mem;
-use std::time::Instant;
 use std::ops::RangeInclusive;
+use std::time::Instant;
 
-use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
-use unicode_width::UnicodeWidthStr;
+use copypasta::{Buffer as ClipboardBuffer, Clipboard, Load};
 use glutin::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseCursor, MouseScrollDelta,
     TouchPhase,
 };
+use unicode_width::UnicodeWidthStr;
 
+use crate::ansi::{ClearMode, Handler};
 use crate::config::{self, Key};
-use crate::grid::Scroll;
 use crate::event::{ClickState, Mouse};
-use crate::index::{Line, Column, Side, Point, Linear};
-use crate::term::{Term, SizeInfo, Search};
+use crate::grid::Scroll;
+use crate::index::{Column, Line, Linear, Point, Side};
+use crate::message_bar::{self, Message};
 use crate::term::mode::TermMode;
+use crate::term::{Search, SizeInfo, Term};
+use crate::url::Url;
 use crate::util::fmt::Red;
 use crate::util::start_daemon;
-use crate::message_bar::{self, Message};
-use crate::ansi::{Handler, ClearMode};
-use crate::url::Url;
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
 
@@ -148,10 +148,10 @@ impl<T: Eq> Binding<T> {
         // Check input first since bindings are stored in one big list. This is
         // the most likely item to fail so prioritizing it here allows more
         // checks to be short circuited.
-        self.trigger == *input &&
-            self.mode_matches(mode) &&
-            self.not_mode_matches(mode) &&
-            self.mods_match(mods, relaxed)
+        self.trigger == *input
+            && self.mode_matches(mode)
+            && self.not_mode_matches(mode)
+            && self.mods_match(mods, relaxed)
     }
 
     #[inline]
@@ -267,8 +267,8 @@ impl Action {
             },
             Action::Paste => {
                 Clipboard::new()
-                    .and_then(|clipboard| clipboard.load_primary() )
-                    .map(|contents| { self.paste(ctx, &contents) })
+                    .and_then(|clipboard| clipboard.load_primary())
+                    .map(|contents| self.paste(ctx, &contents))
                     .unwrap_or_else(|err| {
                         error!("Error loading data from clipboard: {}", Red(err));
                     });
@@ -277,8 +277,8 @@ impl Action {
                 // Only paste if mouse events are not captured by an application
                 if !mouse_mode {
                     Clipboard::new()
-                        .and_then(|clipboard| clipboard.load_selection() )
-                        .map(|contents| { self.paste(ctx, &contents) })
+                        .and_then(|clipboard| clipboard.load_selection())
+                        .map(|contents| self.paste(ctx, &contents))
                         .unwrap_or_else(|err| {
                             error!("Error loading data from clipboard: {}", Red(err));
                         });
@@ -303,13 +303,13 @@ impl Action {
                 ctx.terminal_mut().exit();
             },
             Action::IncreaseFontSize => {
-               ctx.terminal_mut().change_font_size(FONT_SIZE_STEP);
+                ctx.terminal_mut().change_font_size(FONT_SIZE_STEP);
             },
             Action::DecreaseFontSize => {
-               ctx.terminal_mut().change_font_size(-FONT_SIZE_STEP);
-            }
+                ctx.terminal_mut().change_font_size(-FONT_SIZE_STEP);
+            },
             Action::ResetFontSize => {
-               ctx.terminal_mut().reset_font_size();
+                ctx.terminal_mut().reset_font_size();
             },
             Action::ScrollPageUp => {
                 ctx.scroll(Scroll::PageUp);
@@ -339,7 +339,7 @@ impl Action {
     fn paste<A: ActionContext>(&self, ctx: &mut A, contents: &str) {
         if ctx.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
             ctx.write_to_pty(&b"\x1b[200~"[..]);
-            ctx.write_to_pty(contents.replace("\x1b","").into_bytes());
+            ctx.write_to_pty(contents.replace("\x1b", "").into_bytes());
             ctx.write_to_pty(&b"\x1b[201~"[..]);
         } else {
             // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
@@ -348,7 +348,7 @@ impl Action {
             // pasting... since that's neither practical nor sensible (and probably an impossible
             // task to solve in a general way), we'll just replace line breaks (windows and unix
             // style) with a singe carriage return (\r, which is what the Enter key produces).
-            ctx.write_to_pty(contents.replace("\r\n","\r").replace("\n","\r").into_bytes());
+            ctx.write_to_pty(contents.replace("\r\n", "\r").replace("\n", "\r").into_bytes());
         }
     }
 }
@@ -411,13 +411,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         if self.ctx.mouse().left_button_state == ElementState::Pressed
             && (modifiers.shift || !self.ctx.terminal().mode().intersects(report_mode))
         {
-            self.ctx.update_selection(
-                Point {
-                    line: point.line,
-                    col: point.col,
-                },
-                cell_side,
-            );
+            self.ctx.update_selection(Point { line: point.line, col: point.col }, cell_side);
         } else if self.ctx.terminal().mode().intersects(motion_mode)
             && size_info.contains_point(x, y, false)
         {
@@ -443,7 +437,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
             && self.mouse_config.url.launcher.is_some()
         {
-                self.ctx.terminal().url_search(point.into())
+            self.ctx.terminal().url_search(point.into())
         } else {
             None
         };
@@ -582,14 +576,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_double_click(button, point);
                 ClickState::DoubleClick
-            },
+            }
             ClickState::DoubleClick
                 if !button_changed && elapsed < self.mouse_config.triple_click.threshold =>
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_triple_click(button, point);
                 ClickState::TripleClick
-            },
+            }
             _ => {
                 // Don't launch URLs if this click cleared the selection
                 self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
@@ -617,7 +611,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 }
 
                 ClickState::Click
-            }
+            },
         };
     }
 
@@ -690,7 +684,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     },
                     _ => (),
                 }
-            }
+            },
         }
     }
 
@@ -744,11 +738,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     pub fn on_focus_change(&mut self, is_focused: bool) {
         if self.ctx.terminal().mode().contains(TermMode::FOCUS_IN_OUT) {
-            let chr = if is_focused {
-                "I"
-            } else {
-                "O"
-            };
+            let chr = if is_focused { "I" } else { "O" };
 
             let msg = format!("\x1b[{}", chr);
             self.ctx.write_to_pty(msg.into_bytes());
@@ -759,7 +749,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         &mut self,
         state: ElementState,
         button: MouseButton,
-        modifiers: ModifiersState
+        modifiers: ModifiersState,
     ) {
         match button {
             MouseButton::Left => self.ctx.mouse_mut().left_button_state = state,
@@ -849,16 +839,18 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     &Key::Scancode(input.scancode),
                     false,
                 ),
-                _ => if let Some(key) = input.virtual_keycode {
-                    let key = Key::from_glutin_input(key);
-                    binding.is_triggered_by(
-                        *self.ctx.terminal().mode(),
-                        input.modifiers,
-                        &key,
+                _ => {
+                    if let Some(key) = input.virtual_keycode {
+                        let key = Key::from_glutin_input(key);
+                        binding.is_triggered_by(
+                            *self.ctx.terminal().mode(),
+                            input.modifiers,
+                            &key,
+                            false,
+                        )
+                    } else {
                         false
-                    )
-                } else {
-                    false
+                    }
                 },
             };
 
@@ -883,11 +875,12 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         for binding in self.mouse_bindings {
             if binding.is_triggered_by(*self.ctx.terminal().mode(), mods, &button, true) {
                 // binding was triggered; run the action
-                let mouse_mode = !mods.shift && self.ctx.terminal().mode().intersects(
-                    TermMode::MOUSE_REPORT_CLICK
-                    | TermMode::MOUSE_DRAG
-                    | TermMode::MOUSE_MOTION
-                );
+                let mouse_mode = !mods.shift
+                    && self.ctx.terminal().mode().intersects(
+                        TermMode::MOUSE_REPORT_CLICK
+                            | TermMode::MOUSE_DRAG
+                            | TermMode::MOUSE_MOTION,
+                    );
                 binding.execute(&mut self.ctx, mouse_mode);
                 has_binding = true;
             }
@@ -898,10 +891,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     /// Return the message bar's message if there is some at the specified point
     fn message_at_point(&mut self, point: Option<Point>) -> Option<Message> {
-        if let (Some(point), Some(message)) = (
-            point,
-            self.ctx.terminal_mut().message_buffer_mut().message(),
-        ) {
+        if let (Some(point), Some(message)) =
+            (point, self.ctx.terminal_mut().message_buffer_mut().message())
+        {
             let size = self.ctx.size_info();
             if point.line.0 >= size.lines().saturating_sub(message.text(&size).len()) {
                 return Some(message);
@@ -924,7 +916,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 }
 
                 self.ctx.clear_selection();
-            }
+            },
         }
     }
 
@@ -942,15 +934,15 @@ mod tests {
     use std::borrow::Cow;
     use std::time::Duration;
 
-    use glutin::{VirtualKeyCode, Event, WindowEvent, ElementState, MouseButton, ModifiersState};
+    use glutin::{ElementState, Event, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent};
 
-    use crate::term::{SizeInfo, Term, TermMode};
-    use crate::event::{Mouse, ClickState, WindowChanges};
-    use crate::config::{self, Config, ClickHandler};
-    use crate::index::{Point, Side};
-    use crate::selection::Selection;
+    use crate::config::{self, ClickHandler, Config};
+    use crate::event::{ClickState, Mouse, WindowChanges};
     use crate::grid::Scroll;
+    use crate::index::{Point, Side};
     use crate::message_bar::MessageBuffer;
+    use crate::selection::Selection;
+    use crate::term::{SizeInfo, Term, TermMode};
 
     use super::{Action, Binding, Processor};
     use copypasta::Buffer as ClipboardBuffer;
@@ -976,13 +968,19 @@ mod tests {
         pub window_changes: &'a mut WindowChanges,
     }
 
-    impl <'a>super::ActionContext for ActionContext<'a> {
+    impl<'a> super::ActionContext for ActionContext<'a> {
         fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _val: B) {}
+
         fn update_selection(&mut self, _point: Point, _side: Side) {}
+
         fn simple_selection(&mut self, _point: Point, _side: Side) {}
+
         fn copy_selection(&self, _buffer: ClipboardBuffer) {}
+
         fn clear_selection(&mut self) {}
+
         fn hide_window(&mut self) {}
+
         fn spawn_new_instance(&mut self) {}
 
         fn terminal(&self) -> &Term {
