@@ -11,10 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use foreign_types::{ForeignTypeRef};
+use foreign_types::ForeignTypeRef;
 
-use super::ffi::{FcCharSet, FcCharSetDestroy, FcCharSetAddChar};
-use super::ffi::{FcCharSetCreate};
+use super::ffi::FcCharSetCreate;
+use super::ffi::{FcCharSet, FcCharSetAddChar, FcCharSetDestroy};
 
 foreign_type! {
     type CType = FcCharSet;
@@ -37,12 +37,6 @@ impl Default for CharSet {
 
 impl CharSetRef {
     pub fn add(&mut self, glyph: char) -> bool {
-        unsafe {
-            FcCharSetAddChar(
-                self.as_ptr(),
-                glyph as _
-            ) == 1
-        }
+        unsafe { FcCharSetAddChar(self.as_ptr(), glyph as _) == 1 }
     }
 }
-

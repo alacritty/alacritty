@@ -31,7 +31,7 @@
 //! // the average won't mean much until it's filled up at least once.
 //! println!("Average time: {}", meter.average());
 
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 const NUM_SAMPLES: usize = 10;
 
@@ -61,10 +61,7 @@ pub struct Sampler<'a> {
 
 impl<'a> Sampler<'a> {
     fn new(meter: &'a mut Meter) -> Sampler<'a> {
-        Sampler {
-            meter,
-            created_at: Instant::now(),
-        }
+        Sampler { meter, created_at: Instant::now() }
     }
 
     #[inline]

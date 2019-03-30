@@ -17,10 +17,10 @@ use std::io;
 use std::ops::Range;
 use std::str;
 
-use vte;
+use crate::index::{Column, Contains, Line};
 use base64;
 use glutin::MouseCursor;
-use crate::index::{Column, Line, Contains};
+use vte;
 
 use crate::term::color::Rgb;
 
@@ -33,7 +33,7 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
     macro_rules! next {
         () => {
             iter.next().map(|v| *v as char)
-        }
+        };
     }
 
     macro_rules! parse_hex {
@@ -50,32 +50,36 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
                 digit += value as u8;
             }
             digit
-        }}
+        }};
     }
 
     match next!() {
         Some('r') => {
-            if next!() != Some('g') { return None; }
-            if next!() != Some('b') { return None; }
-            if next!() != Some(':') { return None; }
+            if next!() != Some('g') {
+                return None;
+            }
+            if next!() != Some('b') {
+                return None;
+            }
+            if next!() != Some(':') {
+                return None;
+            }
 
             let r = parse_hex!();
             let val = next!();
-            if val != Some('/') { return None; }
+            if val != Some('/') {
+                return None;
+            }
             let g = parse_hex!();
-            if next!() != Some('/') { return None; }
+            if next!() != Some('/') {
+                return None;
+            }
             let b = parse_hex!();
 
             Some(Rgb { r, g, b })
-        }
-        Some('#') => {
-            Some(Rgb {
-                r: parse_hex!(),
-                g: parse_hex!(),
-                b: parse_hex!(),
-            })
-        }
-        _ => None
+        },
+        Some('#') => Some(Rgb { r: parse_hex!(), g: parse_hex!(), b: parse_hex!() }),
+        _ => None,
     }
 }
 
@@ -106,7 +110,7 @@ pub struct Processor {
 
 /// Internal state for VTE processor
 struct ProcessorState {
-    preceding_char: Option<char>
+    preceding_char: Option<char>,
 }
 
 /// Helper type that implements `vte::Perform`.
@@ -116,7 +120,7 @@ struct ProcessorState {
 struct Performer<'a, H: Handler + TermInfo, W: io::Write> {
     _state: &'a mut ProcessorState,
     handler: &'a mut H,
-    writer: &'a mut W
+    writer: &'a mut W,
 }
 
 impl<'a, H: Handler + TermInfo + 'a, W: io::Write> Performer<'a, H, W> {
@@ -127,20 +131,13 @@ impl<'a, H: Handler + TermInfo + 'a, W: io::Write> Performer<'a, H, W> {
         handler: &'b mut H,
         writer: &'b mut W,
     ) -> Performer<'b, H, W> {
-        Performer {
-            _state: state,
-            handler,
-            writer,
-        }
+        Performer { _state: state, handler, writer }
     }
 }
 
 impl Default for Processor {
     fn default() -> Processor {
-        Processor {
-            state: ProcessorState { preceding_char: None },
-            parser: vte::Parser::new(),
-        }
+        Processor { state: ProcessorState { preceding_char: None }, parser: vte::Parser::new() }
     }
 }
 
@@ -150,20 +147,15 @@ impl Processor {
     }
 
     #[inline]
-    pub fn advance<H, W>(
-        &mut self,
-        handler: &mut H,
-        byte: u8,
-        writer: &mut W
-    )
-        where H: Handler + TermInfo,
-              W: io::Write
+    pub fn advance<H, W>(&mut self, handler: &mut H, byte: u8, writer: &mut W)
+    where
+        H: Handler + TermInfo,
+        W: io::Write,
     {
         let mut performer = Performer::new(&mut self.state, handler, writer);
         self.parser.advance(&mut performer, byte);
     }
 }
-
 
 /// Trait that provides properties of terminal
 pub trait TermInfo {
@@ -447,14 +439,14 @@ impl Mode {
                 2004 => Mode::BracketedPaste,
                 _ => {
                     trace!("[unimplemented] primitive mode: {}", num);
-                    return None
-                }
+                    return None;
+                },
             })
         } else {
             Some(match num {
                 4 => Mode::Insert,
                 20 => Mode::LineFeedNewLine,
-                _ => return None
+                _ => return None,
             })
         }
     }
@@ -485,7 +477,7 @@ pub enum ClearMode {
     /// Clear entire terminal
     All,
     /// Clear 'saved' lines (scrollback)
-    Saved
+    Saved,
 }
 
 /// Mode for clearing tab stops
@@ -586,7 +578,7 @@ impl NamedColor {
             NamedColor::DimMagenta => NamedColor::Magenta,
             NamedColor::DimCyan => NamedColor::Cyan,
             NamedColor::DimWhite => NamedColor::White,
-            val => val
+            val => val,
         }
     }
 
@@ -610,7 +602,7 @@ impl NamedColor {
             NamedColor::BrightCyan => NamedColor::Cyan,
             NamedColor::BrightWhite => NamedColor::White,
             NamedColor::BrightForeground => NamedColor::Foreground,
-            val => val
+            val => val,
         }
     }
 }
@@ -697,8 +689,9 @@ impl Default for StandardCharset {
 }
 
 impl<'a, H, W> vte::Perform for Performer<'a, H, W>
-    where H: Handler + TermInfo + 'a,
-          W: io::Write + 'a
+where
+    H: Handler + TermInfo + 'a,
+    W: io::Write + 'a,
 {
     #[inline]
     fn print(&mut self, c: char) {
@@ -720,14 +713,16 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             C1::NEL => self.handler.newline(),
             C1::HTS => self.handler.set_horizontal_tabstop(),
             C1::DECID => self.handler.identify_terminal(self.writer),
-            _ => debug!("[unhandled] execute byte={:02x}", byte)
+            _ => debug!("[unhandled] execute byte={:02x}", byte),
         }
     }
 
     #[inline]
     fn hook(&mut self, params: &[i64], intermediates: &[u8], ignore: bool) {
-        debug!("[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}",
-                     params, intermediates, ignore);
+        debug!(
+            "[unhandled hook] params={:?}, ints: {:?}, ignore: {:?}",
+            params, intermediates, ignore
+        );
     }
 
     #[inline]
@@ -788,7 +783,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     }
                 }
                 unhandled(params);
-            }
+            },
 
             // Set foreground color
             b"10" => {
@@ -799,7 +794,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     }
                 }
                 unhandled(params);
-            }
+            },
 
             // Set background color
             b"11" => {
@@ -810,7 +805,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     }
                 }
                 unhandled(params);
-            }
+            },
 
             // Set text cursor color
             b"12" => {
@@ -821,11 +816,14 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     }
                 }
                 unhandled(params);
-            }
+            },
 
             // Set cursor style
             b"50" => {
-                if params.len() >= 2 && params[1].len() >= 13 && params[1][0..12] == *b"CursorShape=" {
+                if params.len() >= 2
+                    && params[1].len() >= 13
+                    && params[1][0..12] == *b"CursorShape="
+                {
                     let style = match params[1][12] as char {
                         '0' => CursorStyle::Block,
                         '1' => CursorStyle::Beam,
@@ -836,7 +834,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     return;
                 }
                 unhandled(params);
-            }
+            },
 
             // Set clipboard
             b"52" => {
@@ -852,9 +850,9 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                                 self.handler.set_clipboard(utf8_string);
                             }
                         }
-                    }
+                    },
                 }
-            }
+            },
 
             // Reset color index
             b"104" => {
@@ -873,7 +871,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                         None => unhandled(params),
                     }
                 }
-            }
+            },
 
             // Reset foreground color
             b"110" => self.handler.reset_color(NamedColor::Foreground as usize),
@@ -889,35 +887,27 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
     }
 
     #[inline]
-    fn csi_dispatch(
-        &mut self,
-        args: &[i64],
-        intermediates: &[u8],
-        _ignore: bool,
-        action: char
-    ) {
+    fn csi_dispatch(&mut self, args: &[i64], intermediates: &[u8], _ignore: bool, action: char) {
         let private = intermediates.get(0).map(|b| *b == b'?').unwrap_or(false);
         let handler = &mut self.handler;
         let writer = &mut self.writer;
 
         macro_rules! unhandled {
             () => {{
-                debug!("[Unhandled CSI] action={:?}, args={:?}, intermediates={:?}",
-                             action, args, intermediates);
+                debug!(
+                    "[Unhandled CSI] action={:?}, args={:?}, intermediates={:?}",
+                    action, args, intermediates
+                );
                 return;
-            }}
+            }};
         }
 
         macro_rules! arg_or_default {
             (idx: $idx:expr, default: $default:expr) => {
-                args.get($idx).and_then(|v| {
-                    if *v == 0 {
-                        None
-                    } else {
-                        Some(*v)
-                    }
-                }).unwrap_or($default)
-            }
+                args.get($idx)
+                    .and_then(|v| if *v == 0 { None } else { Some(*v) })
+                    .unwrap_or($default)
+            };
         }
 
         match action {
@@ -930,8 +920,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     for _ in 0..arg_or_default!(idx: 0, default: 1) {
                         handler.input(c);
                     }
-                }
-                else {
+                } else {
                     debug!("tried to repeat with no preceding char");
                 }
             },
@@ -1012,7 +1001,8 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     return;
                 }
                 loop {
-                    if i >= args.len() { // C-for condition
+                    if i >= args.len() {
+                        // C-for condition
                         break;
                     }
 
@@ -1061,7 +1051,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                         45 => Attr::Background(Color::Named(NamedColor::Magenta)),
                         46 => Attr::Background(Color::Named(NamedColor::Cyan)),
                         47 => Attr::Background(Color::Named(NamedColor::White)),
-                        48 =>  {
+                        48 => {
                             let mut start = 0;
                             if let Some(color) = parse_color(&args[i..], &mut start) {
                                 i += start;
@@ -1094,7 +1084,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
 
                     i += 1; // C-for expr
                 }
-            }
+            },
             'n' => handler.device_status(writer, arg_or_default!(idx: 0, default: 0) as usize),
             'r' => {
                 if private {
@@ -1119,29 +1109,25 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     1 | 2 => Some(CursorStyle::Block),
                     3 | 4 => Some(CursorStyle::Underline),
                     5 | 6 => Some(CursorStyle::Beam),
-                    _ => unhandled!()
+                    _ => unhandled!(),
                 };
 
                 handler.set_cursor_style(style);
-            }
+            },
             _ => unhandled!(),
         }
     }
 
     #[inline]
-    fn esc_dispatch(
-        &mut self,
-        params: &[i64],
-        intermediates: &[u8],
-        _ignore: bool,
-        byte: u8
-    ) {
+    fn esc_dispatch(&mut self, params: &[i64], intermediates: &[u8], _ignore: bool, byte: u8) {
         macro_rules! unhandled {
             () => {{
-                debug!("[unhandled] esc_dispatch params={:?}, ints={:?}, byte={:?} ({:02x})",
-                             params, intermediates, byte as char, byte);
+                debug!(
+                    "[unhandled] esc_dispatch params={:?}, ints={:?}, byte={:?} ({:02x})",
+                    params, intermediates, byte as char, byte
+                );
                 return;
-            }}
+            }};
         }
 
         macro_rules! configure_charset {
@@ -1154,7 +1140,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                     _ => unhandled!(),
                 };
                 self.handler.configure_charset(index, $charset)
-            }}
+            }};
         }
 
         match byte {
@@ -1163,7 +1149,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
             b'E' => {
                 self.handler.linefeed();
                 self.handler.carriage_return();
-            }
+            },
             b'H' => self.handler.set_horizontal_tabstop(),
             b'M' => self.handler.reverse_index(),
             b'Z' => self.handler.identify_terminal(self.writer),
@@ -1176,7 +1162,7 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
                 } else {
                     self.handler.restore_cursor_position();
                 }
-            }
+            },
             b'=' => self.handler.set_keypad_application_mode(),
             b'>' => self.handler.unset_keypad_application_mode(),
             b'\\' => (), // String terminator, do nothing (parser handles as string terminator)
@@ -1185,14 +1171,13 @@ impl<'a, H, W> vte::Perform for Performer<'a, H, W>
     }
 }
 
-
 /// Parse a color specifier from list of attributes
 fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
     if attrs.len() < 2 {
         return None;
     }
 
-    match attrs[*i+1] {
+    match attrs[*i + 1] {
         2 => {
             // RGB color spec
             if attrs.len() < 5 {
@@ -1200,9 +1185,9 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
                 return None;
             }
 
-            let r = attrs[*i+2];
-            let g = attrs[*i+3];
-            let b = attrs[*i+4];
+            let r = attrs[*i + 2];
+            let g = attrs[*i + 3];
+            let b = attrs[*i + 4];
 
             *i += 4;
 
@@ -1212,11 +1197,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
                 return None;
             }
 
-            Some(Color::Spec(Rgb {
-                r: r as u8,
-                g: g as u8,
-                b: b as u8
-            }))
+            Some(Color::Spec(Rgb { r: r as u8, g: g as u8, b: b as u8 }))
         },
         5 => {
             if attrs.len() < 3 {
@@ -1226,20 +1207,18 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
                 *i += 2;
                 let idx = attrs[*i];
                 match idx {
-                    0 ..= 255 => {
-                        Some(Color::Indexed(idx as u8))
-                    },
+                    0..=255 => Some(Color::Indexed(idx as u8)),
                     _ => {
                         debug!("Invalid color index: {}", idx);
                         None
-                    }
+                    },
                 }
             }
         },
         _ => {
-            debug!("Unexpected color attr: {}", attrs[*i+1]);
+            debug!("Unexpected color attr: {}", attrs[*i + 1]);
             None
-        }
+        },
     }
 }
 
@@ -1313,7 +1292,6 @@ pub mod C0 {
     /// Delete, should be ignored by terminal
     pub const DEL: u8 = 0x7f;
 }
-
 
 /// C1 set of 8-bit control characters (from ANSI X3.64-1979)
 ///
@@ -1393,10 +1371,13 @@ pub mod C1 {
 // Byte sequences used in these tests are recording of pty stdout.
 #[cfg(test)]
 mod tests {
-    use std::io;
-    use crate::index::{Line, Column};
-    use super::{Processor, Handler, Attr, TermInfo, Color, StandardCharset, CharsetIndex, parse_rgb_color, parse_number};
+    use super::{
+        parse_number, parse_rgb_color, Attr, CharsetIndex, Color, Handler, Processor,
+        StandardCharset, TermInfo,
+    };
+    use crate::index::{Column, Line};
     use crate::term::color::Rgb;
+    use std::io;
 
     /// The /dev/null of `io::Write`
     struct Void;
@@ -1434,9 +1415,7 @@ mod tests {
 
     #[test]
     fn parse_control_attribute() {
-        static BYTES: &'static [u8] = &[
-            0x1b, 0x5b, 0x31, 0x6d
-        ];
+        static BYTES: &'static [u8] = &[0x1b, 0x5b, 0x31, 0x6d];
 
         let mut parser = Processor::new();
         let mut handler = AttrHandler::default();
@@ -1451,8 +1430,8 @@ mod tests {
     #[test]
     fn parse_truecolor_attr() {
         static BYTES: &'static [u8] = &[
-            0x1b, 0x5b, 0x33, 0x38, 0x3b, 0x32, 0x3b, 0x31, 0x32,
-            0x38, 0x3b, 0x36, 0x36, 0x3b, 0x32, 0x35, 0x35, 0x6d
+            0x1b, 0x5b, 0x33, 0x38, 0x3b, 0x32, 0x3b, 0x31, 0x32, 0x38, 0x3b, 0x36, 0x36, 0x3b,
+            0x32, 0x35, 0x35, 0x6d,
         ];
 
         let mut parser = Processor::new();
@@ -1462,11 +1441,7 @@ mod tests {
             parser.advance(&mut handler, *byte, &mut Void);
         }
 
-        let spec = Rgb {
-            r: 128,
-            g: 66,
-            b: 255
-        };
+        let spec = Rgb { r: 128, g: 66, b: 255 };
 
         assert_eq!(handler.attr, Some(Attr::Foreground(Color::Spec(spec))));
     }
@@ -1475,22 +1450,19 @@ mod tests {
     #[test]
     fn parse_zsh_startup() {
         static BYTES: &'static [u8] = &[
-            0x1b, 0x5b, 0x31, 0x6d, 0x1b, 0x5b, 0x37, 0x6d, 0x25, 0x1b, 0x5b,
-            0x32, 0x37, 0x6d, 0x1b, 0x5b, 0x31, 0x6d, 0x1b, 0x5b, 0x30, 0x6d,
-            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-            0x20, 0x20, 0x0d, 0x20, 0x0d, 0x0d, 0x1b, 0x5b, 0x30, 0x6d, 0x1b,
-            0x5b, 0x32, 0x37, 0x6d, 0x1b, 0x5b, 0x32, 0x34, 0x6d, 0x1b, 0x5b,
-            0x4a, 0x6a, 0x77, 0x69, 0x6c, 0x6d, 0x40, 0x6a, 0x77, 0x69, 0x6c,
-            0x6d, 0x2d, 0x64, 0x65, 0x73, 0x6b, 0x20, 0x1b, 0x5b, 0x30, 0x31,
-            0x3b, 0x33, 0x32, 0x6d, 0xe2, 0x9e, 0x9c, 0x20, 0x1b, 0x5b, 0x30,
-            0x31, 0x3b, 0x33, 0x32, 0x6d, 0x20, 0x1b, 0x5b, 0x33, 0x36, 0x6d,
-            0x7e, 0x2f, 0x63, 0x6f, 0x64, 0x65
+            0x1b, 0x5b, 0x31, 0x6d, 0x1b, 0x5b, 0x37, 0x6d, 0x25, 0x1b, 0x5b, 0x32, 0x37, 0x6d,
+            0x1b, 0x5b, 0x31, 0x6d, 0x1b, 0x5b, 0x30, 0x6d, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x0d, 0x20, 0x0d, 0x0d, 0x1b, 0x5b, 0x30, 0x6d, 0x1b, 0x5b, 0x32,
+            0x37, 0x6d, 0x1b, 0x5b, 0x32, 0x34, 0x6d, 0x1b, 0x5b, 0x4a, 0x6a, 0x77, 0x69, 0x6c,
+            0x6d, 0x40, 0x6a, 0x77, 0x69, 0x6c, 0x6d, 0x2d, 0x64, 0x65, 0x73, 0x6b, 0x20, 0x1b,
+            0x5b, 0x30, 0x31, 0x3b, 0x33, 0x32, 0x6d, 0xe2, 0x9e, 0x9c, 0x20, 0x1b, 0x5b, 0x30,
+            0x31, 0x3b, 0x33, 0x32, 0x6d, 0x20, 0x1b, 0x5b, 0x33, 0x36, 0x6d, 0x7e, 0x2f, 0x63,
+            0x6f, 0x64, 0x65,
         ];
 
         let mut handler = AttrHandler::default();
@@ -1508,10 +1480,7 @@ mod tests {
 
     impl Default for CharsetHandler {
         fn default() -> CharsetHandler {
-            CharsetHandler {
-                index: CharsetIndex::G0,
-                charset: StandardCharset::Ascii,
-            }
+            CharsetHandler { index: CharsetIndex::G0, charset: StandardCharset::Ascii }
         }
     }
 
@@ -1527,8 +1496,13 @@ mod tests {
     }
 
     impl TermInfo for CharsetHandler {
-        fn lines(&self) -> Line { Line(200) }
-        fn cols(&self) -> Column { Column(90) }
+        fn lines(&self) -> Line {
+            Line(200)
+        }
+
+        fn cols(&self) -> Column {
+            Column(90)
+        }
     }
 
     #[test]

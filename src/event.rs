@@ -1,33 +1,33 @@
 //! Process window events
+use std::borrow::Cow;
+use std::env;
 #[cfg(unix)]
 use std::fs;
-use std::borrow::Cow;
 use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc;
-use std::time::{Instant};
-use std::env;
+use std::time::Instant;
 
-use serde_json as json;
-use parking_lot::MutexGuard;
-use glutin::{self, ModifiersState, Event, ElementState, MouseButton};
-use copypasta::{Clipboard, Load, Store, Buffer as ClipboardBuffer};
+use copypasta::{Buffer as ClipboardBuffer, Clipboard, Load, Store};
 use glutin::dpi::PhysicalSize;
+use glutin::{self, ElementState, Event, ModifiersState, MouseButton};
+use parking_lot::MutexGuard;
+use serde_json as json;
 
-#[cfg(unix)]
-use crate::tty;
-use crate::grid::Scroll;
-use crate::config::{self, Config};
 use crate::cli::Options;
+use crate::config::{self, Config};
 use crate::display::OnResize;
-use crate::index::{Line, Column, Side, Point};
-use crate::input::{self, MouseBinding, KeyBinding};
+use crate::grid::Scroll;
+use crate::index::{Column, Line, Point, Side};
+use crate::input::{self, KeyBinding, MouseBinding};
 use crate::selection::Selection;
 use crate::sync::FairMutex;
-use crate::term::{Term, SizeInfo};
 use crate::term::cell::Cell;
-use crate::util::{limit, start_daemon};
+use crate::term::{SizeInfo, Term};
+#[cfg(unix)]
+use crate::tty;
 use crate::util::fmt::Red;
+use crate::util::{limit, start_daemon};
 use crate::window::Window;
 
 /// Byte sequences are sent to a `Notify` in response to some events
@@ -66,10 +66,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
             let size_info = self.size_info();
             let point = size_info.pixels_to_coords(x, y);
             let cell_side = self.mouse().cell_side;
-            self.update_selection(Point {
-                line: point.line,
-                col: point.col
-            }, cell_side);
+            self.update_selection(Point { line: point.line, col: point.col }, cell_side);
         }
     }
 
@@ -209,9 +206,7 @@ impl WindowChanges {
 
 impl Default for WindowChanges {
     fn default() -> WindowChanges {
-        WindowChanges {
-            hide: false,
-        }
+        WindowChanges { hide: false }
     }
 }
 
@@ -358,16 +353,14 @@ impl<N: Notify> Processor<N> {
                             grid.initialize_all(&Cell::default());
                             grid.truncate();
 
-                            let serialized_grid = json::to_string(&grid)
-                                .expect("serialize grid");
+                            let serialized_grid = json::to_string(&grid).expect("serialize grid");
 
-                            let serialized_size = json::to_string(processor.ctx.terminal.size_info())
-                                .expect("serialize size");
+                            let serialized_size =
+                                json::to_string(processor.ctx.terminal.size_info())
+                                    .expect("serialize size");
 
-                            let serialized_config = format!(
-                                "{{\"history_size\":{}}}",
-                                grid.history_size()
-                            );
+                            let serialized_config =
+                                format!("{{\"history_size\":{}}}", grid.history_size());
 
                             File::create("./grid.json")
                                 .and_then(|mut f| f.write_all(serialized_grid.as_bytes()))
@@ -453,7 +446,7 @@ impl<N: Notify> Processor<N> {
             },
             Event::Awakened => {
                 processor.ctx.terminal.dirty = true;
-            }
+            },
         }
     }
 
@@ -462,7 +455,7 @@ impl<N: Notify> Processor<N> {
     pub fn process_events<'a>(
         &mut self,
         term: &'a FairMutex<Term>,
-        window: &mut Window
+        window: &mut Window,
     ) -> MutexGuard<'a, Term> {
         // Terminal is lazily initialized the first time an event is returned
         // from the blocking WaitEventsIterator. Otherwise, the pty reader would

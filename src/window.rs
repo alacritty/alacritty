@@ -15,17 +15,16 @@ use std::convert::From;
 use std::fmt::Display;
 
 use crate::gl;
-#[cfg(windows)]
-use glutin::Icon;
-#[cfg(windows)]
-use image::ImageFormat;
-use glutin::{
-    self, ContextBuilder, ControlFlow, Event, EventsLoop,
-    MouseCursor, WindowBuilder, ContextTrait
-};
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 #[cfg(not(any(target_os = "macos", windows)))]
 use glutin::os::unix::EventsLoopExt;
+#[cfg(windows)]
+use glutin::Icon;
+use glutin::{
+    self, ContextBuilder, ContextTrait, ControlFlow, Event, EventsLoop, MouseCursor, WindowBuilder,
+};
+#[cfg(windows)]
+use image::ImageFormat;
 
 use crate::cli::Options;
 use crate::config::{Decorations, WindowConfig};
@@ -160,12 +159,7 @@ impl Window {
         // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
-        let window = Window {
-            event_loop,
-            window,
-            mouse_visible: true,
-            is_focused: false,
-        };
+        let window = Window { event_loop, window, mouse_visible: true, is_focused: false };
 
         window.run_os_extensions();
 
@@ -177,9 +171,7 @@ impl Window {
     /// Some window properties are provided since subsystems like font
     /// rasterization depend on DPI and scale factor.
     pub fn device_properties(&self) -> DeviceProperties {
-        DeviceProperties {
-            scale_factor: self.window.get_hidpi_factor(),
-        }
+        DeviceProperties { scale_factor: self.window.get_hidpi_factor() }
     }
 
     pub fn inner_size_pixels(&self) -> Option<LogicalSize> {
@@ -204,9 +196,7 @@ impl Window {
 
     #[inline]
     pub fn create_window_proxy(&self) -> Proxy {
-        Proxy {
-            inner: self.event_loop.create_proxy(),
-        }
+        Proxy { inner: self.event_loop.create_proxy() }
     }
 
     #[inline]
@@ -260,7 +250,7 @@ impl Window {
     pub fn get_platform_window(
         title: &str,
         class: &str,
-        window_config: &WindowConfig
+        window_config: &WindowConfig,
     ) -> WindowBuilder {
         use glutin::os::unix::WindowBuilderExt;
 
@@ -285,7 +275,7 @@ impl Window {
     pub fn get_platform_window(
         title: &str,
         _class: &str,
-        window_config: &WindowConfig
+        window_config: &WindowConfig,
     ) -> WindowBuilder {
         let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO).unwrap();
 
@@ -307,7 +297,7 @@ impl Window {
     pub fn get_platform_window(
         title: &str,
         _class: &str,
-        window_config: &WindowConfig
+        window_config: &WindowConfig,
     ) -> WindowBuilder {
         use glutin::os::macos::WindowBuilderExt;
 
@@ -328,19 +318,16 @@ impl Window {
                 .with_titlebar_buttons_hidden(true)
                 .with_titlebar_transparent(true)
                 .with_fullsize_content_view(true),
-            Decorations::None => window
-                .with_titlebar_hidden(true),
+            Decorations::None => window.with_titlebar_hidden(true),
         }
     }
 
-    #[cfg(
-        any(
-            target_os = "linux",
-            target_os = "freebsd",
-            target_os = "dragonfly",
-            target_os = "openbsd"
-        )
-    )]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "openbsd"
+    ))]
     pub fn set_urgent(&self, is_urgent: bool) {
         use glutin::os::unix::WindowExt;
         self.window.set_urgent(is_urgent);
@@ -384,21 +371,20 @@ pub trait OsExtensions {
     fn run_os_extensions(&self) {}
 }
 
-#[cfg(
-    not(
-        any(
-            target_os = "linux",
-            target_os = "freebsd",
-            target_os = "dragonfly",
-            target_os = "openbsd"
-        )
-    )
-)]
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "openbsd"
+)))]
 impl OsExtensions for Window {}
 
-#[cfg(
-    any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")
-)]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "openbsd"
+))]
 impl OsExtensions for Window {
     fn run_os_extensions(&self) {
         use glutin::os::unix::WindowExt;

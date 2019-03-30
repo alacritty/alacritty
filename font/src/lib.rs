@@ -46,8 +46,8 @@ extern crate foreign_types;
 extern crate log;
 
 use std::hash::{Hash, Hasher};
-use std::{fmt, cmp};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{cmp, fmt};
 
 // If target isn't macos or windows, reexport everything from ft
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -113,7 +113,7 @@ impl fmt::Display for Style {
             Style::Specific(ref s) => f.write_str(&s),
             Style::Description { slant, weight } => {
                 write!(f, "slant={:?}, weight={:?}", slant, weight)
-            }
+            },
         }
     }
 }
@@ -123,10 +123,7 @@ impl FontDesc {
     where
         S: Into<String>,
     {
-        FontDesc {
-            name: name.into(),
-            style,
-        }
+        FontDesc { name: name.into(), style }
     }
 }
 
@@ -149,9 +146,7 @@ impl FontKey {
     pub fn next() -> FontKey {
         static TOKEN: AtomicUsize = AtomicUsize::new(0);
 
-        FontKey {
-            token: TOKEN.fetch_add(1, Ordering::SeqCst) as _,
-        }
+        FontKey { token: TOKEN.fetch_add(1, Ordering::SeqCst) as _ }
     }
 }
 
@@ -170,7 +165,8 @@ impl Hash for GlyphKey {
             // - If GlyphKey ever becomes a different size, this will fail to compile
             // - Result is being used for hashing and has no fields (it's a u64)
             ::std::mem::transmute::<GlyphKey, u64>(*self)
-        }.hash(state);
+        }
+        .hash(state);
     }
 }
 
@@ -228,14 +224,7 @@ pub struct RasterizedGlyph {
 
 impl Default for RasterizedGlyph {
     fn default() -> RasterizedGlyph {
-        RasterizedGlyph {
-            c: ' ',
-            width: 0,
-            height: 0,
-            top: 0,
-            left: 0,
-            buf: Vec::new(),
-        }
+        RasterizedGlyph { c: ' ', width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }
     }
 }
 
@@ -288,8 +277,11 @@ pub fn get_box_cursor_glyph(
     let mut buf = Vec::with_capacity((width * height * 3) as usize);
     for y in 0..height {
         for x in 0..width {
-            if y < border_width || y >= height - border_width ||
-               x < border_width || x >= width - border_width {
+            if y < border_width
+                || y >= height - border_width
+                || x < border_width
+                || x >= width - border_width
+            {
                 buf.append(&mut vec![255u8; 3]);
             } else {
                 buf.append(&mut vec![0u8; 3]);
@@ -298,24 +290,14 @@ pub fn get_box_cursor_glyph(
     }
 
     // Create a custom glyph with the rectangle data attached to it
-    Ok(RasterizedGlyph {
-        c: BOX_CURSOR_CHAR,
-        top: ascent,
-        left: 0,
-        height,
-        width,
-        buf,
-    })
+    Ok(RasterizedGlyph { c: BOX_CURSOR_CHAR, top: ascent, left: 0, height, width, buf })
 }
 
 struct BufDebugger<'a>(&'a [u8]);
 
 impl<'a> fmt::Debug for BufDebugger<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("GlyphBuffer")
-            .field("len", &self.0.len())
-            .field("bytes", &self.0)
-            .finish()
+        f.debug_struct("GlyphBuffer").field("len", &self.0.len()).field("bytes", &self.0).finish()
     }
 }
 

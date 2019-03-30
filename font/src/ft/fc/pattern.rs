@@ -11,38 +11,34 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::ptr;
-use std::fmt;
 use std::ffi::{CStr, CString};
-use std::path::PathBuf;
-use std::str;
+use std::fmt;
 use std::mem;
+use std::path::PathBuf;
+use std::ptr;
+use std::str;
 
-use libc::{c_char, c_int, c_double};
 use foreign_types::{ForeignType, ForeignTypeRef};
+use libc::{c_char, c_double, c_int};
 
 use super::ffi::FcResultMatch;
-use super::ffi::{FcPatternDestroy, FcPatternAddCharSet};
-use super::ffi::{FcPatternGetString, FcPatternCreate, FcPatternAddString, FcPatternAddDouble};
-use super::ffi::{FcPatternGetInteger, FcPatternAddInteger, FcPatternPrint};
-use super::ffi::{FcChar8, FcPattern, FcDefaultSubstitute, FcConfigSubstitute};
-use super::ffi::{FcFontRenderPrepare, FcPatternGetBool, FcBool, FcPatternGetDouble};
+use super::ffi::{FcBool, FcFontRenderPrepare, FcPatternGetBool, FcPatternGetDouble};
+use super::ffi::{FcChar8, FcConfigSubstitute, FcDefaultSubstitute, FcPattern};
+use super::ffi::{FcPatternAddCharSet, FcPatternDestroy};
+use super::ffi::{FcPatternAddDouble, FcPatternAddString, FcPatternCreate, FcPatternGetString};
+use super::ffi::{FcPatternAddInteger, FcPatternGetInteger, FcPatternPrint};
 
-use super::{MatchKind, ConfigRef, CharSetRef, Weight, Slant, Width, Rgba, HintStyle, LcdFilter};
+use super::{CharSetRef, ConfigRef, HintStyle, LcdFilter, MatchKind, Rgba, Slant, Weight, Width};
 
 pub struct StringPropertyIter<'a> {
     pattern: &'a PatternRef,
     object: &'a [u8],
-    index: usize
+    index: usize,
 }
 
 impl<'a> StringPropertyIter<'a> {
     fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> StringPropertyIter<'b> {
-        StringPropertyIter {
-            pattern,
-            object,
-            index: 0
-        }
+        StringPropertyIter { pattern, object, index: 0 }
     }
 
     fn get_value(&self, index: usize) -> Option<&'a str> {
@@ -53,7 +49,7 @@ impl<'a> StringPropertyIter<'a> {
                 self.pattern.as_ptr(),
                 self.object.as_ptr() as *mut c_char,
                 index as c_int,
-                &mut value
+                &mut value,
             )
         };
 
@@ -75,17 +71,12 @@ impl<'a> StringPropertyIter<'a> {
 pub struct BooleanPropertyIter<'a> {
     pattern: &'a PatternRef,
     object: &'a [u8],
-    index: usize
+    index: usize,
 }
-
 
 impl<'a> BooleanPropertyIter<'a> {
     fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> BooleanPropertyIter<'b> {
-        BooleanPropertyIter {
-            pattern,
-            object,
-            index: 0
-        }
+        BooleanPropertyIter { pattern, object, index: 0 }
     }
 
     fn get_value(&self, index: usize) -> Option<bool> {
@@ -96,7 +87,7 @@ impl<'a> BooleanPropertyIter<'a> {
                 self.pattern.as_ptr(),
                 self.object.as_ptr() as *mut c_char,
                 index as c_int,
-                &mut value
+                &mut value,
             )
         };
 
@@ -112,16 +103,12 @@ impl<'a> BooleanPropertyIter<'a> {
 pub struct IntPropertyIter<'a> {
     pattern: &'a PatternRef,
     object: &'a [u8],
-    index: usize
+    index: usize,
 }
 
 impl<'a> IntPropertyIter<'a> {
     fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> IntPropertyIter<'b> {
-        IntPropertyIter {
-            pattern,
-            object,
-            index: 0
-        }
+        IntPropertyIter { pattern, object, index: 0 }
     }
 
     fn get_value(&self, index: usize) -> Option<isize> {
@@ -132,7 +119,7 @@ impl<'a> IntPropertyIter<'a> {
                 self.pattern.as_ptr(),
                 self.object.as_ptr() as *mut c_char,
                 index as c_int,
-                &mut value
+                &mut value,
             )
         };
 
@@ -150,9 +137,7 @@ pub struct RgbaPropertyIter<'a> {
 
 impl<'a> RgbaPropertyIter<'a> {
     fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> RgbaPropertyIter<'b> {
-        RgbaPropertyIter {
-            inner: IntPropertyIter::new(pattern, object)
-        }
+        RgbaPropertyIter { inner: IntPropertyIter::new(pattern, object) }
     }
 
     #[inline]
@@ -161,8 +146,7 @@ impl<'a> RgbaPropertyIter<'a> {
     }
 
     fn get_value(&self, index: usize) -> Option<Rgba> {
-        self.inner.get_value(index)
-            .map(Rgba::from)
+        self.inner.get_value(index).map(Rgba::from)
     }
 }
 
@@ -172,9 +156,7 @@ pub struct HintStylePropertyIter<'a> {
 
 impl<'a> HintStylePropertyIter<'a> {
     fn new(pattern: &PatternRef) -> HintStylePropertyIter {
-        HintStylePropertyIter {
-            inner: IntPropertyIter::new(pattern, b"hintstyle\0")
-        }
+        HintStylePropertyIter { inner: IntPropertyIter::new(pattern, b"hintstyle\0") }
     }
 
     #[inline]
@@ -183,16 +165,15 @@ impl<'a> HintStylePropertyIter<'a> {
     }
 
     fn get_value(&self, index: usize) -> Option<HintStyle> {
-        self.inner.get_value(index)
-            .and_then(|hint_style| {
-                Some(match hint_style {
-                    0 => HintStyle::None,
-                    1 => HintStyle::Slight,
-                    2 => HintStyle::Medium,
-                    3 => HintStyle::Full,
-                    _ => return None
-                })
+        self.inner.get_value(index).and_then(|hint_style| {
+            Some(match hint_style {
+                0 => HintStyle::None,
+                1 => HintStyle::Slight,
+                2 => HintStyle::Medium,
+                3 => HintStyle::Full,
+                _ => return None,
             })
+        })
     }
 }
 
@@ -202,9 +183,7 @@ pub struct LcdFilterPropertyIter<'a> {
 
 impl<'a> LcdFilterPropertyIter<'a> {
     fn new(pattern: &PatternRef) -> LcdFilterPropertyIter {
-        LcdFilterPropertyIter {
-            inner: IntPropertyIter::new(pattern, b"lcdfilter\0")
-        }
+        LcdFilterPropertyIter { inner: IntPropertyIter::new(pattern, b"lcdfilter\0") }
     }
 
     #[inline]
@@ -213,16 +192,15 @@ impl<'a> LcdFilterPropertyIter<'a> {
     }
 
     fn get_value(&self, index: usize) -> Option<LcdFilter> {
-        self.inner.get_value(index)
-            .and_then(|hint_style| {
-                Some(match hint_style {
-                    0 => LcdFilter::None,
-                    1 => LcdFilter::Default,
-                    2 => LcdFilter::Light,
-                    3 => LcdFilter::Legacy,
-                    _ => return None
-                })
+        self.inner.get_value(index).and_then(|hint_style| {
+            Some(match hint_style {
+                0 => LcdFilter::None,
+                1 => LcdFilter::Default,
+                2 => LcdFilter::Light,
+                3 => LcdFilter::Legacy,
+                _ => return None,
             })
+        })
     }
 }
 
@@ -230,16 +208,12 @@ impl<'a> LcdFilterPropertyIter<'a> {
 pub struct DoublePropertyIter<'a> {
     pattern: &'a PatternRef,
     object: &'a [u8],
-    index: usize
+    index: usize,
 }
 
 impl<'a> DoublePropertyIter<'a> {
     fn new<'b>(pattern: &'b PatternRef, object: &'b [u8]) -> DoublePropertyIter<'b> {
-        DoublePropertyIter {
-            pattern,
-            object,
-            index: 0
-        }
+        DoublePropertyIter { pattern, object, index: 0 }
     }
 
     fn get_value(&self, index: usize) -> Option<f64> {
@@ -250,7 +224,7 @@ impl<'a> DoublePropertyIter<'a> {
                 self.pattern.as_ptr(),
                 self.object.as_ptr() as *mut c_char,
                 index as c_int,
-                &mut value
+                &mut value,
             )
         };
 
@@ -277,13 +251,13 @@ macro_rules! impl_property_iter_debug {
                                 write!(f, "{}", val)?;
                             }
                         },
-                        _ => break
+                        _ => break,
                     }
                 }
                 write!(f, "]")
             }
         }
-    }
+    };
 }
 
 /// Implement Iterator and Debug for a property iterator
@@ -427,76 +401,6 @@ macro_rules! double_getter {
 }
 
 impl PatternRef {
-    // Prints the pattern to stdout
-    //
-    // FontConfig doesn't expose a way to iterate over all members of a pattern;
-    // instead, we just defer to FcPatternPrint. Otherwise, this could have been
-    // a `fmt::Debug` impl.
-    pub fn print(&self) {
-        unsafe {
-            FcPatternPrint(self.as_ptr())
-        }
-    }
-
-    /// Add a string value to the pattern
-    ///
-    /// If the returned value is `true`, the value is added at the end of
-    /// any existing list, otherwise it is inserted at the beginning.
-    ///
-    /// # Unsafety
-    ///
-    /// `object` is not checked to be a valid null-terminated string
-    unsafe fn add_string(&mut self, object: &[u8], value: &str) -> bool {
-        let value = CString::new(&value[..]).unwrap();
-        let value = value.as_ptr();
-
-        FcPatternAddString(
-            self.as_ptr(),
-            object.as_ptr() as *mut c_char,
-            value as *mut FcChar8
-        ) == 1
-    }
-
-    unsafe fn add_integer(&self, object: &[u8], int: isize) -> bool {
-        FcPatternAddInteger(
-            self.as_ptr(),
-            object.as_ptr() as *mut c_char,
-            int as c_int
-        ) == 1
-    }
-
-    unsafe fn add_double(&self, object: &[u8], value: f64) -> bool {
-        FcPatternAddDouble(
-            self.as_ptr(),
-            object.as_ptr() as *mut c_char,
-            value as c_double
-        ) == 1
-    }
-
-    unsafe fn get_string<'a>(&'a self, object: &'a [u8]) -> StringPropertyIter<'a> {
-        StringPropertyIter::new(self, object)
-    }
-
-    unsafe fn get_integer<'a>(&'a self, object: &'a [u8]) -> IntPropertyIter<'a> {
-        IntPropertyIter::new(self, object)
-    }
-
-    unsafe fn get_double<'a>(&'a self, object: &'a [u8]) -> DoublePropertyIter<'a> {
-        DoublePropertyIter::new(self, object)
-    }
-
-    unsafe fn get_boolean<'a>(&'a self, object: &'a [u8]) -> BooleanPropertyIter<'a> {
-        BooleanPropertyIter::new(self, object)
-    }
-
-    pub fn hintstyle(&self) -> HintStylePropertyIter {
-        HintStylePropertyIter::new(self)
-    }
-
-    pub fn lcdfilter(&self) -> LcdFilterPropertyIter {
-        LcdFilterPropertyIter::new(self)
-    }
-
     boolean_getter! {
         antialias() => b"antialias\0",
         hinting() => b"hinting\0",
@@ -535,36 +439,85 @@ impl PatternRef {
         [postscriptname, add_postscriptname] => b"postscriptname\0"
     }
 
+    pattern_get_integer! {
+        index() => b"index\0"
+    }
+
+    // Prints the pattern to stdout
+    //
+    // FontConfig doesn't expose a way to iterate over all members of a pattern;
+    // instead, we just defer to FcPatternPrint. Otherwise, this could have been
+    // a `fmt::Debug` impl.
+    pub fn print(&self) {
+        unsafe { FcPatternPrint(self.as_ptr()) }
+    }
+
+    /// Add a string value to the pattern
+    ///
+    /// If the returned value is `true`, the value is added at the end of
+    /// any existing list, otherwise it is inserted at the beginning.
+    ///
+    /// # Unsafety
+    ///
+    /// `object` is not checked to be a valid null-terminated string
+    unsafe fn add_string(&mut self, object: &[u8], value: &str) -> bool {
+        let value = CString::new(&value[..]).unwrap();
+        let value = value.as_ptr();
+
+        FcPatternAddString(self.as_ptr(), object.as_ptr() as *mut c_char, value as *mut FcChar8)
+            == 1
+    }
+
+    unsafe fn add_integer(&self, object: &[u8], int: isize) -> bool {
+        FcPatternAddInteger(self.as_ptr(), object.as_ptr() as *mut c_char, int as c_int) == 1
+    }
+
+    unsafe fn add_double(&self, object: &[u8], value: f64) -> bool {
+        FcPatternAddDouble(self.as_ptr(), object.as_ptr() as *mut c_char, value as c_double) == 1
+    }
+
+    unsafe fn get_string<'a>(&'a self, object: &'a [u8]) -> StringPropertyIter<'a> {
+        StringPropertyIter::new(self, object)
+    }
+
+    unsafe fn get_integer<'a>(&'a self, object: &'a [u8]) -> IntPropertyIter<'a> {
+        IntPropertyIter::new(self, object)
+    }
+
+    unsafe fn get_double<'a>(&'a self, object: &'a [u8]) -> DoublePropertyIter<'a> {
+        DoublePropertyIter::new(self, object)
+    }
+
+    unsafe fn get_boolean<'a>(&'a self, object: &'a [u8]) -> BooleanPropertyIter<'a> {
+        BooleanPropertyIter::new(self, object)
+    }
+
+    pub fn hintstyle(&self) -> HintStylePropertyIter {
+        HintStylePropertyIter::new(self)
+    }
+
+    pub fn lcdfilter(&self) -> LcdFilterPropertyIter {
+        LcdFilterPropertyIter::new(self)
+    }
+
     pub fn set_slant(&mut self, slant: Slant) -> bool {
-        unsafe {
-            self.add_integer(b"slant\0", slant as isize)
-        }
+        unsafe { self.add_integer(b"slant\0", slant as isize) }
     }
 
     pub fn add_pixelsize(&mut self, size: f64) -> bool {
-        unsafe {
-            self.add_double(b"pixelsize\0", size)
-        }
+        unsafe { self.add_double(b"pixelsize\0", size) }
     }
 
     pub fn set_weight(&mut self, weight: Weight) -> bool {
-        unsafe {
-            self.add_integer(b"weight\0", weight as isize)
-        }
+        unsafe { self.add_integer(b"weight\0", weight as isize) }
     }
 
     pub fn set_width(&mut self, width: Width) -> bool {
-        unsafe {
-            self.add_integer(b"width\0", width.to_isize())
-        }
+        unsafe { self.add_integer(b"width\0", width.to_isize()) }
     }
 
     pub fn get_width(&self) -> Option<Width> {
-        unsafe {
-            self.get_integer(b"width\0")
-                .nth(0)
-                .map(Width::from)
-        }
+        unsafe { self.get_integer(b"width\0").nth(0).map(Width::from) }
     }
 
     pub fn rgba(&self) -> RgbaPropertyIter {
@@ -572,9 +525,7 @@ impl PatternRef {
     }
 
     pub fn set_rgba(&self, rgba: &Rgba) -> bool {
-        unsafe {
-            self.add_integer(b"rgba\0", rgba.to_isize())
-        }
+        unsafe { self.add_integer(b"rgba\0", rgba.to_isize()) }
     }
 
     pub fn render_prepare(&self, config: &ConfigRef, request: &PatternRef) -> Pattern {
@@ -595,19 +546,13 @@ impl PatternRef {
             FcPatternAddCharSet(
                 self.as_ptr(),
                 b"charset\0".as_ptr() as *mut c_char,
-                charset.as_ptr()
+                charset.as_ptr(),
             ) == 1
         }
     }
 
     pub fn file(&self, index: usize) -> Option<PathBuf> {
-        unsafe {
-            self.get_string(b"file\0").nth(index)
-        }.map(From::from)
-    }
-
-    pattern_get_integer! {
-        index() => b"index\0"
+        unsafe { self.get_string(b"file\0").nth(index) }.map(From::from)
     }
 
     pub fn config_substitute(&mut self, config: &ConfigRef, kind: MatchKind) {
@@ -622,4 +567,3 @@ impl PatternRef {
         }
     }
 }
-
