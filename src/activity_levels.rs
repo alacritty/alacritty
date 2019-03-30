@@ -38,7 +38,7 @@ pub trait TimeSeries {
     /// context, this shouldn't be mut
     fn draw(&self);
     /// `max` returns the max value in the TimeSeries
-    fn max(&self, input: &Vec<Self::MetricType>) -> Self::MetricType 
+    fn max(&self, input: &Vec<Self::MetricType>) -> Self::MetricType
         where Self::MetricType: Num + PartialOrd
     {
         let mut max_activity_value = Self::MetricType::zero();
@@ -49,6 +49,52 @@ pub trait TimeSeries {
             }
         }
         max_activity_value
+    }
+    fn update_opengl_vecs(size: SizeInfo) -> Vec<f32>{
+        unimplemented!("XXX");
+    }
+    fn update(&mut self, &mut metrics: Vec<Self::MetricType>, input: Self::MetricType, epoch: u64) -> u64
+        where Self::MetricType: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded + FromPrimitive
+    {
+        let mut activity_time_length = metrics.len();
+        let mut last_activity_time = now;
+        if activity_time_length == 0 {
+            // The vector is empty, no need to rotate or do anything special
+            metrics.push(input);
+            self.update_opengl_vecs(size);
+            return now
+        }
+        if now == self.last_activity_time {
+            // The Vector is populated and has one active item at least which
+            // we can work on, no need to rotate or do anything special
+            if self.overwrite_last_entry {
+                self.activity_levels[activity_time_length - 1] = new_value;
+            } else {
+                self.activity_levels[activity_time_length - 1] = self.activity_levels[activity_time_length - 1] + new_value;
+            }
+            self.update_activity_opengl_vecs(size);
+            return;
+        }
+        // Every time unit (currently second) is stored as an item in the array
+        // Rotation may be needed due to inactivity or the array being filled
+        self.rotate_activity_levels_vec(now);
+        activity_time_length = self.activity_levels.len();
+        if activity_time_length < self.max_activity_ticks {
+            self.activity_levels.push(new_value);
+        } else {
+            self.activity_levels[activity_time_length - 1] = new_value;
+        }
+        self.last_activity_time = now;
+        self.update_activity_opengl_vecs(size);
+ 
+    }
+    fn update_now(&mut self, metrics: Vec<Self::MetricType>, input: Self::MetricType) -> u64
+    {
+        let now = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        self.update(input, metrics, now)
     }
     // `init_opengl_context` provides a default initialization of OpengL
     // context. This function is called previous to sending the vector data.
@@ -192,7 +238,7 @@ where T: Num + Clone + Copy
         self.overwrite_last_entry = value;
         self
     }
-    
+     
     /// `with_marker_line` initializes the marker line into a Some
     pub fn with_marker_line(mut self, value: T) -> ActivityLevels<T> {
         self.marker_line = Some(value);
@@ -490,9 +536,42 @@ struct LoadAvg {
 impl Default for LoadAvg{
     fn default() -> LoadAvg {
         LoadAvg{
-            load_avg_1_min: ActivityLevels::default(),
-            load_avg_5_min: ActivityLevels::default(),
-            load_avg_10_min: ActivityLevels::default(),
+            load_avg_1_min: ActivityLevels::default()
+                .with_color(Rgb{r:93,g:23,b:106})
+                .with_width(50f32)
+                .with_alpha(0.9)
+                .with_missing_values_policy("last".to_string())
+                .with_marker_line(1f32)
+                .with_overwrite_last_entry(true)
+                .with_x_offset(1010f32),
+            load_avg_5_min: ActivityLevels::default()
+                .with_color(Rgb{r:146,g:75,b:158})
+                .with_width(30f32)
+                .with_alpha(0.6)
+                .with_missing_values_policy("last".to_string())
+                .with_marker_line(1f32)
+                .with_overwrite_last_entry(true)
+                .with_x_offset(1070f32),
+            load_avg_10_min: ActivityLevels::default()
+                .with_color(Rgb{r:202,g:127,b:213})
+                .with_width(20f32)
+                .with_alpha(0.3)
+                .with_missing_values_policy("last".to_string())
+                .with_marker_line(1f32) // Set a reference point at load 1
+                .with_overwrite_last_entry(true)
+                .with_x_offset(1110f32),
+            //tasks_runnable: ActivityLevels::default()
+            //    .with_color(Rgb{r:0,g:172,b:193})
+            //    .with_width(50f32)
+            //    .with_missing_values_policy("last".to_string())
+            //    .with_overwrite_last_entry(true)
+            //    .with_x_offset(1140f32),
+            //tasks_total: ActivityLevels::default()
+            //    .with_color(Rgb{r:27,g:160,b:71})
+            //    .with_width(50f32)
+            //    .with_missing_values_policy("last".to_string())
+            //    .with_overwrite_last_entry(true)
+            //    .with_x_offset(1190f32),
             missing_values_policy: MissingValuesPolicy::Last,
             marker_line: Some(1f32),
             marker_line_vecs: vec![0f32; 16],
@@ -529,30 +608,35 @@ mod tests {
     use super::*;
     #[test]
     fn it_adds_rotates() {
-        let mut test = ActivityLevels {
-            activity_levels: vec![],
-            last_activity_time: 0,
-            max_activity_ticks: 5,
+        let mut test = ActivityLevels::default();
+        let size = SizeInfo{
+            width: 100f32,
+            height: 100f32,
+            cell_width: 1f32,
+            cell_height: 1f32,
+            padding_x: 0f32,
+            padding_y: 0f32,
+            dpr: 1f64
         };
-        test.increment_activity_level(0);
+        test.update_activity_level(size, 0);
         assert_eq!(test.activity_levels, vec![1]);
-        test.increment_activity_level(0);
+        test.update_activity_level(size, 0);
         assert_eq!(test.activity_levels, vec![2]);
-        test.increment_activity_level(2);
+        test.update_activity_level(size, 2);
         assert_eq!(test.activity_levels, vec![2, 0 , 1]);
-        test.increment_activity_level(2);
+        test.update_activity_level(size, 2);
         assert_eq!(test.activity_levels, vec![2, 0 , 2]);
-        test.increment_activity_level(2);
+        test.update_activity_level(size, 2);
         assert_eq!(test.activity_levels, vec![2, 0 , 3]);
-        test.increment_activity_level(4);
+        test.update_activity_level(size, 4);
         assert_eq!(test.activity_levels, vec![2, 0 , 3, 0, 1]);
-        test.increment_activity_level(5);
+        test.update_activity_level(size, 5);
         assert_eq!(test.activity_levels, vec![0 , 3, 0, 1, 1]);
-        test.increment_activity_level(5);
+        test.update_activity_level(size, 5);
         assert_eq!(test.activity_levels, vec![0 , 3, 0, 1, 2]);
-        test.increment_activity_level(7);
+        test.update_activity_level(size, 7);
         assert_eq!(test.activity_levels, vec![0, 1, 2, 0 , 3]);
-        test.increment_activity_level(15);
+        test.update_activity_level(size, 15);
         assert_eq!(test.activity_levels, vec![0, 0, 0, 0 , 1]);
     }
 }
