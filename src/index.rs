@@ -19,8 +19,6 @@ use std::cmp::{Ord, Ordering};
 use std::fmt;
 use std::ops::{self, Deref, Range, RangeInclusive, Add, Sub, AddAssign, SubAssign};
 
-use crate::grid::BidirectionalIterator;
-
 /// The side of a cell
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Side {
@@ -72,67 +70,6 @@ impl From<Point> for Point<usize> {
     }
 }
 
-impl<T> Point<T>
-where
-    T: Copy + Default + SubAssign<usize> + PartialEq,
-{
-    pub fn iter(&self, last_col: Column, last_line: T) -> PointIterator<T> {
-        PointIterator {
-            cur: *self,
-            last_col,
-            last_line,
-        }
-    }
-}
-
-pub struct PointIterator<T> {
-    pub cur: Point<T>,
-    last_col: Column,
-    last_line: T,
-}
-
-impl<T> Iterator for PointIterator<T>
-where
-    T: Copy + Default + SubAssign<usize> + PartialEq,
-{
-    type Item = Point<T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.cur {
-            Point { line, col } if line == Default::default() && col == self.last_col => None,
-            Point { col, .. } if col == self.last_col => {
-                self.cur.line -= 1;
-                self.cur.col = Column(0);
-                Some(self.cur)
-            },
-            _ => {
-                self.cur.col += Column(1);
-                Some(self.cur)
-            }
-        }
-    }
-}
-
-impl<T> BidirectionalIterator for PointIterator<T>
-where
-    T: Copy + Default + AddAssign<usize> + SubAssign<usize> + PartialEq,
-{
-    fn prev(&mut self) -> Option<Self::Item> {
-        match self.cur {
-            Point { line, col: Column(0) } if line == self.last_line => None,
-            Point { col: Column(0), .. } => {
-                self.cur.line += 1;
-                self.cur.col = self.last_col;
-                Some(self.cur)
-            },
-            _ => {
-                self.cur.col -= Column(1);
-                Some(self.cur)
-            }
-        }
-    }
-}
-
 /// A line
 ///
 /// Newtype to avoid passing values incorrectly
@@ -162,6 +99,16 @@ impl fmt::Display for Column {
 /// Newtype to avoid passing values incorrectly
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Linear(pub usize);
+
+impl Linear {
+    pub fn new(columns: Column, column: Column, line: Line) -> Self {
+        Linear(line.0 * columns.0 + column.0)
+    }
+
+    pub fn from_point(columns: Column, point: Point<usize>) -> Self {
+        Linear(point.line * columns.0 + point.col.0)
+    }
+}
 
 impl fmt::Display for Linear {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

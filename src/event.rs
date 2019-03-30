@@ -432,6 +432,7 @@ impl<N: Notify> Processor<N> {
                             processor.ctx.terminal.dirty = true;
                             processor.ctx.terminal.next_is_urgent = Some(false);
                         } else {
+                            processor.ctx.terminal.reset_url_highlight();
                             processor.ctx.terminal.dirty = true;
                             *hide_mouse = false;
                         }

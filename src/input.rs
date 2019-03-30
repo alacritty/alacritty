@@ -21,9 +21,10 @@
 use std::borrow::Cow;
 use std::mem;
 use std::time::Instant;
-use std::iter::once;
+use std::ops::RangeInclusive;
 
 use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
+use unicode_width::UnicodeWidthStr;
 use glutin::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseCursor, MouseScrollDelta,
     TouchPhase,
@@ -32,10 +33,9 @@ use glutin::{
 use crate::config::{self, Key};
 use crate::grid::Scroll;
 use crate::event::{ClickState, Mouse};
-use crate::index::{Line, Column, Side, Point};
-use crate::term::{Term, SizeInfo, Search, UrlHoverSaveState};
+use crate::index::{Line, Column, Side, Point, Linear};
+use crate::term::{Term, SizeInfo, Search};
 use crate::term::mode::TermMode;
-use crate::term::cell::Flags;
 use crate::util::fmt::Red;
 use crate::util::start_daemon;
 use crate::message_bar::{self, Message};
@@ -448,45 +448,30 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             None
         };
 
-        if let Some(Url { origin, len, .. }) = url {
-            let mouse_cursor = if self.ctx.terminal().mode().intersects(mouse_mode) {
-                MouseCursor::Default
-            } else {
-                MouseCursor::Text
-            };
-
+        if let Some(Url { origin, text }) = url {
             let cols = self.ctx.size_info().cols().0;
-            let last_line = self.ctx.size_info().lines().0 - 1;
 
             // Calculate the URL's start position
-            let col = (cols + point.col.0 - origin % cols) % cols;
-            let line = last_line - point.line.0 + (origin + cols - point.col.0 - 1) / cols;
-            let start = Point::new(line, Column(col));
+            let lines_before = (origin + cols - point.col.0 - 1) / cols;
+            let (start_col, start_line) = if lines_before > point.line.0 {
+                (0, 0)
+            } else {
+                let start_col = (cols + point.col.0 - origin % cols) % cols;
+                let start_line = point.line.0 - lines_before;
+                (start_col, start_line)
+            };
+            let start = Point::new(start_line, Column(start_col));
 
-            // Update URLs only on change, so they don't all get marked as underlined
-            if self.ctx.terminal().url_highlight_start() == Some(start) {
-                return;
-            }
+            // Calculate the URL's end position
+            let len = text.width();
+            let end_col = (point.col.0 + len - origin) % cols - 1;
+            let end_line = point.line.0 + (point.col.0 + len - origin) / cols;
+            let end = Point::new(end_line, Column(end_col));
 
-            // Since the URL changed without reset, we need to clear the previous underline
-            self.ctx.terminal_mut().reset_url_highlight();
+            let start = Linear::from_point(Column(cols), start);
+            let end = Linear::from_point(Column(cols), end);
 
-            // Underline all cells and store their current underline state
-            let mut underlined = Vec::with_capacity(len);
-            let iter = once(start).chain(start.iter(Column(cols - 1), last_line));
-            for point in iter.take(len) {
-                let cell = &mut self.ctx.terminal_mut().grid_mut()[point.line][point.col];
-                underlined.push(cell.flags.contains(Flags::UNDERLINE));
-                cell.flags.insert(Flags::UNDERLINE);
-            }
-
-            // Save the higlight state for restoring it again
-            self.ctx.terminal_mut().set_url_highlight(UrlHoverSaveState {
-                mouse_cursor,
-                underlined,
-                start,
-            });
-
+            self.ctx.terminal_mut().set_url_highlight(RangeInclusive::new(start, end));
             self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
             self.ctx.terminal_mut().dirty = true;
         } else {
