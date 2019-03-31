@@ -1,5 +1,5 @@
 <p align="center">
-    <img width="200" alt="Alacritty Logo" src="extra/logo/alacritty.svg">
+    <img width="200" alt="Alacritty Logo" src="extra/logo/alacritty-term+scanlines.svg">
 </p>
 <h1 align="center">Alacritty</h1>
 
