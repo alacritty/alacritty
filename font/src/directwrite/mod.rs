@@ -45,10 +45,11 @@ impl crate::Rasterize for DirectWriteRasterizer {
         let strikeout_position = f32::from(vmetrics.strikethroughPosition) * scale;
         let strikeout_thickness = f32::from(vmetrics.strikethroughThickness) * scale;
 
-        let line_height = f64::from(
-            i32::from(vmetrics.ascent) + i32::from(vmetrics.descent) + i32::from(vmetrics.lineGap),
-        ) * f64::from(scale);
+        let ascent = f32::from(vmetrics.ascent) * scale;
         let descent = -f32::from(vmetrics.descent) * scale;
+        let line_gap = f32::from(vmetrics.lineGap) * scale;
+
+        let line_height = f64::from(ascent - descent + line_gap);
 
         // Similarly to rusttype we assume that all monospace characters have the same width
         // Because of this we take 33, '!', the first drawable character for measurements
@@ -71,13 +72,10 @@ impl crate::Rasterize for DirectWriteRasterizer {
     fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Error> {
         let system_fc = FontCollection::system();
 
-        let weight = match desc.style {
-            Style::Description { weight, .. } => match weight {
-                Weight::Normal => FontWeight::Regular,
-                Weight::Bold => FontWeight::Bold,
-            },
-
-            _ => FontWeight::Regular,
+        let weight = if let Style::Description { weight: Weight::Bold, .. } = desc.style {
+            FontWeight::Bold
+        } else {
+            FontWeight::Regular
         };
 
         let style = match desc.style {
@@ -86,7 +84,6 @@ impl crate::Rasterize for DirectWriteRasterizer {
                 Slant::Oblique => FontStyle::Oblique,
                 Slant::Italic => FontStyle::Italic,
             },
-
             _ => FontStyle::Normal,
         };
 
