@@ -35,7 +35,7 @@ use crate::message_bar::MessageBuffer;
 use crate::term::color::Rgb;
 use crate::term::cell::{LineLength, Cell};
 use crate::tty;
-use crate::activity_levels::ActivityLevels;
+use crate::activity_levels::{ActivityLevels, LoadAvg};
 
 pub mod cell;
 pub mod color;
@@ -810,6 +810,8 @@ pub struct Term {
     /// XXX: Is this everything drawn in the screen including colors/etc?
     output_activity_levels: ActivityLevels<u64>,
 
+    /// The Load Average TimeSeries
+    load_avg: LoadAvg,
 }
 
 /// Terminal size info
@@ -945,42 +947,7 @@ impl Term {
             output_activity_levels: ActivityLevels::default()
                 .with_color(Rgb{r:0,g:255,b:0})
                 .with_x_offset(800f32),
-            load_avg_1_min: ActivityLevels::default()
-                .with_color(Rgb{r:93,g:23,b:106})
-                .with_width(50f32)
-                .with_alpha(0.9)
-                .with_missing_values_policy("last".to_string())
-                .with_marker_line(1f32)
-                .with_overwrite_last_entry(true)
-                .with_x_offset(1010f32),
-            load_avg_5_min: ActivityLevels::default()
-                .with_color(Rgb{r:146,g:75,b:158})
-                .with_width(30f32)
-                .with_alpha(0.6)
-                .with_missing_values_policy("last".to_string())
-                .with_marker_line(1f32)
-                .with_overwrite_last_entry(true)
-                .with_x_offset(1070f32),
-            load_avg_10_min: ActivityLevels::default()
-                .with_color(Rgb{r:202,g:127,b:213})
-                .with_width(20f32)
-                .with_alpha(0.3)
-                .with_missing_values_policy("last".to_string())
-                .with_marker_line(1f32) // Set a reference point at load 1
-                .with_overwrite_last_entry(true)
-                .with_x_offset(1110f32),
-            tasks_runnable: ActivityLevels::default()
-                .with_color(Rgb{r:0,g:172,b:193})
-                .with_width(50f32)
-                .with_missing_values_policy("last".to_string())
-                .with_overwrite_last_entry(true)
-                .with_x_offset(1140f32),
-            tasks_total: ActivityLevels::default()
-                .with_color(Rgb{r:27,g:160,b:71})
-                .with_width(50f32)
-                .with_missing_values_policy("last".to_string())
-                .with_overwrite_last_entry(true)
-                .with_x_offset(1190f32),
+            load_avg: LoadAvg::default()
         }
     }
 
