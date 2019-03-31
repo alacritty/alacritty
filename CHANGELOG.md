@@ -6,10 +6,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- Command keybindings on Windows will no longer open new cmd.exe console windows
-
 ### Added
 
 - MSI installer for Windows is now available
@@ -24,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Clicking on non-alphabetical characters in front of URLs will no longer open them
+- Command keybindings on Windows will no longer open new cmd.exe console windows
 
 ### Fixed
 
