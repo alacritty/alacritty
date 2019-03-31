@@ -1,9 +1,7 @@
 <p align="center">
-    <img width="250" alt="Alacritty Logo" src="extra/logo/alacritty.svg">
+    <img width="200" alt="Alacritty Logo" src="extra/logo/alacritty.svg">
 </p>
-
-Alacritty
-=========
+<h1 align="center">Alacritty</h1>
 
 [![Travis build Status](https://travis-ci.org/jwilm/alacritty.svg?branch=master)](https://travis-ci.org/jwilm/alacritty)
 
