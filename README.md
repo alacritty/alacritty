@@ -1,3 +1,7 @@
+<p align="center">
+    <img width="250" alt="Alacritty Logo" src="extra/logo/alacritty.svg">
+</p>
+
 Alacritty
 =========
 
