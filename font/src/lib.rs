@@ -382,10 +382,10 @@ pub trait HbFtExt {
 #[cfg(feature = "hb-ft")]
 #[derive(Debug)]
 pub struct HbGlyph {
-    pub x_advance: harfbuzz::sys::hb_position_t,
-    pub y_advance: harfbuzz::sys::hb_position_t,
-    pub x_offset: harfbuzz::sys::hb_position_t,
-    pub y_offset: harfbuzz::sys::hb_position_t,
+    pub x_advance: f32,
+    pub y_advance: f32,
+    pub x_offset: f32,
+    pub y_offset: f32,
     pub glyph: GlyphKey,
     // Probably will never be used
     pub cluster: u32,

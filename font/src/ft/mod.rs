@@ -202,10 +202,11 @@ impl ::HbFtExt for FreeTypeRasterizer {
             // Combine into HbGlyph's
             let hb_glyphs = ginfo.into_iter().zip(gpos.into_iter()).map(|(gi, gp)| {
                 HbGlyph {
-                    x_advance: gp.x_advance,
-                    y_advance: gp.y_advance,
-                    x_offset: gp.x_offset,
-                    y_offset: gp.y_offset,
+                    /* ugh -_- you have to divide by 64?? */
+                    x_advance: (gp.x_advance as f32) / 64.,
+                    y_advance: (gp.y_advance as f32) / 64.,
+                    x_offset: (gp.x_offset as f32) / 64.,
+                    y_offset: (gp.y_offset as f32) / 64.,
                     glyph: GlyphKey {
                         c: ::std::char::from_u32(gi.codepoint).expect("HB u32 is not a char!"),
                         font_key,
@@ -359,14 +360,27 @@ impl FreeTypeRasterizer {
             // Construct harfbuzz font
             #[cfg(feature = "hb-ft")]
             let hb_font = {
-                let _hb_font = unsafe {
-                    harfbuzz::sys::hb_ft_font_create_referenced(ft_face.raw_mut() as *mut freetype::freetype_sys::FT_FaceRec as *mut _)
+                let mut buf = Vec::new();
+                use std::io::Read;
+                let mut f = ::std::fs::File::open(&path).unwrap();
+                f.read_to_end(&mut buf).unwrap();
+                let blob = harfbuzz::Blob::new_read_only(&buf);
+                let _hb_face = unsafe {
+                    harfbuzz::sys::hb_face_create(blob.as_raw(), index as u32)
                 };
-                if _hb_font.is_null() {
-                    None
+                if !_hb_face.is_null() {
+                    let _hb_font = unsafe {
+                        harfbuzz::sys::hb_font_create(_hb_face)
+                    };
+                    if !_hb_font.is_null() {
+                        unsafe { harfbuzz::sys::hb_ot_font_set_funcs(_hb_font); }
+                        println!("Could create harfbuzz font");
+                        Some(_hb_font)
+                    } else {
+                        None
+                    }
                 } else {
-                    println!("Could create harfbuzz font");
-                    Some(_hb_font)
+                    None
                 }
             };
 
