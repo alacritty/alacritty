@@ -72,28 +72,47 @@ impl crate::Rasterize for DirectWriteRasterizer {
     fn load_font(&mut self, desc: &FontDesc, _size: Size) -> Result<FontKey, Error> {
         let system_fc = FontCollection::system();
 
-        let weight = if let Style::Description { weight: Weight::Bold, .. } = desc.style {
-            FontWeight::Bold
-        } else {
-            FontWeight::Regular
-        };
-
-        let style = match desc.style {
-            Style::Description { slant, .. } => match slant {
-                Slant::Normal => FontStyle::Normal,
-                Slant::Oblique => FontStyle::Oblique,
-                Slant::Italic => FontStyle::Italic,
-            },
-            _ => FontStyle::Normal,
-        };
-
         let family = system_fc
             .get_font_family_by_name(&desc.name)
             .ok_or_else(|| Error::MissingFont(desc.clone()))?;
 
-        // This searches for the "best" font - should mean we don't have to worry about fallbacks
-        // if our exact desired weight/style isn't available
-        let font = family.get_first_matching_font(weight, FontStretch::Normal, style);
+        let font = match desc.style {
+            Style::Description { weight, slant } => {
+                let weight = if weight == Weight::Bold {
+                    FontWeight::Bold
+                } else {
+                    FontWeight::Regular
+                };
+
+                let style = match slant {
+                    Slant::Normal => FontStyle::Normal,
+                    Slant::Oblique => FontStyle::Oblique,
+                    Slant::Italic => FontStyle::Italic,
+                };
+
+                // This searches for the "best" font - should mean we don't have to worry about fallbacks
+                // if our exact desired weight/style isn't available
+                Ok(family.get_first_matching_font(weight, FontStretch::Normal, style))
+            },
+            Style::Specific(ref style) => {
+                let mut idx = 0;
+                let count = family.get_font_count();
+
+                loop {
+                    if idx == count {
+                        break Err(Error::MissingFont(desc.clone()));
+                    }
+
+                    let font = family.get_font(idx);
+
+                    if font.face_name() == *style {
+                        break Ok(font);
+                    }
+
+                    idx += 1;
+                }
+            }
+        }?;
 
         let face = font.create_font_face();
         self.fonts.push(face);
