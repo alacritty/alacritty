@@ -194,7 +194,7 @@ system menus. To install the desktop entry for Alacritty, run
 
 ```sh
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
-sudo desktop-file-install extra/alacritty.desktop
+sudo desktop-file-install extra/linux/alacritty.desktop
 sudo update-desktop-database
 ```
 

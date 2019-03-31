@@ -62,9 +62,8 @@ elif [ "$TRAVIS_OS_NAME" == "windows" ]; then
         "./target/release/winpty-agent.exe"
 
     # Create msi installer
-    ./WiX.*/tools/candle.exe -nologo -arch "x64" -ext WixUIExtension -ext WixUtilExtension -out "wix/alacritty.wixobj" "wix/alacritty.wxs"
-    ./WiX.*/tools/light.exe -nologo -ext WixUIExtension -ext WixUtilExtension -out "wix/alacritty.msi" -sice:ICE61 -sice:ICE91 "wix/alacritty.wixobj"
-    mv "./wix/alacritty.msi" "./target/deploy/${name}-windows-installer.msi"
+    ./WiX.*/tools/candle.exe -nologo -arch "x64" -ext WixUIExtension -ext WixUtilExtension -out "target/alacritty.wixobj" "extra/windows/wix/alacritty.wxs"
+    ./WiX.*/tools/light.exe -nologo -ext WixUIExtension -ext WixUtilExtension -out "target/deploy/${name}-windows-installer.msi" -sice:ICE61 -sice:ICE91 "target/alacritty.wixobj"
 fi
 
 # Convert and add manpage if it changed
