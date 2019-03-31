@@ -615,14 +615,12 @@ impl Display {
                             }, glyph_cache.font_size))
                     }).collect()
                 }).collect();
-                /*
                 for row in &text_run_rows {
                     for (rc, run) in row {
-                        //println!("RC: {:?}", rc);
-                        //println!("Run: {:?}", run);
+                        info!("RC: {:?}", rc);
+                        info!("Run: {:?}", run);
                     }
                 }
-                */
                 // Helper that rounds first arg to be a multiple of second arg.
                 #[inline]
                 fn u_round_to(a: f32, b: f32) -> usize {
@@ -632,7 +630,13 @@ impl Display {
                 }
                 self.renderer.with_api(config, &size_info, |mut api| {
                     for row in text_run_rows.into_iter() {
+                        let mut used_rcs = Vec::new();
                         for (mut rc, glyphs) in row.into_iter() {
+                            // Make sure we are not rerendering the same thing twice.
+                            if used_rcs.contains(&rc) {
+                                continue;
+                            }
+                            used_rcs.push(rc.clone());
                             // XXX: what does this do? (for text runs)
                             rects.update_lines(&size_info, &rc);
                             // Render each glyph, advancing based on the information provided.
@@ -647,7 +651,7 @@ impl Display {
                                     match g.glyph.c {
                                         _ => {
                                             api.add_render_item(&rc, &glyph);
-                                            rc.column = crate::index::Column(u_round_to(rc.column.0 as f32 * size_info.cell_width + glyph.width, size_info.cell_width as f32) + 1);
+                                            rc.column = crate::index::Column(u_round_to(rc.column.0 as f32 * size_info.cell_width + g.x_advance, size_info.cell_width as f32) + 1);
                                         },
                                     }
                                     //println!("Glyph width: {}", glyph.width);
