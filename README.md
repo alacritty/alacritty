@@ -1,7 +1,7 @@
+<h1 align="center">Alacritty</h1>
 <p align="center">
     <img width="200" alt="Alacritty Logo" src="extra/logo/alacritty-term+scanlines.svg">
 </p>
-<h1 align="center">Alacritty</h1>
 
 Alacritty is the fastest terminal emulator in existence. Using the GPU for
 rendering enables optimizations that simply aren't possible without it.
