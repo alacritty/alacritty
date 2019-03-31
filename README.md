@@ -3,8 +3,6 @@
 </p>
 <h1 align="center">Alacritty</h1>
 
-[![Travis build Status](https://travis-ci.org/jwilm/alacritty.svg?branch=master)](https://travis-ci.org/jwilm/alacritty)
-
 Alacritty is the fastest terminal emulator in existence. Using the GPU for
 rendering enables optimizations that simply aren't possible without it.
 Alacritty currently supports macOS, Linux, BSD, and Windows.
