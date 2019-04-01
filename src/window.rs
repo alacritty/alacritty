@@ -30,7 +30,7 @@ use crate::cli::Options;
 use crate::config::{Decorations, WindowConfig};
 
 #[cfg(windows)]
-static WINDOW_ICON: &'static [u8] = include_bytes!("../assets/windows/alacritty.ico");
+static WINDOW_ICON: &'static [u8] = include_bytes!("../extra/windows/alacritty.ico");
 
 /// Default Alacritty name, used for window title and class.
 pub const DEFAULT_NAME: &str = "Alacritty";

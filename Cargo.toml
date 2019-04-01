@@ -105,13 +105,13 @@ section = "rust"
 priority = "optional"
 assets = [
     ["target/release/alacritty", "usr/bin/", "755"],
-    ["alacritty.desktop", "usr/share/applications/", "644"],
-    ["alacritty-completions.bash", "usr/share/bash-completion/completions/alacritty", "644"],
-    ["alacritty-completions.fish", "usr/share/fish/completions/alacritty.fish", "644"],
-    ["alacritty-completions.zsh", "usr/share/zsh/vendor-completions/_alacritty", "644"],
-    ["alacritty.info", "usr/share/terminfo/a/alacritty", "644"],
+    ["extra/linux/alacritty.desktop", "usr/share/applications/", "644"],
+    ["extra/completions/alacritty.bash", "usr/share/bash-completion/completions/alacritty", "644"],
+    ["extra/completions/alacritty.fish", "usr/share/fish/completions/alacritty.fish", "644"],
+    ["extra/completions/_alacritty", "usr/share/zsh/vendor-completions/_alacritty", "644"],
+    ["extra/alacritty.info", "usr/share/terminfo/a/alacritty", "644"],
 ]
-maintainer-scripts = "debian"
+maintainer-scripts = "extra/linux/debian"
 
 [patch.crates-io]
 servo-freetype-sys = { path = "servo-freetype-proxy" }
