@@ -14,7 +14,6 @@
 
 use std::ffi::OsStr;
 use std::process::Command;
-use std::process::Stdio;
 use std::{cmp, io};
 
 #[cfg(not(windows))]
@@ -22,6 +21,8 @@ use std::os::unix::process::CommandExt;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+#[cfg(windows)]
+use std::process::Stdio;
 #[cfg(windows)]
 use winapi::um::winbase::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
 
@@ -90,13 +91,9 @@ where
 {
     Command::new(program)
         .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
         .before_exec(|| unsafe {
-            if ::libc::fork() != 0 {
-                std::process::exit(0);
-            }
+            #[allow(deprecated)]
+            libc::daemon(1, 0);
             Ok(())
         })
         .spawn()?
