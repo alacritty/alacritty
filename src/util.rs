@@ -22,9 +22,9 @@ use std::os::unix::process::CommandExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 #[cfg(windows)]
-use winapi::um::winbase::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
-#[cfg(windows)]
 use std::process::Stdio;
+#[cfg(windows)]
+use winapi::um::winbase::{CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
 
 /// Threading utilities
 pub mod thread {
