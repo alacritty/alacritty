@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # All files which should be added only if they changed
-aux_files=("alacritty-completions.bash"
-           "alacritty-completions.fish"
-           "alacritty-completions.zsh"
-           "alacritty.desktop"
-           "alacritty.info"
+aux_files=("extra/completions/alacritty.bash"
+           "extra/completions/alacritty.fish"
+           "extra/completions/_alacritty"
+           "extra/linux/alacritty.desktop"
+           "extra/alacritty.info"
            "alacritty.yml")
 
 # Get previous tag to check for changes
@@ -63,17 +63,16 @@ elif [ "$TRAVIS_OS_NAME" == "windows" ]; then
 
     # Create msi installer
     ./WiX.*/tools/candle.exe -nologo -arch "x64" -ext WixUIExtension -ext WixUtilExtension -out "target/alacritty.wixobj" "extra/windows/wix/alacritty.wxs"
-    ./WiX.*/tools/light.exe -nologo -ext WixUIExtension -ext WixUtilExtension -out "target/deploy/${name}-windows-installer.msi" -sice:ICE61 -sice:ICE91 "target/alacritty.wixobj"
+    ./WiX.*/tools/light.exe -nologo -ext WixUIExtension -ext WixUtilExtension -out "target/installer.msi" -sice:ICE61 -sice:ICE91 "target/alacritty.wixobj"
+    mv "target/installer.msi" "target/deploy/${name}-windows-installer.msi"
 fi
 
 # Convert and add manpage if it changed
-if [ -n "$(git diff $prev_tag HEAD alacritty.man)" ]; then
-    gzip -c "./alacritty.man" > "./target/deploy/alacritty.1.gz"
+if [ -n "$(git diff $prev_tag HEAD extra/alacritty.man)" ]; then
+    gzip -c "./extra/alacritty.man" > "./target/deploy/alacritty.1.gz"
 fi
 
-# Offer extra files if they changed
+# Offer various other files
 for file in "${aux_files[@]}"; do
-    if [ -n "$(git diff $prev_tag HEAD $file)" ]; then
-        cp $file "./target/deploy/"
-    fi
+    cp $file "./target/deploy/"
 done

@@ -5,8 +5,8 @@
     <Product Name="Alacritty" Id="*" UpgradeCode="87c21c74-dbd5-4584-89d5-46d9cd0c40a7" Language="1033" Codepage="1252" Version="0.2.9" Manufacturer="Alacritty">
         <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine"/>
         <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
-        <Icon Id="AlacrittyIco" SourceFile="..\alacritty.ico"/>
-        <WixVariable Id="WixUILicenseRtf" Value="license.rtf"/>
+        <Icon Id="AlacrittyIco" SourceFile="..\extra\windows\alacritty.ico"/>
+        <WixVariable Id="WixUILicenseRtf" Value="..\extra\windows\wix\license.rtf"/>
         <Property Id="ARPPRODUCTICON" Value="AlacrittyIco"/>
         <MediaTemplate EmbedCab="yes"/>
         <UIRef Id="WixUI_Minimal"/>
