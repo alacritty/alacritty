@@ -27,7 +27,6 @@ impl crate::Rasterize for RustTypeRasterizer {
                 // 33 '!' is the first displaying character
                 Codepoint(33),
             )
-            .ok_or(Error::MissingGlyph)?
             .scaled(scale)
             .h_metrics();
 
@@ -78,8 +77,8 @@ impl crate::Rasterize for RustTypeRasterizer {
             FontCollection::from_bytes(
                 system_fonts::get(&fp.build()).ok_or_else(|| Error::MissingFont(desc.clone()))?.0,
             )
-            .into_font()
-            .ok_or(Error::UnsupportedFont)?,
+            .and_then(|fc| fc.into_font())
+            .map_err(|_| Error::UnsupportedFont)?,
         );
         Ok(FontKey { token: (self.fonts.len() - 1) as u16 })
     }
@@ -116,7 +115,6 @@ impl crate::Rasterize for RustTypeRasterizer {
 
         let scaled_glyph = self.fonts[glyph_key.font_key.token as usize]
             .glyph(glyph_key.c)
-            .ok_or(Error::MissingGlyph)?
             .scaled(Scale::uniform(glyph_key.size.as_f32_pts() * self.dpi_ratio * 96. / 72.));
 
         let glyph = scaled_glyph.positioned(point(0.0, 0.0));
