@@ -81,7 +81,7 @@ nightly = []
 bench = []
 
 [build-dependencies]
-gl_generator = "0.10.0"
+gl_generator = "0.11.0"
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "1.1.4"
