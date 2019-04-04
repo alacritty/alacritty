@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Packaging
+
+- Alacritty desktop file was changed. Now it's uses ```Alacritty``` as icon name, so make sure you provide the necessary icon in your package. All icons can be found in ```extra/logo```.
+
 ### Added
 
 - MSI installer for Windows is now available
