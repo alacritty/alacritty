@@ -62,8 +62,8 @@ x11-dl = "2"
 winpty = { path = "./winpty" }
 mio-named-pipes = "0.1"
 miow = "0.3"
-winapi = { version = "0.3.5", features = ["impl-default", "winuser", "synchapi", "roerrorapi", "winerror", "wincon"]}
 dunce = "1.0"
+winapi = { version = "0.3.7", features = ["impl-default", "winuser", "synchapi", "roerrorapi", "winerror", "wincon", "wincontypes"]}
 dirs = "1.0"
 widestring = "0.4"
 mio-anonymous-pipes = "0.1"

@@ -24,7 +24,6 @@ use dunce::canonicalize;
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
 use miow;
 use widestring::U16CString;
-use winapi::ctypes::c_void;
 use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
 use winapi::shared::minwindef::{BYTE, DWORD};
 use winapi::shared::ntdef::{HANDLE, HRESULT, LPWSTR};
@@ -35,16 +34,12 @@ use winapi::um::processthreadsapi::{
     PROCESS_INFORMATION, STARTUPINFOW,
 };
 use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW};
-use winapi::um::wincon::COORD;
+use winapi::um::wincontypes::{COORD, HPCON};
 
 use crate::cli::Options;
 use crate::config::{Config, Shell};
 use crate::display::OnResize;
 use crate::term::SizeInfo;
-
-// This will be merged into winapi as PR #699
-// TODO: Use the winapi definition directly after that.
-pub type HPCON = *mut c_void;
 
 /// Dynamically-loaded Pseudoconsole API from kernel32.dll
 ///
