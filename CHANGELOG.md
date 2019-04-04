@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Clicking on non-alphabetical characters in front of URLs will no longer open them
 - Command keybindings on Windows will no longer open new cmd.exe console windows
+- On macOS, automatic graphics switching has been temporarily disabled due to a macos bug
 
 ### Fixed
 

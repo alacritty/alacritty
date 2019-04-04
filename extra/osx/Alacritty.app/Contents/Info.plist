@@ -29,7 +29,7 @@
   <key>NSMainNibFile</key>
   <string></string>
   <key>NSSupportsAutomaticGraphicsSwitching</key>
-  <true/>
+  <false/>
   <key>CFBundleDisplayName</key>
   <string>Alacritty</string>
   <key>NSRequiresAquaSystemAppearance</key>
