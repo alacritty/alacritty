@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Packaging
 
-- Alacritty desktop file was changed. Now it's uses ```Alacritty``` as icon name, so make sure you provide the necessary icon in your package. All icons can be found in ```extra/logo```.
+- On Linux, the .desktop file now uses `Alacritty` as icon name, which can be
+    found at `extra/logo/alacritty-term.svg`
 
 ### Added
 
