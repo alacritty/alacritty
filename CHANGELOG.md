@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - URLs stopping at double-width characters
 - Fix `start_maximized` option on X11
 - Error when parsing URLs ending with Unicode outside of the ascii range
+- On Windows, focusing a Window will no longer start a selection
 
 ## Version 0.2.9
 
