@@ -218,7 +218,7 @@ pub fn new<'a>(
 
     let mut proc_info: PROCESS_INFORMATION = Default::default();
     unsafe {
-        success = CreateProcessW(
+        let process_found = CreateProcessW(
             ptr::null(),
             cmdline.as_ptr() as LPWSTR,
             ptr::null_mut(),
@@ -231,7 +231,9 @@ pub fn new<'a>(
             &mut proc_info as *mut PROCESS_INFORMATION,
         ) > 0;
 
-        assert!(success);
+        if (!process_found) {
+            panic!("Unable to spawn shell: File can not be found in PATH");
+        }
     }
 
     // Store handle to console
