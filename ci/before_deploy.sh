@@ -72,6 +72,9 @@ if [ -n "$(git diff $prev_tag HEAD extra/alacritty.man)" ]; then
     gzip -c "./extra/alacritty.man" > "./target/deploy/alacritty.1.gz"
 fi
 
+# Rename Alacritty logo to match .desktop file
+cp "./extra/logo/alacritty-term.svg" "./target/deploy/Alacritty.svg"
+
 # Offer various other files
 for file in "${aux_files[@]}"; do
     cp $file "./target/deploy/"
