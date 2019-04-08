@@ -1995,6 +1995,7 @@ impl ansi::Handler for Term {
         self.cursor_style = None;
         self.grid.reset(&Cell::default());
         self.alt_grid.reset(&Cell::default());
+        self.scroll_region = Line(0)..self.grid.num_lines();
     }
 
     #[inline]
