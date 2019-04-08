@@ -21,8 +21,8 @@ use glutin::os::unix::EventsLoopExt;
 #[cfg(windows)]
 use glutin::Icon;
 use glutin::{
-    self, ContextBuilder, ContextTrait, ControlFlow, Event, EventsLoop, MouseCursor,
-    PossiblyCurrentContext, PossiblyCurrentContextTrait, WindowBuilder,
+    self, ContextBuilder, ControlFlow, Event, EventsLoop, MouseCursor, PossiblyCurrentContext,
+    WindowBuilder,
 };
 #[cfg(windows)]
 use image::ImageFormat;
