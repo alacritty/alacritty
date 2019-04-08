@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the ability to change the selection color
 - Text will reflow instead of truncating when resizing Alacritty
 - Underline text and change cursor when hovering over URLs with required modifiers pressed
+- Added ScrollLineUp and ScrollLineDown actions for scrolling line by line
 
 ### Changed
 
