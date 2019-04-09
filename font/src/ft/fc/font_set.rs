@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::ops::Deref;
-use std::ptr::NonNull;
 
 use foreign_types::{ForeignType, ForeignTypeRef};
 
@@ -21,10 +20,12 @@ use super::{ConfigRef, ObjectSetRef, PatternRef};
 use super::ffi::{FcFontSet, FcFontSetDestroy, FcFontSetList};
 
 foreign_type! {
-    pub type FontSet {
-        type CType = FcFontSet;
-        fn drop = FcFontSetDestroy;
-    }
+    type CType = FcFontSet;
+    fn drop = FcFontSetDestroy;
+    /// Wraps an FcFontSet instance (owned)
+    pub struct FontSet;
+    /// Wraps an FcFontSet reference (borrowed)
+    pub struct FontSetRef;
 }
 
 impl FontSet {
@@ -43,7 +44,7 @@ impl FontSet {
                 objects.as_ptr(),
             )
         };
-        FontSet(NonNull::new(raw).unwrap())
+        FontSet(raw)
     }
 }
 

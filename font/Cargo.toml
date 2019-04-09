@@ -8,7 +8,7 @@ license = "Apache-2.0"
 [dependencies]
 euclid = "0.19.2"
 libc = "0.2"
-foreign-types = "0.4"
+foreign-types = "0.3"
 log = "0.4"
 
 [target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]

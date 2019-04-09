@@ -148,6 +148,11 @@ On Windows the config file is located at:
 
 `%APPDATA%\alacritty\alacritty.yml`
 
+## Contributing
+
+A full guideline about contributing to Alacritty can be found in the
+[`CONTRIBUTING.md`](CONTRIBUTING.md) file.
+
 ## Issues (known, unknown, feature requests, etc.)
 
 If you run into a problem with Alacritty, please file an issue. If you've got a
