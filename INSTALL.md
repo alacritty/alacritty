@@ -55,6 +55,12 @@ cd alacritty
 
 ### Dependencies
 
+These are the minimum dependencies required to build Alacritty, please note
+that with some setups additional dependencies might be desired.
+
+If you're running Wayland with an Nvidia GPU, you'll likely want the EGL
+drivers installed too (these are called `libegl1-mesa-dev` on Ubuntu).
+
 #### Debian/Ubuntu
 
 You can build alacritty using `cargo deb` and use your system's package manager
