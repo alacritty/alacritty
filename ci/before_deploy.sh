@@ -29,12 +29,12 @@ elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" != "i386" ]; then
     # x86_64
     docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu \
         /root/.cargo/bin/cargo build --release --manifest-path /source/Cargo.toml
-    tar -cvzf "./target/deploy/${name}-x86_64.tar.gz" -C "./target/release/" "alacritty"
+    tar -cvzf "./target/deploy/${name}-ubuntu_18_04-x86_64.tar.gz" -C "./target/release/" "alacritty"
 
     # x86_64 deb
     docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu \
         sh -c "cd /source && \
-        /root/.cargo/bin/cargo deb --no-build --output ./target/deploy/${name}_amd64.deb"
+        /root/.cargo/bin/cargo deb --no-build --output ./target/deploy/${name}-ubuntu_18_04_amd64.deb"
 
     # Make sure all files can be uploaded without permission errors
     sudo chown -R $USER:$USER "./target"
@@ -44,12 +44,12 @@ elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" == "i386" ]; then
     # i386
     docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu-i386 \
         /root/.cargo/bin/cargo build --release --manifest-path /source/Cargo.toml
-    tar -cvzf "./target/deploy/${name}-i386.tar.gz" -C "./target/release/" "alacritty"
+    tar -cvzf "./target/deploy/${name}-ubuntu_18_04-i386.tar.gz" -C "./target/release/" "alacritty"
 
     # i386 deb
     docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu-i386 \
         sh -c "cd /source && \
-        /root/.cargo/bin/cargo deb --no-build --output ./target/deploy/${name}_i386.deb"
+        /root/.cargo/bin/cargo deb --no-build --output ./target/deploy/${name}-ubuntu_18_04_i386.deb"
 
     # Make sure all files can be uploaded without permission errors
     sudo chown -R $USER:$USER "./target"
