@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added ScrollLineUp and ScrollLineDown actions for scrolling line by line
 
+### Changed
+
+- Alacritty now has a fixed minimum supported Rust version of 1.31.0
+
 ### Fixed
 
 - Reset scrolling region when the RIS escape sequence is received
