@@ -122,6 +122,9 @@ API. The agent is a single binary (`winpty-agent.exe`) which **must** be in
 the same directory as the Alacritty executable and is available through the
 [GitHub releases page](https://github.com/jwilm/alacritty/releases).
 
+On Windows, Alacritty also requires Microsoft's VC++ redistributable to work
+properly.
+
 ## Configuration
 
 Although it's possible the default configuration would work on your system,
