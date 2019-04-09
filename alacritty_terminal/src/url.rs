@@ -148,6 +148,7 @@ mod tests {
 
     use unicode_width::UnicodeWidthChar;
 
+    use crate::clipboard::Clipboard;
     use crate::grid::Grid;
     use crate::index::{Column, Line, Point};
     use crate::message_bar::MessageBuffer;
@@ -166,7 +167,8 @@ mod tests {
         };
 
         let width = input.chars().map(|c| if c.width() == Some(2) { 2 } else { 1 }).sum();
-        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
+        let mut term =
+            Term::new(&Default::default(), size, MessageBuffer::new(), Clipboard::new_nop());
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(width), 0, Cell::default());
 
         let mut i = 0;
