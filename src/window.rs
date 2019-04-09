@@ -21,7 +21,7 @@ use glutin::os::unix::EventsLoopExt;
 #[cfg(windows)]
 use glutin::Icon;
 use glutin::{
-    self, ContextBuilder, ControlFlow, Event, EventsLoop, MouseCursor, PossiblyCurrentContext,
+    self, ContextBuilder, ControlFlow, Event, EventsLoop, MouseCursor, PossiblyCurrent,
     WindowBuilder,
 };
 #[cfg(windows)]
@@ -54,7 +54,7 @@ type Result<T> = ::std::result::Result<T, Error>;
 /// Wraps the underlying windowing library to provide a stable API in Alacritty
 pub struct Window {
     event_loop: EventsLoop,
-    windowed_context: glutin::WindowedContext<PossiblyCurrentContext>,
+    windowed_context: glutin::WindowedContext<PossiblyCurrent>,
     mouse_visible: bool,
 
     /// Whether or not the window is the focused window.
@@ -119,7 +119,7 @@ fn create_gl_window(
     window: WindowBuilder,
     event_loop: &EventsLoop,
     srgb: bool,
-) -> Result<glutin::WindowedContext<PossiblyCurrentContext>> {
+) -> Result<glutin::WindowedContext<PossiblyCurrent>> {
     let windowed_context = ContextBuilder::new()
         .with_srgb(srgb)
         .with_vsync(true)

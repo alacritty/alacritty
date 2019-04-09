@@ -17,10 +17,12 @@ use super::ffi::{FcConfig, FcConfigDestroy, FcConfigGetCurrent, FcConfigGetFonts
 use super::{FontSetRef, SetName};
 
 foreign_type! {
-    pub type Config {
-        type CType = FcConfig;
-        fn drop = FcConfigDestroy;
-    }
+    type CType = FcConfig;
+    fn drop = FcConfigDestroy;
+    /// Wraps an FcConfig instance (owned)
+    pub struct Config;
+    /// Wraps an FcConfig reference (borrowed)
+    pub struct ConfigRef;
 }
 
 impl Config {

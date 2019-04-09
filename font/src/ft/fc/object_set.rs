@@ -11,18 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::ptr::NonNull;
-
 use libc::c_char;
 
 use super::ffi::{FcObjectSet, FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy};
 use foreign_types::ForeignTypeRef;
 
 foreign_type! {
-    pub type ObjectSet {
-        type CType = FcObjectSet;
-        fn drop = FcObjectSetDestroy;
-    }
+    type CType = FcObjectSet;
+    fn drop = FcObjectSetDestroy;
+    pub struct ObjectSet;
+    pub struct ObjectSetRef;
 }
 
 impl ObjectSet {
@@ -33,7 +31,7 @@ impl ObjectSet {
 
 impl Default for ObjectSet {
     fn default() -> Self {
-        ObjectSet(unsafe { NonNull::new(FcObjectSetCreate()).unwrap() })
+        ObjectSet(unsafe { FcObjectSetCreate() })
     }
 }
 

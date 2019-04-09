@@ -12,8 +12,8 @@ os:
   - windows
 
 rust:
+  - 1.31.0
   - stable
-  - beta
   - nightly
 
 matrix:
