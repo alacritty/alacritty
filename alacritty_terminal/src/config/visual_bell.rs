@@ -5,7 +5,7 @@ use crate::term::color::Rgb;
 
 #[serde(default)]
 #[derive(Debug, Deserialize, PartialEq, Eq)]
-pub struct VisualBellConfig {
+pub struct BellConfig {
     /// Visual bell animation function
     #[serde(deserialize_with = "failure_default")]
     pub animation: VisualBellAnimation,
@@ -17,19 +17,23 @@ pub struct VisualBellConfig {
     /// Visual bell flash color
     #[serde(deserialize_with = "failure_default")]
     pub color: Rgb,
+
+    #[serde(deserialize_with = "failure_default")]
+    pub command: Option<CommandWrapper>,
 }
 
-impl Default for VisualBellConfig {
-    fn default() -> VisualBellConfig {
-        VisualBellConfig {
+impl Default for BellConfig {
+    fn default() -> BellConfig {
+        BellConfig {
             animation: Default::default(),
             duration: Default::default(),
             color: default_visual_bell_color(),
+            bell_command: None,
         }
     }
 }
 
-impl VisualBellConfig {
+impl BellConfig {
     /// Visual bell duration in milliseconds
     #[inline]
     pub fn duration(&self) -> Duration {

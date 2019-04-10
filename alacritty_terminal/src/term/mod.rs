@@ -26,7 +26,7 @@ use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset,
 };
 use crate::clipboard::{Clipboard, ClipboardType};
-use crate::config::{Config, VisualBellAnimation};
+use crate::config::{CommandWrapper, Config, VisualBellAnimation};
 use crate::cursor::CursorKey;
 use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
@@ -39,6 +39,7 @@ use crate::selection::{self, Selection, Span};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 use crate::url::{Url, UrlParser};
+use crate::util::start_daemon;
 
 #[cfg(windows)]
 use crate::tty;
@@ -605,6 +606,9 @@ pub struct VisualBell {
 
     /// The last time the visual bell rang, if at all
     start_time: Option<Instant>,
+
+    /// Command to run when bell is rang
+    bell_command: Option<CommandWrapper>,
 }
 
 fn cubic_bezier(p0: f64, p1: f64, p2: f64, p3: f64, x: f64) -> f64 {
@@ -620,6 +624,7 @@ impl VisualBell {
         VisualBell {
             animation: visual_bell_config.animation,
             duration: visual_bell_config.duration(),
+            bell_command: visual_bell_config.bell_command(),
             start_time: None,
         }
     }
@@ -706,7 +711,18 @@ impl VisualBell {
                 // Since we want the `intensity` of the VisualBell to decay over
                 // `time`, we subtract the `inverse_intensity` from 1.0.
                 1.0 - inverse_intensity
-            },
+            }
+        }
+    }
+
+    pub fn run_bell_command(&self) {
+        if let Some(ref cmd) = self.bell_command {
+            match start_daemon(cmd.program(), cmd.args()) {
+                Ok(_) => debug!("Launched {} with args {:?} on bell", cmd.program(), cmd.args()),
+                Err(_) => {
+                    warn!("Unable to launch {} with args {:?} on bell", cmd.program(), cmd.args())
+                }
+            }
         }
     }
 
@@ -714,6 +730,7 @@ impl VisualBell {
         let visual_bell_config = &config.visual_bell;
         self.animation = visual_bell_config.animation;
         self.duration = visual_bell_config.duration();
+        self.bell_command = visual_bell_config.bell_command();
     }
 }
 
@@ -1686,6 +1703,7 @@ impl ansi::Handler for Term {
     fn bell(&mut self) {
         trace!("Bell");
         self.visual_bell.ring();
+        self.visual_bell.run_bell_command();
         self.next_is_urgent = Some(true);
     }
 
