@@ -133,7 +133,7 @@ impl<T> Row<T> {
     where
         T: GridCell,
     {
-        self.inner.iter().all(|c| c.is_empty())
+        self.inner.iter().all(GridCell::is_empty)
     }
 
     #[inline]

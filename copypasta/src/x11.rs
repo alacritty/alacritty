@@ -124,7 +124,7 @@ impl Clipboard {
         S: AsRef<OsStr>,
     {
         use std::io::Write;
-        use std::process::{Command, Stdio};
+        use std::process::Stdio;
 
         let contents = contents.into();
         let mut child = Command::new("xclip").args(args).stdin(Stdio::piped()).spawn()?;
