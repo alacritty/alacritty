@@ -351,7 +351,6 @@ impl<'a> RenderableCellsIter<'a> {
     }
 
     fn compute_fg_rgb(&self, fg: Color, cell: &Cell) -> Rgb {
-        use self::cell::Flags;
         match fg {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => {
@@ -1023,8 +1022,6 @@ impl Term {
                 self.push(c);
             }
         }
-
-        use std::ops::Range;
 
         trait Append: PushChar {
             fn append(

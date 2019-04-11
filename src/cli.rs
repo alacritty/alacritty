@@ -182,8 +182,8 @@ impl Options {
         }
 
         if let Some(mut position) = matches.values_of("position") {
-            let x = position.next().map(|x| x.parse::<i32>());
-            let y = position.next().map(|y| y.parse::<i32>());
+            let x = position.next().map(str::parse);
+            let y = position.next().map(str::parse);
             if let (Some(Ok(x)), Some(Ok(y))) = (x, y) {
                 options.position = Some(Delta { x, y });
             }
