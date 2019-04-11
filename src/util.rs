@@ -93,10 +93,16 @@ where
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .before_exec(|| unsafe {
-            if ::libc::fork() != 0 {
-                ::libc::_exit(0);
+            match ::libc::fork() {
+                -1 => return Err(io::Error::last_os_error()),
+                0 => (),
+                _ => ::libc::_exit(0),
             }
-            ::libc::setsid();
+
+            if ::libc::setsid() == -1 {
+                return Err(io::Error::last_os_error());
+            }
+
             Ok(())
         })
         .spawn()?
