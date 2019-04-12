@@ -184,11 +184,11 @@ colors:
   #cursor:
   #  text: '0x000000'
   #  cursor: '0xffffff'
-  
+
   # Selection colors
   #
-  # Colors which should be used to draw the selection area. If selection 
-  # background is unset, selection color will be the inverse of the cell colors. 
+  # Colors which should be used to draw the selection area. If selection
+  # background is unset, selection color will be the inverse of the cell colors.
   # If only text is unset the cell text color will remain the same.
   #selection:
   #  text: '0xeaeaea'
@@ -449,6 +449,8 @@ alt_send_esc: true
 #   - Quit
 #   - ClearLogNotice
 #   - SpawnNewInstance
+#   - ToggleFullscreen
+#   - ToggleSimpleFullscreen # macOS only
 #   - None
 #
 # Values for `command`:

@@ -382,7 +382,7 @@ impl Window {
         self.window().hide();
     }
 
-    fn window(&self) -> &glutin::Window {
+    pub fn window(&self) -> &glutin::Window {
         self.windowed_context.window()
     }
 }

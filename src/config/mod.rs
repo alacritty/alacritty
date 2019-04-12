@@ -900,6 +900,9 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Quit" => Action::Quit,
                     "ClearLogNotice" => Action::ClearLogNotice,
                     "SpawnNewInstance" => Action::SpawnNewInstance,
+                    "ToggleFullscreen" => Action::ToggleFullscreen,
+                    #[cfg(target_os = "macos")]
+                    "ToggleSimpleFullscreen" => Action::ToggleSimpleFullscreen,
                     "None" => Action::None,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))

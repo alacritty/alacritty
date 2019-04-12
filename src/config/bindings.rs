@@ -179,7 +179,17 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
 
 #[cfg(not(any(target_os = "macos", test)))]
 pub fn platform_key_bindings() -> Vec<KeyBinding> {
-    bindings!(
+    let mut bindings = vec![];
+
+    #[cfg(all(target_os = "macos", not(test)))]
+    {
+        bindings.extend(bindings!(
+            KeyBinding;
+            Key::Return, [alt: true]; Action::ToggleFullscreen;
+        ));
+    }
+
+    bindings.extend(bindings!(
         KeyBinding;
         Key::V, [ctrl: true, shift: true]; Action::Paste;
         Key::C, [ctrl: true, shift: true]; Action::Copy;
@@ -189,7 +199,9 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Key::Add, [ctrl: true]; Action::IncreaseFontSize;
         Key::Subtract, [ctrl: true]; Action::DecreaseFontSize;
         Key::Minus, [ctrl: true]; Action::DecreaseFontSize;
-    )
+    ));
+
+    bindings
 }
 
 #[cfg(all(target_os = "macos", not(test)))]
@@ -200,6 +212,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Key::Equals, [logo: true]; Action::IncreaseFontSize;
         Key::Add, [logo: true]; Action::IncreaseFontSize;
         Key::Minus, [logo: true]; Action::DecreaseFontSize;
+        Key::F, [ctrl: true, logo: true]; Action::ToggleFullscreen;
         Key::K, [logo: true]; Action::ClearHistory;
         Key::K, [logo: true]; Action::Esc("\x0c".into());
         Key::V, [logo: true]; Action::Paste;

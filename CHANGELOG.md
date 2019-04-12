@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added ScrollLineUp and ScrollLineDown actions for scrolling line by line
+- Added ToggleFullscreen action (macos also has a ToggleSimpleFullscreen action
+    which allows switching to fullscreen without occupying another space)
 
 ### Changed
 
