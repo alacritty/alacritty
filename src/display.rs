@@ -180,6 +180,8 @@ impl Display {
                 f64::from(width) + 2. * padding_x,
                 f64::from(height) + 2. * padding_y,
             );
+
+            window.set_inner_size(viewport_size.to_logical(dpr));
         } else if config.window().dynamic_padding() {
             // Make sure additional padding is spread evenly
             let cw = f64::from(cell_width);
@@ -188,7 +190,6 @@ impl Display {
             padding_y = (padding_y + (viewport_size.height - 2. * padding_y) % ch / 2.).floor();
         }
 
-        window.set_inner_size(viewport_size.to_logical(dpr));
         renderer.resize(viewport_size, padding_x as f32, padding_y as f32);
 
         info!("Cell Size: ({} x {})", cell_width, cell_height);
