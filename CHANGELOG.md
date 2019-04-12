@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reset scrolling region when the RIS escape sequence is received
 - Subprocess spawning on macos
+- Filter duplicate resize events
 
 ## Version 0.3.0
 

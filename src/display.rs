@@ -227,7 +227,7 @@ impl Display {
             tx,
             rx,
             meter: Meter::new(),
-            font_size: font::Size::new(0.),
+            font_size: config.font().size(),
             size_info,
             last_message: None,
         })
@@ -320,6 +320,16 @@ impl Display {
         // Font size/DPI factor modification detected
         let font_changed =
             terminal.font_size != self.font_size || (dpr - self.size_info.dpr).abs() > f64::EPSILON;
+
+        // Skip resize if nothing changed
+        if let Some(new_size) = new_size {
+            if !font_changed
+                && new_size.width as f32 == self.size_info.width
+                && new_size.height as f32 == self.size_info.height
+            {
+                return;
+            }
+        }
 
         if font_changed || self.last_message != terminal.message_buffer_mut().message() {
             if new_size == None {
