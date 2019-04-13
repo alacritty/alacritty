@@ -150,7 +150,8 @@ impl Window {
         let title = options.title.as_ref().map_or(DEFAULT_NAME, |t| t);
         let class = options.class.as_ref().map_or(DEFAULT_NAME, |c| c);
         let window_builder = Window::get_platform_window(title, class, window_config);
-        let windowed_context = create_gl_window(window_builder.clone(), &event_loop, false, dimensions)
+        let windowed_context =
+            create_gl_window(window_builder.clone(), &event_loop, false, dimensions)
                 .or_else(|_| create_gl_window(window_builder, &event_loop, true, dimensions))?;
         let window = windowed_context.window();
         window.show();
