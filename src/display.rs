@@ -156,7 +156,7 @@ impl Display {
             window.inner_size_pixels().expect("glutin returns window size").to_physical(dpr);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(viewport_size)?;
+        let mut renderer = QuadRenderer::new()?;
 
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
@@ -189,6 +189,8 @@ impl Display {
         }
 
         window.set_inner_size(viewport_size.to_logical(dpr));
+
+        // Update the shader projection
         renderer.resize(viewport_size, padding_x as f32, padding_y as f32);
 
         info!("Cell Size: ({} x {})", cell_width, cell_height);
