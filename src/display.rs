@@ -18,6 +18,7 @@ use std::f64;
 use std::sync::mpsc;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
+use glutin::EventsLoop;
 use parking_lot::MutexGuard;
 
 use crate::cli;
@@ -137,16 +138,24 @@ impl Display {
         // Extract some properties from config
         let render_timer = config.render_timer();
 
-        // Create the window where Alacritty will be displayed
-        let mut window = Window::new(&options, config.window())?;
+        // Guess DPR based on first monitor
+        let event_loop = EventsLoop::new();
+        let estimated_dpr =
+            event_loop.get_available_monitors().next().map(|m| m.get_hidpi_factor()).unwrap_or(1.);
 
-        // TODO: replace `set_position` with `with_position` once available
-        // Upstream issue: https://github.com/tomaka/winit/issues/806
-        // Set window position early so it doesn't "teleport"
-        let position = options.position().or_else(|| config.position());
-        if let Some(position) = position {
-            window.set_position(position.x, position.y);
-        }
+        // Guess the target window dimensions
+        let metrics = GlyphCache::static_metrics(config, estimated_dpr as f32)?;
+        let (cell_width, cell_height) = Self::compute_cell_size(config, &metrics);
+        let dimensions =
+            Self::calculate_dimensions(config, options, estimated_dpr, cell_width, cell_height);
+
+        debug!("Estimated DPR: {}", estimated_dpr);
+        debug!("Estimated Cell Size: {} x {}", cell_width, cell_height);
+        debug!("Estimated Dimensions: {:?}", dimensions);
+
+        // Create the window where Alacritty will be displayed
+        let logical = dimensions.map(|d| PhysicalSize::new(d.0, d.1).to_logical(estimated_dpr));
+        let mut window = Window::new(event_loop, &options, config.window(), logical)?;
 
         let dpr = window.hidpi_factor();
         info!("Device pixel ratio: {}", dpr);
@@ -156,44 +165,39 @@ impl Display {
             window.inner_size_pixels().expect("glutin returns window size").to_physical(dpr);
 
         // Create renderer
-        let mut renderer = QuadRenderer::new(viewport_size)?;
+        let mut renderer = QuadRenderer::new()?;
 
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
-        let dimensions = options.dimensions().unwrap_or_else(|| config.dimensions());
-
         let mut padding_x = f64::from(config.padding().x) * dpr;
         let mut padding_y = f64::from(config.padding().y) * dpr;
 
-        if dimensions.columns_u32() > 0
-            && dimensions.lines_u32() > 0
-            && !config.window().start_maximized()
+        if let Some((width, height)) =
+            Self::calculate_dimensions(config, options, dpr, cell_width, cell_height)
         {
-            // Calculate new size based on cols/lines specified in config
-            let width = cell_width as u32 * dimensions.columns_u32();
-            let height = cell_height as u32 * dimensions.lines_u32();
-            padding_x = padding_x.floor();
-            padding_y = padding_y.floor();
-
-            viewport_size = PhysicalSize::new(
-                f64::from(width) + 2. * padding_x,
-                f64::from(height) + 2. * padding_y,
-            );
-
-            window.set_inner_size(viewport_size.to_logical(dpr));
+            if dimensions != Some((width, height)) {
+                viewport_size = PhysicalSize::new(width, height);
+                window.set_inner_size(viewport_size.to_logical(dpr));
+            } else {
+                info!("Estimated DPR correctly, skipping resize");
+            }
         } else if config.window().dynamic_padding() {
             // Make sure additional padding is spread evenly
             let cw = f64::from(cell_width);
             let ch = f64::from(cell_height);
-            padding_x = (padding_x + (viewport_size.width - 2. * padding_x) % cw / 2.).floor();
-            padding_y = (padding_y + (viewport_size.height - 2. * padding_y) % ch / 2.).floor();
+            padding_x = padding_x + (viewport_size.width - 2. * padding_x) % cw / 2.;
+            padding_y = padding_y + (viewport_size.height - 2. * padding_y) % ch / 2.;
         }
 
+        padding_x = padding_x.floor();
+        padding_y = padding_y.floor();
+
+        // Update OpenGL projection
         renderer.resize(viewport_size, padding_x as f32, padding_y as f32);
 
-        info!("Cell Size: ({} x {})", cell_width, cell_height);
-        info!("Padding: ({} x {})", padding_x, padding_y);
+        info!("Cell Size: {} x {}", cell_width, cell_height);
+        info!("Padding: {} x {}", padding_x, padding_y);
 
         let size_info = SizeInfo {
             dpr,
@@ -232,6 +236,35 @@ impl Display {
             size_info,
             last_message: None,
         })
+    }
+
+    fn calculate_dimensions(
+        config: &Config,
+        options: &cli::Options,
+        dpr: f64,
+        cell_width: f32,
+        cell_height: f32,
+    ) -> Option<(f64, f64)> {
+        let dimensions = options.dimensions().unwrap_or_else(|| config.dimensions());
+
+        if dimensions.columns_u32() == 0
+            || dimensions.lines_u32() == 0
+            || config.window().start_maximized()
+        {
+            return None;
+        }
+
+        let padding_x = f64::from(config.padding().x) * dpr;
+        let padding_y = f64::from(config.padding().y) * dpr;
+
+        // Calculate new size based on cols/lines specified in config
+        let grid_width = cell_width as u32 * dimensions.columns_u32();
+        let grid_height = cell_height as u32 * dimensions.lines_u32();
+
+        let width = (f64::from(grid_width) + 2. * padding_x).floor();
+        let height = (f64::from(grid_height) + 2. * padding_y).floor();
+
+        Some((width, height))
     }
 
     fn new_glyph_cache(

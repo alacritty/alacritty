@@ -116,10 +116,15 @@ impl From<glutin::ContextError> for Error {
 }
 
 fn create_gl_window(
-    window: WindowBuilder,
+    mut window: WindowBuilder,
     event_loop: &EventsLoop,
     srgb: bool,
+    dimensions: Option<LogicalSize>,
 ) -> Result<glutin::WindowedContext<PossiblyCurrent>> {
+    if let Some(dimensions) = dimensions {
+        window = window.with_dimensions(dimensions);
+    }
+
     let windowed_context = ContextBuilder::new()
         .with_srgb(srgb)
         .with_vsync(true)
@@ -136,14 +141,17 @@ impl Window {
     /// Create a new window
     ///
     /// This creates a window and fully initializes a window.
-    pub fn new(options: &Options, window_config: &WindowConfig) -> Result<Window> {
-        let event_loop = EventsLoop::new();
-
+    pub fn new(
+        event_loop: EventsLoop,
+        options: &Options,
+        window_config: &WindowConfig,
+        dimensions: Option<LogicalSize>,
+    ) -> Result<Window> {
         let title = options.title.as_ref().map_or(DEFAULT_NAME, |t| t);
         let class = options.class.as_ref().map_or(DEFAULT_NAME, |c| c);
         let window_builder = Window::get_platform_window(title, class, window_config);
-        let windowed_context = create_gl_window(window_builder.clone(), &event_loop, false)
-            .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
+        let windowed_context = create_gl_window(window_builder.clone(), &event_loop, false, dimensions)
+                .or_else(|_| create_gl_window(window_builder, &event_loop, true, dimensions))?;
         let window = windowed_context.window();
         window.show();
 
@@ -153,6 +161,17 @@ impl Window {
             if event_loop.is_x11() && window_config.start_maximized() {
                 window.set_maximized(true);
             }
+        }
+
+        // Set window position
+        //
+        // TODO: replace `set_position` with `with_position` once available
+        // Upstream issue: https://github.com/tomaka/winit/issues/806
+        let position = options.position().or_else(|| window_config.position());
+        if let Some(position) = position {
+            let physical = PhysicalPosition::from((position.x, position.y));
+            let logical = physical.to_logical(window.get_hidpi_factor());
+            window.set_position(logical);
         }
 
         // Text cursor
@@ -183,13 +202,6 @@ impl Window {
 
     pub fn set_inner_size(&mut self, size: LogicalSize) {
         self.window().set_inner_size(size);
-    }
-
-    // TODO: use `with_position` once available
-    // Upstream issue: https://github.com/tomaka/winit/issues/806
-    pub fn set_position(&mut self, x: i32, y: i32) {
-        let logical = PhysicalPosition::from((x, y)).to_logical(self.window().get_hidpi_factor());
-        self.window().set_position(logical);
     }
 
     #[inline]

@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reset scrolling region when the RIS escape sequence is received
 - Subprocess spawning on macos
 - Unnecessary resize at startup
+- Text getting blurry after live-reloading shaders with padding active
 
 ## Version 0.3.0
 
