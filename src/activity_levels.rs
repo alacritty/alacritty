@@ -30,7 +30,7 @@ where T: Num + Clone + Copy
     is_dirty: bool,
 }
 
-/// `TimeSeries` makes an opengl line.
+/// `TimeSeries` holds a recorded metric at specific epochs
 pub trait TimeSeries {
     /// `MetricType` has the type of data being collected
     type MetricType;
@@ -38,14 +38,14 @@ pub trait TimeSeries {
     /// context, this shouldn't be mut
     fn draw(&self);
     /// `max` returns the max value in the TimeSeries
-    fn max(&self, input: &Vec<Self::MetricType>) -> Self::MetricType
+    fn max(&self, input: &Vec<(u64, Self::MetricType)>) -> Self::MetricType
         where Self::MetricType: Num + PartialOrd
     {
         let mut max_activity_value = Self::MetricType::zero();
         let activity_time_length = input.len();
         for idx in 0..activity_time_length {
-            if input[idx] > max_activity_value {
-                max_activity_value = input[idx];
+            if input[idx].1 > max_activity_value {
+                max_activity_value = input[idx].1;
             }
         }
         max_activity_value
@@ -53,27 +53,25 @@ pub trait TimeSeries {
     fn update_opengl_vecs(size: SizeInfo) -> Vec<f32>{
         unimplemented!("XXX");
     }
-    fn update(&mut self, &mut metrics: Vec<Self::MetricType>, input: Self::MetricType, epoch: u64) -> u64
+    fn update(&mut self, &mut metrics: Vec<(u64, Self::MetricType)>, input: Self::MetricType, epoch: u64, collision_policy: ValueCollisionPolicy)
         where Self::MetricType: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded + FromPrimitive
     {
         let mut activity_time_length = metrics.len();
-        let mut last_activity_time = now;
         if activity_time_length == 0 {
-            // The vector is empty, no need to rotate or do anything special
-            metrics.push(input);
-            self.update_opengl_vecs(size);
-            return now
+            // The vector is empty, just add the value
+            metrics.push((epoch, input));
+            // TODO: update_opengl_vecs(size);
         }
-        if now == self.last_activity_time {
+        let last_activity_time = metrics[activity_time_length - 1].0;
+        if epoch == last_activity_time {
             // The Vector is populated and has one active item at least which
             // we can work on, no need to rotate or do anything special
-            if self.overwrite_last_entry {
-                self.activity_levels[activity_time_length - 1] = new_value;
-            } else {
-                self.activity_levels[activity_time_length - 1] = self.activity_levels[activity_time_length - 1] + new_value;
-            }
-            self.update_activity_opengl_vecs(size);
-            return;
+            match collision_policy {
+                ValueCollisionPolicy::Increment => self.activity_levels[activity_time_length - 1] = self.activity_levels[activity_time_length - 1] + new_value;
+                ValueCollisionPolicy::Overwrite => self.activity_levels[activity_time_length - 1] = new_value;
+                ValueCollisionPolicy::Decrement => self.activity_levels[activity_time_length - 1] = self.activity_levels[activity_time_length - 1] - new_value;
+                _ => self.activity_levels[activity_time_length - 1] = new_value;
+            };
         }
         // Every time unit (currently second) is stored as an item in the array
         // Rotation may be needed due to inactivity or the array being filled
@@ -84,17 +82,16 @@ pub trait TimeSeries {
         } else {
             self.activity_levels[activity_time_length - 1] = new_value;
         }
-        self.last_activity_time = now;
-        self.update_activity_opengl_vecs(size);
- 
+        // TODO: self.update_activity_opengl_vecs(size);
     }
-    fn update_now(&mut self, metrics: Vec<Self::MetricType>, input: Self::MetricType) -> u64
+    fn update_now(&mut self, &mut metrics: Vec<(u64, Self::MetricType)>, input: Self::MetricType)
+        where Self::MetricType: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded + FromPrimitive
     {
         let now = std::time::SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        self.update(input, metrics, now)
+        self.update(input, &mut metrics, now);
     }
     // `init_opengl_context` provides a default initialization of OpengL
     // context. This function is called previous to sending the vector data.
@@ -103,6 +100,7 @@ pub trait TimeSeries {
 }
 
 /// `MissingValuesPolicy` provides several ways to deal with missing values
+/// to fill the vector of values
 #[derive(Debug, Clone)]
 pub enum MissingValuesPolicy<T>
 where T: Num + Clone + Copy
@@ -117,6 +115,15 @@ where T: Num + Clone + Copy
     Min,
 }
 
+/// `ValueCollisionPolicy` handles collisions when several values are collected
+/// for the same time unit, allowing for overwriting, incrementing, etc.
+#[derive(Debug, Clone)]
+pub enum ValueCollisionPolicy{
+    Overwrite,
+    Increment,
+    Decrement,
+    Ignore,
+}
 /// `ActivityLevels` keep track of the activity per time tick
 /// Currently this is a second as we use UNIX_EPOCH
 #[derive(Debug, Clone)]
