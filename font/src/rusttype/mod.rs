@@ -77,7 +77,7 @@ impl crate::Rasterize for RustTypeRasterizer {
             FontCollection::from_bytes(
                 system_fonts::get(&fp.build()).ok_or_else(|| Error::MissingFont(desc.clone()))?.0,
             )
-            .and_then(|fc| fc.into_font())
+            .and_then(FontCollection::into_font)
             .map_err(|_| Error::UnsupportedFont)?,
         );
         Ok(FontKey { token: (self.fonts.len() - 1) as u16 })

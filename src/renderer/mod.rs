@@ -327,6 +327,21 @@ impl GlyphCache {
 
         Ok(())
     }
+
+    // Calculate font metrics without access to a glyph cache
+    //
+    // This should only be used *before* OpenGL is initialized and the glyph cache can be filled.
+    pub fn static_metrics(config: &Config, dpr: f32) -> Result<font::Metrics, font::Error> {
+        let font = config.font().clone();
+
+        let mut rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
+        let regular_desc =
+            GlyphCache::make_desc(&font.normal(), font::Slant::Normal, font::Weight::Normal);
+        let regular = rasterizer.load_font(&regular_desc, font.size())?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+
+        rasterizer.metrics(regular, font.size())
+    }
 }
 
 #[derive(Debug)]
@@ -475,8 +490,8 @@ const BATCH_MAX: usize = 0x1_0000;
 const ATLAS_SIZE: i32 = 1024;
 
 impl QuadRenderer {
-    pub fn new(size: PhysicalSize) -> Result<QuadRenderer, Error> {
-        let program = TextShaderProgram::new(size)?;
+    pub fn new() -> Result<QuadRenderer, Error> {
+        let program = TextShaderProgram::new()?;
         let rect_program = RectShaderProgram::new()?;
 
         let mut vao: GLuint = 0;
@@ -723,8 +738,7 @@ impl QuadRenderer {
     {
         // Flush message queue
         if let Ok(Msg::ShaderReload) = self.rx.try_recv() {
-            let size = PhysicalSize::new(f64::from(props.width), f64::from(props.height));
-            self.reload_shaders(size);
+            self.reload_shaders(props);
         }
         while let Ok(_) = self.rx.try_recv() {}
 
@@ -773,11 +787,22 @@ impl QuadRenderer {
         })
     }
 
-    pub fn reload_shaders(&mut self, size: PhysicalSize) {
-        warn!("Reloading shaders...");
-        let result = (TextShaderProgram::new(size), RectShaderProgram::new());
+    pub fn reload_shaders(&mut self, props: &term::SizeInfo) {
+        info!("Reloading shaders...");
+        let result = (TextShaderProgram::new(), RectShaderProgram::new());
         let (program, rect_program) = match result {
             (Ok(program), Ok(rect_program)) => {
+                unsafe {
+                    gl::UseProgram(program.id);
+                    program.update_projection(
+                        props.width,
+                        props.height,
+                        props.padding_x,
+                        props.padding_y,
+                    );
+                    gl::UseProgram(0);
+                }
+
                 info!("... successfully reloaded shaders");
                 (program, rect_program)
             },
@@ -1077,7 +1102,7 @@ impl<'a> Drop for RenderApi<'a> {
 }
 
 impl TextShaderProgram {
-    pub fn new(size: PhysicalSize) -> Result<TextShaderProgram, ShaderCreationError> {
+    pub fn new() -> Result<TextShaderProgram, ShaderCreationError> {
         let (vertex_src, fragment_src) = if cfg!(feature = "live-shader-reload") {
             (None, None)
         } else {
@@ -1126,8 +1151,6 @@ impl TextShaderProgram {
             u_cell_dim: cell_dim,
             u_background: background,
         };
-
-        shader.update_projection(size.width as f32, size.height as f32, 0., 0.);
 
         unsafe {
             gl::UseProgram(0);

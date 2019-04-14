@@ -485,6 +485,10 @@ impl WindowConfig {
     pub fn start_maximized(&self) -> bool {
         self.start_maximized
     }
+
+    pub fn position(&self) -> Option<Delta<i32>> {
+        self.position
+    }
 }
 
 /// Top-level config type
@@ -1792,11 +1796,6 @@ impl Config {
     #[inline]
     pub fn dimensions(&self) -> Dimensions {
         self.dimensions.unwrap_or(self.window.dimensions)
-    }
-
-    #[inline]
-    pub fn position(&self) -> Option<Delta<i32>> {
-        self.window.position
     }
 
     /// Get window config
