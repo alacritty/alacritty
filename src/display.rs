@@ -388,8 +388,8 @@ impl Display {
             let height = psize.height as f32;
             let cell_width = self.size_info.cell_width;
             let cell_height = self.size_info.cell_height;
-            let cols = self.size_info.cols().0;
-            let lines = self.size_info.lines().0;
+            let previous_cols = self.size_info.cols().0;
+            let previous_lines = self.size_info.lines().0;
 
             self.size_info.width = width;
             self.size_info.height = height;
@@ -415,7 +415,7 @@ impl Display {
                 pty_size.height -= pty_size.cell_height * message.text(&size).len() as f32;
             }
 
-            let grid_change = cols != size.cols().0 || lines != size.lines().0;
+            let grid_change = previous_cols != size.cols().0 || previous_lines != size.lines().0;
             if grid_change {
                 pty_resize_handle.on_resize(&pty_size);
             }
