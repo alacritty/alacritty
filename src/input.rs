@@ -315,12 +315,6 @@ impl Action {
             Action::ToggleFullscreen => {
                 ctx.toggle_fullscreen();
             },
-            // When parsing `ToggleSimpleFullscreen` on non-macOS platforms,
-            // just default to the `ToggleFullscreen` action.
-            #[cfg(not(target_os = "macos"))]
-            Action::ToggleSimpleFullscreen => {
-                ctx.toggle_fullscreen();
-            },
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => {
                 ctx.toggle_simple_fullscreen();

@@ -22,7 +22,7 @@ use glutin::EventsLoop;
 use parking_lot::MutexGuard;
 
 use crate::cli;
-use crate::config::Config;
+use crate::config::{Config, StartupMode};
 use crate::index::Line;
 use crate::message_bar::Message;
 use crate::meter::Meter;
@@ -249,7 +249,7 @@ impl Display {
 
         if dimensions.columns_u32() == 0
             || dimensions.lines_u32() == 0
-            || config.window().start_maximized()
+            || config.window().startup_mode() != StartupMode::Windowed
         {
             return None;
         }

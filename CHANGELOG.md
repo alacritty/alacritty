@@ -21,12 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added ScrollLineUp and ScrollLineDown actions for scrolling line by line
-- Added ToggleFullscreen action (macos also has a ToggleSimpleFullscreen action
-    which allows switching to fullscreen without occupying another space)
+- Added ToggleFullscreen action
+- On macOS, there's a ToggleSimpleFullscreen action which allows switching to 
+    fullscreen without occupying another space
+- A new window option `startup_mode` which controls how the window is created
 
 ### Changed
 
 - Alacritty now has a fixed minimum supported Rust version of 1.31.0
+- The `start_maximized` window option is now `startup_mode: Maximized`
 
 ### Fixed
 

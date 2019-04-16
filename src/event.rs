@@ -203,6 +203,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 /// with the current design. Event handlers that want to change the
 /// window must set these flags instead. The processor will trigger
 /// the actual changes.
+#[derive(Default)]
 pub struct WindowChanges {
     pub hide: bool,
     pub toggle_fullscreen: bool,
@@ -212,12 +213,7 @@ pub struct WindowChanges {
 
 impl WindowChanges {
     fn clear(&mut self) {
-        self.hide = false;
-        self.toggle_fullscreen = false;
-        #[cfg(target_os = "macos")]
-        {
-            self.toggle_simple_fullscreen = false;
-        }
+        *self = WindowChanges::default();
     }
 
     fn toggle_fullscreen(&mut self) {
@@ -227,17 +223,6 @@ impl WindowChanges {
     #[cfg(target_os = "macos")]
     fn toggle_simple_fullscreen(&mut self) {
         self.toggle_simple_fullscreen = !self.toggle_simple_fullscreen;
-    }
-}
-
-impl Default for WindowChanges {
-    fn default() -> WindowChanges {
-        WindowChanges {
-            hide: false,
-            toggle_fullscreen: false,
-            #[cfg(target_os = "macos")]
-            toggle_simple_fullscreen: false,
-        }
     }
 }
 
@@ -313,7 +298,6 @@ pub struct Processor<N> {
     save_to_clipboard: bool,
     alt_send_esc: bool,
     is_fullscreen: bool,
-    #[cfg(target_os = "macos")]
     is_simple_fullscreen: bool,
 }
 
@@ -361,7 +345,6 @@ impl<N: Notify> Processor<N> {
             save_to_clipboard: config.selection().save_to_clipboard,
             alt_send_esc: config.alt_send_esc(),
             is_fullscreen: false,
-            #[cfg(target_os = "macos")]
             is_simple_fullscreen: false,
         }
     }
@@ -585,41 +568,21 @@ impl<N: Notify> Processor<N> {
 
         #[cfg(target_os = "macos")]
         {
-            use glutin::os::macos::WindowExt;
-
-            if self.window_changes.toggle_fullscreen && !self.is_simple_fullscreen {
-                self.set_fullscreen(window, !self.is_fullscreen);
-                self.is_fullscreen = !self.is_fullscreen;
-            }
-
             if self.window_changes.toggle_simple_fullscreen && !self.is_fullscreen {
-                window.window().set_simple_fullscreen(!self.is_simple_fullscreen);
+                window.set_simple_fullscreen(!self.is_simple_fullscreen);
                 self.is_simple_fullscreen = !self.is_simple_fullscreen;
             }
         }
 
-        #[cfg(not(target_os = "macos"))]
-        {
-            if self.window_changes.toggle_fullscreen {
-                self.set_fullscreen(window, !self.is_fullscreen);
-                self.is_fullscreen = !self.is_fullscreen;
-            }
+        if self.window_changes.toggle_fullscreen && !self.is_simple_fullscreen {
+            window.set_fullscreen(!self.is_fullscreen);
+            self.is_fullscreen = !self.is_fullscreen;
         }
 
         self.window_changes.clear();
         self.wait_for_event = !terminal.dirty;
 
         terminal
-    }
-
-    fn set_fullscreen(&self, window: &mut Window, fullscreen: bool) {
-        let glutin_window = window.window();
-        if fullscreen {
-            let current_monitor = glutin_window.get_current_monitor();
-            glutin_window.set_fullscreen(Some(current_monitor));
-        } else {
-            glutin_window.set_fullscreen(None);
-        }
     }
 
     pub fn update_config(&mut self, config: &Config) {

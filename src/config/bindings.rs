@@ -178,18 +178,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
 }
 
 #[cfg(not(any(target_os = "macos", test)))]
-pub fn platform_key_bindings() -> Vec<KeyBinding> {
-    let mut bindings = vec![];
-
-    #[cfg(all(target_os = "macos", not(test)))]
-    {
-        bindings.extend(bindings!(
-            KeyBinding;
-            Key::Return, [alt: true]; Action::ToggleFullscreen;
-        ));
-    }
-
-    bindings.extend(bindings!(
+fn common_keybindings() -> Vec<KeyBinding> {
+    bindings!(
         KeyBinding;
         Key::V, [ctrl: true, shift: true]; Action::Paste;
         Key::C, [ctrl: true, shift: true]; Action::Copy;
@@ -199,8 +189,21 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Key::Add, [ctrl: true]; Action::IncreaseFontSize;
         Key::Subtract, [ctrl: true]; Action::DecreaseFontSize;
         Key::Minus, [ctrl: true]; Action::DecreaseFontSize;
-    ));
+    )
+}
 
+#[cfg(not(any(target_os = "macos", target_os = "windows", test)))]
+pub fn platform_key_bindings() -> Vec<KeyBinding> {
+    common_keybindings()
+}
+
+#[cfg(all(target_os = "windows", not(test)))]
+pub fn platform_key_bindings() -> Vec<KeyBinding> {
+    let mut bindings = bindings!(
+        KeyBinding;
+        Key::Return, [alt: true]; Action::ToggleFullscreen;
+    );
+    bindings.extend(common_keybindings());
     bindings
 }
 
