@@ -388,6 +388,8 @@ impl Display {
             let height = psize.height as f32;
             let cell_width = self.size_info.cell_width;
             let cell_height = self.size_info.cell_height;
+            let previous_cols = self.size_info.cols();
+            let previous_lines = self.size_info.lines();
 
             self.size_info.width = width;
             self.size_info.height = height;
@@ -412,7 +414,10 @@ impl Display {
             if let Some(message) = terminal.message_buffer_mut().message() {
                 pty_size.height -= pty_size.cell_height * message.text(&size).len() as f32;
             }
-            pty_resize_handle.on_resize(&pty_size);
+
+            if previous_cols != size.cols() || previous_lines != size.lines()  {
+                pty_resize_handle.on_resize(&pty_size);
+            }
 
             self.window.resize(psize);
             self.renderer.resize(psize, self.size_info.padding_x, self.size_info.padding_y);
