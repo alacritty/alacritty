@@ -18,9 +18,10 @@ use std::ops::{Index, IndexMut, Range, RangeInclusive};
 use std::time::{Duration, Instant};
 use std::{io, mem, ptr};
 
-use arraydeque::ArrayDeque;
 use glutin::MouseCursor;
 use unicode_width::UnicodeWidthChar;
+use copypasta::{Clipboard, Load, Store};
+use font::{self, Size, RasterizedGlyph};
 
 use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset,
@@ -37,8 +38,7 @@ use crate::selection::{self, Locations, Selection};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 use crate::url::{Url, UrlParser};
-use copypasta::{Clipboard, Load, Store};
-use font::{self, Size};
+use crate::cursor;
 
 #[cfg(windows)]
 use crate::tty;
@@ -158,12 +158,12 @@ pub struct RenderableCellsIter<'a> {
     grid: &'a Grid<Cell>,
     cursor: &'a Point,
     cursor_offset: usize,
-    mode: TermMode,
+    cursor_cell: Option<RasterizedGlyph>,
+    cursor_style: CursorStyle,
     config: &'a Config,
     colors: &'a color::List,
     selection: Option<RangeInclusive<index::Linear>>,
     url_highlight: &'a Option<RangeInclusive<index::Linear>>,
-    cursor_cells: ArrayDeque<[Indexed<Cell>; 3]>,
 }
 
 impl<'a> RenderableCellsIter<'a> {
@@ -176,6 +176,7 @@ impl<'a> RenderableCellsIter<'a> {
         config: &'b Config,
         selection: Option<Locations>,
         cursor_style: CursorStyle,
+        metrics: font::Metrics,
     ) -> RenderableCellsIter<'b> {
         let grid = &term.grid;
 
@@ -224,201 +225,147 @@ impl<'a> RenderableCellsIter<'a> {
             }
         }
 
+        // Load cursor glyph
+        let cursor = &term.cursor.point;
+        let cursor_cell = if term.mode.contains(mode::TermMode::SHOW_CURSOR)
+            && grid.contains(cursor)
+        {
+            let offset_x = config.font().offset().x;
+            let offset_y = config.font().offset().y;
+
+            let is_wide = grid[cursor].flags.contains(cell::Flags::WIDE_CHAR)
+                && (cursor.col + 1) < grid.num_cols();
+            Some(cursor::get_cursor_glyph(cursor_style, metrics, offset_x, offset_y, is_wide))
+        } else {
+            None
+        };
+
         RenderableCellsIter {
-            cursor: &term.cursor.point,
+            cursor,
             cursor_offset,
             grid,
             inner,
-            mode: term.mode,
             selection: selection_range,
             url_highlight: &grid.url_highlight,
             config,
             colors: &term.colors,
-            cursor_cells: ArrayDeque::new(),
-        }
-        .initialize(cursor_style)
-    }
-
-    fn push_cursor_cells(&mut self, original: Cell, cursor: Cell, wide: Cell) {
-        // Prints the char under the cell if cursor is situated on a non-empty cell
-        self.cursor_cells
-            .push_back(Indexed { line: self.cursor.line, column: self.cursor.col, inner: original })
-            .expect("won't exceed capacity");
-
-        // Prints the cursor
-        self.cursor_cells
-            .push_back(Indexed { line: self.cursor.line, column: self.cursor.col, inner: cursor })
-            .expect("won't exceed capacity");
-
-        // If cursor is over a wide (2 cell size) character,
-        // print the second cursor cell
-        if self.is_wide_cursor(&cursor) {
-            self.cursor_cells
-                .push_back(Indexed {
-                    line: self.cursor.line,
-                    column: self.cursor.col + 1,
-                    inner: wide,
-                })
-                .expect("won't exceed capacity");
+            cursor_cell,
+            cursor_style,
         }
     }
+}
 
-    fn populate_block_cursor(&mut self) {
-        let cell = &self.grid[self.cursor];
-        let text_color = self.config.cursor_text_color().unwrap_or(cell.bg);
-        let cursor_color = self.config.cursor_cursor_color().unwrap_or(cell.fg);
+#[derive(Clone, Debug)]
+pub enum RenderableCellContent {
+    Chars([char; cell::MAX_ZEROWIDTH_CHARS + 1]),
+    Raw(RasterizedGlyph),
+}
 
-        let original_cell = self.grid[self.cursor];
+#[derive(Clone, Debug)]
+pub struct RenderableCell {
+    /// A _Display_ line (not necessarily an _Active_ line)
+    pub line: Line,
+    pub column: Column,
+    pub inner: RenderableCellContent,
+    pub fg: Rgb,
+    pub bg: Rgb,
+    pub bg_alpha: f32,
+    pub flags: cell::Flags,
+}
 
-        let mut cursor_cell = self.grid[self.cursor];
-        cursor_cell.fg = text_color;
-        cursor_cell.bg = cursor_color;
+impl RenderableCell {
+    fn new(config: &Config, colors: &color::List, cell: Indexed<Cell>, selected: bool) -> Self {
+        // Lookup RGB values
+        let mut fg_rgb = Self::compute_fg_rgb(config, colors, cell.fg, cell.flags);
+        let mut bg_rgb = Self::compute_bg_rgb(colors, cell.bg);
 
-        let mut wide_cell = cursor_cell;
-        wide_cell.c = ' ';
-
-        self.push_cursor_cells(original_cell, cursor_cell, wide_cell);
-    }
-
-    fn populate_char_cursor(&mut self, cursor_cell_char: char, wide_cell_char: char) {
-        let original_cell = self.grid[self.cursor];
-
-        let mut cursor_cell = self.grid[self.cursor];
-        let cursor_color = self.config.cursor_cursor_color().unwrap_or(cursor_cell.fg);
-        cursor_cell.c = cursor_cell_char;
-        cursor_cell.fg = cursor_color;
-
-        let mut wide_cell = cursor_cell;
-        wide_cell.c = wide_cell_char;
-
-        self.push_cursor_cells(original_cell, cursor_cell, wide_cell);
-    }
-
-    fn populate_underline_cursor(&mut self) {
-        self.populate_char_cursor(font::UNDERLINE_CURSOR_CHAR, font::UNDERLINE_CURSOR_CHAR);
-    }
-
-    fn populate_beam_cursor(&mut self) {
-        self.populate_char_cursor(font::BEAM_CURSOR_CHAR, ' ');
-    }
-
-    fn populate_box_cursor(&mut self) {
-        self.populate_char_cursor(font::BOX_CURSOR_CHAR, ' ');
-    }
-
-    #[inline]
-    fn is_wide_cursor(&self, cell: &Cell) -> bool {
-        cell.flags.contains(cell::Flags::WIDE_CHAR) && (self.cursor.col + 1) < self.grid.num_cols()
-    }
-
-    /// Populates list of cursor cells with the original cell
-    fn populate_no_cursor(&mut self) {
-        self.cursor_cells
-            .push_back(Indexed {
-                line: self.cursor.line,
-                column: self.cursor.col,
-                inner: self.grid[self.cursor],
-            })
-            .expect("won't exceed capacity");
-    }
-
-    fn initialize(mut self, cursor_style: CursorStyle) -> Self {
-        if self.cursor_is_visible() {
-            match cursor_style {
-                CursorStyle::HollowBlock => {
-                    self.populate_box_cursor();
-                },
-                CursorStyle::Block => {
-                    self.populate_block_cursor();
-                },
-                CursorStyle::Beam => {
-                    self.populate_beam_cursor();
-                },
-                CursorStyle::Underline => {
-                    self.populate_underline_cursor();
-                },
-            }
+        let selection_background = config.colors().selection.background;
+        let bg_alpha = if let (true, Some(col)) = (selected, selection_background) {
+            // Override selection background with config colors
+            bg_rgb = col;
+            1.0
+        } else if selected ^ cell.inverse() {
+            // Invert cell fg and bg colors
+            mem::swap(&mut fg_rgb, &mut bg_rgb);
+            Self::compute_bg_alpha(cell.fg)
         } else {
-            self.populate_no_cursor();
+            Self::compute_bg_alpha(cell.bg)
+        };
+
+        // Override selection text with config colors
+        if let (true, Some(col)) = (selected, config.colors().selection.text) {
+            fg_rgb = col;
         }
-        self
+
+        RenderableCell {
+            line: cell.line,
+            column: cell.column,
+            inner: RenderableCellContent::Chars(cell.chars()),
+            fg: fg_rgb,
+            bg: bg_rgb,
+            bg_alpha,
+            flags: cell.flags,
+        }
     }
 
-    /// Check if the cursor should be rendered.
-    #[inline]
-    fn cursor_is_visible(&self) -> bool {
-        self.mode.contains(mode::TermMode::SHOW_CURSOR) && self.grid.contains(self.cursor)
-    }
-
-    fn compute_fg_rgb(&self, fg: Color, cell: &Cell) -> Rgb {
+    fn compute_fg_rgb(config: &Config, colors: &color::List, fg: Color, flags: cell::Flags) -> Rgb {
         match fg {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => {
                 match (
-                    self.config.draw_bold_text_with_bright_colors(),
-                    cell.flags & Flags::DIM_BOLD,
+                    config.draw_bold_text_with_bright_colors(),
+                    flags & Flags::DIM_BOLD,
                 ) {
                     // If no bright foreground is set, treat it like the BOLD flag doesn't exist
-                    (_, self::cell::Flags::DIM_BOLD)
+                    (_, cell::Flags::DIM_BOLD)
                         if ansi == NamedColor::Foreground
-                            && self.config.colors().primary.bright_foreground.is_none() =>
+                            && config.colors().primary.bright_foreground.is_none() =>
                     {
-                        self.colors[NamedColor::DimForeground]
+                        colors[NamedColor::DimForeground]
                     },
                     // Draw bold text in bright colors *and* contains bold flag.
-                    (true, self::cell::Flags::BOLD) => self.colors[ansi.to_bright()],
+                    (true, cell::Flags::BOLD) => colors[ansi.to_bright()],
                     // Cell is marked as dim and not bold
-                    (_, self::cell::Flags::DIM) | (false, self::cell::Flags::DIM_BOLD) => {
-                        self.colors[ansi.to_dim()]
+                    (_, cell::Flags::DIM) | (false, cell::Flags::DIM_BOLD) => {
+                        colors[ansi.to_dim()]
                     },
                     // None of the above, keep original color.
-                    _ => self.colors[ansi],
+                    _ => colors[ansi],
                 }
             },
             Color::Indexed(idx) => {
                 let idx = match (
-                    self.config.draw_bold_text_with_bright_colors(),
-                    cell.flags & Flags::DIM_BOLD,
+                    config.draw_bold_text_with_bright_colors(),
+                    flags & Flags::DIM_BOLD,
                     idx,
                 ) {
-                    (true, self::cell::Flags::BOLD, 0..=7) => idx as usize + 8,
-                    (false, self::cell::Flags::DIM, 8..=15) => idx as usize - 8,
-                    (false, self::cell::Flags::DIM, 0..=7) => idx as usize + 260,
+                    (true, cell::Flags::BOLD, 0..=7) => idx as usize + 8,
+                    (false, cell::Flags::DIM, 8..=15) => idx as usize - 8,
+                    (false, cell::Flags::DIM, 0..=7) => idx as usize + 260,
                     _ => idx as usize,
                 };
 
-                self.colors[idx]
+                colors[idx]
             },
         }
     }
 
     #[inline]
-    fn compute_bg_alpha(&self, bg: Color) -> f32 {
+    fn compute_bg_alpha(bg: Color) -> f32 {
         match bg {
             Color::Named(NamedColor::Background) => 0.0,
             _ => 1.0,
         }
     }
 
-    fn compute_bg_rgb(&self, bg: Color) -> Rgb {
+    #[inline]
+    fn compute_bg_rgb(colors: &color::List, bg: Color) -> Rgb {
         match bg {
             Color::Spec(rgb) => rgb,
-            Color::Named(ansi) => self.colors[ansi],
-            Color::Indexed(idx) => self.colors[idx],
+            Color::Named(ansi) => colors[ansi],
+            Color::Indexed(idx) => colors[idx],
         }
     }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct RenderableCell {
-    /// A _Display_ line (not necessarily an _Active_ line)
-    pub line: Line,
-    pub column: Column,
-    pub chars: [char; cell::MAX_ZEROWIDTH_CHARS + 1],
-    pub fg: Rgb,
-    pub bg: Rgb,
-    pub bg_alpha: f32,
-    pub flags: cell::Flags,
 }
 
 impl<'a> Iterator for RenderableCellsIter<'a> {
@@ -431,23 +378,34 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            // Handle cursor
-            let (cell, selected, highlighted) = if self.cursor_offset == self.inner.offset()
+            if self.cursor_offset == self.inner.offset()
                 && self.inner.column() == self.cursor.col
             {
-                // Cursor cell
-                let mut cell = self.cursor_cells.pop_front().unwrap();
-                cell.line = self.inner.line();
+                // Handle cursor
+                if let Some(cursor_cell) = self.cursor_cell.take() {
+                    let cell = Indexed {
+                        inner: self.grid[self.cursor],
+                        column: self.cursor.col,
+                        line: self.cursor.line,
+                    };
+                    let mut renderable_cell =
+                        RenderableCell::new(self.config, self.colors, cell, false);
 
-                // Since there may be multiple cursor cells (for a wide
-                // char), only update iteration position after all cursor
-                // cells have been drawn.
-                if self.cursor_cells.is_empty() {
-                    self.inner.next();
+                    renderable_cell.inner = RenderableCellContent::Raw(cursor_cell);
+
+                    return Some(renderable_cell);
+                } else {
+                    let mut cell =
+                        RenderableCell::new(self.config, self.colors, self.inner.next()?, false);
+
+                    if self.cursor_style == CursorStyle::Block {
+                        std::mem::swap(&mut cell.bg, &mut cell.fg);
+                    }
+
+                    return Some(cell);
                 }
-                (cell, false, false)
             } else {
-                let cell = self.inner.next()?;
+                let mut cell = self.inner.next()?;
 
                 let index = Linear::new(self.grid.num_cols(), cell.column, cell.line);
 
@@ -460,51 +418,17 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 }
 
                 // Underline URL highlights
-                let highlighted = self
+                if self
                     .url_highlight
                     .as_ref()
                     .map(|range| range.contains_(index))
-                    .unwrap_or(false);
+                    .unwrap_or(false)
+                {
+                    cell.inner.flags.insert(Flags::UNDERLINE);
+                }
 
-                (cell, selected, highlighted)
-            };
-
-            // Lookup RGB values
-            let mut fg_rgb = self.compute_fg_rgb(cell.fg, &cell);
-            let mut bg_rgb = self.compute_bg_rgb(cell.bg);
-
-            let selection_background = self.config.colors().selection.background;
-            let bg_alpha = if let (true, Some(col)) = (selected, selection_background) {
-                // Override selection background with config colors
-                bg_rgb = col;
-                1.0
-            } else if selected ^ cell.inverse() {
-                // Invert cell fg and bg colors
-                mem::swap(&mut fg_rgb, &mut bg_rgb);
-                self.compute_bg_alpha(cell.fg)
-            } else {
-                self.compute_bg_alpha(cell.bg)
-            };
-
-            // Override selection text with config colors
-            if let (true, Some(col)) = (selected, self.config.colors().selection.text) {
-                fg_rgb = col;
+                return Some(RenderableCell::new(self.config, self.colors, cell, selected))
             }
-
-            let mut flags = cell.flags;
-            if highlighted {
-                flags.insert(Flags::UNDERLINE);
-            }
-
-            return Some(RenderableCell {
-                line: cell.line,
-                column: cell.column,
-                chars: cell.chars(),
-                fg: fg_rgb,
-                bg: bg_rgb,
-                bg_alpha,
-                flags,
-            });
         }
     }
 }
@@ -1174,6 +1098,7 @@ impl Term {
         &'b self,
         config: &'b Config,
         window_focused: bool,
+        metrics: font::Metrics,
     ) -> RenderableCellsIter<'_> {
         let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
         let selection = self
@@ -1189,7 +1114,7 @@ impl Term {
             CursorStyle::HollowBlock
         };
 
-        RenderableCellsIter::new(&self, config, selection, cursor)
+        RenderableCellsIter::new(&self, config, selection, cursor, metrics)
     }
 
     /// Resize terminal to new dimensions

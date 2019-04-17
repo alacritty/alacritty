@@ -96,7 +96,7 @@ impl<'a> Rects<'a> {
 
                     // Start a new line if the flag is present
                     if cell.flags.contains(line.flag) {
-                        *start = *cell;
+                        *start = cell.clone();
                         *end = cell.into();
                     } else {
                         line.range = None;
@@ -105,7 +105,7 @@ impl<'a> Rects<'a> {
                 // Check for new start of line
                 None => {
                     if cell.flags.contains(line.flag) {
-                        line.range = Some((*cell, cell.into()));
+                        line.range = Some((cell.clone(), cell.into()));
                     }
                 },
             };

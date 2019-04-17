@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resize events are not send to the shell anymore if dimensions haven't changed
 - Minor performance issues with underline and strikeout checks
 - Rare bug which would extend underline and strikeout beyond the end of line
+- Cursors not spanning two lines when over double-width characters
+- Incorrect cursor dimensions if the font offset isn't `0`
 
 ## Version 0.3.0
 

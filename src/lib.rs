@@ -31,6 +31,7 @@ pub mod macros;
 pub mod ansi;
 pub mod cli;
 pub mod config;
+mod cursor;
 pub mod display;
 pub mod event;
 pub mod event_loop;
