@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Subprocess spawning on macos
 - Unnecessary resize at startup
 - Text getting blurry after live-reloading shaders with padding active
-- Unnecessary update of process screens on every resize
+- Resize events are not send to the shell anymore if dimensions haven't changed
 
 ## Version 0.3.0
 
