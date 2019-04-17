@@ -73,6 +73,37 @@ pub trait GridCell {
 }
 
 /// Represents the terminal display contents
+///
+/// +--------------------------------------------+ <--- ???
+/// |                                            |
+/// |                                            |
+/// |                                            |
+/// |                                            |
+/// |                                            |
+/// |              SCROLLBACK REGION             |
+/// |                                            |
+/// |                                            |
+/// |                                            |
+/// |                                            |
+/// |                                            |
+/// +--------------------------------------------+ <--- ???
+/// |                                            |
+/// |              ABOVE SCROLLING               |
+/// |                   REGION                   |
+/// |                                            |
+/// +--------------------------------------------+ <--- ???
+/// |                                            |
+/// |              SCROLLING REGION              |
+/// |                                            |
+/// +--------------------------------------------+ <--- display_offset
+/// |                                            |
+/// |              BELOW SCROLLING               |
+/// |                   REGION                   |
+/// |                                            |
+/// +--------------------------------------------+ <--- raw.zero
+///                                              |
+///                                              v
+///                                             cols
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Grid<T> {
     /// Lines in the grid. Each row holds a list of cells corresponding to the
@@ -84,6 +115,7 @@ pub struct Grid<T> {
 
     /// Number of lines.
     ///
+    /// TODO: this invariant is incorrect.
     /// Invariant: lines is equivalent to raw.len()
     lines: index::Line,
 
@@ -472,10 +504,10 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
                 selection.rotate(*positions as isize);
             }
 
-            // // This next loop swaps "fixed" lines outside of a scroll region
-            // // back into place after the rotation. The work is done in buffer-
-            // // space rather than terminal-space to avoid redundant
-            // // transformations.
+            // This next loop swaps "fixed" lines outside of a scroll region
+            // back into place after the rotation. The work is done in buffer-
+            // space rather than terminal-space to avoid redundant
+            // transformations.
             let fixed_lines = *self.num_lines() - *region.end;
 
             for i in 0..fixed_lines {
@@ -501,11 +533,36 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         }
     }
 
+    pub fn clear_viewport(&mut self, template: &T) {
+        for i in 0..self.num_lines().0 {
+            self[i].occ = self.num_cols().0;
+        }
+
+        let mut iter = self.iter_from(Point { line: 0, col: self.num_cols() });
+        let mut bottom_nonempty_line = 0;
+        while let Some(cell) = iter.next_back() {
+            if !cell.is_empty() {
+                bottom_nonempty_line = iter.cur.line;
+                break;
+            }
+
+            // In case the whole terminal is empty somehow.
+            // TODO: Test.
+            if iter.cur.line >= *self.lines {
+                break;
+            }
+        }
+
+        let positions = self.lines - bottom_nonempty_line;
+        let region = Line(0)..self.num_lines();
+
+        self.scroll_up(&region, positions, template);
+        self.selection = None;
+        self.url_highlight = None;
+    }
+
     // Completely reset the grid state
     pub fn reset(&mut self, template: &T) {
-        // Explicitly purge all lines from history
-        let shrinkage = self.raw.len() - self.lines.0;
-        self.raw.shrink_lines(shrinkage);
         self.clear_history();
 
         // Reset all visible lines
@@ -535,6 +592,9 @@ impl<T> Grid<T> {
     }
 
     pub fn clear_history(&mut self) {
+        // Explicitly purge all lines from history
+        let shrinkage = self.raw.len() - self.lines.0;
+        self.raw.shrink_lines(shrinkage);
         self.scroll_limit = 0;
     }
 
@@ -615,6 +675,23 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
             },
             _ => {
                 self.cur.col += Column(1);
+                Some(&self.grid[self.cur.line][self.cur.col])
+            },
+        }
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for GridIterator<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self.cur {
+            Point { line, col: Column(0) } if line == self.grid.len() - 1 => None,
+            Point { col, .. } if (col == Column(0)) => {
+                self.cur.line += 1;
+                self.cur.col = self.grid.num_cols() - Column(1);
+                Some(&self.grid[self.cur.line][self.cur.col])
+            },
+            _ => {
+                self.cur.col -= Column(1);
                 Some(&self.grid[self.cur.line][self.cur.col])
             },
         }

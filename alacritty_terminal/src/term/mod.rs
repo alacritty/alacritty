@@ -1749,17 +1749,6 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         self.grid.selection = None;
 
         match mode {
-            ansi::ClearMode::Below => {
-                for cell in &mut self.grid[self.cursor.point.line][self.cursor.point.col..] {
-                    cell.reset(&template);
-                }
-                if self.cursor.point.line < self.grid.num_lines() - 1 {
-                    self.grid
-                        .region_mut((self.cursor.point.line + 1)..)
-                        .each(|cell| cell.reset(&template));
-                }
-            },
-            ansi::ClearMode::All => self.grid.region_mut(..).each(|c| c.reset(&template)),
             ansi::ClearMode::Above => {
                 // If clearing more than one line
                 if self.cursor.point.line > Line(1) {
@@ -1774,7 +1763,22 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                     cell.reset(&template);
                 }
             },
-            ansi::ClearMode::Saved => self.grid.clear_history(),
+            ansi::ClearMode::Below => {
+                for cell in &mut self.grid[self.cursor.point.line][self.cursor.point.col..] {
+                    cell.reset(&template);
+                }
+                if self.cursor.point.line < self.grid.num_lines() - 1 {
+                    self.grid
+                        .region_mut((self.cursor.point.line + 1)..)
+                        .each(|cell| cell.reset(&template));
+                }
+            },
+            ansi::ClearMode::All => {
+                self.grid.clear_viewport(&template);
+            },
+            ansi::ClearMode::Saved => {
+                self.grid.clear_history();
+            }
         }
     }
 
