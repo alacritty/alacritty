@@ -1,7 +1,6 @@
 //! Exports the TimeSeries Trait and the ActivityLevels class
 //! The ActivityLine is a way to draw the ActivityLevel through an opengl line
 //! Currently only 2D lines are supported and only one fragment shader is used.
-//! This could be renamed to Histograms/etc
 
 // TODO:
 // - Move to the config.yaml
@@ -9,11 +8,23 @@
 // -- The dashboards should be toggable, some key combination
 // -- When activated on toggle it could blur a portion of the screen
 // -- derive builder
+// -- Use prometheus queries instead of our own aggregation/etc.
 
+extern crate futures;
+extern crate hyper;
+extern crate tokio_core;
+extern crate serde_json;
+extern crate num_traits;
 use crate::term::color::Rgb;
 use num_traits::*;
 use std::time::UNIX_EPOCH;
 use crate::term::SizeInfo;
+
+use std::io;
+use futures::{Future, Stream};
+use hyper::Client;
+use tokio_core::reactor::Core;
+use serde_json::Value;
 
 /// `TimeSeriesStats` contains statistics about the current TimeSeries
 #[derive(Debug, Clone)]
@@ -93,6 +104,11 @@ pub trait TimeSeries {
             .as_secs();
         self.update(input, &mut metrics, now);
     }
+    // fn from_prometheus(&mut self, &mut metrics: Vec<(u64, Self::MetricType)>, url: String)
+    //     where Self::MetricType: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded + FromPrimitive
+    // {
+    // }
+
     // `init_opengl_context` provides a default initialization of OpengL
     // context. This function is called previous to sending the vector data.
     // This seems to be part of src/renderer/ mod tho...
@@ -510,7 +526,36 @@ where T: Num + Clone + Copy
     }
 }
 
-struct LoadAvg {
+pub struct PrometheusMetric {
+    pub fn new() -> PrometheusMetric{
+        rt::run(rt::lazy(|| {
+            let client = Client::new();
+
+            let uri = "http://localhost:9090/api/v1/query?query=up".parse().unwrap();
+
+            client
+                .get(uri)
+                .and_then(|res| {
+                    println!("Response: {}", res.status());
+                    res
+                        .into_body()
+                        // Body is a stream, so as each chunk arrives...
+                        .for_each(|chunk| {
+                            io::stdout()
+                                .write_all(&chunk)
+                                .map_err(|e| {
+                                    panic!("example expects stdout is open, error={}", e)
+                                })
+                        })
+                })
+                .map_err(|err| {
+                    println!("Error: {}", err);
+                })
+        }));
+        }
+}
+
+pub struct LoadAvg {
     /// From https://docs.rs/procinfo/0.4.2/procinfo/struct.LoadAvg.html
     /// Load average over the last minute.
     load_avg_1_min: ActivityLevels<f32>,
