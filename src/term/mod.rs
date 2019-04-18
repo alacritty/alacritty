@@ -1318,7 +1318,9 @@ impl Term {
         lines = min(lines, self.scroll_region.end - origin);
 
         // Scroll between origin and bottom
-        self.grid.scroll_down(&(origin..self.scroll_region.end), lines, &self.cursor.template);
+        let mut template = self.cursor.template;
+        template.flags = Flags::empty();
+        self.grid.scroll_down(&(origin..self.scroll_region.end), lines, &template);
     }
 
     /// Scroll screen up
@@ -1331,7 +1333,9 @@ impl Term {
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Scroll from origin to bottom less number of lines
-        self.grid.scroll_up(&(origin..self.scroll_region.end), lines, &self.cursor.template);
+        let mut template = self.cursor.template;
+        template.flags = Flags::empty();
+        self.grid.scroll_up(&(origin..self.scroll_region.end), lines, &template);
     }
 
     fn deccolm(&mut self) {
