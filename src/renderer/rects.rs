@@ -40,10 +40,7 @@ struct Line {
 
 impl Line {
     fn new(flag: Flags) -> Self {
-        Self {
-            flag,
-            range: None,
-        }
+        Self { flag, range: None }
     }
 }
 
@@ -95,13 +92,7 @@ impl<'a> Rects<'a> {
                         continue;
                     }
 
-                    self.inner.push(create_rect(
-                        start,
-                        *end,
-                        line.flag,
-                        &self.metrics,
-                        &self.size,
-                    ));
+                    self.inner.push(create_rect(start, *end, line.flag, &self.metrics, &self.size));
 
                     // Start a new line if the flag is present
                     if cell.flags.contains(line.flag) {
