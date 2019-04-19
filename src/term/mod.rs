@@ -1952,7 +1952,6 @@ impl ansi::Handler for Term {
                     cell.reset(&template);
                 }
             },
-            // If scrollback is implemented, this should clear it
             ansi::ClearMode::Saved => self.grid.clear_history(),
         }
     }
