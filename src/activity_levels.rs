@@ -1,6 +1,4 @@
-//! Exports the TimeSeries Trait and the ActivityLevels class
-//! The ActivityLine is a way to draw the ActivityLevel through an opengl line
-//! Currently only 2D lines are supported and only one fragment shader is used.
+//! Exports the TimeSeries class
 
 // TODO:
 // - Move to the config.yaml
@@ -26,8 +24,48 @@ use hyper::Client;
 use tokio_core::reactor::Core;
 use serde_json::Value;
 
-/// `TimeSeriesStats` contains statistics about the current TimeSeries
+/// `MissingValuesPolicy` provides several ways to deal with missing values
+/// to fill the vector of values
 #[derive(Debug, Clone)]
+pub enum MissingValuesPolicy<T>
+where T: Num + Clone + Copy
+{
+    Zero,
+    One,
+    First,
+    Last,
+    Fixed(T),
+    Avg,
+    Max,
+    Min,
+}
+
+impl<T> Default for MissingValuesPolicy<T>
+where T: Num + Clone + Copy
+{
+    fn default() -> MissingValuesPolicy<T> {
+        MissingValuesPolicy::Zero
+    }
+}
+
+/// `ValueCollisionPolicy` handles collisions when several values are collected
+/// for the same time unit, allowing for overwriting, incrementing, etc.
+#[derive(Debug, Clone)]
+pub enum ValueCollisionPolicy{
+    Overwrite,
+    Increment,
+    Decrement,
+    Ignore,
+}
+
+impl Default for ValueCollisionPolicy {
+    fn default() -> ValueCollisionPolicy {
+        ValueCollisionPolicy::Increment
+    }
+}
+
+/// `TimeSeriesStats` contains statistics about the current TimeSeries
+#[derive(Debug, Default, Clone)]
 pub struct TimeSeriesStats<T>
 where T: Num + Clone + Copy
 {
@@ -41,10 +79,132 @@ where T: Num + Clone + Copy
     is_dirty: bool,
 }
 
-/// `TimeSeries` holds a recorded metric at specific epochs
-pub trait TimeSeries {
-    /// `MetricType` has the type of data being collected
-    type MetricType;
+/// `TimeSeries` contains a vector of tuple (epoch, value)
+#[derive(Default)]
+pub struct TimeSeries<T>
+where T: Num + Clone + Copy
+{
+    /// Capture events through time
+    /// Contains one entry per second
+    pub metrics: Vec<(u64, T)>,
+
+    /// Max activity ticks to show, ties to the activity_levels array
+    /// it should cause it to throw away old items for newer records
+    pub max_metrics: usize,
+
+    /// Stats for the TimeSeries
+    pub metric_stats: TimeSeriesStats<T>,
+
+    /// Useful for records that do not increment but rather are a fixed
+    /// or absolute value recorded at a given time
+    pub collision_policy: ValueCollisionPolicy,
+
+}
+
+pub struct TimeSeriesChart<T>
+where T: Num + Clone + Copy
+{
+    /// The metrics shown at a given time
+    pub metrics: TimeSeries<T>,
+
+    /// A marker line to indicate a reference point, for example for load
+    /// to show where the 1 loadavg is, or to show disk capacity
+    pub metric_reference: Option<T>,
+
+    /// The offset in which the activity line should be drawn
+    pub x_offset: f32,
+
+    /// The width of the activity chart/histogram
+    pub width: f32,
+
+    /// The height of the activity line region
+    pub metrics_height: f32,
+
+    /// The spacing between the activity line segments, could be renamed to line length
+    pub tick_spacing: f32,
+
+    /// The color of the activity_line
+    pub color: Rgb,
+
+    /// The transparency of the activity line
+    pub alpha: f32,
+
+    /// The opengl representation of the activity levels
+    /// Contains twice as many items because it's x,y
+    pub metrics_opengl_vecs: Vec<f32>,
+
+    /// The opengl representation of the activity levels
+    /// Contains twice as many items because it's x,y
+    pub marker_opengl_vecs: Vec<f32>,
+
+    /// Missing values can be set to zero
+    /// to show where the 1 task per core is
+    pub missing_values_policy: MissingValuesPolicy<T>,
+}
+
+impl<T> TimeSeries<T>
+where T: Num + Clone + Copy
+{
+    pub fn update(&mut self, input: (u64, T))
+        where T: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded + FromPrimitive
+    {
+        let mut activity_time_length = self.metrics.len();
+        if activity_time_length == 0 {
+            self.metrics.push(input);
+            // TODO: update_opengl_vecs(size);
+            return;
+        }
+        let last_activity_time = self.metrics[activity_time_length - 1].0;
+        if input.0 == last_activity_time {
+            // The Vector is populated and has one active item at least which
+            // we can work on, no need to rotate or do anything special
+            match self.collision_policy {
+                ValueCollisionPolicy::Increment => self.metrics[activity_time_length - 1] = (input.0, self.metrics[activity_time_length - 1].1 + input.1),
+                ValueCollisionPolicy::Overwrite => self.metrics[activity_time_length - 1] = input,
+                ValueCollisionPolicy::Decrement => self.metrics[activity_time_length - 1] = (input.0, self.metrics[activity_time_length - 1].1 - input.1),
+                _ => self.metrics[activity_time_length - 1] = input,
+            };
+        }
+    }
+    fn update_now(&mut self, input: T)
+        where T: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded + FromPrimitive
+    {
+        let now = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        self.update((now, input));
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn it_rotates() {
+        // The default includes an Increment policy
+        let mut test = TimeSeries::default();
+        // Initialize to 0,0
+        test.update((0,0));
+        assert_eq!(test.metrics, vec![(0,0)]);
+        // Overwrite current entry
+        test.update((0,1));
+        assert_eq!(test.metrics, vec![(0,1)]);
+        // Increment current entry
+        test.update((0,1));
+        assert_eq!(test.metrics, vec![(0,2)]);
+    }
+        /*let size = SizeInfo{
+            width: 100f32,
+            height: 100f32,
+            cell_width: 1f32,
+            cell_height: 1f32,
+            padding_x: 0f32,
+            padding_y: 0f32,
+            dpr: 1f64
+        };*/
+}
+/*
     /// `draw` sends the time series representation of the TimeSeries to OpenGL
     /// context, this shouldn't be mut
     fn draw(&self);
@@ -64,45 +224,36 @@ pub trait TimeSeries {
     fn update_opengl_vecs(size: SizeInfo) -> Vec<f32>{
         unimplemented!("XXX");
     }
-    fn update(&mut self, &mut metrics: Vec<(u64, Self::MetricType)>, input: Self::MetricType, epoch: u64, collision_policy: ValueCollisionPolicy)
+    fn update(&mut self, &mut metrics: Vec<(u64, Self::MetricType)>, input: (u64, Self::MetricType),  collision_policy: ValueCollisionPolicy)
         where Self::MetricType: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded + FromPrimitive
     {
         let mut activity_time_length = metrics.len();
         if activity_time_length == 0 {
-            // The vector is empty, just add the value
-            metrics.push((epoch, input));
+            metrics.push(input);
             // TODO: update_opengl_vecs(size);
         }
         let last_activity_time = metrics[activity_time_length - 1].0;
-        if epoch == last_activity_time {
+        if input.0 == last_activity_time {
             // The Vector is populated and has one active item at least which
             // we can work on, no need to rotate or do anything special
             match collision_policy {
-                ValueCollisionPolicy::Increment => self.activity_levels[activity_time_length - 1] = self.activity_levels[activity_time_length - 1] + new_value;
-                ValueCollisionPolicy::Overwrite => self.activity_levels[activity_time_length - 1] = new_value;
-                ValueCollisionPolicy::Decrement => self.activity_levels[activity_time_length - 1] = self.activity_levels[activity_time_length - 1] - new_value;
-                _ => self.activity_levels[activity_time_length - 1] = new_value;
+                ValueCollisionPolicy::Increment => metrics[activity_time_length - 1] = (input.0, metrics[activity_time_length - 1].1 + input.1),
+                ValueCollisionPolicy::Overwrite => metrics[activity_time_length - 1] = input,
+                ValueCollisionPolicy::Decrement => metrics[activity_time_length - 1] = (input.0, metrics[activity_time_length - 1].1 - input.1),
+                _ => metrics[activity_time_length - 1] = input,
             };
+            return;
         }
         // Every time unit (currently second) is stored as an item in the array
         // Rotation may be needed due to inactivity or the array being filled
-        self.rotate_activity_levels_vec(now);
-        activity_time_length = self.activity_levels.len();
+        self.rotate_activity_levels_vec(input.0);
+        activity_time_length = metrics.len();
         if activity_time_length < self.max_activity_ticks {
             self.activity_levels.push(new_value);
         } else {
             self.activity_levels[activity_time_length - 1] = new_value;
         }
         // TODO: self.update_activity_opengl_vecs(size);
-    }
-    fn update_now(&mut self, &mut metrics: Vec<(u64, Self::MetricType)>, input: Self::MetricType)
-        where Self::MetricType: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded + FromPrimitive
-    {
-        let now = std::time::SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        self.update(input, &mut metrics, now);
     }
     // fn from_prometheus(&mut self, &mut metrics: Vec<(u64, Self::MetricType)>, url: String)
     //     where Self::MetricType: Num + Clone + Copy + PartialOrd + ToPrimitive + Bounded + FromPrimitive
@@ -115,31 +266,6 @@ pub trait TimeSeries {
     // fn init_opengl_context(&self);
 }
 
-/// `MissingValuesPolicy` provides several ways to deal with missing values
-/// to fill the vector of values
-#[derive(Debug, Clone)]
-pub enum MissingValuesPolicy<T>
-where T: Num + Clone + Copy
-{
-    Zero,
-    One,
-    First,
-    Last,
-    Fixed(T),
-    Avg,
-    Max,
-    Min,
-}
-
-/// `ValueCollisionPolicy` handles collisions when several values are collected
-/// for the same time unit, allowing for overwriting, incrementing, etc.
-#[derive(Debug, Clone)]
-pub enum ValueCollisionPolicy{
-    Overwrite,
-    Increment,
-    Decrement,
-    Ignore,
-}
 /// `ActivityLevels` keep track of the activity per time tick
 /// Currently this is a second as we use UNIX_EPOCH
 #[derive(Debug, Clone)]
@@ -527,12 +653,17 @@ where T: Num + Clone + Copy
 }
 
 pub struct PrometheusMetric {
-    pub fn new() -> PrometheusMetric{
+    name: String,
+    url: String,
+}
+
+impl PrometheusMetric {
+    pub fn load() -> Future {
         rt::run(rt::lazy(|| {
             let client = Client::new();
-
-            let uri = "http://localhost:9090/api/v1/query?query=up".parse().unwrap();
-
+            let uri = format!("http://localhost:9090/api/v1/query?{}",query)
+                .parse()
+                .unwrap();
             client
                 .get(uri)
                 .and_then(|res| {
@@ -552,7 +683,13 @@ pub struct PrometheusMetric {
                     println!("Error: {}", err);
                 })
         }));
+    }
+    pub fn new(name: String, query: String) -> PrometheusMetric {
+        PrometheusMetric {
+            url: format!("http://localhost:9090/api/v1/query?{}",query),
+            name,
         }
+    }
 }
 
 pub struct LoadAvg {
@@ -650,45 +787,8 @@ impl TimeSeries for LoadAvg {
         max_activity_value
     }
 
-}
+}*/
 
 //impl TimeSeries for ActivityLevels {
 //    fn draw()
 //}
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn it_adds_rotates() {
-        let mut test = ActivityLevels::default();
-        let size = SizeInfo{
-            width: 100f32,
-            height: 100f32,
-            cell_width: 1f32,
-            cell_height: 1f32,
-            padding_x: 0f32,
-            padding_y: 0f32,
-            dpr: 1f64
-        };
-        test.update_activity_level(size, 0);
-        assert_eq!(test.activity_levels, vec![1]);
-        test.update_activity_level(size, 0);
-        assert_eq!(test.activity_levels, vec![2]);
-        test.update_activity_level(size, 2);
-        assert_eq!(test.activity_levels, vec![2, 0 , 1]);
-        test.update_activity_level(size, 2);
-        assert_eq!(test.activity_levels, vec![2, 0 , 2]);
-        test.update_activity_level(size, 2);
-        assert_eq!(test.activity_levels, vec![2, 0 , 3]);
-        test.update_activity_level(size, 4);
-        assert_eq!(test.activity_levels, vec![2, 0 , 3, 0, 1]);
-        test.update_activity_level(size, 5);
-        assert_eq!(test.activity_levels, vec![0 , 3, 0, 1, 1]);
-        test.update_activity_level(size, 5);
-        assert_eq!(test.activity_levels, vec![0 , 3, 0, 1, 2]);
-        test.update_activity_level(size, 7);
-        assert_eq!(test.activity_levels, vec![0, 1, 2, 0 , 3]);
-        test.update_activity_level(size, 15);
-        assert_eq!(test.activity_levels, vec![0, 0, 0, 0 , 1]);
-    }
-}
