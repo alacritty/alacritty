@@ -452,7 +452,7 @@ pub mod mode {
     }
 }
 
-pub use mode::TermMode;
+pub use crate::term::mode::TermMode;
 
 trait CharsetMapping {
     fn map(&self, c: char) -> char {
