@@ -1,9 +1,9 @@
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
-use std::path::PathBuf;
-use std::result::Result;
 use std::os::windows::io::RawHandle;
+use std::path::PathBuf;
 use std::ptr::{null, null_mut};
+use std::result::Result;
 
 use winpty_sys::*;
 
@@ -166,10 +166,7 @@ impl<'a, 'b> Winpty<'a> {
     pub fn conin_name(&mut self) -> PathBuf {
         unsafe {
             let raw = winpty_conin_name(self.0);
-            PathBuf::from(&String::from_utf16_lossy(std::slice::from_raw_parts(
-                raw,
-                wcslen(raw),
-            )))
+            PathBuf::from(&String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw))))
         }
     }
 
@@ -178,10 +175,7 @@ impl<'a, 'b> Winpty<'a> {
     pub fn conout_name(&mut self) -> PathBuf {
         unsafe {
             let raw = winpty_conout_name(self.0);
-            PathBuf::from(&String::from_utf16_lossy(std::slice::from_raw_parts(
-                raw,
-                wcslen(raw),
-            )))
+            PathBuf::from(&String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw))))
         }
     }
 
@@ -191,10 +185,7 @@ impl<'a, 'b> Winpty<'a> {
     pub fn conerr_name(&mut self) -> PathBuf {
         unsafe {
             let raw = winpty_conerr_name(self.0);
-            PathBuf::from(&String::from_utf16_lossy(std::slice::from_raw_parts(
-                raw,
-                wcslen(raw),
-            )))
+            PathBuf::from(&String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw))))
         }
     }
 
@@ -227,7 +218,12 @@ impl<'a, 'b> Winpty<'a> {
         let mut process_list = Vec::with_capacity(count);
 
         unsafe {
-            let len = winpty_get_console_process_list(self.0, process_list.as_mut_ptr(), count as i32, &mut err) as usize;
+            let len = winpty_get_console_process_list(
+                self.0,
+                process_list.as_mut_ptr(),
+                count as i32,
+                &mut err,
+            ) as usize;
             process_list.set_len(len);
         }
 
@@ -246,10 +242,7 @@ impl<'a, 'b> Winpty<'a> {
     /// (https://blogs.msdn.microsoft.com/oldnewthing/20110107-00/?p=11803)
     // TODO: Support getting the process and thread handle of the spawned process (Not the agent)
     // TODO: Support returning the error from CreateProcess
-    pub fn spawn(
-        &mut self,
-        cfg: &SpawnConfig,
-    ) -> Result<(), Err> {
+    pub fn spawn(&mut self, cfg: &SpawnConfig) -> Result<(), Err> {
         let mut err = null_mut() as *mut winpty_error_t;
 
         unsafe {
@@ -261,7 +254,9 @@ impl<'a, 'b> Winpty<'a> {
                 null_mut(), // Create process error
                 &mut err,
             );
-            if ok == 0 { return Ok(());}
+            if ok == 0 {
+                return Ok(());
+            }
         }
 
         if let Some(err) = check_err(err) {
@@ -354,80 +349,70 @@ mod tests {
     #[test]
     // Test that we can start a process in winpty
     fn spawn_process() {
-        let mut winpty = Winpty::open(
-            &Config::new(ConfigFlags::empty()).expect("failed to create config")
-        ).expect("failed to create winpty instance");
+        let mut winpty =
+            Winpty::open(&Config::new(ConfigFlags::empty()).expect("failed to create config"))
+                .expect("failed to create winpty instance");
 
-        winpty.spawn(
-            &SpawnConfig::new(
-                SpawnFlags::empty(),
-                None,
-                Some("cmd"),
-                None,
-                None
-            ).expect("failed to create spawn config")
-        ).unwrap();
+        winpty
+            .spawn(
+                &SpawnConfig::new(SpawnFlags::empty(), None, Some("cmd"), None, None)
+                    .expect("failed to create spawn config"),
+            )
+            .unwrap();
     }
 
     #[test]
     // Test that pipes connected before winpty is spawned can be connected to
     fn valid_pipe_connect_before() {
-        let mut winpty = Winpty::open(
-            &Config::new(ConfigFlags::empty()).expect("failed to create config")
-        ).expect("failed to create winpty instance");
+        let mut winpty =
+            Winpty::open(&Config::new(ConfigFlags::empty()).expect("failed to create config"))
+                .expect("failed to create winpty instance");
 
         // Check we can connect to both pipes
-        PipeClient::connect_ms(winpty.conout_name(), 1000).expect("failed to connect to conout pipe");
+        PipeClient::connect_ms(winpty.conout_name(), 1000)
+            .expect("failed to connect to conout pipe");
         PipeClient::connect_ms(winpty.conin_name(), 1000).expect("failed to connect to conin pipe");
 
-        winpty.spawn(
-            &SpawnConfig::new(
-                SpawnFlags::empty(),
-                None,
-                Some("cmd"),
-                None,
-                None
-            ).expect("failed to create spawn config")
-        ).unwrap();
+        winpty
+            .spawn(
+                &SpawnConfig::new(SpawnFlags::empty(), None, Some("cmd"), None, None)
+                    .expect("failed to create spawn config"),
+            )
+            .unwrap();
     }
 
     #[test]
     // Test that pipes connected after winpty is spawned can be connected to
     fn valid_pipe_connect_after() {
-        let mut winpty = Winpty::open(
-            &Config::new(ConfigFlags::empty()).expect("failed to create config")
-        ).expect("failed to create winpty instance");
+        let mut winpty =
+            Winpty::open(&Config::new(ConfigFlags::empty()).expect("failed to create config"))
+                .expect("failed to create winpty instance");
 
-        winpty.spawn(
-            &SpawnConfig::new(
-                SpawnFlags::empty(),
-                None,
-                Some("cmd"),
-                None,
-                None
-            ).expect("failed to create spawn config")
-        ).unwrap();
+        winpty
+            .spawn(
+                &SpawnConfig::new(SpawnFlags::empty(), None, Some("cmd"), None, None)
+                    .expect("failed to create spawn config"),
+            )
+            .unwrap();
 
         // Check we can connect to both pipes
-        PipeClient::connect_ms(winpty.conout_name(), 1000).expect("failed to connect to conout pipe");
+        PipeClient::connect_ms(winpty.conout_name(), 1000)
+            .expect("failed to connect to conout pipe");
         PipeClient::connect_ms(winpty.conin_name(), 1000).expect("failed to connect to conin pipe");
     }
 
     #[test]
     fn resize() {
-        let mut winpty = Winpty::open(
-            &Config::new(ConfigFlags::empty()).expect("failed to create config")
-        ).expect("failed to create winpty instance");
+        let mut winpty =
+            Winpty::open(&Config::new(ConfigFlags::empty()).expect("failed to create config"))
+                .expect("failed to create winpty instance");
 
-        winpty.spawn(
-            &SpawnConfig::new(
-                SpawnFlags::empty(),
-                None,
-                Some("cmd"),
-                None,
-                None
-            ).expect("failed to create spawn config")
-        ).unwrap();
+        winpty
+            .spawn(
+                &SpawnConfig::new(SpawnFlags::empty(), None, Some("cmd"), None, None)
+                    .expect("failed to create spawn config"),
+            )
+            .unwrap();
 
         winpty.set_size(1, 1).unwrap();
     }
@@ -436,21 +421,19 @@ mod tests {
     #[ignore]
     // Test that each id returned by cosole_process_list points to an actual process
     fn console_process_list_valid() {
-        let mut winpty = Winpty::open(
-            &Config::new(ConfigFlags::empty()).expect("failed to create config")
-        ).expect("failed to create winpty instance");
+        let mut winpty =
+            Winpty::open(&Config::new(ConfigFlags::empty()).expect("failed to create config"))
+                .expect("failed to create winpty instance");
 
-        winpty.spawn(
-            &SpawnConfig::new(
-                SpawnFlags::empty(),
-                None,
-                Some("cmd"),
-                None,
-                None
-            ).expect("failed to create spawn config")
-        ).unwrap();
+        winpty
+            .spawn(
+                &SpawnConfig::new(SpawnFlags::empty(), None, Some("cmd"), None, None)
+                    .expect("failed to create spawn config"),
+            )
+            .unwrap();
 
-        let processes = winpty.console_process_list(1000).expect("failed to get console process list");
+        let processes =
+            winpty.console_process_list(1000).expect("failed to get console process list");
 
         // Check that each id is valid
         processes.iter().for_each(|id| {
@@ -458,7 +441,7 @@ mod tests {
                 OpenProcess(
                     READ_CONTROL, // permissions
                     false as i32, // inheret
-                    *id as u32
+                    *id as u32,
                 )
             };
             assert!(!handle.is_null());

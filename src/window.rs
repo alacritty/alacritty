@@ -15,23 +15,23 @@ use std::convert::From;
 use std::fmt::Display;
 
 use crate::gl;
-use glutin::GlContext;
+use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
+#[cfg(not(any(target_os = "macos", windows)))]
+use glutin::os::unix::EventsLoopExt;
 #[cfg(windows)]
 use glutin::Icon;
+use glutin::{
+    self, ContextBuilder, ControlFlow, Event, EventsLoop, MouseCursor, PossiblyCurrent,
+    WindowBuilder,
+};
 #[cfg(windows)]
 use image::ImageFormat;
-use glutin::{
-    self, ContextBuilder, ControlFlow, Event, EventsLoop,
-    MouseCursor as GlutinMouseCursor, WindowBuilder,
-};
-use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 
 use crate::cli::Options;
 use crate::config::{Decorations, WindowConfig};
-use crate::MouseCursor;
 
 #[cfg(windows)]
-static WINDOW_ICON: &'static [u8] = include_bytes!("../assets/windows/alacritty.ico");
+static WINDOW_ICON: &'static [u8] = include_bytes!("../extra/windows/alacritty.ico");
 
 /// Default Alacritty name, used for window title and class.
 pub const DEFAULT_NAME: &str = "Alacritty";
@@ -54,7 +54,7 @@ type Result<T> = ::std::result::Result<T, Error>;
 /// Wraps the underlying windowing library to provide a stable API in Alacritty
 pub struct Window {
     event_loop: EventsLoop,
-    window: glutin::GlWindow,
+    windowed_context: glutin::WindowedContext<PossiblyCurrent>,
     mouse_visible: bool,
 
     /// Whether or not the window is the focused window.
@@ -116,48 +116,73 @@ impl From<glutin::ContextError> for Error {
 }
 
 fn create_gl_window(
-    window: WindowBuilder,
+    mut window: WindowBuilder,
     event_loop: &EventsLoop,
     srgb: bool,
-) -> ::std::result::Result<glutin::GlWindow, glutin::CreationError> {
-    let context = ContextBuilder::new()
+    dimensions: Option<LogicalSize>,
+) -> Result<glutin::WindowedContext<PossiblyCurrent>> {
+    if let Some(dimensions) = dimensions {
+        window = window.with_dimensions(dimensions);
+    }
+
+    let windowed_context = ContextBuilder::new()
         .with_srgb(srgb)
         .with_vsync(true)
-        .with_hardware_acceleration(None);
-    ::glutin::GlWindow::new(window, context, event_loop)
+        .with_hardware_acceleration(None)
+        .build_windowed(window, event_loop)?;
+
+    // Make the context current so OpenGL operations can run
+    let windowed_context = unsafe { windowed_context.make_current().map_err(|(_, e)| e)? };
+
+    Ok(windowed_context)
 }
 
 impl Window {
     /// Create a new window
     ///
     /// This creates a window and fully initializes a window.
-    pub fn new(options: &Options, window_config: &WindowConfig) -> Result<Window> {
-        let event_loop = EventsLoop::new();
-
+    pub fn new(
+        event_loop: EventsLoop,
+        options: &Options,
+        window_config: &WindowConfig,
+        dimensions: Option<LogicalSize>,
+    ) -> Result<Window> {
         let title = options.title.as_ref().map_or(DEFAULT_NAME, |t| t);
         let class = options.class.as_ref().map_or(DEFAULT_NAME, |c| c);
         let window_builder = Window::get_platform_window(title, class, window_config);
-        let window = create_gl_window(window_builder.clone(), &event_loop, false)
-            .or_else(|_| create_gl_window(window_builder, &event_loop, true))?;
+        let windowed_context =
+            create_gl_window(window_builder.clone(), &event_loop, false, dimensions)
+                .or_else(|_| create_gl_window(window_builder, &event_loop, true, dimensions))?;
+        let window = windowed_context.window();
         window.show();
 
-        // Text cursor
-        window.set_cursor(GlutinMouseCursor::Text);
-
-        // Make the context current so OpenGL operations can run
-        unsafe {
-            window.make_current()?;
+        // Maximize window after mapping in X11
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            if event_loop.is_x11() && window_config.start_maximized() {
+                window.set_maximized(true);
+            }
         }
 
-        // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
-        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
+        // Set window position
+        //
+        // TODO: replace `set_position` with `with_position` once available
+        // Upstream issue: https://github.com/tomaka/winit/issues/806
+        let position = options.position().or_else(|| window_config.position());
+        if let Some(position) = position {
+            let physical = PhysicalPosition::from((position.x, position.y));
+            let logical = physical.to_logical(window.get_hidpi_factor());
+            window.set_position(logical);
+        }
 
-        let window = Window {
-            event_loop,
-            window,
-            mouse_visible: true,
-            is_focused: false,
-        };
+        // Text cursor
+        window.set_cursor(MouseCursor::Text);
+
+        // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
+        gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
+
+        let window =
+            Window { event_loop, windowed_context, mouse_visible: true, is_focused: false };
 
         window.run_os_extensions();
 
@@ -169,34 +194,30 @@ impl Window {
     /// Some window properties are provided since subsystems like font
     /// rasterization depend on DPI and scale factor.
     pub fn device_properties(&self) -> DeviceProperties {
-        DeviceProperties {
-            scale_factor: self.window.get_hidpi_factor(),
-        }
+        DeviceProperties { scale_factor: self.window().get_hidpi_factor() }
     }
 
     pub fn inner_size_pixels(&self) -> Option<LogicalSize> {
-        self.window.get_inner_size()
+        self.window().get_inner_size()
     }
 
     pub fn set_inner_size(&mut self, size: LogicalSize) {
-        self.window.set_inner_size(size);
+        self.window().set_inner_size(size);
     }
 
     #[inline]
     pub fn hidpi_factor(&self) -> f64 {
-        self.window.get_hidpi_factor()
+        self.window().get_hidpi_factor()
     }
 
     #[inline]
     pub fn create_window_proxy(&self) -> Proxy {
-        Proxy {
-            inner: self.event_loop.create_proxy(),
-        }
+        Proxy { inner: self.event_loop.create_proxy() }
     }
 
     #[inline]
     pub fn swap_buffers(&self) -> Result<()> {
-        self.window.swap_buffers().map_err(From::from)
+        self.windowed_context.swap_buffers().map_err(From::from)
     }
 
     /// Poll for any available events
@@ -210,7 +231,7 @@ impl Window {
 
     #[inline]
     pub fn resize(&self, size: PhysicalSize) {
-        self.window.resize(size);
+        self.windowed_context.resize(size);
     }
 
     /// Block waiting for events
@@ -224,26 +245,20 @@ impl Window {
 
     /// Set the window title
     #[inline]
-    pub fn set_title(&self, _title: &str) {
-        // Because winpty doesn't know anything about OSC escapes this gets set to an empty
-        // string on windows
-        #[cfg(not(windows))]
-        self.window.set_title(_title);
+    pub fn set_title(&self, title: &str) {
+        self.window().set_title(title);
     }
 
     #[inline]
     pub fn set_mouse_cursor(&self, cursor: MouseCursor) {
-        self.window.set_cursor(match cursor {
-            MouseCursor::Arrow => GlutinMouseCursor::Default,
-            MouseCursor::Text => GlutinMouseCursor::Text,
-        });
+        self.window().set_cursor(cursor);
     }
 
     /// Set mouse cursor visible
     pub fn set_mouse_visible(&mut self, visible: bool) {
         if visible != self.mouse_visible {
             self.mouse_visible = visible;
-            self.window.hide_cursor(!visible);
+            self.window().hide_cursor(!visible);
         }
     }
 
@@ -251,7 +266,7 @@ impl Window {
     pub fn get_platform_window(
         title: &str,
         class: &str,
-        window_config: &WindowConfig
+        window_config: &WindowConfig,
     ) -> WindowBuilder {
         use glutin::os::unix::WindowBuilderExt;
 
@@ -264,8 +279,8 @@ impl Window {
             .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
-            .with_maximized(window_config.start_maximized())
             .with_decorations(decorations)
+            .with_maximized(window_config.start_maximized())
             // X11
             .with_class(class.into(), DEFAULT_NAME.into())
             // Wayland
@@ -276,7 +291,7 @@ impl Window {
     pub fn get_platform_window(
         title: &str,
         _class: &str,
-        window_config: &WindowConfig
+        window_config: &WindowConfig,
     ) -> WindowBuilder {
         let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO).unwrap();
 
@@ -298,7 +313,7 @@ impl Window {
     pub fn get_platform_window(
         title: &str,
         _class: &str,
-        window_config: &WindowConfig
+        window_config: &WindowConfig,
     ) -> WindowBuilder {
         use glutin::os::macos::WindowBuilderExt;
 
@@ -319,42 +334,39 @@ impl Window {
                 .with_titlebar_buttons_hidden(true)
                 .with_titlebar_transparent(true)
                 .with_fullsize_content_view(true),
-            Decorations::None => window
-                .with_titlebar_hidden(true),
+            Decorations::None => window.with_titlebar_hidden(true),
         }
     }
 
-    #[cfg(
-        any(
-            target_os = "linux",
-            target_os = "freebsd",
-            target_os = "dragonfly",
-            target_os = "openbsd"
-        )
-    )]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "openbsd"
+    ))]
     pub fn set_urgent(&self, is_urgent: bool) {
         use glutin::os::unix::WindowExt;
-        self.window.set_urgent(is_urgent);
+        self.window().set_urgent(is_urgent);
     }
 
     #[cfg(target_os = "macos")]
     pub fn set_urgent(&self, is_urgent: bool) {
         use glutin::os::macos::WindowExt;
-        self.window.request_user_attention(is_urgent);
+        self.window().request_user_attention(is_urgent);
     }
 
     #[cfg(windows)]
     pub fn set_urgent(&self, _is_urgent: bool) {}
 
     pub fn set_ime_spot(&self, pos: LogicalPosition) {
-        self.window.set_ime_spot(pos);
+        self.window().set_ime_spot(pos);
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     pub fn get_window_id(&self) -> Option<usize> {
         use glutin::os::unix::WindowExt;
 
-        match self.window.get_xlib_window() {
+        match self.window().get_xlib_window() {
             Some(xlib_window) => Some(xlib_window as usize),
             None => None,
         }
@@ -367,7 +379,11 @@ impl Window {
 
     /// Hide the window
     pub fn hide(&self) {
-        self.window.hide();
+        self.window().hide();
+    }
+
+    fn window(&self) -> &glutin::Window {
+        self.windowed_context.window()
     }
 }
 
@@ -375,21 +391,20 @@ pub trait OsExtensions {
     fn run_os_extensions(&self) {}
 }
 
-#[cfg(
-    not(
-        any(
-            target_os = "linux",
-            target_os = "freebsd",
-            target_os = "dragonfly",
-            target_os = "openbsd"
-        )
-    )
-)]
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "openbsd"
+)))]
 impl OsExtensions for Window {}
 
-#[cfg(
-    any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")
-)]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "openbsd"
+))]
 impl OsExtensions for Window {
     fn run_os_extensions(&self) {
         use glutin::os::unix::WindowExt;
@@ -398,8 +413,8 @@ impl OsExtensions for Window {
         use std::ptr;
         use x11_dl::xlib::{self, PropModeReplace, XA_CARDINAL};
 
-        let xlib_display = self.window.get_xlib_display();
-        let xlib_window = self.window.get_xlib_window();
+        let xlib_display = self.window().get_xlib_display();
+        let xlib_window = self.window().get_xlib_window();
 
         if let (Some(xlib_window), Some(xlib_display)) = (xlib_window, xlib_display) {
             let xlib = xlib::Xlib::open().expect("get xlib");

@@ -14,11 +14,12 @@
 
 //! Defines the Row type which makes up lines in the grid
 
-use std::ops::{Index, IndexMut};
-use std::ops::{Range, RangeTo, RangeFrom, RangeFull, RangeToInclusive};
 use std::cmp::{max, min};
+use std::ops::{Index, IndexMut};
+use std::ops::{Range, RangeFrom, RangeFull, RangeTo, RangeToInclusive};
 use std::slice;
 
+use crate::grid::GridCell;
 use crate::index::Column;
 
 /// A row in the grid
@@ -43,67 +44,111 @@ impl<T: PartialEq> PartialEq for Row<T> {
     }
 }
 
-impl<T: Copy + Clone> Row<T> {
+impl<T: Copy> Row<T> {
     pub fn new(columns: Column, template: &T) -> Row<T> {
-        Row {
-            inner: vec![*template; *columns],
-            occ: 0,
-        }
+        Row { inner: vec![*template; *columns], occ: 0 }
     }
 
     pub fn grow(&mut self, cols: Column, template: &T) {
-        assert!(self.len() < * cols);
+        if self.inner.len() >= cols.0 {
+            return;
+        }
 
-        while self.len() != *cols {
-            self.inner.push(*template);
+        self.inner.append(&mut vec![*template; cols.0 - self.len()]);
+    }
+
+    pub fn shrink(&mut self, cols: Column) -> Option<Vec<T>>
+    where
+        T: GridCell,
+    {
+        if self.inner.len() <= cols.0 {
+            return None;
+        }
+
+        // Split off cells for a new row
+        let mut new_row = self.inner.split_off(cols.0);
+        let index = new_row.iter().rposition(|c| !c.is_empty()).map(|i| i + 1).unwrap_or(0);
+        new_row.truncate(index);
+
+        self.occ = min(self.occ, *cols);
+
+        if new_row.is_empty() {
+            None
+        } else {
+            Some(new_row)
         }
     }
 
     /// Resets contents to the contents of `other`
     #[inline(never)]
     pub fn reset(&mut self, other: &T) {
-        let occ = self.occ;
-        for item in &mut self.inner[..occ] {
+        for item in &mut self.inner[..self.occ] {
             *item = *other;
         }
-
         self.occ = 0;
     }
 }
 
 #[allow(clippy::len_without_is_empty)]
 impl<T> Row<T> {
-    pub fn shrink(&mut self, cols: Column) {
-        while self.len() != *cols {
-            self.inner.pop();
-        }
-
-        self.occ = min(self.occ, *cols);
+    #[inline]
+    pub fn from_vec(vec: Vec<T>, occ: usize) -> Row<T> {
+        Row { inner: vec, occ }
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.inner.len()
     }
 
-    pub fn iter(&self) -> slice::Iter<'_, T> {
-        self.inner.iter()
+    #[inline]
+    pub fn last(&self) -> Option<&T> {
+        self.inner.last()
     }
-}
-
-
-impl<'a, T> IntoIterator for &'a Row<T> {
-    type Item = &'a T;
-    type IntoIter = slice::Iter<'a, T>;
 
     #[inline]
-    fn into_iter(self) -> slice::Iter<'a, T> {
-        self.iter()
+    pub fn last_mut(&mut self) -> Option<&mut T> {
+        self.occ = self.inner.len();
+        self.inner.last_mut()
+    }
+
+    #[inline]
+    pub fn append(&mut self, vec: &mut Vec<T>)
+    where
+        T: GridCell,
+    {
+        self.inner.append(vec);
+        self.occ = self.inner.iter().rposition(|c| !c.is_empty()).map(|i| i + 1).unwrap_or(0);
+    }
+
+    #[inline]
+    pub fn append_front(&mut self, mut vec: Vec<T>) {
+        self.occ += vec.len();
+        vec.append(&mut self.inner);
+        self.inner = vec;
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool
+    where
+        T: GridCell,
+    {
+        self.inner.iter().all(GridCell::is_empty)
+    }
+
+    #[inline]
+    pub fn front_split_off(&mut self, at: usize) -> Vec<T> {
+        self.occ = self.occ.saturating_sub(at);
+
+        let mut split = self.inner.split_off(at);
+        std::mem::swap(&mut split, &mut self.inner);
+        split
     }
 }
 
 impl<'a, T> IntoIterator for &'a mut Row<T> {
-    type Item = &'a mut T;
     type IntoIter = slice::IterMut<'a, T>;
+    type Item = &'a mut T;
 
     #[inline]
     fn into_iter(self) -> slice::IterMut<'a, T> {

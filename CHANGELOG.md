@@ -4,6 +4,75 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Added ScrollLineUp and ScrollLineDown actions for scrolling line by line
+
+### Changed
+
+- Alacritty now has a fixed minimum supported Rust version of 1.31.0
+
+### Fixed
+
+- Reset scrolling region when the RIS escape sequence is received
+- Subprocess spawning on macos
+- Unnecessary resize at startup
+- Text getting blurry after live-reloading shaders with padding active
+- Resize events are not send to the shell anymore if dimensions haven't changed
+
+## Version 0.3.0
+
+### Packaging
+
+- On Linux, the .desktop file now uses `Alacritty` as icon name, which can be
+    found at `extra/logo/alacritty-term.svg`
+
+### Added
+
+- MSI installer for Windows is now available
+- New default key bindings Alt+Home, Alt+End, Alt+PageUp and Alt+PageDown
+- Dynamic title support on Windows
+- Ability to specify starting position with the `--position` flag
+- New configuration field `window.position` allows specifying the starting position
+- Added the ability to change the selection color
+- Text will reflow instead of truncating when resizing Alacritty
+- Underline text and change cursor when hovering over URLs with required modifiers pressed
+
+### Changed
+
+- Clicking on non-alphabetical characters in front of URLs will no longer open them
+- Command keybindings on Windows will no longer open new cmd.exe console windows
+- On macOS, automatic graphics switching has been temporarily disabled due to a macos bug
+
+### Fixed
+
+- Fix panic which could occur when quitting Alacritty on Windows if using the Conpty backend
+- Automatic copying of selection to clipboard when mouse is released outside of Alacritty
+- Scrollback history live reload only working when shrinking lines
+- Crash when decreasing scrollback history in config while scrolled in history
+- Resetting the terminal while in the alt screen will no longer disable scrollback
+- Cursor jumping around when leaving alt screen while not in the alt screen
+- Text lingering around when resetting while scrolled up in the history
+- Terminfo support for extended capabilities
+- Allow mouse presses and beginning of mouse selection in padding
+- Windows: Conpty backend could close immediately on startup in certain situations
+- FreeBSD: SpawnNewInstance will now open new instances in the shell's current
+    working directory as long as linprocfs(5) is mounted on `/compat/linux/proc`
+- Fix lingering Alacritty window after child process has exited
+- Growing the terminal while scrolled up will no longer move the content down
+- Support for alternate keyboard layouts on macOS
+- Slow startup time on some X11 systems
+- The AltGr key no longer sends escapes (like Alt)
+- Fixes increase/decrease font-size keybindings on international keyboards
+- On Wayland, the `--title` flag will set the Window title now
+- Parsing issues with URLs starting in the first or ending in the last column
+- URLs stopping at double-width characters
+- Fix `start_maximized` option on X11
+- Error when parsing URLs ending with Unicode outside of the ascii range
+- On Windows, focusing a Window will no longer start a selection
+
 ## Version 0.2.9
 
 ### Changed

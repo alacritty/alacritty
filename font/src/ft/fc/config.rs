@@ -11,10 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use foreign_types::{ForeignTypeRef};
+use foreign_types::ForeignTypeRef;
 
-use super::{SetName, FontSetRef};
-use super::ffi::{FcConfigGetCurrent, FcConfigGetFonts, FcConfig, FcConfigDestroy};
+use super::ffi::{FcConfig, FcConfigDestroy, FcConfigGetCurrent, FcConfigGetFonts};
+use super::{FontSetRef, SetName};
 
 foreign_type! {
     type CType = FcConfig;
@@ -25,13 +25,10 @@ foreign_type! {
     pub struct ConfigRef;
 }
 
-
 impl Config {
     /// Get the current configuration
     pub fn get_current() -> &'static ConfigRef {
-        unsafe {
-            ConfigRef::from_ptr(FcConfigGetCurrent())
-        }
+        unsafe { ConfigRef::from_ptr(FcConfigGetCurrent()) }
     }
 }
 

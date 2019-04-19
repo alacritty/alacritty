@@ -1,0 +1,13 @@
+match_block_trailing_comma = true
+condense_wildcard_suffixes = true
+use_field_init_shorthand = true
+overflow_delimited_expr = true
+use_small_heuristics = "Max"
+format_doc_comments = true
+normalize_comments = true
+reorder_impl_items = true
+use_try_shorthand = true
+newline_style = "Unix"
+format_strings = true
+wrap_comments = true
+comment_width = 100

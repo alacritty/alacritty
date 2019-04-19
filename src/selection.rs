@@ -18,10 +18,10 @@
 //! finalized when the button is released. The selection should be cleared
 //! when text is added/removed/scrolled on the screen. The selection should
 //! also be cleared if the user clicks off of the selection.
-use std::cmp::{min, max};
+use std::cmp::{max, min};
 use std::ops::Range;
 
-use crate::index::{Point, Column, Side};
+use crate::index::{Column, Point, Side};
 use crate::term::Search;
 
 /// Describes a region of a 2-dimensional area
@@ -55,8 +55,8 @@ pub enum Selection {
 
         /// The line under the initial point. This is always selected regardless
         /// of which way the cursor is moved.
-        initial_line: isize
-    }
+        initial_line: isize,
+    },
 }
 
 /// A Point and side within that point.
@@ -83,8 +83,8 @@ impl Selection {
         Selection::Simple {
             region: Range {
                 start: Anchor::new(location.into(), side),
-                end: Anchor::new(location.into(), side)
-            }
+                end: Anchor::new(location.into(), side),
+            },
         }
     }
 
@@ -102,25 +102,17 @@ impl Selection {
                 region.start.line += offset;
                 region.end.line += offset;
                 *initial_line += offset;
-            }
+            },
         }
     }
 
     pub fn semantic(point: Point<usize>) -> Selection {
-        Selection::Semantic {
-            region: Range {
-                start: point.into(),
-                end: point.into(),
-            }
-        }
+        Selection::Semantic { region: Range { start: point.into(), end: point.into() } }
     }
 
     pub fn lines(point: Point<usize>) -> Selection {
         Selection::Lines {
-            region: Range {
-                start: point.into(),
-                end: point.into(),
-            },
+            region: Range { start: point.into(), end: point.into() },
             initial_line: point.line as isize,
         }
     }
@@ -131,9 +123,7 @@ impl Selection {
             Selection::Simple { ref mut region } => {
                 region.end = Anchor::new(location.into(), side);
             },
-            Selection::Semantic { ref mut region } |
-                Selection::Lines { ref mut region, .. } =>
-            {
+            Selection::Semantic { ref mut region } | Selection::Lines { ref mut region, .. } => {
                 region.end = location.into();
             },
         }
@@ -144,36 +134,28 @@ impl Selection {
         G: Search + Dimensions,
     {
         match *self {
-            Selection::Simple { ref region } => {
-                Selection::span_simple(grid, region, alt_screen)
-            },
+            Selection::Simple { ref region } => Selection::span_simple(grid, region, alt_screen),
             Selection::Semantic { ref region } => {
                 Selection::span_semantic(grid, region, alt_screen)
             },
             Selection::Lines { ref region, initial_line } => {
                 Selection::span_lines(grid, region, initial_line, alt_screen)
-            }
+            },
         }
     }
 
-    pub fn is_empty(&self) -> bool
-    {
+    pub fn is_empty(&self) -> bool {
         match *self {
             Selection::Simple { ref region } => {
                 region.start == region.end && region.start.side == region.end.side
             },
-            Selection::Semantic { .. } | Selection::Lines { .. } => {
-                false
-            },
+            Selection::Semantic { .. } | Selection::Lines { .. } => false,
         }
     }
 
-    fn span_semantic<G>(
-        grid: &G,
-        region: &Range<Point<isize>>,
-        alt_screen: bool,
-    ) -> Option<Span>
-        where G: Search + Dimensions
+    fn span_semantic<G>(grid: &G, region: &Range<Point<isize>>, alt_screen: bool) -> Option<Span>
+    where
+        G: Search + Dimensions,
     {
         let cols = grid.dimensions().col;
         let lines = grid.dimensions().line.0 as isize;
@@ -199,12 +181,7 @@ impl Selection {
             ::std::mem::swap(&mut start, &mut end);
         }
 
-        Some(Span {
-            cols,
-            front: start,
-            tail: end,
-            ty: SpanType::Inclusive,
-        })
+        Some(Span { cols, front: start, tail: end, ty: SpanType::Inclusive })
     }
 
     fn span_lines<G>(
@@ -214,21 +191,15 @@ impl Selection {
         alt_screen: bool,
     ) -> Option<Span>
     where
-        G: Dimensions
+        G: Dimensions,
     {
         let cols = grid.dimensions().col;
         let lines = grid.dimensions().line.0 as isize;
 
         // First, create start and end points based on initial line and the grid
         // dimensions.
-        let mut start = Point {
-            col: cols - 1,
-            line: initial_line
-        };
-        let mut end = Point {
-            col: Column(0),
-            line: initial_line
-        };
+        let mut start = Point { col: cols - 1, line: initial_line };
+        let mut end = Point { col: Column(0), line: initial_line };
 
         // Now, expand lines based on where cursor started and ended.
         if region.start.line < region.end.line {
@@ -245,17 +216,12 @@ impl Selection {
             Selection::alt_screen_clamp(&mut start, &mut end, lines, cols)?;
         }
 
-        Some(Span {
-            cols,
-            front: start.into(),
-            tail: end.into(),
-            ty: SpanType::Inclusive
-        })
+        Some(Span { cols, front: start.into(), tail: end.into(), ty: SpanType::Inclusive })
     }
 
     fn span_simple<G>(grid: &G, region: &Range<Anchor>, alt_screen: bool) -> Option<Span>
     where
-        G: Dimensions
+        G: Dimensions,
     {
         let start = region.start.point;
         let start_side = region.start.side;
@@ -276,7 +242,9 @@ impl Selection {
 
         // No selection for single cell with identical sides or two cell with right+left sides
         if (front == tail && front_side == tail_side)
-            || (tail_side == Side::Right && front_side == Side::Left && front.line == tail.line
+            || (tail_side == Side::Right
+                && front_side == Side::Left
+                && front.line == tail.line
                 && front.col == tail.col + 1)
         {
             return None;
@@ -303,12 +271,7 @@ impl Selection {
         }
 
         // Return the selection with all cells inclusive
-        Some(Span {
-            cols,
-            front: front.into(),
-            tail: tail.into(),
-            ty: SpanType::Inclusive,
-        })
+        Some(Span { cols, front: front.into(), tail: tail.into(), ty: SpanType::Inclusive })
     }
 
     // Clamp selection in the alternate screen to the visible region
@@ -387,7 +350,7 @@ impl Span {
                 (Span::wrap_start(self.front, self.cols), Span::wrap_end(self.tail, self.cols))
             },
             SpanType::ExcludeFront => (Span::wrap_start(self.front, self.cols), self.tail),
-            SpanType::ExcludeTail => (self.front, Span::wrap_end(self.tail, self.cols))
+            SpanType::ExcludeTail => (self.front, Span::wrap_end(self.tail, self.cols)),
         };
 
         Locations { start, end }
@@ -395,10 +358,7 @@ impl Span {
 
     fn wrap_start(mut start: Point<usize>, cols: Column) -> Point<usize> {
         if start.col == cols - 1 {
-            Point {
-                line: start.line + 1,
-                col: Column(0),
-            }
+            Point { line: start.line + 1, col: Column(0) }
         } else {
             start.col += 1;
             start
@@ -407,15 +367,9 @@ impl Span {
 
     fn wrap_end(end: Point<usize>, cols: Column) -> Point<usize> {
         if end.col == Column(0) && end.line != 0 {
-            Point {
-                line: end.line - 1,
-                col: cols
-            }
+            Point { line: end.line - 1, col: cols }
         } else {
-            Point {
-                line: end.line,
-                col: end.col - 1
-            }
+            Point { line: end.line, col: end.col - 1 }
         }
     }
 }
@@ -431,8 +385,9 @@ impl Span {
 /// look like [ B] and [E ].
 #[cfg(test)]
 mod test {
-    use crate::index::{Line, Column, Side, Point};
     use super::{Selection, Span, SpanType};
+    use crate::index::{Column, Line, Point, Side};
+    use crate::url::Url;
 
     struct Dimensions(Point);
     impl super::Dimensions for Dimensions {
@@ -443,17 +398,22 @@ mod test {
 
     impl Dimensions {
         pub fn new(line: usize, col: usize) -> Self {
-            Dimensions(Point {
-                line: Line(line),
-                col: Column(col)
-            })
+            Dimensions(Point { line: Line(line), col: Column(col) })
         }
     }
 
     impl super::Search for Dimensions {
-        fn semantic_search_left(&self, point: Point<usize>) -> Point<usize> { point }
-        fn semantic_search_right(&self, point: Point<usize>) -> Point<usize> { point }
-        fn url_search(&self, _: Point<usize>) -> Option<String> { None }
+        fn semantic_search_left(&self, point: Point<usize>) -> Point<usize> {
+            point
+        }
+
+        fn semantic_search_right(&self, point: Point<usize>) -> Point<usize> {
+            point
+        }
+
+        fn url_search(&self, _: Point<usize>) -> Option<Url> {
+            None
+        }
     }
 
     /// Test case of single cell selection

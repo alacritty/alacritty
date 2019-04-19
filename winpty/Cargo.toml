@@ -8,7 +8,7 @@ description = "Safe rust bindings for winpty"
 [target.'cfg(windows)'.dependencies]
 winpty-sys = "0.4.3"
 bitflags = "1.0"
-widestring = "0.2.2"
+widestring = "0.4.0"
 
 [target.'cfg(windows)'.dev-dependencies]
 named_pipe = "0.3"

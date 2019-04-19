@@ -1,10 +1,10 @@
 //! The main event loop which performs I/O on the pseudoterminal
 use std::borrow::Cow;
 use std::collections::VecDeque;
-use std::io::{self, ErrorKind, Read, Write};
 use std::fs::File;
-use std::sync::Arc;
+use std::io::{self, ErrorKind, Read, Write};
 use std::marker::Send;
+use std::sync::Arc;
 
 use mio::{self, Events, PollOpt, Ready};
 use mio_extras::channel::{self, Receiver, Sender};
@@ -15,10 +15,10 @@ use mio::unix::UnixReady;
 use crate::ansi;
 use crate::display;
 use crate::event;
-use crate::tty;
-use crate::term::Term;
-use crate::util::thread;
 use crate::sync::FairMutex;
+use crate::term::Term;
+use crate::tty;
+use crate::util::thread;
 
 /// Messages that may be sent to the `EventLoop`
 #[derive(Debug)]
@@ -34,7 +34,7 @@ pub enum Msg {
 ///
 /// Handles all the pty I/O and runs the pty parser which updates terminal
 /// state.
-pub struct EventLoop<T: tty::EventedReadWrite> {
+pub struct EventLoop<T: tty::EventedPty> {
     poll: mio::Poll,
     pty: T,
     rx: Receiver<Msg>,
@@ -58,14 +58,14 @@ enum DrainResult {
     /// Nothing was available to receive
     Empty,
     /// A shutdown message was received
-    Shutdown
+    Shutdown,
 }
 
 impl DrainResult {
     pub fn is_shutdown(&self) -> bool {
         match *self {
             DrainResult::Shutdown => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -84,12 +84,13 @@ pub struct Notifier(pub Sender<Msg>);
 
 impl event::Notify for Notifier {
     fn notify<B>(&mut self, bytes: B)
-    where B: Into<Cow<'static, [u8]>>,
+    where
+        B: Into<Cow<'static, [u8]>>,
     {
         let bytes = bytes.into();
         // terminal hangs if we send 0 bytes through.
         if bytes.len() == 0 {
-            return
+            return;
         }
         if self.0.send(Msg::Input(bytes)).is_err() {
             panic!("expected send event loop msg");
@@ -99,11 +100,7 @@ impl event::Notify for Notifier {
 
 impl Default for State {
     fn default() -> State {
-        State {
-            write_list: VecDeque::new(),
-            parser: ansi::Processor::new(),
-            writing: None,
-        }
+        State { write_list: VecDeque::new(), parser: ansi::Processor::new(), writing: None }
     }
 }
 
@@ -117,9 +114,7 @@ impl State {
 
     #[inline]
     fn goto_next(&mut self) {
-        self.writing = self.write_list
-            .pop_front()
-            .map(Writing::new);
+        self.writing = self.write_list.pop_front().map(Writing::new);
     }
 
     #[inline]
@@ -160,12 +155,9 @@ impl Writing {
     }
 }
 
-/// `mio::Token` for the event loop channel
-const CHANNEL: mio::Token = mio::Token(0);
-
 impl<T> EventLoop<T>
-    where
-        T: tty::EventedReadWrite + Send + 'static,
+where
+    T: tty::EventedPty + Send + 'static,
 {
     /// Create a new event loop
     pub fn new(
@@ -201,10 +193,10 @@ impl<T> EventLoop<T>
             match msg {
                 Msg::Input(input) => {
                     state.write_list.push_back(input);
-                }
+                },
                 Msg::Shutdown => {
                     return DrainResult::Shutdown;
-                }
+                },
             }
         }
 
@@ -217,13 +209,13 @@ impl<T> EventLoop<T>
 
     // Returns a `bool` indicating whether or not the event loop should continue running
     #[inline]
-    fn channel_event(&mut self, state: &mut State) -> bool {
+    fn channel_event(&mut self, token: mio::Token, state: &mut State) -> bool {
         if self.drain_recv_channel(state).is_shutdown() {
             return false;
         }
 
         self.poll
-            .reregister(&self.rx, CHANNEL, Ready::readable(), PollOpt::edge() | PollOpt::oneshot())
+            .reregister(&self.rx, token, Ready::readable(), PollOpt::edge() | PollOpt::oneshot())
             .unwrap();
 
         true
@@ -236,8 +228,8 @@ impl<T> EventLoop<T>
         buf: &mut [u8],
         mut writer: Option<&mut X>,
     ) -> io::Result<()>
-        where
-            X: Write,
+    where
+        X: Write,
     {
         const MAX_READ: usize = 0x1_0000;
         let mut processed = 0;
@@ -274,20 +266,18 @@ impl<T> EventLoop<T>
 
                     // Run the parser
                     for byte in &buf[..got] {
-                        state
-                            .parser
-                            .advance(&mut **terminal, *byte, &mut self.pty.writer());
+                        state.parser.advance(&mut **terminal, *byte, &mut self.pty.writer());
                     }
 
                     // Exit if we've processed enough bytes
                     if processed > MAX_READ {
                         break;
                     }
-                }
+                },
                 Err(err) => match err.kind() {
                     ErrorKind::Interrupted | ErrorKind::WouldBlock => {
                         break;
-                    }
+                    },
                     _ => return Err(err),
                 },
             }
@@ -314,21 +304,21 @@ impl<T> EventLoop<T>
                     Ok(0) => {
                         state.set_current(Some(current));
                         break 'write_many;
-                    }
+                    },
                     Ok(n) => {
                         current.advance(n);
                         if current.finished() {
                             state.goto_next();
                             break 'write_one;
                         }
-                    }
+                    },
                     Err(err) => {
                         state.set_current(Some(current));
                         match err.kind() {
                             ErrorKind::Interrupted | ErrorKind::WouldBlock => break 'write_many,
                             _ => return Err(err),
                         }
-                    }
+                    },
                 }
             }
         }
@@ -341,17 +331,15 @@ impl<T> EventLoop<T>
             let mut state = state.unwrap_or_else(Default::default);
             let mut buf = [0u8; 0x1000];
 
+            let mut tokens = (0..).map(Into::into);
+
             let poll_opts = PollOpt::edge() | PollOpt::oneshot();
 
-            let tokens = [1, 2];
-
-            self.poll
-                .register(&self.rx, CHANNEL, Ready::readable(), poll_opts)
-                .unwrap();
+            let channel_token = tokens.next().unwrap();
+            self.poll.register(&self.rx, channel_token, Ready::readable(), poll_opts).unwrap();
 
             // Register TTY through EventedRW interface
-            self.pty
-                .register(&self.poll, &mut tokens.iter(), Ready::readable(), poll_opts).unwrap();
+            self.pty.register(&self.poll, &mut tokens, Ready::readable(), poll_opts).unwrap();
 
             let mut events = Events::with_capacity(1024);
 
@@ -371,41 +359,55 @@ impl<T> EventLoop<T>
 
                 for event in events.iter() {
                     match event.token() {
-                        CHANNEL => if !self.channel_event(&mut state) {
-                            break 'event_loop;
+                        token if token == channel_token => {
+                            if !self.channel_event(channel_token, &mut state) {
+                                break 'event_loop;
+                            }
                         },
-                        token if token == self.pty.read_token() || token == self.pty.write_token() => {
+
+                        #[cfg(unix)]
+                        token if token == self.pty.child_event_token() => {
+                            if let Some(tty::ChildEvent::Exited) = self.pty.next_child_event() {
+                                self.terminal.lock().exit();
+                                self.display.notify();
+                                break 'event_loop;
+                            }
+                        },
+
+                        token
+                            if token == self.pty.read_token()
+                                || token == self.pty.write_token() =>
+                        {
                             #[cfg(unix)]
-                                {
-                                    if UnixReady::from(event.readiness()).is_hup() {
-                                        break 'event_loop;
-                                    }
+                            {
+                                if UnixReady::from(event.readiness()).is_hup() {
+                                    // don't try to do I/O on a dead PTY
+                                    continue;
                                 }
+                            }
+
                             if event.readiness().is_readable() {
-                                if let Err(err) = self.pty_read(&mut state, &mut buf, pipe.as_mut())
+                                if let Err(e) = self.pty_read(&mut state, &mut buf, pipe.as_mut()) {
+                                    #[cfg(target_os = "linux")]
                                     {
-                                        error!(
-                                            "[{}:{}] Event loop exiting due to error: {}",
-                                            file!(),
-                                            line!(),
-                                            err
-                                        );
-                                        break 'event_loop;
+                                        // On Linux, a `read` on the master side of a PTY can fail
+                                        // with `EIO` if the client side hangs up.  In that case,
+                                        // just loop back round for the inevitable `Exited` event.
+                                        // This sucks, but checking the process is either racy or
+                                        // blocking.
+                                        if e.kind() == ErrorKind::Other {
+                                            continue;
+                                        }
                                     }
 
-                                if crate::tty::process_should_exit() {
+                                    error!("Error reading from PTY in event loop: {}", e);
                                     break 'event_loop;
                                 }
                             }
 
                             if event.readiness().is_writable() {
-                                if let Err(err) = self.pty_write(&mut state) {
-                                    error!(
-                                        "[{}:{}] Event loop exiting due to error: {}",
-                                        file!(),
-                                        line!(),
-                                        err
-                                    );
+                                if let Err(e) = self.pty_write(&mut state) {
+                                    error!("Error writing to PTY in event loop: {}", e);
                                     break 'event_loop;
                                 }
                             }

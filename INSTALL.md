@@ -55,6 +55,12 @@ cd alacritty
 
 ### Dependencies
 
+These are the minimum dependencies required to build Alacritty, please note
+that with some setups additional dependencies might be desired.
+
+If you're running Wayland with an Nvidia GPU, you'll likely want the EGL
+drivers installed too (these are called `libegl1-mesa-dev` on Ubuntu).
+
 #### Debian/Ubuntu
 
 You can build alacritty using `cargo deb` and use your system's package manager
@@ -194,7 +200,8 @@ system menus. To install the desktop entry for Alacritty, run
 
 ```sh
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
-sudo desktop-file-install alacritty.desktop
+sudo cp extra/logo/alacritty-term.svg /usr/share/pixmaps/Alacritty.svg
+sudo desktop-file-install extra/linux/alacritty.desktop
 sudo update-desktop-database
 ```
 
@@ -237,7 +244,7 @@ To install the manual page, run
 
 ```sh
 sudo mkdir -p /usr/local/share/man/man1
-gzip -c alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
+gzip -c extra/alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
 ```
 
 ## Shell completions
@@ -246,7 +253,8 @@ To get automatic completions for alacritty's flags and arguments you can install
 
 ### Zsh
 
-To install the completions for zsh, you can place the `alacritty-completions.zsh` as `_alacritty` in any directory referenced by `$fpath`.
+To install the completions for zsh, you can place the `extra/completions/_alacritty` file in any
+directory referenced by `$fpath`.
 
 If you do not already have such a directory registered through your `~/.zshrc`, you can add one like this:
 
@@ -258,24 +266,25 @@ echo 'fpath+=${ZDOTDIR:-~}/.zsh_functions' >> ${ZDOTDIR:-~}/.zshrc
 Then copy the completion file to this directory:
 
 ```sh
-cp alacritty-completions.zsh ${ZDOTDIR:-~}/.zsh_functions/_alacritty
+cp extra/completions/_alacritty ${ZDOTDIR:-~}/.zsh_functions/_alacritty
 ```
 
 ### Bash
 
-To install the completions for bash, you can `source` the `alacritty-completions.bash` in your `~/.bashrc` file.
+To install the completions for bash, you can `source` the `extra/completions/alacritty.bash` file
+in your `~/.bashrc` file.
 
 If you do not plan to delete the source folder of alacritty, you can run
 
 ```sh
-echo "source $(pwd)/alacritty-completions.bash" >> ~/.bashrc
+echo "source $(pwd)/extra/completions/alacritty.bash" >> ~/.bashrc
 ```
 
 Otherwise you can copy it to the `~/.bash_completion` folder and source it from there:
 
 ```sh
 mkdir -p ~/.bash_completion
-cp alacritty-completions.bash ~/.bash_completion/alacritty
+cp extra/completions/alacritty.bash ~/.bash_completion/alacritty
 echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
 ```
 
@@ -284,7 +293,7 @@ echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
 To install the completions for fish, run
 
 ```
-sudo cp alacritty-completions.fish $__fish_data_dir/vendor_completions.d/alacritty.fish
+sudo cp extra/completions/alacritty.fish $__fish_data_dir/vendor_completions.d/alacritty.fish
 ```
 
 **Note:** For fish versions below 3.0 `$__fish_datadir` must be used instead.
@@ -307,5 +316,5 @@ instead.
 To install alacritty's terminfo entry globally:
 
 ```sh
-sudo tic -e alacritty,alacritty-direct alacritty.info
+sudo tic -xe alacritty,alacritty-direct extra/alacritty.info
 ```

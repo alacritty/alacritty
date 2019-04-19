@@ -1,14 +1,14 @@
-.TH ALACRITTY "1" "August 2018" "alacritty 0.2.9" "User Commands"
+.TH ALACRITTY "1" "August 2018" "alacritty 0.3.0" "User Commands"
 .SH NAME
 alacritty \- a cross-platform, gpu-accelerated terminal emulator
 .SH "SYNOPSIS"
 alacritty [FLAGS] [OPTIONS]
 .SH DESCRIPTION
-Alacritty is focused on simplicity and performance.
-.TP
-The performance goal means it should be faster than any other terminal emulator available.
-.TP
-The simplicity goal means that it doesn't have features such as tabs or splits (which can be better provided by a window manager or terminal multiplexer) nor niceties like a GUI config editor.
+Alacritty is a terminal emulator with a strong focus on simplicity and
+performance. With such a strong focus on performance, included features are
+carefully considered and you can always expect Alacritty to be blazingly fast.
+By making sane choices for defaults, Alacritty requires no additional setup.
+However, it does allow configuration of many aspects of the terminal.
 .SH "FLAGS"
 .TP
 \fB\-h\fR, \fB\-\-help\fR
@@ -22,8 +22,9 @@ Disable automatic config reloading
 .TP
 \fB\-\-persistent\-logging\fR
 Keep the log file after quitting Alacritty
-.HP
+.TP
 \fB\-\-print\-events\fR
+Print all events to stdout
 .TP
 \fB\-q\fR
 Reduces the level of verbosity (the min level is \fB\-qq\fR)
@@ -39,18 +40,19 @@ Prints version information
 .SH "OPTIONS"
 .TP
 \fB\-\-class\fR <class>
-Defines the window class on X11 [default: Alacritty]
+Defines the window class on Linux [default: Alacritty]
 .TP
 \fB\-e\fR, \fB\-\-command\fR <command>...
 Command and args to execute (must be last argument)
-.HP
+.TP
 \fB\-\-config\-file\fR <config\-file>
-.IP
 Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]
-.HP
+.TP
 \fB\-d\fR, \fB\-\-dimensions\fR <columns> <lines>
-.IP
 Defines the window dimensions. Falls back to size specified by window manager if set to 0x0 [default: 0x0]
+.TP
+\fB\-\-position\fR <x-pos> <y-pos>
+Defines the window position. Falls back to position specified by window manager if unset [default: unset]
 .TP
 \fB\-t\fR, \fB\-\-title\fR <title>
 Defines the window title [default: Alacritty]

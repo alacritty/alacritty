@@ -6,15 +6,15 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
 
-use alacritty::Grid;
-use alacritty::Term;
 use alacritty::ansi;
+use alacritty::config::Config;
 use alacritty::index::Column;
+use alacritty::message_bar::MessageBuffer;
 use alacritty::term::cell::Cell;
 use alacritty::term::SizeInfo;
-use alacritty::util::fmt::{Red, Green};
-use alacritty::config::Config;
-use alacritty::message_bar::MessageBuffer;
+use alacritty::util::fmt::{Green, Red};
+use alacritty::Grid;
+use alacritty::Term;
 
 macro_rules! ref_tests {
     ($($name:ident)*) => {
@@ -55,17 +55,18 @@ ref_tests! {
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
-    where P: AsRef<Path>
+where
+    P: AsRef<Path>,
 {
     let mut res = Vec::new();
-    File::open(path.as_ref()).unwrap()
-        .read_to_end(&mut res).unwrap();
+    File::open(path.as_ref()).unwrap().read_to_end(&mut res).unwrap();
 
     res
 }
 
 fn read_string<P>(path: P) -> Result<String, ::std::io::Error>
-    where P: AsRef<Path>
+where
+    P: AsRef<Path>,
 {
     let mut res = String::new();
     File::open(path.as_ref()).and_then(|mut f| f.read_to_string(&mut res))?;
@@ -109,8 +110,13 @@ fn ref_test(dir: &Path) {
                 let cell = term_grid[i][Column(j)];
                 let original_cell = grid[i][Column(j)];
                 if original_cell != cell {
-                    println!("[{i}][{j}] {original:?} => {now:?}",
-                             i=i, j=j, original=Green(original_cell), now=Red(cell));
+                    println!(
+                        "[{i}][{j}] {original:?} => {now:?}",
+                        i = i,
+                        j = j,
+                        original = Green(original_cell),
+                        now = Red(cell)
+                    );
                 }
             }
         }

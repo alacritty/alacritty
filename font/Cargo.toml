@@ -22,5 +22,5 @@ core-graphics = "0.17"
 core-foundation-sys = "0.6"
 
 [target.'cfg(windows)'.dependencies]
-font-loader = "0.6.0"
-rusttype = "0.4.1"
+font-loader = "0.8.0"
+rusttype = "0.7.5"

@@ -45,8 +45,8 @@ void main()
 
     // Compute vertex corner position
     vec2 position;
-    position.x = (gl_VertexID == 0 || gl_VertexID == 1) ? 1. : 0;
-    position.y = (gl_VertexID == 0 || gl_VertexID == 3) ? 0. : 1;
+    position.x = (gl_VertexID == 0 || gl_VertexID == 1) ? 1. : 0.;
+    position.y = (gl_VertexID == 0 || gl_VertexID == 3) ? 0. : 1.;
 
     // Position of cell from top-left
     vec2 cellPosition = cellDim * gridCoords;

@@ -20,21 +20,27 @@
 //! determine what to do when a non-modifier key is pressed.
 use std::borrow::Cow;
 use std::mem;
+use std::ops::RangeInclusive;
 use std::time::Instant;
 
-use copypasta::{Clipboard, Load, Buffer as ClipboardBuffer};
-use glutin::{ElementState, MouseButton, TouchPhase, MouseScrollDelta, ModifiersState, KeyboardInput};
+use copypasta::{Buffer as ClipboardBuffer, Clipboard, Load};
+use glutin::{
+    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseCursor, MouseScrollDelta,
+    TouchPhase,
+};
+use unicode_width::UnicodeWidthStr;
 
+use crate::ansi::{ClearMode, Handler};
 use crate::config::{self, Key};
-use crate::grid::Scroll;
 use crate::event::{ClickState, Mouse};
-use crate::index::{Line, Column, Side, Point};
-use crate::term::{Term, SizeInfo, Search};
+use crate::grid::Scroll;
+use crate::index::{Column, Line, Linear, Point, Side};
+use crate::message_bar::{self, Message};
 use crate::term::mode::TermMode;
+use crate::term::{Search, SizeInfo, Term};
+use crate::url::Url;
 use crate::util::fmt::Red;
 use crate::util::start_daemon;
-use crate::message_bar;
-use crate::ansi::{Handler, ClearMode};
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
 
@@ -142,10 +148,10 @@ impl<T: Eq> Binding<T> {
         // Check input first since bindings are stored in one big list. This is
         // the most likely item to fail so prioritizing it here allows more
         // checks to be short circuited.
-        self.trigger == *input &&
-            self.mode_matches(mode) &&
-            self.not_mode_matches(mode) &&
-            self.mods_match(mods, relaxed)
+        self.trigger == *input
+            && self.mode_matches(mode)
+            && self.not_mode_matches(mode)
+            && self.mods_match(mods, relaxed)
     }
 
     #[inline]
@@ -214,6 +220,12 @@ pub enum Action {
     /// Scroll exactly one page down
     ScrollPageDown,
 
+    /// Scroll one line up
+    ScrollLineUp,
+
+    /// Scroll one line down
+    ScrollLineDown,
+
     /// Scroll all the way to the top
     ScrollToTop,
 
@@ -261,8 +273,8 @@ impl Action {
             },
             Action::Paste => {
                 Clipboard::new()
-                    .and_then(|clipboard| clipboard.load_primary() )
-                    .map(|contents| { self.paste(ctx, &contents) })
+                    .and_then(|clipboard| clipboard.load_primary())
+                    .map(|contents| self.paste(ctx, &contents))
                     .unwrap_or_else(|err| {
                         error!("Error loading data from clipboard: {}", Red(err));
                     });
@@ -271,8 +283,8 @@ impl Action {
                 // Only paste if mouse events are not captured by an application
                 if !mouse_mode {
                     Clipboard::new()
-                        .and_then(|clipboard| clipboard.load_selection() )
-                        .map(|contents| { self.paste(ctx, &contents) })
+                        .and_then(|clipboard| clipboard.load_selection())
+                        .map(|contents| self.paste(ctx, &contents))
                         .unwrap_or_else(|err| {
                             error!("Error loading data from clipboard: {}", Red(err));
                         });
@@ -297,19 +309,25 @@ impl Action {
                 ctx.terminal_mut().exit();
             },
             Action::IncreaseFontSize => {
-               ctx.terminal_mut().change_font_size(FONT_SIZE_STEP);
+                ctx.terminal_mut().change_font_size(FONT_SIZE_STEP);
             },
             Action::DecreaseFontSize => {
-               ctx.terminal_mut().change_font_size(-FONT_SIZE_STEP);
-            }
+                ctx.terminal_mut().change_font_size(-FONT_SIZE_STEP);
+            },
             Action::ResetFontSize => {
-               ctx.terminal_mut().reset_font_size();
+                ctx.terminal_mut().reset_font_size();
             },
             Action::ScrollPageUp => {
                 ctx.scroll(Scroll::PageUp);
             },
             Action::ScrollPageDown => {
                 ctx.scroll(Scroll::PageDown);
+            },
+            Action::ScrollLineUp => {
+                ctx.scroll(Scroll::Lines(1));
+            },
+            Action::ScrollLineDown => {
+                ctx.scroll(Scroll::Lines(-1));
             },
             Action::ScrollToTop => {
                 ctx.scroll(Scroll::Top);
@@ -333,7 +351,7 @@ impl Action {
     fn paste<A: ActionContext>(&self, ctx: &mut A, contents: &str) {
         if ctx.terminal().mode().contains(TermMode::BRACKETED_PASTE) {
             ctx.write_to_pty(&b"\x1b[200~"[..]);
-            ctx.write_to_pty(contents.replace("\x1b","").into_bytes());
+            ctx.write_to_pty(contents.replace("\x1b", "").into_bytes());
             ctx.write_to_pty(&b"\x1b[201~"[..]);
         } else {
             // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
@@ -342,7 +360,7 @@ impl Action {
             // pasting... since that's neither practical nor sensible (and probably an impossible
             // task to solve in a general way), we'll just replace line breaks (windows and unix
             // style) with a singe carriage return (\r, which is what the Enter key produces).
-            ctx.write_to_pty(contents.replace("\r\n","\r").replace("\n","\r").into_bytes());
+            ctx.write_to_pty(contents.replace("\r\n", "\r").replace("\n", "\r").into_bytes());
         }
     }
 }
@@ -385,33 +403,29 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let motion_mode = TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG;
         let report_mode = TermMode::MOUSE_REPORT_CLICK | motion_mode;
 
-        // Don't launch URLs if mouse has moved
-        if prev_line != self.ctx.mouse().line
+        let mouse_moved = prev_line != self.ctx.mouse().line
             || prev_col != self.ctx.mouse().column
-            || prev_side != cell_side
-        {
+            || prev_side != cell_side;
+
+        // Don't launch URLs if mouse has moved
+        if mouse_moved {
             self.ctx.mouse_mut().block_url_launcher = true;
         }
 
-        // Ignore motions over the message bar
-        if self.mouse_over_message_bar(point) {
+        // Only report motions when cell changed and mouse is not over the message bar
+        if self.message_at_point(Some(point)).is_some() || !mouse_moved {
             return;
         }
+
+        // Underline URLs and change cursor on hover
+        self.update_url_highlight(point, modifiers);
 
         if self.ctx.mouse().left_button_state == ElementState::Pressed
             && (modifiers.shift || !self.ctx.terminal().mode().intersects(report_mode))
         {
-            self.ctx.update_selection(
-                Point {
-                    line: point.line,
-                    col: point.col,
-                },
-                cell_side,
-            );
+            self.ctx.update_selection(Point { line: point.line, col: point.col }, cell_side);
         } else if self.ctx.terminal().mode().intersects(motion_mode)
-            // Only report motion when changing cells
-            && (prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column)
-            && size_info.contains_point(x, y)
+            && size_info.contains_point(x, y, false)
         {
             if self.ctx.mouse().left_button_state == ElementState::Pressed {
                 self.mouse_report(32, ElementState::Pressed, modifiers);
@@ -422,6 +436,52 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             } else if self.ctx.terminal().mode().contains(TermMode::MOUSE_MOTION) {
                 self.mouse_report(35, ElementState::Pressed, modifiers);
             }
+        }
+    }
+
+    /// Underline URLs and change the mouse cursor when URL hover state changes.
+    fn update_url_highlight(&mut self, point: Point, modifiers: ModifiersState) {
+        let mouse_mode =
+            TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
+
+        // Only show URLs as launchable when all required modifiers are pressed
+        let url = if self.mouse_config.url.modifiers.relaxed_eq(modifiers)
+            && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
+            && self.mouse_config.url.launcher.is_some()
+        {
+            self.ctx.terminal().url_search(point.into())
+        } else {
+            None
+        };
+
+        if let Some(Url { origin, text }) = url {
+            let cols = self.ctx.size_info().cols().0;
+
+            // Calculate the URL's start position
+            let lines_before = (origin + cols - point.col.0 - 1) / cols;
+            let (start_col, start_line) = if lines_before > point.line.0 {
+                (0, 0)
+            } else {
+                let start_col = (cols + point.col.0 - origin % cols) % cols;
+                let start_line = point.line.0 - lines_before;
+                (start_col, start_line)
+            };
+            let start = Point::new(start_line, Column(start_col));
+
+            // Calculate the URL's end position
+            let len = text.width();
+            let end_col = (point.col.0 + len - origin) % cols - 1;
+            let end_line = point.line.0 + (point.col.0 + len - origin) / cols;
+            let end = Point::new(end_line, Column(end_col));
+
+            let start = Linear::from_point(Column(cols), start);
+            let end = Linear::from_point(Column(cols), end);
+
+            self.ctx.terminal_mut().set_url_highlight(RangeInclusive::new(start, end));
+            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
+            self.ctx.terminal_mut().dirty = true;
+        } else {
+            self.ctx.terminal_mut().reset_url_highlight();
         }
     }
 
@@ -497,14 +557,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    pub fn on_mouse_double_click(&mut self, button: MouseButton, point: Point) {
-        if button == MouseButton::Left {
+    pub fn on_mouse_double_click(&mut self, button: MouseButton, point: Option<Point>) {
+        if let (Some(point), true) = (point, button == MouseButton::Left) {
             self.ctx.semantic_selection(point);
         }
     }
 
-    pub fn on_mouse_triple_click(&mut self, button: MouseButton, point: Point) {
-        if button == MouseButton::Left {
+    pub fn on_mouse_triple_click(&mut self, button: MouseButton, point: Option<Point>) {
+        if let (Some(point), true) = (point, button == MouseButton::Left) {
             self.ctx.line_selection(point);
         }
     }
@@ -513,7 +573,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         &mut self,
         button: MouseButton,
         modifiers: ModifiersState,
-        point: Point,
+        point: Option<Point>,
     ) {
         let now = Instant::now();
         let elapsed = self.ctx.mouse().last_click_timestamp.elapsed();
@@ -528,14 +588,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_double_click(button, point);
                 ClickState::DoubleClick
-            },
+            }
             ClickState::DoubleClick
                 if !button_changed && elapsed < self.mouse_config.triple_click.threshold =>
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_triple_click(button, point);
                 ClickState::TripleClick
-            },
+            }
             _ => {
                 // Don't launch URLs if this click cleared the selection
                 self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
@@ -544,7 +604,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
                 // Start new empty selection
                 let side = self.ctx.mouse().cell_side;
-                self.ctx.simple_selection(point, side);
+                if let Some(point) = point {
+                    self.ctx.simple_selection(point, side);
+                }
 
                 let report_modes =
                     TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
@@ -561,7 +623,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 }
 
                 ClickState::Click
-            }
+            },
         };
     }
 
@@ -569,7 +631,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         &mut self,
         button: MouseButton,
         modifiers: ModifiersState,
-        point: Point,
+        point: Option<Point>,
     ) {
         let report_modes =
             TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
@@ -583,7 +645,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             };
             self.mouse_report(code, ElementState::Released, modifiers);
             return;
-        } else if button == MouseButton::Left {
+        } else if let (Some(point), true) = (point, button == MouseButton::Left) {
             self.launch_url(modifiers, point);
         }
 
@@ -598,7 +660,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return None;
         }
 
-        let text = self.ctx.terminal().url_search(point.into())?;
+        let text = self.ctx.terminal().url_search(point.into())?.text;
 
         let launcher = self.mouse_config.url.launcher.as_ref()?;
         let mut args = launcher.args().to_vec();
@@ -634,7 +696,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     },
                     _ => (),
                 }
-            }
+            },
         }
     }
 
@@ -688,11 +750,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     pub fn on_focus_change(&mut self, is_focused: bool) {
         if self.ctx.terminal().mode().contains(TermMode::FOCUS_IN_OUT) {
-            let chr = if is_focused {
-                "I"
-            } else {
-                "O"
-            };
+            let chr = if is_focused { "I" } else { "O" };
 
             let msg = format!("\x1b[{}", chr);
             self.ctx.write_to_pty(msg.into_bytes());
@@ -703,7 +761,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         &mut self,
         state: ElementState,
         button: MouseButton,
-        modifiers: ModifiersState
+        modifiers: ModifiersState,
     ) {
         match button {
             MouseButton::Left => self.ctx.mouse_mut().left_button_state = state,
@@ -712,14 +770,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             _ => (),
         }
 
-        let point = match self.ctx.mouse_coords() {
-            Some(point) => point,
-            None => return,
-        };
+        let point = self.ctx.mouse_coords();
 
         // Skip normal mouse events if the message bar has been clicked
-        if self.mouse_over_message_bar(point) {
-            self.on_message_bar_click(state, point);
+        if let Some(message) = self.message_at_point(point) {
+            // Message should never be `Some` if point is `None`
+            debug_assert!(point.is_some());
+            self.on_message_bar_click(state, point.unwrap(), message);
         } else {
             match state {
                 ElementState::Pressed => {
@@ -797,16 +854,18 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     &Key::Scancode(input.scancode),
                     false,
                 ),
-                _ => if let Some(key) = input.virtual_keycode {
-                    let key = Key::from_glutin_input(key);
-                    binding.is_triggered_by(
-                        *self.ctx.terminal().mode(),
-                        input.modifiers,
-                        &key,
+                _ => {
+                    if let Some(key) = input.virtual_keycode {
+                        let key = Key::from_glutin_input(key);
+                        binding.is_triggered_by(
+                            *self.ctx.terminal().mode(),
+                            input.modifiers,
+                            &key,
+                            false,
+                        )
+                    } else {
                         false
-                    )
-                } else {
-                    false
+                    }
                 },
             };
 
@@ -831,11 +890,12 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         for binding in self.mouse_bindings {
             if binding.is_triggered_by(*self.ctx.terminal().mode(), mods, &button, true) {
                 // binding was triggered; run the action
-                let mouse_mode = !mods.shift && self.ctx.terminal().mode().intersects(
-                    TermMode::MOUSE_REPORT_CLICK
-                    | TermMode::MOUSE_DRAG
-                    | TermMode::MOUSE_MOTION
-                );
+                let mouse_mode = !mods.shift
+                    && self.ctx.terminal().mode().intersects(
+                        TermMode::MOUSE_REPORT_CLICK
+                            | TermMode::MOUSE_DRAG
+                            | TermMode::MOUSE_MOTION,
+                    );
                 binding.execute(&mut self.ctx, mouse_mode);
                 has_binding = true;
             }
@@ -844,32 +904,34 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         has_binding
     }
 
-    /// Check if a point is within the message bar
-    fn mouse_over_message_bar(&mut self, point: Point) -> bool {
-        if let Some(message) = self.ctx.terminal_mut().message_buffer_mut().message() {
+    /// Return the message bar's message if there is some at the specified point
+    fn message_at_point(&mut self, point: Option<Point>) -> Option<Message> {
+        if let (Some(point), Some(message)) =
+            (point, self.ctx.terminal_mut().message_buffer_mut().message())
+        {
             let size = self.ctx.size_info();
-            point.line.0 >= size.lines().saturating_sub(message.text(&size).len())
-        } else {
-            false
+            if point.line.0 >= size.lines().saturating_sub(message.text(&size).len()) {
+                return Some(message);
+            }
         }
+
+        None
     }
 
     /// Handle clicks on the message bar.
-    fn on_message_bar_click(&mut self, button_state: ElementState, point: Point) {
+    fn on_message_bar_click(&mut self, button_state: ElementState, point: Point, message: Message) {
         match button_state {
             ElementState::Released => self.copy_selection(),
             ElementState::Pressed => {
                 let size = self.ctx.size_info();
-                if let Some(message) = self.ctx.terminal_mut().message_buffer_mut().message() {
-                    if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
-                        && point.line == size.lines() - message.text(&size).len()
-                    {
-                        self.ctx.terminal_mut().message_buffer_mut().pop();
-                    }
+                if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
+                    && point.line == size.lines() - message.text(&size).len()
+                {
+                    self.ctx.terminal_mut().message_buffer_mut().pop();
                 }
 
                 self.ctx.clear_selection();
-            }
+            },
         }
     }
 
@@ -887,15 +949,15 @@ mod tests {
     use std::borrow::Cow;
     use std::time::Duration;
 
-    use glutin::{VirtualKeyCode, Event, WindowEvent, ElementState, MouseButton, ModifiersState};
+    use glutin::{ElementState, Event, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent};
 
-    use crate::term::{SizeInfo, Term, TermMode};
-    use crate::event::{Mouse, ClickState, WindowChanges};
-    use crate::config::{self, Config, ClickHandler};
-    use crate::index::{Point, Side};
-    use crate::selection::Selection;
+    use crate::config::{self, ClickHandler, Config};
+    use crate::event::{ClickState, Mouse, WindowChanges};
     use crate::grid::Scroll;
+    use crate::index::{Point, Side};
     use crate::message_bar::MessageBuffer;
+    use crate::selection::Selection;
+    use crate::term::{SizeInfo, Term, TermMode};
 
     use super::{Action, Binding, Processor};
     use copypasta::Buffer as ClipboardBuffer;
@@ -921,13 +983,19 @@ mod tests {
         pub window_changes: &'a mut WindowChanges,
     }
 
-    impl <'a>super::ActionContext for ActionContext<'a> {
+    impl<'a> super::ActionContext for ActionContext<'a> {
         fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _val: B) {}
+
         fn update_selection(&mut self, _point: Point, _side: Side) {}
+
         fn simple_selection(&mut self, _point: Point, _side: Side) {}
+
         fn copy_selection(&self, _buffer: ClipboardBuffer) {}
+
         fn clear_selection(&mut self) {}
+
         fn hide_window(&mut self) {}
+
         fn spawn_new_instance(&mut self) {}
 
         fn terminal(&self) -> &Term {
