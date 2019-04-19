@@ -227,17 +227,17 @@ impl<'a> RenderableCellsIter<'a> {
 
         // Load cursor glyph
         let cursor = &term.cursor.point;
-        let cursor_cell =
-            if term.mode.contains(mode::TermMode::SHOW_CURSOR) && grid.contains(cursor) {
-                let offset_x = config.font().offset().x;
-                let offset_y = config.font().offset().y;
+        let cursor_visible = term.mode.contains(TermMode::SHOW_CURSOR) && grid.contains(cursor);
+        let cursor_cell = if cursor_visible {
+            let offset_x = config.font().offset().x;
+            let offset_y = config.font().offset().y;
 
-                let is_wide = grid[cursor].flags.contains(cell::Flags::WIDE_CHAR)
-                    && (cursor.col + 1) < grid.num_cols();
-                Some(cursor::get_cursor_glyph(cursor_style, metrics, offset_x, offset_y, is_wide))
-            } else {
-                None
-            };
+            let is_wide = grid[cursor].flags.contains(cell::Flags::WIDE_CHAR)
+                && (cursor.col + 1) < grid.num_cols();
+            Some(cursor::get_cursor_glyph(cursor_style, metrics, offset_x, offset_y, is_wide))
+        } else {
+            None
+        };
 
         RenderableCellsIter {
             cursor,
@@ -452,7 +452,7 @@ pub mod mode {
     }
 }
 
-pub use self::mode::TermMode;
+pub use crate::term::mode::TermMode;
 
 trait CharsetMapping {
     fn map(&self, c: char) -> char {
@@ -1357,7 +1357,7 @@ impl ansi::Handler for Term {
         }
 
         if self.input_needs_wrap {
-            if !self.mode.contains(mode::TermMode::LINE_WRAP) {
+            if !self.mode.contains(TermMode::LINE_WRAP) {
                 return;
             }
 
@@ -1385,9 +1385,7 @@ impl ansi::Handler for Term {
             let num_cols = self.grid.num_cols();
 
             // If in insert mode, first shift cells to the right.
-            if self.mode.contains(mode::TermMode::INSERT)
-                && self.cursor.point.col + width < num_cols
-            {
+            if self.mode.contains(TermMode::INSERT) && self.cursor.point.col + width < num_cols {
                 let line = self.cursor.point.line;
                 let col = self.cursor.point.col;
                 let line = &mut self.grid[line];
@@ -1447,7 +1445,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn goto(&mut self, line: Line, col: Column) {
         trace!("Going to: line={}, col={}", line, col);
-        let (y_offset, max_y) = if self.mode.contains(mode::TermMode::ORIGIN) {
+        let (y_offset, max_y) = if self.mode.contains(TermMode::ORIGIN) {
             (self.scroll_region.start, self.scroll_region.end - 1)
         } else {
             (Line(0), self.grid.num_lines() - 1)
@@ -1656,7 +1654,7 @@ impl ansi::Handler for Term {
     fn newline(&mut self) {
         self.linefeed();
 
-        if self.mode.contains(mode::TermMode::LINE_FEED_NEW_LINE) {
+        if self.mode.contains(TermMode::LINE_FEED_NEW_LINE) {
             self.carriage_return();
         }
     }
@@ -1962,34 +1960,34 @@ impl ansi::Handler for Term {
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 if !self.alt {
-                    self.mode.insert(mode::TermMode::ALT_SCREEN);
+                    self.mode.insert(TermMode::ALT_SCREEN);
                     self.save_cursor_position();
                     self.swap_alt();
                     self.save_cursor_position();
                 }
             },
-            ansi::Mode::ShowCursor => self.mode.insert(mode::TermMode::SHOW_CURSOR),
-            ansi::Mode::CursorKeys => self.mode.insert(mode::TermMode::APP_CURSOR),
+            ansi::Mode::ShowCursor => self.mode.insert(TermMode::SHOW_CURSOR),
+            ansi::Mode::CursorKeys => self.mode.insert(TermMode::APP_CURSOR),
             ansi::Mode::ReportMouseClicks => {
-                self.mode.insert(mode::TermMode::MOUSE_REPORT_CLICK);
+                self.mode.insert(TermMode::MOUSE_REPORT_CLICK);
                 self.set_mouse_cursor(MouseCursor::Default);
             },
             ansi::Mode::ReportCellMouseMotion => {
-                self.mode.insert(mode::TermMode::MOUSE_DRAG);
+                self.mode.insert(TermMode::MOUSE_DRAG);
                 self.set_mouse_cursor(MouseCursor::Default);
             },
             ansi::Mode::ReportAllMouseMotion => {
-                self.mode.insert(mode::TermMode::MOUSE_MOTION);
+                self.mode.insert(TermMode::MOUSE_MOTION);
                 self.set_mouse_cursor(MouseCursor::Default);
             },
-            ansi::Mode::ReportFocusInOut => self.mode.insert(mode::TermMode::FOCUS_IN_OUT),
-            ansi::Mode::BracketedPaste => self.mode.insert(mode::TermMode::BRACKETED_PASTE),
-            ansi::Mode::SgrMouse => self.mode.insert(mode::TermMode::SGR_MOUSE),
-            ansi::Mode::LineWrap => self.mode.insert(mode::TermMode::LINE_WRAP),
-            ansi::Mode::LineFeedNewLine => self.mode.insert(mode::TermMode::LINE_FEED_NEW_LINE),
-            ansi::Mode::Origin => self.mode.insert(mode::TermMode::ORIGIN),
+            ansi::Mode::ReportFocusInOut => self.mode.insert(TermMode::FOCUS_IN_OUT),
+            ansi::Mode::BracketedPaste => self.mode.insert(TermMode::BRACKETED_PASTE),
+            ansi::Mode::SgrMouse => self.mode.insert(TermMode::SGR_MOUSE),
+            ansi::Mode::LineWrap => self.mode.insert(TermMode::LINE_WRAP),
+            ansi::Mode::LineFeedNewLine => self.mode.insert(TermMode::LINE_FEED_NEW_LINE),
+            ansi::Mode::Origin => self.mode.insert(TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
-            ansi::Mode::Insert => self.mode.insert(mode::TermMode::INSERT), // heh
+            ansi::Mode::Insert => self.mode.insert(TermMode::INSERT), // heh
             ansi::Mode::BlinkingCursor => {
                 trace!("... unimplemented mode");
             },
@@ -2002,34 +2000,34 @@ impl ansi::Handler for Term {
         match mode {
             ansi::Mode::SwapScreenAndSetRestoreCursor => {
                 if self.alt {
-                    self.mode.remove(mode::TermMode::ALT_SCREEN);
+                    self.mode.remove(TermMode::ALT_SCREEN);
                     self.restore_cursor_position();
                     self.swap_alt();
                     self.restore_cursor_position();
                 }
             },
-            ansi::Mode::ShowCursor => self.mode.remove(mode::TermMode::SHOW_CURSOR),
-            ansi::Mode::CursorKeys => self.mode.remove(mode::TermMode::APP_CURSOR),
+            ansi::Mode::ShowCursor => self.mode.remove(TermMode::SHOW_CURSOR),
+            ansi::Mode::CursorKeys => self.mode.remove(TermMode::APP_CURSOR),
             ansi::Mode::ReportMouseClicks => {
-                self.mode.remove(mode::TermMode::MOUSE_REPORT_CLICK);
+                self.mode.remove(TermMode::MOUSE_REPORT_CLICK);
                 self.set_mouse_cursor(MouseCursor::Text);
             },
             ansi::Mode::ReportCellMouseMotion => {
-                self.mode.remove(mode::TermMode::MOUSE_DRAG);
+                self.mode.remove(TermMode::MOUSE_DRAG);
                 self.set_mouse_cursor(MouseCursor::Text);
             },
             ansi::Mode::ReportAllMouseMotion => {
-                self.mode.remove(mode::TermMode::MOUSE_MOTION);
+                self.mode.remove(TermMode::MOUSE_MOTION);
                 self.set_mouse_cursor(MouseCursor::Text);
             },
-            ansi::Mode::ReportFocusInOut => self.mode.remove(mode::TermMode::FOCUS_IN_OUT),
-            ansi::Mode::BracketedPaste => self.mode.remove(mode::TermMode::BRACKETED_PASTE),
-            ansi::Mode::SgrMouse => self.mode.remove(mode::TermMode::SGR_MOUSE),
-            ansi::Mode::LineWrap => self.mode.remove(mode::TermMode::LINE_WRAP),
-            ansi::Mode::LineFeedNewLine => self.mode.remove(mode::TermMode::LINE_FEED_NEW_LINE),
-            ansi::Mode::Origin => self.mode.remove(mode::TermMode::ORIGIN),
+            ansi::Mode::ReportFocusInOut => self.mode.remove(TermMode::FOCUS_IN_OUT),
+            ansi::Mode::BracketedPaste => self.mode.remove(TermMode::BRACKETED_PASTE),
+            ansi::Mode::SgrMouse => self.mode.remove(TermMode::SGR_MOUSE),
+            ansi::Mode::LineWrap => self.mode.remove(TermMode::LINE_WRAP),
+            ansi::Mode::LineFeedNewLine => self.mode.remove(TermMode::LINE_FEED_NEW_LINE),
+            ansi::Mode::Origin => self.mode.remove(TermMode::ORIGIN),
             ansi::Mode::DECCOLM => self.deccolm(),
-            ansi::Mode::Insert => self.mode.remove(mode::TermMode::INSERT),
+            ansi::Mode::Insert => self.mode.remove(TermMode::INSERT),
             ansi::Mode::BlinkingCursor => {
                 trace!("... unimplemented mode");
             },
@@ -2047,13 +2045,13 @@ impl ansi::Handler for Term {
     #[inline]
     fn set_keypad_application_mode(&mut self) {
         trace!("Setting keypad application mode");
-        self.mode.insert(mode::TermMode::APP_KEYPAD);
+        self.mode.insert(TermMode::APP_KEYPAD);
     }
 
     #[inline]
     fn unset_keypad_application_mode(&mut self) {
         trace!("Unsetting keypad application mode");
-        self.mode.remove(mode::TermMode::APP_KEYPAD);
+        self.mode.remove(TermMode::APP_KEYPAD);
     }
 
     #[inline]

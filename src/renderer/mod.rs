@@ -983,12 +983,15 @@ impl<'a> RenderApi<'a> {
     }
 
     pub fn render_cell(&mut self, cell: RenderableCell, glyph_cache: &mut GlyphCache) {
-        // loader.load_glyph(&rasterized)
-        if let RenderableCellContent::Raw(ref raw) = cell.inner {
-            let glyph = self.load_glyph(raw);
-            self.add_render_item(&cell, &glyph);
-            return;
-        }
+        let chars = match cell.inner {
+            RenderableCellContent::Raw(ref raw) => {
+                // Raw cell pixel buffers like cursors don't need to go through font lookup
+                let glyph = self.load_glyph(raw);
+                self.add_render_item(&cell, &glyph);
+                return;
+            },
+            RenderableCellContent::Chars(chars) => chars,
+        };
 
         // Get font key for cell
         // FIXME this is super inefficient.
@@ -1003,10 +1006,8 @@ impl<'a> RenderApi<'a> {
         // Don't render text of HIDDEN cells
         let mut chars = if cell.flags.contains(cell::Flags::HIDDEN) {
             [' '; cell::MAX_ZEROWIDTH_CHARS + 1]
-        } else if let RenderableCellContent::Chars(chars) = cell.inner {
-            chars
         } else {
-            unimplemented!();
+            chars
         };
 
         // Render tabs as spaces in case the font doesn't support it
