@@ -415,7 +415,7 @@ impl Display {
                 pty_size.height -= pty_size.cell_height * message.text(&size).len() as f32;
             }
 
-            if previous_cols != size.cols() || previous_lines != size.lines()  {
+            if font_changed || previous_cols != size.cols() || previous_lines != size.lines() {
                 pty_resize_handle.on_resize(&pty_size);
             }
 
