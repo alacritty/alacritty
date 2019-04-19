@@ -41,7 +41,7 @@ log = "0.4"
 clap = "2"
 fnv = "1"
 unicode-width = "0.1"
-glutin = { version = "0.21.0-rc2", features = ["icon_loading"] }
+glutin = { version = "0.21.0-rc3", features = ["icon_loading"] }
 env_logger = "0.6.0"
 base64 = "0.10.0"
 static_assertions = "0.3.0"
