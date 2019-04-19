@@ -460,13 +460,13 @@ impl Display {
                 self.window.set_urgent(is_urgent);
             }
         }
-        let input_activity_levels = terminal.get_input_activity_levels().clone();
-        let output_activity_levels = terminal.get_output_activity_levels().clone();
-        let load_avg_1_min = terminal.get_system_load("1_min").clone();
-        let load_avg_5_min = terminal.get_system_load("5_min").clone();
-        let load_avg_10_min = terminal.get_system_load("10_min").clone();
-        let tasks_runnable = terminal.get_system_task_status("runnable").clone();
-        let tasks_total = terminal.get_system_task_status("total").clone();
+        //let input_activity_levels = terminal.get_input_activity_levels().clone();
+        //let output_activity_levels = terminal.get_output_activity_levels().clone();
+        //let load_avg_1_min = terminal.get_system_load("1_min").clone();
+        //let load_avg_5_min = terminal.get_system_load("5_min").clone();
+        //let load_avg_10_min = terminal.get_system_load("10_min").clone();
+        //let tasks_runnable = terminal.get_system_task_status("runnable").clone();
+        //let tasks_total = terminal.get_system_task_status("total").clone();
 
         // Clear when terminal mutex isn't held. Mesa for
         // some reason takes a long time to call glClear(). The driver descends
@@ -534,7 +534,7 @@ impl Display {
                 self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
             }
             // XXX: Make into array, read from the config yaml
-            self.renderer.draw_activity_levels_line(config,
+/*            self.renderer.draw_activity_levels_line(config,
                                                     &size_info,
                                                     &output_activity_levels.activity_opengl_vecs,
                                                     output_activity_levels.color,
@@ -598,7 +598,7 @@ impl Display {
                                                     &tasks_total.activity_opengl_vecs,
                                                     tasks_total.color,
                                                     tasks_total.alpha);
-
+            */
             // Draw render timer
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());

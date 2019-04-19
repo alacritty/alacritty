@@ -25,8 +25,6 @@ extern crate serde_derive;
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;
-extern crate num_traits;
-extern crate procinfo;
 
 #[macro_use]
 pub mod macros;

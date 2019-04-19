@@ -42,7 +42,7 @@ use font::{self, Size};
 
 #[cfg(windows)]
 use crate::tty;
-use crate::activity_levels::{ActivityLevels, LoadAvg};
+// use crate::activity_levels::{ActivityLevels, LoadAvg};
 
 pub mod cell;
 pub mod color;
@@ -834,7 +834,7 @@ pub struct Term {
 
     /// Hint that Alacritty should be closed
     should_exit: bool,
-
+    /*
     /// Input activity levels, from keyboard (maybe control characters for terminal)
     // tmux shows redraws all the time (powerline)
     //
@@ -846,6 +846,7 @@ pub struct Term {
 
     /// The Load Average TimeSeries
     load_avg: LoadAvg,
+    */
 }
 
 /// Terminal size info
@@ -980,13 +981,13 @@ impl Term {
             message_buffer,
             should_exit: false,
             // XXX: Move this to the configuration file
-            input_activity_levels: ActivityLevels::default()
+            /*input_activity_levels: ActivityLevels::default()
                 .with_color(Rgb{r:255,g:0,b:0})
                 .with_x_offset(600f32),
             output_activity_levels: ActivityLevels::default()
                 .with_color(Rgb{r:0,g:255,b:0})
                 .with_x_offset(800f32),
-            load_avg: LoadAvg::default()
+            load_avg: LoadAvg::default()*/
         }
     }
 
@@ -1308,7 +1309,7 @@ impl Term {
         &self.size_info
     }
 
-    #[inline]
+/*    #[inline]
     pub fn get_input_activity_levels(&self) -> &ActivityLevels<u64> {
         &self.input_activity_levels
     }
@@ -1332,18 +1333,18 @@ impl Term {
             "runnable" => &self.tasks_runnable,
             _ => &self.tasks_total, // Unused default
         }
-    }
+    }*/
      
     pub fn increment_output_activity_level(&mut self, increment: u64) {
-        self.output_activity_levels.update_activity_level(self.size_info, increment);
+        //self.output_activity_levels.update_activity_level(self.size_info, increment);
     }
 
     pub fn increment_input_activity_level(&mut self, increment: u64) {
-        self.input_activity_levels.update_activity_level(self.size_info, increment);
+        //self.input_activity_levels.update_activity_level(self.size_info, increment);
     }
 
     pub fn update_system_load(&mut self) {
-        match procinfo::loadavg() {
+/*        match procinfo::loadavg() {
             Ok(res) => {
                 trace!("Current loadavg: {:?}", res);
                 self.load_avg_1_min.update_activity_level(self.size_info, res.load_avg_1_min);
@@ -1353,7 +1354,7 @@ impl Term {
                 self.tasks_total.update_activity_level(self.size_info, res.tasks_total);
             },
             Err(err) => { error!("Unable to get load average from system: {}", err);}
-        };
+        };*/
     }
 
     #[inline]

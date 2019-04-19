@@ -51,7 +51,9 @@ url = "1.7.1"
 time = "0.1.40"
 crossbeam-channel = "0.3.8"
 num-traits = "0.2"
-procinfo = "0.4.2"
+hyper = "0.12"
+futures = "0.1.26"
+tokio-core = "0.1.17"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.13"
