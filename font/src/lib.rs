@@ -213,6 +213,7 @@ impl ::std::ops::Add for Size {
     }
 }
 
+#[derive(Clone)]
 pub struct RasterizedGlyph {
     pub c: char,
     pub width: i32,
@@ -314,6 +315,7 @@ impl fmt::Debug for RasterizedGlyph {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct Metrics {
     pub average_advance: f64,
     pub line_height: f64,

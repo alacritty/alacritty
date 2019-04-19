@@ -435,10 +435,11 @@ impl Display {
         let size_info = *terminal.size_info();
         let visual_bell_intensity = terminal.visual_bell.intensity();
         let background_color = terminal.background_color();
+        let metrics = self.glyph_cache.font_metrics();
 
         let window_focused = self.window.is_focused;
         let grid_cells: Vec<RenderableCell> =
-            terminal.renderable_cells(config, window_focused).collect();
+            terminal.renderable_cells(config, window_focused, metrics).collect();
 
         // Get message from terminal to ignore modifications after lock is dropped
         let message_buffer = terminal.message_buffer_mut().message();
@@ -479,7 +480,6 @@ impl Display {
 
         {
             let glyph_cache = &mut self.glyph_cache;
-            let metrics = glyph_cache.font_metrics();
             let mut rects = Rects::new(&metrics, &size_info);
 
             // Draw grid
