@@ -18,15 +18,16 @@ use std::ops::{Index, IndexMut, Range, RangeInclusive};
 use std::time::{Duration, Instant};
 use std::{io, mem, ptr};
 
+use copypasta::{Clipboard, Load, Store};
+use font::{self, RasterizedGlyph, Size};
 use glutin::MouseCursor;
 use unicode_width::UnicodeWidthChar;
-use copypasta::{Clipboard, Load, Store};
-use font::{self, Size, RasterizedGlyph};
 
 use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset,
 };
 use crate::config::{Config, VisualBellAnimation};
+use crate::cursor;
 use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
     ViewportPosition,
@@ -38,7 +39,6 @@ use crate::selection::{self, Locations, Selection};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 use crate::url::{Url, UrlParser};
-use crate::cursor;
 
 #[cfg(windows)]
 use crate::tty;
@@ -227,18 +227,17 @@ impl<'a> RenderableCellsIter<'a> {
 
         // Load cursor glyph
         let cursor = &term.cursor.point;
-        let cursor_cell = if term.mode.contains(mode::TermMode::SHOW_CURSOR)
-            && grid.contains(cursor)
-        {
-            let offset_x = config.font().offset().x;
-            let offset_y = config.font().offset().y;
+        let cursor_cell =
+            if term.mode.contains(mode::TermMode::SHOW_CURSOR) && grid.contains(cursor) {
+                let offset_x = config.font().offset().x;
+                let offset_y = config.font().offset().y;
 
-            let is_wide = grid[cursor].flags.contains(cell::Flags::WIDE_CHAR)
-                && (cursor.col + 1) < grid.num_cols();
-            Some(cursor::get_cursor_glyph(cursor_style, metrics, offset_x, offset_y, is_wide))
-        } else {
-            None
-        };
+                let is_wide = grid[cursor].flags.contains(cell::Flags::WIDE_CHAR)
+                    && (cursor.col + 1) < grid.num_cols();
+                Some(cursor::get_cursor_glyph(cursor_style, metrics, offset_x, offset_y, is_wide))
+            } else {
+                None
+            };
 
         RenderableCellsIter {
             cursor,
@@ -312,10 +311,7 @@ impl RenderableCell {
         match fg {
             Color::Spec(rgb) => rgb,
             Color::Named(ansi) => {
-                match (
-                    config.draw_bold_text_with_bright_colors(),
-                    flags & Flags::DIM_BOLD,
-                ) {
+                match (config.draw_bold_text_with_bright_colors(), flags & Flags::DIM_BOLD) {
                     // If no bright foreground is set, treat it like the BOLD flag doesn't exist
                     (_, cell::Flags::DIM_BOLD)
                         if ansi == NamedColor::Foreground
@@ -326,9 +322,7 @@ impl RenderableCell {
                     // Draw bold text in bright colors *and* contains bold flag.
                     (true, cell::Flags::BOLD) => colors[ansi.to_bright()],
                     // Cell is marked as dim and not bold
-                    (_, cell::Flags::DIM) | (false, cell::Flags::DIM_BOLD) => {
-                        colors[ansi.to_dim()]
-                    },
+                    (_, cell::Flags::DIM) | (false, cell::Flags::DIM_BOLD) => colors[ansi.to_dim()],
                     // None of the above, keep original color.
                     _ => colors[ansi],
                 }
@@ -378,9 +372,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.cursor_offset == self.inner.offset()
-                && self.inner.column() == self.cursor.col
-            {
+            if self.cursor_offset == self.inner.offset() && self.inner.column() == self.cursor.col {
                 // Handle cursor
                 if let Some(cursor_cell) = self.cursor_cell.take() {
                     let cell = Indexed {
@@ -418,16 +410,12 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 }
 
                 // Underline URL highlights
-                if self
-                    .url_highlight
-                    .as_ref()
-                    .map(|range| range.contains_(index))
-                    .unwrap_or(false)
+                if self.url_highlight.as_ref().map(|range| range.contains_(index)).unwrap_or(false)
                 {
                     cell.inner.flags.insert(Flags::UNDERLINE);
                 }
 
-                return Some(RenderableCell::new(self.config, self.colors, cell, selected))
+                return Some(RenderableCell::new(self.config, self.colors, cell, selected));
             }
         }
     }
@@ -2422,8 +2410,18 @@ mod benches {
         let mut terminal = Term::new(&config, size, MessageBuffer::new());
         mem::swap(&mut terminal.grid, &mut grid);
 
+        let metrics = font::Metrics {
+            descent: 0.,
+            line_height: 0.,
+            average_advance: 0.,
+            underline_position: 0.,
+            underline_thickness: 0.,
+            strikeout_position: 0.,
+            strikeout_thickness: 0.,
+        };
+
         b.iter(|| {
-            let iter = terminal.renderable_cells(&config, false);
+            let iter = terminal.renderable_cells(&config, false, metrics);
             for cell in iter {
                 test::black_box(cell);
             }
