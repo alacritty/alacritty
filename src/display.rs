@@ -415,7 +415,7 @@ impl Display {
                 pty_size.height -= pty_size.cell_height * message.text(&size).len() as f32;
             }
 
-            if previous_cols != size.cols() || previous_lines != size.lines()  {
+            if previous_cols != size.cols() || previous_lines != size.lines() {
                 pty_resize_handle.on_resize(&pty_size);
             }
 
@@ -489,7 +489,7 @@ impl Display {
                     // Iterate over all non-empty cells in the grid
                     for cell in grid_cells {
                         // Update underline/strikeout
-                        rects.update_lines(&cell);
+                        rects.update_lines(&size_info, &cell);
 
                         // Draw the cell
                         api.render_cell(cell, glyph_cache);

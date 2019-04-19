@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unnecessary resize at startup
 - Text getting blurry after live-reloading shaders with padding active
 - Resize events are not send to the shell anymore if dimensions haven't changed
+- Minor performance issues with underline and strikeout checks
+- Rare bug which would extend underline and strikeout beyond the end of line
 
 ## Version 0.3.0
 
