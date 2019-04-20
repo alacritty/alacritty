@@ -45,9 +45,9 @@ extern crate foreign_types;
 #[cfg_attr(not(windows), macro_use)]
 extern crate log;
 
+use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::fmt;
 
 // If target isn't macos or windows, reexport everything from ft
 #[cfg(not(any(target_os = "macos", windows)))]

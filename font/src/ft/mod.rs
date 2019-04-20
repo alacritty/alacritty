@@ -45,17 +45,14 @@ impl fmt::Debug for Face {
             .field("ft_face", &self.ft_face)
             .field("key", &self.key)
             .field("load_flags", &self.load_flags)
-            .field(
-                "render_mode",
-                &match self.render_mode {
-                    freetype::RenderMode::Normal => "Normal",
-                    freetype::RenderMode::Light => "Light",
-                    freetype::RenderMode::Mono => "Mono",
-                    freetype::RenderMode::Lcd => "Lcd",
-                    freetype::RenderMode::LcdV => "LcdV",
-                    freetype::RenderMode::Max => "Max",
-                },
-            )
+            .field("render_mode", &match self.render_mode {
+                freetype::RenderMode::Normal => "Normal",
+                freetype::RenderMode::Light => "Light",
+                freetype::RenderMode::Mono => "Mono",
+                freetype::RenderMode::Lcd => "Lcd",
+                freetype::RenderMode::LcdV => "LcdV",
+                freetype::RenderMode::Max => "Max",
+            })
             .field("lcd_filter", &self.lcd_filter)
             .finish()
     }
