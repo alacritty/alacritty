@@ -21,7 +21,7 @@ use serde::de::{MapAccess, Unexpected, Visitor};
 use serde::{self, de, Deserialize};
 use serde_yaml;
 
-use crate::ansi::{Color, CursorStyle, NamedColor};
+use crate::ansi::CursorStyle;
 use crate::cli::Options;
 use crate::index::{Column, Line};
 use crate::input::{Action, Binding, KeyBinding, MouseBinding};
@@ -1877,14 +1877,14 @@ impl Config {
 
     /// Cursor foreground color
     #[inline]
-    pub fn cursor_text_color(&self) -> Option<Color> {
-        self.colors.cursor.text.map(|_| Color::Named(NamedColor::CursorText))
+    pub fn cursor_text_color(&self) -> Option<Rgb> {
+        self.colors.cursor.text
     }
 
     /// Cursor background color
     #[inline]
-    pub fn cursor_cursor_color(&self) -> Option<Color> {
-        self.colors.cursor.cursor.map(|_| Color::Named(NamedColor::Cursor))
+    pub fn cursor_cursor_color(&self) -> Option<Rgb> {
+        self.colors.cursor.cursor
     }
 
     /// Enable experimental conpty backend (Windows only)

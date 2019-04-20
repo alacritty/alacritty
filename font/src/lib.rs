@@ -47,7 +47,7 @@ extern crate log;
 
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{cmp, fmt};
+use std::fmt;
 
 // If target isn't macos or windows, reexport everything from ft
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -65,21 +65,6 @@ pub use crate::rusttype::{Error, RustTypeRasterizer as Rasterizer};
 mod darwin;
 #[cfg(target_os = "macos")]
 pub use darwin::*;
-
-/// Width/Height of the cursor relative to the font width
-pub const CURSOR_WIDTH_PERCENTAGE: i32 = 15;
-
-/// Character used for the underline cursor
-// This is part of the private use area and should not conflict with any font
-pub const UNDERLINE_CURSOR_CHAR: char = '\u{10a3e2}';
-
-/// Character used for the beam cursor
-// This is part of the private use area and should not conflict with any font
-pub const BEAM_CURSOR_CHAR: char = '\u{10a3e3}';
-
-/// Character used for the empty box cursor
-// This is part of the private use area and should not conflict with any font
-pub const BOX_CURSOR_CHAR: char = '\u{10a3e4}';
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FontDesc {
@@ -227,71 +212,6 @@ impl Default for RasterizedGlyph {
     fn default() -> RasterizedGlyph {
         RasterizedGlyph { c: ' ', width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }
     }
-}
-
-// Returns a custom underline cursor character
-pub fn get_underline_cursor_glyph(descent: i32, width: i32) -> Result<RasterizedGlyph, Error> {
-    // Create a new rectangle, the height is relative to the font width
-    let height = cmp::max(width * CURSOR_WIDTH_PERCENTAGE / 100, 1);
-    let buf = vec![255u8; (width * height * 3) as usize];
-
-    // Create a custom glyph with the rectangle data attached to it
-    Ok(RasterizedGlyph {
-        c: UNDERLINE_CURSOR_CHAR,
-        top: descent + height,
-        left: 0,
-        height,
-        width,
-        buf,
-    })
-}
-
-// Returns a custom beam cursor character
-pub fn get_beam_cursor_glyph(
-    ascent: i32,
-    height: i32,
-    width: i32,
-) -> Result<RasterizedGlyph, Error> {
-    // Create a new rectangle that is at least one pixel wide
-    let beam_width = cmp::max(width * CURSOR_WIDTH_PERCENTAGE / 100, 1);
-    let buf = vec![255u8; (beam_width * height * 3) as usize];
-
-    // Create a custom glyph with the rectangle data attached to it
-    Ok(RasterizedGlyph {
-        c: BEAM_CURSOR_CHAR,
-        top: ascent,
-        left: 0,
-        height,
-        width: beam_width,
-        buf,
-    })
-}
-
-// Returns a custom box cursor character
-pub fn get_box_cursor_glyph(
-    ascent: i32,
-    height: i32,
-    width: i32,
-) -> Result<RasterizedGlyph, Error> {
-    // Create a new box outline rectangle
-    let border_width = cmp::max(width * CURSOR_WIDTH_PERCENTAGE / 100, 1);
-    let mut buf = Vec::with_capacity((width * height * 3) as usize);
-    for y in 0..height {
-        for x in 0..width {
-            if y < border_width
-                || y >= height - border_width
-                || x < border_width
-                || x >= width - border_width
-            {
-                buf.append(&mut vec![255u8; 3]);
-            } else {
-                buf.append(&mut vec![0u8; 3]);
-            }
-        }
-    }
-
-    // Create a custom glyph with the rectangle data attached to it
-    Ok(RasterizedGlyph { c: BOX_CURSOR_CHAR, top: ascent, left: 0, height, width, buf })
 }
 
 struct BufDebugger<'a>(&'a [u8]);

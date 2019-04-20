@@ -449,35 +449,6 @@ impl Font {
         _size: f64,
         use_thin_strokes: bool,
     ) -> Result<RasterizedGlyph, Error> {
-        // Render custom symbols for underline and beam cursor
-        match character {
-            super::UNDERLINE_CURSOR_CHAR => {
-                // Get the bottom of the bounding box
-                let descent = -(self.ct_font.descent() as i32);
-                // Get the width of the cell
-                let width = self.glyph_advance('0') as i32;
-                // Return the new custom glyph
-                return super::get_underline_cursor_glyph(descent, width);
-            },
-            super::BEAM_CURSOR_CHAR | super::BOX_CURSOR_CHAR => {
-                // Get the top of the bounding box
-                let metrics = self.metrics();
-                let height = metrics.line_height;
-                let ascent = (height - self.ct_font.descent()).ceil();
-
-                // Get the width of the cell
-                let width = self.glyph_advance('0') as i32;
-
-                // Return the new custom glyph
-                if character == super::BEAM_CURSOR_CHAR {
-                    return super::get_beam_cursor_glyph(ascent as i32, height as i32, width);
-                } else {
-                    return super::get_box_cursor_glyph(ascent as i32, height as i32, width);
-                }
-            },
-            _ => (),
-        }
-
         let glyph_index =
             self.glyph_index(character).ok_or_else(|| Error::MissingGlyph(character))?;
 

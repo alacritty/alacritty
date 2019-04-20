@@ -385,6 +385,10 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 
                     renderable_cell.inner = RenderableCellContent::Raw(cursor_cell);
 
+                    if let Some(color) = self.config.cursor_cursor_color() {
+                        renderable_cell.fg = color;
+                    }
+
                     return Some(renderable_cell);
                 } else {
                     let mut cell =
@@ -392,6 +396,10 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 
                     if self.cursor_style == CursorStyle::Block {
                         std::mem::swap(&mut cell.bg, &mut cell.fg);
+
+                        if let Some(color) = self.config.cursor_text_color() {
+                            cell.fg = color;
+                        }
                     }
 
                     return Some(cell);
