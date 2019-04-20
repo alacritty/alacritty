@@ -58,7 +58,7 @@ impl Store for Clipboard {
     where
         S: Into<String>,
     {
-        // No such thing on macOS
+        // No such thing on Windows
         Ok(())
     }
 }
