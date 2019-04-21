@@ -45,6 +45,7 @@ pub fn get_cursor_glyph(
         CursorStyle::Underline => get_underline_cursor_glyph(width, line_width),
         CursorStyle::Beam => get_beam_cursor_glyph(height, line_width),
         CursorStyle::Block => get_block_cursor_glyph(height, width),
+        CursorStyle::Hidden => RasterizedGlyph::default(),
     }
 }
 

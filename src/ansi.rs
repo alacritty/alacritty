@@ -356,6 +356,9 @@ pub enum CursorStyle {
 
     /// Cursor is a box like `☐`
     HollowBlock,
+
+    /// Invisible cursor
+    Hidden,
 }
 
 impl Default for CursorStyle {

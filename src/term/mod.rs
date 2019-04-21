@@ -175,7 +175,7 @@ impl<'a> RenderableCellsIter<'a> {
         term: &'b Term,
         config: &'b Config,
         selection: Option<Locations>,
-        cursor_style: CursorStyle,
+        mut cursor_style: CursorStyle,
         metrics: font::Metrics,
     ) -> RenderableCellsIter<'b> {
         let grid = &term.grid;
@@ -236,6 +236,8 @@ impl<'a> RenderableCellsIter<'a> {
                 && (cursor.col + 1) < grid.num_cols();
             Some(cursor::get_cursor_glyph(cursor_style, metrics, offset_x, offset_y, is_wide))
         } else {
+            // Use hidden cursor so text will not get inverted
+            cursor_style = CursorStyle::Hidden;
             None
         };
 
