@@ -15,6 +15,7 @@
 use super::{Pty, HANDLE};
 
 use std::i16;
+use std::io::Error;
 use std::mem;
 use std::os::windows::io::IntoRawHandle;
 use std::ptr;
@@ -155,11 +156,13 @@ pub fn new<'a>(
 
     // Create the appropriately sized thread attribute list.
     unsafe {
-        success =
+        let failure =
             InitializeProcThreadAttributeList(ptr::null_mut(), 1, 0, &mut size as PSIZE_T) > 0;
 
         // This call was expected to return false.
-        assert!(!success);
+        if (!failure) {
+            panic_shell_spawn();
+        }
     }
 
     let mut attr_list: Box<[BYTE]> = vec![0; size].into_boxed_slice();
@@ -183,7 +186,9 @@ pub fn new<'a>(
             &mut size as PSIZE_T,
         ) > 0;
 
-        assert!(success);
+        if (!success) {
+            panic_shell_spawn();
+        }
     }
 
     // Set thread attribute list's Pseudo Console to the specified ConPTY
@@ -198,7 +203,9 @@ pub fn new<'a>(
             ptr::null_mut(),
         ) > 0;
 
-        assert!(success);
+        if (!success) {
+            panic_shell_spawn();
+        }
     }
 
     // Get process commandline
@@ -231,7 +238,9 @@ pub fn new<'a>(
             &mut proc_info as *mut PROCESS_INFORMATION,
         ) > 0;
 
-        assert!(success);
+        if (!success) {
+            panic_shell_spawn();
+        }
     }
 
     // Store handle to console
@@ -251,6 +260,11 @@ pub fn new<'a>(
         read_token: 0.into(),
         write_token: 0.into(),
     })
+}
+
+// Panic with the last os error as message
+fn panic_shell_spawn() {
+    panic!("Unable to spawn shell: {}", Error::last_os_error());
 }
 
 impl OnResize for ConptyHandle {
