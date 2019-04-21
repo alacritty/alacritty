@@ -40,11 +40,6 @@ impl Load for Clipboard {
         let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
         ctx.get_contents().map_err(Error::Clipboard)
     }
-
-    fn load_selection(&self) -> Result<String, Self::Err> {
-        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-        ctx.get_contents().map_err(Error::Clipboard)
-    }
 }
 
 impl Store for Clipboard {
@@ -63,6 +58,7 @@ impl Store for Clipboard {
     where
         S: Into<String>,
     {
-        self.0.set_contents(contents.into()).map_err(Error::Clipboard)
+        // No such thing on Windows
+        Ok(())
     }
 }
