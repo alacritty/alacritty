@@ -15,11 +15,11 @@
 use super::{Pty, HANDLE};
 
 use std::i16;
+use std::io::Error;
 use std::mem;
 use std::os::windows::io::IntoRawHandle;
 use std::ptr;
 use std::sync::Arc;
-use std::io::Error;
 
 use dunce::canonicalize;
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
