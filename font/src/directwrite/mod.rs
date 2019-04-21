@@ -121,32 +121,6 @@ impl crate::Rasterize for DirectWriteRasterizer {
     }
 
     fn get_glyph(&mut self, glyph: GlyphKey) -> Result<RasterizedGlyph, Error> {
-        let metrics = self.metrics(glyph.font_key, glyph.size)?;
-
-        match glyph.c {
-            super::UNDERLINE_CURSOR_CHAR => {
-                return super::get_underline_cursor_glyph(
-                    metrics.descent as i32,
-                    metrics.average_advance as i32,
-                );
-            },
-            super::BEAM_CURSOR_CHAR => {
-                return super::get_beam_cursor_glyph(
-                    (metrics.line_height + f64::from(metrics.descent)).round() as i32,
-                    metrics.line_height.round() as i32,
-                    metrics.average_advance.round() as i32,
-                );
-            },
-            super::BOX_CURSOR_CHAR => {
-                return super::get_box_cursor_glyph(
-                    (metrics.line_height + f64::from(metrics.descent)).round() as i32,
-                    metrics.line_height.round() as i32,
-                    metrics.average_advance.round() as i32,
-                );
-            },
-            _ => (),
-        }
-
         let font = self.fonts.get(glyph.font_key.token as usize).ok_or(Error::FontNotLoaded)?;
 
         let offset = GlyphOffset { advanceOffset: 0.0, ascenderOffset: 0.0 };
