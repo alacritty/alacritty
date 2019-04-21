@@ -78,7 +78,6 @@ default = []
 live-shader-reload = []
 nightly = []
 bench = []
-directwrite = ["font/directwrite"]
 
 [build-dependencies]
 gl_generator = "0.11.0"

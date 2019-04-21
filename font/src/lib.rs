@@ -55,14 +55,9 @@ pub mod ft;
 #[cfg(not(any(target_os = "macos", windows)))]
 pub use ft::{Error, FreeTypeRasterizer as Rasterizer};
 
-#[cfg(all(windows, not(feature = "directwrite")))]
-pub mod rusttype;
-#[cfg(all(windows, not(feature = "directwrite")))]
-pub use crate::rusttype::{Error, RustTypeRasterizer as Rasterizer};
-
-#[cfg(all(windows, feature = "directwrite"))]
+#[cfg(windows)]
 pub mod directwrite;
-#[cfg(all(windows, feature = "directwrite"))]
+#[cfg(windows)]
 pub use crate::directwrite::{DirectWriteRasterizer as Rasterizer, Error};
 
 // If target is macos, reexport everything from darwin
