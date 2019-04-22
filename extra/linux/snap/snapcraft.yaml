@@ -1,5 +1,5 @@
 name: alacritty
-version: '0.3.1'
+version: '0.3.2'
 summary: Modern, GPU accelerated terminal emulator
 description: |
   Alacritty is a terminal emulator with a strong focus on simplicity and
