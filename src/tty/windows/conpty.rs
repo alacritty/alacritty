@@ -160,7 +160,7 @@ pub fn new<'a>(
             InitializeProcThreadAttributeList(ptr::null_mut(), 1, 0, &mut size as PSIZE_T) > 0;
 
         // This call was expected to return false.
-        if (!failure) {
+        if (failure) {
             panic_shell_spawn();
         }
     }
