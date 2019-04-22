@@ -31,7 +31,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
