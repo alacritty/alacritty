@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added ToggleFullscreen action
-- On macOS, there's a ToggleSimpleFullscreen action which allows switching to 
+- On macOS, there's a ToggleSimpleFullscreen action which allows switching to
     fullscreen without occupying another space
 - A new window option `startup_mode` which controls how the window is created
 
@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - On Windows, Alacritty will now use the native DirectWrite font API
 - The `start_maximized` window option is now `startup_mode: Maximized`
+- Cells with identical foreground and background will now show their text upon selection/inversion
 
 ### Fixed
 

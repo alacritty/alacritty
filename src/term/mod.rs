@@ -281,17 +281,19 @@ impl RenderableCell {
         let mut bg_rgb = Self::compute_bg_rgb(colors, cell.bg);
 
         let selection_background = config.colors().selection.background;
-        let bg_alpha = if let (true, Some(col)) = (selected, selection_background) {
+        if let (true, Some(col)) = (selected, selection_background) {
             // Override selection background with config colors
             bg_rgb = col;
-            1.0
         } else if selected ^ cell.inverse() {
-            // Invert cell fg and bg colors
-            mem::swap(&mut fg_rgb, &mut bg_rgb);
-            Self::compute_bg_alpha(cell.fg)
-        } else {
-            Self::compute_bg_alpha(cell.bg)
-        };
+            if fg_rgb == bg_rgb && !cell.flags.contains(Flags::HIDDEN) {
+                // Reveal inversed text when fg/bg is the same
+                fg_rgb = colors[NamedColor::Background];
+                bg_rgb = colors[NamedColor::Foreground];
+            } else {
+                // Invert cell fg and bg colors
+                mem::swap(&mut fg_rgb, &mut bg_rgb);
+            }
+        }
 
         // Override selection text with config colors
         if let (true, Some(col)) = (selected, config.colors().selection.text) {
@@ -304,7 +306,7 @@ impl RenderableCell {
             inner: RenderableCellContent::Chars(cell.chars()),
             fg: fg_rgb,
             bg: bg_rgb,
-            bg_alpha,
+            bg_alpha: Self::compute_bg_alpha(colors, bg_rgb),
             flags: cell.flags,
         }
     }
@@ -347,10 +349,11 @@ impl RenderableCell {
     }
 
     #[inline]
-    fn compute_bg_alpha(bg: Color) -> f32 {
-        match bg {
-            Color::Named(NamedColor::Background) => 0.0,
-            _ => 1.0,
+    fn compute_bg_alpha(colors: &color::List, bg: Rgb) -> f32 {
+        if colors[NamedColor::Background] == bg {
+            0.
+        } else {
+            1.
         }
     }
 
