@@ -57,6 +57,14 @@ pub trait Search {
     fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest URL boundary in both directions.
     fn url_search(&self, _: Point<usize>) -> Option<Url>;
+    /// Find the first bracket matching the pair.
+    fn bracket_pair_search(
+        &self,
+        start: Point<usize>,
+        search_back: bool,
+        start_char: char,
+        end_char: char,
+    ) -> Option<Point<usize>>;
 }
 
 impl Search for Term {
@@ -136,6 +144,42 @@ impl Search for Term {
             }
         }
         url_parser.url()
+    }
+
+    fn bracket_pair_search(
+        &self,
+        start: Point<usize>,
+        search_back: bool,
+        start_char: char,
+        end_char: char,
+    ) -> Option<Point<usize>> {
+        let mut iter = self.grid.iter_from(start);
+        // For every character match that equals the starting bracket, we
+        // ignore one bracket of the opposite type.
+        let mut skip_pairs = 0;
+
+        let mut match_bracket = |c: char| -> bool {
+            skip_pairs += match c {
+                c if c == end_char && skip_pairs == 0 => return true,
+                c if c == start_char => 1,
+                c if c == end_char => -1,
+                _ => 0,
+            };
+
+            false
+        };
+
+        if search_back {
+            while let Some(cell) = iter.prev() {
+                if match_bracket(cell.c) {
+                    return Some(iter.cur);
+                }
+            }
+
+            return None;
+        }
+
+        iter.find(|cell| match_bracket(cell.c)).map(|_| iter.cur)
     }
 }
 

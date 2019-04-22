@@ -114,6 +114,21 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.dirty = true;
     }
 
+    // bracket_pair_selection updates the selection from the starting bracket
+    // up to and including the equal bracket pair.
+    //
+    // If the char at `point` is not a valid bracket, the selection will not be
+    // mutated, to allow other selection algorithms to update the selection.
+    fn bracket_pair_selection(&mut self, point: Point) {
+        let point = self.terminal.visible_to_buffer(point);
+        let start_char = self.terminal.grid()[point.line][point.col].c;
+        let selection = Selection::bracket_pair(point, start_char, self.terminal);
+        if selection.is_some() {
+            *self.terminal.selection_mut() = selection;
+            self.terminal.dirty = true;
+        }
+    }
+
     fn mouse_coords(&self) -> Option<Point> {
         self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
     }
@@ -220,6 +235,7 @@ impl WindowChanges {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ClickState {
     None,
     Click,
@@ -236,6 +252,7 @@ pub struct Mouse {
     pub right_button_state: ElementState,
     pub last_click_timestamp: Instant,
     pub click_state: ClickState,
+    pub last_click_state: ClickState,
     pub scroll_px: i32,
     pub line: Line,
     pub column: Column,
@@ -255,6 +272,7 @@ impl Default for Mouse {
             middle_button_state: ElementState::Released,
             right_button_state: ElementState::Released,
             click_state: ClickState::None,
+            last_click_state: ClickState::None,
             scroll_px: 0,
             line: Line(0),
             column: Column(0),

@@ -25,6 +25,9 @@ use crate::index::{Column, Point, Side};
 use crate::term::cell::Flags;
 use crate::term::{Search, Term};
 
+/// Used to match equal brackets, when performing a bracket-pair selection.
+const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
+
 /// Describes a region of a 2-dimensional area
 ///
 /// Used to track a text selection. There are three supported modes, each with its own constructor:
@@ -57,6 +60,10 @@ pub enum Selection {
         /// The line under the initial point. This is always selected regardless
         /// of which way the cursor is moved.
         initial_line: isize,
+    },
+    BracketPair {
+        /// The region representing start and end of bracket pairs.
+        region: Range<Anchor>,
     },
 }
 
@@ -104,6 +111,9 @@ impl Selection {
                 region.end.line += offset;
                 *initial_line += offset;
             },
+            // BracketPair selections are (conditionally) triggered once, and
+            // don't need to be updated.
+            Selection::BracketPair { .. } => {},
         }
     }
 
@@ -118,6 +128,29 @@ impl Selection {
         }
     }
 
+    pub fn bracket_pair<T>(point: Point<usize>, start_char: char, search: &T) -> Option<Selection>
+    where
+        T: Search,
+    {
+        BRACKET_PAIRS.iter().find_map(|(open, close)| {
+            let (side, end_char) = match &start_char {
+                c if c == open => (Side::Right, *close),
+                c if c == close => (Side::Left, *open),
+                _ => return None,
+            };
+
+            let search_back = side == Side::Left;
+            search.bracket_pair_search(point, search_back, start_char, end_char).map(|end_point| {
+                Selection::BracketPair {
+                    region: Range {
+                        start: Anchor::new(point.into(), side.opposite()),
+                        end: Anchor::new(end_point.into(), side),
+                    },
+                }
+            })
+        })
+    }
+
     pub fn update(&mut self, location: Point<usize>, side: Side) {
         // Always update the `end`; can normalize later during span generation.
         match *self {
@@ -127,12 +160,17 @@ impl Selection {
             Selection::Semantic { ref mut region } | Selection::Lines { ref mut region, .. } => {
                 region.end = location.into();
             },
+            // BracketPair selections are (conditionally) triggered once, and
+            // don't need to be updated.
+            Selection::BracketPair { .. } => {},
         }
     }
 
     pub fn to_span(&self, term: &Term, alt_screen: bool) -> Option<Span> {
         let span = match *self {
-            Selection::Simple { ref region } => Selection::span_simple(term, region, alt_screen),
+            Selection::Simple { ref region } | Selection::BracketPair { ref region } => {
+                Selection::span_simple(term, region, alt_screen)
+            },
             Selection::Semantic { ref region } => {
                 Selection::span_semantic(term, region, alt_screen)
             },
@@ -163,7 +201,7 @@ impl Selection {
 
     pub fn is_empty(&self) -> bool {
         match *self {
-            Selection::Simple { ref region } => {
+            Selection::Simple { ref region } | Selection::BracketPair { ref region } => {
                 region.start == region.end && region.start.side == region.end.side
             },
             Selection::Semantic { .. } | Selection::Lines { .. } => false,

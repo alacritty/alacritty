@@ -1,4 +1,5 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -24,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Config option `working_directory`
 - Config group `debug` with the options `debug.log_level`, `debug.print_events`
     and `debug.ref_test`
+- Bracket-pair selection logic, double-clicking `{` in `hello { world }` selects `{ world }`,
+  works for `{}[]()<>`, (see [#2022](https://github.com/jwilm/alacritty/pull/2022))
 
 ### Changed
 
@@ -85,7 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Packaging
 
 - On Linux, the .desktop file now uses `Alacritty` as icon name, which can be
-    found at `extra/logo/alacritty-term.svg`
+  found at `extra/logo/alacritty-term.svg`
 
 ### Added
 
@@ -117,7 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow mouse presses and beginning of mouse selection in padding
 - Windows: Conpty backend could close immediately on startup in certain situations
 - FreeBSD: SpawnNewInstance will now open new instances in the shell's current
-    working directory as long as linprocfs(5) is mounted on `/compat/linux/proc`
+  working directory as long as linprocfs(5) is mounted on `/compat/linux/proc`
 - Fix lingering Alacritty window after child process has exited
 - Growing the terminal while scrolled up will no longer move the content down
 - Support for alternate keyboard layouts on macOS
@@ -213,14 +216,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New configuration field `visual_bell.color` allows changing the visual bell color
 - Crashes on Windows are now also reported with a popup in addition to stderr
 - Windows: New configuration field `enable_experimental_conpty_backend` which enables support
-    for the Pseudoconsole API (ConPTY) added in Windows 10 October 2018 (1809) update
+  for the Pseudoconsole API (ConPTY) added in Windows 10 October 2018 (1809) update
 - New mouse and key action `SpawnNewInstance` for launching another instance of Alacritty
 
 ### Changed
 
 - Log messages are now consistent in style, and some have been removed
 - Windows configuration location has been moved from %USERPROFILE%\alacritty.yml
-    to %APPDATA%\alacritty\alacritty.yml
+  to %APPDATA%\alacritty\alacritty.yml
 - Windows default shell is now PowerShell instead of cmd
 - URL schemes have been limited to http, https, mailto, news, file, git, ssh and ftp
 
@@ -247,7 +250,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Display notice about errors and warnings inside Alacritty
 - Log all messages to both stderr and a log file in the system's temporary directory
 - New configuration option `persistent_logging` and CLI flag `--persistent-logging`,
-    for keeping the log file after closing Alacritty
+  for keeping the log file after closing Alacritty
 - `ClearLogNotice` action for removing the warning and error message
 - Terminal bells on macOS will now request the user's attention in the window
 - Alacritty now requests privacy permissions on macOS
@@ -298,7 +301,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `custom_cursor_colors` config field was deleted, remove the `colors.cursor.*` options
   to achieve the same behavior as setting it to `false`
 - The `scale_with_dpi` configuration value has been removed, on Linux the env
-    variable `WINIT_HIDPI_FACTOR=1` can be set instead to disable DPI scaling
+  variable `WINIT_HIDPI_FACTOR=1` can be set instead to disable DPI scaling
 
 ### Fixed
 
@@ -326,9 +329,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add support for macOS systemwide dark mode
 - Set the environment variable `COLORTERM="truecolor"` to advertise 24-bit color support
 - On macOS, there are two new values for the config option `window.decorations`:
-    - `transparent` - This makes the title bar transparent and allows the
-        viewport to extend to the top of the window.
-    - `buttonless` - Similar to transparent but also removed the buttons.
+  - `transparent` - This makes the title bar transparent and allows the
+    viewport to extend to the top of the window.
+  - `buttonless` - Similar to transparent but also removed the buttons.
 - Add support for changing the colors from 16 to 256 in the `indexed_colors` config section
 - Add `save_to_clipboard` configuration option for copying selected text to the system clipboard
 - New terminfo entry, `alacritty-direct`, that advertises 24-bit color support
