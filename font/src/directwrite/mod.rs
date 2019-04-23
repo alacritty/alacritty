@@ -51,8 +51,8 @@ impl crate::Rasterize for DirectWriteRasterizer {
 
         let line_height = f64::from(ascent - descent + line_gap);
 
-        // Similarly to rusttype we assume that all monospace characters have the same width
-        // Because of this we take 33, '!', the first drawable character for measurements
+        // We assume that all monospace characters have the same width
+        // Because of this we take '!', the first drawable character, for measurements
         let glyph_metrics = font.get_design_glyph_metrics(&[33], false);
         let hmetrics = glyph_metrics.first().ok_or(Error::MissingGlyph('!'))?;
 
@@ -78,11 +78,8 @@ impl crate::Rasterize for DirectWriteRasterizer {
 
         let font = match desc.style {
             Style::Description { weight, slant } => {
-                let weight = if weight == Weight::Bold {
-                    FontWeight::Bold
-                } else {
-                    FontWeight::Regular
-                };
+                let weight =
+                    if weight == Weight::Bold { FontWeight::Bold } else { FontWeight::Regular };
 
                 let style = match slant {
                     Slant::Normal => FontStyle::Normal,
@@ -90,8 +87,8 @@ impl crate::Rasterize for DirectWriteRasterizer {
                     Slant::Italic => FontStyle::Italic,
                 };
 
-                // This searches for the "best" font - should mean we don't have to worry about fallbacks
-                // if our exact desired weight/style isn't available
+                // This searches for the "best" font - should mean we don't have to worry about
+                // fallbacks if our exact desired weight/style isn't available
                 Ok(family.get_first_matching_font(weight, FontStretch::Normal, style))
             },
             Style::Specific(ref style) => {
@@ -111,7 +108,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
 
                     idx += 1;
                 }
-            }
+            },
         }?;
 
         let face = font.create_font_face();
