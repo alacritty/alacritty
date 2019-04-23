@@ -813,7 +813,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 self.update_click_state(button);
             }
 
-            use ClickState::*;
+            use self::ClickState::*;
             match self.ctx.mouse().click_state {
                 None => {},
                 Click => self.on_mouse_single_click(button, state, point, modifiers),
