@@ -350,8 +350,7 @@ impl Action {
             Action::ModifySelection => {
                 match ctx.mouse_coords() {
                     Some(point) => {
-                        let side = Side::Right;
-                        ctx.update_selection(point, side);
+                        ctx.update_selection(point, ctx.mouse().cell_side);
                     },
                     None => {}
                 };
