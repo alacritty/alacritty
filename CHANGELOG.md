@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On Windows, Alacritty will now use the native DirectWrite font API
 - The `start_maximized` window option is now `startup_mode: Maximized`
 
+### Fixed
+
+- PTY size not getting updated when message bar is shown
+
 ## Version 0.3.2
 
 ### Fixed
