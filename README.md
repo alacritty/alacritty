@@ -213,7 +213,7 @@ Alacritty discussion can be found in `#alacritty` on freenode.
 ## Wayland
 
 Wayland is used by default on systems that support it. Using XWayland may
-circumvent wayland specific issues and can be enabled through:
+circumvent Wayland specific issues and can be enabled through:
 
 ```sh
 env WINIT_UNIX_BACKEND=x11 alacritty
