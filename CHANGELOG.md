@@ -6,9 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added ToggleFullscreen action
+- On macOS, there's a ToggleSimpleFullscreen action which allows switching to 
+    fullscreen without occupying another space
+- A new window option `startup_mode` which controls how the window is created
+
 ### Changed
 
 - On Windows, Alacritty will now use the native DirectWrite font API
+- The `start_maximized` window option is now `startup_mode: Maximized`
 
 ## Version 0.3.2
 

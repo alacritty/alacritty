@@ -28,7 +28,7 @@ use glutin::{
 use image::ImageFormat;
 
 use crate::cli::Options;
-use crate::config::{Decorations, WindowConfig};
+use crate::config::{Decorations, StartupMode, WindowConfig};
 
 #[cfg(windows)]
 static WINDOW_ICON: &'static [u8] = include_bytes!("../extra/windows/alacritty.ico");
@@ -159,7 +159,7 @@ impl Window {
         // Maximize window after mapping in X11
         #[cfg(not(any(target_os = "macos", windows)))]
         {
-            if event_loop.is_x11() && window_config.start_maximized() {
+            if event_loop.is_x11() && window_config.startup_mode() == StartupMode::Maximized {
                 window.set_maximized(true);
             }
         }
@@ -173,6 +173,19 @@ impl Window {
             let physical = PhysicalPosition::from((position.x, position.y));
             let logical = physical.to_logical(window.get_hidpi_factor());
             window.set_position(logical);
+        }
+
+        if let StartupMode::Fullscreen = window_config.startup_mode() {
+            let current_monitor = window.get_current_monitor();
+            window.set_fullscreen(Some(current_monitor));
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            if let StartupMode::SimpleFullscreen = window_config.startup_mode() {
+                use glutin::os::macos::WindowExt;
+                window.set_simple_fullscreen(true);
+            }
         }
 
         // Text cursor
@@ -280,7 +293,7 @@ impl Window {
             .with_visibility(false)
             .with_transparency(true)
             .with_decorations(decorations)
-            .with_maximized(window_config.start_maximized())
+            .with_maximized(window_config.startup_mode() == StartupMode::Maximized)
             // X11
             .with_class(class.into(), DEFAULT_NAME.into())
             // Wayland
@@ -305,7 +318,7 @@ impl Window {
             .with_visibility(cfg!(windows))
             .with_decorations(decorations)
             .with_transparency(true)
-            .with_maximized(window_config.start_maximized())
+            .with_maximized(window_config.startup_mode() == StartupMode::Maximized)
             .with_window_icon(Some(icon))
     }
 
@@ -321,7 +334,7 @@ impl Window {
             .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
-            .with_maximized(window_config.start_maximized());
+            .with_maximized(window_config.startup_mode() == StartupMode::Maximized);
 
         match window_config.decorations() {
             Decorations::Full => window,
@@ -380,6 +393,23 @@ impl Window {
     /// Hide the window
     pub fn hide(&self) {
         self.window().hide();
+    }
+
+    /// Fullscreens the window on the current monitor.
+    pub fn set_fullscreen(&self, fullscreen: bool) {
+        let glutin_window = self.window();
+        if fullscreen {
+            let current_monitor = glutin_window.get_current_monitor();
+            glutin_window.set_fullscreen(Some(current_monitor));
+        } else {
+            glutin_window.set_fullscreen(None);
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn set_simple_fullscreen(&self, fullscreen: bool) {
+        use glutin::os::macos::WindowExt;
+        self.window().set_simple_fullscreen(fullscreen);
     }
 
     fn window(&self) -> &glutin::Window {
