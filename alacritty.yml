@@ -449,6 +449,7 @@ alt_send_esc: true
 #   - Quit
 #   - ClearLogNotice
 #   - SpawnNewInstance
+#   - ModifySelection
 #   - None
 #
 # Values for `command`:

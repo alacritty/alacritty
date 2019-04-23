@@ -250,6 +250,9 @@ pub enum Action {
     /// Spawn a new instance of Alacritty.
     SpawnNewInstance,
 
+    /// Modify selection
+    ModifySelection,
+
     /// No action.
     None,
 }
@@ -343,6 +346,15 @@ impl Action {
             },
             Action::SpawnNewInstance => {
                 ctx.spawn_new_instance();
+            },
+            Action::ModifySelection => {
+                match ctx.mouse_coords() {
+                    Some(point) => {
+                        let side = Side::Right;
+                        ctx.update_selection(point, side);
+                    },
+                    None => {}
+                };
             },
             Action::None => (),
         }

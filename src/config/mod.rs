@@ -900,6 +900,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Quit" => Action::Quit,
                     "ClearLogNotice" => Action::ClearLogNotice,
                     "SpawnNewInstance" => Action::SpawnNewInstance,
+                    "ModifySelection" => Action::ModifySelection,
                     "None" => Action::None,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
