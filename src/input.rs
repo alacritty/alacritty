@@ -611,12 +611,15 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 // Don't launch URLs if this click cleared the selection
                 self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
 
-                self.ctx.clear_selection();
+                // Don't clear the selection if pressing a modifier key
+                if !modifiers.shift && !modifiers.ctrl && !modifiers.alt && !modifiers.logo {
+                    self.ctx.clear_selection();
 
-                // Start new empty selection
-                let side = self.ctx.mouse().cell_side;
-                if let Some(point) = point {
-                    self.ctx.simple_selection(point, side);
+                    // Start new empty selection
+                    let side = self.ctx.mouse().cell_side;
+                    if let Some(point) = point {
+                        self.ctx.simple_selection(point, side);
+                    }
                 }
 
                 let report_modes =
