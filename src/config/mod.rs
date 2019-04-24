@@ -874,7 +874,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, \
                      ResetFontSize, ScrollPageUp, ScrollPageDown, ScrollLineUp, ScrollLineDown, \
                      ScrollToTop, ScrollToBottom, ClearHistory, Hide, ClearLogNotice, \
-                     SpawnNewInstance, None or Quit",
+                     SpawnNewInstance, ModifySelection, None or Quit",
                 )
             }
 
