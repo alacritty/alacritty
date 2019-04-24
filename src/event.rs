@@ -188,25 +188,41 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
             Err(_) => warn!("Unable to start new Alacritty process: {} {:?}", alacritty, args),
         }
     }
+
+    fn toggle_fullscreen(&mut self) {
+        self.window_changes.toggle_fullscreen();
+    }
+
+    #[cfg(target_os = "macos")]
+    fn toggle_simple_fullscreen(&mut self) {
+        self.window_changes.toggle_simple_fullscreen()
+    }
 }
 
 /// The ActionContext can't really have direct access to the Window
 /// with the current design. Event handlers that want to change the
 /// window must set these flags instead. The processor will trigger
 /// the actual changes.
+#[derive(Default)]
 pub struct WindowChanges {
     pub hide: bool,
+    pub toggle_fullscreen: bool,
+    #[cfg(target_os = "macos")]
+    pub toggle_simple_fullscreen: bool,
 }
 
 impl WindowChanges {
     fn clear(&mut self) {
-        self.hide = false;
+        *self = WindowChanges::default();
     }
-}
 
-impl Default for WindowChanges {
-    fn default() -> WindowChanges {
-        WindowChanges { hide: false }
+    fn toggle_fullscreen(&mut self) {
+        self.toggle_fullscreen = !self.toggle_fullscreen;
+    }
+
+    #[cfg(target_os = "macos")]
+    fn toggle_simple_fullscreen(&mut self) {
+        self.toggle_simple_fullscreen = !self.toggle_simple_fullscreen;
     }
 }
 
@@ -281,6 +297,8 @@ pub struct Processor<N> {
     window_changes: WindowChanges,
     save_to_clipboard: bool,
     alt_send_esc: bool,
+    is_fullscreen: bool,
+    is_simple_fullscreen: bool,
 }
 
 /// Notify that the terminal was resized
@@ -326,6 +344,8 @@ impl<N: Notify> Processor<N> {
             window_changes: Default::default(),
             save_to_clipboard: config.selection().save_to_clipboard,
             alt_send_esc: config.alt_send_esc(),
+            is_fullscreen: false,
+            is_simple_fullscreen: false,
         }
     }
 
@@ -546,8 +566,17 @@ impl<N: Notify> Processor<N> {
             window.hide();
         }
 
-        if self.window_changes.hide {
-            window.hide();
+        #[cfg(target_os = "macos")]
+        {
+            if self.window_changes.toggle_simple_fullscreen && !self.is_fullscreen {
+                window.set_simple_fullscreen(!self.is_simple_fullscreen);
+                self.is_simple_fullscreen = !self.is_simple_fullscreen;
+            }
+        }
+
+        if self.window_changes.toggle_fullscreen && !self.is_simple_fullscreen {
+            window.set_fullscreen(!self.is_fullscreen);
+            self.is_fullscreen = !self.is_fullscreen;
         }
 
         self.window_changes.clear();

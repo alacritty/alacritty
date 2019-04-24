@@ -318,6 +318,21 @@ impl Default for Alpha {
     }
 }
 
+#[derive(Debug, Deserialize, Copy, Clone, PartialEq, Eq)]
+pub enum StartupMode {
+    Windowed,
+    Maximized,
+    Fullscreen,
+    #[cfg(target_os = "macos")]
+    SimpleFullscreen,
+}
+
+impl Default for StartupMode {
+    fn default() -> StartupMode {
+        StartupMode::Windowed
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Decorations {
     Full,
@@ -438,9 +453,13 @@ pub struct WindowConfig {
     #[serde(deserialize_with = "failure_default")]
     dynamic_padding: bool,
 
-    /// Start maximized
+    /// Startup mode
     #[serde(deserialize_with = "failure_default")]
-    start_maximized: bool,
+    startup_mode: StartupMode,
+
+    /// TODO: DEPRECATED
+    #[serde(deserialize_with = "failure_default")]
+    start_maximized: Option<bool>,
 }
 
 impl Default for WindowConfig {
@@ -452,6 +471,7 @@ impl Default for WindowConfig {
             decorations: Default::default(),
             dynamic_padding: Default::default(),
             start_maximized: Default::default(),
+            startup_mode: Default::default(),
         }
     }
 }
@@ -482,8 +502,8 @@ impl WindowConfig {
         self.dynamic_padding
     }
 
-    pub fn start_maximized(&self) -> bool {
-        self.start_maximized
+    pub fn startup_mode(&self) -> StartupMode {
+        self.startup_mode
     }
 
     pub fn position(&self) -> Option<Delta<i32>> {
@@ -874,7 +894,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, \
                      ResetFontSize, ScrollPageUp, ScrollPageDown, ScrollLineUp, ScrollLineDown, \
                      ScrollToTop, ScrollToBottom, ClearHistory, Hide, ClearLogNotice, \
-                     SpawnNewInstance, ModifySelection, None or Quit",
+                     SpawnNewInstance, ModifySelection, ToggleFullscreen, ToggleSimpleFullscreen, None or Quit",
                 )
             }
 
@@ -901,6 +921,9 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "ClearLogNotice" => Action::ClearLogNotice,
                     "SpawnNewInstance" => Action::SpawnNewInstance,
                     "ModifySelection" => Action::ModifySelection,
+                    "ToggleFullscreen" => Action::ToggleFullscreen,
+                    #[cfg(target_os = "macos")]
+                    "ToggleSimpleFullscreen" => Action::ToggleSimpleFullscreen,
                     "None" => Action::None,
                     _ => return Err(E::invalid_value(Unexpected::Str(value), &self)),
                 }))
@@ -1992,6 +2015,18 @@ impl Config {
                 "Config unfocused_hollow_cursor is deprecated; please use cursor.unfocused_hollow \
                  instead"
             );
+        }
+
+        if let Some(start_maximized) = self.window.start_maximized {
+            warn!(
+                "Config window.start_maximized is deprecated; please use window.startup_mode \
+                 instead"
+            );
+
+            // While `start_maximized` is deprecated its setting takes precedence.
+            if start_maximized {
+                self.window.startup_mode = StartupMode::Maximized;
+            }
         }
     }
 }

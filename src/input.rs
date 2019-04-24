@@ -81,6 +81,9 @@ pub trait ActionContext {
     fn terminal(&self) -> &Term;
     fn terminal_mut(&mut self) -> &mut Term;
     fn spawn_new_instance(&mut self);
+    fn toggle_fullscreen(&mut self);
+    #[cfg(target_os = "macos")]
+    fn toggle_simple_fullscreen(&mut self);
 }
 
 /// Describes a state and action to take in that state
@@ -253,6 +256,13 @@ pub enum Action {
     /// Modify selection
     ModifySelection,
 
+    /// Toggle fullscreen.
+    ToggleFullscreen,
+
+    /// Toggle simple fullscreen on macos.
+    #[cfg(target_os = "macos")]
+    ToggleSimpleFullscreen,
+
     /// No action.
     None,
 }
@@ -304,6 +314,13 @@ impl Action {
                         warn!("Couldn't run command {}", err);
                     },
                 }
+            },
+            Action::ToggleFullscreen => {
+                ctx.toggle_fullscreen();
+            },
+            #[cfg(target_os = "macos")]
+            Action::ToggleSimpleFullscreen => {
+                ctx.toggle_simple_fullscreen();
             },
             Action::Hide => {
                 ctx.hide_window();
@@ -1008,6 +1025,11 @@ mod tests {
         fn hide_window(&mut self) {}
 
         fn spawn_new_instance(&mut self) {}
+
+        fn toggle_fullscreen(&mut self) {}
+
+        #[cfg(target_os = "macos")]
+        fn toggle_simple_fullscreen(&mut self) {}
 
         fn terminal(&self) -> &Term {
             &self.terminal
