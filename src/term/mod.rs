@@ -1414,10 +1414,10 @@ impl ansi::Handler for Term {
 
             // Handle zero-width characters
             if width == 0 {
-                let col = self.cursor.point.col.0.saturating_sub(1);
+                let mut col = self.cursor.point.col.0.saturating_sub(1);
                 let line = self.cursor.point.line;
                 if self.grid[line][Column(col)].flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
-                    col.saturating_sub(1);
+                    col = col.saturating_sub(1);
                 }
                 self.grid[line][Column(col)].push_extra(c);
                 return;
