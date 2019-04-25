@@ -259,7 +259,7 @@ impl<'a> RenderableCellsIter<'a> {
 #[derive(Clone, Debug)]
 pub enum RenderableCellContent {
     Chars([char; cell::MAX_ZEROWIDTH_CHARS + 1]),
-    Raw(RasterizedGlyph),
+    Cursor((CursorStyle, RasterizedGlyph)),
 }
 
 #[derive(Clone, Debug)]
@@ -388,7 +388,8 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     let mut renderable_cell =
                         RenderableCell::new(self.config, self.colors, cell, false);
 
-                    renderable_cell.inner = RenderableCellContent::Raw(cursor_cell);
+                    renderable_cell.inner =
+                        RenderableCellContent::Cursor((self.cursor_style, cursor_cell));
 
                     if let Some(color) = self.config.cursor_cursor_color() {
                         renderable_cell.fg = color;

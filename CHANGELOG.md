@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - PTY size not getting updated when message bar is shown
+- Text Cursor disappearing
 
 ## Version 0.3.2
 

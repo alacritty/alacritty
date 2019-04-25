@@ -343,7 +343,7 @@ pub trait Handler {
 }
 
 /// Describes shape of cursor
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
 pub enum CursorStyle {
     /// Cursor is a block like `▒`
     Block,
