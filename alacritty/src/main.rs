@@ -46,7 +46,6 @@ use alacritty_terminal::display::Display;
 use alacritty_terminal::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
 use alacritty_terminal::locale;
-use alacritty_terminal::logging;
 use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::panic;
 use alacritty_terminal::sync::FairMutex;
@@ -54,6 +53,8 @@ use alacritty_terminal::term::Term;
 use alacritty_terminal::tty;
 use alacritty_terminal::util::fmt::Red;
 use alacritty_terminal::{cli, die, event};
+
+mod logging;
 
 fn main() {
     panic::attach_handler();
