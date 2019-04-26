@@ -6,15 +6,15 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
 
-use alacritty::ansi;
-use alacritty::config::Config;
-use alacritty::index::Column;
-use alacritty::message_bar::MessageBuffer;
-use alacritty::term::cell::Cell;
-use alacritty::term::SizeInfo;
-use alacritty::util::fmt::{Green, Red};
-use alacritty::Grid;
-use alacritty::Term;
+use alacritty_terminal::ansi;
+use alacritty_terminal::config::Config;
+use alacritty_terminal::index::Column;
+use alacritty_terminal::message_bar::MessageBuffer;
+use alacritty_terminal::term::cell::Cell;
+use alacritty_terminal::term::SizeInfo;
+use alacritty_terminal::util::fmt::{Green, Red};
+use alacritty_terminal::Grid;
+use alacritty_terminal::Term;
 
 macro_rules! ref_tests {
     ($($name:ident)*) => {

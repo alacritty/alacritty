@@ -41,19 +41,19 @@ use std::env;
 #[cfg(not(windows))]
 use std::os::unix::io::AsRawFd;
 
-use alacritty::config::{self, Config, Monitor};
-use alacritty::display::Display;
-use alacritty::event_loop::{self, EventLoop, Msg};
+use alacritty_terminal::config::{self, Config, Monitor};
+use alacritty_terminal::display::Display;
+use alacritty_terminal::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
-use alacritty::locale;
-use alacritty::logging;
-use alacritty::message_bar::MessageBuffer;
-use alacritty::panic;
-use alacritty::sync::FairMutex;
-use alacritty::term::Term;
-use alacritty::tty;
-use alacritty::util::fmt::Red;
-use alacritty::{cli, die, event};
+use alacritty_terminal::locale;
+use alacritty_terminal::logging;
+use alacritty_terminal::message_bar::MessageBuffer;
+use alacritty_terminal::panic;
+use alacritty_terminal::sync::FairMutex;
+use alacritty_terminal::term::Term;
+use alacritty_terminal::tty;
+use alacritty_terminal::util::fmt::Red;
+use alacritty_terminal::{cli, die, event};
 
 fn main() {
     panic::attach_handler();

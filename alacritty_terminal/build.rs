@@ -45,7 +45,7 @@ fn main() {
 
     #[cfg(windows)]
     {
-        embed_resource::compile("extra/windows/windows.rc");
+        embed_resource::compile("../extra/windows/windows.rc");
 
         // Path is relative to target/{profile}/build/alacritty-HASH/out
         let file = Path::new(&env::var("OUT_DIR").unwrap()).join("../../../winpty-agent.exe");
