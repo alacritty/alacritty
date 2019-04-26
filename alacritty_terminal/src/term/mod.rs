@@ -418,15 +418,12 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 let selected =
                     self.selection.as_ref().map(|range| range.contains_(index)).unwrap_or(false);
 
-                // Skip empty cells
-                if cell.is_empty() && !selected {
-                    continue;
-                }
-
                 // Underline URL highlights
                 if self.url_highlight.as_ref().map(|range| range.contains_(index)).unwrap_or(false)
                 {
                     cell.inner.flags.insert(Flags::UNDERLINE);
+                } else if cell.is_empty() && !selected {
+                    continue;
                 }
 
                 return Some(RenderableCell::new(self.config, self.colors, cell, selected));
