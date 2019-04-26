@@ -1,6 +1,3 @@
-
-
-
 # Changelog
 All notable changes to this project will be documented in this file.
 
@@ -24,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Double-width characters in URLS only being highlit on the left half
+- Double-width characters in URLs only being highlit on the left half
 - PTY size not getting updated when message bar is shown
 - Text Cursor disappearing
 - Incorrect positioning of zero-width characters over double-width characters
