@@ -253,9 +253,6 @@ pub enum Action {
     /// Spawn a new instance of Alacritty.
     SpawnNewInstance,
 
-    /// Modify selection
-    ModifySelection,
-
     /// Toggle fullscreen.
     ToggleFullscreen,
 
@@ -363,14 +360,6 @@ impl Action {
             },
             Action::SpawnNewInstance => {
                 ctx.spawn_new_instance();
-            },
-            Action::ModifySelection => {
-                match ctx.mouse_coords() {
-                    Some(point) => {
-                        ctx.update_selection(point, ctx.mouse().cell_side);
-                    },
-                    None => {}
-                };
             },
             Action::None => (),
         }
@@ -628,8 +617,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 // Don't launch URLs if this click cleared the selection
                 self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
 
-                // Don't clear the selection if pressing a modifier key
-                if !modifiers.shift && !modifiers.ctrl && !modifiers.alt && !modifiers.logo {
+                if modifiers.shift && button == MouseButton::Left {
+                    // update current selection
+                    let side = self.ctx.mouse().cell_side;
+                    if let Some(point) = point {
+                        self.ctx.update_selection(point, side);
+                    }
+                } else {
                     self.ctx.clear_selection();
 
                     // Start new empty selection

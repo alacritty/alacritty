@@ -894,7 +894,7 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Paste, Copy, PasteSelection, IncreaseFontSize, DecreaseFontSize, \
                      ResetFontSize, ScrollPageUp, ScrollPageDown, ScrollLineUp, ScrollLineDown, \
                      ScrollToTop, ScrollToBottom, ClearHistory, Hide, ClearLogNotice, \
-                     SpawnNewInstance, ModifySelection, ToggleFullscreen, ToggleSimpleFullscreen, None or Quit",
+                     SpawnNewInstance, ToggleFullscreen, ToggleSimpleFullscreen, None or Quit",
                 )
             }
 
@@ -920,7 +920,6 @@ impl<'a> de::Deserialize<'a> for ActionWrapper {
                     "Quit" => Action::Quit,
                     "ClearLogNotice" => Action::ClearLogNotice,
                     "SpawnNewInstance" => Action::SpawnNewInstance,
-                    "ModifySelection" => Action::ModifySelection,
                     "ToggleFullscreen" => Action::ToggleFullscreen,
                     #[cfg(target_os = "macos")]
                     "ToggleSimpleFullscreen" => Action::ToggleSimpleFullscreen,

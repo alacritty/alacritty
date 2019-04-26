@@ -457,7 +457,6 @@ alt_send_esc: true
 #   - Quit
 #   - ClearLogNotice
 #   - SpawnNewInstance
-#   - ModifySelection
 #   - ToggleFullscreen
 #   - None
 #
