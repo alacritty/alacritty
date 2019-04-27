@@ -617,7 +617,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 // Don't launch URLs if this click cleared the selection
                 self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
 
-                if modifiers.shift && button == MouseButton::Left {
+                if modifiers.shift && button == MouseButton::Left && !self.ctx.selection_is_empty() {
                     // update current selection
                     let side = self.ctx.mouse().cell_side;
                     if let Some(point) = point {
