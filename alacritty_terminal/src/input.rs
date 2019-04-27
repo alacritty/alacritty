@@ -422,22 +422,22 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let motion_mode = TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG;
         let report_mode = TermMode::MOUSE_REPORT_CLICK | motion_mode;
 
-        let mouse_moved = prev_line != self.ctx.mouse().line
-            || prev_col != self.ctx.mouse().column
-            || prev_side != cell_side;
-
-        // Don't launch URLs if mouse has moved
-        if mouse_moved {
-            self.ctx.mouse_mut().block_url_launcher = true;
-        }
+        let cell_changed = prev_line != self.ctx.mouse().line
+            || prev_col != self.ctx.mouse().column;
+        let mouse_moved = cell_changed || prev_side != cell_side;
 
         // Only report motions when cell changed and mouse is not over the message bar
         if self.message_at_point(Some(point)).is_some() || !mouse_moved {
             return;
         }
 
+        // Don't launch URLs if mouse has moved
+        self.ctx.mouse_mut().block_url_launcher = true;
+
         // Underline URLs and change cursor on hover
-        self.update_url_highlight(point, modifiers);
+        if cell_changed {
+            self.update_url_highlight(point, modifiers);
+        }
 
         if self.ctx.mouse().left_button_state == ElementState::Pressed
             && (modifiers.shift || !self.ctx.terminal().mode().intersects(report_mode))
@@ -445,6 +445,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.ctx.update_selection(Point { line: point.line, col: point.col }, cell_side);
         } else if self.ctx.terminal().mode().intersects(motion_mode)
             && size_info.contains_point(x, y, false)
+            && cell_changed
         {
             if self.ctx.mouse().left_button_state == ElementState::Pressed {
                 self.mouse_report(32, ElementState::Pressed, modifiers);
