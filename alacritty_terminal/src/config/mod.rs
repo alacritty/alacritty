@@ -32,7 +32,7 @@ mod bindings;
 pub const SOURCE_FILE_PATH: &str = file!();
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
 static DEFAULT_ALACRITTY_CONFIG: &'static str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/alacritty.yml"));
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.yml"));
 
 #[serde(default)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]

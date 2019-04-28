@@ -39,7 +39,6 @@ pub mod grid;
 pub mod index;
 pub mod input;
 pub mod locale;
-pub mod logging;
 pub mod message_bar;
 pub mod meter;
 pub mod panic;

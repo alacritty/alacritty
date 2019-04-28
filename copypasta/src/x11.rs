@@ -142,24 +142,3 @@ impl Clipboard {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::Clipboard;
-    use {Load, Store};
-
-    #[test]
-    fn clipboard_works() {
-        let mut clipboard = Clipboard::new().expect("create clipboard");
-        let arst = "arst";
-        let oien = "oien";
-        clipboard.store_primary(arst).expect("store selection");
-        clipboard.store_selection(oien).expect("store selection");
-
-        let selection = clipboard.load_selection().expect("load selection");
-        let primary = clipboard.load_primary().expect("load selection");
-
-        assert_eq!(arst, primary);
-        assert_eq!(oien, selection);
-    }
-}

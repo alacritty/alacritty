@@ -29,9 +29,9 @@ use crossbeam_channel::Sender;
 use log::{self, Level};
 use time;
 
-use crate::cli;
-use crate::message_bar::Message;
-use crate::term::color;
+use alacritty_terminal::cli;
+use alacritty_terminal::message_bar::Message;
+use alacritty_terminal::term::color;
 
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
 

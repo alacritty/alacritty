@@ -1,0 +1,68 @@
+[package]
+name = "alacritty_terminal"
+version = "0.3.2"
+authors = ["Joe Wilm <joe@jwilm.com>"]
+license = "Apache-2.0"
+build = "build.rs"
+description = "Library for writing terminal emulators"
+readme = "../README.md"
+homepage = "https://github.com/jwilm/alacritty"
+edition = "2018"
+
+[dependencies]
+libc = "0.2"
+notify = "4"
+bitflags = "1"
+font = { path = "../font" }
+errno = "0.2"
+parking_lot = "0.7"
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
+serde_yaml = "0.8"
+vte = "0.3"
+mio = "0.6"
+mio-extras = "2"
+copypasta = { path = "../copypasta" }
+xdg = "2"
+log = "0.4"
+clap = "2"
+fnv = "1"
+unicode-width = "0.1"
+glutin = { version = "0.21.0", features = ["icon_loading"] }
+base64 = "0.10.0"
+static_assertions = "0.3.0"
+terminfo = "0.6.1"
+url = "1.7.1"
+crossbeam-channel = "0.3.8"
+
+[target.'cfg(unix)'.dependencies]
+nix = "0.13"
+signal-hook = { version = "0.1", features = ["mio-support"] }
+
+[target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
+x11-dl = "2"
+
+[target.'cfg(windows)'.dependencies]
+winpty = { path = "../winpty" }
+mio-named-pipes = "0.1"
+miow = "0.3"
+dunce = "1.0"
+winapi = { version = "0.3.7", features = ["impl-default", "winuser", "synchapi", "roerrorapi", "winerror", "wincon", "wincontypes"]}
+dirs = "1.0"
+widestring = "0.4"
+mio-anonymous-pipes = "0.1"
+image = "0.21.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2.2"
+
+[features]
+default = []
+# Enabling this feature makes shaders automatically reload when changed
+live-shader-reload = []
+nightly = []
+bench = []
+
+[build-dependencies]
+gl_generator = "0.11.0"

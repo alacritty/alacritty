@@ -228,7 +228,7 @@ Using `cargo deb`, you can create and install a deb file.
 
 ```sh
 cargo install cargo-deb
-cargo deb --install
+cargo deb --install --manifest-path alacritty/Cargo.toml
 ```
 
 To choose a default terminal app, use Debian's `update-alternatives`.

@@ -38,20 +38,24 @@ use crate::term::{self, cell, RenderableCell, RenderableCellContent};
 pub mod rects;
 
 // Shader paths for live reload
-static TEXT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl");
-static TEXT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl");
-static RECT_SHADER_F_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl");
-static RECT_SHADER_V_PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl");
+static TEXT_SHADER_F_PATH: &'static str =
+    concat!(env!("CARGO_MANIFEST_DIR"), "/../res/text.f.glsl");
+static TEXT_SHADER_V_PATH: &'static str =
+    concat!(env!("CARGO_MANIFEST_DIR"), "/../res/text.v.glsl");
+static RECT_SHADER_F_PATH: &'static str =
+    concat!(env!("CARGO_MANIFEST_DIR"), "/../res/rect.f.glsl");
+static RECT_SHADER_V_PATH: &'static str =
+    concat!(env!("CARGO_MANIFEST_DIR"), "/../res/rect.v.glsl");
 
 // Shader source which is used when live-shader-reload feature is disable
 static TEXT_SHADER_F: &'static str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.f.glsl"));
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../res/text.f.glsl"));
 static TEXT_SHADER_V: &'static str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/text.v.glsl"));
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../res/text.v.glsl"));
 static RECT_SHADER_F: &'static str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.f.glsl"));
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../res/rect.f.glsl"));
 static RECT_SHADER_V: &'static str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/res/rect.v.glsl"));
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../res/rect.v.glsl"));
 
 /// `LoadGlyph` allows for copying a rasterized glyph into graphics memory
 pub trait LoadGlyph {
