@@ -35,7 +35,7 @@ use crate::grid::{
 use crate::index::{self, Column, Contains, IndexRange, Line, Linear, Point};
 use crate::input::FONT_SIZE_STEP;
 use crate::message_bar::MessageBuffer;
-use crate::selection::{self, Locations, Selection};
+use crate::selection::{self, Selection, Span};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 use crate::url::{Url, UrlParser};
@@ -174,7 +174,7 @@ impl<'a> RenderableCellsIter<'a> {
     fn new<'b>(
         term: &'b Term,
         config: &'b Config,
-        selection: Option<Locations>,
+        selection: Option<Span>,
         mut cursor_style: CursorStyle,
         metrics: font::Metrics,
     ) -> RenderableCellsIter<'b> {
@@ -183,22 +183,21 @@ impl<'a> RenderableCellsIter<'a> {
         let cursor_offset = grid.line_to_offset(term.cursor.point.line);
         let inner = grid.display_iter();
 
-        let mut selection_range = None;
-        if let Some(loc) = selection {
+        let selection_range = selection.and_then(|span| {
             // Get on-screen lines of the selection's locations
-            let start_line = grid.buffer_line_to_visible(loc.start.line);
-            let end_line = grid.buffer_line_to_visible(loc.end.line);
+            let start_line = grid.buffer_line_to_visible(span.start.line);
+            let end_line = grid.buffer_line_to_visible(span.end.line);
 
             // Get start/end locations based on what part of selection is on screen
             let locations = match (start_line, end_line) {
                 (ViewportPosition::Visible(start_line), ViewportPosition::Visible(end_line)) => {
-                    Some((start_line, loc.start.col, end_line, loc.end.col))
+                    Some((start_line, span.start.col, end_line, span.end.col))
                 },
                 (ViewportPosition::Visible(start_line), ViewportPosition::Above) => {
-                    Some((start_line, loc.start.col, Line(0), Column(0)))
+                    Some((start_line, span.start.col, Line(0), Column(0)))
                 },
                 (ViewportPosition::Below, ViewportPosition::Visible(end_line)) => {
-                    Some((grid.num_lines(), Column(0), end_line, loc.end.col))
+                    Some((grid.num_lines(), Column(0), end_line, span.end.col))
                 },
                 (ViewportPosition::Below, ViewportPosition::Above) => {
                     Some((grid.num_lines(), Column(0), Line(0), Column(0)))
@@ -206,7 +205,7 @@ impl<'a> RenderableCellsIter<'a> {
                 _ => None,
             };
 
-            if let Some((start_line, start_col, end_line, end_col)) = locations {
+            locations.map(|(start_line, start_col, end_line, end_col)| {
                 // start and end *lines* are swapped as we switch from buffer to
                 // Line coordinates.
                 let mut end = Point { line: start_line, col: start_col };
@@ -220,10 +219,9 @@ impl<'a> RenderableCellsIter<'a> {
                 let start = Linear::from_point(cols, start.into());
                 let end = Linear::from_point(cols, end.into());
 
-                // Update the selection
-                selection_range = Some(RangeInclusive::new(start, end));
-            }
-        }
+                RangeInclusive::new(start, end)
+            })
+        });
 
         // Load cursor glyph
         let cursor = &term.cursor.point;
@@ -1018,11 +1016,9 @@ impl Term {
 
         let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
         let selection = self.grid.selection.clone()?;
-        let span = selection.to_span(self, alt_screen)?;
+        let Span { mut start, mut end } = selection.to_span(self, alt_screen)?;
 
         let mut res = String::new();
-
-        let Locations { mut start, mut end } = span.to_locations();
 
         if start > end {
             ::std::mem::swap(&mut start, &mut end);
@@ -1109,12 +1105,7 @@ impl Term {
         metrics: font::Metrics,
     ) -> RenderableCellsIter<'_> {
         let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
-        let selection = self
-            .grid
-            .selection
-            .as_ref()
-            .and_then(|s| s.to_span(self, alt_screen))
-            .map(|span| span.to_locations());
+        let selection = self.grid.selection.as_ref().and_then(|s| s.to_span(self, alt_screen));
 
         let cursor = if window_focused || !config.unfocused_hollow_cursor() {
             self.cursor_style.unwrap_or(self.default_cursor_style)
