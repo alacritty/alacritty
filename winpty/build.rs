@@ -4,11 +4,11 @@ use std::fs::OpenOptions;
 use std::io;
 
 #[cfg(windows)]
+use std::env;
+#[cfg(windows)]
 use std::fs::{copy, File};
 #[cfg(windows)]
 use std::path::Path;
-#[cfg(windows)]
-use std::env;
 
 #[cfg(windows)]
 use embed_resource;
