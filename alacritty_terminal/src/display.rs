@@ -559,11 +559,8 @@ impl Display {
         self.window().set_ime_spot(PhysicalPosition::from((nspot_x, nspot_y)).to_logical(dpr));
     }
 
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     pub fn get_wayland_display(&self) -> Option<*mut c_void> {
-        #[cfg(any(target_os = "linux", target_os = "bsd"))]
-        return self.window.get_wayland_display();
-
-        #[cfg(not(any(target_os = "linux", target_os = "bsd")))]
-        return None;
+        self.window.get_wayland_display()
     }
 }
