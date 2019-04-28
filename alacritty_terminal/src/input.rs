@@ -462,7 +462,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
 
         // Only show URLs as launchable when all required modifiers are pressed
-        let url = if self.mouse_config.url.modifiers.relaxed_eq(modifiers)
+        let url = if (self.mouse_config.url.modifiers.relaxed_eq(modifiers)
+            || self.mouse_config.url.always_highlight_on_mouseover)
             && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
             && self.mouse_config.url.launcher.is_some()
         {

@@ -326,6 +326,10 @@ mouse:
     #  program: xdg-open
     #  args: []
 
+    # If this is `true`, the URLs will be highlighted on mouseover regardless
+    # of pressed modifiers
+    always_highlight_on_mouseover: false
+
     # URL modifiers
     #
     # These are the modifiers that need to be held down for opening URLs when clicking

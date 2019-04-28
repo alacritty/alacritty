@@ -122,6 +122,10 @@ pub struct Url {
     #[serde(deserialize_with = "deserialize_launcher")]
     pub launcher: Option<CommandWrapper>,
 
+    // When the links will be highlighted
+    #[serde(deserialize_with = "failure_default")]
+    pub always_highlight_on_mouseover: bool,
+
     // Modifier used to open links
     #[serde(deserialize_with = "deserialize_modifiers")]
     pub modifiers: ModifiersState,
@@ -167,6 +171,7 @@ impl Default for Url {
             launcher: Some(CommandWrapper::Just(String::from("open"))),
             #[cfg(windows)]
             launcher: Some(CommandWrapper::Just(String::from("explorer"))),
+            always_highlight_on_mouseover: Default::default(),
             modifiers: Default::default(),
         }
     }
