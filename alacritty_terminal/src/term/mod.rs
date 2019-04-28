@@ -423,6 +423,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                 {
                     cell.inner.flags.insert(Flags::UNDERLINE);
                 }
+
                 if !cell.is_empty() || selected {
                     return Some(RenderableCell::new(self.config, self.colors, cell, selected));
                 }
