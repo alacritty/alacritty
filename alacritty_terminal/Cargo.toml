@@ -66,9 +66,3 @@ bench = []
 
 [build-dependencies]
 gl_generator = "0.11.0"
-
-[target.'cfg(windows)'.build-dependencies]
-embed-resource = "1.1.4"
-tempfile = "3.0.4"
-reqwest = "0.9"
-zip = "0.5"

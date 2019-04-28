@@ -337,10 +337,9 @@ impl<'a> Drop for SpawnConfig<'a> {
 
 #[cfg(test)]
 mod tests {
-    extern crate named_pipe;
-    extern crate winapi;
+    use named_pipe::PipeClient;
+    use winapi;
 
-    use self::named_pipe::PipeClient;
     use self::winapi::um::processthreadsapi::OpenProcess;
     use self::winapi::um::winnt::READ_CONTROL;
 
