@@ -422,8 +422,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let motion_mode = TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG;
         let report_mode = TermMode::MOUSE_REPORT_CLICK | motion_mode;
 
-        let cell_changed = prev_line != self.ctx.mouse().line
-            || prev_col != self.ctx.mouse().column;
+        let cell_changed =
+            prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column;
         let mouse_moved = cell_changed || prev_side != cell_side;
 
         // Only report motions when cell changed and mouse is not over the message bar
