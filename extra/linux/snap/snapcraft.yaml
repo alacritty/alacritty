@@ -19,7 +19,6 @@ parts:
   alacritty:
     plugin: rust
     source: .
-    stage-packages: [xclip]
     build-packages: [libfreetype6-dev, libfontconfig1-dev, cmake]
   desktop:
     plugin: dump

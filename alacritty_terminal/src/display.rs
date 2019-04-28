@@ -15,6 +15,7 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
 use std::f64;
+use std::ffi::c_void;
 use std::sync::mpsc;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
@@ -556,5 +557,10 @@ impl Display {
         let nspot_y = f64::from(py + (point.line.0 + 1) as f32 * ch);
 
         self.window().set_ime_spot(PhysicalPosition::from((nspot_x, nspot_y)).to_logical(dpr));
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    pub fn get_wayland_display(&self) -> Option<*mut c_void> {
+        self.window.get_wayland_display()
     }
 }

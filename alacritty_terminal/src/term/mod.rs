@@ -18,7 +18,6 @@ use std::ops::{Index, IndexMut, Range, RangeInclusive};
 use std::time::{Duration, Instant};
 use std::{io, mem, ptr};
 
-use copypasta::{Clipboard, Load, Store};
 use font::{self, RasterizedGlyph, Size};
 use glutin::MouseCursor;
 use unicode_width::UnicodeWidthChar;
@@ -26,6 +25,7 @@ use unicode_width::UnicodeWidthChar;
 use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset,
 };
+use crate::clipboard::{Clipboard, ClipboardType};
 use crate::config::{Config, VisualBellAnimation};
 use crate::cursor;
 use crate::grid::{
@@ -756,6 +756,9 @@ pub struct Term {
 
     /// Hint that Alacritty should be closed
     should_exit: bool,
+
+    /// Clipboard access coupled to the active window
+    clipboard: Clipboard,
 }
 
 /// Terminal size info
@@ -843,7 +846,12 @@ impl Term {
         self.next_mouse_cursor.take()
     }
 
-    pub fn new(config: &Config, size: SizeInfo, message_buffer: MessageBuffer) -> Term {
+    pub fn new(
+        config: &Config,
+        size: SizeInfo,
+        message_buffer: MessageBuffer,
+        clipboard: Clipboard,
+    ) -> Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
@@ -889,6 +897,7 @@ impl Term {
             auto_scroll: config.scrolling().auto_scroll,
             message_buffer,
             should_exit: false,
+            clipboard,
         }
     }
 
@@ -1316,6 +1325,10 @@ impl Term {
 
         self.grid.url_highlight = None;
         self.dirty = true;
+    }
+
+    pub fn clipboard(&mut self) -> &mut Clipboard {
+        &mut self.clipboard
     }
 }
 
@@ -1835,11 +1848,7 @@ impl ansi::Handler for Term {
     /// Set the clipboard
     #[inline]
     fn set_clipboard(&mut self, string: &str) {
-        Clipboard::new().and_then(|mut clipboard| clipboard.store_primary(string)).unwrap_or_else(
-            |err| {
-                warn!("Error storing selection to clipboard: {}", err);
-            },
-        );
+        self.clipboard.store(ClipboardType::Primary, string);
     }
 
     #[inline]
@@ -2120,20 +2129,20 @@ impl IndexMut<Column> for TabStops {
 
 #[cfg(test)]
 mod tests {
+    use std::mem;
+
+    use font::Size;
     use serde_json;
 
-    use super::{Cell, SizeInfo, Term};
-    use crate::term::cell;
-
     use crate::ansi::{self, CharsetIndex, Handler, StandardCharset};
+    use crate::clipboard::Clipboard;
     use crate::config::Config;
     use crate::grid::{Grid, Scroll};
     use crate::index::{Column, Line, Point, Side};
     use crate::input::FONT_SIZE_STEP;
     use crate::message_bar::MessageBuffer;
     use crate::selection::Selection;
-    use font::Size;
-    use std::mem;
+    use crate::term::{cell, Cell, SizeInfo, Term};
 
     #[test]
     fn semantic_selection_works() {
@@ -2146,7 +2155,8 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
+        let mut term =
+            Term::new(&Default::default(), size, MessageBuffer::new(), Clipboard::new_nop());
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0, Cell::default());
         for i in 0..5 {
             for j in 0..2 {
@@ -2190,7 +2200,8 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
+        let mut term =
+            Term::new(&Default::default(), size, MessageBuffer::new(), Clipboard::new_nop());
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0, Cell::default());
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2215,7 +2226,8 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
+        let mut term =
+            Term::new(&Default::default(), size, MessageBuffer::new(), Clipboard::new_nop());
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0, Cell::default());
         for l in 0..3 {
             if l != 1 {
@@ -2259,7 +2271,8 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&Default::default(), size, MessageBuffer::new());
+        let mut term =
+            Term::new(&Default::default(), size, MessageBuffer::new(), Clipboard::new_nop());
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0, StandardCharset::SpecialCharacterAndLineDrawing);
         term.input('a');
@@ -2278,7 +2291,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size, MessageBuffer::new());
+        let mut term: Term = Term::new(&config, size, MessageBuffer::new(), Clipboard::new_nop());
         term.change_font_size(font_size);
 
         let expected_font_size: Size = config.font().size() + Size::new(font_size);
@@ -2307,7 +2320,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size, MessageBuffer::new());
+        let mut term: Term = Term::new(&config, size, MessageBuffer::new(), Clipboard::new_nop());
 
         term.change_font_size(-100.0);
 
@@ -2327,7 +2340,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size, MessageBuffer::new());
+        let mut term: Term = Term::new(&config, size, MessageBuffer::new(), Clipboard::new_nop());
 
         term.change_font_size(10.0);
         term.reset_font_size();
@@ -2348,7 +2361,7 @@ mod tests {
             dpr: 1.0,
         };
         let config: Config = Default::default();
-        let mut term: Term = Term::new(&config, size, MessageBuffer::new());
+        let mut term: Term = Term::new(&config, size, MessageBuffer::new(), Clipboard::new_nop());
 
         // Add one line of scrollback
         term.grid.scroll_up(&(Line(0)..Line(1)), Line(1), &Cell::default());
@@ -2373,6 +2386,7 @@ mod benches {
     use std::mem;
     use std::path::Path;
 
+    use crate::clipboard::Clipboard;
     use crate::config::Config;
     use crate::grid::Grid;
     use crate::message_bar::MessageBuffer;
@@ -2416,7 +2430,7 @@ mod benches {
 
         let config = Config::default();
 
-        let mut terminal = Term::new(&config, size, MessageBuffer::new());
+        let mut terminal = Term::new(&config, size, MessageBuffer::new(), Clipboard::new_nop());
         mem::swap(&mut terminal.grid, &mut grid);
 
         let metrics = font::Metrics {

@@ -8,13 +8,13 @@ use std::io::Write;
 use std::sync::mpsc;
 use std::time::Instant;
 
-use copypasta::{Buffer as ClipboardBuffer, Clipboard, Load, Store};
 use glutin::dpi::PhysicalSize;
 use glutin::{self, ElementState, Event, ModifiersState, MouseButton};
 use parking_lot::MutexGuard;
 use serde_json as json;
 
 use crate::cli::Options;
+use crate::clipboard::ClipboardType;
 use crate::config::{self, Config};
 use crate::display::OnResize;
 use crate::grid::Scroll;
@@ -26,7 +26,6 @@ use crate::term::cell::Cell;
 use crate::term::{SizeInfo, Term};
 #[cfg(unix)]
 use crate::tty;
-use crate::util::fmt::Red;
 use crate::util::{limit, start_daemon};
 use crate::window::Window;
 
@@ -70,14 +69,10 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         }
     }
 
-    fn copy_selection(&self, buffer: ClipboardBuffer) {
+    fn copy_selection(&mut self, ty: ClipboardType) {
         if let Some(selected) = self.terminal.selection_to_string() {
             if !selected.is_empty() {
-                Clipboard::new()
-                    .and_then(|mut clipboard| clipboard.store(selected, buffer))
-                    .unwrap_or_else(|err| {
-                        warn!("Error storing selection to clipboard. {}", Red(err));
-                    });
+                self.terminal.clipboard().store(ty, selected);
             }
         }
     }
