@@ -207,7 +207,7 @@ impl<'a, 'b> Winpty<'a> {
         }
     }
 
-    /// Get the list of processses running in the winpty agent. Returns <= count processes
+    /// Get the list of processes running in the winpty agent. Returns <= count processes
     ///
     /// `count` must be greater than 0. Larger values cause a larger allocation.
     // TODO: This should return Vec<Handle> instead of Vec<i32>
