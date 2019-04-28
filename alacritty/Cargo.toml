@@ -46,4 +46,4 @@ assets = [
     ["../extra/completions/_alacritty", "usr/share/zsh/vendor-completions/_alacritty", "644"],
     ["../extra/alacritty.info", "usr/share/terminfo/a/alacritty", "644"],
 ]
-maintainer-scripts = "extra/linux/debian"
+maintainer-scripts = "../extra/linux/debian"
