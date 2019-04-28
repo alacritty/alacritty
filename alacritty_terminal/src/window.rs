@@ -18,19 +18,20 @@ use crate::gl;
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 #[cfg(not(any(target_os = "macos", windows)))]
 use glutin::os::unix::EventsLoopExt;
-#[cfg(windows)]
+#[cfg(not(target_os = "macos"))]
 use glutin::Icon;
 use glutin::{
     self, ContextBuilder, ControlFlow, Event, EventsLoop, MouseCursor, PossiblyCurrent,
     WindowBuilder,
 };
-#[cfg(windows)]
+#[cfg(not(target_os = "macos"))]
 use image::ImageFormat;
 
 use crate::cli::Options;
 use crate::config::{Decorations, StartupMode, WindowConfig};
 
-#[cfg(windows)]
+// It's required to be in this directory due to the `windows.rc` file
+#[cfg(not(target_os = "macos"))]
 static WINDOW_ICON: &'static [u8] = include_bytes!("../../extra/windows/alacritty.ico");
 
 /// Default Alacritty name, used for window title and class.
@@ -288,12 +289,15 @@ impl Window {
             _ => true,
         };
 
+        let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO);
+
         WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
             .with_decorations(decorations)
             .with_maximized(window_config.startup_mode() == StartupMode::Maximized)
+            .with_window_icon(icon.ok())
             // X11
             .with_class(class.into(), DEFAULT_NAME.into())
             // Wayland
@@ -306,12 +310,12 @@ impl Window {
         _class: &str,
         window_config: &WindowConfig,
     ) -> WindowBuilder {
-        let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO).unwrap();
-
         let decorations = match window_config.decorations() {
             Decorations::None => false,
             _ => true,
         };
+
+        let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO);
 
         WindowBuilder::new()
             .with_title(title)
@@ -319,7 +323,7 @@ impl Window {
             .with_decorations(decorations)
             .with_transparency(true)
             .with_maximized(window_config.startup_mode() == StartupMode::Maximized)
-            .with_window_icon(Some(icon))
+            .with_window_icon(icon.ok())
     }
 
     #[cfg(target_os = "macos")]
