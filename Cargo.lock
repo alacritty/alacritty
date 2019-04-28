@@ -316,7 +316,7 @@ dependencies = [
 [[package]]
 name = "clipboard"
 version = "0.5.0"
-source = "git+https://github.com/chrisduerr/rust-clipboard#e036c00e62c16f42c249f857e28beb6103113410"
+source = "git+https://github.com/chrisduerr/rust-clipboard#c0c27997a091e217eb2b6e38d4cb6232a3fe593a"
 dependencies = [
  "clipboard-win 2.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "objc 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
