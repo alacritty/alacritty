@@ -406,7 +406,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         // starts at the top, we can do a full rotation which just involves
         // changing the start index.
         //
-        // To accomodate scroll regions, rows are reordered at the end.
+        // To accommodate scroll regions, rows are reordered at the end.
         if region.start == Line(0) {
             // Rotate the entire line buffer. If there's a scrolling region
             // active, the bottom lines are restored in the next step.

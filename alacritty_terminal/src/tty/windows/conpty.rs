@@ -276,7 +276,7 @@ impl OnResize for ConptyHandle {
     }
 }
 
-/// Helper to build a COORD from a SizeInfo, returing None in overflow cases.
+/// Helper to build a COORD from a SizeInfo, returning None in overflow cases.
 fn coord_from_sizeinfo(sizeinfo: &SizeInfo) -> Option<COORD> {
     let cols = sizeinfo.cols().0;
     let lines = sizeinfo.lines().0;

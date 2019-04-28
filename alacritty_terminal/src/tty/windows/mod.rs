@@ -100,7 +100,7 @@ pub fn new<'a>(
     }
 }
 
-// TODO: The ConPTY API curently must use synchronous pipes as the input
+// TODO: The ConPTY API currently must use synchronous pipes as the input
 // and output handles. This has led to the need to support two different
 // types of pipe.
 //

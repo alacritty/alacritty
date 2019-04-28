@@ -1840,7 +1840,7 @@ impl ansi::Handler for Term {
     /// Reset the indexed color to original value
     #[inline]
     fn reset_color(&mut self, index: usize) {
-        trace!("Reseting color[{}]", index);
+        trace!("Resetting color[{}]", index);
         self.colors[index] = self.original_colors[index];
         self.color_modified[index] = false;
     }

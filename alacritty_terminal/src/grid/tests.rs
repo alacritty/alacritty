@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for the Gird
+//! Tests for the Grid
 
 use super::{BidirectionalIterator, Grid};
 use crate::grid::GridCell;

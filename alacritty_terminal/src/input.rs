@@ -378,7 +378,7 @@ impl Action {
             // In theory, we should construct the keystrokes needed to produce the data we are
             // pasting... since that's neither practical nor sensible (and probably an impossible
             // task to solve in a general way), we'll just replace line breaks (windows and unix
-            // style) with a singe carriage return (\r, which is what the Enter key produces).
+            // style) with a single carriage return (\r, which is what the Enter key produces).
             ctx.write_to_pty(contents.replace("\r\n", "\r").replace("\n", "\r").into_bytes());
         }
     }
