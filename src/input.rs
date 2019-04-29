@@ -617,7 +617,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 // Don't launch URLs if this click cleared the selection
                 self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
 
-                if modifiers.shift && button == MouseButton::Left && !self.ctx.selection_is_empty() {
+                let report_modes =
+                    TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
+                let report_mode_intersection = self.ctx.terminal().mode().intersects(report_modes);
+
+                if modifiers.shift && button == MouseButton::Left && !self.ctx.selection_is_empty()
+                    && !report_mode_intersection
+                {
                     // update current selection
                     let side = self.ctx.mouse().cell_side;
                     if let Some(point) = point {
@@ -633,9 +639,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     }
                 }
 
-                let report_modes =
-                    TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
-                if !modifiers.shift && self.ctx.terminal().mode().intersects(report_modes) {
+                if !modifiers.shift && report_mode_intersection {
                     let code = match button {
                         MouseButton::Left => 0,
                         MouseButton::Middle => 1,
