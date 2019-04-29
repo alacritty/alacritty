@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Text Cursor disappearing
 - Incorrect positioning of zero-width characters over double-width characters
 - Mouse mode generating events when the cell has not changed
+- Selections not automatically expanding across double-width characters
 
 ## Version 0.3.2
 
