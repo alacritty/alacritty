@@ -34,7 +34,7 @@ elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" != "i386" ]; then
     # x86_64 deb
     docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu \
         sh -c "cd /source && \
-        /root/.cargo/bin/cargo deb --no-build --output ./target/deploy/${name}-ubuntu_18_04_amd64.deb"
+        /root/.cargo/bin/cargo deb --no-build --manifest-path alacritty/Cargo.toml --output ./target/deploy/${name}-ubuntu_18_04_amd64.deb"
 
     # Make sure all files can be uploaded without permission errors
     sudo chown -R $USER:$USER "./target"
@@ -49,7 +49,7 @@ elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" == "i386" ]; then
     # i386 deb
     docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu-i386 \
         sh -c "cd /source && \
-        /root/.cargo/bin/cargo deb --no-build --output ./target/deploy/${name}-ubuntu_18_04_i386.deb"
+        /root/.cargo/bin/cargo deb --no-build --manifest-path alacritty/Cargo.toml --output ./target/deploy/${name}-ubuntu_18_04_i386.deb"
 
     # Make sure all files can be uploaded without permission errors
     sudo chown -R $USER:$USER "./target"

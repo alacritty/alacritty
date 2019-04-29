@@ -6,17 +6,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Packaging
+
+- The xclip dependency has been removed
+
 ### Added
 
 - Added ToggleFullscreen action
-- On macOS, there's a ToggleSimpleFullscreen action which allows switching to 
+- On macOS, there's a ToggleSimpleFullscreen action which allows switching to
     fullscreen without occupying another space
 - A new window option `startup_mode` which controls how the window is created
+- `_NET_WM_ICON` property is set on X11 now, allowing for WMs to show icons in titlebars
 
 ### Changed
 
 - On Windows, Alacritty will now use the native DirectWrite font API
 - The `start_maximized` window option is now `startup_mode: Maximized`
+- Cells with identical foreground and background will now show their text upon selection/inversion
+
+### Fixed
+
+- Double-width characters in URLs only being highlit on the left half
+- PTY size not getting updated when message bar is shown
+- Text Cursor disappearing
+- Incorrect positioning of zero-width characters over double-width characters
+- Mouse mode generating events when the cell has not changed
 
 ## Version 0.3.2
 
@@ -29,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added ScrollLineUp and ScrollLineDown actions for scrolling line by line
+- Native clipboard support on X11 and Wayland
 
 ### Changed
 

@@ -71,7 +71,7 @@ libraries to build Alacritty. Here's an apt command that should install all of
 them. If something is still found to be missing, please open an issue.
 
 ```sh
-apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev xclip
+apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev
 ```
 
 #### Arch Linux
@@ -81,7 +81,7 @@ On Arch Linux, you need a few extra libraries to build Alacritty. Here's a
 to be missing, please open an issue.
 
 ```sh
-pacman -S cmake freetype2 fontconfig pkg-config make xclip
+pacman -S cmake freetype2 fontconfig pkg-config make
 ```
 
 #### Fedora
@@ -91,7 +91,7 @@ command that should install all of them. If something is still found to be
 missing, please open an issue.
 
 ```sh
-dnf install cmake freetype-devel fontconfig-devel xclip
+dnf install cmake freetype-devel fontconfig-devel
 ```
 
 #### CentOS/RHEL 7
@@ -101,7 +101,7 @@ command that should install all of them. If something is still found to be
 missing, please open an issue.
 
 ```sh
-yum install cmake freetype-devel fontconfig-devel xclip
+yum install cmake freetype-devel fontconfig-devel
 yum group install "Development Tools"
 ```
 
@@ -112,15 +112,12 @@ a `zypper` command that should install all of them. If something is
 still found to be missing, please open an issue.
 
 ```sh
-zypper install cmake freetype-devel fontconfig-devel xclip
+zypper install cmake freetype-devel fontconfig-devel
 ```
 
 #### Slackware
 
 Compiles out of the box for 14.2
-For copy & paste support (middle mouse button) you need to install xclip
-https://slackbuilds.org/repository/14.2/misc/xclip/?search=xclip
-
 
 #### Void Linux
 
@@ -128,7 +125,7 @@ On [Void Linux](https://voidlinux.eu), install following packages before
 compiling Alacritty:
 
 ```sh
-xbps-install cmake freetype-devel freetype expat-devel fontconfig-devel fontconfig xclip
+xbps-install cmake freetype-devel freetype expat-devel fontconfig-devel fontconfig
 ```
 
 #### FreeBSD
@@ -138,7 +135,7 @@ command that should install all of them. If something is still found to be
 missing, please open an issue.
 
 ```sh
-pkg install cmake freetype2 fontconfig xclip pkgconf
+pkg install cmake freetype2 fontconfig pkgconf
 ```
 
 #### OpenBSD
@@ -228,7 +225,7 @@ Using `cargo deb`, you can create and install a deb file.
 
 ```sh
 cargo install cargo-deb
-cargo deb --install
+cargo deb --install --manifest-path alacritty/Cargo.toml
 ```
 
 To choose a default terminal app, use Debian's `update-alternatives`.
