@@ -39,7 +39,6 @@ use crate::message_bar::{self, Message};
 use crate::term::mode::TermMode;
 use crate::term::{Search, SizeInfo, Term};
 use crate::url::Url;
-use crate::util::fmt::Red;
 use crate::util::start_daemon;
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
@@ -282,36 +281,26 @@ impl Action {
                 ctx.copy_selection(ClipboardType::Primary);
             },
             Action::Paste => {
-                ctx.terminal_mut()
+                let text = ctx.terminal_mut()
                     .clipboard()
-                    .load(ClipboardType::Primary)
-                    .map(|contents| self.paste(ctx, &contents))
-                    .unwrap_or_else(|err| {
-                        error!("Error loading data from clipboard: {}", Red(err));
-                    });
+                    .load(ClipboardType::Primary);
+                self.paste(ctx, &text);
             },
             Action::PasteSelection => {
                 // Only paste if mouse events are not captured by an application
                 if !mouse_mode {
-                    ctx.terminal_mut()
+                    let text = ctx.terminal_mut()
                         .clipboard()
-                        .load(ClipboardType::Secondary)
-                        .map(|contents| self.paste(ctx, &contents))
-                        .unwrap_or_else(|err| {
-                            error!("Error loading data from clipboard: {}", Red(err));
-                        });
+                        .load(ClipboardType::Secondary);
+                    self.paste(ctx, &text);
                 }
             },
             Action::Command(ref program, ref args) => {
                 trace!("Running command {} with args {:?}", program, args);
 
                 match start_daemon(program, args) {
-                    Ok(_) => {
-                        debug!("Spawned new proc");
-                    },
-                    Err(err) => {
-                        warn!("Couldn't run command {}", err);
-                    },
+                    Ok(_) => debug!("Spawned new proc"),
+                    Err(err) => warn!("Couldn't run command {}", err),
                 }
             },
             Action::ToggleFullscreen => {
