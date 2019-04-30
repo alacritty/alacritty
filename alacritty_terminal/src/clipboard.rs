@@ -75,16 +75,22 @@ impl Clipboard {
         };
 
         clipboard.set_contents(text.into()).unwrap_or_else(|err| {
-            warn!("Error storing selection to clipboard. {}", err);
+            warn!("Unable to store text in clipboard: {}", err);
         });
     }
 
-    pub fn load(&mut self, ty: ClipboardType) -> Result<String, Box<std::error::Error>> {
+    pub fn load(&mut self, ty: ClipboardType) -> String {
         let clipboard = match (ty, &mut self.secondary) {
             (ClipboardType::Secondary, Some(provider)) => provider,
             _ => &mut self.primary,
         };
 
-        clipboard.get_contents()
+        match clipboard.get_contents() {
+            Err(err) => {
+                debug!("Unable to load text from clipboard: {}", err);
+                String::new()
+            }
+            Ok(text) => text,
+        }
     }
 }
