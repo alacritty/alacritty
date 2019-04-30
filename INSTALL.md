@@ -91,7 +91,7 @@ command that should install all of them. If something is still found to be
 missing, please open an issue.
 
 ```sh
-dnf install cmake freetype-devel fontconfig-devel
+dnf install cmake freetype-devel fontconfig-devel libxcb-devel
 ```
 
 #### CentOS/RHEL 7
