@@ -24,8 +24,7 @@ use winapi::shared::winerror::WAIT_TIMEOUT;
 use winapi::um::synchapi::WaitForSingleObject;
 use winapi::um::winbase::WAIT_OBJECT_0;
 
-use crate::cli::Options;
-use crate::config::Config;
+use crate::config::{Config, Options};
 use crate::display::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::{EventedPty, EventedReadWrite};

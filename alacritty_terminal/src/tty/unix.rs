@@ -15,8 +15,7 @@
 //! tty related functionality
 //!
 
-use crate::cli::Options;
-use crate::config::{Config, Shell};
+use crate::config::{Config, Options, Shell};
 use crate::display::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};

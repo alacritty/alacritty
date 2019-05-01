@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     fullscreen without occupying another space
 - A new window option `startup_mode` which controls how the window is created
 - `_NET_WM_ICON` property is set on X11 now, allowing for WMs to show icons in titlebars
+- Current Git commit hash to `alacritty --version`
 
 ### Changed
 

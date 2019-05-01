@@ -29,7 +29,6 @@ extern crate objc;
 #[macro_use]
 pub mod macros;
 pub mod ansi;
-pub mod cli;
 pub mod clipboard;
 pub mod config;
 mod cursor;

@@ -13,9 +13,8 @@ use glutin::{self, ElementState, Event, ModifiersState, MouseButton};
 use parking_lot::MutexGuard;
 use serde_json as json;
 
-use crate::cli::Options;
 use crate::clipboard::ClipboardType;
-use crate::config::{self, Config};
+use crate::config::{self, Config, Options};
 use crate::display::OnResize;
 use crate::grid::Scroll;
 use crate::index::{Column, Line, Point, Side};

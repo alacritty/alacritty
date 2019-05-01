@@ -22,8 +22,7 @@ use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::EventsLoop;
 use parking_lot::MutexGuard;
 
-use crate::cli;
-use crate::config::{Config, StartupMode};
+use crate::config::{Config, Options, StartupMode};
 use crate::index::Line;
 use crate::message_bar::Message;
 use crate::meter::Meter;
@@ -135,7 +134,7 @@ impl Display {
         &self.size_info
     }
 
-    pub fn new(config: &Config, options: &cli::Options) -> Result<Display, Error> {
+    pub fn new(config: &Config, options: &Options) -> Result<Display, Error> {
         // Extract some properties from config
         let render_timer = config.render_timer();
 
@@ -241,7 +240,7 @@ impl Display {
 
     fn calculate_dimensions(
         config: &Config,
-        options: &cli::Options,
+        options: &Options,
         dpr: f64,
         cell_width: f32,
         cell_height: f32,

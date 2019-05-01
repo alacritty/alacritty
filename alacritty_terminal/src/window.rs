@@ -30,8 +30,7 @@ use glutin::{
 #[cfg(not(target_os = "macos"))]
 use image::ImageFormat;
 
-use crate::cli::Options;
-use crate::config::{Decorations, StartupMode, WindowConfig};
+use crate::config::{Options, Decorations, StartupMode, WindowConfig};
 
 // It's required to be in this directory due to the `windows.rc` file
 #[cfg(not(target_os = "macos"))]

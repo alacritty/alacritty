@@ -29,14 +29,14 @@ use crossbeam_channel::Sender;
 use log::{self, Level};
 use time;
 
-use alacritty_terminal::cli;
+use alacritty_terminal::config::Options;
 use alacritty_terminal::message_bar::Message;
 use alacritty_terminal::term::color;
 
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
 
 pub fn initialize(
-    options: &cli::Options,
+    options: &Options,
     message_tx: Sender<Message>,
 ) -> Result<Option<PathBuf>, log::SetLoggerError> {
     // Use env_logger if RUST_LOG environment variable is defined. Otherwise,
