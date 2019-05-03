@@ -65,6 +65,7 @@ pub trait ActionContext {
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, _: ClipboardType);
     fn clear_selection(&mut self);
+    fn reverse_selection(&mut self);
     fn update_selection(&mut self, point: Point, side: Side);
     fn simple_selection(&mut self, point: Point, side: Side);
     fn semantic_selection(&mut self, point: Point);
@@ -1022,6 +1023,8 @@ mod tests {
         fn copy_selection(&mut self, _: ClipboardType) {}
 
         fn clear_selection(&mut self) {}
+
+        fn reverse_selection(&mut self) {}
 
         fn hide_window(&mut self) {}
 

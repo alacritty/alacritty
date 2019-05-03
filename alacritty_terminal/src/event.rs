@@ -86,6 +86,12 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.dirty = true;
     }
 
+    fn reverse_selection(&mut self) {
+        if let Some(ref mut selection) = self.terminal.selection_mut() {
+            selection.reverse();
+        }
+    }
+
     fn update_selection(&mut self, point: Point, side: Side) {
         let point = self.terminal.visible_to_buffer(point);
 
