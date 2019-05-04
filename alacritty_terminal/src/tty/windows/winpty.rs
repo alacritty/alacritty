@@ -27,8 +27,7 @@ use winapi::um::winbase::FILE_FLAG_OVERLAPPED;
 use winpty::Config as WinptyConfig;
 use winpty::{ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
 
-use crate::cli::Options;
-use crate::config::{Config, Shell};
+use crate::config::{Config, Options, Shell};
 use crate::display::OnResize;
 use crate::term::SizeInfo;
 

@@ -37,8 +37,7 @@ use winapi::um::processthreadsapi::{
 use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW};
 use winapi::um::wincontypes::{COORD, HPCON};
 
-use crate::cli::Options;
-use crate::config::{Config, Shell};
+use crate::config::{Config, Options, Shell};
 use crate::display::OnResize;
 use crate::term::SizeInfo;
 

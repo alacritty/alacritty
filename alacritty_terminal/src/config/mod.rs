@@ -22,11 +22,12 @@ use serde::{self, de, Deserialize};
 use serde_yaml;
 
 use crate::ansi::CursorStyle;
-use crate::cli::Options;
 use crate::index::{Column, Line};
 use crate::input::{Action, Binding, KeyBinding, MouseBinding};
 use crate::term::color::Rgb;
 
+pub use self::options::Options;
+mod options;
 mod bindings;
 
 pub const SOURCE_FILE_PATH: &str = file!();
@@ -2704,7 +2705,7 @@ impl Key {
 #[cfg(test)]
 mod tests {
     use super::{Config, DEFAULT_ALACRITTY_CONFIG};
-    use crate::cli::Options;
+    use crate::config::Options;
 
     #[test]
     fn parse_config() {

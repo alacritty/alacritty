@@ -16,9 +16,8 @@ use serde_json as json;
 use unicode_width::UnicodeWidthStr;
 
 use crate::ansi::Handler;
-use crate::cli::Options;
 use crate::clipboard::ClipboardType;
-use crate::config::{self, Config};
+use crate::config::{self, Config, Options};
 use crate::display::OnResize;
 use crate::grid::Scroll;
 use crate::index::{Column, Line, Linear, Point, Side};

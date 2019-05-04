@@ -25,7 +25,6 @@ mio = "0.6"
 mio-extras = "2"
 xdg = "2"
 log = "0.4"
-clap = "2"
 fnv = "1"
 unicode-width = "0.1"
 glutin = { version = "0.21.0", features = ["icon_loading"] }

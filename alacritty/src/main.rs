@@ -42,7 +42,7 @@ use std::env;
 use std::os::unix::io::AsRawFd;
 
 use alacritty_terminal::clipboard::Clipboard;
-use alacritty_terminal::config::{self, Config, Monitor};
+use alacritty_terminal::config::{self, Config, Options, Monitor};
 use alacritty_terminal::display::Display;
 use alacritty_terminal::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
@@ -53,8 +53,9 @@ use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::Term;
 use alacritty_terminal::tty;
 use alacritty_terminal::util::fmt::Red;
-use alacritty_terminal::{cli, die, event};
+use alacritty_terminal::{die, event};
 
+mod cli;
 mod logging;
 
 fn main() {
@@ -69,7 +70,7 @@ fn main() {
     }
 
     // Load command line options
-    let options = cli::Options::load();
+    let options = cli::options();
 
     // Setup storage for message UI
     let message_buffer = MessageBuffer::new();
@@ -121,7 +122,7 @@ fn main() {
 /// config change monitor, and runs the main display loop.
 fn run(
     mut config: Config,
-    options: &cli::Options,
+    options: &Options,
     message_buffer: MessageBuffer,
 ) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty");
