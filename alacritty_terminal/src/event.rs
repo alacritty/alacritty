@@ -462,7 +462,7 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.size_info.dpr = new_dpr;
                         processor.ctx.terminal.dirty = true;
                     },
-                    Moved => {
+                    Moved(_) => {
                         processor.ctx.terminal.url_dirty = true;
                     },
                     _ => (),
