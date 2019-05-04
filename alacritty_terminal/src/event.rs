@@ -249,6 +249,7 @@ pub struct Mouse {
     pub lines_scrolled: f32,
     pub block_url_launcher: bool,
     pub last_button: MouseButton,
+    pub inside_window: bool,
 }
 
 impl Default for Mouse {
@@ -268,6 +269,7 @@ impl Default for Mouse {
             lines_scrolled: 0.0,
             block_url_launcher: false,
             last_button: MouseButton::Other(0),
+            inside_window: false
         }
     }
 }
@@ -277,6 +279,7 @@ impl Default for Mouse {
 /// Stores some state from received events and dispatches actions when they are
 /// triggered.
 pub struct Processor<N> {
+    pub mouse: Mouse,
     key_bindings: Vec<KeyBinding>,
     mouse_bindings: Vec<MouseBinding>,
     mouse_config: config::Mouse,
@@ -284,7 +287,6 @@ pub struct Processor<N> {
     print_events: bool,
     wait_for_event: bool,
     notifier: N,
-    mouse: Mouse,
     resize_tx: mpsc::Sender<PhysicalSize>,
     ref_test: bool,
     size_info: SizeInfo,
@@ -465,6 +467,12 @@ impl<N: Notify> Processor<N> {
                     Moved(_) => {
                         processor.ctx.terminal.url_dirty = true;
                     },
+                    CursorEntered { .. } => {
+                        processor.ctx.mouse.inside_window = true;
+                    },
+                    CursorLeft { .. } => {
+                        processor.ctx.mouse.inside_window = false;
+                    }
                     _ => (),
                 }
             },

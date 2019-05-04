@@ -242,7 +242,7 @@ fn run(
             break;
         }
 
-        if terminal_lock.needs_url_check() {
+        if processor.mouse.inside_window && terminal_lock.needs_url_check() {
             processor.update_url_highlight(&mut terminal_lock);
         }
 
