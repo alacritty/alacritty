@@ -5,27 +5,32 @@ use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use std::ops::RangeInclusive;
 use std::sync::mpsc;
 use std::time::Instant;
 
 use glutin::dpi::PhysicalSize;
-use glutin::{self, ElementState, Event, ModifiersState, MouseButton};
+use glutin::{self, ElementState, Event, ModifiersState, MouseButton, MouseCursor};
 use parking_lot::MutexGuard;
 use serde_json as json;
+use unicode_width::UnicodeWidthStr;
 
+use crate::ansi::Handler;
 use crate::cli::Options;
 use crate::clipboard::ClipboardType;
 use crate::config::{self, Config};
 use crate::display::OnResize;
 use crate::grid::Scroll;
-use crate::index::{Column, Line, Point, Side};
-use crate::input::{self, KeyBinding, MouseBinding};
+use crate::index::{Column, Line, Linear, Point, Side};
+use crate::input::{self, KeyBinding, MouseBinding, RelaxedEq};
 use crate::selection::Selection;
 use crate::sync::FairMutex;
 use crate::term::cell::Cell;
-use crate::term::{SizeInfo, Term};
+use crate::term::mode::TermMode;
+use crate::term::{Search, SizeInfo, Term};
 #[cfg(unix)]
 use crate::tty;
+use crate::url::Url;
 use crate::util::{limit, start_daemon};
 use crate::window::Window;
 
@@ -586,5 +591,55 @@ impl<N: Notify> Processor<N> {
         self.mouse_config = config.mouse().to_owned();
         self.save_to_clipboard = config.selection().save_to_clipboard;
         self.alt_send_esc = config.alt_send_esc();
+    }
+
+
+    /// Underline URLs and change the mouse cursor when URL hover state changes.
+    pub fn update_url_highlight(&mut self, terminal: &mut Term) {
+        let mouse_mode =
+            TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
+
+        let point = Point::new(self.mouse.line, self.mouse.column);
+        let modifiers = self.last_modifiers;
+
+        // Only show URLs as launchable when all required modifiers are pressed
+        let url = if self.mouse_config.url.modifiers.relaxed_eq(modifiers)
+            && (!terminal.mode().intersects(mouse_mode) || modifiers.shift)
+            && self.mouse_config.url.launcher.is_some()
+        {
+            terminal.url_search(point.into())
+        } else {
+            None
+        };
+
+        if let Some(Url { origin, text }) = url {
+            let cols = self.size_info.cols().0;
+
+            // Calculate the URL's start position
+            let lines_before = (origin + cols - point.col.0 - 1) / cols;
+            let (start_col, start_line) = if lines_before > point.line.0 {
+                (0, 0)
+            } else {
+                let start_col = (cols + point.col.0 - origin % cols) % cols;
+                let start_line = point.line.0 - lines_before;
+                (start_col, start_line)
+            };
+            let start = Point::new(start_line, Column(start_col));
+
+            // Calculate the URL's end position
+            let len = text.width();
+            let end_col = (point.col.0 + len - origin) % cols - 1;
+            let end_line = point.line.0 + (point.col.0 + len - origin) / cols;
+            let end = Point::new(end_line, Column(end_col));
+
+            let start = Linear::from_point(Column(cols), start);
+            let end = Linear::from_point(Column(cols), end);
+
+            terminal.set_url_highlight(RangeInclusive::new(start, end));
+            terminal.set_mouse_cursor(MouseCursor::Hand);
+            terminal.dirty = true;
+        } else {
+            terminal.reset_url_highlight();
+        }
     }
 }

@@ -20,25 +20,21 @@
 //! determine what to do when a non-modifier key is pressed.
 use std::borrow::Cow;
 use std::mem;
-use std::ops::RangeInclusive;
 use std::time::Instant;
 
 use glutin::{
-    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseCursor, MouseScrollDelta,
-    TouchPhase,
+    ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
 };
-use unicode_width::UnicodeWidthStr;
 
 use crate::ansi::{ClearMode, Handler};
 use crate::clipboard::ClipboardType;
 use crate::config::{self, Key};
 use crate::event::{ClickState, Mouse};
 use crate::grid::Scroll;
-use crate::index::{Column, Line, Linear, Point, Side};
+use crate::index::{Column, Line, Point, Side};
 use crate::message_bar::{self, Message};
 use crate::term::mode::TermMode;
 use crate::term::{Search, SizeInfo, Term};
-use crate::url::Url;
 use crate::util::start_daemon;
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
@@ -373,7 +369,7 @@ impl Action {
     }
 }
 
-trait RelaxedEq<T: ?Sized = Self> {
+pub trait RelaxedEq<T: ?Sized = Self> {
     fn relaxed_eq(&self, other: T) -> bool;
 }
 
@@ -425,7 +421,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         // Underline URLs and change cursor on hover
         if cell_changed {
-            self.update_url_highlight(point, modifiers);
+            self.ctx.terminal_mut().url_dirty = true;
         }
 
         if self.ctx.mouse().left_button_state == ElementState::Pressed
@@ -445,52 +441,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             } else if self.ctx.terminal().mode().contains(TermMode::MOUSE_MOTION) {
                 self.mouse_report(35, ElementState::Pressed, modifiers);
             }
-        }
-    }
-
-    /// Underline URLs and change the mouse cursor when URL hover state changes.
-    fn update_url_highlight(&mut self, point: Point, modifiers: ModifiersState) {
-        let mouse_mode =
-            TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
-
-        // Only show URLs as launchable when all required modifiers are pressed
-        let url = if self.mouse_config.url.modifiers.relaxed_eq(modifiers)
-            && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
-            && self.mouse_config.url.launcher.is_some()
-        {
-            self.ctx.terminal().url_search(point.into())
-        } else {
-            None
-        };
-
-        if let Some(Url { origin, text }) = url {
-            let cols = self.ctx.size_info().cols().0;
-
-            // Calculate the URL's start position
-            let lines_before = (origin + cols - point.col.0 - 1) / cols;
-            let (start_col, start_line) = if lines_before > point.line.0 {
-                (0, 0)
-            } else {
-                let start_col = (cols + point.col.0 - origin % cols) % cols;
-                let start_line = point.line.0 - lines_before;
-                (start_col, start_line)
-            };
-            let start = Point::new(start_line, Column(start_col));
-
-            // Calculate the URL's end position
-            let len = text.width();
-            let end_col = (point.col.0 + len - origin) % cols - 1;
-            let end_line = point.line.0 + (point.col.0 + len - origin) / cols;
-            let end = Point::new(end_line, Column(end_col));
-
-            let start = Linear::from_point(Column(cols), start);
-            let end = Linear::from_point(Column(cols), end);
-
-            self.ctx.terminal_mut().set_url_highlight(RangeInclusive::new(start, end));
-            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
-            self.ctx.terminal_mut().dirty = true;
-        } else {
-            self.ctx.terminal_mut().reset_url_highlight();
         }
     }
 

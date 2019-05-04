@@ -242,6 +242,10 @@ fn run(
             break;
         }
 
+        if terminal_lock.needs_url_check() {
+            processor.update_url_highlight(&mut terminal_lock);
+        }
+
         // Maybe draw the terminal
         if terminal_lock.needs_draw() {
             // Try to update the position of the input method editor

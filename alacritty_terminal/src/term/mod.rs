@@ -757,6 +757,8 @@ pub struct Term {
 
     /// Clipboard access coupled to the active window
     clipboard: Clipboard,
+
+    pub url_dirty: bool,
 }
 
 /// Terminal size info
@@ -896,6 +898,7 @@ impl Term {
             message_buffer,
             should_exit: false,
             clipboard,
+            url_dirty: false,
         }
     }
 
@@ -931,6 +934,11 @@ impl Term {
     #[inline]
     pub fn needs_draw(&self) -> bool {
         self.dirty
+    }
+
+    #[inline]
+    pub fn needs_url_check(&self) -> bool {
+        self.dirty || self.url_dirty
     }
 
     pub fn selection_to_string(&self) -> Option<String> {
