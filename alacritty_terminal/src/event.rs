@@ -412,6 +412,8 @@ impl<N: Notify> Processor<N> {
                             // Hide cursor while typing
                             *hide_mouse = true;
                         }
+                        // There might have been a change in modifiers
+                        processor.ctx.terminal.url_dirty = true;
                     },
                     ReceivedCharacter(c) => {
                         processor.received_char(c);
@@ -445,7 +447,6 @@ impl<N: Notify> Processor<N> {
                             processor.ctx.terminal.dirty = true;
                             processor.ctx.terminal.next_is_urgent = Some(false);
                         } else {
-                            processor.ctx.terminal.reset_url_highlight();
                             processor.ctx.terminal.dirty = true;
                             *hide_mouse = false;
                         }
@@ -460,6 +461,9 @@ impl<N: Notify> Processor<N> {
                     HiDpiFactorChanged(new_dpr) => {
                         processor.ctx.size_info.dpr = new_dpr;
                         processor.ctx.terminal.dirty = true;
+                    },
+                    Moved => {
+                        processor.ctx.terminal.url_dirty = true;
                     },
                     _ => (),
                 }
