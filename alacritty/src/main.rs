@@ -261,10 +261,8 @@ fn run(
             // of display size changes.
             display.handle_resize(&mut terminal_lock, &config, &mut resize_handle, &mut processor);
 
-            drop(terminal_lock);
-
             // Draw the current state of the terminal
-            display.draw(&terminal, &config);
+            display.draw(&mut terminal_lock, &config);
         }
     }
 

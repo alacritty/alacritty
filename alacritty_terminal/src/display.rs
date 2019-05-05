@@ -430,8 +430,7 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(&mut self, terminal: &FairMutex<Term>, config: &Config) {
-        let mut terminal = terminal.lock();
+    pub fn draw(&mut self, terminal: &mut Term, config: &Config) {
         let size_info = *terminal.size_info();
         let visual_bell_intensity = terminal.visual_bell.intensity();
         let background_color = terminal.background_color();
