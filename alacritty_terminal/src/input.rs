@@ -672,7 +672,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let button_changed = self.ctx.mouse().last_button != button;
         let click_state = self.ctx.mouse().click_state;
 
-        self.ctx.mouse_mut().last_click_state = click_state;
         self.ctx.mouse_mut().click_state = match click_state {
             ClickState::Click
                 if !button_changed && elapsed < self.mouse_config.double_click.threshold =>
