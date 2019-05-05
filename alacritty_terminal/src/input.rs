@@ -997,6 +997,7 @@ mod tests {
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
     #[derive(Debug, PartialEq)]
+    #[allow(clippy::enum_variant_names)]
     enum ActionStub {
         BracketPairSelection,
         ClearSelection,
