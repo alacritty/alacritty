@@ -235,7 +235,7 @@ impl WindowChanges {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ClickState {
     None,
     Click,

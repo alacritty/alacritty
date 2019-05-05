@@ -996,12 +996,14 @@ mod tests {
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
-    #[derive(PartialEq)]
-    enum MultiClick {
-        DoubleClick,
-        DoubleClickAndRelease,
-        TripleClick,
-        None,
+    #[derive(Debug, PartialEq)]
+    enum ActionStub {
+        BracketPairSelection,
+        ClearSelection,
+        CopySelection,
+        LineSelection,
+        SemanticSelection,
+        SimpleSelection,
     }
 
     struct ActionContext<'a> {
@@ -1009,7 +1011,7 @@ mod tests {
         pub selection: &'a mut Option<Selection>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
-        pub last_action: MultiClick,
+        pub actions: Vec<ActionStub>,
         pub received_count: usize,
         pub suppress_chars: bool,
         pub last_modifiers: ModifiersState,
@@ -1021,11 +1023,17 @@ mod tests {
 
         fn update_selection(&mut self, _point: Point, _side: Side) {}
 
-        fn simple_selection(&mut self, _point: Point, _side: Side) {}
+        fn simple_selection(&mut self, _point: Point, _side: Side) {
+            self.actions.push(ActionStub::SimpleSelection)
+        }
 
-        fn copy_selection(&mut self, _: ClipboardType) {}
+        fn copy_selection(&mut self, _: ClipboardType) {
+            self.actions.push(ActionStub::CopySelection)
+        }
 
-        fn clear_selection(&mut self) {}
+        fn clear_selection(&mut self) {
+            self.actions.push(ActionStub::ClearSelection)
+        }
 
         fn hide_window(&mut self) {}
 
@@ -1049,16 +1057,15 @@ mod tests {
         }
 
         fn semantic_selection(&mut self, _point: Point) {
-            // set something that we can check for here
-            self.last_action = MultiClick::DoubleClick;
+            self.actions.push(ActionStub::SemanticSelection)
         }
 
         fn line_selection(&mut self, _point: Point) {
-            self.last_action = MultiClick::TripleClick;
+            self.actions.push(ActionStub::LineSelection)
         }
 
         fn bracket_pair_selection(&mut self, _point: Point) {
-            self.last_action = MultiClick::DoubleClickAndRelease;
+            self.actions.push(ActionStub::BracketPairSelection)
         }
 
         fn selection_is_empty(&self) -> bool {
@@ -1102,8 +1109,8 @@ mod tests {
             initial_state: $initial_state:expr,
             initial_button: $initial_button:expr,
             input: $input:expr,
-            end_state: $end_state:pat,
-            last_action: $last_action:expr
+            end_state: $end_state:expr,
+            actions: $actions:expr
         } => {
             #[test]
             fn $name() {
@@ -1131,7 +1138,7 @@ mod tests {
                     selection: &mut selection,
                     mouse: &mut mouse,
                     size_info: &size,
-                    last_action: MultiClick::None,
+                    actions: vec![],
                     received_count: 0,
                     suppress_chars: false,
                     last_modifiers: ModifiersState::default(),
@@ -1161,10 +1168,8 @@ mod tests {
                     processor.mouse_input(state, button, modifiers);
                 };
 
-                assert!(match processor.ctx.mouse.click_state {
-                    $end_state => processor.ctx.last_action == $last_action,
-                    _ => false
-                });
+                assert_eq!(processor.ctx.mouse.click_state, $end_state);
+                assert_eq!(processor.ctx.actions, $actions);
             }
         }
     }
@@ -1202,7 +1207,7 @@ mod tests {
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
         end_state: ClickState::Click,
-        last_action: MultiClick::None
+        actions: vec![ActionStub::ClearSelection, ActionStub::SimpleSelection]
     }
 
     test_clickstate! {
@@ -1219,7 +1224,7 @@ mod tests {
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
         end_state: ClickState::DoubleClick,
-        last_action: MultiClick::DoubleClick
+        actions: vec![ActionStub::SemanticSelection]
     }
 
     test_clickstate! {
@@ -1236,7 +1241,7 @@ mod tests {
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
         end_state: ClickState::DoubleClick,
-        last_action: MultiClick::DoubleClickAndRelease
+        actions: vec![ActionStub::BracketPairSelection]
     }
 
     test_clickstate! {
@@ -1253,7 +1258,7 @@ mod tests {
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
         end_state: ClickState::TripleClick,
-        last_action: MultiClick::TripleClick
+        actions: vec![ActionStub::LineSelection]
     }
 
     test_clickstate! {
@@ -1270,7 +1275,7 @@ mod tests {
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
         end_state: ClickState::Click,
-        last_action: MultiClick::None
+        actions: vec![ActionStub::ClearSelection, ActionStub::SimpleSelection]
     }
 
     test_process_binding! {
