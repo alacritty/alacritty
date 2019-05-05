@@ -28,7 +28,6 @@ use crate::message_bar::Message;
 use crate::meter::Meter;
 use crate::renderer::rects::{Rect, Rects};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
-use crate::sync::FairMutex;
 use crate::term::color::Rgb;
 use crate::term::{RenderableCell, SizeInfo, Term};
 use crate::window::{self, Window};
