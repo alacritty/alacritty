@@ -46,6 +46,9 @@ use crate::tty;
 pub mod cell;
 pub mod color;
 
+// De facto limit - see https://stackoverflow.com/a/417184/
+const URL_MAX_LENGTH: u32 = 2000;
+
 /// A type that can expand a given point to a region
 ///
 /// Usually this is implemented for some 2-D array type since
@@ -118,6 +121,8 @@ impl Search for Term {
         point.col += 1;
         let mut iterb = self.grid.iter_from(point);
 
+        let mut searched_count = 0;
+
         // Find URLs
         let mut url_parser = UrlParser::new();
         while let Some(cell) = iterb.prev() {
@@ -126,6 +131,10 @@ impl Search for Term {
             {
                 break;
             }
+            if searched_count > URL_MAX_LENGTH {
+                return None;
+            }
+            searched_count += 1;
         }
 
         while let Some(cell) = iterf.next() {
@@ -133,6 +142,10 @@ impl Search for Term {
                 || (iterf.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
             {
                 break;
+            }
+            searched_count += 1;
+            if searched_count > URL_MAX_LENGTH {
+                return None;
             }
         }
         url_parser.url()
