@@ -374,6 +374,19 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
     /// (eg. invert fg and bg colors).
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
+        let cursor_selected = {
+            self.selection
+                .as_ref()
+                .map(|range| {
+                    range.contains_(Linear::new(
+                        self.grid.num_cols(),
+                        self.cursor.col,
+                        self.cursor.line,
+                    ))
+                })
+                .unwrap_or(false)
+        };
+
         loop {
             if self.cursor_offset == self.inner.offset() && self.inner.column() == self.cursor.col {
                 // Handle cursor
@@ -383,8 +396,9 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                         column: self.cursor.col,
                         line: self.cursor.line,
                     };
+
                     let mut renderable_cell =
-                        RenderableCell::new(self.config, self.colors, cell, false);
+                        RenderableCell::new(self.config, self.colors, cell, cursor_selected);
 
                     renderable_cell.inner =
                         RenderableCellContent::Cursor((self.cursor_style, cursor_cell));
@@ -395,8 +409,12 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 
                     return Some(renderable_cell);
                 } else {
-                    let mut cell =
-                        RenderableCell::new(self.config, self.colors, self.inner.next()?, false);
+                    let mut cell = RenderableCell::new(
+                        self.config,
+                        self.colors,
+                        self.inner.next()?,
+                        cursor_selected,
+                    );
 
                     if self.cursor_style == CursorStyle::Block {
                         std::mem::swap(&mut cell.bg, &mut cell.fg);
