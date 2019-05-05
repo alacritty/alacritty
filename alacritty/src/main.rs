@@ -247,6 +247,8 @@ fn run(
             processor.update_url_highlight(&mut terminal_lock);
         }
 
+        terminal_lock.url_dirty = false;
+
         // Maybe draw the terminal
         if terminal_lock.needs_draw() {
             // Try to update the position of the input method editor
