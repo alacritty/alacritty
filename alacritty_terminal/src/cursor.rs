@@ -23,29 +23,53 @@ use crate::ansi::CursorStyle;
 /// Width/Height of the cursor relative to the font width
 pub const CURSOR_WIDTH_PERCENTAGE: i32 = 15;
 
-pub fn get_cursor_glyph(
-    cursor: CursorStyle,
-    metrics: Metrics,
-    offset_x: i8,
-    offset_y: i8,
-    is_wide: bool,
-) -> RasterizedGlyph {
-    // Calculate the cell metrics
-    let height = metrics.line_height as i32 + i32::from(offset_y);
-    let mut width = metrics.average_advance as i32 + i32::from(offset_x);
-    let line_width = cmp::max(width * CURSOR_WIDTH_PERCENTAGE / 100, 1);
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
+/// An enum that represents all data about the state of the cursor
+pub enum CursorKey {
+    Block { height: i32, width: i32 },
+    Underline { width: i32, line_width: i32 },
+    Beam { height: i32, line_width: i32 },
+    HollowBlock { height: i32, width: i32, line_width: i32 },
+    Hidden,
+}
 
-    // Double the cursor width if it's above a double-width glyph
-    if is_wide {
-        width *= 2;
+impl CursorKey {
+    pub fn new(
+        cursor: CursorStyle,
+        metrics: Metrics,
+        offset_x: i8,
+        offset_y: i8,
+        is_wide: bool,
+    ) -> CursorKey {
+        // Calculate the cell metrics
+        let height = metrics.line_height as i32 + i32::from(offset_y);
+        let mut width = metrics.average_advance as i32 + i32::from(offset_x);
+        let line_width = cmp::max(width * CURSOR_WIDTH_PERCENTAGE / 100, 1);
+
+        // Double the cursor width if it's above a double-width glyph
+        if is_wide {
+            width *= 2;
+        }
+
+        match cursor {
+            CursorStyle::Block => CursorKey::Block { height, width },
+            CursorStyle::Underline => CursorKey::Underline { width, line_width },
+            CursorStyle::Beam => CursorKey::Beam { height, line_width },
+            CursorStyle::HollowBlock => CursorKey::HollowBlock { height, width, line_width },
+            CursorStyle::Hidden => CursorKey::Hidden,
+        }
     }
+}
 
-    match cursor {
-        CursorStyle::HollowBlock => get_box_cursor_glyph(height, width, line_width),
-        CursorStyle::Underline => get_underline_cursor_glyph(width, line_width),
-        CursorStyle::Beam => get_beam_cursor_glyph(height, line_width),
-        CursorStyle::Block => get_block_cursor_glyph(height, width),
-        CursorStyle::Hidden => RasterizedGlyph::default(),
+pub fn get_cursor_glyph(cursor_key: CursorKey) -> RasterizedGlyph {
+    match cursor_key {
+        CursorKey::HollowBlock { height, width, line_width } => {
+            get_box_cursor_glyph(height, width, line_width)
+        },
+        CursorKey::Underline { width, line_width } => get_underline_cursor_glyph(width, line_width),
+        CursorKey::Beam { height, line_width } => get_beam_cursor_glyph(height, line_width),
+        CursorKey::Block { height, width } => get_block_cursor_glyph(height, width),
+        CursorKey::Hidden => RasterizedGlyph::default(),
     }
 }
 
