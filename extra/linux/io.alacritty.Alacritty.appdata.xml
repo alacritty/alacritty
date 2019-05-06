@@ -4,6 +4,7 @@
   <id>io.alacritty.Alacritty</id>
   <!-- Translators: The application name -->
   <name>Alacritty</name>
+  <launchable type="desktop-id">io.alacritty.Alacritty.desktop</launchable>
   <project_license>APACHE-2.0</project_license>
   <metadata_license>APACHE-3.0</metadata_license>
   <!-- Translators: The application's summary / tagline -->
