@@ -429,7 +429,9 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(&mut self, terminal: &mut Term, config: &Config) {
+    pub fn draw(&mut self, mut terminal_lock: MutexGuard<Term>, config: &Config) {
+        let terminal = &mut terminal_lock;
+
         let size_info = *terminal.size_info();
         let visual_bell_intensity = terminal.visual_bell.intensity();
         let background_color = terminal.background_color();
@@ -470,7 +472,7 @@ impl Display {
         // worked around to some extent. Since this doesn't actually address the
         // issue of glClear being slow, less time is available for input
         // handling and rendering.
-        drop(terminal);
+        drop(terminal_lock);
 
         self.renderer.with_api(config, &size_info, |api| {
             api.clear(background_color);

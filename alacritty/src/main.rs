@@ -42,7 +42,7 @@ use std::env;
 use std::os::unix::io::AsRawFd;
 
 use alacritty_terminal::clipboard::Clipboard;
-use alacritty_terminal::config::{self, Config, Options, Monitor};
+use alacritty_terminal::config::{self, Config, Monitor, Options};
 use alacritty_terminal::display::Display;
 use alacritty_terminal::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
@@ -262,7 +262,7 @@ fn run(
             display.handle_resize(&mut terminal_lock, &config, &mut resize_handle, &mut processor);
 
             // Draw the current state of the terminal
-            display.draw(&mut terminal_lock, &config);
+            display.draw(terminal_lock, &config);
         }
     }
 
