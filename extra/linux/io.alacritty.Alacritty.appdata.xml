@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2016-2019 Joe Wilm, The Alacritty Project Contributors -->
+<component type="desktop-application">
+  <id>io.alacritty.Alacritty</id>
+  <!-- Translators: The application name -->
+  <name>Alacritty</name>
+  <project_license>APACHE-2.0</project_license>
+  <metadata_license>APACHE-3.0</metadata_license>
+  <!-- Translators: The application's summary / tagline -->
+  <summary>A cross-platform, GPU enhanced terminal emulator</summary>
+  <description>
+    <p>Alacritty is the fastest terminal emulator in existence. Using the GPU for rendering enables optimizations that simply aren't possible without it.</p>
+    <p>Alacritty currently supports macOS, Linux, BSD, and Windows.</p>
+  </description>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://cloud.githubusercontent.com/assets/4285147/21585004/2ebd0288-d06c-11e6-95d3-4a2889dbbd6f.png</image>
+      <caption>Alacritty is a terminal emulator with a strong focus on simplicity and performance</caption>
+    </screenshot>
+  </screenshots>
+  <keywords>
+    <keyword>terminal emulator</keyword>
+    <keyword>GPU</keyword>
+  </keywords>
+  <url type="homepage">https://github.com/jwilm/alacritty</url>
+  <url type="bugtracker">https://github.com/jwilm/alacritty/blob/master/CONTRIBUTING.md#bug-reports</url>
+  <releases>
+    <release version="0.3.2" date="19.04.24" unix_timestamp="1556145865"/>
+  </releases>
+  <update_contact>https://github.com/jwilm/alacritty/blob/master/CONTRIBUTING.md#contact</update_contact>
+  <developer_name>Joe Wilm</developer_name> 
+</component>
