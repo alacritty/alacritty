@@ -438,7 +438,7 @@ impl Display {
 
         let window_focused = self.window.is_focused;
         let grid_cells: Vec<RenderableCell> =
-            terminal.renderable_cells(config, window_focused, metrics).collect();
+            terminal.renderable_cells(config, window_focused).collect();
 
         // Get message from terminal to ignore modifications after lock is dropped
         let message_buffer = terminal.message_buffer_mut().message();

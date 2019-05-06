@@ -96,7 +96,7 @@ impl ::std::fmt::Display for Error {
         match *self {
             Error::ShaderCreation(ref err) => {
                 write!(f, "There was an error initializing the shaders: {}", err)
-            },
+            }
         }
     }
 }
@@ -649,8 +649,8 @@ impl QuadRenderer {
                         | DebouncedEvent::Write(_)
                         | DebouncedEvent::Chmod(_) => {
                             msg_tx.send(Msg::ShaderReload).expect("msg send ok");
-                        },
-                        _ => {},
+                        }
+                        _ => {}
                     }
                 }
             });
@@ -815,11 +815,11 @@ impl QuadRenderer {
 
                 info!("... successfully reloaded shaders");
                 (program, rect_program)
-            },
+            }
             (Err(err), _) | (_, Err(err)) => {
                 error!("{}", err);
                 return;
-            },
+            }
         };
 
         self.active_tex = 0;
@@ -996,13 +996,22 @@ impl<'a> RenderApi<'a> {
         let chars = match cell.inner {
             RenderableCellContent::Cursor(cursor_key) => {
                 // Raw cell pixel buffers like cursors don't need to go through font lookup
-                let glyph = glyph_cache
-                    .cursor_cache
-                    .entry(cursor_key)
-                    .or_insert_with(|| self.load_glyph(&get_cursor_glyph(cursor_key)));
+                let metrics = &glyph_cache.metrics;
+                let glyph = glyph_cache.cursor_cache.entry(cursor_key).or_insert_with(|| {
+                    let offset_x = self.config.font.offset.x;
+                    let offset_y = self.config.font.offset.y;
+
+                    self.load_glyph(&get_cursor_glyph(
+                        cursor_key.style,
+                        *metrics,
+                        offset_x,
+                        offset_y,
+                        cursor_key.is_wide,
+                    ))
+                });
                 self.add_render_item(&cell, &glyph);
                 return;
-            },
+            }
             RenderableCellContent::Chars(chars) => chars,
         };
 
@@ -1073,7 +1082,7 @@ fn load_glyph(
                 atlas.push(new);
             }
             load_glyph(active_tex, atlas, current_atlas, rasterized)
-        },
+        }
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
             top: 0.0,
@@ -1423,7 +1432,7 @@ impl ::std::fmt::Display for ShaderCreationError {
             ShaderCreationError::Io(ref err) => write!(f, "Couldn't read shader: {}", err),
             ShaderCreationError::Compile(ref path, ref log) => {
                 write!(f, "Failed compiling shader at {}: {}", path.display(), log)
-            },
+            }
             ShaderCreationError::Link(ref log) => write!(f, "Failed linking shader: {}", log),
         }
     }
