@@ -96,7 +96,7 @@ impl ::std::fmt::Display for Error {
         match *self {
             Error::ShaderCreation(ref err) => {
                 write!(f, "There was an error initializing the shaders: {}", err)
-            }
+            },
         }
     }
 }
@@ -649,8 +649,8 @@ impl QuadRenderer {
                         | DebouncedEvent::Write(_)
                         | DebouncedEvent::Chmod(_) => {
                             msg_tx.send(Msg::ShaderReload).expect("msg send ok");
-                        }
-                        _ => {}
+                        },
+                        _ => {},
                     }
                 }
             });
@@ -815,11 +815,11 @@ impl QuadRenderer {
 
                 info!("... successfully reloaded shaders");
                 (program, rect_program)
-            }
+            },
             (Err(err), _) | (_, Err(err)) => {
                 error!("{}", err);
                 return;
-            }
+            },
         };
 
         self.active_tex = 0;
@@ -1011,7 +1011,7 @@ impl<'a> RenderApi<'a> {
                 });
                 self.add_render_item(&cell, &glyph);
                 return;
-            }
+            },
             RenderableCellContent::Chars(chars) => chars,
         };
 
@@ -1082,7 +1082,7 @@ fn load_glyph(
                 atlas.push(new);
             }
             load_glyph(active_tex, atlas, current_atlas, rasterized)
-        }
+        },
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
             top: 0.0,
@@ -1432,7 +1432,7 @@ impl ::std::fmt::Display for ShaderCreationError {
             ShaderCreationError::Io(ref err) => write!(f, "Couldn't read shader: {}", err),
             ShaderCreationError::Compile(ref path, ref log) => {
                 write!(f, "Failed compiling shader at {}: {}", path.display(), log)
-            }
+            },
             ShaderCreationError::Link(ref log) => write!(f, "Failed linking shader: {}", log),
         }
     }
