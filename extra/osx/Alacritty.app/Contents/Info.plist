@@ -52,5 +52,7 @@
     <string>An application in Alacritty would like to access your microphone.</string>
     <key>NSRemindersUsageDescription</key>
     <string>An application in Alacritty would like to access your reminders.</string>
+    <key>NSSystemAdministrationUsageDescription</key>
+    <string>An application in Alacritty requires elevated permissions.</string>
 </dict>
 </plist>

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Packaging
 
 - The xclip dependency has been removed
+- On macOS, Alacritty now requests NSSystemAdministrationUsageDescription to
+   avoid permission failures
 
 ### Added
 
