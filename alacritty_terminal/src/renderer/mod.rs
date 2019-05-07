@@ -1307,6 +1307,16 @@ fn create_shader(
 
     let len: [GLint; 1] = [source.len() as GLint];
 
+    let shader_compiler = unsafe {
+        let mut val: GLboolean = gl::FALSE;
+        gl::GetBooleanv(gl::SHADER_COMPILER, &mut val);
+        val == gl::TRUE
+    };
+    if !shader_compiler {
+        return Err(ShaderCreationError::Compile(PathBuf::from(path),
+                "no shader compiler support".to_string()));
+    }
+
     let shader = unsafe {
         let shader = gl::CreateShader(kind);
         gl::ShaderSource(shader, 1, &(source.as_ptr() as *const _), len.as_ptr());
