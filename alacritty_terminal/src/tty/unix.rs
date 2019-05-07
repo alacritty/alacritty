@@ -15,7 +15,7 @@
 //! tty related functionality
 //!
 
-use crate::config::{Config, Options, Shell};
+use crate::config::{Config, Shell};
 use crate::display::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
@@ -156,7 +156,6 @@ impl Pty {
 /// Create a new tty and return a handle to interact with it.
 pub fn new<T: ToWinsize>(
     config: &Config,
-    options: &Options,
     size: &T,
     window_id: Option<usize>,
 ) -> Pty {
@@ -174,12 +173,10 @@ pub fn new<T: ToWinsize>(
     } else {
         Shell::new(pw.shell)
     };
-    let shell = config.shell().unwrap_or(&default_shell);
+    let shell = config.shell.as_ref().unwrap_or(&default_shell);
 
-    let initial_command = options.command().unwrap_or(shell);
-
-    let mut builder = Command::new(initial_command.program());
-    for arg in initial_command.args() {
+    let mut builder = Command::new(&*shell.program);
+    for arg in &shell.args {
         builder.arg(arg);
     }
 
@@ -230,7 +227,7 @@ pub fn new<T: ToWinsize>(
     });
 
     // Handle set working directory option
-    if let Some(ref dir) = options.working_dir {
+    if let Some(ref dir) = config.working_directory() {
         builder.current_dir(dir.as_path());
     }
 

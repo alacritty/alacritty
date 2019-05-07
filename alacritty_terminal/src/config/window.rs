@@ -1,0 +1,116 @@
+use crate::index::{Column, Line};
+use crate::config::{Delta, failure_default};
+
+#[serde(default)]
+#[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
+pub struct WindowConfig {
+    /// Initial dimensions
+    #[serde(deserialize_with = "failure_default")]
+    pub dimensions: Dimensions,
+
+    /// Initial position
+    #[serde(deserialize_with = "failure_default")]
+    pub position: Option<Delta<i32>>,
+
+    /// Pixel padding
+    #[serde(deserialize_with = "failure_default")]
+    pub padding: Delta<u8>,
+
+    /// Draw the window with title bar / borders
+    #[serde(deserialize_with = "failure_default")]
+    pub decorations: Decorations,
+
+    /// Spread out additional padding evenly
+    #[serde(deserialize_with = "failure_default")]
+    pub dynamic_padding: bool,
+
+    /// Startup mode
+    #[serde(deserialize_with = "failure_default")]
+    startup_mode: StartupMode,
+
+    /// Window title
+    #[serde(deserialize_with = "failure_default")]
+    pub title: Option<String>,
+
+    /// Window class
+    #[serde(deserialize_with = "failure_default")]
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub class: Option<String>,
+
+    /// TODO: DEPRECATED
+    #[serde(deserialize_with = "failure_default")]
+    pub start_maximized: Option<bool>,
+}
+
+impl WindowConfig {
+    pub fn startup_mode(&self) -> StartupMode {
+        match self.start_maximized {
+            Some(true) => StartupMode::Maximized,
+            _ => self.startup_mode
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Copy, Clone, PartialEq, Eq)]
+pub enum StartupMode {
+    Windowed,
+    Maximized,
+    Fullscreen,
+    #[cfg(target_os = "macos")]
+    SimpleFullscreen,
+}
+
+impl Default for StartupMode {
+    fn default() -> StartupMode {
+        StartupMode::Windowed
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize)]
+pub enum Decorations {
+    Full,
+    #[cfg(target_os = "macos")]
+    Transparent,
+    #[cfg(target_os = "macos")]
+    Buttonless,
+    None,
+}
+
+impl Default for Decorations {
+    fn default() -> Decorations {
+        Decorations::Full
+    }
+}
+
+/// Window Dimensions
+///
+/// Newtype to avoid passing values incorrectly
+#[serde(default)]
+#[derive(Default, Debug, Copy, Clone, Deserialize, PartialEq, Eq)]
+pub struct Dimensions {
+    /// Window width in character columns
+    #[serde(deserialize_with = "failure_default")]
+    columns: Column,
+
+    /// Window Height in character lines
+    #[serde(deserialize_with = "failure_default")]
+    lines: Line,
+}
+
+impl Dimensions {
+    pub fn new(columns: Column, lines: Line) -> Self {
+        Dimensions { columns, lines }
+    }
+
+    /// Get lines
+    #[inline]
+    pub fn lines_u32(&self) -> u32 {
+        self.lines.0 as u32
+    }
+
+    /// Get columns
+    #[inline]
+    pub fn columns_u32(&self) -> u32 {
+        self.columns.0 as u32
+    }
+}

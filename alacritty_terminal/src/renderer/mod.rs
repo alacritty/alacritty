@@ -197,19 +197,19 @@ impl GlyphCache {
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
 
-        let metrics = rasterizer.metrics(regular, font.size())?;
+        let metrics = rasterizer.metrics(regular, font.size)?;
 
         let mut cache = GlyphCache {
             cache: HashMap::default(),
             cursor_cache: HashMap::default(),
             rasterizer,
-            font_size: font.size(),
+            font_size: font.size,
             font_key: regular,
             bold_key: bold,
             italic_key: italic,
-            glyph_offset: *font.glyph_offset(),
+            glyph_offset: font.glyph_offset,
             metrics,
         };
 
@@ -232,7 +232,7 @@ impl GlyphCache {
         font: &config::Font,
         rasterizer: &mut Rasterizer,
     ) -> Result<(FontKey, FontKey, FontKey), font::Error> {
-        let size = font.size();
+        let size = font.size;
 
         // Load regular font
         let regular_desc =
@@ -320,7 +320,7 @@ impl GlyphCache {
         let font = font.to_owned().with_size(size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
 
-        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
 
         info!("Font size changed to {:?} with DPR of {}", font.size, dpr);
@@ -342,15 +342,15 @@ impl GlyphCache {
     //
     // This should only be used *before* OpenGL is initialized and the glyph cache can be filled.
     pub fn static_metrics(config: &Config, dpr: f32) -> Result<font::Metrics, font::Error> {
-        let font = config.font().clone();
+        let font = config.font.clone();
 
-        let mut rasterizer = font::Rasterizer::new(dpr, config.use_thin_strokes())?;
+        let mut rasterizer = font::Rasterizer::new(dpr, config.font.use_thin_strokes())?;
         let regular_desc =
             GlyphCache::make_desc(&font.normal(), font::Slant::Normal, font::Weight::Normal);
-        let regular = rasterizer.load_font(&regular_desc, font.size())?;
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size() })?;
+        let regular = rasterizer.load_font(&regular_desc, font.size)?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
 
-        rasterizer.metrics(regular, font.size())
+        rasterizer.metrics(regular, font.size)
     }
 }
 
@@ -713,7 +713,7 @@ impl QuadRenderer {
         }
 
         // Draw visual bell
-        let color = config.visual_bell().color();
+        let color = config.visual_bell.color;
         let rect = Rect::new(0., 0., props.width, props.height);
         self.render_rect(&rect, color, visual_bell_intensity as f32, props);
 
@@ -890,7 +890,7 @@ impl QuadRenderer {
 
 impl<'a> RenderApi<'a> {
     pub fn clear(&self, color: Rgb) {
-        let alpha = self.config.background_opacity().get();
+        let alpha = self.config.background_opacity();
         unsafe {
             gl::ClearColor(
                 (f32::from(color.r) / 255.0).min(1.0) * alpha,

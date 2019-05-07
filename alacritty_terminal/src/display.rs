@@ -22,7 +22,7 @@ use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::EventsLoop;
 use parking_lot::MutexGuard;
 
-use crate::config::{Config, Options, StartupMode};
+use crate::config::{Config, StartupMode};
 use crate::index::Line;
 use crate::message_bar::Message;
 use crate::meter::Meter;
@@ -134,7 +134,7 @@ impl Display {
         &self.size_info
     }
 
-    pub fn new(config: &Config, options: &Options) -> Result<Display, Error> {
+    pub fn new(config: &Config) -> Result<Display, Error> {
         // Extract some properties from config
         let render_timer = config.render_timer();
 
@@ -147,7 +147,7 @@ impl Display {
         let metrics = GlyphCache::static_metrics(config, estimated_dpr as f32)?;
         let (cell_width, cell_height) = Self::compute_cell_size(config, &metrics);
         let dimensions =
-            Self::calculate_dimensions(config, options, estimated_dpr, cell_width, cell_height);
+            Self::calculate_dimensions(config, estimated_dpr, cell_width, cell_height);
 
         debug!("Estimated DPR: {}", estimated_dpr);
         debug!("Estimated Cell Size: {} x {}", cell_width, cell_height);
@@ -155,7 +155,7 @@ impl Display {
 
         // Create the window where Alacritty will be displayed
         let logical = dimensions.map(|d| PhysicalSize::new(d.0, d.1).to_logical(estimated_dpr));
-        let mut window = Window::new(event_loop, &options, config.window(), logical)?;
+        let mut window = Window::new(event_loop, &config, logical)?;
 
         let dpr = window.hidpi_factor();
         info!("Device pixel ratio: {}", dpr);
@@ -170,11 +170,11 @@ impl Display {
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
-        let mut padding_x = f64::from(config.padding().x) * dpr;
-        let mut padding_y = f64::from(config.padding().y) * dpr;
+        let mut padding_x = f64::from(config.window.padding.x) * dpr;
+        let mut padding_y = f64::from(config.window.padding.y) * dpr;
 
         if let Some((width, height)) =
-            Self::calculate_dimensions(config, options, dpr, cell_width, cell_height)
+            Self::calculate_dimensions(config, dpr, cell_width, cell_height)
         {
             if dimensions == Some((width, height)) {
                 info!("Estimated DPR correctly, skipping resize");
@@ -182,7 +182,7 @@ impl Display {
                 viewport_size = PhysicalSize::new(width, height);
                 window.set_inner_size(viewport_size.to_logical(dpr));
             }
-        } else if config.window().dynamic_padding() {
+        } else if config.window.dynamic_padding {
             // Make sure additional padding is spread evenly
             let cw = f64::from(cell_width);
             let ch = f64::from(cell_height);
@@ -219,7 +219,7 @@ impl Display {
         let (tx, rx) = mpsc::channel();
 
         // Clear screen
-        let background_color = config.colors().primary.background;
+        let background_color = config.colors.primary.background;
         renderer.with_api(config, &size_info, |api| {
             api.clear(background_color);
         });
@@ -232,7 +232,7 @@ impl Display {
             tx,
             rx,
             meter: Meter::new(),
-            font_size: config.font().size(),
+            font_size: config.font.size,
             size_info,
             last_message: None,
         })
@@ -240,22 +240,21 @@ impl Display {
 
     fn calculate_dimensions(
         config: &Config,
-        options: &Options,
         dpr: f64,
         cell_width: f32,
         cell_height: f32,
     ) -> Option<(f64, f64)> {
-        let dimensions = options.dimensions().unwrap_or_else(|| config.dimensions());
+        let dimensions = config.window.dimensions;
 
         if dimensions.columns_u32() == 0
             || dimensions.lines_u32() == 0
-            || config.window().startup_mode() != StartupMode::Windowed
+            || config.window.startup_mode() != StartupMode::Windowed
         {
             return None;
         }
 
-        let padding_x = f64::from(config.padding().x) * dpr;
-        let padding_y = f64::from(config.padding().y) * dpr;
+        let padding_x = f64::from(config.window.padding.x) * dpr;
+        let padding_y = f64::from(config.window.padding.y) * dpr;
 
         // Calculate new size based on cols/lines specified in config
         let grid_width = cell_width as u32 * dimensions.columns_u32();
@@ -272,8 +271,8 @@ impl Display {
         renderer: &mut QuadRenderer,
         config: &Config,
     ) -> Result<(GlyphCache, f32, f32), Error> {
-        let font = config.font().clone();
-        let rasterizer = font::Rasterizer::new(dpr as f32, config.use_thin_strokes())?;
+        let font = config.font.clone();
+        let rasterizer = font::Rasterizer::new(dpr as f32, config.font.use_thin_strokes())?;
 
         // Initialize glyph cache
         let glyph_cache = {
@@ -304,7 +303,7 @@ impl Display {
         let size = self.font_size;
 
         self.renderer.with_loader(|mut api| {
-            let _ = cache.update_font_size(config.font(), size, dpr, &mut api);
+            let _ = cache.update_font_size(&config.font, size, dpr, &mut api);
         });
 
         let (cw, ch) = Self::compute_cell_size(config, &cache.font_metrics());
@@ -313,8 +312,8 @@ impl Display {
     }
 
     fn compute_cell_size(config: &Config, metrics: &font::Metrics) -> (f32, f32) {
-        let offset_x = f64::from(config.font().offset().x);
-        let offset_y = f64::from(config.font().offset().y);
+        let offset_x = f64::from(config.font.offset.x);
+        let offset_y = f64::from(config.font.offset.y);
         (
             f32::max(1., ((metrics.average_advance + offset_x) as f32).floor()),
             f32::max(1., ((metrics.line_height + offset_y) as f32).floor()),
@@ -395,10 +394,10 @@ impl Display {
             self.size_info.width = width;
             self.size_info.height = height;
 
-            let mut padding_x = f32::from(config.padding().x) * dpr as f32;
-            let mut padding_y = f32::from(config.padding().y) * dpr as f32;
+            let mut padding_x = f32::from(config.window.padding.x) * dpr as f32;
+            let mut padding_y = f32::from(config.window.padding.y) * dpr as f32;
 
-            if config.window().dynamic_padding() {
+            if config.window.dynamic_padding {
                 padding_x = padding_x + ((width - 2. * padding_x) % cell_width) / 2.;
                 padding_y = padding_y + ((height - 2. * padding_y) % cell_height) / 2.;
             }

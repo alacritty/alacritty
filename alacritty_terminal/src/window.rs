@@ -30,7 +30,7 @@ use glutin::{
 #[cfg(not(target_os = "macos"))]
 use image::ImageFormat;
 
-use crate::config::{Options, Decorations, StartupMode, WindowConfig};
+use crate::config::{Config, Decorations, StartupMode, WindowConfig};
 
 // It's required to be in this directory due to the `windows.rc` file
 #[cfg(not(target_os = "macos"))]
@@ -144,15 +144,11 @@ impl Window {
     /// Create a new window
     ///
     /// This creates a window and fully initializes a window.
-    pub fn new(
-        event_loop: EventsLoop,
-        options: &Options,
-        window_config: &WindowConfig,
-        dimensions: Option<LogicalSize>,
-    ) -> Result<Window> {
-        let title = options.title.as_ref().map_or(DEFAULT_NAME, |t| t);
-        let class = options.class.as_ref().map_or(DEFAULT_NAME, |c| c);
-        let window_builder = Window::get_platform_window(title, class, window_config);
+    pub fn new(event_loop: EventsLoop, config: &Config, dimensions: Option<LogicalSize>) -> Result<Window> {
+        let title = config.window.title.as_ref().map_or(DEFAULT_NAME, |t| t);
+        let class = config.window.class.as_ref().map_or(DEFAULT_NAME, |c| c);
+
+        let window_builder = Window::get_platform_window(title, class, &config.window);
         let windowed_context =
             create_gl_window(window_builder.clone(), &event_loop, false, dimensions)
                 .or_else(|_| create_gl_window(window_builder, &event_loop, true, dimensions))?;
@@ -162,7 +158,7 @@ impl Window {
         // Maximize window after mapping in X11
         #[cfg(not(any(target_os = "macos", windows)))]
         {
-            if event_loop.is_x11() && window_config.startup_mode() == StartupMode::Maximized {
+            if event_loop.is_x11() && config.window.startup_mode() == StartupMode::Maximized {
                 window.set_maximized(true);
             }
         }
@@ -171,21 +167,20 @@ impl Window {
         //
         // TODO: replace `set_position` with `with_position` once available
         // Upstream issue: https://github.com/tomaka/winit/issues/806
-        let position = options.position().or_else(|| window_config.position());
-        if let Some(position) = position {
+        if let Some(position) = config.window.position {
             let physical = PhysicalPosition::from((position.x, position.y));
             let logical = physical.to_logical(window.get_hidpi_factor());
             window.set_position(logical);
         }
 
-        if let StartupMode::Fullscreen = window_config.startup_mode() {
+        if let StartupMode::Fullscreen = config.window.startup_mode() {
             let current_monitor = window.get_current_monitor();
             window.set_fullscreen(Some(current_monitor));
         }
 
         #[cfg(target_os = "macos")]
         {
-            if let StartupMode::SimpleFullscreen = window_config.startup_mode() {
+            if let StartupMode::SimpleFullscreen = config.window.startup_mode() {
                 use glutin::os::macos::WindowExt;
                 window.set_simple_fullscreen(true);
             }
@@ -286,7 +281,7 @@ impl Window {
     ) -> WindowBuilder {
         use glutin::os::unix::WindowBuilderExt;
 
-        let decorations = match window_config.decorations() {
+        let decorations = match window_config.decorations {
             Decorations::None => false,
             _ => true,
         };

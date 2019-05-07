@@ -34,8 +34,8 @@ window:
   # Blank space added around the window in pixels. This padding is scaled
   # by DPI and the specified value is always added at both opposing sides.
   padding:
-    x: 2
-    y: 2
+    x: 0
+    y: 0
 
   # Spread additional padding evenly around the terminal content.
   dynamic_padding: false
@@ -61,6 +61,12 @@ window:
   # Values for `startup_mode` (macOS only):
   #   - SimpleFullscreen
   startup_mode: Windowed
+
+  # Window title
+  #title: Alacritty
+
+  # Window class (Linux only):
+  #class: Alacritty
 
 scrolling:
   # Maximum number of lines in the scrollback buffer.
@@ -160,12 +166,6 @@ font:
   # This is a global setting and will require a log out or restart to take
   # effect.
   use_thin_strokes: true
-
-# Display the time it takes to redraw each frame.
-render_timer: false
-
-# Keep the log file after quitting Alacritty.
-persistent_logging: false
 
 # If `true`, bold text is drawn using the bright color variants.
 draw_bold_text_with_bright_colors: true
@@ -370,6 +370,12 @@ live_config_reload: true
 #  args:
 #    - --login
 
+# Startup directory
+#
+# Directory the shell is started in. If this is unset, or `None`, the working
+# directory of the parent process will be used.
+working_directory: None
+
 # Windows 10 ConPTY backend (Windows only)
 #
 # This will enable better color support and may resolve other issues,
@@ -383,6 +389,30 @@ enable_experimental_conpty_backend: false
 
 # Send ESC (\x1b) before characters when alt is pressed.
 alt_send_esc: true
+
+debug:
+  # Display the time it takes to redraw each frame.
+  render_timer: false
+
+  # Keep the log file after quitting Alacritty.
+  persistent_logging: false
+
+  # Log level
+  #
+  # Values for `log_level`:
+  #   - None
+  #   - Error
+  #   - Warn
+  #   - Info
+  #   - Debug
+  #   - Trace
+  log_level: Warn
+
+  # Print all received window events.
+  print_events: false
+
+  # Record all characters and escape sequences as test data.
+  ref_test: false
 
 # Key bindings
 #
@@ -423,6 +453,7 @@ alt_send_esc: true
 # Values for `mods`:
 #   - Command
 #   - Control
+#   - Option
 #   - Super
 #   - Shift
 #   - Alt

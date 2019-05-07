@@ -15,9 +15,13 @@ log = "0.4"
 time = "0.1.40"
 env_logger = "0.6.0"
 crossbeam-channel = "0.3.8"
+serde_yaml = "0.8"
 
 [build-dependencies]
 rustc_tools_util = "0.1"
+
+[target.'cfg(not(windows))'.dependencies]
+xdg = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 dirs = "1.0.2"
