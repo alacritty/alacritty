@@ -48,6 +48,15 @@ Provided in the [Pop!\_OS repositories](https://launchpad.net/~system76/+archive
 apt install alacritty
 ```
 
+### Ubuntu
+
+Packages from the Pop!\_OS PPA, copied into a [dedicated PPA for use outside of Pop](https://launchpad.net/~mmstick76/+archive/ubuntu/alacritty).
+
+```sh
+add-apt-repository ppa:mmstick76/alacritty
+apt install alacritty
+```
+
 ### Arch Linux
 
 ```sh
