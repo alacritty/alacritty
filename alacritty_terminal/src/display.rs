@@ -15,6 +15,7 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
 use std::f64;
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use std::ffi::c_void;
 use std::sync::mpsc;
 

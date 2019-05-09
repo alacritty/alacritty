@@ -59,7 +59,7 @@ mod cli;
 mod config;
 mod logging;
 
-use cli::Options;
+use crate::cli::Options;
 
 fn main() {
     panic::attach_handler();

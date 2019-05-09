@@ -127,7 +127,7 @@ pub struct Config {
     /// Will only take effect on Windows 10 Oct 2018 and later.
     #[cfg(windows)]
     #[serde(default, deserialize_with = "failure_default")]
-    enable_experimental_conpty_backend: bool,
+    pub enable_experimental_conpty_backend: bool,
 
     /// Send escape sequences using the alt key.
     #[serde(default, deserialize_with = "failure_default")]

@@ -47,7 +47,6 @@ mio-named-pipes = "0.1"
 miow = "0.3"
 dunce = "1.0"
 winapi = { version = "0.3.7", features = ["impl-default", "winuser", "synchapi", "roerrorapi", "winerror", "wincon", "wincontypes"]}
-dirs = "1.0"
 widestring = "0.4"
 mio-anonymous-pipes = "0.1"
 

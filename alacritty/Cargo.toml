@@ -23,7 +23,7 @@ rustc_tools_util = "0.1"
 [target.'cfg(not(windows))'.dependencies]
 xdg = "2"
 
-[target.'cfg(target_os = "macos")'.dependencies]
+[target.'cfg(any(target_os = "macos", windows))'.dependencies]
 dirs = "1.0.2"
 
 [target.'cfg(windows)'.dependencies]

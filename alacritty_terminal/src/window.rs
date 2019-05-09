@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::convert::From;
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use std::ffi::c_void;
 use std::fmt::Display;
 
@@ -311,7 +312,7 @@ impl Window {
         _class: &str,
         window_config: &WindowConfig,
     ) -> WindowBuilder {
-        let decorations = match window_config.decorations() {
+        let decorations = match window_config.decorations {
             Decorations::None => false,
             _ => true,
         };
@@ -341,7 +342,7 @@ impl Window {
             .with_transparency(true)
             .with_maximized(window_config.startup_mode() == StartupMode::Maximized);
 
-        match window_config.decorations() {
+        match window_config.decorations {
             Decorations::Full => window,
             Decorations::Transparent => window
                 .with_title_hidden(true)

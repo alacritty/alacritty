@@ -34,7 +34,6 @@ pub struct WindowConfig {
 
     /// Window class
     #[serde(deserialize_with = "failure_default")]
-    #[cfg(not(any(target_os = "macos", windows)))]
     pub class: Option<String>,
 
     /// TODO: DEPRECATED

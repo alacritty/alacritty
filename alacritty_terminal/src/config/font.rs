@@ -42,7 +42,7 @@ pub struct Font {
     pub glyph_offset: Delta<i8>,
 
     #[cfg(target_os = "macos")]
-    #[serde(deserialize_with = "deserialize_true_bool")]
+    #[serde(deserialize_with = "failure_default")]
     use_thin_strokes: DefaultTrueBool,
 }
 

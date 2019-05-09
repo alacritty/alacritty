@@ -16,7 +16,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use glutin::{ModifiersState, MouseButton};
-use serde::de::Error as _;
+use serde::de::Error as SerdeError;
 use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 

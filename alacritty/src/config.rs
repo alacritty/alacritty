@@ -4,8 +4,11 @@ use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
+#[cfg(windows)]
+use dirs;
 use log::{error, warn};
 use serde_yaml;
+#[cfg(not(windows))]
 use xdg;
 
 use alacritty_terminal::config::{Config, DEFAULT_ALACRITTY_CONFIG};

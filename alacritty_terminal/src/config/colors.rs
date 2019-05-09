@@ -146,7 +146,7 @@ struct NormalColors(AnsiColors);
 
 impl Default for NormalColors {
     fn default() -> Self {
-        Self(AnsiColors {
+        NormalColors(AnsiColors {
             black: Rgb { r: 0x00, g: 0x00, b: 0x00 },
             red: Rgb { r: 0xd5, g: 0x4e, b: 0x53 },
             green: Rgb { r: 0xb9, g: 0xca, b: 0x4a },
@@ -164,7 +164,7 @@ struct BrightColors(AnsiColors);
 
 impl Default for BrightColors {
     fn default() -> Self {
-        Self(AnsiColors {
+        BrightColors(AnsiColors {
             black: Rgb { r: 0x66, g: 0x66, b: 0x66 },
             red: Rgb { r: 0xff, g: 0x33, b: 0x34 },
             green: Rgb { r: 0x9e, g: 0xc4, b: 0x00 },
