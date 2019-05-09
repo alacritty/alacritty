@@ -42,7 +42,7 @@ else the instructions to build Alacritty from source can be found [here](INSTALL
 
 ### Pop!\_OS / Ubuntu
 
-> Ubuntu requires a third party repository, with packages copied from the Pop!\_OS PPA.
+> If you're not running Pop!_OS, you'll have to add a third party repository first:
 >
 > ```sh
 > add-apt-repository ppa:mmstick76/alacritty
