@@ -56,8 +56,8 @@ use alacritty_terminal::util::fmt::Red;
 use alacritty_terminal::{die, event};
 
 mod cli;
-mod logging;
 mod config;
+mod logging;
 
 use cli::Options;
 
@@ -96,6 +96,9 @@ fn main() {
         Config::default()
     };
     let config = options.into_config(config);
+
+    // Update the log level from config
+    log::set_max_level(config.debug.log_level);
 
     // Switch to home directory
     #[cfg(target_os = "macos")]

@@ -56,6 +56,6 @@ where
         level => {
             error!("Problem with config: invalid log level {}; using level Warn", level);
             default_log_level()
-        }
+        },
     })
 }

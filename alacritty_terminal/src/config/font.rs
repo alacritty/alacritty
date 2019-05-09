@@ -1,12 +1,12 @@
 use std::fmt;
 
 use font::Size;
-use serde::{Deserialize, Deserializer};
 use serde::de::Visitor;
+use serde::{Deserialize, Deserializer};
 
 #[cfg(target_os = "macos")]
 use crate::config::DefaultTrueBool;
-use crate::config::{Delta, failure_default};
+use crate::config::{failure_default, Delta};
 
 /// Font config
 ///

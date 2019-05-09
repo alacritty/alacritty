@@ -154,11 +154,7 @@ impl Pty {
 }
 
 /// Create a new tty and return a handle to interact with it.
-pub fn new<T: ToWinsize>(
-    config: &Config,
-    size: &T,
-    window_id: Option<usize>,
-) -> Pty {
+pub fn new<T: ToWinsize>(config: &Config, size: &T, window_id: Option<usize>) -> Pty {
     let win_size = size.to_winsize();
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);

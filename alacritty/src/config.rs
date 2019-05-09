@@ -1,11 +1,11 @@
 use std::borrow::Cow;
-use std::path::{Path, PathBuf};
-use std::fs::File;
 use std::env;
-use std::io::{self, Write, Read};
+use std::fs::File;
+use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
 
-use serde_yaml;
 use log::{error, warn};
+use serde_yaml;
 use xdg;
 
 use alacritty_terminal::config::{Config, DEFAULT_ALACRITTY_CONFIG};
@@ -54,9 +54,7 @@ impl ::std::error::Error for Error {
 impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
-            Error::NotFound => {
-                write!(f, "{}", ::std::error::Error::description(self))
-            },
+            Error::NotFound => write!(f, "{}", ::std::error::Error::description(self)),
             Error::ReadingEnvHome(ref err) => {
                 write!(f, "Couldn't read $HOME environment variable: {}", err)
             },
@@ -158,7 +156,6 @@ pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
     Ok(path.into())
 }
 
-
 pub fn load_from(path: PathBuf) -> Config {
     let mut config = reload_from(&path).unwrap_or_else(|_| Config::default());
     config.config_path = Some(path);
@@ -194,8 +191,17 @@ fn read_config(path: &PathBuf) -> Result<Config> {
 fn print_deprecation_warnings(config: &Config) {
     if config.window.start_maximized.is_some() {
         warn!(
-            "Config window.start_maximized is deprecated; please use window.startup_mode \
-             instead"
+            "Config window.start_maximized is deprecated; please use window.startup_mode instead"
+        );
+    }
+
+    if config.render_timer.is_some() {
+        warn!("Config render_timer is deprecated; please use debug.render_timer instead");
+    }
+
+    if config.persistent_logging.is_some() {
+        warn!(
+            "Config persistent_logging is deprecated; please use debug.persistent_logging instead"
         );
     }
 }

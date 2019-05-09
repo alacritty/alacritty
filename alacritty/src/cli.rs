@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::{Path, PathBuf};
 use std::borrow::Cow;
+use std::cmp::max;
+use std::path::{Path, PathBuf};
 
-use log;
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
+use log::{self, LevelFilter};
 
 use alacritty_terminal::config::{Config, Delta, Dimensions, Shell};
 use alacritty_terminal::index::{Column, Line};
@@ -31,7 +32,7 @@ pub struct Options {
     pub position: Option<Delta<i32>>,
     pub title: Option<String>,
     pub class: Option<String>,
-    pub log_level: log::LevelFilter,
+    pub log_level: LevelFilter,
     pub command: Option<Shell<'static>>,
     pub working_dir: Option<PathBuf>,
     pub config: Option<PathBuf>,
@@ -48,7 +49,7 @@ impl Default for Options {
             position: None,
             title: None,
             class: None,
-            log_level: log::LevelFilter::Warn,
+            log_level: LevelFilter::Warn,
             command: None,
             working_dir: None,
             config: None,
@@ -62,9 +63,7 @@ impl Options {
     pub fn new() -> Self {
         let mut options = Options::default();
 
-        let version_string = format!("{} ({})",
-                                     crate_version!(),
-                                     env!("GIT_HASH"));
+        let version_string = format!("{} ({})", crate_version!(), env!("GIT_HASH"));
 
         let matches = App::new(crate_name!())
             .version(version_string.as_str())
@@ -200,15 +199,15 @@ impl Options {
 
         match matches.occurrences_of("q") {
             0 => {},
-            1 => options.log_level = log::LevelFilter::Error,
-            2 | _ => options.log_level = log::LevelFilter::Off,
+            1 => options.log_level = LevelFilter::Error,
+            2 | _ => options.log_level = LevelFilter::Off,
         }
 
         match matches.occurrences_of("v") {
-            0 if !options.print_events => {},
-            0 | 1 => options.log_level = log::LevelFilter::Info,
-            2 => options.log_level = log::LevelFilter::Debug,
-            3 | _ => options.log_level = log::LevelFilter::Trace,
+            0 if !options.print_events => options.log_level = LevelFilter::Warn,
+            0 | 1 => options.log_level = LevelFilter::Info,
+            2 => options.log_level = LevelFilter::Debug,
+            3 | _ => options.log_level = LevelFilter::Trace,
         }
 
         if let Some(dir) = matches.value_of("working-directory") {
@@ -236,8 +235,12 @@ impl Options {
     }
 
     pub fn into_config(self, mut config: Config) -> Config {
-        config.set_live_config_reload(self.live_config_reload.unwrap_or(config.live_config_reload()));
-        config.set_working_directory(self.working_dir.or(config.working_directory().to_owned()));
+        config.set_live_config_reload(
+            self.live_config_reload.unwrap_or_else(|| config.live_config_reload()),
+        );
+        config.set_working_directory(
+            self.working_dir.or_else(|| config.working_directory().to_owned()),
+        );
         config.shell = self.command.or(config.shell);
 
         config.window.dimensions = self.dimensions.unwrap_or(config.window.dimensions);
@@ -247,10 +250,13 @@ impl Options {
 
         config.set_dynamic_title(config.dynamic_title() && config.window.title.is_none());
 
-        config.debug.persistent_logging = self.persistent_logging || config.debug.persistent_logging;
-        config.debug.log_level = std::cmp::max(self.log_level, config.debug.log_level);
         config.debug.print_events = self.print_events || config.debug.print_events;
+        config.debug.log_level = max(config.debug.log_level, self.log_level);
         config.debug.ref_test = self.ref_test || config.debug.ref_test;
+
+        if config.debug.print_events {
+            config.debug.log_level = max(config.debug.log_level, LevelFilter::Info);
+        }
 
         config
     }

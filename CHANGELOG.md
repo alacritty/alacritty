@@ -17,15 +17,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added ToggleFullscreen action
 - On macOS, there's a ToggleSimpleFullscreen action which allows switching to
     fullscreen without occupying another space
-- A new window option `startup_mode` which controls how the window is created
+- A new window option `window.startup_mode` which controls how the window is created
 - `_NET_WM_ICON` property is set on X11 now, allowing for WMs to show icons in titlebars
 - Current Git commit hash to `alacritty --version`
+- Config options `window.title` and `window.class`
+- Config option `working_directory`
+- Config group `debug` with the options `debug.log_level`, `debug.print_events`
+    and `debug.ref_test`
 
 ### Changed
 
 - On Windows, Alacritty will now use the native DirectWrite font API
 - The `start_maximized` window option is now `startup_mode: Maximized`
 - Cells with identical foreground and background will now show their text upon selection/inversion
+- Default Window padding to 0x0
+- Moved config option `render_timer` and `persistent_logging` to the `debug` group
 
 ### Fixed
 
@@ -35,6 +41,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Incorrect positioning of zero-width characters over double-width characters
 - Mouse mode generating events when the cell has not changed
 - Selections not automatically expanding across double-width characters
+
+### Removed
+
+- Deprecated `mouse.faux_scrollback_lines` config field
+- Deprecated `custom_cursor_colors` config field
+- Deprecated `hide_cursor_when_typing` config field
+- Deprecated `cursor_style` config field
+- Deprecated `unfocused_hollow_cursor` config field
+- Deprecated `dimensions` config field
 
 ## Version 0.3.2
 

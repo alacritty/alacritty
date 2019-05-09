@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::str::FromStr;
 use std::fmt;
+use std::str::FromStr;
 
 use glutin::{ModifiersState, MouseButton};
 use serde::de::Error as _;
-use serde::{Deserialize, Deserializer};
 use serde::de::{self, MapAccess, Unexpected, Visitor};
+use serde::{Deserialize, Deserializer};
 
 use crate::input::{Action, Binding, KeyBinding, MouseBinding};
 use crate::term::TermMode;

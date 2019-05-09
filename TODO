@@ -1,3 +1,0 @@
-- Add deprecation for render_timer, persistent_logging
-- Add all removed deprecation warnings to changelog
-- Fix ref tests (deserialization of Rgb)

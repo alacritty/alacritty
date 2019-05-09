@@ -146,8 +146,7 @@ impl Display {
         // Guess the target window dimensions
         let metrics = GlyphCache::static_metrics(config, estimated_dpr as f32)?;
         let (cell_width, cell_height) = Self::compute_cell_size(config, &metrics);
-        let dimensions =
-            Self::calculate_dimensions(config, estimated_dpr, cell_width, cell_height);
+        let dimensions = Self::calculate_dimensions(config, estimated_dpr, cell_width, cell_height);
 
         debug!("Estimated DPR: {}", estimated_dpr);
         debug!("Estimated Cell Size: {} x {}", cell_width, cell_height);

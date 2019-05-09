@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use serde::{Deserialize, Deserializer};
 use glutin::ModifiersState;
+use serde::{Deserialize, Deserializer};
 
 use crate::config::bindings::{CommandWrapper, ModsWrapper};
 use crate::config::failure_default;

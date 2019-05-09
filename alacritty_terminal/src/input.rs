@@ -283,17 +283,13 @@ impl Action {
                 ctx.copy_selection(ClipboardType::Primary);
             },
             Action::Paste => {
-                let text = ctx.terminal_mut()
-                    .clipboard()
-                    .load(ClipboardType::Primary);
+                let text = ctx.terminal_mut().clipboard().load(ClipboardType::Primary);
                 self.paste(ctx, &text);
             },
             Action::PasteSelection => {
                 // Only paste if mouse events are not captured by an application
                 if !mouse_mode {
-                    let text = ctx.terminal_mut()
-                        .clipboard()
-                        .load(ClipboardType::Secondary);
+                    let text = ctx.terminal_mut().clipboard().load(ClipboardType::Secondary);
                     self.paste(ctx, &text);
                 }
             },

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Deserializer};
 
-use crate::config::{MAX_SCROLLBACK_LINES, failure_default};
+use crate::config::{failure_default, MAX_SCROLLBACK_LINES};
 
 /// Struct for scrolling related settings
 #[serde(default)]
@@ -17,15 +17,15 @@ pub struct Scrolling {
 }
 
 impl Scrolling {
-    pub fn history(&self) -> u32 {
+    pub fn history(self) -> u32 {
         self.history.0
     }
 
-    pub fn multiplier(&self) -> u8 {
+    pub fn multiplier(self) -> u8 {
         self.multiplier.0
     }
 
-    pub fn faux_multiplier(&self) -> u8 {
+    pub fn faux_multiplier(self) -> u8 {
         self.faux_multiplier.0
     }
 
@@ -63,8 +63,8 @@ impl<'de> Deserialize<'de> for ScrollingHistory {
             Ok(lines) => {
                 if lines > MAX_SCROLLBACK_LINES {
                     error!(
-                        "Problem with config: scrollback size is {}, but expected a maximum of {}; \
-                         using {1} instead",
+                        "Problem with config: scrollback size is {}, but expected a maximum of \
+                         {}; using {1} instead",
                         lines, MAX_SCROLLBACK_LINES,
                     );
                     Ok(ScrollingHistory(MAX_SCROLLBACK_LINES))

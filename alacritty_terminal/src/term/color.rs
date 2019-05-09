@@ -1,9 +1,9 @@
 use std::fmt;
-use std::str::FromStr;
 use std::ops::{Index, IndexMut, Mul};
+use std::str::FromStr;
 
-use serde::{Deserialize, Deserializer};
 use serde::de::Visitor;
+use serde::{Deserialize, Deserializer};
 
 use crate::ansi;
 use crate::config::Colors;
@@ -44,9 +44,17 @@ impl Mul<f32> for Rgb {
 impl<'de> Deserialize<'de> for Rgb {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: Deserializer<'de>
+        D: Deserializer<'de>,
     {
         struct RgbVisitor;
+
+        // Used for deserializing reftests
+        #[derive(Deserialize)]
+        struct RgbDerivedDeser {
+            r: u8,
+            g: u8,
+            b: u8,
+        }
 
         impl<'a> Visitor<'a> for RgbVisitor {
             type Value = Rgb;
@@ -64,14 +72,20 @@ impl<'de> Deserialize<'de> for Rgb {
             }
         }
 
-        let rgb = deserializer.deserialize_str(RgbVisitor);
+        // Return an error if the syntax is incorrect
+        let value = serde_yaml::Value::deserialize(deserializer)?;
 
-        // Use #ff00ff as fallback color
-        match rgb {
+        // Attempt to deserialize from struct form
+        if let Ok(RgbDerivedDeser { r, g, b }) = RgbDerivedDeser::deserialize(value.clone()) {
+            return Ok(Rgb { r, g, b });
+        }
+
+        // Deserialize from hex notation (either 0xff00ff or #ff00ff)
+        match value.deserialize_str(RgbVisitor) {
             Ok(rgb) => Ok(rgb),
             Err(err) => {
-                error!("Problem with config: {}; using color #ff00ff", err);
-                Ok(Rgb { r: 255, g: 0, b: 255 })
+                error!("Problem with config: {}; using color #000000", err);
+                Ok(Rgb::default())
             },
         }
     }

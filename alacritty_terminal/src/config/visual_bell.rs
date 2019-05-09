@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use crate::term::color::Rgb;
 use crate::config::failure_default;
+use crate::term::color::Rgb;
 
 #[serde(default)]
 #[derive(Debug, Deserialize, PartialEq, Eq)]

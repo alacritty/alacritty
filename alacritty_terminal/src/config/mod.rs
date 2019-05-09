@@ -12,36 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::borrow::Cow;
 
 use serde::{Deserialize, Deserializer};
 
 mod bindings;
+mod colors;
 mod debug;
-mod scrolling;
 mod font;
 mod monitor;
-mod colors;
-mod window;
-mod visual_bell;
 mod mouse;
+mod scrolling;
 #[cfg(test)]
 mod test;
+mod visual_bell;
+mod window;
 
 use crate::ansi::CursorStyle;
 use crate::input::{Binding, KeyBinding, MouseBinding};
 
+pub use crate::config::bindings::Key;
+pub use crate::config::colors::Colors;
+pub use crate::config::debug::Debug;
 pub use crate::config::font::{Font, FontDescription};
 pub use crate::config::monitor::Monitor;
-pub use crate::config::colors::Colors;
-pub use crate::config::window::{Decorations, Dimensions, WindowConfig, StartupMode};
-pub use crate::config::visual_bell::{VisualBellConfig, VisualBellAnimation};
-pub use crate::config::mouse::{Mouse, ClickHandler};
-pub use crate::config::bindings::Key;
+pub use crate::config::mouse::{ClickHandler, Mouse};
 pub use crate::config::scrolling::Scrolling;
-pub use crate::config::debug::Debug;
+pub use crate::config::visual_bell::{VisualBellAnimation, VisualBellConfig};
+pub use crate::config::window::{Decorations, Dimensions, StartupMode, WindowConfig};
 
 pub static DEFAULT_ALACRITTY_CONFIG: &'static str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.yml"));
@@ -143,11 +143,11 @@ pub struct Config {
 
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]
-    render_timer: Option<bool>,
+    pub render_timer: Option<bool>,
 
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]
-    persistent_logging: Option<bool>,
+    pub persistent_logging: Option<bool>,
 }
 
 impl Default for Config {
@@ -241,7 +241,7 @@ impl<'de> Deserialize<'de> for WorkingDirectory {
             Err(err) => {
                 error!("Problem with config: {}; using None", err);
                 WorkingDirectory(None)
-            }
+            },
         })
     }
 }
@@ -254,18 +254,14 @@ fn default_mouse_bindings() -> Vec<MouseBinding> {
     bindings::default_mouse_bindings()
 }
 
-fn deserialize_key_bindings<'a, D>(
-    deserializer: D,
-) -> Result<Vec<KeyBinding>, D::Error>
+fn deserialize_key_bindings<'a, D>(deserializer: D) -> Result<Vec<KeyBinding>, D::Error>
 where
     D: Deserializer<'a>,
 {
     deserialize_bindings(deserializer, bindings::default_key_bindings())
 }
 
-fn deserialize_mouse_bindings<'a, D>(
-    deserializer: D,
-) -> Result<Vec<MouseBinding>, D::Error>
+fn deserialize_mouse_bindings<'a, D>(deserializer: D) -> Result<Vec<MouseBinding>, D::Error>
 where
     D: Deserializer<'a>,
 {
@@ -332,7 +328,7 @@ impl Default for Cursor {
 }
 
 impl Cursor {
-    pub fn unfocused_hollow(&self) -> bool {
+    pub fn unfocused_hollow(self) -> bool {
         self.unfocused_hollow.0
     }
 }

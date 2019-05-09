@@ -144,7 +144,11 @@ impl Window {
     /// Create a new window
     ///
     /// This creates a window and fully initializes a window.
-    pub fn new(event_loop: EventsLoop, config: &Config, dimensions: Option<LogicalSize>) -> Result<Window> {
+    pub fn new(
+        event_loop: EventsLoop,
+        config: &Config,
+        dimensions: Option<LogicalSize>,
+    ) -> Result<Window> {
         let title = config.window.title.as_ref().map_or(DEFAULT_NAME, |t| t);
         let class = config.window.class.as_ref().map_or(DEFAULT_NAME, |c| c);
 

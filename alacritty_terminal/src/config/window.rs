@@ -1,5 +1,5 @@
+use crate::config::{failure_default, Delta};
 use crate::index::{Column, Line};
-use crate::config::{Delta, failure_default};
 
 #[serde(default)]
 #[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
@@ -46,7 +46,7 @@ impl WindowConfig {
     pub fn startup_mode(&self) -> StartupMode {
         match self.start_maximized {
             Some(true) => StartupMode::Maximized,
-            _ => self.startup_mode
+            _ => self.startup_mode,
         }
     }
 }
@@ -68,11 +68,15 @@ impl Default for StartupMode {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize)]
 pub enum Decorations {
+    #[serde(rename = "full")]
     Full,
     #[cfg(target_os = "macos")]
+    #[serde(rename = "transparent")]
     Transparent,
     #[cfg(target_os = "macos")]
+    #[serde(rename = "buttonless")]
     Buttonless,
+    #[serde(rename = "none")]
     None,
 }
 

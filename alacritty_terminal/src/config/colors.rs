@@ -1,7 +1,7 @@
 use serde::{Deserialize, Deserializer};
 
-use crate::term::color::Rgb;
 use crate::config::failure_default;
+use crate::term::color::Rgb;
 
 #[serde(default)]
 #[derive(Deserialize, Debug, Default, PartialEq, Eq)]
