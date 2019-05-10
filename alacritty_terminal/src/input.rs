@@ -420,9 +420,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         self.ctx.mouse_mut().block_url_launcher = true;
 
         // Underline URLs and change cursor on hover
-        if cell_changed {
-            self.ctx.terminal_mut().url_dirty = true;
-        }
+        self.ctx.terminal_mut().url_dirty |= cell_changed;
 
         if self.ctx.mouse().left_button_state == ElementState::Pressed
             && (modifiers.shift || !self.ctx.terminal().mode().intersects(report_mode))
