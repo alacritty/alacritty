@@ -4,19 +4,22 @@
   <id>io.alacritty.Alacritty</id>
   <!-- Translators: The application name -->
   <name>Alacritty</name>
-  <launchable type="desktop-id">io.alacritty.Alacritty.desktop</launchable>
   <project_license>APACHE-2.0</project_license>
-  <metadata_license>APACHE-3.0</metadata_license>
+  <metadata_license>APACHE-2.0</metadata_license>
   <!-- Translators: The application's summary / tagline -->
   <summary>A cross-platform, GPU enhanced terminal emulator</summary>
   <description>
-    <p>Alacritty is the fastest terminal emulator in existence. Using the GPU for rendering enables optimizations that simply aren't possible without it.</p>
+    <p>Alacritty is a terminal emulator with a strong focus on simplicity and
+performance. With such a strong focus on performance, included features are
+carefully considered and you can always expect Alacritty to be blazingly fast.
+By making sane choices for defaults, Alacritty requires no additional setup.
+However, it does allow configuration of many aspects of the terminal.</p>
     <p>Alacritty currently supports macOS, Linux, BSD, and Windows.</p>
   </description>
   <screenshots>
     <screenshot type="default">
       <image>https://cloud.githubusercontent.com/assets/4285147/21585004/2ebd0288-d06c-11e6-95d3-4a2889dbbd6f.png</image>
-      <caption>Alacritty is a terminal emulator with a strong focus on simplicity and performance</caption>
+      <caption>Alacritty is a cross-platform, GPU enhanced terminal emulator</caption>
     </screenshot>
   </screenshots>
   <keywords>
@@ -24,7 +27,7 @@
     <keyword>GPU</keyword>
   </keywords>
   <url type="homepage">https://github.com/jwilm/alacritty</url>
-  <url type="bugtracker">https://github.com/jwilm/alacritty/blob/master/CONTRIBUTING.md#bug-reports</url>
+  <url type="bugtracker">https://github.com/jwilm/alacritty/issues</url>
   <releases>
     <release version="0.3.2" date="19.04.24" unix_timestamp="1556145865"/>
   </releases>
