@@ -14,7 +14,7 @@ use parking_lot::MutexGuard;
 use serde_json as json;
 
 use crate::clipboard::ClipboardType;
-use crate::config::{self, Config, Options};
+use crate::config::{self, Config};
 use crate::display::OnResize;
 use crate::grid::Scroll;
 use crate::index::{Column, Line, Point, Side};
@@ -312,31 +312,29 @@ impl<N: Notify> Processor<N> {
     pub fn new(
         notifier: N,
         resize_tx: mpsc::Sender<PhysicalSize>,
-        options: &Options,
         config: &Config,
-        ref_test: bool,
         size_info: SizeInfo,
     ) -> Processor<N> {
         Processor {
-            key_bindings: config.key_bindings().to_vec(),
-            mouse_bindings: config.mouse_bindings().to_vec(),
-            mouse_config: config.mouse().to_owned(),
-            scrolling_config: config.scrolling(),
-            print_events: options.print_events,
+            key_bindings: config.key_bindings.to_vec(),
+            mouse_bindings: config.mouse_bindings.to_vec(),
+            mouse_config: config.mouse.to_owned(),
+            scrolling_config: config.scrolling,
+            print_events: config.debug.print_events,
             wait_for_event: true,
             notifier,
             resize_tx,
-            ref_test,
+            ref_test: config.debug.ref_test,
             mouse: Default::default(),
             size_info,
-            hide_mouse_when_typing: config.hide_mouse_when_typing(),
+            hide_mouse_when_typing: config.mouse.hide_when_typing,
             hide_mouse: false,
             received_count: 0,
             suppress_chars: false,
             last_modifiers: Default::default(),
             pending_events: Vec::with_capacity(4),
             window_changes: Default::default(),
-            save_to_clipboard: config.selection().save_to_clipboard,
+            save_to_clipboard: config.selection.save_to_clipboard,
             alt_send_esc: config.alt_send_esc(),
             is_fullscreen: false,
             is_simple_fullscreen: false,
@@ -580,10 +578,10 @@ impl<N: Notify> Processor<N> {
     }
 
     pub fn update_config(&mut self, config: &Config) {
-        self.key_bindings = config.key_bindings().to_vec();
-        self.mouse_bindings = config.mouse_bindings().to_vec();
-        self.mouse_config = config.mouse().to_owned();
-        self.save_to_clipboard = config.selection().save_to_clipboard;
+        self.key_bindings = config.key_bindings.to_vec();
+        self.mouse_bindings = config.mouse_bindings.to_vec();
+        self.mouse_config = config.mouse.to_owned();
+        self.save_to_clipboard = config.selection.save_to_clipboard;
         self.alt_send_esc = config.alt_send_esc();
     }
 }

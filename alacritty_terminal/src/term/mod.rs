@@ -227,8 +227,8 @@ impl<'a> RenderableCellsIter<'a> {
         let cursor = &term.cursor.point;
         let cursor_visible = term.mode.contains(TermMode::SHOW_CURSOR) && grid.contains(cursor);
         let cursor_cell = if cursor_visible {
-            let offset_x = config.font().offset().x;
-            let offset_y = config.font().offset().y;
+            let offset_x = config.font.offset.x;
+            let offset_y = config.font.offset.y;
 
             let is_wide = grid[cursor].flags.contains(cell::Flags::WIDE_CHAR)
                 && (cursor.col + 1) < grid.num_cols();
@@ -278,7 +278,7 @@ impl RenderableCell {
         let mut fg_rgb = Self::compute_fg_rgb(config, colors, cell.fg, cell.flags);
         let mut bg_rgb = Self::compute_bg_rgb(colors, cell.bg);
 
-        let selection_background = config.colors().selection.background;
+        let selection_background = config.colors.selection.background;
         if let (true, Some(col)) = (selected, selection_background) {
             // Override selection background with config colors
             bg_rgb = col;
@@ -294,7 +294,7 @@ impl RenderableCell {
         }
 
         // Override selection text with config colors
-        if let (true, Some(col)) = (selected, config.colors().selection.text) {
+        if let (true, Some(col)) = (selected, config.colors.selection.text) {
             fg_rgb = col;
         }
 
@@ -317,7 +317,7 @@ impl RenderableCell {
                     // If no bright foreground is set, treat it like the BOLD flag doesn't exist
                     (_, cell::Flags::DIM_BOLD)
                         if ansi == NamedColor::Foreground
-                            && config.colors().primary.bright_foreground.is_none() =>
+                            && config.colors.primary.bright_foreground.is_none() =>
                     {
                         colors[NamedColor::DimForeground]
                     },
@@ -389,7 +389,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     renderable_cell.inner =
                         RenderableCellContent::Cursor((self.cursor_style, cursor_cell));
 
-                    if let Some(color) = self.config.cursor_cursor_color() {
+                    if let Some(color) = self.config.colors.cursor.cursor {
                         renderable_cell.fg = color;
                     }
 
@@ -401,7 +401,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     if self.cursor_style == CursorStyle::Block {
                         std::mem::swap(&mut cell.bg, &mut cell.fg);
 
-                        if let Some(color) = self.config.cursor_text_color() {
+                        if let Some(color) = self.config.colors.cursor.text {
                             cell.fg = color;
                         }
                     }
@@ -563,9 +563,9 @@ fn cubic_bezier(p0: f64, p1: f64, p2: f64, p3: f64, x: f64) -> f64 {
 
 impl VisualBell {
     pub fn new(config: &Config) -> VisualBell {
-        let visual_bell_config = config.visual_bell();
+        let visual_bell_config = &config.visual_bell;
         VisualBell {
-            animation: visual_bell_config.animation(),
+            animation: visual_bell_config.animation,
             duration: visual_bell_config.duration(),
             start_time: None,
         }
@@ -658,8 +658,8 @@ impl VisualBell {
     }
 
     pub fn update_config(&mut self, config: &Config) {
-        let visual_bell_config = config.visual_bell();
-        self.animation = visual_bell_config.animation();
+        let visual_bell_config = &config.visual_bell;
+        self.animation = visual_bell_config.animation;
         self.duration = visual_bell_config.duration();
     }
 }
@@ -853,7 +853,7 @@ impl Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
-        let history_size = config.scrolling().history as usize;
+        let history_size = config.scrolling.history() as usize;
         let grid = Grid::new(num_lines, num_cols, history_size, Cell::default());
         let alt = Grid::new(num_lines, num_cols, 0 /* scroll history */, Cell::default());
 
@@ -862,7 +862,7 @@ impl Term {
 
         let scroll_region = Line(0)..grid.num_lines();
 
-        let colors = color::List::from(config.colors());
+        let colors = color::List::from(&config.colors);
 
         Term {
             next_title: None,
@@ -874,8 +874,8 @@ impl Term {
             grid,
             alt_grid: alt,
             alt: false,
-            font_size: config.font().size(),
-            original_font_size: config.font().size(),
+            font_size: config.font.size,
+            original_font_size: config.font.size,
             active_charset: Default::default(),
             cursor: Default::default(),
             cursor_save: Default::default(),
@@ -887,12 +887,12 @@ impl Term {
             colors,
             color_modified: [false; color::COUNT],
             original_colors: colors,
-            semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
+            semantic_escape_chars: config.selection.semantic_escape_chars().to_owned(),
             cursor_style: None,
-            default_cursor_style: config.cursor_style(),
+            default_cursor_style: config.cursor.style,
             dynamic_title: config.dynamic_title(),
             tabspaces,
-            auto_scroll: config.scrolling().auto_scroll,
+            auto_scroll: config.scrolling.auto_scroll,
             message_buffer,
             should_exit: false,
             clipboard,
@@ -912,20 +912,20 @@ impl Term {
     }
 
     pub fn update_config(&mut self, config: &Config) {
-        self.semantic_escape_chars = config.selection().semantic_escape_chars.clone();
-        self.original_colors.fill_named(config.colors());
-        self.original_colors.fill_cube(config.colors());
-        self.original_colors.fill_gray_ramp(config.colors());
+        self.semantic_escape_chars = config.selection.semantic_escape_chars().to_owned();
+        self.original_colors.fill_named(&config.colors);
+        self.original_colors.fill_cube(&config.colors);
+        self.original_colors.fill_gray_ramp(&config.colors);
         for i in 0..color::COUNT {
             if !self.color_modified[i] {
                 self.colors[i] = self.original_colors[i];
             }
         }
         self.visual_bell.update_config(config);
-        self.default_cursor_style = config.cursor_style();
+        self.default_cursor_style = config.cursor.style;
         self.dynamic_title = config.dynamic_title();
-        self.auto_scroll = config.scrolling().auto_scroll;
-        self.grid.update_history(config.scrolling().history as usize, &self.cursor.template);
+        self.auto_scroll = config.scrolling.auto_scroll;
+        self.grid.update_history(config.scrolling.history() as usize, &self.cursor.template);
     }
 
     #[inline]
@@ -1107,7 +1107,7 @@ impl Term {
         let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
         let selection = self.grid.selection.as_ref().and_then(|s| s.to_span(self, alt_screen));
 
-        let cursor = if window_focused || !config.unfocused_hollow_cursor() {
+        let cursor = if window_focused || !config.cursor.unfocused_hollow() {
             self.cursor_style.unwrap_or(self.default_cursor_style)
         } else {
             CursorStyle::HollowBlock
@@ -2285,7 +2285,7 @@ mod tests {
         let mut term: Term = Term::new(&config, size, MessageBuffer::new(), Clipboard::new_nop());
         term.change_font_size(font_size);
 
-        let expected_font_size: Size = config.font().size() + Size::new(font_size);
+        let expected_font_size: Size = config.font.size + Size::new(font_size);
         assert_eq!(term.font_size, expected_font_size);
     }
 
@@ -2336,7 +2336,7 @@ mod tests {
         term.change_font_size(10.0);
         term.reset_font_size();
 
-        let expected_font_size: Size = config.font().size();
+        let expected_font_size: Size = config.font.size;
         assert_eq!(term.font_size, expected_font_size);
     }
 

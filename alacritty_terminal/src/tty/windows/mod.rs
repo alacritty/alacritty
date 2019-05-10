@@ -24,7 +24,7 @@ use winapi::shared::winerror::WAIT_TIMEOUT;
 use winapi::um::synchapi::WaitForSingleObject;
 use winapi::um::winbase::WAIT_OBJECT_0;
 
-use crate::config::{Config, Options};
+use crate::config::Config;
 use crate::display::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::{EventedPty, EventedReadWrite};
@@ -83,19 +83,14 @@ impl<'a> Pty<'a> {
     }
 }
 
-pub fn new<'a>(
-    config: &Config,
-    options: &Options,
-    size: &SizeInfo,
-    window_id: Option<usize>,
-) -> Pty<'a> {
-    if let Some(pty) = conpty::new(config, options, size, window_id) {
+pub fn new<'a>(config: &Config, size: &SizeInfo, window_id: Option<usize>) -> Pty<'a> {
+    if let Some(pty) = conpty::new(config, size, window_id) {
         info!("Using Conpty agent");
         IS_CONPTY.store(true, Ordering::Relaxed);
         pty
     } else {
         info!("Using Winpty agent");
-        winpty::new(config, options, size, window_id)
+        winpty::new(config, size, window_id)
     }
 }
 

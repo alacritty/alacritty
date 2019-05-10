@@ -29,9 +29,10 @@ use crossbeam_channel::Sender;
 use log::{self, Level};
 use time;
 
-use alacritty_terminal::config::Options;
 use alacritty_terminal::message_bar::Message;
 use alacritty_terminal::term::color;
+
+use crate::cli::Options;
 
 const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
 
@@ -39,13 +40,15 @@ pub fn initialize(
     options: &Options,
     message_tx: Sender<Message>,
 ) -> Result<Option<PathBuf>, log::SetLoggerError> {
+    log::set_max_level(options.log_level);
+
     // Use env_logger if RUST_LOG environment variable is defined. Otherwise,
     // use the alacritty-only logger.
     if ::std::env::var("RUST_LOG").is_ok() {
         ::env_logger::try_init()?;
         Ok(None)
     } else {
-        let logger = Logger::new(options.log_level, message_tx);
+        let logger = Logger::new(message_tx);
         let path = logger.file_path();
         log::set_boxed_logger(Box::new(logger))?;
         Ok(path)
@@ -53,22 +56,17 @@ pub fn initialize(
 }
 
 pub struct Logger {
-    level: log::LevelFilter,
     logfile: Mutex<OnDemandLogFile>,
     stdout: Mutex<LineWriter<Stdout>>,
     message_tx: Sender<Message>,
 }
 
 impl Logger {
-    // False positive, see: https://github.com/rust-lang-nursery/rust-clippy/issues/734
-    #[allow(clippy::new_ret_no_self)]
-    fn new(level: log::LevelFilter, message_tx: Sender<Message>) -> Self {
-        log::set_max_level(level);
-
+    fn new(message_tx: Sender<Message>) -> Self {
         let logfile = Mutex::new(OnDemandLogFile::new());
         let stdout = Mutex::new(LineWriter::new(io::stdout()));
 
-        Logger { level, logfile, stdout, message_tx }
+        Logger { logfile, stdout, message_tx }
     }
 
     fn file_path(&self) -> Option<PathBuf> {
@@ -82,7 +80,7 @@ impl Logger {
 
 impl log::Log for Logger {
     fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
-        metadata.level() <= self.level
+        metadata.level() <= log::max_level()
     }
 
     fn log(&self, record: &log::Record<'_>) {

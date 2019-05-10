@@ -193,9 +193,10 @@ impl<T> Binding<T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub enum Action {
     /// Write an escape sequence
+    #[serde(skip)]
     Esc(String),
 
     /// Paste contents of system clipboard
@@ -238,6 +239,7 @@ pub enum Action {
     ClearHistory,
 
     /// Run given command
+    #[serde(skip)]
     Command(String, Vec<String>),
 
     /// Hides the Alacritty window
@@ -281,17 +283,13 @@ impl Action {
                 ctx.copy_selection(ClipboardType::Primary);
             },
             Action::Paste => {
-                let text = ctx.terminal_mut()
-                    .clipboard()
-                    .load(ClipboardType::Primary);
+                let text = ctx.terminal_mut().clipboard().load(ClipboardType::Primary);
                 self.paste(ctx, &text);
             },
             Action::PasteSelection => {
                 // Only paste if mouse events are not captured by an application
                 if !mouse_mode {
-                    let text = ctx.terminal_mut()
-                        .clipboard()
-                        .load(ClipboardType::Secondary);
+                    let text = ctx.terminal_mut().clipboard().load(ClipboardType::Secondary);
                     self.paste(ctx, &text);
                 }
             },
@@ -454,7 +452,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
 
         // Only show URLs as launchable when all required modifiers are pressed
-        let url = if self.mouse_config.url.modifiers.relaxed_eq(modifiers)
+        let url = if self.mouse_config.url.mods().relaxed_eq(modifiers)
             && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
             && self.mouse_config.url.launcher.is_some()
         {
@@ -663,7 +661,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     // Spawn URL launcher when clicking on URLs
     fn launch_url(&self, modifiers: ModifiersState, point: Point) -> Option<()> {
-        if !self.mouse_config.url.modifiers.relaxed_eq(modifiers)
+        if !self.mouse_config.url.mods().relaxed_eq(modifiers)
             || self.ctx.mouse().block_url_launcher
         {
             return None;
@@ -715,10 +713,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let height = self.ctx.size_info().cell_height as i32;
 
         // Make sure the new and deprecated setting are both allowed
-        let faux_multiplier = self
-            .mouse_config
-            .faux_scrollback_lines
-            .unwrap_or(self.scrolling_config.faux_multiplier as usize);
+        let faux_multiplier = self.scrolling_config.faux_multiplier() as usize;
 
         if self.ctx.terminal().mode().intersects(mouse_modes) {
             self.ctx.mouse_mut().scroll_px += new_scroll_px;
@@ -746,7 +741,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             }
             self.ctx.write_to_pty(content);
         } else {
-            let multiplier = i32::from(self.scrolling_config.multiplier);
+            let multiplier = i32::from(self.scrolling_config.multiplier());
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
             let lines = self.ctx.mouse().scroll_px / height;
@@ -1117,13 +1112,12 @@ mod tests {
                             threshold: Duration::from_millis(1000),
                         },
                         hide_when_typing: false,
-                        faux_scrollback_lines: None,
                         url: Default::default(),
                     },
                     scrolling_config: &config::Scrolling::default(),
-                    key_bindings: &config.key_bindings()[..],
-                    mouse_bindings: &config.mouse_bindings()[..],
-                    save_to_clipboard: config.selection().save_to_clipboard,
+                    key_bindings: &config.key_bindings[..],
+                    mouse_bindings: &config.mouse_bindings[..],
+                    save_to_clipboard: config.selection.save_to_clipboard,
                     alt_send_esc: config.alt_send_esc(),
                 };
 
