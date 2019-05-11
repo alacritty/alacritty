@@ -46,6 +46,9 @@ use crate::tty;
 pub mod cell;
 pub mod color;
 
+/// Used to match equal brackets, when performing a bracket-pair selection.
+const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
+
 /// A type that can expand a given point to a region
 ///
 /// Usually this is implemented for some 2-D array type since
@@ -57,6 +60,8 @@ pub trait Search {
     fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest URL boundary in both directions.
     fn url_search(&self, _: Point<usize>) -> Option<Url>;
+    /// Find the nearest matching bracket.
+    fn bracket_search(&self, _: Point<usize>) -> Option<Point<usize>>;
 }
 
 impl Search for Term {
@@ -136,6 +141,49 @@ impl Search for Term {
             }
         }
         url_parser.url()
+    }
+
+    fn bracket_search(&self, point: Point<usize>) -> Option<Point<usize>> {
+        let start_char = self.grid[point.line][point.col].c;
+
+        // Find the matching bracket we're looking for
+        let (forwards, end_char) = BRACKET_PAIRS.iter().find_map(|(open, close)| {
+            if open == &start_char {
+                Some((true, *close))
+            } else if close == &start_char {
+                Some((false, *open))
+            } else {
+                None
+            }
+        })?;
+
+        let mut iter = self.grid.iter_from(point);
+
+        // For every character match that equals the starting bracket, we
+        // ignore one bracket of the opposite type.
+        let mut skip_pairs = 0;
+
+        loop {
+            // Check the next cell
+            let cell = if forwards { iter.next() } else { iter.prev() };
+
+            // Break if there are no more cells
+            let c = match cell {
+                Some(cell) => cell.c,
+                None => break,
+            };
+
+            // Check if the bracket matches
+            if c == end_char && skip_pairs == 0 {
+                return Some(iter.cur);
+            } else if c == start_char {
+                skip_pairs += 1;
+            } else if c == end_char {
+                skip_pairs -= 1;
+            }
+        }
+
+        None
     }
 }
 

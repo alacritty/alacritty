@@ -188,14 +188,20 @@ impl Selection {
             Selection::alt_screen_clamp(&mut start, &mut end, lines, cols)?;
         }
 
-        let (mut start, mut end) = if start < end && start.line == end.line {
+        let (mut start, mut end) = if start == end {
+            if let Some(end) = grid.bracket_search(start.into()) {
+                (start.into(), end)
+            } else {
+                (grid.semantic_search_right(start.into()), grid.semantic_search_left(end.into()))
+            }
+        } else if start < end && start.line == end.line {
             (grid.semantic_search_left(start.into()), grid.semantic_search_right(end.into()))
         } else {
             (grid.semantic_search_right(start.into()), grid.semantic_search_left(end.into()))
         };
 
         if start > end {
-            ::std::mem::swap(&mut start, &mut end);
+            std::mem::swap(&mut start, &mut end);
         }
 
         Some(Span { start, end })
