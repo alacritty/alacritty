@@ -81,6 +81,30 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.selection().as_ref().map(Selection::is_empty).unwrap_or(true)
     }
 
+    fn selection_bounds(&self) -> Option<(&Point<isize>, &Point<isize>)> {
+        if let Some(ref selection) = self.terminal.selection() {
+            match *selection {
+                Selection::Simple { ref region } => {
+                    let start = &region.start.point;
+                    let end = &region.end.point;
+                    Some((start, end))
+                },
+                Selection::Semantic { ref region } => {
+                    let start = &region.start;
+                    let end = &region.end;
+                    Some((start, end))
+                },
+                Selection::Lines { ref region, .. } => {
+                    let start = &region.start;
+                    let end = &region.end;
+                    Some((start, end))
+                }
+            }
+        } else {
+            None
+        }
+    }
+
     fn clear_selection(&mut self) {
         *self.terminal.selection_mut() = None;
         self.terminal.dirty = true;

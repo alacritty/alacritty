@@ -71,6 +71,7 @@ pub trait ActionContext {
     fn semantic_selection(&mut self, point: Point);
     fn line_selection(&mut self, point: Point);
     fn selection_is_empty(&self) -> bool;
+    fn selection_bounds(&self) -> Option<(&Point<isize>, &Point<isize>)>;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
     fn mouse_coords(&self) -> Option<Point>;
@@ -631,7 +632,16 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     // update current selection
                     let side = self.ctx.mouse().cell_side;
                     if let Some(point) = point {
-                        self.ctx.update_selection(point, side);
+                        if let Some(bounds) = self.ctx.selection_bounds() {
+
+                            let p = self.ctx.terminal().visible_to_buffer(point);
+                            if Point::from(p) > *bounds.0 && *bounds.0 > *bounds.1 {
+                                self.ctx.reverse_selection();
+                            } else if Point::from(p) < *bounds.0 && *bounds.0 < *bounds.1 {
+                                self.ctx.reverse_selection();
+                            }
+                            self.ctx.update_selection(point, side);
+                        }
                     }
                 } else {
                     self.ctx.clear_selection();
@@ -1058,6 +1068,10 @@ mod tests {
 
         fn selection_is_empty(&self) -> bool {
             true
+        }
+
+        fn selection_bounds(&self) -> Option<(&Point<isize>, &Point<isize>)> {
+            None
         }
 
         fn scroll(&mut self, scroll: Scroll) {

@@ -63,7 +63,7 @@ pub enum Selection {
 /// A Point and side within that point.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Anchor {
-    point: Point<isize>,
+    pub point: Point<isize>,
     side: Side,
 }
 
