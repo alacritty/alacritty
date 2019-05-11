@@ -28,15 +28,6 @@ pub enum Side {
     Right,
 }
 
-impl Side {
-   pub fn opposite(self) -> Self {
-       match self {
-           Side::Left => Side::Right,
-           Side::Right => Side::Left,
-       }
-   }
-}
-
 /// Index in the grid using row, column notation
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
 pub struct Point<L = Line> {
