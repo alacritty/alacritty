@@ -996,14 +996,14 @@ impl<'a> RenderApi<'a> {
         let chars = match cell.inner {
             RenderableCellContent::Cursor(cursor_key) => {
                 // Raw cell pixel buffers like cursors don't need to go through font lookup
-                let metrics = &glyph_cache.metrics;
+                let metrics = glyph_cache.metrics;
                 let glyph = glyph_cache.cursor_cache.entry(cursor_key).or_insert_with(|| {
                     let offset_x = self.config.font.offset.x;
                     let offset_y = self.config.font.offset.y;
 
                     self.load_glyph(&get_cursor_glyph(
                         cursor_key.style,
-                        *metrics,
+                        metrics,
                         offset_x,
                         offset_y,
                         cursor_key.is_wide,
