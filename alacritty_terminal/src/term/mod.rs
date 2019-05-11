@@ -18,7 +18,7 @@ use std::ops::{Index, IndexMut, Range, RangeInclusive};
 use std::time::{Duration, Instant};
 use std::{io, mem, ptr};
 
-use font::{self, RasterizedGlyph, Size};
+use font::{self, Size};
 use glutin::MouseCursor;
 use unicode_width::UnicodeWidthChar;
 
@@ -27,7 +27,7 @@ use crate::ansi::{
 };
 use crate::clipboard::{Clipboard, ClipboardType};
 use crate::config::{Config, VisualBellAnimation};
-use crate::cursor;
+use crate::cursor::CursorKey;
 use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
     ViewportPosition,
@@ -158,7 +158,7 @@ pub struct RenderableCellsIter<'a> {
     grid: &'a Grid<Cell>,
     cursor: &'a Point,
     cursor_offset: usize,
-    cursor_cell: Option<RasterizedGlyph>,
+    cursor_key: Option<CursorKey>,
     cursor_style: CursorStyle,
     config: &'a Config,
     colors: &'a color::List,
@@ -176,7 +176,6 @@ impl<'a> RenderableCellsIter<'a> {
         config: &'b Config,
         selection: Option<Span>,
         mut cursor_style: CursorStyle,
-        metrics: font::Metrics,
     ) -> RenderableCellsIter<'b> {
         let grid = &term.grid;
 
@@ -226,13 +225,10 @@ impl<'a> RenderableCellsIter<'a> {
         // Load cursor glyph
         let cursor = &term.cursor.point;
         let cursor_visible = term.mode.contains(TermMode::SHOW_CURSOR) && grid.contains(cursor);
-        let cursor_cell = if cursor_visible {
-            let offset_x = config.font.offset.x;
-            let offset_y = config.font.offset.y;
-
+        let cursor_key = if cursor_visible {
             let is_wide = grid[cursor].flags.contains(cell::Flags::WIDE_CHAR)
                 && (cursor.col + 1) < grid.num_cols();
-            Some(cursor::get_cursor_glyph(cursor_style, metrics, offset_x, offset_y, is_wide))
+            Some(CursorKey { style: cursor_style, is_wide })
         } else {
             // Use hidden cursor so text will not get inverted
             cursor_style = CursorStyle::Hidden;
@@ -248,7 +244,7 @@ impl<'a> RenderableCellsIter<'a> {
             url_highlight: &grid.url_highlight,
             config,
             colors: &term.colors,
-            cursor_cell,
+            cursor_key,
             cursor_style,
         }
     }
@@ -257,7 +253,7 @@ impl<'a> RenderableCellsIter<'a> {
 #[derive(Clone, Debug)]
 pub enum RenderableCellContent {
     Chars([char; cell::MAX_ZEROWIDTH_CHARS + 1]),
-    Cursor((CursorStyle, RasterizedGlyph)),
+    Cursor(CursorKey),
 }
 
 #[derive(Clone, Debug)]
@@ -377,7 +373,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
         loop {
             if self.cursor_offset == self.inner.offset() && self.inner.column() == self.cursor.col {
                 // Handle cursor
-                if let Some(cursor_cell) = self.cursor_cell.take() {
+                if let Some(cursor_key) = self.cursor_key.take() {
                     let cell = Indexed {
                         inner: self.grid[self.cursor],
                         column: self.cursor.col,
@@ -386,8 +382,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     let mut renderable_cell =
                         RenderableCell::new(self.config, self.colors, cell, false);
 
-                    renderable_cell.inner =
-                        RenderableCellContent::Cursor((self.cursor_style, cursor_cell));
+                    renderable_cell.inner = RenderableCellContent::Cursor(cursor_key);
 
                     if let Some(color) = self.config.colors.cursor.cursor {
                         renderable_cell.fg = color;
@@ -1102,7 +1097,6 @@ impl Term {
         &'b self,
         config: &'b Config,
         window_focused: bool,
-        metrics: font::Metrics,
     ) -> RenderableCellsIter<'_> {
         let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
         let selection = self.grid.selection.as_ref().and_then(|s| s.to_span(self, alt_screen));
@@ -1113,7 +1107,7 @@ impl Term {
             CursorStyle::HollowBlock
         };
 
-        RenderableCellsIter::new(&self, config, selection, cursor, metrics)
+        RenderableCellsIter::new(&self, config, selection, cursor)
     }
 
     /// Resize terminal to new dimensions
@@ -2424,18 +2418,8 @@ mod benches {
         let mut terminal = Term::new(&config, size, MessageBuffer::new(), Clipboard::new_nop());
         mem::swap(&mut terminal.grid, &mut grid);
 
-        let metrics = font::Metrics {
-            descent: 0.,
-            line_height: 0.,
-            average_advance: 0.,
-            underline_position: 0.,
-            underline_thickness: 0.,
-            strikeout_position: 0.,
-            strikeout_thickness: 0.,
-        };
-
         b.iter(|| {
-            let iter = terminal.renderable_cells(&config, false, metrics);
+            let iter = terminal.renderable_cells(&config, false);
             for cell in iter {
                 test::black_box(cell);
             }

@@ -26,8 +26,8 @@ use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Raster
 use glutin::dpi::PhysicalSize;
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
-use crate::ansi::CursorStyle;
 use crate::config::{self, Config, Delta};
+use crate::cursor::{get_cursor_glyph, CursorKey};
 use crate::gl;
 use crate::gl::types::*;
 use crate::index::{Column, Line};
@@ -160,7 +160,7 @@ pub struct GlyphCache {
     cache: HashMap<GlyphKey, Glyph, BuildHasherDefault<FnvHasher>>,
 
     /// Cache of buffered cursor glyphs
-    cursor_cache: HashMap<CursorStyle, Glyph, BuildHasherDefault<FnvHasher>>,
+    cursor_cache: HashMap<CursorKey, Glyph, BuildHasherDefault<FnvHasher>>,
 
     /// Rasterizer for loading new glyphs
     rasterizer: Rasterizer,
@@ -994,12 +994,21 @@ impl<'a> RenderApi<'a> {
 
     pub fn render_cell(&mut self, cell: RenderableCell, glyph_cache: &mut GlyphCache) {
         let chars = match cell.inner {
-            RenderableCellContent::Cursor((cursor_style, ref raw)) => {
+            RenderableCellContent::Cursor(cursor_key) => {
                 // Raw cell pixel buffers like cursors don't need to go through font lookup
-                let glyph = glyph_cache
-                    .cursor_cache
-                    .entry(cursor_style)
-                    .or_insert_with(|| self.load_glyph(raw));
+                let metrics = glyph_cache.metrics;
+                let glyph = glyph_cache.cursor_cache.entry(cursor_key).or_insert_with(|| {
+                    let offset_x = self.config.font.offset.x;
+                    let offset_y = self.config.font.offset.y;
+
+                    self.load_glyph(&get_cursor_glyph(
+                        cursor_key.style,
+                        metrics,
+                        offset_x,
+                        offset_y,
+                        cursor_key.is_wide,
+                    ))
+                });
                 self.add_render_item(&cell, &glyph);
                 return;
             },
