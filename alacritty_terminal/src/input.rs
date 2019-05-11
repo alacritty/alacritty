@@ -68,7 +68,6 @@ pub trait ActionContext {
     fn simple_selection(&mut self, point: Point, side: Side);
     fn semantic_selection(&mut self, point: Point);
     fn line_selection(&mut self, point: Point);
-    fn bracket_pair_selection(&mut self, point: Point);
     fn selection_is_empty(&self) -> bool;
     fn mouse_mut(&mut self) -> &mut Mouse;
     fn mouse(&self) -> &Mouse;
@@ -565,6 +564,101 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
+    pub fn on_mouse_double_click(&mut self, button: MouseButton, point: Option<Point>) {
+        if let (Some(point), true) = (point, button == MouseButton::Left) {
+            self.ctx.semantic_selection(point);
+        }
+    }
+
+    pub fn on_mouse_triple_click(&mut self, button: MouseButton, point: Option<Point>) {
+        if let (Some(point), true) = (point, button == MouseButton::Left) {
+            self.ctx.line_selection(point);
+        }
+    }
+
+    pub fn on_mouse_press(
+        &mut self,
+        button: MouseButton,
+        modifiers: ModifiersState,
+        point: Option<Point>,
+    ) {
+        let now = Instant::now();
+        let elapsed = self.ctx.mouse().last_click_timestamp.elapsed();
+        self.ctx.mouse_mut().last_click_timestamp = now;
+
+        let button_changed = self.ctx.mouse().last_button != button;
+
+        self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
+            ClickState::Click
+                if !button_changed && elapsed < self.mouse_config.double_click.threshold =>
+            {
+                self.ctx.mouse_mut().block_url_launcher = true;
+                self.on_mouse_double_click(button, point);
+                ClickState::DoubleClick
+            }
+            ClickState::DoubleClick
+                if !button_changed && elapsed < self.mouse_config.triple_click.threshold =>
+            {
+                self.ctx.mouse_mut().block_url_launcher = true;
+                self.on_mouse_triple_click(button, point);
+                ClickState::TripleClick
+            }
+            _ => {
+                // Don't launch URLs if this click cleared the selection
+                self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
+
+                self.ctx.clear_selection();
+
+                // Start new empty selection
+                let side = self.ctx.mouse().cell_side;
+                if let Some(point) = point {
+                    self.ctx.simple_selection(point, side);
+                }
+
+                let report_modes =
+                    TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
+                if !modifiers.shift && self.ctx.terminal().mode().intersects(report_modes) {
+                    let code = match button {
+                        MouseButton::Left => 0,
+                        MouseButton::Middle => 1,
+                        MouseButton::Right => 2,
+                        // Can't properly report more than three buttons.
+                        MouseButton::Other(_) => return,
+                    };
+                    self.mouse_report(code, ElementState::Pressed, modifiers);
+                    return;
+                }
+
+                ClickState::Click
+            },
+        };
+    }
+
+    pub fn on_mouse_release(
+        &mut self,
+        button: MouseButton,
+        modifiers: ModifiersState,
+        point: Option<Point>,
+    ) {
+        let report_modes =
+            TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
+        if !modifiers.shift && self.ctx.terminal().mode().intersects(report_modes) {
+            let code = match button {
+                MouseButton::Left => 0,
+                MouseButton::Middle => 1,
+                MouseButton::Right => 2,
+                // Can't properly report more than three buttons.
+                MouseButton::Other(_) => return,
+            };
+            self.mouse_report(code, ElementState::Released, modifiers);
+            return;
+        } else if let (Some(point), true) = (point, button == MouseButton::Left) {
+            self.launch_url(modifiers, point);
+        }
+
+        self.copy_selection();
+    }
+
     // Spawn URL launcher when clicking on URLs
     fn launch_url(&self, modifiers: ModifiersState, point: Point) -> Option<()> {
         if !self.mouse_config.url.mods().relaxed_eq(modifiers)
@@ -667,140 +761,20 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    fn update_click_state(&mut self, button: MouseButton) {
-        let elapsed = self.ctx.mouse().last_click_timestamp.elapsed();
-        let button_changed = self.ctx.mouse().last_button != button;
-        let click_state = self.ctx.mouse().click_state;
-
-        self.ctx.mouse_mut().click_state = match click_state {
-            ClickState::Click
-                if !button_changed && elapsed < self.mouse_config.double_click.threshold =>
-            {
-                ClickState::DoubleClick
-            },
-            ClickState::DoubleClick
-                if !button_changed && elapsed < self.mouse_config.triple_click.threshold =>
-            {
-                ClickState::TripleClick
-            },
-            ClickState::None
-            | ClickState::Click
-            | ClickState::DoubleClick
-            | ClickState::TripleClick => ClickState::Click,
-        }
-    }
-
-    fn on_mouse_single_click(
-        &mut self,
-        button: MouseButton,
-        state: ElementState,
-        point: Option<Point>,
-        modifiers: ModifiersState,
-    ) {
-        let report_modes =
-            TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
-        let report = !modifiers.shift && self.ctx.terminal().mode().intersects(report_modes);
-
-        match state {
-            ElementState::Pressed => {
-                self.process_mouse_bindings(modifiers, button);
-
-                // Don't launch URLs if this click cleared the selection
-                self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
-
-                self.ctx.clear_selection();
-
-                // Start new empty selection
-                let side = self.ctx.mouse().cell_side;
-                if let Some(point) = point {
-                    self.ctx.simple_selection(point, side);
-                }
-            },
-            ElementState::Released => {
-                if report {
-                } else if let (Some(point), true) = (point, button == MouseButton::Left) {
-                    self.launch_url(modifiers, point);
-                } else {
-                    self.copy_selection();
-                }
-            },
-        }
-
-        if report {
-            let code = match button {
-                MouseButton::Left => 0,
-                MouseButton::Middle => 1,
-                MouseButton::Right => 2,
-                // Can't properly report more than three buttons.
-                MouseButton::Other(_) => return,
-            };
-            self.mouse_report(code, state, modifiers);
-        }
-    }
-
-    pub fn on_mouse_double_click(
-        &mut self,
-        button: MouseButton,
-        state: ElementState,
-        point: Option<Point>,
-        _modifiers: ModifiersState,
-    ) {
-        let button_changed = self.ctx.mouse().last_button != button;
-        let elapsed = self.ctx.mouse().last_click_timestamp.elapsed();
-
-        match state {
-            ElementState::Pressed => {
-                if let (Some(point), true) = (point, button == MouseButton::Left) {
-                    self.ctx.semantic_selection(point);
-                }
-
-                self.ctx.mouse_mut().block_url_launcher = true;
-            },
-            ElementState::Released
-                if !button_changed && elapsed < self.mouse_config.double_click.threshold =>
-            {
-                if let (Some(point), true) = (point, button == MouseButton::Left) {
-                    self.ctx.bracket_pair_selection(point);
-                }
-            },
-            ElementState::Released => {},
-        }
-    }
-
-    pub fn on_mouse_triple_click(
-        &mut self,
-        button: MouseButton,
-        state: ElementState,
-        point: Option<Point>,
-        _modifiers: ModifiersState,
-    ) {
-        match state {
-            ElementState::Pressed => {
-                if let (Some(point), true) = (point, button == MouseButton::Left) {
-                    self.ctx.line_selection(point);
-                }
-
-                self.ctx.mouse_mut().block_url_launcher = true;
-            },
-            ElementState::Released => {},
-        }
-    }
-
     pub fn mouse_input(
         &mut self,
         state: ElementState,
         button: MouseButton,
         modifiers: ModifiersState,
     ) {
-        let point = self.ctx.mouse_coords();
-        let click_timestamp = Instant::now();
-
         match button {
             MouseButton::Left => self.ctx.mouse_mut().left_button_state = state,
             MouseButton::Middle => self.ctx.mouse_mut().middle_button_state = state,
             MouseButton::Right => self.ctx.mouse_mut().right_button_state = state,
-            _ => {},
+            _ => (),
         }
+
+        let point = self.ctx.mouse_coords();
 
         // Skip normal mouse events if the message bar has been clicked
         if let Some(message) = self.message_at_point(point) {
@@ -808,21 +782,16 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             debug_assert!(point.is_some());
             self.on_message_bar_click(state, point.unwrap(), message);
         } else {
-            if state == ElementState::Pressed {
-                self.update_click_state(button);
-            }
-
-            use self::ClickState::*;
-            match self.ctx.mouse().click_state {
-                None => {},
-                Click => self.on_mouse_single_click(button, state, point, modifiers),
-                DoubleClick => self.on_mouse_double_click(button, state, point, modifiers),
-                TripleClick => self.on_mouse_triple_click(button, state, point, modifiers),
+            match state {
+                ElementState::Pressed => {
+                    self.process_mouse_bindings(modifiers, button);
+                    self.on_mouse_press(button, modifiers, point);
+                },
+                ElementState::Released => self.on_mouse_release(button, modifiers, point),
             }
         }
 
         self.ctx.mouse_mut().last_button = button;
-        self.ctx.mouse_mut().last_click_timestamp = click_timestamp;
     }
 
     /// Process key input
@@ -996,15 +965,11 @@ mod tests {
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
-    #[derive(Debug, PartialEq)]
-    #[allow(clippy::enum_variant_names)]
-    enum ActionStub {
-        BracketPairSelection,
-        ClearSelection,
-        CopySelection,
-        LineSelection,
-        SemanticSelection,
-        SimpleSelection,
+    #[derive(PartialEq)]
+    enum MultiClick {
+        DoubleClick,
+        TripleClick,
+        None,
     }
 
     struct ActionContext<'a> {
@@ -1012,7 +977,7 @@ mod tests {
         pub selection: &'a mut Option<Selection>,
         pub size_info: &'a SizeInfo,
         pub mouse: &'a mut Mouse,
-        pub actions: Vec<ActionStub>,
+        pub last_action: MultiClick,
         pub received_count: usize,
         pub suppress_chars: bool,
         pub last_modifiers: ModifiersState,
@@ -1024,17 +989,11 @@ mod tests {
 
         fn update_selection(&mut self, _point: Point, _side: Side) {}
 
-        fn simple_selection(&mut self, _point: Point, _side: Side) {
-            self.actions.push(ActionStub::SimpleSelection)
-        }
+        fn simple_selection(&mut self, _point: Point, _side: Side) {}
 
-        fn copy_selection(&mut self, _: ClipboardType) {
-            self.actions.push(ActionStub::CopySelection)
-        }
+        fn copy_selection(&mut self, _: ClipboardType) {}
 
-        fn clear_selection(&mut self) {
-            self.actions.push(ActionStub::ClearSelection)
-        }
+        fn clear_selection(&mut self) {}
 
         fn hide_window(&mut self) {}
 
@@ -1058,15 +1017,12 @@ mod tests {
         }
 
         fn semantic_selection(&mut self, _point: Point) {
-            self.actions.push(ActionStub::SemanticSelection)
+            // set something that we can check for here
+            self.last_action = MultiClick::DoubleClick;
         }
 
         fn line_selection(&mut self, _point: Point) {
-            self.actions.push(ActionStub::LineSelection)
-        }
-
-        fn bracket_pair_selection(&mut self, _point: Point) {
-            self.actions.push(ActionStub::BracketPairSelection)
+            self.last_action = MultiClick::TripleClick;
         }
 
         fn selection_is_empty(&self) -> bool {
@@ -1110,8 +1066,8 @@ mod tests {
             initial_state: $initial_state:expr,
             initial_button: $initial_button:expr,
             input: $input:expr,
-            end_state: $end_state:expr,
-            actions: $actions:expr
+            end_state: $end_state:pat,
+            last_action: $last_action:expr
         } => {
             #[test]
             fn $name() {
@@ -1139,7 +1095,7 @@ mod tests {
                     selection: &mut selection,
                     mouse: &mut mouse,
                     size_info: &size,
-                    actions: vec![],
+                    last_action: MultiClick::None,
                     received_count: 0,
                     suppress_chars: false,
                     last_modifiers: ModifiersState::default(),
@@ -1169,8 +1125,10 @@ mod tests {
                     processor.mouse_input(state, button, modifiers);
                 };
 
-                assert_eq!(processor.ctx.mouse.click_state, $end_state);
-                assert_eq!(processor.ctx.actions, $actions);
+                assert!(match processor.ctx.mouse.click_state {
+                    $end_state => processor.ctx.last_action == $last_action,
+                    _ => false
+                });
             }
         }
     }
@@ -1208,7 +1166,7 @@ mod tests {
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
         end_state: ClickState::Click,
-        actions: vec![ActionStub::ClearSelection, ActionStub::SimpleSelection]
+        last_action: MultiClick::None
     }
 
     test_clickstate! {
@@ -1225,24 +1183,7 @@ mod tests {
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
         end_state: ClickState::DoubleClick,
-        actions: vec![ActionStub::SemanticSelection]
-    }
-
-    test_clickstate! {
-        name: double_click_and_release,
-        initial_state: ClickState::DoubleClick,
-        initial_button: MouseButton::Left,
-        input: Event::WindowEvent {
-            event: WindowEvent::MouseInput {
-                state: ElementState::Released,
-                button: MouseButton::Left,
-                device_id: unsafe { ::std::mem::transmute_copy(&0) },
-                modifiers: ModifiersState::default(),
-            },
-            window_id: unsafe { ::std::mem::transmute_copy(&0) },
-        },
-        end_state: ClickState::DoubleClick,
-        actions: vec![ActionStub::BracketPairSelection]
+        last_action: MultiClick::DoubleClick
     }
 
     test_clickstate! {
@@ -1259,7 +1200,7 @@ mod tests {
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
         end_state: ClickState::TripleClick,
-        actions: vec![ActionStub::LineSelection]
+        last_action: MultiClick::TripleClick
     }
 
     test_clickstate! {
@@ -1276,7 +1217,7 @@ mod tests {
             window_id: unsafe { ::std::mem::transmute_copy(&0) },
         },
         end_state: ClickState::Click,
-        actions: vec![ActionStub::ClearSelection, ActionStub::SimpleSelection]
+        last_action: MultiClick::None
     }
 
     test_process_binding! {

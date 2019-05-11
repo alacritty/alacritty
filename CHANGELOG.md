@@ -24,8 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Config option `working_directory`
 - Config group `debug` with the options `debug.log_level`, `debug.print_events`
     and `debug.ref_test`
-- Bracket-pair selection logic, double-clicking `{` in `hello { world }` selects `{ world }`,
-  works for `{}[]()<>`, (see [#2022](https://github.com/jwilm/alacritty/pull/2022))
+- Select until next matching bracket when double-clicking a bracket
 
 ### Changed
 
