@@ -444,11 +444,11 @@ impl<N: Notify> Processor<N> {
                     Focused(is_focused) => {
                         *window_is_focused = is_focused;
 
+                        processor.ctx.terminal.dirty = true;
+
                         if is_focused {
-                            processor.ctx.terminal.dirty = true;
                             processor.ctx.terminal.next_is_urgent = Some(false);
                         } else {
-                            processor.ctx.terminal.dirty = true;
                             *hide_mouse = false;
                         }
 
