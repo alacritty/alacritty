@@ -278,7 +278,7 @@ impl Default for Mouse {
 /// Stores some state from received events and dispatches actions when they are
 /// triggered.
 pub struct Processor<N> {
-    pub mouse: Mouse,
+    mouse: Mouse,
     key_bindings: Vec<KeyBinding>,
     mouse_bindings: Vec<MouseBinding>,
     mouse_config: config::Mouse,
@@ -617,6 +617,7 @@ impl<N: Notify> Processor<N> {
         let url = if self.mouse_config.url.modifiers.relaxed_eq(modifiers)
             && (!terminal.mode().intersects(mouse_mode) || modifiers.shift)
             && self.mouse_config.url.launcher.is_some()
+            && self.mouse.inside_window
         {
             terminal.url_search(point.into())
         } else {
