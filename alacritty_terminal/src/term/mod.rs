@@ -46,7 +46,7 @@ use crate::tty;
 pub mod cell;
 pub mod color;
 
-// De facto limit - see https://stackoverflow.com/a/417184/
+// 25000 characters seems to not lag too much; will only rarely hit this anyways
 const URL_MAX_LENGTH: u32 = 25000;
 
 /// A type that can expand a given point to a region
