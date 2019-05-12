@@ -47,7 +47,7 @@ pub mod cell;
 pub mod color;
 
 // De facto limit - see https://stackoverflow.com/a/417184/
-const URL_MAX_LENGTH: u32 = 2000;
+const URL_MAX_LENGTH: u32 = 25000;
 
 /// A type that can expand a given point to a region
 ///
