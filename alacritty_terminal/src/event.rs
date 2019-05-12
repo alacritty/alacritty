@@ -416,9 +416,7 @@ impl<N: Notify> Processor<N> {
                         // There might have been a change in modifiers
                         processor.ctx.terminal.url_dirty = true;
                     },
-                    ReceivedCharacter(c) => {
-                        processor.received_char(c);
-                    },
+                    ReceivedCharacter(c) => processor.received_char(c),
                     MouseInput { state, button, modifiers, .. } => {
                         if !cfg!(target_os = "macos") || *window_is_focused {
                             *hide_mouse = false;
@@ -438,9 +436,7 @@ impl<N: Notify> Processor<N> {
                         *hide_mouse = false;
                         processor.on_mouse_wheel(delta, phase, modifiers);
                     },
-                    Refresh => {
-                        processor.ctx.terminal.dirty = true;
-                    },
+                    Refresh => processor.ctx.terminal.dirty = true,
                     Focused(is_focused) => {
                         *window_is_focused = is_focused;
 
@@ -463,9 +459,7 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.size_info.dpr = new_dpr;
                         processor.ctx.terminal.dirty = true;
                     },
-                    Moved(_) => {
-                        processor.ctx.terminal.url_dirty = true;
-                    },
+                    Moved(_) => processor.ctx.terminal.url_dirty = true,
                     CursorEntered { .. } => {
                         processor.ctx.mouse.inside_window = true;
                         processor.ctx.terminal.url_dirty = true;
@@ -477,9 +471,7 @@ impl<N: Notify> Processor<N> {
                     _ => (),
                 }
             },
-            Event::Awakened => {
-                processor.ctx.terminal.dirty = true;
-            },
+            Event::Awakened => processor.ctx.terminal.dirty = true,
         }
     }
 
