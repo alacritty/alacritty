@@ -468,9 +468,11 @@ impl<N: Notify> Processor<N> {
                     },
                     CursorEntered { .. } => {
                         processor.ctx.mouse.inside_window = true;
+                        processor.ctx.terminal.url_dirty = true;
                     },
                     CursorLeft { .. } => {
                         processor.ctx.mouse.inside_window = false;
+                        processor.ctx.terminal.url_dirty = true;
                     }
                     _ => (),
                 }
