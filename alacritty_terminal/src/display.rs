@@ -367,7 +367,10 @@ impl Display {
             }
         }
 
-        if font_changed || self.last_message != terminal.message_buffer_mut().message() {
+        // Message bar update detected
+        let message_bar_changed = self.last_message != terminal.message_buffer_mut().message();
+
+        if font_changed || message_bar_changed {
             if new_size == None {
                 // Force a resize to refresh things
                 new_size = Some(PhysicalSize::new(
@@ -415,7 +418,10 @@ impl Display {
                 pty_size.height -= pty_size.cell_height * message.text(&size).len() as f32;
             }
 
-            if previous_cols != pty_size.cols() || previous_lines != pty_size.lines() {
+            if message_bar_changed
+                || previous_cols != pty_size.cols()
+                || previous_lines != pty_size.lines()
+            {
                 pty_resize_handle.on_resize(&pty_size);
             }
 
