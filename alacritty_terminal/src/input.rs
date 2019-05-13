@@ -634,10 +634,10 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     if let Some(point) = point {
                         if let Some(bounds) = self.ctx.selection_bounds() {
 
-                            let p = self.ctx.terminal().visible_to_buffer(point);
-                            if Point::from(p) > *bounds.0 && *bounds.0 > *bounds.1 {
-                                self.ctx.reverse_selection();
-                            } else if Point::from(p) < *bounds.0 && *bounds.0 < *bounds.1 {
+                            let p: Point<isize> = Point::from(self.ctx.terminal().visible_to_buffer(point));
+                            let start_virt_dist = (p.line - bounds.0.line).abs();
+                            let end_virt_dist = (p.line - bounds.1.line).abs();
+                            if start_virt_dist < end_virt_dist {
                                 self.ctx.reverse_selection();
                             }
                             self.ctx.update_selection(point, side);
