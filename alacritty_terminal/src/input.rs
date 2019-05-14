@@ -626,7 +626,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
                 let report_mode_intersection = self.ctx.terminal().mode().intersects(report_modes);
 
-                if modifiers.shift && button == MouseButton::Left && !self.ctx.selection_is_empty()
+                if modifiers.shift
+                    && button == MouseButton::Left
+                    && !self.ctx.selection_is_empty()
                     && !report_mode_intersection
                 {
                     // update current selection
