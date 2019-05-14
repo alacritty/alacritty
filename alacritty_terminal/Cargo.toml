@@ -23,9 +23,7 @@ serde_yaml = "0.8"
 vte = "0.3"
 mio = "0.6"
 mio-extras = "2"
-xdg = "2"
 log = "0.4"
-clap = "2"
 fnv = "1"
 unicode-width = "0.1"
 glutin = { version = "0.21.0", features = ["icon_loading"] }
@@ -49,7 +47,6 @@ mio-named-pipes = "0.1"
 miow = "0.3"
 dunce = "1.0"
 winapi = { version = "0.3.7", features = ["impl-default", "winuser", "synchapi", "roerrorapi", "winerror", "wincon", "wincontypes"]}
-dirs = "1.0"
 widestring = "0.4"
 mio-anonymous-pipes = "0.1"
 

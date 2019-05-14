@@ -18,7 +18,7 @@ use std::ops::{Index, IndexMut, Range, RangeInclusive};
 use std::time::{Duration, Instant};
 use std::{io, mem, ptr};
 
-use font::{self, RasterizedGlyph, Size};
+use font::{self, Size};
 use glutin::MouseCursor;
 use unicode_width::UnicodeWidthChar;
 
@@ -27,7 +27,7 @@ use crate::ansi::{
 };
 use crate::clipboard::{Clipboard, ClipboardType};
 use crate::config::{Config, VisualBellAnimation};
-use crate::cursor;
+use crate::cursor::CursorKey;
 use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
     ViewportPosition,
@@ -35,7 +35,7 @@ use crate::grid::{
 use crate::index::{self, Column, Contains, IndexRange, Line, Linear, Point};
 use crate::input::FONT_SIZE_STEP;
 use crate::message_bar::MessageBuffer;
-use crate::selection::{self, Locations, Selection};
+use crate::selection::{self, Selection, Span};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 use crate::url::{Url, UrlParser};
@@ -45,6 +45,9 @@ use crate::tty;
 
 pub mod cell;
 pub mod color;
+
+/// Used to match equal brackets, when performing a bracket-pair selection.
+const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
 
 /// A type that can expand a given point to a region
 ///
@@ -57,6 +60,8 @@ pub trait Search {
     fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest URL boundary in both directions.
     fn url_search(&self, _: Point<usize>) -> Option<Url>;
+    /// Find the nearest matching bracket.
+    fn bracket_search(&self, _: Point<usize>) -> Option<Point<usize>>;
 }
 
 impl Search for Term {
@@ -137,6 +142,49 @@ impl Search for Term {
         }
         url_parser.url()
     }
+
+    fn bracket_search(&self, point: Point<usize>) -> Option<Point<usize>> {
+        let start_char = self.grid[point.line][point.col].c;
+
+        // Find the matching bracket we're looking for
+        let (forwards, end_char) = BRACKET_PAIRS.iter().find_map(|(open, close)| {
+            if open == &start_char {
+                Some((true, *close))
+            } else if close == &start_char {
+                Some((false, *open))
+            } else {
+                None
+            }
+        })?;
+
+        let mut iter = self.grid.iter_from(point);
+
+        // For every character match that equals the starting bracket, we
+        // ignore one bracket of the opposite type.
+        let mut skip_pairs = 0;
+
+        loop {
+            // Check the next cell
+            let cell = if forwards { iter.next() } else { iter.prev() };
+
+            // Break if there are no more cells
+            let c = match cell {
+                Some(cell) => cell.c,
+                None => break,
+            };
+
+            // Check if the bracket matches
+            if c == end_char && skip_pairs == 0 {
+                return Some(iter.cur);
+            } else if c == start_char {
+                skip_pairs += 1;
+            } else if c == end_char {
+                skip_pairs -= 1;
+            }
+        }
+
+        None
+    }
 }
 
 impl selection::Dimensions for Term {
@@ -158,7 +206,7 @@ pub struct RenderableCellsIter<'a> {
     grid: &'a Grid<Cell>,
     cursor: &'a Point,
     cursor_offset: usize,
-    cursor_cell: Option<RasterizedGlyph>,
+    cursor_key: Option<CursorKey>,
     cursor_style: CursorStyle,
     config: &'a Config,
     colors: &'a color::List,
@@ -174,31 +222,29 @@ impl<'a> RenderableCellsIter<'a> {
     fn new<'b>(
         term: &'b Term,
         config: &'b Config,
-        selection: Option<Locations>,
+        selection: Option<Span>,
         mut cursor_style: CursorStyle,
-        metrics: font::Metrics,
     ) -> RenderableCellsIter<'b> {
         let grid = &term.grid;
 
         let cursor_offset = grid.line_to_offset(term.cursor.point.line);
         let inner = grid.display_iter();
 
-        let mut selection_range = None;
-        if let Some(loc) = selection {
+        let selection_range = selection.and_then(|span| {
             // Get on-screen lines of the selection's locations
-            let start_line = grid.buffer_line_to_visible(loc.start.line);
-            let end_line = grid.buffer_line_to_visible(loc.end.line);
+            let start_line = grid.buffer_line_to_visible(span.start.line);
+            let end_line = grid.buffer_line_to_visible(span.end.line);
 
             // Get start/end locations based on what part of selection is on screen
             let locations = match (start_line, end_line) {
                 (ViewportPosition::Visible(start_line), ViewportPosition::Visible(end_line)) => {
-                    Some((start_line, loc.start.col, end_line, loc.end.col))
+                    Some((start_line, span.start.col, end_line, span.end.col))
                 },
                 (ViewportPosition::Visible(start_line), ViewportPosition::Above) => {
-                    Some((start_line, loc.start.col, Line(0), Column(0)))
+                    Some((start_line, span.start.col, Line(0), Column(0)))
                 },
                 (ViewportPosition::Below, ViewportPosition::Visible(end_line)) => {
-                    Some((grid.num_lines(), Column(0), end_line, loc.end.col))
+                    Some((grid.num_lines(), Column(0), end_line, span.end.col))
                 },
                 (ViewportPosition::Below, ViewportPosition::Above) => {
                     Some((grid.num_lines(), Column(0), Line(0), Column(0)))
@@ -206,7 +252,7 @@ impl<'a> RenderableCellsIter<'a> {
                 _ => None,
             };
 
-            if let Some((start_line, start_col, end_line, end_col)) = locations {
+            locations.map(|(start_line, start_col, end_line, end_col)| {
                 // start and end *lines* are swapped as we switch from buffer to
                 // Line coordinates.
                 let mut end = Point { line: start_line, col: start_col };
@@ -220,21 +266,17 @@ impl<'a> RenderableCellsIter<'a> {
                 let start = Linear::from_point(cols, start.into());
                 let end = Linear::from_point(cols, end.into());
 
-                // Update the selection
-                selection_range = Some(RangeInclusive::new(start, end));
-            }
-        }
+                RangeInclusive::new(start, end)
+            })
+        });
 
         // Load cursor glyph
         let cursor = &term.cursor.point;
         let cursor_visible = term.mode.contains(TermMode::SHOW_CURSOR) && grid.contains(cursor);
-        let cursor_cell = if cursor_visible {
-            let offset_x = config.font().offset().x;
-            let offset_y = config.font().offset().y;
-
+        let cursor_key = if cursor_visible {
             let is_wide = grid[cursor].flags.contains(cell::Flags::WIDE_CHAR)
                 && (cursor.col + 1) < grid.num_cols();
-            Some(cursor::get_cursor_glyph(cursor_style, metrics, offset_x, offset_y, is_wide))
+            Some(CursorKey { style: cursor_style, is_wide })
         } else {
             // Use hidden cursor so text will not get inverted
             cursor_style = CursorStyle::Hidden;
@@ -250,7 +292,7 @@ impl<'a> RenderableCellsIter<'a> {
             url_highlight: &grid.url_highlight,
             config,
             colors: &term.colors,
-            cursor_cell,
+            cursor_key,
             cursor_style,
         }
     }
@@ -259,7 +301,7 @@ impl<'a> RenderableCellsIter<'a> {
 #[derive(Clone, Debug)]
 pub enum RenderableCellContent {
     Chars([char; cell::MAX_ZEROWIDTH_CHARS + 1]),
-    Cursor((CursorStyle, RasterizedGlyph)),
+    Cursor(CursorKey),
 }
 
 #[derive(Clone, Debug)]
@@ -280,7 +322,7 @@ impl RenderableCell {
         let mut fg_rgb = Self::compute_fg_rgb(config, colors, cell.fg, cell.flags);
         let mut bg_rgb = Self::compute_bg_rgb(colors, cell.bg);
 
-        let selection_background = config.colors().selection.background;
+        let selection_background = config.colors.selection.background;
         if let (true, Some(col)) = (selected, selection_background) {
             // Override selection background with config colors
             bg_rgb = col;
@@ -296,7 +338,7 @@ impl RenderableCell {
         }
 
         // Override selection text with config colors
-        if let (true, Some(col)) = (selected, config.colors().selection.text) {
+        if let (true, Some(col)) = (selected, config.colors.selection.text) {
             fg_rgb = col;
         }
 
@@ -319,7 +361,7 @@ impl RenderableCell {
                     // If no bright foreground is set, treat it like the BOLD flag doesn't exist
                     (_, cell::Flags::DIM_BOLD)
                         if ansi == NamedColor::Foreground
-                            && config.colors().primary.bright_foreground.is_none() =>
+                            && config.colors.primary.bright_foreground.is_none() =>
                     {
                         colors[NamedColor::DimForeground]
                     },
@@ -379,7 +421,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
         loop {
             if self.cursor_offset == self.inner.offset() && self.inner.column() == self.cursor.col {
                 // Handle cursor
-                if let Some(cursor_cell) = self.cursor_cell.take() {
+                if let Some(cursor_key) = self.cursor_key.take() {
                     let cell = Indexed {
                         inner: self.grid[self.cursor],
                         column: self.cursor.col,
@@ -388,10 +430,9 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     let mut renderable_cell =
                         RenderableCell::new(self.config, self.colors, cell, false);
 
-                    renderable_cell.inner =
-                        RenderableCellContent::Cursor((self.cursor_style, cursor_cell));
+                    renderable_cell.inner = RenderableCellContent::Cursor(cursor_key);
 
-                    if let Some(color) = self.config.cursor_cursor_color() {
+                    if let Some(color) = self.config.colors.cursor.cursor {
                         renderable_cell.fg = color;
                     }
 
@@ -403,7 +444,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     if self.cursor_style == CursorStyle::Block {
                         std::mem::swap(&mut cell.bg, &mut cell.fg);
 
-                        if let Some(color) = self.config.cursor_text_color() {
+                        if let Some(color) = self.config.colors.cursor.text {
                             cell.fg = color;
                         }
                     }
@@ -565,9 +606,9 @@ fn cubic_bezier(p0: f64, p1: f64, p2: f64, p3: f64, x: f64) -> f64 {
 
 impl VisualBell {
     pub fn new(config: &Config) -> VisualBell {
-        let visual_bell_config = config.visual_bell();
+        let visual_bell_config = &config.visual_bell;
         VisualBell {
-            animation: visual_bell_config.animation(),
+            animation: visual_bell_config.animation,
             duration: visual_bell_config.duration(),
             start_time: None,
         }
@@ -660,8 +701,8 @@ impl VisualBell {
     }
 
     pub fn update_config(&mut self, config: &Config) {
-        let visual_bell_config = config.visual_bell();
-        self.animation = visual_bell_config.animation();
+        let visual_bell_config = &config.visual_bell;
+        self.animation = visual_bell_config.animation;
         self.duration = visual_bell_config.duration();
     }
 }
@@ -855,7 +896,7 @@ impl Term {
         let num_cols = size.cols();
         let num_lines = size.lines();
 
-        let history_size = config.scrolling().history as usize;
+        let history_size = config.scrolling.history() as usize;
         let grid = Grid::new(num_lines, num_cols, history_size, Cell::default());
         let alt = Grid::new(num_lines, num_cols, 0 /* scroll history */, Cell::default());
 
@@ -864,7 +905,7 @@ impl Term {
 
         let scroll_region = Line(0)..grid.num_lines();
 
-        let colors = color::List::from(config.colors());
+        let colors = color::List::from(&config.colors);
 
         Term {
             next_title: None,
@@ -876,8 +917,8 @@ impl Term {
             grid,
             alt_grid: alt,
             alt: false,
-            font_size: config.font().size(),
-            original_font_size: config.font().size(),
+            font_size: config.font.size,
+            original_font_size: config.font.size,
             active_charset: Default::default(),
             cursor: Default::default(),
             cursor_save: Default::default(),
@@ -889,12 +930,12 @@ impl Term {
             colors,
             color_modified: [false; color::COUNT],
             original_colors: colors,
-            semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
+            semantic_escape_chars: config.selection.semantic_escape_chars().to_owned(),
             cursor_style: None,
-            default_cursor_style: config.cursor_style(),
+            default_cursor_style: config.cursor.style,
             dynamic_title: config.dynamic_title(),
             tabspaces,
-            auto_scroll: config.scrolling().auto_scroll,
+            auto_scroll: config.scrolling.auto_scroll,
             message_buffer,
             should_exit: false,
             clipboard,
@@ -914,20 +955,20 @@ impl Term {
     }
 
     pub fn update_config(&mut self, config: &Config) {
-        self.semantic_escape_chars = config.selection().semantic_escape_chars.clone();
-        self.original_colors.fill_named(config.colors());
-        self.original_colors.fill_cube(config.colors());
-        self.original_colors.fill_gray_ramp(config.colors());
+        self.semantic_escape_chars = config.selection.semantic_escape_chars().to_owned();
+        self.original_colors.fill_named(&config.colors);
+        self.original_colors.fill_cube(&config.colors);
+        self.original_colors.fill_gray_ramp(&config.colors);
         for i in 0..color::COUNT {
             if !self.color_modified[i] {
                 self.colors[i] = self.original_colors[i];
             }
         }
         self.visual_bell.update_config(config);
-        self.default_cursor_style = config.cursor_style();
+        self.default_cursor_style = config.cursor.style;
         self.dynamic_title = config.dynamic_title();
-        self.auto_scroll = config.scrolling().auto_scroll;
-        self.grid.update_history(config.scrolling().history as usize, &self.cursor.template);
+        self.auto_scroll = config.scrolling.auto_scroll;
+        self.grid.update_history(config.scrolling.history() as usize, &self.cursor.template);
     }
 
     #[inline]
@@ -1018,11 +1059,9 @@ impl Term {
 
         let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
         let selection = self.grid.selection.clone()?;
-        let span = selection.to_span(self, alt_screen)?;
+        let Span { mut start, mut end } = selection.to_span(self, alt_screen)?;
 
         let mut res = String::new();
-
-        let Locations { mut start, mut end } = span.to_locations();
 
         if start > end {
             ::std::mem::swap(&mut start, &mut end);
@@ -1106,23 +1145,17 @@ impl Term {
         &'b self,
         config: &'b Config,
         window_focused: bool,
-        metrics: font::Metrics,
     ) -> RenderableCellsIter<'_> {
         let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
-        let selection = self
-            .grid
-            .selection
-            .as_ref()
-            .and_then(|s| s.to_span(self, alt_screen))
-            .map(|span| span.to_locations());
+        let selection = self.grid.selection.as_ref().and_then(|s| s.to_span(self, alt_screen));
 
-        let cursor = if window_focused || !config.unfocused_hollow_cursor() {
+        let cursor = if window_focused || !config.cursor.unfocused_hollow() {
             self.cursor_style.unwrap_or(self.default_cursor_style)
         } else {
             CursorStyle::HollowBlock
         };
 
-        RenderableCellsIter::new(&self, config, selection, cursor, metrics)
+        RenderableCellsIter::new(&self, config, selection, cursor)
     }
 
     /// Resize terminal to new dimensions
@@ -2294,7 +2327,7 @@ mod tests {
         let mut term: Term = Term::new(&config, size, MessageBuffer::new(), Clipboard::new_nop());
         term.change_font_size(font_size);
 
-        let expected_font_size: Size = config.font().size() + Size::new(font_size);
+        let expected_font_size: Size = config.font.size + Size::new(font_size);
         assert_eq!(term.font_size, expected_font_size);
     }
 
@@ -2345,7 +2378,7 @@ mod tests {
         term.change_font_size(10.0);
         term.reset_font_size();
 
-        let expected_font_size: Size = config.font().size();
+        let expected_font_size: Size = config.font.size;
         assert_eq!(term.font_size, expected_font_size);
     }
 
@@ -2433,18 +2466,8 @@ mod benches {
         let mut terminal = Term::new(&config, size, MessageBuffer::new(), Clipboard::new_nop());
         mem::swap(&mut terminal.grid, &mut grid);
 
-        let metrics = font::Metrics {
-            descent: 0.,
-            line_height: 0.,
-            average_advance: 0.,
-            underline_position: 0.,
-            underline_thickness: 0.,
-            strikeout_position: 0.,
-            strikeout_thickness: 0.,
-        };
-
         b.iter(|| {
-            let iter = terminal.renderable_cells(&config, false, metrics);
+            let iter = terminal.renderable_cells(&config, false);
             for cell in iter {
                 test::black_box(cell);
             }

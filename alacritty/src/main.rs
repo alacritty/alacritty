@@ -42,7 +42,7 @@ use std::env;
 use std::os::unix::io::AsRawFd;
 
 use alacritty_terminal::clipboard::Clipboard;
-use alacritty_terminal::config::{self, Config, Monitor};
+use alacritty_terminal::config::{Config, Monitor};
 use alacritty_terminal::display::Display;
 use alacritty_terminal::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
@@ -53,9 +53,13 @@ use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::Term;
 use alacritty_terminal::tty;
 use alacritty_terminal::util::fmt::Red;
-use alacritty_terminal::{cli, die, event};
+use alacritty_terminal::{die, event};
 
+mod cli;
+mod config;
 mod logging;
+
+use crate::cli::Options;
 
 fn main() {
     panic::attach_handler();
@@ -69,7 +73,7 @@ fn main() {
     }
 
     // Load command line options
-    let options = cli::Options::load();
+    let options = Options::new();
 
     // Setup storage for message UI
     let message_buffer = MessageBuffer::new();
@@ -82,15 +86,19 @@ fn main() {
     // If the file is a command line argument, we won't write a generated default file
     let config_path = options
         .config_path()
-        .or_else(Config::installed_config)
-        .or_else(|| Config::write_defaults().ok())
+        .or_else(config::installed_config)
+        .or_else(|| config::write_defaults().ok())
         .map(|path| path.to_path_buf());
     let config = if let Some(path) = config_path {
-        Config::load_from(path).update_dynamic_title(&options)
+        config::load_from(path)
     } else {
         error!("Unable to write the default config");
         Config::default()
     };
+    let config = options.into_config(config);
+
+    // Update the log level from config
+    log::set_max_level(config.debug.log_level);
 
     // Switch to home directory
     #[cfg(target_os = "macos")]
@@ -100,10 +108,10 @@ fn main() {
     locale::set_locale_environment();
 
     // Store if log file should be deleted before moving config
-    let persistent_logging = options.persistent_logging || config.persistent_logging();
+    let persistent_logging = config.persistent_logging();
 
     // Run alacritty
-    if let Err(err) = run(config, &options, message_buffer) {
+    if let Err(err) = run(config, message_buffer) {
         die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
     }
 
@@ -119,13 +127,9 @@ fn main() {
 ///
 /// Creates a window, the terminal state, pty, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn run(
-    mut config: Config,
-    options: &cli::Options,
-    message_buffer: MessageBuffer,
-) -> Result<(), Box<dyn Error>> {
+fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty");
-    if let Some(config_path) = config.path() {
+    if let Some(config_path) = &config.config_path {
         info!("Configuration loaded from {:?}", config_path.display());
     };
 
@@ -135,7 +139,7 @@ fn run(
     // Create a display.
     //
     // The display manages a window and can draw the terminal
-    let mut display = Display::new(&config, options)?;
+    let mut display = Display::new(&config)?;
 
     info!("PTY Dimensions: {:?} x {:?}", display.size().lines(), display.size().cols());
 
@@ -161,7 +165,7 @@ fn run(
     // The pty forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-    let pty = tty::new(&config, options, &display.size(), window_id);
+    let pty = tty::new(&config, &display.size(), window_id);
 
     // Get a reference to something that we can resize
     //
@@ -180,7 +184,7 @@ fn run(
     // synchronized since the I/O loop updates the state, and the display
     // consumes it periodically.
     let event_loop =
-        EventLoop::new(Arc::clone(&terminal), display.notifier(), pty, options.ref_test);
+        EventLoop::new(Arc::clone(&terminal), display.notifier(), pty, config.debug.ref_test);
 
     // The event loop channel allows write requests from the event processor
     // to be sent to the loop and ultimately written to the pty.
@@ -192,9 +196,7 @@ fn run(
     let mut processor = event::Processor::new(
         event_loop::Notifier(event_loop.channel()),
         display.resize_channel(),
-        options,
         &config,
-        options.ref_test,
         display.size().to_owned(),
     );
 
@@ -202,14 +204,10 @@ fn run(
     //
     // The monitor watches the config file for changes and reloads it. Pending
     // config changes are processed in the main loop.
-    let config_monitor = match (options.live_config_reload, config.live_config_reload()) {
-        // Start monitor if CLI flag says yes
-        (Some(true), _) |
-        // Or if no CLI flag was passed and the config says yes
-        (None, true) => config.path()
-                .map(|path| config::Monitor::new(path, display.notifier())),
-        // Otherwise, don't start the monitor
-        _ => None,
+    let config_monitor = if config.live_config_reload() {
+        config.config_path.as_ref().map(|path| Monitor::new(path, display.notifier()))
+    } else {
+        None
     };
 
     // Kick off the I/O thread
@@ -227,8 +225,7 @@ fn run(
             // Clear old config messages from bar
             terminal_lock.message_buffer_mut().remove_topic(config::SOURCE_FILE_PATH);
 
-            if let Ok(new_config) = Config::reload_from(path) {
-                config = new_config.update_dynamic_title(options);
+            if let Ok(config) = config::reload_from(path) {
                 display.update_config(&config);
                 processor.update_config(&config);
                 terminal_lock.update_config(&config);

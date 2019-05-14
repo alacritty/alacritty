@@ -1,4 +1,4 @@
-// Copyright 2016 Joe Wilm, The Alacritty Project Contributors
+// Copyright 2019 Joe Wilm, The Alacritty Project Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,14 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use ::log;
-use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
 
-use crate::config::{Delta, Dimensions, Shell};
-use crate::index::{Column, Line};
-use crate::window::DEFAULT_NAME;
 use std::borrow::Cow;
+use std::cmp::max;
 use std::path::{Path, PathBuf};
+
+use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
+use log::{self, LevelFilter};
+
+use alacritty_terminal::config::{Config, Delta, Dimensions, Shell};
+use alacritty_terminal::index::{Column, Line};
+use alacritty_terminal::window::DEFAULT_NAME;
 
 /// Options specified on the command line
 pub struct Options {
@@ -29,7 +32,7 @@ pub struct Options {
     pub position: Option<Delta<i32>>,
     pub title: Option<String>,
     pub class: Option<String>,
-    pub log_level: log::LevelFilter,
+    pub log_level: LevelFilter,
     pub command: Option<Shell<'static>>,
     pub working_dir: Option<PathBuf>,
     pub config: Option<PathBuf>,
@@ -46,7 +49,7 @@ impl Default for Options {
             position: None,
             title: None,
             class: None,
-            log_level: log::LevelFilter::Warn,
+            log_level: LevelFilter::Warn,
             command: None,
             working_dir: None,
             config: None,
@@ -56,12 +59,14 @@ impl Default for Options {
 }
 
 impl Options {
-    /// Build `Options` from command line arguments
-    pub fn load() -> Options {
+    /// Build `Options` from command line arguments.
+    pub fn new() -> Self {
         let mut options = Options::default();
 
+        let version_string = format!("{} ({})", crate_version!(), env!("GIT_HASH"));
+
         let matches = App::new(crate_name!())
-            .version(crate_version!())
+            .version(version_string.as_str())
             .author(crate_authors!("\n"))
             .about(crate_description!())
             .arg(Arg::with_name("ref-test").long("ref-test").help("Generates ref test"))
@@ -194,15 +199,15 @@ impl Options {
 
         match matches.occurrences_of("q") {
             0 => {},
-            1 => options.log_level = log::LevelFilter::Error,
-            2 | _ => options.log_level = log::LevelFilter::Off,
+            1 => options.log_level = LevelFilter::Error,
+            2 | _ => options.log_level = LevelFilter::Off,
         }
 
         match matches.occurrences_of("v") {
-            0 if !options.print_events => {},
-            0 | 1 => options.log_level = log::LevelFilter::Info,
-            2 => options.log_level = log::LevelFilter::Debug,
-            3 | _ => options.log_level = log::LevelFilter::Trace,
+            0 if !options.print_events => options.log_level = LevelFilter::Warn,
+            0 | 1 => options.log_level = LevelFilter::Info,
+            2 => options.log_level = LevelFilter::Debug,
+            3 | _ => options.log_level = LevelFilter::Trace,
         }
 
         if let Some(dir) = matches.value_of("working-directory") {
@@ -225,19 +230,75 @@ impl Options {
         options
     }
 
-    pub fn dimensions(&self) -> Option<Dimensions> {
-        self.dimensions
-    }
-
-    pub fn position(&self) -> Option<Delta<i32>> {
-        self.position
-    }
-
-    pub fn command(&self) -> Option<&Shell<'_>> {
-        self.command.as_ref()
-    }
-
     pub fn config_path(&self) -> Option<Cow<'_, Path>> {
         self.config.as_ref().map(|p| Cow::Borrowed(p.as_path()))
+    }
+
+    pub fn into_config(self, mut config: Config) -> Config {
+        config.set_live_config_reload(
+            self.live_config_reload.unwrap_or_else(|| config.live_config_reload()),
+        );
+        config.set_working_directory(
+            self.working_dir.or_else(|| config.working_directory().to_owned()),
+        );
+        config.shell = self.command.or(config.shell);
+
+        config.window.dimensions = self.dimensions.unwrap_or(config.window.dimensions);
+        config.window.position = self.position.or(config.window.position);
+        config.window.title = self.title.or(config.window.title);
+        config.window.class = self.class.or(config.window.class);
+
+        config.set_dynamic_title(config.dynamic_title() && config.window.title.is_none());
+
+        config.debug.print_events = self.print_events || config.debug.print_events;
+        config.debug.log_level = max(config.debug.log_level, self.log_level);
+        config.debug.ref_test = self.ref_test || config.debug.ref_test;
+
+        if config.debug.print_events {
+            config.debug.log_level = max(config.debug.log_level, LevelFilter::Info);
+        }
+
+        config
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use alacritty_terminal::config::{Config, DEFAULT_ALACRITTY_CONFIG};
+
+    use crate::cli::Options;
+
+    #[test]
+    fn dynamic_title_ignoring_options_by_default() {
+        let config: Config =
+            ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("deserialize config");
+        let old_dynamic_title = config.dynamic_title();
+
+        let config = Options::default().into_config(config);
+
+        assert_eq!(old_dynamic_title, config.dynamic_title());
+    }
+
+    #[test]
+    fn dynamic_title_overridden_by_options() {
+        let config: Config =
+            ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("deserialize config");
+
+        let mut options = Options::default();
+        options.title = Some("foo".to_owned());
+        let config = options.into_config(config);
+
+        assert!(!config.dynamic_title());
+    }
+
+    #[test]
+    fn dynamic_title_overridden_by_config() {
+        let mut config: Config =
+            ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("deserialize config");
+
+        config.window.title = Some("foo".to_owned());
+        let config = Options::default().into_config(config);
+
+        assert!(!config.dynamic_title());
     }
 }

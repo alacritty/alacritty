@@ -23,6 +23,13 @@ use crate::ansi::CursorStyle;
 /// Width/Height of the cursor relative to the font width
 pub const CURSOR_WIDTH_PERCENTAGE: i32 = 15;
 
+/// A key for caching cursor glyphs
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
+pub struct CursorKey {
+    pub style: CursorStyle,
+    pub is_wide: bool,
+}
+
 pub fn get_cursor_glyph(
     cursor: CursorStyle,
     metrics: Metrics,

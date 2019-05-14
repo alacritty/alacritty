@@ -27,7 +27,6 @@ use winapi::um::winbase::FILE_FLAG_OVERLAPPED;
 use winpty::Config as WinptyConfig;
 use winpty::{ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
 
-use crate::cli::Options;
 use crate::config::{Config, Shell};
 use crate::display::OnResize;
 use crate::term::SizeInfo;
@@ -76,12 +75,7 @@ impl<'a> Drop for Agent<'a> {
 /// This is a placeholder value until we see how often long responses happen
 const AGENT_TIMEOUT: u32 = 10000;
 
-pub fn new<'a>(
-    config: &Config,
-    options: &Options,
-    size: &SizeInfo,
-    _window_id: Option<usize>,
-) -> Pty<'a> {
+pub fn new<'a>(config: &Config, size: &SizeInfo, _window_id: Option<usize>) -> Pty<'a> {
     // Create config
     let mut wconfig = WinptyConfig::new(ConfigFlags::empty()).unwrap();
 
@@ -95,13 +89,12 @@ pub fn new<'a>(
 
     // Get process commandline
     let default_shell = &Shell::new("powershell");
-    let shell = config.shell().unwrap_or(default_shell);
-    let initial_command = options.command().unwrap_or(shell);
-    let mut cmdline = initial_command.args().to_vec();
-    cmdline.insert(0, initial_command.program().into());
+    let shell = config.shell.as_ref().unwrap_or(default_shell);
+    let mut cmdline = shell.args.clone();
+    cmdline.insert(0, shell.program.to_string());
 
     // Warning, here be borrow hell
-    let cwd = options.working_dir.as_ref().map(|dir| canonicalize(dir).unwrap());
+    let cwd = config.working_directory().as_ref().map(|dir| canonicalize(dir).unwrap());
     let cwd = cwd.as_ref().map(|dir| dir.to_str().unwrap());
 
     // Spawn process
