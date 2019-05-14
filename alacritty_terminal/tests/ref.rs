@@ -91,7 +91,7 @@ fn ref_test(dir: &Path) {
     let ref_config: RefConfig = json::from_str(&serialized_cfg).unwrap_or_default();
 
     let mut config: Config = Default::default();
-    config.set_history(ref_config.history_size);
+    config.scrolling.set_history(ref_config.history_size);
 
     let mut terminal = Term::new(&config, size, MessageBuffer::new(), Clipboard::new_nop());
     let mut parser = ansi::Processor::new();

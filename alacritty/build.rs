@@ -13,7 +13,6 @@
 // limitations under the License.
 
 fn main() {
-    let hash = rustc_tools_util::get_commit_hash()
-        .expect("couldn't get commit hash");
+    let hash = rustc_tools_util::get_commit_hash().expect("couldn't get commit hash");
     println!("cargo:rustc-env=GIT_HASH={}", hash);
 }

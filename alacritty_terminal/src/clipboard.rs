@@ -89,7 +89,7 @@ impl Clipboard {
             Err(err) => {
                 debug!("Unable to load text from clipboard: {}", err);
                 String::new()
-            }
+            },
             Ok(text) => text,
         }
     }

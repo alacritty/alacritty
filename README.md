@@ -40,9 +40,13 @@ Precompiled binaries are available from the [GitHub releases page](https://githu
 Some operating systems already provide binaries for Alacritty, for everyone
 else the instructions to build Alacritty from source can be found [here](INSTALL.md).
 
-### Pop!\_OS
+### Pop!\_OS / Ubuntu
 
-Provided in the [Pop!\_OS repositories](https://launchpad.net/~system76/+archive/ubuntu/pop) for 18.04 (bionic) and higher.
+> If you're not running Pop!_OS, you'll have to add a third party repository first:
+>
+> ```sh
+> add-apt-repository ppa:mmstick76/alacritty
+> ```
 
 ```sh
 apt install alacritty

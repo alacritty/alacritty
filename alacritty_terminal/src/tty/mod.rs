@@ -90,7 +90,7 @@ pub fn setup_env(config: &Config) {
     env::set_var("COLORTERM", "truecolor");
 
     // Set env vars from config
-    for (key, value) in config.env().iter() {
+    for (key, value) in config.env.iter() {
         env::set_var(key, value);
     }
 }

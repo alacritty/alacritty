@@ -37,7 +37,7 @@ use winapi::um::processthreadsapi::{
 use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW};
 use winapi::um::wincontypes::{COORD, HPCON};
 
-use crate::config::{Config, Options, Shell};
+use crate::config::{Config, Shell};
 use crate::display::OnResize;
 use crate::term::SizeInfo;
 
@@ -98,13 +98,8 @@ impl Drop for Conpty {
 unsafe impl Send for Conpty {}
 unsafe impl Sync for Conpty {}
 
-pub fn new<'a>(
-    config: &Config,
-    options: &Options,
-    size: &SizeInfo,
-    _window_id: Option<usize>,
-) -> Option<Pty<'a>> {
-    if !config.enable_experimental_conpty_backend() {
+pub fn new<'a>(config: &Config, size: &SizeInfo, _window_id: Option<usize>) -> Option<Pty<'a>> {
+    if !config.enable_experimental_conpty_backend {
         return None;
     }
 
@@ -143,7 +138,7 @@ pub fn new<'a>(
 
     let mut startup_info_ex: STARTUPINFOEXW = Default::default();
 
-    let title = options.title.as_ref().map(String::as_str).unwrap_or("Alacritty");
+    let title = config.window.title.as_ref().map(String::as_str).unwrap_or("Alacritty");
     let title = U16CString::from_str(title).unwrap();
     startup_info_ex.StartupInfo.lpTitle = title.as_ptr() as LPWSTR;
 
@@ -209,13 +204,12 @@ pub fn new<'a>(
 
     // Get process commandline
     let default_shell = &Shell::new("powershell");
-    let shell = config.shell().unwrap_or(default_shell);
-    let initial_command = options.command().unwrap_or(shell);
-    let mut cmdline = initial_command.args().to_vec();
-    cmdline.insert(0, initial_command.program().into());
+    let shell = config.shell.as_ref().unwrap_or(default_shell);
+    let mut cmdline = shell.args.clone();
+    cmdline.insert(0, shell.program.to_string());
 
     // Warning, here be borrow hell
-    let cwd = options.working_dir.as_ref().map(|dir| canonicalize(dir).unwrap());
+    let cwd = config.working_directory().as_ref().map(|dir| canonicalize(dir).unwrap());
     let cwd = cwd.as_ref().map(|dir| dir.to_str().unwrap());
 
     // Create the client application, using startup info containing ConPTY info
