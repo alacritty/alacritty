@@ -365,37 +365,9 @@ pub struct Span {
 /// look like [ B] and [E ].
 #[cfg(test)]
 mod test {
-<<<<<<< HEAD
-    use super::{Anchor, Selection, Span, SpanType};
-    use crate::index::{Column, Line, Point, Side};
-    use crate::url::Url;
-
-    struct Dimensions(Point);
-    impl super::Dimensions for Dimensions {
-        fn dimensions(&self) -> Point {
-            self.0
-        }
-    }
-
-    impl Dimensions {
-        pub fn new(line: usize, col: usize) -> Self {
-            Dimensions(Point { line: Line(line), col: Column(col) })
-        }
-    }
-
-    impl super::Search for Dimensions {
-        fn semantic_search_left(&self, point: Point<usize>) -> Point<usize> {
-            point
-        }
-
-        fn semantic_search_right(&self, point: Point<usize>) -> Point<usize> {
-            point
-        }
-=======
     use std::mem;
->>>>>>> master
 
-    use super::{Selection, Span};
+    use super::{Anchor, Selection, Span};
     use crate::clipboard::Clipboard;
     use crate::grid::Grid;
     use crate::index::{Column, Line, Point, Side};
