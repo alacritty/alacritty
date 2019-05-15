@@ -62,8 +62,12 @@ impl Options {
     /// Build `Options` from command line arguments.
     pub fn new() -> Self {
         let mut options = Options::default();
-
-        let version_string = format!("{} ({})", crate_version!(), env!("GIT_HASH"));
+        let commit_hash = env!("GIT_HASH");
+        let version_string = if commit_hash.is_empty() {
+            format!("{}", crate_version!())
+        } else {
+            format!("{} ({})", crate_version!(), commit_hash)
+        };
 
         let matches = App::new(crate_name!())
             .version(version_string.as_str())

@@ -13,10 +13,6 @@
 // limitations under the License.
 
 fn main() {
-    let mut hash = rustc_tools_util::get_commit_hash().unwrap_or("".to_owned());
-    if hash.is_empty() {
-        hash = std::env::var("GIT_HASH").expect("couldn't get commit hash");
-    }
-
+    let hash = rustc_tools_util::get_commit_hash().unwrap_or("".to_owned());
     println!("cargo:rustc-env=GIT_HASH={}", hash);
 }
