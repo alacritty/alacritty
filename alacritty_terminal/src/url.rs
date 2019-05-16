@@ -13,14 +13,14 @@
 // limitations under the License.
 
 use unicode_width::UnicodeWidthChar;
-use url;
 
 use crate::term::cell::{Cell, Flags};
 
 // See https://tools.ietf.org/html/rfc3987#page-13
 const URL_SEPARATOR_CHARS: [char; 10] = ['<', '>', '"', ' ', '{', '}', '|', '\\', '^', '`'];
 const URL_DENY_END_CHARS: [char; 8] = ['.', ',', ';', ':', '?', '!', '/', '('];
-const URL_SCHEMES: [&str; 8] = ["http", "https", "mailto", "news", "file", "git", "ssh", "ftp"];
+const URL_SCHEMES: [&str; 8] =
+    ["http://", "https://", "mailto:", "news:", "file://", "git://", "ssh://", "ftp://"];
 
 /// URL text and origin of the original click position.
 #[derive(Debug, PartialEq)]
@@ -117,16 +117,15 @@ impl UrlParser {
         }
 
         // Check if string is valid url
-        match url::Url::parse(&self.state) {
-            Ok(url) => {
-                if URL_SCHEMES.contains(&url.scheme()) && self.origin > 0 {
-                    Some(Url { origin: self.origin - 1, text: self.state })
-                } else {
-                    None
+        if self.origin > 0 && url::Url::parse(&self.state).is_ok() {
+            for scheme in &URL_SCHEMES {
+                if self.state.starts_with(scheme) {
+                    return Some(Url { origin: self.origin - 1, text: self.state });
                 }
-            },
-            Err(_) => None,
+            }
         }
+
+        None
     }
 
     fn advance(&mut self, c: char, pos: usize) -> bool {
@@ -305,5 +304,14 @@ mod tests {
         url_test("git://example.org", "git://example.org");
         url_test("ssh://example.org", "ssh://example.org");
         url_test("ftp://example.org", "ftp://example.org");
+
+        assert_eq!(url_create_term("mailto.example.org").url_search(Point::default()), None);
+        assert_eq!(url_create_term("https:example.org").url_search(Point::default()), None);
+        assert_eq!(url_create_term("http:example.org").url_search(Point::default()), None);
+        assert_eq!(url_create_term("news.example.org").url_search(Point::default()), None);
+        assert_eq!(url_create_term("file:example.org").url_search(Point::default()), None);
+        assert_eq!(url_create_term("git:example.org").url_search(Point::default()), None);
+        assert_eq!(url_create_term("ssh:example.org").url_search(Point::default()), None);
+        assert_eq!(url_create_term("ftp:example.org").url_search(Point::default()), None);
     }
 }
