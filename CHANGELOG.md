@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mouse mode generating events when the cell has not changed
 - Selections not automatically expanding across double-width characters
 - On macOS, automatic graphics switching has been enabled again
+- Text getting recognized as URLs without slashes separating the scheme
 
 ### Removed
 
