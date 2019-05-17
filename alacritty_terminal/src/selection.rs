@@ -98,8 +98,9 @@ impl Selection {
             Selection::Semantic { ref mut region } => {
                 swap(&mut region.start, &mut region.end);
             },
-            Selection::Lines { ref mut region, .. } => {
+            Selection::Lines { ref mut region, ref mut initial_line } => {
                 swap(&mut region.start, &mut region.end);
+                *initial_line = region.start.line;
             },
         }
     }
@@ -505,7 +506,7 @@ mod test {
 
         assert_eq!(selection, Selection::Lines {
             region: Point { line: 1, col: Column(3) } .. Point { line: 0, col: Column(1) },
-            initial_line: 0
+            initial_line: 1
         });
     }
 
