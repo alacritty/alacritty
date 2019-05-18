@@ -36,6 +36,11 @@ elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" != "i386" ]; then
         sh -c "cd /source && \
         /root/.cargo/bin/cargo deb --no-build --manifest-path alacritty/Cargo.toml --output ./target/deploy/${name}-ubuntu_18_04_amd64.deb"
 
+    # x86_64 rpm
+    docker pull xliiv/alacritty-fedora
+    docker run -v "$(pwd):/source:z" xliiv/alacritty-fedora \
+         sh -c "cargo rpm init && cargo rpm build"
+
     # Make sure all files can be uploaded without permission errors
     sudo chown -R $USER:$USER "./target"
 elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" == "i386" ]; then
