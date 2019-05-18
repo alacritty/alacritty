@@ -40,6 +40,7 @@ elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" != "i386" ]; then
     docker pull xliiv/alacritty-fedora
     docker run -v "$(pwd):/source:z" xliiv/alacritty-fedora \
          sh -c "cargo rpm init && cargo rpm build"
+    mv ./target/release/rpmbuild/RPMS/x86_64/alacritty-*.x86_64.rpm ./target/deploy/${name}-fedora_amd64.deb"
 
     # Make sure all files can be uploaded without permission errors
     sudo chown -R $USER:$USER "./target"
