@@ -18,7 +18,7 @@ use crate::term::cell::{Cell, Flags};
 
 // See https://tools.ietf.org/html/rfc3987#page-13
 const URL_SEPARATOR_CHARS: [char; 10] = ['<', '>', '"', ' ', '{', '}', '|', '\\', '^', '`'];
-const URL_DENY_END_CHARS: [char; 8] = ['.', ',', ';', ':', '?', '!', '/', '('];
+const URL_DENY_END_CHARS: [char; 7] = ['.', ',', ';', ':', '?', '!', '('];
 const URL_SCHEMES: [&str; 8] =
     ["http://", "https://", "mailto:", "news:", "file://", "git://", "ssh://", "ftp://"];
 
@@ -245,11 +245,11 @@ mod tests {
         url_test(")https://example.org(", "https://example.org");
         url_test("https://example.org)", "https://example.org");
         url_test("https://example.org(", "https://example.org");
-        url_test("(https://one.org/)(https://two.org/)", "https://one.org");
+        url_test("(https://one.org/)(https://two.org/)", "https://one.org/");
 
         url_test("https://[2001:db8:a0b:12f0::1]:80", "https://[2001:db8:a0b:12f0::1]:80");
         url_test("([(https://example.org/test(ing))])", "https://example.org/test(ing)");
-        url_test("https://example.org/]()", "https://example.org");
+        url_test("https://example.org/]()", "https://example.org/");
         url_test("[https://example.org]", "https://example.org");
 
         url_test("'https://example.org/test'ing'''", "https://example.org/test'ing'");
@@ -276,6 +276,7 @@ mod tests {
         url_test("https://example.org/test?ing", "https://example.org/test?ing");
         url_test("https://example.org.,;:)'!/?", "https://example.org");
         url_test("https://example.org'.", "https://example.org");
+        url_test("https://example.org/test/?;:", "https://example.org/test/");
     }
 
     #[test]
