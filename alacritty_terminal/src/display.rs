@@ -35,63 +35,11 @@ use crate::term::{RenderableCell, SizeInfo, Term};
 use crate::window::{self, Window};
 use font::{self, Rasterize};
 
-#[derive(Debug)]
-pub enum Error {
-    /// Error with window management
-    Window(window::Error),
-
-    /// Error dealing with fonts
-    Font(font::Error),
-
-    /// Error in renderer
-    Render(renderer::Error),
-}
-
-impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
-        match *self {
-            Error::Window(ref err) => Some(err),
-            Error::Font(ref err) => Some(err),
-            Error::Render(ref err) => Some(err),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Window(ref err) => err.description(),
-            Error::Font(ref err) => err.description(),
-            Error::Render(ref err) => err.description(),
-        }
-    }
-}
-
-impl ::std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Error::Window(ref err) => err.fmt(f),
-            Error::Font(ref err) => err.fmt(f),
-            Error::Render(ref err) => err.fmt(f),
-        }
-    }
-}
-
-impl From<window::Error> for Error {
-    fn from(val: window::Error) -> Error {
-        Error::Window(val)
-    }
-}
-
-impl From<font::Error> for Error {
-    fn from(val: font::Error) -> Error {
-        Error::Font(val)
-    }
-}
-
-impl From<renderer::Error> for Error {
-    fn from(val: renderer::Error) -> Error {
-        Error::Render(val)
-    }
-}
+combination_err!(Error, {
+    Window: (window::Error),
+    Font: (font::Error),
+    Render: (renderer::Error)
+});
 
 /// The display wraps a window, font rasterizer, and GPU renderer
 pub struct Display {

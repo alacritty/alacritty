@@ -72,40 +72,9 @@ enum Msg {
     ShaderReload,
 }
 
-#[derive(Debug)]
-pub enum Error {
-    ShaderCreation(ShaderCreationError),
-}
-
-impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
-        match *self {
-            Error::ShaderCreation(ref err) => Some(err),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::ShaderCreation(ref err) => err.description(),
-        }
-    }
-}
-
-impl ::std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Error::ShaderCreation(ref err) => {
-                write!(f, "There was an error initializing the shaders: {}", err)
-            },
-        }
-    }
-}
-
-impl From<ShaderCreationError> for Error {
-    fn from(val: ShaderCreationError) -> Error {
-        Error::ShaderCreation(val)
-    }
-}
+combination_err!(Error, {
+    ShaderCreation: ShaderCreationError: "There was an error initializing the shaders"
+});
 
 /// Text drawing program
 ///

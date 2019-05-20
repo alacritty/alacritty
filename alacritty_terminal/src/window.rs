@@ -14,7 +14,6 @@
 use std::convert::From;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use std::ffi::c_void;
-use std::fmt::Display;
 
 use crate::gl;
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
@@ -40,15 +39,10 @@ static WINDOW_ICON: &'static [u8] = include_bytes!("../../extra/windows/alacritt
 /// Default Alacritty name, used for window title and class.
 pub const DEFAULT_NAME: &str = "Alacritty";
 
-/// Window errors
-#[derive(Debug)]
-pub enum Error {
-    /// Error creating the window
-    ContextCreation(glutin::CreationError),
-
-    /// Error manipulating the rendering context
-    Context(glutin::ContextError),
-}
+combination_err!(Error, {
+    ContextCreation: glutin::CreationError: "Error creating gl context",
+    Context: glutin::ContextError: "Error operating on render context"
+});
 
 /// Result of fallible operations concerning a Window.
 type Result<T> = ::std::result::Result<T, Error>;
@@ -80,43 +74,6 @@ pub struct DeviceProperties {
     /// This will be 1. on standard displays and may have a different value on
     /// hidpi displays.
     pub scale_factor: f64,
-}
-
-impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
-        match *self {
-            Error::ContextCreation(ref err) => Some(err),
-            Error::Context(ref err) => Some(err),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::ContextCreation(ref _err) => "Error creating gl context",
-            Error::Context(ref _err) => "Error operating on render context",
-        }
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Error::ContextCreation(ref err) => write!(f, "Error creating GL context; {}", err),
-            Error::Context(ref err) => write!(f, "Error operating on render context; {}", err),
-        }
-    }
-}
-
-impl From<glutin::CreationError> for Error {
-    fn from(val: glutin::CreationError) -> Error {
-        Error::ContextCreation(val)
-    }
-}
-
-impl From<glutin::ContextError> for Error {
-    fn from(val: glutin::ContextError) -> Error {
-        Error::Context(val)
-    }
 }
 
 fn create_gl_window(
