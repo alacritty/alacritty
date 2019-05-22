@@ -418,21 +418,20 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
     /// (eg. invert fg and bg colors).
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let cursor_selected = {
-            self.selection
-                .as_ref()
-                .map(|range| {
-                    range.contains_(Linear::new(
-                        self.grid.num_cols(),
-                        self.cursor.col,
-                        self.cursor.line,
-                    ))
-                })
-                .unwrap_or(false)
-        };
-
         loop {
             if self.cursor_offset == self.inner.offset() && self.inner.column() == self.cursor.col {
+                let cursor_selected = {
+                    self.selection
+                        .as_ref()
+                        .map(|range| {
+                            range.contains_(Linear::new(
+                                self.grid.num_cols(),
+                                self.cursor.col,
+                                self.cursor.line,
+                            ))
+                        })
+                        .unwrap_or(false)
+                };
                 // Handle cursor
                 if let Some(cursor_key) = self.cursor_key.take() {
                     let cell = Indexed {
