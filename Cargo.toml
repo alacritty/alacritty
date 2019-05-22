@@ -10,6 +10,7 @@ members = [
 lto = true
 debug = 1
 incremental = false
+opt-level = 1
 
 [patch.crates-io]
 servo-freetype-sys = { path = "servo-freetype-proxy" }
