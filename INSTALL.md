@@ -168,6 +168,16 @@ dependencies on [NixOS](https://nixos.org).
 nix-shell -A alacritty '<nixpkgs>'
 ```
 
+#### Gentoo
+
+On Gentoo, you need a few extra libraries to build Alacritty. The following
+command should install all of them. If something is still found to be missing,
+please open an issue.
+
+```sh
+emerge media-libs/fontconfig media-libs/freetype:2 sys-devel/make dev-util/cmake dev-util/pkgconfig
+```
+
 #### Windows
 
 On windows you will need to have the `{architecture}-pc-windows-msvc` toolchain
