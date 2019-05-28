@@ -176,17 +176,13 @@ pub fn reload_from(path: &PathBuf) -> Result<Config> {
 }
 
 fn read_config(path: &PathBuf) -> Result<Config> {
-    let mut bytes_vec = Vec::new();
-    let mut f = File::open(path)?;
-    f.read_to_end(&mut bytes_vec)?;
-    let mut bytes: &[u8] = &bytes_vec;
+    let mut contents = String::new();
+    File::open(path)?.read_to_string(&mut contents)?;
 
-    // Skip UTF-8 BOM
-    if bytes.starts_with(&[0xef, 0xbb, 0xbf]) {
-        bytes = &bytes[3..];
+    // Remove UTF-8 BOM
+    if contents.chars().nth(0) == Some('\u{FEFF}') {
+        contents = contents.split_off(3);
     }
-
-    let contents = String::from_utf8_lossy(&bytes);
 
     // Prevent parsing error with empty string
     if contents.is_empty() {
