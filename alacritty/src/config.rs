@@ -179,6 +179,11 @@ fn read_config(path: &PathBuf) -> Result<Config> {
     let mut contents = String::new();
     File::open(path)?.read_to_string(&mut contents)?;
 
+    // Remove UTF-8 BOM
+    if contents.chars().nth(0) == Some('\u{FEFF}') {
+        contents = contents.split_off(3);
+    }
+
     // Prevent parsing error with empty string
     if contents.is_empty() {
         return Ok(Config::default());
