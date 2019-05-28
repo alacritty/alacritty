@@ -130,6 +130,11 @@ impl Selection {
         self.region.end = Anchor::new(location.into(), side);
     }
 
+    pub fn update_as(&mut self, location: Point<usize>, side: Side, sel_type: SelectionType) {
+        self.update(location, side);
+        self.end_type = sel_type;
+    }
+
     pub fn to_span(&self, term: &Term, alt_screen: bool) -> Option<Span> {
         let start_orig = self.region.start.point;
         let start_side = self.region.start.side;
@@ -137,11 +142,11 @@ impl Selection {
         let end_side = self.region.end.side;
         let cols = term.dimensions().col;
         let lines = term.dimensions().line.0 as isize;
-        let (mut start, mut end, start_side, end_side) =
+        let (mut start, mut end, start_side, end_side, start_type, end_type) =
             if start_orig.line > end_orig.line || start_orig.line == end_orig.line && start_orig.col <= end_orig.col {
-                (end_orig, start_orig, end_side, start_side)
+                (end_orig, start_orig, end_side, start_side, self.end_type.clone(), self.start_type.clone())
             } else {
-                (start_orig, end_orig, start_side, end_side)
+                (start_orig, end_orig, start_side, end_side, self.start_type.clone(), self.end_type.clone())
             };
         
         if alt_screen {
@@ -150,8 +155,8 @@ impl Selection {
 
         // Simple Selection
         // No selection for single cell with identical sides or two cell with right+left sides
-        if self.start_type == SelectionType::Simple
-            && self.end_type == SelectionType::Simple
+        if start_type == SelectionType::Simple
+            && end_type == SelectionType::Simple
             && ((start == end
             && start_side == end_side)
             || (end_side == Side::Right
@@ -162,7 +167,7 @@ impl Selection {
             return None;
         }
         // Remove first cell if selection starts to the left of a cell
-        if start_side == Side::Left && start != end && self.start_type == SelectionType::Simple {
+        if start_side == Side::Left && start != end && start_type == SelectionType::Simple {
             // Special case when selection starts to left of first cell
             if start.col == Column(0) {
                 start.col = cols - 1;
@@ -172,23 +177,23 @@ impl Selection {
             }
         }
         // Remove last cell if selection ends at the right of a cell
-        if end_side == Side::Right && start != end && self.end_type == SelectionType::Simple {
+        if end_side == Side::Right && start != end && end_type == SelectionType::Simple {
             end.col += 1;
         }
 
         // Semantic expansion
-        if self.start_type == SelectionType::Semantic {
+        if start_type == SelectionType::Semantic {
             start = Point::from(term.semantic_search_right(start.into()));
         }
-        if self.end_type == SelectionType::Semantic {
+        if end_type == SelectionType::Semantic {
             end = Point::from(term.semantic_search_left(end.into()));
         }
 
         // Line expansion
-        if self.start_type == SelectionType::Lines {
+        if start_type == SelectionType::Lines {
             start = Point { line: start.line, col: cols - 1 };
         }
-        if self.end_type == SelectionType::Lines {
+        if end_type == SelectionType::Lines {
             end = Point { line: end.line, col: Column(0) };
         }
 

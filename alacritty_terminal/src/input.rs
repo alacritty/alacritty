@@ -36,6 +36,7 @@ use crate::event::{ClickState, Mouse};
 use crate::grid::Scroll;
 use crate::index::{Column, Line, Linear, Point, Side};
 use crate::message_bar::{self, Message};
+use crate::selection::SelectionType;
 use crate::term::mode::TermMode;
 use crate::term::{Search, SizeInfo, Term};
 use crate::url::Url;
@@ -66,6 +67,7 @@ pub trait ActionContext {
     fn clear_selection(&mut self);
     fn reverse_selection(&mut self);
     fn update_selection(&mut self, point: Point, side: Side);
+    fn update_selection_as(&mut self, point: Point, side: Side, sel_type: SelectionType);
     fn simple_selection(&mut self, point: Point, side: Side);
     fn semantic_selection(&mut self, point: Point);
     fn line_selection(&mut self, point: Point);
@@ -590,28 +592,49 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         let button_changed = self.ctx.mouse().last_button != button;
 
+        let report_modes =
+            TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
+        let report_mode_intersection = self.ctx.terminal().mode().intersects(report_modes);
+        let side = self.ctx.mouse().cell_side;
+
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
             ClickState::Click
                 if !button_changed && elapsed < self.mouse_config.double_click.threshold =>
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
-                self.on_mouse_double_click(button, point);
+                if modifiers.shift
+                    && button == MouseButton::Left
+                    && !self.ctx.selection_is_empty()
+                    && !report_mode_intersection
+                {
+                    if let Some(point) = point {
+                        self.ctx.update_selection_as(point, side, SelectionType::Semantic);
+                    }
+                } else {
+                    self.on_mouse_double_click(button, point);
+                }
                 ClickState::DoubleClick
             }
             ClickState::DoubleClick
                 if !button_changed && elapsed < self.mouse_config.triple_click.threshold =>
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
-                self.on_mouse_triple_click(button, point);
+                if modifiers.shift
+                    && button == MouseButton::Left
+                    && !self.ctx.selection_is_empty()
+                    && !report_mode_intersection
+                {
+                    if let Some(point) = point {
+                        self.ctx.update_selection_as(point, side, SelectionType::Lines);
+                    }
+                } else {
+                    self.on_mouse_triple_click(button, point);
+                }
                 ClickState::TripleClick
             }
             _ => {
                 // Don't launch URLs if this click cleared the selection
                 self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
-
-                let report_modes =
-                    TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
-                let report_mode_intersection = self.ctx.terminal().mode().intersects(report_modes);
 
                 if modifiers.shift
                     && button == MouseButton::Left
@@ -619,7 +642,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     && !report_mode_intersection
                 {
                     // update current selection
-                    let side = self.ctx.mouse().cell_side;
                     if let Some(point) = point {
                         if let Some(bounds) = self.ctx.selection_bounds() {
                             let p: Point<isize> =
@@ -647,7 +669,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                                     self.ctx.reverse_selection();
                                 }
                             }
-                            self.ctx.update_selection(point, side);
+                            self.ctx.update_selection_as(point, side, SelectionType::Simple);
                         }
                     }
                 } else {
@@ -1001,7 +1023,7 @@ mod tests {
     use crate::grid::Scroll;
     use crate::index::{Point, Side};
     use crate::message_bar::MessageBuffer;
-    use crate::selection::Selection;
+    use crate::selection::{Selection, SelectionType};
     use crate::term::{SizeInfo, Term, TermMode};
 
     use super::{Action, Binding, Processor};
@@ -1031,6 +1053,8 @@ mod tests {
         fn write_to_pty<B: Into<Cow<'static, [u8]>>>(&mut self, _val: B) {}
 
         fn update_selection(&mut self, _point: Point, _side: Side) {}
+
+        fn update_selection_as(&mut self, _point: Point, _side: Side, _sel_type: SelectionType) {}
 
         fn simple_selection(&mut self, _point: Point, _side: Side) {}
 

@@ -19,7 +19,7 @@ use crate::display::OnResize;
 use crate::grid::Scroll;
 use crate::index::{Column, Line, Point, Side};
 use crate::input::{self, KeyBinding, MouseBinding};
-use crate::selection::Selection;
+use crate::selection::{Selection, SelectionType};
 use crate::sync::FairMutex;
 use crate::term::cell::Cell;
 use crate::term::{SizeInfo, Term};
@@ -107,6 +107,17 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         // Update selection if one exists
         if let Some(ref mut selection) = self.terminal.selection_mut() {
             selection.update(point, side);
+        }
+
+        self.terminal.dirty = true;
+    }
+
+    fn update_selection_as(&mut self, point: Point, side: Side, sel_type: SelectionType) {
+        let point = self.terminal.visible_to_buffer(point);
+
+        // Update selection if one exists
+        if let Some(ref mut selection) = self.terminal.selection_mut() {
+            selection.update_as(point, side, sel_type);
         }
 
         self.terminal.dirty = true;
