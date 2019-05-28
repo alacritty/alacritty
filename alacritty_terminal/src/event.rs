@@ -82,23 +82,9 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
     fn selection_bounds(&self) -> Option<(&Point<isize>, &Point<isize>)> {
         if let Some(ref selection) = self.terminal.selection() {
-            match *selection {
-                Selection::Simple { ref region } => {
-                    let start = &region.start.point;
-                    let end = &region.end.point;
-                    Some((start, end))
-                },
-                Selection::Semantic { ref region } => {
-                    let start = &region.start;
-                    let end = &region.end;
-                    Some((start, end))
-                },
-                Selection::Lines { ref region, .. } => {
-                    let start = &region.start;
-                    let end = &region.end;
-                    Some((start, end))
-                }
-            }
+            let start = &selection.region.start.point;
+            let end = &selection.region.end.point;
+            Some((start, end))
         } else {
             None
         }
