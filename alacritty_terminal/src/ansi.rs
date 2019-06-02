@@ -332,6 +332,9 @@ pub trait Handler {
     /// Set an indexed color value
     fn set_color(&mut self, _: usize, _: Rgb) {}
 
+    /// Write a foreground/background color escape sequence with the current color
+    fn dynamic_color_sequence<W: io::Write>(&mut self, _: &mut W, _: u8, _: usize) {}
+
     /// Reset an indexed color to original value
     fn reset_color(&mut self, _: usize) {}
 
@@ -741,6 +744,8 @@ where
     // TODO replace OSC parsing with parser combinators
     #[inline]
     fn osc_dispatch(&mut self, params: &[&[u8]]) {
+        let writer = &mut self.writer;
+
         fn unhandled(params: &[&[u8]]) {
             let mut buf = String::new();
             for items in params {
@@ -788,22 +793,36 @@ where
                 unhandled(params);
             },
 
-            // Set foreground color
+            // Get/set foreground color
             b"10" => {
                 if params.len() >= 2 {
                     if let Some(color) = parse_rgb_color(params[1]) {
                         self.handler.set_color(NamedColor::Foreground as usize, color);
+                        return;
+                    } else if params[1] == b"?" {
+                        self.handler.dynamic_color_sequence(
+                            writer,
+                            10,
+                            NamedColor::Foreground as usize,
+                        );
                         return;
                     }
                 }
                 unhandled(params);
             },
 
-            // Set background color
+            // Get/set background color
             b"11" => {
                 if params.len() >= 2 {
                     if let Some(color) = parse_rgb_color(params[1]) {
                         self.handler.set_color(NamedColor::Background as usize, color);
+                        return;
+                    } else if params[1] == b"?" {
+                        self.handler.dynamic_color_sequence(
+                            writer,
+                            11,
+                            NamedColor::Background as usize,
+                        );
                         return;
                     }
                 }
