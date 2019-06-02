@@ -1875,11 +1875,7 @@ impl ansi::Handler for Term {
     fn dynamic_color_sequence<W: io::Write>(&mut self, writer: &mut W, code: u8, index: usize) {
         trace!("Writing escape sequence for dynamic color code {}: color[{}]", code, index);
         let color = self.colors[index];
-        let _ = write!(
-            writer,
-            "\x1b]{};rgb:{:x}/{:x}/{:x}\x07",
-            code, color.r, color.g, color.b
-        );
+        let _ = write!(writer, "\x1b]{};rgb:{:x}/{:x}/{:x}\x07", code, color.r, color.g, color.b);
     }
 
     /// Reset the indexed color to original value

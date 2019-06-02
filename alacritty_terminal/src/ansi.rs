@@ -800,7 +800,11 @@ where
                         self.handler.set_color(NamedColor::Foreground as usize, color);
                         return;
                     } else if params[1] == b"?" {
-                        self.handler.dynamic_color_sequence(writer, 10, NamedColor::Foreground as usize);
+                        self.handler.dynamic_color_sequence(
+                            writer,
+                            10,
+                            NamedColor::Foreground as usize,
+                        );
                         return;
                     }
                 }
@@ -814,7 +818,11 @@ where
                         self.handler.set_color(NamedColor::Background as usize, color);
                         return;
                     } else if params[1] == b"?" {
-                        self.handler.dynamic_color_sequence(writer, 11, NamedColor::Background as usize);
+                        self.handler.dynamic_color_sequence(
+                            writer,
+                            11,
+                            NamedColor::Background as usize,
+                        );
                         return;
                     }
                 }
