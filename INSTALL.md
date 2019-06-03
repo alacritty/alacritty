@@ -20,7 +20,7 @@
         14. [Clear Linux](#clear-linux)
         15. [Other](#other)
 2. [Building](#building)
-    1. [Linux](#linux)
+    1. [Linux/Windows](#linux--windows)
         1. [Desktop Entry](#desktop-entry)
     2. [MacOS](#macos)
     3. [Cargo](#cargo)
