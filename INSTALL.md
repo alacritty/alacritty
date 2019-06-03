@@ -156,7 +156,7 @@ Alacritty. Here's a `eopkg` command that should install all of them. If
 something is still found to be missing, please open an issue.
 
 ```sh
-sudo eopkg install fontconfig-devel
+eopkg install fontconfig-devel
 ```
 
 #### NixOS/Nixpkgs
@@ -166,6 +166,16 @@ dependencies on [NixOS](https://nixos.org).
 
 ```sh
 nix-shell -A alacritty '<nixpkgs>'
+```
+
+#### Gentoo
+
+On Gentoo, you need a few extra libraries to build Alacritty. The following
+command should install all of them. If something is still found to be missing,
+please open an issue.
+
+```sh
+emerge --onlydeps x11-terms/alacritty
 ```
 
 #### Windows
