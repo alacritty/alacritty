@@ -647,27 +647,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                             let p: Point<isize> =
                                 Point::from(self.ctx.terminal().visible_to_buffer(point));
 
-                            // reverse selection if mouse is closer to the start point
-                            if bounds.0.line == bounds.1.line {
-                                let start_horiz_dist = if p.col < bounds.0.col {
-                                    bounds.0.col - p.col
-                                } else {
-                                    p.col - bounds.0.col
-                                };
-                                let end_horiz_dist = if p.col < bounds.1.col {
-                                    bounds.1.col - p.col
-                                } else {
-                                    p.col - bounds.1.col
-                                };
-                                if start_horiz_dist < end_horiz_dist {
-                                    self.ctx.reverse_selection();
-                                }
-                            } else {
-                                let start_virt_dist = (p.line - bounds.0.line).abs();
-                                let end_virt_dist = (p.line - bounds.1.line).abs();
-                                if start_virt_dist < end_virt_dist {
-                                    self.ctx.reverse_selection();
-                                }
+                            // reverse selection if start is between mouse & end
+                            if p.line > bounds.0.line && bounds.0.line > bounds.1.line
+                                || p.line < bounds.0.line && bounds.0.line < bounds.1.line
+                                || p.col > bounds.0.col && bounds.0.col > bounds.1.col
+                                || p.col < bounds.0.col && bounds.0.col < bounds.1.col
+                            {
+                                self.ctx.reverse_selection();
                             }
                             self.ctx.update_selection_as(point, side, SelectionType::Simple);
                         }
