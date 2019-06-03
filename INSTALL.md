@@ -65,7 +65,7 @@ drivers installed too (these are called `libegl1-mesa-dev` on Ubuntu).
 #### Debian/Ubuntu
 
 You can build alacritty using `cargo deb` and use your system's package manager
-to maintain the application using the instructions [above](#debianubuntu).
+to maintain the application using the instructions [below](#debianubuntu-1).
 
 If you'd still like to build a local version manually, you need a few extra
 libraries to build Alacritty. Here's an apt command that should install all of
