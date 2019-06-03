@@ -156,7 +156,7 @@ Alacritty. Here's a `eopkg` command that should install all of them. If
 something is still found to be missing, please open an issue.
 
 ```sh
-sudo eopkg install fontconfig-devel
+eopkg install fontconfig-devel
 ```
 
 #### NixOS/Nixpkgs
@@ -175,7 +175,7 @@ command should install all of them. If something is still found to be missing,
 please open an issue.
 
 ```sh
-emerge media-libs/fontconfig media-libs/freetype:2 sys-devel/make dev-util/cmake dev-util/pkgconfig
+emerge --onlydeps x11-terms/alacritty
 ```
 
 #### Windows
