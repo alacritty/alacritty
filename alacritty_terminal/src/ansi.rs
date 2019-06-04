@@ -24,63 +24,59 @@ use vte;
 
 use crate::term::color::Rgb;
 
+fn is_rgb_separator(ch: Option<char>) -> bool {
+    ch == None || ch == Some('/') || ch == Some('\x07')
+}
+
 // Parse color arguments
-//
-// Expect that color argument looks like "rgb:xx/xx/xx" or "#xxxxxx"
+// Expect the color argument in the form "rgb:x/x/x" or "#xxx", where x is 1-4 digit hex numbers
 fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
-    let mut iter = color.iter();
+    let len = color.len();
+    // Legacy colors are in the form "#xxx"
+    // The use of this format is no longer encouraged by xparsecolor
+    let mut is_legacy = false;
 
-    macro_rules! next {
-        () => {
-            iter.next().map(|v| *v as char)
-        };
+    if len >= 5 && color[0] == b'#' {
+        is_legacy = true;
+    } else if len < 10 || &color[..4] != b"rgb:" {
+        return None;
     }
 
-    macro_rules! parse_hex {
-        () => {{
-            let mut digit: u8 = 0;
-            let next = next!().and_then(|v| v.to_digit(16));
-            if let Some(value) = next {
-                digit = value as u8;
+    let mut iter = color.iter().map(|v| *v as char).skip(if is_legacy { 1 } else { 4 });
+    let mut colors = [0; 3];
+
+    for color in &mut colors {
+        // parse the first digit
+        let first_digit = iter.next().and_then(|v| v.to_digit(16))? as u8;
+        *color = first_digit << 4;
+
+        // parse the remaining 3 digits
+        for i in 0..4 {
+            // legacy color format does not have separators, break based on length
+            if is_legacy && (i == 3 || len < 8 + i * 3) {
+                break;
             }
 
-            let next = next!().and_then(|v| v.to_digit(16));
-            if let Some(value) = next {
-                digit <<= 4;
-                digit += value as u8;
+            let next = iter.next();
+
+            if !is_legacy && is_rgb_separator(next) {
+                if i == 0 {
+                    // "rgb:" format colors treat single-digit colors as repeated
+                    *color += first_digit;
+                }
+                break;
+            } else if i == 3 {
+                // expect to have encountered a separator
+                return None;
             }
-            digit
-        }};
+
+            if i == 0 {
+                *color += next.and_then(|v| v.to_digit(16))? as u8;
+            }
+        }
     }
 
-    match next!() {
-        Some('r') => {
-            if next!() != Some('g') {
-                return None;
-            }
-            if next!() != Some('b') {
-                return None;
-            }
-            if next!() != Some(':') {
-                return None;
-            }
-
-            let r = parse_hex!();
-            let val = next!();
-            if val != Some('/') {
-                return None;
-            }
-            let g = parse_hex!();
-            if next!() != Some('/') {
-                return None;
-            }
-            let b = parse_hex!();
-
-            Some(Rgb { r, g, b })
-        },
-        Some('#') => Some(Rgb { r: parse_hex!(), g: parse_hex!(), b: parse_hex!() }),
-        _ => None,
-    }
+    Some(Rgb { r: colors[0], g: colors[1], b: colors[2] })
 }
 
 fn parse_number(input: &[u8]) -> Option<u8> {
@@ -1623,13 +1619,30 @@ mod tests {
     }
 
     #[test]
-    fn parse_valid_rgb_color() {
-        assert_eq!(parse_rgb_color(b"rgb:11/aa/ff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+    fn parse_valid_rgb_colors() {
+        assert_eq!(parse_rgb_color(b"rgb:11/aa/ff\x07"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+        assert_eq!(parse_rgb_color(b"rgb:f/ed1/cb23\x07"), Some(Rgb { r: 0xff, g: 0xed, b: 0xcb }));
+        assert_eq!(parse_rgb_color(b"rgb:f/e/d\x07"), Some(Rgb { r: 0xff, g: 0xee, b: 0xdd }));
     }
 
     #[test]
-    fn parse_valid_rgb_color2() {
-        assert_eq!(parse_rgb_color(b"#11aaff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+    fn parse_valid_legacy_rgb_colors() {
+        assert_eq!(parse_rgb_color(b"#1af\x07"), Some(Rgb { r: 0x10, g: 0xa0, b: 0xf0 }));
+        assert_eq!(parse_rgb_color(b"#11aaff\x07"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+        assert_eq!(parse_rgb_color(b"#110aa0ff0\x07"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+        assert_eq!(parse_rgb_color(b"#1100aa00ff00\x07"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+    }
+
+    #[test]
+    fn parse_invalid_rgb_colors() {
+        assert_eq!(parse_rgb_color(b"rgb:0//\x07"), None);
+        assert_eq!(parse_rgb_color(b"rgb://///\x07"), None);
+    }
+
+    #[test]
+    fn parse_invalid_legacy_rgb_colors() {
+        assert_eq!(parse_rgb_color(b"#\x07"), None);
+        assert_eq!(parse_rgb_color(b"#f\x07"), None);
     }
 
     #[test]

@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     and `debug.ref_test`
 - Select until next matching bracket when double-clicking a bracket
 - Added foreground/background escape code request sequences
+- Escape sequences now support 1, 3, and 4 digit hex colors
 
 ### Changed
 
