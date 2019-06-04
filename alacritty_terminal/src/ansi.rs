@@ -537,10 +537,10 @@ pub enum NamedColor {
     Foreground = 256,
     /// The background color
     Background,
-    /// Color for the text under the cursor
-    CursorText,
     /// Color for the cursor itself
     Cursor,
+    /// Color for the text under the cursor
+    CursorText,
     /// Dim black
     DimBlack,
     /// Dim red
@@ -793,47 +793,34 @@ where
                 unhandled(params);
             },
 
-            // Get/set foreground color
-            b"10" => {
+            // Get/set Foreground, Background, Cursor colors
+            b"10" | b"11" | b"12" => {
                 if params.len() >= 2 {
-                    if let Some(color) = parse_rgb_color(params[1]) {
-                        self.handler.set_color(NamedColor::Foreground as usize, color);
-                        return;
-                    } else if params[1] == b"?" {
-                        self.handler.dynamic_color_sequence(
-                            writer,
-                            10,
-                            NamedColor::Foreground as usize,
-                        );
-                        return;
-                    }
-                }
-                unhandled(params);
-            },
+                    if let Some(mut dynamic_code) = parse_number(params[0]) {
+                        for param in &params[1..] {
+                            // 10 is the first dynamic color, also the foreground
+                            let offset = dynamic_code as usize - 10;
+                            let index = NamedColor::Foreground as usize + offset;
+                            
+                            // End of setting dynamic colors
+                            if index > NamedColor::Cursor as usize {
+                                unhandled(params);
+                                break;
+                            }
 
-            // Get/set background color
-            b"11" => {
-                if params.len() >= 2 {
-                    if let Some(color) = parse_rgb_color(params[1]) {
-                        self.handler.set_color(NamedColor::Background as usize, color);
-                        return;
-                    } else if params[1] == b"?" {
-                        self.handler.dynamic_color_sequence(
-                            writer,
-                            11,
-                            NamedColor::Background as usize,
-                        );
-                        return;
-                    }
-                }
-                unhandled(params);
-            },
-
-            // Set text cursor color
-            b"12" => {
-                if params.len() >= 2 {
-                    if let Some(color) = parse_rgb_color(params[1]) {
-                        self.handler.set_color(NamedColor::Cursor as usize, color);
+                            if let Some(color) = parse_rgb_color(param) {
+                                self.handler.set_color(index, color);
+                            } else if param == b"?" {
+                                self.handler.dynamic_color_sequence(
+                                    writer,
+                                    dynamic_code,
+                                    index,
+                                );
+                            } else {
+                                unhandled(params);
+                            }
+                            dynamic_code += 1;
+                        }
                         return;
                     }
                 }

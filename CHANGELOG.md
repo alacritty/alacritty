@@ -389,6 +389,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pressing enter on the numpad should now insert a newline
 - The mouse bindings now support keyboard modifiers (shift/ctrl/alt/super)
 - Add support for the bright foreground color
+- Support for setting foreground, background colors in one escape sequence
 
 ### Changed
 
