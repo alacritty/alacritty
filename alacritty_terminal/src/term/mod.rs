@@ -189,7 +189,12 @@ impl Search for Term {
 
 impl selection::Dimensions for Term {
     fn dimensions(&self) -> Point {
-        Point { col: self.grid.num_cols(), line: self.grid.num_lines() }
+        let line = if self.mode.contains(TermMode::ALT_SCREEN) {
+            self.grid.num_lines()
+        } else {
+            Line(self.grid.len())
+        };
+        Point { col: self.grid.num_cols(), line }
     }
 }
 
@@ -1057,9 +1062,8 @@ impl Term {
             }
         }
 
-        let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
         let selection = self.grid.selection.clone()?;
-        let Span { mut start, mut end } = selection.to_span(self, alt_screen)?;
+        let Span { mut start, mut end } = selection.to_span(self)?;
 
         let mut res = String::new();
 
@@ -1146,8 +1150,7 @@ impl Term {
         config: &'b Config,
         window_focused: bool,
     ) -> RenderableCellsIter<'_> {
-        let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
-        let selection = self.grid.selection.as_ref().and_then(|s| s.to_span(self, alt_screen));
+        let selection = self.grid.selection.as_ref().and_then(|s| s.to_span(self));
 
         let cursor = if window_focused || !config.cursor.unfocused_hollow() {
             self.cursor_style.unwrap_or(self.default_cursor_style)
