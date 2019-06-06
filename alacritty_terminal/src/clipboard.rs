@@ -19,14 +19,14 @@ use copypasta::nop_clipboard::NopClipboardContext;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use copypasta::wayland_clipboard::WaylandClipboardContext;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-use copypasta::wayland_clipboard::PrimaryWaylandClipboardContext;
+use copypasta::wayland_clipboard::PrimaryWaylandClipboardContext as WaylandSelectionClipboardContext;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-use copypasta::x11_clipboard::{Primary as X11SecondaryClipboard, X11ClipboardContext};
+use copypasta::x11_clipboard::{Primary as X11SelectionClipboard, X11ClipboardContext};
 use copypasta::{ClipboardContext, ClipboardProvider};
 
 pub struct Clipboard {
-    primary: Box<ClipboardProvider>,
-    secondary: Option<Box<ClipboardProvider>>,
+    clipboard: Box<ClipboardProvider>,
+    selection: Option<Box<ClipboardProvider>>,
 }
 
 impl Clipboard {
@@ -39,41 +39,41 @@ impl Clipboard {
     pub fn new(display: Option<*mut c_void>) -> Self {
         if let Some(display) = display {
             return Self {
-                primary: unsafe { Box::new(WaylandClipboardContext::new_from_external(display)) },
-                secondary: unsafe { Some(Box::new(PrimaryWaylandClipboardContext::new_from_external(display))) },
+                clipboard: unsafe { Box::new(WaylandClipboardContext::new_from_external(display)) },
+                selection: unsafe { Some(Box::new(WaylandSelectionClipboardContext::new_from_external(display))) },
             };
         }
 
         Self {
-            primary: Box::new(ClipboardContext::new().unwrap()),
-            secondary: Some(Box::new(X11ClipboardContext::<X11SecondaryClipboard>::new().unwrap())),
+            clipboard: Box::new(ClipboardContext::new().unwrap()),
+            selection: Some(Box::new(X11ClipboardContext::<X11SelectionClipboard>::new().unwrap())),
         }
     }
 
     // Use for tests and ref-tests
     pub fn new_nop() -> Self {
-        Self { primary: Box::new(NopClipboardContext::new().unwrap()), secondary: None }
+        Self { clipboard: Box::new(NopClipboardContext::new().unwrap()), selection: None }
     }
 }
 
 impl Default for Clipboard {
     fn default() -> Self {
-        Self { primary: Box::new(ClipboardContext::new().unwrap()), secondary: None }
+        Self { clipboard: Box::new(ClipboardContext::new().unwrap()), selection: None }
     }
 }
 
 #[derive(Debug)]
 pub enum ClipboardType {
-    Primary,
-    Secondary,
+    Clipboard,
+    Selection,
 }
 
 impl Clipboard {
     pub fn store(&mut self, ty: ClipboardType, text: impl Into<String>) {
-        let clipboard = match (ty, &mut self.secondary) {
-            (ClipboardType::Secondary, Some(provider)) => provider,
-            (ClipboardType::Secondary, None) => return,
-            _ => &mut self.primary,
+        let clipboard = match (ty, &mut self.selection) {
+            (ClipboardType::Selection, Some(provider)) => provider,
+            (ClipboardType::Selection, None) => return,
+            _ => &mut self.clipboard,
         };
 
         clipboard.set_contents(text.into()).unwrap_or_else(|err| {
@@ -82,9 +82,9 @@ impl Clipboard {
     }
 
     pub fn load(&mut self, ty: ClipboardType) -> String {
-        let clipboard = match (ty, &mut self.secondary) {
-            (ClipboardType::Secondary, Some(provider)) => provider,
-            _ => &mut self.primary,
+        let clipboard = match (ty, &mut self.selection) {
+            (ClipboardType::Selection, Some(provider)) => provider,
+            _ => &mut self.clipboard,
         };
 
         match clipboard.get_contents() {
