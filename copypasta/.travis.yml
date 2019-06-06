@@ -1,0 +1,15 @@
+language: rust
+
+os:
+- linux
+- osx
+
+# TODO: figure out how to get headless X11 working
+script: |
+  #!/bin/bash
+  cargo build --verbose
+  if [[ $TRAVIS_OS_NAME == 'linux' ]]; then
+    cargo build --tests --verbose
+  else
+    cargo test --verbose
+  fi
