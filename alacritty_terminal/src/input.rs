@@ -648,10 +648,10 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                                 Point::from(self.ctx.terminal().visible_to_buffer(point));
 
                             // reverse selection if start is between mouse & end
-                            if p.line > bounds.0.line && bounds.0.line > bounds.1.line
-                                || p.line < bounds.0.line && bounds.0.line < bounds.1.line
-                                || p.col > bounds.0.col && bounds.0.col > bounds.1.col
-                                || p.col < bounds.0.col && bounds.0.col < bounds.1.col
+                            if (p.line >= bounds.0.line && bounds.0.line > bounds.1.line && p.col < bounds.0.col)
+                                || (p.line <= bounds.0.line && bounds.0.line < bounds.1.line && p.col > bounds.0.col)
+                                || (p.col > bounds.0.col && bounds.0.col > bounds.1.col)
+                                || (p.col < bounds.0.col && bounds.0.col < bounds.1.col)
                             {
                                 self.ctx.reverse_selection();
                             }
