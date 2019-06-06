@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cells with identical foreground and background will now show their text upon selection/inversion
 - Default Window padding to 0x0
 - Moved config option `render_timer` and `persistent_logging` to the `debug` group
+- When the cursor is in the selection, it will be inverted again, making it visible
 
 ### Fixed
 
