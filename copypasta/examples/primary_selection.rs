@@ -1,8 +1,8 @@
 extern crate copypasta;
 
-use copypasta::ClipboardProvider;
 #[cfg(target_os = "linux")]
-use copypasta::x11_clipboard::{X11ClipboardContext, Primary};
+use copypasta::x11_clipboard::{Primary, X11ClipboardContext};
+use copypasta::ClipboardProvider;
 
 #[cfg(target_os = "linux")]
 fn main() {

@@ -1,7 +1,7 @@
 extern crate copypasta;
 
-use copypasta::ClipboardProvider;
 use copypasta::ClipboardContext;
+use copypasta::ClipboardProvider;
 
 fn main() {
     let mut ctx = ClipboardContext::new().unwrap();

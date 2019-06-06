@@ -3,7 +3,7 @@ extern crate copypasta;
 extern crate smithay_client_toolkit as sctk;
 
 #[cfg(target_os = "linux")]
-use copypasta::wayland_clipboard::WaylandClipboardContext;
+use copypasta::wayland_clipboard::{Clipboard, WaylandClipboardContext};
 use copypasta::ClipboardProvider;
 
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -26,24 +26,16 @@ fn main() {
         Display::connect_to_env().expect("Failed to connect to the wayland server.");
     let env = Environment::from_display(&*display, &mut event_queue).unwrap();
 
-    let mut ctx = WaylandClipboardContext::new(&display);
+    let mut ctx = WaylandClipboardContext::<Clipboard>::new(&display);
     let cb_contents = Arc::new(Mutex::new(String::new()));
 
-    let seat = env
-        .manager
-        .instantiate_range(2, 6, NewProxy::implement_dummy)
-        .unwrap();
+    let seat = env.manager.instantiate_range(2, 6, NewProxy::implement_dummy).unwrap();
 
     let need_redraw = Arc::new(atomic::AtomicBool::new(false));
     let need_redraw_clone = need_redraw.clone();
     let cb_contents_clone = cb_contents.clone();
     map_keyboard_auto(&seat, move |event: KbEvent, _| {
-        if let KbEvent::Key {
-            state: KeyState::Pressed,
-            utf8: Some(text),
-            ..
-        } = event
-        {
+        if let KbEvent::Key { state: KeyState::Pressed, utf8: Some(text), .. } = event {
             if text == " " {
                 *cb_contents_clone.lock().unwrap() = dbg!(ctx.get_contents().unwrap());
                 need_redraw_clone.store(true, atomic::Ordering::Relaxed)
@@ -61,10 +53,7 @@ fn main() {
     .unwrap();
 
     let mut dimensions = (320u32, 240u32);
-    let surface = env
-        .compositor
-        .create_surface(NewProxy::implement_dummy)
-        .unwrap();
+    let surface = env.compositor.create_surface(NewProxy::implement_dummy).unwrap();
 
     let next_action = Arc::new(Mutex::new(None::<WEvent>));
 
@@ -92,10 +81,7 @@ fn main() {
 
     let mut font_data = Vec::new();
     std::fs::File::open(
-        &fontconfig::FontConfig::new()
-            .unwrap()
-            .get_regular_family_fonts("sans")
-            .unwrap()[0],
+        &fontconfig::FontConfig::new().unwrap().get_regular_family_fonts("sans").unwrap()[0],
     )
     .unwrap()
     .read_to_end(&mut font_data)
@@ -104,13 +90,7 @@ fn main() {
     if !env.shell.needs_configure() {
         // initial draw to bootstrap on wl_shell
         if let Some(pool) = pools.pool() {
-            redraw(
-                pool,
-                window.surface(),
-                dimensions,
-                &font_data,
-                "".to_string(),
-            );
+            redraw(pool, window.surface(), dimensions, &font_data, "".to_string());
         }
         window.refresh();
     }
@@ -121,7 +101,7 @@ fn main() {
             Some(WEvent::Refresh) => {
                 window.refresh();
                 window.surface().commit();
-            }
+            },
             Some(WEvent::Configure { new_size, .. }) => {
                 if let Some((w, h)) = new_size {
                     window.resize(w, h);
@@ -137,8 +117,8 @@ fn main() {
                         cb_contents.lock().unwrap().clone(),
                     );
                 }
-            }
-            None => {}
+            },
+            None => {},
         }
 
         if need_redraw.swap(false, atomic::Ordering::Relaxed) {
@@ -151,9 +131,7 @@ fn main() {
                     cb_contents.lock().unwrap().clone(),
                 );
             }
-            window
-                .surface()
-                .damage_buffer(0, 0, dimensions.0 as i32, dimensions.1 as i32);
+            window.surface().damage_buffer(0, 0, dimensions.0 as i32, dimensions.1 as i32);
             window.surface().commit();
         }
 
@@ -170,8 +148,7 @@ fn redraw(
 ) {
     let (buf_x, buf_y) = (dimensions.0 as usize, dimensions.1 as usize);
 
-    pool.resize(4 * buf_x * buf_y)
-        .expect("Failed to resize the memory pool.");
+    pool.resize(4 * buf_x * buf_y).expect("Failed to resize the memory pool.");
 
     let mut buf = vec![0; 4 * buf_x * buf_y];
     let mut canvas =
@@ -215,10 +192,7 @@ fn redraw(
             cb_contents[i..i + 36].to_string()
         };
         let text = text::Text::new(
-            (
-                buf_x / 10,
-                buf_y / 8 + (i as f32 * buf_y as f32 / 1000.) as usize,
-            ),
+            (buf_x / 10, buf_y / 8 + (i as f32 * buf_y as f32 / 1000.) as usize),
             [255, 255, 255, 255],
             font_data,
             buf_x as f32 / 40.,
@@ -232,13 +206,8 @@ fn redraw(
     pool.write_all(canvas.buffer).unwrap();
     pool.flush().unwrap();
 
-    let new_buffer = pool.buffer(
-        0,
-        buf_x as i32,
-        buf_y as i32,
-        4 * buf_x as i32,
-        wl_shm::Format::Argb8888,
-    );
+    let new_buffer =
+        pool.buffer(0, buf_x as i32, buf_y as i32, 4 * buf_x as i32, wl_shm::Format::Argb8888);
     surface.attach(Some(&new_buffer), 0, 0);
     surface.commit();
 }
