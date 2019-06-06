@@ -18,7 +18,6 @@
 //! finalized when the button is released. The selection should be cleared
 //! when text is added/removed/scrolled on the screen. The selection should
 //! also be cleared if the user clicks off of the selection.
-use std::cmp::{max, min};
 use std::ops::Range;
 
 use crate::index::{Column, Point, Side};
@@ -130,28 +129,48 @@ impl Selection {
         }
     }
 
-    pub fn to_span(&self, term: &Term, alt_screen: bool) -> Option<Span> {
+    pub fn to_span(&self, term: &Term) -> Option<Span> {
+        // Get both sides of the selection
+        let (mut start, mut end) = match *self {
+            Selection::Simple { ref region } => (region.start.point, region.end.point),
+            Selection::Semantic { ref region } | Selection::Lines { ref region, .. } => {
+                (region.start, region.end)
+            },
+        };
+
+        // Order the start/end
+        let needs_swap = Selection::points_need_swap(start, end);
+        if needs_swap {
+            std::mem::swap(&mut start, &mut end);
+        }
+
+        // Clamp to visible region in grid/normal
+        let cols = term.dimensions().col;
+        let lines = term.dimensions().line.0 as isize;
+        let (start, end) = Selection::grid_clamp(start, end, lines, cols)?;
+
         let span = match *self {
-            Selection::Simple { ref region } => Selection::span_simple(term, region, alt_screen),
-            Selection::Semantic { ref region } => {
-                Selection::span_semantic(term, region, alt_screen)
+            Selection::Simple { ref region } if needs_swap => {
+                Selection::span_simple(term, start, end, region.end.side, region.start.side)
             },
-            Selection::Lines { ref region, initial_line } => {
-                Selection::span_lines(term, region, initial_line, alt_screen)
+            Selection::Simple { ref region } => {
+                Selection::span_simple(term, start, end, region.start.side, region.end.side)
             },
+            Selection::Semantic { .. } => Selection::span_semantic(term, start, end),
+            Selection::Lines { .. } => Selection::span_lines(term, start, end),
         };
 
         // Expand selection across double-width cells
         span.map(|mut span| {
             let grid = term.grid();
 
-            if span.end.col < grid.num_cols()
+            if span.end.col < cols
                 && grid[span.end.line][span.end.col].flags.contains(Flags::WIDE_CHAR_SPACER)
             {
                 span.end.col = Column(span.end.col.saturating_sub(1));
             }
 
-            if span.start.col.0 < grid.num_cols().saturating_sub(1)
+            if span.start.col.0 < cols.saturating_sub(1)
                 && grid[span.start.line][span.start.col].flags.contains(Flags::WIDE_CHAR)
             {
                 span.start.col += 1;
@@ -170,99 +189,43 @@ impl Selection {
         }
     }
 
-    fn span_semantic<G>(grid: &G, region: &Range<Point<isize>>, alt_screen: bool) -> Option<Span>
+    fn span_semantic<T>(term: &T, start: Point<isize>, end: Point<isize>) -> Option<Span>
     where
-        G: Search + Dimensions,
+        T: Search + Dimensions,
     {
-        let cols = grid.dimensions().col;
-        let lines = grid.dimensions().line.0 as isize;
-
-        // Normalize ordering of selected cells
-        let (mut start, mut end) = if region.start < region.end {
-            (region.start, region.end)
-        } else {
-            (region.end, region.start)
-        };
-
-        if alt_screen {
-            Selection::alt_screen_clamp(&mut start, &mut end, lines, cols)?;
-        }
-
-        let (mut start, mut end) = if start == end {
-            if let Some(end) = grid.bracket_search(start.into()) {
+        let (start, end) = if start == end {
+            if let Some(end) = term.bracket_search(start.into()) {
                 (start.into(), end)
             } else {
-                (grid.semantic_search_right(start.into()), grid.semantic_search_left(end.into()))
+                (term.semantic_search_right(start.into()), term.semantic_search_left(end.into()))
             }
-        } else if start < end && start.line == end.line {
-            (grid.semantic_search_left(start.into()), grid.semantic_search_right(end.into()))
         } else {
-            (grid.semantic_search_right(start.into()), grid.semantic_search_left(end.into()))
+            (term.semantic_search_right(start.into()), term.semantic_search_left(end.into()))
         };
-
-        if start > end {
-            std::mem::swap(&mut start, &mut end);
-        }
 
         Some(Span { start, end })
     }
 
-    fn span_lines<G>(
-        grid: &G,
-        region: &Range<Point<isize>>,
-        initial_line: isize,
-        alt_screen: bool,
-    ) -> Option<Span>
+    fn span_lines<T>(term: &T, mut start: Point<isize>, mut end: Point<isize>) -> Option<Span>
     where
-        G: Dimensions,
+        T: Dimensions,
     {
-        let cols = grid.dimensions().col;
-        let lines = grid.dimensions().line.0 as isize;
-
-        // First, create start and end points based on initial line and the grid
-        // dimensions.
-        let mut start = Point { col: cols - 1, line: initial_line };
-        let mut end = Point { col: Column(0), line: initial_line };
-
-        // Now, expand lines based on where cursor started and ended.
-        if region.start.line < region.end.line {
-            // Start is below end
-            start.line = min(start.line, region.start.line);
-            end.line = max(end.line, region.end.line);
-        } else {
-            // Start is above end
-            start.line = min(start.line, region.end.line);
-            end.line = max(end.line, region.start.line);
-        }
-
-        if alt_screen {
-            Selection::alt_screen_clamp(&mut start, &mut end, lines, cols)?;
-        }
+        start.col = term.dimensions().col - 1;
+        end.col = Column(0);
 
         Some(Span { start: start.into(), end: end.into() })
     }
 
-    fn span_simple<G>(grid: &G, region: &Range<Anchor>, alt_screen: bool) -> Option<Span>
+    fn span_simple<T>(
+        term: &T,
+        mut start: Point<isize>,
+        mut end: Point<isize>,
+        start_side: Side,
+        end_side: Side,
+    ) -> Option<Span>
     where
-        G: Dimensions,
+        T: Dimensions,
     {
-        let start = region.start.point;
-        let start_side = region.start.side;
-        let end = region.end.point;
-        let end_side = region.end.side;
-        let cols = grid.dimensions().col;
-        let lines = grid.dimensions().line.0 as isize;
-
-        // Make sure start is always the "bottom" and end is always the "top"
-        let (mut start, mut end, start_side, end_side) =
-            if start.line > end.line || start.line == end.line && start.col <= end.col {
-                // Selected upward; start/end are swapped
-                (end, start, end_side, start_side)
-            } else {
-                // Selected downward; no swapping
-                (start, end, start_side, end_side)
-            };
-
         // No selection for single cell with identical sides or two cell with right+left sides
         if (start == end && start_side == end_side)
             || (end_side == Side::Right
@@ -277,7 +240,7 @@ impl Selection {
         if start_side == Side::Left && start != end {
             // Special case when selection starts to left of first cell
             if start.col == Column(0) {
-                start.col = cols - 1;
+                start.col = term.dimensions().col - 1;
                 start.line += 1;
             } else {
                 start.col -= 1;
@@ -289,21 +252,22 @@ impl Selection {
             end.col += 1;
         }
 
-        if alt_screen {
-            Selection::alt_screen_clamp(&mut start, &mut end, lines, cols)?;
-        }
-
         // Return the selection with all cells inclusive
         Some(Span { start: start.into(), end: end.into() })
     }
 
-    // Clamp selection in the alternate screen to the visible region
-    fn alt_screen_clamp(
-        start: &mut Point<isize>,
-        end: &mut Point<isize>,
+    // Bring start and end points in the correct order
+    fn points_need_swap(start: Point<isize>, end: Point<isize>) -> bool {
+        start.line > end.line || start.line == end.line && start.col <= end.col
+    }
+
+    // Clamp selection inside the grid to prevent out of bounds errors
+    fn grid_clamp(
+        mut start: Point<isize>,
+        mut end: Point<isize>,
         lines: isize,
         cols: Column,
-    ) -> Option<()> {
+    ) -> Option<(Point<isize>, Point<isize>)> {
         if end.line >= lines {
             // Don't show selection above visible region
             if start.line >= lines {
@@ -326,7 +290,7 @@ impl Selection {
             start.col = cols - 1;
         }
 
-        Some(())
+        Some((start, end))
     }
 }
 
@@ -384,7 +348,7 @@ mod test {
         let mut selection = Selection::simple(location, Side::Left);
         selection.update(location, Side::Right);
 
-        assert_eq!(selection.to_span(&term(1, 1), false).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(1, 1)).unwrap(), Span {
             start: location,
             end: location
         });
@@ -401,7 +365,7 @@ mod test {
         let mut selection = Selection::simple(location, Side::Right);
         selection.update(location, Side::Left);
 
-        assert_eq!(selection.to_span(&term(1, 1), false).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(1, 1)).unwrap(), Span {
             start: location,
             end: location
         });
@@ -417,7 +381,7 @@ mod test {
         let mut selection = Selection::simple(Point::new(0, Column(0)), Side::Right);
         selection.update(Point::new(0, Column(1)), Side::Left);
 
-        assert_eq!(selection.to_span(&term(2, 1), false), None);
+        assert_eq!(selection.to_span(&term(2, 1)), None);
     }
 
     /// Test adjacent cell selection from right to left
@@ -430,7 +394,7 @@ mod test {
         let mut selection = Selection::simple(Point::new(0, Column(1)), Side::Left);
         selection.update(Point::new(0, Column(0)), Side::Right);
 
-        assert_eq!(selection.to_span(&term(2, 1), false), None);
+        assert_eq!(selection.to_span(&term(2, 1)), None);
     }
 
     /// Test selection across adjacent lines
@@ -447,7 +411,7 @@ mod test {
         let mut selection = Selection::simple(Point::new(1, Column(1)), Side::Right);
         selection.update(Point::new(0, Column(1)), Side::Right);
 
-        assert_eq!(selection.to_span(&term(5, 2), false).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(5, 2)).unwrap(), Span {
             start: Point::new(0, Column(1)),
             end: Point::new(1, Column(2)),
         });
@@ -470,19 +434,19 @@ mod test {
         selection.update(Point::new(1, Column(1)), Side::Right);
         selection.update(Point::new(1, Column(0)), Side::Right);
 
-        assert_eq!(selection.to_span(&term(5, 2), false).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(5, 2)).unwrap(), Span {
             start: Point::new(0, Column(1)),
             end: Point::new(1, Column(1)),
         });
     }
 
     #[test]
-    fn alt_scren_lines() {
+    fn alt_screen_lines() {
         let mut selection = Selection::lines(Point::new(0, Column(0)));
         selection.update(Point::new(5, Column(3)), Side::Right);
         selection.rotate(-3);
 
-        assert_eq!(selection.to_span(&term(5, 10), true).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
             start: Point::new(0, Column(4)),
             end: Point::new(2, Column(0)),
         });
@@ -494,7 +458,7 @@ mod test {
         selection.update(Point::new(5, Column(3)), Side::Right);
         selection.rotate(-3);
 
-        assert_eq!(selection.to_span(&term(5, 10), true).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
             start: Point::new(0, Column(4)),
             end: Point::new(2, Column(3)),
         });
@@ -506,7 +470,7 @@ mod test {
         selection.update(Point::new(5, Column(3)), Side::Right);
         selection.rotate(-3);
 
-        assert_eq!(selection.to_span(&term(5, 10), true).unwrap(), Span {
+        assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
             start: Point::new(0, Column(4)),
             end: Point::new(2, Column(4)),
         });
@@ -525,7 +489,7 @@ mod test {
         let mut selection = Selection::simple(Point::new(0, Column(1)), Side::Left);
         selection.update(Point::new(0, Column(8)), Side::Right);
 
-        assert_eq!(selection.to_span(&term, false).unwrap(), Span {
+        assert_eq!(selection.to_span(&term).unwrap(), Span {
             start: Point::new(0, Column(9)),
             end: Point::new(0, Column(0)),
         });
