@@ -15,14 +15,14 @@
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use std::ffi::c_void;
 
-use clipboard::nop_clipboard::NopClipboardContext;
+use copypasta::nop_clipboard::NopClipboardContext;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-use clipboard::wayland_clipboard::WaylandClipboardContext;
+use copypasta::wayland_clipboard::WaylandClipboardContext;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-use clipboard::wayland_clipboard::PrimaryWaylandClipboardContext;
+use copypasta::wayland_clipboard::PrimaryWaylandClipboardContext;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-use clipboard::x11_clipboard::{Primary as X11SecondaryClipboard, X11ClipboardContext};
-use clipboard::{ClipboardContext, ClipboardProvider};
+use copypasta::x11_clipboard::{Primary as X11SecondaryClipboard, X11ClipboardContext};
+use copypasta::{ClipboardContext, ClipboardProvider};
 
 pub struct Clipboard {
     primary: Box<ClipboardProvider>,
@@ -39,8 +39,8 @@ impl Clipboard {
     pub fn new(display: Option<*mut c_void>) -> Self {
         if let Some(display) = display {
             return Self {
-                primary: unsafe { Box::new(PrimaryWaylandClipboardContext::new_from_external(display)) },
-                secondary: unsafe { Some(Box::new(WaylandClipboardContext::new_from_external(display))) },
+                primary: unsafe { Box::new(WaylandClipboardContext::new_from_external(display)) },
+                secondary: unsafe { Some(Box::new(PrimaryWaylandClipboardContext::new_from_external(display))) },
             };
         }
 

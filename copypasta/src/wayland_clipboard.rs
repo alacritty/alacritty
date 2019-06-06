@@ -32,14 +32,14 @@ impl WaylandClipboardContext {
     /// Create a new clipboard context.
     pub fn new(display: &Display) -> Self {
         WaylandClipboardContext {
-            clip: WaylandClipboard::new_threaded(display),
+            clip: WaylandClipboard::new(display),
         }
     }
 
     /// Create a new clipboard context from an external pointer.
     pub unsafe fn new_from_external(display: *mut c_void) -> Self {
         WaylandClipboardContext {
-            clip: WaylandClipboard::new_threaded_from_external(display as *mut wl_display),
+            clip: WaylandClipboard::new_from_external(display as *mut wl_display),
         }
     }
 }
@@ -51,6 +51,38 @@ impl ClipboardProvider for WaylandClipboardContext {
 
     fn set_contents(&mut self, data: String) -> Result<(), Box<Error>> {
         self.clip.store(None, data);
+        Ok(())
+    }
+}
+
+/// Primary clipboard context for Wayland clipboards.
+pub struct PrimaryWaylandClipboardContext {
+    clip: WaylandClipboard,
+}
+
+impl PrimaryWaylandClipboardContext {
+    /// Create a new clipboard context.
+    pub fn new(display: &Display) -> Self {
+        PrimaryWaylandClipboardContext {
+            clip: WaylandClipboard::new(display),
+        }
+    }
+
+    /// Create a new clipboard context from an external pointer.
+    pub unsafe fn new_from_external(display: *mut c_void) -> Self {
+        PrimaryWaylandClipboardContext {
+            clip: WaylandClipboard::new_from_external(display as *mut wl_display),
+        }
+    }
+}
+
+impl ClipboardProvider for PrimaryWaylandClipboardContext {
+    fn get_contents(&mut self) -> Result<String, Box<Error>> {
+        Ok(self.clip.load_primary(None))
+    }
+
+    fn set_contents(&mut self, data: String) -> Result<(), Box<Error>> {
+        self.clip.store_primary(None, data);
         Ok(())
     }
 }

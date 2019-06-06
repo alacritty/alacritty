@@ -32,7 +32,7 @@ static_assertions = "0.3.0"
 terminfo = "0.6.1"
 url = "1.7.1"
 crossbeam-channel = "0.3.8"
-clipboard = { git = "https://github.com/trimental/rust-clipboard",  branch = "primary" }
+copypasta = { path = "../copypasta" }
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.13"

@@ -44,7 +44,7 @@ version = "0.3.2"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "clipboard 0.5.0 (git+https://github.com/trimental/rust-clipboard?branch=primary)",
+ "copypasta 0.6.0",
  "crossbeam-channel 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "dunce 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "errno 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -310,20 +310,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clipboard"
-version = "0.5.0"
-source = "git+https://github.com/trimental/rust-clipboard?branch=primary#c1b66a928b5e1bc5abf5da6b52e466199a922df5"
-dependencies = [
- "clipboard-win 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "objc 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "objc-foundation 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "objc_id 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "smithay-clipboard 0.2.1 (git+https://github.com/Smithay/smithay-clipboard?branch=primary)",
- "wayland-client 0.22.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "x11-clipboard 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "clipboard-win"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -395,6 +381,21 @@ dependencies = [
  "time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
  "try_from 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "copypasta"
+version = "0.6.0"
+dependencies = [
+ "andrew 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "clipboard-win 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "objc 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "objc-foundation 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "objc_id 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smithay-client-toolkit 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smithay-clipboard 0.2.1 (git+https://github.com/Smithay/smithay-clipboard?branch=primary)",
+ "wayland-client 0.22.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "x11-clipboard 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2992,7 +2993,6 @@ dependencies = [
 "checksum cgl 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "55e7ec0b74fe5897894cbc207092c577e87c52f8a59e8ca8d97ef37551f60a49"
 "checksum clang-sys 0.22.0 (registry+https://github.com/rust-lang/crates.io-index)" = "939a1a34310b120d26eba35c29475933128b0ec58e24b43327f8dbe6036fc538"
 "checksum clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5067f5bb2d80ef5d68b4c87db81601f0b75bca627bc2ef76b141d7b846a3c6d9"
-"checksum clipboard 0.5.0 (git+https://github.com/trimental/rust-clipboard?branch=primary)" = "<none>"
 "checksum clipboard-win 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e3a093d6fed558e5fe24c3dfc85a68bb68f1c824f440d3ba5aca189e2998786b"
 "checksum cloudabi 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ddfc5b9aa5d4507acaf872de71051dfd0e309860e88966e1051e462a077aac4f"
 "checksum cmake 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)" = "2ca4386c8954b76a8415b63959337d940d724b336cabd3afe189c2b51a7e1ff0"
