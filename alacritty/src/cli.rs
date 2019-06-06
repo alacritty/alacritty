@@ -61,16 +61,16 @@ impl Default for Options {
 impl Options {
     /// Build `Options` from command line arguments.
     pub fn new() -> Self {
-        let mut options = Options::default();
+        let mut version = crate_version!().to_owned();
         let commit_hash = env!("GIT_HASH");
-        let version_string = if commit_hash.is_empty() {
-            format!("{}", crate_version!())
-        } else {
-            format!("{} ({})", crate_version!(), commit_hash)
-        };
+        if !commit_hash.is_empty() {
+            version = format!("{} ({})", version, commit_hash);
+        }
+
+        let mut options = Options::default();
 
         let matches = App::new(crate_name!())
-            .version(version_string.as_str())
+            .version(version.as_str())
             .author(crate_authors!("\n"))
             .about(crate_description!())
             .arg(Arg::with_name("ref-test").long("ref-test").help("Generates ref test"))

@@ -13,6 +13,6 @@
 // limitations under the License.
 
 fn main() {
-    let hash = rustc_tools_util::get_commit_hash().unwrap_or("".to_owned());
+    let hash = rustc_tools_util::get_commit_hash().unwrap_or_default();
     println!("cargo:rustc-env=GIT_HASH={}", hash);
 }
