@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Text getting recognized as URLs without slashes separating the scheme
 - URL parser dropping trailing slashes from valid URLs
 - UTF-8 BOM skipped when reading config file
+- Terminfo backspace escape sequence (`kbs`)
 
 ### Removed
 
