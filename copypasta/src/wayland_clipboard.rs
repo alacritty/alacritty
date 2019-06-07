@@ -35,12 +35,15 @@ pub struct WaylandClipboardContext<T: ClipboardType>(WaylandClipboard, PhantomDa
 impl<T: ClipboardType> WaylandClipboardContext<T> {
     /// Create a new clipboard context.
     pub fn new(display: &Display) -> Self {
-        Self(WaylandClipboard::new(display), PhantomData)
+        WaylandClipboardContext(WaylandClipboard::new(display), PhantomData)
     }
 
     /// Create a new clipboard context from an external pointer.
     pub unsafe fn new_from_external(display: *mut c_void) -> Self {
-        Self(WaylandClipboard::new_from_external(display as *mut wl_display), PhantomData)
+        WaylandClipboardContext(
+            WaylandClipboard::new_from_external(display as *mut wl_display),
+            PhantomData,
+        )
     }
 }
 
