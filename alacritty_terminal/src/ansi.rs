@@ -801,7 +801,7 @@ where
                             // 10 is the first dynamic color, also the foreground
                             let offset = dynamic_code as usize - 10;
                             let index = NamedColor::Foreground as usize + offset;
-                            
+
                             // End of setting dynamic colors
                             if index > NamedColor::Cursor as usize {
                                 unhandled(params);
@@ -811,11 +811,7 @@ where
                             if let Some(color) = parse_rgb_color(param) {
                                 self.handler.set_color(index, color);
                             } else if param == b"?" {
-                                self.handler.dynamic_color_sequence(
-                                    writer,
-                                    dynamic_code,
-                                    index,
-                                );
+                                self.handler.dynamic_color_sequence(writer, dynamic_code, index);
                             } else {
                                 unhandled(params);
                             }
