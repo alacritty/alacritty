@@ -73,7 +73,7 @@ impl UrlParser {
                 self.state.char_indices().rev().skip_while(|(byte_index, _)| *byte_index >= index);
             for (byte_index, c) in iter {
                 match c {
-                    'a'...'z' | 'A'...'Z' => (),
+                    'a'..='z' | 'A'..='Z' => (),
                     _ => {
                         self.origin =
                             self.origin.saturating_sub(byte_index + c.width().unwrap_or(1));
