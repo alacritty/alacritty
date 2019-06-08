@@ -18,7 +18,7 @@ crossbeam-channel = "0.3.8"
 serde_yaml = "0.8"
 
 [build-dependencies]
-rustc_tools_util = "0.1"
+rustc_tools_util = "0.2.0"
 
 [target.'cfg(not(windows))'.dependencies]
 xdg = "2"
