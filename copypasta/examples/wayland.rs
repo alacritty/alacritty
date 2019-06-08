@@ -37,7 +37,7 @@ fn main() {
     map_keyboard_auto(&seat, move |event: KbEvent, _| {
         if let KbEvent::Key { state: KeyState::Pressed, utf8: Some(text), .. } = event {
             if text == " " {
-                *cb_contents_clone.lock().unwrap() = dbg!(ctx.get_contents().unwrap());
+                *cb_contents_clone.lock().unwrap() = ctx.get_contents().unwrap();
                 need_redraw_clone.store(true, atomic::Ordering::Relaxed)
             } else if text == "s" {
                 ctx.set_contents(
