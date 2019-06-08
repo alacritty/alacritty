@@ -1,14 +1,14 @@
-#[cfg(any(not(unix), target_os="macos", target_os="android", target_os="emscripten"))]
+#[cfg(any(not(unix), target_os = "macos", target_os = "android", target_os = "emscripten"))]
 fn main() {
     unimplemented!()
 }
 
-#[cfg(all(unix, not(any(target_os="macos", target_os="android", target_os="emscripten"))))]
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
 fn main() {
     wayland::main();
 }
 
-#[cfg(all(unix, not(any(target_os="macos", target_os="android", target_os="emscripten"))))]
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
 mod wayland {
     extern crate andrew;
     extern crate copypasta;
@@ -69,26 +69,28 @@ mod wayland {
         let next_action = Arc::new(Mutex::new(None::<WEvent>));
 
         let waction = next_action.clone();
-        let mut window = Window::<ConceptFrame>::init_from_env(&env, surface, dimensions, move |evt| {
-            let mut next_action = waction.lock().unwrap();
-            // Keep last event in priority order : Close > Configure > Refresh
-            let replace = match (&evt, &*next_action) {
-                (_, &None)
-                | (_, &Some(WEvent::Refresh))
-                | (&WEvent::Configure { .. }, &Some(WEvent::Configure { .. }))
-                | (&WEvent::Close, _) => true,
-                _ => false,
-            };
-            if replace {
-                *next_action = Some(evt);
-            }
-        })
-        .expect("Failed to create a window !");
+        let mut window =
+            Window::<ConceptFrame>::init_from_env(&env, surface, dimensions, move |evt| {
+                let mut next_action = waction.lock().unwrap();
+                // Keep last event in priority order : Close > Configure > Refresh
+                let replace = match (&evt, &*next_action) {
+                    (_, &None)
+                    | (_, &Some(WEvent::Refresh))
+                    | (&WEvent::Configure { .. }, &Some(WEvent::Configure { .. }))
+                    | (&WEvent::Close, _) => true,
+                    _ => false,
+                };
+                if replace {
+                    *next_action = Some(evt);
+                }
+            })
+            .expect("Failed to create a window !");
 
         window.new_seat(&seat);
         window.set_title("Clipboard".to_string());
 
-        let mut pools = DoubleMemPool::new(&env.shm, || {}).expect("Failed to create a memory pool !");
+        let mut pools =
+            DoubleMemPool::new(&env.shm, || {}).expect("Failed to create a memory pool !");
 
         let mut font_data = Vec::new();
         std::fs::File::open(
