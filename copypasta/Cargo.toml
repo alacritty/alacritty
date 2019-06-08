@@ -20,6 +20,6 @@ x11-clipboard = "0.3"
 smithay-clipboard = "0.3.0"
 wayland-client = { version = "0.22", features = ["dlopen"] }
 
-[dev-dependencies]
+[target.'cfg(all(unix, not(any(target_os="macos", target_os="android", target_os="emscripten"))))'.dev-dependencies]
 andrew = "0.2.1"
 smithay-client-toolkit = "0.5"
