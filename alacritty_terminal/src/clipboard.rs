@@ -26,8 +26,8 @@ use copypasta::x11_clipboard::{Primary as X11SelectionClipboard, X11ClipboardCon
 use copypasta::{ClipboardContext, ClipboardProvider};
 
 pub struct Clipboard {
-    clipboard: Box<ClipboardProvider>,
-    selection: Option<Box<ClipboardProvider>>,
+    clipboard: Box<dyn ClipboardProvider>,
+    selection: Option<Box<dyn ClipboardProvider>>,
 }
 
 impl Clipboard {

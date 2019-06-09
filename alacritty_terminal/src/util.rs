@@ -87,6 +87,8 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
+    // TODO: Rust 1.34.0
+    #[allow(deprecated)]
     Command::new(program)
         .args(args)
         .stdin(Stdio::null())
