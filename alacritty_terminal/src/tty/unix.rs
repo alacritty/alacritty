@@ -161,7 +161,7 @@ pub fn new<T: ToWinsize>(config: &Config, size: &T, window_id: Option<usize>) ->
 
     let (master, slave) = make_pty(win_size);
 
-    let default_shell = if cfg!(any(target_os = "macos", target_os = "linux")) {
+    let default_shell = if cfg!(target_os = "macos") {
         let shell_name = pw.shell.rsplit('/').next().unwrap();
         let argv = vec![String::from("-c"), format!("exec -a -{} {}", shell_name, pw.shell)];
 
