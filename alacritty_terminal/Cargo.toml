@@ -35,7 +35,7 @@ crossbeam-channel = "0.3.8"
 copypasta = { path = "../copypasta" }
 
 [target.'cfg(unix)'.dependencies]
-nix = "0.13"
+nix = "0.14.1"
 signal-hook = { version = "0.1", features = ["mio-support"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
