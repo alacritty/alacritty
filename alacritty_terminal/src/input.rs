@@ -68,6 +68,7 @@ pub trait ActionContext {
     fn reverse_selection(&mut self);
     fn update_selection(&mut self, point: Point, side: Side);
     fn update_selection_as(&mut self, point: Point, side: Side, sel_type: SelectionType);
+    fn expand_selection(&mut self);
     fn simple_selection(&mut self, point: Point, side: Side);
     fn semantic_selection(&mut self, point: Point);
     fn line_selection(&mut self, point: Point);
@@ -707,6 +708,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.launch_url(modifiers, point);
         }
 
+        // move end points of selection to end of span
+        self.ctx.expand_selection();
+
         self.copy_selection();
     }
 
@@ -1041,6 +1045,8 @@ mod tests {
         fn update_selection(&mut self, _point: Point, _side: Side) {}
 
         fn update_selection_as(&mut self, _point: Point, _side: Side, _sel_type: SelectionType) {}
+
+        fn expand_selection(&mut self) {}
 
         fn simple_selection(&mut self, _point: Point, _side: Side) {}
 

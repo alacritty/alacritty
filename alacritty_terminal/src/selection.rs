@@ -135,6 +135,77 @@ impl Selection {
         self.end_type = sel_type;
     }
 
+    // Expand selection following the similar rules as creating a span
+    pub fn expand_selection(term: &mut Term) {
+        let (mut start_anchor, mut end_anchor, mut start_type, mut end_type) =
+            if let Some(ref selection) = term.selection() {
+            (selection.region.start.clone(),
+                selection.region.end.clone(),
+                selection.start_type.clone(),
+                selection.end_type.clone())
+        } else {
+            return;
+        };
+
+        let expansion = |start: &mut Anchor,
+            end: &mut Anchor,
+            start_type: &mut SelectionType,
+            end_type: &mut SelectionType|
+            {
+                // semantic selection
+                if *start_type == SelectionType::Semantic {
+                    start.point = Point::from(term.semantic_search_right(start.point.into()));
+                    start.side = Side::Right;
+                    *start_type = SelectionType::Simple;
+                }
+                if *end_type == SelectionType::Semantic {
+                    end.point = Point::from(term.semantic_search_left(end.point.into()));
+                    end.side = Side::Left;
+                    *end_type = SelectionType::Simple;
+                }
+
+                // Line expansion
+                let cols = term.dimensions().col;
+                if *start_type == SelectionType::Lines {
+                    start.point = Point { line: start.point.line, col: cols - 1 };
+                    start.side = Side::Right;
+                    *start_type = SelectionType::Simple;
+                }
+                if *end_type == SelectionType::Lines {
+                    end.point = Point { line: end.point.line, col: Column(0) };
+                    end.side = Side::Left;
+                    *end_type = SelectionType::Simple;
+            }
+
+            (start.clone(), end.clone(), start_type.clone(), end_type.clone())
+        };
+
+        if start_anchor.point.line > end_anchor.point.line
+            || start_anchor.point.line == end_anchor.point.line
+                && start_anchor.point.col <= end_anchor.point.col
+            {
+                let (end_anchor, start_anchor, end_type, start_type) =
+                    expansion(&mut end_anchor, &mut start_anchor, &mut end_type, &mut start_type);
+                if let Some(ref mut selection) = term.selection_mut() {
+                    selection.region.start.point = start_anchor.point;
+                    selection.region.start.side = start_anchor.side;
+                    selection.region.end.point = end_anchor.point;
+                    selection.start_type = start_type;
+                    selection.end_type = end_type;
+            }
+        } else {
+            let (start_anchor, end_anchor, start_type, end_type) =
+                expansion(&mut start_anchor, &mut end_anchor, &mut start_type, &mut end_type);
+            if let Some(ref mut selection) = term.selection_mut() {
+                selection.region.start.point = start_anchor.point;
+                selection.region.end.point = end_anchor.point;
+                selection.region.end.side = end_anchor.side;
+                selection.start_type = start_type;
+                selection.end_type = end_type;
+            }
+        }
+    }
+
     pub fn to_span(&self, term: &Term, alt_screen: bool) -> Option<Span> {
         let start_orig = self.region.start.point;
         let start_side = self.region.start.side;

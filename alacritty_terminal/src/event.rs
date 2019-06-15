@@ -123,6 +123,11 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.dirty = true;
     }
 
+    fn expand_selection(&mut self) {
+        let term = self.terminal_mut();
+        Selection::expand_selection(term);
+    }
+
     fn simple_selection(&mut self, point: Point, side: Side) {
         let point = self.terminal.visible_to_buffer(point);
         *self.terminal.selection_mut() = Some(Selection::simple(point, side));
