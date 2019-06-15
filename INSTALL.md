@@ -152,23 +152,7 @@ pkg_add rust python
 Select the package for Python 3 (e.g. `python-3.6.8p0`) when prompted.
 
 The default user limits in OpenBSD are insufficient to build Alacritty. A
-datasize-cur of at least 3GB is recommended. This can be checked for the
-current user with `ulimit -a` and can be adjusted for your login class
-in `/etc/login.conf`. An example configuration which has been successfully
-used to perform a build is as follows:
-```
-staff:\
-  :datasize-cur=4096M:\
-  :datasize-max=8192M:\
-  :maxproc-cur=512:\
-  :maxproc-max=1024:\
-  :openfiles-cur=4096:\
-  :openfiles-max=8192:\
-  :stacksize-cur=32M:\
-  :ignorenologin:\
-  :requirehome@:\
-  :tc=default:
-```
+`datasize-cur` of at least 3GB is recommended (see [login.conf](https://man.openbsd.org/login.conf)).
 
 #### Solus
 
