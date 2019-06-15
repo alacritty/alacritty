@@ -15,7 +15,7 @@
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.3.3-rc1</string>
+  <string>0.3.3-rc2</string>
   <key>CFBundleSupportedPlatforms</key>
   <array>
     <string>MacOSX</string>

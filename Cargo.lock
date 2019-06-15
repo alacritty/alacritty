@@ -23,9 +23,9 @@ dependencies = [
 
 [[package]]
 name = "alacritty"
-version = "0.3.3-rc1"
+version = "0.3.3-rc2"
 dependencies = [
- "alacritty_terminal 0.3.3-rc1",
+ "alacritty_terminal 0.3.3-rc2",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "crossbeam-channel 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "dirs 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.3.3-rc1"
+version = "0.3.3-rc2"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
