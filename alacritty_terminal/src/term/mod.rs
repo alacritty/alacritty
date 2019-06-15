@@ -1602,7 +1602,8 @@ impl ansi::Handler for Term {
             },
             6 => {
                 let pos = self.cursor.point;
-                let _ = write!(writer, "\x1b[{};{}R", pos.line + 1, pos.col + 1);
+                let response = format!("\x1b[{};{}R", pos.line + 1, pos.col + 1);
+                let _ = writer.write_all(response.as_bytes());
             },
             _ => debug!("unknown device status query: {}", arg),
         };
@@ -1883,11 +1884,11 @@ impl ansi::Handler for Term {
     fn dynamic_color_sequence<W: io::Write>(&mut self, writer: &mut W, code: u8, index: usize) {
         trace!("Writing escape sequence for dynamic color code {}: color[{}]", code, index);
         let color = self.colors[index];
-        let _ = write!(
-            writer,
+        let response = format!(
             "\x1b]{};rgb:{1:02x}{1:02x}/{2:02x}{2:02x}/{3:02x}{3:02x}\x07",
             code, color.r, color.g, color.b
         );
+        let _ = writer.write_all(response.as_bytes());
     }
 
     /// Reset the indexed color to original value
