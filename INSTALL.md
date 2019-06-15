@@ -151,6 +151,9 @@ pkg_add rust python
 
 Select the package for Python 3 (e.g. `python-3.6.8p0`) when prompted.
 
+The default user limits in OpenBSD are insufficient to build Alacritty. A
+`datasize-cur` of at least 3GB is recommended (see [login.conf](https://man.openbsd.org/login.conf)).
+
 #### Solus
 
 On [Solus](https://solus-project.com/), you need a few extra libraries to build
