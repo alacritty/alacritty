@@ -1,6 +1,6 @@
 [package]
 name = "alacritty_terminal"
-version = "0.3.3-rc2"
+version = "0.3.3"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 build = "build.rs"
