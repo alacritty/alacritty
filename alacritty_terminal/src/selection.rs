@@ -20,7 +20,7 @@
 //! also be cleared if the user clicks off of the selection.
 use std::ops::Range;
 
-use crate::index::{Column, Point, Side};
+use crate::index::{Column, Line, Point, Side};
 use crate::term::cell::Flags;
 use crate::term::{Search, Term};
 
@@ -45,6 +45,10 @@ pub enum Selection {
         /// The region representing start and end of cursor movement
         region: Range<Anchor>,
     },
+    Block {
+        /// The region representing start and end of cursor movement
+        region: Range<Anchor>,
+    },
     Semantic {
         /// The region representing start and end of cursor movement
         region: Range<Point<isize>>,
@@ -52,10 +56,6 @@ pub enum Selection {
     Lines {
         /// The region representing start and end of cursor movement
         region: Range<Point<isize>>,
-
-        /// The line under the initial point. This is always selected regardless
-        /// of which way the cursor is moved.
-        initial_line: isize,
     },
 }
 
@@ -79,6 +79,19 @@ pub trait Dimensions {
 }
 
 impl Selection {
+    pub fn rotate(&mut self, offset: isize) {
+        match *self {
+            Selection::Simple { ref mut region } | Selection::Block { ref mut region } => {
+                region.start.point.line += offset;
+                region.end.point.line += offset;
+            },
+            Selection::Semantic { ref mut region } | Selection::Lines { ref mut region } => {
+                region.start.line += offset;
+                region.end.line += offset;
+            },
+        }
+    }
+
     pub fn simple(location: Point<usize>, side: Side) -> Selection {
         Selection::Simple {
             region: Range {
@@ -88,20 +101,11 @@ impl Selection {
         }
     }
 
-    pub fn rotate(&mut self, offset: isize) {
-        match *self {
-            Selection::Simple { ref mut region } => {
-                region.start.point.line += offset;
-                region.end.point.line += offset;
-            },
-            Selection::Semantic { ref mut region } => {
-                region.start.line += offset;
-                region.end.line += offset;
-            },
-            Selection::Lines { ref mut region, ref mut initial_line } => {
-                region.start.line += offset;
-                region.end.line += offset;
-                *initial_line += offset;
+    pub fn block(location: Point<usize>, side: Side) -> Selection {
+        Selection::Block {
+            region: Range {
+                start: Anchor::new(location.into(), side),
+                end: Anchor::new(location.into(), side),
             },
         }
     }
@@ -111,19 +115,16 @@ impl Selection {
     }
 
     pub fn lines(point: Point<usize>) -> Selection {
-        Selection::Lines {
-            region: Range { start: point.into(), end: point.into() },
-            initial_line: point.line as isize,
-        }
+        Selection::Lines { region: Range { start: point.into(), end: point.into() } }
     }
 
     pub fn update(&mut self, location: Point<usize>, side: Side) {
         // Always update the `end`; can normalize later during span generation.
         match *self {
-            Selection::Simple { ref mut region } => {
+            Selection::Simple { ref mut region } | Selection::Block { ref mut region } => {
                 region.end = Anchor::new(location.into(), side);
             },
-            Selection::Semantic { ref mut region } | Selection::Lines { ref mut region, .. } => {
+            Selection::Semantic { ref mut region } | Selection::Lines { ref mut region } => {
                 region.end = location.into();
             },
         }
@@ -132,8 +133,10 @@ impl Selection {
     pub fn to_span(&self, term: &Term) -> Option<Span> {
         // Get both sides of the selection
         let (mut start, mut end) = match *self {
-            Selection::Simple { ref region } => (region.start.point, region.end.point),
-            Selection::Semantic { ref region } | Selection::Lines { ref region, .. } => {
+            Selection::Simple { ref region } | Selection::Block { ref region } => {
+                (region.start.point, region.end.point)
+            },
+            Selection::Semantic { ref region } | Selection::Lines { ref region } => {
                 (region.start, region.end)
             },
         };
@@ -150,11 +153,23 @@ impl Selection {
         let (start, end) = Selection::grid_clamp(start, end, lines, cols)?;
 
         let span = match *self {
-            Selection::Simple { ref region } if needs_swap => {
-                Selection::span_simple(term, start, end, region.end.side, region.start.side)
-            },
             Selection::Simple { ref region } => {
-                Selection::span_simple(term, start, end, region.start.side, region.end.side)
+                let (start_side, end_side) = if needs_swap {
+                    (region.end.side, region.start.side)
+                } else {
+                    (region.start.side, region.end.side)
+                };
+
+                Selection::span_simple(term, start, end, start_side, end_side)
+            },
+            Selection::Block { ref region } => {
+                let (start_side, end_side) = if needs_swap {
+                    (region.end.side, region.start.side)
+                } else {
+                    (region.start.side, region.end.side)
+                };
+
+                Selection::span_block(term, start, end, start_side, end_side)
             },
             Selection::Semantic { .. } => Selection::span_semantic(term, start, end),
             Selection::Lines { .. } => Selection::span_lines(term, start, end),
@@ -182,7 +197,7 @@ impl Selection {
 
     pub fn is_empty(&self) -> bool {
         match *self {
-            Selection::Simple { ref region } => {
+            Selection::Simple { ref region } | Selection::Block { ref region } => {
                 region.start == region.end && region.start.side == region.end.side
             },
             Selection::Semantic { .. } | Selection::Lines { .. } => false,
@@ -203,7 +218,7 @@ impl Selection {
             (term.semantic_search_right(start.into()), term.semantic_search_left(end.into()))
         };
 
-        Some(Span { start, end })
+        Some(Span { start, end, is_block: false })
     }
 
     fn span_lines<T>(term: &T, mut start: Point<isize>, mut end: Point<isize>) -> Option<Span>
@@ -213,7 +228,7 @@ impl Selection {
         start.col = term.dimensions().col - 1;
         end.col = Column(0);
 
-        Some(Span { start: start.into(), end: end.into() })
+        Some(Span { start: start.into(), end: end.into(), is_block: false })
     }
 
     fn span_simple<T>(
@@ -253,7 +268,24 @@ impl Selection {
         }
 
         // Return the selection with all cells inclusive
-        Some(Span { start: start.into(), end: end.into() })
+        Some(Span { start: start.into(), end: end.into(), is_block: false })
+    }
+
+    fn span_block<T>(
+        term: &T,
+        start: Point<isize>,
+        end: Point<isize>,
+        start_side: Side,
+        end_side: Side,
+    ) -> Option<Span>
+    where
+        T: Dimensions,
+    {
+        let mut span = Selection::span_simple(term, start, end, start_side, end_side);
+        if let Some(ref mut span) = span {
+            span.is_block = true;
+        }
+        span
     }
 
     // Bring start and end points in the correct order
@@ -295,12 +327,33 @@ impl Selection {
 }
 
 /// Represents a span of selected cells
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Span {
     /// Start point from bottom of buffer
     pub start: Point<usize>,
     /// End point towards top of buffer
     pub end: Point<usize>,
+    /// Whether this selection is a block selection
+    pub is_block: bool,
+}
+
+pub struct SelectionRange {
+    start: Point,
+    end: Point,
+    is_block: bool,
+}
+
+impl SelectionRange {
+    pub fn new(start: Point, end: Point, is_block: bool) -> Self {
+        Self { start, end, is_block }
+    }
+
+    pub fn contains(&self, col: Column, line: Line) -> bool {
+        self.start.line <= line
+            && self.end.line >= line
+            && (self.start.col <= col || (self.start.line != line && !self.is_block))
+            && (self.end.col >= col || (self.end.line != line && !self.is_block))
+    }
 }
 
 /// Tests for selection
