@@ -130,9 +130,9 @@ impl Selection {
         self.region.end = Anchor::new(location.into(), side);
     }
 
-    pub fn update_as(&mut self, location: Point<usize>, side: Side, sel_type: SelectionType) {
+    pub fn update_as(&mut self, location: Point<usize>, side: Side, selection_type: SelectionType) {
         self.update(location, side);
-        self.end_type = sel_type;
+        self.end_type = selection_type;
     }
 
     // Expand selection following the similar rules as creating a span

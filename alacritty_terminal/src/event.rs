@@ -102,12 +102,12 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.dirty = true;
     }
 
-    fn update_selection_as(&mut self, point: Point, side: Side, sel_type: SelectionType) {
+    fn update_selection_as(&mut self, point: Point, side: Side, selection_type: SelectionType) {
         let point = self.terminal.visible_to_buffer(point);
 
         // Update selection if one exists
         if let Some(ref mut selection) = self.terminal.selection_mut() {
-            selection.update_as(point, side, sel_type);
+            selection.update_as(point, side, selection_type);
         }
 
         self.terminal.dirty = true;
