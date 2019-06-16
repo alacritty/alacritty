@@ -363,7 +363,8 @@ live_config_reload: true
 # Entries in `shell.args` are passed unmodified as arguments to the shell.
 #
 # Default:
-#   - (Linux/macOS) /bin/bash --login
+#   - (macOS) /bin/bash --login
+#   - (Linux) user login shell
 #   - (Windows) powershell
 #shell:
 #  program: /bin/bash
