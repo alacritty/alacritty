@@ -517,19 +517,21 @@ key_bindings:
   #- { key: Add,      mods: Control,       action: IncreaseFontSize }
   #- { key: Subtract, mods: Control,       action: DecreaseFontSize }
   #- { key: Minus,    mods: Control,       action: DecreaseFontSize }
+  #- { key: Return,   mods: Alt,           action: ToggleFullscreen }
 
   # (macOS only)
-  #- { key: Key0,   mods: Command, action: ResetFontSize    }
-  #- { key: Equals, mods: Command, action: IncreaseFontSize }
-  #- { key: Add,    mods: Command, action: IncreaseFontSize }
-  #- { key: Minus,  mods: Command, action: DecreaseFontSize }
-  #- { key: K,      mods: Command, action: ClearHistory     }
-  #- { key: K,      mods: Command, chars: "\x0c"            }
-  #- { key: V,      mods: Command, action: Paste            }
-  #- { key: C,      mods: Command, action: Copy             }
-  #- { key: H,      mods: Command, action: Hide             }
-  #- { key: Q,      mods: Command, action: Quit             }
-  #- { key: W,      mods: Command, action: Quit             }
+  #- { key: Key0,   mods: Command,         action: ResetFontSize    }
+  #- { key: Equals, mods: Command,         action: IncreaseFontSize }
+  #- { key: Add,    mods: Command,         action: IncreaseFontSize }
+  #- { key: Minus,  mods: Command,         action: DecreaseFontSize }
+  #- { key: K,      mods: Command,         action: ClearHistory     }
+  #- { key: K,      mods: Command,         chars: "\x0c"            }
+  #- { key: V,      mods: Command,         action: Paste            }
+  #- { key: C,      mods: Command,         action: Copy             }
+  #- { key: H,      mods: Command,         action: Hide             }
+  #- { key: Q,      mods: Command,         action: Quit             }
+  #- { key: W,      mods: Command,         action: Quit             }
+  #- { key: F,      mods: Command|Control, action: ToggleFullscreen }
 
   - { key: Paste,                   action: Paste                            }
   - { key: Copy,                    action: Copy                             }
