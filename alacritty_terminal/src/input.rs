@@ -580,6 +580,21 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
+    fn is_expand_selection(
+        &self,
+        button: MouseButton,
+        modifiers: ModifiersState,
+        report_mode_intersection: bool,
+    ) -> bool {
+        // We do not want to expand the selection when using mouse mode because
+        // shift conflicts with disabling the mouse when using mouse mode.
+        modifiers.shift
+            && button == MouseButton::Left
+            && !self.ctx.selection_is_empty()
+            && !report_mode_intersection
+    }
+
+
     pub fn on_mouse_press(
         &mut self,
         button: MouseButton,
@@ -602,11 +617,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 if !button_changed && elapsed < self.mouse_config.double_click.threshold =>
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
-                if modifiers.shift
-                    && button == MouseButton::Left
-                    && !self.ctx.selection_is_empty()
-                    && !report_mode_intersection
-                {
+                if self.is_expand_selection(button, modifiers, report_mode_intersection) {
                     if let Some(point) = point {
                         self.ctx.update_selection_as(point, side, SelectionType::Semantic);
                     }
@@ -619,11 +630,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 if !button_changed && elapsed < self.mouse_config.triple_click.threshold =>
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
-                if modifiers.shift
-                    && button == MouseButton::Left
-                    && !self.ctx.selection_is_empty()
-                    && !report_mode_intersection
-                {
+                if self.is_expand_selection(button, modifiers, report_mode_intersection) {
                     if let Some(point) = point {
                         self.ctx.update_selection_as(point, side, SelectionType::Lines);
                     }
@@ -636,11 +643,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 // Don't launch URLs if this click cleared the selection
                 self.ctx.mouse_mut().block_url_launcher = !self.ctx.selection_is_empty();
 
-                if modifiers.shift
-                    && button == MouseButton::Left
-                    && !self.ctx.selection_is_empty()
-                    && !report_mode_intersection
-                {
+                if self.is_expand_selection(button, modifiers, report_mode_intersection) {
                     // update current selection
                     if let Some(point) = point {
                         if let Some(ref bounds) = self.ctx.terminal().selection().as_ref().map(|selection| {
