@@ -102,6 +102,12 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         self.terminal.dirty = true;
     }
 
+    fn block_selection(&mut self, point: Point, side: Side) {
+        let point = self.terminal.visible_to_buffer(point);
+        *self.terminal.selection_mut() = Some(Selection::block(point, side));
+        self.terminal.dirty = true;
+    }
+
     fn semantic_selection(&mut self, point: Point) {
         let point = self.terminal.visible_to_buffer(point);
         *self.terminal.selection_mut() = Some(Selection::semantic(point));
