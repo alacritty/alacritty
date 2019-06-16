@@ -89,6 +89,9 @@ pub fn setup_env(config: &Config) {
     // Advertise 24-bit color support
     env::set_var("COLORTERM", "truecolor");
 
+    // Prevent child processes from inheriting startup notification env
+    env::remove_var("DESKTOP_STARTUP_ID");
+
     // Set env vars from config
     for (key, value) in config.env.iter() {
         env::set_var(key, value);
