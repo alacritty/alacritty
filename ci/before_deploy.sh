@@ -31,7 +31,7 @@ function windows {
 }
 
 function osx {
-    rm -rf "./target/release"
+    rm -rf "./target/release" \
         && make dmg \
         && mv "./target/release/osx/Alacritty.dmg" "./target/deploy/${name}.dmg"
 }
