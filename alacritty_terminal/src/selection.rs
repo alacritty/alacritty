@@ -403,7 +403,8 @@ mod test {
 
         assert_eq!(selection.to_span(&term(1, 1)).unwrap(), Span {
             start: location,
-            end: location
+            end: location,
+            is_block: false,
         });
     }
 
@@ -420,7 +421,8 @@ mod test {
 
         assert_eq!(selection.to_span(&term(1, 1)).unwrap(), Span {
             start: location,
-            end: location
+            end: location,
+            is_block: false,
         });
     }
 
@@ -467,6 +469,7 @@ mod test {
         assert_eq!(selection.to_span(&term(5, 2)).unwrap(), Span {
             start: Point::new(0, Column(1)),
             end: Point::new(1, Column(2)),
+            is_block: false,
         });
     }
 
@@ -490,11 +493,12 @@ mod test {
         assert_eq!(selection.to_span(&term(5, 2)).unwrap(), Span {
             start: Point::new(0, Column(1)),
             end: Point::new(1, Column(1)),
+            is_block: false,
         });
     }
 
     #[test]
-    fn alt_screen_lines() {
+    fn line_selection() {
         let mut selection = Selection::lines(Point::new(0, Column(0)));
         selection.update(Point::new(5, Column(3)), Side::Right);
         selection.rotate(-3);
@@ -502,11 +506,12 @@ mod test {
         assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
             start: Point::new(0, Column(4)),
             end: Point::new(2, Column(0)),
+            is_block: false,
         });
     }
 
     #[test]
-    fn alt_screen_semantic() {
+    fn semantic_selection() {
         let mut selection = Selection::semantic(Point::new(0, Column(0)));
         selection.update(Point::new(5, Column(3)), Side::Right);
         selection.rotate(-3);
@@ -514,11 +519,12 @@ mod test {
         assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
             start: Point::new(0, Column(4)),
             end: Point::new(2, Column(3)),
+            is_block: false,
         });
     }
 
     #[test]
-    fn alt_screen_simple() {
+    fn simple_selection() {
         let mut selection = Selection::simple(Point::new(0, Column(0)), Side::Right);
         selection.update(Point::new(5, Column(3)), Side::Right);
         selection.rotate(-3);
@@ -526,6 +532,20 @@ mod test {
         assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
             start: Point::new(0, Column(4)),
             end: Point::new(2, Column(4)),
+            is_block: false,
+        });
+    }
+
+    #[test]
+    fn block_selection() {
+        let mut selection = Selection::block(Point::new(0, Column(0)), Side::Right);
+        selection.update(Point::new(5, Column(3)), Side::Right);
+        selection.rotate(-3);
+
+        assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
+            start: Point::new(0, Column(4)),
+            end: Point::new(2, Column(4)),
+            is_block: true,
         });
     }
 
@@ -545,6 +565,7 @@ mod test {
         assert_eq!(selection.to_span(&term).unwrap(), Span {
             start: Point::new(0, Column(9)),
             end: Point::new(0, Column(0)),
+            is_block: false,
         });
     }
 }
