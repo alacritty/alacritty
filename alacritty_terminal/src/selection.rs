@@ -142,8 +142,8 @@ impl Selection {
 
                 // Empty when single cell with identical sides or two cell with right+left sides
                 start == end
-                    || (start.side == Side::Right
-                        && end.side == Side::Left
+                    || (start.side == Side::Left
+                        && end.side == Side::Right
                         && start.point.line == end.point.line
                         && start.point.col == end.point.col + 1)
             },
