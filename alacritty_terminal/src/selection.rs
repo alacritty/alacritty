@@ -130,6 +130,27 @@ impl Selection {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        match *self {
+            Selection::Simple { ref region } | Selection::Block { ref region } => {
+                let (start, end) =
+                    if Selection::points_need_swap(region.start.point, region.end.point) {
+                        (&region.end, &region.start)
+                    } else {
+                        (&region.start, &region.end)
+                    };
+
+                // Empty when single cell with identical sides or two cell with right+left sides
+                start == end
+                    || (start.side == Side::Right
+                        && end.side == Side::Left
+                        && start.point.line == end.point.line
+                        && start.point.col == end.point.col + 1)
+            },
+            Selection::Semantic { .. } | Selection::Lines { .. } => false,
+        }
+    }
+
     pub fn to_span(&self, term: &Term) -> Option<Span> {
         // Get both sides of the selection
         let (mut start, mut end) = match *self {
@@ -160,7 +181,7 @@ impl Selection {
                     (region.start.side, region.end.side)
                 };
 
-                Selection::span_simple(term, start, end, start_side, end_side)
+                self.span_simple(term, start, end, start_side, end_side)
             },
             Selection::Block { ref region } => {
                 let (start_side, end_side) = if needs_swap {
@@ -169,7 +190,7 @@ impl Selection {
                     (region.start.side, region.end.side)
                 };
 
-                Selection::span_block(term, start, end, start_side, end_side)
+                self.span_block(start, end, start_side, end_side)
             },
             Selection::Semantic { .. } => Selection::span_semantic(term, start, end),
             Selection::Lines { .. } => Selection::span_lines(term, start, end),
@@ -195,102 +216,9 @@ impl Selection {
         })
     }
 
-    pub fn is_empty(&self) -> bool {
-        match *self {
-            Selection::Simple { ref region } | Selection::Block { ref region } => {
-                region.start == region.end && region.start.side == region.end.side
-            },
-            Selection::Semantic { .. } | Selection::Lines { .. } => false,
-        }
-    }
-
-    fn span_semantic<T>(term: &T, start: Point<isize>, end: Point<isize>) -> Option<Span>
-    where
-        T: Search + Dimensions,
-    {
-        let (start, end) = if start == end {
-            if let Some(end) = term.bracket_search(start.into()) {
-                (start.into(), end)
-            } else {
-                (term.semantic_search_right(start.into()), term.semantic_search_left(end.into()))
-            }
-        } else {
-            (term.semantic_search_right(start.into()), term.semantic_search_left(end.into()))
-        };
-
-        Some(Span { start, end, is_block: false })
-    }
-
-    fn span_lines<T>(term: &T, mut start: Point<isize>, mut end: Point<isize>) -> Option<Span>
-    where
-        T: Dimensions,
-    {
-        start.col = term.dimensions().col - 1;
-        end.col = Column(0);
-
-        Some(Span { start: start.into(), end: end.into(), is_block: false })
-    }
-
-    fn span_simple<T>(
-        term: &T,
-        mut start: Point<isize>,
-        mut end: Point<isize>,
-        start_side: Side,
-        end_side: Side,
-    ) -> Option<Span>
-    where
-        T: Dimensions,
-    {
-        // No selection for single cell with identical sides or two cell with right+left sides
-        if (start == end && start_side == end_side)
-            || (end_side == Side::Right
-                && start_side == Side::Left
-                && start.line == end.line
-                && start.col == end.col + 1)
-        {
-            return None;
-        }
-
-        // Remove last cell if selection ends to the left of a cell
-        if start_side == Side::Left && start != end {
-            // Special case when selection starts to left of first cell
-            if start.col == Column(0) {
-                start.col = term.dimensions().col - 1;
-                start.line += 1;
-            } else {
-                start.col -= 1;
-            }
-        }
-
-        // Remove first cell if selection starts at the right of a cell
-        if end_side == Side::Right && start != end {
-            end.col += 1;
-        }
-
-        // Return the selection with all cells inclusive
-        Some(Span { start: start.into(), end: end.into(), is_block: false })
-    }
-
-    fn span_block<T>(
-        term: &T,
-        start: Point<isize>,
-        end: Point<isize>,
-        start_side: Side,
-        end_side: Side,
-    ) -> Option<Span>
-    where
-        T: Dimensions,
-    {
-        let mut span = Selection::span_simple(term, start, end, start_side, end_side);
-        if let Some(ref mut span) = span {
-            span.is_block = true;
-        }
-        span
-    }
-
     // Bring start and end points in the correct order
     fn points_need_swap(start: Point<isize>, end: Point<isize>) -> bool {
-        start.line > end.line || start.line == end.line && start.col <= end.col
+        start.line > end.line || start.line == end.line && start.col < end.col
     }
 
     // Clamp selection inside the grid to prevent out of bounds errors
@@ -323,6 +251,99 @@ impl Selection {
         }
 
         Some((start, end))
+    }
+
+    fn span_semantic<T>(term: &T, start: Point<isize>, end: Point<isize>) -> Option<Span>
+    where
+        T: Search + Dimensions,
+    {
+        let (start, end) = if start == end {
+            if let Some(end) = term.bracket_search(start.into()) {
+                (start.into(), end)
+            } else {
+                (term.semantic_search_right(start.into()), term.semantic_search_left(end.into()))
+            }
+        } else {
+            (term.semantic_search_right(start.into()), term.semantic_search_left(end.into()))
+        };
+
+        Some(Span { start, end, is_block: false })
+    }
+
+    fn span_lines<T>(term: &T, mut start: Point<isize>, mut end: Point<isize>) -> Option<Span>
+    where
+        T: Dimensions,
+    {
+        start.col = term.dimensions().col - 1;
+        end.col = Column(0);
+
+        Some(Span { start: start.into(), end: end.into(), is_block: false })
+    }
+
+    fn span_simple<T>(
+        &self,
+        term: &T,
+        mut start: Point<isize>,
+        mut end: Point<isize>,
+        start_side: Side,
+        end_side: Side,
+    ) -> Option<Span>
+    where
+        T: Dimensions,
+    {
+        if self.is_empty() {
+            return None;
+        }
+
+        // Remove last cell if selection ends to the left of a cell
+        if start_side == Side::Left && start != end {
+            // Special case when selection starts to left of first cell
+            if start.col == Column(0) {
+                start.col = term.dimensions().col - 1;
+                start.line += 1;
+            } else {
+                start.col -= 1;
+            }
+        }
+
+        // Remove first cell if selection starts at the right of a cell
+        if end_side == Side::Right && start != end {
+            end.col += 1;
+        }
+
+        // Return the selection with all cells inclusive
+        Some(Span { start: start.into(), end: end.into(), is_block: false })
+    }
+
+    fn span_block(
+        &self,
+        mut start: Point<isize>,
+        mut end: Point<isize>,
+        mut start_side: Side,
+        mut end_side: Side,
+    ) -> Option<Span> {
+        if self.is_empty() {
+            return None;
+        }
+
+        // Always go bottom-right -> top-left
+        if start.col < end.col {
+            std::mem::swap(&mut start_side, &mut end_side);
+            std::mem::swap(&mut start.col, &mut end.col);
+        }
+
+        // Remove last cell if selection ends to the left of a cell
+        if start_side == Side::Left && start != end && start.col.0 > 0 {
+            start.col -= 1;
+        }
+
+        // Remove first cell if selection starts at the right of a cell
+        if end_side == Side::Right && start != end {
+            end.col += 1;
+        }
+
+        // Return the selection with all cells inclusive
+        Some(Span { start: start.into(), end: end.into(), is_block: true })
     }
 }
 
