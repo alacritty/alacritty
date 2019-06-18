@@ -1420,7 +1420,7 @@ mod tests {
 
     #[test]
     fn parse_control_attribute() {
-        static BYTES: &'static [u8] = &[0x1b, 0x5b, 0x31, 0x6d];
+        static BYTES: &[u8] = &[0x1b, 0x5b, 0x31, 0x6d];
 
         let mut parser = Processor::new();
         let mut handler = AttrHandler::default();
@@ -1434,7 +1434,7 @@ mod tests {
 
     #[test]
     fn parse_truecolor_attr() {
-        static BYTES: &'static [u8] = &[
+        static BYTES: &[u8] = &[
             0x1b, 0x5b, 0x33, 0x38, 0x3b, 0x32, 0x3b, 0x31, 0x32, 0x38, 0x3b, 0x36, 0x36, 0x3b,
             0x32, 0x35, 0x35, 0x6d,
         ];
@@ -1454,7 +1454,7 @@ mod tests {
     /// No exactly a test; useful for debugging
     #[test]
     fn parse_zsh_startup() {
-        static BYTES: &'static [u8] = &[
+        static BYTES: &[u8] = &[
             0x1b, 0x5b, 0x31, 0x6d, 0x1b, 0x5b, 0x37, 0x6d, 0x25, 0x1b, 0x5b, 0x32, 0x37, 0x6d,
             0x1b, 0x5b, 0x31, 0x6d, 0x1b, 0x5b, 0x30, 0x6d, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
             0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
@@ -1512,7 +1512,7 @@ mod tests {
 
     #[test]
     fn parse_designate_g0_as_line_drawing() {
-        static BYTES: &'static [u8] = &[0x1b, b'(', b'0'];
+        static BYTES: &[u8] = &[0x1b, b'(', b'0'];
         let mut parser = Processor::new();
         let mut handler = CharsetHandler::default();
 
@@ -1526,7 +1526,7 @@ mod tests {
 
     #[test]
     fn parse_designate_g1_as_line_drawing_and_invoke() {
-        static BYTES: &'static [u8] = &[0x1b, 0x29, 0x30, 0x0e];
+        static BYTES: &[u8] = &[0x1b, 0x29, 0x30, 0x0e];
         let mut parser = Processor::new();
         let mut handler = CharsetHandler::default();
 

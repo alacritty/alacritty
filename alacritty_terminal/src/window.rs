@@ -35,7 +35,7 @@ use crate::config::{Config, Decorations, StartupMode, WindowConfig};
 
 // It's required to be in this directory due to the `windows.rc` file
 #[cfg(not(target_os = "macos"))]
-static WINDOW_ICON: &'static [u8] = include_bytes!("../../extra/windows/alacritty.ico");
+static WINDOW_ICON: &[u8] = include_bytes!("../../extra/windows/alacritty.ico");
 
 /// Default Alacritty name, used for window title and class.
 pub const DEFAULT_NAME: &str = "Alacritty";

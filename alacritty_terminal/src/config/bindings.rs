@@ -727,7 +727,7 @@ impl<'a> Deserialize<'a> for RawBinding {
             {
                 struct FieldVisitor;
 
-                static FIELDS: &'static [&'static str] =
+                static FIELDS: &[&str] =
                     &["key", "mods", "mode", "action", "chars", "mouse", "command"];
 
                 impl<'a> Visitor<'a> for FieldVisitor {

@@ -43,7 +43,7 @@ pub use crate::config::scrolling::Scrolling;
 pub use crate::config::visual_bell::{VisualBellAnimation, VisualBellConfig};
 pub use crate::config::window::{Decorations, Dimensions, StartupMode, WindowConfig};
 
-pub static DEFAULT_ALACRITTY_CONFIG: &'static str =
+pub static DEFAULT_ALACRITTY_CONFIG: &str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.yml"));
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
 
