@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use crate::config::bindings::CommandWrapper;
 use crate::config::failure_default;
 use crate::term::color::Rgb;
 
@@ -28,7 +29,7 @@ impl Default for BellConfig {
             animation: Default::default(),
             duration: Default::default(),
             color: default_visual_bell_color(),
-            bell_command: None,
+            command: None,
         }
     }
 }

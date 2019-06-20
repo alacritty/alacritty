@@ -709,7 +709,7 @@ impl QuadRenderer {
         }
 
         // Draw visual bell
-        let color = config.visual_bell.color;
+        let color = config.bell.color;
         let rect = Rect::new(0., 0., props.width, props.height);
         self.render_rect(&rect, color, visual_bell_intensity as f32, props);
 

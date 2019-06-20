@@ -438,7 +438,7 @@ impl Display {
     pub fn draw(&mut self, terminal: &FairMutex<Term>, config: &Config) {
         let mut terminal = terminal.lock();
         let size_info = *terminal.size_info();
-        let visual_bell_intensity = terminal.visual_bell.intensity();
+        let visual_bell_intensity = terminal.bell.intensity();
         let background_color = terminal.background_color();
         let metrics = self.glyph_cache.font_metrics();
 
@@ -450,7 +450,7 @@ impl Display {
         let message_buffer = terminal.message_buffer_mut().message();
 
         // Clear dirty flag
-        terminal.dirty = !terminal.visual_bell.completed();
+        terminal.dirty = !terminal.bell.completed();
 
         if let Some(title) = terminal.get_next_title() {
             self.window.set_title(&title);

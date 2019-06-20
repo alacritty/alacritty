@@ -18,6 +18,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Deserializer};
 
+mod bell;
 mod bindings;
 mod colors;
 mod debug;
@@ -27,20 +28,19 @@ mod mouse;
 mod scrolling;
 #[cfg(test)]
 mod test;
-mod visual_bell;
 mod window;
 
 use crate::ansi::CursorStyle;
 use crate::input::{Binding, KeyBinding, MouseBinding};
 
-pub use crate::config::bindings::Key;
+pub use crate::config::bell::{BellConfig, VisualBellAnimation};
+pub use crate::config::bindings::{CommandWrapper, Key};
 pub use crate::config::colors::Colors;
 pub use crate::config::debug::Debug;
 pub use crate::config::font::{Font, FontDescription};
 pub use crate::config::monitor::Monitor;
 pub use crate::config::mouse::{ClickHandler, Mouse};
 pub use crate::config::scrolling::Scrolling;
-pub use crate::config::visual_bell::{VisualBellAnimation, VisualBellConfig};
 pub use crate::config::window::{Decorations, Dimensions, StartupMode, WindowConfig};
 
 pub static DEFAULT_ALACRITTY_CONFIG: &str =
@@ -99,9 +99,13 @@ pub struct Config {
     #[serde(default, deserialize_with = "failure_default")]
     pub config_path: Option<PathBuf>,
 
-    /// Visual bell configuration
+    /// Bell configuration
     #[serde(default, deserialize_with = "failure_default")]
-    pub visual_bell: VisualBellConfig,
+    pub bell: BellConfig,
+
+    // TODO: DEPRECATED
+    #[serde(default, deserialize_with = "failure_default")]
+    visual_bell: BellConfig,
 
     /// Use dynamic title
     #[serde(default, deserialize_with = "failure_default")]

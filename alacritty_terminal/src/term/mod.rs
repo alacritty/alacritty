@@ -597,7 +597,7 @@ pub struct Cursor {
     charsets: Charsets,
 }
 
-pub struct VisualBell {
+pub struct Bell {
     /// Visual bell animation
     animation: VisualBellAnimation,
 
@@ -608,7 +608,7 @@ pub struct VisualBell {
     start_time: Option<Instant>,
 
     /// Command to run when bell is rang
-    bell_command: Option<CommandWrapper>,
+    command: Option<CommandWrapper>,
 }
 
 fn cubic_bezier(p0: f64, p1: f64, p2: f64, p3: f64, x: f64) -> f64 {
@@ -618,19 +618,20 @@ fn cubic_bezier(p0: f64, p1: f64, p2: f64, p3: f64, x: f64) -> f64 {
         + x.powi(3) * p3
 }
 
-impl VisualBell {
-    pub fn new(config: &Config) -> VisualBell {
-        let visual_bell_config = &config.visual_bell;
-        VisualBell {
-            animation: visual_bell_config.animation,
-            duration: visual_bell_config.duration(),
-            bell_command: visual_bell_config.bell_command(),
+impl Bell {
+    pub fn new(config: &Config) -> Bell {
+        let bell_config = &config.bell;
+        Bell {
+            animation: bell_config.animation,
+            duration: bell_config.duration(),
+            command: bell_config.command.clone(),
             start_time: None,
         }
     }
 
     /// Ring the visual bell, and return its intensity.
     pub fn ring(&mut self) -> f64 {
+        self.run_command();
         let now = Instant::now();
         self.start_time = Some(now);
         self.intensity_at_instant(now)
@@ -715,8 +716,8 @@ impl VisualBell {
         }
     }
 
-    pub fn run_bell_command(&self) {
-        if let Some(ref cmd) = self.bell_command {
+    pub fn run_command(&self) {
+        if let Some(ref cmd) = self.command {
             match start_daemon(cmd.program(), cmd.args()) {
                 Ok(_) => debug!("Launched {} with args {:?} on bell", cmd.program(), cmd.args()),
                 Err(_) => {
@@ -727,10 +728,10 @@ impl VisualBell {
     }
 
     pub fn update_config(&mut self, config: &Config) {
-        let visual_bell_config = &config.visual_bell;
-        self.animation = visual_bell_config.animation;
-        self.duration = visual_bell_config.duration();
-        self.bell_command = visual_bell_config.bell_command();
+        let bell_config = &config.bell;
+        self.animation = bell_config.animation;
+        self.duration = bell_config.duration();
+        self.command = bell_config.command.clone();
     }
 }
 
@@ -784,7 +785,7 @@ pub struct Term {
 
     pub dirty: bool,
 
-    pub visual_bell: VisualBell,
+    pub bell: Bell,
     pub next_is_urgent: Option<bool>,
 
     /// Saved cursor from main grid
@@ -938,7 +939,7 @@ impl Term {
             next_title: None,
             next_mouse_cursor: None,
             dirty: false,
-            visual_bell: VisualBell::new(config),
+            bell: Bell::new(config),
             next_is_urgent: None,
             input_needs_wrap: false,
             grid,
@@ -991,7 +992,7 @@ impl Term {
                 self.colors[i] = self.original_colors[i];
             }
         }
-        self.visual_bell.update_config(config);
+        self.bell.update_config(config);
         self.default_cursor_style = config.cursor.style;
         self.dynamic_title = config.dynamic_title();
         self.auto_scroll = config.scrolling.auto_scroll;
@@ -1702,8 +1703,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn bell(&mut self) {
         trace!("Bell");
-        self.visual_bell.ring();
-        self.visual_bell.run_bell_command();
+        self.bell.ring();
         self.next_is_urgent = Some(true);
     }
 
