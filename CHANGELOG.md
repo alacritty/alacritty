@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Block selection mode when Control is held while starting a selection
+
 ### Fixed
 
 - GUI programs launched by Alacritty starting in the background on X11

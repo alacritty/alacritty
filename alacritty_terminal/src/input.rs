@@ -66,6 +66,7 @@ pub trait ActionContext {
     fn clear_selection(&mut self);
     fn update_selection(&mut self, point: Point, side: Side);
     fn simple_selection(&mut self, point: Point, side: Side);
+    fn block_selection(&mut self, point: Point, side: Side);
     fn semantic_selection(&mut self, point: Point);
     fn line_selection(&mut self, point: Point);
     fn selection_is_empty(&self) -> bool;
@@ -612,7 +613,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 // Start new empty selection
                 let side = self.ctx.mouse().cell_side;
                 if let Some(point) = point {
-                    self.ctx.simple_selection(point, side);
+                    if modifiers.ctrl {
+                        self.ctx.block_selection(point, side);
+                    } else {
+                        self.ctx.simple_selection(point, side);
+                    }
                 }
 
                 let report_modes =
@@ -990,6 +995,8 @@ mod tests {
         fn update_selection(&mut self, _point: Point, _side: Side) {}
 
         fn simple_selection(&mut self, _point: Point, _side: Side) {}
+
+        fn block_selection(&mut self, _point: Point, _side: Side) {}
 
         fn copy_selection(&mut self, _: ClipboardType) {}
 

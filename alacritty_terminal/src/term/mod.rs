@@ -35,7 +35,7 @@ use crate::grid::{
 use crate::index::{self, Column, Contains, IndexRange, Line, Linear, Point};
 use crate::input::FONT_SIZE_STEP;
 use crate::message_bar::MessageBuffer;
-use crate::selection::{self, Selection, Span};
+use crate::selection::{self, Selection, SelectionRange, Span};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 use crate::url::{Url, UrlParser};
@@ -215,7 +215,7 @@ pub struct RenderableCellsIter<'a> {
     cursor_style: CursorStyle,
     config: &'a Config,
     colors: &'a color::List,
-    selection: Option<RangeInclusive<index::Linear>>,
+    selection: Option<SelectionRange>,
     url_highlight: &'a Option<RangeInclusive<index::Linear>>,
 }
 
@@ -240,19 +240,23 @@ impl<'a> RenderableCellsIter<'a> {
             let start_line = grid.buffer_line_to_visible(span.start.line);
             let end_line = grid.buffer_line_to_visible(span.end.line);
 
+            // Limit block selection columns to within start/end points
+            let (limit_start, limit_end) =
+                if span.is_block { (span.start.col, span.end.col) } else { (Column(0), Column(0)) };
+
             // Get start/end locations based on what part of selection is on screen
             let locations = match (start_line, end_line) {
                 (ViewportPosition::Visible(start_line), ViewportPosition::Visible(end_line)) => {
                     Some((start_line, span.start.col, end_line, span.end.col))
                 },
                 (ViewportPosition::Visible(start_line), ViewportPosition::Above) => {
-                    Some((start_line, span.start.col, Line(0), Column(0)))
+                    Some((start_line, span.start.col, Line(0), limit_end))
                 },
                 (ViewportPosition::Below, ViewportPosition::Visible(end_line)) => {
-                    Some((grid.num_lines(), Column(0), end_line, span.end.col))
+                    Some((grid.num_lines(), limit_start, end_line, span.end.col))
                 },
                 (ViewportPosition::Below, ViewportPosition::Above) => {
-                    Some((grid.num_lines(), Column(0), Line(0), Column(0)))
+                    Some((grid.num_lines(), limit_start, Line(0), limit_end))
                 },
                 _ => None,
             };
@@ -267,11 +271,7 @@ impl<'a> RenderableCellsIter<'a> {
                     ::std::mem::swap(&mut start, &mut end);
                 }
 
-                let cols = grid.num_cols();
-                let start = Linear::from_point(cols, start.into());
-                let end = Linear::from_point(cols, end.into());
-
-                RangeInclusive::new(start, end)
+                SelectionRange::new(start, end, span.is_block)
             })
         });
 
@@ -425,9 +425,11 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if self.cursor_offset == self.inner.offset() && self.inner.column() == self.cursor.col {
-                let index = Linear::new(self.grid.num_cols(), self.cursor.col, self.cursor.line);
-                let selected =
-                    self.selection.as_ref().map(|range| range.contains_(index)).unwrap_or(false);
+                let selected = self
+                    .selection
+                    .as_ref()
+                    .map(|range| range.contains(self.cursor.col, self.cursor.line))
+                    .unwrap_or(false);
 
                 // Handle cursor
                 if let Some(cursor_key) = self.cursor_key.take() {
@@ -464,12 +466,14 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
             } else {
                 let mut cell = self.inner.next()?;
 
-                let index = Linear::new(self.grid.num_cols(), cell.column, cell.line);
-
-                let selected =
-                    self.selection.as_ref().map(|range| range.contains_(index)).unwrap_or(false);
+                let selected = self
+                    .selection
+                    .as_ref()
+                    .map(|range| range.contains(cell.column, cell.line))
+                    .unwrap_or(false);
 
                 // Underline URL highlights
+                let index = Linear::new(self.grid.num_cols(), cell.column, cell.line);
                 if self.url_highlight.as_ref().map(|range| range.contains_(index)).unwrap_or(false)
                 {
                     cell.inner.flags.insert(Flags::UNDERLINE);
@@ -987,28 +991,10 @@ impl Term {
     }
 
     pub fn selection_to_string(&self) -> Option<String> {
-        /// Need a generic push() for the Append trait
-        trait PushChar {
-            fn push_char(&mut self, c: char);
-            fn maybe_newline(&mut self, grid: &Grid<Cell>, line: usize, ending: Column) {
-                if ending != Column(0)
-                    && !grid[line][ending - 1].flags.contains(cell::Flags::WRAPLINE)
-                {
-                    self.push_char('\n');
-                }
-            }
-        }
-
-        impl PushChar for String {
-            #[inline]
-            fn push_char(&mut self, c: char) {
-                self.push(c);
-            }
-        }
-
-        trait Append: PushChar {
+        trait Append {
             fn append(
                 &mut self,
+                append_newline: bool,
                 grid: &Grid<Cell>,
                 tabs: &TabStops,
                 line: usize,
@@ -1019,6 +1005,7 @@ impl Term {
         impl Append for String {
             fn append(
                 &mut self,
+                append_newline: bool,
                 grid: &Grid<Cell>,
                 tabs: &TabStops,
                 mut line: usize,
@@ -1031,9 +1018,7 @@ impl Term {
                 let line_length = grid_line.line_length();
                 let line_end = min(line_length, cols.end + 1);
 
-                if line_end.0 == 0 && cols.end >= grid.num_cols() - 1 {
-                    self.push('\n');
-                } else if cols.start < line_end {
+                if cols.start < line_end {
                     let mut tab_mode = false;
 
                     for col in IndexRange::from(cols.start..line_end) {
@@ -1059,16 +1044,20 @@ impl Term {
                             tab_mode = true;
                         }
                     }
+                }
 
-                    if cols.end >= grid.num_cols() - 1 {
-                        self.maybe_newline(grid, line, line_end);
-                    }
+                if append_newline
+                    || (cols.end >= grid.num_cols() - 1
+                        && (line_end == Column(0)
+                            || !grid[line][line_end - 1].flags.contains(cell::Flags::WRAPLINE)))
+                {
+                    self.push('\n');
                 }
             }
         }
 
         let selection = self.grid.selection.clone()?;
-        let Span { mut start, mut end } = selection.to_span(self)?;
+        let Span { mut start, mut end, is_block } = selection.to_span(self)?;
 
         let mut res = String::new();
 
@@ -1077,35 +1066,38 @@ impl Term {
         }
 
         let line_count = end.line - start.line;
-        let max_col = Column(usize::max_value() - 1);
+
+        // Setup block selection start/end point limits
+        let (limit_start, limit_end) =
+            if is_block { (end.col, start.col) } else { (Column(0), self.grid.num_cols()) };
 
         match line_count {
             // Selection within single line
             0 => {
-                res.append(&self.grid, &self.tabs, start.line, start.col..end.col);
+                res.append(false, &self.grid, &self.tabs, start.line, start.col..end.col);
             },
 
             // Selection ends on line following start
             1 => {
                 // Ending line
-                res.append(&self.grid, &self.tabs, end.line, end.col..max_col);
+                res.append(is_block, &self.grid, &self.tabs, end.line, end.col..limit_end);
 
                 // Starting line
-                res.append(&self.grid, &self.tabs, start.line, Column(0)..start.col);
+                res.append(false, &self.grid, &self.tabs, start.line, limit_start..start.col);
             },
 
             // Multi line selection
             _ => {
                 // Ending line
-                res.append(&self.grid, &self.tabs, end.line, end.col..max_col);
+                res.append(is_block, &self.grid, &self.tabs, end.line, end.col..limit_end);
 
                 let middle_range = (start.line + 1)..(end.line);
                 for line in middle_range.rev() {
-                    res.append(&self.grid, &self.tabs, line, Column(0)..max_col);
+                    res.append(is_block, &self.grid, &self.tabs, line, limit_start..limit_end);
                 }
 
                 // Starting line
-                res.append(&self.grid, &self.tabs, start.line, Column(0)..start.col);
+                res.append(false, &self.grid, &self.tabs, start.line, limit_start..start.col);
             },
         }
 
