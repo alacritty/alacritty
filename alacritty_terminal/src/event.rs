@@ -183,6 +183,10 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
         }
     }
 
+    fn spawn_pager(&mut self) {
+        self.terminal.spawn_pager()
+    }
+
     fn toggle_fullscreen(&mut self) {
         self.window_changes.toggle_fullscreen();
     }

@@ -80,6 +80,7 @@ pub trait ActionContext {
     fn terminal(&self) -> &Term;
     fn terminal_mut(&mut self) -> &mut Term;
     fn spawn_new_instance(&mut self);
+    fn spawn_pager(&mut self);
     fn toggle_fullscreen(&mut self);
     #[cfg(target_os = "macos")]
     fn toggle_simple_fullscreen(&mut self);
@@ -254,6 +255,10 @@ pub enum Action {
     /// Spawn a new instance of Alacritty.
     SpawnNewInstance,
 
+    /// Dump the contents of the scrollback buffer into a new instance of
+    /// alacritty running a pager.
+    SpawnPager,
+
     /// Toggle fullscreen.
     ToggleFullscreen,
 
@@ -349,6 +354,9 @@ impl Action {
             },
             Action::SpawnNewInstance => {
                 ctx.spawn_new_instance();
+            },
+            Action::SpawnPager => {
+                ctx.spawn_pager();
             },
             Action::None => (),
         }
@@ -998,6 +1006,8 @@ mod tests {
         fn hide_window(&mut self) {}
 
         fn spawn_new_instance(&mut self) {}
+
+        fn spawn_pager(&mut self) {}
 
         fn toggle_fullscreen(&mut self) {}
 

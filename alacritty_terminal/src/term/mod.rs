@@ -14,7 +14,10 @@
 //
 //! Exports the `Term` type which is a high-level API for the Grid
 use std::cmp::{max, min};
+use std::env;
 use std::ops::{Index, IndexMut, Range, RangeInclusive};
+use std::process::{Command, Stdio};
+use std::thread;
 use std::time::{Duration, Instant};
 use std::{io, mem, ptr};
 
@@ -26,7 +29,7 @@ use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset,
 };
 use crate::clipboard::{Clipboard, ClipboardType};
-use crate::config::{Config, VisualBellAnimation};
+use crate::config::{Config, Shell, VisualBellAnimation};
 use crate::cursor::CursorKey;
 use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
@@ -39,6 +42,9 @@ use crate::selection::{self, Selection, Span};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 use crate::url::{Url, UrlParser};
+
+#[cfg(not(windows))]
+use std::os::unix::process::CommandExt;
 
 #[cfg(windows)]
 use crate::tty;
@@ -810,6 +816,9 @@ pub struct Term {
 
     /// Clipboard access coupled to the active window
     clipboard: Clipboard,
+
+    /// Pager to use for searching the scrollback buffer
+    pager: Shell<'static>,
 }
 
 /// Terminal size info
@@ -949,6 +958,7 @@ impl Term {
             message_buffer,
             should_exit: false,
             clipboard,
+            pager: config.pager.as_ref().map(|s| s.clone()).unwrap_or_else(|| Shell::new("less")),
         }
     }
 
@@ -1370,6 +1380,76 @@ impl Term {
 
     pub fn clipboard(&mut self) -> &mut Clipboard {
         &mut self.clipboard
+    }
+
+    fn dump_scrollback_buffer<W: 'static + io::Write + Send>(&mut self, mut w: W) {
+        // First copy the entire scrollback buffer into a string.
+        let mut buf = String::with_capacity(self.grid.len());
+
+        for line in (0..self.grid.len()).rev() {
+            if self.grid[line].is_empty() {
+                continue;
+            }
+
+            buf.extend(self.grid[line][..].iter().map(|cell| cell.c));
+
+            if let Some(false) = self.grid[line].last().map(GridCell::is_wrap) {
+                buf.push('\n');
+            }
+        }
+
+        // Now spawn a thread to write it all out into the pager's pipe.  A separate
+        // thread is needed because the pager may not read the full contents of the pipe
+        // and we don't want to block waiting on it.
+        thread::spawn(move || {
+            if let Err(e) = w.write_all(buf.as_bytes()) {
+                match e.raw_os_error() {
+                    // EPIPE just means that the child exited without reading everything out of
+                    // the pipe.
+                    Some(::libc::EPIPE) => {},
+                    _ => warn!("Failed to send entire scrollback buffer to pager: {}", e),
+                }
+            }
+        });
+    }
+
+    /// Dumps the contents of the scrollback buffer into a new instance of alacritty running
+    /// the user provided pager.
+    pub fn spawn_pager(&mut self) {
+        let alacritty = env::args().next().unwrap();
+        let mut args = vec![
+            "--title",
+            "scrollback-buffer",
+            "--inherit-stdin",
+            "--command",
+            &self.pager.program,
+        ];
+        args.extend(self.pager.args.iter().map(|s| &**s));
+
+        let pager = Command::new(&alacritty)
+            .args(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .before_exec(|| unsafe {
+                match ::libc::fork() {
+                    -1 => return Err(io::Error::last_os_error()),
+                    0 => (),
+                    _ => ::libc::_exit(0),
+                }
+
+                if ::libc::setsid() == -1 {
+                    return Err(io::Error::last_os_error());
+                }
+
+                Ok(())
+            })
+            .spawn();
+
+        match pager {
+            Ok(mut child) => self.dump_scrollback_buffer(child.stdin.take().unwrap()),
+            Err(_) => warn!("Unable to start pager process: {} {}", alacritty, self.pager.program),
+        }
     }
 }
 

@@ -95,6 +95,10 @@ pub struct Config {
     #[serde(default, deserialize_with = "failure_default")]
     pub shell: Option<Shell<'static>>,
 
+    /// Path to a pager to use for searching the scrollback buffer
+    #[serde(default, deserialize_with = "failure_default")]
+    pub pager: Option<Shell<'static>>,
+
     /// Path where config was loaded from
     #[serde(default, deserialize_with = "failure_default")]
     pub config_path: Option<PathBuf>,
@@ -337,7 +341,7 @@ impl Cursor {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct Shell<'a> {
     pub program: Cow<'a, str>,
 
