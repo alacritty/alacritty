@@ -991,28 +991,10 @@ impl Term {
     }
 
     pub fn selection_to_string(&self) -> Option<String> {
-        /// Need a generic push() for the Append trait
-        trait PushChar {
-            fn push_char(&mut self, c: char);
-            fn maybe_newline(&mut self, grid: &Grid<Cell>, line: usize, ending: Column) {
-                if ending != Column(0)
-                    && !grid[line][ending - 1].flags.contains(cell::Flags::WRAPLINE)
-                {
-                    self.push_char('\n');
-                }
-            }
-        }
-
-        impl PushChar for String {
-            #[inline]
-            fn push_char(&mut self, c: char) {
-                self.push(c);
-            }
-        }
-
-        trait Append: PushChar {
+        trait Append {
             fn append(
                 &mut self,
+                append_newline: bool,
                 grid: &Grid<Cell>,
                 tabs: &TabStops,
                 line: usize,
@@ -1023,6 +1005,7 @@ impl Term {
         impl Append for String {
             fn append(
                 &mut self,
+                append_newline: bool,
                 grid: &Grid<Cell>,
                 tabs: &TabStops,
                 mut line: usize,
@@ -1035,9 +1018,7 @@ impl Term {
                 let line_length = grid_line.line_length();
                 let line_end = min(line_length, cols.end + 1);
 
-                if line_end.0 == 0 && cols.end >= grid.num_cols() - 1 {
-                    self.push('\n');
-                } else if cols.start < line_end {
+                if cols.start < line_end {
                     let mut tab_mode = false;
 
                     for col in IndexRange::from(cols.start..line_end) {
@@ -1063,10 +1044,14 @@ impl Term {
                             tab_mode = true;
                         }
                     }
+                }
 
-                    if cols.end >= grid.num_cols() - 1 {
-                        self.maybe_newline(grid, line, line_end);
-                    }
+                if append_newline
+                    || (cols.end >= grid.num_cols() - 1
+                        && (line_end == Column(0)
+                            || !grid[line][line_end - 1].flags.contains(cell::Flags::WRAPLINE)))
+                {
+                    self.push('\n');
                 }
             }
         }
@@ -1081,54 +1066,38 @@ impl Term {
         }
 
         let line_count = end.line - start.line;
-        let max_col = Column(usize::max_value() - 1);
 
         // Setup block selection start/end point limits
         let (limit_start, limit_end) =
-            if is_block { (end.col, start.col) } else { (Column(0), max_col) };
+            if is_block { (end.col, start.col) } else { (Column(0), self.grid.num_cols()) };
 
         match line_count {
             // Selection within single line
             0 => {
-                res.append(&self.grid, &self.tabs, start.line, start.col..end.col);
+                res.append(false, &self.grid, &self.tabs, start.line, start.col..end.col);
             },
 
             // Selection ends on line following start
             1 => {
                 // Ending line
-                res.append(&self.grid, &self.tabs, end.line, end.col..limit_end);
-
-                // Manually append newlines for block selection
-                if is_block && !res.ends_with('\n') {
-                    res.push_char('\n');
-                }
+                res.append(is_block, &self.grid, &self.tabs, end.line, end.col..limit_end);
 
                 // Starting line
-                res.append(&self.grid, &self.tabs, start.line, limit_start..start.col);
+                res.append(false, &self.grid, &self.tabs, start.line, limit_start..start.col);
             },
 
             // Multi line selection
             _ => {
                 // Ending line
-                res.append(&self.grid, &self.tabs, end.line, end.col..limit_end);
-
-                // Manually append newlines for block selection
-                if is_block && !res.ends_with('\n') {
-                    res.push_char('\n');
-                }
+                res.append(is_block, &self.grid, &self.tabs, end.line, end.col..limit_end);
 
                 let middle_range = (start.line + 1)..(end.line);
                 for line in middle_range.rev() {
-                    res.append(&self.grid, &self.tabs, line, limit_start..limit_end);
-
-                    // Manually append newlines for block selection
-                    if is_block && !res.ends_with('\n') {
-                        res.push_char('\n');
-                    }
+                    res.append(is_block, &self.grid, &self.tabs, line, limit_start..limit_end);
                 }
 
                 // Starting line
-                res.append(&self.grid, &self.tabs, start.line, limit_start..start.col);
+                res.append(false, &self.grid, &self.tabs, start.line, limit_start..start.col);
             },
         }
 
