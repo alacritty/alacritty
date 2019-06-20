@@ -180,7 +180,9 @@ pub fn new<T: ToWinsize>(config: &Config, size: &T, window_id: Option<usize>) ->
     // Ownership of fd is transferred to the Stdio structs and will be closed by them at the end of
     // this scope. (It is not an issue that the fd is closed three times since File::drop ignores
     // error on libc::close.)
-    builder.stdin(unsafe { Stdio::from_raw_fd(slave) });
+    let stdin =
+        if config.inherit_stdin { Stdio::inherit() } else { unsafe { Stdio::from_raw_fd(slave) } };
+    builder.stdin(stdin);
     builder.stderr(unsafe { Stdio::from_raw_fd(slave) });
     builder.stdout(unsafe { Stdio::from_raw_fd(slave) });
 

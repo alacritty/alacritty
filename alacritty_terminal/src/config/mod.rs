@@ -137,6 +137,10 @@ pub struct Config {
     #[serde(default, deserialize_with = "failure_default")]
     working_directory: WorkingDirectory,
 
+    /// Forward stdin to `self.shell`
+    #[serde(default, deserialize_with = "failure_default")]
+    pub inherit_stdin: bool,
+
     /// Debug options
     #[serde(default, deserialize_with = "failure_default")]
     pub debug: Debug,
