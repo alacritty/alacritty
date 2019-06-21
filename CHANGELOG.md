@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - GUI programs launched by Alacritty starting in the background on X11
-- Cursor position when scrolling
+- Text Cursor position when scrolling
 
 ## 0.3.3
 
