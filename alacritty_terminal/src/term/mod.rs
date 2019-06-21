@@ -436,7 +436,10 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     let cell = Indexed {
                         inner: self.grid[self.cursor],
                         column: self.cursor.col,
-                        line: self.cursor.line,
+                        // Using `self.cursor.line` leads to inconsitent cursor position when
+                        // scrolling. See https://github.com/jwilm/alacritty/issues/2570 for more
+                        // info.
+                        line: self.inner.line(),
                     };
 
                     let mut renderable_cell =
