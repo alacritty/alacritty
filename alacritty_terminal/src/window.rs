@@ -17,7 +17,7 @@ use std::ffi::c_void;
 use std::fmt::Display;
 
 use crate::gl;
-use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
+use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 #[cfg(target_os = "macos")]
 use glutin::os::macos::WindowExt;
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -158,38 +158,6 @@ impl Window {
             create_gl_window(window_builder.clone(), &event_loop, false, dimensions)
                 .or_else(|_| create_gl_window(window_builder, &event_loop, true, dimensions))?;
         let window = windowed_context.window();
-        window.show();
-
-        // Maximize window after mapping in X11
-        #[cfg(not(any(target_os = "macos", windows)))]
-        {
-            if event_loop.is_x11() && config.window.startup_mode() == StartupMode::Maximized {
-                window.set_maximized(true);
-            }
-        }
-
-        // Set window position
-        //
-        // TODO: replace `set_position` with `with_position` once available
-        // Upstream issue: https://github.com/tomaka/winit/issues/806
-        if let Some(position) = config.window.position {
-            let physical = PhysicalPosition::from((position.x, position.y));
-            let logical = physical.to_logical(window.get_hidpi_factor());
-            window.set_position(logical);
-        }
-
-        if let StartupMode::Fullscreen = config.window.startup_mode() {
-            let current_monitor = window.get_current_monitor();
-            window.set_fullscreen(Some(current_monitor));
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            if let StartupMode::SimpleFullscreen = config.window.startup_mode() {
-                use glutin::os::macos::WindowExt;
-                window.set_simple_fullscreen(true);
-            }
-        }
 
         // Text cursor
         window.set_cursor(MouseCursor::Text);
@@ -248,6 +216,12 @@ impl Window {
     #[inline]
     pub fn resize(&self, size: PhysicalSize) {
         self.windowed_context.resize(size);
+    }
+
+    /// Show window
+    #[inline]
+    pub fn show(&self) {
+        self.window().show();
     }
 
     /// Block waiting for events
@@ -379,12 +353,21 @@ impl Window {
         self.window().set_ime_spot(pos);
     }
 
+    pub fn set_position(&self, pos: LogicalPosition) {
+        self.window().set_position(pos);
+    }
+
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     pub fn get_window_id(&self) -> Option<usize> {
         match self.window().get_xlib_window() {
             Some(xlib_window) => Some(xlib_window as usize),
             None => None,
         }
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    pub fn is_x11(&self) -> bool {
+        self.event_loop.is_x11()
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -406,6 +389,10 @@ impl Window {
         } else {
             glutin_window.set_fullscreen(None);
         }
+    }
+
+    pub fn set_maximized(&self, maximized: bool) {
+        self.window().set_maximized(maximized);
     }
 
     #[cfg(target_os = "macos")]

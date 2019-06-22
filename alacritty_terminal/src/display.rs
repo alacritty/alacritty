@@ -224,6 +224,33 @@ impl Display {
             api.clear(background_color);
         });
 
+        // We should call `clear` when window is offscreen, so when `window.show()` happens it
+        // would be with background color instead of uninitialized surface.
+        window.swap_buffers()?;
+
+        window.show();
+
+        // Set window position
+        //
+        // TODO: replace `set_position` with `with_position` once available
+        // Upstream issue: https://github.com/tomaka/winit/issues/806
+        if let Some(position) = config.window.position {
+            let physical = PhysicalPosition::from((position.x, position.y));
+            let logical = physical.to_logical(window.hidpi_factor());
+            window.set_position(logical);
+        }
+
+        use StartupMode::*;
+        #[allow(clippy::single_match)]
+        match config.window.startup_mode() {
+            Fullscreen => window.set_fullscreen(true),
+            #[cfg(target_os = "macos")]
+            SimpleFullscreen => window.set_simple_fullscreen(true),
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+            Maximized if window.is_x11() => window.set_maximized(true),
+            _ => (),
+        }
+
         Ok(Display {
             window,
             renderer,
