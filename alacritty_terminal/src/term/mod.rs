@@ -1228,13 +1228,11 @@ impl Term {
         debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
 
         // Resize grids to new size
-        let alt_cursor_point = if self.mode.contains(TermMode::ALT_SCREEN) {
-            &mut self.cursor_save.point
-        } else {
-            &mut self.cursor_save_alt.point
-        };
-        self.grid.resize(num_lines, num_cols, &mut self.cursor.point, &Cell::default());
-        self.alt_grid.resize(num_lines, num_cols, alt_cursor_point, &Cell::default());
+        let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
+        let alt_cursor_point =
+            if is_alt { &mut self.cursor_save.point } else { &mut self.cursor_save_alt.point };
+        self.grid.resize(!is_alt, num_lines, num_cols, &mut self.cursor.point, &Cell::default());
+        self.alt_grid.resize(is_alt, num_lines, num_cols, alt_cursor_point, &Cell::default());
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - GUI programs launched by Alacritty starting in the background on X11
 - Text Cursor position when scrolling
+- Performance issues while resizing Alacritty
 
 ## 0.3.3
 
