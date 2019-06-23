@@ -308,9 +308,9 @@ impl<T> IndexMut<Line> for Storage<T> {
 
 #[cfg(test)]
 mod test {
+    use crate::grid::row::Row;
     use crate::grid::storage::Storage;
     use crate::index::{Column, Line};
-    use crate::grid::row::Row;
 
     /// Grow the buffer one line at the end of the buffer
     ///

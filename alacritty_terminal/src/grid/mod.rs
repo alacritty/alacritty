@@ -286,23 +286,23 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
                             cursor_pos.line = Line(cursor_pos.line.saturating_sub(1));
                             new_empty_lines += 1;
                         } else {
-                            // Make sure viewport doesn't move if line is outside of the visible area
+                            // Make sure viewport doesn't move if line is outside of the visible
+                            // area
                             if i < self.display_offset {
                                 self.display_offset = self.display_offset.saturating_sub(1);
                             }
 
-                            // Remove one line from scrollback, since we just moved it to the viewport
+                            // Remove one line from scrollback, since we just moved it to the
+                            // viewport
                             self.scroll_limit = self.scroll_limit.saturating_sub(1);
                             self.display_offset = min(self.display_offset, self.scroll_limit);
                         }
 
                         // Don't push line into the new buffer
                         continue;
-                    } else {
-                        if let Some(cell) = last_row.last_mut() {
-                            // Set wrap flag if next line still has cells
-                            cell.set_wrap(true);
-                        }
+                    } else if let Some(cell) = last_row.last_mut() {
+                        // Set wrap flag if next line still has cells
+                        cell.set_wrap(true);
                     }
                 }
             }
