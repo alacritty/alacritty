@@ -263,9 +263,10 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         let mut new_empty_lines = 0;
         let mut new_raw: Vec<Row<T>> = Vec::with_capacity(self.raw.len());
         for (i, mut row) in self.raw.drain().enumerate().rev() {
-            if let (Some(last_row), true) = (new_raw.last_mut(), reflow) {
+            if let Some(last_row) = new_raw.last_mut() {
                 // Grow the current line if there's wrapped content available
-                if last_row.len() < cols.0
+                if reflow
+                    && last_row.len() < cols.0
                     && last_row.last().map(GridCell::is_wrap) == Some(true)
                 {
                     // Remove wrap flag before appending additional cells
@@ -294,19 +295,19 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
                             self.scroll_limit = self.scroll_limit.saturating_sub(1);
                             self.display_offset = min(self.display_offset, self.scroll_limit);
                         }
+
+                        // Don't push line into the new buffer
+                        continue;
                     } else {
                         if let Some(cell) = last_row.last_mut() {
                             // Set wrap flag if next line still has cells
                             cell.set_wrap(true);
                         }
-                        new_raw.push(row);
                     }
-                } else {
-                    new_raw.push(row);
                 }
-            } else {
-                new_raw.push(row);
             }
+
+            new_raw.push(row);
         }
 
         // Add padding lines
