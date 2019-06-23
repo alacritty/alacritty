@@ -12,6 +12,7 @@
 /// implementation is provided. Anything from Vec that should be exposed must be
 /// done so manually.
 use std::ops::{Index, IndexMut};
+use std::slice;
 
 use static_assertions::assert_eq_size;
 
@@ -250,6 +251,15 @@ impl<T> Storage<T> {
 
         let len = self.inner.len();
         self.zero = (self.zero as isize + count + len as isize) as usize % len;
+    }
+
+    /// Iterate over *all* entries in the underlying buffer
+    ///
+    /// This includes hidden entries.
+    ///
+    /// NOTE: This method is only needed to perform resize without reflow functionality.
+    pub fn iter_mut_raw<'a>(&'a mut self) -> slice::IterMut<'a, Row<T>> {
+        self.inner.iter_mut()
     }
 
     // Fast path

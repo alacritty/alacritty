@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Block selection mode when Control is held while starting a selection
 
+### Changed
+
+- Text reflow is now disabled in `ALT_SCREEN` mode
+
 ### Fixed
 
 - GUI programs launched by Alacritty starting in the background on X11

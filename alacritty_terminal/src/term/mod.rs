@@ -1214,9 +1214,10 @@ impl Term {
             self.alt_grid.scroll_up(&(Line(0)..old_lines), lines, &self.cursor_save_alt.template);
         }
 
+        let alt_screen_mode = self.mode.contains(TermMode::ALT_SCREEN);
         // Move prompt down when growing if scrollback lines are available
         if num_lines > old_lines {
-            if self.mode.contains(TermMode::ALT_SCREEN) {
+            if alt_screen_mode {
                 let growage = min(num_lines - old_lines, Line(self.alt_grid.scroll_limit()));
                 self.cursor_save.point.line += growage;
             } else {
@@ -1228,13 +1229,29 @@ impl Term {
         debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
 
         // Resize grids to new size
-        let alt_cursor_point = if self.mode.contains(TermMode::ALT_SCREEN) {
+        let alt_cursor_point = if alt_screen_mode {
             &mut self.cursor_save.point
         } else {
             &mut self.cursor_save_alt.point
         };
-        self.grid.resize(num_lines, num_cols, &mut self.cursor.point, &Cell::default());
-        self.alt_grid.resize(num_lines, num_cols, alt_cursor_point, &Cell::default());
+
+        // Apps that are using `ALT_SCREEN` mode are probably doing their own reflow, so `our`
+        // reflow can lead to strange "artifacts" during resize.
+        let reflow = !alt_screen_mode;
+        self.grid.resize(
+            num_lines,
+            num_cols,
+            &mut self.cursor.point,
+            &Cell::default(),
+            reflow,
+        );
+        self.alt_grid.resize(
+            num_lines,
+            num_cols,
+            alt_cursor_point,
+            &Cell::default(),
+            reflow,
+        );
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();

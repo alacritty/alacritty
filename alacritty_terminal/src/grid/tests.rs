@@ -140,7 +140,7 @@ fn shrink_reflow() {
     grid[Line(0)][Column(3)] = cell('4');
     grid[Line(0)][Column(4)] = cell('5');
 
-    grid.resize(Line(1), Column(2), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(Line(1), Column(2), &mut Point::new(Line(0), Column(0)), &Cell::default(), true);
 
     assert_eq!(grid.len(), 3);
 
@@ -166,8 +166,8 @@ fn shrink_reflow_twice() {
     grid[Line(0)][Column(3)] = cell('4');
     grid[Line(0)][Column(4)] = cell('5');
 
-    grid.resize(Line(1), Column(4), &mut Point::new(Line(0), Column(0)), &Cell::default());
-    grid.resize(Line(1), Column(2), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(Line(1), Column(4), &mut Point::new(Line(0), Column(0)), &Cell::default(), true);
+    grid.resize(Line(1), Column(2), &mut Point::new(Line(0), Column(0)), &Cell::default(), true);
 
     assert_eq!(grid.len(), 3);
 
@@ -193,7 +193,7 @@ fn shrink_reflow_empty_cell_inside_line() {
     grid[Line(0)][Column(3)] = cell('4');
     grid[Line(0)][Column(4)] = Cell::default();
 
-    grid.resize(Line(1), Column(2), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(Line(1), Column(2), &mut Point::new(Line(0), Column(0)), &Cell::default(), true);
 
     assert_eq!(grid.len(), 2);
 
@@ -205,7 +205,7 @@ fn shrink_reflow_empty_cell_inside_line() {
     assert_eq!(grid[0][Column(0)], cell('3'));
     assert_eq!(grid[0][Column(1)], cell('4'));
 
-    grid.resize(Line(1), Column(1), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(Line(1), Column(1), &mut Point::new(Line(0), Column(0)), &Cell::default(), true);
 
     assert_eq!(grid.len(), 4);
 
@@ -230,7 +230,7 @@ fn grow_reflow() {
     grid[Line(1)][Column(0)] = cell('3');
     grid[Line(1)][Column(1)] = Cell::default();
 
-    grid.resize(Line(2), Column(3), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(Line(2), Column(3), &mut Point::new(Line(0), Column(0)), &Cell::default(), true);
 
     assert_eq!(grid.len(), 2);
 
@@ -256,7 +256,7 @@ fn grow_reflow_multiline() {
     grid[Line(2)][Column(0)] = cell('5');
     grid[Line(2)][Column(1)] = cell('6');
 
-    grid.resize(Line(3), Column(6), &mut Point::new(Line(0), Column(0)), &Cell::default());
+    grid.resize(Line(3), Column(6), &mut Point::new(Line(0), Column(0)), &Cell::default(), true);
 
     assert_eq!(grid.len(), 3);
 

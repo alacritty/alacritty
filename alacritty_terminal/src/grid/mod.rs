@@ -193,6 +193,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         cols: index::Column,
         cursor_pos: &mut Point,
         template: &T,
+        reflow: bool,
     ) {
         // Check that there's actually work to do and return early if not
         if lines == self.lines && cols == self.cols {
@@ -206,8 +207,8 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         }
 
         match self.cols.cmp(&cols) {
-            Ordering::Less => self.grow_cols(cols, cursor_pos, template),
-            Ordering::Greater => self.shrink_cols(cols, template),
+            Ordering::Less => self.grow_cols(cols, cursor_pos, template, reflow),
+            Ordering::Greater => self.shrink_cols(cols, template, reflow),
             Ordering::Equal => (),
         }
     }
@@ -252,7 +253,21 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         self.display_offset = self.display_offset.saturating_sub(*lines_added);
     }
 
-    fn grow_cols(&mut self, cols: index::Column, cursor_pos: &mut Point, template: &T) {
+    fn grow_cols(
+        &mut self,
+        cols: index::Column,
+        cursor_pos: &mut Point,
+        template: &T,
+        reflow: bool,
+    ) {
+        if !reflow {
+            for row in self.raw.iter_mut_raw() {
+                row.grow(cols, template);
+            }
+            self.cols = cols;
+            return;
+        }
+
         // Truncate all buffered lines
         self.raw.grow_hidden(cols, template);
 
@@ -312,7 +327,15 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         self.cols = cols;
     }
 
-    fn shrink_cols(&mut self, cols: index::Column, template: &T) {
+    fn shrink_cols(&mut self, cols: index::Column, template: &T, reflow: bool) {
+        if !reflow {
+            for row in self.raw.iter_mut_raw() {
+                row.shrink(cols);
+            }
+            self.cols = cols;
+            return;
+        }
+
         // Truncate all buffered lines
         self.raw.shrink_hidden(cols);
 
