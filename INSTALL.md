@@ -126,7 +126,7 @@ On [Void Linux](https://voidlinux.eu), install following packages before
 compiling Alacritty:
 
 ```sh
-xbps-install cmake freetype-devel freetype expat-devel fontconfig-devel fontconfig
+xbps-install cmake freetype-devel expat-devel fontconfig-devel libxcb-devel pkg-config python3
 ```
 
 #### FreeBSD
