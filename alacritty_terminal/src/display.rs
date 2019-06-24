@@ -240,14 +240,13 @@ impl Display {
             window.set_position(logical);
         }
 
-        use StartupMode::*;
         #[allow(clippy::single_match)]
         match config.window.startup_mode() {
-            Fullscreen => window.set_fullscreen(true),
+            StartupMode::Fullscreen => window.set_fullscreen(true),
             #[cfg(target_os = "macos")]
-            SimpleFullscreen => window.set_simple_fullscreen(true),
-            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-            Maximized if window.is_x11() => window.set_maximized(true),
+            StartupMode::SimpleFullscreen => window.set_simple_fullscreen(true),
+            #[cfg(not(any(target_os = "macos", windows)))]
+            StartupMode::Maximized if window.is_x11() => window.set_maximized(true),
             _ => (),
         }
 
