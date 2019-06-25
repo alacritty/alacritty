@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Text Cursor position when scrolling
 - Performance issues while resizing Alacritty
 - First unfullscreen action ignored on window launched in fullscreen mode
+- The window is now filled with the background color before displaying
 
 ## 0.3.3
 
