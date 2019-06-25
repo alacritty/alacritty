@@ -82,7 +82,7 @@ On Arch Linux, you need a few extra libraries to build Alacritty. Here's a
 to be missing, please open an issue.
 
 ```sh
-pacman -S cmake freetype2 fontconfig pkg-config make
+pacman -S cmake freetype2 fontconfig pkg-config make libxcb
 ```
 
 #### Fedora
