@@ -14,7 +14,7 @@ use parking_lot::MutexGuard;
 use serde_json as json;
 
 use crate::clipboard::ClipboardType;
-use crate::config::{self, Config};
+use crate::config::{self, Config, StartupMode};
 use crate::display::OnResize;
 use crate::grid::Scroll;
 use crate::index::{Column, Line, Point, Side};
@@ -342,7 +342,10 @@ impl<N: Notify> Processor<N> {
             window_changes: Default::default(),
             save_to_clipboard: config.selection.save_to_clipboard,
             alt_send_esc: config.alt_send_esc(),
-            is_fullscreen: false,
+            is_fullscreen: config.window.startup_mode() == StartupMode::Fullscreen,
+            #[cfg(target_os = "macos")]
+            is_simple_fullscreen: config.window.startup_mode() == StartupMode::SimpleFullscreen,
+            #[cfg(not(target_os = "macos"))]
             is_simple_fullscreen: false,
         }
     }
