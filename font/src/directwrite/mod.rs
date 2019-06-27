@@ -147,7 +147,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
             &glyph_run,
             self.device_pixel_ratio * (96.0 / 72.0),
             None,
-            dwrote::DWRITE_RENDERING_MODE_NATURAL,
+            dwrote::DWRITE_RENDERING_MODE_NATURAL_SYMMETRIC,
             dwrote::DWRITE_MEASURING_MODE_NATURAL,
             0.0,
             0.0,
