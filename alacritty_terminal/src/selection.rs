@@ -24,7 +24,7 @@ use crate::index::{Column, Point, Side};
 use crate::term::cell::Flags;
 use crate::term::{Search, Term};
 
-/// Describes a type of a 2-dimensional area
+/// Describes a type of Selection
 ///
 /// Used to track a text selection type. There are three supported modes, each with its own constructor:
 /// [`simple`], [`semantic`], and [`lines`]. The [`simple`] mode precisely tracks which cells are
