@@ -18,7 +18,6 @@
 //! finalized when the button is released. The selection should be cleared
 //! when text is added/removed/scrolled on the screen. The selection should
 //! also be cleared if the user clicks off of the selection.
-use std::mem::swap;
 use std::ops::Range;
 
 use crate::index::{Column, Point, Side};
@@ -90,11 +89,6 @@ impl Selection {
             start_type: SelectionType::Simple,
             end_type: SelectionType::Simple,
         }
-    }
-
-    pub fn reverse(&mut self) {
-        swap(&mut self.region.start, &mut self.region.end);
-        swap(&mut self.start_type, &mut self.end_type);
     }
 
     pub fn rotate(&mut self, offset: isize) {
@@ -353,7 +347,7 @@ pub struct Span {
 mod test {
     use std::mem;
 
-    use super::{Anchor, Selection, SelectionType, Span};
+    use super::{Selection, Span};
     use crate::clipboard::Clipboard;
     use crate::grid::Grid;
     use crate::index::{Column, Line, Point, Side};
@@ -474,66 +468,6 @@ mod test {
         assert_eq!(selection.to_span(&term(5, 2), false).unwrap(), Span {
             start: Point::new(0, Column(1)),
             end: Point::new(1, Column(1)),
-        });
-    }
-
-    /// Test reverse lines selection
-    ///
-    /// 1.  [BX][XX][XX][XX][XX]
-    ///     [XX][XX][XX][XX][XE]
-    /// 2.  [EX][XX][XX][XX][XX]
-    ///     [XX][XX][XX][XX][XB]
-    #[test]
-    fn reverse_lines() {
-        let mut selection = Selection::lines(Point::new(0, Column(1)));
-        selection.update(Point::new(1, Column(3)), Side::Left);
-        selection.reverse();
-
-        assert_eq!(selection, Selection {
-            region: Anchor { point: Point { line: 1, col: Column(3) }, side: Side::Left }
-                .. Anchor { point: Point { line: 0, col: Column(1) }, side: Side::Right },
-            start_type: SelectionType::Lines,
-            end_type: SelectionType::Lines,
-        });
-    }
-
-    /// Test reverse semantic selection
-    ///
-    /// 1.  [  ][ B][XX][XX][XX]
-    ///     [XX][XX][XX][E ][  ]
-    /// 2.  [  ][ E][XX][XX][XX]
-    ///     [XX][XX][XX][B ][  ]
-    #[test]
-    fn reverse_semantic() {
-        let mut selection = Selection::semantic(Point::new(0, Column(1)));
-        selection.update(Point::new(1, Column(3)), Side::Left);
-        selection.reverse();
-
-        assert_eq!(selection, Selection {
-            region: Anchor { point: Point { line: 1, col: Column(3) }, side: Side::Left }
-                .. Anchor { point: Point { line: 0, col: Column(1) }, side: Side::Right },
-            start_type: SelectionType::Semantic,
-            end_type: SelectionType::Semantic,
-        });
-    }
-
-    /// Test reverse simple selection
-    ///
-    /// 1.  [  ][ B][XX][XX][XX]
-    ///     [XX][XX][XX][E ][  ]
-    /// 2.  [  ][ E][XX][XX][XX]
-    ///     [XX][XX][XX][B ][  ]
-    #[test]
-    fn reverse_simple() {
-        let mut selection = Selection::simple(Point::new(0, Column(1)), Side::Right);
-        selection.update(Point::new(1, Column(3)), Side::Left);
-        selection.reverse();
-
-        assert_eq!(selection, Selection {
-            region: Anchor { point: Point { line: 1, col: Column(3) }, side: Side::Left }
-                .. Anchor { point: Point { line: 0, col: Column(1) }, side: Side::Right },
-            start_type: SelectionType::Simple,
-            end_type: SelectionType::Simple,
         });
     }
 

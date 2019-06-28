@@ -65,7 +65,6 @@ pub trait ActionContext {
     fn size_info(&self) -> SizeInfo;
     fn copy_selection(&mut self, _: ClipboardType);
     fn clear_selection(&mut self);
-    fn reverse_selection(&mut self);
     fn update_selection(&mut self, point: Point, side: Side);
     fn update_selection_as(&mut self, point: Point, side: Side, sel_type: SelectionType);
     fn expand_selection(&mut self);
@@ -646,21 +645,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 if self.is_expand_selection(button, modifiers, report_mode_intersection) {
                     // update current selection
                     if let Some(point) = point {
-                        if let Some(ref bounds) = self.ctx.terminal().selection().as_ref().map(|selection| {
-                            (selection.region.start.point, selection.region.end.point)
-                        }) {
-                            let p: Point<isize> =
-                                Point::from(self.ctx.terminal().visible_to_buffer(point));
-
-                            // reverse selection if start is between mouse & end
-                            if (p.line >= bounds.0.line && bounds.0.line > bounds.1.line && p.col < bounds.0.col)
-                                || (p.line <= bounds.0.line && bounds.0.line < bounds.1.line && p.col > bounds.0.col)
-                                || (p.col > bounds.0.col && bounds.0.col > bounds.1.col)
-                                || (p.col < bounds.0.col && bounds.0.col < bounds.1.col)
-                            {
-                                self.ctx.reverse_selection();
-                            }
-                        }
                         self.ctx.update_selection_as(point, side, SelectionType::Simple);
                     }
                 } else {
@@ -1057,8 +1041,6 @@ mod tests {
         fn copy_selection(&mut self, _: ClipboardType) {}
 
         fn clear_selection(&mut self) {}
-
-        fn reverse_selection(&mut self) {}
 
         fn hide_window(&mut self) {}
 
