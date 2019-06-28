@@ -80,9 +80,8 @@ impl<T: Copy> Row<T> {
     }
 
     /// Resets contents to the contents of `other`
-    #[inline(never)]
     pub fn reset(&mut self, other: &T) {
-        for item in &mut self.inner[..self.occ] {
+        for item in &mut self.inner[..] {
             *item = *other;
         }
         self.occ = 0;
