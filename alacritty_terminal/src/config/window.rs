@@ -1,5 +1,6 @@
-use crate::config::{failure_default, Delta};
+use crate::config::{failure_default, from_string_or_deserialize, Delta};
 use crate::index::{Column, Line};
+use crate::window::DEFAULT_NAME;
 
 #[serde(default)]
 #[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
@@ -33,8 +34,12 @@ pub struct WindowConfig {
     pub title: Option<String>,
 
     /// Window class
+    #[serde(deserialize_with = "from_string_or_deserialize")]
+    pub class: Class,
+
+    /// Window class instance
     #[serde(deserialize_with = "failure_default")]
-    pub class: Option<String>,
+    pub instance: Option<String>,
 
     /// TODO: DEPRECATED
     #[serde(deserialize_with = "failure_default")]
@@ -115,5 +120,25 @@ impl Dimensions {
     #[inline]
     pub fn columns_u32(&self) -> u32 {
         self.columns.0 as u32
+    }
+}
+
+/// Window class hint
+#[serde(default)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct Class {
+    pub instance: String,
+    pub general: String
+}
+
+impl Default for Class {
+    fn default() -> Self {
+        Class { instance: DEFAULT_NAME.into(), general: DEFAULT_NAME.into() }
+    }
+}
+
+impl From<String> for Class {
+    fn from(value: String) -> Self {
+        Class { instance: value, general: DEFAULT_NAME.into() }
     }
 }

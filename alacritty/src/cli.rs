@@ -250,7 +250,14 @@ impl Options {
         config.window.dimensions = self.dimensions.unwrap_or(config.window.dimensions);
         config.window.position = self.position.or(config.window.position);
         config.window.title = self.title.or(config.window.title);
-        config.window.class = self.class.or(config.window.class);
+
+        if let Some(class) = self.class {
+            let parts : Vec<_> = class.split(',').collect();
+            config.window.class.instance = parts[0].into();
+            if let Some(&general) = parts.get(1) {
+                config.window.class.general = general.into();
+            }
+        }
 
         config.set_dynamic_title(config.dynamic_title() && config.window.title.is_none());
 

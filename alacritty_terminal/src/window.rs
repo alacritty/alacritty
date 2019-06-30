@@ -151,9 +151,8 @@ impl Window {
         dimensions: Option<LogicalSize>,
     ) -> Result<Window> {
         let title = config.window.title.as_ref().map_or(DEFAULT_NAME, |t| t);
-        let class = config.window.class.as_ref().map_or(DEFAULT_NAME, |c| c);
 
-        let window_builder = Window::get_platform_window(title, class, &config.window);
+        let window_builder = Window::get_platform_window(title, &config.window);
         let windowed_context =
             create_gl_window(window_builder.clone(), &event_loop, false, dimensions)
                 .or_else(|_| create_gl_window(window_builder, &event_loop, true, dimensions))?;
@@ -255,7 +254,6 @@ impl Window {
     #[cfg(not(any(target_os = "macos", windows)))]
     pub fn get_platform_window(
         title: &str,
-        class: &str,
         window_config: &WindowConfig,
     ) -> WindowBuilder {
         use glutin::os::unix::WindowBuilderExt;
@@ -267,6 +265,8 @@ impl Window {
 
         let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO);
 
+        let class = &window_config.class;
+
         WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
@@ -275,15 +275,14 @@ impl Window {
             .with_maximized(window_config.startup_mode() == StartupMode::Maximized)
             .with_window_icon(icon.ok())
             // X11
-            .with_class(class.into(), DEFAULT_NAME.into())
+            .with_class(class.instance.clone(), class.general.clone())
             // Wayland
-            .with_app_id(class.into())
+            .with_app_id(class.instance.clone())
     }
 
     #[cfg(windows)]
     pub fn get_platform_window(
         title: &str,
-        _class: &str,
         window_config: &WindowConfig,
     ) -> WindowBuilder {
         let decorations = match window_config.decorations {
@@ -305,7 +304,6 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn get_platform_window(
         title: &str,
-        _class: &str,
         window_config: &WindowConfig,
     ) -> WindowBuilder {
         use glutin::os::macos::WindowBuilderExt;

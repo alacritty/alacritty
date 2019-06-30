@@ -66,7 +66,11 @@ window:
   #title: Alacritty
 
   # Window class (Linux only):
-  #class: Alacritty
+  class:
+    # Application instance name
+    instance: Alacritty
+    # General application class
+    general: Alacritty
 
 scrolling:
   # Maximum number of lines in the scrollback buffer.
