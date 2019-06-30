@@ -267,7 +267,7 @@ impl Window {
 
         let class = &window_config.class;
 
-        WindowBuilder::new()
+        let mut builder = WindowBuilder::new()
             .with_title(title)
             .with_visibility(false)
             .with_transparency(true)
@@ -277,7 +277,13 @@ impl Window {
             // X11
             .with_class(class.instance.clone(), class.general.clone())
             // Wayland
-            .with_app_id(class.instance.clone())
+            .with_app_id(class.instance.clone());
+
+        if let Some(ref val) = window_config.gtk_theme_variant {
+            builder = builder.with_gtk_theme_variant(val.clone())
+        }
+
+        builder
     }
 
     #[cfg(windows)]

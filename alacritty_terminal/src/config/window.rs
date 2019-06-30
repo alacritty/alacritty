@@ -1,4 +1,4 @@
-use crate::config::{failure_default, from_string_or_deserialize, Delta};
+use crate::config::{failure_default, option_explicit_none, from_string_or_deserialize, Delta};
 use crate::index::{Column, Line};
 use crate::window::DEFAULT_NAME;
 
@@ -37,9 +37,9 @@ pub struct WindowConfig {
     #[serde(deserialize_with = "from_string_or_deserialize")]
     pub class: Class,
 
-    /// Window class instance
-    #[serde(deserialize_with = "failure_default")]
-    pub instance: Option<String>,
+    /// GTK theme variant
+    #[serde(deserialize_with = "option_explicit_none")]
+    pub gtk_theme_variant: Option<String>,
 
     /// TODO: DEPRECATED
     #[serde(deserialize_with = "failure_default")]
