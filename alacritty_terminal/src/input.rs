@@ -420,11 +420,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         // Only report motions when cell changed and mouse is not over the message bar
         if let Some(message) = self.message_at_point(Some(point)) {
-            if self.message_close_at_point(point, message) {
-                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
-            } else {
-                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Default);
-            }
+            self.message_cursor(point, message);
 
             return;
         } else {
@@ -922,6 +918,15 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         has_binding
     }
 
+    /// Set the cursor depending on where the mouse is on the message bar
+    fn message_cursor(&mut self, point: Point, message: Message) {
+        if self.message_close_at_point(point, message) {
+            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
+        } else {
+            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Default);
+        }
+    }
+
     /// Return the message bar's message if there is some at the specified point
     fn message_at_point(&mut self, point: Option<Point>) -> Option<Message> {
         if let (Some(point), Some(message)) =
@@ -951,6 +956,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             ElementState::Pressed => {
                 if self.message_close_at_point(point, message) {
                     self.ctx.terminal_mut().message_buffer_mut().pop();
+                    if let Some(message) = self.message_at_point(Some(point)) {
+                        self.message_cursor(point, message);
+                    } else {
+                        self.ctx.terminal_mut().reset_mouse_cursor();
+                    }
                 }
 
                 self.ctx.clear_selection();
