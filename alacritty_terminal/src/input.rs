@@ -414,9 +414,21 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column;
         let mouse_moved = cell_changed || prev_side != cell_side;
 
-        // Only report motions when cell changed and mouse is not over the message bar
-        if self.message_at_point(Some(point)).is_some() || !mouse_moved {
+        if !mouse_moved {
             return;
+        }
+
+        // Only report motions when cell changed and mouse is not over the message bar
+        if let Some(message) = self.message_at_point(Some(point)) {
+            if self.message_close_at_point(point, message) {
+                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
+            } else {
+                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Default);
+            }
+
+            return;
+        } else {
+            self.ctx.terminal_mut().reset_mouse_cursor();
         }
 
         // Don't launch URLs if mouse has moved
@@ -924,15 +936,20 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         None
     }
 
+    /// Whether the point is over the message bar's close button
+    fn message_close_at_point(&self, point: Point, message: Message) -> bool {
+        let size = self.ctx.size_info();
+        point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
+            && point.line == size.lines() - message.text(&size).len()
+
+    }
+
     /// Handle clicks on the message bar.
     fn on_message_bar_click(&mut self, button_state: ElementState, point: Point, message: Message) {
         match button_state {
             ElementState::Released => self.copy_selection(),
             ElementState::Pressed => {
-                let size = self.ctx.size_info();
-                if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
-                    && point.line == size.lines() - message.text(&size).len()
-                {
+                if self.message_close_at_point(point, message) {
                     self.ctx.terminal_mut().message_buffer_mut().pop();
                 }
 
