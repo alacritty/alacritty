@@ -946,7 +946,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let size = self.ctx.size_info();
         point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
             && point.line == size.lines() - message.text(&size).len()
-
     }
 
     /// Handle clicks on the message bar.
