@@ -235,11 +235,7 @@ impl Selection {
     }
 
     pub fn is_empty(&self) -> bool {
-        if self.region.start.ty == SelectionType::Simple && self.region.end.ty == SelectionType::Simple {
-            self.region.start == self.region.end
-        } else {
-            false
-        }
+        self.region.start == self.region.end
     }
 
     fn span_simple(cols: Column, mut start: Anchor, mut end: Anchor) -> Option<(Anchor, Anchor)> {
