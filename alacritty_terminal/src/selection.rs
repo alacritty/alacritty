@@ -204,48 +204,13 @@ impl Selection {
         }
 
         // Simple Selection
-        // No selection for single cell with identical sides or two cell with right+left sides
-        if start.ty == SelectionType::Simple
-            && end.ty == SelectionType::Simple
-            && ((start.point == end.point
-            && start.side == end.side)
-            || (end.side == Side::Right
-                && start.side == Side::Left
-                && start.point.line == end.point.line
-                && start.point.col == end.point.col + 1))
-        {
-            return None;
-        }
-        // Remove first cell if selection starts to the left of a cell
-        if start.side == Side::Left && start.point != end.point && start.ty == SelectionType::Simple {
-            // Special case when selection starts to left of first cell
-            if start.point.col == Column(0) {
-                start.point.col = cols - 1;
-                start.point.line += 1;
-            } else {
-                start.point.col -= 1;
-            }
-        }
-        // Remove last cell if selection ends at the right of a cell
-        if end.side == Side::Right && start.point != end.point && end.ty == SelectionType::Simple {
-            end.point.col += 1;
-        }
+        let (start, end): (Anchor, Anchor) = Selection::span_simple(cols, start, end)?;
 
         // Semantic expansion
-        if start.ty == SelectionType::Semantic {
-            start.point = Point::from(term.semantic_search_right(start.point.into()));
-        }
-        if end.ty == SelectionType::Semantic {
-            end.point = Point::from(term.semantic_search_left(end.point.into()));
-        }
+        let (start, end) = Selection::span_semantic(term, start, end);
 
         // Line expansion
-        if start.ty == SelectionType::Lines {
-            start.point = Point { line: start.point.line, col: cols - 1 };
-        }
-        if end.ty == SelectionType::Lines {
-            end.point = Point { line: end.point.line, col: Column(0) };
-        }
+        let (start, end) = Selection::span_line(cols, start, end);
 
         let span = Some(Span { start: start.point.into(), end: end.point.into() });
 
@@ -275,6 +240,56 @@ impl Selection {
         } else {
             false
         }
+    }
+
+    fn span_simple(cols: Column, mut start: Anchor, mut end: Anchor) -> Option<(Anchor, Anchor)> {
+        // No selection for single cell with identical sides or two cell with right+left sides
+        if start.ty == SelectionType::Simple
+            && end.ty == SelectionType::Simple
+            && ((start.point == end.point
+            && start.side == end.side)
+            || (end.side == Side::Right
+                && start.side == Side::Left
+                && start.point.line == end.point.line
+                && start.point.col == end.point.col + 1))
+        {
+            return None;
+        }
+        // Remove first cell if selection starts to the left of a cell
+        if start.side == Side::Left && start.point != end.point && start.ty == SelectionType::Simple {
+            // Special case when selection starts to left of first cell
+            if start.point.col == Column(0) {
+                start.point.col = cols - 1;
+                start.point.line += 1;
+            } else {
+                start.point.col -= 1;
+            }
+        }
+        // Remove last cell if selection ends at the right of a cell
+        if end.side == Side::Right && start.point != end.point && end.ty == SelectionType::Simple {
+            end.point.col += 1;
+        }
+        Some((start, end))
+    }
+
+    fn span_semantic(term: &Term, mut start: Anchor, mut end: Anchor) -> (Anchor, Anchor) {
+        if start.ty == SelectionType::Semantic {
+            start.point = Point::from(term.semantic_search_right(start.point.into()));
+        }
+        if end.ty == SelectionType::Semantic {
+            end.point = Point::from(term.semantic_search_left(end.point.into()));
+        }
+        (start, end)
+    }
+
+    fn span_line(cols: Column, mut start: Anchor, mut end: Anchor) -> (Anchor, Anchor) {
+        if start.ty == SelectionType::Lines {
+            start.point = Point { line: start.point.line, col: cols - 1 };
+        }
+        if end.ty == SelectionType::Lines {
+            end.point = Point { line: end.point.line, col: Column(0) };
+        }
+        (start, end)
     }
 
     // Clamp selection in the alternate screen to the visible region
