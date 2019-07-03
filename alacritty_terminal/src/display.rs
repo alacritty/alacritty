@@ -24,7 +24,7 @@ use glutin::EventsLoop;
 use parking_lot::MutexGuard;
 
 use crate::config::{Config, StartupMode};
-use crate::index::Line;
+use crate::index::{Line, Column};
 use crate::message_bar::Message;
 use crate::meter::Meter;
 use crate::renderer::rects::{Rect, Rects};
@@ -454,7 +454,8 @@ impl Display {
             }
 
             self.window.resize(psize);
-            self.renderer.resize(psize, self.size_info.padding_x, self.size_info.padding_y);
+            self.renderer
+                .resize(psize, self.size_info.padding_x, self.size_info.padding_y);
         }
     }
 
@@ -496,8 +497,8 @@ impl Display {
             }
         }
 
-        let g_lines = terminal.grid().num_lines();
-        let g_cols = terminal.grid().num_cols();
+        #[cfg(feature = "hb-ft")]
+        let (g_lines, g_cols) = (terminal.grid().num_lines(), terminal.grid().num_cols());
 
         // Clear when terminal mutex isn't held. Mesa for
         // some reason takes a long time to call glClear(). The driver descends
@@ -537,84 +538,106 @@ impl Display {
             // Draw grid (HarfBuzz)
             #[cfg(feature = "hb-ft")]
             {
+                fn create_renderable_cell_rows(grid_cells: &[RenderableCell], g_lines: Line, g_cols: Column) -> Vec<&[RenderableCell]> {
+                    let mut renderable_cells_rows: Vec<&[RenderableCell]> = Vec::with_capacity(g_lines.0);
+                    let (mut row_start, mut row_end) = (0, 0);
+                    let mut last_line = None;
+                    for i in 0..grid_cells.len() {
+                        let rcell = grid_cells[i];
+                        if last_line.is_none() {
+                            last_line = Some(rcell.line);
+                        } else if last_line.unwrap() != grid_cells[i].line {
+                            last_line = Some(rcell.line);
+                            renderable_cells_rows.push(&grid_cells[row_start..row_end]);
+                            row_start = row_end;
+                        }
+                        if !rcell.flags.contains(crate::term::cell::Flags::HIDDEN) {
+                            row_end += 1;
+                        }
+                    }
+                    renderable_cells_rows.push(&grid_cells[row_start..row_end]);
+                    renderable_cells_rows
+                }
                 let _sampler = self.meter.sampler();
-                // Separate the renderable_cells into rows
-                let mut renderable_cells_rows = Vec::with_capacity(g_lines.0);
-                let mut row = Vec::with_capacity(g_cols.0);
-                let mut last_line = None;
-                let mut i = grid_cells.into_iter().peekable();
-                while let Some(rcell) = i.next() {
-                    if last_line.is_none() {
-                        last_line = Some(rcell.line.0);
-                        // Safe to unwrap because we checked that it is not None
-                    } else if last_line.unwrap() != rcell.line.0 {
-                        last_line = Some(rcell.line.0);
-                        renderable_cells_rows.push(row.clone());
+                let renderable_cells_rows = create_renderable_cell_rows(&grid_cells, g_lines, g_cols);
+
+                /// Wrapper to allow comparing everything but column and chars
+                struct CmpCell(RenderableCell);
+                impl PartialEq for CmpCell {
+                    fn eq(&self, other: &Self) -> bool {
+                        let a = self.0;
+                        let b = other.0;
+                        a.line == b.line
+                        && a.fg == b.fg
+                        && a.bg == b.bg
+                        && a.bg_alpha == b.bg_alpha
+                        && a.flags == b.flags
+                    }
+                }
+
+                fn create_text_run_rows(renderable_cells_rows: Vec<&[RenderableCell]>) -> Vec<Vec<(RenderableCell, String)>> {
+                    let mut text_run_rows = Vec::new();
+                    let mut row = Vec::new();
+                    let mut run = String::new();
+                    let mut rcell = None;
+                    for r in renderable_cells_rows.into_iter() {
+                        let mut ii = r.iter().peekable();
+                        while let Some(c) = ii.next() {
+                            if rcell.is_none() {
+                                rcell = Some(*c);
+                            } else if rcell.map(CmpCell).map_or(false, |last_cell| last_cell != CmpCell(*c)) {
+                                println!("Run \"{}\" at {:?}", run, rcell);
+                                row.push((rcell.unwrap(), run.clone()));
+                                run.clear();
+                                rcell = Some(*c);
+                            }
+                            match c.inner {
+                                RenderableCellContent::Cursor(_) => {},
+                                RenderableCellContent::Chars(chars) => {
+                                    run.push(chars[0]);
+                                }
+                            }
+                            if ii.peek().is_none() {
+                                row.push((*c, run.clone()));
+                            }
+                        }
+                        text_run_rows.push(row.clone());
                         row.clear();
                     }
-                    if !rcell.flags.contains(crate::term::cell::Flags::HIDDEN) {
-                        row.push(rcell);
-                    }
-                    if let None = i.peek() {
-                        renderable_cells_rows.push(row.clone());
-                    }
+                    text_run_rows
                 }
 
                 // Convert each row into a set of text runs
                 // (i.e. cells with the same display properties)
-                let mut text_run_rows = Vec::new();
-                let mut row = Vec::new();
-                let mut run = String::new();
-                let mut rcell = None;
-                for r in renderable_cells_rows.into_iter() {
-                    let mut ii = r.into_iter().peekable();
-                    while let Some(c) = ii.next() {
-                        //println!("Got cell: {:?}", c);
-                        let cmp_cell = RenderableCell {
-                            inner: [' '; crate::term::cell::MAX_ZEROWIDTH_CHARS + 1].into(),
-                            column: crate::index::Column(0),
-                            ..(c.clone())
-                        };
-                        if rcell.is_none() {
-                            rcell = Some(cmp_cell.clone());
-                            // Safe to unwrap because we checked that it is not None
-                        } else if rcell.unwrap() != cmp_cell {
-                            //println!("Pushed run");
-                            row.push((rcell.unwrap(), run.clone()));
-                            row.clear();
-                            rcell = Some(cmp_cell.clone());
-                        }
-                        match c.inner {
-                            RenderableCellContent::Cursor(_) => {},
-                            RenderableCellContent::Chars(chars) => {
-                                run.push(chars[0]);
-                            },
-                        };
-                        if let None = ii.peek() {
-                            row.push((rcell.unwrap(), run.clone()));
-                        }
-                    }
-                    text_run_rows.push(row.clone());
-                    row.clear();
-                }
-                for row in &text_run_rows {
-                    for (rc, run) in row {
-                        //println!("RC: {:?}", rc);
-                        //println!("RUN: {}", run);
-                    }
-                }
+                let text_run_rows = create_text_run_rows(renderable_cells_rows);
                 // Shape each run of text.
-                let text_run_rows: Vec<Vec<(RenderableCell, Option<Vec<HbGlyph>>)>> = text_run_rows.into_iter().map(|row| {
-                    row.into_iter().map(|(rc, run)| {
-                        (rc, glyph_cache.rasterizer.shape(&run, if rc.flags.contains(crate::term::cell::Flags::BOLD) {
-                                glyph_cache.bold_key
-                            } else if rc.flags.contains(crate::term::cell::Flags::ITALIC) {
-                                glyph_cache.italic_key
-                            } else {
-                                glyph_cache.font_key
-                            }, glyph_cache.font_size))
-                    }).collect()
-                }).collect();
+                let text_run_rows: Vec<Vec<(RenderableCell, Option<Vec<HbGlyph>>)>> = text_run_rows
+                    .into_iter()
+                    .map(|row| {
+                        row.into_iter()
+                            .map(|(rc, run)| {
+                                let key = if rc.flags.contains(crate::term::cell::Flags::BOLD) {
+                                            glyph_cache.bold_key
+                                        } else if rc
+                                            .flags
+                                            .contains(crate::term::cell::Flags::ITALIC)
+                                        {
+                                            glyph_cache.italic_key
+                                        } else {
+                                            glyph_cache.font_key
+                                        };
+                                (
+                                    rc,
+                                    glyph_cache.rasterizer.shape(
+                                        run.as_str(),
+                                        key,
+                                        glyph_cache.font_size,
+                                    ),
+                                )
+                            })
+                            .collect()
+                    })
+                    .collect();
                 for row in &text_run_rows {
                     for (rc, run) in row {
                         info!("RC: {:?}", rc);
@@ -629,34 +652,39 @@ impl Display {
                     a / b
                 }
                 self.renderer.with_api(config, &size_info, |mut api| {
+                    //let mut used_rcs: Vec<RenderableCell> = Vec::new();
                     for row in text_run_rows.into_iter() {
-                        let mut used_rcs = Vec::new();
+                        //used_rcs.clear();
                         for (mut rc, glyphs) in row.into_iter() {
                             // Make sure we are not rerendering the same thing twice.
-                            if used_rcs.contains(&rc) {
-                                continue;
-                            }
-                            used_rcs.push(rc.clone());
-                            // XXX: what does this do? (for text runs)
-                            rects.update_lines(&size_info, &rc);
+                            //if used_rcs.contains(&rc) {
+                            //    continue;
+                            //}
+                            //used_rcs.push(rc);
                             // Render each glyph, advancing based on the information provided.
                             if let Some(glyphs) = glyphs {
-                                //println!("Got glyph run");
                                 for g in glyphs.into_iter() {
                                     // Hold reference to glyph from cache
-                                    let glyph = glyph_cache.get_raw(g.glyph, &mut api, g.glyph.c as u32).clone();
+                                    let glyph = glyph_cache.get(g.glyph, &mut api);
                                     // Determine if the glyph is a special character
-                                    //println!("Glyph = {}", g.glyph.c as u32);
-                                    let w = glyph.width;
                                     match g.glyph.c {
                                         _ => {
+                                            println!("Rendered {:?} at {:?}", g.glyph.c, rc.column);
                                             api.add_render_item(&rc, &glyph);
-                                            rc.column = crate::index::Column(u_round_to(rc.column.0 as f32 * size_info.cell_width + g.x_advance, size_info.cell_width as f32) + 1);
-                                        },
+                                            rc.column += 1;/*crate::index::Column(
+                                                u_round_to(
+                                                    rc.column.0 as f32 * size_info.cell_width
+                                                        + g.x_advance,
+                                                    size_info.cell_width as f32,
+                                                ) + 1,
+                                            )*/;
+                                        }
                                     }
-                                    //println!("Glyph width: {}", glyph.width);
                                 }
                             }
+
+                            // XXX: what does this do? (for text runs)
+                            rects.update_lines(&size_info, &rc);
                         }
                     }
                 });
@@ -673,7 +701,8 @@ impl Display {
                 rects.push(rect, message.color());
 
                 // Draw rectangles including the new background
-                self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
+                self.renderer
+                    .draw_rects(config, &size_info, visual_bell_intensity, rects);
 
                 // Relay messages to the user
                 let mut offset = 1;
@@ -690,7 +719,8 @@ impl Display {
                 }
             } else {
                 // Draw rectangles
-                self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
+                self.renderer
+                    .draw_rects(config, &size_info, visual_bell_intensity, rects);
             }
 
             // Draw render timer
@@ -720,7 +750,8 @@ impl Display {
         let nspot_x = f64::from(px + point.col.0 as f32 * cw);
         let nspot_y = f64::from(py + (point.line.0 + 1) as f32 * ch);
 
-        self.window().set_ime_spot(PhysicalPosition::from((nspot_x, nspot_y)).to_logical(dpr));
+        self.window()
+            .set_ime_spot(PhysicalPosition::from((nspot_x, nspot_y)).to_logical(dpr));
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]

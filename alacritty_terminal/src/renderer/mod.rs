@@ -305,8 +305,8 @@ impl GlyphCache {
         let rasterizer = &mut self.rasterizer;
         let metrics = &self.metrics;
         let fixed_glyph_key = GlyphKey {
-            c: ::std::char::from_u32(glyph_i).unwrap(),
-            ..(glyph_key.clone())
+            c: std::char::from_u32(glyph_i).unwrap(),
+            ..glyph_key
         };
         // Doesn't go through cache, making it suuuper slow.
         /*

@@ -167,7 +167,7 @@ fn hb_tag(f: &str) -> harfbuzz::sys::hb_tag_t {
 #[cfg(feature = "hb-ft")]
 impl ::HbFtExt for FreeTypeRasterizer {
     fn shape(&mut self, text: &str, font_key: FontKey, size: Size) -> Option<Vec<HbGlyph>> {
-        if let Some(hb_font) = self.faces[&font_key].hb_font {
+        self.faces[&font_key].hb_font.map(|hb_font| {
             let mut buf = harfbuzz::Buffer::with(text);
             buf.set_direction(harfbuzz::Direction::LTR);
             buf.set_script(harfbuzz::sys::HB_SCRIPT_LATIN);
@@ -175,7 +175,7 @@ impl ::HbFtExt for FreeTypeRasterizer {
             // Shape
             unsafe {
                 // ::std::ptr::null() == NULL (with type *const _)
-                harfbuzz::sys::hb_shape(hb_font, buf.as_ptr(), ::std::ptr::null(), 0);
+                harfbuzz::sys::hb_shape(hb_font, buf.as_ptr(), std::ptr::null(), 0);
             };
             // Get glyph information
             let ginfo: &mut [harfbuzz::sys::hb_glyph_info_t] = unsafe {
@@ -196,7 +196,7 @@ impl ::HbFtExt for FreeTypeRasterizer {
                 )
             };
             // Combine into HbGlyph's
-            let hb_glyphs = ginfo.into_iter().zip(gpos.into_iter()).map(|(gi, gp)| {
+            ginfo.iter_mut().zip(gpos.iter_mut()).map(|(gi, gp)| {
                 HbGlyph {
                     /* ugh -_- you have to divide by 64?? */
                     x_advance: (gp.x_advance as f32) / 64.,
@@ -204,17 +204,14 @@ impl ::HbFtExt for FreeTypeRasterizer {
                     x_offset: (gp.x_offset as f32) / 64.,
                     y_offset: (gp.y_offset as f32) / 64.,
                     glyph: GlyphKey {
-                        c: ::std::char::from_u32(gi.codepoint).expect("HB u32 is not a char!"),
+                        c: text.chars().nth(gi.cluster as usize).expect("Expected cluster index to point to char in text None was found."),//::std::char::from_u32(gi.codepoint).expect("HB u32 is not a char!"),
                         font_key,
                         size,
                     },
                     cluster: gi.cluster,
                 }
-            }).collect();
-            Some(hb_glyphs)
-        } else {
-            None
-        }
+            }).collect()
+        })
     }
 }
 
@@ -351,19 +348,19 @@ impl FreeTypeRasterizer {
                 let _hb_face = unsafe {
                     harfbuzz::sys::hb_face_create(blob.as_raw(), index as u32)
                 };
-                if !_hb_face.is_null() {
+                if _hb_face.is_null() {
+                    None
+                } else {
                     let _hb_font = unsafe {
                         harfbuzz::sys::hb_font_create(_hb_face)
                     };
-                    if !_hb_font.is_null() {
+                    if _hb_font.is_null() {
+                        None
+                    } else {
                         unsafe { harfbuzz::sys::hb_ot_font_set_funcs(_hb_font); }
                         println!("Could create harfbuzz font");
                         Some(_hb_font)
-                    } else {
-                        None
                     }
-                } else {
-                    None
                 }
             };
 
