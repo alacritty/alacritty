@@ -538,7 +538,7 @@ impl Display {
             // Draw grid (HarfBuzz)
             #[cfg(feature = "hb-ft")]
             {
-                fn create_renderable_cell_rows(grid_cells: &[RenderableCell], g_lines: Line, g_cols: Column) -> Vec<&[RenderableCell]> {
+                fn create_renderable_cell_rows(grid_cells: &[RenderableCell], g_lines: Line) -> Vec<&[RenderableCell]> {
                     let mut renderable_cells_rows: Vec<&[RenderableCell]> = Vec::with_capacity(g_lines.0);
                     let (mut row_start, mut row_end) = (0, 0);
                     let mut last_line = None;
@@ -559,7 +559,7 @@ impl Display {
                     renderable_cells_rows
                 }
                 let _sampler = self.meter.sampler();
-                let renderable_cells_rows = create_renderable_cell_rows(&grid_cells, g_lines, g_cols);
+                let renderable_cells_rows = create_renderable_cell_rows(&grid_cells, g_lines);
 
                 /// Wrapper to allow comparing everything but column and chars
                 struct CmpCell(RenderableCell);
@@ -652,15 +652,8 @@ impl Display {
                     a / b
                 }
                 self.renderer.with_api(config, &size_info, |mut api| {
-                    //let mut used_rcs: Vec<RenderableCell> = Vec::new();
                     for row in text_run_rows.into_iter() {
-                        //used_rcs.clear();
                         for (mut rc, glyphs) in row.into_iter() {
-                            // Make sure we are not rerendering the same thing twice.
-                            //if used_rcs.contains(&rc) {
-                            //    continue;
-                            //}
-                            //used_rcs.push(rc);
                             // Render each glyph, advancing based on the information provided.
                             if let Some(glyphs) = glyphs {
                                 for g in glyphs.into_iter() {
@@ -669,15 +662,15 @@ impl Display {
                                     // Determine if the glyph is a special character
                                     match g.glyph.c {
                                         _ => {
-                                            println!("Rendered {:?} at {:?}", g.glyph.c, rc.column);
+                                            //println!("Rendered {:?} at {:?}", g.glyph.c, rc.column);
                                             api.add_render_item(&rc, &glyph);
-                                            rc.column += 1;/*crate::index::Column(
+                                            rc.column = crate::index::Column(
                                                 u_round_to(
                                                     rc.column.0 as f32 * size_info.cell_width
                                                         + g.x_advance,
                                                     size_info.cell_width as f32,
-                                                ) + 1,
-                                            )*/;
+                                                ),
+                                            );
                                         }
                                     }
                                 }

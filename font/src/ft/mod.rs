@@ -196,6 +196,7 @@ impl ::HbFtExt for FreeTypeRasterizer {
                 )
             };
             // Combine into HbGlyph's
+            println!("Shaped text: {:?}", buf);
             ginfo.iter_mut().zip(gpos.iter_mut()).map(|(gi, gp)| {
                 HbGlyph {
                     /* ugh -_- you have to divide by 64?? */
