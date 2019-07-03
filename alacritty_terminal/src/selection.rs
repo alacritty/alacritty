@@ -55,21 +55,19 @@ pub enum SelectionType {
 pub struct Selection {
     /// The region representing start and end of the cursor movement
     pub region: Range<Anchor>,
-
-    start_type: SelectionType,
-    end_type: SelectionType,
 }
 
 /// A Point and side within that point.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Anchor {
     pub point: Point<isize>,
+    pub ty: SelectionType,
     side: Side,
 }
 
 impl Anchor {
-    fn new(point: Point<isize>, side: Side) -> Anchor {
-        Anchor { point, side }
+    fn new(point: Point<isize>, ty: SelectionType, side: Side) -> Anchor {
+        Anchor { point, ty, side }
     }
 }
 
@@ -83,11 +81,9 @@ impl Selection {
     pub fn simple(location: Point<usize>, side: Side) -> Selection {
         Selection {
             region: Range {
-                start: Anchor::new(location.into(), side),
-                end: Anchor::new(location.into(), side),
+                start: Anchor::new(location.into(), SelectionType::Simple, side),
+                end: Anchor::new(location.into(), SelectionType::Simple, side),
             },
-            start_type: SelectionType::Simple,
-            end_type: SelectionType::Simple,
         }
     }
 
@@ -99,170 +95,159 @@ impl Selection {
     pub fn semantic(point: Point<usize>) -> Selection {
         Selection {
             region: Range {
-                start: Anchor::new(point.into(), Side::Right),
-                end: Anchor::new(point.into(), Side::Right),
+                start: Anchor::new(point.into(), SelectionType::Semantic, Side::Right),
+                end: Anchor::new(point.into(), SelectionType::Semantic, Side::Right),
             },
-            start_type: SelectionType::Semantic,
-            end_type: SelectionType::Semantic,
         }
     }
 
     pub fn lines(point: Point<usize>) -> Selection {
         Selection {
             region: Range {
-                start: Anchor::new(point.into(), Side::Right),
-                end: Anchor::new(point.into(), Side::Right),
+                start: Anchor::new(point.into(), SelectionType::Lines, Side::Right),
+                end: Anchor::new(point.into(), SelectionType::Lines, Side::Right),
             },
-            start_type: SelectionType::Lines,
-            end_type: SelectionType::Lines,
         }
     }
 
     pub fn update(&mut self, location: Point<usize>, side: Side) {
         // Always update the `end`; can normalize later during span generation.
         // Always set side; can be ignored later if needed.
-        self.region.end = Anchor::new(location.into(), side);
+        self.region.end = Anchor::new(location.into(), self.region.end.ty.clone(), side);
     }
 
     pub fn update_as(&mut self, location: Point<usize>, side: Side, selection_type: SelectionType) {
         self.update(location, side);
-        self.end_type = selection_type;
+        self.region.end.ty = selection_type;
     }
 
     // Expand selection following the similar rules as creating a span
     pub fn expand_selection(term: &mut Term) {
-        let (mut start_anchor, mut end_anchor, mut start_type, mut end_type) =
+        let (mut start_anchor, mut end_anchor) =
             if let Some(ref selection) = term.selection() {
-            (selection.region.start.clone(),
-                selection.region.end.clone(),
-                selection.start_type.clone(),
-                selection.end_type.clone())
+                (selection.region.start.clone(),
+                    selection.region.end.clone())
         } else {
             return;
         };
 
-        let expansion = |start: &mut Anchor,
-            end: &mut Anchor,
-            start_type: &mut SelectionType,
-            end_type: &mut SelectionType|
+        let expansion = |start: &mut Anchor, end: &mut Anchor|
             {
                 // semantic selection
-                if *start_type == SelectionType::Semantic {
+                if start.ty == SelectionType::Semantic {
                     start.point = Point::from(term.semantic_search_right(start.point.into()));
                     start.side = Side::Right;
-                    *start_type = SelectionType::Simple;
+                    start.ty = SelectionType::Simple;
                 }
-                if *end_type == SelectionType::Semantic {
+                if end.ty == SelectionType::Semantic {
                     end.point = Point::from(term.semantic_search_left(end.point.into()));
                     end.side = Side::Left;
-                    *end_type = SelectionType::Simple;
+                    end.ty = SelectionType::Simple;
                 }
 
                 // Line expansion
                 let cols = term.dimensions().col;
-                if *start_type == SelectionType::Lines {
+                if start.ty == SelectionType::Lines {
                     start.point = Point { line: start.point.line, col: cols - 1 };
                     start.side = Side::Right;
-                    *start_type = SelectionType::Simple;
+                    start.ty = SelectionType::Simple;
                 }
-                if *end_type == SelectionType::Lines {
+                if end.ty == SelectionType::Lines {
                     end.point = Point { line: end.point.line, col: Column(0) };
                     end.side = Side::Left;
-                    *end_type = SelectionType::Simple;
+                    end.ty = SelectionType::Simple;
             }
 
-            (start.clone(), end.clone(), start_type.clone(), end_type.clone())
+            (start.clone(), end.clone())
         };
 
         if start_anchor.point.line > end_anchor.point.line
             || start_anchor.point.line == end_anchor.point.line
                 && start_anchor.point.col <= end_anchor.point.col
             {
-                let (end_anchor, start_anchor, end_type, start_type) =
-                    expansion(&mut end_anchor, &mut start_anchor, &mut end_type, &mut start_type);
+                let (end_anchor, start_anchor) =
+                    expansion(&mut end_anchor, &mut start_anchor);
                 if let Some(ref mut selection) = term.selection_mut() {
                     selection.region.start.point = start_anchor.point;
                     selection.region.start.side = start_anchor.side;
                     selection.region.end.point = end_anchor.point;
-                    selection.start_type = start_type;
-                    selection.end_type = end_type;
+                    selection.region.start.ty = start_anchor.ty;
+                    selection.region.end.ty = end_anchor.ty;
             }
         } else {
-            let (start_anchor, end_anchor, start_type, end_type) =
-                expansion(&mut start_anchor, &mut end_anchor, &mut start_type, &mut end_type);
+            let (start_anchor, end_anchor) =
+                expansion(&mut start_anchor, &mut end_anchor);
             if let Some(ref mut selection) = term.selection_mut() {
                 selection.region.start.point = start_anchor.point;
+                selection.region.start.side = start_anchor.side;
                 selection.region.end.point = end_anchor.point;
-                selection.region.end.side = end_anchor.side;
-                selection.start_type = start_type;
-                selection.end_type = end_type;
+                selection.region.start.ty = start_anchor.ty;
+                selection.region.end.ty = end_anchor.ty;
             }
         }
     }
 
     pub fn to_span(&self, term: &Term, alt_screen: bool) -> Option<Span> {
-        let start_orig = self.region.start.point;
-        let start_side = self.region.start.side;
-        let end_orig = self.region.end.point;
-        let end_side = self.region.end.side;
+        let start_orig = &self.region.start;
+        let end_orig = &self.region.end;
         let cols = term.dimensions().col;
         let lines = term.dimensions().line.0 as isize;
-        let (mut start, mut end, start_side, end_side, start_type, end_type) =
-            if start_orig.line > end_orig.line || start_orig.line == end_orig.line && start_orig.col <= end_orig.col {
-                (end_orig, start_orig, end_side, start_side, self.end_type.clone(), self.start_type.clone())
+        let (mut start, mut end) =
+            if start_orig.point.line > end_orig.point.line || start_orig.point.line == end_orig.point.line && start_orig.point.col <= end_orig.point.col {
+                (end_orig.clone(), start_orig.clone())
             } else {
-                (start_orig, end_orig, start_side, end_side, self.start_type.clone(), self.end_type.clone())
+                (start_orig.clone(), end_orig.clone())
             };
         
         if alt_screen {
-            Selection::alt_screen_clamp(&mut start, &mut end, lines, cols)?;
+            Selection::alt_screen_clamp(&mut start.point, &mut end.point, lines, cols)?;
         }
 
         // Simple Selection
         // No selection for single cell with identical sides or two cell with right+left sides
-        if start_type == SelectionType::Simple
-            && end_type == SelectionType::Simple
-            && ((start == end
-            && start_side == end_side)
-            || (end_side == Side::Right
-                && start_side == Side::Left
-                && start.line == end.line
-                && start.col == end.col + 1))
+        if start.ty == SelectionType::Simple
+            && end.ty == SelectionType::Simple
+            && ((start.point == end.point
+            && start.side == end.side)
+            || (end.side == Side::Right
+                && start.side == Side::Left
+                && start.point.line == end.point.line
+                && start.point.col == end.point.col + 1))
         {
             return None;
         }
         // Remove first cell if selection starts to the left of a cell
-        if start_side == Side::Left && start != end && start_type == SelectionType::Simple {
+        if start.side == Side::Left && start.point != end.point && start.ty == SelectionType::Simple {
             // Special case when selection starts to left of first cell
-            if start.col == Column(0) {
-                start.col = cols - 1;
-                start.line += 1;
+            if start.point.col == Column(0) {
+                start.point.col = cols - 1;
+                start.point.line += 1;
             } else {
-                start.col -= 1;
+                start.point.col -= 1;
             }
         }
         // Remove last cell if selection ends at the right of a cell
-        if end_side == Side::Right && start != end && end_type == SelectionType::Simple {
-            end.col += 1;
+        if end.side == Side::Right && start.point != end.point && end.ty == SelectionType::Simple {
+            end.point.col += 1;
         }
 
         // Semantic expansion
-        if start_type == SelectionType::Semantic {
-            start = Point::from(term.semantic_search_right(start.into()));
+        if start.ty == SelectionType::Semantic {
+            start.point = Point::from(term.semantic_search_right(start.point.into()));
         }
-        if end_type == SelectionType::Semantic {
-            end = Point::from(term.semantic_search_left(end.into()));
+        if end.ty == SelectionType::Semantic {
+            end.point = Point::from(term.semantic_search_left(end.point.into()));
         }
 
         // Line expansion
-        if start_type == SelectionType::Lines {
-            start = Point { line: start.line, col: cols - 1 };
+        if start.ty == SelectionType::Lines {
+            start.point = Point { line: start.point.line, col: cols - 1 };
         }
-        if end_type == SelectionType::Lines {
-            end = Point { line: end.line, col: Column(0) };
+        if end.ty == SelectionType::Lines {
+            end.point = Point { line: end.point.line, col: Column(0) };
         }
 
-        let span = Some(Span { start: start.into(), end: end.into() });
+        let span = Some(Span { start: start.point.into(), end: end.point.into() });
 
         // Expand selection across double-width cells
         span.map(|mut span| {
@@ -285,7 +270,7 @@ impl Selection {
     }
 
     pub fn is_empty(&self) -> bool {
-        if self.start_type == SelectionType::Simple && self.end_type == SelectionType::Simple {
+        if self.region.start.ty == SelectionType::Simple && self.region.end.ty == SelectionType::Simple {
             self.region.start == self.region.end
         } else {
             false
