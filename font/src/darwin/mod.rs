@@ -314,10 +314,11 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
     let mut out = Vec::new();
 
     trace!("Family: {}", family);
-    let ct_collection = match create_for_family(family) {
-        Some(c) => c,
-        None => return out,
-    };
+    let ct_collection = create_for_family(family).unwrap_or_else(|| {
+        // Fallback to Menlo if we can't find the config specified font family.
+        warn!("Unable to load specified font {}, falling back to Menlo", &family);
+        create_for_family("Menlo").expect("Menlo exists")
+    });
 
     // CFArray of CTFontDescriptorRef (i think)
     let descriptors = ct_collection.get_descriptors();

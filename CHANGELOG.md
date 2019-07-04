@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The window is now filled with the background color before displaying
 - Cells sometimes not getting cleared correctly
 - X11 clipboard hanging when mime type is set
+- On macOS, Alacritty will now fallback to Menlo if a font specified in the config cannot be loaded
 
 ## 0.3.3
 
