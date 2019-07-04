@@ -94,7 +94,7 @@ pub struct Config {
     pub mouse: Mouse,
 
     /// Path to a shell program to run on startup
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(default, deserialize_with = "option_from_string_or_deserialize")]
     pub shell: Option<Shell<'static>>,
 
     /// Path where config was loaded from
@@ -331,6 +331,12 @@ impl<'a> Shell<'a> {
         S: Into<Cow<'a, str>>,
     {
         Shell { program: program.into(), args }
+    }
+}
+
+impl From<String> for Shell<'static> {
+    fn from(value: String) -> Self {
+        Shell::new(value)
     }
 }
 
