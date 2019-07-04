@@ -136,8 +136,8 @@ pub struct Config {
     alt_send_esc: DefaultTrueBool,
 
     /// Shell startup directory
-    #[serde(default, deserialize_with = "failure_default")]
-    working_directory: WorkingDirectory,
+    #[serde(default, deserialize_with = "option_explicit_none")]
+    working_directory: Option<PathBuf>,
 
     /// Debug options
     #[serde(default, deserialize_with = "failure_default")]
@@ -214,37 +214,12 @@ impl Config {
 
     #[inline]
     pub fn working_directory(&self) -> &Option<PathBuf> {
-        &self.working_directory.0
+        &self.working_directory
     }
 
     #[inline]
     pub fn set_working_directory(&mut self, working_directory: Option<PathBuf>) {
-        self.working_directory.0 = working_directory;
-    }
-}
-
-#[derive(Default, Debug, PartialEq, Eq)]
-struct WorkingDirectory(Option<PathBuf>);
-
-impl<'de> Deserialize<'de> for WorkingDirectory {
-    fn deserialize<D>(deserializer: D) -> Result<WorkingDirectory, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = serde_yaml::Value::deserialize(deserializer)?;
-
-        // Accept `None` to use the default path
-        if value.as_str().filter(|v| v.to_lowercase() == "none").is_some() {
-            return Ok(WorkingDirectory(None));
-        }
-
-        Ok(match PathBuf::deserialize(value) {
-            Ok(path) => WorkingDirectory(Some(path)),
-            Err(err) => {
-                error!("Problem with config: {}; using None", err);
-                WorkingDirectory(None)
-            },
-        })
+        self.working_directory = working_directory;
     }
 }
 
