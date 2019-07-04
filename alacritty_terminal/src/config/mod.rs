@@ -15,8 +15,10 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::fmt::Display;
 
 use serde::{Deserialize, Deserializer};
+use serde_yaml::Value;
 
 mod bindings;
 mod colors;
@@ -418,17 +420,50 @@ impl Default for DefaultTrueBool {
     }
 }
 
+fn fallback_default<T, E>(err: E) -> T
+    where T: Default, E: Display
+{
+    error!("Problem with config: {}; using default value", err);
+    T::default()
+}
+
 pub fn failure_default<'a, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: Deserializer<'a>,
     T: Deserialize<'a> + Default,
 {
-    let value = serde_yaml::Value::deserialize(deserializer)?;
-    match T::deserialize(value) {
-        Ok(value) => Ok(value),
-        Err(err) => {
-            error!("Problem with config: {}; using default value", err);
-            Ok(T::default())
-        },
-    }
+    Ok(T::deserialize(Value::deserialize(deserializer)?).unwrap_or_else(fallback_default))
+}
+
+pub fn option_explicit_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+    where D: Deserializer<'de>, T: Deserialize<'de> + Default
+{
+    Ok(match Value::deserialize(deserializer)? {
+        Value::String(ref value) if value.to_lowercase() == "none" => None,
+        value => Some(T::deserialize(value).unwrap_or_else(fallback_default))
+    })
+}
+
+pub fn from_string_or_deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+    where D: Deserializer<'de>, T: Deserialize<'de> + From<String> + Default
+{
+    Ok(match Value::deserialize(deserializer)? {
+        Value::String(value) => T::from(value),
+        value => T::deserialize(value).unwrap_or_else(fallback_default)
+    })
+}
+
+pub fn option_from_string_or_deserialize<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+    where D: Deserializer<'de>, T: Deserialize<'de> + From<String>
+{
+    Ok(match Value::deserialize(deserializer)? {
+        Value::String(value) => Some(T::from(value)),
+        value => match T::deserialize(value) {
+            Ok(value) => Some(value),
+            Err(err) => {
+                error!("Problem with config: {}; using None", err);
+                None
+            }
+        }
+    })
 }
