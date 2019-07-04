@@ -117,8 +117,13 @@ impl ::std::fmt::Display for Error {
             Error::MissingGlyph(ref c) => write!(f, "Glyph not found for char {:?}", c),
             Error::MissingFont(ref desc) => write!(
                 f,
+<<<<<<< HEAD
                 "Couldn't find a font with {}\n\tPlease check the font config in your \
                  alacritty.yml.",
+=======
+                "Couldn't find a font with {}\
+                 \n\tPlease check the font config in your alacritty.yml.",
+>>>>>>> Tried setting scale and ppem but it didn't change anything.
                 desc
             ),
             Error::FontNotLoaded => f.write_str("Tried to use a font that hasn't been loaded"),
@@ -161,7 +166,14 @@ impl ::Rasterize for Rasterizer {
     /// Get rasterized glyph for given glyph key
     fn get_glyph(&mut self, glyph: GlyphKey) -> Result<RasterizedGlyph, Error> {
         // get loaded font
+<<<<<<< HEAD
         let font = self.fonts.get(&glyph.font_key).ok_or(Error::FontNotLoaded)?;
+=======
+        let font = self
+            .fonts
+            .get(&glyph.font_key)
+            .ok_or(Error::FontNotLoaded)?;
+>>>>>>> Tried setting scale and ppem but it didn't change anything.
 
         // first try the font itself as a direct hit
         self.maybe_get_glyph(glyph, font).unwrap_or_else(|| {
@@ -236,7 +248,7 @@ impl Rasterizer {
             Style::Specific(ref style) => self.get_specific_face(desc, style, size),
             Style::Description { slant, weight } => {
                 self.get_matching_face(desc, slant, weight, size)
-            },
+            }
         }
     }
 
@@ -297,8 +309,15 @@ pub fn get_family_names() -> Vec<String> {
 fn cascade_list_for_languages(ct_font: &CTFont, languages: &[String]) -> Vec<Descriptor> {
     // convert language type &Vec<String> -> CFArray
     let langarr: CFArray<CFString> = {
+<<<<<<< HEAD
         let tmp: Vec<CFString> =
             languages.iter().map(|language| CFString::new(&language)).collect();
+=======
+        let tmp: Vec<CFString> = languages
+            .iter()
+            .map(|language| CFString::new(&language))
+            .collect();
+>>>>>>> Tried setting scale and ppem but it didn't change anything.
         CFArray::from_CFTypes(&tmp)
     };
 
@@ -365,11 +384,22 @@ impl Descriptor {
                     };
 
                     // Include Menlo in the fallback list as well
+<<<<<<< HEAD
                     fallbacks.insert(0, Font {
                         cg_font: menlo.copy_to_CGFont(),
                         ct_font: menlo,
                         fallbacks: Vec::new(),
                     });
+=======
+                    fallbacks.insert(
+                        0,
+                        Font {
+                            cg_font: menlo.copy_to_CGFont(),
+                            ct_font: menlo,
+                            fallbacks: Vec::new(),
+                        },
+                    );
+>>>>>>> Tried setting scale and ppem but it didn't change anything.
 
                     fallbacks
                 })
@@ -450,8 +480,43 @@ impl Font {
         _size: f64,
         use_thin_strokes: bool,
     ) -> Result<RasterizedGlyph, Error> {
+<<<<<<< HEAD
         let glyph_index =
             self.glyph_index(character).ok_or_else(|| Error::MissingGlyph(character))?;
+=======
+        // Render custom symbols for underline and beam cursor
+        match character {
+            super::UNDERLINE_CURSOR_CHAR => {
+                // Get the bottom of the bounding box
+                let descent = -(self.ct_font.descent() as i32);
+                // Get the width of the cell
+                let width = self.glyph_advance('0') as i32;
+                // Return the new custom glyph
+                return super::get_underline_cursor_glyph(descent, width);
+            }
+            super::BEAM_CURSOR_CHAR | super::BOX_CURSOR_CHAR => {
+                // Get the top of the bounding box
+                let metrics = self.metrics();
+                let height = metrics.line_height;
+                let ascent = (height - self.ct_font.descent()).ceil();
+
+                // Get the width of the cell
+                let width = self.glyph_advance('0') as i32;
+
+                // Return the new custom glyph
+                if character == super::BEAM_CURSOR_CHAR {
+                    return super::get_beam_cursor_glyph(ascent as i32, height as i32, width);
+                } else {
+                    return super::get_box_cursor_glyph(ascent as i32, height as i32, width);
+                }
+            }
+            _ => (),
+        }
+
+        let glyph_index = self
+            .glyph_index(character)
+            .ok_or_else(|| Error::MissingGlyph(character))?;
+>>>>>>> Tried setting scale and ppem but it didn't change anything.
 
         let bounds = self.bounding_rect_for_glyph(Default::default(), glyph_index);
 
@@ -537,7 +602,10 @@ impl Font {
         // and use the utf-16 buffer to get the index
         self.glyph_index_utf16(encoded)
     }
+<<<<<<< HEAD
 
+=======
+>>>>>>> Tried setting scale and ppem but it didn't change anything.
     fn glyph_index_utf16(&self, encoded: &[u16]) -> Option<u32> {
         // output buffer for the glyph. for non-BMP glyphs, like
         // emojis, this will be filled with two chars the second
@@ -576,7 +644,14 @@ mod tests {
         println!("{:?}", list);
 
         // Check to_font
+<<<<<<< HEAD
         let fonts = list.iter().map(|desc| desc.to_font(72., false)).collect::<Vec<_>>();
+=======
+        let fonts = list
+            .iter()
+            .map(|desc| desc.to_font(72., false))
+            .collect::<Vec<_>>();
+>>>>>>> Tried setting scale and ppem but it didn't change anything.
 
         for font in fonts {
             // Get a glyph

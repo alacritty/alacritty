@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
 
+<<<<<<< HEAD:alacritty_terminal/tests/ref.rs
 use alacritty_terminal::ansi;
 use alacritty_terminal::clipboard::Clipboard;
 use alacritty_terminal::config::Config;
@@ -16,6 +17,17 @@ use alacritty_terminal::term::SizeInfo;
 use alacritty_terminal::util::fmt::{Green, Red};
 use alacritty_terminal::Grid;
 use alacritty_terminal::Term;
+=======
+use alacritty::ansi;
+use alacritty::config::Config;
+use alacritty::index::Column;
+use alacritty::message_bar::MessageBuffer;
+use alacritty::term::cell::Cell;
+use alacritty::term::SizeInfo;
+use alacritty::util::fmt::{Green, Red};
+use alacritty::Grid;
+use alacritty::Term;
+>>>>>>> Tried setting scale and ppem but it didn't change anything.:tests/ref.rs
 
 macro_rules! ref_tests {
     ($($name:ident)*) => {
@@ -61,7 +73,14 @@ where
     P: AsRef<Path>,
 {
     let mut res = Vec::new();
+<<<<<<< HEAD:alacritty_terminal/tests/ref.rs
     File::open(path.as_ref()).unwrap().read_to_end(&mut res).unwrap();
+=======
+    File::open(path.as_ref())
+        .unwrap()
+        .read_to_end(&mut res)
+        .unwrap();
+>>>>>>> Tried setting scale and ppem but it didn't change anything.:tests/ref.rs
 
     res
 }

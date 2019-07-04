@@ -269,7 +269,7 @@ impl Action {
             Action::Esc(ref s) => {
                 ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
-            },
+            }
             Action::Copy => {
                 ctx.copy_selection(ClipboardType::Clipboard);
             },
@@ -283,7 +283,7 @@ impl Action {
                     let text = ctx.terminal_mut().clipboard().load(ClipboardType::Selection);
                     self.paste(ctx, &text);
                 }
-            },
+            }
             Action::Command(ref program, ref args) => {
                 trace!("Running command {} with args {:?}", program, args);
 
@@ -301,10 +301,10 @@ impl Action {
             },
             Action::Hide => {
                 ctx.hide_window();
-            },
+            }
             Action::Quit => {
                 ctx.terminal_mut().exit();
-            },
+            }
             Action::IncreaseFontSize => {
                 ctx.terminal_mut().change_font_size(FONT_SIZE_STEP);
             },
@@ -316,7 +316,7 @@ impl Action {
             },
             Action::ScrollPageUp => {
                 ctx.scroll(Scroll::PageUp);
-            },
+            }
             Action::ScrollPageDown => {
                 ctx.scroll(Scroll::PageDown);
             },
@@ -328,19 +328,19 @@ impl Action {
             },
             Action::ScrollToTop => {
                 ctx.scroll(Scroll::Top);
-            },
+            }
             Action::ScrollToBottom => {
                 ctx.scroll(Scroll::Bottom);
-            },
+            }
             Action::ClearHistory => {
                 ctx.terminal_mut().clear_screen(ClearMode::Saved);
-            },
+            }
             Action::ClearLogNotice => {
                 ctx.terminal_mut().message_buffer_mut().pop();
-            },
+            }
             Action::SpawnNewInstance => {
                 ctx.spawn_new_instance();
-            },
+            }
             Action::None => (),
         }
     }
@@ -678,7 +678,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         match start_daemon(launcher.program(), &args) {
             Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
-            Err(_) => warn!("Unable to launch {} with args {:?}", launcher.program(), args),
+            Err(_) => warn!(
+                "Unable to launch {} with args {:?}",
+                launcher.program(),
+                args
+            ),
         }
 
         Some(())
@@ -694,16 +698,16 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let new_scroll_px = lines * self.ctx.size_info().cell_height;
                 self.scroll_terminal(modifiers, new_scroll_px as i32);
-            },
+            }
             MouseScrollDelta::PixelDelta(lpos) => {
                 match phase {
                     TouchPhase::Started => {
                         // Reset offset to zero
                         self.ctx.mouse_mut().scroll_px = 0;
-                    },
+                    }
                     TouchPhase::Moved => {
                         self.scroll_terminal(modifiers, lpos.y as i32);
-                    },
+                    }
                     _ => (),
                 }
             },
@@ -789,7 +793,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 ElementState::Pressed => {
                     self.process_mouse_bindings(modifiers, button);
                     self.on_mouse_press(button, modifiers, point);
-                },
+                }
                 ElementState::Released => self.on_mouse_release(button, modifiers, point),
             }
         }
@@ -808,7 +812,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 if self.process_key_bindings(input) {
                     *self.ctx.suppress_chars() = true;
                 }
-            },
+            }
             ElementState::Released => *self.ctx.suppress_chars() = false,
         }
     }
@@ -1181,7 +1185,8 @@ mod tests {
         }
 
         fn mouse_coords(&self) -> Option<Point> {
-            self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
+            self.terminal
+                .pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
         }
 
         #[inline]

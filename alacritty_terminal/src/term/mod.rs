@@ -387,7 +387,7 @@ impl RenderableCell {
                     // None of the above, keep original color.
                     _ => colors[ansi],
                 }
-            },
+            }
             Color::Indexed(idx) => {
                 let idx = match (
                     config.draw_bold_text_with_bright_colors(),
@@ -707,7 +707,7 @@ impl VisualBell {
                 let inverse_intensity = match self.animation {
                     VisualBellAnimation::Ease | VisualBellAnimation::EaseOut => {
                         cubic_bezier(0.25, 0.1, 0.25, 1.0, time)
-                    },
+                    }
                     VisualBellAnimation::EaseOutSine => cubic_bezier(0.39, 0.575, 0.565, 1.0, time),
                     VisualBellAnimation::EaseOutQuad => cubic_bezier(0.25, 0.46, 0.45, 0.94, time),
                     VisualBellAnimation::EaseOutCubic => {
@@ -925,7 +925,12 @@ impl Term {
 
         let history_size = config.scrolling.history() as usize;
         let grid = Grid::new(num_lines, num_cols, history_size, Cell::default());
-        let alt = Grid::new(num_lines, num_cols, 0 /* scroll history */, Cell::default());
+        let alt = Grid::new(
+            num_lines,
+            num_cols,
+            0, /* scroll history */
+            Cell::default(),
+        );
 
         let tabspaces = config.tabspaces();
         let tabs = TabStops::new(grid.num_cols(), tabspaces);
@@ -1215,13 +1220,15 @@ impl Term {
         // Scroll up to keep cursor in terminal
         if self.cursor.point.line >= num_lines {
             let lines = self.cursor.point.line - num_lines + 1;
-            self.grid.scroll_up(&(Line(0)..old_lines), lines, &self.cursor.template);
+            self.grid
+                .scroll_up(&(Line(0)..old_lines), lines, &self.cursor.template);
         }
 
         // Scroll up alt grid as well
         if self.cursor_save_alt.point.line >= num_lines {
             let lines = self.cursor_save_alt.point.line - num_lines + 1;
-            self.alt_grid.scroll_up(&(Line(0)..old_lines), lines, &self.cursor_save_alt.template);
+            self.alt_grid
+                .scroll_up(&(Line(0)..old_lines), lines, &self.cursor_save_alt.template);
         }
 
         // Move prompt down when growing if scrollback lines are available
@@ -1235,7 +1242,10 @@ impl Term {
             }
         }
 
-        debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
+        debug!(
+            "New num_cols is {} and num_lines is {}",
+            num_cols, num_lines
+        );
 
         // Resize grids to new size
         let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
@@ -1290,7 +1300,11 @@ impl Term {
     /// Expects origin to be in scroll range.
     #[inline]
     fn scroll_down_relative(&mut self, origin: Line, mut lines: Line) {
-        trace!("Scrolling down relative: origin={}, lines={}", origin, lines);
+        trace!(
+            "Scrolling down relative: origin={}, lines={}",
+            origin,
+            lines
+        );
         lines = min(lines, self.scroll_region.end - self.scroll_region.start);
         lines = min(lines, self.scroll_region.end - origin);
 
@@ -1608,7 +1622,7 @@ impl ansi::Handler for Term {
         match arg {
             5 => {
                 let _ = writer.write_all(b"\x1b[0n");
-            },
+            }
             6 => {
                 let pos = self.cursor.point;
                 let response = format!("\x1b[{};{}R", pos.line + 1, pos.col + 1);
@@ -1773,7 +1787,11 @@ impl ansi::Handler for Term {
 
     #[inline]
     fn erase_chars(&mut self, count: Column) {
-        trace!("Erasing chars: count={}, col={}", count, self.cursor.point.col);
+        trace!(
+            "Erasing chars: count={}, col={}",
+            count,
+            self.cursor.point.col
+        );
         let start = self.cursor.point.col;
         let end = min(start + count, self.grid.num_cols());
 
@@ -1864,19 +1882,19 @@ impl ansi::Handler for Term {
                 for cell in &mut row[col..] {
                     cell.reset(&template);
                 }
-            },
+            }
             ansi::LineClearMode::Left => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..=col] {
                     cell.reset(&template);
                 }
-            },
+            }
             ansi::LineClearMode::All => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..] {
                     cell.reset(&template);
                 }
-            },
+            }
         }
     }
 
@@ -1934,7 +1952,7 @@ impl ansi::Handler for Term {
                         .region_mut((self.cursor.point.line + 1)..)
                         .each(|cell| cell.reset(&template));
                 }
-            },
+            }
             ansi::ClearMode::All => self.grid.region_mut(..).each(|c| c.reset(&template)),
             ansi::ClearMode::Above => {
                 // If clearing more than one line
@@ -1961,7 +1979,7 @@ impl ansi::Handler for Term {
             ansi::TabulationClearMode::Current => {
                 let column = self.cursor.point.col;
                 self.tabs[column] = false;
-            },
+            }
             ansi::TabulationClearMode::All => {
                 self.tabs.clear_all();
             },
@@ -2014,7 +2032,7 @@ impl ansi::Handler for Term {
                 self.cursor.template.fg = Color::Named(NamedColor::Foreground);
                 self.cursor.template.bg = Color::Named(NamedColor::Background);
                 self.cursor.template.flags = cell::Flags::empty();
-            },
+            }
             Attr::Reverse => self.cursor.template.flags.insert(cell::Flags::INVERSE),
             Attr::CancelReverse => self.cursor.template.flags.remove(cell::Flags::INVERSE),
             Attr::Bold => self.cursor.template.flags.insert(cell::Flags::BOLD),
@@ -2094,11 +2112,11 @@ impl ansi::Handler for Term {
             ansi::Mode::ReportMouseClicks => {
                 self.mode.remove(TermMode::MOUSE_REPORT_CLICK);
                 self.set_mouse_cursor(MouseCursor::Text);
-            },
+            }
             ansi::Mode::ReportCellMouseMotion => {
                 self.mode.remove(TermMode::MOUSE_DRAG);
                 self.set_mouse_cursor(MouseCursor::Text);
-            },
+            }
             ansi::Mode::ReportAllMouseMotion => {
                 self.mode.remove(TermMode::MOUSE_MOTION);
                 self.set_mouse_cursor(MouseCursor::Text);
@@ -2237,17 +2255,26 @@ mod tests {
         mem::swap(&mut term.semantic_escape_chars, &mut escape_chars);
 
         {
-            *term.selection_mut() = Some(Selection::semantic(Point { line: 2, col: Column(1) }));
+            *term.selection_mut() = Some(Selection::semantic(Point {
+                line: 2,
+                col: Column(1),
+            }));
             assert_eq!(term.selection_to_string(), Some(String::from("aa")));
         }
 
         {
-            *term.selection_mut() = Some(Selection::semantic(Point { line: 2, col: Column(4) }));
+            *term.selection_mut() = Some(Selection::semantic(Point {
+                line: 2,
+                col: Column(4),
+            }));
             assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
         }
 
         {
-            *term.selection_mut() = Some(Selection::semantic(Point { line: 1, col: Column(1) }));
+            *term.selection_mut() = Some(Selection::semantic(Point {
+                line: 1,
+                col: Column(1),
+            }));
             assert_eq!(term.selection_to_string(), Some(String::from("aaa")));
         }
     }
@@ -2274,7 +2301,10 @@ mod tests {
 
         mem::swap(&mut term.grid, &mut grid);
 
-        *term.selection_mut() = Some(Selection::lines(Point { line: 0, col: Column(3) }));
+        *term.selection_mut() = Some(Selection::lines(Point {
+            line: 0,
+            col: Column(3),
+        }));
         assert_eq!(term.selection_to_string(), Some(String::from("\"aa\"a\n")));
     }
 
@@ -2302,8 +2332,20 @@ mod tests {
 
         mem::swap(&mut term.grid, &mut grid);
 
-        let mut selection = Selection::simple(Point { line: 2, col: Column(0) }, Side::Left);
-        selection.update(Point { line: 0, col: Column(2) }, Side::Right);
+        let mut selection = Selection::simple(
+            Point {
+                line: 2,
+                col: Column(0),
+            },
+            Side::Left,
+        );
+        selection.update(
+            Point {
+                line: 0,
+                col: Column(2),
+            },
+            Side::Right,
+        );
         *term.selection_mut() = Some(selection);
         assert_eq!(term.selection_to_string(), Some("aaa\n\naaa\n".into()));
     }
@@ -2427,7 +2469,8 @@ mod tests {
         let mut term: Term = Term::new(&config, size, MessageBuffer::new(), Clipboard::new_nop());
 
         // Add one line of scrollback
-        term.grid.scroll_up(&(Line(0)..Line(1)), Line(1), &Cell::default());
+        term.grid
+            .scroll_up(&(Line(0)..Line(1)), Line(1), &Cell::default());
 
         // Clear the history
         term.clear_screen(ansi::ClearMode::Saved);

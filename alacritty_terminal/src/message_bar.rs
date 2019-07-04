@@ -455,8 +455,14 @@ mod test {
             let msg = Message::new(String::from("test"), color::RED);
             message_buffer.tx().send(msg).unwrap();
         }
-        message_buffer.tx().send(Message::new(String::from("other"), color::RED)).unwrap();
-        message_buffer.tx().send(Message::new(String::from("test"), color::YELLOW)).unwrap();
+        message_buffer
+            .tx()
+            .send(Message::new(String::from("other"), color::RED))
+            .unwrap();
+        message_buffer
+            .tx()
+            .send(Message::new(String::from("test"), color::YELLOW))
+            .unwrap();
         let _ = message_buffer.message();
 
         message_buffer.pop();

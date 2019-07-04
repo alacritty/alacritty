@@ -136,7 +136,10 @@ impl State {
 impl Writing {
     #[inline]
     fn new(c: Cow<'static, [u8]>) -> Writing {
-        Writing { source: c, written: 0 }
+        Writing {
+            source: c,
+            written: 0,
+        }
     }
 
     #[inline]
@@ -215,7 +218,12 @@ where
         }
 
         self.poll
-            .reregister(&self.rx, token, Ready::readable(), PollOpt::edge() | PollOpt::oneshot())
+            .reregister(
+                &self.rx,
+                token,
+                Ready::readable(),
+                PollOpt::edge() | PollOpt::oneshot(),
+            )
             .unwrap();
 
         true
@@ -363,7 +371,7 @@ where
                             if !self.channel_event(channel_token, &mut state) {
                                 break 'event_loop;
                             }
-                        },
+                        }
 
                         #[cfg(unix)]
                         token if token == self.pty.child_event_token() => {
@@ -372,7 +380,7 @@ where
                                 self.display.notify();
                                 break 'event_loop;
                             }
-                        },
+                        }
 
                         token
                             if token == self.pty.read_token()
@@ -422,7 +430,9 @@ where
                     interest.insert(Ready::writable());
                 }
                 // Reregister with new interest
-                self.pty.reregister(&self.poll, interest, poll_opts).unwrap();
+                self.pty
+                    .reregister(&self.poll, interest, poll_opts)
+                    .unwrap();
             }
 
             // The evented instances are not dropped here so deregister them explicitly

@@ -175,7 +175,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
                     max((self.display_offset as isize) + count, 0isize) as usize,
                     self.scroll_limit,
                 );
-            },
+            }
             Scroll::PageUp => {
                 self.display_offset = min(self.display_offset + self.lines.0, self.scroll_limit);
             },
@@ -240,7 +240,8 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         let lines_added = new_line_count - self.lines;
 
         // Need to "resize" before updating buffer
-        self.raw.grow_visible_lines(new_line_count, Row::new(self.cols, template));
+        self.raw
+            .grow_visible_lines(new_line_count, Row::new(self.cols, template));
         self.lines = new_line_count;
 
         // Move existing lines up if there is no scrollback to fill new lines
@@ -568,7 +569,10 @@ impl<T> Grid<T> {
         T: Copy + GridCell,
     {
         let history_size = self.raw.len().saturating_sub(*self.lines);
-        self.raw.initialize(self.max_scroll_limit - history_size, Row::new(self.cols, template));
+        self.raw.initialize(
+            self.max_scroll_limit - history_size,
+            Row::new(self.cols, template),
+        );
     }
 
     /// This is used only for truncating before saving ref-tests
@@ -610,7 +614,7 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
                 self.cur.line -= 1;
                 self.cur.col = Column(0);
                 Some(&self.grid[self.cur.line][self.cur.col])
-            },
+            }
             _ => {
                 self.cur.col += Column(1);
                 Some(&self.grid[self.cur.line][self.cur.col])
@@ -624,12 +628,15 @@ impl<'a, T> BidirectionalIterator for GridIterator<'a, T> {
         let num_cols = self.grid.num_cols();
 
         match self.cur {
-            Point { line, col: Column(0) } if line == self.grid.len() - 1 => None,
+            Point {
+                line,
+                col: Column(0),
+            } if line == self.grid.len() - 1 => None,
             Point { col: Column(0), .. } => {
                 self.cur.line += 1;
                 self.cur.col = num_cols - Column(1);
                 Some(&self.grid[self.cur.line][self.cur.col])
-            },
+            }
             _ => {
                 self.cur.col -= Column(1);
                 Some(&self.grid[self.cur.line][self.cur.col])
@@ -857,7 +864,13 @@ impl<'a, T: 'a> DisplayIter<'a, T> {
         let col = Column(0);
         let line = Line(0);
 
-        DisplayIter { grid, offset, col, limit, line }
+        DisplayIter {
+            grid,
+            offset,
+            col,
+            limit,
+            line,
+        }
     }
 
     pub fn offset(&self) -> usize {

@@ -13,7 +13,12 @@
 // limitations under the License.
 //
 //! Alacritty - The GPU Enhanced Terminal
-#![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
+#![deny(
+    clippy::all,
+    clippy::if_not_else,
+    clippy::enum_glob_use,
+    clippy::wrong_pub_self_convention
+)]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 // With the default subsystem, 'console', windows creates an additional console
@@ -220,7 +225,9 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
         // Handle config reloads
         if let Some(ref path) = config_monitor.as_ref().and_then(Monitor::pending) {
             // Clear old config messages from bar
-            terminal_lock.message_buffer_mut().remove_topic(config::SOURCE_FILE_PATH);
+            terminal_lock
+                .message_buffer_mut()
+                .remove_topic(config::SOURCE_FILE_PATH);
 
             if let Ok(config) = config::reload_from(path) {
                 display.update_config(&config);
@@ -246,7 +253,12 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
             //
             // The second argument is a list of types that want to be notified
             // of display size changes.
-            display.handle_resize(&mut terminal_lock, &config, &mut resize_handle, &mut processor);
+            display.handle_resize(
+                &mut terminal_lock,
+                &config,
+                &mut resize_handle,
+                &mut processor,
+            );
 
             drop(terminal_lock);
 

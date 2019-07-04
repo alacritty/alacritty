@@ -299,7 +299,8 @@ impl GlyphCache {
 
     #[cfg(feature = "hb-ft")]
     pub fn get_raw<'a, L>(&'a mut self, glyph_key: GlyphKey, loader: &mut L, glyph_i: u32) -> Glyph
-        where L: LoadGlyph
+    where
+        L: LoadGlyph,
     {
         let glyph_offset = self.glyph_offset;
         let rasterizer = &mut self.rasterizer;
@@ -314,17 +315,18 @@ impl GlyphCache {
             .entry(fixed_glyph_key)
             .or_insert_with(|| {
             */
-                let mut rasterized = rasterizer.get_glyph_raw(glyph_key, glyph_i)
-                    .unwrap_or_else(|_| Default::default());
+        let mut rasterized = rasterizer
+            .get_glyph_raw(glyph_key, glyph_i)
+            .unwrap_or_else(|_| Default::default());
 
-                rasterized.left += i32::from(glyph_offset.x);
-                rasterized.top += i32::from(glyph_offset.y);
-                rasterized.top -= metrics.descent as i32;
+        rasterized.left += i32::from(glyph_offset.x);
+        rasterized.top += i32::from(glyph_offset.y);
+        rasterized.top -= metrics.descent as i32;
 
-                loader.load_glyph(&rasterized)
-                    /*
-            })
-            */
+        loader.load_glyph(&rasterized)
+        /*
+        })
+        */
     }
 
     pub fn update_font_size<L: LoadGlyph>(
@@ -761,7 +763,12 @@ impl QuadRenderer {
             let padding_y = props.padding_y as i32;
             let width = props.width as i32;
             let height = props.height as i32;
-            gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
+            gl::Viewport(
+                padding_x,
+                padding_y,
+                width - 2 * padding_x,
+                height - 2 * padding_y,
+            );
 
             // Disable program
             gl::UseProgram(0);
@@ -862,7 +869,12 @@ impl QuadRenderer {
             let height = height as i32;
             let padding_x = padding_x as i32;
             let padding_y = padding_y as i32;
-            gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
+            gl::Viewport(
+                padding_x,
+                padding_y,
+                width - 2 * padding_x,
+                height - 2 * padding_y,
+            );
 
             // update projection
             gl::UseProgram(self.program.id);
@@ -1016,9 +1028,13 @@ impl<'a> RenderApi<'a> {
             self.render_batch();
         }
     }
-    
-    pub fn render_glyph_at_position(&mut self, cell: &RenderableCell,
-        glyph_cache: &mut GlyphCache, glyph: char) {
+
+    pub fn render_glyph_at_position(
+        &mut self,
+        cell: &RenderableCell,
+        glyph_cache: &mut GlyphCache,
+        glyph: char,
+    ) {
         if cell.flags.contains(cell::Flags::HIDDEN) {
             return;
         }
@@ -1037,7 +1053,7 @@ impl<'a> RenderApi<'a> {
             size: glyph_cache.font_size,
             c: glyph,
         };
-        
+
         // Add cell to batch
         let glyph = glyph_cache.get(glyph_key, self);
         self.add_render_item(cell, &glyph);

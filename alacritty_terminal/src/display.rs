@@ -498,7 +498,7 @@ impl Display {
         }
 
         #[cfg(feature = "hb-ft")]
-        let (g_lines, g_cols) = (terminal.grid().num_lines(), terminal.grid().num_cols());
+        let (g_lines) = terminal.grid().num_lines();
 
         // Clear when terminal mutex isn't held. Mesa for
         // some reason takes a long time to call glClear(). The driver descends
@@ -538,12 +538,16 @@ impl Display {
             // Draw grid (HarfBuzz)
             #[cfg(feature = "hb-ft")]
             {
-                fn create_renderable_cell_rows(grid_cells: &[RenderableCell], g_lines: Line) -> Vec<&[RenderableCell]> {
-                    let mut renderable_cells_rows: Vec<&[RenderableCell]> = Vec::with_capacity(g_lines.0);
+                fn create_renderable_cell_rows(
+                    grid_cells: &[RenderableCell],
+                    g_lines: Line,
+                ) -> Vec<&[RenderableCell]> {
+                    let mut renderable_cells_rows: Vec<&[RenderableCell]> =
+                        Vec::with_capacity(g_lines.0);
                     let (mut row_start, mut row_end) = (0, 0);
                     let mut last_line = None;
                     for i in 0..grid_cells.len() {
-                        let rcell = grid_cells[i];
+                        let rcell = &grid_cells[i];
                         if last_line.is_none() {
                             last_line = Some(rcell.line);
                         } else if last_line.unwrap() != grid_cells[i].line {
@@ -555,41 +559,45 @@ impl Display {
                             row_end += 1;
                         }
                     }
-                    renderable_cells_rows.push(&grid_cells[row_start..row_end]);
+                    renderable_cells_rows.push(&grid_cells[row_start..]);
                     renderable_cells_rows
                 }
                 let _sampler = self.meter.sampler();
                 let renderable_cells_rows = create_renderable_cell_rows(&grid_cells, g_lines);
 
                 /// Wrapper to allow comparing everything but column and chars
-                struct CmpCell(RenderableCell);
-                impl PartialEq for CmpCell {
+                struct CmpCell<'a>(&'a RenderableCell);
+                impl<'a> PartialEq for CmpCell<'a> {
                     fn eq(&self, other: &Self) -> bool {
-                        let a = self.0;
-                        let b = other.0;
+                        let a = &self.0;
+                        let b = &other.0;
                         a.line == b.line
-                        && a.fg == b.fg
-                        && a.bg == b.bg
-                        && a.bg_alpha == b.bg_alpha
-                        && a.flags == b.flags
+                            && a.fg == b.fg
+                            && a.bg == b.bg
+                            && a.bg_alpha == b.bg_alpha
+                            && a.flags == b.flags
                     }
                 }
 
-                fn create_text_run_rows(renderable_cells_rows: Vec<&[RenderableCell]>) -> Vec<Vec<(RenderableCell, String)>> {
+                fn create_text_run_rows(
+                    renderable_cells_rows: Vec<&[RenderableCell]>,
+                ) -> Vec<Vec<(RenderableCell, String)>> {
                     let mut text_run_rows = Vec::new();
-                    let mut row = Vec::new();
+                    let mut row: Vec<(RenderableCell, String)> = Vec::new();
                     let mut run = String::new();
                     let mut rcell = None;
                     for r in renderable_cells_rows.into_iter() {
                         let mut ii = r.iter().peekable();
                         while let Some(c) = ii.next() {
                             if rcell.is_none() {
-                                rcell = Some(*c);
-                            } else if rcell.map(CmpCell).map_or(false, |last_cell| last_cell != CmpCell(*c)) {
-                                println!("Run \"{}\" at {:?}", run, rcell);
-                                row.push((rcell.unwrap(), run.clone()));
+                                rcell = Some(c);
+                            } else if rcell
+                                .map(CmpCell)
+                                .map_or(false, |last_cell| last_cell != CmpCell(c))
+                            {
+                                row.push((RenderableCell::clone(rcell.unwrap()), run.clone()));
                                 run.clear();
-                                rcell = Some(*c);
+                                rcell = Some(c);
                             }
                             match c.inner {
                                 RenderableCellContent::Cursor(_) => {},
@@ -598,7 +606,7 @@ impl Display {
                                 }
                             }
                             if ii.peek().is_none() {
-                                row.push((*c, run.clone()));
+                                row.push((RenderableCell::clone(c), run.clone()));
                             }
                         }
                         text_run_rows.push(row.clone());
@@ -617,15 +625,12 @@ impl Display {
                         row.into_iter()
                             .map(|(rc, run)| {
                                 let key = if rc.flags.contains(crate::term::cell::Flags::BOLD) {
-                                            glyph_cache.bold_key
-                                        } else if rc
-                                            .flags
-                                            .contains(crate::term::cell::Flags::ITALIC)
-                                        {
-                                            glyph_cache.italic_key
-                                        } else {
-                                            glyph_cache.font_key
-                                        };
+                                    glyph_cache.bold_key
+                                } else if rc.flags.contains(crate::term::cell::Flags::ITALIC) {
+                                    glyph_cache.italic_key
+                                } else {
+                                    glyph_cache.font_key
+                                };
                                 (
                                     rc,
                                     glyph_cache.rasterizer.shape(
@@ -638,12 +643,7 @@ impl Display {
                             .collect()
                     })
                     .collect();
-                for row in &text_run_rows {
-                    for (rc, run) in row {
-                        info!("RC: {:?}", rc);
-                        info!("Run: {:?}", run);
-                    }
-                }
+
                 // Helper that rounds first arg to be a multiple of second arg.
                 #[inline]
                 fn u_round_to(a: f32, b: f32) -> usize {
@@ -654,6 +654,8 @@ impl Display {
                 self.renderer.with_api(config, &size_info, |mut api| {
                     for row in text_run_rows.into_iter() {
                         for (mut rc, glyphs) in row.into_iter() {
+                            // XXX: what does this do? (for text runs)
+                            rects.update_lines(&size_info, &rc);
                             // Render each glyph, advancing based on the information provided.
                             if let Some(glyphs) = glyphs {
                                 for g in glyphs.into_iter() {
@@ -664,13 +666,11 @@ impl Display {
                                         _ => {
                                             //println!("Rendered {:?} at {:?}", g.glyph.c, rc.column);
                                             api.add_render_item(&rc, &glyph);
-                                            rc.column = crate::index::Column(
-                                                u_round_to(
-                                                    rc.column.0 as f32 * size_info.cell_width
-                                                        + g.x_advance,
-                                                    size_info.cell_width as f32,
-                                                ),
-                                            );
+                                            rc.column = crate::index::Column(u_round_to(
+                                                rc.column.0 as f32 * size_info.cell_width
+                                                    + g.x_advance,
+                                                size_info.cell_width as f32,
+                                            ));
                                         }
                                     }
                                 }
@@ -681,7 +681,6 @@ impl Display {
                         }
                     }
                 });
-                println!("Successfully rendered glyphs with HarfBuzz!");
             }
 
             if let Some(message) = message_buffer {

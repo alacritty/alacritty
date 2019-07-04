@@ -770,7 +770,7 @@ where
                     }
                 }
                 unhandled(params);
-            },
+            }
 
             // Set icon name
             // This is ignored, since alacritty has no concept of tabs
@@ -917,7 +917,7 @@ where
             '@' => handler.insert_blank(Column(arg_or_default!(idx: 0, default: 1) as usize)),
             'A' => {
                 handler.move_up(Line(arg_or_default!(idx: 0, default: 1) as usize));
-            },
+            }
             'b' => {
                 if let Some(c) = self._state.preceding_char {
                     for _ in 0..arg_or_default!(idx: 0, default: 1) {
@@ -926,7 +926,7 @@ where
                 } else {
                     debug!("tried to repeat with no preceding char");
                 }
-            },
+            }
             'B' | 'e' => handler.move_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             'c' => handler.identify_terminal(writer),
             'C' | 'a' => handler.move_forward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
@@ -941,13 +941,13 @@ where
                 };
 
                 handler.clear_tabs(mode);
-            },
+            }
             'G' | '`' => handler.goto_col(Column(arg_or_default!(idx: 0, default: 1) as usize - 1)),
             'H' | 'f' => {
                 let y = arg_or_default!(idx: 0, default: 1) as usize;
                 let x = arg_or_default!(idx: 1, default: 1) as usize;
                 handler.goto(Line(y - 1), Column(x - 1));
-            },
+            }
             'I' => handler.move_forward_tabs(arg_or_default!(idx: 0, default: 1)),
             'J' => {
                 let mode = match arg_or_default!(idx: 0, default: 0) {
@@ -959,7 +959,7 @@ where
                 };
 
                 handler.clear_screen(mode);
-            },
+            }
             'K' => {
                 let mode = match arg_or_default!(idx: 0, default: 0) {
                     0 => LineClearMode::Right,
@@ -969,7 +969,7 @@ where
                 };
 
                 handler.clear_line(mode);
-            },
+            }
             'S' => handler.scroll_up(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             'T' => handler.scroll_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             'L' => handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
@@ -981,7 +981,7 @@ where
                         None => unhandled!(),
                     }
                 }
-            },
+            }
             'M' => handler.delete_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             'X' => handler.erase_chars(Column(arg_or_default!(idx: 0, default: 1) as usize)),
             'P' => handler.delete_chars(Column(arg_or_default!(idx: 0, default: 1) as usize)),
@@ -995,7 +995,7 @@ where
                         None => unhandled!(),
                     }
                 }
-            },
+            }
             'm' => {
                 // Sometimes a C-style for loop is just what you need
                 let mut i = 0; // C-for initializer
@@ -1044,7 +1044,7 @@ where
                             } else {
                                 break;
                             }
-                        },
+                        }
                         39 => Attr::Foreground(Color::Named(NamedColor::Foreground)),
                         40 => Attr::Background(Color::Named(NamedColor::Black)),
                         41 => Attr::Background(Color::Named(NamedColor::Red)),
@@ -1062,7 +1062,7 @@ where
                             } else {
                                 break;
                             }
-                        },
+                        }
                         49 => Attr::Background(Color::Named(NamedColor::Background)),
                         90 => Attr::Foreground(Color::Named(NamedColor::BrightBlack)),
                         91 => Attr::Foreground(Color::Named(NamedColor::BrightRed)),
@@ -1103,7 +1103,7 @@ where
                 let bottom = Line(arg1);
 
                 handler.set_scrolling_region(top..bottom);
-            },
+            }
             's' => handler.save_cursor_position(),
             'u' => handler.restore_cursor_position(),
             'q' => {
@@ -1217,7 +1217,7 @@ fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
                     },
                 }
             }
-        },
+        }
         _ => {
             debug!("Unexpected color attr: {}", attrs[*i + 1]);
             None
@@ -1502,7 +1502,6 @@ mod tests {
         fn lines(&self) -> Line {
             Line(200)
         }
-
         fn cols(&self) -> Column {
             Column(90)
         }
@@ -1519,7 +1518,10 @@ mod tests {
         }
 
         assert_eq!(handler.index, CharsetIndex::G0);
-        assert_eq!(handler.charset, StandardCharset::SpecialCharacterAndLineDrawing);
+        assert_eq!(
+            handler.charset,
+            StandardCharset::SpecialCharacterAndLineDrawing
+        );
     }
 
     #[test]
@@ -1533,7 +1535,10 @@ mod tests {
         }
 
         assert_eq!(handler.index, CharsetIndex::G1);
-        assert_eq!(handler.charset, StandardCharset::SpecialCharacterAndLineDrawing);
+        assert_eq!(
+            handler.charset,
+            StandardCharset::SpecialCharacterAndLineDrawing
+        );
 
         let mut handler = CharsetHandler::default();
         parser.advance(&mut handler, BYTES[3], &mut Void);
@@ -1543,12 +1548,26 @@ mod tests {
 
     #[test]
     fn parse_valid_rgb_color() {
-        assert_eq!(parse_rgb_color(b"rgb:11/aa/ff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+        assert_eq!(
+            parse_rgb_color(b"rgb:11/aa/ff"),
+            Some(Rgb {
+                r: 0x11,
+                g: 0xaa,
+                b: 0xff
+            })
+        );
     }
 
     #[test]
     fn parse_valid_rgb_color2() {
-        assert_eq!(parse_rgb_color(b"#11aaff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+        assert_eq!(
+            parse_rgb_color(b"#11aaff"),
+            Some(Rgb {
+                r: 0x11,
+                g: 0xaa,
+                b: 0xff
+            })
+        );
     }
 
     #[test]

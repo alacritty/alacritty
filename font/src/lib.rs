@@ -18,7 +18,12 @@
 //! FreeType is used on everything that's not Mac OS.
 //! Eventually, ClearType support will be available for windows
 
-#![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
+#![deny(
+    clippy::all,
+    clippy::if_not_else,
+    clippy::enum_glob_use,
+    clippy::wrong_pub_self_convention
+)]
 
 /* Note: all applicable cfg statements have been modified to short-circuit
  * to freetype if the feature hb-ft is enabled.
@@ -48,13 +53,12 @@ extern crate libc;
 #[cfg(feature = "hb-ft")]
 extern crate harfbuzz;
 
-
 #[cfg_attr(not(windows), macro_use)]
 extern crate log;
 
-use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{cmp, fmt};
 
 // If target isn't macos or windows, reexport everything from ft
 #[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]

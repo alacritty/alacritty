@@ -18,15 +18,15 @@ use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
 
+#[cfg(feature = "hb-ft")]
+use super::HbGlyph;
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
 use libc::c_uint;
-#[cfg(feature = "hb-ft")]
-use super::HbGlyph;
-
-pub mod fc;
 
 use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
+
+mod fc;
 
 struct FixedSize {
     pixelsize: f64,
@@ -49,7 +49,9 @@ struct Face {
 impl ::std::ops::Drop for Face {
     fn drop(&mut self) {
         if let Some(hb_font) = self.hb_font {
-            unsafe { harfbuzz::sys::hb_font_destroy(hb_font); }
+            unsafe {
+                harfbuzz::sys::hb_font_destroy(hb_font);
+            }
         }
     }
 }
@@ -60,14 +62,17 @@ impl fmt::Debug for Face {
             .field("ft_face", &self.ft_face)
             .field("key", &self.key)
             .field("load_flags", &self.load_flags)
-            .field("render_mode", &match self.render_mode {
-                freetype::RenderMode::Normal => "Normal",
-                freetype::RenderMode::Light => "Light",
-                freetype::RenderMode::Mono => "Mono",
-                freetype::RenderMode::Lcd => "Lcd",
-                freetype::RenderMode::LcdV => "LcdV",
-                freetype::RenderMode::Max => "Max",
-            })
+            .field(
+                "render_mode",
+                &match self.render_mode {
+                    freetype::RenderMode::Normal => "Normal",
+                    freetype::RenderMode::Light => "Light",
+                    freetype::RenderMode::Mono => "Mono",
+                    freetype::RenderMode::Lcd => "Lcd",
+                    freetype::RenderMode::LcdV => "LcdV",
+                    freetype::RenderMode::Max => "Max",
+                },
+            )
             .field("lcd_filter", &self.lcd_filter)
             .finish()
     }
@@ -167,51 +172,62 @@ fn hb_tag(f: &str) -> harfbuzz::sys::hb_tag_t {
 #[cfg(feature = "hb-ft")]
 impl ::HbFtExt for FreeTypeRasterizer {
     fn shape(&mut self, text: &str, font_key: FontKey, size: Size) -> Option<Vec<HbGlyph>> {
-        self.faces[&font_key].hb_font.map(|hb_font| {
+        let size_metrics = self.faces[&font_key].ft_face.size_metrics();
+        println!("{:?}", size_metrics);
+        self.faces[&font_key].hb_font.and_then(|hb_font| size_metrics.map(|s| (hb_font, s))).map(|(hb_font, size_metrics)| {
             let mut buf = harfbuzz::Buffer::with(text);
             buf.set_direction(harfbuzz::Direction::LTR);
-            buf.set_script(harfbuzz::sys::HB_SCRIPT_LATIN);
+            buf.set_script(harfbuzz::sys::HB_SCRIPT_COMMON);
             buf.set_language(harfbuzz::Language::from_string("en"));
             // Shape
             unsafe {
                 // ::std::ptr::null() == NULL (with type *const _)
-                harfbuzz::sys::hb_shape(hb_font, buf.as_ptr(), std::ptr::null(), 0);
+                harfbuzz::sys::hb_shape_full(
+                    hb_font,
+                    buf.as_ptr(),
+                    std::ptr::null(),
+                    0,
+                    harfbuzz::sys::hb_shape_list_shapers(),
+                );
             };
             // Get glyph information
             let ginfo: &mut [harfbuzz::sys::hb_glyph_info_t] = unsafe {
                 let mut len = 0u32;
-                let res = harfbuzz::sys::hb_buffer_get_glyph_infos(buf.as_ptr(), &mut len as *mut _);
-                ::std::slice::from_raw_parts_mut(
-                    res,
-                    len as _
-                )
+                let res =
+                    harfbuzz::sys::hb_buffer_get_glyph_infos(buf.as_ptr(), &mut len as *mut _);
+                std::slice::from_raw_parts_mut(res, len as usize)
             };
             // Get glyph positions
             let gpos: &mut [harfbuzz::sys::hb_glyph_position_t] = unsafe {
                 let mut len = 0u32;
-                let res = harfbuzz::sys::hb_buffer_get_glyph_positions(buf.as_ptr(), &mut len as *mut _);
-                ::std::slice::from_raw_parts_mut(
-                    res,
-                    len as _
-                )
+                let res =
+                    harfbuzz::sys::hb_buffer_get_glyph_positions(buf.as_ptr(), &mut len as *mut _);
+                std::slice::from_raw_parts_mut(res, len as usize)
             };
+
             // Combine into HbGlyph's
-            println!("Shaped text: {:?}", buf);
-            ginfo.iter_mut().zip(gpos.iter_mut()).map(|(gi, gp)| {
-                HbGlyph {
-                    /* ugh -_- you have to divide by 64?? */
-                    x_advance: (gp.x_advance as f32) / 64.,
-                    y_advance: (gp.y_advance as f32) / 64.,
-                    x_offset: (gp.x_offset as f32) / 64.,
-                    y_offset: (gp.y_offset as f32) / 64.,
-                    glyph: GlyphKey {
-                        c: text.chars().nth(gi.cluster as usize).expect("Expected cluster index to point to char in text None was found."),//::std::char::from_u32(gi.codepoint).expect("HB u32 is not a char!"),
-                        font_key,
-                        size,
-                    },
-                    cluster: gi.cluster,
-                }
-            }).collect()
+            ginfo
+                .iter_mut()
+                .zip(gpos.iter_mut())
+                .map(|(gi, gp)| {
+                    println!("{:?}", (&gi, &gp));
+                    HbGlyph {
+                        /* ugh -_- you have to divide by 64?? */
+                        x_advance: (gp.x_advance as f32) / 64.,
+                        y_advance: (gp.y_advance as f32) / 64.,
+                        x_offset: (gp.x_offset as f32) / 64.,
+                        y_offset: (gp.y_offset as f32) / 64.,
+                        glyph: GlyphKey {
+                            c: text.chars().nth(gi.cluster as usize).expect(
+                                "Expected cluster index to point to char in text None was found.",
+                            ), //::std::char::from_u32(gi.codepoint).expect("HB u32 is not a char!"),
+                            font_key,
+                            size,
+                        },
+                        cluster: gi.cluster,
+                    }
+                })
+                .collect()
         })
     }
 }
@@ -346,25 +362,22 @@ impl FreeTypeRasterizer {
                 let mut f = ::std::fs::File::open(&path).unwrap();
                 f.read_to_end(&mut buf).unwrap();
                 let blob = harfbuzz::Blob::new_read_only(&buf);
-                let _hb_face = unsafe {
-                    harfbuzz::sys::hb_face_create(blob.as_raw(), index as u32)
-                };
+                let _hb_face =
+                    unsafe { harfbuzz::sys::hb_face_create(blob.as_raw(), index as u32) };
                 if _hb_face.is_null() {
                     None
                 } else {
-                    let _hb_font = unsafe {
-                        harfbuzz::sys::hb_font_create(_hb_face)
-                    };
+                    let _hb_font = unsafe { harfbuzz::sys::hb_font_create(_hb_face) };
                     if _hb_font.is_null() {
                         None
                     } else {
-                        unsafe { harfbuzz::sys::hb_ot_font_set_funcs(_hb_font); }
-                        println!("Could create harfbuzz font");
+                        unsafe {
+                            harfbuzz::sys::hb_ot_font_set_funcs(_hb_font);
+                        }
                         Some(_hb_font)
                     }
                 }
             };
-
 
             let face = Face {
                 ft_face,
@@ -423,7 +436,8 @@ impl FreeTypeRasterizer {
                 glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.
             });
 
-        face.ft_face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
+        face.ft_face
+            .set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
 
         unsafe {
             let ft_lib = self.library.raw();
@@ -446,16 +460,22 @@ impl FreeTypeRasterizer {
         })
     }
 
-    pub fn get_glyph_raw(&mut self, glyph_key: GlyphKey, glyph_i: u32)
-        -> Result<RasterizedGlyph, Error> {
+    pub fn get_glyph_raw(
+        &mut self,
+        glyph_key: GlyphKey,
+        glyph_i: u32,
+    ) -> Result<RasterizedGlyph, Error> {
         let font_key = self.face_for_glyph(glyph_key, false)?;
         let face = &self.faces[&font_key];
 
-        let size = face.non_scalable.as_ref()
+        let size = face
+            .non_scalable
+            .as_ref()
             .map(|v| v.pixelsize as f32)
             .unwrap_or_else(|| glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
 
-        face.ft_face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
+        face.ft_face
+            .set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
 
         unsafe {
             let ft_lib = self.library.raw();
@@ -556,7 +576,7 @@ impl FreeTypeRasterizer {
                     packed.extend_from_slice(&buf[start..stop]);
                 }
                 Ok((bitmap.rows(), bitmap.width() / 3, packed))
-            },
+            }
             PixelMode::LcdV => {
                 for i in 0..bitmap.rows() / 3 {
                     for j in 0..bitmap.width() {
@@ -567,7 +587,7 @@ impl FreeTypeRasterizer {
                     }
                 }
                 Ok((bitmap.rows() / 3, bitmap.width(), packed))
-            },
+            }
             // Mono data is stored in a packed format using 1 bit per pixel.
             PixelMode::Mono => {
                 fn unpack_byte(res: &mut Vec<u8>, byte: u8, mut count: u8) {
@@ -598,7 +618,7 @@ impl FreeTypeRasterizer {
                     }
                 }
                 Ok((bitmap.rows(), bitmap.width(), packed))
-            },
+            }
             // Gray data is stored as a value between 0 and 255 using 1 byte per pixel.
             PixelMode::Gray => {
                 for i in 0..bitmap.rows() {
@@ -632,7 +652,7 @@ impl FreeTypeRasterizer {
                         Some(&key) => {
                             debug!("Hit for font {:?}; no need to load", path);
                             Ok(key)
-                        },
+                        }
 
                         None => {
                             debug!("Miss for font {:?}; loading now", path);
