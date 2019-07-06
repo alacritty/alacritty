@@ -15,8 +15,10 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::fmt::Display;
 
 use serde::{Deserialize, Deserializer};
+use serde_yaml::Value;
 
 mod bindings;
 mod colors;
@@ -92,7 +94,7 @@ pub struct Config {
     pub mouse: Mouse,
 
     /// Path to a shell program to run on startup
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(default, deserialize_with = "from_string_or_deserialize")]
     pub shell: Option<Shell<'static>>,
 
     /// Path where config was loaded from
@@ -134,8 +136,8 @@ pub struct Config {
     alt_send_esc: DefaultTrueBool,
 
     /// Shell startup directory
-    #[serde(default, deserialize_with = "failure_default")]
-    working_directory: WorkingDirectory,
+    #[serde(default, deserialize_with = "option_explicit_none")]
+    working_directory: Option<PathBuf>,
 
     /// Debug options
     #[serde(default, deserialize_with = "failure_default")]
@@ -212,37 +214,12 @@ impl Config {
 
     #[inline]
     pub fn working_directory(&self) -> &Option<PathBuf> {
-        &self.working_directory.0
+        &self.working_directory
     }
 
     #[inline]
     pub fn set_working_directory(&mut self, working_directory: Option<PathBuf>) {
-        self.working_directory.0 = working_directory;
-    }
-}
-
-#[derive(Default, Debug, PartialEq, Eq)]
-struct WorkingDirectory(Option<PathBuf>);
-
-impl<'de> Deserialize<'de> for WorkingDirectory {
-    fn deserialize<D>(deserializer: D) -> Result<WorkingDirectory, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = serde_yaml::Value::deserialize(deserializer)?;
-
-        // Accept `None` to use the default path
-        if value.as_str().filter(|v| v.to_lowercase() == "none").is_some() {
-            return Ok(WorkingDirectory(None));
-        }
-
-        Ok(match PathBuf::deserialize(value) {
-            Ok(path) => WorkingDirectory(Some(path)),
-            Err(err) => {
-                error!("Problem with config: {}; using None", err);
-                WorkingDirectory(None)
-            },
-        })
+        self.working_directory = working_directory;
     }
 }
 
@@ -357,6 +334,12 @@ impl<'a> Shell<'a> {
     }
 }
 
+impl FromString for Option<Shell<'_>> {
+    fn from(input: String) -> Self {
+        Some(Shell::new(input))
+    }
+}
+
 /// A delta for a point in a 2 dimensional plane
 #[serde(default, bound(deserialize = "T: Deserialize<'de> + Default"))]
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
@@ -418,17 +401,40 @@ impl Default for DefaultTrueBool {
     }
 }
 
+fn fallback_default<T, E>(err: E) -> T
+    where T: Default, E: Display
+{
+    error!("Problem with config: {}; using default value", err);
+    T::default()
+}
+
 pub fn failure_default<'a, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: Deserializer<'a>,
     T: Deserialize<'a> + Default,
 {
-    let value = serde_yaml::Value::deserialize(deserializer)?;
-    match T::deserialize(value) {
-        Ok(value) => Ok(value),
-        Err(err) => {
-            error!("Problem with config: {}; using default value", err);
-            Ok(T::default())
-        },
-    }
+    Ok(T::deserialize(Value::deserialize(deserializer)?).unwrap_or_else(fallback_default))
+}
+
+pub fn option_explicit_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+    where D: Deserializer<'de>, T: Deserialize<'de> + Default
+{
+    Ok(match Value::deserialize(deserializer)? {
+        Value::String(ref value) if value.to_lowercase() == "none" => None,
+        value => Some(T::deserialize(value).unwrap_or_else(fallback_default))
+    })
+}
+
+pub fn from_string_or_deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+    where D: Deserializer<'de>, T: Deserialize<'de> + FromString + Default
+{
+    Ok(match Value::deserialize(deserializer)? {
+        Value::String(value) => T::from(value),
+        value => T::deserialize(value).unwrap_or_else(fallback_default)
+    })
+}
+
+// Used over From<String>, to allow implementation for foreign types
+pub trait FromString {
+    fn from(input: String) -> Self;
 }

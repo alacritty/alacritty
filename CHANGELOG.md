@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Block selection mode when Control is held while starting a selection
+- Allow setting general window class on X11 using CLI or config (`window.class.general`)
+- Config option `window.gtk_theme_variant` to set GTK theme variant
 
 ### Fixed
 
