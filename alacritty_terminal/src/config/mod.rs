@@ -94,7 +94,7 @@ pub struct Config {
     pub mouse: Mouse,
 
     /// Path to a shell program to run on startup
-    #[serde(default, deserialize_with = "option_from_string_or_deserialize")]
+    #[serde(default, deserialize_with = "from_string_or_deserialize")]
     pub shell: Option<Shell<'static>>,
 
     /// Path where config was loaded from
@@ -334,9 +334,9 @@ impl<'a> Shell<'a> {
     }
 }
 
-impl From<String> for Shell<'static> {
-    fn from(value: String) -> Self {
-        Shell::new(value)
+impl FromString for Option<Shell<'_>> {
+    fn from(input: String) -> Self {
+        Some(Shell::new(input))
     }
 }
 
@@ -426,7 +426,7 @@ pub fn option_explicit_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::
 }
 
 pub fn from_string_or_deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-    where D: Deserializer<'de>, T: Deserialize<'de> + From<String> + Default
+    where D: Deserializer<'de>, T: Deserialize<'de> + FromString + Default
 {
     Ok(match Value::deserialize(deserializer)? {
         Value::String(value) => T::from(value),
@@ -434,17 +434,7 @@ pub fn from_string_or_deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Er
     })
 }
 
-pub fn option_from_string_or_deserialize<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
-    where D: Deserializer<'de>, T: Deserialize<'de> + From<String>
-{
-    Ok(match Value::deserialize(deserializer)? {
-        Value::String(value) => Some(T::from(value)),
-        value => match T::deserialize(value) {
-            Ok(value) => Some(value),
-            Err(err) => {
-                error!("Problem with config: {}; using None", err);
-                None
-            }
-        }
-    })
+// Used over From<String>, to allow implementation for foreign types
+pub trait FromString {
+    fn from(input: String) -> Self;
 }

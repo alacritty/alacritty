@@ -1,4 +1,4 @@
-use crate::config::{failure_default, option_explicit_none, from_string_or_deserialize, Delta};
+use crate::config::{failure_default, option_explicit_none, from_string_or_deserialize, Delta, FromString};
 use crate::index::{Column, Line};
 use crate::window::DEFAULT_NAME;
 
@@ -137,7 +137,7 @@ impl Default for Class {
     }
 }
 
-impl From<String> for Class {
+impl FromString for Class {
     fn from(value: String) -> Self {
         Class { instance: value, general: DEFAULT_NAME.into() }
     }
