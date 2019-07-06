@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - X11 clipboard hanging when mime type is set
 - On macOS, Alacritty will now fallback to Menlo if a font specified in the config cannot be loaded
 - Debug ref tests are now written to disk regardless of shutdown method
+- Cursor color setting with escape sequence
 
 ## 0.3.3
 

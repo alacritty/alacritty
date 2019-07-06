@@ -447,8 +447,8 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
 
                     renderable_cell.inner = RenderableCellContent::Cursor(cursor_key);
 
-                    if let Some(color) = self.config.colors.cursor.cursor {
-                        renderable_cell.fg = color;
+                    if let Some(color) = self.config.cursor_cursor_color() {
+                        renderable_cell.fg = RenderableCell::compute_bg_rgb(self.colors, color);
                     }
 
                     return Some(renderable_cell);
@@ -459,7 +459,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     if self.cursor_style == CursorStyle::Block {
                         std::mem::swap(&mut cell.bg, &mut cell.fg);
 
-                        if let Some(color) = self.config.colors.cursor.text {
+                        if let Some(color) = self.config.cursor_text_color() {
                             cell.fg = color;
                         }
                     }
