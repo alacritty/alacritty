@@ -12,7 +12,7 @@ os:
   - windows
 
 rust:
-  - 1.31.0
+  - 1.32.0
   - stable
   - nightly
 

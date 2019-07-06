@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "GPU-accelerated terminal emulator"
@@ -18,7 +18,7 @@ crossbeam-channel = "0.3.8"
 serde_yaml = "0.8"
 
 [build-dependencies]
-rustc_tools_util = "0.1"
+rustc_tools_util = "0.2.0"
 
 [target.'cfg(not(windows))'.dependencies]
 xdg = "2"
@@ -38,7 +38,7 @@ bench = []
 
 [package.metadata.deb]
 maintainer = "Joe Wilm <joe@jwilm.com>"
-license-file = ["LICENSE-APACHE", "3"]
+license-file = ["../LICENSE-APACHE", "3"]
 extended-description = """\
 Alacritty is the fastest terminal emulator in existence. Using the GPU for \
 rendering enables optimizations that simply aren't possible without it.  """

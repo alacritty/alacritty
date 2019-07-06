@@ -35,7 +35,7 @@ use crate::grid::{
 use crate::index::{self, Column, Contains, IndexRange, Line, Linear, Point};
 use crate::input::FONT_SIZE_STEP;
 use crate::message_bar::MessageBuffer;
-use crate::selection::{self, Selection, Span};
+use crate::selection::{self, Selection, SelectionRange, Span};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 use crate::url::{Url, UrlParser};
@@ -189,7 +189,12 @@ impl Search for Term {
 
 impl selection::Dimensions for Term {
     fn dimensions(&self) -> Point {
-        Point { col: self.grid.num_cols(), line: self.grid.num_lines() }
+        let line = if self.mode.contains(TermMode::ALT_SCREEN) {
+            self.grid.num_lines()
+        } else {
+            Line(self.grid.len())
+        };
+        Point { col: self.grid.num_cols(), line }
     }
 }
 
@@ -210,7 +215,7 @@ pub struct RenderableCellsIter<'a> {
     cursor_style: CursorStyle,
     config: &'a Config,
     colors: &'a color::List,
-    selection: Option<RangeInclusive<index::Linear>>,
+    selection: Option<SelectionRange>,
     url_highlight: &'a Option<RangeInclusive<index::Linear>>,
 }
 
@@ -235,19 +240,23 @@ impl<'a> RenderableCellsIter<'a> {
             let start_line = grid.buffer_line_to_visible(span.start.line);
             let end_line = grid.buffer_line_to_visible(span.end.line);
 
+            // Limit block selection columns to within start/end points
+            let (limit_start, limit_end) =
+                if span.is_block { (span.start.col, span.end.col) } else { (Column(0), Column(0)) };
+
             // Get start/end locations based on what part of selection is on screen
             let locations = match (start_line, end_line) {
                 (ViewportPosition::Visible(start_line), ViewportPosition::Visible(end_line)) => {
                     Some((start_line, span.start.col, end_line, span.end.col))
                 },
                 (ViewportPosition::Visible(start_line), ViewportPosition::Above) => {
-                    Some((start_line, span.start.col, Line(0), Column(0)))
+                    Some((start_line, span.start.col, Line(0), limit_end))
                 },
                 (ViewportPosition::Below, ViewportPosition::Visible(end_line)) => {
-                    Some((grid.num_lines(), Column(0), end_line, span.end.col))
+                    Some((grid.num_lines(), limit_start, end_line, span.end.col))
                 },
                 (ViewportPosition::Below, ViewportPosition::Above) => {
-                    Some((grid.num_lines(), Column(0), Line(0), Column(0)))
+                    Some((grid.num_lines(), limit_start, Line(0), limit_end))
                 },
                 _ => None,
             };
@@ -262,11 +271,7 @@ impl<'a> RenderableCellsIter<'a> {
                     ::std::mem::swap(&mut start, &mut end);
                 }
 
-                let cols = grid.num_cols();
-                let start = Linear::from_point(cols, start.into());
-                let end = Linear::from_point(cols, end.into());
-
-                RangeInclusive::new(start, end)
+                SelectionRange::new(start, end, span.is_block)
             })
         });
 
@@ -420,15 +425,25 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if self.cursor_offset == self.inner.offset() && self.inner.column() == self.cursor.col {
+                let selected = self
+                    .selection
+                    .as_ref()
+                    .map(|range| range.contains(self.cursor.col, self.cursor.line))
+                    .unwrap_or(false);
+
                 // Handle cursor
                 if let Some(cursor_key) = self.cursor_key.take() {
                     let cell = Indexed {
                         inner: self.grid[self.cursor],
                         column: self.cursor.col,
-                        line: self.cursor.line,
+                        // Using `self.cursor.line` leads to inconsitent cursor position when
+                        // scrolling. See https://github.com/jwilm/alacritty/issues/2570 for more
+                        // info.
+                        line: self.inner.line(),
                     };
+
                     let mut renderable_cell =
-                        RenderableCell::new(self.config, self.colors, cell, false);
+                        RenderableCell::new(self.config, self.colors, cell, selected);
 
                     renderable_cell.inner = RenderableCellContent::Cursor(cursor_key);
 
@@ -439,7 +454,7 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
                     return Some(renderable_cell);
                 } else {
                     let mut cell =
-                        RenderableCell::new(self.config, self.colors, self.inner.next()?, false);
+                        RenderableCell::new(self.config, self.colors, self.inner.next()?, selected);
 
                     if self.cursor_style == CursorStyle::Block {
                         std::mem::swap(&mut cell.bg, &mut cell.fg);
@@ -454,12 +469,14 @@ impl<'a> Iterator for RenderableCellsIter<'a> {
             } else {
                 let mut cell = self.inner.next()?;
 
-                let index = Linear::new(self.grid.num_cols(), cell.column, cell.line);
-
-                let selected =
-                    self.selection.as_ref().map(|range| range.contains_(index)).unwrap_or(false);
+                let selected = self
+                    .selection
+                    .as_ref()
+                    .map(|range| range.contains(cell.column, cell.line))
+                    .unwrap_or(false);
 
                 // Underline URL highlights
+                let index = Linear::new(self.grid.num_cols(), cell.column, cell.line);
                 if self.url_highlight.as_ref().map(|range| range.contains_(index)).unwrap_or(false)
                 {
                     cell.inner.flags.insert(Flags::UNDERLINE);
@@ -977,28 +994,10 @@ impl Term {
     }
 
     pub fn selection_to_string(&self) -> Option<String> {
-        /// Need a generic push() for the Append trait
-        trait PushChar {
-            fn push_char(&mut self, c: char);
-            fn maybe_newline(&mut self, grid: &Grid<Cell>, line: usize, ending: Column) {
-                if ending != Column(0)
-                    && !grid[line][ending - 1].flags.contains(cell::Flags::WRAPLINE)
-                {
-                    self.push_char('\n');
-                }
-            }
-        }
-
-        impl PushChar for String {
-            #[inline]
-            fn push_char(&mut self, c: char) {
-                self.push(c);
-            }
-        }
-
-        trait Append: PushChar {
+        trait Append {
             fn append(
                 &mut self,
+                append_newline: bool,
                 grid: &Grid<Cell>,
                 tabs: &TabStops,
                 line: usize,
@@ -1009,6 +1008,7 @@ impl Term {
         impl Append for String {
             fn append(
                 &mut self,
+                append_newline: bool,
                 grid: &Grid<Cell>,
                 tabs: &TabStops,
                 mut line: usize,
@@ -1021,9 +1021,7 @@ impl Term {
                 let line_length = grid_line.line_length();
                 let line_end = min(line_length, cols.end + 1);
 
-                if line_end.0 == 0 && cols.end >= grid.num_cols() - 1 {
-                    self.push('\n');
-                } else if cols.start < line_end {
+                if cols.start < line_end {
                     let mut tab_mode = false;
 
                     for col in IndexRange::from(cols.start..line_end) {
@@ -1049,17 +1047,20 @@ impl Term {
                             tab_mode = true;
                         }
                     }
+                }
 
-                    if cols.end >= grid.num_cols() - 1 {
-                        self.maybe_newline(grid, line, line_end);
-                    }
+                if append_newline
+                    || (cols.end >= grid.num_cols() - 1
+                        && (line_end == Column(0)
+                            || !grid[line][line_end - 1].flags.contains(cell::Flags::WRAPLINE)))
+                {
+                    self.push('\n');
                 }
             }
         }
 
-        let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
         let selection = self.grid.selection.clone()?;
-        let Span { mut start, mut end } = selection.to_span(self, alt_screen)?;
+        let Span { mut start, mut end, is_block } = selection.to_span(self)?;
 
         let mut res = String::new();
 
@@ -1068,35 +1069,38 @@ impl Term {
         }
 
         let line_count = end.line - start.line;
-        let max_col = Column(usize::max_value() - 1);
+
+        // Setup block selection start/end point limits
+        let (limit_start, limit_end) =
+            if is_block { (end.col, start.col) } else { (Column(0), self.grid.num_cols()) };
 
         match line_count {
             // Selection within single line
             0 => {
-                res.append(&self.grid, &self.tabs, start.line, start.col..end.col);
+                res.append(false, &self.grid, &self.tabs, start.line, start.col..end.col);
             },
 
             // Selection ends on line following start
             1 => {
                 // Ending line
-                res.append(&self.grid, &self.tabs, end.line, end.col..max_col);
+                res.append(is_block, &self.grid, &self.tabs, end.line, end.col..limit_end);
 
                 // Starting line
-                res.append(&self.grid, &self.tabs, start.line, Column(0)..start.col);
+                res.append(false, &self.grid, &self.tabs, start.line, limit_start..start.col);
             },
 
             // Multi line selection
             _ => {
                 // Ending line
-                res.append(&self.grid, &self.tabs, end.line, end.col..max_col);
+                res.append(is_block, &self.grid, &self.tabs, end.line, end.col..limit_end);
 
                 let middle_range = (start.line + 1)..(end.line);
                 for line in middle_range.rev() {
-                    res.append(&self.grid, &self.tabs, line, Column(0)..max_col);
+                    res.append(is_block, &self.grid, &self.tabs, line, limit_start..limit_end);
                 }
 
                 // Starting line
-                res.append(&self.grid, &self.tabs, start.line, Column(0)..start.col);
+                res.append(false, &self.grid, &self.tabs, start.line, limit_start..start.col);
             },
         }
 
@@ -1146,8 +1150,7 @@ impl Term {
         config: &'b Config,
         window_focused: bool,
     ) -> RenderableCellsIter<'_> {
-        let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
-        let selection = self.grid.selection.as_ref().and_then(|s| s.to_span(self, alt_screen));
+        let selection = self.grid.selection.as_ref().and_then(|s| s.to_span(self));
 
         let cursor = if window_focused || !config.cursor.unfocused_hollow() {
             self.cursor_style.unwrap_or(self.default_cursor_style)
@@ -1225,13 +1228,11 @@ impl Term {
         debug!("New num_cols is {} and num_lines is {}", num_cols, num_lines);
 
         // Resize grids to new size
-        let alt_cursor_point = if self.mode.contains(TermMode::ALT_SCREEN) {
-            &mut self.cursor_save.point
-        } else {
-            &mut self.cursor_save_alt.point
-        };
-        self.grid.resize(num_lines, num_cols, &mut self.cursor.point, &Cell::default());
-        self.alt_grid.resize(num_lines, num_cols, alt_cursor_point, &Cell::default());
+        let is_alt = self.mode.contains(TermMode::ALT_SCREEN);
+        let alt_cursor_point =
+            if is_alt { &mut self.cursor_save.point } else { &mut self.cursor_save_alt.point };
+        self.grid.resize(!is_alt, num_lines, num_cols, &mut self.cursor.point, &Cell::default());
+        self.alt_grid.resize(is_alt, num_lines, num_cols, alt_cursor_point, &Cell::default());
 
         // Reset scrolling region to new size
         self.scroll_region = Line(0)..self.grid.num_lines();
@@ -1594,7 +1595,8 @@ impl ansi::Handler for Term {
             },
             6 => {
                 let pos = self.cursor.point;
-                let _ = write!(writer, "\x1b[{};{}R", pos.line + 1, pos.col + 1);
+                let response = format!("\x1b[{};{}R", pos.line + 1, pos.col + 1);
+                let _ = writer.write_all(response.as_bytes());
             },
             _ => debug!("unknown device status query: {}", arg),
         };
@@ -1870,6 +1872,18 @@ impl ansi::Handler for Term {
         self.color_modified[index] = true;
     }
 
+    /// Write a foreground/background color escape sequence with the current color
+    #[inline]
+    fn dynamic_color_sequence<W: io::Write>(&mut self, writer: &mut W, code: u8, index: usize) {
+        trace!("Writing escape sequence for dynamic color code {}: color[{}]", code, index);
+        let color = self.colors[index];
+        let response = format!(
+            "\x1b]{};rgb:{1:02x}{1:02x}/{2:02x}{2:02x}/{3:02x}{3:02x}\x07",
+            code, color.r, color.g, color.b
+        );
+        let _ = writer.write_all(response.as_bytes());
+    }
+
     /// Reset the indexed color to original value
     #[inline]
     fn reset_color(&mut self, index: usize) {
@@ -1881,7 +1895,7 @@ impl ansi::Handler for Term {
     /// Set the clipboard
     #[inline]
     fn set_clipboard(&mut self, string: &str) {
-        self.clipboard.store(ClipboardType::Primary, string);
+        self.clipboard.store(ClipboardType::Clipboard, string);
     }
 
     #[inline]

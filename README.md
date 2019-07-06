@@ -100,6 +100,19 @@ nix-env -iA nixos.alacritty
 eopkg install alacritty
 ```
 
+### Fedora
+
+Unofficial builds of stable tags can be found in Fedora Copr:
+[pschyska/alacritty](https://copr.fedorainfracloud.org/coprs/pschyska/alacritty/).
+
+``` sh
+dnf copr enable pschyska/alacritty
+dnf install alacritty
+```
+
+If you want to help test pre-releases, you can additionally enable
+[pschyska/alacritty-testing](https://copr.fedorainfracloud.org/coprs/pschyska/alacritty-testing/).
+
 ### macOS
 
 ```sh

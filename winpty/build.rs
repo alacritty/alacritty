@@ -13,7 +13,7 @@ use std::path::Path;
 #[cfg(windows)]
 use embed_resource;
 #[cfg(windows)]
-use reqwest;
+use http_req;
 #[cfg(windows)]
 use tempfile;
 #[cfg(windows)]
@@ -43,15 +43,26 @@ fn main() {
 fn aquire_winpty_agent(out_path: &Path) {
     let tmp_dir = tempfile::Builder::new().prefix("alacritty_build").tempdir().unwrap();
 
-    let mut response = reqwest::get(WINPTY_PACKAGE_URL).unwrap();
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
         .open(tmp_dir.path().join("winpty_package.zip"))
         .unwrap();
-
-    io::copy(&mut response, &mut file).unwrap();
+    let mut redirects = 0;
+    let mut url = WINPTY_PACKAGE_URL.to_string();
+    loop {
+        let res = http_req::request::get(url.clone(), &mut file).unwrap();
+        if res.status_code().is_redirect() {
+            redirects += 1;
+            url = res.headers().get("Location").unwrap().to_string();
+            if redirects > 5 {
+                panic!("Too many redirects");
+            }
+        } else {
+            break;
+        }
+    }
 
     let mut archive = zip::ZipArchive::new(file).unwrap();
 

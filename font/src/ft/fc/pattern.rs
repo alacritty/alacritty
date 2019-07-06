@@ -15,7 +15,7 @@ use std::ffi::{CStr, CString};
 use std::fmt;
 use std::mem;
 use std::path::PathBuf;
-use std::ptr;
+use std::ptr::{self, NonNull};
 use std::str;
 
 use foreign_types::{ForeignType, ForeignTypeRef};
@@ -326,10 +326,10 @@ impl_derived_property_iter! {
 }
 
 foreign_type! {
-    type CType = FcPattern;
-    fn drop = FcPatternDestroy;
-    pub struct Pattern;
-    pub struct PatternRef;
+    pub type Pattern {
+        type CType = FcPattern;
+        fn drop = FcPatternDestroy;
+    }
 }
 
 macro_rules! string_accessor {
@@ -360,7 +360,7 @@ impl Pattern {
 
 impl Default for Pattern {
     fn default() -> Self {
-        Pattern(unsafe { FcPatternCreate() })
+        Pattern(unsafe { NonNull::new(FcPatternCreate()).unwrap() })
     }
 }
 

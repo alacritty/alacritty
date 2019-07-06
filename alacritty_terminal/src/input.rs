@@ -69,6 +69,7 @@ pub trait ActionContext {
     fn update_selection_as(&mut self, point: Point, side: Side, sel_type: SelectionType);
     fn expand_selection(&mut self);
     fn simple_selection(&mut self, point: Point, side: Side);
+    fn block_selection(&mut self, point: Point, side: Side);
     fn semantic_selection(&mut self, point: Point);
     fn line_selection(&mut self, point: Point);
     fn selection_is_empty(&self) -> bool;
@@ -283,16 +284,16 @@ impl Action {
                 ctx.write_to_pty(s.clone().into_bytes())
             },
             Action::Copy => {
-                ctx.copy_selection(ClipboardType::Primary);
+                ctx.copy_selection(ClipboardType::Clipboard);
             },
             Action::Paste => {
-                let text = ctx.terminal_mut().clipboard().load(ClipboardType::Primary);
+                let text = ctx.terminal_mut().clipboard().load(ClipboardType::Clipboard);
                 self.paste(ctx, &text);
             },
             Action::PasteSelection => {
                 // Only paste if mouse events are not captured by an application
                 if !mouse_mode {
-                    let text = ctx.terminal_mut().clipboard().load(ClipboardType::Secondary);
+                    let text = ctx.terminal_mut().clipboard().load(ClipboardType::Selection);
                     self.paste(ctx, &text);
                 }
             },
@@ -653,7 +654,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                     // Start new empty selection
                     let side = self.ctx.mouse().cell_side;
                     if let Some(point) = point {
-                        self.ctx.simple_selection(point, side);
+                        if modifiers.ctrl {
+                            self.ctx.block_selection(point, side);
+                        } else {
+                            self.ctx.simple_selection(point, side);
+                        }
                     }
                 }
 
@@ -982,9 +987,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// Copy text selection.
     fn copy_selection(&mut self) {
         if self.save_to_clipboard {
-            self.ctx.copy_selection(ClipboardType::Primary);
+            self.ctx.copy_selection(ClipboardType::Clipboard);
         }
-        self.ctx.copy_selection(ClipboardType::Secondary);
+        self.ctx.copy_selection(ClipboardType::Selection);
     }
 }
 
@@ -1037,6 +1042,8 @@ mod tests {
         fn expand_selection(&mut self) {}
 
         fn simple_selection(&mut self, _point: Point, _side: Side) {}
+
+        fn block_selection(&mut self, _point: Point, _side: Side) {}
 
         fn copy_selection(&mut self, _: ClipboardType) {}
 

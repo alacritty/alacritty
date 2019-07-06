@@ -1,6 +1,6 @@
 [package]
 name = "alacritty_terminal"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 build = "build.rs"
@@ -32,10 +32,10 @@ static_assertions = "0.3.0"
 terminfo = "0.6.1"
 url = "1.7.1"
 crossbeam-channel = "0.3.8"
-clipboard = { git = "https://github.com/chrisduerr/rust-clipboard" }
+copypasta = { path = "../copypasta" }
 
 [target.'cfg(unix)'.dependencies]
-nix = "0.13"
+nix = "0.14.1"
 signal-hook = { version = "0.1", features = ["mio-support"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]

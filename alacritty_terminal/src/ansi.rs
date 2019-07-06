@@ -332,6 +332,9 @@ pub trait Handler {
     /// Set an indexed color value
     fn set_color(&mut self, _: usize, _: Rgb) {}
 
+    /// Write a foreground/background color escape sequence with the current color
+    fn dynamic_color_sequence<W: io::Write>(&mut self, _: &mut W, _: u8, _: usize) {}
+
     /// Reset an indexed color to original value
     fn reset_color(&mut self, _: usize) {}
 
@@ -534,10 +537,10 @@ pub enum NamedColor {
     Foreground = 256,
     /// The background color
     Background,
-    /// Color for the text under the cursor
-    CursorText,
     /// Color for the cursor itself
     Cursor,
+    /// Color for the text under the cursor
+    CursorText,
     /// Dim black
     DimBlack,
     /// Dim red
@@ -741,6 +744,8 @@ where
     // TODO replace OSC parsing with parser combinators
     #[inline]
     fn osc_dispatch(&mut self, params: &[&[u8]]) {
+        let writer = &mut self.writer;
+
         fn unhandled(params: &[&[u8]]) {
             let mut buf = String::new();
             for items in params {
@@ -788,33 +793,30 @@ where
                 unhandled(params);
             },
 
-            // Set foreground color
-            b"10" => {
+            // Get/set Foreground, Background, Cursor colors
+            b"10" | b"11" | b"12" => {
                 if params.len() >= 2 {
-                    if let Some(color) = parse_rgb_color(params[1]) {
-                        self.handler.set_color(NamedColor::Foreground as usize, color);
-                        return;
-                    }
-                }
-                unhandled(params);
-            },
+                    if let Some(mut dynamic_code) = parse_number(params[0]) {
+                        for param in &params[1..] {
+                            // 10 is the first dynamic color, also the foreground
+                            let offset = dynamic_code as usize - 10;
+                            let index = NamedColor::Foreground as usize + offset;
 
-            // Set background color
-            b"11" => {
-                if params.len() >= 2 {
-                    if let Some(color) = parse_rgb_color(params[1]) {
-                        self.handler.set_color(NamedColor::Background as usize, color);
-                        return;
-                    }
-                }
-                unhandled(params);
-            },
+                            // End of setting dynamic colors
+                            if index > NamedColor::Cursor as usize {
+                                unhandled(params);
+                                break;
+                            }
 
-            // Set text cursor color
-            b"12" => {
-                if params.len() >= 2 {
-                    if let Some(color) = parse_rgb_color(params[1]) {
-                        self.handler.set_color(NamedColor::Cursor as usize, color);
+                            if let Some(color) = parse_rgb_color(param) {
+                                self.handler.set_color(index, color);
+                            } else if param == b"?" {
+                                self.handler.dynamic_color_sequence(writer, dynamic_code, index);
+                            } else {
+                                unhandled(params);
+                            }
+                            dynamic_code += 1;
+                        }
                         return;
                     }
                 }
@@ -1418,7 +1420,7 @@ mod tests {
 
     #[test]
     fn parse_control_attribute() {
-        static BYTES: &'static [u8] = &[0x1b, 0x5b, 0x31, 0x6d];
+        static BYTES: &[u8] = &[0x1b, 0x5b, 0x31, 0x6d];
 
         let mut parser = Processor::new();
         let mut handler = AttrHandler::default();
@@ -1432,7 +1434,7 @@ mod tests {
 
     #[test]
     fn parse_truecolor_attr() {
-        static BYTES: &'static [u8] = &[
+        static BYTES: &[u8] = &[
             0x1b, 0x5b, 0x33, 0x38, 0x3b, 0x32, 0x3b, 0x31, 0x32, 0x38, 0x3b, 0x36, 0x36, 0x3b,
             0x32, 0x35, 0x35, 0x6d,
         ];
@@ -1452,7 +1454,7 @@ mod tests {
     /// No exactly a test; useful for debugging
     #[test]
     fn parse_zsh_startup() {
-        static BYTES: &'static [u8] = &[
+        static BYTES: &[u8] = &[
             0x1b, 0x5b, 0x31, 0x6d, 0x1b, 0x5b, 0x37, 0x6d, 0x25, 0x1b, 0x5b, 0x32, 0x37, 0x6d,
             0x1b, 0x5b, 0x31, 0x6d, 0x1b, 0x5b, 0x30, 0x6d, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
             0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
@@ -1510,7 +1512,7 @@ mod tests {
 
     #[test]
     fn parse_designate_g0_as_line_drawing() {
-        static BYTES: &'static [u8] = &[0x1b, b'(', b'0'];
+        static BYTES: &[u8] = &[0x1b, b'(', b'0'];
         let mut parser = Processor::new();
         let mut handler = CharsetHandler::default();
 
@@ -1524,7 +1526,7 @@ mod tests {
 
     #[test]
     fn parse_designate_g1_as_line_drawing_and_invoke() {
-        static BYTES: &'static [u8] = &[0x1b, 0x29, 0x30, 0x0e];
+        static BYTES: &[u8] = &[0x1b, 0x29, 0x30, 0x0e];
         let mut parser = Processor::new();
         let mut handler = CharsetHandler::default();
 

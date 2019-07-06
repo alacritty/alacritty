@@ -6,12 +6,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Block selection mode when Control is held while starting a selection
+
+### Fixed
+
+- GUI programs launched by Alacritty starting in the background on X11
+- Text Cursor position when scrolling
+- Performance issues while resizing Alacritty
+- First unfullscreen action ignored on window launched in fullscreen mode
+- The window is now filled with the background color before displaying
+- Cells sometimes not getting cleared correctly
+- X11 clipboard hanging when mime type is set
+- On macOS, Alacritty will now fallback to Menlo if a font specified in the config cannot be loaded
+
+## 0.3.3
+
 ### Packaging
 
 - Add appstream metadata, located at /extra/linux/io.alacritty.Alacritty.xml
 - The xclip dependency has been removed
 - On macOS, Alacritty now requests NSSystemAdministrationUsageDescription to
    avoid permission failures
+- Minimum Rust version has been bumped to 1.32.0
 
 ### Added
 
@@ -26,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Config group `debug` with the options `debug.log_level`, `debug.print_events`
     and `debug.ref_test`
 - Select until next matching bracket when double-clicking a bracket
+- Added foreground/background escape code request sequences
 
 ### Changed
 
@@ -34,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cells with identical foreground and background will now show their text upon selection/inversion
 - Default Window padding to 0x0
 - Moved config option `render_timer` and `persistent_logging` to the `debug` group
+- When the cursor is in the selection, it will be inverted again, making it visible
 
 ### Fixed
 
@@ -43,6 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Incorrect positioning of zero-width characters over double-width characters
 - Mouse mode generating events when the cell has not changed
 - Selections not automatically expanding across double-width characters
+- On macOS, automatic graphics switching has been enabled again
+- Text getting recognized as URLs without slashes separating the scheme
+- URL parser dropping trailing slashes from valid URLs
+- UTF-8 BOM skipped when reading config file
+- Terminfo backspace escape sequence (`kbs`)
 
 ### Removed
 
@@ -384,6 +409,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pressing enter on the numpad should now insert a newline
 - The mouse bindings now support keyboard modifiers (shift/ctrl/alt/super)
 - Add support for the bright foreground color
+- Support for setting foreground, background colors in one escape sequence
 
 ### Changed
 

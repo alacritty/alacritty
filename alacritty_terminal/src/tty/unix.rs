@@ -194,6 +194,8 @@ pub fn new<T: ToWinsize>(config: &Config, size: &T, window_id: Option<usize>) ->
         builder.env("WINDOWID", format!("{}", window_id));
     }
 
+    // TODO: Rust 1.34.0
+    #[allow(deprecated)]
     builder.before_exec(move || {
         // Create a new process group
         unsafe {
