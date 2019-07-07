@@ -16,6 +16,7 @@ time = "0.1.40"
 env_logger = "0.6.0"
 crossbeam-channel = "0.3.8"
 serde_yaml = "0.8"
+serde_json = "1"
 
 [build-dependencies]
 rustc_tools_util = "0.2.0"
