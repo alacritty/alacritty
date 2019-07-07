@@ -23,8 +23,12 @@ complete -c alacritty \
   -l "config-file" \
   -d "Specify an alternative config file"
 complete -c alacritty \
+  -s "t" \
   -l "title" \
   -d "Defines the window title"
+complete -c alacritty \
+  -l "class" \
+  -d "Defines the window class"
 complete -c alacritty \
   -x \
   -a '(__fish_complete_directories (commandline -ct))' \

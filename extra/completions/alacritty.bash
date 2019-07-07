@@ -11,7 +11,7 @@ _alacritty()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     prevprev="${COMP_WORDS[COMP_CWORD-2]}"
-    opts="-h --help -V --version --live-config-reload --no-live-config-reload --persistent-logging --print-events -q -qq -v -vv -vvv --ref-test -e --command --config-file -d --dimensions --position -t --title --working-directory"
+    opts="-h --help -V --version --live-config-reload --no-live-config-reload --persistent-logging --print-events -q -qq -v -vv -vvv --ref-test -e --command --config-file -d --dimensions --position -t --title --class --working-directory"
 
     # If `--command` or `-e` is used, stop completing
     for i in "${!COMP_WORDS[@]}"; do
@@ -40,7 +40,7 @@ _alacritty()
             compopt -o filenames
             COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0;;
-        --dimensions | -d | --title | -t)
+        --dimensions | -d | --class | --title | -t)
             # Don't complete here
             return 0;;
         --working-directory)
