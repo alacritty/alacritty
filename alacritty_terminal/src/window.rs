@@ -252,10 +252,7 @@ impl Window {
     }
 
     #[cfg(not(any(target_os = "macos", windows)))]
-    pub fn get_platform_window(
-        title: &str,
-        window_config: &WindowConfig,
-    ) -> WindowBuilder {
+    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
         use glutin::os::unix::WindowBuilderExt;
 
         let decorations = match window_config.decorations {
@@ -287,10 +284,7 @@ impl Window {
     }
 
     #[cfg(windows)]
-    pub fn get_platform_window(
-        title: &str,
-        window_config: &WindowConfig,
-    ) -> WindowBuilder {
+    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
         let decorations = match window_config.decorations {
             Decorations::None => false,
             _ => true,
@@ -308,10 +302,7 @@ impl Window {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn get_platform_window(
-        title: &str,
-        window_config: &WindowConfig,
-    ) -> WindowBuilder {
+    pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
         use glutin::os::macos::WindowBuilderExt;
 
         let window = WindowBuilder::new()

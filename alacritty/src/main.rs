@@ -22,21 +22,21 @@
 // See https://msdn.microsoft.com/en-us/library/4cc7ya5b.aspx for more details.
 #![windows_subsystem = "windows"]
 
+#[cfg(target_os = "macos")]
+use std::env;
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::{self, Write};
-use std::sync::Arc;
-#[cfg(target_os = "macos")]
-use std::env;
 #[cfg(not(windows))]
 use std::os::unix::io::AsRawFd;
+use std::sync::Arc;
 
 #[cfg(target_os = "macos")]
 use dirs;
-#[cfg(windows)]
-use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 use log::{error, info};
 use serde_json as json;
+#[cfg(windows)]
+use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 use alacritty_terminal::clipboard::Clipboard;
 use alacritty_terminal::config::{Config, Monitor};
@@ -47,7 +47,7 @@ use alacritty_terminal::locale;
 use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::panic;
 use alacritty_terminal::sync::FairMutex;
-use alacritty_terminal::term::{Term, cell::Cell};
+use alacritty_terminal::term::{cell::Cell, Term};
 use alacritty_terminal::tty;
 use alacritty_terminal::util::fmt::Red;
 use alacritty_terminal::{die, event};
@@ -285,12 +285,9 @@ fn write_ref_test_results(terminal: &Term) {
 
     let serialized_grid = json::to_string(&grid).expect("serialize grid");
 
-    let serialized_size =
-        json::to_string(terminal.size_info())
-            .expect("serialize size");
+    let serialized_size = json::to_string(terminal.size_info()).expect("serialize size");
 
-    let serialized_config =
-        format!("{{\"history_size\":{}}}", grid.history_size());
+    let serialized_config = format!("{{\"history_size\":{}}}", grid.history_size());
 
     File::create("./grid.json")
         .and_then(|mut f| f.write_all(serialized_grid.as_bytes()))

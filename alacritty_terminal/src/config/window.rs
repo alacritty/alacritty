@@ -1,4 +1,6 @@
-use crate::config::{failure_default, option_explicit_none, from_string_or_deserialize, Delta, FromString};
+use crate::config::{
+    failure_default, from_string_or_deserialize, option_explicit_none, Delta, FromString,
+};
 use crate::index::{Column, Line};
 use crate::window::DEFAULT_NAME;
 
@@ -128,7 +130,7 @@ impl Dimensions {
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Class {
     pub instance: String,
-    pub general: String
+    pub general: String,
 }
 
 impl Default for Class {

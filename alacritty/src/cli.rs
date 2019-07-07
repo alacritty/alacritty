@@ -252,7 +252,7 @@ impl Options {
         config.window.title = self.title.or(config.window.title);
 
         if let Some(class) = self.class {
-            let parts : Vec<_> = class.split(',').collect();
+            let parts: Vec<_> = class.split(',').collect();
             config.window.class.instance = parts[0].into();
             if let Some(&general) = parts.get(1) {
                 config.window.class.general = general.into();
