@@ -23,23 +23,20 @@
 #![windows_subsystem = "windows"]
 
 #[cfg(target_os = "macos")]
-use dirs;
-
-#[cfg(windows)]
-use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
-
-use log::{error, info};
-
+use std::env;
 use std::error::Error;
-use std::fs;
+use std::fs::{self, File};
 use std::io::{self, Write};
+#[cfg(not(windows))]
+use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
 
 #[cfg(target_os = "macos")]
-use std::env;
-
-#[cfg(not(windows))]
-use std::os::unix::io::AsRawFd;
+use dirs;
+use log::{error, info};
+use serde_json as json;
+#[cfg(windows)]
+use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 use alacritty_terminal::clipboard::Clipboard;
 use alacritty_terminal::config::{Config, Monitor};
@@ -50,7 +47,7 @@ use alacritty_terminal::locale;
 use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::panic;
 use alacritty_terminal::sync::FairMutex;
-use alacritty_terminal::term::Term;
+use alacritty_terminal::term::{cell::Cell, Term};
 use alacritty_terminal::tty;
 use alacritty_terminal::util::fmt::Red;
 use alacritty_terminal::{die, event};
@@ -258,6 +255,11 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
         }
     }
 
+    // Write ref tests to disk
+    if config.debug.ref_test {
+        write_ref_test_results(&terminal.lock());
+    }
+
     loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to event loop");
 
     // FIXME patch notify library to have a shutdown method
@@ -272,4 +274,30 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
     info!("Goodbye");
 
     Ok(())
+}
+
+// Write the ref test results to the disk
+fn write_ref_test_results(terminal: &Term) {
+    // dump grid state
+    let mut grid = terminal.grid().clone();
+    grid.initialize_all(&Cell::default());
+    grid.truncate();
+
+    let serialized_grid = json::to_string(&grid).expect("serialize grid");
+
+    let serialized_size = json::to_string(terminal.size_info()).expect("serialize size");
+
+    let serialized_config = format!("{{\"history_size\":{}}}", grid.history_size());
+
+    File::create("./grid.json")
+        .and_then(|mut f| f.write_all(serialized_grid.as_bytes()))
+        .expect("write grid.json");
+
+    File::create("./size.json")
+        .and_then(|mut f| f.write_all(serialized_size.as_bytes()))
+        .expect("write size.json");
+
+    File::create("./config.json")
+        .and_then(|mut f| f.write_all(serialized_config.as_bytes()))
+        .expect("write config.json");
 }

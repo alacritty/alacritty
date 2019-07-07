@@ -14,8 +14,8 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::fmt::Display;
+use std::path::PathBuf;
 
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
@@ -402,7 +402,9 @@ impl Default for DefaultTrueBool {
 }
 
 fn fallback_default<T, E>(err: E) -> T
-    where T: Default, E: Display
+where
+    T: Default,
+    E: Display,
 {
     error!("Problem with config: {}; using default value", err);
     T::default()
@@ -417,20 +419,24 @@ where
 }
 
 pub fn option_explicit_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
-    where D: Deserializer<'de>, T: Deserialize<'de> + Default
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + Default,
 {
     Ok(match Value::deserialize(deserializer)? {
         Value::String(ref value) if value.to_lowercase() == "none" => None,
-        value => Some(T::deserialize(value).unwrap_or_else(fallback_default))
+        value => Some(T::deserialize(value).unwrap_or_else(fallback_default)),
     })
 }
 
 pub fn from_string_or_deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-    where D: Deserializer<'de>, T: Deserialize<'de> + FromString + Default
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + FromString + Default,
 {
     Ok(match Value::deserialize(deserializer)? {
         Value::String(value) => T::from(value),
-        value => T::deserialize(value).unwrap_or_else(fallback_default)
+        value => T::deserialize(value).unwrap_or_else(fallback_default),
     })
 }
 
