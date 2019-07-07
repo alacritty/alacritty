@@ -412,9 +412,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         let cell_changed =
             prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column;
-        let mouse_moved = cell_changed || prev_side != cell_side;
 
-        if !mouse_moved {
+        // If the mouse hasn't changed cells, do nothing
+        if cell_changed || prev_side != cell_side {
             return;
         }
 
