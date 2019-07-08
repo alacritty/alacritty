@@ -743,9 +743,6 @@ pub struct Term {
     /// Got a request to set the mouse cursor; it's buffered here until the next draw
     next_mouse_cursor: Option<MouseCursor>,
 
-    /// Keep track of the current mouse cursor to avoid unnecessarily changing it
-    current_mouse_cursor: MouseCursor,
-
     /// Alternate grid
     alt_grid: Grid<Cell>,
 
@@ -929,7 +926,6 @@ impl Term {
 
         Term {
             next_title: None,
-            current_mouse_cursor: MouseCursor::Default,
             next_mouse_cursor: None,
             dirty: false,
             visual_bell: VisualBell::new(config),
@@ -1412,11 +1408,7 @@ impl ansi::Handler for Term {
     /// Set the mouse cursor
     #[inline]
     fn set_mouse_cursor(&mut self, cursor: MouseCursor) {
-        if cursor != self.current_mouse_cursor {
-            self.current_mouse_cursor = cursor;
-            self.next_mouse_cursor = Some(cursor);
-            self.dirty = true;
-        }
+        self.next_mouse_cursor = Some(cursor);
     }
 
     /// A character to be displayed
