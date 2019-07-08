@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow setting general window class on X11 using CLI or config (`window.class.general`)
 - Config option `window.gtk_theme_variant` to set GTK theme variant
 - Completions for `--class` and `-t` (short title)
+- Change the mouse cursor when hovering over the message bar and its close button
 
 ### Fixed
 

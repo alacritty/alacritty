@@ -412,11 +412,19 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         let cell_changed =
             prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column;
-        let mouse_moved = cell_changed || prev_side != cell_side;
+
+        // If the mouse hasn't changed cells, do nothing
+        if cell_changed || prev_side != cell_side {
+            return;
+        }
 
         // Only report motions when cell changed and mouse is not over the message bar
-        if self.message_at_point(Some(point)).is_some() || !mouse_moved {
+        if let Some(message) = self.message_at_point(Some(point)) {
+            self.update_message_cursor(point, message);
+
             return;
+        } else {
+            self.ctx.terminal_mut().reset_mouse_cursor();
         }
 
         // Don't launch URLs if mouse has moved
@@ -910,6 +918,15 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         has_binding
     }
 
+    /// Set the cursor depending on where the mouse is on the message bar
+    fn update_message_cursor(&mut self, point: Point, message: Message) {
+        if self.message_close_at_point(point, message) {
+            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
+        } else {
+            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Default);
+        }
+    }
+
     /// Return the message bar's message if there is some at the specified point
     fn message_at_point(&mut self, point: Option<Point>) -> Option<Message> {
         if let (Some(point), Some(message)) =
@@ -924,16 +941,25 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         None
     }
 
+    /// Whether the point is over the message bar's close button
+    fn message_close_at_point(&self, point: Point, message: Message) -> bool {
+        let size = self.ctx.size_info();
+        point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
+            && point.line == size.lines() - message.text(&size).len()
+    }
+
     /// Handle clicks on the message bar.
     fn on_message_bar_click(&mut self, button_state: ElementState, point: Point, message: Message) {
         match button_state {
             ElementState::Released => self.copy_selection(),
             ElementState::Pressed => {
-                let size = self.ctx.size_info();
-                if point.col + message_bar::CLOSE_BUTTON_TEXT.len() >= size.cols()
-                    && point.line == size.lines() - message.text(&size).len()
-                {
+                if self.message_close_at_point(point, message) {
                     self.ctx.terminal_mut().message_buffer_mut().pop();
+                    if let Some(message) = self.message_at_point(Some(point)) {
+                        self.update_message_cursor(point, message);
+                    } else {
+                        self.ctx.terminal_mut().reset_mouse_cursor();
+                    }
                 }
 
                 self.ctx.clear_selection();

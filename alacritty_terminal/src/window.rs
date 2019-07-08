@@ -61,6 +61,9 @@ pub struct Window {
     windowed_context: glutin::WindowedContext<PossiblyCurrent>,
     mouse_visible: bool,
 
+    /// Keep track of the current mouse cursor to avoid unnecessarily changing it
+    current_mouse_cursor: MouseCursor,
+
     /// Whether or not the window is the focused window.
     pub is_focused: bool,
 }
@@ -164,8 +167,13 @@ impl Window {
         // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
 
-        let window =
-            Window { event_loop, windowed_context, mouse_visible: true, is_focused: false };
+        let window = Window {
+            event_loop,
+            current_mouse_cursor: MouseCursor::Default,
+            windowed_context,
+            mouse_visible: true,
+            is_focused: false,
+        };
 
         window.run_os_extensions();
 
@@ -239,8 +247,11 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_mouse_cursor(&self, cursor: MouseCursor) {
-        self.window().set_cursor(cursor);
+    pub fn set_mouse_cursor(&mut self, cursor: MouseCursor) {
+        if cursor != self.current_mouse_cursor {
+            self.current_mouse_cursor = cursor;
+            self.window().set_cursor(cursor);
+        }
     }
 
     /// Set mouse cursor visible
