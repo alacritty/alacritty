@@ -1409,6 +1409,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn set_mouse_cursor(&mut self, cursor: MouseCursor) {
         self.next_mouse_cursor = Some(cursor);
+        self.dirty = true;
     }
 
     /// A character to be displayed
