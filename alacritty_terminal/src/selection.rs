@@ -259,16 +259,6 @@ impl Selection {
                 (region.start.clone(), region.end.clone())
             },
         };
-        /*let start_orig = &self.region.start;
-        let end_orig = &self.region.end;
-        let cols = term.dimensions().col;
-        let lines = term.dimensions().line.0 as isize;*/
-        /*let (mut start, mut end) =
-            if start_orig.point.line > end_orig.point.line || start_orig.point.line == end_orig.point.line && start_orig.point.col <= end_orig.point.col {
-                (end_orig.clone(), start_orig.clone())
-            } else {
-                (start_orig.clone(), end_orig.clone())
-            };*/
         
         // Order the start/end
         let needs_swap = Selection::points_need_swap(start.point, end.point);
@@ -280,10 +270,6 @@ impl Selection {
         let cols = term.dimensions().col;
         let lines = term.dimensions().line.0 as isize;
         let (start, end) = Selection::grid_clamp(start, end, lines, cols)?;
-
-        /*if alt_screen {
-            Selection::alt_screen_clamp(&mut start.point, &mut end.point, lines, cols)?;
-        }*/
 
         let span = match *self {
             Selection::Normal { region: _ } => {
