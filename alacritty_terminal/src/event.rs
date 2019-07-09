@@ -3,15 +3,12 @@ use std::borrow::Cow;
 use std::env;
 #[cfg(unix)]
 use std::fs;
-use std::fs::File;
-use std::io::Write;
 use std::sync::mpsc;
 use std::time::Instant;
 
 use glutin::dpi::PhysicalSize;
 use glutin::{self, ElementState, Event, ModifiersState, MouseButton};
 use parking_lot::MutexGuard;
-use serde_json as json;
 
 use crate::clipboard::ClipboardType;
 use crate::config::{self, Config, StartupMode};
@@ -21,7 +18,6 @@ use crate::index::{Column, Line, Point, Side};
 use crate::input::{self, KeyBinding, MouseBinding};
 use crate::selection::{Selection, SelectionType};
 use crate::sync::FairMutex;
-use crate::term::cell::Cell;
 use crate::term::{SizeInfo, Term};
 #[cfg(unix)]
 use crate::tty;
@@ -302,7 +298,6 @@ pub struct Processor<N> {
     notifier: N,
     mouse: Mouse,
     resize_tx: mpsc::Sender<PhysicalSize>,
-    ref_test: bool,
     size_info: SizeInfo,
     hide_mouse_when_typing: bool,
     hide_mouse: bool,
@@ -346,7 +341,6 @@ impl<N: Notify> Processor<N> {
             wait_for_event: true,
             notifier,
             resize_tx,
-            ref_test: config.debug.ref_test,
             mouse: Default::default(),
             size_info,
             hide_mouse_when_typing: config.mouse.hide_when_typing,
@@ -372,7 +366,6 @@ impl<N: Notify> Processor<N> {
     fn handle_event<'a>(
         processor: &mut input::Processor<'a, ActionContext<'a, N>>,
         event: Event,
-        ref_test: bool,
         resize_tx: &mpsc::Sender<PhysicalSize>,
         hide_mouse: &mut bool,
         window_is_focused: &mut bool,
@@ -383,37 +376,7 @@ impl<N: Notify> Processor<N> {
             Event::WindowEvent { event, .. } => {
                 use glutin::WindowEvent::*;
                 match event {
-                    CloseRequested => {
-                        if ref_test {
-                            // dump grid state
-                            let mut grid = processor.ctx.terminal.grid().clone();
-                            grid.initialize_all(&Cell::default());
-                            grid.truncate();
-
-                            let serialized_grid = json::to_string(&grid).expect("serialize grid");
-
-                            let serialized_size =
-                                json::to_string(processor.ctx.terminal.size_info())
-                                    .expect("serialize size");
-
-                            let serialized_config =
-                                format!("{{\"history_size\":{}}}", grid.history_size());
-
-                            File::create("./grid.json")
-                                .and_then(|mut f| f.write_all(serialized_grid.as_bytes()))
-                                .expect("write grid.json");
-
-                            File::create("./size.json")
-                                .and_then(|mut f| f.write_all(serialized_size.as_bytes()))
-                                .expect("write size.json");
-
-                            File::create("./config.json")
-                                .and_then(|mut f| f.write_all(serialized_config.as_bytes()))
-                                .expect("write config.json");
-                        }
-
-                        processor.ctx.terminal.exit();
-                    },
+                    CloseRequested => processor.ctx.terminal.exit(),
                     Resized(lsize) => {
                         // Resize events are emitted via glutin/winit with logical sizes
                         // However the terminal, window and renderer use physical sizes
@@ -508,7 +471,6 @@ impl<N: Notify> Processor<N> {
 
             let print_events = self.print_events;
 
-            let ref_test = self.ref_test;
             let resize_tx = &self.resize_tx;
 
             if self.wait_for_event {
@@ -558,7 +520,6 @@ impl<N: Notify> Processor<N> {
                     Processor::handle_event(
                         &mut processor,
                         event,
-                        ref_test,
                         resize_tx,
                         hide_mouse,
                         &mut window_is_focused,

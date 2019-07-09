@@ -1347,7 +1347,7 @@ impl Term {
     }
 
     #[inline]
-    pub fn reset_url_highlight(&mut self) {
+    pub fn reset_mouse_cursor(&mut self) {
         let mouse_mode =
             TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
         let mouse_cursor = if self.mode().intersects(mouse_mode) {
@@ -1356,6 +1356,11 @@ impl Term {
             MouseCursor::Text
         };
         self.set_mouse_cursor(mouse_cursor);
+    }
+
+    #[inline]
+    pub fn reset_url_highlight(&mut self) {
+        self.reset_mouse_cursor();
 
         self.grid.url_highlight = None;
         self.dirty = true;
@@ -1404,6 +1409,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn set_mouse_cursor(&mut self, cursor: MouseCursor) {
         self.next_mouse_cursor = Some(cursor);
+        self.dirty = true;
     }
 
     /// A character to be displayed

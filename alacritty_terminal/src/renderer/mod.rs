@@ -1444,15 +1444,15 @@ impl From<io::Error> for ShaderCreationError {
 ///
 /// The strategy for filling an atlas looks roughly like this:
 ///
-/// ```ignore
+/// ```text
 ///                           (width, height)
 ///   ┌─────┬─────┬─────┬─────┬─────┐
 ///   │ 10  │     │     │     │     │ <- Empty spaces; can be filled while
 ///   │     │     │     │     │     │    glyph_height < height - row_baseline
-///   ├⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┤
+///   ├─────┼─────┼─────┼─────┼─────┤
 ///   │ 5   │ 6   │ 7   │ 8   │ 9   │
 ///   │     │     │     │     │     │
-///   ├⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┼⎼⎼⎼⎼⎼┴⎼⎼⎼⎼⎼┤ <- Row height is tallest glyph in row; this is
+///   ├─────┼─────┼─────┼─────┴─────┤ <- Row height is tallest glyph in row; this is
 ///   │ 1   │ 2   │ 3   │ 4         │    used as the baseline for the following row.
 ///   │     │     │     │           │ <- Row considered full when next glyph doesn't
 ///   └─────┴─────┴─────┴───────────┘    fit in the row.
