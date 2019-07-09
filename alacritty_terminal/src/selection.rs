@@ -238,6 +238,10 @@ impl Selection {
                         (&region.start, &region.end)
                     };
 
+                if region.start.ty != SelectionType::Simple {
+                    return false;
+                }
+
                 // Empty when single cell with identical sides or two cell with right+left sides
                 start == end
                     || (start.side == Side::Left
