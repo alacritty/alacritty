@@ -24,16 +24,16 @@ use glutin::EventsLoop;
 use parking_lot::MutexGuard;
 
 use crate::config::{Config, StartupMode};
-use crate::index::{Line, Column};
+use crate::index::{Line};
 use crate::message_bar::Message;
 use crate::meter::Meter;
 use crate::renderer::rects::{Rect, Rects};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
 use crate::term::color::Rgb;
-use crate::term::{RenderableCell, RenderableCellContent, SizeInfo, Term};
+use crate::term::{RenderableCell, SizeInfo, Term, RenderableCellContent};
 use crate::window::{self, Window};
-use font::{self, Rasterize, KeyType};
+use font::{self, Rasterize};
 #[cfg(feature = "hb-ft")]
 use font::{HbFtExt, HbGlyph};
 
@@ -555,16 +555,14 @@ impl Display {
                             renderable_cells_rows.push(&grid_cells[row_start..row_end]);
                             row_start = row_end;
                         }
-                        if !rcell.flags.contains(crate::term::cell::Flags::HIDDEN) {
-                            row_end += 1;
-                        }
+                        row_end += 1;
                     }
                     renderable_cells_rows.push(&grid_cells[row_start..]);
                     renderable_cells_rows
                 }
                 let _sampler = self.meter.sampler();
                 let renderable_cells_rows = create_renderable_cell_rows(&grid_cells, g_lines);
-
+                
                 /// Wrapper to allow comparing everything but column and chars
                 struct CmpCell<'a>(&'a RenderableCell);
                 impl<'a> PartialEq for CmpCell<'a> {
@@ -631,6 +629,7 @@ impl Display {
                                 } else {
                                     glyph_cache.font_key
                                 };
+                                //println!("Shaped {:?} @ ({:?}, {:?})", text, rc.line, rc.column);
                                 (
                                     rc,
                                     glyph_cache.rasterizer.shape(

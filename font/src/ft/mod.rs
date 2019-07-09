@@ -166,7 +166,6 @@ impl ::HbFtExt for FreeTypeRasterizer {
                 .iter()
                 .zip(glyph_buffer.get_glyph_positions().iter())
                 .map(|(gi, gp)| {
-                    println!("{:?}", (&gi, &gp));
                     HbGlyph {
                         /* ugh -_- you have to divide by 64?? */
                         x_advance: (gp.x_advance as f32) / 64.,
