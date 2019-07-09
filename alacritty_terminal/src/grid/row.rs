@@ -45,8 +45,12 @@ impl<T: PartialEq> PartialEq for Row<T> {
 }
 
 impl<T: Copy> Row<T> {
-    pub fn new(columns: Column, template: &T) -> Row<T> {
-        Row { inner: vec![*template; *columns], occ: 0 }
+    pub fn new(columns: Column, template: &T) -> Row<T>
+    where
+        T: GridCell,
+    {
+        let occ = if template.is_empty() { 0 } else { columns.0 };
+        Row { inner: vec![*template; columns.0], occ }
     }
 
     pub fn grow(&mut self, cols: Column, template: &T) {
@@ -70,7 +74,7 @@ impl<T: Copy> Row<T> {
         let index = new_row.iter().rposition(|c| !c.is_empty()).map(|i| i + 1).unwrap_or(0);
         new_row.truncate(index);
 
-        self.occ = min(self.occ, *cols);
+        self.occ = min(self.occ, cols.0);
 
         if new_row.is_empty() {
             None
@@ -80,11 +84,17 @@ impl<T: Copy> Row<T> {
     }
 
     /// Resets contents to the contents of `other`
-    pub fn reset(&mut self, other: &T) {
-        for item in &mut self.inner[..] {
-            *item = *other;
+    pub fn reset(&mut self, template: &T)
+    where
+        T: GridCell,
+    {
+        for item in &mut self.inner[..self.occ] {
+            *item = *template;
         }
-        self.occ = 0;
+
+        if template.is_empty() {
+            self.occ = 0;
+        }
     }
 }
 
@@ -116,13 +126,14 @@ impl<T> Row<T> {
     where
         T: GridCell,
     {
+        self.occ += vec.len();
         self.inner.append(vec);
-        self.occ = self.inner.iter().rposition(|c| !c.is_empty()).map(|i| i + 1).unwrap_or(0);
     }
 
     #[inline]
     pub fn append_front(&mut self, mut vec: Vec<T>) {
         self.occ += vec.len();
+
         vec.append(&mut self.inner);
         self.inner = vec;
     }
