@@ -51,7 +51,7 @@ extern crate foreign_types;
 extern crate libc;
 
 #[cfg(feature = "hb-ft")]
-extern crate harfbuzz;
+extern crate harfbuzz_rs;
 
 #[cfg_attr(not(windows), macro_use)]
 extern crate log;
@@ -146,38 +146,61 @@ impl FontKey {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum KeyType {
+    Char(char),
+    GlyphIndex(u32),
+}
+impl From<char> for KeyType {
+    fn from(val: char) -> Self {
+        KeyType::Char(val)
+    }
+}
+impl<'a> From<&'a char> for KeyType {
+    fn from(val: &'a char) -> Self {
+        KeyType::Char(*val)
+    }
+}
+impl From<u32> for KeyType {
+    fn from(val: u32) -> Self {
+        KeyType::GlyphIndex(val)
+    }
+}
+
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct GlyphKey {
-    pub c: char,
+    pub c: KeyType,
     pub font_key: FontKey,
     pub size: Size,
 }
 
-impl Hash for GlyphKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        unsafe {
-            // This transmute is fine:
-            //
-            // - If GlyphKey ever becomes a different size, this will fail to compile
-            // - Result is being used for hashing and has no fields (it's a u64)
-            ::std::mem::transmute::<GlyphKey, u64>(*self)
-        }
-        .hash(state);
-    }
-}
-
-impl PartialEq for GlyphKey {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe {
-            // This transmute is fine:
-            //
-            // - If GlyphKey ever becomes a different size, this will fail to compile
-            // - Result is being used for equality checking and has no fields (it's a u64)
-            let other = ::std::mem::transmute::<GlyphKey, u64>(*other);
-            ::std::mem::transmute::<GlyphKey, u64>(*self).eq(&other)
-        }
-    }
-}
+//impl Hash for GlyphKey {
+//    fn hash<H: Hasher>(&self, state: &mut H) {
+//        unsafe {
+//            // This transmute is fine:
+//            //
+//            // - If GlyphKey ever becomes a different size, this will fail to compile
+//            // - Result is being used for hashing and has no fields (it's a u64)
+//            ::std::mem::transmute::<GlyphKey, u64>(*self)
+//        }
+//        .hash(state);
+//        state.
+//    }
+//}
+//
+//impl PartialEq for GlyphKey {
+//    fn eq(&self, other: &Self) -> bool {
+//        unsafe {
+//            // This transmute is fine:
+//            //
+//            // - If GlyphKey ever becomes a different size, this will fail to compile
+//            // - Result is being used for equality checking and has no fields (it's a u64)
+//            let other = ::std::mem::transmute::<GlyphKey, u64>(*other);
+//            ::std::mem::transmute::<GlyphKey, u64>(*self).eq(&other)
+//        }
+//    }
+//}
 
 /// Font size stored as integer
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -211,7 +234,7 @@ impl ::std::ops::Add for Size {
 
 #[derive(Clone)]
 pub struct RasterizedGlyph {
-    pub c: char,
+    pub c: KeyType,
     pub width: i32,
     pub height: i32,
     pub top: i32,
@@ -221,7 +244,7 @@ pub struct RasterizedGlyph {
 
 impl Default for RasterizedGlyph {
     fn default() -> RasterizedGlyph {
-        RasterizedGlyph { c: ' ', width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }
+        RasterizedGlyph { c: ' '.into(), width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }
     }
 }
 
@@ -295,6 +318,7 @@ pub struct HbGlyph {
     pub x_offset: f32,
     pub y_offset: f32,
     pub glyph: GlyphKey,
+    pub codepoint: u32,
     // Probably will never be used
     pub cluster: u32,
 }

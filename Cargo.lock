@@ -653,7 +653,7 @@ dependencies = [
  "euclid 0.19.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "foreign-types 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "freetype-rs 0.19.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "harfbuzz 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "harfbuzz_rs 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.60 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "servo-fontconfig 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -874,14 +874,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "harfbuzz"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "harfbuzz-sys 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "harfbuzz-sys"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -892,6 +884,15 @@ dependencies = [
  "foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "freetype 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "pkg-config 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "harfbuzz_rs"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "harfbuzz-sys 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2641,8 +2642,8 @@ dependencies = [
 "checksum glutin_gles2_sys 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "89996c30857ae1b4de4b5189abf1ea822a20a9fe9e1c93e5e7b862ff0bdd5cdf"
 "checksum glutin_glx_sys 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "1290a5ca5e46fcfa7f66f949cc9d9194b2cb6f2ed61892c8c2b82343631dba57"
 "checksum glutin_wgl_sys 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "f801bbc91efc22dd1c4818a47814fc72bf74d024510451b119381579bfa39021"
-"checksum harfbuzz 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "46f7426266a5ece3e49eae6f48e602c0f8c39917354a847eac9c06437dcde8da"
 "checksum harfbuzz-sys 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e1042ab0b3e7bc1ff64f7f5935778b644ff2194a1cae5ec52167127d3fd23961"
+"checksum harfbuzz_rs 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "534c8e9b15d8db6e69654b07dad955f4132757194e7d2bba620d38cf08996088"
 "checksum http_req 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "9b7053e4a7b90e97e3c207f8293dc4a6e7f1d49156470b94f3685f1baa48f65a"
 "checksum humantime 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3ca7e5f2e110db35f93b837c81797f3714500b81d517bf20c431b16d3ca4f114"
 "checksum idna 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "38f09e0f0b1fb55fdee1f17470ad800da77af5186a1a76c026b679358b7e844e"

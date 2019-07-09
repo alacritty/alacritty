@@ -11,7 +11,8 @@ libc = "0.2"
 foreign-types = "0.4"
 log = "0.4"
 
-harfbuzz = { version = "0.3.0", optional = true }
+#harfbuzz = { version = "0.3.0", optional = true }
+harfbuzz_rs = { version = "1.0.0", optional = true }
 
 [target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]
 servo-fontconfig = "0.4.0"
@@ -28,4 +29,4 @@ dwrote = { version = "0.9.0" }
 
 [features]
 default = []
-hb-ft = ["harfbuzz"]
+hb-ft = ["harfbuzz_rs"]

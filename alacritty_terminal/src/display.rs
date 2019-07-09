@@ -33,7 +33,7 @@ use crate::sync::FairMutex;
 use crate::term::color::Rgb;
 use crate::term::{RenderableCell, RenderableCellContent, SizeInfo, Term};
 use crate::window::{self, Window};
-use font::{self, Rasterize};
+use font::{self, Rasterize, KeyType};
 #[cfg(feature = "hb-ft")]
 use font::{HbFtExt, HbGlyph};
 
@@ -498,7 +498,7 @@ impl Display {
         }
 
         #[cfg(feature = "hb-ft")]
-        let (g_lines) = terminal.grid().num_lines();
+        let g_lines = terminal.grid().num_lines();
 
         // Clear when terminal mutex isn't held. Mesa for
         // some reason takes a long time to call glClear(). The driver descends
@@ -659,18 +659,17 @@ impl Display {
                             // Render each glyph, advancing based on the information provided.
                             if let Some(glyphs) = glyphs {
                                 for g in glyphs.into_iter() {
-                                    // Hold reference to glyph from cache
-                                    let glyph = glyph_cache.get(g.glyph, &mut api);
                                     // Determine if the glyph is a special character
                                     match g.glyph.c {
                                         _ => {
-                                            //println!("Rendered {:?} at {:?}", g.glyph.c, rc.column);
+                                            // Hold reference to glyph from cache
+                                            let glyph = glyph_cache.get(g.glyph, &mut api);
                                             api.add_render_item(&rc, &glyph);
                                             rc.column = crate::index::Column(u_round_to(
                                                 rc.column.0 as f32 * size_info.cell_width
                                                     + g.x_advance,
                                                 size_info.cell_width as f32,
-                                            ));
+                                            )) + 1;
                                         }
                                     }
                                 }
