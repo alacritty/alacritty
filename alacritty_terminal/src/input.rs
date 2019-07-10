@@ -414,7 +414,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             prev_line != self.ctx.mouse().line || prev_col != self.ctx.mouse().column;
 
         // If the mouse hasn't changed cells, do nothing
-        if cell_changed || prev_side != cell_side {
+        if !cell_changed && prev_side == cell_side {
             return;
         }
 
