@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer};
 use crate::ansi;
 use crate::config::Colors;
 
-pub const COUNT: usize = 270;
+pub const COUNT: usize = 269;
 
 pub const RED: Rgb = Rgb { r: 0xff, g: 0x0, b: 0x0 };
 pub const YELLOW: Rgb = Rgb { r: 0xff, g: 0xff, b: 0x0 };
@@ -135,9 +135,8 @@ impl FromStr for Rgb {
 /// The first 16 entries are the standard ansi named colors. Items 16..232 are
 /// the color cube.  Items 233..256 are the grayscale ramp. Item 256 is
 /// the configured foreground color, item 257 is the configured background
-/// color, item 258 is the cursor foreground color, item 259 is the cursor
-/// background color. Following that are 8 positions for dim colors.
-/// Item 268 is the bright foreground color, 269 the dim foreground.
+/// color, item 258 is the cursor color. Following that are 8 positions for dim colors.
+/// Item 267 is the bright foreground color, 268 the dim foreground.
 #[derive(Copy, Clone)]
 pub struct List([Rgb; COUNT]);
 
@@ -182,8 +181,7 @@ impl List {
         self[ansi::NamedColor::Foreground] = colors.primary.foreground;
         self[ansi::NamedColor::Background] = colors.primary.background;
 
-        // Foreground and background for custom cursor colors
-        self[ansi::NamedColor::CursorText] = colors.cursor.text.unwrap_or_else(Rgb::default);
+        // Background for custom cursor colors
         self[ansi::NamedColor::Cursor] = colors.cursor.cursor.unwrap_or_else(Rgb::default);
 
         // Dims

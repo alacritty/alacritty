@@ -539,8 +539,6 @@ pub enum NamedColor {
     Background,
     /// Color for the cursor itself
     Cursor,
-    /// Color for the text under the cursor
-    CursorText,
     /// Dim black
     DimBlack,
     /// Dim red
