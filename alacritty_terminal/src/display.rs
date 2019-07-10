@@ -562,18 +562,13 @@ impl Display {
                     renderable_cells_rows.push(&grid_cells[row_start..]);
                     renderable_cells_rows
                 }
-                for rc in &grid_cells {
-                    if rc.column.0 == 0 {
-                        println!()
-                    }
-                    print!("{}", rc.chars[0]);
-                }
+
                 let _sampler = self.meter.sampler();
                 let renderable_cells_rows = create_renderable_cell_rows(&grid_cells, g_lines);
                 
-                /// Wrapper to allow comparing everything but column and chars
-                struct CmpCell<'a>(&'a RenderableCell);
-                impl<'a> PartialEq for CmpCell<'a> {
+                /// Wrapper to compare cells and check they are in the same text run
+                struct ContiguousCell<'a>(&'a RenderableCell);
+                impl<'a> PartialEq for ContiguousCell<'a> {
                     fn eq(&self, other: &Self) -> bool {
                         let a = &self.0;
                         let b = &other.0;
@@ -582,72 +577,82 @@ impl Display {
                             && a.bg == b.bg
                             && a.bg_alpha == b.bg_alpha
                             && a.flags == b.flags
+                            && ((b.column.0 > 0 && a.column.0 == b.column.0 - 1) || (a.column.0 > 0 && a.column.0 - 1 == b.column.0))
                     }
                 }
 
-                fn create_text_run_rows(
-                    renderable_cells_rows: Vec<&[RenderableCell]>,
-                ) -> Vec<Vec<(RenderableCell, String)>> {
-                    let mut text_run_rows = Vec::new();
-                    let mut row: Vec<(RenderableCell, String)> = Vec::new();
-                    let mut run = String::new();
-                    let mut rcell = None;
-                    for r in renderable_cells_rows.into_iter() {
-                        let mut ii = r.iter().peekable();
-                        while let Some(c) = ii.next() {
-                            if rcell.is_none() {
-                                rcell = Some(c);
-                            } else if rcell
-                                .map(CmpCell)
-                                .map_or(false, |last_cell| last_cell != CmpCell(c))
-                            {
-                                row.push((RenderableCell::clone(rcell.unwrap()), run.clone()));
-                                run.clear();
-                                rcell = Some(c);
-                            }
-                            match c.inner {
-                                RenderableCellContent::Cursor(_) => {},
-                                RenderableCellContent::Chars(chars) => {
-                                    run.push(chars[0]);
-                                }
-                            }
-                            if ii.peek().is_none() {
-                                row.push((RenderableCell::clone(c), run.clone()));
+                struct TextRunIter<I: Iterator> {
+                    iter: I,
+                    buffer: Vec<I::Item>,
+                    latest: Option<I::Item>,
+                };
+                impl<I: Iterator> TextRunIter<I> {
+                    fn new(iter: I) -> Self {
+                        TextRunIter {
+                            iter,
+                            buffer: Vec::new(),
+                            latest: None,
+                        }
+                    }
+                }
+                impl<I> Iterator for TextRunIter<I>
+                where
+                    I: Iterator<Item=RenderableCell>
+                {
+                    type Item = Vec<I::Item>;
+
+                    fn next(&mut self) -> Option<Self::Item> {
+                        let mut output = None;
+                        while let Some(rc) = self.iter.next() {
+                            if self.latest.is_none() {
+                                self.latest = Some(rc);
+                            } else if self.latest.as_ref().map(ContiguousCell).map(|c| c != ContiguousCell(&rc)).unwrap_or(false) {
+                                output = Some(self.buffer.drain(..).collect());
+                                // Update latest to new rc
+                                self.latest = Some(RenderableCell::clone(&rc));
+                                // Reset buffer
+                                self.buffer.push(rc);
+                                break;
+                            } else {
+                                self.buffer.push(RenderableCell::clone(&rc));
+                                self.latest = Some(rc);
                             }
                         }
-                        text_run_rows.push(row.clone());
-                        row.clear();
+                        output.or_else(|| {
+                            if self.buffer.is_empty() {
+                                None
+                            } else {
+                                // Save leftover buffer and empty it
+                                Some(self.buffer.drain(..).collect())
+                            }
+                        })
                     }
-                    text_run_rows
                 }
 
-                // Convert each row into a set of text runs
-                // (i.e. cells with the same display properties)
-                let text_run_rows = create_text_run_rows(renderable_cells_rows);
+                //// Convert each row into a set of text runs
+                //// (i.e. cells with the same display properties)
                 // Shape each run of text.
-                let text_run_rows: Vec<Vec<(RenderableCell, Option<Vec<HbGlyph>>)>> = text_run_rows
-                    .into_iter()
+                let text_runs: Vec<(RenderableCell, Option<Vec<HbGlyph>>)> = 
+                    TextRunIter::new(grid_cells.into_iter())
                     .map(|row| {
-                        row.into_iter()
-                            .map(|(rc, run)| {
-                                let key = if rc.flags.contains(crate::term::cell::Flags::BOLD) {
-                                    glyph_cache.bold_key
-                                } else if rc.flags.contains(crate::term::cell::Flags::ITALIC) {
-                                    glyph_cache.italic_key
-                                } else {
-                                    glyph_cache.font_key
-                                };
-                                //println!("Shaped {:?} @ ({:?}, {:?})", text, rc.line, rc.column);
-                                (
-                                    rc,
-                                    glyph_cache.rasterizer.shape(
-                                        run.as_str(),
-                                        key,
-                                        glyph_cache.font_size,
-                                    ),
-                                )
-                            })
-                            .collect()
+                        let rc = &row[0];
+                        let run: String = row.iter().filter_map(|rc| match rc.inner {
+                            RenderableCellContent::Cursor(_) => None,
+                            RenderableCellContent::Chars(chars) => Some(chars[0]),
+                        }).collect();
+                        let text = &run;
+                        let key = if rc.flags.contains(crate::term::cell::Flags::BOLD) {
+                            glyph_cache.bold_key
+                        } else if rc.flags.contains(crate::term::cell::Flags::ITALIC) {
+                            glyph_cache.italic_key
+                        } else {
+                            glyph_cache.font_key
+                        };
+                        (   rc.clone(),
+                            glyph_cache
+                                .rasterizer
+                                .shape(text, key, glyph_cache.font_size)
+                        )
                     })
                     .collect();
 
@@ -659,25 +664,23 @@ impl Display {
                     a / b
                 }
                 self.renderer.with_api(config, &size_info, |mut api| {
-                    for row in text_run_rows.into_iter() {
-                        for (mut rc, glyphs) in row.into_iter() {
-                            // XXX: what does this do? (for text runs)
-                            rects.update_lines(&size_info, &rc);
-                            // Render each glyph, advancing based on the information provided.
-                            if let Some(glyphs) = glyphs {
-                                for g in glyphs.into_iter() {
+                    for (mut rc, glyphs) in text_runs.into_iter() {
+                        // Render each glyph, advancing based on the information provided.
+                        if let Some(glyphs) = glyphs {
+                            for g in glyphs.into_iter() {
+                                // XXX: what does this do? (for text runs)
+                                rects.update_lines(&size_info, &rc);
+                                match g.glyph.c {
                                     // Determine if the glyph is a special character
-                                    match g.glyph.c {
-                                        _ => {
-                                            // Hold reference to glyph from cache
-                                            let glyph = glyph_cache.get(g.glyph, &mut api);
-                                            api.add_render_item(&rc, &glyph);
-                                            rc.column = crate::index::Column(u_round_to(
-                                                rc.column.0 as f32 * size_info.cell_width
-                                                    + g.x_advance,
-                                                size_info.cell_width as f32,
-                                            )) + 1;
-                                        }
+                                    _ => {
+                                        // Hold reference to glyph from cache
+                                        let glyph = glyph_cache.get(g.glyph, &mut api);
+                                        api.add_render_item(&rc, &glyph);
+                                        rc.column = crate::index::Column(u_round_to(
+                                            rc.column.0 as f32 * size_info.cell_width
+                                                + g.x_advance,
+                                            size_info.cell_width as f32,
+                                        )) + 1;
                                     }
                                 }
                             }
