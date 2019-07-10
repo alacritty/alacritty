@@ -63,6 +63,7 @@ impl GridCell for Cell {
         (self.c == ' ' || self.c == '\t')
             && self.extra[0] == ' '
             && self.bg == Color::Named(NamedColor::Background)
+            && self.fg == Color::Named(NamedColor::Foreground)
             && !self
                 .flags
                 .intersects(Flags::INVERSE | Flags::UNDERLINE | Flags::STRIKEOUT | Flags::WRAPLINE)

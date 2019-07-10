@@ -565,7 +565,7 @@ impl<T> Grid<T> {
     /// This is used only for initializing after loading ref-tests
     pub fn initialize_all(&mut self, template: &T)
     where
-        T: Copy,
+        T: Copy + GridCell,
     {
         let history_size = self.raw.len().saturating_sub(*self.lines);
         self.raw.initialize(self.max_scroll_limit - history_size, Row::new(self.cols, template));

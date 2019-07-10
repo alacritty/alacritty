@@ -21,7 +21,7 @@ use crate::term::cell::{Cell, Flags};
 
 impl GridCell for usize {
     fn is_empty(&self) -> bool {
-        false
+        *self == 0
     }
 
     fn is_wrap(&self) -> bool {

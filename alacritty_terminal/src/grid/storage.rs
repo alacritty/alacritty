@@ -310,7 +310,20 @@ impl<T> IndexMut<Line> for Storage<T> {
 mod test {
     use crate::grid::row::Row;
     use crate::grid::storage::Storage;
+    use crate::grid::GridCell;
     use crate::index::{Column, Line};
+
+    impl GridCell for char {
+        fn is_empty(&self) -> bool {
+            *self == ' ' || *self == '\t'
+        }
+
+        fn is_wrap(&self) -> bool {
+            false
+        }
+
+        fn set_wrap(&mut self, _wrap: bool) {}
+    }
 
     /// Grow the buffer one line at the end of the buffer
     ///
