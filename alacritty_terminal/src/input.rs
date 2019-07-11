@@ -152,17 +152,17 @@ impl<T: Eq> Binding<T> {
         // the most likely item to fail so prioritizing it here allows more
         // checks to be short circuited.
         self.trigger == *input
-            && self.mode_matches(mode)
-            && self.not_mode_matches(mode)
+            && mode.contains(self.mode)
+            && !self.notmode.intersects(mode)
             && self.mods_match(mods, relaxed)
     }
 
     #[inline]
     pub fn triggers_match(&self, binding: &Binding<T>) -> bool {
         self.trigger == binding.trigger
-            && self.mode == binding.mode
-            && self.notmode == binding.notmode
             && self.mods == binding.mods
+            && self.mode.contains(binding.mode)
+            && self.notmode.contains(binding.notmode)
     }
 }
 
@@ -171,16 +171,6 @@ impl<T> Binding<T> {
     #[inline]
     fn execute<A: ActionContext>(&self, ctx: &mut A, mouse_mode: bool) {
         self.action.execute(ctx, mouse_mode)
-    }
-
-    #[inline]
-    fn mode_matches(&self, mode: TermMode) -> bool {
-        self.mode.is_empty() || mode.intersects(self.mode)
-    }
-
-    #[inline]
-    fn not_mode_matches(&self, mode: TermMode) -> bool {
-        self.notmode.is_empty() || !mode.intersects(self.notmode)
     }
 
     /// Check that two mods descriptions for equivalence
@@ -995,6 +985,72 @@ mod tests {
     use super::{Action, Binding, Processor};
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
+
+    type MockBinding = Binding<usize>;
+
+    impl Default for MockBinding {
+        fn default() -> Self {
+            Self {
+                mods: Default::default(),
+                action: Default::default(),
+                mode: Default::default(),
+                notmode: Default::default(),
+                trigger: Default::default(),
+            }
+        }
+    }
+
+    #[test]
+    fn binding_matches_itself() {
+        let binding = MockBinding::default();
+        let identical_binding = MockBinding::default();
+
+        assert!(binding.triggers_match(&identical_binding));
+        assert!(identical_binding.triggers_match(&binding));
+    }
+
+    #[test]
+    fn binding_matches_different_action() {
+        let binding = MockBinding::default();
+        let mut different_action = MockBinding::default();
+        different_action.action = Action::ClearHistory;
+
+        assert!(binding.triggers_match(&different_action));
+        assert!(different_action.triggers_match(&binding));
+    }
+
+    #[test]
+    fn subset_mode_binding_matches_superset() {
+        let mut superset_mode = MockBinding::default();
+        superset_mode.mode = TermMode::ALT_SCREEN | TermMode::INSERT | TermMode::ORIGIN;
+        let mut subset_mode = MockBinding::default();
+        subset_mode.mode = TermMode::ALT_SCREEN | TermMode::ORIGIN;
+
+        assert!(superset_mode.triggers_match(&subset_mode));
+        assert!(!subset_mode.triggers_match(&superset_mode));
+    }
+
+    #[test]
+    fn subset_notmode_binding_matches_superset() {
+        let mut superset_notmode = MockBinding::default();
+        superset_notmode.notmode = TermMode::ALT_SCREEN | TermMode::INSERT | TermMode::ORIGIN;
+        let mut subset_notmode = MockBinding::default();
+        subset_notmode.notmode = TermMode::ALT_SCREEN | TermMode::ORIGIN;
+
+        assert!(superset_notmode.triggers_match(&subset_notmode));
+        assert!(!subset_notmode.triggers_match(&superset_notmode));
+    }
+
+    #[test]
+    fn mods_binding_requires_strict_match() {
+        let mut superset_mods = MockBinding::default();
+        superset_mods.mods = ModifiersState { alt: true, logo: true, ctrl: true, shift: true };
+        let mut subset_mods = MockBinding::default();
+        subset_mods.mods = ModifiersState { alt: true, logo: false, ctrl: false, shift: false };
+
+        assert!(!superset_mods.triggers_match(&subset_mods));
+        assert!(!subset_mods.triggers_match(&superset_mods));
+    }
 
     #[derive(PartialEq)]
     enum MultiClick {
