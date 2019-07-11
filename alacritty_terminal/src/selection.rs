@@ -272,7 +272,7 @@ impl Selection {
         let (start, end) = Selection::grid_clamp(start, end, lines, cols)?;
 
         let span = match *self {
-            Selection::Normal { region: _ } => {
+            Selection::Normal { .. } => {
                 // Simple Selection
                 let (start, end): (Anchor, Anchor) = self.span_simple(cols, start, end)?;
 
