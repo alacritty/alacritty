@@ -177,7 +177,7 @@ impl ::HbFtExt for FreeTypeRasterizer {
                         y_advance: (gp.y_advance as f32) / 64.,
                         x_offset: (gp.x_offset as f32) / 64.,
                         y_offset: (gp.y_offset as f32) / 64.,
-                        glyph: GlyphKey {
+                        glyph_key: GlyphKey {
                             c: KeyType::GlyphIndex(gi.codepoint),
                             font_key,
                             size,

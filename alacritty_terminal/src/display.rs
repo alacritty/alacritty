@@ -37,6 +37,9 @@ use font::{self, KeyType, Rasterize};
 #[cfg(feature = "hb-ft")]
 use font::{HbFtExt, HbGlyph};
 
+#[cfg(feature = "hb-ft")]
+use crate::term::text_run::{TextRun, TextRunIter};
+
 #[derive(Debug)]
 pub enum Error {
     /// Error with window management
@@ -542,170 +545,47 @@ impl Display {
             {
                 let _sampler = self.meter.sampler();
 
-                /// Wrapper to compare cells and check they are in the same text run
-                struct ContiguousCell<'a>(&'a RenderableCell);
-                impl<'a> PartialEq for ContiguousCell<'a> {
-                    fn eq(&self, other: &Self) -> bool {
-                        let a = &self.0;
-                        let b = &other.0;
-                        a.line == b.line
-                            && a.fg == b.fg
-                            && a.bg == b.bg
-                            && a.bg_alpha == b.bg_alpha
-                            && a.flags == b.flags
-                    }
-                }
-
-                /// Checks two columns are adjacent
-                struct ContiguousColumn(Column);
-                impl PartialEq for ContiguousColumn {
-                    fn eq(&self, other: &Self) -> bool {
-                        let (a, b) = (self.0, other.0);
-                        (a.0 == b.0 + 1) || (b.0 == a.0 + 1)
-                    }
-                }
-
-                // This shouldn't stay here
-                pub struct TextRun {
-                    // By definition a run is on one line.
-                    pub line: Line,
-                    pub run: (Column, Column),
-                    pub run_chars: Vec<RenderableCellContent>,
-                    pub fg: Rgb,
-                    pub bg: Rgb,
-                    pub bg_alpha: f32,
-                    pub flags: crate::term::cell::Flags,
-                }
-                impl TextRun {
-                    fn cell_at(&self, col: Column) -> RenderableCell {
-                        RenderableCell {
-                            line: self.line,
-                            column: col,
-                            inner: [' '; crate::term::cell::MAX_ZEROWIDTH_CHARS + 1].into(),
-                            fg: self.fg,
-                            bg: self.bg,
-                            bg_alpha: self.bg_alpha,
-                            flags: self.flags,
-                        }
-                    }
-                }
-                struct TextRunIter<I> {
-                    iter: I,
-                    run_start: Option<RenderableCell>,
-                    latest: Option<Column>,
-                    buffer: Vec<RenderableCellContent>,
-                };
-                impl<I> TextRunIter<I> {
-                    fn new(iter: I) -> Self {
-                        TextRunIter {
-                            iter,
-                            latest: None,
-                            run_start: None,
-                            buffer: Vec::new(),
-                        }
-                    }
-                }
-                impl<I> Iterator for TextRunIter<I>
-                where
-                    I: Iterator<Item = RenderableCell>,
-                {
-                    type Item = TextRun;
-
-                    fn next(&mut self) -> Option<Self::Item> {
-                        let mut output = None;
-                        while let Some(rc) = self.iter.next() {
-                            if self.latest.is_none() || self.run_start.is_none() {
-                                self.latest = Some(rc.column);
-                                self.run_start = Some(rc);
-                            } else if self
-                                .run_start
-                                .as_ref()
-                                .map(|cell| ContiguousCell(cell) != ContiguousCell(&rc))
-                                .unwrap_or(false)
-                                || self
-                                    .latest
-                                    .map(|col| ContiguousColumn(col) != ContiguousColumn(rc.column))
-                                    .unwrap_or(false)
-                            {
-                                let (start, latest) =
-                                    (self.run_start.as_ref().unwrap(), self.latest.as_ref().unwrap());
-                                output = Some(TextRun {
-                                    line: start.line,
-                                    run: (start.column, *latest),
-                                    run_chars: self.buffer.drain(..).collect(),
-                                    fg: start.fg,
-                                    bg: start.bg,
-                                    bg_alpha: start.bg_alpha,
-                                    flags: start.flags,
-                                });
-                                // Reset buffer
-                                self.buffer.push(rc.inner.clone());
-                                // Update latest to new rc
-                                self.latest = Some(rc.column);
-                                self.run_start = Some(rc);
-                                break;
-                            } else {
-                                self.buffer.push(rc.inner);
-                                self.latest = Some(rc.column);
-                            }
-                        }
-                        output.or_else(|| {
-                            if self.buffer.is_empty() {
-                                None
-                            } else {
-                                if let Some(start) = &self.run_start {
-                                    if let Some(latest) = &self.latest {
-                                        // Save leftover buffer and empty it
-                                        return Some(TextRun {
-                                            line: start.line,
-                                            run: (start.column, *latest),
-                                            run_chars: self.buffer.drain(..).collect(),
-                                            fg: start.fg,
-                                            bg: start.bg,
-                                            bg_alpha: start.bg_alpha,
-                                            flags: start.flags,
-                                        });
-                                    }
-                                }
-                                return None;
-                            }
-                        })
-                    }
-                }
-
                 //// Convert each row into a set of text runs
                 //// (i.e. cells with the same display properties)
                 // Shape each run of text.
-                type HarfBuzzGlyphs = Vec<(Column, HbGlyph)>;
-                let text_runs: Vec<(TextRun, Option<HarfBuzzGlyphs>)> =
-                    TextRunIter::new(grid_cells.into_iter())
-                        .map(|text_run| {
-                            let run: String = text_run.run_chars.iter().filter_map(|content| match content {
-                                RenderableCellContent::Cursor(_) => None,
-                                RenderableCellContent::Chars(chars) => Some(chars[0]),
-                            }).collect();
-                            let text = &run;
-                            let key = if text_run.flags.contains(crate::term::cell::Flags::BOLD) {
-                                glyph_cache.bold_key
-                            } else if text_run.flags.contains(crate::term::cell::Flags::ITALIC) {
-                                glyph_cache.italic_key
-                            } else {
-                                glyph_cache.font_key
-                            };
-                            let shape = glyph_cache
-                                .rasterizer
-                                .shape(text, key, glyph_cache.font_size)
-                                .map(|glyphs| {
-                                    let (start_col, end_col) = text_run.run;
-                                    (start_col.0..=end_col.0)
-                                        .map(Column)
-                                        .zip(glyphs.into_iter())
-                                        .collect()
-                                });
+                //type HarfBuzzGlyphs = Vec<(Column, HbGlyph)>;
+                //let text_runs: Vec<(TextRun, Option<HarfBuzzGlyphs>)> =
+                //    TextRunIter::new(grid_cells.into_iter())
+                //        .map(|text_run| {
+                //            use font::{BEAM_CURSOR_CHAR, BOX_CURSOR_CHAR, UNDERLINE_CURSOR_CHAR};
+                //            let run: String =
+                //                text_run.run_chars.iter().map(|chars| chars[0]).collect();
+                //            let ends_with_special = run.ends_with(UNDERLINE_CURSOR_CHAR)
+                //                || run.ends_with(BEAM_CURSOR_CHAR)
+                //                || run.ends_with(BOX_CURSOR_CHAR);
+                //            let text = if ends_with_special {
+                //                // Leave off last character
+                //                let i = run.char_indices().last().unwrap().0;
+                //                &run[..i]
+                //            } else {
+                //                &run
+                //            };
+                //            let key = if text_run.flags.contains(crate::term::cell::Flags::BOLD) {
+                //                glyph_cache.bold_key
+                //            } else if text_run.flags.contains(crate::term::cell::Flags::ITALIC) {
+                //                glyph_cache.italic_key
+                //            } else {
+                //                glyph_cache.font_key
+                //            };
+                //            let shape = glyph_cache
+                //                .rasterizer
+                //                .shape(text, key, glyph_cache.font_size)
+                //                .map(|glyphs| {
+                //                    let (start_col, end_col) = text_run.run;
+                //                    (start_col.0..=end_col.0)
+                //                        .map(Column)
+                //                        .zip(glyphs.into_iter())
+                //                        .collect()
+                //                });
 
-                            (text_run, shape)
-                        })
-                        .collect();
+                //            (text_run, shape)
+                //        })
+                //        .collect();
 
                 // Helper that rounds first arg to be a multiple of second arg.
                 #[inline]
@@ -715,23 +595,41 @@ impl Display {
                     a / b
                 }
                 self.renderer.with_api(config, &size_info, |mut api| {
-                    for (text_run, glyphs) in text_runs.into_iter() {
-                        // Render each glyph, advancing based on the information provided.
-                        if let Some(glyphs) = glyphs {
-                            for (col, g) in glyphs.into_iter() {
-                                // XXX: what does this do? (for text runs)
-                                rects.update_lines(&size_info, &text_run.cell_at(col));
-                                match g.glyph.c {
-                                    // Determine if the glyph is a special character
-                                    _ => {
-                                        // Hold reference to glyph from cache
-                                        let glyph = glyph_cache.get(g.glyph, &mut api);
-                                        api.add_render_item(&text_run.cell_at(col), &glyph);
-                                    }
-                                }
-                            }
-                        }
+                    for text_run in TextRunIter::new(grid_cells.into_iter()) {
+                        api.render_text_run(text_run, glyph_cache);
                     }
+                    //for (text_run, glyphs) in text_runs.into_iter() {
+                    //    // Render each glyph, advancing based on the information provided.
+                    //    if let Some(glyphs) = glyphs {
+                    //        for (col, g) in glyphs.into_iter() {
+                    //            // XXX: what does this do? (for text runs)
+                    //            //rects.update_lines(&rc);
+
+                    //            match g.glyph_key.c {
+                    //                // Determine if the glyph is a special character
+                    //                KeyType::Char(c @ font::UNDERLINE_CURSOR_CHAR)
+                    //                | KeyType::Char(c @ font::BEAM_CURSOR_CHAR)
+                    //                | KeyType::Char(c @ font::BOX_CURSOR_CHAR) => {
+                    //                    api.render_glyph_at_position(
+                    //                        &text_run.cell_at(col),
+                    //                        glyph_cache,
+                    //                        c,
+                    //                    );
+                    //                }
+                    //                _ => {
+                    //                    // Hold reference to glyph from cache
+                    //                    let glyph = glyph_cache.get(g.glyph_key, &mut api);
+                    //                    api.add_render_item(&text_run.cell_at(col), &glyph);
+                    //                    //rc.column = crate::index::Column(u_round_to(
+                    //                    //    rc.column.0 as f32 * size_info.cell_width
+                    //                    //        + g.x_advance,
+                    //                    //    size_info.cell_width as f32,
+                    //                    //)) + 1;
+                    //                }
+                    //            }
+                    //        }
+                    //    }
+                    //}
                 });
             }
 

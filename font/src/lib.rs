@@ -316,7 +316,7 @@ pub struct HbGlyph {
     pub y_advance: f32,
     pub x_offset: f32,
     pub y_offset: f32,
-    pub glyph: GlyphKey,
+    pub glyph_key: GlyphKey,
     pub codepoint: u32,
     // Probably will never be used
     pub cluster: u32,

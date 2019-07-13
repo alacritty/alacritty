@@ -33,6 +33,8 @@ use crate::gl::types::*;
 use crate::index::{Column, Line};
 use crate::renderer::rects::{Rect, Rects};
 use crate::term::color::Rgb;
+#[cfg(feature = "hb-ft")]
+use crate::term::text_run::{TextRun, TextRunContent};
 use crate::term::{self, cell, RenderableCell, RenderableCellContent};
 
 pub mod rects;
@@ -92,7 +94,7 @@ impl ::std::fmt::Display for Error {
         match *self {
             Error::ShaderCreation(ref err) => {
                 write!(f, "There was an error initializing the shaders: {}", err)
-            },
+            }
         }
     }
 }
@@ -316,7 +318,11 @@ impl GlyphCache {
         let font = font.to_owned().with_size(size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
 
-        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm'.into(), size: font.size })?;
+        self.rasterizer.get_glyph(GlyphKey {
+            font_key: regular,
+            c: 'm'.into(),
+            size: font.size,
+        })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
 
         info!("Font size changed to {:?} with DPR of {}", font.size, dpr);
@@ -645,8 +651,8 @@ impl QuadRenderer {
                         | DebouncedEvent::Write(_)
                         | DebouncedEvent::Chmod(_) => {
                             msg_tx.send(Msg::ShaderReload).expect("msg send ok");
-                        },
-                        _ => {},
+                        }
+                        _ => {}
                     }
                 }
             });
@@ -731,12 +737,7 @@ impl QuadRenderer {
             let padding_y = props.padding_y as i32;
             let width = props.width as i32;
             let height = props.height as i32;
-            gl::Viewport(
-                padding_x,
-                padding_y,
-                width - 2 * padding_x,
-                height - 2 * padding_y,
-            );
+            gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
 
             // Disable program
             gl::UseProgram(0);
@@ -816,11 +817,11 @@ impl QuadRenderer {
 
                 info!("... successfully reloaded shaders");
                 (program, rect_program)
-            },
+            }
             (Err(err), _) | (_, Err(err)) => {
                 error!("{}", err);
                 return;
-            },
+            }
         };
 
         self.active_tex = 0;
@@ -837,12 +838,7 @@ impl QuadRenderer {
             let height = height as i32;
             let padding_x = padding_x as i32;
             let padding_y = padding_y as i32;
-            gl::Viewport(
-                padding_x,
-                padding_y,
-                width - 2 * padding_x,
-                height - 2 * padding_y,
-            );
+            gl::Viewport(padding_x, padding_y, width - 2 * padding_x, height - 2 * padding_y);
 
             // update projection
             gl::UseProgram(self.program.id);
@@ -1016,29 +1012,82 @@ impl<'a> RenderApi<'a> {
             glyph_cache.font_key
         };
 
-        let glyph_key = GlyphKey {
-            font_key,
-            size: glyph_cache.font_size,
-            c: glyph.into(),
-        };
+        let glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, c: glyph.into() };
 
         // Add cell to batch
         let glyph = glyph_cache.get(glyph_key, self);
         self.add_render_item(cell, &glyph);
     }
 
-    pub fn render_text_run(
-        &mut self,
-        cell: RenderableCell,
-        run: &str,
-        glyph_cache: &mut GlyphCache,
-    ) {
-        let font_key = if cell.flags.contains(cell::Flags::BOLD) {
-            glyph_cache.bold_key
-        } else if cell.flags.contains(cell::Flags::ITALIC) {
-            glyph_cache.italic_key
-        } else {
-            glyph_cache.font_key
+    #[cfg(feature = "hb-ft")]
+    pub fn render_text_run(&mut self, text_run: TextRun, glyph_cache: &mut GlyphCache) {
+        match &text_run.run_chars {
+            TextRunContent::Cursor(cursor_key) => {
+                // Raw cell pixel buffers like cursors don't need to go through font lookup
+                let metrics = glyph_cache.metrics;
+                let glyph = glyph_cache.cursor_cache.entry(*cursor_key).or_insert_with(|| {
+                    let offset_x = self.config.font.offset.x;
+                    let offset_y = self.config.font.offset.y;
+
+                    self.load_glyph(&get_cursor_glyph(
+                        cursor_key.style,
+                        metrics,
+                        offset_x,
+                        offset_y,
+                        cursor_key.is_wide,
+                    ))
+                });
+                self.add_render_item(&text_run.start_cell(), &glyph);
+            }
+            TextRunContent::CharRun(chars) => {
+                let font_key = if text_run.flags.contains(cell::Flags::BOLD) {
+                    glyph_cache.bold_key
+                } else if text_run.flags.contains(cell::Flags::ITALIC) {
+                    glyph_cache.italic_key
+                } else {
+                    glyph_cache.font_key
+                };
+
+                let hidden = text_run.flags.contains(cell::Flags::HIDDEN);
+                let run: String = if hidden {
+                    " ".repeat(chars.len())
+                } else {
+                    chars
+                        .iter()
+                        .map(|chars| if chars[0] == '\t' { ' ' } else { chars[0] })
+                        .collect()
+                };
+
+                use font::HbFtExt;
+                let glyphs = glyph_cache
+                    .rasterizer
+                    .shape(&run, font_key, glyph_cache.font_size)
+                    .expect("harfbuzz font to be present");
+                for (col, g) in text_run.col_iter().zip(glyphs.into_iter()) {
+                    let cell = text_run.cell_at(col);
+                    let glyph = glyph_cache.get(g.glyph_key, self);
+                    self.add_render_item(&text_run.cell_at(col), &glyph);
+                }
+
+                for (cell, chars) in text_run.cell_iter().zip(chars.iter()) {
+                    let slice: &[char] = &chars[1..];
+                    for c in slice.into_iter().filter(|c| **c != ' ') {
+                        let glyph_key =
+                            GlyphKey { font_key, size: glyph_cache.font_size, c: c.into() };
+                        let average_advance = glyph_cache.metrics.average_advance as f32;
+                        let mut glyph = *glyph_cache.get(glyph_key, self);
+
+                        // The metrics of zero-width characters are based on rendering
+                        // the character after the current cell, with the anchor at the
+                        // right side of the preceding character. Since we render the
+                        // zero-width characters inside the preceding character, the
+                        // anchor has been moved to the right by one cell.
+                        glyph.left += average_advance;
+
+                        self.add_render_item(&cell, &glyph);
+                    }
+                }
+            }
         };
     }
 
@@ -1061,7 +1110,7 @@ impl<'a> RenderApi<'a> {
                 });
                 self.add_render_item(&cell, &glyph);
                 return;
-            },
+            }
             RenderableCellContent::Chars(chars) => chars,
         };
 
@@ -1132,7 +1181,7 @@ fn load_glyph(
                 atlas.push(new);
             }
             load_glyph(active_tex, atlas, current_atlas, rasterized)
-        },
+        }
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
             top: 0.0,
@@ -1482,7 +1531,7 @@ impl ::std::fmt::Display for ShaderCreationError {
             ShaderCreationError::Io(ref err) => write!(f, "Couldn't read shader: {}", err),
             ShaderCreationError::Compile(ref path, ref log) => {
                 write!(f, "Failed compiling shader at {}: {}", path.display(), log)
-            },
+            }
             ShaderCreationError::Link(ref log) => write!(f, "Failed linking shader: {}", log),
         }
     }
