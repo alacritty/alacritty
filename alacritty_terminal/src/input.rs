@@ -153,7 +153,7 @@ impl<T: Eq> Binding<T> {
         // checks to be short circuited.
         self.trigger == *input
             && mode.contains(self.mode)
-            && !self.notmode.intersects(mode)
+            && !mode.intersects(self.notmode)
             && self.mods_match(mods, relaxed)
     }
 
@@ -161,8 +161,8 @@ impl<T: Eq> Binding<T> {
     pub fn triggers_match(&self, binding: &Binding<T>) -> bool {
         self.trigger == binding.trigger
             && self.mods == binding.mods
-            && self.mode.contains(binding.mode)
-            && self.notmode.contains(binding.notmode)
+            && (self.mode.contains(binding.mode) || binding.mode.contains(self.mode))
+            && (self.notmode.contains(binding.notmode) || binding.notmode.contains(self.notmode))
     }
 }
 
@@ -993,8 +993,8 @@ mod tests {
             Self {
                 mods: Default::default(),
                 action: Default::default(),
-                mode: Default::default(),
-                notmode: Default::default(),
+                mode: TermMode::empty(),
+                notmode: TermMode::empty(),
                 trigger: Default::default(),
             }
         }
@@ -1027,7 +1027,7 @@ mod tests {
         subset_mode.mode = TermMode::ALT_SCREEN | TermMode::ORIGIN;
 
         assert!(superset_mode.triggers_match(&subset_mode));
-        assert!(!subset_mode.triggers_match(&superset_mode));
+        assert!(subset_mode.triggers_match(&superset_mode));
     }
 
     #[test]
@@ -1038,7 +1038,7 @@ mod tests {
         subset_notmode.notmode = TermMode::ALT_SCREEN | TermMode::ORIGIN;
 
         assert!(superset_notmode.triggers_match(&subset_notmode));
-        assert!(!subset_notmode.triggers_match(&superset_notmode));
+        assert!(subset_notmode.triggers_match(&superset_notmode));
     }
 
     #[test]
@@ -1050,6 +1050,64 @@ mod tests {
 
         assert!(!superset_mods.triggers_match(&subset_mods));
         assert!(!subset_mods.triggers_match(&superset_mods));
+    }
+
+    fn binding_trigger_input() {
+        let mut binding = MockBinding::default();
+        binding.trigger = 13;
+
+        let mods = binding.mods;
+        let mode = binding.mode;
+
+        assert!(binding.is_triggered_by(mode, mods, &13, true));
+        assert!(!binding.is_triggered_by(mode, mods, &32, true));
+    }
+
+    #[test]
+    fn binding_trigger_mods() {
+        let mut binding = MockBinding::default();
+        binding.mods = ModifiersState { alt: true, logo: true, ctrl: false, shift: false };
+
+        let superset_mods = ModifiersState { alt: true, logo: true, ctrl: true, shift: true };
+        let subset_mods = ModifiersState { alt: false, logo: false, ctrl: false, shift: false };
+
+        let t = binding.trigger;
+        let mode = binding.mode;
+
+        assert!(binding.is_triggered_by(mode, binding.mods, &t, true));
+        assert!(binding.is_triggered_by(mode, binding.mods, &t, false));
+
+        assert!(binding.is_triggered_by(mode, superset_mods, &t, true));
+        assert!(!binding.is_triggered_by(mode, superset_mods, &t, false));
+
+        assert!(!binding.is_triggered_by(mode, subset_mods, &t, true));
+        assert!(!binding.is_triggered_by(mode, subset_mods, &t, false));
+    }
+
+    #[test]
+    fn binding_trigger_modes() {
+        let mut binding = MockBinding::default();
+        binding.mode = TermMode::ALT_SCREEN;
+
+        let t = binding.trigger;
+        let mods = binding.mods;
+
+        assert!(!binding.is_triggered_by(TermMode::INSERT, mods, &t, true));
+        assert!(binding.is_triggered_by(TermMode::ALT_SCREEN, mods, &t, true));
+        assert!(binding.is_triggered_by(TermMode::ALT_SCREEN | TermMode::INSERT, mods, &t, true));
+    }
+
+    #[test]
+    fn binding_trigger_notmodes() {
+        let mut binding = MockBinding::default();
+        binding.notmode = TermMode::ALT_SCREEN;
+
+        let t = binding.trigger;
+        let mods = binding.mods;
+
+        assert!(binding.is_triggered_by(TermMode::INSERT, mods, &t, true));
+        assert!(!binding.is_triggered_by(TermMode::ALT_SCREEN, mods, &t, true));
+        assert!(!binding.is_triggered_by(TermMode::ALT_SCREEN | TermMode::INSERT, mods, &t, true));
     }
 
     #[derive(PartialEq)]
