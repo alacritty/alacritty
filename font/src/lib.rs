@@ -167,7 +167,6 @@ impl From<u32> for KeyType {
     }
 }
 
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct GlyphKey {
     pub c: KeyType,

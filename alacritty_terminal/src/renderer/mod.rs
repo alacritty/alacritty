@@ -22,7 +22,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use fnv::FnvHasher;
-use font::{self, FontDesc, FontKey, KeyType, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
+use font::{self, FontDesc, FontKey, GlyphKey, KeyType, Rasterize, RasterizedGlyph, Rasterizer};
 use glutin::dpi::PhysicalSize;
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
@@ -1025,6 +1025,21 @@ impl<'a> RenderApi<'a> {
         // Add cell to batch
         let glyph = glyph_cache.get(glyph_key, self);
         self.add_render_item(cell, &glyph);
+    }
+
+    pub fn render_text_run(
+        &mut self,
+        cell: RenderableCell,
+        run: &str,
+        glyph_cache: &mut GlyphCache,
+    ) {
+        let font_key = if cell.flags.contains(cell::Flags::BOLD) {
+            glyph_cache.bold_key
+        } else if cell.flags.contains(cell::Flags::ITALIC) {
+            glyph_cache.italic_key
+        } else {
+            glyph_cache.font_key
+        };
     }
 
     pub fn render_cell(&mut self, cell: RenderableCell, glyph_cache: &mut GlyphCache) {

@@ -26,7 +26,9 @@ use libc::c_uint;
 
 pub mod fc;
 
-use super::{FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
+use super::{
+    FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
+};
 
 struct FixedSize {
     pixelsize: f64,
@@ -156,13 +158,16 @@ impl ::HbFtExt for FreeTypeRasterizer {
     fn shape(&mut self, text: &str, font_key: FontKey, size: Size) -> Option<Vec<HbGlyph>> {
         use harfbuzz_rs::{shape, UnicodeBuffer};
         self.faces[&font_key].hb_font.as_ref().map(|hb_font| {
-            let buf = UnicodeBuffer::default().add_str(text).guess_segment_properties();
-            
+            let buf = UnicodeBuffer::default()
+                .add_str(text)
+                .guess_segment_properties();
+
             // Shape
             let glyph_buffer = shape(&*hb_font, buf, &[]);
 
             // Combine into HbGlyph's
-            glyph_buffer.get_glyph_infos()
+            glyph_buffer
+                .get_glyph_infos()
                 .iter()
                 .zip(glyph_buffer.get_glyph_positions().iter())
                 .map(|(gi, gp)| {
@@ -349,7 +354,7 @@ impl FreeTypeRasterizer {
             KeyType::GlyphIndex(_) => {
                 // Already been through shaping so just use font_key
                 Ok(glyph_key.font_key)
-            },
+            }
             KeyType::Char(c) => {
                 let use_initial_face = if let Some(face) = self.faces.get(&glyph_key.font_key) {
                     let index = face.ft_face.get_char_index(c as usize);
@@ -381,7 +386,12 @@ impl FreeTypeRasterizer {
         self.get_rendered_glyph_index(face, glyph_key, index)
     }
 
-    fn get_rendered_glyph_index(&self, face: &crate::ft::Face, glyph_key: GlyphKey, index: u32) -> Result<RasterizedGlyph, Error> {
+    fn get_rendered_glyph_index(
+        &self,
+        face: &crate::ft::Face,
+        glyph_key: GlyphKey,
+        index: u32,
+    ) -> Result<RasterizedGlyph, Error> {
         let size = face
             .non_scalable
             .as_ref()
