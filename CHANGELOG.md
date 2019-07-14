@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Completions for `--class` and `-t` (short title)
 - Change the mouse cursor when hovering over the message bar and its close button
 
+### Changed
+
+- On Windows, query DirectWrite for recommended anti-aliasing settings
+
 ### Fixed
 
 - GUI programs launched by Alacritty starting in the background on X11
