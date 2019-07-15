@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On macOS, Alacritty will now fallback to Menlo if a font specified in the config cannot be loaded
 - Debug ref tests are now written to disk regardless of shutdown method
 - Cursor color setting with escape sequence
+- Override default bindings with subset terminal mode match
 
 ## 0.3.3
 
