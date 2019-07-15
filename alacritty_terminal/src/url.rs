@@ -93,7 +93,7 @@ impl UrlParser {
                 ')' if open_parens_count > 0 => open_parens_count -= 1,
                 '[' => open_bracks_count += 1,
                 ']' if open_bracks_count > 0 => open_bracks_count -= 1,
-                ')' | ']' => {
+                ')' | ']' | '⟩' => {
                     self.state.truncate(i);
                     break;
                 },
@@ -246,9 +246,11 @@ mod tests {
         url_test("https://example.org)", "https://example.org");
         url_test("https://example.org(", "https://example.org");
         url_test("(https://one.org/)(https://two.org/)", "https://one.org/");
+        url_test("⟨https://example.org/test⟩", "https://example.org/test");
 
         url_test("https://[2001:db8:a0b:12f0::1]:80", "https://[2001:db8:a0b:12f0::1]:80");
         url_test("([(https://example.org/test(ing))])", "https://example.org/test(ing)");
+        url_test("⟨([(https://example.org/test(ing))])⟩", "https://example.org/test(ing)");
         url_test("https://example.org/]()", "https://example.org/");
         url_test("[https://example.org]", "https://example.org");
 
