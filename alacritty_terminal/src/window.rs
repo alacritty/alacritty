@@ -403,7 +403,6 @@ impl Window {
 
     #[cfg(target_os = "macos")]
     pub fn set_simple_fullscreen(&self, fullscreen: bool) {
-        use glutin::os::macos::WindowExt;
         self.window().set_simple_fullscreen(fullscreen);
     }
 
