@@ -512,6 +512,9 @@ pub mod text_run {
         pub fn start_cell(&self) -> RenderableCell {
             self.cell_at(self.run.0)
         }
+        pub fn last_cell(&self) -> RenderableCell {
+            self.cell_at(self.run.1)
+        }
 
         /// Returns iterator over range of columns [run.0, run.1]
         pub fn col_iter(&self) -> impl Iterator<Item = Column> {

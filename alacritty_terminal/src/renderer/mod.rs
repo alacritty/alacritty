@@ -36,6 +36,8 @@ use crate::term::color::Rgb;
 #[cfg(feature = "hb-ft")]
 use crate::term::text_run::{TextRun, TextRunContent};
 use crate::term::{self, cell, RenderableCell, RenderableCellContent};
+#[cfg(feature = "hb-ft")]
+use font::HbError;
 
 pub mod rects;
 
@@ -278,6 +280,28 @@ impl GlyphCache {
         self.rasterizer
             .metrics(self.font_key, self.font_size)
             .expect("metrics load since font is loaded at glyph cache creation")
+    }
+
+    #[cfg(feature = "hb-ft")]
+    pub fn shape_run<'a, L>(
+        &'a mut self,
+        text_run: &str,
+        font_key: FontKey,
+        loader: &'a mut L,
+    ) -> Result<Vec<Glyph>, HbError>
+    where
+        L: LoadGlyph,
+    {
+        use font::{HbFtExt};
+        Ok(self.rasterizer.shape(text_run, font_key, self.font_size)?
+            .get_glyph_infos()
+            .iter()
+            .map(move |glyph_info| *self.get(GlyphKey {
+                c: glyph_info.codepoint.into(),
+                font_key,
+                size: self.font_size,
+            }, loader))
+            .collect())
     }
 
     pub fn get<'a, L>(&'a mut self, glyph_key: GlyphKey, loader: &mut L) -> &'a Glyph
@@ -1060,13 +1084,10 @@ impl<'a> RenderApi<'a> {
 
                 use font::HbFtExt;
                 let glyphs = glyph_cache
-                    .rasterizer
-                    .shape(&run, font_key, glyph_cache.font_size)
+                    .shape_run(&run, font_key, self)
                     .expect("harfbuzz font to be present");
-                for (col, g) in text_run.col_iter().zip(glyphs.into_iter()) {
-                    let cell = text_run.cell_at(col);
-                    let glyph = glyph_cache.get(g.glyph_key, self);
-                    self.add_render_item(&text_run.cell_at(col), &glyph);
+                for (cell, glyph) in text_run.cell_iter().zip(glyphs.into_iter()) {
+                    self.add_render_item(&cell, &glyph);
                 }
 
                 for (cell, chars) in text_run.cell_iter().zip(chars.iter()) {

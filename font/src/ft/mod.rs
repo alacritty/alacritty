@@ -19,7 +19,9 @@ use std::fmt;
 use std::path::PathBuf;
 
 #[cfg(feature = "hb-ft")]
-use super::HbGlyph;
+use super::{HbError, HbGlyph};
+#[cfg(feature = "hb-ft")]
+use harfbuzz_rs::{Shared, Font, GlyphBuffer};
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
 use libc::c_uint;
@@ -43,7 +45,7 @@ struct Face {
     non_scalable: Option<FixedSize>,
     /// This is an option just in case hb_ft_create_font_referenced fails.
     #[cfg(feature = "hb-ft")]
-    hb_font: Option<harfbuzz_rs::Shared<harfbuzz_rs::Font<'static>>>,
+    hb_font: Option<Shared<Font<'static>>>,
 }
 
 impl fmt::Debug for Face {
@@ -155,39 +157,25 @@ impl ::Rasterize for FreeTypeRasterizer {
 
 #[cfg(feature = "hb-ft")]
 impl ::HbFtExt for FreeTypeRasterizer {
-    fn shape(&mut self, text: &str, font_key: FontKey, size: Size) -> Option<Vec<HbGlyph>> {
+    fn shape(
+        &mut self,
+        text: &str,
+        font_key: FontKey,
+        size: Size,
+    ) -> Result<GlyphBuffer, HbError> {
         use harfbuzz_rs::{shape, UnicodeBuffer};
-        self.faces[&font_key].hb_font.as_ref().map(|hb_font| {
-            let buf = UnicodeBuffer::default()
-                .add_str(text)
-                .guess_segment_properties();
+        self.faces[&font_key]
+            .hb_font
+            .as_ref()
+            .ok_or(HbError::MissingFont(font_key))
+            .map(|hb_font| {
+                let buf = UnicodeBuffer::default()
+                    .add_str(text)
+                    .guess_segment_properties();
 
-            // Shape
-            let glyph_buffer = shape(&*hb_font, buf, &[]);
-
-            // Combine into HbGlyph's
-            glyph_buffer
-                .get_glyph_infos()
-                .iter()
-                .zip(glyph_buffer.get_glyph_positions().iter())
-                .map(|(gi, gp)| {
-                    HbGlyph {
-                        /* ugh -_- you have to divide by 64?? */
-                        x_advance: (gp.x_advance as f32) / 64.,
-                        y_advance: (gp.y_advance as f32) / 64.,
-                        x_offset: (gp.x_offset as f32) / 64.,
-                        y_offset: (gp.y_offset as f32) / 64.,
-                        glyph_key: GlyphKey {
-                            c: KeyType::GlyphIndex(gi.codepoint),
-                            font_key,
-                            size,
-                        },
-                        codepoint: gi.codepoint,
-                        cluster: gi.cluster,
-                    }
-                })
-                .collect()
-        })
+                // Shape with default features
+                shape(&*hb_font, buf, &[])
+            })
     }
 }
 

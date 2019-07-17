@@ -545,48 +545,6 @@ impl Display {
             {
                 let _sampler = self.meter.sampler();
 
-                //// Convert each row into a set of text runs
-                //// (i.e. cells with the same display properties)
-                // Shape each run of text.
-                //type HarfBuzzGlyphs = Vec<(Column, HbGlyph)>;
-                //let text_runs: Vec<(TextRun, Option<HarfBuzzGlyphs>)> =
-                //    TextRunIter::new(grid_cells.into_iter())
-                //        .map(|text_run| {
-                //            use font::{BEAM_CURSOR_CHAR, BOX_CURSOR_CHAR, UNDERLINE_CURSOR_CHAR};
-                //            let run: String =
-                //                text_run.run_chars.iter().map(|chars| chars[0]).collect();
-                //            let ends_with_special = run.ends_with(UNDERLINE_CURSOR_CHAR)
-                //                || run.ends_with(BEAM_CURSOR_CHAR)
-                //                || run.ends_with(BOX_CURSOR_CHAR);
-                //            let text = if ends_with_special {
-                //                // Leave off last character
-                //                let i = run.char_indices().last().unwrap().0;
-                //                &run[..i]
-                //            } else {
-                //                &run
-                //            };
-                //            let key = if text_run.flags.contains(crate::term::cell::Flags::BOLD) {
-                //                glyph_cache.bold_key
-                //            } else if text_run.flags.contains(crate::term::cell::Flags::ITALIC) {
-                //                glyph_cache.italic_key
-                //            } else {
-                //                glyph_cache.font_key
-                //            };
-                //            let shape = glyph_cache
-                //                .rasterizer
-                //                .shape(text, key, glyph_cache.font_size)
-                //                .map(|glyphs| {
-                //                    let (start_col, end_col) = text_run.run;
-                //                    (start_col.0..=end_col.0)
-                //                        .map(Column)
-                //                        .zip(glyphs.into_iter())
-                //                        .collect()
-                //                });
-
-                //            (text_run, shape)
-                //        })
-                //        .collect();
-
                 // Helper that rounds first arg to be a multiple of second arg.
                 #[inline]
                 fn u_round_to(a: f32, b: f32) -> usize {
@@ -595,41 +553,14 @@ impl Display {
                     a / b
                 }
                 self.renderer.with_api(config, &size_info, |mut api| {
+                    // Iterate over each contiguous block of text
                     for text_run in TextRunIter::new(grid_cells.into_iter()) {
+                        // Update underline/strikeout
+                        rects.update_lines_text_run(&size_info, &text_run);
+
+                        // Draw text
                         api.render_text_run(text_run, glyph_cache);
                     }
-                    //for (text_run, glyphs) in text_runs.into_iter() {
-                    //    // Render each glyph, advancing based on the information provided.
-                    //    if let Some(glyphs) = glyphs {
-                    //        for (col, g) in glyphs.into_iter() {
-                    //            // XXX: what does this do? (for text runs)
-                    //            //rects.update_lines(&rc);
-
-                    //            match g.glyph_key.c {
-                    //                // Determine if the glyph is a special character
-                    //                KeyType::Char(c @ font::UNDERLINE_CURSOR_CHAR)
-                    //                | KeyType::Char(c @ font::BEAM_CURSOR_CHAR)
-                    //                | KeyType::Char(c @ font::BOX_CURSOR_CHAR) => {
-                    //                    api.render_glyph_at_position(
-                    //                        &text_run.cell_at(col),
-                    //                        glyph_cache,
-                    //                        c,
-                    //                    );
-                    //                }
-                    //                _ => {
-                    //                    // Hold reference to glyph from cache
-                    //                    let glyph = glyph_cache.get(g.glyph_key, &mut api);
-                    //                    api.add_render_item(&text_run.cell_at(col), &glyph);
-                    //                    //rc.column = crate::index::Column(u_round_to(
-                    //                    //    rc.column.0 as f32 * size_info.cell_width
-                    //                    //        + g.x_advance,
-                    //                    //    size_info.cell_width as f32,
-                    //                    //)) + 1;
-                    //                }
-                    //            }
-                    //        }
-                    //    }
-                    //}
                 });
             }
 
