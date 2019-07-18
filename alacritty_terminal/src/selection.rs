@@ -31,6 +31,11 @@ use crate::term::{Search, Term};
 /// selected without any expansion. [`semantic`] mode expands the initial selection to the nearest
 /// semantic escape char in either direction. [`lines`] will always select entire lines.
 ///
+/// Calls to [`update`] operate different based on the selection kind. The [`simple`] mode does
+/// nothing special, simply tracks points and sides. [`semantic`] will continue to expand out to
+/// semantic boundaries as the selection point changes. Similarly, [`lines`] will always expand the
+/// new point to encompass entire lines.
+///
 /// [`simple`]: enum.Selection.html#method.simple
 /// [`semantic`]: enum.Selection.html#method.semantic
 /// [`lines`]: enum.Selection.html#method.lines
@@ -43,13 +48,8 @@ pub enum SelectionType {
 
 /// Describes a region of a 2-dimensional area
 /// 
-/// Used to track the selection. The selection can type can be heterogeneous
+/// Used to track the selection. The selection type can be heterogeneous
 /// where each end of the region can be a different selection type.
-///
-/// Calls to [`update`] operate different based on the selection kind. The [`simple`] mode does
-/// nothing special, simply tracks points and sides. [`semantic`] will continue to expand out to
-/// semantic boundaries as the selection point changes. Similarly, [`lines`] will always expand the
-/// new point to encompass entire lines.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Selection {
     Normal {
