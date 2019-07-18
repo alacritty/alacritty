@@ -192,9 +192,7 @@ impl Selection {
             (start.clone(), end.clone())
         };
 
-        if start_anchor.point.line > end_anchor.point.line
-            || start_anchor.point.line == end_anchor.point.line
-                && start_anchor.point.col <= end_anchor.point.col
+        if Selection::points_need_swap(start_anchor.point, end_anchor.point)
         {
             let (end_anchor, start_anchor) =
                 expansion(&mut end_anchor, &mut start_anchor);
