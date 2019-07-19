@@ -120,7 +120,7 @@ pub enum Scroll {
 }
 
 #[derive(Copy, Clone)]
-pub enum ViewportPosition {
+enum ViewportPosition {
     Visible(Line),
     Above,
     Below,
@@ -141,11 +141,25 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         }
     }
 
-    pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
-        Point { line: self.visible_line_to_buffer(point.line), col: point.col }
+    pub fn buffer_to_visible(&self, point: impl Into<Point<usize>>) -> Point<usize> {
+        let mut point = point.into();
+
+        match self.buffer_line_to_visible(point.line) {
+            ViewportPosition::Visible(line) => point.line = line.0,
+            ViewportPosition::Above => {
+                point.col = Column(0);
+                point.line = 0;
+            },
+            ViewportPosition::Below => {
+                point.col = self.num_cols();
+                point.line = self.num_lines().0 - 1;
+            },
+        }
+
+        point
     }
 
-    pub fn buffer_line_to_visible(&self, line: usize) -> ViewportPosition {
+    fn buffer_line_to_visible(&self, line: usize) -> ViewportPosition {
         let offset = line.saturating_sub(self.display_offset);
         if line < self.display_offset {
             ViewportPosition::Below
@@ -156,7 +170,11 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         }
     }
 
-    pub fn visible_line_to_buffer(&self, line: Line) -> usize {
+    pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
+        Point { line: self.visible_line_to_buffer(point.line), col: point.col }
+    }
+
+    fn visible_line_to_buffer(&self, line: Line) -> usize {
         self.line_to_offset(line) + self.display_offset
     }
 
