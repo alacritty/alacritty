@@ -199,11 +199,8 @@ impl Selection {
             if let Some(ref mut selection) = term.selection_mut() {
                 match selection {
                     Selection::Normal { ref mut region } => {
-                        region.start.point = start_anchor.point;
-                        region.start.side = start_anchor.side;
-                        region.end.point = end_anchor.point;
-                        region.start.ty = start_anchor.ty;
-                        region.end.ty = end_anchor.ty;
+                        region.start = start_anchor;
+                        region.end = end_anchor;
                     }
                     _ => { return; }
                 }
@@ -214,11 +211,8 @@ impl Selection {
             if let Some(ref mut selection) = term.selection_mut() {
                 match selection {
                     Selection::Normal { ref mut region } => {
-                        region.start.point = start_anchor.point;
-                        region.start.side = start_anchor.side;
-                        region.end.point = end_anchor.point;
-                        region.start.ty = start_anchor.ty;
-                        region.end.ty = end_anchor.ty;
+                        region.start = start_anchor;
+                        region.end = end_anchor;
                     }
                     _ => { return; }
                 }
