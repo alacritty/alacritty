@@ -281,10 +281,9 @@ impl Selection {
                     return None;
                 }
 
-                let (start, end) = self.span_block(start, end);
+                let (start, end) = self.span_block(term, start, end);
 
-                // apply semantic and line expansions to block selection
-                let (start, end) = Selection::span_semantic(term, start, end);
+                // apply line expansion
                 let (start, end) = Selection::span_line(cols, start, end);
 
                 Some(Span { start: start.point.into(), end: end.point.into(), is_block: true })
@@ -351,9 +350,11 @@ impl Selection {
     fn span_semantic(term: &Term, mut start: Anchor, mut end: Anchor) -> (Anchor, Anchor) {
         if start.ty == SelectionType::Semantic {
             start.point = Point::from(term.semantic_search_right(start.point.into()));
+            start.side = Side::Right;
         }
         if end.ty == SelectionType::Semantic {
             end.point = Point::from(term.semantic_search_left(end.point.into()));
+            end.side = Side::Left;
         }
         (start, end)
     }
@@ -391,15 +392,24 @@ impl Selection {
 
     fn span_block(
         &self,
-        mut start: Anchor,
-        mut end: Anchor,
+        term: &Term,
+        start: Anchor,
+        end: Anchor,
     ) -> (Anchor, Anchor) {
         // Always go bottom-right -> top-left
-        if start.point.col < end.point.col {
+        let (mut start, mut end) = if start.point.col < end.point.col {
+            // apply semantic expansion to block selection
+            // special case block in the top right & bottom left directions
+            let (mut end, mut start) = Selection::span_semantic(term, end, start);
+
             std::mem::swap(&mut start.side, &mut end.side);
             std::mem::swap(&mut start.ty, &mut end.ty);
             std::mem::swap(&mut start.point.col, &mut end.point.col);
-        }
+            (start, end)
+        } else {
+            // apply semantic expansion to block selection
+            Selection::span_semantic(term, start, end)
+        };
 
         // Remove last cell if selection ends to the left of a cell
         if start.side == Side::Left && start.point != end.point && start.point.col.0 > 0 {
