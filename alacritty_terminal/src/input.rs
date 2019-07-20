@@ -425,6 +425,11 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.update_url_highlight(point, modifiers);
         }
 
+        // Set mouse cursor to Text when Shift is held
+        if modifiers.shift {
+            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Text);
+        }
+
         if self.ctx.mouse().left_button_state == ElementState::Pressed
             && (modifiers.shift || !self.ctx.terminal().mode().intersects(report_mode))
         {
