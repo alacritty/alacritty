@@ -891,7 +891,6 @@ where
 
     #[inline]
     fn csi_dispatch(&mut self, args: &[i64], intermediates: &[u8], _ignore: bool, action: char) {
-        let private = intermediates.get(0).map(|b| *b == b'?').unwrap_or(false);
         let handler = &mut self.handler;
         let writer = &mut self.writer;
 
@@ -911,6 +910,65 @@ where
                     .and_then(|v| if *v == 0 { None } else { Some(*v) })
                     .unwrap_or($default)
             };
+        }
+
+        // Skip CSI sequences with ignored intermediate bytes
+        if _ignore {
+            unhandled!();
+        }
+
+        if !intermediates.is_empty() {
+            macro_rules! is_intermediate {
+                ($ch:expr) => {
+                    intermediates.len() == 1 && intermediates[0] as char == $ch
+                }
+            }
+
+            match action {
+                'l' => {
+                    if is_intermediate!('?') {
+                        // RM/DECRST (CSI ? Pm l) -- Reset DEC Private Mode
+                        for arg in args {
+                            let mode = Mode::from_primitive(true, *arg);
+                            match mode {
+                                Some(mode) => handler.unset_mode(mode),
+                                None => unhandled!(),
+                            }
+                        }
+                        return;
+                    }
+                },
+                'h' => {
+                    if is_intermediate!('?') {
+                        // SM/DECSET (CSI ? Pm h) -- Set DEC Private Mode
+                        for arg in args {
+                            let mode = Mode::from_primitive(true, *arg);
+                            match mode {
+                                Some(mode) => handler.set_mode(mode),
+                                None => unhandled!(),
+                            }
+                        }
+                        return;
+                    }
+                },
+                'q' => {
+                    if is_intermediate!(' ') {
+                        // DECSCUSR (CSI Ps SP q) -- Set Cursor Style
+                        let style = match arg_or_default!(idx: 0, default: 0) {
+                            0 => None,
+                            1 | 2 => Some(CursorStyle::Block),
+                            3 | 4 => Some(CursorStyle::Underline),
+                            5 | 6 => Some(CursorStyle::Beam),
+                            _ => unhandled!(),
+                        };
+
+                        handler.set_cursor_style(style);
+                        return;
+                    }
+                },
+                _ => {}
+            }
+            unhandled!();
         }
 
         match action {
@@ -975,7 +1033,7 @@ where
             'L' => handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             'l' => {
                 for arg in args {
-                    let mode = Mode::from_primitive(private, *arg);
+                    let mode = Mode::from_primitive(false, *arg);
                     match mode {
                         Some(mode) => handler.unset_mode(mode),
                         None => unhandled!(),
@@ -989,7 +1047,7 @@ where
             'd' => handler.goto_line(Line(arg_or_default!(idx: 0, default: 1) as usize - 1)),
             'h' => {
                 for arg in args {
-                    let mode = Mode::from_primitive(private, *arg);
+                    let mode = Mode::from_primitive(false, *arg);
                     match mode {
                         Some(mode) => handler.set_mode(mode),
                         None => unhandled!(),
@@ -1090,9 +1148,6 @@ where
             },
             'n' => handler.device_status(writer, arg_or_default!(idx: 0, default: 0) as usize),
             'r' => {
-                if private {
-                    unhandled!();
-                }
                 let arg0 = arg_or_default!(idx: 0, default: 1) as usize;
                 let top = Line(arg0 - 1);
                 // Bottom should be included in the range, but range end is not
@@ -1106,17 +1161,6 @@ where
             },
             's' => handler.save_cursor_position(),
             'u' => handler.restore_cursor_position(),
-            'q' => {
-                let style = match arg_or_default!(idx: 0, default: 0) {
-                    0 => None,
-                    1 | 2 => Some(CursorStyle::Block),
-                    3 | 4 => Some(CursorStyle::Underline),
-                    5 | 6 => Some(CursorStyle::Beam),
-                    _ => unhandled!(),
-                };
-
-                handler.set_cursor_style(style);
-            },
             _ => unhandled!(),
         }
     }
