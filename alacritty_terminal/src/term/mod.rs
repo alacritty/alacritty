@@ -896,6 +896,7 @@ impl Term {
     pub fn scroll_display(&mut self, scroll: Scroll) {
         self.grid.scroll_display(scroll);
         self.reset_url_highlight();
+        self.reset_mouse_cursor();
         self.dirty = true;
     }
 
@@ -1360,8 +1361,6 @@ impl Term {
 
     #[inline]
     pub fn reset_url_highlight(&mut self) {
-        self.reset_mouse_cursor();
-
         self.grid.url_highlight = None;
         self.dirty = true;
     }
