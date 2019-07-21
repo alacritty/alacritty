@@ -891,6 +891,121 @@ where
 
     #[inline]
     fn csi_dispatch(&mut self, args: &[i64], intermediates: &[u8], _ignore: bool, action: char) {
+
+        fn process_mode<'a, H>(handler: &'a mut H, new_state: bool, is_private_mode: bool, args: &[i64]) -> bool
+        where H: Handler {
+            for arg in args {
+                let mode = Mode::from_primitive(is_private_mode, *arg);
+                match mode {
+                    Some(mode) => {
+                        if new_state {
+                            handler.set_mode(mode);
+                        } else {
+                            handler.unset_mode(mode);
+                        }
+                    },
+                    None => return false,
+                }
+            }
+            true
+        }
+
+        fn process_sgr<'a, H>(handler: &'a mut H, args: &[i64]) -> bool
+        where H: Handler
+        {
+            // Sometimes a C-style for loop is just what you need
+            let mut i = 0; // C-for initializer
+            if args.is_empty() {
+                handler.terminal_attribute(Attr::Reset);
+                return true;
+            }
+            loop {
+                if i >= args.len() {
+                    // C-for condition
+                    break;
+                }
+
+                let attr = match args[i] {
+                    0 => Attr::Reset,
+                    1 => Attr::Bold,
+                    2 => Attr::Dim,
+                    3 => Attr::Italic,
+                    4 => Attr::Underscore,
+                    5 => Attr::BlinkSlow,
+                    6 => Attr::BlinkFast,
+                    7 => Attr::Reverse,
+                    8 => Attr::Hidden,
+                    9 => Attr::Strike,
+                    21 => Attr::CancelBold,
+                    22 => Attr::CancelBoldDim,
+                    23 => Attr::CancelItalic,
+                    24 => Attr::CancelUnderline,
+                    25 => Attr::CancelBlink,
+                    27 => Attr::CancelReverse,
+                    28 => Attr::CancelHidden,
+                    29 => Attr::CancelStrike,
+                    30 => Attr::Foreground(Color::Named(NamedColor::Black)),
+                    31 => Attr::Foreground(Color::Named(NamedColor::Red)),
+                    32 => Attr::Foreground(Color::Named(NamedColor::Green)),
+                    33 => Attr::Foreground(Color::Named(NamedColor::Yellow)),
+                    34 => Attr::Foreground(Color::Named(NamedColor::Blue)),
+                    35 => Attr::Foreground(Color::Named(NamedColor::Magenta)),
+                    36 => Attr::Foreground(Color::Named(NamedColor::Cyan)),
+                    37 => Attr::Foreground(Color::Named(NamedColor::White)),
+                    38 => {
+                        let mut start = 0;
+                        if let Some(color) = parse_color(&args[i..], &mut start) {
+                            i += start;
+                            Attr::Foreground(color)
+                        } else {
+                            break;
+                        }
+                    },
+                    39 => Attr::Foreground(Color::Named(NamedColor::Foreground)),
+                    40 => Attr::Background(Color::Named(NamedColor::Black)),
+                    41 => Attr::Background(Color::Named(NamedColor::Red)),
+                    42 => Attr::Background(Color::Named(NamedColor::Green)),
+                    43 => Attr::Background(Color::Named(NamedColor::Yellow)),
+                    44 => Attr::Background(Color::Named(NamedColor::Blue)),
+                    45 => Attr::Background(Color::Named(NamedColor::Magenta)),
+                    46 => Attr::Background(Color::Named(NamedColor::Cyan)),
+                    47 => Attr::Background(Color::Named(NamedColor::White)),
+                    48 => {
+                        let mut start = 0;
+                        if let Some(color) = parse_color(&args[i..], &mut start) {
+                            i += start;
+                            Attr::Background(color)
+                        } else {
+                            break;
+                        }
+                    },
+                    49 => Attr::Background(Color::Named(NamedColor::Background)),
+                    90 => Attr::Foreground(Color::Named(NamedColor::BrightBlack)),
+                    91 => Attr::Foreground(Color::Named(NamedColor::BrightRed)),
+                    92 => Attr::Foreground(Color::Named(NamedColor::BrightGreen)),
+                    93 => Attr::Foreground(Color::Named(NamedColor::BrightYellow)),
+                    94 => Attr::Foreground(Color::Named(NamedColor::BrightBlue)),
+                    95 => Attr::Foreground(Color::Named(NamedColor::BrightMagenta)),
+                    96 => Attr::Foreground(Color::Named(NamedColor::BrightCyan)),
+                    97 => Attr::Foreground(Color::Named(NamedColor::BrightWhite)),
+                    100 => Attr::Background(Color::Named(NamedColor::BrightBlack)),
+                    101 => Attr::Background(Color::Named(NamedColor::BrightRed)),
+                    102 => Attr::Background(Color::Named(NamedColor::BrightGreen)),
+                    103 => Attr::Background(Color::Named(NamedColor::BrightYellow)),
+                    104 => Attr::Background(Color::Named(NamedColor::BrightBlue)),
+                    105 => Attr::Background(Color::Named(NamedColor::BrightMagenta)),
+                    106 => Attr::Background(Color::Named(NamedColor::BrightCyan)),
+                    107 => Attr::Background(Color::Named(NamedColor::BrightWhite)),
+                    _ => return false,
+                };
+
+                handler.terminal_attribute(attr);
+
+                i += 1; // C-for expr
+            }
+            true
+        }
+
         let handler = &mut self.handler;
         let writer = &mut self.writer;
 
@@ -920,39 +1035,29 @@ where
         if !intermediates.is_empty() {
             macro_rules! is_intermediate {
                 ($ch:expr) => {
-                    intermediates.len() == 1 && intermediates[0] as char == $ch
+                    intermediates.len() == 1 && intermediates[0] == $ch
                 }
             }
 
             match action {
                 'l' => {
-                    if is_intermediate!('?') {
+                    if is_intermediate!(b'?') {
                         // RM/DECRST (CSI ? Pm l) -- Reset DEC Private Mode
-                        for arg in args {
-                            let mode = Mode::from_primitive(true, *arg);
-                            match mode {
-                                Some(mode) => handler.unset_mode(mode),
-                                None => unhandled!(),
-                            }
+                        if process_mode(self.handler, false, true, args) {
+                            return;
                         }
-                        return;
                     }
                 },
                 'h' => {
-                    if is_intermediate!('?') {
+                    if is_intermediate!(b'?') {
                         // SM/DECSET (CSI ? Pm h) -- Set DEC Private Mode
-                        for arg in args {
-                            let mode = Mode::from_primitive(true, *arg);
-                            match mode {
-                                Some(mode) => handler.set_mode(mode),
-                                None => unhandled!(),
-                            }
+                        if process_mode(self.handler, true, true, args) {
+                            return;
                         }
-                        return;
                     }
                 },
                 'q' => {
-                    if is_intermediate!(' ') {
+                    if is_intermediate!(b' ') {
                         // DECSCUSR (CSI Ps SP q) -- Set Cursor Style
                         let style = match arg_or_default!(idx: 0, default: 0) {
                             0 => None,
@@ -1032,12 +1137,8 @@ where
             'T' => handler.scroll_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             'L' => handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             'l' => {
-                for arg in args {
-                    let mode = Mode::from_primitive(false, *arg);
-                    match mode {
-                        Some(mode) => handler.unset_mode(mode),
-                        None => unhandled!(),
-                    }
+                if !process_mode(self.handler, false, false, args) {
+                    unhandled!();
                 }
             },
             'M' => handler.delete_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
@@ -1046,104 +1147,13 @@ where
             'Z' => handler.move_backward_tabs(arg_or_default!(idx: 0, default: 1)),
             'd' => handler.goto_line(Line(arg_or_default!(idx: 0, default: 1) as usize - 1)),
             'h' => {
-                for arg in args {
-                    let mode = Mode::from_primitive(false, *arg);
-                    match mode {
-                        Some(mode) => handler.set_mode(mode),
-                        None => unhandled!(),
-                    }
+                if !process_mode(self.handler, true, false, args) {
+                    unhandled!();
                 }
             },
             'm' => {
-                // Sometimes a C-style for loop is just what you need
-                let mut i = 0; // C-for initializer
-                if args.is_empty() {
-                    handler.terminal_attribute(Attr::Reset);
-                    return;
-                }
-                loop {
-                    if i >= args.len() {
-                        // C-for condition
-                        break;
-                    }
-
-                    let attr = match args[i] {
-                        0 => Attr::Reset,
-                        1 => Attr::Bold,
-                        2 => Attr::Dim,
-                        3 => Attr::Italic,
-                        4 => Attr::Underscore,
-                        5 => Attr::BlinkSlow,
-                        6 => Attr::BlinkFast,
-                        7 => Attr::Reverse,
-                        8 => Attr::Hidden,
-                        9 => Attr::Strike,
-                        21 => Attr::CancelBold,
-                        22 => Attr::CancelBoldDim,
-                        23 => Attr::CancelItalic,
-                        24 => Attr::CancelUnderline,
-                        25 => Attr::CancelBlink,
-                        27 => Attr::CancelReverse,
-                        28 => Attr::CancelHidden,
-                        29 => Attr::CancelStrike,
-                        30 => Attr::Foreground(Color::Named(NamedColor::Black)),
-                        31 => Attr::Foreground(Color::Named(NamedColor::Red)),
-                        32 => Attr::Foreground(Color::Named(NamedColor::Green)),
-                        33 => Attr::Foreground(Color::Named(NamedColor::Yellow)),
-                        34 => Attr::Foreground(Color::Named(NamedColor::Blue)),
-                        35 => Attr::Foreground(Color::Named(NamedColor::Magenta)),
-                        36 => Attr::Foreground(Color::Named(NamedColor::Cyan)),
-                        37 => Attr::Foreground(Color::Named(NamedColor::White)),
-                        38 => {
-                            let mut start = 0;
-                            if let Some(color) = parse_color(&args[i..], &mut start) {
-                                i += start;
-                                Attr::Foreground(color)
-                            } else {
-                                break;
-                            }
-                        },
-                        39 => Attr::Foreground(Color::Named(NamedColor::Foreground)),
-                        40 => Attr::Background(Color::Named(NamedColor::Black)),
-                        41 => Attr::Background(Color::Named(NamedColor::Red)),
-                        42 => Attr::Background(Color::Named(NamedColor::Green)),
-                        43 => Attr::Background(Color::Named(NamedColor::Yellow)),
-                        44 => Attr::Background(Color::Named(NamedColor::Blue)),
-                        45 => Attr::Background(Color::Named(NamedColor::Magenta)),
-                        46 => Attr::Background(Color::Named(NamedColor::Cyan)),
-                        47 => Attr::Background(Color::Named(NamedColor::White)),
-                        48 => {
-                            let mut start = 0;
-                            if let Some(color) = parse_color(&args[i..], &mut start) {
-                                i += start;
-                                Attr::Background(color)
-                            } else {
-                                break;
-                            }
-                        },
-                        49 => Attr::Background(Color::Named(NamedColor::Background)),
-                        90 => Attr::Foreground(Color::Named(NamedColor::BrightBlack)),
-                        91 => Attr::Foreground(Color::Named(NamedColor::BrightRed)),
-                        92 => Attr::Foreground(Color::Named(NamedColor::BrightGreen)),
-                        93 => Attr::Foreground(Color::Named(NamedColor::BrightYellow)),
-                        94 => Attr::Foreground(Color::Named(NamedColor::BrightBlue)),
-                        95 => Attr::Foreground(Color::Named(NamedColor::BrightMagenta)),
-                        96 => Attr::Foreground(Color::Named(NamedColor::BrightCyan)),
-                        97 => Attr::Foreground(Color::Named(NamedColor::BrightWhite)),
-                        100 => Attr::Background(Color::Named(NamedColor::BrightBlack)),
-                        101 => Attr::Background(Color::Named(NamedColor::BrightRed)),
-                        102 => Attr::Background(Color::Named(NamedColor::BrightGreen)),
-                        103 => Attr::Background(Color::Named(NamedColor::BrightYellow)),
-                        104 => Attr::Background(Color::Named(NamedColor::BrightBlue)),
-                        105 => Attr::Background(Color::Named(NamedColor::BrightMagenta)),
-                        106 => Attr::Background(Color::Named(NamedColor::BrightCyan)),
-                        107 => Attr::Background(Color::Named(NamedColor::BrightWhite)),
-                        _ => unhandled!(),
-                    };
-
-                    handler.terminal_attribute(attr);
-
-                    i += 1; // C-for expr
+                if !process_sgr(self.handler, args) {
+                    unhandled!();
                 }
             },
             'n' => handler.device_status(writer, arg_or_default!(idx: 0, default: 0) as usize),
