@@ -892,8 +892,8 @@ where
     #[inline]
     fn csi_dispatch(&mut self, args: &[i64], intermediates: &[u8], _ignore: bool, action: char) {
 
-        fn process_mode<'a, H>(handler: &'a mut H, new_state: bool, is_private_mode: bool, args: &[i64]) -> bool
-        where H: Handler {
+        #[inline]
+        fn process_mode<H: Handler>(handler: &mut H, new_state: bool, is_private_mode: bool, args: &[i64]) -> bool {
             for arg in args {
                 let mode = Mode::from_primitive(is_private_mode, *arg);
                 match mode {
@@ -910,9 +910,8 @@ where
             true
         }
 
-        fn process_sgr<'a, H>(handler: &'a mut H, args: &[i64]) -> bool
-        where H: Handler
-        {
+        #[inline]
+        fn process_sgr<H: Handler>(handler: &mut H, args: &[i64]) -> bool {
             // Sometimes a C-style for loop is just what you need
             let mut i = 0; // C-for initializer
             if args.is_empty() {
