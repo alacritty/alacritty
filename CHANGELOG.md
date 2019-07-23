@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Debug ref tests are now written to disk regardless of shutdown method
 - Cursor color setting with escape sequence
 - Override default bindings with subset terminal mode match
+- On Linux, respect fontconfig's `embeddedbitmap` configuration option
 
 ## 0.3.3
 
