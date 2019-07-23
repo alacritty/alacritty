@@ -143,11 +143,17 @@ impl crate::Rasterize for DirectWriteRasterizer {
             bidiLevel: 0,
         };
 
+        let rendering_mode = font.get_recommended_rendering_mode_default_params(
+            glyph.size.as_f32_pts(),
+            self.device_pixel_ratio * (96.0 / 72.0),
+            dwrote::DWRITE_MEASURING_MODE_NATURAL
+        );
+
         let glyph_analysis = GlyphRunAnalysis::create(
             &glyph_run,
             self.device_pixel_ratio * (96.0 / 72.0),
             None,
-            dwrote::DWRITE_RENDERING_MODE_NATURAL,
+            rendering_mode,
             dwrote::DWRITE_MEASURING_MODE_NATURAL,
             0.0,
             0.0,

@@ -52,6 +52,7 @@ ref_tests! {
     zsh_tab_completion
     history
     grid_reset
+    row_reset
     zerowidth
 }
 

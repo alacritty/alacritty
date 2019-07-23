@@ -32,7 +32,7 @@ mod test;
 mod visual_bell;
 mod window;
 
-use crate::ansi::CursorStyle;
+use crate::ansi::{Color, CursorStyle, NamedColor};
 use crate::input::{Binding, KeyBinding, MouseBinding};
 
 pub use crate::config::bindings::Key;
@@ -44,6 +44,7 @@ pub use crate::config::mouse::{ClickHandler, Mouse};
 pub use crate::config::scrolling::Scrolling;
 pub use crate::config::visual_bell::{VisualBellAnimation, VisualBellConfig};
 pub use crate::config::window::{Decorations, Dimensions, StartupMode, WindowConfig};
+use crate::term::color::Rgb;
 
 pub static DEFAULT_ALACRITTY_CONFIG: &str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.yml"));
@@ -188,6 +189,18 @@ impl Config {
     #[inline]
     pub fn dynamic_title(&self) -> bool {
         self.dynamic_title.0
+    }
+
+    /// Cursor foreground color
+    #[inline]
+    pub fn cursor_text_color(&self) -> Option<Rgb> {
+        self.colors.cursor.text
+    }
+
+    /// Cursor background color
+    #[inline]
+    pub fn cursor_cursor_color(&self) -> Option<Color> {
+        self.colors.cursor.cursor.map(|_| Color::Named(NamedColor::Cursor))
     }
 
     #[inline]

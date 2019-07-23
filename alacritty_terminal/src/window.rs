@@ -337,12 +337,7 @@ impl Window {
         }
     }
 
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "freebsd",
-        target_os = "dragonfly",
-        target_os = "openbsd"
-    ))]
+    #[cfg(not(any(target_os = "macos", windows)))]
     pub fn set_urgent(&self, is_urgent: bool) {
         self.window().set_urgent(is_urgent);
     }
@@ -403,7 +398,6 @@ impl Window {
 
     #[cfg(target_os = "macos")]
     pub fn set_simple_fullscreen(&self, fullscreen: bool) {
-        use glutin::os::macos::WindowExt;
         self.window().set_simple_fullscreen(fullscreen);
     }
 
@@ -421,20 +415,10 @@ pub trait OsExtensions {
     fn run_os_extensions(&self) {}
 }
 
-#[cfg(not(any(
-    target_os = "linux",
-    target_os = "freebsd",
-    target_os = "dragonfly",
-    target_os = "openbsd"
-)))]
+#[cfg(any(target_os = "macos", windows))]
 impl OsExtensions for Window {}
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "freebsd",
-    target_os = "dragonfly",
-    target_os = "openbsd"
-))]
+#[cfg(not(any(target_os = "macos", windows)))]
 impl OsExtensions for Window {
     fn run_os_extensions(&self) {
         use libc::getpid;
