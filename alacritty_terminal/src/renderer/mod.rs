@@ -971,6 +971,7 @@ impl<'a> RenderApi<'a> {
 
     /// Render a string in a variable location. Used for printing the render timer, warnings and
     /// errors.
+    #[cfg(not(feature = "hb-ft"))]
     pub fn render_string(
         &mut self,
         string: &str,
@@ -1004,6 +1005,30 @@ impl<'a> RenderApi<'a> {
         }
     }
 
+    #[cfg(feature = "hb-ft")]
+    pub fn render_string(
+        &mut self,
+        string: &str,
+        line: Line,
+        glyph_cache: &mut GlyphCache,
+        color: Option<Rgb>,
+    ) {
+        let bg_alpha = color.map(|_| 1.0).unwrap_or(0.0);
+        let col = Column(0);
+
+        let text_run = TextRun {
+            line,
+            run: (Column(0), Column(string.len() - 1)),
+            run_chars: TextRunContent::CharRun(string.to_owned(), vec![]),
+            fg: Rgb { r: 0, g: 0, b: 0 },
+            bg: color.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
+            flags: cell::Flags::empty(),
+            bg_alpha
+        };
+
+        self.render_text_run(text_run, glyph_cache);
+    }
+
     pub fn add_render_item(&mut self, cell: &RenderableCell, glyph: &Glyph) {
         // Flush batch if tex changing
         if !self.batch.is_empty() && self.batch.tex != glyph.tex_id {
@@ -1016,32 +1041,6 @@ impl<'a> RenderApi<'a> {
         if self.batch.full() {
             self.render_batch();
         }
-    }
-
-    pub fn render_glyph_at_position(
-        &mut self,
-        cell: &RenderableCell,
-        glyph_cache: &mut GlyphCache,
-        glyph: char,
-    ) {
-        if cell.flags.contains(cell::Flags::HIDDEN) {
-            return;
-        }
-        // Get font key for cell
-        // FIXME this is super inefficient.
-        let font_key = if cell.flags.contains(cell::Flags::BOLD) {
-            glyph_cache.bold_key
-        } else if cell.flags.contains(cell::Flags::ITALIC) {
-            glyph_cache.italic_key
-        } else {
-            glyph_cache.font_key
-        };
-
-        let glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, c: glyph.into() };
-
-        // Add cell to batch
-        let glyph = glyph_cache.get(glyph_key, self);
-        self.add_render_item(cell, &glyph);
     }
 
     #[cfg(feature = "hb-ft")]
@@ -1085,7 +1084,7 @@ impl<'a> RenderApi<'a> {
 
 
                 for (cell, chars) in text_run.cell_iter().zip(zero_widths.iter()) {
-                    for c in chars.into_iter().filter(|c| **c != ' ') {
+                    for c in chars.iter().filter(|c| **c != ' ') {
                         let glyph_key =
                             GlyphKey { font_key, size: glyph_cache.font_size, c: c.into() };
                         let average_advance = glyph_cache.metrics.average_advance as f32;
