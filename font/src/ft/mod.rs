@@ -29,7 +29,7 @@ use libc::c_uint;
 pub mod fc;
 
 use super::{
-    FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
+    FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
 };
 
 struct FixedSize {
@@ -332,32 +332,41 @@ impl FreeTypeRasterizer {
         }
     }
 
+    #[cfg(feature = "hb-ft")]
+    pub fn index_for_char(&self, font_key: FontKey, c: char) -> Option<u32> {
+        self.faces.get(&font_key).map(|face|
+            face.ft_face.get_char_index(c as usize))
+    }
+
+    #[cfg(feature = "hb-ft")]
+    fn face_for_glyph(
+        &mut self,
+        glyph_key: GlyphKey,
+        _have_recursed: bool,
+    ) -> Result<FontKey, Error> {
+        Ok(glyph_key.font_key)
+    }
+
+    #[cfg(not(feature = "hb-ft"))]
     fn face_for_glyph(
         &mut self,
         glyph_key: GlyphKey,
         have_recursed: bool,
     ) -> Result<FontKey, Error> {
-        match glyph_key.c {
-            KeyType::GlyphIndex(_) => {
-                // Already been through shaping so just use font_key
-                Ok(glyph_key.font_key)
-            }
-            KeyType::Char(c) => {
-                let use_initial_face = if let Some(face) = self.faces.get(&glyph_key.font_key) {
-                    let index = face.ft_face.get_char_index(c as usize);
+        let c = glyph_key.c;
+        let use_initial_face = if let Some(face) = self.faces.get(&glyph_key.font_key) {
+            let index = face.ft_face.get_char_index(c as usize);
 
-                    index != 0 || have_recursed
-                } else {
-                    false
-                };
+            index != 0 || have_recursed
+        } else {
+            false
+        };
 
-                if use_initial_face {
-                    Ok(glyph_key.font_key)
-                } else {
-                    let key = self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key);
-                    Ok(key)
-                }
-            }
+        if use_initial_face {
+            Ok(glyph_key.font_key)
+        } else {
+            let key = self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key);
+            Ok(key)
         }
     }
 
@@ -365,10 +374,10 @@ impl FreeTypeRasterizer {
         // Render a normal character if it's not a cursor
         let font_key = self.face_for_glyph(glyph_key, false)?;
         let face = &self.faces[&font_key];
-        let index = match glyph_key.c {
-            KeyType::GlyphIndex(i) => i,
-            KeyType::Char(c) => face.ft_face.get_char_index(c as usize),
-        };
+        #[cfg(not(feature = "hb-ft"))]
+        let index = face.ft_face.get_char_index(glyph_key.c as usize);
+        #[cfg(feature = "hb-ft")]
+        let index = glyph_key.c;
 
         self.get_rendered_glyph_index(face, glyph_key, index)
     }
@@ -547,6 +556,7 @@ impl FreeTypeRasterizer {
         }
     }
 
+    #[cfg(not(feature = "hb-ft"))]
     fn load_face_with_glyph(&mut self, glyph: char) -> Result<FontKey, Error> {
         let mut charset = fc::CharSet::new();
         charset.add(glyph);

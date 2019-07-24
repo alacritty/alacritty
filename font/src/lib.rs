@@ -56,6 +56,7 @@ extern crate harfbuzz_rs;
 #[cfg_attr(not(windows), macro_use)]
 extern crate log;
 
+use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::fmt;
 
@@ -166,39 +167,41 @@ impl From<u32> for KeyType {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct GlyphKey {
+    #[cfg(not(feature = "hb-ft"))]
     pub c: char,
+    #[cfg(feature = "hb-ft")]
+    pub c: u32,
     pub font_key: FontKey,
     pub size: Size,
 }
 
-//impl Hash for GlyphKey {
-//    fn hash<H: Hasher>(&self, state: &mut H) {
-//        unsafe {
-//            // This transmute is fine:
-//            //
-//            // - If GlyphKey ever becomes a different size, this will fail to compile
-//            // - Result is being used for hashing and has no fields (it's a u64)
-//            ::std::mem::transmute::<GlyphKey, u64>(*self)
-//        }
-//        .hash(state);
-//        state.
-//    }
-//}
-//
-//impl PartialEq for GlyphKey {
-//    fn eq(&self, other: &Self) -> bool {
-//        unsafe {
-//            // This transmute is fine:
-//            //
-//            // - If GlyphKey ever becomes a different size, this will fail to compile
-//            // - Result is being used for equality checking and has no fields (it's a u64)
-//            let other = ::std::mem::transmute::<GlyphKey, u64>(*other);
-//            ::std::mem::transmute::<GlyphKey, u64>(*self).eq(&other)
-//        }
-//    }
-//}
+impl Hash for GlyphKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        unsafe {
+            // This transmute is fine:
+            //
+            // - If GlyphKey ever becomes a different size, this will fail to compile
+            // - Result is being used for hashing and has no fields (it's a u64)
+            ::std::mem::transmute::<GlyphKey, u64>(*self)
+        }
+        .hash(state);
+    }
+}
+
+impl PartialEq for GlyphKey {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe {
+            // This transmute is fine:
+            //
+            // - If GlyphKey ever becomes a different size, this will fail to compile
+            // - Result is being used for equality checking and has no fields (it's a u64)
+            let other = ::std::mem::transmute::<GlyphKey, u64>(*other);
+            ::std::mem::transmute::<GlyphKey, u64>(*self).eq(&other)
+        }
+    }
+}
 
 /// Font size stored as integer
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -232,7 +235,10 @@ impl ::std::ops::Add for Size {
 
 #[derive(Clone)]
 pub struct RasterizedGlyph {
-    pub c: KeyType,
+    #[cfg(not(feature = "hb-ft"))]
+    pub c: char,
+    #[cfg(feature = "hb-ft")]
+    pub c: u32,
     pub width: i32,
     pub height: i32,
     pub top: i32,
