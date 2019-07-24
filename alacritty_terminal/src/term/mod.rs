@@ -561,7 +561,10 @@ pub mod text_run {
     }
 
     fn opt_pair<A, B>(a: Option<A>, b: Option<B>) -> Option<(A, B)> {
-        a.and_then(move |a_val| b.map(move |b_val| (a_val, b_val)))
+        match (a, b) {
+            (Some(a_val), Some(b_val)) => Some((a, b)),
+            _ => None
+        }
     }
 
     impl<I> Iterator for TextRunIter<I>
