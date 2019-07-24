@@ -460,6 +460,7 @@ impl Batch {
         Batch { tex: 0, instances: Vec::with_capacity(BATCH_MAX) }
     }
 
+
     pub fn add_item(&mut self, cell: &RenderableCell, glyph: &Glyph) {
         if self.is_empty() {
             self.tex = glyph.tex_id;
@@ -1063,7 +1064,7 @@ impl<'a> RenderApi<'a> {
                 });
                 self.add_render_item(&text_run.start_cell(), &glyph);
             }
-            TextRunContent::CharRun(chars) => {
+            TextRunContent::CharRun(run, zero_widths) => {
                 let font_key = if text_run.flags.contains(cell::Flags::BOLD) {
                     glyph_cache.bold_key
                 } else if text_run.flags.contains(cell::Flags::ITALIC) {
@@ -1073,26 +1074,18 @@ impl<'a> RenderApi<'a> {
                 };
 
                 let hidden = text_run.flags.contains(cell::Flags::HIDDEN);
-                let run: String = if hidden {
-                    " ".repeat(chars.len())
-                } else {
-                    chars
-                        .iter()
-                        .map(|chars| if chars[0] == '\t' { ' ' } else { chars[0] })
-                        .collect()
+                if !hidden {
+                    let glyphs = glyph_cache
+                        .shape_run(&run, font_key, self)
+                        .expect("harfbuzz font to be present");
+                    for (cell, glyph) in text_run.cell_iter().zip(glyphs.into_iter()) {
+                        self.add_render_item(&cell, &glyph);
+                    }
                 };
 
-                use font::HbFtExt;
-                let glyphs = glyph_cache
-                    .shape_run(&run, font_key, self)
-                    .expect("harfbuzz font to be present");
-                for (cell, glyph) in text_run.cell_iter().zip(glyphs.into_iter()) {
-                    self.add_render_item(&cell, &glyph);
-                }
 
-                for (cell, chars) in text_run.cell_iter().zip(chars.iter()) {
-                    let slice: &[char] = &chars[1..];
-                    for c in slice.into_iter().filter(|c| **c != ' ') {
+                for (cell, chars) in text_run.cell_iter().zip(zero_widths.iter()) {
+                    for c in chars.into_iter().filter(|c| **c != ' ') {
                         let glyph_key =
                             GlyphKey { font_key, size: glyph_cache.font_size, c: c.into() };
                         let average_advance = glyph_cache.metrics.average_advance as f32;
