@@ -56,9 +56,8 @@ extern crate harfbuzz_rs;
 #[cfg_attr(not(windows), macro_use)]
 extern crate log;
 
-use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{cmp, fmt};
+use std::fmt;
 
 // If target isn't macos or windows, reexport everything from ft
 #[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
@@ -169,7 +168,7 @@ impl From<u32> for KeyType {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct GlyphKey {
-    pub c: KeyType,
+    pub c: char,
     pub font_key: FontKey,
     pub size: Size,
 }
@@ -305,22 +304,8 @@ pub trait Rasterize {
 pub trait HbFtExt {
     /// Shape the provided text into a set of glyphs.
     /// TODO: properly report HarfBuzz errors
-    fn shape(&mut self, text: &str, font_key: FontKey, size: Size)
+    fn shape(&mut self, text: &str, font_key: FontKey)
         -> Result<harfbuzz_rs::GlyphBuffer, HbError>;
-}
-
-/// A HarfBuzz-shaped glyph with advance and offset information.
-#[cfg(feature = "hb-ft")]
-#[derive(Debug)]
-pub struct HbGlyph {
-    pub x_advance: f32,
-    pub y_advance: f32,
-    pub x_offset: f32,
-    pub y_offset: f32,
-    pub glyph_key: GlyphKey,
-    pub codepoint: u32,
-    // Probably will never be used
-    pub cluster: u32,
 }
 
 #[derive(Debug)]

@@ -24,21 +24,19 @@ use glutin::EventsLoop;
 use parking_lot::MutexGuard;
 
 use crate::config::{Config, StartupMode};
-use crate::index::{Line, Column};
+use crate::index::{Line};
 use crate::message_bar::Message;
 use crate::meter::Meter;
 use crate::renderer::rects::{Rect, Rects};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
 use crate::term::color::Rgb;
-use crate::term::{RenderableCell, SizeInfo, Term, RenderableCellContent};
+use crate::term::{RenderableCell, SizeInfo, Term};
 use crate::window::{self, Window};
-use font::{self, KeyType, Rasterize};
-#[cfg(feature = "hb-ft")]
-use font::{HbFtExt, HbGlyph};
+use font::{self, Rasterize};
 
 #[cfg(feature = "hb-ft")]
-use crate::term::text_run::{TextRun, TextRunIter};
+use crate::term::text_run::{TextRunIter};
 
 #[derive(Debug)]
 pub enum Error {
@@ -500,11 +498,6 @@ impl Display {
             }
         }
 
-        #[cfg(feature = "hb-ft")]
-        let g_lines = terminal.grid().num_lines();
-        #[cfg(feature = "hb-ft")]
-        let g_cols = terminal.grid().num_cols();
-
         // Clear when terminal mutex isn't held. Mesa for
         // some reason takes a long time to call glClear(). The driver descends
         // into xcb_connect_to_fd() which ends up calling __poll_nocancel()
@@ -545,13 +538,6 @@ impl Display {
             {
                 let _sampler = self.meter.sampler();
 
-                // Helper that rounds first arg to be a multiple of second arg.
-                #[inline]
-                fn u_round_to(a: f32, b: f32) -> usize {
-                    let a = a as usize;
-                    let b = b as usize;
-                    a / b
-                }
                 self.renderer.with_api(config, &size_info, |mut api| {
                     // Iterate over each contiguous block of text
                     for text_run in TextRunIter::new(grid_cells.into_iter()) {

@@ -19,7 +19,7 @@ use std::fmt;
 use std::path::PathBuf;
 
 #[cfg(feature = "hb-ft")]
-use super::{HbError, HbGlyph};
+use super::HbError;
 #[cfg(feature = "hb-ft")]
 use harfbuzz_rs::{Shared, Font, GlyphBuffer};
 use freetype::tt_os2::TrueTypeOS2Table;
@@ -161,7 +161,6 @@ impl ::HbFtExt for FreeTypeRasterizer {
         &mut self,
         text: &str,
         font_key: FontKey,
-        size: Size,
     ) -> Result<GlyphBuffer, HbError> {
         use harfbuzz_rs::{shape, UnicodeBuffer};
         self.faces[&font_key]

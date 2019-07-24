@@ -293,7 +293,7 @@ impl GlyphCache {
         L: LoadGlyph,
     {
         use font::{HbFtExt};
-        Ok(self.rasterizer.shape(text_run, font_key, self.font_size)?
+        Ok(self.rasterizer.shape(text_run, font_key)?
             .get_glyph_infos()
             .iter()
             .map(move |glyph_info| *self.get(GlyphKey {
@@ -1014,7 +1014,6 @@ impl<'a> RenderApi<'a> {
         color: Option<Rgb>,
     ) {
         let bg_alpha = color.map(|_| 1.0).unwrap_or(0.0);
-        let col = Column(0);
 
         let text_run = TextRun {
             line,
