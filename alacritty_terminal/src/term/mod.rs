@@ -440,8 +440,30 @@ pub mod text_run {
     };
     use crate::index::{Column, Line};
 
+    pub(crate) struct RunStart {
+        pub line: Line,
+        pub column: Column,
+        pub fg: Rgb,
+        pub bg: Rgb,
+        pub bg_alpha: f32,
+        pub flags: Flags,
+    }
+    // Use a macro instead of a function to make use of partial move semantics that don't cross function boundaries
+    macro_rules! from_rc {
+        ($rc:ident) => {
+            RunStart {
+                line: $rc.line,
+                column: $rc.column,
+                fg: $rc.fg,
+                bg: $rc.bg,
+                bg_alpha: $rc.bg_alpha,
+                flags: $rc.flags,
+            }
+        };
+    }
+
     /// Compare cells and check they are in the same text run
-    fn is_contiguous_cell(a: &RenderableCell, b: &RenderableCell) -> bool {
+    fn is_contiguous_context(a: &RunStart, b: &RenderableCell) -> bool {
         a.line == b.line
             && a.fg == b.fg
             && a.bg == b.bg
@@ -454,11 +476,34 @@ pub mod text_run {
         a.0 + 1 == b.0 || b.0 + 1 == a.0
     }
 
+    use std::fmt;
+    use std::fmt::Write;
     pub enum TextRunContent {
         Cursor(CursorKey),
         CharRun(Vec<[char; MAX_ZEROWIDTH_CHARS + 1]>),
     }
+    impl fmt::Debug for TextRunContent {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            use TextRunContent::*;
+            match &self {
+                Cursor(cursor) => {
+                    f.write_str("Cursor(")?;
+                    cursor.fmt(f)?;
+                    f.write_str(")")?;
+                },
+                CharRun(chars) => {
+                    f.write_str("CharRun(\"")?;
+                    for c in chars.iter() {
+                        f.write_char(c[0])?;
+                    }
+                    f.write_str("\")")?;
+                }
+            }
+            Ok(())
+        }
+    }
 
+    #[derive(Debug)]
     pub struct TextRun {
         // By definition a run is on one line.
         pub line: Line,
@@ -471,7 +516,7 @@ pub mod text_run {
     }
     impl TextRun {
         pub(crate) fn from_iter_state(
-            start: RenderableCell,
+            start: RunStart,
             latest: Column,
             buffer: Vec<[char; MAX_ZEROWIDTH_CHARS + 1]>,
         ) -> Self {
@@ -485,7 +530,7 @@ pub mod text_run {
                 flags: start.flags,
             }
         }
-        pub(crate) fn from_cursor_rc(start: RenderableCell, cursor: CursorKey) -> Self {
+        pub(crate) fn from_cursor_rc(start: RunStart, cursor: CursorKey) -> Self {
             TextRun {
                 line: start.line,
                 run: (start.column, start.column),
@@ -531,19 +576,26 @@ pub mod text_run {
     }
     pub struct TextRunIter<I> {
         iter: I,
-        run_start: Option<RenderableCell>,
+        run_start: Option<RunStart>,
         latest: Option<Column>,
         buffer: Vec<[char; MAX_ZEROWIDTH_CHARS + 1]>,
+        cursor: Option<CursorKey>,
     }
     impl<I> TextRunIter<I> {
-        pub fn new(iter: I) -> Self {
-            TextRunIter { iter, latest: None, run_start: None, buffer: Vec::new() }
+        pub fn new(mut iter: I) -> Self {
+            TextRunIter { 
+                iter, 
+                latest: None, 
+                run_start: None, 
+                buffer: Vec::new(), 
+                cursor: None 
+            }
         }
 
         /// Check if current run ends with incoming RenderableCell
         pub fn is_run_break(&self, rc: &RenderableCell) -> bool {
             let is_cell_break =
-                self.run_start.as_ref().map(|cell| !is_contiguous_cell(cell, rc)).unwrap_or(false);
+                self.run_start.as_ref().map(|cell| !is_contiguous_context(cell, &rc)).unwrap_or(false);
             let is_col_break = self
                 .latest
                 .as_ref()
@@ -554,15 +606,20 @@ pub mod text_run {
 
         pub fn buffer_content(&mut self, inner: RenderableCellContent) {
             // Add to buffer only if the next rc is a Char (not a cursor)
-            if let RenderableCellContent::Chars(chars) = inner {
-                self.buffer.push(chars);
+            match inner {
+                RenderableCellContent::Chars(chars) => {
+                    self.buffer.push(chars);
+                }
+                RenderableCellContent::Cursor(cursor) => {
+                    self.cursor = Some(cursor);
+                }
             }
         }
     }
 
     fn opt_pair<A, B>(a: Option<A>, b: Option<B>) -> Option<(A, B)> {
         match (a, b) {
-            (Some(a_val), Some(b_val)) => Some((a, b)),
+            (Some(a_val), Some(b_val)) => Some((a_val, b_val)),
             _ => None
         }
     }
@@ -574,46 +631,39 @@ pub mod text_run {
         type Item = TextRun;
 
         fn next(&mut self) -> Option<Self::Item> {
+            use log::debug;
             let mut output = None;
             while let Some(rc) = self.iter.next() {
                 if self.latest.is_none() || self.run_start.is_none() {
-                    self.latest.replace(rc.column);
-                    self.run_start.replace(rc);
-                    continue;
-                } else if self.run_start.as_ref().map(|rc| rc.is_cursor()).unwrap_or(false) {
-                    self.buffer_content(rc.inner.clone());
+                    self.run_start.replace(from_rc!(rc));
+                } else if self.cursor.is_some() {
+                    self.buffer_content(rc.inner);
                     self.latest = Some(rc.column);
-                    let start = self.run_start.replace(rc);
-                    output = start.map(|rc| match rc.inner {
-                        RenderableCellContent::Chars(_) => {
-                            panic!("Found chars inner content for Cursor RenderableCell")
-                        }
-                        RenderableCellContent::Cursor(cursor) => {
-                            TextRun::from_cursor_rc(rc, cursor)
-                        }
-                    });
+                    let start = self.run_start.replace(from_rc!(rc));
+                    output = opt_pair(start, self.cursor.take()).map(|(start, cursor)| TextRun::from_cursor_rc(start, cursor));
                     break;
                 } else if self.is_run_break(&rc) || rc.is_cursor() {
                     let prev_buffer = self.buffer.drain(..).collect();
                     let latest = self.latest.replace(rc.column);
-                    self.buffer_content(rc.inner.clone());
-                    let start = self.run_start.replace(rc);
+                    self.buffer_content(rc.inner);
+                    let start = self.run_start.replace(from_rc!(rc));
                     output = opt_pair(start, latest).map(|(start, latest)| {
                         TextRun::from_iter_state(start, latest, prev_buffer)
                     });
                     break;
-                } else {
-                    self.latest = Some(rc.column);
-                    self.buffer_content(rc.inner.clone());
                 }
+                self.latest = Some(rc.column);
+                self.buffer_content(rc.inner);
             }
             output.or_else(|| {
-                if self.buffer.is_empty() {
-                    None
-                } else {
+                if !self.buffer.is_empty() {
                     opt_pair(self.run_start.take(), self.latest.take()).map(|(start, latest)|
                         // Save leftover buffer and empty it
                         TextRun::from_iter_state(start, latest, self.buffer.drain(..).collect()))
+                } else if let Some(cursor) = self.cursor {
+                   self.run_start.take().map(|start| TextRun::from_cursor_rc(start, cursor)) 
+                } else {
+                    None
                 }
             })
         }
