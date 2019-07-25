@@ -368,6 +368,7 @@ impl RenderableCell {
         }
     }
 
+    #[cfg(feature = "hb-ft")]
     fn is_cursor(&self) -> bool {
         match &self.inner {
             RenderableCellContent::Cursor(_) => true,

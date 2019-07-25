@@ -36,6 +36,8 @@ use crate::term::color::Rgb;
 #[cfg(feature = "hb-ft")]
 use crate::term::text_run::{TextRun, TextRunContent};
 use crate::term::{self, cell, RenderableCell};
+#[cfg(not(feature = "hb-ft"))]
+use crate::term::RenderableCellContent;
 #[cfg(feature = "hb-ft")]
 use font::HbError;
 
