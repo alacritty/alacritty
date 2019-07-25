@@ -30,12 +30,7 @@ pub struct Rect<T> {
 
 impl<T> Rect<T> {
     pub fn new(x: T, y: T, width: T, height: T) -> Self {
-        Rect {
-            x,
-            y,
-            width,
-            height,
-        }
+        Rect { x, y, width, height }
     }
 }
 

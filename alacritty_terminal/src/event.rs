@@ -73,11 +73,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn selection_is_empty(&self) -> bool {
-        self.terminal
-            .selection()
-            .as_ref()
-            .map(Selection::is_empty)
-            .unwrap_or(true)
+        self.terminal.selection().as_ref().map(Selection::is_empty).unwrap_or(true)
     }
 
     fn clear_selection(&mut self) {
@@ -121,8 +117,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     fn mouse_coords(&self) -> Option<Point> {
-        self.terminal
-            .pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
+        self.terminal.pixels_to_coords(self.mouse.x as usize, self.mouse.y as usize)
     }
 
     #[inline]
@@ -186,10 +181,7 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
 
         match start_daemon(&alacritty, &args) {
             Ok(_) => debug!("Started new Alacritty process: {} {:?}", alacritty, args),
-            Err(_) => warn!(
-                "Unable to start new Alacritty process: {} {:?}",
-                alacritty, args
-            ),
+            Err(_) => warn!("Unable to start new Alacritty process: {} {:?}", alacritty, args),
         }
     }
 
@@ -377,53 +369,39 @@ impl<N: Notify> Processor<N> {
                             .send(lsize.to_physical(processor.ctx.size_info.dpr))
                             .expect("send new size");
                         processor.ctx.terminal.dirty = true;
-                    }
+                    },
                     KeyboardInput { input, .. } => {
                         processor.process_key(input);
                         if input.state == ElementState::Pressed {
                             // Hide cursor while typing
                             *hide_mouse = true;
                         }
-                    }
+                    },
                     ReceivedCharacter(c) => {
                         processor.received_char(c);
-                    }
-                    MouseInput {
-                        state,
-                        button,
-                        modifiers,
-                        ..
-                    } => {
+                    },
+                    MouseInput { state, button, modifiers, .. } => {
                         if !cfg!(target_os = "macos") || *window_is_focused {
                             *hide_mouse = false;
                             processor.mouse_input(state, button, modifiers);
                             processor.ctx.terminal.dirty = true;
                         }
-                    }
-                    CursorMoved {
-                        position: lpos,
-                        modifiers,
-                        ..
-                    } => {
+                    },
+                    CursorMoved { position: lpos, modifiers, .. } => {
                         let (x, y) = lpos.to_physical(processor.ctx.size_info.dpr).into();
                         let x: i32 = limit(x, 0, processor.ctx.size_info.width as i32);
                         let y: i32 = limit(y, 0, processor.ctx.size_info.height as i32);
 
                         *hide_mouse = false;
                         processor.mouse_moved(x as usize, y as usize, modifiers);
-                    }
-                    MouseWheel {
-                        delta,
-                        phase,
-                        modifiers,
-                        ..
-                    } => {
+                    },
+                    MouseWheel { delta, phase, modifiers, .. } => {
                         *hide_mouse = false;
                         processor.on_mouse_wheel(delta, phase, modifiers);
-                    }
+                    },
                     Refresh => {
                         processor.ctx.terminal.dirty = true;
-                    }
+                    },
                     Focused(is_focused) => {
                         *window_is_focused = is_focused;
 
@@ -437,19 +415,19 @@ impl<N: Notify> Processor<N> {
                         }
 
                         processor.on_focus_change(is_focused);
-                    }
+                    },
                     DroppedFile(path) => {
                         use crate::input::ActionContext;
                         let path: String = path.to_string_lossy().into();
                         processor.ctx.write_to_pty(path.into_bytes());
-                    }
+                    },
                     HiDpiFactorChanged(new_dpr) => {
                         processor.ctx.size_info.dpr = new_dpr;
                         processor.ctx.terminal.dirty = true;
-                    }
+                    },
                     _ => (),
                 }
-            }
+            },
             Event::Awakened => {
                 processor.ctx.terminal.dirty = true;
             },

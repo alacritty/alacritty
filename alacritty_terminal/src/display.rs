@@ -24,7 +24,7 @@ use glutin::EventsLoop;
 use parking_lot::MutexGuard;
 
 use crate::config::{Config, StartupMode};
-use crate::index::{Line};
+use crate::index::Line;
 use crate::message_bar::Message;
 use crate::meter::Meter;
 use crate::renderer::rects::{Rect, Rects};
@@ -455,8 +455,7 @@ impl Display {
             }
 
             self.window.resize(psize);
-            self.renderer
-                .resize(psize, self.size_info.padding_x, self.size_info.padding_y);
+            self.renderer.resize(psize, self.size_info.padding_x, self.size_info.padding_y);
         }
     }
 
@@ -560,8 +559,7 @@ impl Display {
                 rects.push(rect, message.color());
 
                 // Draw rectangles including the new background
-                self.renderer
-                    .draw_rects(config, &size_info, visual_bell_intensity, rects);
+                self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
 
                 // Relay messages to the user
                 let mut offset = 1;
@@ -578,8 +576,7 @@ impl Display {
                 }
             } else {
                 // Draw rectangles
-                self.renderer
-                    .draw_rects(config, &size_info, visual_bell_intensity, rects);
+                self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
             }
 
             // Draw render timer
@@ -609,8 +606,7 @@ impl Display {
         let nspot_x = f64::from(px + point.col.0 as f32 * cw);
         let nspot_y = f64::from(py + (point.line.0 + 1) as f32 * ch);
 
-        self.window()
-            .set_ime_spot(PhysicalPosition::from((nspot_x, nspot_y)).to_logical(dpr));
+        self.window().set_ime_spot(PhysicalPosition::from((nspot_x, nspot_y)).to_logical(dpr));
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]

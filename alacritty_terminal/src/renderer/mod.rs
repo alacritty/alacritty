@@ -98,7 +98,7 @@ impl ::std::fmt::Display for Error {
         match *self {
             Error::ShaderCreation(ref err) => {
                 write!(f, "There was an error initializing the shaders: {}", err)
-            }
+            },
         }
     }
 }
@@ -145,8 +145,8 @@ pub struct Glyph {
     tex_id: GLuint,
     top: f32,
     left: f32,
-    pub width: f32,
-    pub height: f32,
+    width: f32,
+    height: f32,
     uv_bot: f32,
     uv_left: f32,
     uv_width: f32,
@@ -165,19 +165,19 @@ pub struct GlyphCache {
     cursor_cache: HashMap<CursorKey, Glyph, BuildHasherDefault<FnvHasher>>,
 
     /// Rasterizer for loading new glyphs
-    pub rasterizer: Rasterizer,
+    rasterizer: Rasterizer,
 
     /// regular font
-    pub font_key: FontKey,
+    font_key: FontKey,
 
     /// italic font
-    pub italic_key: FontKey,
+    italic_key: FontKey,
 
     /// bold font
-    pub bold_key: FontKey,
+    bold_key: FontKey,
 
     /// font size
-    pub font_size: font::Size,
+    font_size: font::Size,
 
     /// glyph offset
     glyph_offset: Delta<i8>,
@@ -187,9 +187,7 @@ pub struct GlyphCache {
 
 impl GlyphCache {
     pub fn new<L>(
-        mut rasterizer: Rasterizer,
-        font: &config::Font,
-        loader: &mut L,
+        mut rasterizer: Rasterizer, font: &config::Font, loader: &mut L,
     ) -> Result<GlyphCache, font::Error>
     where
         L: LoadGlyph,
@@ -360,11 +358,10 @@ impl GlyphCache {
         let font = font.to_owned().with_size(size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
 
-        self.rasterizer.get_glyph(GlyphKey {
-            font_key: regular,
-            c: 'm'.into(),
-            size: font.size,
-        })?;
+        #[cfg(not(feature = "hb-ft"))]
+        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
+        #[cfg(feature = "hb-ft")]
+        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 1u32, size: font.size })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
 
         info!("Font size changed to {:?} with DPR of {}", font.size, dpr);
@@ -392,7 +389,10 @@ impl GlyphCache {
         let regular_desc =
             GlyphCache::make_desc(&font.normal(), font::Slant::Normal, font::Weight::Normal);
         let regular = rasterizer.load_font(&regular_desc, font.size)?;
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm'.into(), size: font.size })?;
+        #[cfg(not(feature = "hb-ft"))]
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
+        #[cfg(feature = "hb-ft")]
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 1u32, size: font.size })?;
 
         rasterizer.metrics(regular, font.size)
     }
@@ -477,7 +477,6 @@ impl Batch {
     pub fn new() -> Batch {
         Batch { tex: 0, instances: Vec::with_capacity(BATCH_MAX) }
     }
-
 
     pub fn add_item(&mut self, cell: &RenderableCell, glyph: &Glyph) {
         if self.is_empty() {
@@ -694,8 +693,8 @@ impl QuadRenderer {
                         | DebouncedEvent::Write(_)
                         | DebouncedEvent::Chmod(_) => {
                             msg_tx.send(Msg::ShaderReload).expect("msg send ok");
-                        }
-                        _ => {}
+                        },
+                        _ => {},
                     }
                 }
             });
@@ -860,11 +859,11 @@ impl QuadRenderer {
 
                 info!("... successfully reloaded shaders");
                 (program, rect_program)
-            }
+            },
             (Err(err), _) | (_, Err(err)) => {
                 error!("{}", err);
                 return;
-            }
+            },
         };
 
         self.active_tex = 0;
@@ -1145,7 +1144,7 @@ impl<'a> RenderApi<'a> {
                 });
                 self.add_render_item(&cell, &glyph);
                 return;
-            }
+            },
             RenderableCellContent::Chars(chars) => chars,
         };
 
@@ -1171,7 +1170,7 @@ impl<'a> RenderApi<'a> {
             chars[0] = ' ';
         }
 
-        let mut glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, c: chars[0].into() };
+        let mut glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, c: chars[0] };
 
         // Add cell to batch
         let glyph = glyph_cache.get(glyph_key, self);
@@ -1216,7 +1215,7 @@ fn load_glyph(
                 atlas.push(new);
             }
             load_glyph(active_tex, atlas, current_atlas, rasterized)
-        }
+        },
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
             top: 0.0,
@@ -1566,7 +1565,7 @@ impl ::std::fmt::Display for ShaderCreationError {
             ShaderCreationError::Io(ref err) => write!(f, "Couldn't read shader: {}", err),
             ShaderCreationError::Compile(ref path, ref log) => {
                 write!(f, "Failed compiling shader at {}: {}", path.display(), log)
-            }
+            },
             ShaderCreationError::Link(ref log) => write!(f, "Failed linking shader: {}", log),
         }
     }

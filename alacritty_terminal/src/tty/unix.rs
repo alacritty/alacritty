@@ -103,13 +103,7 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
     // Try and read the pw file.
     let uid = unsafe { libc::getuid() };
     let status = unsafe {
-        libc::getpwuid_r(
-            uid,
-            &mut entry,
-            buf.as_mut_ptr() as *mut _,
-            buf.len(),
-            &mut res,
-        )
+        libc::getpwuid_r(uid, &mut entry, buf.as_mut_ptr() as *mut _, buf.len(), &mut res)
     };
 
     if status < 0 {
@@ -258,7 +252,7 @@ pub fn new<T: ToWinsize>(config: &Config, size: &T, window_id: Option<usize>) ->
             };
             pty.resize(size);
             pty
-        }
+        },
         Err(err) => {
             die!("Failed to spawn command: {}", err);
         },

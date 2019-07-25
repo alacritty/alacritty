@@ -248,16 +248,16 @@ impl<'a> RenderableCellsIter<'a> {
             let locations = match (start_line, end_line) {
                 (ViewportPosition::Visible(start_line), ViewportPosition::Visible(end_line)) => {
                     Some((start_line, span.start.col, end_line, span.end.col))
-                }
+                },
                 (ViewportPosition::Visible(start_line), ViewportPosition::Above) => {
                     Some((start_line, span.start.col, Line(0), limit_end))
-                }
+                },
                 (ViewportPosition::Below, ViewportPosition::Visible(end_line)) => {
                     Some((grid.num_lines(), limit_start, end_line, span.end.col))
-                }
+                },
                 (ViewportPosition::Below, ViewportPosition::Above) => {
                     Some((grid.num_lines(), limit_start, Line(0), limit_end))
-                }
+                },
                 _ => None,
             };
 
@@ -303,23 +303,13 @@ impl<'a> RenderableCellsIter<'a> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum RenderableCellContent {
     Chars([char; cell::MAX_ZEROWIDTH_CHARS + 1]),
     Cursor(CursorKey),
 }
-impl Into<RenderableCellContent> for [char; cell::MAX_ZEROWIDTH_CHARS + 1] {
-    fn into(self) -> RenderableCellContent {
-        RenderableCellContent::Chars(self)
-    }
-}
-impl Into<RenderableCellContent> for CursorKey {
-    fn into(self) -> RenderableCellContent {
-        RenderableCellContent::Cursor(self)
-    }
-}
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct RenderableCell {
     /// A _Display_ line (not necessarily an _Active_ line)
     pub line: Line,
@@ -387,7 +377,7 @@ impl RenderableCell {
                             && config.colors.primary.bright_foreground.is_none() =>
                     {
                         colors[NamedColor::DimForeground]
-                    }
+                    },
                     // Draw bold text in bright colors *and* contains bold flag.
                     (true, cell::Flags::BOLD) => colors[ansi.to_bright()],
                     // Cell is marked as dim and not bold
@@ -395,7 +385,7 @@ impl RenderableCell {
                     // None of the above, keep original color.
                     _ => colors[ansi],
                 }
-            }
+            },
             Color::Indexed(idx) => {
                 let idx = match (
                     config.draw_bold_text_with_bright_colors(),
@@ -409,7 +399,7 @@ impl RenderableCell {
                 };
 
                 colors[idx]
-            }
+            },
         }
     }
 
@@ -901,7 +891,7 @@ impl VisualBell {
                     self.start_time = None;
                 }
                 false
-            }
+            },
             None => true,
         }
     }
@@ -946,12 +936,12 @@ impl VisualBell {
                 let inverse_intensity = match self.animation {
                     VisualBellAnimation::Ease | VisualBellAnimation::EaseOut => {
                         cubic_bezier(0.25, 0.1, 0.25, 1.0, time)
-                    }
+                    },
                     VisualBellAnimation::EaseOutSine => cubic_bezier(0.39, 0.575, 0.565, 1.0, time),
                     VisualBellAnimation::EaseOutQuad => cubic_bezier(0.25, 0.46, 0.45, 0.94, time),
                     VisualBellAnimation::EaseOutCubic => {
                         cubic_bezier(0.215, 0.61, 0.355, 1.0, time)
-                    }
+                    },
                     VisualBellAnimation::EaseOutQuart => cubic_bezier(0.165, 0.84, 0.44, 1.0, time),
                     VisualBellAnimation::EaseOutQuint => cubic_bezier(0.23, 1.0, 0.32, 1.0, time),
                     VisualBellAnimation::EaseOutExpo => cubic_bezier(0.19, 1.0, 0.22, 1.0, time),
@@ -962,7 +952,7 @@ impl VisualBell {
                 // Since we want the `intensity` of the VisualBell to decay over
                 // `time`, we subtract the `inverse_intensity` from 1.0.
                 1.0 - inverse_intensity
-            }
+            },
         }
     }
 
@@ -1327,7 +1317,7 @@ impl Term {
             // Selection within single line
             0 => {
                 res.append(false, &self.grid, &self.tabs, start.line, start.col..end.col);
-            }
+            },
 
             // Selection ends on line following start
             1 => {
@@ -1336,7 +1326,7 @@ impl Term {
 
                 // Starting line
                 res.append(false, &self.grid, &self.tabs, start.line, limit_start..start.col);
-            }
+            },
 
             // Multi line selection
             _ => {
@@ -1350,7 +1340,7 @@ impl Term {
 
                 // Starting line
                 res.append(false, &self.grid, &self.tabs, start.line, limit_start..start.col);
-            }
+            },
         }
 
         Some(res)
@@ -1847,12 +1837,12 @@ impl ansi::Handler for Term {
         match arg {
             5 => {
                 let _ = writer.write_all(b"\x1b[0n");
-            }
+            },
             6 => {
                 let pos = self.cursor.point;
                 let response = format!("\x1b[{};{}R", pos.line + 1, pos.col + 1);
                 let _ = writer.write_all(response.as_bytes());
-            }
+            },
             _ => debug!("unknown device status query: {}", arg),
         };
     }
@@ -2103,19 +2093,19 @@ impl ansi::Handler for Term {
                 for cell in &mut row[col..] {
                     cell.reset(&template);
                 }
-            }
+            },
             ansi::LineClearMode::Left => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..=col] {
                     cell.reset(&template);
                 }
-            }
+            },
             ansi::LineClearMode::All => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..] {
                     cell.reset(&template);
                 }
-            }
+            },
         }
     }
 
@@ -2173,7 +2163,7 @@ impl ansi::Handler for Term {
                         .region_mut((self.cursor.point.line + 1)..)
                         .each(|cell| cell.reset(&template));
                 }
-            }
+            },
             ansi::ClearMode::All => self.grid.region_mut(..).each(|c| c.reset(&template)),
             ansi::ClearMode::Above => {
                 // If clearing more than one line
@@ -2188,7 +2178,7 @@ impl ansi::Handler for Term {
                 for cell in &mut self.grid[self.cursor.point.line][..end] {
                     cell.reset(&template);
                 }
-            }
+            },
             ansi::ClearMode::Saved => self.grid.clear_history(),
         }
     }
@@ -2200,10 +2190,10 @@ impl ansi::Handler for Term {
             ansi::TabulationClearMode::Current => {
                 let column = self.cursor.point.col;
                 self.tabs[column] = false;
-            }
+            },
             ansi::TabulationClearMode::All => {
                 self.tabs.clear_all();
-            }
+            },
         }
     }
 
@@ -2253,7 +2243,7 @@ impl ansi::Handler for Term {
                 self.cursor.template.fg = Color::Named(NamedColor::Foreground);
                 self.cursor.template.bg = Color::Named(NamedColor::Background);
                 self.cursor.template.flags = cell::Flags::empty();
-            }
+            },
             Attr::Reverse => self.cursor.template.flags.insert(cell::Flags::INVERSE),
             Attr::CancelReverse => self.cursor.template.flags.remove(cell::Flags::INVERSE),
             Attr::Bold => self.cursor.template.flags.insert(cell::Flags::BOLD),
@@ -2261,7 +2251,7 @@ impl ansi::Handler for Term {
             Attr::Dim => self.cursor.template.flags.insert(cell::Flags::DIM),
             Attr::CancelBoldDim => {
                 self.cursor.template.flags.remove(cell::Flags::BOLD | cell::Flags::DIM)
-            }
+            },
             Attr::Italic => self.cursor.template.flags.insert(cell::Flags::ITALIC),
             Attr::CancelItalic => self.cursor.template.flags.remove(cell::Flags::ITALIC),
             Attr::Underscore => self.cursor.template.flags.insert(cell::Flags::UNDERLINE),
@@ -2272,7 +2262,7 @@ impl ansi::Handler for Term {
             Attr::CancelStrike => self.cursor.template.flags.remove(cell::Flags::STRIKEOUT),
             _ => {
                 debug!("Term got unhandled attr: {:?}", attr);
-            }
+            },
         }
     }
 
@@ -2287,21 +2277,21 @@ impl ansi::Handler for Term {
                     self.swap_alt();
                     self.save_cursor_position();
                 }
-            }
+            },
             ansi::Mode::ShowCursor => self.mode.insert(TermMode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.insert(TermMode::APP_CURSOR),
             ansi::Mode::ReportMouseClicks => {
                 self.mode.insert(TermMode::MOUSE_REPORT_CLICK);
                 self.set_mouse_cursor(MouseCursor::Default);
-            }
+            },
             ansi::Mode::ReportCellMouseMotion => {
                 self.mode.insert(TermMode::MOUSE_DRAG);
                 self.set_mouse_cursor(MouseCursor::Default);
-            }
+            },
             ansi::Mode::ReportAllMouseMotion => {
                 self.mode.insert(TermMode::MOUSE_MOTION);
                 self.set_mouse_cursor(MouseCursor::Default);
-            }
+            },
             ansi::Mode::ReportFocusInOut => self.mode.insert(TermMode::FOCUS_IN_OUT),
             ansi::Mode::BracketedPaste => self.mode.insert(TermMode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.insert(TermMode::SGR_MOUSE),
@@ -2312,7 +2302,7 @@ impl ansi::Handler for Term {
             ansi::Mode::Insert => self.mode.insert(TermMode::INSERT), // heh
             ansi::Mode::BlinkingCursor => {
                 trace!("... unimplemented mode");
-            }
+            },
         }
     }
 
@@ -2327,21 +2317,21 @@ impl ansi::Handler for Term {
                     self.swap_alt();
                     self.restore_cursor_position();
                 }
-            }
+            },
             ansi::Mode::ShowCursor => self.mode.remove(TermMode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.remove(TermMode::APP_CURSOR),
             ansi::Mode::ReportMouseClicks => {
                 self.mode.remove(TermMode::MOUSE_REPORT_CLICK);
                 self.set_mouse_cursor(MouseCursor::Text);
-            }
+            },
             ansi::Mode::ReportCellMouseMotion => {
                 self.mode.remove(TermMode::MOUSE_DRAG);
                 self.set_mouse_cursor(MouseCursor::Text);
-            }
+            },
             ansi::Mode::ReportAllMouseMotion => {
                 self.mode.remove(TermMode::MOUSE_MOTION);
                 self.set_mouse_cursor(MouseCursor::Text);
-            }
+            },
             ansi::Mode::ReportFocusInOut => self.mode.remove(TermMode::FOCUS_IN_OUT),
             ansi::Mode::BracketedPaste => self.mode.remove(TermMode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.remove(TermMode::SGR_MOUSE),
@@ -2352,7 +2342,7 @@ impl ansi::Handler for Term {
             ansi::Mode::Insert => self.mode.remove(TermMode::INSERT),
             ansi::Mode::BlinkingCursor => {
                 trace!("... unimplemented mode");
-            }
+            },
         }
     }
 

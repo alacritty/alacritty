@@ -71,11 +71,7 @@ impl<T: Copy> Row<T> {
 
         // Split off cells for a new row
         let mut new_row = self.inner.split_off(cols.0);
-        let index = new_row
-            .iter()
-            .rposition(|c| !c.is_empty())
-            .map(|i| i + 1)
-            .unwrap_or(0);
+        let index = new_row.iter().rposition(|c| !c.is_empty()).map(|i| i + 1).unwrap_or(0);
         new_row.truncate(index);
 
         self.occ = min(self.occ, cols.0);

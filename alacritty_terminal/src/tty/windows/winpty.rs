@@ -27,7 +27,6 @@ use winapi::um::winbase::FILE_FLAG_OVERLAPPED;
 use winpty::Config as WinptyConfig;
 use winpty::{ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
 
-use crate::cli::Options;
 use crate::config::{Config, Shell};
 use crate::display::OnResize;
 use crate::term::SizeInfo;
@@ -48,13 +47,7 @@ unsafe impl<'a> Sync for Agent<'a> {}
 
 impl<'a> Agent<'a> {
     pub fn new(winpty: Winpty<'a>) -> Self {
-<<<<<<< HEAD:alacritty_terminal/src/tty/windows/winpty.rs
         Self { winpty: Box::into_raw(Box::new(winpty)) }
-=======
-        Self {
-            winpty: Box::into_raw(Box::new(winpty)),
-        }
->>>>>>> Tried setting scale and ppem but it didn't change anything.:src/tty/windows/winpty.rs
     }
 
     /// Get immutable access to Winpty.
@@ -101,14 +94,7 @@ pub fn new<'a>(config: &Config, size: &SizeInfo, _window_id: Option<usize>) -> P
     cmdline.insert(0, shell.program.to_string());
 
     // Warning, here be borrow hell
-<<<<<<< HEAD:alacritty_terminal/src/tty/windows/winpty.rs
     let cwd = config.working_directory().as_ref().map(|dir| canonicalize(dir).unwrap());
-=======
-    let cwd = options
-        .working_dir
-        .as_ref()
-        .map(|dir| canonicalize(dir).unwrap());
->>>>>>> Tried setting scale and ppem but it didn't change anything.:src/tty/windows/winpty.rs
     let cwd = cwd.as_ref().map(|dir| dir.to_str().unwrap());
 
     // Spawn process

@@ -138,15 +138,7 @@ pub fn new<'a>(config: &Config, size: &SizeInfo, _window_id: Option<usize>) -> O
 
     let mut startup_info_ex: STARTUPINFOEXW = Default::default();
 
-<<<<<<< HEAD:alacritty_terminal/src/tty/windows/conpty.rs
     let title = config.window.title.as_ref().map(String::as_str).unwrap_or("Alacritty");
-=======
-    let title = options
-        .title
-        .as_ref()
-        .map(|w| w.as_str())
-        .unwrap_or("Alacritty");
->>>>>>> Tried setting scale and ppem but it didn't change anything.:src/tty/windows/conpty.rs
     let title = U16CString::from_str(title).unwrap();
     startup_info_ex.StartupInfo.lpTitle = title.as_ptr() as LPWSTR;
 
