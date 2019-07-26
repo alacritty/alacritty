@@ -474,6 +474,9 @@ pub mod text_run {
     }
 
     #[derive(Debug)]
+    /// Represents a set of renderable cells that all share the rendering propreties.
+    /// The assumption is that if two cells are in the same TextRun they can be sent off together to be shaped by harfbuzz.
+    /// This allows for ligatures to be rendered but not when something breaks up a ligature (e.g. selection hightlight) which is intended behavior.
     pub struct TextRun {
         // By definition a run is on one line.
         pub line: Line,
@@ -485,6 +488,7 @@ pub mod text_run {
         pub flags: Flags,
     }
     impl TextRun {
+        // These two constructors are used by TextRunIter and are not widely applicable
         pub(crate) fn from_iter_state(
             start: RunStart,
             latest: Column,
@@ -524,9 +528,12 @@ pub mod text_run {
             }
         }
 
+        /// First cell in the TextRun
         pub fn start_cell(&self) -> RenderableCell {
             self.cell_at(self.run.0)
         }
+
+        /// Last cell in the TextRun 
         pub fn last_cell(&self) -> RenderableCell {
             self.cell_at(self.run.1)
         }
@@ -544,6 +551,8 @@ pub mod text_run {
             self.col_iter().map(move |col| self.cell_at(col))
         }
     }
+
+    /// Wraps an Iterator<Item=RenderableCell> and produces TextRuns to represent batches of cells
     pub struct TextRunIter<I> {
         iter: I,
         run_start: Option<RunStart>,
@@ -576,6 +585,7 @@ pub mod text_run {
             is_cell_break || is_col_break
         }
 
+        /// Add content of cell to pending TextRun buffer
         fn buffer_content(&mut self, inner: RenderableCellContent) {
             // Add to buffer only if the next rc is a Char (not a cursor)
             match inner {
@@ -591,10 +601,12 @@ pub mod text_run {
             }
         }
 
+        /// Empty out pending buffer producing owned collections that can be moved into a TextRun
         fn drain_buffer(&mut self) -> (String, Vec<[char; MAX_ZEROWIDTH_CHARS]>) {
             (self.buffer_text.drain(..).collect(), self.buffer_zero_width.drain(..).collect())
         }
 
+        /// Handles bookkeeping needed when starting a new run
         fn start_run(&mut self, rc: RenderableCell) -> (Option<RunStart>, Option<Column>) {
             self.buffer_content(rc.inner);
             let latest = self.latest.replace(rc.column);
@@ -603,6 +615,7 @@ pub mod text_run {
         }
     }
 
+    /// Utility method to ease use of Options when you need to unwrap both in tandem
     fn opt_pair<A, B>(a: Option<A>, b: Option<B>) -> Option<(A, B)> {
         match (a, b) {
             (Some(a_val), Some(b_val)) => Some((a_val, b_val)),
@@ -620,12 +633,17 @@ pub mod text_run {
             let mut output = None;
             while let Some(rc) = self.iter.next() {
                 if self.latest.is_none() || self.run_start.is_none() {
+                    // Initial state, this is should only be hit on the first next() call of iterator
                     self.run_start.replace(from_rc!(rc));
                 } else if self.cursor.is_some() {
+                    // Last iteration of the loop found a cursor
+                    // Return a run for the cursor and start a new run
                     let (start, _) = self.start_run(rc);
                     output = opt_pair(start, self.cursor.take()).map(|(start, cursor)| TextRun::from_cursor_rc(start, cursor));
                     break;
                 } else if self.is_run_break(&rc) || rc.is_cursor() {
+                    // If we find a break or a cursor,
+                    // return what we have so far and start a new run.
                     let prev_buffer = self.drain_buffer();
                     let (start, latest) = self.start_run(rc);
                     output = opt_pair(start, latest).map(|(start, latest)| {
@@ -633,9 +651,13 @@ pub mod text_run {
                     });
                     break;
                 }
+                // Build up buffer and track the latest column we've seen
                 self.latest = Some(rc.column);
                 self.buffer_content(rc.inner);
             }
+            // If we generated output we're done
+            // Otherwise check for any remaining buffered content and return it as a text run
+            // This a destructive operation so it will return None after it excutes once
             output.or_else(|| {
                 if !self.buffer_text.is_empty() || !self.buffer_zero_width.is_empty() {
                     opt_pair(self.run_start.take(), self.latest.take()).map(|(start, latest)|
