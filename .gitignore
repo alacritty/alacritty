@@ -6,7 +6,6 @@ FlameGraph
 
 # Rust subcrate lockfiles
 */Cargo.lock
-Cargo.lock
 
 # Temp files
 .idea
