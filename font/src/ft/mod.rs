@@ -19,9 +19,7 @@ use std::fmt;
 use std::path::PathBuf;
 
 #[cfg(feature = "hb-ft")]
-use super::HbError;
-#[cfg(feature = "hb-ft")]
-use harfbuzz_rs::{Shared, Owned, Font, GlyphBuffer};
+use harfbuzz_rs::{Owned, Font, GlyphBuffer};
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
 use libc::c_uint;
@@ -53,12 +51,12 @@ impl fmt::Debug for Face {
             .field("key", &self.key)
             .field("load_flags", &self.load_flags)
             .field("render_mode", &match self.render_mode {
-                    freetype::RenderMode::Normal => "Normal",
-                    freetype::RenderMode::Light => "Light",
-                    freetype::RenderMode::Mono => "Mono",
-                    freetype::RenderMode::Lcd => "Lcd",
-                    freetype::RenderMode::LcdV => "LcdV",
-                    freetype::RenderMode::Max => "Max",
+                freetype::RenderMode::Normal => "Normal",
+                freetype::RenderMode::Light => "Light",
+                freetype::RenderMode::Mono => "Mono",
+                freetype::RenderMode::Lcd => "Lcd",
+                freetype::RenderMode::LcdV => "LcdV",
+                freetype::RenderMode::Max => "Max",
             })
             .field("lcd_filter", &self.lcd_filter)
             .finish()
@@ -156,20 +154,15 @@ impl ::HbFtExt for FreeTypeRasterizer {
         &mut self,
         text: &str,
         font_key: FontKey,
-    ) -> Result<GlyphBuffer, HbError> {
+    ) -> GlyphBuffer {
         use harfbuzz_rs::{shape, UnicodeBuffer};
-        self.faces[&font_key]
-            .hb_font
-            .as_ref()
-            .ok_or(HbError::MissingFont(font_key))
-            .map(|hb_font| {
-                let buf = UnicodeBuffer::default()
-                    .add_str(text)
-                    .guess_segment_properties();
+        let hb_font = &self.faces[&font_key].hb_font;
+        let buf = UnicodeBuffer::default()
+            .add_str(text)
+            .guess_segment_properties();
 
-                // Shape with default features
-                shape(&*hb_font, buf, &[])
-            })
+        // Shape with default features
+        shape(&*hb_font, buf, &[])
     }
 }
 
@@ -300,8 +293,7 @@ impl FreeTypeRasterizer {
             let hb_font = {
                 use harfbuzz_rs::*;
                 let _hb_face = Face::from_file(&path, index as u32)?;
-                let _hb_font = Font::new(_hb_face);
-                _hb_font
+                Font::new(_hb_face)
             };
 
             let face = Face {

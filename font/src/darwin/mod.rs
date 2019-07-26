@@ -537,6 +537,7 @@ impl Font {
         // and use the utf-16 buffer to get the index
         self.glyph_index_utf16(encoded)
     }
+
     fn glyph_index_utf16(&self, encoded: &[u16]) -> Option<u32> {
         // output buffer for the glyph. for non-BMP glyphs, like
         // emojis, this will be filled with two chars the second

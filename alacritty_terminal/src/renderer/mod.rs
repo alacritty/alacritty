@@ -38,8 +38,6 @@ use crate::term::text_run::{TextRun, TextRunContent};
 use crate::term::{self, cell, RenderableCell};
 #[cfg(not(feature = "hb-ft"))]
 use crate::term::RenderableCellContent;
-#[cfg(feature = "hb-ft")]
-use font::HbError;
 
 pub mod rects;
 
@@ -187,8 +185,8 @@ pub struct GlyphCache {
 
 impl GlyphCache {
     pub fn new<L>(
-        mut rasterizer: Rasterizer, 
-        font: &config::Font, 
+        mut rasterizer: Rasterizer,
+        font: &config::Font,
         loader: &mut L,
     ) -> Result<GlyphCache, font::Error>
     where
@@ -306,12 +304,12 @@ impl GlyphCache {
         text_run: &str,
         font_key: FontKey,
         loader: &'a mut L,
-    ) -> Result<Vec<Glyph>, HbError>
+    ) -> Vec<Glyph>
     where
         L: LoadGlyph,
     {
         use font::{HbFtExt};
-        Ok(self.rasterizer.shape(text_run, font_key)?
+        self.rasterizer.shape(text_run, font_key)
             .get_glyph_infos()
             .iter()
             .map(move |glyph_info| *self.get(GlyphKey {
@@ -319,7 +317,7 @@ impl GlyphCache {
                 font_key,
                 size: self.font_size,
             }, loader))
-            .collect())
+            .collect()
     }
 
     pub fn get<'a, L>(&'a mut self, glyph_key: GlyphKey, loader: &mut L) -> &'a Glyph
@@ -1095,8 +1093,7 @@ impl<'a> RenderApi<'a> {
                 let hidden = text_run.flags.contains(cell::Flags::HIDDEN);
                 if !hidden {
                     let glyphs = glyph_cache
-                        .shape_run(&run, font_key, self)
-                        .expect("harfbuzz font to be present");
+                        .shape_run(&run, font_key, self);
                     for (cell, glyph) in text_run.cell_iter().zip(glyphs.into_iter()) {
                         self.add_render_item(&cell, &glyph);
                     }

@@ -516,7 +516,7 @@ pub mod text_run {
             RenderableCell {
                 line: self.line,
                 column: col,
-                inner: [' '; crate::term::cell::MAX_ZEROWIDTH_CHARS + 1].into(),
+                inner: RenderableCellContent::Chars([' '; crate::term::cell::MAX_ZEROWIDTH_CHARS + 1]),
                 fg: self.fg,
                 bg: self.bg,
                 bg_alpha: self.bg_alpha,
@@ -548,7 +548,6 @@ pub mod text_run {
         iter: I,
         run_start: Option<RunStart>,
         latest: Option<Column>,
-        buffer: Vec<[char; MAX_ZEROWIDTH_CHARS + 1]>,
         cursor: Option<CursorKey>,
         buffer_text: String,
         buffer_zero_width: Vec<[char; MAX_ZEROWIDTH_CHARS]>,
@@ -559,7 +558,6 @@ pub mod text_run {
                 iter, 
                 latest: None, 
                 run_start: None, 
-                buffer: Vec::new(), 
                 cursor: None,
                 buffer_text: String::new(),
                 buffer_zero_width: Vec::new(),
@@ -639,7 +637,7 @@ pub mod text_run {
                 self.buffer_content(rc.inner);
             }
             output.or_else(|| {
-                if !self.buffer.is_empty() {
+                if !self.buffer_text.is_empty() || !self.buffer_zero_width.is_empty() {
                     opt_pair(self.run_start.take(), self.latest.take()).map(|(start, latest)|
                         // Save leftover buffer and empty it
                         TextRun::from_iter_state(start, latest, self.drain_buffer()))

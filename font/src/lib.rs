@@ -39,11 +39,13 @@ extern crate core_graphics;
 extern crate core_text;
 #[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
 extern crate euclid;
+
+extern crate libc;
+
+
 #[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
 #[macro_use]
 extern crate foreign_types;
-
-extern crate libc;
 
 #[cfg(feature = "hb-ft")]
 extern crate harfbuzz_rs;
@@ -289,11 +291,5 @@ pub trait HbFtExt {
     /// Shape the provided text into a set of glyphs.
     /// TODO: properly report HarfBuzz errors
     fn shape(&mut self, text: &str, font_key: FontKey)
-        -> Result<harfbuzz_rs::GlyphBuffer, HbError>;
-}
-
-#[derive(Debug)]
-pub enum HbError {
-    /// Could not find harfbuzz font for key.
-    MissingFont(FontKey),
+        -> harfbuzz_rs::GlyphBuffer;
 }
