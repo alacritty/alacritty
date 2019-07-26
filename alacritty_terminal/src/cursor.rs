@@ -57,7 +57,7 @@ pub fn get_cursor_glyph(
 }
 
 #[cfg(not(feature = "hb-ft"))]
-const CUSOR: char = ' ';
+const CURSOR: char = ' ';
 #[cfg(feature = "hb-ft")]
 const CURSOR: u32 = 0;
 
