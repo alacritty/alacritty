@@ -14,6 +14,7 @@
 
 use std::io::{self, Read, Write};
 use std::os::raw::c_void;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use mio::{self, Evented, Poll, PollOpt, Ready, Token};
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
@@ -27,13 +28,14 @@ use crate::cli::Options;
 use crate::config::Config;
 use crate::display::OnResize;
 use crate::term::SizeInfo;
-use crate::tty::EventedReadWrite;
+use crate::tty::{EventedPty, EventedReadWrite};
 
 mod conpty;
 mod winpty;
 
 /// Handle to the winpty agent or conpty process. Required so we know when it closes.
 static mut HANDLE: *mut c_void = 0usize as *mut c_void;
+static IS_CONPTY: AtomicBool = AtomicBool::new(false);
 
 pub fn process_should_exit() -> bool {
     unsafe {
@@ -42,16 +44,20 @@ pub fn process_should_exit() -> bool {
             WAIT_OBJECT_0 => {
                 info!("wait_object_0");
                 true
-            }
+            },
             // Reached timeout of 0, process has not exited
             WAIT_TIMEOUT => false,
             // Error checking process, winpty gave us a bad agent handle?
             _ => {
                 info!("Bad exit: {}", ::std::io::Error::last_os_error());
                 true
-            }
+            },
         }
     }
+}
+
+pub fn is_conpty() -> bool {
+    IS_CONPTY.load(Ordering::Relaxed)
 }
 
 #[derive(Clone)]
@@ -86,6 +92,7 @@ pub fn new<'a>(
 ) -> Pty<'a> {
     if let Some(pty) = conpty::new(config, options, size, window_id) {
         info!("Using Conpty agent");
+        IS_CONPTY.store(true, Ordering::Relaxed);
         pty
     } else {
         info!("Using Winpty agent");
@@ -212,7 +219,7 @@ impl<'a> OnResize for PtyHandle<'a> {
             PtyHandle::Conpty(c) => {
                 let mut handle = c.clone();
                 handle.on_resize(sizeinfo)
-            }
+            },
         }
     }
 }
@@ -225,42 +232,22 @@ impl<'a> EventedReadWrite for Pty<'a> {
     fn register(
         &mut self,
         poll: &mio::Poll,
-        token: &mut dyn Iterator<Item = &usize>,
+        token: &mut dyn Iterator<Item = mio::Token>,
         interest: mio::Ready,
         poll_opts: mio::PollOpt,
     ) -> io::Result<()> {
-        self.read_token = (*token.next().unwrap()).into();
-        self.write_token = (*token.next().unwrap()).into();
+        self.read_token = token.next().unwrap();
+        self.write_token = token.next().unwrap();
 
         if interest.is_readable() {
-            poll.register(
-                &self.conout,
-                self.read_token,
-                mio::Ready::readable(),
-                poll_opts,
-            )?
+            poll.register(&self.conout, self.read_token, mio::Ready::readable(), poll_opts)?
         } else {
-            poll.register(
-                &self.conout,
-                self.read_token,
-                mio::Ready::empty(),
-                poll_opts,
-            )?
+            poll.register(&self.conout, self.read_token, mio::Ready::empty(), poll_opts)?
         }
         if interest.is_writable() {
-            poll.register(
-                &self.conin,
-                self.write_token,
-                mio::Ready::writable(),
-                poll_opts,
-            )?
+            poll.register(&self.conin, self.write_token, mio::Ready::writable(), poll_opts)?
         } else {
-            poll.register(
-                &self.conin,
-                self.write_token,
-                mio::Ready::empty(),
-                poll_opts,
-            )?
+            poll.register(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)?
         }
         Ok(())
     }
@@ -273,34 +260,14 @@ impl<'a> EventedReadWrite for Pty<'a> {
         poll_opts: mio::PollOpt,
     ) -> io::Result<()> {
         if interest.is_readable() {
-            poll.reregister(
-                &self.conout,
-                self.read_token,
-                mio::Ready::readable(),
-                poll_opts,
-            )?;
+            poll.reregister(&self.conout, self.read_token, mio::Ready::readable(), poll_opts)?;
         } else {
-            poll.reregister(
-                &self.conout,
-                self.read_token,
-                mio::Ready::empty(),
-                poll_opts,
-            )?;
+            poll.reregister(&self.conout, self.read_token, mio::Ready::empty(), poll_opts)?;
         }
         if interest.is_writable() {
-            poll.reregister(
-                &self.conin,
-                self.write_token,
-                mio::Ready::writable(),
-                poll_opts,
-            )?;
+            poll.reregister(&self.conin, self.write_token, mio::Ready::writable(), poll_opts)?;
         } else {
-            poll.reregister(
-                &self.conin,
-                self.write_token,
-                mio::Ready::empty(),
-                poll_opts,
-            )?;
+            poll.reregister(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)?;
         }
         Ok(())
     }
@@ -332,3 +299,5 @@ impl<'a> EventedReadWrite for Pty<'a> {
         self.write_token
     }
 }
+
+impl<'a> EventedPty for Pty<'a> {}

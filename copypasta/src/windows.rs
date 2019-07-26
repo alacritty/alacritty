@@ -33,9 +33,7 @@ impl Load for Clipboard {
     type Err = Error;
 
     fn new() -> Result<Self, Error> {
-        ClipboardContext::new()
-            .map(Clipboard)
-            .map_err(Error::Clipboard)
+        ClipboardContext::new().map(Clipboard).map_err(Error::Clipboard)
     }
 
     fn load_primary(&self) -> Result<String, Self::Err> {
@@ -56,9 +54,7 @@ impl Store for Clipboard {
     where
         S: Into<String>,
     {
-        self.0
-            .set_contents(contents.into())
-            .map_err(Error::Clipboard)
+        self.0.set_contents(contents.into()).map_err(Error::Clipboard)
     }
 
     /// Sets the secondary clipboard contents
@@ -67,8 +63,6 @@ impl Store for Clipboard {
     where
         S: Into<String>,
     {
-        self.0
-            .set_contents(contents.into())
-            .map_err(Error::Clipboard)
+        self.0.set_contents(contents.into()).map_err(Error::Clipboard)
     }
 }

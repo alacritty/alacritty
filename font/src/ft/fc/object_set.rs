@@ -13,8 +13,8 @@
 // limitations under the License.
 use libc::c_char;
 
+use super::ffi::{FcObjectSet, FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy};
 use foreign_types::ForeignTypeRef;
-use super::ffi::{FcObjectSetCreate, FcObjectSetAdd, FcObjectSet, FcObjectSetDestroy};
 
 foreign_type! {
     type CType = FcObjectSet;
@@ -31,9 +31,7 @@ impl ObjectSet {
 
 impl Default for ObjectSet {
     fn default() -> Self {
-        ObjectSet(unsafe {
-            FcObjectSetCreate()
-        })
+        ObjectSet(unsafe { FcObjectSetCreate() })
     }
 }
 

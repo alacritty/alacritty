@@ -4,18 +4,18 @@
 //! https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/PasteboardGuide106/Articles/pbReading.html#//apple_ref/doc/uid/TP40008123-SW1
 
 mod ns {
-    extern crate objc_id;
     extern crate objc_foundation;
+    extern crate objc_id;
 
     #[link(name = "AppKit", kind = "framework")]
-    extern {}
+    extern "C" {}
 
     use std::mem;
 
-    use objc::runtime::{Class, Object};
+    use self::objc_foundation::{INSArray, INSObject, INSString};
+    use self::objc_foundation::{NSArray, NSDictionary, NSObject, NSString};
     use self::objc_id::{Id, Owned};
-    use self::objc_foundation::{NSArray, NSObject, NSDictionary, NSString};
-    use self::objc_foundation::{INSString, INSArray, INSObject};
+    use objc::runtime::{Class, Object};
 
     /// Rust API for NSPasteboard
     pub struct Pasteboard(Id<Object>);
@@ -55,6 +55,7 @@ mod ns {
 
     impl PasteboardReadObject<String> for Pasteboard {
         type Err = ReadStringError;
+
         fn read_object(&self) -> Result<String, ReadStringError> {
             // Get string class; need this for passing to readObjectsForClasses
             let ns_string_class = match Class::get("NSString") {
@@ -133,9 +134,7 @@ mod ns {
 
             // The writeObjects method returns true in case of success, and
             // false otherwise.
-            let ok: bool = unsafe {
-                msg_send![self.0, writeObjects:objects]
-            };
+            let ok: bool = unsafe { msg_send![self.0, writeObjects: objects] };
 
             if ok {
                 Ok(())
@@ -175,9 +174,7 @@ mod ns {
     impl ::std::error::Error for NewPasteboardError {
         fn description(&self) -> &str {
             match *self {
-                NewPasteboardError::GetPasteboardClass => {
-                    "NSPasteboard class not found"
-                },
+                NewPasteboardError::GetPasteboardClass => "NSPasteboard class not found",
                 NewPasteboardError::LoadGeneralPasteboard => {
                     "[NSPasteboard generalPasteboard] failed"
                 },
@@ -209,9 +206,7 @@ mod ns {
                 }
             };
 
-            let id = unsafe {
-                Id::from_ptr(ptr)
-            };
+            let id = unsafe { Id::from_ptr(ptr) };
 
             Ok(Pasteboard(id))
         }
@@ -222,9 +217,7 @@ mod ns {
         /// This is the first step in providing data on the pasteboard. The
         /// return value is the change count of the pasteboard
         pub fn clear_contents(&mut self) -> usize {
-            unsafe {
-                msg_send![self.0, clearContents]
-            }
+            unsafe { msg_send![self.0, clearContents] }
         }
     }
 }
@@ -235,7 +228,6 @@ pub enum Error {
     ReadString(ns::ReadStringError),
     WriteString(ns::WriteStringError),
 }
-
 
 impl ::std::error::Error for Error {
     fn cause(&self) -> Option<&::std::error::Error> {
@@ -258,9 +250,7 @@ impl ::std::error::Error for Error {
 impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            Error::CreatePasteboard(ref err) => {
-                write!(f, "Failed to create pasteboard: {}", err)
-            },
+            Error::CreatePasteboard(ref err) => write!(f, "Failed to create pasteboard: {}", err),
             Error::ReadString(ref err) => {
                 write!(f, "Failed to read string from pasteboard: {}", err)
             },
@@ -301,23 +291,23 @@ impl super::Load for Clipboard {
     fn load_primary(&self) -> Result<String, Self::Err> {
         use self::ns::PasteboardReadObject;
 
-        self.0.read_object()
-            .map_err(::std::convert::From::from)
+        self.0.read_object().map_err(::std::convert::From::from)
     }
 }
 
 impl super::Store for Clipboard {
     fn store_primary<S>(&mut self, contents: S) -> Result<(), Self::Err>
-        where S: Into<String>
+    where
+        S: Into<String>,
     {
         use self::ns::PasteboardWriteObject;
 
-        self.0.write_object(contents.into())
-            .map_err(::std::convert::From::from)
+        self.0.write_object(contents.into()).map_err(::std::convert::From::from)
     }
 
     fn store_selection<S>(&mut self, _contents: S) -> Result<(), Self::Err>
-        where S: Into<String>
+    where
+        S: Into<String>,
     {
         // No such thing on macOS
         Ok(())
@@ -327,7 +317,7 @@ impl super::Store for Clipboard {
 #[cfg(test)]
 mod tests {
     use super::Clipboard;
-    use ::{Load, Store};
+    use {Load, Store};
 
     #[test]
     fn create_clipboard_save_load_contents() {

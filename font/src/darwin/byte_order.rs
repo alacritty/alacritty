@@ -40,9 +40,10 @@ pub fn extract_rgb(bytes: &[u8]) -> Vec<u8> {
 
 #[cfg(target_endian = "big")]
 pub fn extract_rgb(bytes: Vec<u8>) -> Vec<u8> {
-    bytes.into_iter()
-         .enumerate()
-         .filter(|&(index, _)| ((index) % 4) != 0)
-         .map(|(_, val)| val)
-         .collect::<Vec<_>>()
+    bytes
+        .into_iter()
+        .enumerate()
+        .filter(|&(index, _)| ((index) % 4) != 0)
+        .map(|(_, val)| val)
+        .collect::<Vec<_>>()
 }

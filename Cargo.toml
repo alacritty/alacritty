@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.2.9"
+version = "0.3.0"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 build = "build.rs"
@@ -42,7 +42,7 @@ clap = "2"
 fnv = "1"
 unicode-width = "0.1"
 arraydeque = "0.4"
-glutin = { version = "0.19", features = ["icon_loading"] }
+glutin = { version = "0.21.0-rc2", features = ["icon_loading"] }
 env_logger = "0.6.0"
 base64 = "0.10.0"
 static_assertions = "0.3.0"
@@ -56,6 +56,10 @@ hyper = "0.12"
 futures = "0.1.26"
 percent-encoding = "1.0.1"
 
+[target.'cfg(unix)'.dependencies]
+nix = "0.13"
+signal-hook = { version = "0.1", features = ["mio-support"] }
+
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
 
@@ -63,12 +67,12 @@ x11-dl = "2"
 winpty = { path = "./winpty" }
 mio-named-pipes = "0.1"
 miow = "0.3"
-winapi = { version = "0.3.5", features = ["impl-default", "winuser", "synchapi", "roerrorapi", "winerror", "wincon"]}
-dunce = "0.1"
+dunce = "1.0"
+winapi = { version = "0.3.7", features = ["impl-default", "winuser", "synchapi", "roerrorapi", "winerror", "wincon", "wincontypes"]}
 dirs = "1.0"
 widestring = "0.4"
 mio-anonymous-pipes = "0.1"
-image = "0.20.0"
+image = "0.21.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"
@@ -82,7 +86,7 @@ nightly = []
 bench = []
 
 [build-dependencies]
-gl_generator = "0.10.0"
+gl_generator = "0.11.0"
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "1.1.4"
@@ -100,21 +104,20 @@ maintainer = "Joe Wilm <joe@jwilm.com>"
 license-file = ["LICENSE-APACHE", "3"]
 extended-description = """\
 Alacritty is the fastest terminal emulator in existence. Using the GPU for \
-rendering enables optimizations that simply aren't possible in other emulators. \
-Alacritty currently supports FreeBSD, Linux, macOS, and OpenBSD. Windows \
-support is planned before the 1.0 release.  """
+rendering enables optimizations that simply aren't possible without it.  """
 depends = "$auto"
 section = "rust"
 priority = "optional"
 assets = [
     ["target/release/alacritty", "usr/bin/", "755"],
-    ["alacritty.desktop", "usr/share/applications/", "644"],
-    ["alacritty-completions.bash", "usr/share/bash-completion/completions/alacritty", "644"],
-    ["alacritty-completions.fish", "usr/share/fish/completions/alacritty.fish", "644"],
-    ["alacritty-completions.zsh", "usr/share/zsh/vendor-completions/_alacritty", "644"],
-    ["alacritty.info", "usr/share/terminfo/a/alacritty", "644"],
+    ["extra/linux/alacritty.desktop", "usr/share/applications/", "644"],
+    ["extra/logo/alacritty-term.svg", "usr/share/pixmaps/Alacritty.svg", "644"],
+    ["extra/completions/alacritty.bash", "usr/share/bash-completion/completions/alacritty", "644"],
+    ["extra/completions/alacritty.fish", "usr/share/fish/completions/alacritty.fish", "644"],
+    ["extra/completions/_alacritty", "usr/share/zsh/vendor-completions/_alacritty", "644"],
+    ["extra/alacritty.info", "usr/share/terminfo/a/alacritty", "644"],
 ]
-maintainer-scripts = "debian"
+maintainer-scripts = "extra/linux/debian"
 
 [patch.crates-io]
 servo-freetype-sys = { path = "servo-freetype-proxy" }

@@ -17,18 +17,18 @@
 /// Indexing types and implementations for Grid and Line
 use std::cmp::{Ord, Ordering};
 use std::fmt;
-use std::ops::{self, Deref, Add, Range};
+use std::ops::{self, Add, AddAssign, Deref, Range, RangeInclusive, Sub, SubAssign};
 
 /// The side of a cell
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Side {
     Left,
-    Right
+    Right,
 }
 
 /// Index in the grid using row, column notation
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize, PartialOrd)]
-pub struct Point<L=Line> {
+pub struct Point<L = Line> {
     pub line: L,
     pub col: Column,
 }
@@ -43,11 +43,10 @@ impl Ord for Point {
     fn cmp(&self, other: &Point) -> Ordering {
         use std::cmp::Ordering::*;
         match (self.line.cmp(&other.line), self.col.cmp(&other.col)) {
-            (Equal,   Equal) => Equal,
-            (Equal,   ord) |
-            (ord,     Equal) => ord,
-            (Less,    _)     => Less,
-            (Greater, _)     => Greater,
+            (Equal, Equal) => Equal,
+            (Equal, ord) | (ord, Equal) => ord,
+            (Less, _) => Less,
+            (Greater, _) => Greater,
         }
     }
 }
@@ -100,6 +99,16 @@ impl fmt::Display for Column {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Linear(pub usize);
 
+impl Linear {
+    pub fn new(columns: Column, column: Column, line: Line) -> Self {
+        Linear(line.0 * columns.0 + column.0)
+    }
+
+    pub fn from_point(columns: Column, point: Point<usize>) -> Self {
+        Linear(point.line * columns.0 + point.col.0)
+    }
+}
+
 impl fmt::Display for Linear {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Linear({})", self.0)
@@ -146,7 +155,7 @@ macro_rules! forward_ref_binop {
                 $imp::$method(*self, *other)
             }
         }
-    }
+    };
 }
 
 /// Macro for deriving deref
@@ -160,7 +169,7 @@ macro_rules! deref {
                 &self.0
             }
         }
-    }
+    };
 }
 
 macro_rules! add {
@@ -173,7 +182,7 @@ macro_rules! add {
                 $construct(self.0 + rhs.0)
             }
         }
-    }
+    };
 }
 
 macro_rules! sub {
@@ -213,7 +222,7 @@ macro_rules! sub {
                 $construct(self.0 - rhs.0)
             }
         }
-    }
+    };
 }
 
 /// This exists because we can't implement Iterator on Range
@@ -228,88 +237,6 @@ impl<T> From<Range<T>> for IndexRange<T> {
     }
 }
 
-pub enum RangeInclusive<Idx> {
-    Empty {
-        at: Idx,
-    },
-    NonEmpty {
-        start: Idx,
-        end: Idx,
-    },
-}
-
-impl<Idx> RangeInclusive<Idx> {
-    pub fn new(from: Idx, to: Idx) -> Self {
-        RangeInclusive::NonEmpty {
-            start: from,
-            end: to
-        }
-    }
-}
-
-macro_rules! inclusive {
-    ($ty:ty, $steps_add_one:expr) => {
-        // impl copied from stdlib, can be removed when inclusive_range is stabilized
-        impl Iterator for RangeInclusive<$ty> {
-            type Item = $ty;
-
-            #[inline]
-            fn next(&mut self) -> Option<$ty> {
-                use crate::index::RangeInclusive::*;
-
-                match *self {
-                    Empty { .. } => None, // empty iterators yield no values
-
-                    NonEmpty { ref mut start, ref mut end } => {
-
-                        // march start towards (maybe past!) end and yield the old value
-                        if start <= end {
-                            let old = *start;
-                            *start = old + 1;
-                            Some(old)
-                        } else {
-                            *self = Empty { at: *end };
-                            None
-                        }
-                    }
-                }
-            }
-
-            #[inline]
-            fn size_hint(&self) -> (usize, Option<usize>) {
-                use crate::index::RangeInclusive::*;
-
-                match *self {
-                    Empty { .. } => (0, Some(0)),
-
-                    NonEmpty { start, end } => {
-                        let added = $steps_add_one(start, end);
-                        match added {
-                            Some(hint) => (hint.saturating_add(1), hint.checked_add(1)),
-                            None       => (0, None)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn steps_add_one_u8(start: u8, end: u8) -> Option<usize> {
-    if start < end {
-        Some((end - start) as usize)
-    } else {
-        None
-    }
-}
-inclusive!(u8, steps_add_one_u8);
-
-#[test]
-fn test_range() {
-    assert_eq!(RangeInclusive::new(1,10).collect::<Vec<_>>(),
-               vec![1,2,3,4,5,6,7,8,9,10]);
-}
-
 // can be removed if range_contains is stabilized
 pub trait Contains {
     type Content;
@@ -318,6 +245,7 @@ pub trait Contains {
 
 impl<T: PartialOrd<T>> Contains for Range<T> {
     type Content = T;
+
     fn contains_(&self, item: Self::Content) -> bool {
         (self.start <= item) && (item < self.end)
     }
@@ -325,10 +253,9 @@ impl<T: PartialOrd<T>> Contains for Range<T> {
 
 impl<T: PartialOrd<T>> Contains for RangeInclusive<T> {
     type Content = T;
+
     fn contains_(&self, item: Self::Content) -> bool {
-        if let RangeInclusive::NonEmpty{ref start, ref end} = *self {
-            (*start <= item) && (item <= *end)
-        } else { false }
+        (self.start() <= &item) && (&item <= self.end())
     }
 }
 
@@ -384,8 +311,6 @@ macro_rules! ops {
             }
         }
 
-        inclusive!($ty, <$ty>::steps_between_by_one);
-
         impl DoubleEndedIterator for IndexRange<$ty> {
             #[inline]
             fn next_back(&mut self) -> Option<$ty> {
@@ -398,28 +323,28 @@ macro_rules! ops {
                 }
             }
         }
-        impl ops::AddAssign<$ty> for $ty {
+        impl AddAssign<$ty> for $ty {
             #[inline]
             fn add_assign(&mut self, rhs: $ty) {
                 self.0 += rhs.0
             }
         }
 
-        impl ops::SubAssign<$ty> for $ty {
+        impl SubAssign<$ty> for $ty {
             #[inline]
             fn sub_assign(&mut self, rhs: $ty) {
                 self.0 -= rhs.0
             }
         }
 
-        impl ops::AddAssign<usize> for $ty {
+        impl AddAssign<usize> for $ty {
             #[inline]
             fn add_assign(&mut self, rhs: usize) {
                 self.0 += rhs
             }
         }
 
-        impl ops::SubAssign<usize> for $ty {
+        impl SubAssign<usize> for $ty {
             #[inline]
             fn sub_assign(&mut self, rhs: usize) {
                 self.0 -= rhs
@@ -433,7 +358,7 @@ macro_rules! ops {
             }
         }
 
-        impl ops::Add<usize> for $ty {
+        impl Add<usize> for $ty {
             type Output = $ty;
 
             #[inline]
@@ -442,7 +367,7 @@ macro_rules! ops {
             }
         }
 
-        impl ops::Sub<usize> for $ty {
+        impl Sub<usize> for $ty {
             type Output = $ty;
 
             #[inline]
@@ -459,7 +384,7 @@ ops!(Linear, Linear);
 
 #[cfg(test)]
 mod tests {
-    use super::{Line, Column, Point};
+    use super::{Column, Line, Point};
 
     #[test]
     fn location_ordering() {

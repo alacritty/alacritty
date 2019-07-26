@@ -13,8 +13,8 @@
 // limitations under the License.
 use bitflags::bitflags;
 
-use crate::ansi::{NamedColor, Color};
-use crate::grid;
+use crate::ansi::{Color, NamedColor};
+use crate::grid::{self, GridCell};
 use crate::index::Column;
 
 // Maximum number of zerowidth characters which will be stored per cell.
@@ -47,19 +47,40 @@ pub struct Cell {
     pub fg: Color,
     pub bg: Color,
     pub flags: Flags,
-    #[serde(default="default_extra")]
+    #[serde(default = "default_extra")]
     pub extra: [char; MAX_ZEROWIDTH_CHARS],
 }
 
 impl Default for Cell {
     fn default() -> Cell {
-        Cell::new(
-            ' ',
-            Color::Named(NamedColor::Foreground),
-            Color::Named(NamedColor::Background)
-        )
+        Cell::new(' ', Color::Named(NamedColor::Foreground), Color::Named(NamedColor::Background))
+    }
+}
+
+impl GridCell for Cell {
+    #[inline]
+    fn is_empty(&self) -> bool {
+        (self.c == ' ' || self.c == '\t')
+            && self.extra[0] == ' '
+            && self.bg == Color::Named(NamedColor::Background)
+            && !self
+                .flags
+                .intersects(Flags::INVERSE | Flags::UNDERLINE | Flags::STRIKEOUT | Flags::WRAPLINE)
     }
 
+    #[inline]
+    fn is_wrap(&self) -> bool {
+        self.flags.contains(Flags::WRAPLINE)
+    }
+
+    #[inline]
+    fn set_wrap(&mut self, wrap: bool) {
+        if wrap {
+            self.flags.insert(Flags::WRAPLINE);
+        } else {
+            self.flags.remove(Flags::WRAPLINE);
+        }
+    }
 }
 
 /// Get the length of occupied cells in a line
@@ -104,21 +125,7 @@ impl Cell {
     }
 
     pub fn new(c: char, fg: Color, bg: Color) -> Cell {
-        Cell {
-            extra: [' '; MAX_ZEROWIDTH_CHARS],
-            c,
-            bg,
-            fg,
-            flags: Flags::empty(),
-        }
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        (self.c == ' ' || self.c == '\t')
-            && self.extra[0] == ' '
-            && self.bg == Color::Named(NamedColor::Background)
-            && !self.flags.intersects(Flags::INVERSE | Flags::UNDERLINE | Flags::STRIKEOUT)
+        Cell { extra: [' '; MAX_ZEROWIDTH_CHARS], c, bg, fg, flags: Flags::empty() }
     }
 
     #[inline]

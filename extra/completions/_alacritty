@@ -16,6 +16,7 @@ _alacritty() {
         "--ref-test[Generates ref test]" \
         "--config-file[Specify an alternative config file]:file:_files" \
         "(-d --dimensions)"{-d,--dimensions}"[Window dimensions]:dimensions:_guard '<->' width: :_guard '<->' length" \
+        "--position[Window position]:position:_guard '<->' x-pos: :_guard '<->' y-pos" \
         "--title[Defines the window title]:title:" \
         "--working-directory[Start shell in specified directory]:directory:_dir_list" \
         "(-e --command)"{-e,--command}"[Execute command (must be last arg)]:program: _command_names -e:*::program arguments: _normal"

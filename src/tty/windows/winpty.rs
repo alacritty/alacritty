@@ -14,29 +14,29 @@
 
 use super::{Pty, HANDLE};
 
-use std::io;
 use std::fs::OpenOptions;
-use std::os::windows::io::{FromRawHandle, IntoRawHandle};
+use std::io;
 use std::os::windows::fs::OpenOptionsExt;
+use std::os::windows::io::{FromRawHandle, IntoRawHandle};
 use std::sync::Arc;
 use std::u16;
 
 use dunce::canonicalize;
 use mio_named_pipes::NamedPipe;
 use winapi::um::winbase::FILE_FLAG_OVERLAPPED;
-use winpty::{ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
 use winpty::Config as WinptyConfig;
+use winpty::{ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
 
+use crate::cli::Options;
 use crate::config::{Config, Shell};
 use crate::display::OnResize;
-use crate::cli::Options;
 use crate::term::SizeInfo;
 
 // We store a raw pointer because we need mutable access to call
 // on_resize from a separate thread. Winpty internally uses a mutex
 // so this is safe, despite outwards appearance.
 pub struct Agent<'a> {
-    winpty: *mut Winpty<'a>
+    winpty: *mut Winpty<'a>,
 }
 
 /// Handle can be cloned freely and moved between threads.
@@ -48,9 +48,7 @@ unsafe impl<'a> Sync for Agent<'a> {}
 
 impl<'a> Agent<'a> {
     pub fn new(winpty: Winpty<'a>) -> Self {
-        Self {
-            winpty: Box::into_raw(Box::new(winpty))
-        }
+        Self { winpty: Box::into_raw(Box::new(winpty)) }
     }
 
     /// Get immutable access to Winpty.
@@ -68,10 +66,11 @@ impl<'a> Agent<'a> {
 
 impl<'a> Drop for Agent<'a> {
     fn drop(&mut self) {
-        unsafe { Box::from_raw(self.winpty); }
+        unsafe {
+            Box::from_raw(self.winpty);
+        }
     }
 }
-
 
 /// How long the winpty agent should wait for any RPC request
 /// This is a placeholder value until we see how often long responses happen
@@ -112,30 +111,19 @@ pub fn new<'a>(
         Some(&cmdline.join(" ")),
         cwd,
         None, // Env
-    ).unwrap();
+    )
+    .unwrap();
 
     let default_opts = &mut OpenOptions::new();
-    default_opts
-        .share_mode(0)
-        .custom_flags(FILE_FLAG_OVERLAPPED);
+    default_opts.share_mode(0).custom_flags(FILE_FLAG_OVERLAPPED);
 
     let (conout_pipe, conin_pipe);
     unsafe {
         conout_pipe = NamedPipe::from_raw_handle(
-            default_opts
-                .clone()
-                .read(true)
-                .open(conout)
-                .unwrap()
-                .into_raw_handle(),
+            default_opts.clone().read(true).open(conout).unwrap().into_raw_handle(),
         );
         conin_pipe = NamedPipe::from_raw_handle(
-            default_opts
-                .clone()
-                .write(true)
-                .open(conin)
-                .unwrap()
-                .into_raw_handle(),
+            default_opts.clone().write(true).open(conin).unwrap().into_raw_handle(),
         );
     };
 
@@ -166,7 +154,7 @@ pub fn new<'a>(
         conout: super::EventedReadablePipe::Named(conout_pipe),
         conin: super::EventedWritablePipe::Named(conin_pipe),
         read_token: 0.into(),
-        write_token: 0.into()
+        write_token: 0.into(),
     }
 }
 

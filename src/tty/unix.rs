@@ -15,54 +15,36 @@
 //! tty related functionality
 //!
 
-use crate::tty::EventedReadWrite;
-use crate::term::SizeInfo;
-use crate::display::OnResize;
-use crate::config::{Config, Shell};
 use crate::cli::Options;
+use crate::config::{Config, Shell};
+use crate::display::OnResize;
+use crate::term::SizeInfo;
+use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 use mio;
 
-use libc::{self, c_int, pid_t, winsize, SIGCHLD, TIOCSCTTY, WNOHANG};
+use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
+use nix::pty::openpty;
+use signal_hook::{self as sighook, iterator::Signals};
 
-use std::os::unix::io::{FromRawFd, RawFd};
-use std::fs::File;
-use std::os::unix::process::CommandExt;
-use std::process::{Command, Stdio};
-use std::ffi::CStr;
-use std::ptr;
 use mio::unix::EventedFd;
+use std::ffi::CStr;
+use std::fs::File;
 use std::io;
-use std::os::unix::io::AsRawFd;
-
+use std::os::unix::{
+    io::{AsRawFd, FromRawFd, RawFd},
+    process::CommandExt,
+};
+use std::process::{Child, Command, Stdio};
+use std::ptr;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Process ID of child process
 ///
 /// Necessary to put this in static storage for `sigchld` to have access
-pub static mut PID: pid_t = 0;
+static PID: AtomicUsize = AtomicUsize::new(0);
 
-/// Exit flag
-///
-/// Calling exit() in the SIGCHLD handler sometimes causes opengl to deadlock,
-/// and the process hangs. Instead, this flag is set, and its status can be
-/// checked via `process_should_exit`.
-static mut SHOULD_EXIT: bool = false;
-
-extern "C" fn sigchld(_a: c_int) {
-    let mut status: c_int = 0;
-    unsafe {
-        let p = libc::waitpid(PID, &mut status, WNOHANG);
-        if p < 0 {
-            die!("Waiting for pid {} failed: {}\n", PID, errno());
-        }
-
-        if PID == p {
-            SHOULD_EXIT = true;
-        }
-    }
-}
-
-pub fn process_should_exit() -> bool {
-    unsafe { SHOULD_EXIT }
+pub fn child_pid() -> pid_t {
+    PID.load(Ordering::Relaxed) as pid_t
 }
 
 /// Get the current value of errno
@@ -71,50 +53,14 @@ fn errno() -> c_int {
 }
 
 /// Get raw fds for master/slave ends of a new pty
-#[cfg(target_os = "linux")]
-fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
-    let mut master: c_int = 0;
-    let mut slave: c_int = 0;
+fn make_pty(size: winsize) -> (RawFd, RawFd) {
+    let mut win_size = size;
+    win_size.ws_xpixel = 0;
+    win_size.ws_ypixel = 0;
 
-    let win = winsize {
-        ws_row: libc::c_ushort::from(rows),
-        ws_col: libc::c_ushort::from(cols),
-        ws_xpixel: 0,
-        ws_ypixel: 0,
-    };
+    let ends = openpty(Some(&win_size), None).expect("openpty failed");
 
-    let res = unsafe {
-        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null(), &win)
-    };
-
-    if res < 0 {
-        die!("openpty failed");
-    }
-
-    (master, slave)
-}
-
-#[cfg(any(target_os = "macos",target_os = "freebsd",target_os = "openbsd"))]
-fn openpty(rows: u8, cols: u8) -> (c_int, c_int) {
-    let mut master: c_int = 0;
-    let mut slave: c_int = 0;
-
-    let mut win = winsize {
-        ws_row: libc::c_ushort::from(rows),
-        ws_col: libc::c_ushort::from(cols),
-        ws_xpixel: 0,
-        ws_ypixel: 0,
-    };
-
-    let res = unsafe {
-        libc::openpty(&mut master, &mut slave, ptr::null_mut(), ptr::null_mut(), &mut win)
-    };
-
-    if res < 0 {
-        die!("openpty failed");
-    }
-
-    (master, slave)
+    (ends.master, ends.slave)
 }
 
 /// Really only needed on BSD, but should be fine elsewhere
@@ -185,9 +131,11 @@ fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
 }
 
 pub struct Pty {
+    child: Child,
     pub fd: File,
-    pub raw_fd: RawFd,
     token: mio::Token,
+    signals: Signals,
+    signals_token: mio::Token,
 }
 
 impl Pty {
@@ -198,9 +146,7 @@ impl Pty {
     pub fn resize<T: ToWinsize>(&self, size: &T) {
         let win = size.to_winsize();
 
-        let res = unsafe {
-            libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _)
-        };
+        let res = unsafe { libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
             die!("ioctl TIOCSWINSZ failed: {}", errno());
@@ -215,18 +161,15 @@ pub fn new<T: ToWinsize>(
     size: &T,
     window_id: Option<usize>,
 ) -> Pty {
-    let win = size.to_winsize();
+    let win_size = size.to_winsize();
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
 
-    let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
+    let (master, slave) = make_pty(win_size);
 
     let default_shell = if cfg!(target_os = "macos") {
         let shell_name = pw.shell.rsplit('/').next().unwrap();
-        let argv = vec![
-            String::from("-c"),
-            format!("exec -a -{} {}", shell_name, pw.shell),
-        ];
+        let argv = vec![String::from("-c"), format!("exec -a -{} {}", shell_name, pw.shell)];
 
         Shell::new_with_args("/bin/bash", argv)
     } else {
@@ -292,15 +235,14 @@ pub fn new<T: ToWinsize>(
         builder.current_dir(dir.as_path());
     }
 
+    // Prepare signal handling before spawning child
+    let signals = Signals::new(&[sighook::SIGCHLD]).expect("error preparing signal handling");
+
     match builder.spawn() {
         Ok(child) => {
-            unsafe {
-                // Set PID for SIGCHLD handler
-                PID = child.id() as _;
+            // Remember child PID so other modules can use it
+            PID.store(child.id() as usize, Ordering::Relaxed);
 
-                // Handle SIGCHLD
-                libc::signal(SIGCHLD, sigchld as _);
-            }
             unsafe {
                 // Maybe this should be done outside of this function so nonblocking
                 // isn't forced upon consumers. Although maybe it should be?
@@ -308,16 +250,18 @@ pub fn new<T: ToWinsize>(
             }
 
             let pty = Pty {
-                fd: unsafe {File::from_raw_fd(master) },
-                raw_fd: master,
-                token: mio::Token::from(0)
+                child,
+                fd: unsafe { File::from_raw_fd(master) },
+                token: mio::Token::from(0),
+                signals,
+                signals_token: mio::Token::from(0),
             };
             pty.resize(size);
             pty
         },
         Err(err) => {
             die!("Failed to spawn command: {}", err);
-        }
+        },
     }
 }
 
@@ -329,32 +273,43 @@ impl EventedReadWrite for Pty {
     fn register(
         &mut self,
         poll: &mio::Poll,
-        token: &mut dyn Iterator<Item = &usize>,
+        token: &mut dyn Iterator<Item = mio::Token>,
         interest: mio::Ready,
         poll_opts: mio::PollOpt,
     ) -> io::Result<()> {
-        self.token = (*token.next().unwrap()).into();
+        self.token = token.next().unwrap();
+        poll.register(&EventedFd(&self.fd.as_raw_fd()), self.token, interest, poll_opts)?;
+
+        self.signals_token = token.next().unwrap();
         poll.register(
-            &EventedFd(&self.raw_fd),
-            self.token,
-            interest,
-            poll_opts
+            &self.signals,
+            self.signals_token,
+            mio::Ready::readable(),
+            mio::PollOpt::level(),
         )
     }
 
     #[inline]
-    fn reregister(&mut self, poll: &mio::Poll, interest: mio::Ready, poll_opts: mio::PollOpt) -> io::Result<()> {
+    fn reregister(
+        &mut self,
+        poll: &mio::Poll,
+        interest: mio::Ready,
+        poll_opts: mio::PollOpt,
+    ) -> io::Result<()> {
+        poll.reregister(&EventedFd(&self.fd.as_raw_fd()), self.token, interest, poll_opts)?;
+
         poll.reregister(
-            &EventedFd(&self.raw_fd),
-            self.token,
-            interest,
-            poll_opts
+            &self.signals,
+            self.signals_token,
+            mio::Ready::readable(),
+            mio::PollOpt::level(),
         )
     }
 
     #[inline]
     fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
-        poll.deregister(&EventedFd(&self.raw_fd))
+        poll.deregister(&EventedFd(&self.fd.as_raw_fd()))?;
+        poll.deregister(&self.signals)
     }
 
     #[inline]
@@ -378,6 +333,35 @@ impl EventedReadWrite for Pty {
     }
 }
 
+impl EventedPty for Pty {
+    #[inline]
+    fn next_child_event(&mut self) -> Option<ChildEvent> {
+        self.signals.pending().next().and_then(|signal| {
+            if signal != sighook::SIGCHLD {
+                return None;
+            }
+
+            match self.child.try_wait() {
+                Err(e) => {
+                    error!("Error checking child process termination: {}", e);
+                    None
+                },
+                Ok(None) => None,
+                Ok(_) => Some(ChildEvent::Exited),
+            }
+        })
+    }
+
+    #[inline]
+    fn child_event_token(&self) -> mio::Token {
+        self.signals_token
+    }
+}
+
+pub fn process_should_exit() -> bool {
+    false
+}
+
 /// Types that can produce a `libc::winsize`
 pub trait ToWinsize {
     /// Get a `libc::winsize`
@@ -399,9 +383,7 @@ impl OnResize for i32 {
     fn on_resize(&mut self, size: &SizeInfo) {
         let win = size.to_winsize();
 
-        let res = unsafe {
-            libc::ioctl(*self, libc::TIOCSWINSZ, &win as *const _)
-        };
+        let res = unsafe { libc::ioctl(*self, libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
             die!("ioctl TIOCSWINSZ failed: {}", errno());

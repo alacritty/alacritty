@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use glutin::{MouseButton, ModifiersState};
+use glutin::{ModifiersState, MouseButton};
 
-use crate::input::{MouseBinding, KeyBinding, Action};
-use crate::term::TermMode;
 use super::Key;
+use crate::input::{Action, KeyBinding, MouseBinding};
+use crate::term::TermMode;
 
 macro_rules! bindings {
     (
@@ -68,17 +68,21 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Key::Copy; Action::Copy;
         Key::L, [ctrl: true]; Action::ClearLogNotice;
         Key::L, [ctrl: true]; Action::Esc("\x0c".into());
+        Key::Home, [alt: true]; Action::Esc("\x1b[1;3H".into());
         Key::Home, +TermMode::APP_CURSOR; Action::Esc("\x1bOH".into());
         Key::Home, ~TermMode::APP_CURSOR; Action::Esc("\x1b[H".into());
+        Key::End, [alt: true]; Action::Esc("\x1b[1;3F".into());
         Key::End, +TermMode::APP_CURSOR; Action::Esc("\x1bOF".into());
         Key::End, ~TermMode::APP_CURSOR; Action::Esc("\x1b[F".into());
         Key::PageUp, [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageUp;
         Key::PageUp, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[5;2~".into());
         Key::PageUp, [ctrl: true]; Action::Esc("\x1b[5;5~".into());
+        Key::PageUp, [alt: true]; Action::Esc("\x1b[5;3~".into());
         Key::PageUp; Action::Esc("\x1b[5~".into());
         Key::PageDown, [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageDown;
         Key::PageDown, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[6;2~".into());
         Key::PageDown, [ctrl: true]; Action::Esc("\x1b[6;5~".into());
+        Key::PageDown, [alt: true]; Action::Esc("\x1b[6;3~".into());
         Key::PageDown; Action::Esc("\x1b[6~".into());
         Key::Tab, [shift: true]; Action::Esc("\x1b[Z".into());
         Key::Back; Action::Esc("\x7f".into());
@@ -182,7 +186,9 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Key::Insert, [shift: true]; Action::PasteSelection;
         Key::Key0, [ctrl: true]; Action::ResetFontSize;
         Key::Equals, [ctrl: true]; Action::IncreaseFontSize;
+        Key::Add, [ctrl: true]; Action::IncreaseFontSize;
         Key::Subtract, [ctrl: true]; Action::DecreaseFontSize;
+        Key::Minus, [ctrl: true]; Action::DecreaseFontSize;
     )
 }
 
@@ -192,6 +198,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         KeyBinding;
         Key::Key0, [logo: true]; Action::ResetFontSize;
         Key::Equals, [logo: true]; Action::IncreaseFontSize;
+        Key::Add, [logo: true]; Action::IncreaseFontSize;
         Key::Minus, [logo: true]; Action::DecreaseFontSize;
         Key::K, [logo: true]; Action::ClearHistory;
         Key::K, [logo: true]; Action::Esc("\x0c".into());

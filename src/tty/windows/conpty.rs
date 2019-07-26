@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{process_should_exit, Pty, HANDLE};
+use super::{Pty, HANDLE};
 
 use std::i16;
 use std::mem;
@@ -24,27 +24,22 @@ use dunce::canonicalize;
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
 use miow;
 use widestring::U16CString;
-use winapi::ctypes::c_void;
 use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
 use winapi::shared::minwindef::{BYTE, DWORD};
-use winapi::shared::ntdef::{HANDLE, HRESULT, LPCWSTR, LPWSTR};
+use winapi::shared::ntdef::{HANDLE, HRESULT, LPWSTR};
 use winapi::shared::winerror::S_OK;
 use winapi::um::libloaderapi::{GetModuleHandleA, GetProcAddress};
 use winapi::um::processthreadsapi::{
     CreateProcessW, InitializeProcThreadAttributeList, UpdateProcThreadAttribute,
     PROCESS_INFORMATION, STARTUPINFOW,
 };
-use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTUPINFOEXW};
-use winapi::um::wincon::COORD;
+use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW};
+use winapi::um::wincontypes::{COORD, HPCON};
 
 use crate::cli::Options;
 use crate::config::{Config, Shell};
 use crate::display::OnResize;
 use crate::term::SizeInfo;
-
-// This will be merged into winapi as PR #699
-// TODO: Use the winapi definition directly after that.
-pub type HPCON = *mut c_void;
 
 /// Dynamically-loaded Pseudoconsole API from kernel32.dll
 ///
@@ -56,7 +51,7 @@ struct ConptyApi {
     CreatePseudoConsole:
         unsafe extern "system" fn(COORD, HANDLE, HANDLE, DWORD, *mut HPCON) -> HRESULT,
     ResizePseudoConsole: unsafe extern "system" fn(HPCON, COORD) -> HRESULT,
-    ClosePseudoConsole: unsafe extern "system" fn(HPCON) -> HRESULT,
+    ClosePseudoConsole: unsafe extern "system" fn(HPCON),
 }
 
 impl ConptyApi {
@@ -95,20 +90,7 @@ pub type ConptyHandle = Arc<Conpty>;
 
 impl Drop for Conpty {
     fn drop(&mut self) {
-        // The pseusdoconsole might already have been closed by the console process exiting.
-        // ClosePseudoConsole will fail with error code 1 in that case.
-        //
-        // This check should be sufficient to avoid that.
-        if !process_should_exit() {
-            let result = unsafe { (self.api.ClosePseudoConsole)(self.handle) };
-
-            // As noted above, if the pseudoconsole is already closed then
-            // ClosePseudoConsole will fail with the error code 1.
-            // (This was not in the MSDN docs as of Nov 2018.)
-            //
-            // If ClosePseudoConsole is successful then result is S_OK.
-            assert!(result == S_OK);
-        }
+        unsafe { (self.api.ClosePseudoConsole)(self.handle) }
     }
 }
 
@@ -160,7 +142,16 @@ pub fn new<'a>(
     let mut size: SIZE_T = 0;
 
     let mut startup_info_ex: STARTUPINFOEXW = Default::default();
+
+    let title = options.title.as_ref().map(String::as_str).unwrap_or("Alacritty");
+    let title = U16CString::from_str(title).unwrap();
+    startup_info_ex.StartupInfo.lpTitle = title.as_ptr() as LPWSTR;
+
     startup_info_ex.StartupInfo.cb = mem::size_of::<STARTUPINFOEXW>() as u32;
+
+    // Setting this flag but leaving all the handles as default (null) ensures the
+    // pty process does not inherit any handles from this Alacritty process.
+    startup_info_ex.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
 
     // Create the appropriately sized thread attribute list.
     unsafe {
@@ -218,41 +209,29 @@ pub fn new<'a>(
     cmdline.insert(0, initial_command.program().into());
 
     // Warning, here be borrow hell
-    let cwd = options
-        .working_dir
-        .as_ref()
-        .map(|dir| canonicalize(dir).unwrap());
+    let cwd = options.working_dir.as_ref().map(|dir| canonicalize(dir).unwrap());
     let cwd = cwd.as_ref().map(|dir| dir.to_str().unwrap());
 
     // Create the client application, using startup info containing ConPTY info
-    let cmdline = U16CString::from_str(&cmdline.join(" ")).unwrap().into_raw();
+    let cmdline = U16CString::from_str(&cmdline.join(" ")).unwrap();
     let cwd = cwd.map(|s| U16CString::from_str(&s).unwrap());
-    let cwd_ptr = match &cwd {
-        Some(b) => b.as_ptr() as LPCWSTR,
-        None => ptr::null(),
-    };
 
     let mut proc_info: PROCESS_INFORMATION = Default::default();
     unsafe {
         success = CreateProcessW(
             ptr::null(),
-            cmdline as LPWSTR,
+            cmdline.as_ptr() as LPWSTR,
             ptr::null_mut(),
             ptr::null_mut(),
-            true as i32,
+            false as i32,
             EXTENDED_STARTUPINFO_PRESENT,
             ptr::null_mut(),
-            cwd_ptr,
+            cwd.as_ref().map_or_else(ptr::null, |s| s.as_ptr()),
             &mut startup_info_ex.StartupInfo as *mut STARTUPINFOW,
             &mut proc_info as *mut PROCESS_INFORMATION,
         ) > 0;
 
         assert!(success);
-    }
-
-    // Recover raw memory to cmdline so it can be freed
-    unsafe {
-        U16CString::from_raw(cmdline);
     }
 
     // Store handle to console
@@ -263,10 +242,7 @@ pub fn new<'a>(
     let conin = EventedAnonWrite::new(conin);
     let conout = EventedAnonRead::new(conout);
 
-    let agent = Conpty {
-        handle: pty_handle,
-        api,
-    };
+    let agent = Conpty { handle: pty_handle, api };
 
     Some(Pty {
         handle: super::PtyHandle::Conpty(ConptyHandle::new(agent)),
@@ -292,10 +268,7 @@ fn coord_from_sizeinfo(sizeinfo: &SizeInfo) -> Option<COORD> {
     let lines = sizeinfo.lines().0;
 
     if cols <= i16::MAX as usize && lines <= i16::MAX as usize {
-        Some(COORD {
-            X: sizeinfo.cols().0 as i16,
-            Y: sizeinfo.lines().0 as i16,
-        })
+        Some(COORD { X: sizeinfo.cols().0 as i16, Y: sizeinfo.lines().0 as i16 })
     } else {
         None
     }
