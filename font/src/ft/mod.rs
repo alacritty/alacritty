@@ -409,9 +409,10 @@ impl FreeTypeRasterizer {
         let antialias = pat.antialias().next().unwrap_or(true);
         let hinting = pat.hintstyle().next().unwrap_or(fc::HintStyle::Slight);
         let rgba = pat.rgba().next().unwrap_or(fc::Rgba::Unknown);
+        let embedded_bitmaps = pat.embeddedbitmap().next().unwrap_or(true);
 
         use freetype::face::LoadFlag;
-        match (antialias, hinting, rgba) {
+        let mut flags = match (antialias, hinting, rgba) {
             (false, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::MONOCHROME,
             (false, ..) => LoadFlag::TARGET_MONO | LoadFlag::MONOCHROME,
             (true, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::TARGET_NORMAL,
@@ -440,7 +441,13 @@ impl FreeTypeRasterizer {
             // TODO should Medium/Full control whether to use the auto hinter?
             (true, _, fc::Rgba::Unknown) => LoadFlag::TARGET_NORMAL,
             (true, _, fc::Rgba::None) => LoadFlag::TARGET_NORMAL,
+        };
+
+        if !embedded_bitmaps {
+            flags |= LoadFlag::NO_BITMAP;
         }
+
+        flags
     }
 
     fn ft_render_mode(pat: &fc::Pattern) -> freetype::RenderMode {

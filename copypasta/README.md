@@ -1,6 +1,6 @@
 # copypasta
 
-copypasta is a (rust-clipboard)[https://github.com/aweinstock314/rust-clipboard] fork, adding support for the Wayland clipboard.
+copypasta is a [rust-clipboard](https://github.com/aweinstock314/rust-clipboard) fork, adding support for the Wayland clipboard.
 
 rust-clipboard is a cross-platform library for getting and setting the contents of the OS-level clipboard.  
 

@@ -37,7 +37,7 @@ copypasta = { path = "../copypasta" }
 nix = "0.14.1"
 signal-hook = { version = "0.1", features = ["mio-support"] }
 
-[target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
+[target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]
 x11-dl = "2"
 
 [target.'cfg(windows)'.dependencies]
