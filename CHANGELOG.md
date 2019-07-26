@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cursor color setting with escape sequence
 - Override default bindings with subset terminal mode match
 - On Linux, respect fontconfig's `embeddedbitmap` configuration option
+- Selecting trailing tab with semantic expansion
 
 ## 0.3.3
 

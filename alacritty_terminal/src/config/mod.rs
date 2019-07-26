@@ -298,7 +298,7 @@ struct EscapeChars(String);
 
 impl Default for EscapeChars {
     fn default() -> Self {
-        EscapeChars(String::from(",│`|:\"' ()[]{}<>"))
+        EscapeChars(String::from(",│`|:\"' ()[]{}<>\t"))
     }
 }
 
