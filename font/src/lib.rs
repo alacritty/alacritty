@@ -18,12 +18,7 @@
 //! FreeType is used on everything that's not Mac OS.
 //! Eventually, ClearType support will be available for windows
 
-#![deny(
-    clippy::all,
-    clippy::if_not_else,
-    clippy::enum_glob_use,
-    clippy::wrong_pub_self_convention
-)]
+#![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 
 /* Note: all applicable cfg statements have been modified to short-circuit
  * to freetype if the feature hb-ft is enabled.
@@ -146,27 +141,6 @@ impl FontKey {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum KeyType {
-    Char(char),
-    GlyphIndex(u32),
-}
-impl From<char> for KeyType {
-    fn from(val: char) -> Self {
-        KeyType::Char(val)
-    }
-}
-impl<'a> From<&'a char> for KeyType {
-    fn from(val: &'a char) -> Self {
-        KeyType::Char(*val)
-    }
-}
-impl From<u32> for KeyType {
-    fn from(val: u32) -> Self {
-        KeyType::GlyphIndex(val)
-    }
-}
-
 #[derive(Debug, Copy, Clone, Eq)]
 pub struct GlyphKey {
     #[cfg(not(feature = "hb-ft"))]
@@ -248,7 +222,11 @@ pub struct RasterizedGlyph {
 
 impl Default for RasterizedGlyph {
     fn default() -> RasterizedGlyph {
-        RasterizedGlyph { c: ' '.into(), width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }
+        #[cfg(feature = "hb-ft")]
+        let c = 1u32;
+        #[cfg(not(feature = "hb-ft"))]
+        let c = ' ';
+        RasterizedGlyph { c, width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }
     }
 }
 

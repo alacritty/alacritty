@@ -187,7 +187,9 @@ pub struct GlyphCache {
 
 impl GlyphCache {
     pub fn new<L>(
-        mut rasterizer: Rasterizer, font: &config::Font, loader: &mut L,
+        mut rasterizer: Rasterizer, 
+        font: &config::Font, 
+        loader: &mut L,
     ) -> Result<GlyphCache, font::Error>
     where
         L: LoadGlyph,

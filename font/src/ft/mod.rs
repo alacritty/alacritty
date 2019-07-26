@@ -21,16 +21,14 @@ use std::path::PathBuf;
 #[cfg(feature = "hb-ft")]
 use super::HbError;
 #[cfg(feature = "hb-ft")]
-use harfbuzz_rs::{Shared, Font, GlyphBuffer};
+use harfbuzz_rs::{Shared, Owned, Font, GlyphBuffer};
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
 use libc::c_uint;
 
 pub mod fc;
 
-use super::{
-    FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
-};
+use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
 
 struct FixedSize {
     pixelsize: f64,
@@ -45,7 +43,7 @@ struct Face {
     non_scalable: Option<FixedSize>,
     /// This is an option just in case hb_ft_create_font_referenced fails.
     #[cfg(feature = "hb-ft")]
-    hb_font: Option<Shared<Font<'static>>>,
+    hb_font: Owned<Font<'static>>,
 }
 
 impl fmt::Debug for Face {
@@ -54,17 +52,14 @@ impl fmt::Debug for Face {
             .field("ft_face", &self.ft_face)
             .field("key", &self.key)
             .field("load_flags", &self.load_flags)
-            .field(
-                "render_mode",
-                &match self.render_mode {
+            .field("render_mode", &match self.render_mode {
                     freetype::RenderMode::Normal => "Normal",
                     freetype::RenderMode::Light => "Light",
                     freetype::RenderMode::Mono => "Mono",
                     freetype::RenderMode::Lcd => "Lcd",
                     freetype::RenderMode::LcdV => "LcdV",
                     freetype::RenderMode::Max => "Max",
-                },
-            )
+            })
             .field("lcd_filter", &self.lcd_filter)
             .finish()
     }
@@ -306,7 +301,7 @@ impl FreeTypeRasterizer {
                 use harfbuzz_rs::*;
                 let _hb_face = Face::from_file(&path, index as u32)?;
                 let _hb_font = Font::new(_hb_face);
-                Some(_hb_font.to_shared())
+                _hb_font
             };
 
             let face = Face {
@@ -496,7 +491,7 @@ impl FreeTypeRasterizer {
                     packed.extend_from_slice(&buf[start..stop]);
                 }
                 Ok((bitmap.rows(), bitmap.width() / 3, packed))
-            }
+            },
             PixelMode::LcdV => {
                 for i in 0..bitmap.rows() / 3 {
                     for j in 0..bitmap.width() {
@@ -507,7 +502,7 @@ impl FreeTypeRasterizer {
                     }
                 }
                 Ok((bitmap.rows() / 3, bitmap.width(), packed))
-            }
+            },
             // Mono data is stored in a packed format using 1 bit per pixel.
             PixelMode::Mono => {
                 fn unpack_byte(res: &mut Vec<u8>, byte: u8, mut count: u8) {
@@ -538,7 +533,7 @@ impl FreeTypeRasterizer {
                     }
                 }
                 Ok((bitmap.rows(), bitmap.width(), packed))
-            }
+            },
             // Gray data is stored as a value between 0 and 255 using 1 byte per pixel.
             PixelMode::Gray => {
                 for i in 0..bitmap.rows() {
@@ -573,7 +568,7 @@ impl FreeTypeRasterizer {
                         Some(&key) => {
                             debug!("Hit for font {:?}; no need to load", path);
                             Ok(key)
-                        }
+                        },
 
                         None => {
                             debug!("Miss for font {:?}; loading now", path);

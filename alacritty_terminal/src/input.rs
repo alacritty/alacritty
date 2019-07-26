@@ -301,10 +301,10 @@ impl Action {
             },
             Action::Hide => {
                 ctx.hide_window();
-            }
+            },
             Action::Quit => {
                 ctx.terminal_mut().exit();
-            }
+            },
             Action::IncreaseFontSize => {
                 ctx.terminal_mut().change_font_size(FONT_SIZE_STEP);
             },
@@ -316,7 +316,7 @@ impl Action {
             },
             Action::ScrollPageUp => {
                 ctx.scroll(Scroll::PageUp);
-            }
+            },
             Action::ScrollPageDown => {
                 ctx.scroll(Scroll::PageDown);
             },

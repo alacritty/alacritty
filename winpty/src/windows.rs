@@ -431,14 +431,8 @@ mod tests {
             )
             .unwrap();
 
-<<<<<<< HEAD
         let processes =
             winpty.console_process_list(1000).expect("failed to get console process list");
-=======
-        let processes = winpty
-            .console_process_list(1000)
-            .expect("failed to get console process list");
->>>>>>> Tried setting scale and ppem but it didn't change anything.
 
         // Check that each id is valid
         processes.iter().for_each(|id| {
