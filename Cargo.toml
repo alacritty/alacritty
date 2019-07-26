@@ -50,8 +50,11 @@ terminfo = "0.6.1"
 url = "1.7.1"
 time = "0.1.40"
 crossbeam-channel = "0.3.8"
-num-traits = "0.2"
-procinfo = "0.4.2"
+tokio-core = "0.1.17"
+tokio = "0.1"
+hyper = "0.12"
+futures = "0.1.26"
+percent-encoding = "1.0.1"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os="dragonfly", target_os="openbsd"))'.dependencies]
 x11-dl = "2"
