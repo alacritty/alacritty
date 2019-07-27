@@ -203,7 +203,7 @@ impl GlyphCache {
         // The glyph requested here (1 at the time of writing) has no special
         // meaning.
         #[cfg(feature = "hb-ft")]
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm'.into(), size: font.size })?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 1u32.into(), size: font.size })?;
 
         let metrics = rasterizer.metrics(regular, font.size)?;
 
@@ -233,8 +233,8 @@ impl GlyphCache {
             self.get(GlyphKey { font_key: font, c: i as char, size }, loader);
         }
         #[cfg(feature = "hb-ft")]
-        for c in 32u32..=128u32 {
-            self.get(GlyphKey { font_key: font, c: c.into(), size }, loader);
+        for c in 32u8..=128u8 {
+            self.get(GlyphKey { font_key: font, c: font::key_type::KeyType::GlyphIndex(c as u32), size }, loader);
         }
     }
 
@@ -1085,7 +1085,6 @@ impl<'a> RenderApi<'a> {
     pub fn render_text_run(&mut self, text_run: TextRun, glyph_cache: &mut GlyphCache) {
         match &text_run.run_chars {
             TextRunContent::Cursor(cursor_key) => {
-                println!("Rendered cursor");
                 // Raw cell pixel buffers like cursors don't need to go through font lookup
                 let metrics = glyph_cache.metrics;
                 let glyph = glyph_cache.cursor_cache.entry(*cursor_key).or_insert_with(|| {
