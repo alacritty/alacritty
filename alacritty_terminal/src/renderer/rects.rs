@@ -65,6 +65,7 @@ impl<'a> Rects<'a> {
         &self.inner
     }
 
+    /// Update the stored lines with the next text_run info.
     #[cfg(feature = "hb-ft")]
     pub fn update_lines_text_run(&mut self, size_info: &SizeInfo, text_run: &TextRun) {
         for line in self.active_lines.iter_mut() {
@@ -77,33 +78,33 @@ impl<'a> Rects<'a> {
                     {
                         if size_info.cols() == text_run.run.1 && size_info.lines() == text_run.line {
                             self.inner.push(create_rect(
-                                &text_run.start_cell(), 
-                                (&text_run.last_cell()).into(), 
+                                &start, 
+                                text_run.last_point(), 
                                 line.flag, 
                                 &self.metrics, 
                                 &self.size));
                         } else {
-                            *end = (&text_run.last_cell()).into();
+                            *end = text_run.last_point()
                         }
                         continue;
                     }
                     self.inner.push(create_rect(
-                        &text_run.start_cell(), 
-                        (&text_run.last_cell()).into(), 
+                        start,
+                        *end, 
                         line.flag, 
                         &self.metrics, 
                         &self.size));
 
                     if text_run.flags.contains(line.flag) {
                         *start = text_run.start_cell();
-                        *end = (&text_run.last_cell()).into();
+                        *end = text_run.last_point();
                     } else {
                         line.range = None;
                     }
                 },
                 None => {
                     if text_run.flags.contains(line.flag) {
-                        line.range = Some((text_run.start_cell(), (&text_run.last_cell()).into()));
+                        line.range = Some((text_run.start_cell(), text_run.last_point()));
                     }
                 }
             }
@@ -111,6 +112,7 @@ impl<'a> Rects<'a> {
     }
 
     /// Update the stored lines with the next cell info.
+    #[cfg(not(feature = "hb-ft"))]
     pub fn update_lines(&mut self, size_info: &SizeInfo, cell: &RenderableCell) {
         for line in self.active_lines.iter_mut() {
             match line.range {

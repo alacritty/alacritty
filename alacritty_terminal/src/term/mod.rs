@@ -427,10 +427,11 @@ pub mod text_run {
     use super::{
         cell::{Flags, MAX_ZEROWIDTH_CHARS},
         color::Rgb,
-        CursorKey, RenderableCell, RenderableCellContent,
+        CursorKey, RenderableCell, RenderableCellContent, Point
     };
     use crate::index::{Column, Line};
 
+    #[derive(Debug)]
     pub(crate) struct RunStart {
         pub line: Line,
         pub column: Column,
@@ -462,9 +463,12 @@ pub mod text_run {
             && a.flags == b.flags
     }
 
+
+    type Latest = (Column, bool);
     /// Checks two columns are adjacent
-    fn is_contiguous_col(a: Column, b: Column) -> bool {
-        a.0 + 1 == b.0 || b.0 + 1 == a.0
+    fn is_contiguous_col((a, is_wide): Latest, b: Column) -> bool {
+        let span = if is_wide { 2usize } else { 1usize };
+        a + span == b || b + span == a
     }
 
     #[derive(Debug)]
@@ -473,10 +477,10 @@ pub mod text_run {
         CharRun(String, Vec<[char; MAX_ZEROWIDTH_CHARS]>),
     }
 
-    #[derive(Debug)]
     /// Represents a set of renderable cells that all share the rendering propreties.
     /// The assumption is that if two cells are in the same TextRun they can be sent off together to be shaped by harfbuzz.
     /// This allows for ligatures to be rendered but not when something breaks up a ligature (e.g. selection hightlight) which is intended behavior.
+    #[derive(Debug)]
     pub struct TextRun {
         // By definition a run is on one line.
         pub line: Line,
@@ -491,12 +495,12 @@ pub mod text_run {
         // These two constructors are used by TextRunIter and are not widely applicable
         pub(crate) fn from_iter_state(
             start: RunStart,
-            latest: Column,
+            latest: Latest,
             buffer: (String, Vec<[char; MAX_ZEROWIDTH_CHARS]>),
         ) -> Self {
             TextRun {
                 line: start.line,
-                run: (start.column, latest),
+                run: (start.column, latest.0),
                 run_chars: TextRunContent::CharRun(buffer.0, buffer.1),
                 fg: start.fg,
                 bg: start.bg,
@@ -538,6 +542,14 @@ pub mod text_run {
             self.cell_at(self.run.1)
         }
 
+        /// Last point covered by this TextRun
+        pub fn last_point(&self) -> Point {
+            Point {
+                line: self.line,
+                col: self.run.1,
+            }
+        }
+
         /// Returns iterator over range of columns [run.0, run.1]
         pub fn col_iter(&self) -> impl Iterator<Item = Column> {
             let (start, end) = self.run;
@@ -556,7 +568,7 @@ pub mod text_run {
     pub struct TextRunIter<I> {
         iter: I,
         run_start: Option<RunStart>,
-        latest: Option<Column>,
+        latest: Option<Latest>,
         cursor: Option<CursorKey>,
         buffer_text: String,
         buffer_zero_width: Vec<[char; MAX_ZEROWIDTH_CHARS]>,
@@ -607,9 +619,9 @@ pub mod text_run {
         }
 
         /// Handles bookkeeping needed when starting a new run
-        fn start_run(&mut self, rc: RenderableCell) -> (Option<RunStart>, Option<Column>) {
+        fn start_run(&mut self, rc: RenderableCell) -> (Option<RunStart>, Option<Latest>) {
             self.buffer_content(rc.inner);
-            let latest = self.latest.replace(rc.column);
+            let latest = self.latest.replace((rc.column, rc.flags.contains(Flags::WIDE_CHAR)));
             let start = self.run_start.replace(from_rc!(rc));
             (start, latest)
         }
@@ -652,7 +664,7 @@ pub mod text_run {
                     break;
                 }
                 // Build up buffer and track the latest column we've seen
-                self.latest = Some(rc.column);
+                self.latest = Some((rc.column, rc.flags.contains(Flags::WIDE_CHAR)));
                 self.buffer_content(rc.inner);
             }
             // If we generated output we're done
