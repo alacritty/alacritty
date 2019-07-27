@@ -495,12 +495,17 @@ pub mod text_run {
         // These two constructors are used by TextRunIter and are not widely applicable
         pub(crate) fn from_iter_state(
             start: RunStart,
-            latest: Latest,
+            (latest, is_wide): Latest,
             buffer: (String, Vec<[char; MAX_ZEROWIDTH_CHARS]>),
         ) -> Self {
+            let end_column = if is_wide {
+                latest + 1
+            } else {
+                latest 
+            };
             TextRun {
                 line: start.line,
-                run: (start.column, latest.0),
+                run: (start.column, end_column),
                 run_chars: TextRunContent::CharRun(buffer.0, buffer.1),
                 fg: start.fg,
                 bg: start.bg,
@@ -553,10 +558,18 @@ pub mod text_run {
         /// Returns iterator over range of columns [run.0, run.1]
         pub fn col_iter(&self) -> impl Iterator<Item = Column> {
             let (start, end) = self.run;
+            let step = if self.flags.contains(Flags::WIDE_CHAR) {
+                // If our run contains wide chars treat each cell like it's 2 cells wide
+                2
+            } else {
+                1
+            };
             // unpacking is neccessary while Step trait is nightly
             // hopefully this compiles away.
-            (start.0..=end.0).map(Column)
+            (start.0..=end.0).step_by(step).map(Column)
         }
+
+
 
         /// Iterates over each RenderableCell in column range [run.0, run.1]
         pub fn cell_iter<'a>(&'a self) -> impl Iterator<Item = RenderableCell> + 'a {

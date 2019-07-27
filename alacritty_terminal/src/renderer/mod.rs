@@ -316,7 +316,6 @@ impl GlyphCache {
                 let codepoint = glyph_info.codepoint;
                 // Codepoint of 0 indicates a missing or undefined glyph
                 let c = if codepoint == 0 {
-                    println!("text_run: {:?}, cluster: {:?}", text_run.char_indices().collect::<Vec<_>>(), glyph_info.cluster);
                     // TODO: this is a linear scan over text for each missing glyph
                     // Try to find all missing glyphs first and only scan over text_run once.
                     text_run.char_indices()
