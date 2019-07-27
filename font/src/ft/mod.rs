@@ -27,6 +27,8 @@ use libc::c_uint;
 pub mod fc;
 
 use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
+#[cfg(feature = "hb-ft")]
+use super::key_type::KeyType;
 
 struct FixedSize {
     pixelsize: f64,
@@ -329,9 +331,21 @@ impl FreeTypeRasterizer {
     fn face_for_glyph(
         &mut self,
         glyph_key: GlyphKey,
-        _have_recursed: bool,
+        have_recursed: bool,
     ) -> Result<FontKey, Error> {
-        Ok(glyph_key.font_key)
+        match glyph_key.c {
+            // We already found a glyph index, use current font
+            KeyType::GlyphIndex(_) => Ok(glyph_key.font_key),
+            // Harfbuzz failed to find a glyph index, try to load a font for c
+            KeyType::Fallback(c) => {
+                if have_recursed {
+                    Ok(glyph_key.font_key)
+                } else {
+                    let key = self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key);
+                    Ok(key)
+                }
+            }
+        }
     }
 
     #[cfg(not(feature = "hb-ft"))]
@@ -364,7 +378,10 @@ impl FreeTypeRasterizer {
         #[cfg(not(feature = "hb-ft"))]
         let index = face.ft_face.get_char_index(glyph_key.c as usize);
         #[cfg(feature = "hb-ft")]
-        let index = glyph_key.c;
+        let index = match glyph_key.c {
+            KeyType::GlyphIndex(i) => i,
+            KeyType::Fallback(c) => face.ft_face.get_char_index(c as usize),
+        };
 
         self.get_rendered_glyph_index(face, glyph_key, index)
     }
@@ -550,7 +567,6 @@ impl FreeTypeRasterizer {
         }
     }
 
-    #[cfg(not(feature = "hb-ft"))]
     fn load_face_with_glyph(&mut self, glyph: char) -> Result<FontKey, Error> {
         let mut charset = fc::CharSet::new();
         charset.add(glyph);

@@ -203,7 +203,7 @@ impl GlyphCache {
         // The glyph requested here (1 at the time of writing) has no special
         // meaning.
         #[cfg(feature = "hb-ft")]
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 1, size: font.size })?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm'.into(), size: font.size })?;
 
         let metrics = rasterizer.metrics(regular, font.size)?;
 
@@ -234,7 +234,7 @@ impl GlyphCache {
         }
         #[cfg(feature = "hb-ft")]
         for c in 32u32..=128u32 {
-            self.get(GlyphKey { font_key: font, c, size }, loader);
+            self.get(GlyphKey { font_key: font, c: c.into(), size }, loader);
         }
     }
 
@@ -312,11 +312,31 @@ impl GlyphCache {
         self.rasterizer.shape(text_run, font_key)
             .get_glyph_infos()
             .iter()
-            .map(move |glyph_info| *self.get(GlyphKey {
-                c: glyph_info.codepoint,
-                font_key,
-                size: self.font_size,
-            }, loader))
+            .map(|glyph_info| {
+                let codepoint = glyph_info.codepoint;
+                // Codepoint of 0 indicates a missing or undefined glyph
+                let c = if codepoint == 0 {
+                    println!("text_run: {:?}, cluster: {:?}", text_run.char_indices().collect::<Vec<_>>(), glyph_info.cluster);
+                    // TODO: this is a linear scan over text for each missing glyph
+                    // Try to find all missing glyphs first and only scan over text_run once.
+                    text_run.char_indices()
+                        .find_map(|(i, c)| if i == (glyph_info.cluster as usize) {
+                            Some(c)
+                        } else {
+                            None
+                        })
+                        .expect("Harfbuzz cluster to be index of character within text run")
+                        .into()
+                } else {
+                    codepoint.into()
+                };
+                let glyph_key = GlyphKey {
+                    c,
+                    font_key,
+                    size: self.font_size,
+                };
+                *self.get(glyph_key, loader)
+            })
             .collect()
     }
 
@@ -361,7 +381,7 @@ impl GlyphCache {
         #[cfg(not(feature = "hb-ft"))]
         self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
         #[cfg(feature = "hb-ft")]
-        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 1u32, size: font.size })?;
+        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 1u32.into(), size: font.size })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
 
         info!("Font size changed to {:?} with DPR of {}", font.size, dpr);
@@ -392,7 +412,7 @@ impl GlyphCache {
         #[cfg(not(feature = "hb-ft"))]
         rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
         #[cfg(feature = "hb-ft")]
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 1u32, size: font.size })?;
+        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 1u32.into(), size: font.size })?;
 
         rasterizer.metrics(regular, font.size)
     }
@@ -1065,6 +1085,7 @@ impl<'a> RenderApi<'a> {
     pub fn render_text_run(&mut self, text_run: TextRun, glyph_cache: &mut GlyphCache) {
         match &text_run.run_chars {
             TextRunContent::Cursor(cursor_key) => {
+                println!("Rendered cursor");
                 // Raw cell pixel buffers like cursors don't need to go through font lookup
                 let metrics = glyph_cache.metrics;
                 let glyph = glyph_cache.cursor_cache.entry(*cursor_key).or_insert_with(|| {
@@ -1102,10 +1123,8 @@ impl<'a> RenderApi<'a> {
 
                 for (cell, chars) in text_run.cell_iter().zip(zero_widths.iter()) {
                     for c in chars.iter().filter(|c| **c != ' ') {
-                        // Expect this to be a very small number of calls so accept eating the cost of indexing.
-                        let index = glyph_cache.index_for_char(font_key, *c).expect("font_key to be present but there was nothing.");
                         let glyph_key =
-                            GlyphKey { font_key, size: glyph_cache.font_size, c: index};
+                            GlyphKey { font_key, size: glyph_cache.font_size, c: (*c).into() };
                         let average_advance = glyph_cache.metrics.average_advance as f32;
                         let mut glyph = *glyph_cache.get(glyph_key, self);
 

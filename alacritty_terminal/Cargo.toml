@@ -56,7 +56,7 @@ image = "0.21.0"
 objc = "0.2.2"
 
 [features]
-default = []
+default = ["hb-ft"]
 # Enabling this feature makes shaders automatically reload when changed
 live-shader-reload = []
 nightly = []

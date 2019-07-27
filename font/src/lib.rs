@@ -53,6 +53,7 @@ extern crate harfbuzz_rs;
 #[cfg_attr(not(windows), macro_use)]
 extern crate log;
 
+#[cfg(not(feature = "hb-ft"))]
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::fmt;
@@ -143,16 +144,45 @@ impl FontKey {
     }
 }
 
+#[cfg(feature = "hb-ft")]
+pub mod key_type {
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+    pub enum KeyType {
+        // Harfbuzz returned a valid index from shaping and we can render that as expected.
+        GlyphIndex(u32),
+        // Harfbuzz returned nodef so we provide character instead to make use of font loading.
+        Fallback(char),
+    }
+    // Import enum variants into this module
+    use KeyType::{Fallback, GlyphIndex};
+
+    impl From<u32> for KeyType {
+        fn from(val: u32) -> Self {
+            GlyphIndex(val)
+        }
+    }
+    impl From<char> for KeyType {
+        fn from(val: char) -> Self {
+            Fallback(val)
+        }
+    }
+}
+#[cfg(feature = "hb-ft")]
+use key_type::KeyType;
+
+// For now use derived impls, this can be swapped for more efficient implementations once things are working
+#[cfg_attr(feature = "hb-ft", derive(Hash, PartialEq))]
 #[derive(Debug, Copy, Clone, Eq)]
 pub struct GlyphKey {
     #[cfg(not(feature = "hb-ft"))]
     pub c: char,
     #[cfg(feature = "hb-ft")]
-    pub c: u32,
+    pub c: KeyType,
     pub font_key: FontKey,
     pub size: Size,
 }
 
+#[cfg(not(feature = "hb-ft"))]
 impl Hash for GlyphKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
         unsafe {
@@ -166,6 +196,7 @@ impl Hash for GlyphKey {
     }
 }
 
+#[cfg(not(feature = "hb-ft"))]
 impl PartialEq for GlyphKey {
     fn eq(&self, other: &Self) -> bool {
         unsafe {
@@ -214,7 +245,7 @@ pub struct RasterizedGlyph {
     #[cfg(not(feature = "hb-ft"))]
     pub c: char,
     #[cfg(feature = "hb-ft")]
-    pub c: u32,
+    pub c: KeyType,
     pub width: i32,
     pub height: i32,
     pub top: i32,
@@ -225,7 +256,7 @@ pub struct RasterizedGlyph {
 impl Default for RasterizedGlyph {
     fn default() -> RasterizedGlyph {
         #[cfg(feature = "hb-ft")]
-        let c = 1u32;
+        let c: KeyType = 1u32.into();
         #[cfg(not(feature = "hb-ft"))]
         let c = ' ';
         RasterizedGlyph { c, width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }

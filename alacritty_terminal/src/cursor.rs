@@ -59,7 +59,7 @@ pub fn get_cursor_glyph(
 #[cfg(not(feature = "hb-ft"))]
 const CURSOR: char = ' ';
 #[cfg(feature = "hb-ft")]
-const CURSOR: u32 = 0;
+const CURSOR: font::key_type::KeyType = font::key_type::KeyType::Fallback(' ');
 
 // Returns a custom underline cursor character
 pub fn get_underline_cursor_glyph(width: i32, line_width: i32) -> RasterizedGlyph {
