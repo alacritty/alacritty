@@ -40,9 +40,13 @@ Precompiled binaries are available from the [GitHub releases page](https://githu
 Some operating systems already provide binaries for Alacritty, for everyone
 else the instructions to build Alacritty from source can be found [here](INSTALL.md).
 
-### Pop!\_OS
+### Pop!\_OS / Ubuntu
 
-Provided in the [Pop!\_OS repositories](https://launchpad.net/~system76/+archive/ubuntu/pop) for 18.04 (bionic) and higher.
+> If you're not running Pop!_OS, you'll have to add a third party repository first:
+>
+> ```sh
+> add-apt-repository ppa:mmstick76/alacritty
+> ```
 
 ```sh
 apt install alacritty
@@ -95,6 +99,19 @@ nix-env -iA nixos.alacritty
 ```sh
 eopkg install alacritty
 ```
+
+### Fedora
+
+Unofficial builds of stable tags can be found in Fedora Copr:
+[pschyska/alacritty](https://copr.fedorainfracloud.org/coprs/pschyska/alacritty/).
+
+``` sh
+dnf copr enable pschyska/alacritty
+dnf install alacritty
+```
+
+If you want to help test pre-releases, you can additionally enable
+[pschyska/alacritty-testing](https://copr.fedorainfracloud.org/coprs/pschyska/alacritty-testing/).
 
 ### macOS
 
@@ -212,16 +229,12 @@ Alacritty discussion can be found in `#alacritty` on freenode.
 
 ## Wayland
 
-Wayland support is available, but not everything works as expected. Many people
-have found a better experience using XWayland which can be achieved by
-launching Alacritty with the `WAYLAND_DISPLAY` environment variable cleared:
+Wayland is used by default on systems that support it. Using XWayland may
+circumvent Wayland specific issues and can be enabled through:
 
 ```sh
-env WAYLAND_DISPLAY="" alacritty
+env WINIT_UNIX_BACKEND=x11 alacritty
 ```
-
-If you're interested in seeing our Wayland support improve, please head over to
-the [Wayland meta issue] on the _winit_ project to see how you may contribute.
 
 ## License
 

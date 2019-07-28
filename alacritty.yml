@@ -34,8 +34,8 @@ window:
   # Blank space added around the window in pixels. This padding is scaled
   # by DPI and the specified value is always added at both opposing sides.
   padding:
-    x: 2
-    y: 2
+    x: 0
+    y: 0
 
   # Spread additional padding evenly around the terminal content.
   dynamic_padding: false
@@ -51,8 +51,32 @@ window:
   #     - buttonless: Title bar, transparent background, but no title bar buttons
   decorations: full
 
-  # When true, alacritty starts maximized.
-  start_maximized: false
+  # Startup Mode (changes require restart)
+  #
+  # Values for `startup_mode`:
+  #   - Windowed
+  #   - Maximized
+  #   - Fullscreen
+  #
+  # Values for `startup_mode` (macOS only):
+  #   - SimpleFullscreen
+  startup_mode: Windowed
+
+  # Window title
+  #title: Alacritty
+
+  # Window class (Linux only):
+  class:
+    # Application instance name
+    instance: Alacritty
+    # General application class
+    general: Alacritty
+
+  # GTK theme variant (Linux only)
+  #
+  # Override the variant of the GTK theme. Commonly supported values are `dark` and `light`.
+  # Set this to `None` to use the default theme variant.
+  gtk_theme_variant: None
 
 scrolling:
   # Maximum number of lines in the scrollback buffer.
@@ -153,12 +177,6 @@ font:
   # effect.
   use_thin_strokes: true
 
-# Display the time it takes to redraw each frame.
-render_timer: false
-
-# Keep the log file after quitting Alacritty.
-persistent_logging: false
-
 # If `true`, bold text is drawn using the bright color variants.
 draw_bold_text_with_bright_colors: true
 
@@ -184,11 +202,11 @@ colors:
   #cursor:
   #  text: '0x000000'
   #  cursor: '0xffffff'
-  
+
   # Selection colors
   #
-  # Colors which should be used to draw the selection area. If selection 
-  # background is unset, selection color will be the inverse of the cell colors. 
+  # Colors which should be used to draw the selection area. If selection
+  # background is unset, selection color will be the inverse of the cell colors.
   # If only text is unset the cell text color will remain the same.
   #selection:
   #  text: '0xeaeaea'
@@ -272,23 +290,88 @@ visual_bell:
 # The value `0.0` is completely transparent and `1.0` is opaque.
 background_opacity: 1.0
 
-# Mouse bindings
+selection:
+  semantic_escape_chars: ",│`|:\"' ()[]{}<>\t"
+
+  # When set to `true`, selected text will be copied to the primary clipboard.
+  save_to_clipboard: false
+
+# Allow terminal applications to change Alacritty's window title.
+dynamic_title: true
+
+cursor:
+  # Cursor style
+  #
+  # Values for `style`:
+  #   - ▇ Block
+  #   - _ Underline
+  #   - | Beam
+  style: Block
+
+  # If this is `true`, the cursor will be rendered as a hollow box when the
+  # window is not focused.
+  unfocused_hollow: true
+
+# Live config reload (changes require restart)
+live_config_reload: true
+
+# Shell
 #
-# Available fields:
-#   - mouse
-#   - action
-#   - mods (optional)
+# You can set `shell.program` to the path of your favorite shell, e.g. `/bin/fish`.
+# Entries in `shell.args` are passed unmodified as arguments to the shell.
 #
-# Values for `mouse`:
-#   - Middle
-#   - Left
-#   - Right
-#   - Numeric identifier such as `5`
+# Default:
+#   - (macOS) /bin/bash --login
+#   - (Linux) user login shell
+#   - (Windows) powershell
+#shell:
+#  program: /bin/bash
+#  args:
+#    - --login
+
+# Startup directory
 #
-# All available `mods` and `action` values are documented in the key binding
-# section.
-mouse_bindings:
-  - { mouse: Middle, action: PasteSelection }
+# Directory the shell is started in. If this is unset, or `None`, the working
+# directory of the parent process will be used.
+working_directory: None
+
+# Windows 10 ConPTY backend (Windows only)
+#
+# This will enable better color support and may resolve other issues,
+# however this API and its implementation is still young and so is
+# disabled by default, as stability may not be as good as the winpty
+# backend.
+#
+# Alacritty will fall back to the WinPTY automatically if the ConPTY
+# backend cannot be initialized.
+enable_experimental_conpty_backend: false
+
+# Send ESC (\x1b) before characters when alt is pressed.
+alt_send_esc: true
+
+debug:
+  # Display the time it takes to redraw each frame.
+  render_timer: false
+
+  # Keep the log file after quitting Alacritty.
+  persistent_logging: false
+
+  # Log level
+  #
+  # Values for `log_level`:
+  #   - None
+  #   - Error
+  #   - Warn
+  #   - Info
+  #   - Debug
+  #   - Trace
+  log_level: Warn
+
+  # Print all received window events.
+  print_events: false
+
+  # Record all characters and escape sequences as test data.
+  ref_test: false
 
 mouse:
   # Click settings
@@ -324,117 +407,69 @@ mouse:
     # on them. The available modifiers are documented in the key binding section.
     modifiers: None
 
-selection:
-  semantic_escape_chars: ",│`|:\"' ()[]{}<>"
-
-  # When set to `true`, selected text will be copied to the primary clipboard.
-  save_to_clipboard: false
-
-# Allow terminal applications to change Alacritty's window title.
-dynamic_title: true
-
-cursor:
-  # Cursor style
-  #
-  # Values for `style`:
-  #   - ▇ Block
-  #   - _ Underline
-  #   - | Beam
-  style: Block
-
-  # If this is `true`, the cursor will be rendered as a hollow box when the
-  # window is not focused.
-  unfocused_hollow: true
-
-# Live config reload (changes require restart)
-live_config_reload: true
-
-# Shell
+# Mouse bindings
 #
-# You can set `shell.program` to the path of your favorite shell, e.g. `/bin/fish`.
-# Entries in `shell.args` are passed unmodified as arguments to the shell.
+# Mouse bindings are specified as a list of objects, much like the key
+# bindings further below.
 #
-# Default:
-#   - (Linux/macOS) /bin/bash --login
-#   - (Windows) powershell
-#shell:
-#  program: /bin/bash
-#  args:
-#    - --login
-
-# Windows 10 ConPTY backend (Windows only)
+# Each mouse binding will specify a:
 #
-# This will enable better color support and may resolve other issues,
-# however this API and its implementation is still young and so is
-# disabled by default, as stability may not be as good as the winpty
-# backend.
+# - `mouse`:
 #
-# Alacritty will fall back to the WinPTY automatically if the ConPTY
-# backend cannot be initialized.
-enable_experimental_conpty_backend: false
-
-# Send ESC (\x1b) before characters when alt is pressed.
-alt_send_esc: true
+#   - Middle
+#   - Left
+#   - Right
+#   - Numeric identifier such as `5`
+#
+# - `action` (see key bindings)
+#
+# And optionally:
+#
+# - `mods` (see key bindings)
+mouse_bindings:
+  - { mouse: Middle, action: PasteSelection }
 
 # Key bindings
 #
-# Key bindings are specified as a list of objects. Each binding will specify a
-# key and modifiers required to trigger it, terminal modes where the binding is
-# applicable, and what should be done when the key binding fires. It can either
-# send a byte sequence to the running application (`chars`), execute a
-# predefined action (`action`) or fork and execute a specified command plus
-# arguments (`command`).
+# Key bindings are specified as a list of objects. For example, this is the
+# default paste binding:
 #
-# Bindings are always filled by default, but will be replaced when a new binding
-# with the same triggers is defined. To unset a default binding, it can be
-# mapped to the `None` action.
+# `- { key: V, mods: Control|Shift, action: Paste }`
 #
-# Example:
-#   `- { key: V, mods: Control|Shift, action: Paste }`
+# Each key binding will specify a:
 #
-# Available fields:
-#   - key
-#   - mods (optional)
-#   - chars | action | command (exactly one required)
-#   - mode (optional)
+# - `key`: Identifier of the key pressed
 #
-# Values for `key`:
-#   - `A` -> `Z`
-#   - `F1` -> `F12`
-#   - `Key1` -> `Key0`
+#    - A-Z
+#    - F1-F12
+#    - Key0-Key9
 #
-#   A full list with available key codes can be found here:
-#   https://docs.rs/glutin/*/glutin/enum.VirtualKeyCode.html#variants
+#    A full list with available key codes can be found here:
+#    https://docs.rs/glutin/*/glutin/enum.VirtualKeyCode.html#variants
 #
-#   Instead of using the name of the keys, the `key` field also supports using
-#   the scancode of the desired key. Scancodes have to be specified as a
-#   decimal number.
-#   This command will allow you to display the hex scancodes for certain keys:
-#     `showkey --scancodes`
+#    Instead of using the name of the keys, the `key` field also supports using
+#    the scancode of the desired key. Scancodes have to be specified as a
+#    decimal number. This command will allow you to display the hex scancodes
+#    for certain keys:
 #
-# Values for `mods`:
-#   - Command
-#   - Control
-#   - Super
-#   - Shift
-#   - Alt
+#       `showkey --scancodes`.
 #
-#   Multiple `mods` can be combined using `|` like this: `mods: Control|Shift`.
-#   Whitespace and capitalization is relevant and must match the example.
+# Then exactly one of:
 #
-# Values for `chars`:
-#   The `chars` field writes the specified string to the terminal. This makes
-#   it possible to pass escape sequences.
-#   To find escape codes for bindings like `PageUp` ("\x1b[5~"), you can run
-#   the command `showkey -a` outside of tmux.
-#   Note that applications use terminfo to map escape sequences back to
-#   keys. It is therefore required to update the terminfo when
-#   changing an escape sequence.
+# - `chars`: Send a byte sequence to the running application
 #
-# Values for `action`:
+#    The `chars` field writes the specified string to the terminal. This makes
+#    it possible to pass escape sequences. To find escape codes for bindings
+#    like `PageUp` (`"\x1b[5~"`), you can run the command `showkey -a` outside
+#    of tmux. Note that applications use terminfo to map escape sequences back
+#    to keys. It is therefore required to update the terminfo when changing an
+#    escape sequence.
+#
+# - `action`: Execute a predefined action
+#
+#   - Copy
 #   - Paste
 #   - PasteSelection
-#   - Copy
 #   - IncreaseFontSize
 #   - DecreaseFontSize
 #   - ResetFontSize
@@ -447,22 +482,50 @@ alt_send_esc: true
 #   - ClearHistory
 #   - Hide
 #   - Quit
-#   - ClearLogNotice
+#   - ToggleFullscreen
 #   - SpawnNewInstance
+#   - ClearLogNotice
 #   - None
 #
-# Values for `command`:
-#   The `command` field must be a map containing a `program` string and
-#   an `args` array of command line parameter strings.
+#   (macOS only):
+#   - ToggleSimpleFullscreen: Enters fullscreen without occupying another space
 #
-#   Example:
-#       `command: { program: "alacritty", args: ["-e", "vttest"] }`
+# - `command`: Fork and execute a specified command plus arguments
 #
-# Values for `mode`:
-#   - ~AppCursor
-#   - AppCursor
-#   - ~AppKeypad
-#   - AppKeypad
+#    The `command` field must be a map containing a `program` string and an
+#    `args` array of command line parameter strings. For example:
+#       `{ program: "alacritty", args: ["-e", "vttest"] }`
+#
+# And optionally:
+#
+# - `mods`: Key modifiers to filter binding actions
+#
+#    - Command
+#    - Control
+#    - Option
+#    - Super
+#    - Shift
+#    - Alt
+#
+#    Multiple `mods` can be combined using `|` like this:
+#       `mods: Control|Shift`.
+#    Whitespace and capitalization are relevant and must match the example.
+#
+# - `mode`: Indicate a binding for only specific terminal reported modes
+#
+#    This is mainly used to send applications the correct escape sequences
+#    when in different modes.
+#
+#    - AppCursor
+#    - AppKeypad
+#    - Alt
+#
+#    A `~` operator can be used before a mode to apply the binding whenever
+#    the mode is *not* active, e.g. `~Alt`.
+#
+# Bindings are always filled by default, but will be replaced when a new
+# binding with the same triggers is defined. To unset a default binding, it can
+# be mapped to the `None` action.
 key_bindings:
   # (Windows/Linux only)
   #- { key: V,        mods: Control|Shift, action: Paste            }
@@ -473,19 +536,21 @@ key_bindings:
   #- { key: Add,      mods: Control,       action: IncreaseFontSize }
   #- { key: Subtract, mods: Control,       action: DecreaseFontSize }
   #- { key: Minus,    mods: Control,       action: DecreaseFontSize }
+  #- { key: Return,   mods: Alt,           action: ToggleFullscreen }
 
   # (macOS only)
-  #- { key: Key0,   mods: Command, action: ResetFontSize    }
-  #- { key: Equals, mods: Command, action: IncreaseFontSize }
-  #- { key: Add,    mods: Command, action: IncreaseFontSize }
-  #- { key: Minus,  mods: Command, action: DecreaseFontSize }
-  #- { key: K,      mods: Command, action: ClearHistory     }
-  #- { key: K,      mods: Command, chars: "\x0c"            }
-  #- { key: V,      mods: Command, action: Paste            }
-  #- { key: C,      mods: Command, action: Copy             }
-  #- { key: H,      mods: Command, action: Hide             }
-  #- { key: Q,      mods: Command, action: Quit             }
-  #- { key: W,      mods: Command, action: Quit             }
+  #- { key: Key0,   mods: Command,         action: ResetFontSize    }
+  #- { key: Equals, mods: Command,         action: IncreaseFontSize }
+  #- { key: Add,    mods: Command,         action: IncreaseFontSize }
+  #- { key: Minus,  mods: Command,         action: DecreaseFontSize }
+  #- { key: K,      mods: Command,         action: ClearHistory     }
+  #- { key: K,      mods: Command,         chars: "\x0c"            }
+  #- { key: V,      mods: Command,         action: Paste            }
+  #- { key: C,      mods: Command,         action: Copy             }
+  #- { key: H,      mods: Command,         action: Hide             }
+  #- { key: Q,      mods: Command,         action: Quit             }
+  #- { key: W,      mods: Command,         action: Quit             }
+  #- { key: F,      mods: Command|Control, action: ToggleFullscreen }
 
   - { key: Paste,                   action: Paste                            }
   - { key: Copy,                    action: Copy                             }

@@ -15,7 +15,7 @@
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.3.0</string>
+  <string>0.3.3</string>
   <key>CFBundleSupportedPlatforms</key>
   <array>
     <string>MacOSX</string>
@@ -29,7 +29,7 @@
   <key>NSMainNibFile</key>
   <string></string>
   <key>NSSupportsAutomaticGraphicsSwitching</key>
-  <false/>
+  <true/>
   <key>CFBundleDisplayName</key>
   <string>Alacritty</string>
   <key>NSRequiresAquaSystemAppearance</key>
@@ -52,5 +52,7 @@
     <string>An application in Alacritty would like to access your microphone.</string>
     <key>NSRemindersUsageDescription</key>
     <string>An application in Alacritty would like to access your reminders.</string>
+    <key>NSSystemAdministrationUsageDescription</key>
+    <string>An application in Alacritty requires elevated permissions.</string>
 </dict>
 </plist>

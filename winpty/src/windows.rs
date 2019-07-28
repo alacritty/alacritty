@@ -207,7 +207,7 @@ impl<'a, 'b> Winpty<'a> {
         }
     }
 
-    /// Get the list of processses running in the winpty agent. Returns <= count processes
+    /// Get the list of processes running in the winpty agent. Returns <= count processes
     ///
     /// `count` must be greater than 0. Larger values cause a larger allocation.
     // TODO: This should return Vec<Handle> instead of Vec<i32>
@@ -337,10 +337,9 @@ impl<'a> Drop for SpawnConfig<'a> {
 
 #[cfg(test)]
 mod tests {
-    extern crate named_pipe;
-    extern crate winapi;
+    use named_pipe::PipeClient;
+    use winapi;
 
-    use self::named_pipe::PipeClient;
     use self::winapi::um::processthreadsapi::OpenProcess;
     use self::winapi::um::winnt::READ_CONTROL;
 

@@ -45,17 +45,14 @@ impl fmt::Debug for Face {
             .field("ft_face", &self.ft_face)
             .field("key", &self.key)
             .field("load_flags", &self.load_flags)
-            .field(
-                "render_mode",
-                &match self.render_mode {
-                    freetype::RenderMode::Normal => "Normal",
-                    freetype::RenderMode::Light => "Light",
-                    freetype::RenderMode::Mono => "Mono",
-                    freetype::RenderMode::Lcd => "Lcd",
-                    freetype::RenderMode::LcdV => "LcdV",
-                    freetype::RenderMode::Max => "Max",
-                },
-            )
+            .field("render_mode", &match self.render_mode {
+                freetype::RenderMode::Normal => "Normal",
+                freetype::RenderMode::Light => "Light",
+                freetype::RenderMode::Mono => "Mono",
+                freetype::RenderMode::Lcd => "Lcd",
+                freetype::RenderMode::LcdV => "LcdV",
+                freetype::RenderMode::Max => "Max",
+            })
             .field("lcd_filter", &self.lcd_filter)
             .finish()
     }
@@ -313,47 +310,6 @@ impl FreeTypeRasterizer {
     }
 
     fn get_rendered_glyph(&mut self, glyph_key: GlyphKey) -> Result<RasterizedGlyph, Error> {
-        // Render a custom symbol for the underline and beam cursor
-        match glyph_key.c {
-            super::UNDERLINE_CURSOR_CHAR => {
-                // Get the primary face metrics
-                // This always loads the default face
-                let full = self.full_metrics(glyph_key.font_key)?;
-
-                // Get the bottom of the bounding box
-                let descent = (full.size_metrics.descender / 64) as i32;
-
-                // Get the width of the cell
-                let width = full.cell_width as i32;
-
-                // Return the new custom glyph
-                return super::get_underline_cursor_glyph(descent, width);
-            },
-            super::BEAM_CURSOR_CHAR | super::BOX_CURSOR_CHAR => {
-                // Get the primary face metrics
-                // This always loads the default face
-                let full = self.full_metrics(glyph_key.font_key)?;
-
-                // Get the height of the cell
-                let height = (full.size_metrics.height / 64) as i32;
-
-                // Get the top of the bounding box
-                let descent = (full.size_metrics.descender / 64) as i32;
-                let ascent = height + descent;
-
-                // Get the width of the cell
-                let width = full.cell_width as i32;
-
-                // Return the new custom glyph
-                return if glyph_key.c == super::BEAM_CURSOR_CHAR {
-                    super::get_beam_cursor_glyph(ascent, height, width)
-                } else {
-                    super::get_box_cursor_glyph(ascent, height, width)
-                };
-            },
-            _ => (),
-        }
-
         // Render a normal character if it's not a cursor
         let font_key = self.face_for_glyph(glyph_key, false)?;
         let face = &self.faces[&font_key];
@@ -391,9 +347,10 @@ impl FreeTypeRasterizer {
         let antialias = pat.antialias().next().unwrap_or(true);
         let hinting = pat.hintstyle().next().unwrap_or(fc::HintStyle::Slight);
         let rgba = pat.rgba().next().unwrap_or(fc::Rgba::Unknown);
+        let embedded_bitmaps = pat.embeddedbitmap().next().unwrap_or(true);
 
         use freetype::face::LoadFlag;
-        match (antialias, hinting, rgba) {
+        let mut flags = match (antialias, hinting, rgba) {
             (false, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::MONOCHROME,
             (false, ..) => LoadFlag::TARGET_MONO | LoadFlag::MONOCHROME,
             (true, fc::HintStyle::None, _) => LoadFlag::NO_HINTING | LoadFlag::TARGET_NORMAL,
@@ -422,7 +379,13 @@ impl FreeTypeRasterizer {
             // TODO should Medium/Full control whether to use the auto hinter?
             (true, _, fc::Rgba::Unknown) => LoadFlag::TARGET_NORMAL,
             (true, _, fc::Rgba::None) => LoadFlag::TARGET_NORMAL,
+        };
+
+        if !embedded_bitmaps {
+            flags |= LoadFlag::NO_BITMAP;
         }
+
+        flags
     }
 
     fn ft_render_mode(pat: &fc::Pattern) -> freetype::RenderMode {
@@ -583,7 +546,7 @@ pub enum Error {
 }
 
 impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&::std::error::Error> {
+    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
         match *self {
             Error::FreeType(ref err) => Some(err),
             _ => None,

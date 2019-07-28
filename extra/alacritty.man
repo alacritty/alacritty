@@ -1,4 +1,4 @@
-.TH ALACRITTY "1" "August 2018" "alacritty 0.3.0" "User Commands"
+.TH ALACRITTY "1" "August 2018" "alacritty 0.3.3" "User Commands"
 .SH NAME
 alacritty \- a cross-platform, gpu-accelerated terminal emulator
 .SH "SYNOPSIS"
@@ -39,8 +39,8 @@ Increases the level of verbosity (the max level is \fB\-vvv\fR)
 Prints version information
 .SH "OPTIONS"
 .TP
-\fB\-\-class\fR <class>
-Defines the window class on Linux [default: Alacritty]
+\fB\-\-class\fR [ <instance> | <instance>,<general> ]
+Defines the window class hint on Linux [default: Alacritty,Alacritty ]
 .TP
 \fB\-e\fR, \fB\-\-command\fR <command>...
 Command and args to execute (must be last argument)

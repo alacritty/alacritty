@@ -8,7 +8,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Block selection mode when Control is held while starting a selection
+- Allow setting general window class on X11 using CLI or config (`window.class.general`)
+- Config option `window.gtk_theme_variant` to set GTK theme variant
+- Completions for `--class` and `-t` (short title)
+- Change the mouse cursor when hovering over the message bar and its close button
+
+### Changed
+
+- On Windows, query DirectWrite for recommended anti-aliasing settings
+
+### Fixed
+
+- GUI programs launched by Alacritty starting in the background on X11
+- Text Cursor position when scrolling
+- Performance issues while resizing Alacritty
+- First unfullscreen action ignored on window launched in fullscreen mode
+- The window is now filled with the background color before displaying
+- Cells sometimes not getting cleared correctly
+- X11 clipboard hanging when mime type is set
+- On macOS, Alacritty will now fallback to Menlo if a font specified in the config cannot be loaded
+- Debug ref tests are now written to disk regardless of shutdown method
+- Cursor color setting with escape sequence
+- Override default bindings with subset terminal mode match
+- On Linux, respect fontconfig's `embeddedbitmap` configuration option
+- Selecting trailing tab with semantic expansion
+
+## 0.3.3
+
+### Packaging
+
+- Add appstream metadata, located at /extra/linux/io.alacritty.Alacritty.xml
+- The xclip dependency has been removed
+- On macOS, Alacritty now requests NSSystemAdministrationUsageDescription to
+   avoid permission failures
+- Minimum Rust version has been bumped to 1.32.0
+
+### Added
+
+- Added ToggleFullscreen action
+- On macOS, there's a ToggleSimpleFullscreen action which allows switching to
+    fullscreen without occupying another space
+- A new window option `window.startup_mode` which controls how the window is created
+- `_NET_WM_ICON` property is set on X11 now, allowing for WMs to show icons in titlebars
+- Current Git commit hash to `alacritty --version`
+- Config options `window.title` and `window.class`
+- Config option `working_directory`
+- Config group `debug` with the options `debug.log_level`, `debug.print_events`
+    and `debug.ref_test`
+- Select until next matching bracket when double-clicking a bracket
+- Added foreground/background escape code request sequences
+
+### Changed
+
+- On Windows, Alacritty will now use the native DirectWrite font API
+- The `start_maximized` window option is now `startup_mode: Maximized`
+- Cells with identical foreground and background will now show their text upon selection/inversion
+- Default Window padding to 0x0
+- Moved config option `render_timer` and `persistent_logging` to the `debug` group
+- When the cursor is in the selection, it will be inverted again, making it visible
+
+### Fixed
+
+- Double-width characters in URLs only being highlit on the left half
+- PTY size not getting updated when message bar is shown
+- Text Cursor disappearing
+- Incorrect positioning of zero-width characters over double-width characters
+- Mouse mode generating events when the cell has not changed
+- Selections not automatically expanding across double-width characters
+- On macOS, automatic graphics switching has been enabled again
+- Text getting recognized as URLs without slashes separating the scheme
+- URL parser dropping trailing slashes from valid URLs
+- UTF-8 BOM skipped when reading config file
+- Terminfo backspace escape sequence (`kbs`)
+
+### Removed
+
+- Deprecated `mouse.faux_scrollback_lines` config field
+- Deprecated `custom_cursor_colors` config field
+- Deprecated `hide_cursor_when_typing` config field
+- Deprecated `cursor_style` config field
+- Deprecated `unfocused_hollow_cursor` config field
+- Deprecated `dimensions` config field
+
+## Version 0.3.2
+
+### Fixed
+
+- Panic on startup when using Conpty on Windows
+
+## Version 0.3.1
+
+### Added
+
 - Added ScrollLineUp and ScrollLineDown actions for scrolling line by line
+- Native clipboard support on X11 and Wayland
 
 ### Changed
 
@@ -21,6 +115,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unnecessary resize at startup
 - Text getting blurry after live-reloading shaders with padding active
 - Resize events are not send to the shell anymore if dimensions haven't changed
+- Minor performance issues with underline and strikeout checks
+- Rare bug which would extend underline and strikeout beyond the end of line
+- Cursors not spanning two lines when over double-width characters
+- Incorrect cursor dimensions if the font offset isn't `0`
 
 ## Version 0.3.0
 
@@ -324,6 +422,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pressing enter on the numpad should now insert a newline
 - The mouse bindings now support keyboard modifiers (shift/ctrl/alt/super)
 - Add support for the bright foreground color
+- Support for setting foreground, background colors in one escape sequence
 
 ### Changed
 

@@ -8,7 +8,7 @@ license = "Apache-2.0"
 [dependencies]
 euclid = "0.19.2"
 libc = "0.2"
-foreign-types = "0.3"
+foreign-types = "0.4"
 log = "0.4"
 
 [target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]
@@ -22,5 +22,4 @@ core-graphics = "0.17"
 core-foundation-sys = "0.6"
 
 [target.'cfg(windows)'.dependencies]
-font-loader = "0.8.0"
-rusttype = "0.7.5"
+dwrote = { version = "0.9.0" }
