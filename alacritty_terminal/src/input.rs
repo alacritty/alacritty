@@ -383,7 +383,30 @@ impl From<&'static str> for Action {
     }
 }
 
+enum MousePosition {
+    Url(Url),
+    MessageBar,
+    MessageBarButton,
+    Terminal,
+}
+
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
+    fn mouse_position(&mut self, point: Point) -> MousePosition {
+        if let Some(message) = self.message_at_point(Some(point)) {
+            if self.message_close_at_point(point, message) {
+                MousePosition::MessageBarButton
+            } else {
+                MousePosition::MessageBar
+            }
+        // Check for url should be after check for message bar, since we're not looking into
+        // message bar content.
+        } else if let Some(url) = self.ctx.terminal().url_search(point.into()) {
+            MousePosition::Url(url)
+        } else {
+            MousePosition::Terminal
+        }
+    }
+
     #[inline]
     pub fn mouse_moved(&mut self, x: usize, y: usize, modifiers: ModifiersState) {
         self.ctx.mouse_mut().x = x;
@@ -408,21 +431,38 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return;
         }
 
-        // Only report motions when cell changed and mouse is not over the message bar
-        if let Some(message) = self.message_at_point(Some(point)) {
-            self.update_message_cursor(point, message);
-
-            return;
-        } else {
-            self.ctx.terminal_mut().reset_mouse_cursor();
-        }
-
         // Don't launch URLs if mouse has moved
         self.ctx.mouse_mut().block_url_launcher = true;
 
-        // Underline URLs and change cursor on hover
-        if cell_changed {
-            self.update_url_highlight(point, modifiers);
+        match self.mouse_position(point) {
+            MousePosition::Url(url) => {
+                let mouse_mode =
+                    TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
+
+                if self.mouse_config.url.mods().relaxed_eq(modifiers)
+                    && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
+                    && self.mouse_config.url.launcher.is_some()
+                {
+                    let url_bounds = self.url_bounds_at_point(url, point);
+                    self.ctx.terminal_mut().set_url_highlight(url_bounds);
+                    self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
+                    self.ctx.terminal_mut().dirty = true;
+                }
+            },
+            MousePosition::MessageBar => {
+                self.ctx.terminal_mut().reset_url_highlight();
+                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Default);
+                return;
+            },
+            MousePosition::MessageBarButton => {
+                self.ctx.terminal_mut().reset_url_highlight();
+                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
+                return;
+            },
+            MousePosition::Terminal => {
+                self.ctx.terminal_mut().reset_url_highlight();
+                self.ctx.terminal_mut().reset_mouse_cursor();
+            },
         }
 
         if self.ctx.mouse().left_button_state == ElementState::Pressed
@@ -445,50 +485,45 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
     }
 
-    /// Underline URLs and change the mouse cursor when URL hover state changes.
-    fn update_url_highlight(&mut self, point: Point, modifiers: ModifiersState) {
-        let mouse_mode =
-            TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
+    fn url_bounds_at_point(&self, url: Url, point: Point) -> RangeInclusive<Linear> {
+        let Url { origin, text } = url;
+        let cols = self.ctx.size_info().cols().0;
 
-        // Only show URLs as launchable when all required modifiers are pressed
-        let url = if self.mouse_config.url.mods().relaxed_eq(modifiers)
-            && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
-            && self.mouse_config.url.launcher.is_some()
-        {
-            self.ctx.terminal().url_search(point.into())
+        // Calculate the URL's start position
+        let lines_before = (origin + cols - point.col.0 - 1) / cols;
+        let (start_col, start_line) = if lines_before > point.line.0 {
+            (0, 0)
         } else {
-            None
+            let start_col = (cols + point.col.0 - origin % cols) % cols;
+            let start_line = point.line.0 - lines_before;
+            (start_col, start_line)
         };
 
-        if let Some(Url { origin, text }) = url {
-            let cols = self.ctx.size_info().cols().0;
+        let start = Point::new(start_line, Column(start_col));
 
-            // Calculate the URL's start position
-            let lines_before = (origin + cols - point.col.0 - 1) / cols;
-            let (start_col, start_line) = if lines_before > point.line.0 {
-                (0, 0)
-            } else {
-                let start_col = (cols + point.col.0 - origin % cols) % cols;
-                let start_line = point.line.0 - lines_before;
-                (start_col, start_line)
-            };
-            let start = Point::new(start_line, Column(start_col));
+        // Calculate the URL's highlight end position
+        let len = text.width();
+        let url_end_col_denormilized = point.col.0 + len - origin;
 
-            // Calculate the URL's end position
-            let len = text.width();
-            let end_col = (point.col.0 + len - origin) % cols - 1;
-            let end_line = point.line.0 + (point.col.0 + len - origin) / cols;
-            let end = Point::new(end_line, Column(end_col));
-
-            let start = Linear::from_point(Column(cols), start);
-            let end = Linear::from_point(Column(cols), end);
-
-            self.ctx.terminal_mut().set_url_highlight(RangeInclusive::new(start, end));
-            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
-            self.ctx.terminal_mut().dirty = true;
+        // This means that url ends at the last cell of the line
+        let end_col = if url_end_col_denormilized % cols == 0 {
+            cols - 1
         } else {
-            self.ctx.terminal_mut().reset_url_highlight();
-        }
+            url_end_col_denormilized % cols - 1
+        };
+
+        let end_line = if end_col == cols - 1 {
+            point.line.0 + (url_end_col_denormilized) / cols - 1
+        } else {
+            point.line.0 + (url_end_col_denormilized) / cols
+        };
+
+        let end = Point::new(end_line, Column(end_col));
+
+        let start = Linear::from_point(Column(cols), start);
+        let end = Linear::from_point(Column(cols), end);
+
+        RangeInclusive::new(start, end)
     }
 
     fn get_mouse_side(&self) -> Side {
@@ -908,15 +943,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         has_binding
     }
 
-    /// Set the cursor depending on where the mouse is on the message bar
-    fn update_message_cursor(&mut self, point: Point, message: Message) {
-        if self.message_close_at_point(point, message) {
-            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
-        } else {
-            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Default);
-        }
-    }
-
     /// Return the message bar's message if there is some at the specified point
     fn message_at_point(&mut self, point: Option<Point>) -> Option<Message> {
         if let (Some(point), Some(message)) =
@@ -945,11 +971,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             ElementState::Pressed => {
                 if self.message_close_at_point(point, message) {
                     self.ctx.terminal_mut().message_buffer_mut().pop();
-                    if let Some(message) = self.message_at_point(Some(point)) {
-                        self.update_message_cursor(point, message);
-                    } else {
-                        self.ctx.terminal_mut().reset_mouse_cursor();
-                    }
+                    self.ctx.terminal_mut().reset_mouse_cursor();
                 }
 
                 self.ctx.clear_selection();
