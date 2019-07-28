@@ -35,9 +35,9 @@ use crate::renderer::rects::{Rect, Rects};
 use crate::term::color::Rgb;
 #[cfg(feature = "hb-ft")]
 use crate::term::text_run::{TextRun, TextRunContent};
-use crate::term::{self, cell, RenderableCell};
 #[cfg(not(feature = "hb-ft"))]
 use crate::term::RenderableCellContent;
+use crate::term::{self, cell, RenderableCell};
 
 pub mod rects;
 
@@ -96,7 +96,7 @@ impl ::std::fmt::Display for Error {
         match *self {
             Error::ShaderCreation(ref err) => {
                 write!(f, "There was an error initializing the shaders: {}", err)
-            },
+            }
         }
     }
 }
@@ -233,8 +233,11 @@ impl GlyphCache {
             self.get(GlyphKey { font_key: font, c: i as char, size }, loader);
         }
         #[cfg(feature = "hb-ft")]
-        for c in 32u8..=128u8 {
-            self.get(GlyphKey { font_key: font, c: font::key_type::KeyType::GlyphIndex(c as u32), size }, loader);
+        for i in 32u32..=128u32 {
+            self.get(
+                GlyphKey { font_key: font, c: font::key_type::KeyType::GlyphIndex(i), size },
+                loader,
+            );
         }
     }
 
@@ -308,32 +311,27 @@ impl GlyphCache {
     where
         L: LoadGlyph,
     {
-        use font::{HbFtExt};
-        self.rasterizer.shape(text_run, font_key)
+        use font::HbFtExt;
+        self.rasterizer
+            .shape(text_run, font_key)
             .get_glyph_infos()
             .iter()
-            .map(|glyph_info| {
+            .map(move |glyph_info| {
                 let codepoint = glyph_info.codepoint;
                 // Codepoint of 0 indicates a missing or undefined glyph
-                let c = if codepoint == 0 {
+                let c: font::key_type::KeyType = if codepoint == 0 {
                     // TODO: this is a linear scan over text for each missing glyph
                     // Try to find all missing glyphs first and only scan over text_run once.
-                    text_run.char_indices()
-                        .find_map(|(i, c)| if i == (glyph_info.cluster as usize) {
-                            Some(c)
-                        } else {
-                            None
-                        })
-                        .expect("Harfbuzz cluster to be index of character within text run")
-                        .into()
+                    text_run.char_indices().find_map(|(i, c)| if i == glyph_info.cluster as usize {
+                        Some (c)
+                    } else {
+                        None
+                    }).unwrap_or_else(|| panic!("Could not find cluster {} in run {}", glyph_info.cluster, text_run))
+                    .into()
                 } else {
                     codepoint.into()
                 };
-                let glyph_key = GlyphKey {
-                    c,
-                    font_key,
-                    size: self.font_size,
-                };
+                let glyph_key = GlyphKey { c, font_key, size: self.font_size };
                 *self.get(glyph_key, loader)
             })
             .collect()
@@ -380,7 +378,11 @@ impl GlyphCache {
         #[cfg(not(feature = "hb-ft"))]
         self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
         #[cfg(feature = "hb-ft")]
-        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 1u32.into(), size: font.size })?;
+        self.rasterizer.get_glyph(GlyphKey {
+            font_key: regular,
+            c: 1u32.into(),
+            size: font.size,
+        })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
 
         info!("Font size changed to {:?} with DPR of {}", font.size, dpr);
@@ -712,8 +714,8 @@ impl QuadRenderer {
                         | DebouncedEvent::Write(_)
                         | DebouncedEvent::Chmod(_) => {
                             msg_tx.send(Msg::ShaderReload).expect("msg send ok");
-                        },
-                        _ => {},
+                        }
+                        _ => {}
                     }
                 }
             });
@@ -878,11 +880,11 @@ impl QuadRenderer {
 
                 info!("... successfully reloaded shaders");
                 (program, rect_program)
-            },
+            }
             (Err(err), _) | (_, Err(err)) => {
                 error!("{}", err);
                 return;
-            },
+            }
         };
 
         self.active_tex = 0;
@@ -1060,7 +1062,7 @@ impl<'a> RenderApi<'a> {
             fg: Rgb { r: 0, g: 0, b: 0 },
             bg: color.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
             flags: cell::Flags::empty(),
-            bg_alpha
+            bg_alpha,
         };
 
         self.render_text_run(text_run, glyph_cache);
@@ -1111,13 +1113,11 @@ impl<'a> RenderApi<'a> {
 
                 let hidden = text_run.flags.contains(cell::Flags::HIDDEN);
                 if !hidden {
-                    let glyphs = glyph_cache
-                        .shape_run(&run, font_key, self);
+                    let glyphs = glyph_cache.shape_run(&run, font_key, self);
                     for (cell, glyph) in text_run.cell_iter().zip(glyphs.into_iter()) {
                         self.add_render_item(&cell, &glyph);
                     }
                 };
-
 
                 for (cell, chars) in text_run.cell_iter().zip(zero_widths.iter()) {
                     for c in chars.iter().filter(|c| **c != ' ') {
@@ -1160,7 +1160,7 @@ impl<'a> RenderApi<'a> {
                 });
                 self.add_render_item(&cell, &glyph);
                 return;
-            },
+            }
             RenderableCellContent::Chars(chars) => chars,
         };
 
@@ -1231,7 +1231,7 @@ fn load_glyph(
                 atlas.push(new);
             }
             load_glyph(active_tex, atlas, current_atlas, rasterized)
-        },
+        }
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
             top: 0.0,
@@ -1581,7 +1581,7 @@ impl ::std::fmt::Display for ShaderCreationError {
             ShaderCreationError::Io(ref err) => write!(f, "Couldn't read shader: {}", err),
             ShaderCreationError::Compile(ref path, ref log) => {
                 write!(f, "Failed compiling shader at {}: {}", path.display(), log)
-            },
+            }
             ShaderCreationError::Link(ref log) => write!(f, "Failed linking shader: {}", log),
         }
     }
