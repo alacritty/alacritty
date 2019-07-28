@@ -64,7 +64,7 @@ impl<'a> Rects<'a> {
     }
 
     /// Update the stored lines with the next cell info.
-    pub fn update_lines(&mut self, size_info: &SizeInfo, cell: &RenderableCell) {
+    pub fn update_lines(&mut self, cell: &RenderableCell, last_cell: bool) {
         for line in self.active_lines.iter_mut() {
             match line.range {
                 // Check for end if line is present
@@ -74,24 +74,12 @@ impl<'a> Rects<'a> {
                         && cell.flags.contains(line.flag)
                         && cell.fg == start.fg
                         && cell.column == end.col + 1
+                        && !last_cell
                     {
-                        if size_info.cols() == cell.column && size_info.lines() == cell.line {
-                            // Add the last rect if we've reached the end of the terminal
-                            self.inner.push(create_rect(
-                                &start,
-                                cell.into(),
-                                line.flag,
-                                &self.metrics,
-                                &self.size,
-                            ));
-                        } else {
-                            // Update the length of the line
-                            *end = cell.into();
-                        }
+                        *end = cell.into();
 
                         continue;
                     }
-
                     self.inner.push(create_rect(start, *end, line.flag, &self.metrics, &self.size));
 
                     // Start a new line if the flag is present
@@ -109,6 +97,17 @@ impl<'a> Rects<'a> {
                     }
                 },
             };
+
+            // Always push last cell
+            if cell.flags.contains(line.flag) && last_cell {
+                self.inner.push(create_rect(
+                    &cell,
+                    cell.into(),
+                    line.flag,
+                    &self.metrics,
+                    &self.size,
+                ));
+            }
         }
     }
 

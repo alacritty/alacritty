@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On Linux, respect fontconfig's `embeddedbitmap` configuration option
 - Selecting trailing tab with semantic expansion
 - URL parser incorrectly handling Markdown URLs and angled brackets
+- Last line underline/strikeout update
 
 ## 0.3.3
 
