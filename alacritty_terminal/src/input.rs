@@ -666,7 +666,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
 
         let point = self.ctx.terminal().visible_to_buffer(point);
-        let url = self.ctx.terminal().urls().drain(..).filter(|url| url.contains(point)).next()?;
+        let url = self.ctx.terminal().urls().drain(..).find(|url| url.contains(point))?;
         let text = self.ctx.terminal().url_to_string(&url);
 
         let launcher = self.mouse_config.url.launcher.as_ref()?;
