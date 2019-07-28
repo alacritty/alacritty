@@ -63,7 +63,7 @@ nightly = []
 bench = []
 
 [build-dependencies]
-gl_generator = "0.11.0"
+gl_generator = "0.13.0"
 
 [dev-dependencies]
 serde_json = "1.0.0"
