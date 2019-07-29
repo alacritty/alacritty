@@ -1376,11 +1376,10 @@ impl ActivityLevelsShaderProgram {
         let (vertex_src, fragment_src) = if cfg!(feature = "live-shader-reload") {
             (None, None)
         } else {
-            (Some(ACT_LEVELS_LINES_SHADER_V), Some(ACT_LEVELS_LINES_SHADER_F))
+            (Some(CHRT_SHADER_V), Some(CHRT_SHADER_F))
         };
-        let vertex_shader = create_shader(ACT_LEVELS_SHADER_V_PATH, gl::VERTEX_SHADER, vertex_src)?;
-        let fragment_shader =
-            create_shader(ACT_LEVELS_SHADER_F_PATH, gl::FRAGMENT_SHADER, fragment_src)?;
+        let vertex_shader = create_shader(CHRT_SHADER_V_PATH, gl::VERTEX_SHADER, vertex_src)?;
+        let fragment_shader = create_shader(CHRT_SHADER_F_PATH, gl::FRAGMENT_SHADER, fragment_src)?;
         let program = create_program(vertex_shader, fragment_shader)?;
 
         unsafe {
