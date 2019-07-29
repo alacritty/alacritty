@@ -614,7 +614,17 @@ pub struct GridIterator<'a, T> {
     grid: &'a Grid<T>,
 
     /// Current position of the iterator within the grid.
-    pub cur: Point<usize>,
+    cur: Point<usize>,
+}
+
+impl<'a, T> GridIterator<'a, T> {
+    pub fn point(&self) -> Point<usize> {
+        self.cur
+    }
+
+    pub fn cell(&self) -> &'a T {
+        &self.grid[self.cur.line][self.cur.col]
+    }
 }
 
 impl<'a, T> Iterator for GridIterator<'a, T> {

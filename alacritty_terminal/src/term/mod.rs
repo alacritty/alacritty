@@ -75,11 +75,11 @@ impl Search for Term {
                 break;
             }
 
-            if iter.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
+            if iter.point().col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
                 break; // cut off if on new line or hit escape char
             }
 
-            point = iter.cur;
+            point = iter.point();
         }
 
         point
@@ -97,7 +97,7 @@ impl Search for Term {
                 break;
             }
 
-            point = iter.cur;
+            point = iter.point();
 
             if point.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
                 break; // cut off if on new line or hit escape char
@@ -139,7 +139,7 @@ impl Search for Term {
 
             // Check if the bracket matches
             if c == end_char && skip_pairs == 0 {
-                return Some(iter.cur);
+                return Some(iter.point());
             } else if c == start_char {
                 skip_pairs += 1;
             } else if c == end_char {
@@ -1333,7 +1333,11 @@ impl Term {
         let mut extra_url_len = 0;
         let mut urls = Vec::new();
 
-        while let Some(cell) = iter.prev() {
+        let mut c = Some(iter.cell());
+        while let Some(cell) = c {
+            let point = iter.point();
+            c = iter.prev();
+
             // Skip double-width cell but extend URL length
             if cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
                 extra_url_len += 1;
@@ -1341,20 +1345,20 @@ impl Term {
             }
 
             // Interrupt URLs on line break
-            if iter.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
+            if point.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
                 extra_url_len = 0;
                 parser.reset();
             }
 
             match parser.advance(cell.c) {
                 ParserState::Url(length) => {
-                    urls.push(Url::new(iter.cur, length + extra_url_len, num_cols))
+                    urls.push(Url::new(point, length + extra_url_len, num_cols))
                 },
                 ParserState::NoUrl => {
                     extra_url_len = 0;
 
                     // Stop searching for URLs once the viewport has been left without active URL
-                    if iter.cur.line > last_line.0 + display_offset {
+                    if point.line > last_line.0 + display_offset {
                         break;
                     }
                 },
@@ -1369,14 +1373,18 @@ impl Term {
         let mut url_text = String::new();
 
         let mut iter = self.grid.iter_from(url.start);
-        loop {
-            let cell = iter.next().unwrap();
 
-            url_text.push(cell.c);
+        let mut c = Some(iter.cell());
+        while let Some(cell) = c {
+            if !cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
+                url_text.push(cell.c);
+            }
 
-            if iter.cur == url.end {
+            if iter.point() == url.end {
                 break;
             }
+
+            c = iter.next();
         }
 
         url_text
