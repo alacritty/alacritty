@@ -1074,6 +1074,7 @@ mod tests {
         assert!(!subset_mods.triggers_match(&superset_mods));
     }
 
+    #[test]
     fn binding_trigger_input() {
         let mut binding = MockBinding::default();
         binding.trigger = 13;
