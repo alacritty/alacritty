@@ -21,8 +21,8 @@ impl Url {
         let point = point.into();
         point.line <= self.start.line
             && point.line >= self.end.line
-            && (point.line != self.start.line || point.col > self.start.col)
-            && (point.line != self.end.line || point.col < self.end.col)
+            && (point.line != self.start.line || point.col >= self.start.col)
+            && (point.line != self.end.line || point.col <= self.end.col)
     }
 
     pub fn linear_bounds(&self, terminal: &Term) -> RangeInclusive<Linear> {
