@@ -87,29 +87,29 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
-    // TODO: Rust 1.34.0
-    #[allow(deprecated)]
-    Command::new(program)
-        .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .before_exec(|| unsafe {
-            match ::libc::fork() {
-                -1 => return Err(io::Error::last_os_error()),
-                0 => (),
-                _ => ::libc::_exit(0),
-            }
+    unsafe {
+        Command::new(program)
+            .args(args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .pre_exec(|| {
+                match ::libc::fork() {
+                    -1 => return Err(io::Error::last_os_error()),
+                    0 => (),
+                    _ => ::libc::_exit(0),
+                }
 
-            if ::libc::setsid() == -1 {
-                return Err(io::Error::last_os_error());
-            }
+                if ::libc::setsid() == -1 {
+                    return Err(io::Error::last_os_error());
+                }
 
-            Ok(())
-        })
-        .spawn()?
-        .wait()
-        .map(|_| ())
+                Ok(())
+            })
+            .spawn()?
+            .wait()
+            .map(|_| ())
+    }
 }
 
 #[cfg(windows)]
