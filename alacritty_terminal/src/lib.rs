@@ -53,6 +53,7 @@ pub mod window;
 
 pub use crate::grid::Grid;
 pub use crate::term::Term;
+pub use alacritty_charts;
 
 pub mod gl {
     #![allow(clippy::all)]

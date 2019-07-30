@@ -32,6 +32,7 @@ terminfo = "0.6.1"
 url = "1.7.1"
 crossbeam-channel = "0.3.8"
 copypasta = { path = "../copypasta" }
+alacritty_charts = { path = "../alacritty_charts" }
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.14.1"

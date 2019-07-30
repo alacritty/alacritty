@@ -35,6 +35,7 @@ mod window;
 use crate::ansi::{Color, CursorStyle, NamedColor};
 use crate::input::{Binding, KeyBinding, MouseBinding};
 
+pub use crate::alacritty_charts;
 pub use crate::config::bindings::Key;
 pub use crate::config::colors::Colors;
 pub use crate::config::debug::Debug;
@@ -143,6 +144,8 @@ pub struct Config {
     /// Debug options
     #[serde(default, deserialize_with = "failure_default")]
     pub debug: Debug,
+
+    pub charts: Vec<crate::alacritty_charts::TimeSeriesChart>,
 
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]
