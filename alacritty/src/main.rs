@@ -49,7 +49,6 @@ use alacritty_terminal::panic;
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::{cell::Cell, Term};
 use alacritty_terminal::tty;
-use alacritty_terminal::util::fmt::Red;
 use alacritty_terminal::{die, event};
 
 mod cli;
@@ -109,7 +108,7 @@ fn main() {
 
     // Run alacritty
     if let Err(err) = run(config, message_buffer) {
-        die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
+        die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", err);
     }
 
     // Clean up logfile

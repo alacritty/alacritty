@@ -146,7 +146,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
         let rendering_mode = font.get_recommended_rendering_mode_default_params(
             glyph.size.as_f32_pts(),
             self.device_pixel_ratio * (96.0 / 72.0),
-            dwrote::DWRITE_MEASURING_MODE_NATURAL
+            dwrote::DWRITE_MEASURING_MODE_NATURAL,
         );
 
         let glyph_analysis = GlyphRunAnalysis::create(

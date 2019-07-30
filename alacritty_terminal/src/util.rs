@@ -44,43 +44,6 @@ pub fn limit<T: Ord>(value: T, min: T, max: T) -> T {
     cmp::min(cmp::max(value, min), max)
 }
 
-/// Utilities for writing to the
-pub mod fmt {
-    use std::fmt;
-
-    macro_rules! define_colors {
-        ($($(#[$attrs:meta])* pub struct $s:ident => $color:expr;)*) => {
-            $(
-                $(#[$attrs])*
-                pub struct $s<T>(pub T);
-
-                impl<T: fmt::Display> fmt::Display for $s<T> {
-                    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                        write!(f, concat!("\x1b[", $color, "m{}\x1b[0m"), self.0)
-                    }
-                }
-
-                impl<T: fmt::Debug> fmt::Debug for $s<T> {
-                    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                        write!(f, concat!("\x1b[", $color, "m{:?}\x1b[0m"), self.0)
-                    }
-                }
-            )*
-        }
-    }
-
-    define_colors! {
-        /// Write a `Display` or `Debug` escaped with Red
-        pub struct Red => "31";
-
-        /// Write a `Display` or `Debug` escaped with Green
-        pub struct Green => "32";
-
-        /// Write a `Display` or `Debug` escaped with Yellow
-        pub struct Yellow => "33";
-    }
-}
-
 #[cfg(not(windows))]
 pub fn start_daemon<I, S>(program: &str, args: I) -> io::Result<()>
 where
