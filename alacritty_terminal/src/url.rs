@@ -3,6 +3,7 @@ use crate::index::{Column, Linear, Point};
 use crate::term::Term;
 use std::ops::RangeInclusive;
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd)]
 pub struct Url {
     pub start: Point<usize>,
     pub end: Point<usize>,
