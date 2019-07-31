@@ -300,7 +300,13 @@ pub trait Rasterize {
     type Err: ::std::error::Error + Send + Sync + 'static;
 
     /// Create a new Rasterizer
+    #[cfg(not(feature = "hb-ft"))]
     fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
+    where
+        Self: Sized;
+    
+    #[cfg(feature = "hb-ft")]
+    fn new(device_pixel_ratio: f32, rasterize_config: RasterizeConfig) -> Result<Self, Self::Err>
     where
         Self: Sized;
 
@@ -315,6 +321,15 @@ pub trait Rasterize {
 
     /// Update the Rasterizer's DPI factor
     fn update_dpr(&mut self, device_pixel_ratio: f32);
+}
+
+#[cfg(feature = "hb-ft")]
+pub struct RasterizeConfig {
+    /// Toggle thin strokes on mac osx
+    // Technically this is impossible while under "hb-ft" but is included for compatiblity in the api
+    pub use_thin_strokes: bool,
+    /// Toggle rendering of font ligatures
+    pub use_font_ligatures: bool,
 }
 
 #[cfg(feature = "hb-ft")]

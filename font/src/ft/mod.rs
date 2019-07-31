@@ -28,7 +28,7 @@ pub mod fc;
 
 use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
 #[cfg(feature = "hb-ft")]
-use super::key_type::KeyType;
+use super::{key_type::KeyType, RasterizeConfig};
 
 struct FixedSize {
     pixelsize: f64,
@@ -71,6 +71,8 @@ pub struct FreeTypeRasterizer {
     library: Library,
     keys: HashMap<PathBuf, FontKey>,
     device_pixel_ratio: f32,
+    #[cfg(feature = "hb-ft")]
+    use_font_ligatures: bool,
 }
 
 #[inline]
@@ -81,6 +83,7 @@ fn to_freetype_26_6(f: f32) -> isize {
 impl ::Rasterize for FreeTypeRasterizer {
     type Err = Error;
 
+    #[cfg(not(feature = "hb-ft"))]
     fn new(device_pixel_ratio: f32, _: bool) -> Result<FreeTypeRasterizer, Error> {
         let library = Library::init()?;
 
@@ -89,6 +92,19 @@ impl ::Rasterize for FreeTypeRasterizer {
             keys: HashMap::new(),
             library,
             device_pixel_ratio,
+        })
+    }
+
+    #[cfg(feature = "hb-ft")]
+    fn new(device_pixel_ratio: f32, config: RasterizeConfig) -> Result<FreeTypeRasterizer, Error> {
+        let library = Library::init()?;
+
+        Ok(FreeTypeRasterizer {
+            faces: HashMap::new(),
+            keys: HashMap::new(),
+            library,
+            device_pixel_ratio,
+            use_font_ligatures: config.use_font_ligatures,
         })
     }
 
@@ -157,14 +173,21 @@ impl ::HbFtExt for FreeTypeRasterizer {
         text: &str,
         font_key: FontKey,
     ) -> GlyphBuffer {
-        use harfbuzz_rs::{shape, UnicodeBuffer};
+        use harfbuzz_rs::{shape, UnicodeBuffer, Feature, Tag};
         let hb_font = &self.faces[&font_key].hb_font;
         let buf = UnicodeBuffer::default()
-            .add_str(text)
-            .guess_segment_properties();
-
+            .add_str(text);
+        let value = if self.use_font_ligatures { 1 } else { 0 };
+        let features = &[
+            Feature::new(Tag::new('c', 'l', 'i', 'g'), value, 0..),
+            Feature::new(Tag::new('l', 'i', 'g', 'a'), value, 0..),
+            // This feature controls ligature rendering in Fira Code but this could
+            // very well be Fira Code specific behavior as it codes all it's "ligatures" as glyph substitutions
+            // Which are unaffected by features "clig" and "liga"
+            // Feature::new(Tag::new('c', 'a', 'l', 't'), value, 0..)
+        ];
         // Shape with default features
-        shape(&*hb_font, buf, &[])
+        shape(&*hb_font, buf, features)
     }
 }
 

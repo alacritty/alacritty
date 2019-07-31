@@ -406,7 +406,10 @@ impl GlyphCache {
     pub fn static_metrics(config: &Config, dpr: f32) -> Result<font::Metrics, font::Error> {
         let font = config.font.clone();
 
+        #[cfg(not(feature = "hb-ft"))]
         let mut rasterizer = font::Rasterizer::new(dpr, config.font.use_thin_strokes())?;
+        #[cfg(feature = "hb-ft")]
+        let mut rasterizer = font::Rasterizer::new(dpr, (&config.font).into())?;
         let regular_desc =
             GlyphCache::make_desc(&font.normal(), font::Slant::Normal, font::Weight::Normal);
         let regular = rasterizer.load_font(&regular_desc, font.size)?;

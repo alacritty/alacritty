@@ -301,7 +301,10 @@ impl Display {
         config: &Config,
     ) -> Result<(GlyphCache, f32, f32), Error> {
         let font = config.font.clone();
+        #[cfg(not(feature = "hb-ft"))]
         let rasterizer = font::Rasterizer::new(dpr as f32, config.font.use_thin_strokes())?;
+        #[cfg(feature = "hb-ft")]
+        let rasterizer = font::Rasterizer::new(dpr as f32, (&config.font).into())?;
 
         // Initialize glyph cache
         let glyph_cache = {
