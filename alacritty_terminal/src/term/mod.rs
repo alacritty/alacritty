@@ -20,17 +20,17 @@ use std::{io, mem, ptr};
 
 use font::{self, Size};
 use glutin::MouseCursor;
+use rfind_url::{Parser, ParserState};
 use unicode_width::UnicodeWidthChar;
 
 use crate::ansi::{
-    self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset,
+    self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset, TermInfo,
 };
 use crate::clipboard::{Clipboard, ClipboardType};
 use crate::config::{Config, VisualBellAnimation};
 use crate::cursor::CursorKey;
 use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
-    ViewportPosition,
 };
 use crate::index::{self, Column, Contains, IndexRange, Line, Linear, Point};
 use crate::input::FONT_SIZE_STEP;
@@ -38,7 +38,7 @@ use crate::message_bar::MessageBuffer;
 use crate::selection::{self, Selection, SelectionRange, Span};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
-use crate::url::{Url, UrlParser};
+use crate::url::Url;
 
 #[cfg(windows)]
 use crate::tty;
@@ -58,8 +58,6 @@ pub trait Search {
     fn semantic_search_left(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest semantic boundary _to the point_ of provided point.
     fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
-    /// Find the nearest URL boundary in both directions.
-    fn url_search(&self, _: Point<usize>) -> Option<Url>;
     /// Find the nearest matching bracket.
     fn bracket_search(&self, _: Point<usize>) -> Option<Point<usize>>;
 }
@@ -77,11 +75,11 @@ impl Search for Term {
                 break;
             }
 
-            if iter.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
+            if iter.point().col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
                 break; // cut off if on new line or hit escape char
             }
 
-            point = iter.cur;
+            point = iter.point();
         }
 
         point
@@ -99,7 +97,7 @@ impl Search for Term {
                 break;
             }
 
-            point = iter.cur;
+            point = iter.point();
 
             if point.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
                 break; // cut off if on new line or hit escape char
@@ -107,40 +105,6 @@ impl Search for Term {
         }
 
         point
-    }
-
-    fn url_search(&self, mut point: Point<usize>) -> Option<Url> {
-        let last_col = self.grid.num_cols() - 1;
-
-        // Switch first line from top to bottom
-        point.line = self.grid.num_lines().0 - point.line - 1;
-
-        // Remove viewport scroll offset
-        point.line += self.grid.display_offset();
-
-        // Create forwards and backwards iterators
-        let mut iterf = self.grid.iter_from(point);
-        point.col += 1;
-        let mut iterb = self.grid.iter_from(point);
-
-        // Find URLs
-        let mut url_parser = UrlParser::new();
-        while let Some(cell) = iterb.prev() {
-            if (iterb.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
-                || url_parser.advance_left(cell)
-            {
-                break;
-            }
-        }
-
-        while let Some(cell) = iterf.next() {
-            if url_parser.advance_right(cell)
-                || (iterf.cur.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE))
-            {
-                break;
-            }
-        }
-        url_parser.url()
     }
 
     fn bracket_search(&self, point: Point<usize>) -> Option<Point<usize>> {
@@ -175,7 +139,7 @@ impl Search for Term {
 
             // Check if the bracket matches
             if c == end_char && skip_pairs == 0 {
-                return Some(iter.cur);
+                return Some(iter.point());
             } else if c == start_char {
                 skip_pairs += 1;
             } else if c == end_char {
@@ -235,44 +199,27 @@ impl<'a> RenderableCellsIter<'a> {
         let cursor_offset = grid.line_to_offset(term.cursor.point.line);
         let inner = grid.display_iter();
 
-        let selection_range = selection.and_then(|span| {
-            // Get on-screen lines of the selection's locations
-            let start_line = grid.buffer_line_to_visible(span.start.line);
-            let end_line = grid.buffer_line_to_visible(span.end.line);
-
-            // Limit block selection columns to within start/end points
-            let (limit_start, limit_end) =
-                if span.is_block { (span.start.col, span.end.col) } else { (Column(0), Column(0)) };
-
-            // Get start/end locations based on what part of selection is on screen
-            let locations = match (start_line, end_line) {
-                (ViewportPosition::Visible(start_line), ViewportPosition::Visible(end_line)) => {
-                    Some((start_line, span.start.col, end_line, span.end.col))
-                },
-                (ViewportPosition::Visible(start_line), ViewportPosition::Above) => {
-                    Some((start_line, span.start.col, Line(0), limit_end))
-                },
-                (ViewportPosition::Below, ViewportPosition::Visible(end_line)) => {
-                    Some((grid.num_lines(), limit_start, end_line, span.end.col))
-                },
-                (ViewportPosition::Below, ViewportPosition::Above) => {
-                    Some((grid.num_lines(), limit_start, Line(0), limit_end))
-                },
-                _ => None,
+        let selection_range = selection.map(|span| {
+            let (limit_start, limit_end) = if span.is_block {
+                (span.end.col, span.start.col)
+            } else {
+                (Column(0), term.cols() - 1)
             };
 
-            locations.map(|(start_line, start_col, end_line, end_col)| {
-                // start and end *lines* are swapped as we switch from buffer to
-                // Line coordinates.
-                let mut end = Point { line: start_line, col: start_col };
-                let mut start = Point { line: end_line, col: end_col };
+            // Get on-screen lines of the selection's locations
+            let mut start = term.buffer_to_visible(span.start);
+            let mut end = term.buffer_to_visible(span.end);
 
-                if start > end {
-                    ::std::mem::swap(&mut start, &mut end);
-                }
+            // Start and end lines are swapped as we switch from buffer to line coordinates
+            if start > end {
+                mem::swap(&mut start, &mut end);
+            }
 
-                SelectionRange::new(start, end, span.is_block)
-            })
+            // Trim start/end with partially visible block selection
+            start.col = max(limit_start, start.col);
+            end.col = min(limit_end, end.col);
+
+            SelectionRange::new(start.into(), end.into(), span.is_block)
         });
 
         // Load cursor glyph
@@ -1180,6 +1127,7 @@ impl Term {
     pub fn scroll_display(&mut self, scroll: Scroll) {
         self.grid.scroll_display(scroll);
         self.reset_url_highlight();
+        self.reset_mouse_cursor();
         self.dirty = true;
     }
 
@@ -1391,8 +1339,12 @@ impl Term {
         Some(res)
     }
 
-    pub(crate) fn visible_to_buffer(&self, point: Point) -> Point<usize> {
+    pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
         self.grid.visible_to_buffer(point)
+    }
+
+    pub fn buffer_to_visible(&self, point: impl Into<Point<usize>>) -> Point<usize> {
+        self.grid.buffer_to_visible(point)
     }
 
     /// Convert the given pixel values to a grid coordinate
@@ -1644,8 +1596,6 @@ impl Term {
 
     #[inline]
     pub fn reset_url_highlight(&mut self) {
-        self.reset_mouse_cursor();
-
         self.grid.url_highlight = None;
         self.dirty = true;
     }
@@ -1653,9 +1603,79 @@ impl Term {
     pub fn clipboard(&mut self) -> &mut Clipboard {
         &mut self.clipboard
     }
+
+    pub fn urls(&self) -> Vec<Url> {
+        let display_offset = self.grid.display_offset();
+        let num_cols = self.grid.num_cols().0;
+        let last_col = Column(num_cols - 1);
+        let last_line = self.grid.num_lines() - 1;
+
+        let grid_end_point = Point::new(0, last_col);
+        let mut iter = self.grid.iter_from(grid_end_point);
+
+        let mut parser = Parser::new();
+        let mut extra_url_len = 0;
+        let mut urls = Vec::new();
+
+        let mut c = Some(iter.cell());
+        while let Some(cell) = c {
+            let point = iter.point();
+            c = iter.prev();
+
+            // Skip double-width cell but extend URL length
+            if cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
+                extra_url_len += 1;
+                continue;
+            }
+
+            // Interrupt URLs on line break
+            if point.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
+                extra_url_len = 0;
+                parser.reset();
+            }
+
+            match parser.advance(cell.c) {
+                ParserState::Url(length) => {
+                    urls.push(Url::new(point, length + extra_url_len, num_cols))
+                },
+                ParserState::NoUrl => {
+                    extra_url_len = 0;
+
+                    // Stop searching for URLs once the viewport has been left without active URL
+                    if point.line > last_line.0 + display_offset {
+                        break;
+                    }
+                },
+                _ => (),
+            }
+        }
+
+        urls
+    }
+
+    pub fn url_to_string(&self, url: &Url) -> String {
+        let mut url_text = String::new();
+
+        let mut iter = self.grid.iter_from(url.start);
+
+        let mut c = Some(iter.cell());
+        while let Some(cell) = c {
+            if !cell.flags.contains(cell::Flags::WIDE_CHAR_SPACER) {
+                url_text.push(cell.c);
+            }
+
+            if iter.point() == url.end {
+                break;
+            }
+
+            c = iter.next();
+        }
+
+        url_text
+    }
 }
 
-impl ansi::TermInfo for Term {
+impl TermInfo for Term {
     #[inline]
     fn lines(&self) -> Line {
         self.grid.num_lines()

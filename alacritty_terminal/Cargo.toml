@@ -32,6 +32,7 @@ terminfo = "0.6.1"
 url = "1.7.1"
 crossbeam-channel = "0.3.8"
 copypasta = { path = "../copypasta" }
+rfind_url = "0.4.0"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.14.1"
@@ -65,7 +66,7 @@ bench = []
 hb-ft = ["font/hb-ft"]
 
 [build-dependencies]
-gl_generator = "0.11.0"
+gl_generator = "0.13.0"
 
 [dev-dependencies]
 serde_json = "1.0.0"

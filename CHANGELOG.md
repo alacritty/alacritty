@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Packaging
+
+- Minimum Rust version has been bumped to 1.34.0
+
 ### Added
 
 - Block selection mode when Control is held while starting a selection
@@ -32,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cursor color setting with escape sequence
 - Override default bindings with subset terminal mode match
 - On Linux, respect fontconfig's `embeddedbitmap` configuration option
+- Selecting trailing tab with semantic expansion
+- URL parser incorrectly handling Markdown URLs and angled brackets
 
 ## 0.3.3
 

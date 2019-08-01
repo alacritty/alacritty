@@ -18,27 +18,25 @@
 //! In order to figure that out, state about which modifier keys are pressed
 //! needs to be tracked. Additionally, we need a bit of a state machine to
 //! determine what to do when a non-modifier key is pressed.
+use crate::url::Url;
 use std::borrow::Cow;
 use std::mem;
-use std::ops::RangeInclusive;
 use std::time::Instant;
 
 use glutin::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseCursor, MouseScrollDelta,
     TouchPhase,
 };
-use unicode_width::UnicodeWidthStr;
 
 use crate::ansi::{ClearMode, Handler};
 use crate::clipboard::ClipboardType;
 use crate::config::{self, Key};
 use crate::event::{ClickState, Mouse};
 use crate::grid::Scroll;
-use crate::index::{Column, Line, Linear, Point, Side};
+use crate::index::{Column, Line, Point, Side};
 use crate::message_bar::{self, Message};
 use crate::term::mode::TermMode;
-use crate::term::{Search, SizeInfo, Term};
-use crate::url::Url;
+use crate::term::{SizeInfo, Term};
 use crate::util::start_daemon;
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
@@ -383,7 +381,33 @@ impl From<&'static str> for Action {
     }
 }
 
+enum MousePosition {
+    Url(Url),
+    MessageBar,
+    MessageBarButton,
+    Terminal,
+}
+
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
+    fn mouse_position(&mut self, point: Point) -> MousePosition {
+        let buffer_point = self.ctx.terminal().visible_to_buffer(point);
+
+        // Check message bar before URL to ignore URLs in the message bar
+        if let Some(message) = self.message_at_point(Some(point)) {
+            if self.message_close_at_point(point, message) {
+                MousePosition::MessageBarButton
+            } else {
+                MousePosition::MessageBar
+            }
+        } else if let Some(url) =
+            self.ctx.terminal().urls().drain(..).find(|url| url.contains(buffer_point))
+        {
+            MousePosition::Url(url)
+        } else {
+            MousePosition::Terminal
+        }
+    }
+
     #[inline]
     pub fn mouse_moved(&mut self, x: usize, y: usize, modifiers: ModifiersState) {
         self.ctx.mouse_mut().x = x;
@@ -408,21 +432,38 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return;
         }
 
-        // Only report motions when cell changed and mouse is not over the message bar
-        if let Some(message) = self.message_at_point(Some(point)) {
-            self.update_message_cursor(point, message);
-
-            return;
-        } else {
-            self.ctx.terminal_mut().reset_mouse_cursor();
-        }
-
         // Don't launch URLs if mouse has moved
         self.ctx.mouse_mut().block_url_launcher = true;
 
-        // Underline URLs and change cursor on hover
-        if cell_changed {
-            self.update_url_highlight(point, modifiers);
+        match self.mouse_position(point) {
+            MousePosition::Url(url) => {
+                let mouse_mode =
+                    TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
+
+                if self.mouse_config.url.mods().relaxed_eq(modifiers)
+                    && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
+                    && self.mouse_config.url.launcher.is_some()
+                {
+                    let url_bounds = url.linear_bounds(self.ctx.terminal());
+                    self.ctx.terminal_mut().set_url_highlight(url_bounds);
+                    self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
+                    self.ctx.terminal_mut().dirty = true;
+                }
+            },
+            MousePosition::MessageBar => {
+                self.ctx.terminal_mut().reset_url_highlight();
+                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Default);
+                return;
+            },
+            MousePosition::MessageBarButton => {
+                self.ctx.terminal_mut().reset_url_highlight();
+                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
+                return;
+            },
+            MousePosition::Terminal => {
+                self.ctx.terminal_mut().reset_url_highlight();
+                self.ctx.terminal_mut().reset_mouse_cursor();
+            },
         }
 
         if self.ctx.mouse().left_button_state == ElementState::Pressed
@@ -442,52 +483,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             } else if self.ctx.terminal().mode().contains(TermMode::MOUSE_MOTION) {
                 self.mouse_report(35, ElementState::Pressed, modifiers);
             }
-        }
-    }
-
-    /// Underline URLs and change the mouse cursor when URL hover state changes.
-    fn update_url_highlight(&mut self, point: Point, modifiers: ModifiersState) {
-        let mouse_mode =
-            TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
-
-        // Only show URLs as launchable when all required modifiers are pressed
-        let url = if self.mouse_config.url.mods().relaxed_eq(modifiers)
-            && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
-            && self.mouse_config.url.launcher.is_some()
-        {
-            self.ctx.terminal().url_search(point.into())
-        } else {
-            None
-        };
-
-        if let Some(Url { origin, text }) = url {
-            let cols = self.ctx.size_info().cols().0;
-
-            // Calculate the URL's start position
-            let lines_before = (origin + cols - point.col.0 - 1) / cols;
-            let (start_col, start_line) = if lines_before > point.line.0 {
-                (0, 0)
-            } else {
-                let start_col = (cols + point.col.0 - origin % cols) % cols;
-                let start_line = point.line.0 - lines_before;
-                (start_col, start_line)
-            };
-            let start = Point::new(start_line, Column(start_col));
-
-            // Calculate the URL's end position
-            let len = text.width();
-            let end_col = (point.col.0 + len - origin) % cols - 1;
-            let end_line = point.line.0 + (point.col.0 + len - origin) / cols;
-            let end = Point::new(end_line, Column(end_col));
-
-            let start = Linear::from_point(Column(cols), start);
-            let end = Linear::from_point(Column(cols), end);
-
-            self.ctx.terminal_mut().set_url_highlight(RangeInclusive::new(start, end));
-            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
-            self.ctx.terminal_mut().dirty = true;
-        } else {
-            self.ctx.terminal_mut().reset_url_highlight();
         }
     }
 
@@ -670,7 +665,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return None;
         }
 
-        let text = self.ctx.terminal().url_search(point.into())?.text;
+        let point = self.ctx.terminal().visible_to_buffer(point);
+        let url = self.ctx.terminal().urls().drain(..).find(|url| url.contains(point))?;
+        let text = self.ctx.terminal().url_to_string(&url);
 
         let launcher = self.mouse_config.url.launcher.as_ref()?;
         let mut args = launcher.args().to_vec();
@@ -908,15 +905,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         has_binding
     }
 
-    /// Set the cursor depending on where the mouse is on the message bar
-    fn update_message_cursor(&mut self, point: Point, message: Message) {
-        if self.message_close_at_point(point, message) {
-            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
-        } else {
-            self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Default);
-        }
-    }
-
     /// Return the message bar's message if there is some at the specified point
     fn message_at_point(&mut self, point: Option<Point>) -> Option<Message> {
         if let (Some(point), Some(message)) =
@@ -945,11 +933,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             ElementState::Pressed => {
                 if self.message_close_at_point(point, message) {
                     self.ctx.terminal_mut().message_buffer_mut().pop();
-                    if let Some(message) = self.message_at_point(Some(point)) {
-                        self.update_message_cursor(point, message);
-                    } else {
-                        self.ctx.terminal_mut().reset_mouse_cursor();
-                    }
+                    self.ctx.terminal_mut().reset_mouse_cursor();
                 }
 
                 self.ctx.clear_selection();
@@ -1052,6 +1036,7 @@ mod tests {
         assert!(!subset_mods.triggers_match(&superset_mods));
     }
 
+    #[test]
     fn binding_trigger_input() {
         let mut binding = MockBinding::default();
         binding.trigger = 13;

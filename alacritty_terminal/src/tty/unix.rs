@@ -194,35 +194,30 @@ pub fn new<T: ToWinsize>(config: &Config, size: &T, window_id: Option<usize>) ->
         builder.env("WINDOWID", format!("{}", window_id));
     }
 
-    // TODO: Rust 1.34.0
-    #[allow(deprecated)]
-    builder.before_exec(move || {
-        // Create a new process group
-        unsafe {
+    unsafe {
+        builder.pre_exec(move || {
+            // Create a new process group
             let err = libc::setsid();
             if err == -1 {
                 die!("Failed to set session id: {}", errno());
             }
-        }
 
-        set_controlling_terminal(slave);
+            set_controlling_terminal(slave);
 
-        // No longer need slave/master fds
-        unsafe {
+            // No longer need slave/master fds
             libc::close(slave);
             libc::close(master);
-        }
 
-        unsafe {
             libc::signal(libc::SIGCHLD, libc::SIG_DFL);
             libc::signal(libc::SIGHUP, libc::SIG_DFL);
             libc::signal(libc::SIGINT, libc::SIG_DFL);
             libc::signal(libc::SIGQUIT, libc::SIG_DFL);
             libc::signal(libc::SIGTERM, libc::SIG_DFL);
             libc::signal(libc::SIGALRM, libc::SIG_DFL);
-        }
-        Ok(())
-    });
+
+            Ok(())
+        });
+    }
 
     // Handle set working directory option
     if let Some(ref dir) = config.working_directory() {

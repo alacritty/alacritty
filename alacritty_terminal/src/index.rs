@@ -59,6 +59,12 @@ impl From<Point<usize>> for Point<isize> {
     }
 }
 
+impl From<Point<usize>> for Point<Line> {
+    fn from(point: Point<usize>) -> Self {
+        Point::new(Line(point.line), point.col)
+    }
+}
+
 impl From<Point<isize>> for Point<usize> {
     fn from(point: Point<isize>) -> Self {
         Point::new(point.line as usize, point.col)
