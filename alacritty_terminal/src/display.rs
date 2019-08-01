@@ -519,20 +519,12 @@ impl Display {
 
                 self.renderer.with_api(config, &size_info, |mut api| {
                     // Iterate over all non-empty cells in the grid
-                    if let Some(last_cell) = grid_cells.last() {
-                        let (last_col, last_line) = (last_cell.column, last_cell.line);
-                        for cell in grid_cells {
-                            // Update underline/strikeout
-                            if cell.line == last_line && cell.column == last_col {
-                                // Mark last cell
-                                rects.update_lines(&cell, true);
-                            } else {
-                                rects.update_lines(&cell, false);
-                            }
+                    for cell in grid_cells {
+                        // Update underline/strikeout
+                        rects.update_lines(&cell);
 
-                            // Draw the cell
-                            api.render_cell(cell, glyph_cache);
-                        }
+                        // Draw the cell
+                        api.render_cell(cell, glyph_cache);
                     }
                 });
             }

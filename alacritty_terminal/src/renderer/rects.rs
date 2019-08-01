@@ -64,8 +64,9 @@ impl<'a> Rects<'a> {
     }
 
     /// Update the stored lines with the next cell info.
-    pub fn update_lines(&mut self, cell: &RenderableCell, last_cell: bool) {
+    pub fn update_lines(&mut self, cell: &RenderableCell) {
         for line in self.active_lines.iter_mut() {
+            let mut new_line = false;
             match line.range {
                 // Check for end if line is present
                 Some((ref mut start, ref mut end)) => {
@@ -74,18 +75,32 @@ impl<'a> Rects<'a> {
                         && cell.flags.contains(line.flag)
                         && cell.fg == start.fg
                         && cell.column == end.col + 1
-                        && !last_cell
                     {
+                        // Compute rect for current cell
+                        let rect =
+                            create_rect(&cell, cell.into(), line.flag, &self.metrics, &self.size);
+
+                        // Update line
+                        if let Some(ref mut prev_line) = self
+                            .inner
+                            .iter_mut()
+                            .rev()
+                            .take(2)
+                            .find(|c| (c.0.y - rect.0.y).abs() < std::f32::EPSILON)
+                        {
+                            prev_line.0.width += rect.0.width;
+                        };
+
                         *end = cell.into();
 
                         continue;
                     }
-                    self.inner.push(create_rect(start, *end, line.flag, &self.metrics, &self.size));
 
                     // Start a new line if the flag is present
                     if cell.flags.contains(line.flag) {
                         *start = cell.clone();
                         *end = cell.into();
+                        new_line = true;
                     } else {
                         line.range = None;
                     }
@@ -94,12 +109,13 @@ impl<'a> Rects<'a> {
                 None => {
                     if cell.flags.contains(line.flag) {
                         line.range = Some((cell.clone(), cell.into()));
+                        new_line = true;
                     }
                 },
             };
 
-            // Always push last cell
-            if cell.flags.contains(line.flag) && last_cell {
+            // Always push finished rect for a new line
+            if new_line {
                 self.inner.push(create_rect(
                     &cell,
                     cell.into(),
