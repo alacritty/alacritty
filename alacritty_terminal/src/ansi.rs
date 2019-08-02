@@ -663,6 +663,84 @@ pub enum Attr {
     Background(Color),
 }
 
+impl Attr {
+    fn from_sgr_parameters(parameters: &[i64], i: &mut usize) -> Option<Attr> {
+        match parameters[0] {
+            0 => Some(Attr::Reset),
+            1 => Some(Attr::Bold),
+            2 => Some(Attr::Dim),
+            3 => Some(Attr::Italic),
+            4 => Some(Attr::Underscore),
+            5 => Some(Attr::BlinkSlow),
+            6 => Some(Attr::BlinkFast),
+            7 => Some(Attr::Reverse),
+            8 => Some(Attr::Hidden),
+            9 => Some(Attr::Strike),
+            21 => Some(Attr::CancelBold),
+            22 => Some(Attr::CancelBoldDim),
+            23 => Some(Attr::CancelItalic),
+            24 => Some(Attr::CancelUnderline),
+            25 => Some(Attr::CancelBlink),
+            27 => Some(Attr::CancelReverse),
+            28 => Some(Attr::CancelHidden),
+            29 => Some(Attr::CancelStrike),
+            30 => Some(Attr::Foreground(Color::Named(NamedColor::Black))),
+            31 => Some(Attr::Foreground(Color::Named(NamedColor::Red))),
+            32 => Some(Attr::Foreground(Color::Named(NamedColor::Green))),
+            33 => Some(Attr::Foreground(Color::Named(NamedColor::Yellow))),
+            34 => Some(Attr::Foreground(Color::Named(NamedColor::Blue))),
+            35 => Some(Attr::Foreground(Color::Named(NamedColor::Magenta))),
+            36 => Some(Attr::Foreground(Color::Named(NamedColor::Cyan))),
+            37 => Some(Attr::Foreground(Color::Named(NamedColor::White))),
+            38 => {
+                let mut start = 0;
+                if let Some(color) = parse_color(&parameters[*i..], &mut start) {
+                    *i += start;
+                    Some(Attr::Foreground(color))
+                } else {
+                    None
+                }
+            },
+            39 => Some(Attr::Foreground(Color::Named(NamedColor::Foreground))),
+            40 => Some(Attr::Background(Color::Named(NamedColor::Black))),
+            41 => Some(Attr::Background(Color::Named(NamedColor::Red))),
+            42 => Some(Attr::Background(Color::Named(NamedColor::Green))),
+            43 => Some(Attr::Background(Color::Named(NamedColor::Yellow))),
+            44 => Some(Attr::Background(Color::Named(NamedColor::Blue))),
+            45 => Some(Attr::Background(Color::Named(NamedColor::Magenta))),
+            46 => Some(Attr::Background(Color::Named(NamedColor::Cyan))),
+            47 => Some(Attr::Background(Color::Named(NamedColor::White))),
+            48 => {
+                let mut start = 0;
+                if let Some(color) = parse_color(&parameters[*i..], &mut start) {
+                    *i += start;
+                    Some(Attr::Background(color))
+                } else {
+                    None
+                }
+            },
+            49 => Some(Attr::Background(Color::Named(NamedColor::Background))),
+            90 => Some(Attr::Foreground(Color::Named(NamedColor::BrightBlack))),
+            91 => Some(Attr::Foreground(Color::Named(NamedColor::BrightRed))),
+            92 => Some(Attr::Foreground(Color::Named(NamedColor::BrightGreen))),
+            93 => Some(Attr::Foreground(Color::Named(NamedColor::BrightYellow))),
+            94 => Some(Attr::Foreground(Color::Named(NamedColor::BrightBlue))),
+            95 => Some(Attr::Foreground(Color::Named(NamedColor::BrightMagenta))),
+            96 => Some(Attr::Foreground(Color::Named(NamedColor::BrightCyan))),
+            97 => Some(Attr::Foreground(Color::Named(NamedColor::BrightWhite))),
+            100 => Some(Attr::Background(Color::Named(NamedColor::BrightBlack))),
+            101 => Some(Attr::Background(Color::Named(NamedColor::BrightRed))),
+            102 => Some(Attr::Background(Color::Named(NamedColor::BrightGreen))),
+            103 => Some(Attr::Background(Color::Named(NamedColor::BrightYellow))),
+            104 => Some(Attr::Background(Color::Named(NamedColor::BrightBlue))),
+            105 => Some(Attr::Background(Color::Named(NamedColor::BrightMagenta))),
+            106 => Some(Attr::Background(Color::Named(NamedColor::BrightCyan))),
+            107 => Some(Attr::Background(Color::Named(NamedColor::BrightWhite))),
+            _ => None,
+        }
+    }
+}
+
 /// Identifiers which can be assigned to a graphic character set
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CharsetIndex {
@@ -690,101 +768,6 @@ impl Default for StandardCharset {
     fn default() -> Self {
         StandardCharset::Ascii
     }
-}
-
-#[inline]
-fn process_sgr<H: Handler>(handler: &mut H, args: &[i64]) -> bool {
-    // Sometimes a C-style for loop is just what you need
-    let mut i = 0; // C-for initializer
-    if args.is_empty() {
-        handler.terminal_attribute(Attr::Reset);
-        return true;
-    }
-    loop {
-        if i >= args.len() {
-            // C-for condition
-            break;
-        }
-
-        let attr = match args[i] {
-            0 => Attr::Reset,
-            1 => Attr::Bold,
-            2 => Attr::Dim,
-            3 => Attr::Italic,
-            4 => Attr::Underscore,
-            5 => Attr::BlinkSlow,
-            6 => Attr::BlinkFast,
-            7 => Attr::Reverse,
-            8 => Attr::Hidden,
-            9 => Attr::Strike,
-            21 => Attr::CancelBold,
-            22 => Attr::CancelBoldDim,
-            23 => Attr::CancelItalic,
-            24 => Attr::CancelUnderline,
-            25 => Attr::CancelBlink,
-            27 => Attr::CancelReverse,
-            28 => Attr::CancelHidden,
-            29 => Attr::CancelStrike,
-            30 => Attr::Foreground(Color::Named(NamedColor::Black)),
-            31 => Attr::Foreground(Color::Named(NamedColor::Red)),
-            32 => Attr::Foreground(Color::Named(NamedColor::Green)),
-            33 => Attr::Foreground(Color::Named(NamedColor::Yellow)),
-            34 => Attr::Foreground(Color::Named(NamedColor::Blue)),
-            35 => Attr::Foreground(Color::Named(NamedColor::Magenta)),
-            36 => Attr::Foreground(Color::Named(NamedColor::Cyan)),
-            37 => Attr::Foreground(Color::Named(NamedColor::White)),
-            38 => {
-                let mut start = 0;
-                if let Some(color) = parse_color(&args[i..], &mut start) {
-                    i += start;
-                    Attr::Foreground(color)
-                } else {
-                    break;
-                }
-            },
-            39 => Attr::Foreground(Color::Named(NamedColor::Foreground)),
-            40 => Attr::Background(Color::Named(NamedColor::Black)),
-            41 => Attr::Background(Color::Named(NamedColor::Red)),
-            42 => Attr::Background(Color::Named(NamedColor::Green)),
-            43 => Attr::Background(Color::Named(NamedColor::Yellow)),
-            44 => Attr::Background(Color::Named(NamedColor::Blue)),
-            45 => Attr::Background(Color::Named(NamedColor::Magenta)),
-            46 => Attr::Background(Color::Named(NamedColor::Cyan)),
-            47 => Attr::Background(Color::Named(NamedColor::White)),
-            48 => {
-                let mut start = 0;
-                if let Some(color) = parse_color(&args[i..], &mut start) {
-                    i += start;
-                    Attr::Background(color)
-                } else {
-                    break;
-                }
-            },
-            49 => Attr::Background(Color::Named(NamedColor::Background)),
-            90 => Attr::Foreground(Color::Named(NamedColor::BrightBlack)),
-            91 => Attr::Foreground(Color::Named(NamedColor::BrightRed)),
-            92 => Attr::Foreground(Color::Named(NamedColor::BrightGreen)),
-            93 => Attr::Foreground(Color::Named(NamedColor::BrightYellow)),
-            94 => Attr::Foreground(Color::Named(NamedColor::BrightBlue)),
-            95 => Attr::Foreground(Color::Named(NamedColor::BrightMagenta)),
-            96 => Attr::Foreground(Color::Named(NamedColor::BrightCyan)),
-            97 => Attr::Foreground(Color::Named(NamedColor::BrightWhite)),
-            100 => Attr::Background(Color::Named(NamedColor::BrightBlack)),
-            101 => Attr::Background(Color::Named(NamedColor::BrightRed)),
-            102 => Attr::Background(Color::Named(NamedColor::BrightGreen)),
-            103 => Attr::Background(Color::Named(NamedColor::BrightYellow)),
-            104 => Attr::Background(Color::Named(NamedColor::BrightBlue)),
-            105 => Attr::Background(Color::Named(NamedColor::BrightMagenta)),
-            106 => Attr::Background(Color::Named(NamedColor::BrightCyan)),
-            107 => Attr::Background(Color::Named(NamedColor::BrightWhite)),
-            _ => return false,
-        };
-
-        handler.terminal_attribute(attr);
-
-        i += 1; // C-for expr
-    }
-    true
 }
 
 impl<'a, H, W> vte::Perform for Performer<'a, H, W>
@@ -1105,8 +1088,24 @@ where
                 }
             },
             ('m', None) => {
-                if !process_sgr(self.handler, args) {
-                    unhandled!();
+                if args.is_empty() {
+                    handler.terminal_attribute(Attr::Reset);
+                    return;
+                }
+                // Sometimes a C-style for loop is just what you need
+                let mut i = 0; // C-for initializer
+                loop {
+                    if i >= args.len() {
+                        // C-for condition
+                        break;
+                    }
+
+                    match Attr::from_sgr_parameters(&args, &mut i) {
+                        Some(attr) => handler.terminal_attribute(attr),
+                        None => unhandled!(),
+                    }
+
+                    i += 1; // C-for expr
                 }
             },
             ('n', None) => handler.device_status(writer, arg_or_default!(idx: 0, default: 0) as usize),
