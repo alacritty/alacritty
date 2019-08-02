@@ -692,6 +692,101 @@ impl Default for StandardCharset {
     }
 }
 
+#[inline]
+fn process_sgr<H: Handler>(handler: &mut H, args: &[i64]) -> bool {
+    // Sometimes a C-style for loop is just what you need
+    let mut i = 0; // C-for initializer
+    if args.is_empty() {
+        handler.terminal_attribute(Attr::Reset);
+        return true;
+    }
+    loop {
+        if i >= args.len() {
+            // C-for condition
+            break;
+        }
+
+        let attr = match args[i] {
+            0 => Attr::Reset,
+            1 => Attr::Bold,
+            2 => Attr::Dim,
+            3 => Attr::Italic,
+            4 => Attr::Underscore,
+            5 => Attr::BlinkSlow,
+            6 => Attr::BlinkFast,
+            7 => Attr::Reverse,
+            8 => Attr::Hidden,
+            9 => Attr::Strike,
+            21 => Attr::CancelBold,
+            22 => Attr::CancelBoldDim,
+            23 => Attr::CancelItalic,
+            24 => Attr::CancelUnderline,
+            25 => Attr::CancelBlink,
+            27 => Attr::CancelReverse,
+            28 => Attr::CancelHidden,
+            29 => Attr::CancelStrike,
+            30 => Attr::Foreground(Color::Named(NamedColor::Black)),
+            31 => Attr::Foreground(Color::Named(NamedColor::Red)),
+            32 => Attr::Foreground(Color::Named(NamedColor::Green)),
+            33 => Attr::Foreground(Color::Named(NamedColor::Yellow)),
+            34 => Attr::Foreground(Color::Named(NamedColor::Blue)),
+            35 => Attr::Foreground(Color::Named(NamedColor::Magenta)),
+            36 => Attr::Foreground(Color::Named(NamedColor::Cyan)),
+            37 => Attr::Foreground(Color::Named(NamedColor::White)),
+            38 => {
+                let mut start = 0;
+                if let Some(color) = parse_color(&args[i..], &mut start) {
+                    i += start;
+                    Attr::Foreground(color)
+                } else {
+                    break;
+                }
+            },
+            39 => Attr::Foreground(Color::Named(NamedColor::Foreground)),
+            40 => Attr::Background(Color::Named(NamedColor::Black)),
+            41 => Attr::Background(Color::Named(NamedColor::Red)),
+            42 => Attr::Background(Color::Named(NamedColor::Green)),
+            43 => Attr::Background(Color::Named(NamedColor::Yellow)),
+            44 => Attr::Background(Color::Named(NamedColor::Blue)),
+            45 => Attr::Background(Color::Named(NamedColor::Magenta)),
+            46 => Attr::Background(Color::Named(NamedColor::Cyan)),
+            47 => Attr::Background(Color::Named(NamedColor::White)),
+            48 => {
+                let mut start = 0;
+                if let Some(color) = parse_color(&args[i..], &mut start) {
+                    i += start;
+                    Attr::Background(color)
+                } else {
+                    break;
+                }
+            },
+            49 => Attr::Background(Color::Named(NamedColor::Background)),
+            90 => Attr::Foreground(Color::Named(NamedColor::BrightBlack)),
+            91 => Attr::Foreground(Color::Named(NamedColor::BrightRed)),
+            92 => Attr::Foreground(Color::Named(NamedColor::BrightGreen)),
+            93 => Attr::Foreground(Color::Named(NamedColor::BrightYellow)),
+            94 => Attr::Foreground(Color::Named(NamedColor::BrightBlue)),
+            95 => Attr::Foreground(Color::Named(NamedColor::BrightMagenta)),
+            96 => Attr::Foreground(Color::Named(NamedColor::BrightCyan)),
+            97 => Attr::Foreground(Color::Named(NamedColor::BrightWhite)),
+            100 => Attr::Background(Color::Named(NamedColor::BrightBlack)),
+            101 => Attr::Background(Color::Named(NamedColor::BrightRed)),
+            102 => Attr::Background(Color::Named(NamedColor::BrightGreen)),
+            103 => Attr::Background(Color::Named(NamedColor::BrightYellow)),
+            104 => Attr::Background(Color::Named(NamedColor::BrightBlue)),
+            105 => Attr::Background(Color::Named(NamedColor::BrightMagenta)),
+            106 => Attr::Background(Color::Named(NamedColor::BrightCyan)),
+            107 => Attr::Background(Color::Named(NamedColor::BrightWhite)),
+            _ => return false,
+        };
+
+        handler.terminal_attribute(attr);
+
+        i += 1; // C-for expr
+    }
+    true
+}
+
 impl<'a, H, W> vte::Perform for Performer<'a, H, W>
 where
     H: Handler + TermInfo + 'a,
@@ -890,121 +985,7 @@ where
     }
 
     #[inline]
-    fn csi_dispatch(&mut self, args: &[i64], intermediates: &[u8], _ignore: bool, action: char) {
-
-        #[inline]
-        fn process_mode<H: Handler>(handler: &mut H, new_state: bool, is_private_mode: bool, args: &[i64]) -> bool {
-            for arg in args {
-                let mode = Mode::from_primitive(is_private_mode, *arg);
-                match mode {
-                    Some(mode) => {
-                        if new_state {
-                            handler.set_mode(mode);
-                        } else {
-                            handler.unset_mode(mode);
-                        }
-                    },
-                    None => return false,
-                }
-            }
-            true
-        }
-
-        #[inline]
-        fn process_sgr<H: Handler>(handler: &mut H, args: &[i64]) -> bool {
-            // Sometimes a C-style for loop is just what you need
-            let mut i = 0; // C-for initializer
-            if args.is_empty() {
-                handler.terminal_attribute(Attr::Reset);
-                return true;
-            }
-            loop {
-                if i >= args.len() {
-                    // C-for condition
-                    break;
-                }
-
-                let attr = match args[i] {
-                    0 => Attr::Reset,
-                    1 => Attr::Bold,
-                    2 => Attr::Dim,
-                    3 => Attr::Italic,
-                    4 => Attr::Underscore,
-                    5 => Attr::BlinkSlow,
-                    6 => Attr::BlinkFast,
-                    7 => Attr::Reverse,
-                    8 => Attr::Hidden,
-                    9 => Attr::Strike,
-                    21 => Attr::CancelBold,
-                    22 => Attr::CancelBoldDim,
-                    23 => Attr::CancelItalic,
-                    24 => Attr::CancelUnderline,
-                    25 => Attr::CancelBlink,
-                    27 => Attr::CancelReverse,
-                    28 => Attr::CancelHidden,
-                    29 => Attr::CancelStrike,
-                    30 => Attr::Foreground(Color::Named(NamedColor::Black)),
-                    31 => Attr::Foreground(Color::Named(NamedColor::Red)),
-                    32 => Attr::Foreground(Color::Named(NamedColor::Green)),
-                    33 => Attr::Foreground(Color::Named(NamedColor::Yellow)),
-                    34 => Attr::Foreground(Color::Named(NamedColor::Blue)),
-                    35 => Attr::Foreground(Color::Named(NamedColor::Magenta)),
-                    36 => Attr::Foreground(Color::Named(NamedColor::Cyan)),
-                    37 => Attr::Foreground(Color::Named(NamedColor::White)),
-                    38 => {
-                        let mut start = 0;
-                        if let Some(color) = parse_color(&args[i..], &mut start) {
-                            i += start;
-                            Attr::Foreground(color)
-                        } else {
-                            break;
-                        }
-                    },
-                    39 => Attr::Foreground(Color::Named(NamedColor::Foreground)),
-                    40 => Attr::Background(Color::Named(NamedColor::Black)),
-                    41 => Attr::Background(Color::Named(NamedColor::Red)),
-                    42 => Attr::Background(Color::Named(NamedColor::Green)),
-                    43 => Attr::Background(Color::Named(NamedColor::Yellow)),
-                    44 => Attr::Background(Color::Named(NamedColor::Blue)),
-                    45 => Attr::Background(Color::Named(NamedColor::Magenta)),
-                    46 => Attr::Background(Color::Named(NamedColor::Cyan)),
-                    47 => Attr::Background(Color::Named(NamedColor::White)),
-                    48 => {
-                        let mut start = 0;
-                        if let Some(color) = parse_color(&args[i..], &mut start) {
-                            i += start;
-                            Attr::Background(color)
-                        } else {
-                            break;
-                        }
-                    },
-                    49 => Attr::Background(Color::Named(NamedColor::Background)),
-                    90 => Attr::Foreground(Color::Named(NamedColor::BrightBlack)),
-                    91 => Attr::Foreground(Color::Named(NamedColor::BrightRed)),
-                    92 => Attr::Foreground(Color::Named(NamedColor::BrightGreen)),
-                    93 => Attr::Foreground(Color::Named(NamedColor::BrightYellow)),
-                    94 => Attr::Foreground(Color::Named(NamedColor::BrightBlue)),
-                    95 => Attr::Foreground(Color::Named(NamedColor::BrightMagenta)),
-                    96 => Attr::Foreground(Color::Named(NamedColor::BrightCyan)),
-                    97 => Attr::Foreground(Color::Named(NamedColor::BrightWhite)),
-                    100 => Attr::Background(Color::Named(NamedColor::BrightBlack)),
-                    101 => Attr::Background(Color::Named(NamedColor::BrightRed)),
-                    102 => Attr::Background(Color::Named(NamedColor::BrightGreen)),
-                    103 => Attr::Background(Color::Named(NamedColor::BrightYellow)),
-                    104 => Attr::Background(Color::Named(NamedColor::BrightBlue)),
-                    105 => Attr::Background(Color::Named(NamedColor::BrightMagenta)),
-                    106 => Attr::Background(Color::Named(NamedColor::BrightCyan)),
-                    107 => Attr::Background(Color::Named(NamedColor::BrightWhite)),
-                    _ => return false,
-                };
-
-                handler.terminal_attribute(attr);
-
-                i += 1; // C-for expr
-            }
-            true
-        }
-
+    fn csi_dispatch(&mut self, args: &[i64], intermediates: &[u8], has_ignored_intermediates: bool, action: char) {
         let handler = &mut self.handler;
         let writer = &mut self.writer;
 
@@ -1018,6 +999,10 @@ where
             }};
         }
 
+        if has_ignored_intermediates || intermediates.len() > 1 {
+            unhandled!();
+        }
+
         macro_rules! arg_or_default {
             (idx: $idx:expr, default: $default:expr) => {
                 args.get($idx)
@@ -1026,61 +1011,12 @@ where
             };
         }
 
-        // Skip CSI sequences with ignored intermediate bytes
-        if _ignore {
-            unhandled!();
-        }
-
-        if !intermediates.is_empty() {
-            macro_rules! is_intermediate {
-                ($ch:expr) => {
-                    intermediates.len() == 1 && intermediates[0] == $ch
-                }
-            }
-
-            match action {
-                'l' => {
-                    if is_intermediate!(b'?') {
-                        // RM/DECRST (CSI ? Pm l) -- Reset DEC Private Mode
-                        if process_mode(self.handler, false, true, args) {
-                            return;
-                        }
-                    }
-                },
-                'h' => {
-                    if is_intermediate!(b'?') {
-                        // SM/DECSET (CSI ? Pm h) -- Set DEC Private Mode
-                        if process_mode(self.handler, true, true, args) {
-                            return;
-                        }
-                    }
-                },
-                'q' => {
-                    if is_intermediate!(b' ') {
-                        // DECSCUSR (CSI Ps SP q) -- Set Cursor Style
-                        let style = match arg_or_default!(idx: 0, default: 0) {
-                            0 => None,
-                            1 | 2 => Some(CursorStyle::Block),
-                            3 | 4 => Some(CursorStyle::Underline),
-                            5 | 6 => Some(CursorStyle::Beam),
-                            _ => unhandled!(),
-                        };
-
-                        handler.set_cursor_style(style);
-                        return;
-                    }
-                },
-                _ => {}
-            }
-            unhandled!();
-        }
-
-        match action {
-            '@' => handler.insert_blank(Column(arg_or_default!(idx: 0, default: 1) as usize)),
-            'A' => {
+        match (action, intermediates.get(0)) {
+            ('@', None) => handler.insert_blank(Column(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('A', None) => {
                 handler.move_up(Line(arg_or_default!(idx: 0, default: 1) as usize));
             },
-            'b' => {
+            ('b', None) => {
                 if let Some(c) = self._state.preceding_char {
                     for _ in 0..arg_or_default!(idx: 0, default: 1) {
                         handler.input(c);
@@ -1089,13 +1025,13 @@ where
                     debug!("tried to repeat with no preceding char");
                 }
             },
-            'B' | 'e' => handler.move_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            'c' => handler.identify_terminal(writer),
-            'C' | 'a' => handler.move_forward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
-            'D' => handler.move_backward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
-            'E' => handler.move_down_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            'F' => handler.move_up_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            'g' => {
+            ('B', None) | ('e', None) => handler.move_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('c', None) => handler.identify_terminal(writer),
+            ('C', None) | ('a', None) => handler.move_forward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('D', None) => handler.move_backward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('E', None) => handler.move_down_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('F', None) => handler.move_up_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('g', None) => {
                 let mode = match arg_or_default!(idx: 0, default: 0) {
                     0 => TabulationClearMode::Current,
                     3 => TabulationClearMode::All,
@@ -1104,14 +1040,14 @@ where
 
                 handler.clear_tabs(mode);
             },
-            'G' | '`' => handler.goto_col(Column(arg_or_default!(idx: 0, default: 1) as usize - 1)),
-            'H' | 'f' => {
+            ('G', None) | ('`', None) => handler.goto_col(Column(arg_or_default!(idx: 0, default: 1) as usize - 1)),
+            ('H', None) | ('f', None) => {
                 let y = arg_or_default!(idx: 0, default: 1) as usize;
                 let x = arg_or_default!(idx: 1, default: 1) as usize;
                 handler.goto(Line(y - 1), Column(x - 1));
             },
-            'I' => handler.move_forward_tabs(arg_or_default!(idx: 0, default: 1)),
-            'J' => {
+            ('I', None) => handler.move_forward_tabs(arg_or_default!(idx: 0, default: 1)),
+            ('J', None) => {
                 let mode = match arg_or_default!(idx: 0, default: 0) {
                     0 => ClearMode::Below,
                     1 => ClearMode::Above,
@@ -1122,7 +1058,7 @@ where
 
                 handler.clear_screen(mode);
             },
-            'K' => {
+            ('K', None) => {
                 let mode = match arg_or_default!(idx: 0, default: 0) {
                     0 => LineClearMode::Right,
                     1 => LineClearMode::Left,
@@ -1132,31 +1068,61 @@ where
 
                 handler.clear_line(mode);
             },
-            'S' => handler.scroll_up(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            'T' => handler.scroll_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            'L' => handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            'l' => {
-                if !process_mode(self.handler, false, false, args) {
-                    unhandled!();
+            ('S', None) => handler.scroll_up(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('T', None) => handler.scroll_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('L', None) => handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('l', intermediate) => {
+                let is_private_mode = match intermediate {
+                    Some(b'?') => true,
+                    None => false,
+                    _ => unhandled!(),
+                };
+                for arg in args {
+                    let mode = Mode::from_primitive(is_private_mode, *arg);
+                    match mode {
+                        Some(mode) => handler.unset_mode(mode),
+                        None => unhandled!(),
+                    }
                 }
             },
-            'M' => handler.delete_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            'X' => handler.erase_chars(Column(arg_or_default!(idx: 0, default: 1) as usize)),
-            'P' => handler.delete_chars(Column(arg_or_default!(idx: 0, default: 1) as usize)),
-            'Z' => handler.move_backward_tabs(arg_or_default!(idx: 0, default: 1)),
-            'd' => handler.goto_line(Line(arg_or_default!(idx: 0, default: 1) as usize - 1)),
-            'h' => {
-                if !process_mode(self.handler, true, false, args) {
-                    unhandled!();
+            ('M', None) => handler.delete_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('X', None) => handler.erase_chars(Column(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('P', None) => handler.delete_chars(Column(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('Z', None) => handler.move_backward_tabs(arg_or_default!(idx: 0, default: 1)),
+            ('d', None) => handler.goto_line(Line(arg_or_default!(idx: 0, default: 1) as usize - 1)),
+            ('h', intermediate) => {
+                let is_private_mode = match intermediate {
+                    Some(b'?') => true,
+                    None => false,
+                    _ => unhandled!(),
+                };
+                for arg in args {
+                    let mode = Mode::from_primitive(is_private_mode, *arg);
+                    match mode {
+                        Some(mode) => handler.set_mode(mode),
+                        None => unhandled!(),
+                    }
                 }
             },
-            'm' => {
+            ('m', None) => {
                 if !process_sgr(self.handler, args) {
                     unhandled!();
                 }
             },
-            'n' => handler.device_status(writer, arg_or_default!(idx: 0, default: 0) as usize),
-            'r' => {
+            ('n', None) => handler.device_status(writer, arg_or_default!(idx: 0, default: 0) as usize),
+            ('q', Some(b' ')) => {
+                // DECSCUSR (CSI Ps SP q) -- Set Cursor Style
+                let style = match arg_or_default!(idx: 0, default: 0) {
+                    0 => None,
+                    1 | 2 => Some(CursorStyle::Block),
+                    3 | 4 => Some(CursorStyle::Underline),
+                    5 | 6 => Some(CursorStyle::Beam),
+                    _ => unhandled!(),
+                };
+
+                handler.set_cursor_style(style);
+            },
+            ('r', None) => {
                 let arg0 = arg_or_default!(idx: 0, default: 1) as usize;
                 let top = Line(arg0 - 1);
                 // Bottom should be included in the range, but range end is not
@@ -1168,8 +1134,8 @@ where
 
                 handler.set_scrolling_region(top..bottom);
             },
-            's' => handler.save_cursor_position(),
-            'u' => handler.restore_cursor_position(),
+            ('s', None) => handler.save_cursor_position(),
+            ('u', None) => handler.restore_cursor_position(),
             _ => unhandled!(),
         }
     }
