@@ -409,7 +409,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
             && self.mouse_config.url.launcher.is_some()
         {
-            if let Some(url) = self.ctx.terminal().urls().drain(..).find(|url| url.contains(buffer_point)) {
+            if let Some(url) =
+                self.ctx.terminal().urls().drain(..).find(|url| url.contains(buffer_point))
+            {
                 return MousePosition::Url(url);
             }
         }
