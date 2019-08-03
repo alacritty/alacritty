@@ -18,14 +18,17 @@ impl Url {
         Url { end: Point::new(end_line, Column(end_col)), start }
     }
 
+    /// Check if point is within this URL
     pub fn contains(&self, point: impl Into<Point<usize>>) -> bool {
         let point = point.into();
+
         point.line <= self.start.line
             && point.line >= self.end.line
             && (point.line != self.start.line || point.col >= self.start.col)
             && (point.line != self.end.line || point.col <= self.end.col)
     }
 
+    /// Convert URLs bounding points to linear indices
     pub fn linear_bounds(&self, terminal: &Term) -> RangeInclusive<Linear> {
         let mut start = self.start;
         let mut end = self.end;
