@@ -48,6 +48,7 @@ ref_tests! {
     vttest_origin_mode_2
     vttest_scroll
     vttest_tab_clear_set
+    vttest_selective_erasure
     zsh_tab_completion
     history
     grid_reset
