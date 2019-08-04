@@ -891,9 +891,6 @@ where
 
     #[inline]
     fn csi_dispatch(&mut self, args: &[i64], intermediates: &[u8], has_ignored_intermediates: bool, action: char) {
-        let handler = &mut self.handler;
-        let writer = &mut self.writer;
-
         macro_rules! unhandled {
             () => {{
                 debug!(
@@ -904,10 +901,6 @@ where
             }};
         }
 
-        if has_ignored_intermediates || intermediates.len() > 1 {
-            unhandled!();
-        }
-
         macro_rules! arg_or_default {
             (idx: $idx:expr, default: $default:expr) => {
                 args.get($idx)
@@ -915,6 +908,13 @@ where
                     .unwrap_or($default)
             };
         }
+
+        if has_ignored_intermediates || intermediates.len() > 1 {
+            unhandled!();
+        }
+
+        let handler = &mut self.handler;
+        let writer = &mut self.writer;
 
         match (action, intermediates.get(0)) {
             ('@', None) => handler.insert_blank(Column(arg_or_default!(idx: 0, default: 1) as usize)),
