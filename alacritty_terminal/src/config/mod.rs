@@ -145,6 +145,7 @@ pub struct Config {
     #[serde(default, deserialize_with = "failure_default")]
     pub debug: Debug,
 
+    #[serde(default, deserialize_with = "failure_default")]
     pub charts: Vec<crate::alacritty_charts::TimeSeriesChart>,
 
     // TODO: DEPRECATED
