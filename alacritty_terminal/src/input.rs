@@ -393,7 +393,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let mouse_mode =
             TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
 
-        let buffer_point = self.ctx.terminal().visible_to_buffer(point);
 
         // Check message bar before URL to ignore URLs in the message bar
         if let Some(message) = self.message_at_point(Some(point)) {
@@ -409,6 +408,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
             && self.mouse_config.url.launcher.is_some()
         {
+            let buffer_point = self.ctx.terminal().visible_to_buffer(point);
             if let Some(url) =
                 self.ctx.terminal().urls().drain(..).find(|url| url.contains(buffer_point))
             {
