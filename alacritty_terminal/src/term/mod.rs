@@ -58,6 +58,8 @@ pub trait Search {
     fn semantic_search_left(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest semantic boundary _to the point_ of provided point.
     fn semantic_search_right(&self, _: Point<usize>) -> Point<usize>;
+    /// Find the extent of wrap lines to either side of provided point.
+    fn search_wrapline(&self, _: Point<usize>) -> Point<usize>;
     /// Find the nearest URL boundary in both directions.
     fn url_search(&self, _: Point<usize>) -> Option<Url>;
     /// Find the nearest matching bracket.
@@ -104,6 +106,19 @@ impl Search for Term {
             if point.col == last_col && !cell.flags.contains(cell::Flags::WRAPLINE) {
                 break; // cut off if on new line or hit escape char
             }
+        }
+
+        point
+    }
+
+    fn search_wrapline(&self, mut point: Point<usize>) -> Point<usize> 
+    {
+        let current_line = point.line;
+        let last_line = min(point.line, point.line - 1);
+
+        while self.grid[current_line][self.grid.num_cols() - Column(1)].contains(cell::Flags::WRAPLINE) {
+            point.line = current_line;
+            current_line = current_line - 1;
         }
 
         point

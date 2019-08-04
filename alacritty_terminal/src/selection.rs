@@ -272,9 +272,9 @@ impl Selection {
 
     fn span_lines<T>(term: &T, mut start: Point<isize>, mut end: Point<isize>) -> Option<Span>
     where
-        T: Dimensions,
+        T: Search + Dimensions,
     {
-        start.col = term.dimensions().col - 1;
+        start = term.search_wrapline(start.into()).into();
         end.col = Column(0);
 
         Some(Span { start: start.into(), end: end.into(), is_block: false })
