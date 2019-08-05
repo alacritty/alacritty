@@ -81,13 +81,16 @@ impl Lines {
     }
 
     pub fn into_rects(self, metrics: &Metrics, size: &SizeInfo) -> Vec<Rect<f32>> {
-        let mut rects = Vec::with_capacity(self.inner.capacity());
-        for (flag, lines) in self.inner {
-            for line in lines {
-                rects.push(Rect::from_line(&line, flag, &metrics, &size, line.color));
-            }
-        }
-        rects
+        self.inner
+            .into_iter()
+            .map(|(flag, lines)| -> Vec<Rect<f32>> {
+                lines
+                    .into_iter()
+                    .map(|line| Rect::from_line(&line, flag, &metrics, &size, line.color))
+                    .collect()
+            })
+            .flatten()
+            .collect()
     }
 
     /// Update the stored lines with the next cell info.
