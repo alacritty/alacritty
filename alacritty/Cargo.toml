@@ -17,6 +17,12 @@ env_logger = "0.6.0"
 crossbeam-channel = "0.3.8"
 serde_yaml = "0.8"
 serde_json = "1"
+alacritty_charts = { path = "../alacritty_charts" }
+tokio-core = "0.1.17"
+tokio = "0.1"
+futures = "0.1.26"
+hyper = "0.12"
+percent-encoding = "1.0.1"
 
 [build-dependencies]
 rustc_tools_util = "0.2.0"
