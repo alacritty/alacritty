@@ -37,6 +37,7 @@ impl<T> Rect<T> {
 struct Line {
     rect: Rect<f32>,
     start: Point,
+    end: Point,
     color: Rgb,
 }
 
@@ -65,11 +66,12 @@ impl Line {
 
         let rect = Rect::new(cell_x + size.padding_x, y + size.padding_y, size.cell_width, height);
 
-        Self { start: cell.into(), color: cell.fg, rect }
+        Self { start: cell.into(), end: cell.into(), color: cell.fg, rect }
     }
 
     fn update_end(&mut self, end: Point, size: &SizeInfo) {
         self.rect.width = (end.col + 1 - self.start.col).0 as f32 * size.cell_width;
+        self.end.col = end.col;
     }
 }
 
@@ -103,10 +105,9 @@ impl Rects {
 
             // Check if there's an active line
             if let Some(line) = self.inner.get_mut(flag).and_then(|lines| lines.last_mut()) {
-                let line_end = line.start.col.0 + (line.rect.width / size.cell_width) as usize;
                 if cell.line == line.start.line
                     && cell.fg == line.color
-                    && line_end == cell.column.0
+                    && cell.column == line.end.col + 1
                 {
                     // Update the length of the line
                     line.update_end(cell.into(), size);
@@ -128,7 +129,7 @@ impl Rects {
 
     // Add a rectangle
     pub fn push(&mut self, rect: Rect<f32>, color: Rgb) {
-        let line = Line { start: Point::default(), color, rect };
+        let line = Line { start: Point::default(), end: Point::default(), color, rect };
 
         // Flag `HIDDEN` for hashmap index is arbitrary
         match self.inner.get_mut(&Flags::HIDDEN) {
