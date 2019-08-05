@@ -103,7 +103,11 @@ impl Rects {
 
             // Check if there's an active line
             if let Some(line) = self.inner.get_mut(flag).and_then(|lines| lines.last_mut()) {
-                if cell.line == line.start.line && cell.fg == line.color {
+                let line_end = line.start.col.0 + (line.rect.width / size.cell_width) as usize;
+                if cell.line == line.start.line
+                    && cell.fg == line.color
+                    && line_end == cell.column.0
+                {
                     // Update the length of the line
                     line.update_end(cell.into(), size);
 
