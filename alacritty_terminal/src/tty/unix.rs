@@ -46,11 +46,6 @@ pub fn child_pid() -> pid_t {
     PID.load(Ordering::Relaxed) as pid_t
 }
 
-/// Get the current value of errno
-fn errno() -> c_int {
-    ::errno::errno().0
-}
-
 /// Get raw fds for master/slave ends of a new pty
 fn make_pty(size: winsize) -> (RawFd, RawFd) {
     let mut win_size = size;
@@ -74,7 +69,7 @@ fn set_controlling_terminal(fd: c_int) {
     };
 
     if res < 0 {
-        die!("ioctl TIOCSCTTY failed: {}", errno());
+        die!("ioctl TIOCSCTTY failed: {}", io::Error::last_os_error());
     }
 }
 
@@ -148,7 +143,7 @@ impl Pty {
         let res = unsafe { libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
-            die!("ioctl TIOCSWINSZ failed: {}", errno());
+            die!("ioctl TIOCSWINSZ failed: {}", io::Error::last_os_error());
         }
     }
 }
@@ -199,7 +194,7 @@ pub fn new<T: ToWinsize>(config: &Config, size: &T, window_id: Option<usize>) ->
             // Create a new process group
             let err = libc::setsid();
             if err == -1 {
-                die!("Failed to set session id: {}", errno());
+                die!("Failed to set session id: {}", io::Error::last_os_error());
             }
 
             set_controlling_terminal(slave);
@@ -375,7 +370,7 @@ impl OnResize for i32 {
         let res = unsafe { libc::ioctl(*self, libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
-            die!("ioctl TIOCSWINSZ failed: {}", errno());
+            die!("ioctl TIOCSWINSZ failed: {}", io::Error::last_os_error());
         }
     }
 }

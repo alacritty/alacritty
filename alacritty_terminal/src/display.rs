@@ -517,7 +517,7 @@ impl Display {
 
         {
             let glyph_cache = &mut self.glyph_cache;
-            let mut rects = Rects::new(&metrics, &size_info);
+            let mut rects = Rects::new();
 
             // Draw grid (non-HarfBuzz)
             #[cfg(not(feature = "hb-ft"))]
@@ -528,7 +528,7 @@ impl Display {
                     // Iterate over all non-empty cells in the grid
                     for cell in grid_cells {
                         // Update underline/strikeout
-                        rects.update_lines(&size_info, &cell);
+                        rects.update_lines(&cell, &size_info, &metrics);
 
                         // Draw the cell
                         api.render_cell(cell, glyph_cache);

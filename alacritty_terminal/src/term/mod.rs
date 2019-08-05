@@ -1634,6 +1634,7 @@ impl Term {
                 parser.reset();
             }
 
+            // Advance parser
             match parser.advance(cell.c) {
                 ParserState::Url(length) => {
                     urls.push(Url::new(point, length + extra_url_len, num_cols))

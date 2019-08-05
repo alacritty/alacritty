@@ -389,23 +389,34 @@ enum MousePosition {
 }
 
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
-    fn mouse_position(&mut self, point: Point) -> MousePosition {
-        let buffer_point = self.ctx.terminal().visible_to_buffer(point);
+    fn mouse_position(&mut self, point: Point, modifiers: ModifiersState) -> MousePosition {
+        let mouse_mode =
+            TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
+
 
         // Check message bar before URL to ignore URLs in the message bar
         if let Some(message) = self.message_at_point(Some(point)) {
             if self.message_close_at_point(point, message) {
-                MousePosition::MessageBarButton
+                return MousePosition::MessageBarButton;
             } else {
-                MousePosition::MessageBar
+                return MousePosition::MessageBar;
             }
-        } else if let Some(url) =
-            self.ctx.terminal().urls().drain(..).find(|url| url.contains(buffer_point))
-        {
-            MousePosition::Url(url)
-        } else {
-            MousePosition::Terminal
         }
+
+        // Check for URL at point with required modifiers held
+        if self.mouse_config.url.mods().relaxed_eq(modifiers)
+            && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
+            && self.mouse_config.url.launcher.is_some()
+        {
+            let buffer_point = self.ctx.terminal().visible_to_buffer(point);
+            if let Some(url) =
+                self.ctx.terminal().urls().drain(..).find(|url| url.contains(buffer_point))
+            {
+                return MousePosition::Url(url);
+            }
+        }
+
+        MousePosition::Terminal
     }
 
     #[inline]
@@ -435,20 +446,12 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         // Don't launch URLs if mouse has moved
         self.ctx.mouse_mut().block_url_launcher = true;
 
-        match self.mouse_position(point) {
+        match self.mouse_position(point, modifiers) {
             MousePosition::Url(url) => {
-                let mouse_mode =
-                    TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
-
-                if self.mouse_config.url.mods().relaxed_eq(modifiers)
-                    && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
-                    && self.mouse_config.url.launcher.is_some()
-                {
-                    let url_bounds = url.linear_bounds(self.ctx.terminal());
-                    self.ctx.terminal_mut().set_url_highlight(url_bounds);
-                    self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
-                    self.ctx.terminal_mut().dirty = true;
-                }
+                let url_bounds = url.linear_bounds(self.ctx.terminal());
+                self.ctx.terminal_mut().set_url_highlight(url_bounds);
+                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
+                self.ctx.terminal_mut().dirty = true;
             },
             MousePosition::MessageBar => {
                 self.ctx.terminal_mut().reset_url_highlight();
