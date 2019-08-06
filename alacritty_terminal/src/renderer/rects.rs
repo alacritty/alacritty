@@ -21,24 +21,30 @@ use crate::term::color::Rgb;
 use crate::term::{RenderableCell, SizeInfo};
 
 #[derive(Debug, Copy, Clone)]
-pub struct Rect<T> {
-    pub x: T,
-    pub y: T,
-    pub width: T,
-    pub height: T,
-    pub color: Rgb
+pub struct RenderRect {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub color: Rgb,
 }
 
-impl<T> Rect<T> {
-    pub fn new(x: T, y: T, width: T, height: T, color: Rgb) -> Self {
-        Rect { x, y, width, height, color}
+impl RenderRect {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, color: Rgb) -> Self {
+        RenderRect { x, y, width, height, color }
     }
 }
 
-impl Rect<f32> {
-    fn from_line(line: &Line, flag: Flags, metrics: &Metrics, size: &SizeInfo, color: Rgb) -> Rect<f32> {
-        let start_x = line.start.col.0 as f32 * size.cell_width;
-        let end_x = (line.end.col.0 + 1) as f32 * size.cell_width;
+struct Line {
+    start: Point,
+    end: Point,
+    color: Rgb,
+}
+
+impl Line {
+    fn into_rect(self, flag: Flags, metrics: &Metrics, size: &SizeInfo) -> RenderRect {
+        let start_x = self.start.col.0 as f32 * size.cell_width;
+        let end_x = (self.end.col.0 + 1) as f32 * size.cell_width;
         let width = end_x - start_x;
 
         let (position, mut height) = match flag {
@@ -50,7 +56,7 @@ impl Rect<f32> {
         // Make sure lines are always visible
         height = height.max(1.);
 
-        let line_bottom = (line.start.line.0 as f32 + 1.) * size.cell_height;
+        let line_bottom = (self.start.line.0 as f32 + 1.) * size.cell_height;
         let baseline = line_bottom + metrics.descent;
 
         let mut y = baseline - position - height / 2.;
@@ -59,14 +65,8 @@ impl Rect<f32> {
             y = max_y;
         }
 
-        Rect::new(start_x + size.padding_x, y + size.padding_y, width, height, color)
+        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, self.color)
     }
-}
-
-struct Line {
-    start: Point,
-    end: Point,
-    color: Rgb,
 }
 
 /// Lines for underline and strikeout.
@@ -80,14 +80,11 @@ impl Lines {
         Self::default()
     }
 
-    pub fn into_rects(self, metrics: &Metrics, size: &SizeInfo) -> Vec<Rect<f32>> {
+    pub fn into_rects(self, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
         self.inner
             .into_iter()
-            .map(|(flag, lines)| -> Vec<Rect<f32>> {
-                lines
-                    .into_iter()
-                    .map(|line| Rect::from_line(&line, flag, &metrics, &size, line.color))
-                    .collect()
+            .map(|(flag, lines)| -> Vec<RenderRect> {
+                lines.into_iter().map(|line| line.into_rect(flag, &metrics, &size)).collect()
             })
             .flatten()
             .collect()

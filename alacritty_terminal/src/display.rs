@@ -27,7 +27,7 @@ use crate::config::{Config, StartupMode};
 use crate::index::Line;
 use crate::message_bar::Message;
 use crate::meter::Meter;
-use crate::renderer::rects::{Rect, Lines};
+use crate::renderer::rects::{RenderRect, Lines};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
 use crate::term::color::Rgb;
@@ -537,7 +537,7 @@ impl Display {
                 // Create a new rectangle for the background
                 let start_line = size_info.lines().0 - text.len();
                 let y = size_info.padding_y + size_info.cell_height * start_line as f32;
-                rects.push(Rect::new(
+                rects.push(RenderRect::new(
                     0.,
                     y,
                     size_info.width,

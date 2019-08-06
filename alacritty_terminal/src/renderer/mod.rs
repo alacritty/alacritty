@@ -31,7 +31,7 @@ use crate::cursor::{get_cursor_glyph, CursorKey};
 use crate::gl;
 use crate::gl::types::*;
 use crate::index::{Column, Line};
-use crate::renderer::rects::Rect;
+use crate::renderer::rects::RenderRect;
 use crate::term::color::Rgb;
 use crate::term::{self, cell, RenderableCell, RenderableCellContent};
 
@@ -679,7 +679,7 @@ impl QuadRenderer {
         config: &Config,
         props: &term::SizeInfo,
         visual_bell_intensity: f64,
-        cell_line_rects: Vec<Rect<f32>>,
+        cell_line_rects: Vec<RenderRect>,
     ) {
         // Swap to rectangle rendering program
         unsafe {
@@ -710,7 +710,7 @@ impl QuadRenderer {
 
         // Draw visual bell
         let color = config.visual_bell.color;
-        let rect = Rect::new(0., 0., props.width, props.height, color);
+        let rect = RenderRect::new(0., 0., props.width, props.height, color);
         self.render_rect(&rect, visual_bell_intensity as f32, props);
 
         // Draw underlines and strikeouts
@@ -849,7 +849,7 @@ impl QuadRenderer {
     // Render a rectangle
     //
     // This requires the rectangle program to be activated
-    fn render_rect(&mut self, rect: &Rect<f32>, alpha: f32, size: &term::SizeInfo) {
+    fn render_rect(&mut self, rect: &RenderRect, alpha: f32, size: &term::SizeInfo) {
         // Do nothing when alpha is fully transparent
         if alpha == 0. {
             return;
