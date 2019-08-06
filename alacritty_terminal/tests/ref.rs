@@ -53,6 +53,7 @@ ref_tests! {
     grid_reset
     row_reset
     zerowidth
+    selective_erasure
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
