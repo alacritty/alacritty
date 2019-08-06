@@ -1,0 +1,89 @@
+charts:
+- name: async loaded items
+  offset:
+    x: 500
+  width: 100
+  height: 100
+  series:
+  - name: Number of input items for TimeSeries
+    type: async_items_loaded
+    refresh: 1
+    color: "0x00ff00"
+    alpha: 1.0
+- name: input keyboard
+  offset:
+    x: 600
+  width: 200
+  height: 100
+  series:
+  - name: input keystrokes
+    type: alacritty_input
+    refresh: 1
+    color: "0x00ff00"
+    alpha: 1.0
+- name: written characters
+  offset:
+    x: 800
+  width: 200
+  height: 100
+  series:
+  - name: output drawn characters
+    type: alacritty_output
+    refresh: 1
+    color: "0xff0000"
+    alpha: 1.0
+- name: load
+  offset:
+    x: 1010
+  width: 100
+  height: 100
+  decorations:
+  - type: reference
+    value: 1.0
+    color: "0x00ff00"
+  series:
+  - name: load average 1 min
+    type: prometheus
+    refresh: 15
+    source: 'http://localhost:9090/api/v1/query_range?query=node_load1'
+    color: "0x883997"
+    alpha: 0.9
+  - name: load average 5 min
+    type: prometheus
+    refresh: 15
+    source: 'http://localhost:9090/api/v1/query_range?query=node_load5'
+    color: "0xba68c8"
+    alpha: 0.6
+  - name: load average 15 min
+    type: prometheus
+    refresh: 15
+    source: 'http://localhost:9090/api/v1/query_range?query=node_load15'
+    color: "0xee98fb"
+    alpha: 0.3
+- name: cpu
+  offset:
+    x: 1140
+  width: 200
+  height: 100
+  series:
+  - name: cpu
+    type: prometheus
+    refresh: 15
+    # This actually returns many CPUs, XXX: split into lines
+    source: 'http://localhost:9090/api/v1/query_range?query=100 - (avg by (instance) (irate(node_cpu_seconds_total{job="node_exporter",mode="idle"}[5m])) * 100)'
+    color: "0xc8b900"
+    alpha: 1.0
+- name: prom status
+  offset:
+    x: 1340
+  width: 100
+  height: 100
+  series:
+  - name: cpu
+    type: prometheus
+    refresh: 15
+    source: 'http://localhost:9090/api/v1/query?query=up'
+    labels:
+      job: node_exporter
+    color: "0xc8b900"
+    alpha: 1.0
