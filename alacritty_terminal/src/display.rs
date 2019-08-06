@@ -27,7 +27,7 @@ use crate::config::{Config, StartupMode};
 use crate::index::Line;
 use crate::message_bar::Message;
 use crate::meter::Meter;
-use crate::renderer::rects::{RenderRect, Lines};
+use crate::renderer::rects::{RenderRect, RenderLines};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
 use crate::term::color::Rgb;
@@ -511,7 +511,7 @@ impl Display {
 
         {
             let glyph_cache = &mut self.glyph_cache;
-            let mut lines = Lines::new();
+            let mut lines = RenderLines::new();
 
             // Draw grid
             {

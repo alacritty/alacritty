@@ -35,13 +35,13 @@ impl RenderRect {
     }
 }
 
-struct Line {
+struct RenderLine {
     start: Point,
     end: Point,
     color: Rgb,
 }
 
-impl Line {
+impl RenderLine {
     fn into_rect(self, flag: Flags, metrics: &Metrics, size: &SizeInfo) -> RenderRect {
         let start_x = self.start.col.0 as f32 * size.cell_width;
         let end_x = (self.end.col.0 + 1) as f32 * size.cell_width;
@@ -71,11 +71,11 @@ impl Line {
 
 /// Lines for underline and strikeout.
 #[derive(Default)]
-pub struct Lines {
-    inner: HashMap<Flags, Vec<Line>>,
+pub struct RenderLines {
+    inner: HashMap<Flags, Vec<RenderLine>>,
 }
 
-impl Lines {
+impl RenderLines {
     pub fn new() -> Self {
         Self::default()
     }
@@ -110,7 +110,7 @@ impl Lines {
             }
 
             // Start new line if there currently is none
-            let line = Line { start: cell.into(), end: cell.into(), color: cell.fg };
+            let line = RenderLine { start: cell.into(), end: cell.into(), color: cell.fg };
             match self.inner.get_mut(flag) {
                 Some(lines) => lines.push(line),
                 None => {
