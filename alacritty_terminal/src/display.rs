@@ -27,7 +27,7 @@ use crate::config::{Config, StartupMode};
 use crate::index::Line;
 use crate::message_bar::Message;
 use crate::meter::Meter;
-use crate::renderer::rects::{Rect, Rects};
+use crate::renderer::rects::{RenderRect, RenderLines};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
 use crate::term::color::Rgb;
@@ -517,7 +517,7 @@ impl Display {
 
         {
             let glyph_cache = &mut self.glyph_cache;
-            let mut rects = Rects::new();
+            let mut lines = RenderLines::new();
 
             // Draw grid (non-HarfBuzz)
             #[cfg(not(feature = "hb-ft"))]
@@ -528,7 +528,7 @@ impl Display {
                     // Iterate over all non-empty cells in the grid
                     for cell in grid_cells {
                         // Update underline/strikeout
-                        rects.update_lines(&cell, &size_info, &metrics);
+                        lines.update(&cell);
 
                         // Draw the cell
                         api.render_cell(cell, glyph_cache);
@@ -549,7 +549,7 @@ impl Display {
                             .filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER)),
                     ) {
                         // Update underline/strikeout
-                        rects.update_lines_text_run(&text_run, &size_info, &metrics);
+                        rects.update(&text_run, &size_info, &metrics);
 
                         // Draw text run
                         api.render_text_run(text_run, glyph_cache);
@@ -557,14 +557,21 @@ impl Display {
                 });
             }
 
+            let mut rects = lines.into_rects(&metrics, &size_info);
+
             if let Some(message) = message_buffer {
                 let text = message.text(&size_info);
 
                 // Create a new rectangle for the background
                 let start_line = size_info.lines().0 - text.len();
                 let y = size_info.padding_y + size_info.cell_height * start_line as f32;
-                let rect = Rect::new(0., y, size_info.width, size_info.height - y);
-                rects.push(rect, message.color());
+                rects.push(RenderRect::new(
+                    0.,
+                    y,
+                    size_info.width,
+                    size_info.height - y,
+                    message.color(),
+                ));
 
                 // Draw rectangles including the new background
                 self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
