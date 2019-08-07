@@ -72,34 +72,6 @@ impl RenderLine {
         RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, self.color)
     }
 
-    //#[cfg(feature = "hb-ft")]
-    ///// Create a line that starts on the left of `text_run` and is `text_run.len()` wide
-    //fn from_text_run(text_run: &TextRun, flag: Flags, metrics: &Metrics, size: &SizeInfo) -> Self {
-    //    // This is basically a 1:1 copy of from_cell but with semantics of TextRun
-    //    let run_x = text_run.start_col().0 as f32 * size.cell_width;
-
-    //    let (position, mut height) = match flag {
-    //        Flags::UNDERLINE => (metrics.underline_position, metrics.underline_thickness),
-    //        Flags::STRIKEOUT => (metrics.strikeout_position, metrics.strikeout_thickness),
-    //        _ => unimplemented!("Invalid flag for text run line drawing specified"),
-    //    };
-
-    //    // Make sure lines are always visible
-    //    height = height.max(1.);
-
-    //    let run_bottom = (text_run.line.0 as f32 + 1.) * size.cell_height;
-    //    let baseline = run_bottom + metrics.descent;
-
-    //    let mut y = baseline - position - height / 2.;
-    //    let max_y = run_bottom - height;
-    //    if y > max_y {
-    //        y = max_y;
-    //    }
-
-    //    let rect = Rect::new(run_x + size.padding_x, y + size.padding_y, (text_run.len() + 1) as f32 * size.cell_width, height);
-
-    //    Self { start: text_run.start_point(), color: text_run.fg, rect }
-    //}
 }
 
 /// Lines for underline and strikeout.
@@ -125,18 +97,17 @@ impl RenderLines {
 
     #[cfg(feature = "hb-ft")]
     /// Update the stored lines with the next text_run info.
-    pub fn update(
-        &mut self,
-        text_run: &TextRun,
-        size: &SizeInfo,
-        metrics: &Metrics,
-    ) {
+    pub fn update(&mut self, text_run: &TextRun, size: &SizeInfo, metrics: &Metrics) {
         for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {
             if !text_run.flags.contains(*flag) {
                 continue;
             }
 
-            let new_line = RenderLine { start: text_run.start_point(), end: text_run.last_point(), color: text_run.fg };
+            let new_line = RenderLine {
+                start: text_run.start_point(),
+                end: text_run.last_point(),
+                color: text_run.fg,
+            };
             self.inner.entry(*flag).or_insert_with(|| vec![]).push(new_line);
         }
     }

@@ -27,7 +27,7 @@ use crate::config::{Config, StartupMode};
 use crate::index::Line;
 use crate::message_bar::Message;
 use crate::meter::Meter;
-use crate::renderer::rects::{RenderRect, RenderLines};
+use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
 use crate::term::color::Rgb;
@@ -546,10 +546,12 @@ impl Display {
                     for text_run in TextRunIter::new(
                         grid_cells
                             .into_iter()
+                            // Logic for WIDE_CHAR is handled internally by TextRun
+                            // So we no longer need WIDE_CHAR_SPACER at this point.
                             .filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER)),
                     ) {
                         // Update underline/strikeout
-                        rects.update(&text_run, &size_info, &metrics);
+                        lines.update(&text_run, &size_info, &metrics);
 
                         // Draw text run
                         api.render_text_run(text_run, glyph_cache);
