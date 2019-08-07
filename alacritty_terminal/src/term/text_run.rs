@@ -103,9 +103,7 @@ impl TextRun {
         RenderableCell {
             line: self.line,
             column: col,
-            inner: RenderableCellContent::Chars(
-                [' '; crate::term::cell::MAX_ZEROWIDTH_CHARS + 1],
-            ),
+            inner: RenderableCellContent::Chars([' '; crate::term::cell::MAX_ZEROWIDTH_CHARS + 1]),
             fg: self.fg,
             bg: self.bg,
             bg_alpha: self.bg_alpha,
@@ -123,7 +121,6 @@ impl TextRun {
     pub fn start_col(&self) -> Column {
         self.run.0
     }
-
 
     /// First cell in the TextRun
     pub fn start_cell(&self) -> RenderableCell {
@@ -188,16 +185,10 @@ impl<I> TextRunIter<I> {
 
     /// Check if current run ends with incoming RenderableCell
     fn is_run_break(&self, rc: &RenderableCell) -> bool {
-        let is_cell_break = self
-            .run_start
-            .as_ref()
-            .map(|cell| !is_contiguous_context(cell, &rc))
-            .unwrap_or(false);
-        let is_col_break = self
-            .latest
-            .as_ref()
-            .map(|col| !is_contiguous_col(*col, rc.column))
-            .unwrap_or(false);
+        let is_cell_break =
+            self.run_start.as_ref().map(|cell| !is_contiguous_context(cell, &rc)).unwrap_or(false);
+        let is_col_break =
+            self.latest.as_ref().map(|col| !is_contiguous_col(*col, rc.column)).unwrap_or(false);
         is_cell_break || is_col_break
     }
 
@@ -265,9 +256,8 @@ where
                 // return what we have so far and start a new run.
                 let prev_buffer = self.drain_buffer();
                 let (start, latest) = self.start_run(rc);
-                output = opt_pair(start, latest).map(|(start, latest)| {
-                    TextRun::from_iter_state(start, latest, prev_buffer)
-                });
+                output = opt_pair(start, latest)
+                    .map(|(start, latest)| TextRun::from_iter_state(start, latest, prev_buffer));
                 break;
             }
             // Build up buffer and track the latest column we've seen

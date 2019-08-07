@@ -543,7 +543,11 @@ impl Display {
 
                 self.renderer.with_api(config, &size_info, |mut api| {
                     // Iterate over each contiguous block of text
-                    for text_run in TextRunIter::new(grid_cells.into_iter().filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER))) {
+                    for text_run in TextRunIter::new(
+                        grid_cells
+                            .into_iter()
+                            .filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER)),
+                    ) {
                         // Update underline/strikeout
                         rects.update_lines_text_run(&text_run, &size_info, &metrics);
 

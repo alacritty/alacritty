@@ -106,7 +106,6 @@ impl Line {
 
         Self { start: text_run.start_point(), color: text_run.fg, rect }
     }
-
 }
 
 /// Rects for underline, strikeout and more.
@@ -132,16 +131,19 @@ impl Rects {
 
     #[cfg(feature = "hb-ft")]
     /// Update the stored lines with the next text_run info.
-    pub fn update_lines_text_run(&mut self, text_run: &TextRun, size: &SizeInfo, metrics: &Metrics) {
+    pub fn update_lines_text_run(
+        &mut self,
+        text_run: &TextRun,
+        size: &SizeInfo,
+        metrics: &Metrics,
+    ) {
         for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {
             if !text_run.flags.contains(*flag) {
                 continue;
             }
 
             let new_line = Line::from_text_run(text_run, *flag, metrics, size);
-            self.inner.entry(*flag)
-                .or_insert_with(|| vec![])
-                .push(new_line);
+            self.inner.entry(*flag).or_insert_with(|| vec![]).push(new_line);
         }
     }
 

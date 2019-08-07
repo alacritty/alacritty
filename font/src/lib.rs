@@ -323,8 +323,10 @@ pub trait Rasterize {
 }
 
 /// Config option specific to the Rasterizer.
-/// Since the Rasterizer lives in the subcrate font we do not want it to depend on the Font config struct from alacritty, as this would introduce a circular dependency between the crates.Clone 
-/// This struct specifies the subset of Font that the Rasterizer cares about, then traits can be used to convert from Font to this struct when constructing a Rasterizer.
+/// Since the Rasterizer lives in the subcrate font we do not want it to depend on the Font config
+/// struct from alacritty, as this would introduce a circular dependency between the crates.Clone
+/// This struct specifies the subset of Font that the Rasterizer cares about, then traits can be
+/// used to convert from Font to this struct when constructing a Rasterizer.
 #[cfg(feature = "hb-ft")]
 pub struct RasterizeConfig {
     /// Toggle thin strokes on mac osx
@@ -335,7 +337,7 @@ pub struct RasterizeConfig {
     pub use_font_ligatures: bool,
 }
 
-// Only implemented for the FreeType rasterizer so far. 
+// Only implemented for the FreeType rasterizer so far.
 /// Conceptually this extends the Rasterizer trait with Harfbuzz specific functionality.
 #[cfg(feature = "hb-ft")]
 pub trait HbFtExt {

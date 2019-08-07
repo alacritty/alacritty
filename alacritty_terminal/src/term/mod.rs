@@ -46,7 +46,7 @@ use crate::tty;
 pub mod cell;
 pub mod color;
 #[cfg(feature = "hb-ft")]
-pub mod text_run; 
+pub mod text_run;
 
 /// Used to match equal brackets, when performing a bracket-pair selection.
 const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
