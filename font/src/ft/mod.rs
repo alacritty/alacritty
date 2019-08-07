@@ -18,17 +18,17 @@ use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
 
-#[cfg(feature = "hb-ft")]
-use harfbuzz_rs::{Owned, Font, GlyphBuffer};
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
+#[cfg(feature = "hb-ft")]
+use harfbuzz_rs::{Font, GlyphBuffer, Owned};
 use libc::c_uint;
 
 pub mod fc;
 
-use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
 #[cfg(feature = "hb-ft")]
 use super::{key_type::KeyType, RasterizeConfig};
+use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
 
 struct FixedSize {
     pixelsize: f64,
@@ -168,23 +168,18 @@ impl ::Rasterize for FreeTypeRasterizer {
 
 #[cfg(feature = "hb-ft")]
 impl ::HbFtExt for FreeTypeRasterizer {
-    fn shape(
-        &mut self,
-        text: &str,
-        font_key: FontKey,
-    ) -> GlyphBuffer {
-        use harfbuzz_rs::{shape, UnicodeBuffer, Feature, Tag};
+    fn shape(&mut self, text: &str, font_key: FontKey) -> GlyphBuffer {
+        use harfbuzz_rs::{shape, Feature, Tag, UnicodeBuffer};
         let hb_font = &self.faces[&font_key].hb_font;
-        let buf = UnicodeBuffer::default()
-            .add_str(text);
+        let buf = UnicodeBuffer::default().add_str(text);
         let value = if self.use_font_ligatures { 1 } else { 0 };
         let features = &[
             Feature::new(Tag::new('c', 'l', 'i', 'g'), value, 0..),
             Feature::new(Tag::new('l', 'i', 'g', 'a'), value, 0..),
-            // This feature controls ligature rendering in Fira Code but this could
-            // very well be Fira Code specific behavior as it codes all it's "ligatures" as glyph substitutions
-            // Which are unaffected by features "clig" and "liga"
-            // Feature::new(Tag::new('c', 'a', 'l', 't'), value, 0..)
+            /* This feature controls ligature rendering in Fira Code but this could
+             * very well be Fira Code specific behavior as it codes all it's "ligatures" as
+             * glyph substitutions Which are unaffected by features "clig" and
+             * "liga" Feature::new(Tag::new('c', 'a', 'l', 't'), value, 0..) */
         ];
         // Shape with default features
         shape(&*hb_font, buf, features)
@@ -346,8 +341,7 @@ impl FreeTypeRasterizer {
 
     #[cfg(feature = "hb-ft")]
     pub fn index_for_char(&self, font_key: FontKey, c: char) -> Option<u32> {
-        self.faces.get(&font_key).map(|face|
-            face.ft_face.get_char_index(c as usize))
+        self.faces.get(&font_key).map(|face| face.ft_face.get_char_index(c as usize))
     }
 
     #[cfg(feature = "hb-ft")]
@@ -367,7 +361,7 @@ impl FreeTypeRasterizer {
                     let key = self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key);
                     Ok(key)
                 }
-            }
+            },
         }
     }
 
@@ -415,14 +409,12 @@ impl FreeTypeRasterizer {
         glyph_key: GlyphKey,
         index: u32,
     ) -> Result<RasterizedGlyph, Error> {
-        let size = face
-            .non_scalable
-            .as_ref()
-            .map(|v| v.pixelsize as f32)
-            .unwrap_or_else(|| glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
+        let size =
+            face.non_scalable.as_ref().map(|v| v.pixelsize as f32).unwrap_or_else(|| {
+                glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.
+            });
 
-        face.ft_face
-            .set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
+        face.ft_face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
 
         unsafe {
             let ft_lib = self.library.raw();

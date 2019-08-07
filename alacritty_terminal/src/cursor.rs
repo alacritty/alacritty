@@ -55,6 +55,7 @@ pub fn get_cursor_glyph(
     }
 }
 
+// This default is done as a constant to avoid duplicating the feature toggle for each cursor type.
 #[cfg(not(feature = "hb-ft"))]
 const CURSOR: char = ' ';
 #[cfg(feature = "hb-ft")]

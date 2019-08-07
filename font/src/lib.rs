@@ -20,9 +20,8 @@
 
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 
-/* Note: all applicable cfg statements have been modified to short-circuit
- * to freetype if the feature hb-ft is enabled.
- */
+// Note: all applicable cfg statements have been modified to short-circuit
+// to freetype if the feature hb-ft is enabled.
 
 #[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
 extern crate fontconfig;
@@ -42,7 +41,6 @@ extern crate euclid;
 
 extern crate libc;
 
-
 #[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
 #[macro_use]
 extern crate foreign_types;
@@ -53,10 +51,10 @@ extern crate harfbuzz_rs;
 #[cfg_attr(not(windows), macro_use)]
 extern crate log;
 
+use std::fmt;
 #[cfg(not(feature = "hb-ft"))]
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::fmt;
 
 // If target isn't macos or windows, reexport everything from ft
 #[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
@@ -170,7 +168,8 @@ pub mod key_type {
 #[cfg(feature = "hb-ft")]
 use key_type::KeyType;
 
-// For now use derived impls, this can be swapped for more efficient implementations once things are working
+// For now use derived impls, this can be swapped for more efficient implementations once things are
+// working
 #[cfg_attr(feature = "hb-ft", derive(Hash, PartialEq))]
 #[derive(Debug, Copy, Clone, Eq)]
 pub struct GlyphKey {
@@ -304,7 +303,7 @@ pub trait Rasterize {
     fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
     where
         Self: Sized;
-    
+
     #[cfg(feature = "hb-ft")]
     fn new(device_pixel_ratio: f32, rasterize_config: RasterizeConfig) -> Result<Self, Self::Err>
     where
@@ -323,19 +322,24 @@ pub trait Rasterize {
     fn update_dpr(&mut self, device_pixel_ratio: f32);
 }
 
+/// Config option specific to the Rasterizer.
+/// Since the Rasterizer lives in the subcrate font we do not want it to depend on the Font config struct from alacritty, as this would introduce a circular dependency between the crates.Clone 
+/// This struct specifies the subset of Font that the Rasterizer cares about, then traits can be used to convert from Font to this struct when constructing a Rasterizer.
 #[cfg(feature = "hb-ft")]
 pub struct RasterizeConfig {
     /// Toggle thin strokes on mac osx
-    // Technically this is impossible while under "hb-ft" but is included for compatiblity in the api
+    // Technically this is impossible while under "hb-ft" but is included for compatiblity in the
+    // api
     pub use_thin_strokes: bool,
     /// Toggle rendering of font ligatures
     pub use_font_ligatures: bool,
 }
 
+// Only implemented for the FreeType rasterizer so far. 
+/// Conceptually this extends the Rasterizer trait with Harfbuzz specific functionality.
 #[cfg(feature = "hb-ft")]
 pub trait HbFtExt {
     /// Shape the provided text into a set of glyphs.
     /// TODO: properly report HarfBuzz errors
-    fn shape(&mut self, text: &str, font_key: FontKey)
-        -> harfbuzz_rs::GlyphBuffer;
+    fn shape(&mut self, text: &str, font_key: FontKey) -> harfbuzz_rs::GlyphBuffer;
 }

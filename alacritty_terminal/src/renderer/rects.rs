@@ -20,7 +20,9 @@ use crate::term::cell::Flags;
 use crate::term::color::Rgb;
 #[cfg(feature = "hb-ft")]
 use crate::term::text_run::TextRun;
-use crate::term::{RenderableCell, SizeInfo};
+#[cfg(not(feature = "hb-ft"))]
+use crate::term::RenderableCell;
+use crate::term::SizeInfo;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Rect<T> {
@@ -43,6 +45,7 @@ struct Line {
 }
 
 impl Line {
+    #[cfg(not(feature = "hb-ft"))]
     /// Create a line that starts on the left of `cell` and is one cell wide
     fn from_cell(cell: &RenderableCell, flag: Flags, metrics: &Metrics, size: &SizeInfo) -> Line {
         let cell_x = cell.column.0 as f32 * size.cell_width;
@@ -70,9 +73,40 @@ impl Line {
         Self { start: cell.into(), color: cell.fg, rect }
     }
 
+    #[cfg(not(feature = "hb-ft"))]
     fn update_end(&mut self, end: Point, size: &SizeInfo) {
         self.rect.width = (end.col + 1 - self.start.col).0 as f32 * size.cell_width;
     }
+
+    #[cfg(feature = "hb-ft")]
+    /// Create a line that starts on the left of `text_run` and is `text_run.len()` wide
+    fn from_text_run(text_run: &TextRun, flag: Flags, metrics: &Metrics, size: &SizeInfo) -> Self {
+        // This is basically a 1:1 copy of from_cell but with semantics of TextRun
+        let run_x = text_run.start_col().0 as f32 * size.cell_width;
+
+        let (position, mut height) = match flag {
+            Flags::UNDERLINE => (metrics.underline_position, metrics.underline_thickness),
+            Flags::STRIKEOUT => (metrics.strikeout_position, metrics.strikeout_thickness),
+            _ => unimplemented!("Invalid flag for text run line drawing specified"),
+        };
+
+        // Make sure lines are always visible
+        height = height.max(1.);
+
+        let run_bottom = (text_run.line.0 as f32 + 1.) * size.cell_height;
+        let baseline = run_bottom + metrics.descent;
+
+        let mut y = baseline - position - height / 2.;
+        let max_y = run_bottom - height;
+        if y > max_y {
+            y = max_y;
+        }
+
+        let rect = Rect::new(run_x + size.padding_x, y + size.padding_y, (text_run.len() + 1) as f32 * size.cell_width, height);
+
+        Self { start: text_run.start_point(), color: text_run.fg, rect }
+    }
+
 }
 
 /// Rects for underline, strikeout and more.
@@ -96,54 +130,22 @@ impl Rects {
             .collect()
     }
 
-    /// Update the stored lines with the next text_run info.
     #[cfg(feature = "hb-ft")]
-    pub fn update_lines_text_run(&mut self, size_info: &SizeInfo, text_run: &TextRun) {
-        for line in self.active_lines.iter_mut() {
-            match line.range {
-                Some((ref mut start, ref mut end)) => {
-                    if text_run.line == start.line
-                        && text_run.flags.contains(line.flag)
-                        && text_run.fg == start.fg
-                        && text_run.run.0 == end.col + 1
-                    {
-                        if size_info.cols() == text_run.run.1 && size_info.lines() == text_run.line {
-                            self.inner.push(create_rect(
-                                &start, 
-                                text_run.last_point(), 
-                                line.flag, 
-                                &self.metrics, 
-                                &self.size));
-                        } else {
-                            *end = text_run.last_point()
-                        }
-                        continue;
-                    }
-                    self.inner.push(create_rect(
-                        start,
-                        *end, 
-                        line.flag, 
-                        &self.metrics, 
-                        &self.size));
-
-                    if text_run.flags.contains(line.flag) {
-                        *start = text_run.start_cell();
-                        *end = text_run.last_point();
-                    } else {
-                        line.range = None;
-                    }
-                },
-                None => {
-                    if text_run.flags.contains(line.flag) {
-                        line.range = Some((text_run.start_cell(), text_run.last_point()));
-                    }
-                }
+    /// Update the stored lines with the next text_run info.
+    pub fn update_lines_text_run(&mut self, text_run: &TextRun, size: &SizeInfo, metrics: &Metrics) {
+        for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {
+            if !text_run.flags.contains(*flag) {
+                continue;
             }
+
+            let new_line = Line::from_text_run(text_run, *flag, metrics, size);
+            self.inner.entry(*flag)
+                .or_insert_with(|| vec![])
+                .push(new_line);
         }
     }
 
     /// Update the stored lines with the next cell info.
-
     #[cfg(not(feature = "hb-ft"))]
     pub fn update_lines(&mut self, cell: &RenderableCell, size: &SizeInfo, metrics: &Metrics) {
         for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {

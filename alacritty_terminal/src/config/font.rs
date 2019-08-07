@@ -117,7 +117,7 @@ impl<'a> Into<RasterizeConfig> for &'a Font {
     fn into(self) -> RasterizeConfig {
         RasterizeConfig {
             use_thin_strokes: self.use_thin_strokes(),
-            use_font_ligatures: self.use_font_ligatures(), 
+            use_font_ligatures: self.use_font_ligatures(),
         }
     }
 }

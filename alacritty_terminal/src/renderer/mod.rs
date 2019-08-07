@@ -96,7 +96,7 @@ impl ::std::fmt::Display for Error {
         match *self {
             Error::ShaderCreation(ref err) => {
                 write!(f, "There was an error initializing the shaders: {}", err)
-            }
+            },
         }
     }
 }
@@ -322,12 +322,18 @@ impl GlyphCache {
                 let c: font::key_type::KeyType = if codepoint == 0 {
                     // TODO: this is a linear scan over text for each missing glyph
                     // Try to find all missing glyphs first and only scan over text_run once.
-                    text_run.char_indices().find_map(|(i, c)| if i == glyph_info.cluster as usize {
-                        Some (c)
-                    } else {
-                        None
-                    }).unwrap_or_else(|| panic!("Could not find cluster {} in run {}", glyph_info.cluster, text_run))
-                    .into()
+                    text_run
+                        .char_indices()
+                        .find_map(
+                            |(i, c)| if i == glyph_info.cluster as usize { Some(c) } else { None },
+                        )
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Could not find cluster {} in run {}",
+                                glyph_info.cluster, text_run
+                            )
+                        })
+                        .into()
                 } else {
                     codepoint.into()
                 };
@@ -717,8 +723,8 @@ impl QuadRenderer {
                         | DebouncedEvent::Write(_)
                         | DebouncedEvent::Chmod(_) => {
                             msg_tx.send(Msg::ShaderReload).expect("msg send ok");
-                        }
-                        _ => {}
+                        },
+                        _ => {},
                     }
                 }
             });
@@ -883,11 +889,11 @@ impl QuadRenderer {
 
                 info!("... successfully reloaded shaders");
                 (program, rect_program)
-            }
+            },
             (Err(err), _) | (_, Err(err)) => {
                 error!("{}", err);
                 return;
-            }
+            },
         };
 
         self.active_tex = 0;
@@ -1104,7 +1110,7 @@ impl<'a> RenderApi<'a> {
                     ))
                 });
                 self.add_render_item(&text_run.start_cell(), &glyph);
-            }
+            },
             TextRunContent::CharRun(run, zero_widths) => {
                 let font_key = if text_run.flags.contains(cell::Flags::BOLD) {
                     glyph_cache.bold_key
@@ -1139,7 +1145,7 @@ impl<'a> RenderApi<'a> {
                         self.add_render_item(&cell, &glyph);
                     }
                 }
-            }
+            },
         };
     }
 
@@ -1163,7 +1169,7 @@ impl<'a> RenderApi<'a> {
                 });
                 self.add_render_item(&cell, &glyph);
                 return;
-            }
+            },
             RenderableCellContent::Chars(chars) => chars,
         };
 
@@ -1234,7 +1240,7 @@ fn load_glyph(
                 atlas.push(new);
             }
             load_glyph(active_tex, atlas, current_atlas, rasterized)
-        }
+        },
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
             top: 0.0,
@@ -1584,7 +1590,7 @@ impl ::std::fmt::Display for ShaderCreationError {
             ShaderCreationError::Io(ref err) => write!(f, "Couldn't read shader: {}", err),
             ShaderCreationError::Compile(ref path, ref log) => {
                 write!(f, "Failed compiling shader at {}: {}", path.display(), log)
-            }
+            },
             ShaderCreationError::Link(ref log) => write!(f, "Failed linking shader: {}", log),
         }
     }

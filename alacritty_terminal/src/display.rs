@@ -36,7 +36,7 @@ use crate::window::{self, Window};
 use font::{self, Rasterize};
 
 #[cfg(feature = "hb-ft")]
-use crate::term::text_run::{TextRunIter};
+use crate::term::text_run::TextRunIter;
 
 #[derive(Debug)]
 pub enum Error {
@@ -538,15 +538,16 @@ impl Display {
             // Draw grid (HarfBuzz)
             #[cfg(feature = "hb-ft")]
             {
+                use crate::term::cell::Flags;
                 let _sampler = self.meter.sampler();
 
                 self.renderer.with_api(config, &size_info, |mut api| {
                     // Iterate over each contiguous block of text
-                    for text_run in TextRunIter::new(grid_cells.into_iter()) {
+                    for text_run in TextRunIter::new(grid_cells.into_iter().filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER))) {
                         // Update underline/strikeout
-                        rects.update_lines_text_run(&size_info, &text_run);
+                        rects.update_lines_text_run(&text_run, &size_info, &metrics);
 
-                        // Draw text
+                        // Draw text run
                         api.render_text_run(text_run, glyph_cache);
                     }
                 });
