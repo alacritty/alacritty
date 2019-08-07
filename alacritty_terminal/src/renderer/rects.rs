@@ -97,7 +97,7 @@ impl RenderLines {
 
     #[cfg(feature = "hb-ft")]
     /// Update the stored lines with the next text_run info.
-    pub fn update(&mut self, text_run: &TextRun, size: &SizeInfo, metrics: &Metrics) {
+    pub fn update(&mut self, text_run: &TextRun) {
         for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {
             if !text_run.flags.contains(*flag) {
                 continue;

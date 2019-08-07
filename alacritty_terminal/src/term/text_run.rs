@@ -111,10 +111,20 @@ impl TextRun {
         }
     }
 
-    // Number of columns this TextRun spans
+    /// Number of columns this TextRun spans
     pub fn len(&self) -> usize {
         let (start, end) = self.run;
         end.0 - start.0
+    }
+
+    /// True if TextRun contains characters, false if it contains no characters.
+    pub fn is_empty(&self) -> bool {
+        match &self.run_chars {
+            TextRunContent::Cursor(_) => true,
+            TextRunContent::CharRun(ref string, ref zero_widths) => {
+                !(string.is_empty() && zero_widths.is_empty())
+            },
+        }
     }
 
     /// First column of the run
@@ -201,10 +211,10 @@ impl<I> TextRunIter<I> {
                 let mut arr: [char; MAX_ZEROWIDTH_CHARS] = Default::default();
                 arr.copy_from_slice(&chars[1..]);
                 self.buffer_zero_width.push(arr);
-            },
+            }
             RenderableCellContent::Cursor(cursor) => {
                 self.cursor = Some(cursor);
-            },
+            }
         }
     }
 

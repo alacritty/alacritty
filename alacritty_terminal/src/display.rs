@@ -551,7 +551,7 @@ impl Display {
                             .filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER)),
                     ) {
                         // Update underline/strikeout
-                        lines.update(&text_run, &size_info, &metrics);
+                        lines.update(&text_run);
 
                         // Draw text run
                         api.render_text_run(text_run, glyph_cache);
