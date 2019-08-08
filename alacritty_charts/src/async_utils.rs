@@ -26,6 +26,7 @@ pub struct MetricRequest {
 #[derive(Debug)]
 pub enum AsyncChartTask {
     LoadResponse(MetricRequest),
+    DrawCharts,
     // Maybe add CloudWatch/etc
 }
 
@@ -73,8 +74,20 @@ pub fn load_http_response(charts: &mut Vec<TimeSeriesChart>, response: MetricReq
     }
 }
 
+/// `draw_charts_to_opengl` sends the current chart state to the OpenGL buffer
+pub fn draw_charts_to_opengl(charts: &Vec<TimeSeriesChart>){
+        for chart in charts {
+            // Update the loaded item counters
+            info!("Searching for AsyncLoadedItems in '{}'", chart.name);
+            for series in chart.sources {
+                series.series().
+            }
+        }
+
+}
+
 /// `async_coordinator` receives messages from the tasks about data loaded from
-/// the network, it owns the charts data.
+/// the network, it owns the charts data, and may draw the Charts to OpenGL
 pub fn async_coordinator(
     rx: mpsc::Receiver<AsyncChartTask>,
     mut charts: Vec<TimeSeriesChart>,
@@ -84,6 +97,7 @@ pub fn async_coordinator(
         debug!("async_coordinator: message: {:?}", message);
         match message {
             AsyncChartTask::LoadResponse(req) => load_http_response(&mut charts, req),
+            AsyncChartTask::DrawCharts => draw_charts_to_opengl(&charts),
         };
         Ok(())
     })
