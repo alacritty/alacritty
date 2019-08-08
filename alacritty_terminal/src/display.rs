@@ -27,7 +27,7 @@ use crate::config::{Config, StartupMode};
 use crate::index::Line;
 use crate::message_bar::Message;
 use crate::meter::Meter;
-use crate::renderer::rects::{RenderRect, RenderLines};
+use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
 use crate::term::color::Rgb;
