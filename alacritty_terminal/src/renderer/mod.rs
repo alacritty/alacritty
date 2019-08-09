@@ -144,7 +144,7 @@ pub struct RectShaderProgram {
 ///
 /// Uniforms are prefixed with "u"
 #[derive(Debug)]
-pub struct ActivityLevelsShaderProgram {
+pub struct ChartsShaderProgram {
     // Program id,
     id: GLuint,
     /// Line color
@@ -400,7 +400,7 @@ struct InstanceData {
 pub struct QuadRenderer {
     program: TextShaderProgram,
     rect_program: RectShaderProgram,
-    activity_levels_program: ActivityLevelsShaderProgram,
+    charts_program: ChartsShaderProgram,
     vao: GLuint,
     ebo: GLuint,
     vbo_instance: GLuint,
@@ -517,7 +517,7 @@ impl QuadRenderer {
     pub fn new() -> Result<QuadRenderer, Error> {
         let program = TextShaderProgram::new()?;
         let rect_program = RectShaderProgram::new()?;
-        let activity_levels_program = ActivityLevelsShaderProgram::new()?;
+        let charts_program = ChartsShaderProgram::new()?;
 
         let mut vao: GLuint = 0;
         let mut ebo: GLuint = 0;
@@ -674,7 +674,7 @@ impl QuadRenderer {
         let mut renderer = QuadRenderer {
             program,
             rect_program,
-            activity_levels_program,
+            charts_program,
             vao,
             ebo,
             vbo_instance,
@@ -760,7 +760,7 @@ impl QuadRenderer {
         }
     }
 
-    pub fn draw_activity_levels_line(
+    pub fn draw_charts_line(
         &mut self,
         _config: &Config,
         props: &term::SizeInfo,
@@ -775,7 +775,7 @@ impl QuadRenderer {
         // TODO: Use the Activity Levels Shader Program (For now a copy of rect)
         unsafe {
             // Swap program
-            gl::UseProgram(self.activity_levels_program.id);
+            gl::UseProgram(self.charts_program.id);
 
             // Remove padding from viewport
             gl::Viewport(0, 0, props.width as i32, props.height as i32);
@@ -807,7 +807,7 @@ impl QuadRenderer {
             );
 
             // Color
-            self.activity_levels_program.set_color(color, alpha);
+            self.charts_program.set_color(color, alpha);
 
             // Draw the Activity Line, 2 points per vertex
             gl::DrawArrays(gl::LINE_STRIP, 0, (opengl_vecs.len() / 2usize) as i32);
@@ -1371,7 +1371,7 @@ impl Drop for RectShaderProgram {
     }
 }
 
-impl ActivityLevelsShaderProgram {
+impl ChartsShaderProgram {
     pub fn new() -> Result<Self, ShaderCreationError> {
         let (vertex_src, fragment_src) = if cfg!(feature = "live-shader-reload") {
             (None, None)
@@ -1391,7 +1391,7 @@ impl ActivityLevelsShaderProgram {
         // get uniform locations
         let u_color = unsafe { gl::GetUniformLocation(program, b"color\0".as_ptr() as *const _) };
 
-        let shader = ActivityLevelsShaderProgram { id: program, u_color };
+        let shader = ChartsShaderProgram { id: program, u_color };
 
         unsafe { gl::UseProgram(0) }
 
@@ -1411,7 +1411,7 @@ impl ActivityLevelsShaderProgram {
     }
 }
 
-impl Drop for ActivityLevelsShaderProgram {
+impl Drop for ChartsShaderProgram {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteProgram(self.id);
