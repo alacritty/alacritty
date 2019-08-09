@@ -105,11 +105,6 @@ impl Font {
     pub fn use_font_ligatures(&self) -> bool {
         self.use_font_ligatures.0
     }
-
-    #[cfg(not(feature = "hb-ft"))]
-    pub fn use_font_ligatures(&self) -> bool {
-        false
-    }
 }
 
 #[cfg(feature = "hb-ft")]

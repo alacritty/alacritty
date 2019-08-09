@@ -393,7 +393,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         let mouse_mode =
             TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
 
-
         // Check message bar before URL to ignore URLs in the message bar
         if let Some(message) = self.message_at_point(Some(point)) {
             if self.message_close_at_point(point, message) {

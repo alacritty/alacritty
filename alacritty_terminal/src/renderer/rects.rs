@@ -71,7 +71,6 @@ impl RenderLine {
 
         RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, self.color)
     }
-
 }
 
 /// Lines for underline and strikeout.

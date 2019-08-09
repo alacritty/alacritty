@@ -211,10 +211,10 @@ impl<I> TextRunIter<I> {
                 let mut arr: [char; MAX_ZEROWIDTH_CHARS] = Default::default();
                 arr.copy_from_slice(&chars[1..]);
                 self.buffer_zero_width.push(arr);
-            }
+            },
             RenderableCellContent::Cursor(cursor) => {
                 self.cursor = Some(cursor);
-            }
+            },
         }
     }
 

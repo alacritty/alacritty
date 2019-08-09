@@ -300,19 +300,19 @@ impl Display {
         renderer: &mut QuadRenderer,
         config: &Config,
     ) -> Result<(GlyphCache, f32, f32), Error> {
-        let font = config.font.clone();
         #[cfg(not(feature = "hb-ft"))]
         let rasterizer = font::Rasterizer::new(dpr as f32, config.font.use_thin_strokes())?;
         #[cfg(feature = "hb-ft")]
-        let rasterizer = font::Rasterizer::new(dpr as f32, (&config.font).into())?;
+        let rasterizer =
+            font::Rasterizer::new(dpr as f32, font::RasterizerConfig::from(&config.font))?;
 
         // Initialize glyph cache
         let glyph_cache = {
             info!("Initializing glyph cache...");
             let init_start = ::std::time::Instant::now();
 
-            let cache =
-                renderer.with_loader(|mut api| GlyphCache::new(rasterizer, &font, &mut api))?;
+            let cache = renderer
+                .with_loader(|mut api| GlyphCache::new(rasterizer, &config.font, &mut api))?;
 
             let stop = init_start.elapsed();
             let stop_f = stop.as_secs() as f64 + f64::from(stop.subsec_nanos()) / 1_000_000_000f64;

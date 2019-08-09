@@ -774,7 +774,7 @@ where
 
             // Set icon name
             // This is ignored, since alacritty has no concept of tabs
-            b"1" => return,
+            b"1" => {},
 
             // Set color index
             b"4" => {
@@ -890,7 +890,14 @@ where
     }
 
     #[inline]
-    fn csi_dispatch(&mut self, args: &[i64], intermediates: &[u8], has_ignored_intermediates: bool, action: char) {
+    #[allow(clippy::needless_return)] // csi_dispatch doesn't type check if return in unhandled is removed.
+    fn csi_dispatch(
+        &mut self,
+        args: &[i64],
+        intermediates: &[u8],
+        has_ignored_intermediates: bool,
+        action: char,
+    ) {
         macro_rules! unhandled {
             () => {{
                 debug!(
@@ -917,7 +924,9 @@ where
         let writer = &mut self.writer;
 
         match (action, intermediates.get(0)) {
-            ('@', None) => handler.insert_blank(Column(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('@', None) => {
+                handler.insert_blank(Column(arg_or_default!(idx: 0, default: 1) as usize))
+            },
             ('A', None) => {
                 handler.move_up(Line(arg_or_default!(idx: 0, default: 1) as usize));
             },
@@ -930,12 +939,22 @@ where
                     debug!("tried to repeat with no preceding char");
                 }
             },
-            ('B', None) | ('e', None) => handler.move_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('B', None) | ('e', None) => {
+                handler.move_down(Line(arg_or_default!(idx: 0, default: 1) as usize))
+            },
             ('c', None) => handler.identify_terminal(writer),
-            ('C', None) | ('a', None) => handler.move_forward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
-            ('D', None) => handler.move_backward(Column(arg_or_default!(idx: 0, default: 1) as usize)),
-            ('E', None) => handler.move_down_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            ('F', None) => handler.move_up_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('C', None) | ('a', None) => {
+                handler.move_forward(Column(arg_or_default!(idx: 0, default: 1) as usize))
+            },
+            ('D', None) => {
+                handler.move_backward(Column(arg_or_default!(idx: 0, default: 1) as usize))
+            },
+            ('E', None) => {
+                handler.move_down_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize))
+            },
+            ('F', None) => {
+                handler.move_up_and_cr(Line(arg_or_default!(idx: 0, default: 1) as usize))
+            },
             ('g', None) => {
                 let mode = match arg_or_default!(idx: 0, default: 0) {
                     0 => TabulationClearMode::Current,
@@ -945,7 +964,9 @@ where
 
                 handler.clear_tabs(mode);
             },
-            ('G', None) | ('`', None) => handler.goto_col(Column(arg_or_default!(idx: 0, default: 1) as usize - 1)),
+            ('G', None) | ('`', None) => {
+                handler.goto_col(Column(arg_or_default!(idx: 0, default: 1) as usize - 1))
+            },
             ('H', None) | ('f', None) => {
                 let y = arg_or_default!(idx: 0, default: 1) as usize;
                 let x = arg_or_default!(idx: 1, default: 1) as usize;
@@ -975,7 +996,9 @@ where
             },
             ('S', None) => handler.scroll_up(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             ('T', None) => handler.scroll_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            ('L', None) => handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('L', None) => {
+                handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize))
+            },
             ('l', intermediate) => {
                 let is_private_mode = match intermediate {
                     Some(b'?') => true,
@@ -991,10 +1014,16 @@ where
                 }
             },
             ('M', None) => handler.delete_lines(Line(arg_or_default!(idx: 0, default: 1) as usize)),
-            ('X', None) => handler.erase_chars(Column(arg_or_default!(idx: 0, default: 1) as usize)),
-            ('P', None) => handler.delete_chars(Column(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('X', None) => {
+                handler.erase_chars(Column(arg_or_default!(idx: 0, default: 1) as usize))
+            },
+            ('P', None) => {
+                handler.delete_chars(Column(arg_or_default!(idx: 0, default: 1) as usize))
+            },
             ('Z', None) => handler.move_backward_tabs(arg_or_default!(idx: 0, default: 1)),
-            ('d', None) => handler.goto_line(Line(arg_or_default!(idx: 0, default: 1) as usize - 1)),
+            ('d', None) => {
+                handler.goto_line(Line(arg_or_default!(idx: 0, default: 1) as usize - 1))
+            },
             ('h', intermediate) => {
                 let is_private_mode = match intermediate {
                     Some(b'?') => true,
@@ -1021,7 +1050,9 @@ where
                     }
                 }
             },
-            ('n', None) => handler.device_status(writer, arg_or_default!(idx: 0, default: 0) as usize),
+            ('n', None) => {
+                handler.device_status(writer, arg_or_default!(idx: 0, default: 0) as usize)
+            },
             ('q', Some(b' ')) => {
                 // DECSCUSR (CSI Ps SP q) -- Set Cursor Style
                 let style = match arg_or_default!(idx: 0, default: 0) {
@@ -1053,6 +1084,7 @@ where
     }
 
     #[inline]
+    #[allow(clippy::needless_return)] // esc_dispatch doesn't type check if return in unhandled is removed.
     fn esc_dispatch(&mut self, params: &[i64], intermediates: &[u8], _ignore: bool, byte: u8) {
         macro_rules! unhandled {
             () => {{
