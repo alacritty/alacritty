@@ -53,7 +53,7 @@ use alacritty_terminal::tty;
 use alacritty_terminal::util::fmt::Red;
 use alacritty_terminal::{die, event};
 use futures::future::lazy;
-use futures::sync::mpsc;
+use futures::sync::{mpsc, oneshot};
 use tokio::prelude::*;
 use tokio::runtime::Runtime;
 
@@ -139,8 +139,8 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
     let mut chart_index = 0usize;
     // Create the channel that is used to communicate with the
     // background task.
-    let (tx, rx) = mpsc::channel(4_096usize);
-    let poll_tx = tx.clone();
+    let (charts_tx, charts_rx) = mpsc::channel(4_096usize);
+    let charts_poll_tx = charts_tx.clone();
     // Set environment variables
     tty::setup_env(&config);
 
@@ -229,9 +229,13 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
         let _io_thread = event_loop.spawn(None);
 
         info!("Initialisation complete");
+        // Create a place to store the loaded metric data.
+        let collected_data = config.charts.clone();
         // XXX: SEB: The async_coordinator should be moved here because it will contain the data
         // loaded And so is the one that should send all to OpenGL
-        runtime.spawn(lazy(move || alacritty_charts::async_utils::async_coordinator(rx, charts)));
+        runtime.spawn(lazy(move || {
+            alacritty_charts::async_utils::async_coordinator(charts_rx, charts)
+        }));
         for chart in config.charts.clone() {
             debug!("Loading chart series with name: '{}'", chart.name);
             let mut series_index = 0usize;
@@ -246,9 +250,12 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
                         capacity: prom.series.metrics_capacity,
                         data: None,
                     };
-                    let poll_tx = poll_tx.clone();
+                    let charts_poll_tx = charts_poll_tx.clone();
                     runtime.spawn(lazy(move || {
-                        alacritty_charts::async_utils::spawn_interval_polls(&data_request, poll_tx)
+                        alacritty_charts::async_utils::spawn_interval_polls(
+                            &data_request,
+                            charts_poll_tx,
+                        )
                     }));
                 }
                 series_index += 1;
@@ -300,7 +307,7 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
                 drop(terminal_lock);
 
                 // Draw the current state of the terminal
-                display.draw(&terminal, &config);
+                display.draw(&terminal, &config, charts_tx.clone());
             }
         }
         runtime.shutdown_now().wait().expect("Unable to wait for shutdown");
