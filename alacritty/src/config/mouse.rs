@@ -1,10 +1,12 @@
 use std::time::Duration;
 
-use glutin::ModifiersState;
+use glutin::event::ModifiersState;
+use log::error;
 use serde::{Deserialize, Deserializer};
 
+use alacritty_terminal::config::failure_default;
+
 use crate::config::bindings::{CommandWrapper, ModsWrapper};
-use crate::config::failure_default;
 
 #[serde(default)]
 #[derive(Default, Clone, Debug, Deserialize, PartialEq, Eq)]

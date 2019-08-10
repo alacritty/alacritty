@@ -19,9 +19,10 @@ use std::path::{Path, PathBuf};
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
 use log::{self, LevelFilter};
 
-use alacritty_terminal::config::{Config, Delta, Dimensions, Shell};
+use alacritty_terminal::config::{Delta, Dimensions, Shell, DEFAULT_NAME};
 use alacritty_terminal::index::{Column, Line};
-use alacritty_terminal::window::DEFAULT_NAME;
+
+use crate::config::Config;
 
 /// Options specified on the command line
 pub struct Options {
@@ -283,9 +284,10 @@ impl Options {
 
 #[cfg(test)]
 mod test {
-    use alacritty_terminal::config::{Config, DEFAULT_ALACRITTY_CONFIG};
+    use alacritty_terminal::config::DEFAULT_ALACRITTY_CONFIG;
 
     use crate::cli::Options;
+    use crate::config::Config;
 
     #[test]
     fn dynamic_title_ignoring_options_by_default() {

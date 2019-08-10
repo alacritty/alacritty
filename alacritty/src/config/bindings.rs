@@ -15,13 +15,206 @@
 use std::fmt;
 use std::str::FromStr;
 
-use glutin::{ModifiersState, MouseButton};
+use glutin::event::{ModifiersState, MouseButton};
+use log::error;
 use serde::de::Error as SerdeError;
 use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 
-use crate::input::{Action, Binding, KeyBinding, MouseBinding};
-use crate::term::TermMode;
+use alacritty_terminal::term::TermMode;
+
+/// Describes a state and action to take in that state
+///
+/// This is the shared component of `MouseBinding` and `KeyBinding`
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Binding<T> {
+    /// Modifier keys required to activate binding
+    pub mods: ModifiersState,
+
+    /// String to send to pty if mods and mode match
+    pub action: Action,
+
+    /// Terminal mode required to activate binding
+    pub mode: TermMode,
+
+    /// excluded terminal modes where the binding won't be activated
+    pub notmode: TermMode,
+
+    /// This property is used as part of the trigger detection code.
+    ///
+    /// For example, this might be a key like "G", or a mouse button.
+    pub trigger: T,
+}
+
+/// Bindings that are triggered by a keyboard key
+pub type KeyBinding = Binding<Key>;
+
+/// Bindings that are triggered by a mouse button
+pub type MouseBinding = Binding<MouseButton>;
+
+impl Default for KeyBinding {
+    fn default() -> KeyBinding {
+        KeyBinding {
+            mods: Default::default(),
+            action: Action::Esc(String::new()),
+            mode: TermMode::NONE,
+            notmode: TermMode::NONE,
+            trigger: Key::A,
+        }
+    }
+}
+
+impl Default for MouseBinding {
+    fn default() -> MouseBinding {
+        MouseBinding {
+            mods: Default::default(),
+            action: Action::Esc(String::new()),
+            mode: TermMode::NONE,
+            notmode: TermMode::NONE,
+            trigger: MouseButton::Left,
+        }
+    }
+}
+
+impl<T: Eq> Binding<T> {
+    #[inline]
+    pub fn is_triggered_by(
+        &self,
+        mode: TermMode,
+        mods: ModifiersState,
+        input: &T,
+        relaxed: bool,
+    ) -> bool {
+        // Check input first since bindings are stored in one big list. This is
+        // the most likely item to fail so prioritizing it here allows more
+        // checks to be short circuited.
+        self.trigger == *input
+            && mode.contains(self.mode)
+            && !mode.intersects(self.notmode)
+            && (self.mods == mods || (relaxed && self.mods.relaxed_eq(mods)))
+    }
+
+    #[inline]
+    pub fn triggers_match(&self, binding: &Binding<T>) -> bool {
+        // Check the binding's key and modifiers
+        if self.trigger != binding.trigger || self.mods != binding.mods {
+            return false;
+        }
+
+        // Completely empty modes match all modes
+        if (self.mode.is_empty() && self.notmode.is_empty())
+            || (binding.mode.is_empty() && binding.notmode.is_empty())
+        {
+            return true;
+        }
+
+        // Check for intersection (equality is required since empty does not intersect itself)
+        (self.mode == binding.mode || self.mode.intersects(binding.mode))
+            && (self.notmode == binding.notmode || self.notmode.intersects(binding.notmode))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub enum Action {
+    /// Write an escape sequence.
+    #[serde(skip)]
+    Esc(String),
+
+    /// Paste contents of system clipboard.
+    Paste,
+
+    /// Store current selection into clipboard.
+    Copy,
+
+    /// Paste contents of selection buffer.
+    PasteSelection,
+
+    /// Increase font size.
+    IncreaseFontSize,
+
+    /// Decrease font size.
+    DecreaseFontSize,
+
+    /// Reset font size to the config value.
+    ResetFontSize,
+
+    /// Scroll exactly one page up.
+    ScrollPageUp,
+
+    /// Scroll exactly one page down.
+    ScrollPageDown,
+
+    /// Scroll one line up.
+    ScrollLineUp,
+
+    /// Scroll one line down.
+    ScrollLineDown,
+
+    /// Scroll all the way to the top.
+    ScrollToTop,
+
+    /// Scroll all the way to the bottom.
+    ScrollToBottom,
+
+    /// Clear the display buffer(s) to remove history.
+    ClearHistory,
+
+    /// Run given command.
+    #[serde(skip)]
+    Command(String, Vec<String>),
+
+    /// Hide the Alacritty window.
+    Hide,
+
+    /// Quit Alacritty.
+    Quit,
+
+    /// Clear warning and error notices.
+    ClearLogNotice,
+
+    /// Spawn a new instance of Alacritty.
+    SpawnNewInstance,
+
+    /// Toggle fullscreen.
+    ToggleFullscreen,
+
+    /// Toggle simple fullscreen on macos.
+    #[cfg(target_os = "macos")]
+    ToggleSimpleFullscreen,
+
+    /// Allow receiving char input.
+    ReceiveChar,
+
+    /// No action.
+    None,
+}
+
+impl Default for Action {
+    fn default() -> Action {
+        Action::None
+    }
+}
+
+impl From<&'static str> for Action {
+    fn from(s: &'static str) -> Action {
+        Action::Esc(s.into())
+    }
+}
+
+pub trait RelaxedEq<T: ?Sized = Self> {
+    fn relaxed_eq(&self, other: T) -> bool;
+}
+
+impl RelaxedEq for ModifiersState {
+    // Make sure that modifiers in the config are always present,
+    // but ignore surplus modifiers.
+    fn relaxed_eq(&self, other: Self) -> bool {
+        (!self.logo || other.logo)
+            && (!self.alt || other.alt)
+            && (!self.ctrl || other.ctrl)
+            && (!self.shift || other.shift)
+    }
+}
 
 macro_rules! bindings {
     (
@@ -444,8 +637,8 @@ pub enum Key {
 }
 
 impl Key {
-    pub fn from_glutin_input(key: ::glutin::VirtualKeyCode) -> Self {
-        use glutin::VirtualKeyCode::*;
+    pub fn from_glutin_input(key: glutin::event::VirtualKeyCode) -> Self {
+        use glutin::event::VirtualKeyCode::*;
         // Thank you, vim macros and regex!
         match key {
             Key1 => Key::Key1,
@@ -812,7 +1005,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                 let mut mods: Option<ModifiersState> = None;
                 let mut key: Option<Key> = None;
                 let mut chars: Option<String> = None;
-                let mut action: Option<crate::input::Action> = None;
+                let mut action: Option<Action> = None;
                 let mut mode: Option<TermMode> = None;
                 let mut not_mode: Option<TermMode> = None;
                 let mut mouse: Option<MouseButton> = None;
@@ -1019,5 +1212,197 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
         }
 
         deserializer.deserialize_str(ModsVisitor)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use glutin::event::ModifiersState;
+
+    use alacritty_terminal::term::TermMode;
+
+    use crate::config::{Action, Binding};
+
+    type MockBinding = Binding<usize>;
+
+    impl Default for MockBinding {
+        fn default() -> Self {
+            Self {
+                mods: Default::default(),
+                action: Default::default(),
+                mode: TermMode::empty(),
+                notmode: TermMode::empty(),
+                trigger: Default::default(),
+            }
+        }
+    }
+
+    #[test]
+    fn binding_matches_itself() {
+        let binding = MockBinding::default();
+        let identical_binding = MockBinding::default();
+
+        assert!(binding.triggers_match(&identical_binding));
+        assert!(identical_binding.triggers_match(&binding));
+    }
+
+    #[test]
+    fn binding_matches_different_action() {
+        let binding = MockBinding::default();
+        let mut different_action = MockBinding::default();
+        different_action.action = Action::ClearHistory;
+
+        assert!(binding.triggers_match(&different_action));
+        assert!(different_action.triggers_match(&binding));
+    }
+
+    #[test]
+    fn mods_binding_requires_strict_match() {
+        let mut superset_mods = MockBinding::default();
+        superset_mods.mods = ModifiersState { alt: true, logo: true, ctrl: true, shift: true };
+        let mut subset_mods = MockBinding::default();
+        subset_mods.mods = ModifiersState { alt: true, logo: false, ctrl: false, shift: false };
+
+        assert!(!superset_mods.triggers_match(&subset_mods));
+        assert!(!subset_mods.triggers_match(&superset_mods));
+    }
+
+    #[test]
+    fn binding_matches_identical_mode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::ALT_SCREEN;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_without_mode_matches_any_mode() {
+        let b1 = MockBinding::default();
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::APP_KEYPAD;
+        b2.notmode = TermMode::ALT_SCREEN;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_with_mode_matches_empty_mode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::APP_KEYPAD;
+        b1.notmode = TermMode::ALT_SCREEN;
+        let b2 = MockBinding::default();
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_matches_superset_mode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::APP_KEYPAD;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::ALT_SCREEN | TermMode::APP_KEYPAD;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_matches_subset_mode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN | TermMode::APP_KEYPAD;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::APP_KEYPAD;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_matches_partial_intersection() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN | TermMode::APP_KEYPAD;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::APP_KEYPAD | TermMode::APP_CURSOR;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_mismatches_notmode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN;
+        let mut b2 = MockBinding::default();
+        b2.notmode = TermMode::ALT_SCREEN;
+
+        assert!(!b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_mismatches_unrelated() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::APP_KEYPAD;
+
+        assert!(!b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_trigger_input() {
+        let mut binding = MockBinding::default();
+        binding.trigger = 13;
+
+        let mods = binding.mods;
+        let mode = binding.mode;
+
+        assert!(binding.is_triggered_by(mode, mods, &13, true));
+        assert!(!binding.is_triggered_by(mode, mods, &32, true));
+    }
+
+    #[test]
+    fn binding_trigger_mods() {
+        let mut binding = MockBinding::default();
+        binding.mods = ModifiersState { alt: true, logo: true, ctrl: false, shift: false };
+
+        let superset_mods = ModifiersState { alt: true, logo: true, ctrl: true, shift: true };
+        let subset_mods = ModifiersState { alt: false, logo: false, ctrl: false, shift: false };
+
+        let t = binding.trigger;
+        let mode = binding.mode;
+
+        assert!(binding.is_triggered_by(mode, binding.mods, &t, true));
+        assert!(binding.is_triggered_by(mode, binding.mods, &t, false));
+
+        assert!(binding.is_triggered_by(mode, superset_mods, &t, true));
+        assert!(!binding.is_triggered_by(mode, superset_mods, &t, false));
+
+        assert!(!binding.is_triggered_by(mode, subset_mods, &t, true));
+        assert!(!binding.is_triggered_by(mode, subset_mods, &t, false));
+    }
+
+    #[test]
+    fn binding_trigger_modes() {
+        let mut binding = MockBinding::default();
+        binding.mode = TermMode::ALT_SCREEN;
+
+        let t = binding.trigger;
+        let mods = binding.mods;
+
+        assert!(!binding.is_triggered_by(TermMode::INSERT, mods, &t, true));
+        assert!(binding.is_triggered_by(TermMode::ALT_SCREEN, mods, &t, true));
+        assert!(binding.is_triggered_by(TermMode::ALT_SCREEN | TermMode::INSERT, mods, &t, true));
+    }
+
+    #[test]
+    fn binding_trigger_notmodes() {
+        let mut binding = MockBinding::default();
+        binding.notmode = TermMode::ALT_SCREEN;
+
+        let t = binding.trigger;
+        let mods = binding.mods;
+
+        assert!(binding.is_triggered_by(TermMode::INSERT, mods, &t, true));
+        assert!(!binding.is_triggered_by(TermMode::ALT_SCREEN, mods, &t, true));
+        assert!(!binding.is_triggered_by(TermMode::ALT_SCREEN | TermMode::INSERT, mods, &t, true));
     }
 }

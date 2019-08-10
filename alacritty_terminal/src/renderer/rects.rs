@@ -91,7 +91,7 @@ impl RenderLines {
     }
 
     /// Update the stored lines with the next cell info.
-    pub fn update(&mut self, cell: &RenderableCell) {
+    pub fn update(&mut self, cell: RenderableCell) {
         for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {
             if !cell.flags.contains(*flag) {
                 continue;

@@ -2,8 +2,9 @@ use std::fmt;
 use std::ops::{Index, IndexMut, Mul};
 use std::str::FromStr;
 
+use log::{error, trace};
 use serde::de::Visitor;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::ansi;
 use crate::config::Colors;

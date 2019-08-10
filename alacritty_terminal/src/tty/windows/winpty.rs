@@ -22,13 +22,13 @@ use std::sync::Arc;
 use std::u16;
 
 use dunce::canonicalize;
+use log::info;
 use mio_named_pipes::NamedPipe;
 use winapi::um::winbase::FILE_FLAG_OVERLAPPED;
-use winpty::Config as WinptyConfig;
-use winpty::{ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
+use winpty::{Config as WinptyConfig, ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
 
 use crate::config::{Config, Shell};
-use crate::display::OnResize;
+use crate::event::OnResize;
 use crate::term::SizeInfo;
 
 // We store a raw pointer because we need mutable access to call
@@ -75,7 +75,7 @@ impl<'a> Drop for Agent<'a> {
 /// This is a placeholder value until we see how often long responses happen
 const AGENT_TIMEOUT: u32 = 10000;
 
-pub fn new<'a>(config: &Config, size: &SizeInfo, _window_id: Option<usize>) -> Pty<'a> {
+pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty<'a> {
     // Create config
     let mut wconfig = WinptyConfig::new(ConfigFlags::empty()).unwrap();
 

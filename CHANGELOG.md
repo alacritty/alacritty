@@ -53,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Discard scrolling region escape with bottom above top
 - Opacity always applying to cells with their background color matching the teriminal background
 - Allow semicolons when setting titles using an OSC
+- Background always opaque on X11
+- Skipping redraws on PTY update
+- Not redrawing while resizing on Windows/macOS
+- Decorations `none` launching an invisible window
 
 ### Removed
 

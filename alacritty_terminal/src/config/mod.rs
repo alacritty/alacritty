@@ -17,42 +17,37 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::PathBuf;
 
+use log::error;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
 
-mod bindings;
 mod colors;
 mod debug;
 mod font;
-mod monitor;
-mod mouse;
 mod scrolling;
-#[cfg(test)]
-mod test;
 mod visual_bell;
 mod window;
 
 use crate::ansi::{Color, CursorStyle, NamedColor};
-use crate::input::{Binding, KeyBinding, MouseBinding};
 
-pub use crate::config::bindings::Key;
 pub use crate::config::colors::Colors;
 pub use crate::config::debug::Debug;
 pub use crate::config::font::{Font, FontDescription};
-pub use crate::config::monitor::Monitor;
-pub use crate::config::mouse::{ClickHandler, Mouse};
 pub use crate::config::scrolling::Scrolling;
 pub use crate::config::visual_bell::{VisualBellAnimation, VisualBellConfig};
-pub use crate::config::window::{Decorations, Dimensions, StartupMode, WindowConfig};
+pub use crate::config::window::{Decorations, Dimensions, StartupMode, WindowConfig, DEFAULT_NAME};
 use crate::term::color::Rgb;
 
 pub static DEFAULT_ALACRITTY_CONFIG: &str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.yml"));
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
 
+pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;
+
 /// Top-level config type
 #[derive(Debug, PartialEq, Deserialize)]
-pub struct Config {
+pub struct Config<T> {
     /// Pixel padding
     #[serde(default, deserialize_with = "failure_default")]
     pub padding: Option<Delta<u8>>,
@@ -80,19 +75,8 @@ pub struct Config {
     #[serde(default, deserialize_with = "failure_default")]
     pub window: WindowConfig,
 
-    /// Keybindings
-    #[serde(default = "default_key_bindings", deserialize_with = "deserialize_key_bindings")]
-    pub key_bindings: Vec<KeyBinding>,
-
-    /// Bindings for the mouse
-    #[serde(default = "default_mouse_bindings", deserialize_with = "deserialize_mouse_bindings")]
-    pub mouse_bindings: Vec<MouseBinding>,
-
     #[serde(default, deserialize_with = "failure_default")]
     pub selection: Selection,
-
-    #[serde(default, deserialize_with = "failure_default")]
-    pub mouse: Mouse,
 
     /// Path to a shell program to run on startup
     #[serde(default, deserialize_with = "from_string_or_deserialize")]
@@ -144,6 +128,10 @@ pub struct Config {
     #[serde(default, deserialize_with = "failure_default")]
     pub debug: Debug,
 
+    /// Additional configuration options not directly required by the terminal
+    #[serde(flatten)]
+    pub ui_config: T,
+
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]
     pub render_timer: Option<bool>,
@@ -153,13 +141,13 @@ pub struct Config {
     pub persistent_logging: Option<bool>,
 }
 
-impl Default for Config {
+impl<T: DeserializeOwned> Default for Config<T> {
     fn default() -> Self {
         serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("default config is invalid")
     }
 }
 
-impl Config {
+impl<T> Config<T> {
     pub fn tabspaces(&self) -> usize {
         self.tabspaces.0
     }
@@ -236,49 +224,6 @@ impl Config {
     }
 }
 
-fn default_key_bindings() -> Vec<KeyBinding> {
-    bindings::default_key_bindings()
-}
-
-fn default_mouse_bindings() -> Vec<MouseBinding> {
-    bindings::default_mouse_bindings()
-}
-
-fn deserialize_key_bindings<'a, D>(deserializer: D) -> Result<Vec<KeyBinding>, D::Error>
-where
-    D: Deserializer<'a>,
-{
-    deserialize_bindings(deserializer, bindings::default_key_bindings())
-}
-
-fn deserialize_mouse_bindings<'a, D>(deserializer: D) -> Result<Vec<MouseBinding>, D::Error>
-where
-    D: Deserializer<'a>,
-{
-    deserialize_bindings(deserializer, bindings::default_mouse_bindings())
-}
-
-fn deserialize_bindings<'a, D, T>(
-    deserializer: D,
-    mut default: Vec<Binding<T>>,
-) -> Result<Vec<Binding<T>>, D::Error>
-where
-    D: Deserializer<'a>,
-    T: Copy + Eq + std::hash::Hash + std::fmt::Debug,
-    Binding<T>: Deserialize<'a>,
-{
-    let mut bindings: Vec<Binding<T>> = failure_default(deserializer)?;
-
-    // Remove matching default bindings
-    for binding in bindings.iter() {
-        default.retain(|b| !b.triggers_match(binding));
-    }
-
-    bindings.extend(default);
-
-    Ok(bindings)
-}
-
 #[serde(default)]
 #[derive(Deserialize, Default, Clone, Debug, PartialEq, Eq)]
 pub struct Selection {
@@ -324,7 +269,7 @@ impl Cursor {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct Shell<'a> {
     pub program: Cow<'a, str>,
 
@@ -397,7 +342,7 @@ impl<'a> Deserialize<'a> for Alpha {
     }
 }
 
-#[derive(Deserialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
 struct Tabspaces(usize);
 
 impl Default for Tabspaces {

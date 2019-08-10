@@ -4,43 +4,24 @@ use std::time::Duration;
 
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
+use alacritty_terminal::event::{Event, EventListener};
+use alacritty_terminal::util;
+
+use crate::event::EventProxy;
+
 pub struct Monitor {
     _thread: ::std::thread::JoinHandle<()>,
-    rx: mpsc::Receiver<PathBuf>,
-}
-
-pub trait OnConfigReload {
-    fn on_config_reload(&mut self);
-}
-
-impl OnConfigReload for crate::display::Notifier {
-    fn on_config_reload(&mut self) {
-        self.notify();
-    }
 }
 
 impl Monitor {
-    /// Get pending config changes
-    pub fn pending(&self) -> Option<PathBuf> {
-        let mut config = None;
-        while let Ok(new) = self.rx.try_recv() {
-            config = Some(new);
-        }
-
-        config
-    }
-
-    pub fn new<H, P>(path: P, mut handler: H) -> Monitor
+    pub fn new<P>(path: P, event_proxy: EventProxy) -> Monitor
     where
-        H: OnConfigReload + Send + 'static,
         P: Into<PathBuf>,
     {
         let path = path.into();
 
-        let (config_tx, config_rx) = mpsc::channel();
-
         Monitor {
-            _thread: crate::util::thread::spawn_named("config watcher", move || {
+            _thread: util::thread::spawn_named("config watcher", move || {
                 let (tx, rx) = mpsc::channel();
                 // The Duration argument is a debouncing period.
                 let mut watcher =
@@ -66,14 +47,12 @@ impl Monitor {
                                 continue;
                             }
 
-                            let _ = config_tx.send(path);
-                            handler.on_config_reload();
+                            event_proxy.send_event(Event::ConfigReload(path));
                         },
                         _ => {},
                     }
                 }
             }),
-            rx: config_rx,
         }
     }
 }

@@ -1,3 +1,4 @@
+use log::error;
 use serde::{Deserialize, Deserializer};
 
 use crate::config::{failure_default, MAX_SCROLLBACK_LINES};

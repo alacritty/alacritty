@@ -15,6 +15,8 @@
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use std::ffi::c_void;
 
+use log::{debug, warn};
+
 use copypasta::nop_clipboard::NopClipboardContext;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use copypasta::wayland_clipboard;

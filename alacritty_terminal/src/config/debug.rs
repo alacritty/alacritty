@@ -1,5 +1,5 @@
-use log::LevelFilter;
-use serde::Deserializer;
+use log::{error, LevelFilter};
+use serde::{Deserialize, Deserializer};
 
 use crate::config::failure_default;
 

@@ -16,11 +16,13 @@
 use std::io;
 use std::str;
 
-use crate::index::{Column, Contains, Line};
 use base64;
-use glutin::MouseCursor;
+use log::{debug, trace};
+use serde::{Deserialize, Serialize};
+
 use vte;
 
+use crate::index::{Column, Contains, Line};
 use crate::term::color::Rgb;
 
 // Parse colors in XParseColor format
@@ -104,7 +106,7 @@ struct ProcessorState {
 /// Processor creates a Performer when running advance and passes the Performer
 /// to `vte::Parser`.
 struct Performer<'a, H: Handler + TermInfo, W: io::Write> {
-    _state: &'a mut ProcessorState,
+    state: &'a mut ProcessorState,
     handler: &'a mut H,
     writer: &'a mut W,
 }
@@ -117,7 +119,7 @@ impl<'a, H: Handler + TermInfo + 'a, W: io::Write> Performer<'a, H, W> {
         handler: &'b mut H,
         writer: &'b mut W,
     ) -> Performer<'b, H, W> {
-        Performer { _state: state, handler, writer }
+        Performer { state, handler, writer }
     }
 }
 
@@ -156,9 +158,6 @@ pub trait TermInfo {
 pub trait Handler {
     /// OSC to set window title
     fn set_title(&mut self, _: &str) {}
-
-    /// Set the window's mouse cursor
-    fn set_mouse_cursor(&mut self, _: MouseCursor) {}
 
     /// Set the cursor style
     fn set_cursor_style(&mut self, _: Option<CursorStyle>) {}
@@ -686,7 +685,7 @@ where
     #[inline]
     fn print(&mut self, c: char) {
         self.handler.input(c);
-        self._state.preceding_char = Some(c);
+        self.state.preceding_char = Some(c);
     }
 
     #[inline]
@@ -919,7 +918,7 @@ where
                 handler.move_up(Line(arg_or_default!(idx: 0, default: 1) as usize));
             },
             ('b', None) => {
-                if let Some(c) = self._state.preceding_char {
+                if let Some(c) = self.state.preceding_char {
                     for _ in 0..arg_or_default!(idx: 0, default: 1) {
                         handler.input(c);
                     }
