@@ -32,6 +32,9 @@ terminfo = "0.6.1"
 url = "1.7.1"
 crossbeam-channel = "0.3.8"
 copypasta = { path = "../copypasta" }
+tokio-core = "0.1.17"
+tokio = "0.1"
+futures = "0.1.26"
 alacritty_charts = { path = "../alacritty_charts" }
 
 [target.'cfg(unix)'.dependencies]
