@@ -113,12 +113,11 @@ impl Search for Term {
 
     fn search_wrapline(&self, mut point: Point<usize>) -> Point<usize> 
     {
-        let current_line = point.line;
-        let last_line = min(point.line, point.line - 1);
+        let mut current_line = point.line;
 
-        while self.grid[current_line][self.grid.num_cols() - Column(1)].contains(cell::Flags::WRAPLINE) {
-            point.line = current_line;
+        while self.grid[current_line][self.grid.num_cols() - 1].flags.contains(cell::Flags::WRAPLINE) {
             current_line = current_line - 1;
+            point.line = current_line;
         }
 
         point

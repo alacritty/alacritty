@@ -274,8 +274,9 @@ impl Selection {
     where
         T: Search + Dimensions,
     {
-        start = term.search_wrapline(start.into()).into();
-        end.col = Column(0);
+        start.col = Column(0);
+        end = term.search_wrapline(end.into()).into();
+        end.col = term.dimensions().col - 1;
 
         Some(Span { start: start.into(), end: end.into(), is_block: false })
     }
