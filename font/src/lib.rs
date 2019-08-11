@@ -20,57 +20,52 @@
 
 #![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
 
-// Note: all applicable cfg statements have been modified to short-circuit
-// to freetype if the feature hb-ft is enabled.
-
-#[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 extern crate fontconfig;
-#[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 extern crate freetype;
 
-#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
+#[cfg(target_os = "macos")]
 extern crate core_foundation;
-#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
+#[cfg(target_os = "macos")]
 extern crate core_foundation_sys;
-#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
+#[cfg(target_os = "macos")]
 extern crate core_graphics;
-#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
+#[cfg(target_os = "macos")]
 extern crate core_text;
-#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
+#[cfg(target_os = "macos")]
 extern crate euclid;
 
 extern crate libc;
 
-#[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 #[macro_use]
 extern crate foreign_types;
 
-#[cfg(feature = "hb-ft")]
+#[cfg(not(any(target_os = "macos", windows)))]
 extern crate harfbuzz_rs;
 
 #[cfg_attr(not(windows), macro_use)]
 extern crate log;
 
 use std::fmt;
-#[cfg(not(feature = "hb-ft"))]
-use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 // If target isn't macos or windows, reexport everything from ft
-#[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 pub mod ft;
-#[cfg(any(not(any(target_os = "macos", windows)), feature = "hb-ft"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 pub use ft::{Error, FreeTypeRasterizer as Rasterizer};
 
-#[cfg(all(windows, not(feature = "hb-ft")))]
+#[cfg(windows)]
 pub mod directwrite;
-#[cfg(all(windows, not(feature = "hb-ft")))]
+#[cfg(windows)]
 pub use crate::directwrite::{DirectWriteRasterizer as Rasterizer, Error};
 
 // If target is macos, reexport everything from darwin
-#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
+#[cfg(target_os = "macos")]
 mod darwin;
-#[cfg(all(target_os = "macos", not(feature = "hb-ft")))]
+#[cfg(target_os = "macos")]
 pub use darwin::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -142,71 +137,32 @@ impl FontKey {
     }
 }
 
-#[cfg(feature = "hb-ft")]
-pub mod key_type {
-    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-    pub enum KeyType {
-        // Harfbuzz returned a valid index from shaping and we can render that as expected.
-        GlyphIndex(u32),
-        // Harfbuzz returned nodef so we provide character instead to make use of font loading.
-        Fallback(char),
-    }
-    // Import enum variants into this module
-    use KeyType::{Fallback, GlyphIndex};
+/// Captures possible outcomes of shaping, if shaping succeeded it will return a `GlyphIndex`. 
+/// If shaping failed or did not occur, `Fallback` will be returned.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum KeyType {
+    /// Shaping returned a valid index and we can render that as expected.
+    GlyphIndex(u32),
+    /// Shaping returned a missing glyph or shaping did not occur. If glyph is missing system will attempt to load character glyph from a fallback font. If shaping did not occur this will first try the configured font then fallback. 
+    Fallback(char),
+}
 
-    impl From<u32> for KeyType {
-        fn from(val: u32) -> Self {
-            GlyphIndex(val)
-        }
-    }
-    impl From<char> for KeyType {
-        fn from(val: char) -> Self {
-            Fallback(val)
-        }
+impl From<u32> for KeyType {
+    fn from(val: u32) -> Self {
+        KeyType::GlyphIndex(val)
     }
 }
-#[cfg(feature = "hb-ft")]
-use key_type::KeyType;
+impl From<char> for KeyType {
+    fn from(val: char) -> Self {
+        KeyType::Fallback(val)
+    }
+}
 
-// For now use derived impls, this can be swapped for more efficient implementations once things are
-// working
-#[cfg_attr(feature = "hb-ft", derive(Hash, PartialEq))]
-#[derive(Debug, Copy, Clone, Eq)]
+#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub struct GlyphKey {
-    #[cfg(not(feature = "hb-ft"))]
-    pub c: char,
-    #[cfg(feature = "hb-ft")]
     pub c: KeyType,
     pub font_key: FontKey,
     pub size: Size,
-}
-
-#[cfg(not(feature = "hb-ft"))]
-impl Hash for GlyphKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        unsafe {
-            // This transmute is fine:
-            //
-            // - If GlyphKey ever becomes a different size, this will fail to compile
-            // - Result is being used for hashing and has no fields (it's a u64)
-            ::std::mem::transmute::<GlyphKey, u64>(*self)
-        }
-        .hash(state);
-    }
-}
-
-#[cfg(not(feature = "hb-ft"))]
-impl PartialEq for GlyphKey {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe {
-            // This transmute is fine:
-            //
-            // - If GlyphKey ever becomes a different size, this will fail to compile
-            // - Result is being used for equality checking and has no fields (it's a u64)
-            let other = ::std::mem::transmute::<GlyphKey, u64>(*other);
-            ::std::mem::transmute::<GlyphKey, u64>(*self).eq(&other)
-        }
-    }
 }
 
 /// Font size stored as integer
@@ -241,9 +197,6 @@ impl ::std::ops::Add for Size {
 
 #[derive(Clone)]
 pub struct RasterizedGlyph {
-    #[cfg(not(feature = "hb-ft"))]
-    pub c: char,
-    #[cfg(feature = "hb-ft")]
     pub c: KeyType,
     pub width: i32,
     pub height: i32,
@@ -254,10 +207,7 @@ pub struct RasterizedGlyph {
 
 impl Default for RasterizedGlyph {
     fn default() -> RasterizedGlyph {
-        #[cfg(feature = "hb-ft")]
         let c: KeyType = 1u32.into();
-        #[cfg(not(feature = "hb-ft"))]
-        let c = ' ';
         RasterizedGlyph { c, width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }
     }
 }
@@ -298,14 +248,7 @@ pub trait Rasterize {
     /// Errors occurring in Rasterize methods
     type Err: ::std::error::Error + Send + Sync + 'static;
 
-    /// Create a new Rasterizer
-    #[cfg(not(feature = "hb-ft"))]
-    fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Self, Self::Err>
-    where
-        Self: Sized;
-
-    #[cfg(feature = "hb-ft")]
-    fn new(device_pixel_ratio: f32, rasterize_config: RasterizeConfig) -> Result<Self, Self::Err>
+    fn new(device_pixel_ratio: f32, rasterize_config: RasterizerConfig) -> Result<Self, Self::Err>
     where
         Self: Sized;
 
@@ -322,16 +265,9 @@ pub trait Rasterize {
     fn update_dpr(&mut self, device_pixel_ratio: f32);
 }
 
-/// Config option specific to the Rasterizer.
-/// Since the Rasterizer lives in the subcrate font we do not want it to depend on the Font config
-/// struct from alacritty, as this would introduce a circular dependency between the crates.Clone
-/// This struct specifies the subset of Font that the Rasterizer cares about, then traits can be
-/// used to convert from Font to this struct when constructing a Rasterizer.
-#[cfg(feature = "hb-ft")]
-pub struct RasterizeConfig {
+/// Config options specific to the Rasterizer.
+pub struct RasterizerConfig {
     /// Toggle thin strokes on mac osx
-    // Technically this is impossible while under "hb-ft" but is included for compatiblity in the
-    // api
     pub use_thin_strokes: bool,
     /// Toggle rendering of font ligatures
     pub use_font_ligatures: bool,
@@ -339,9 +275,8 @@ pub struct RasterizeConfig {
 
 // Only implemented for the FreeType rasterizer so far.
 /// Conceptually this extends the Rasterizer trait with Harfbuzz specific functionality.
-#[cfg(feature = "hb-ft")]
+#[cfg(not(any(target_os = "macos", windows)))]
 pub trait HbFtExt {
     /// Shape the provided text into a set of glyphs.
-    /// TODO: properly report HarfBuzz errors
     fn shape(&mut self, text: &str, font_key: FontKey) -> harfbuzz_rs::GlyphBuffer;
 }

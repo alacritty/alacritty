@@ -18,10 +18,7 @@ use font::Metrics;
 use crate::index::Point;
 use crate::term::cell::Flags;
 use crate::term::color::Rgb;
-#[cfg(feature = "hb-ft")]
 use crate::term::text_run::TextRun;
-#[cfg(not(feature = "hb-ft"))]
-use crate::term::RenderableCell;
 use crate::term::SizeInfo;
 
 #[derive(Debug, Copy, Clone)]
@@ -94,7 +91,6 @@ impl RenderLines {
             .collect()
     }
 
-    #[cfg(feature = "hb-ft")]
     /// Update the stored lines with the next text_run info.
     pub fn update(&mut self, text_run: &TextRun) {
         for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {
@@ -108,37 +104,6 @@ impl RenderLines {
                 color: text_run.fg,
             };
             self.inner.entry(*flag).or_insert_with(|| vec![]).push(new_line);
-        }
-    }
-
-    #[cfg(not(feature = "hb-ft"))]
-    /// Update the stored lines with the next cell info.
-    pub fn update(&mut self, cell: &RenderableCell) {
-        for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {
-            if !cell.flags.contains(*flag) {
-                continue;
-            }
-
-            // Check if there's an active line
-            if let Some(line) = self.inner.get_mut(flag).and_then(|lines| lines.last_mut()) {
-                if cell.line == line.start.line
-                    && cell.fg == line.color
-                    && cell.column == line.end.col + 1
-                {
-                    // Update the length of the line
-                    line.end = cell.into();
-                    continue;
-                }
-            }
-
-            // Start new line if there currently is none
-            let line = RenderLine { start: cell.into(), end: cell.into(), color: cell.fg };
-            match self.inner.get_mut(flag) {
-                Some(lines) => lines.push(line),
-                None => {
-                    self.inner.insert(*flag, vec![line]);
-                },
-            }
         }
     }
 }

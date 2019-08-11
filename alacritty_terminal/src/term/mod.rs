@@ -45,7 +45,6 @@ use crate::tty;
 
 pub mod cell;
 pub mod color;
-#[cfg(feature = "hb-ft")]
 pub mod text_run;
 
 /// Used to match equal brackets, when performing a bracket-pair selection.
@@ -307,7 +306,6 @@ impl RenderableCell {
         }
     }
 
-    #[cfg(feature = "hb-ft")]
     fn is_cursor(&self) -> bool {
         match &self.inner {
             RenderableCellContent::Cursor(_) => true,

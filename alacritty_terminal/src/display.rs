@@ -30,12 +30,14 @@ use crate::meter::Meter;
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
-use crate::term::color::Rgb;
-use crate::term::{RenderableCell, SizeInfo, Term};
+use crate::term::{
+    RenderableCell, SizeInfo, Term,
+    color::Rgb, cell::Flags,
+};
 use crate::window::{self, Window};
 use font::{self, Rasterize};
 
-#[cfg(feature = "hb-ft")]
+
 use crate::term::text_run::TextRunIter;
 
 #[derive(Debug)]
@@ -300,11 +302,8 @@ impl Display {
         renderer: &mut QuadRenderer,
         config: &Config,
     ) -> Result<(GlyphCache, f32, f32), Error> {
-        #[cfg(not(feature = "hb-ft"))]
-        let rasterizer = font::Rasterizer::new(dpr as f32, config.font.use_thin_strokes())?;
-        #[cfg(feature = "hb-ft")]
         let rasterizer =
-            font::Rasterizer::new(dpr as f32, font::RasterizerConfig::from(&config.font))?;
+            font::Rasterizer::new(dpr as f32, (&config.font).into())?;
 
         // Initialize glyph cache
         let glyph_cache = {
@@ -519,45 +518,23 @@ impl Display {
             let glyph_cache = &mut self.glyph_cache;
             let mut lines = RenderLines::new();
 
-            // Draw grid (non-HarfBuzz)
-            #[cfg(not(feature = "hb-ft"))]
-            {
-                let _sampler = self.meter.sampler();
+            // Draw grid
+            self.renderer.with_api(config, &size_info, |mut api| {
+                // Iterate over each contiguous block of text
+                for text_run in TextRunIter::new(
+                    grid_cells
+                        .into_iter()
+                        // Logic for WIDE_CHAR is handled internally by TextRun
+                        // So we no longer need WIDE_CHAR_SPACER at this point.
+                        .filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER)),
+                ) {
+                    // Update underline/strikeout
+                    lines.update(&text_run);
 
-                self.renderer.with_api(config, &size_info, |mut api| {
-                    // Iterate over all non-empty cells in the grid
-                    for cell in grid_cells {
-                        // Update underline/strikeout
-                        lines.update(&cell);
-
-                        // Draw the cell
-                        api.render_cell(cell, glyph_cache);
-                    }
-                });
-            }
-            // Draw grid (HarfBuzz)
-            #[cfg(feature = "hb-ft")]
-            {
-                use crate::term::cell::Flags;
-                let _sampler = self.meter.sampler();
-
-                self.renderer.with_api(config, &size_info, |mut api| {
-                    // Iterate over each contiguous block of text
-                    for text_run in TextRunIter::new(
-                        grid_cells
-                            .into_iter()
-                            // Logic for WIDE_CHAR is handled internally by TextRun
-                            // So we no longer need WIDE_CHAR_SPACER at this point.
-                            .filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER)),
-                    ) {
-                        // Update underline/strikeout
-                        lines.update(&text_run);
-
-                        // Draw text run
-                        api.render_text_run(text_run, glyph_cache);
-                    }
-                });
-            }
+                    // Draw text run
+                    api.render_text_run(text_run, glyph_cache);
+                }
+            });
 
             let mut rects = lines.into_rects(&metrics, &size_info);
 

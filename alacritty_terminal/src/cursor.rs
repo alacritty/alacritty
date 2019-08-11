@@ -56,10 +56,7 @@ pub fn get_cursor_glyph(
 }
 
 // This default is done as a constant to avoid duplicating the feature toggle for each cursor type.
-#[cfg(not(feature = "hb-ft"))]
-pub const PLACEHOLDER_GLYPH: char = ' ';
-#[cfg(feature = "hb-ft")]
-pub const PLACEHOLDER_GLYPH: font::key_type::KeyType = font::key_type::KeyType::GlyphIndex(1u32);
+pub const PLACEHOLDER_GLYPH: font::KeyType = font::KeyType::GlyphIndex(1u32);
 
 // Returns a custom underline cursor character
 pub fn get_underline_cursor_glyph(width: i32, line_width: i32) -> RasterizedGlyph {

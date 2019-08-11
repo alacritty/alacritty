@@ -23,20 +23,19 @@ use std::time::Duration;
 
 use fnv::FnvHasher;
 use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
+#[cfg(not(any(target_os = "macos", windows)))]
+use font::HbFtExt;
 use glutin::dpi::PhysicalSize;
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
 use crate::config::{self, Config, Delta};
-use crate::cursor::{get_cursor_glyph, CursorKey};
+use crate::cursor::{get_cursor_glyph, CursorKey, PLACEHOLDER_GLYPH};
 use crate::gl;
 use crate::gl::types::*;
 use crate::index::{Column, Line};
 use crate::renderer::rects::RenderRect;
 use crate::term::color::Rgb;
-#[cfg(feature = "hb-ft")]
 use crate::term::text_run::{TextRun, TextRunContent};
-#[cfg(not(feature = "hb-ft"))]
-use crate::term::RenderableCellContent;
 use crate::term::{self, cell, RenderableCell};
 
 pub mod rects;
@@ -195,15 +194,9 @@ impl GlyphCache {
         let (regular, bold, italic) = Self::compute_font_keys(font, &mut rasterizer)?;
 
         // Need to load at least one glyph for the face before calling metrics.
-        // The glyph requested here ('m' at the time of writing) has no special
-        // meaning.
-        #[cfg(not(feature = "hb-ft"))]
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
-        // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here (1 at the time of writing) has no special
         // meaning.
-        #[cfg(feature = "hb-ft")]
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 1u32.into(), size: font.size })?;
+        rasterizer.get_glyph(GlyphKey { c: PLACEHOLDER_GLYPH, font_key: regular, size: font.size })?;
 
         let metrics = rasterizer.metrics(regular, font.size)?;
 
@@ -228,14 +221,9 @@ impl GlyphCache {
 
     fn load_glyphs_for_font<L: LoadGlyph>(&mut self, font: FontKey, loader: &mut L) {
         let size = self.font_size;
-        #[cfg(not(feature = "hb-ft"))]
-        for i in 32u8..=128u8 {
-            self.get(GlyphKey { font_key: font, c: i as char, size }, loader);
-        }
-        #[cfg(feature = "hb-ft")]
         for i in 32u32..=128u32 {
             self.get(
-                GlyphKey { font_key: font, c: font::key_type::KeyType::GlyphIndex(i), size },
+                GlyphKey { font_key: font, c: font::KeyType::GlyphIndex(i), size },
                 loader,
             );
         }
@@ -296,12 +284,28 @@ impl GlyphCache {
             .expect("metrics load since font is loaded at glyph cache creation")
     }
 
-    #[cfg(feature = "hb-ft")]
-    pub fn index_for_char(&self, font_key: FontKey, c: char) -> Option<u32> {
-        self.rasterizer.index_for_char(font_key, c)
+    // Shaping is only avaiable on linux for now
+    // On other OSs grab run glyphs as normal
+    #[cfg(any(target_os = "macos", windows))]
+    fn shape_run<'a, L>(
+        &'a mut self,
+        text_run: &str,
+        font_key: FontKey,
+        loader: &'a mut L,
+    ) -> Vec<Glyph>
+    where
+        L: LoadGlyph,
+    {
+        text_run.chars()
+            .map(|c| {
+                let glyph_key = GlyphKey { c: c.into(), font_key, size: self.font_size };
+                *self.get(glyph_key, loader)
+            })
+            .collect()
     }
 
-    #[cfg(feature = "hb-ft")]
+    // Shape using harfbuzz
+    #[cfg(not(any(target_os = "macos", windows)))]
     pub fn shape_run<'a, L>(
         &'a mut self,
         text_run: &str,
@@ -311,7 +315,6 @@ impl GlyphCache {
     where
         L: LoadGlyph,
     {
-        use font::HbFtExt;
         self.rasterizer
             .shape(text_run, font_key)
             .get_glyph_infos()
@@ -319,21 +322,8 @@ impl GlyphCache {
             .map(move |glyph_info| {
                 let codepoint = glyph_info.codepoint;
                 // Codepoint of 0 indicates a missing or undefined glyph
-                let c: font::key_type::KeyType = if codepoint == 0 {
-                    // TODO: this is a linear scan over text for each missing glyph
-                    // Try to find all missing glyphs first and only scan over text_run once.
-                    text_run
-                        .char_indices()
-                        .find_map(
-                            |(i, c)| if i == glyph_info.cluster as usize { Some(c) } else { None },
-                        )
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "Could not find cluster {} in run {}",
-                                glyph_info.cluster, text_run
-                            )
-                        })
-                        .into()
+                let c: font::KeyType = if codepoint == 0 {
+                    Self::find_fallback_char(text_run, glyph_info.cluster as usize)
                 } else {
                     codepoint.into()
                 };
@@ -341,6 +331,24 @@ impl GlyphCache {
                 *self.get(glyph_key, loader)
             })
             .collect()
+    }
+
+    #[cfg(not(any(target_os = "macos", windows)))]
+    fn find_fallback_char(text_run: &str, index: usize) -> font::KeyType {
+        // TODO: this is a linear scan over text_run for each missing glyph.
+        // Try to find all missing glyphs first and only scan over text_run once.
+        text_run
+            .char_indices()
+            .find_map(
+                |(i, c)| if i == index { Some(c) } else { None },
+            )
+            .unwrap_or_else(|| {
+                panic!(
+                    "Could not find cluster {} in run {}",
+                    index, text_run
+                )
+            })
+            .into()
     }
 
     pub fn get<'a, L>(&'a mut self, glyph_key: GlyphKey, loader: &mut L) -> &'a Glyph
@@ -381,12 +389,9 @@ impl GlyphCache {
         let font = font.to_owned().with_size(size);
         let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
 
-        #[cfg(not(feature = "hb-ft"))]
-        self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
-        #[cfg(feature = "hb-ft")]
         self.rasterizer.get_glyph(GlyphKey {
+            c: PLACEHOLDER_GLYPH,
             font_key: regular,
-            c: 1u32.into(),
             size: font.size,
         })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
@@ -412,17 +417,11 @@ impl GlyphCache {
     pub fn static_metrics(config: &Config, dpr: f32) -> Result<font::Metrics, font::Error> {
         let font = config.font.clone();
 
-        #[cfg(not(feature = "hb-ft"))]
-        let mut rasterizer = font::Rasterizer::new(dpr, config.font.use_thin_strokes())?;
-        #[cfg(feature = "hb-ft")]
         let mut rasterizer = font::Rasterizer::new(dpr, (&config.font).into())?;
         let regular_desc =
             GlyphCache::make_desc(&font.normal(), font::Slant::Normal, font::Weight::Normal);
         let regular = rasterizer.load_font(&regular_desc, font.size)?;
-        #[cfg(not(feature = "hb-ft"))]
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
-        #[cfg(feature = "hb-ft")]
-        rasterizer.get_glyph(GlyphKey { font_key: regular, c: 1u32.into(), size: font.size })?;
+        rasterizer.get_glyph(GlyphKey { c: PLACEHOLDER_GLYPH, font_key: regular, size: font.size })?;
 
         rasterizer.metrics(regular, font.size)
     }
@@ -1018,43 +1017,6 @@ impl<'a> RenderApi<'a> {
 
     /// Render a string in a variable location. Used for printing the render timer, warnings and
     /// errors.
-    #[cfg(not(feature = "hb-ft"))]
-    pub fn render_string(
-        &mut self,
-        string: &str,
-        line: Line,
-        glyph_cache: &mut GlyphCache,
-        color: Option<Rgb>,
-    ) {
-        let bg_alpha = color.map(|_| 1.0).unwrap_or(0.0);
-        let col = Column(0);
-
-        let cells = string
-            .chars()
-            .enumerate()
-            .map(|(i, c)| RenderableCell {
-                line,
-                column: col + i,
-                inner: RenderableCellContent::Chars({
-                    let mut chars = [' '; cell::MAX_ZEROWIDTH_CHARS + 1];
-                    chars[0] = c;
-                    chars
-                }),
-                bg: color.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
-                fg: Rgb { r: 0, g: 0, b: 0 },
-                flags: cell::Flags::empty(),
-                bg_alpha,
-            })
-            .collect::<Vec<_>>();
-
-        for cell in cells {
-            self.render_cell(cell, glyph_cache);
-        }
-    }
-
-    /// Render a string in a variable location. Used for printing the render timer, warnings and
-    /// errors.
-    #[cfg(feature = "hb-ft")]
     pub fn render_string(
         &mut self,
         string: &str,
@@ -1091,7 +1053,6 @@ impl<'a> RenderApi<'a> {
         }
     }
 
-    #[cfg(feature = "hb-ft")]
     pub fn render_text_run(&mut self, text_run: TextRun, glyph_cache: &mut GlyphCache) {
         match &text_run.run_chars {
             TextRunContent::Cursor(cursor_key) => {
@@ -1147,74 +1108,6 @@ impl<'a> RenderApi<'a> {
                 }
             },
         };
-    }
-
-    #[cfg(not(feature = "hb-ft"))]
-    pub fn render_cell(&mut self, cell: RenderableCell, glyph_cache: &mut GlyphCache) {
-        let chars = match cell.inner {
-            RenderableCellContent::Cursor(cursor_key) => {
-                // Raw cell pixel buffers like cursors don't need to go through font lookup
-                let metrics = glyph_cache.metrics;
-                let glyph = glyph_cache.cursor_cache.entry(cursor_key).or_insert_with(|| {
-                    let offset_x = self.config.font.offset.x;
-                    let offset_y = self.config.font.offset.y;
-
-                    self.load_glyph(&get_cursor_glyph(
-                        cursor_key.style,
-                        metrics,
-                        offset_x,
-                        offset_y,
-                        cursor_key.is_wide,
-                    ))
-                });
-                self.add_render_item(&cell, &glyph);
-                return;
-            },
-            RenderableCellContent::Chars(chars) => chars,
-        };
-
-        // Get font key for cell
-        // FIXME this is super inefficient.
-        let font_key = if cell.flags.contains(cell::Flags::BOLD) {
-            glyph_cache.bold_key
-        } else if cell.flags.contains(cell::Flags::ITALIC) {
-            glyph_cache.italic_key
-        } else {
-            glyph_cache.font_key
-        };
-
-        // Don't render text of HIDDEN cells
-        let mut chars = if cell.flags.contains(cell::Flags::HIDDEN) {
-            [' '; cell::MAX_ZEROWIDTH_CHARS + 1]
-        } else {
-            chars
-        };
-
-        // Render tabs as spaces in case the font doesn't support it
-        if chars[0] == '\t' {
-            chars[0] = ' ';
-        }
-
-        let mut glyph_key = GlyphKey { font_key, size: glyph_cache.font_size, c: chars[0] };
-
-        // Add cell to batch
-        let glyph = glyph_cache.get(glyph_key, self);
-        self.add_render_item(&cell, glyph);
-
-        // Render zero-width characters
-        for c in (&chars[1..]).iter().filter(|c| **c != ' ') {
-            glyph_key.c = *c;
-            let mut glyph = *glyph_cache.get(glyph_key, self);
-
-            // The metrics of zero-width characters are based on rendering
-            // the character after the current cell, with the anchor at the
-            // right side of the preceding character. Since we render the
-            // zero-width characters inside the preceding character, the
-            // anchor has been moved to the right by one cell.
-            glyph.left += glyph_cache.metrics.average_advance as f32;
-
-            self.add_render_item(&cell, &glyph);
-        }
     }
 }
 
