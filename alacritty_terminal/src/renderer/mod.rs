@@ -1082,12 +1082,12 @@ impl<'a> RenderApi<'a> {
 
                 if !text_run.flags.contains(cell::Flags::HIDDEN) {
                     let glyphs = glyph_cache.shape_run(&run, font_key, self);
-                    for (cell, glyph) in text_run.cell_iter().zip(glyphs.into_iter()) {
+                    for (cell, glyph) in text_run.cells().zip(glyphs.into_iter()) {
                         self.add_render_item(&cell, &glyph);
                     }
                 };
 
-                for (cell, zero_width_chars) in text_run.cell_iter().zip(zero_widths.iter()) {
+                for (cell, zero_width_chars) in text_run.cells().zip(zero_widths.iter()) {
                     for c in zero_width_chars.iter().filter(|c| **c != ' ') {
                         let glyph_key =
                             GlyphKey { font_key, size: glyph_cache.font_size, c: (*c).into() };
