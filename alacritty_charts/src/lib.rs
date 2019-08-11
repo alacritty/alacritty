@@ -406,7 +406,7 @@ impl Default for TimeSeriesSource {
 }
 
 impl TimeSeriesSource {
-    fn series(&self) -> TimeSeries {
+    pub fn series(&self) -> TimeSeries {
         match self {
             TimeSeriesSource::PrometheusTimeSeries(x) => x.series.clone(),
             TimeSeriesSource::AlacrittyInput(x) => x.series.clone(),
@@ -415,7 +415,7 @@ impl TimeSeriesSource {
         }
     }
 
-    fn series_mut(&mut self) -> &mut TimeSeries {
+    pub fn series_mut(&mut self) -> &mut TimeSeries {
         match self {
             TimeSeriesSource::PrometheusTimeSeries(x) => &mut x.series,
             TimeSeriesSource::AlacrittyInput(x) => &mut x.series,
@@ -430,6 +430,26 @@ impl TimeSeriesSource {
             TimeSeriesSource::AlacrittyInput(x) => x.name.clone(),
             TimeSeriesSource::AlacrittyOutput(x) => x.name.clone(),
             TimeSeriesSource::AsyncLoadedItems(x) => x.name.clone(),
+        }
+    }
+
+    // XXX: SEB: This is really ugly, we should have maybe Trait for Drawable and have a color
+    // easily available or have like a .prop("color").
+    pub fn color(&self) -> String {
+        match self {
+            TimeSeriesSource::PrometheusTimeSeries(x) => x.color.clone(),
+            TimeSeriesSource::AlacrittyInput(x) => x.color.clone(),
+            TimeSeriesSource::AlacrittyOutput(x) => x.color.clone(),
+            TimeSeriesSource::AsyncLoadedItems(x) => x.color.clone(),
+        }
+    }
+
+    pub fn alpha(&self) -> f32 {
+        match self {
+            TimeSeriesSource::PrometheusTimeSeries(x) => x.alpha,
+            TimeSeriesSource::AlacrittyInput(x) => x.alpha,
+            TimeSeriesSource::AlacrittyOutput(x) => x.alpha,
+            TimeSeriesSource::AsyncLoadedItems(x) => x.alpha,
         }
     }
 }
