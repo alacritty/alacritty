@@ -93,9 +93,6 @@ impl RenderLines {
 
     /// Update the stored lines with the next text_run info.
     pub fn update(&mut self, text_run: &TextRun) {
-        if text_run.flags.contains(Flags::HIDDEN) {
-            return;
-        }
         for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {
             if !text_run.flags.contains(*flag) {
                 continue;
