@@ -6,7 +6,7 @@ use super::{
 use crate::index::{Column, Line};
 
 #[derive(Debug)]
-pub(crate) struct RunStart {
+struct RunStart {
     pub line: Line,
     pub column: Column,
     pub fg: Rgb,
@@ -14,6 +14,7 @@ pub(crate) struct RunStart {
     pub bg_alpha: f32,
     pub flags: Flags,
 }
+
 // Use a macro instead of a function to make use of partial move semantics that don't cross
 // function boundaries
 // Convert a RenderableCell into a RunStart
@@ -31,19 +32,19 @@ macro_rules! from_rc {
 }
 
 /// Compare cells and check they are in the same text run
-fn is_contiguous_context(a: &RunStart, b: &RenderableCell) -> bool {
+fn is_adjacent_context(a: &RunStart, b: &RenderableCell) -> bool {
     a.line == b.line
         && a.fg == b.fg
         && a.bg == b.bg
-        && (a.bg_alpha - b.bg_alpha).abs() < 0.01
+        && (a.bg_alpha - b.bg_alpha).abs() < std::f32::EPSILON
         && a.flags == b.flags
 }
 
-type Latest = (Column, bool);
+type LatestCol = (Column, bool);
 /// Checks two columns are adjacent
-fn is_contiguous_col((a, is_wide): Latest, b: Column) -> bool {
-    let span = if is_wide { 2usize } else { 1usize };
-    a + span == b || b + span == a
+fn is_adjacent_col((a, is_wide): LatestCol, b: Column) -> bool {
+    let width = if is_wide { 2usize } else { 1usize };
+    a + width == b || b + width == a
 }
 
 #[derive(Debug)]
@@ -54,31 +55,36 @@ pub enum TextRunContent {
 
 /// Represents a set of renderable cells that all share the same rendering propreties.
 /// The assumption is that if two cells are in the same TextRun they can be sent off together to
-/// be shaped by Harfbuzz. This allows for ligatures to be rendered but not when something
-/// breaks up a ligature (e.g. selection hightlight) which is desired behavior.
+/// be shaped. This allows for ligatures to be rendered but not when something breaks up a ligature (e.g. selection hightlight) which is desired behavior.
 #[derive(Debug)]
 pub struct TextRun {
-    // By definition a run is on one line.
+    /// By definition a run is on one line.
     pub line: Line,
-    pub run: (Column, Column),
-    pub run_chars: TextRunContent,
+    /// Span of columns the text run covers.
+    pub span: (Column, Column),
+    /// Cursor or sequence of characters.
+    pub content: TextRunContent,
+    /// Foreground color of text run content.
     pub fg: Rgb,
+    /// Background color of text run content.
     pub bg: Rgb,
+    /// Opacity of background color of text run content.
     pub bg_alpha: f32,
+    /// Attributes of this text run (e.g. HIDDEN, STRIKETHROUGH, etc.)
     pub flags: Flags,
 }
 impl TextRun {
     // These two constructors are used by TextRunIter and are not widely applicable
-    pub(crate) fn from_iter_state(
+    fn from_iter_state(
         start: RunStart,
-        (latest, is_wide): Latest,
+        (latest, is_wide): LatestCol,
         buffer: (String, Vec<[char; MAX_ZEROWIDTH_CHARS]>),
     ) -> Self {
         let end_column = if is_wide { latest + 1 } else { latest };
         TextRun {
             line: start.line,
-            run: (start.column, end_column),
-            run_chars: TextRunContent::CharRun(buffer.0, buffer.1),
+            span: (start.column, end_column),
+            content: TextRunContent::CharRun(buffer.0, buffer.1),
             fg: start.fg,
             bg: start.bg,
             bg_alpha: start.bg_alpha,
@@ -86,11 +92,11 @@ impl TextRun {
         }
     }
 
-    pub(crate) fn from_cursor_rc(start: RunStart, cursor: CursorKey) -> Self {
+    fn from_cursor_rc(start: RunStart, cursor: CursorKey) -> Self {
         TextRun {
             line: start.line,
-            run: (start.column, start.column),
-            run_chars: TextRunContent::Cursor(cursor),
+            span: (start.column, start.column),
+            content: TextRunContent::Cursor(cursor),
             fg: start.fg,
             bg: start.bg,
             bg_alpha: start.bg_alpha,
@@ -99,7 +105,7 @@ impl TextRun {
     }
 
     /// Holdover method while converting from rendering Cells to TextRuns
-    pub fn cell_at(&self, col: Column) -> RenderableCell {
+    fn cell_at(&self, col: Column) -> RenderableCell {
         RenderableCell {
             line: self.line,
             column: col,
@@ -113,50 +119,50 @@ impl TextRun {
 
     /// Number of columns this TextRun spans
     pub fn len(&self) -> usize {
-        let (start, end) = self.run;
+        let (start, end) = self.span;
         end.0 - start.0
     }
 
     /// True if TextRun contains characters, false if it contains no characters.
     pub fn is_empty(&self) -> bool {
-        match &self.run_chars {
-            TextRunContent::Cursor(_) => true,
+        match &self.content {
+            TextRunContent::Cursor(_) => false,
             TextRunContent::CharRun(ref string, ref zero_widths) => {
-                !(string.is_empty() && zero_widths.is_empty())
+                string.is_empty() && zero_widths.is_empty()
             },
         }
     }
 
     /// First column of the run
     pub fn start_col(&self) -> Column {
-        self.run.0
+        self.span.0
     }
 
     /// First cell in the TextRun
     pub fn start_cell(&self) -> RenderableCell {
-        self.cell_at(self.run.0)
+        self.cell_at(self.span.0)
     }
 
-    /// Last cell in the TextRun
-    pub fn last_cell(&self) -> RenderableCell {
-        self.cell_at(self.run.1)
+    /// End cell in the TextRun
+    pub fn end_cell(&self) -> RenderableCell {
+        self.cell_at(self.span.1)
     }
 
     /// First point covered by this TextRun
     pub fn start_point(&self) -> Point {
-        Point { line: self.line, col: self.run.0 }
+        Point { line: self.line, col: self.span.0 }
     }
 
-    /// Last point covered by this TextRun
-    pub fn last_point(&self) -> Point {
-        Point { line: self.line, col: self.run.1 }
+    /// End point covered by this TextRun
+    pub fn end_point(&self) -> Point {
+        Point { line: self.line, col: self.span.1 }
     }
 
     /// Returns iterator over range of columns [run.0, run.1]
-    pub fn col_iter(&self) -> impl Iterator<Item = Column> {
-        let (start, end) = self.run;
+    pub fn cols(&self) -> impl Iterator<Item = Column> {
+        let (start, end) = self.span;
         let step = if self.flags.contains(Flags::WIDE_CHAR) {
-            // If our run contains wide chars treat each cell like it's 2 cells wide
+            // If our run contains ide chars treat each cell like it's 2 cells wide
             2
         } else {
             1
@@ -167,8 +173,8 @@ impl TextRun {
     }
 
     /// Iterates over each RenderableCell in column range [run.0, run.1]
-    pub fn cell_iter<'a>(&'a self) -> impl Iterator<Item = RenderableCell> + 'a {
-        self.col_iter().map(move |col| self.cell_at(col))
+    pub fn cells<'a>(&'a self) -> impl Iterator<Item = RenderableCell> + 'a {
+        self.cols().map(move |col| self.cell_at(col))
     }
 }
 
@@ -176,7 +182,7 @@ impl TextRun {
 pub struct TextRunIter<I> {
     iter: I,
     run_start: Option<RunStart>,
-    latest: Option<Latest>,
+    latest: Option<LatestCol>,
     cursor: Option<CursorKey>,
     buffer_text: String,
     buffer_zero_width: Vec<[char; MAX_ZEROWIDTH_CHARS]>,
@@ -194,12 +200,12 @@ impl<I> TextRunIter<I> {
     }
 
     /// Check if current run ends with incoming RenderableCell
-    fn is_run_break(&self, rc: &RenderableCell) -> bool {
-        let is_cell_break =
-            self.run_start.as_ref().map(|cell| !is_contiguous_context(cell, &rc)).unwrap_or(false);
-        let is_col_break =
-            self.latest.as_ref().map(|col| !is_contiguous_col(*col, rc.column)).unwrap_or(false);
-        is_cell_break || is_col_break
+    fn is_end_of_run(&self, rc: &RenderableCell) -> bool {
+        let is_cell_adjacent =
+            self.run_start.as_ref().map(|cell| !is_adjacent_context(cell, &rc)).unwrap_or(false);
+        let is_col_adjacent =
+            self.latest.as_ref().map(|col| !is_adjacent_col(*col, rc.column)).unwrap_or(false);
+        is_cell_adjacent || is_col_adjacent
     }
 
     /// Add content of cell to pending TextRun buffer
@@ -224,19 +230,30 @@ impl<I> TextRunIter<I> {
     }
 
     /// Handles bookkeeping needed when starting a new run
-    fn start_run(&mut self, rc: RenderableCell) -> (Option<RunStart>, Option<Latest>) {
+    fn start_run(&mut self, rc: RenderableCell) -> (Option<RunStart>, Option<LatestCol>) {
         self.buffer_content(rc.inner);
         let latest = self.latest.replace((rc.column, rc.flags.contains(Flags::WIDE_CHAR)));
         let start = self.run_start.replace(from_rc!(rc));
         (start, latest)
     }
-}
 
-/// Utility method to ease use of Options when you need to unwrap both in tandem
-fn opt_pair<A, B>(a: Option<A>, b: Option<B>) -> Option<(A, B)> {
-    match (a, b) {
-        (Some(a_val), Some(b_val)) => Some((a_val, b_val)),
-        _ => None,
+    /// Producer a run containing a single cursor from state of the `TextRunIter`. 
+    /// This is a destructive operation, the iterator will be in a new run state after it's completion.
+    fn produce_cursor(&mut self, rc: RenderableCell) -> Option<TextRun> {
+        let (opt_start, _) = self.start_run(rc);
+        let start = opt_start?;
+        let cursor = self.cursor.take()?;
+        Some(TextRun::from_cursor_rc(start, cursor))
+    }
+
+    /// Create a run of chars from the current state of the `TextRunIter`.
+    /// This is a destructive operation, the iterator will be in a new run state after it's completion.
+    fn produce_char_run(&mut self, rc: RenderableCell) -> Option<TextRun> {
+        let prev_buffer = self.drain_buffer();
+        let (start_opt, latest_opt) = self.start_run(rc);
+        let start = start_opt?;
+        let latest = latest_opt?;
+        Some(TextRun::from_iter_state(start, latest, prev_buffer))
     }
 }
 
@@ -249,7 +266,6 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let mut output = None;
         while let Some(rc) = self.iter.next() {
-            // We don't want to add wide_char spacers to the buffer
             if self.latest.is_none() || self.run_start.is_none() {
                 // Initial state, this is should only be hit on the first next() call of
                 // iterator
@@ -257,33 +273,30 @@ where
             } else if self.cursor.is_some() {
                 // Last iteration of the loop found a cursor
                 // Return a run for the cursor and start a new run
-                let (start, _) = self.start_run(rc);
-                output = opt_pair(start, self.cursor.take())
-                    .map(|(start, cursor)| TextRun::from_cursor_rc(start, cursor));
+                output = self.produce_cursor(rc);
                 break;
-            } else if self.is_run_break(&rc) || rc.is_cursor() {
-                // If we find a break or a cursor,
+            } else if self.is_end_of_run(&rc) || rc.is_cursor() {
+                // If we find a run break or a cursor,
                 // return what we have so far and start a new run.
-                let prev_buffer = self.drain_buffer();
-                let (start, latest) = self.start_run(rc);
-                output = opt_pair(start, latest)
-                    .map(|(start, latest)| TextRun::from_iter_state(start, latest, prev_buffer));
+                output = self.produce_char_run(rc);
                 break;
             }
             // Build up buffer and track the latest column we've seen
             self.latest = Some((rc.column, rc.flags.contains(Flags::WIDE_CHAR)));
             self.buffer_content(rc.inner);
         }
-        // If we generated output we're done
-        // Otherwise check for any remaining buffered content and return it as a text run
-        // This a destructive operation so it will return None after it excutes once
+        // If we generated output we're done.
+        // Otherwise check for any remaining buffered content and return it as a text run.
+        // This is a destructive operation, it will return None after it excutes once.
         output.or_else(|| {
             if !self.buffer_text.is_empty() || !self.buffer_zero_width.is_empty() {
-                opt_pair(self.run_start.take(), self.latest.take()).map(|(start, latest)|
-                    // Save leftover buffer and empty it
-                    TextRun::from_iter_state(start, latest, self.drain_buffer()))
+                let start = self.run_start.take()?;
+                let latest = self.latest.take()?;
+                // Save leftover buffer and empty it
+                Some(TextRun::from_iter_state(start, latest, self.drain_buffer()))
             } else if let Some(cursor) = self.cursor {
-                self.run_start.take().map(|start| TextRun::from_cursor_rc(start, cursor))
+                let start = self.run_start.take()?;
+                Some(TextRun::from_cursor_rc(start, cursor))
             } else {
                 None
             }

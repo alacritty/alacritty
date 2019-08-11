@@ -20,7 +20,8 @@ use std::path::PathBuf;
 
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
-use harfbuzz_rs::{Font, GlyphBuffer, Owned};
+use harfbuzz_rs::{shape, Feature, Tag, UnicodeBuffer, Font, GlyphBuffer, Owned};
+use harfbuzz_rs::Face as HbFace;
 use libc::c_uint;
 
 pub mod fc;
@@ -148,21 +149,15 @@ impl ::Rasterize for FreeTypeRasterizer {
     }
 }
 
-impl ::HbFtExt for FreeTypeRasterizer {
+impl crate::HbFtExt for FreeTypeRasterizer {
     fn shape(&mut self, text: &str, font_key: FontKey) -> GlyphBuffer {
-        use harfbuzz_rs::{shape, Feature, Tag, UnicodeBuffer};
         let hb_font = &self.faces[&font_key].hb_font;
         let buf = UnicodeBuffer::default().add_str(text);
-        let value = if self.use_font_ligatures { 1 } else { 0 };
+        let use_font_ligature = if self.use_font_ligatures { 1 } else { 0 };
         let features = &[
-            Feature::new(Tag::new('c', 'l', 'i', 'g'), value, 0..),
-            Feature::new(Tag::new('l', 'i', 'g', 'a'), value, 0..),
-            /* This feature controls ligature rendering in Fira Code but this could
-             * very well be Fira Code specific behavior as it codes all it's "ligatures" as
-             * glyph substitutions Which are unaffected by features "clig" and
-             * "liga" Feature::new(Tag::new('c', 'a', 'l', 't'), value, 0..) */
+            Feature::new(Tag::new('l', 'i', 'g', 'a'), use_font_ligature, 0..),
+            Feature::new(Tag::new('c', 'a', 'l', 't'), use_font_ligature, 0..)
         ];
-        // Shape with default features
         shape(&*hb_font, buf, features)
     }
 }
@@ -291,8 +286,7 @@ impl FreeTypeRasterizer {
 
             // Construct harfbuzz font
             let hb_font = {
-                use harfbuzz_rs::*;
-                let _hb_face = Face::from_file(&path, index as u32)?;
+                let _hb_face = HbFace::from_file(&path, index as u32)?;
                 Font::new(_hb_face)
             };
 

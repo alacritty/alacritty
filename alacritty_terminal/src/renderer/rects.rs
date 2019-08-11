@@ -100,7 +100,7 @@ impl RenderLines {
 
             let new_line = RenderLine {
                 start: text_run.start_point(),
-                end: text_run.last_point(),
+                end: text_run.end_point(),
                 color: text_run.fg,
             };
             self.inner.entry(*flag).or_insert_with(|| vec![]).push(new_line);
