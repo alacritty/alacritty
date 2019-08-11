@@ -20,13 +20,16 @@ use std::path::PathBuf;
 
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
-use harfbuzz_rs::{shape, Feature, Tag, UnicodeBuffer, Font, GlyphBuffer, Owned};
 use harfbuzz_rs::Face as HbFace;
+use harfbuzz_rs::{shape, Feature, Font, GlyphBuffer, Owned, Tag, UnicodeBuffer};
 use libc::c_uint;
 
 pub mod fc;
 
-use super::{KeyType, RasterizerConfig, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
+use super::{
+    FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, RasterizerConfig, Size, Slant,
+    Style, Weight,
+};
 
 struct FixedSize {
     pixelsize: f64,
@@ -156,7 +159,7 @@ impl crate::HbFtExt for FreeTypeRasterizer {
         let use_font_ligature = if self.use_font_ligatures { 1 } else { 0 };
         let features = &[
             Feature::new(Tag::new('l', 'i', 'g', 'a'), use_font_ligature, 0..),
-            Feature::new(Tag::new('c', 'a', 'l', 't'), use_font_ligature, 0..)
+            Feature::new(Tag::new('c', 'a', 'l', 't'), use_font_ligature, 0..),
         ];
         shape(&*hb_font, buf, features)
     }
@@ -321,15 +324,13 @@ impl FreeTypeRasterizer {
             // We already found a glyph index, use current font
             KeyType::GlyphIndex(_) => glyph_key.font_key,
             // Harfbuzz failed to find a glyph index, try to load a font for c
-            KeyType::Fallback(c) => {
-                self.handle_fallback_char(c, glyph_key.font_key, have_recursed)
-            },
+            KeyType::Fallback(c) => self.handle_fallback_char(c, glyph_key.font_key, have_recursed),
         };
         Ok(font_key)
     }
 
-
-    // On unix harfbuzz turns characters into glyph indices. So if we hit this method we already know the glyph is missing from the font and we want to fallback to a system font.
+    // On unix harfbuzz turns characters into glyph indices. So if we hit this method we already
+    // know the glyph is missing from the font and we want to fallback to a system font.
     #[cfg(unix)]
     fn handle_fallback_char(&mut self, c: char, font_key: FontKey, have_recursed: bool) -> FontKey {
         if have_recursed {
@@ -339,7 +340,8 @@ impl FreeTypeRasterizer {
         }
     }
 
-    // If we aren't on unix this will be called for all characters so we still want to check configured font first.
+    // If we aren't on unix this will be called for all characters so we still want to check
+    // configured font first.
     #[cfg(not(unix))]
     fn handle_fallback_char(&mut self, c: char, font_key: FontKey, have_recursed: bool) -> FontKey {
         let use_initial_face = if let Some(face) = self.faces.get(&glyph_key.font_key) {

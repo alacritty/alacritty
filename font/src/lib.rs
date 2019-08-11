@@ -137,13 +137,15 @@ impl FontKey {
     }
 }
 
-/// Captures possible outcomes of shaping, if shaping succeeded it will return a `GlyphIndex`. 
+/// Captures possible outcomes of shaping, if shaping succeeded it will return a `GlyphIndex`.
 /// If shaping failed or did not occur, `Fallback` will be returned.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum KeyType {
     /// Shaping returned a valid index and we can render that as expected.
     GlyphIndex(u32),
-    /// Shaping returned a missing glyph or shaping did not occur. If glyph is missing system will attempt to load character glyph from a fallback font. If shaping did not occur this will first try the configured font then fallback. 
+    /// Shaping returned a missing glyph or shaping did not occur. If glyph is missing system will
+    /// attempt to load character glyph from a fallback font. If shaping did not occur this will
+    /// first try the configured font then fallback.
     Fallback(char),
 }
 

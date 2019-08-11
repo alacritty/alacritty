@@ -55,7 +55,8 @@ pub enum TextRunContent {
 
 /// Represents a set of renderable cells that all share the same rendering propreties.
 /// The assumption is that if two cells are in the same TextRun they can be sent off together to
-/// be shaped. This allows for ligatures to be rendered but not when something breaks up a ligature (e.g. selection hightlight) which is desired behavior.
+/// be shaped. This allows for ligatures to be rendered but not when something breaks up a ligature
+/// (e.g. selection hightlight) which is desired behavior.
 #[derive(Debug)]
 pub struct TextRun {
     /// By definition a run is on one line.
@@ -237,8 +238,9 @@ impl<I> TextRunIter<I> {
         (start, latest)
     }
 
-    /// Producer a run containing a single cursor from state of the `TextRunIter`. 
-    /// This is a destructive operation, the iterator will be in a new run state after it's completion.
+    /// Producer a run containing a single cursor from state of the `TextRunIter`.
+    /// This is a destructive operation, the iterator will be in a new run state after it's
+    /// completion.
     fn produce_cursor(&mut self, rc: RenderableCell) -> Option<TextRun> {
         let (opt_start, _) = self.start_run(rc);
         let start = opt_start?;
@@ -247,7 +249,8 @@ impl<I> TextRunIter<I> {
     }
 
     /// Create a run of chars from the current state of the `TextRunIter`.
-    /// This is a destructive operation, the iterator will be in a new run state after it's completion.
+    /// This is a destructive operation, the iterator will be in a new run state after it's
+    /// completion.
     fn produce_char_run(&mut self, rc: RenderableCell) -> Option<TextRun> {
         let prev_buffer = self.drain_buffer();
         let (start_opt, latest_opt) = self.start_run(rc);

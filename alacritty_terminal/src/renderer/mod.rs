@@ -22,9 +22,9 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use fnv::FnvHasher;
-use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
 #[cfg(not(any(target_os = "macos", windows)))]
 use font::HbFtExt;
+use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
 use glutin::dpi::PhysicalSize;
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
@@ -196,7 +196,11 @@ impl GlyphCache {
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here (1 at the time of writing) has no special
         // meaning.
-        rasterizer.get_glyph(GlyphKey { c: PLACEHOLDER_GLYPH, font_key: regular, size: font.size })?;
+        rasterizer.get_glyph(GlyphKey {
+            c: PLACEHOLDER_GLYPH,
+            font_key: regular,
+            size: font.size,
+        })?;
 
         let metrics = rasterizer.metrics(regular, font.size)?;
 
@@ -222,10 +226,7 @@ impl GlyphCache {
     fn load_glyphs_for_font<L: LoadGlyph>(&mut self, font: FontKey, loader: &mut L) {
         let size = self.font_size;
         for i in 32u32..=128u32 {
-            self.get(
-                GlyphKey { font_key: font, c: font::KeyType::GlyphIndex(i), size },
-                loader,
-            );
+            self.get(GlyphKey { font_key: font, c: font::KeyType::GlyphIndex(i), size }, loader);
         }
     }
 
@@ -296,7 +297,8 @@ impl GlyphCache {
     where
         L: LoadGlyph,
     {
-        text_run.chars()
+        text_run
+            .chars()
             .map(|c| {
                 let glyph_key = GlyphKey { c: c.into(), font_key, size: self.font_size };
                 *self.get(glyph_key, loader)
@@ -339,15 +341,8 @@ impl GlyphCache {
         // Try to find all missing glyphs first and only scan over text_run once.
         text_run
             .char_indices()
-            .find_map(
-                |(i, c)| if i == index { Some(c) } else { None },
-            )
-            .unwrap_or_else(|| {
-                panic!(
-                    "Could not find cluster {} in run {}",
-                    index, text_run
-                )
-            })
+            .find_map(|(i, c)| if i == index { Some(c) } else { None })
+            .unwrap_or_else(|| panic!("Could not find cluster {} in run {}", index, text_run))
             .into()
     }
 
@@ -421,7 +416,11 @@ impl GlyphCache {
         let regular_desc =
             GlyphCache::make_desc(&font.normal(), font::Slant::Normal, font::Weight::Normal);
         let regular = rasterizer.load_font(&regular_desc, font.size)?;
-        rasterizer.get_glyph(GlyphKey { c: PLACEHOLDER_GLYPH, font_key: regular, size: font.size })?;
+        rasterizer.get_glyph(GlyphKey {
+            c: PLACEHOLDER_GLYPH,
+            font_key: regular,
+            size: font.size,
+        })?;
 
         rasterizer.metrics(regular, font.size)
     }

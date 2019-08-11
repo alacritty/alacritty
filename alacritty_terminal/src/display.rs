@@ -30,13 +30,9 @@ use crate::meter::Meter;
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
-use crate::term::{
-    RenderableCell, SizeInfo, Term,
-    color::Rgb, cell::Flags,
-};
+use crate::term::{cell::Flags, color::Rgb, RenderableCell, SizeInfo, Term};
 use crate::window::{self, Window};
 use font::{self, Rasterize};
-
 
 use crate::term::text_run::TextRunIter;
 
@@ -302,8 +298,7 @@ impl Display {
         renderer: &mut QuadRenderer,
         config: &Config,
     ) -> Result<(GlyphCache, f32, f32), Error> {
-        let rasterizer =
-            font::Rasterizer::new(dpr as f32, (&config.font).into())?;
+        let rasterizer = font::Rasterizer::new(dpr as f32, (&config.font).into())?;
 
         // Initialize glyph cache
         let glyph_cache = {
