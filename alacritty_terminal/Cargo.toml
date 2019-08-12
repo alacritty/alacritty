@@ -14,7 +14,6 @@ libc = "0.2"
 notify = "4"
 bitflags = "1"
 font = { path = "../font" }
-errno = "0.2"
 parking_lot = "0.7"
 serde = "1"
 serde_derive = "1"
@@ -32,6 +31,7 @@ terminfo = "0.6.1"
 url = "1.7.1"
 crossbeam-channel = "0.3.8"
 copypasta = { path = "../copypasta" }
+rfind_url = "0.4.0"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.14.1"

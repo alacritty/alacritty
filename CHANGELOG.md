@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Override default bindings with subset terminal mode match
 - On Linux, respect fontconfig's `embeddedbitmap` configuration option
 - Selecting trailing tab with semantic expansion
+- URL parser incorrectly handling Markdown URLs and angled brackets
+- Intermediate bytes of CSI sequences not checked
 
 ## 0.3.3
 

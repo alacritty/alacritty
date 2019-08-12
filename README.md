@@ -40,64 +40,10 @@ Precompiled binaries are available from the [GitHub releases page](https://githu
 Some operating systems already provide binaries for Alacritty, for everyone
 else the instructions to build Alacritty from source can be found [here](INSTALL.md).
 
-### Pop!\_OS / Ubuntu
-
-> If you're not running Pop!_OS, you'll have to add a third party repository first:
->
-> ```sh
-> add-apt-repository ppa:mmstick76/alacritty
-> ```
-
-```sh
-apt install alacritty
-```
-
 ### Arch Linux
 
 ```sh
 pacman -S alacritty
-```
-
-### openSUSE Tumbleweed
-
-```sh
-zypper in alacritty
-```
-
-### Void Linux
-
-```sh
-xbps-install alacritty
-```
-
-### Gentoo Linux
-
-```sh
-emerge x11-terms/alacritty
-```
-
-### Mageia 7+
-
-```sh
-urpmi alacritty
-```
-
-### FreeBSD
-
-```sh
-pkg install alacritty
-```
-
-### NixOS
-
-```sh
-nix-env -iA nixos.alacritty
-```
-
-### Solus
-
-```sh
-eopkg install alacritty
 ```
 
 ### Fedora
@@ -112,6 +58,60 @@ dnf install alacritty
 
 If you want to help test pre-releases, you can additionally enable
 [pschyska/alacritty-testing](https://copr.fedorainfracloud.org/coprs/pschyska/alacritty-testing/).
+
+### Gentoo Linux
+
+```sh
+emerge x11-terms/alacritty
+```
+
+### Mageia
+
+```sh
+urpmi alacritty
+```
+
+### NixOS
+
+```sh
+nix-env -iA nixos.alacritty
+```
+
+### openSUSE Tumbleweed
+
+```sh
+zypper in alacritty
+```
+
+### Pop!\_OS / Ubuntu
+
+> If you're not running Pop!_OS, you'll have to add a third party repository first:
+>
+> ```sh
+> add-apt-repository ppa:mmstick76/alacritty
+> ```
+
+```sh
+apt install alacritty
+```
+
+### Solus
+
+```sh
+eopkg install alacritty
+```
+
+### Void Linux
+
+```sh
+xbps-install alacritty
+```
+
+### FreeBSD
+
+```sh
+pkg install alacritty
+```
 
 ### macOS
 

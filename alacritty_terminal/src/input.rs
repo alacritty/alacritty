@@ -18,27 +18,25 @@
 //! In order to figure that out, state about which modifier keys are pressed
 //! needs to be tracked. Additionally, we need a bit of a state machine to
 //! determine what to do when a non-modifier key is pressed.
+use crate::url::Url;
 use std::borrow::Cow;
 use std::mem;
-use std::ops::RangeInclusive;
 use std::time::Instant;
 
 use glutin::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseCursor, MouseScrollDelta,
     TouchPhase,
 };
-use unicode_width::UnicodeWidthStr;
 
 use crate::ansi::{ClearMode, Handler};
 use crate::clipboard::ClipboardType;
 use crate::config::{self, Key};
 use crate::event::{ClickState, Mouse};
 use crate::grid::Scroll;
-use crate::index::{Column, Line, Linear, Point, Side};
+use crate::index::{Column, Line, Point, Side};
 use crate::message_bar::{self, Message};
 use crate::term::mode::TermMode;
-use crate::term::{Search, SizeInfo, Term};
-use crate::url::Url;
+use crate::term::{SizeInfo, Term};
 use crate::util::start_daemon;
 
 pub const FONT_SIZE_STEP: f32 = 0.5;
@@ -391,20 +389,33 @@ enum MousePosition {
 }
 
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
-    fn mouse_position(&mut self, point: Point) -> MousePosition {
+    fn mouse_position(&mut self, point: Point, modifiers: ModifiersState) -> MousePosition {
+        let mouse_mode =
+            TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
+
+        // Check message bar before URL to ignore URLs in the message bar
         if let Some(message) = self.message_at_point(Some(point)) {
             if self.message_close_at_point(point, message) {
-                MousePosition::MessageBarButton
+                return MousePosition::MessageBarButton;
             } else {
-                MousePosition::MessageBar
+                return MousePosition::MessageBar;
             }
-        // Check for url should be after check for message bar, since we're not looking into
-        // message bar content.
-        } else if let Some(url) = self.ctx.terminal().url_search(point.into()) {
-            MousePosition::Url(url)
-        } else {
-            MousePosition::Terminal
         }
+
+        // Check for URL at point with required modifiers held
+        if self.mouse_config.url.mods().relaxed_eq(modifiers)
+            && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
+            && self.mouse_config.url.launcher.is_some()
+        {
+            let buffer_point = self.ctx.terminal().visible_to_buffer(point);
+            if let Some(url) =
+                self.ctx.terminal().urls().drain(..).find(|url| url.contains(buffer_point))
+            {
+                return MousePosition::Url(url);
+            }
+        }
+
+        MousePosition::Terminal
     }
 
     #[inline]
@@ -434,20 +445,12 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         // Don't launch URLs if mouse has moved
         self.ctx.mouse_mut().block_url_launcher = true;
 
-        match self.mouse_position(point) {
+        match self.mouse_position(point, modifiers) {
             MousePosition::Url(url) => {
-                let mouse_mode =
-                    TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
-
-                if self.mouse_config.url.mods().relaxed_eq(modifiers)
-                    && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
-                    && self.mouse_config.url.launcher.is_some()
-                {
-                    let url_bounds = self.url_bounds_at_point(url, point);
-                    self.ctx.terminal_mut().set_url_highlight(url_bounds);
-                    self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
-                    self.ctx.terminal_mut().dirty = true;
-                }
+                let url_bounds = url.linear_bounds(self.ctx.terminal());
+                self.ctx.terminal_mut().set_url_highlight(url_bounds);
+                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
+                self.ctx.terminal_mut().dirty = true;
             },
             MousePosition::MessageBar => {
                 self.ctx.terminal_mut().reset_url_highlight();
@@ -483,47 +486,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 self.mouse_report(35, ElementState::Pressed, modifiers);
             }
         }
-    }
-
-    fn url_bounds_at_point(&self, url: Url, point: Point) -> RangeInclusive<Linear> {
-        let Url { origin, text } = url;
-        let cols = self.ctx.size_info().cols().0;
-
-        // Calculate the URL's start position
-        let lines_before = (origin + cols - point.col.0 - 1) / cols;
-        let (start_col, start_line) = if lines_before > point.line.0 {
-            (0, 0)
-        } else {
-            let start_col = (cols + point.col.0 - origin % cols) % cols;
-            let start_line = point.line.0 - lines_before;
-            (start_col, start_line)
-        };
-
-        let start = Point::new(start_line, Column(start_col));
-
-        // Calculate the URL's highlight end position
-        let len = text.width();
-        let url_end_col_denormilized = point.col.0 + len - origin;
-
-        // This means that url ends at the last cell of the line
-        let end_col = if url_end_col_denormilized % cols == 0 {
-            cols - 1
-        } else {
-            url_end_col_denormilized % cols - 1
-        };
-
-        let end_line = if end_col == cols - 1 {
-            point.line.0 + (url_end_col_denormilized) / cols - 1
-        } else {
-            point.line.0 + (url_end_col_denormilized) / cols
-        };
-
-        let end = Point::new(end_line, Column(end_col));
-
-        let start = Linear::from_point(Column(cols), start);
-        let end = Linear::from_point(Column(cols), end);
-
-        RangeInclusive::new(start, end)
     }
 
     fn get_mouse_side(&self) -> Side {
@@ -705,7 +667,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return None;
         }
 
-        let text = self.ctx.terminal().url_search(point.into())?.text;
+        let point = self.ctx.terminal().visible_to_buffer(point);
+        let url = self.ctx.terminal().urls().drain(..).find(|url| url.contains(point))?;
+        let text = self.ctx.terminal().url_to_string(&url);
 
         let launcher = self.mouse_config.url.launcher.as_ref()?;
         let mut args = launcher.args().to_vec();

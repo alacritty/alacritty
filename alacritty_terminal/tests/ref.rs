@@ -13,7 +13,6 @@ use alacritty_terminal::index::Column;
 use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::SizeInfo;
-use alacritty_terminal::util::fmt::{Green, Red};
 use alacritty_terminal::Grid;
 use alacritty_terminal::Term;
 
@@ -54,6 +53,7 @@ ref_tests! {
     grid_reset
     row_reset
     zerowidth
+    selective_erasure
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
@@ -116,8 +116,8 @@ fn ref_test(dir: &Path) {
                         "[{i}][{j}] {original:?} => {now:?}",
                         i = i,
                         j = j,
-                        original = Green(original_cell),
-                        now = Red(cell)
+                        original = original_cell,
+                        now = cell,
                     );
                 }
             }
