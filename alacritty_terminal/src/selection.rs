@@ -528,8 +528,8 @@ mod test {
         selection.rotate(-3);
 
         assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
-            start: Point::new(0, Column(4)),
-            end: Point::new(2, Column(0)),
+            start: Point::new(0, Column(0)),
+            end: Point::new(2, Column(4)),
             is_block: false,
         });
     }
