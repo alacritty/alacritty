@@ -1,10 +1,10 @@
 //! Loads prometheus metrics every now and then and displays stats
 use crate::prometheus;
-use crate::SizeInfo; // XXX: remove on merge.
+use crate::SizeInfo;
 use crate::TimeSeriesChart;
 use crate::TimeSeriesSource;
 use futures::future::lazy;
-use futures::sync::mpsc;
+use futures::sync::{mpsc, oneshot};
 use log::*;
 use std::time::{Duration, Instant};
 use tokio::prelude::*;
@@ -26,13 +26,19 @@ pub struct MetricRequest {
 #[derive(Debug)]
 pub enum AsyncChartTask {
     LoadResponse(MetricRequest),
-    DrawCharts,
+    SendMetricsOpenGLData(usize, usize, oneshot::Sender<Vec<f32>>),
+    SendDecorationsOpenGLData(usize, usize, oneshot::Sender<Vec<f32>>),
+    ChangeDisplaySize(f32, f32, f32, f32, oneshot::Sender<bool>),
     // Maybe add CloudWatch/etc
 }
 
 /// `load_http_response` is called by async_coordinator when a task of type
 /// LoadResponse is received
-pub fn load_http_response(charts: &mut Vec<TimeSeriesChart>, response: MetricRequest) {
+pub fn load_http_response(
+    charts: &mut Vec<TimeSeriesChart>,
+    response: MetricRequest,
+    size: SizeInfo,
+) {
     if let Some(data) = response.data {
         let mut ok_records = 0;
         if response.chart_index < charts.len()
@@ -54,17 +60,11 @@ pub fn load_http_response(charts: &mut Vec<TimeSeriesChart>, response: MetricReq
                     },
                 }
             }
-            charts[response.chart_index].update_opengl_vecs(response.series_index, SizeInfo {
-                padding_x: 0.,
-                padding_y: 0.,
-                height: 100.,
-                width: 100.,
-                ..SizeInfo::default()
-            });
+            charts[response.chart_index].update_opengl_vecs(response.series_index, size);
         }
         for chart in charts {
             // Update the loaded item counters
-            info!("Searching for AsyncLoadedItems in '{}'", chart.name);
+            debug!("Searching for AsyncLoadedItems in '{}'", chart.name);
             for series in &mut chart.sources {
                 if let TimeSeriesSource::AsyncLoadedItems(ref mut loaded) = series {
                     loaded.series.push_current_epoch(ok_records as f64);
@@ -74,16 +74,96 @@ pub fn load_http_response(charts: &mut Vec<TimeSeriesChart>, response: MetricReq
     }
 }
 
-/// `draw_charts_to_opengl` sends the current chart state to the OpenGL buffer
-pub fn draw_charts_to_opengl(charts: &Vec<TimeSeriesChart>){
-        for chart in charts {
-            // Update the loaded item counters
-            info!("Searching for AsyncLoadedItems in '{}'", chart.name);
-            for series in chart.sources {
-                series.series().
+/// `send_metrics_opengl_vecs` is called by async_coordinator when an task of
+/// type SendMetricsOpenGLData is received, it should contain the chart index
+/// to represent as OpenGL vertices, it returns data through the channel parameter
+pub fn send_metrics_opengl_vecs(
+    charts: &[TimeSeriesChart],
+    chart_index: usize,
+    data_index: usize,
+    channel: oneshot::Sender<Vec<f32>>,
+) {
+    debug!("send_metrics_opengl_vecs for chart_index: {}", chart_index);
+    match channel.send(
+        if chart_index >= charts.len() || data_index >= charts[chart_index].opengl_vecs.len() {
+            vec![]
+        } else {
+            charts[chart_index].opengl_vecs[data_index].clone()
+        },
+    ) {
+        Ok(()) => {
+            if chart_index > charts.len() {
+                debug!(
+                    "send_metrics_opengl_vecs: oneshot::message sent for {}[OutOfBounds]",
+                    chart_index
+                );
+            } else {
+                debug!(
+                    "send_metrics_opengl_vecs: oneshot::message sent for {}[InsideBounds]",
+                    chart_index
+                );
             }
-        }
+        },
+        Err(err) => error!("send_metrics_opengl_vecs: Error sending: {:?}", err),
+    };
+}
 
+/// `send_decorations_opengl_vecs` is called by async_coordinator when an task of
+/// type SendDecorationsOpenGLData is received, it should contain the chart index
+/// to represent as OpenGL vertices, it returns data through the channel parameter
+pub fn send_decorations_opengl_vecs(
+    charts: &[TimeSeriesChart],
+    chart_index: usize,
+    data_index: usize,
+    channel: oneshot::Sender<Vec<f32>>,
+) {
+    debug!("get_decorations_vecs for chart_index: {}", chart_index);
+    match channel.send(
+        if chart_index >= charts.len() || data_index >= charts[chart_index].decorations.len() {
+            vec![]
+        } else {
+            charts[chart_index].decorations[data_index].opengl_vertices()
+        },
+    ) {
+        Ok(()) => {
+            if chart_index > charts.len() {
+                debug!(
+                    "send_decorations_opengl_vecs: oneshot::message sent for {}[OutOfBounds]",
+                    chart_index
+                );
+            } else {
+                debug!(
+                    "send_decorations_opengl_vecs: oneshot::message sent for {}[InsideBounds]",
+                    chart_index
+                );
+            }
+        },
+        Err(err) => error!("send_decorations_opengl_vecs: Error sending: {:?}", err),
+    };
+}
+/// `change_display_size` handles changes to the Display
+/// It is debatable that we need to handle this message or return
+/// anything, so we'll just return an ACK
+pub fn change_display_size(
+    size: &mut SizeInfo,
+    height: f32,
+    width: f32,
+    padding_y: f32,
+    padding_x: f32,
+    channel: oneshot::Sender<bool>,
+) {
+    debug!(
+        "change_display_size for height: {}, width: {}, padding_y: {}, padding_x: {}",
+        height, width, padding_y, padding_x
+    );
+    size.height = height;
+    size.width = width;
+    size.padding_y = padding_y;
+    size.padding_x = padding_x;
+    match channel.send(true) {
+        Ok(()) => debug!("change_display_size: Sent reply back to resize notifier."),
+        Err(err) => error!("change_display_size: Error sending: {:?}", err),
+    };
 }
 
 /// `async_coordinator` receives messages from the tasks about data loaded from
@@ -91,13 +171,29 @@ pub fn draw_charts_to_opengl(charts: &Vec<TimeSeriesChart>){
 pub fn async_coordinator(
     rx: mpsc::Receiver<AsyncChartTask>,
     mut charts: Vec<TimeSeriesChart>,
+    height: f32,
+    width: f32,
+    padding_y: f32,
+    padding_x: f32,
 ) -> impl Future<Item = (), Error = ()> {
-    debug!("async_coordinator: Starting");
+    debug!(
+        "async_coordinator: Starting, height: {}, width: {}, padding_y: {}, padding_x {}",
+        height, width, padding_y, padding_x
+    );
+    let mut size = SizeInfo { height, width, padding_y, padding_x, ..SizeInfo::default() };
     rx.for_each(move |message| {
         debug!("async_coordinator: message: {:?}", message);
         match message {
-            AsyncChartTask::LoadResponse(req) => load_http_response(&mut charts, req),
-            AsyncChartTask::DrawCharts => draw_charts_to_opengl(&charts),
+            AsyncChartTask::LoadResponse(req) => load_http_response(&mut charts, req, size),
+            AsyncChartTask::SendMetricsOpenGLData(chart_index, data_index, channel) => {
+                send_metrics_opengl_vecs(&charts, chart_index, data_index, channel);
+            },
+            AsyncChartTask::SendDecorationsOpenGLData(chart_index, data_index, channel) => {
+                send_decorations_opengl_vecs(&charts, chart_index, data_index, channel);
+            },
+            AsyncChartTask::ChangeDisplaySize(height, width, padding_y, padding_x, channel) => {
+                change_display_size(&mut size, height, width, padding_y, padding_x, channel);
+            },
         };
         Ok(())
     })
@@ -180,7 +276,19 @@ pub fn run(config: crate::config::Config) {
     let (tx, rx) = mpsc::channel(4_096usize);
     let poll_tx = tx.clone();
     tokio::run(lazy(move || {
-        tokio::spawn(lazy(move || async_coordinator(rx, charts)));
+        let size = SizeInfo {
+            width: 100.,
+            height: 100.,
+            chart_width: 100.,
+            chart_height: 100.,
+            cell_width: 0.,
+            cell_height: 0.,
+            padding_x: 0.,
+            padding_y: 0.,
+        };
+        tokio::spawn(lazy(move || {
+            async_coordinator(rx, charts, size.height, size.width, size.padding_y, size.padding_x)
+        }));
         for chart in config.charts {
             debug!("Loading chart series with name: '{}'", chart.name);
             let mut series_index = 0usize;
