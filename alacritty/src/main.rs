@@ -38,6 +38,7 @@ use serde_json as json;
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
+use alacritty_charts::SizeInfo;
 use alacritty_charts::TimeSeriesSource;
 use alacritty_terminal::clipboard::Clipboard;
 use alacritty_terminal::config::{Config, Monitor};
@@ -53,7 +54,7 @@ use alacritty_terminal::tty;
 use alacritty_terminal::util::fmt::Red;
 use alacritty_terminal::{die, event};
 use futures::future::lazy;
-use futures::sync::{mpsc, oneshot};
+use futures::sync::mpsc;
 use tokio::prelude::*;
 use tokio::runtime::Runtime;
 
@@ -229,12 +230,24 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
         let _io_thread = event_loop.spawn(None);
 
         info!("Initialisation complete");
-        // Create a place to store the loaded metric data.
-        let collected_data = config.charts.clone();
         // XXX: SEB: The async_coordinator should be moved here because it will contain the data
         // loaded And so is the one that should send all to OpenGL
+        let charts_size_info = alacritty_charts::SizeInfo {
+            height: display.size().height,
+            width: display.size().width,
+            padding_y: display.size().padding_y,
+            padding_x: display.size().padding_x,
+            ..alacritty_charts::SizeInfo::default()
+        };
         runtime.spawn(lazy(move || {
-            alacritty_charts::async_utils::async_coordinator(charts_rx, charts)
+            alacritty_charts::async_utils::async_coordinator(
+                charts_rx,
+                charts,
+                charts_size_info.height,
+                charts_size_info.width,
+                charts_size_info.padding_y,
+                charts_size_info.padding_x,
+            )
         }));
         for chart in config.charts.clone() {
             debug!("Loading chart series with name: '{}'", chart.name);
@@ -302,6 +315,7 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
                     &config,
                     &mut resize_handle,
                     &mut processor,
+                    charts_tx.clone(),
                 );
 
                 drop(terminal_lock);
