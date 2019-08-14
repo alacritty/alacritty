@@ -275,10 +275,20 @@ impl Selection {
         T: Search + Dimensions,
     {
         start = term.search_wrapline(start.into()).start.into();
-        start.col = Column(0);
+        if start.line < end.line {
+            start.col = term.dimensions().col;
+            start.line = start.line + 1;
+        } else {
+            start.col = Column(0);
+        }
 
         end = term.search_wrapline(end.into()).end.into();
-        end.col = term.dimensions().col - 1;
+        if start.line > end.line {
+            end.col = term.dimensions().col;
+        } else {
+            end.col = Column(0);
+            end.line = end.line - 1;
+        }
 
         Some(Span { start: start.into(), end: end.into(), is_block: false })
     }
