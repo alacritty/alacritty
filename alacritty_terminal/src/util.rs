@@ -29,8 +29,7 @@ pub mod thread {
     /// Like `thread::spawn`, but with a `name` argument
     pub fn spawn_named<F, T, S>(name: S, f: F) -> ::std::thread::JoinHandle<T>
     where
-        F: FnOnce() -> T,
-        F: Send + 'static,
+        F: FnOnce() -> T + Send + 'static,
         T: Send + 'static,
         S: Into<String>,
     {

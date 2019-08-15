@@ -774,7 +774,7 @@ where
 
             // Set icon name
             // This is ignored, since alacritty has no concept of tabs
-            b"1" => return,
+            b"1" => (),
 
             // Set color index
             b"4" => {
@@ -903,7 +903,6 @@ where
                     "[Unhandled CSI] action={:?}, args={:?}, intermediates={:?}",
                     action, args, intermediates
                 );
-                return;
             }};
         }
 
@@ -917,6 +916,7 @@ where
 
         if has_ignored_intermediates || intermediates.len() > 1 {
             unhandled!();
+            return;
         }
 
         let handler = &mut self.handler;
@@ -958,7 +958,10 @@ where
                 let mode = match arg_or_default!(idx: 0, default: 0) {
                     0 => TabulationClearMode::Current,
                     3 => TabulationClearMode::All,
-                    _ => unhandled!(),
+                    _ => {
+                        unhandled!();
+                        return;
+                    },
                 };
 
                 handler.clear_tabs(mode);
@@ -978,7 +981,10 @@ where
                     1 => ClearMode::Above,
                     2 => ClearMode::All,
                     3 => ClearMode::Saved,
-                    _ => unhandled!(),
+                    _ => {
+                        unhandled!();
+                        return;
+                    },
                 };
 
                 handler.clear_screen(mode);
@@ -988,7 +994,10 @@ where
                     0 => LineClearMode::Right,
                     1 => LineClearMode::Left,
                     2 => LineClearMode::All,
-                    _ => unhandled!(),
+                    _ => {
+                        unhandled!();
+                        return;
+                    },
                 };
 
                 handler.clear_line(mode);
@@ -1002,13 +1011,19 @@ where
                 let is_private_mode = match intermediate {
                     Some(b'?') => true,
                     None => false,
-                    _ => unhandled!(),
+                    _ => {
+                        unhandled!();
+                        return;
+                    },
                 };
                 for arg in args {
                     let mode = Mode::from_primitive(is_private_mode, *arg);
                     match mode {
                         Some(mode) => handler.unset_mode(mode),
-                        None => unhandled!(),
+                        None => {
+                            unhandled!();
+                            return;
+                        },
                     }
                 }
             },
@@ -1027,13 +1042,19 @@ where
                 let is_private_mode = match intermediate {
                     Some(b'?') => true,
                     None => false,
-                    _ => unhandled!(),
+                    _ => {
+                        unhandled!();
+                        return;
+                    },
                 };
                 for arg in args {
                     let mode = Mode::from_primitive(is_private_mode, *arg);
                     match mode {
                         Some(mode) => handler.set_mode(mode),
-                        None => unhandled!(),
+                        None => {
+                            unhandled!();
+                            return;
+                        },
                     }
                 }
             },
@@ -1044,7 +1065,10 @@ where
                     for attr in attrs_from_sgr_parameters(args) {
                         match attr {
                             Some(attr) => handler.terminal_attribute(attr),
-                            None => unhandled!(),
+                            None => {
+                                unhandled!();
+                                return;
+                            },
                         }
                     }
                 }
@@ -1059,7 +1083,10 @@ where
                     1 | 2 => Some(CursorStyle::Block),
                     3 | 4 => Some(CursorStyle::Underline),
                     5 | 6 => Some(CursorStyle::Beam),
-                    _ => unhandled!(),
+                    _ => {
+                        unhandled!();
+                        return;
+                    },
                 };
 
                 handler.set_cursor_style(style);
@@ -1090,7 +1117,6 @@ where
                     "[unhandled] esc_dispatch params={:?}, ints={:?}, byte={:?} ({:02x})",
                     params, intermediates, byte as char, byte
                 );
-                return;
             }};
         }
 
@@ -1101,7 +1127,10 @@ where
                     Some(b')') => CharsetIndex::G1,
                     Some(b'*') => CharsetIndex::G2,
                     Some(b'+') => CharsetIndex::G3,
-                    _ => unhandled!(),
+                    _ => {
+                        unhandled!();
+                        return;
+                    },
                 };
                 self.handler.configure_charset(index, $charset)
             }};
