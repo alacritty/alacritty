@@ -34,14 +34,14 @@ pub struct Primary {
 pub fn create_clipboards(display: &Display) -> (Primary, Clipboard) {
     let context = Arc::new(Mutex::new(WaylandClipboard::new(display)));
 
-    (Primary { context: context.clone() }, Clipboard { context } )
+    (Primary { context: context.clone() }, Clipboard { context })
 }
 
 pub unsafe fn create_clipboards_from_external(display: *mut c_void) -> (Primary, Clipboard) {
     let context =
         Arc::new(Mutex::new(WaylandClipboard::new_from_external(display as *mut wl_display)));
 
-    (Primary { context: context.clone() }, Clipboard { context} )
+    (Primary { context: context.clone() }, Clipboard { context })
 }
 
 impl ClipboardProvider for Clipboard {
