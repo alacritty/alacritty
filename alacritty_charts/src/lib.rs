@@ -539,10 +539,10 @@ pub struct TimeSeriesChart {
 }
 
 impl TimeSeriesChart {
-    /// `update_opengl_vecs` Represents the activity levels values in a
-    /// drawable vector for opengl
-    pub fn update_opengl_vecs(&mut self, series_idx: usize, display_size: SizeInfo) {
-        debug!("Chart: Starting update_opengl_vecs");
+    /// `update_series_opengl_vecs` Represents the activity levels values in a
+    /// drawable vector for opengl, for a specific index in the series array
+    pub fn update_series_opengl_vecs(&mut self, series_idx: usize, display_size: SizeInfo) {
+        debug!("Chart: Starting update_series_opengl_vecs for series index: {}", series_idx);
         if series_idx > self.sources.len() {
             error!("Request for out of bound series index: {}", series_idx);
             return;
@@ -559,7 +559,10 @@ impl TimeSeriesChart {
             let missing_capacity = opengl_vecs_capacity - self.opengl_vecs[series_idx].capacity();
             self.opengl_vecs[series_idx].reserve(missing_capacity);
         }
-        debug!("Chart: Needed OpenGL capacity: {}", opengl_vecs_capacity);
+        debug!(
+            "Chart: Needed OpenGL capacity: {}, Display Size: {:?}, offset {:?}",
+            opengl_vecs_capacity, display_size, self.offset,
+        );
         for source in &mut self.sources {
             if source.series().stats.is_dirty {
                 debug!("Chart: '{}' stats are dirty, needs recalculating", source.name());
@@ -606,6 +609,15 @@ impl TimeSeriesChart {
         for decoration in &mut self.decorations {
             debug!("Chart: Updating decoration {:?} vertices", decoration);
             decoration.update_opengl_vecs(display_size, self.offset, self.stats.max);
+        }
+    }
+
+    /// `update_all_series_opengl_vecs` Represents the activity levels values in a
+    /// drawable vector for opengl for all the available series in the current chart
+    pub fn update_all_series_opengl_vecs(&mut self, display_size: SizeInfo) {
+        debug!("Chart: Starting update_all_series_opengl_vecs");
+        for idx in 0..self.sources.len() {
+            self.update_series_opengl_vecs(idx, display_size);
         }
     }
 
@@ -1234,7 +1246,7 @@ mod tests {
     #[test]
     fn it_updates_opengl_vertices() {
         let (size_test, mut chart_test) = simple_chart_setup_with_none();
-        chart_test.update_opengl_vecs(0, size_test);
+        chart_test.update_series_opengl_vecs(0, size_test);
         assert_eq!(chart_test.opengl_vecs[0], vec![
             -1.0,   // 1st X value, leftmost.
             -1.0,   // Y value is 0, so -1.0 is the bottom-most
@@ -1253,8 +1265,8 @@ mod tests {
     fn it_calculates_reference_point() {
         let (size_test, mut chart_test) = simple_chart_setup_with_none();
         chart_test.decorations.push(Decoration::Reference(ReferencePointDecoration::default()));
-        // Calling update_opengl_vecs also calls the decoration update opengl vecs
-        chart_test.update_opengl_vecs(0, size_test);
+        // Calling update_series_opengl_vecs also calls the decoration update opengl vecs
+        chart_test.update_series_opengl_vecs(0, size_test);
         let deco_vecs = chart_test.decorations[0].opengl_vertices();
 
         assert_eq!(chart_test.decorations[0].opengl_vertices().len(), 12);
