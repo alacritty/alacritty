@@ -24,59 +24,46 @@ use wayland_client::Display;
 use common::ClipboardProvider;
 
 pub struct Clipboard {
-    clipboard_context: Arc<Mutex<WaylandClipboard>>,
+    context: Arc<Mutex<WaylandClipboard>>,
 }
+
 pub struct Primary {
-    clipboard_context: Arc<Mutex<WaylandClipboard>>,
-}
-
-impl Primary {
-    fn new(clipboard_context: Arc<Mutex<WaylandClipboard>>) -> Self {
-        Self { clipboard_context }
-    }
-}
-
-impl Clipboard {
-    fn new(clipboard_context: Arc<Mutex<WaylandClipboard>>) -> Self {
-        Self { clipboard_context }
-    }
+    context: Arc<Mutex<WaylandClipboard>>,
 }
 
 pub fn create_clipboards(display: &Display) -> (Primary, Clipboard) {
     let context = Arc::new(Mutex::new(WaylandClipboard::new(display)));
-    let context_clone = context.clone();
-    (Primary::new(context), Clipboard::new(context_clone))
+
+    (Primary { context: context.clone() }, Clipboard { context } )
 }
 
 pub unsafe fn create_clipboards_from_external(display: *mut c_void) -> (Primary, Clipboard) {
     let context =
         Arc::new(Mutex::new(WaylandClipboard::new_from_external(display as *mut wl_display)));
-    let context_clone = context.clone();
-    (Primary::new(context), Clipboard::new(context_clone))
+
+    (Primary { context: context.clone() }, Clipboard { context} )
 }
 
 impl ClipboardProvider for Clipboard {
     fn get_contents(&mut self) -> Result<String, Box<dyn Error>> {
-        let mut clipboard = self.clipboard_context.lock().unwrap();
-        Ok(clipboard.load(None))
+        Ok(self.context.lock().unwrap().load(None))
     }
 
     fn set_contents(&mut self, data: String) -> Result<(), Box<dyn Error>> {
-        let mut clipboard = self.clipboard_context.lock().unwrap();
-        clipboard.store(None, data);
+        self.context.lock().unwrap().store(None, data);
+
         Ok(())
     }
 }
 
 impl ClipboardProvider for Primary {
     fn get_contents(&mut self) -> Result<String, Box<dyn Error>> {
-        let mut clipboard = self.clipboard_context.lock().unwrap();
-        Ok(clipboard.load_primary(None))
+        Ok(self.context.lock().unwrap().load_primary(None))
     }
 
     fn set_contents(&mut self, data: String) -> Result<(), Box<dyn Error>> {
-        let mut clipboard = self.clipboard_context.lock().unwrap();
-        clipboard.store_primary(None, data);
+        self.context.lock().unwrap().store_primary(None, data);
+
         Ok(())
     }
 }
