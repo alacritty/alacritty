@@ -14,10 +14,14 @@
 
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
+use futures::future::lazy;
+use futures::sync::mpsc as futures_mpsc;
+use futures::sync::oneshot;
 use std::f64;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use std::ffi::c_void;
 use std::sync::mpsc;
+use tokio::prelude::*;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::EventsLoop;
@@ -362,6 +366,7 @@ impl Display {
         config: &Config,
         pty_resize_handle: &mut dyn OnResize,
         processor_resize_handle: &mut dyn OnResize,
+        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
     ) {
         let previous_cols = self.size_info.cols();
         let previous_lines = self.size_info.lines();
@@ -453,6 +458,33 @@ impl Display {
 
             self.window.resize(psize);
             self.renderer.resize(psize, self.size_info.padding_x, self.size_info.padding_y);
+            let (chart_resize_tx, chart_resize_rx) = oneshot::channel();
+            let send_display_size = charts_tx
+                .send(alacritty_charts::async_utils::AsyncChartTask::ChangeDisplaySize(
+                    height,
+                    width,
+                    padding_y,
+                    padding_x,
+                    chart_resize_tx,
+                ))
+                .map_err(|e| error!("Sending ChangeDisplaySize Task: err={:?}", e))
+                .and_then(move |_res| {
+                    debug!(
+                        "Sent ChangeDisplaySize Task height: {}, width: {}, padding_y: {}, \
+                         padding_x: {}",
+                        height, width, padding_y, padding_x
+                    );
+                    Ok(())
+                });
+            tokio::spawn(lazy(move || send_display_size));
+            match chart_resize_rx.map(|x| x).wait() {
+                Ok(_) => {
+                    debug!("Got response from ChangeDisplaySize Task.");
+                },
+                Err(err) => {
+                    error!("Error response from SendMetricsOpenGLData Task: {:?}", err);
+                },
+            }
         }
     }
 
@@ -461,7 +493,12 @@ impl Display {
     /// A reference to Term whose state is being drawn must be provided.
     ///
     /// This call may block if vsync is enabled
-    pub fn draw(&mut self, terminal: &FairMutex<Term>, config: &Config) {
+    pub fn draw(
+        &mut self,
+        terminal: &FairMutex<Term>,
+        config: &Config,
+        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
+    ) {
         let mut terminal = terminal.lock();
         let size_info = *terminal.size_info();
         let visual_bell_intensity = terminal.visual_bell.intensity();
@@ -493,13 +530,7 @@ impl Display {
                 self.window.set_urgent(is_urgent);
             }
         }
-        //let input_activity_levels = terminal.get_input_activity_levels().clone();
-        //let output_activity_levels = terminal.get_output_activity_levels().clone();
-        //let load_avg_1_min = terminal.get_system_load("1_min").clone();
-        //let load_avg_5_min = terminal.get_system_load("5_min").clone();
-        //let load_avg_10_min = terminal.get_system_load("10_min").clone();
-        //let tasks_runnable = terminal.get_system_task_status("runnable").clone();
-        //let tasks_total = terminal.get_system_task_status("total").clone();
+        let collected_data = config.charts.clone();
 
         // Clear when terminal mutex isn't held. Mesa for
         // some reason takes a long time to call glClear(). The driver descends
@@ -565,73 +596,40 @@ impl Display {
                 // Draw rectangles
                 self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
             }
-            // XXX: Make into array, read from the config yaml
-/*            self.renderer.draw_activity_levels_line(config,
-                                                    &size_info,
-                                                    &output_activity_levels.activity_opengl_vecs,
-                                                    output_activity_levels.color,
-                                                    output_activity_levels.alpha);
-            self.renderer.draw_activity_levels_line(config,
-                                                    &size_info,
-                                                    &input_activity_levels.activity_opengl_vecs,
-                                                    input_activity_levels.color,
-                                                    input_activity_levels.alpha);
-
-            if load_avg_1_min.marker_line.is_some() {
-                self.renderer.draw_activity_levels_line(config,
-                                                        &size_info,
-                                                        &load_avg_1_min.marker_line_vecs,
-                                                        Rgb{r:0,g:255,b:0},
-                                                        0.3f32);
+            for chart_idx in 0..config.charts.len() {
+                for series_idx in 0..config.charts[chart_idx].sources.len() {
+                    let _color = config.charts[chart_idx].sources[series_idx].color();
+                    let color = Rgb { r: 0, g: 255, b: 0 };
+                    let alpha = config.charts[chart_idx].sources[series_idx].alpha();
+                    let (opengl_tx, opengl_rx) = oneshot::channel();
+                    let get_opengl_task = charts_tx
+                        .clone()
+                        .send(alacritty_charts::async_utils::AsyncChartTask::SendMetricsOpenGLData(
+                            chart_idx, series_idx, opengl_tx,
+                        ))
+                        .map_err(|e| error!("Sending SendMetricsOpenGLData Task: err={:?}", e))
+                        .and_then(move |_res| {
+                            debug!(
+                                "Sent Request for SendMetricsOpenGLData Task for chart index: {}, \
+                                 series: {}",
+                                chart_idx, series_idx
+                            );
+                            Ok(())
+                        });
+                    tokio::spawn(lazy(move || get_opengl_task));
+                    let opengl_rx = opengl_rx.map(|x| x);
+                    match opengl_rx.wait() {
+                        Ok(data) => {
+                            debug!("Got response from SendMetricsOpenGLData Task: {:?}", data);
+                            self.renderer.draw_charts_line(config, &size_info, &data, color, alpha);
+                        },
+                        Err(err) => {
+                            error!("Error response from SendMetricsOpenGLData Task: {:?}", err);
+                        },
+                    }
+                }
             }
 
-            self.renderer.draw_activity_levels_line(config,
-                                                    &size_info,
-                                                    &load_avg_1_min.activity_opengl_vecs,
-                                                    load_avg_1_min.color,
-                                                    load_avg_1_min.alpha);
-
-            if load_avg_5_min.marker_line.is_some() {
-                self.renderer.draw_activity_levels_line(config,
-                                                        &size_info,
-                                                        &load_avg_5_min.marker_line_vecs,
-                                                        Rgb{r:0,g:255,b:0},
-                                                        0.2f32);
-            }
-
-            self.renderer.draw_activity_levels_line(config,
-                                                    &size_info,
-                                                    &load_avg_5_min.activity_opengl_vecs,
-                                                    load_avg_5_min.color,
-                                                    load_avg_5_min.alpha);
-
-            if load_avg_10_min.marker_line.is_some() {
-                self.renderer.draw_activity_levels_line(config,
-                                                        &size_info,
-                                                        &load_avg_10_min.marker_line_vecs,
-                                                        Rgb{r:0,g:255,b:0},
-                                                        0.1f32);
-            }
-
-            self.renderer.draw_activity_levels_line(config,
-                                                    &size_info,
-                                                    &load_avg_10_min.activity_opengl_vecs,
-                                                    load_avg_10_min.color,
-                                                    load_avg_10_min.alpha);
-
-            self.renderer.draw_activity_levels_line(config,
-                                                    &size_info,
-                                                    &tasks_runnable.activity_opengl_vecs,
-                                                    tasks_runnable.color,
-                                                    tasks_runnable.alpha);
-
-            self.renderer.draw_activity_levels_line(config,
-                                                    &size_info,
-                                                    &tasks_total.activity_opengl_vecs,
-                                                    tasks_total.color,
-                                                    tasks_total.alpha);
-            */
-            // Draw render timer
             if self.render_timer {
                 let timing = format!("{:.3} usec", self.meter.average());
                 let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
