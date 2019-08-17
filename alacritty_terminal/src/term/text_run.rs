@@ -58,12 +58,12 @@ impl std::fmt::Debug for TextRunContent {
                 f.write_str("Cursor(")?;
                 cursor.fmt(f)?;
                 f.write_str(")")
-            }
+            },
             TextRunContent::CharRun(text, _) => {
                 f.write_str("CharRun(")?;
                 text.fmt(f)?;
                 f.write_str(")")
-            }
+            },
         }
     }
 }
@@ -91,15 +91,15 @@ pub struct TextRun {
 
 impl std::fmt::Debug for TextRun {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-       f.debug_struct("TextRun")
-        .field("line", &self.line) 
-        .field("span", &(self.span.0..=self.span.1))
-        .field("content", &self.content)
-        .field("fg", &format!("#{:X}{:X}{:X}", self.fg.r, self.fg.b, self.fg.g))
-        .field("bg", &format!("#{:X}{:X}{:X}", self.bg.r, self.bg.b, self.bg.g))
-        .field("bg_alpha", &self.bg_alpha)
-        .field("flags", &self.flags)
-        .finish()
+        f.debug_struct("TextRun")
+            .field("line", &self.line)
+            .field("span", &(self.span.0..=self.span.1))
+            .field("content", &self.content)
+            .field("fg", &format!("#{:X}{:X}{:X}", self.fg.r, self.fg.b, self.fg.g))
+            .field("bg", &format!("#{:X}{:X}{:X}", self.bg.r, self.bg.b, self.bg.g))
+            .field("bg_alpha", &self.bg_alpha)
+            .field("flags", &self.flags)
+            .finish()
     }
 }
 
