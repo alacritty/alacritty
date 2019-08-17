@@ -1080,14 +1080,47 @@ impl<'a> RenderApi<'a> {
                     glyph_cache.font_key
                 };
 
-                if !text_run.flags.contains(cell::Flags::HIDDEN) {
-                    let glyphs = glyph_cache.shape_run(&run, font_key, self);
-                    for (cell, glyph) in text_run.cells().zip(glyphs.into_iter()) {
-                        self.add_render_item(&cell, &glyph);
-                    }
-                };
+                fn hidden_glyph_iter<'a, L>(font_key: FontKey, font_size: font::Size, glyph_cache: &'a mut GlyphCache, loader: &mut L) -> std::iter::Repeat<Glyph>
+                where
+                    L: LoadGlyph
+                {
+                    // If text_run is hidden we don't want to shape text.
+                    // But we still want to run each cell through add_render_item so colors get handled appropiately.
+                    // We construct a dummy key that should bee cached a majority of the time so that we have a valid glyph.
+                    let key = GlyphKey { 
+                        c: crate::cursor::PLACEHOLDER_GLYPH,
+                        font_key,
+                        size: font_size,
+                    };
+                    let glyph = *glyph_cache.get(key, loader);
+                    std::iter::repeat(glyph)
+                }
+                enum ShapedGlyphIter {
+                    /// Our run was not hidden and our glyphs were shaped
+                    Shaped(std::vec::IntoIter<Glyph>),
+                    /// Our run is hidden and was not shaped
+                    Hidden(std::iter::Repeat<Glyph>),
+                }
+                impl<'a> Iterator for ShapedGlyphIter {
+                    type Item = Glyph;
 
-                for (cell, zero_width_chars) in text_run.cells().zip(zero_widths.iter()) {
+                    fn next(&mut self) -> Option<Self::Item> {
+                        match self {
+                            ShapedGlyphIter::Hidden(inner) => inner.next(),
+                            ShapedGlyphIter::Shaped(inner) => inner.next(),
+                        }
+                    }
+                }
+
+                let shaped_glyphs: ShapedGlyphIter = if text_run.flags.contains(cell::Flags::HIDDEN) {
+                    ShapedGlyphIter::Hidden(hidden_glyph_iter(font_key, glyph_cache.font_size, glyph_cache, self))
+                } else {
+                    ShapedGlyphIter::Shaped(glyph_cache.shape_run(&run, font_key, self).into_iter())
+                };
+                for ((cell, glyph), zero_width_chars) in text_run.cells()
+                        .zip(shaped_glyphs) 
+                        .zip(zero_widths.iter()) {
+                    self.add_render_item(&cell, &glyph);
                     for c in zero_width_chars.iter().filter(|c| **c != ' ') {
                         let glyph_key =
                             GlyphKey { font_key, size: glyph_cache.font_size, c: (*c).into() };
