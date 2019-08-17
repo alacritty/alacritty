@@ -14,57 +14,56 @@
 
 use std::error::Error;
 use std::ffi::c_void;
-use std::marker::PhantomData;
+use std::sync::{Arc, Mutex};
 
 use smithay_clipboard::WaylandClipboard;
+
 use wayland_client::sys::client::wl_display;
 use wayland_client::Display;
 
 use common::ClipboardProvider;
 
-pub trait ClipboardType: Send {}
-
-pub struct Clipboard;
-impl ClipboardType for Clipboard {}
-
-pub struct Primary;
-impl ClipboardType for Primary {}
-
-pub struct WaylandClipboardContext<T: ClipboardType>(WaylandClipboard, PhantomData<T>);
-
-impl<T: ClipboardType> WaylandClipboardContext<T> {
-    /// Create a new clipboard context.
-    pub fn new(display: &Display) -> Self {
-        WaylandClipboardContext(WaylandClipboard::new(display), PhantomData)
-    }
-
-    /// Create a new clipboard context from an external pointer.
-    pub unsafe fn new_from_external(display: *mut c_void) -> Self {
-        WaylandClipboardContext(
-            WaylandClipboard::new_from_external(display as *mut wl_display),
-            PhantomData,
-        )
-    }
+pub struct Clipboard {
+    context: Arc<Mutex<WaylandClipboard>>,
 }
 
-impl ClipboardProvider for WaylandClipboardContext<Clipboard> {
+pub struct Primary {
+    context: Arc<Mutex<WaylandClipboard>>,
+}
+
+pub fn create_clipboards(display: &Display) -> (Primary, Clipboard) {
+    let context = Arc::new(Mutex::new(WaylandClipboard::new(display)));
+
+    (Primary { context: context.clone() }, Clipboard { context })
+}
+
+pub unsafe fn create_clipboards_from_external(display: *mut c_void) -> (Primary, Clipboard) {
+    let context =
+        Arc::new(Mutex::new(WaylandClipboard::new_from_external(display as *mut wl_display)));
+
+    (Primary { context: context.clone() }, Clipboard { context })
+}
+
+impl ClipboardProvider for Clipboard {
     fn get_contents(&mut self) -> Result<String, Box<dyn Error>> {
-        Ok(self.0.load(None))
+        Ok(self.context.lock().unwrap().load(None))
     }
 
     fn set_contents(&mut self, data: String) -> Result<(), Box<dyn Error>> {
-        self.0.store(None, data);
+        self.context.lock().unwrap().store(None, data);
+
         Ok(())
     }
 }
 
-impl ClipboardProvider for WaylandClipboardContext<Primary> {
+impl ClipboardProvider for Primary {
     fn get_contents(&mut self) -> Result<String, Box<dyn Error>> {
-        Ok(self.0.load_primary(None))
+        Ok(self.context.lock().unwrap().load_primary(None))
     }
 
     fn set_contents(&mut self, data: String) -> Result<(), Box<dyn Error>> {
-        self.0.store_primary(None, data);
+        self.context.lock().unwrap().store_primary(None, data);
+
         Ok(())
     }
 }
