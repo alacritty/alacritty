@@ -60,7 +60,7 @@ pub fn load_http_response(
                     },
                 }
             }
-            charts[response.chart_index].update_opengl_vecs(response.series_index, size);
+            charts[response.chart_index].update_series_opengl_vecs(response.series_index, size);
         }
         for chart in charts {
             // Update the loaded item counters
@@ -143,8 +143,11 @@ pub fn send_decorations_opengl_vecs(
 }
 /// `change_display_size` handles changes to the Display
 /// It is debatable that we need to handle this message or return
-/// anything, so we'll just return an ACK
+/// anything, so we'll just return a true ACK, the charts are updated
+/// after the size changes, potentially could be slow and we should delay
+/// until the size is stabilized.
 pub fn change_display_size(
+    charts: &mut Vec<TimeSeriesChart>,
     size: &mut SizeInfo,
     height: f32,
     width: f32,
@@ -160,8 +163,14 @@ pub fn change_display_size(
     size.width = width;
     size.padding_y = padding_y;
     size.padding_x = padding_x;
+    for chart in charts {
+        // Update the OpenGL representation when the display changes
+        chart.update_all_series_opengl_vecs(*size);
+    }
     match channel.send(true) {
-        Ok(()) => debug!("change_display_size: Sent reply back to resize notifier."),
+        Ok(()) => {
+            debug!("change_display_size: Sent reply back to resize notifier, new size: {:?}", size)
+        },
         Err(err) => error!("change_display_size: Error sending: {:?}", err),
     };
 }
@@ -192,7 +201,15 @@ pub fn async_coordinator(
                 send_decorations_opengl_vecs(&charts, chart_index, data_index, channel);
             },
             AsyncChartTask::ChangeDisplaySize(height, width, padding_y, padding_x, channel) => {
-                change_display_size(&mut size, height, width, padding_y, padding_x, channel);
+                change_display_size(
+                    &mut charts,
+                    &mut size,
+                    height,
+                    width,
+                    padding_y,
+                    padding_x,
+                    channel,
+                );
             },
         };
         Ok(())
