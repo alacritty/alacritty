@@ -47,31 +47,17 @@ fn is_adjacent_col((a, is_wide): LatestCol, b: Column) -> bool {
     a + width == b || b + width == a
 }
 
+#[derive(Debug)]
 pub enum TextRunContent {
     Cursor(CursorKey),
     CharRun(String, Vec<[char; MAX_ZEROWIDTH_CHARS]>),
-}
-impl std::fmt::Debug for TextRunContent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TextRunContent::Cursor(cursor) => {
-                f.write_str("Cursor(")?;
-                cursor.fmt(f)?;
-                f.write_str(")")
-            },
-            TextRunContent::CharRun(text, _) => {
-                f.write_str("CharRun(")?;
-                text.fmt(f)?;
-                f.write_str(")")
-            },
-        }
-    }
 }
 
 /// Represents a set of renderable cells that all share the same rendering propreties.
 /// The assumption is that if two cells are in the same TextRun they can be sent off together to
 /// be shaped. This allows for ligatures to be rendered but not when something breaks up a ligature
 /// (e.g. selection hightlight) which is desired behavior.
+#[derive(Debug)]
 pub struct TextRun {
     /// By definition a run is on one line.
     pub line: Line,
@@ -87,20 +73,6 @@ pub struct TextRun {
     pub bg_alpha: f32,
     /// Attributes of this text run (e.g. HIDDEN, STRIKETHROUGH, etc.)
     pub flags: Flags,
-}
-
-impl std::fmt::Debug for TextRun {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TextRun")
-            .field("line", &self.line)
-            .field("span", &(self.span.0..=self.span.1))
-            .field("content", &self.content)
-            .field("fg", &format!("#{:X}{:X}{:X}", self.fg.r, self.fg.b, self.fg.g))
-            .field("bg", &format!("#{:X}{:X}{:X}", self.bg.r, self.bg.b, self.bg.g))
-            .field("bg_alpha", &self.bg_alpha)
-            .field("flags", &self.flags)
-            .finish()
-    }
 }
 
 impl TextRun {
