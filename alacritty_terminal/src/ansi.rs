@@ -773,7 +773,7 @@ where
             },
 
             // Set icon name
-            // This is ignored, since alacritty has no concept of tab
+            // This is ignored, since alacritty has no concept of tabs
             b"1" => (),
 
             // Set color index
@@ -1110,7 +1110,6 @@ where
     }
 
     #[inline]
-    #[allow(clippy::needless_return)] // esc_dispatch doesn't type check if return in unhandled is removed.
     fn esc_dispatch(&mut self, params: &[i64], intermediates: &[u8], _ignore: bool, byte: u8) {
         macro_rules! unhandled {
             () => {{
