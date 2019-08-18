@@ -384,7 +384,11 @@ impl Descriptor {
 
 impl Font {
     /// The the bounding rect of a glyph
-    pub fn bounding_rect_for_glyph(&self, orientation: FontOrientation, index: u32) -> Rect<f64> {
+    pub fn bounding_rect_for_glyph(
+        &self,
+        orientation: FontOrientation,
+        index: u32,
+    ) -> Rect<f64, ()> {
         let cg_rect = self
             .ct_font
             .get_bounding_rects_for_glyphs(orientation as CTFontOrientation, &[index as CGGlyph]);
