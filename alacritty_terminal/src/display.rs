@@ -530,8 +530,6 @@ impl Display {
                 self.window.set_urgent(is_urgent);
             }
         }
-        let collected_data = config.charts.clone();
-
         // Clear when terminal mutex isn't held. Mesa for
         // some reason takes a long time to call glClear(). The driver descends
         // into xcb_connect_to_fd() which ends up calling __poll_nocancel()
@@ -598,8 +596,6 @@ impl Display {
             }
             for chart_idx in 0..config.charts.len() {
                 for series_idx in 0..config.charts[chart_idx].sources.len() {
-                    let _color = config.charts[chart_idx].sources[series_idx].color();
-                    let color = Rgb { r: 0, g: 255, b: 0 };
                     let alpha = config.charts[chart_idx].sources[series_idx].alpha();
                     let (opengl_tx, opengl_rx) = oneshot::channel();
                     let get_opengl_task = charts_tx
@@ -621,7 +617,17 @@ impl Display {
                     match opengl_rx.wait() {
                         Ok(data) => {
                             debug!("Got response from SendMetricsOpenGLData Task: {:?}", data);
-                            self.renderer.draw_charts_line(config, &size_info, &data, color, alpha);
+                            self.renderer.draw_charts_line(
+                                config,
+                                &size_info,
+                                &data,
+                                Rgb {
+                                    r: config.charts[chart_idx].sources[series_idx].color().r,
+                                    g: config.charts[chart_idx].sources[series_idx].color().g,
+                                    b: config.charts[chart_idx].sources[series_idx].color().b,
+                                },
+                                alpha,
+                            );
                         },
                         Err(err) => {
                             error!("Error response from SendMetricsOpenGLData Task: {:?}", err);
