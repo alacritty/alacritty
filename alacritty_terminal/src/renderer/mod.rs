@@ -1128,7 +1128,7 @@ where
 {
     // If text_run is hidden we don't want to shape text.
     // But we still want to run each cell through add_render_item so colors get handled
-    // appropiately. We construct a dummy key that should bee cached a majority of the time so
+    // appropiately. We construct a dummy key that should be cached a majority of the time so
     // that we have a valid glyph.
     let key = GlyphKey { c: crate::cursor::PLACEHOLDER_GLYPH, font_key, size: font_size };
     let glyph = *glyph_cache.get(key, loader);
