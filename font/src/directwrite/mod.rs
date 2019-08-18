@@ -28,7 +28,7 @@ pub struct DirectWriteRasterizer {
 impl crate::Rasterize for DirectWriteRasterizer {
     type Err = Error;
 
-    fn new(device_pixel_ratio: f32, _: bool) -> Result<DirectWriteRasterizer, Error> {
+    fn new(device_pixel_ratio: f32, _: RasterizerConfig) -> Result<DirectWriteRasterizer, Error> {
         Ok(DirectWriteRasterizer { fonts: Vec::new(), device_pixel_ratio })
     }
 

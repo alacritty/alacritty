@@ -129,12 +129,12 @@ impl ::std::fmt::Display for Error {
 impl ::Rasterize for Rasterizer {
     type Err = Error;
 
-    fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {
+    fn new(device_pixel_ratio: f32, config: RasterizerConfig) -> Result<Rasterizer, Error> {
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
             device_pixel_ratio,
-            use_thin_strokes,
+            config.use_thin_strokes(),
         })
     }
 
