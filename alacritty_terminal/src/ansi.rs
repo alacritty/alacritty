@@ -24,63 +24,56 @@ use vte;
 
 use crate::term::color::Rgb;
 
-// Parse color arguments
-//
-// Expect that color argument looks like "rgb:xx/xx/xx" or "#xxxxxx"
+// Parse colors in XParseColor format
+fn xparse_color(color: &[u8]) -> Option<Rgb> {
+    if !color.is_empty() && color[0] == b'#' {
+        let len = color.len().saturating_sub(1);
+        parse_legacy_color(&color[1..len])
+    } else if color.len() >= 4 && &color[..4] == b"rgb:" {
+        let len = color.len().saturating_sub(1);
+        parse_rgb_color(&color[4..len])
+    } else {
+        None
+    }
+}
+
+// Parse colors in `rgb:r(rrr)/g(ggg)/b(bbb)` format
 fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
-    let mut iter = color.iter();
+    let colors = str::from_utf8(color).ok()?.split('/').collect::<Vec<_>>();
 
-    macro_rules! next {
-        () => {
-            iter.next().map(|v| *v as char)
-        };
+    if colors.len() != 3 {
+        return None;
     }
 
-    macro_rules! parse_hex {
-        () => {{
-            let mut digit: u8 = 0;
-            let next = next!().and_then(|v| v.to_digit(16));
-            if let Some(value) = next {
-                digit = value as u8;
-            }
+    // Scale values instead of filling with `0`s
+    let scale = |input: &str| {
+        let max = u32::pow(16, input.len() as u32) - 1;
+        let value = u32::from_str_radix(input, 16).ok()?;
+        Some((255 * value / max) as u8)
+    };
 
-            let next = next!().and_then(|v| v.to_digit(16));
-            if let Some(value) = next {
-                digit <<= 4;
-                digit += value as u8;
-            }
-            digit
-        }};
-    }
+    Some(Rgb {
+        r: scale(colors[0])?,
+        g: scale(colors[1])?,
+        b: scale(colors[2])?,
+    })
+}
 
-    match next!() {
-        Some('r') => {
-            if next!() != Some('g') {
-                return None;
-            }
-            if next!() != Some('b') {
-                return None;
-            }
-            if next!() != Some(':') {
-                return None;
-            }
+// Parse colors in `#r(rrr)g(ggg)b(bbb)` format
+fn parse_legacy_color(color: &[u8]) -> Option<Rgb> {
+    let item_len = color.len() / 3;
 
-            let r = parse_hex!();
-            let val = next!();
-            if val != Some('/') {
-                return None;
-            }
-            let g = parse_hex!();
-            if next!() != Some('/') {
-                return None;
-            }
-            let b = parse_hex!();
+    // Truncate/Fill to two byte precision
+    let color_from_slice = |slice: &[u8]| {
+        let col = usize::from_str_radix(str::from_utf8(slice).ok()?, 16).ok()? << 4;
+        Some((col >> (4 * slice.len().saturating_sub(1))) as u8)
+    };
 
-            Some(Rgb { r, g, b })
-        },
-        Some('#') => Some(Rgb { r: parse_hex!(), g: parse_hex!(), b: parse_hex!() }),
-        _ => None,
-    }
+    Some(Rgb {
+        r: color_from_slice(&color[0..item_len])?,
+        g: color_from_slice(&color[item_len..item_len * 2])?,
+        b: color_from_slice(&color[item_len * 2..])?,
+    })
 }
 
 fn parse_number(input: &[u8]) -> Option<u8> {
@@ -781,7 +774,7 @@ where
                 if params.len() > 1 && params.len() % 2 != 0 {
                     for chunk in params[1..].chunks(2) {
                         let index = parse_number(chunk[0]);
-                        let color = parse_rgb_color(chunk[1]);
+                        let color = xparse_color(chunk[1]);
                         if let (Some(i), Some(c)) = (index, color) {
                             self.handler.set_color(i as usize, c);
                             return;
@@ -806,7 +799,7 @@ where
                                 break;
                             }
 
-                            if let Some(color) = parse_rgb_color(param) {
+                            if let Some(color) = xparse_color(param) {
                                 self.handler.set_color(index, color);
                             } else if param == b"?" {
                                 self.handler.dynamic_color_sequence(writer, dynamic_code, index);
@@ -1203,7 +1196,7 @@ fn attrs_from_sgr_parameters(parameters: &[i64]) -> Vec<Option<Attr>> {
             37 => Some(Attr::Foreground(Color::Named(NamedColor::White))),
             38 => {
                 let mut start = 0;
-                if let Some(color) = parse_color(&parameters[i..], &mut start) {
+                if let Some(color) = parse_sgr_color(&parameters[i..], &mut start) {
                     i += start;
                     Some(Attr::Foreground(color))
                 } else {
@@ -1221,7 +1214,7 @@ fn attrs_from_sgr_parameters(parameters: &[i64]) -> Vec<Option<Attr>> {
             47 => Some(Attr::Background(Color::Named(NamedColor::White))),
             48 => {
                 let mut start = 0;
-                if let Some(color) = parse_color(&parameters[i..], &mut start) {
+                if let Some(color) = parse_sgr_color(&parameters[i..], &mut start) {
                     i += start;
                     Some(Attr::Background(color))
                 } else {
@@ -1256,7 +1249,7 @@ fn attrs_from_sgr_parameters(parameters: &[i64]) -> Vec<Option<Attr>> {
 }
 
 /// Parse a color specifier from list of attributes
-fn parse_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
+fn parse_sgr_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
     if attrs.len() < 2 {
         return None;
     }
@@ -1456,7 +1449,7 @@ pub mod C1 {
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_number, parse_rgb_color, Attr, CharsetIndex, Color, Handler, Processor,
+        parse_number, xparse_color, Attr, CharsetIndex, Color, Handler, Processor,
         StandardCharset, TermInfo,
     };
     use crate::index::{Column, Line};
@@ -1623,13 +1616,31 @@ mod tests {
     }
 
     #[test]
-    fn parse_valid_rgb_color() {
-        assert_eq!(parse_rgb_color(b"rgb:11/aa/ff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+    fn parse_valid_rgb_colors() {
+        assert_eq!(xparse_color(b"rgb:f/e/d\x07"), Some(Rgb { r: 0xff, g: 0xee, b: 0xdd }));
+        assert_eq!(xparse_color(b"rgb:11/aa/ff\x07"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+        assert_eq!(xparse_color(b"rgb:f/ed1/cb23\x07"), Some(Rgb { r: 0xff, g: 0xec, b: 0xca }));
+        assert_eq!(xparse_color(b"rgb:ffff/0/0\x07"), Some(Rgb { r: 0xff, g: 0x0, b: 0x0 }));
     }
 
     #[test]
-    fn parse_valid_rgb_color2() {
-        assert_eq!(parse_rgb_color(b"#11aaff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+    fn parse_valid_legacy_rgb_colors() {
+        assert_eq!(xparse_color(b"#1af\x07"), Some(Rgb { r: 0x10, g: 0xa0, b: 0xf0 }));
+        assert_eq!(xparse_color(b"#11aaff\x07"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+        assert_eq!(xparse_color(b"#110aa0ff0\x07"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+        assert_eq!(xparse_color(b"#1100aa00ff00\x07"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+    }
+
+    #[test]
+    fn parse_invalid_rgb_colors() {
+        assert_eq!(xparse_color(b"rgb:0//\x07"), None);
+        assert_eq!(xparse_color(b"rgb://///\x07"), None);
+    }
+
+    #[test]
+    fn parse_invalid_legacy_rgb_colors() {
+        assert_eq!(xparse_color(b"#\x07"), None);
+        assert_eq!(xparse_color(b"#f\x07"), None);
     }
 
     #[test]
