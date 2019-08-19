@@ -1,3 +1,4 @@
+use crate::Rgb;
 use crate::ValueCollisionPolicy;
 /// `Prometheus HTTP API` data structures
 use hyper::rt::{Future, Stream};
@@ -61,9 +62,7 @@ pub enum HTTPResponseData {
 
 impl Default for HTTPResponseData {
     fn default() -> HTTPResponseData {
-        HTTPResponseData::Vector {
-            result: vec![HTTPVectorResult::default()],
-        }
+        HTTPResponseData::Vector { result: vec![HTTPVectorResult::default()] }
     }
 }
 
@@ -136,7 +135,7 @@ pub struct PrometheusTimeSeries {
 
     /// The color of the TimeSeries
     #[serde(default)]
-    pub color: String,
+    pub color: Rgb,
 
     /// The transparency of the TimeSeries
     #[serde(default)]
@@ -154,7 +153,7 @@ impl Default for PrometheusTimeSeries {
             pull_interval: 15,
             data_type: String::from("vector"),
             required_labels: HashMap::new(),
-            color: String::from("0x00ff00"),
+            color: crate::Rgb::default(),
             alpha: 1.0,
         }
     }
@@ -185,7 +184,7 @@ impl PrometheusTimeSeries {
             Ok(url) => {
                 res.url = url;
                 Ok(res)
-            }
+            },
             Err(err) => Err(err),
         }
     }
@@ -212,10 +211,7 @@ impl PrometheusTimeSeries {
         let mut encoded_url = format!("{}?{}", url_base_path, encoded_url_param);
         // If this is a query_range, we need to add time range
         if encoded_url.contains("/api/v1/query_range?") {
-            let end = std::time::SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
+            let end = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
             let start = end - metrics_capacity;
             let step = "1"; // Maybe we can change granularity later
             encoded_url = format!("{}&start={}&end={}&step={}", encoded_url, start, end, step);
@@ -229,13 +225,14 @@ impl PrometheusTimeSeries {
                     error!("Only HTTP protocol is supported");
                     Err(format!("Unsupported protocol: {:?}", url.scheme_part()))
                 }
-            }
+            },
             Err(err) => {
                 error!("Unable to parse url: {}", err);
                 Err(format!("Unable to parse URL: {:?}", err))
-            }
+            },
         }
     }
+
     /// `match_metric_labels` checks the labels in the incoming
     /// PrometheusData contains the required labels
     pub fn match_metric_labels(&self, metric_labels: &HashMap<String, String>) -> bool {
@@ -243,7 +240,11 @@ impl PrometheusTimeSeries {
             match metric_labels.get(required_label) {
                 Some(return_value) => {
                     if return_value != required_value {
-                        debug!("Skip: Required label '{}' exists but required value: '{}' does not match current value: '{}'", required_label, required_value, return_value);
+                        debug!(
+                            "Skip: Required label '{}' exists but required value: '{}' does not \
+                             match current value: '{}'",
+                            required_label, required_value, return_value
+                        );
                         return false;
                     } else {
                         debug!(
@@ -251,11 +252,11 @@ impl PrometheusTimeSeries {
                             required_label
                         );
                     }
-                }
+                },
                 None => {
                     debug!("Skip: Required label '{}' does not exists", required_label);
                     return false;
-                }
+                },
             }
         }
         true
@@ -288,7 +289,7 @@ impl PrometheusTimeSeries {
                         }
                     }
                 }
-            }
+            },
             HTTPResponseData::Matrix { result: results } => {
                 // labeled metrics returned as a matrix:
                 // [ {metric: {l: X}, value: [[epoch1,sample2],[...]]}
@@ -308,7 +309,7 @@ impl PrometheusTimeSeries {
                         }
                     }
                 }
-            }
+            },
             HTTPResponseData::Scalar { result } | HTTPResponseData::String { result } => {
                 // unlabeled metrics returned as a 2 items vector
                 // [epoch1,sample2]
@@ -321,7 +322,7 @@ impl PrometheusTimeSeries {
                         loaded_items += 1;
                     }
                 }
-            }
+            },
         };
         if loaded_items > 0 {
             self.series.calculate_stats();
@@ -362,11 +363,11 @@ pub fn parse_json(body: &hyper::Chunk) -> Option<HTTPResponse> {
         Ok(v) => {
             debug!("parse_json: returned JSON={:?}", v);
             Some(v)
-        }
+        },
         Err(err) => {
             error!("Unable to parse JSON err={:?}", err);
             None
-        }
+        },
     }
 }
 /// XXX: REMOVE
@@ -632,10 +633,7 @@ mod tests {
             String::from("vector"),
             test_labels.clone(),
         );
-        assert_eq!(
-            test0_res,
-            Err(String::from("Unsupported protocol: Some(\"https\")"))
-        );
+        assert_eq!(test0_res, Err(String::from("Unsupported protocol: Some(\"https\")")));
         let test1_res: Result<PrometheusTimeSeries, String> = PrometheusTimeSeries::new(
             String::from("http://localhost:9090/api/v1/query?query=up"),
             15,
