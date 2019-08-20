@@ -14,9 +14,6 @@
 
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
-use futures::future::lazy;
-use futures::sync::mpsc as futures_mpsc;
-use futures::sync::oneshot;
 use std::f64;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use std::ffi::c_void;
@@ -38,6 +35,9 @@ use crate::term::color::Rgb;
 use crate::term::{RenderableCell, SizeInfo, Term};
 use crate::window::{self, Window};
 use font::{self, Rasterize};
+use futures::future::lazy;
+use futures::sync::mpsc as futures_mpsc;
+use futures::sync::oneshot;
 
 #[derive(Debug)]
 pub enum Error {
