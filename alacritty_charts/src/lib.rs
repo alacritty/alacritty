@@ -34,10 +34,13 @@ extern crate serde;
 extern crate serde_json;
 extern crate tokio;
 extern crate tokio_core;
-// use crate::term::color::Rgb;
-// use crate::term::SizeInfo;
 use log::*;
+use std::fmt;
+use std::str::FromStr;
 use std::time::UNIX_EPOCH;
+
+use serde::de::Visitor;
+use serde::{Deserialize, Deserializer};
 
 pub mod async_utils;
 pub mod config;
@@ -157,6 +160,105 @@ pub struct IterTimeSeries<'a> {
     current_item: usize,
 }
 
+/// `Rgb` is a copy of alacritty_terminal/src/term/color.rs
+/// Because we also need to deserialize from yaml
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Default, Serialize)]
+pub struct Rgb {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+/// Transform from a hex string, copy from alacritty_terminal/src/term/colors.rs
+impl FromStr for Rgb {
+    type Err = ();
+
+    fn from_str(s: &str) -> ::std::result::Result<Rgb, ()> {
+        let mut chars = s.chars();
+        let mut rgb = Rgb::default();
+
+        macro_rules! component {
+            ($($c:ident),*) => {
+                $(
+                    match chars.next().and_then(|c| c.to_digit(16)) {
+                        Some(val) => rgb.$c = (val as u8) << 4,
+                        None => return Err(())
+                    }
+
+                    match chars.next().and_then(|c| c.to_digit(16)) {
+                        Some(val) => rgb.$c |= val as u8,
+                        None => return Err(())
+                    }
+                )*
+            }
+        }
+
+        match chars.next() {
+            Some('0') => {
+                if chars.next() != Some('x') {
+                    return Err(());
+                }
+            },
+            Some('#') => (),
+            _ => return Err(()),
+        }
+
+        component!(r, g, b);
+
+        Ok(rgb)
+    }
+}
+
+/// Deserialize an Rgb from a hex string, copy from alacritty_terminal/src/term/colors.rs
+impl<'de> Deserialize<'de> for Rgb {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct RgbVisitor;
+
+        // Used for deserializing reftests
+        #[derive(Deserialize)]
+        struct RgbDerivedDeser {
+            r: u8,
+            g: u8,
+            b: u8,
+        }
+
+        impl<'a> Visitor<'a> for RgbVisitor {
+            type Value = Rgb;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("hex color like 0xff00ff")
+            }
+
+            fn visit_str<E>(self, value: &str) -> ::std::result::Result<Rgb, E>
+            where
+                E: ::serde::de::Error,
+            {
+                Rgb::from_str(&value[..])
+                    .map_err(|_| E::custom("failed to parse rgb; expected hex color like 0xff00ff"))
+            }
+        }
+
+        // Return an error if the syntax is incorrect
+        let value = serde_yaml::Value::deserialize(deserializer)?;
+
+        // Attempt to deserialize from struct form
+        if let Ok(RgbDerivedDeser { r, g, b }) = RgbDerivedDeser::deserialize(value.clone()) {
+            return Ok(Rgb { r, g, b });
+        }
+
+        // Deserialize from hex notation (either 0xff00ff or #ff00ff)
+        match value.deserialize_str(RgbVisitor) {
+            Ok(rgb) => Ok(rgb),
+            Err(err) => {
+                error!("Problem with config: {}; using color #000000", err);
+                Ok(Rgb::default())
+            },
+        }
+    }
+}
 /// `ReferencePointDecoration` draws a fixed point to give a reference point
 /// of what a drawn value may mean
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -171,9 +273,9 @@ pub struct ReferencePointDecoration {
     #[serde(default)]
     pub height_multiplier: f64,
 
-    /// hexadecimal color
+    /// RGB color
     #[serde(default)]
-    pub color: String,
+    pub color: Rgb,
 
     /// Transparency
     #[serde(default)]
@@ -194,7 +296,7 @@ impl Default for ReferencePointDecoration {
         ReferencePointDecoration {
             value: 1.0,
             height_multiplier: 0.05,
-            color: String::from("0xff0000"),
+            color: Rgb::default(),
             alpha: 1.0,
             padding: Value2D {
                 x: 1f32,
@@ -365,7 +467,7 @@ pub struct ManualTimeSeries {
 
     /// The color of the TimeSeries
     #[serde(default)]
-    pub color: String,
+    pub color: Rgb,
 
     /// The transparency of the TimeSeries
     #[serde(default)]
@@ -378,7 +480,7 @@ impl Default for ManualTimeSeries {
             name: String::from("unkown"),
             series: TimeSeries::default(),
             granularity: 1, // 1 second
-            color: String::from("0x00ff00"),
+            color: Rgb::default(),
             alpha: 1.0,
         }
     }
@@ -435,12 +537,12 @@ impl TimeSeriesSource {
 
     // XXX: SEB: This is really ugly, we should have maybe Trait for Drawable and have a color
     // easily available or have like a .prop("color").
-    pub fn color(&self) -> String {
+    pub fn color(&self) -> Rgb {
         match self {
-            TimeSeriesSource::PrometheusTimeSeries(x) => x.color.clone(),
-            TimeSeriesSource::AlacrittyInput(x) => x.color.clone(),
-            TimeSeriesSource::AlacrittyOutput(x) => x.color.clone(),
-            TimeSeriesSource::AsyncLoadedItems(x) => x.color.clone(),
+            TimeSeriesSource::PrometheusTimeSeries(x) => x.color,
+            TimeSeriesSource::AlacrittyInput(x) => x.color,
+            TimeSeriesSource::AlacrittyOutput(x) => x.color,
+            TimeSeriesSource::AsyncLoadedItems(x) => x.color,
         }
     }
 
@@ -536,6 +638,10 @@ pub struct TimeSeriesChart {
     /// The opengl representation of the each series.
     #[serde(default)]
     pub opengl_vecs: Vec<Vec<f32>>,
+
+    /// Last updated epoch
+    #[serde(default)]
+    pub last_updated: u64,
 }
 
 impl TimeSeriesChart {
@@ -610,6 +716,8 @@ impl TimeSeriesChart {
             debug!("Chart: Updating decoration {:?} vertices", decoration);
             decoration.update_opengl_vecs(display_size, self.offset, self.stats.max);
         }
+        self.last_updated =
+            std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
     }
 
     /// `update_all_series_opengl_vecs` Represents the activity levels values in a
