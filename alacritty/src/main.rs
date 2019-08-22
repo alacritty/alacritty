@@ -22,6 +22,8 @@
 // See https://msdn.microsoft.com/en-us/library/4cc7ya5b.aspx for more details.
 #![windows_subsystem = "windows"]
 
+use futures::sync::mpsc as futures_mpsc;
+use futures::sync::oneshot;
 #[cfg(target_os = "macos")]
 use std::env;
 use std::error::Error;
@@ -30,6 +32,7 @@ use std::io::{self, Write};
 #[cfg(not(windows))]
 use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
+use std::time::UNIX_EPOCH;
 
 #[cfg(target_os = "macos")]
 use dirs;
@@ -123,6 +126,33 @@ fn main() {
         if !persistent_logging && fs::remove_file(&log_file).is_ok() {
             let _ = writeln!(io::stdout(), "Deleted log file at {:?}", log_file);
         }
+    }
+}
+
+/// Sends a request to the async_coordinator to get the latest update epoch of all
+/// the charts
+fn get_last_updated_chart_epoch(
+    charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
+) -> u64 {
+    let (chart_tx, chart_rx) = oneshot::channel();
+    let get_latest_update_epoch = charts_tx
+        .send(alacritty_charts::async_utils::AsyncChartTask::SendLastUpdatedEpoch(chart_tx))
+        .map_err(|e| error!("Sending SendLastUpdatedEpoch Task: err={:?}", e))
+        .and_then(move |_res| {
+            debug!("Sent Request for SendLastUpdatedEpoch");
+            Ok(())
+        });
+    tokio::spawn(lazy(move || get_latest_update_epoch));
+    let chart_rx = chart_rx.map(|x| x);
+    match chart_rx.wait() {
+        Ok(data) => {
+            debug!("Got response from SendLastUpdatedEpoch Task: {:?}", data);
+            data
+        },
+        Err(err) => {
+            error!("Error response from SendLastUpdatedEpoch Task: {:?}", err);
+            0u64
+        },
     }
 }
 
@@ -249,6 +279,7 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
                 charts_size_info.padding_x,
             )
         }));
+        let mut chart_last_drawn = 0; // Keep an epoch for the last time we drew the charts
         for chart in config.charts.clone() {
             debug!("Loading chart series with name: '{}'", chart.name);
             let mut series_index = 0usize;
@@ -301,7 +332,9 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
             }
 
             // Maybe draw the terminal
-            if terminal_lock.needs_draw() {
+            if terminal_lock.needs_draw()
+                || chart_last_drawn != get_last_updated_chart_epoch(charts_tx.clone())
+            {
                 // Try to update the position of the input method editor
                 #[cfg(not(windows))]
                 display.update_ime_position(&terminal_lock);
@@ -322,6 +355,8 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
 
                 // Draw the current state of the terminal
                 display.draw(&terminal, &config, charts_tx.clone());
+                chart_last_drawn =
+                    std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
             }
         }
         runtime.shutdown_now().wait().expect("Unable to wait for shutdown");
