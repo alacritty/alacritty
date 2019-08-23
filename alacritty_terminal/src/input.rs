@@ -25,7 +25,7 @@ use std::time::Instant;
 
 use glutin::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseCursor, MouseScrollDelta,
-    TouchPhase,
+    TouchPhase, VirtualKeyCode,
 };
 
 use crate::ansi::{ClearMode, Handler};
@@ -73,7 +73,7 @@ pub trait ActionContext {
     fn mouse_coords(&self) -> Option<Point>;
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
-    fn last_modifiers(&mut self) -> &mut ModifiersState;
+    fn modifiers(&mut self) -> &mut Modifiers;
     fn scroll(&mut self, scroll: Scroll);
     fn hide_window(&mut self);
     fn terminal(&self) -> &Term;
@@ -82,6 +82,50 @@ pub trait ActionContext {
     fn toggle_fullscreen(&mut self);
     #[cfg(target_os = "macos")]
     fn toggle_simple_fullscreen(&mut self);
+}
+
+#[derive(Debug, Default, Copy, Clone)]
+pub struct Modifiers {
+    mods: ModifiersState,
+    lshift: bool,
+    rshift: bool,
+}
+
+impl Modifiers {
+    pub fn update(&mut self, input: KeyboardInput) {
+        match input.virtual_keycode {
+            Some(VirtualKeyCode::LShift) => self.lshift = input.state == ElementState::Pressed,
+            Some(VirtualKeyCode::RShift) => self.rshift = input.state == ElementState::Pressed,
+            _ => (),
+        }
+
+        self.mods = input.modifiers;
+    }
+
+    pub fn shift(self) -> bool {
+        self.lshift || self.rshift
+    }
+
+    pub fn ctrl(self) -> bool {
+        self.mods.ctrl
+    }
+
+    pub fn logo(self) -> bool {
+        self.mods.logo
+    }
+
+    pub fn alt(self) -> bool {
+        self.mods.alt
+    }
+}
+
+impl From<Modifiers> for ModifiersState {
+    fn from(mods: Modifiers) -> ModifiersState {
+        ModifiersState {
+            shift: mods.shift(),
+            ..mods.mods
+        }
+    }
 }
 
 /// Describes a state and action to take in that state
@@ -381,6 +425,7 @@ impl From<&'static str> for Action {
     }
 }
 
+#[derive(PartialEq)]
 enum MousePosition {
     Url(Url),
     MessageBar,
@@ -389,7 +434,7 @@ enum MousePosition {
 }
 
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
-    fn mouse_position(&mut self, point: Point, modifiers: ModifiersState) -> MousePosition {
+    fn mouse_position(&mut self, point: Point) -> MousePosition {
         let mouse_mode =
             TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
 
@@ -403,8 +448,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
 
         // Check for URL at point with required modifiers held
-        if self.mouse_config.url.mods().relaxed_eq(modifiers)
-            && (!self.ctx.terminal().mode().intersects(mouse_mode) || modifiers.shift)
+        let mods = *self.ctx.modifiers();
+        if self.mouse_config.url.mods().relaxed_eq(mods.into())
+            && (!self.ctx.terminal().mode().intersects(mouse_mode) || mods.shift())
             && self.mouse_config.url.launcher.is_some()
         {
             let buffer_point = self.ctx.terminal().visible_to_buffer(point);
@@ -445,7 +491,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         // Don't launch URLs if mouse has moved
         self.ctx.mouse_mut().block_url_launcher = true;
 
-        match self.mouse_position(point, modifiers) {
+        match self.mouse_position(point) {
             MousePosition::Url(url) => {
                 let url_bounds = url.linear_bounds(self.ctx.terminal());
                 self.ctx.terminal_mut().set_url_highlight(url_bounds);
@@ -462,10 +508,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
                 return;
             },
-            MousePosition::Terminal => {
-                self.ctx.terminal_mut().reset_url_highlight();
-                self.ctx.terminal_mut().reset_mouse_cursor();
-            },
+            MousePosition::Terminal => self.ctx.terminal_mut().reset_url_highlight(),
         }
 
         if self.ctx.mouse().left_button_state == ElementState::Pressed
@@ -798,9 +841,25 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
     /// Process key input
     pub fn process_key(&mut self, input: KeyboardInput) {
+        self.ctx.modifiers().update(input);
+
+        // Update mouse cursor for temporarily disabling mouse mode
+        let mouse_mode =
+            TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
+        if let Some(point) = self.ctx.mouse_coords() {
+            if self.mouse_position(point) == MousePosition::Terminal
+                && self.ctx.terminal().mode().intersects(mouse_mode)
+            {
+                if self.ctx.modifiers().shift() {
+                    self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Text);
+                } else {
+                    self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Default);
+                }
+            }
+        }
+
         match input.state {
             ElementState::Pressed => {
-                *self.ctx.last_modifiers() = input.modifiers;
                 *self.ctx.received_count() = 0;
                 *self.ctx.suppress_chars() = false;
 
@@ -830,7 +889,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
 
         if self.alt_send_esc
             && *self.ctx.received_count() == 0
-            && self.ctx.last_modifiers().alt
+            && self.ctx.modifiers().alt()
             && utf8_len == 1
         {
             bytes.insert(0, b'\x1b');
@@ -968,7 +1027,7 @@ mod tests {
     use crate::selection::Selection;
     use crate::term::{SizeInfo, Term, TermMode};
 
-    use super::{Action, Binding, Processor};
+    use super::{Action, Binding, Processor, Modifiers};
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
@@ -1112,7 +1171,7 @@ mod tests {
         pub last_action: MultiClick,
         pub received_count: usize,
         pub suppress_chars: bool,
-        pub last_modifiers: ModifiersState,
+        pub modifiers: Modifiers,
         pub window_changes: &'a mut WindowChanges,
     }
 
@@ -1189,8 +1248,8 @@ mod tests {
             &mut self.suppress_chars
         }
 
-        fn last_modifiers(&mut self) -> &mut ModifiersState {
-            &mut self.last_modifiers
+        fn modifiers(&mut self) -> &mut Modifiers {
+            &mut self.modifiers
         }
     }
 
@@ -1232,7 +1291,7 @@ mod tests {
                     last_action: MultiClick::None,
                     received_count: 0,
                     suppress_chars: false,
-                    last_modifiers: ModifiersState::default(),
+                    modifiers: Default::default(),
                     window_changes: &mut WindowChanges::default(),
                 };
 

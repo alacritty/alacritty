@@ -52,11 +52,7 @@ fn parse_rgb_color(color: &[u8]) -> Option<Rgb> {
         Some((255 * value / max) as u8)
     };
 
-    Some(Rgb {
-        r: scale(colors[0])?,
-        g: scale(colors[1])?,
-        b: scale(colors[2])?,
-    })
+    Some(Rgb { r: scale(colors[0])?, g: scale(colors[1])?, b: scale(colors[2])? })
 }
 
 // Parse colors in `#r(rrr)g(ggg)b(bbb)` format
@@ -1449,8 +1445,8 @@ pub mod C1 {
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_number, xparse_color, Attr, CharsetIndex, Color, Handler, Processor,
-        StandardCharset, TermInfo,
+        parse_number, xparse_color, Attr, CharsetIndex, Color, Handler, Processor, StandardCharset,
+        TermInfo,
     };
     use crate::index::{Column, Line};
     use crate::term::color::Rgb;

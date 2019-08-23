@@ -7,7 +7,7 @@ use std::sync::mpsc;
 use std::time::Instant;
 
 use glutin::dpi::PhysicalSize;
-use glutin::{self, ElementState, Event, ModifiersState, MouseButton};
+use glutin::{self, ElementState, Event, MouseButton};
 use parking_lot::MutexGuard;
 
 use crate::clipboard::ClipboardType;
@@ -15,7 +15,7 @@ use crate::config::{self, Config, StartupMode};
 use crate::display::OnResize;
 use crate::grid::Scroll;
 use crate::index::{Column, Line, Point, Side};
-use crate::input::{self, KeyBinding, MouseBinding};
+use crate::input::{self, KeyBinding, Modifiers, MouseBinding};
 use crate::selection::Selection;
 use crate::sync::FairMutex;
 use crate::term::{SizeInfo, Term};
@@ -39,7 +39,7 @@ pub struct ActionContext<'a, N> {
     pub mouse: &'a mut Mouse,
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
-    pub last_modifiers: &'a mut ModifiersState,
+    pub modifiers: &'a mut Modifiers,
     pub window_changes: &'a mut WindowChanges,
 }
 
@@ -141,8 +141,8 @@ impl<'a, N: Notify + 'a> input::ActionContext for ActionContext<'a, N> {
     }
 
     #[inline]
-    fn last_modifiers(&mut self) -> &mut ModifiersState {
-        &mut self.last_modifiers
+    fn modifiers(&mut self) -> &mut Modifiers {
+        &mut self.modifiers
     }
 
     #[inline]
@@ -287,7 +287,7 @@ pub struct Processor<N> {
     hide_mouse: bool,
     received_count: usize,
     suppress_chars: bool,
-    last_modifiers: ModifiersState,
+    modifiers: Modifiers,
     pending_events: Vec<Event>,
     window_changes: WindowChanges,
     save_to_clipboard: bool,
@@ -331,7 +331,7 @@ impl<N: Notify> Processor<N> {
             hide_mouse: false,
             received_count: 0,
             suppress_chars: false,
-            last_modifiers: Default::default(),
+            modifiers: Default::default(),
             pending_events: Vec::with_capacity(4),
             window_changes: Default::default(),
             save_to_clipboard: config.selection.save_to_clipboard,
@@ -478,7 +478,7 @@ impl<N: Notify> Processor<N> {
                 size_info: &mut self.size_info,
                 received_count: &mut self.received_count,
                 suppress_chars: &mut self.suppress_chars,
-                last_modifiers: &mut self.last_modifiers,
+                modifiers: &mut self.modifiers,
                 window_changes: &mut self.window_changes,
             };
 
