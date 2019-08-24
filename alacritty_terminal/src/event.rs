@@ -406,11 +406,9 @@ impl<N: Notify> Processor<N> {
                         *window_is_focused = is_focused;
 
                         if is_focused {
-                            processor.ctx.terminal.dirty = true;
                             processor.ctx.terminal.next_is_urgent = Some(false);
+                            processor.ctx.terminal.dirty = true;
                         } else {
-                            processor.ctx.terminal.reset_url_highlight();
-                            processor.ctx.terminal.reset_mouse_cursor();
                             processor.ctx.terminal.dirty = true;
                             *hide_mouse = false;
                         }
@@ -426,6 +424,7 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.size_info.dpr = new_dpr;
                         processor.ctx.terminal.dirty = true;
                     },
+                    CursorLeft { .. } => processor.ctx.terminal.reset_url_highlight(),
                     _ => (),
                 }
             },

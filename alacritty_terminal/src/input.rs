@@ -121,10 +121,7 @@ impl Modifiers {
 
 impl From<Modifiers> for ModifiersState {
     fn from(mods: Modifiers) -> ModifiersState {
-        ModifiersState {
-            shift: mods.shift(),
-            ..mods.mods
-        }
+        ModifiersState { shift: mods.shift(), ..mods.mods }
     }
 }
 
@@ -425,25 +422,26 @@ impl From<&'static str> for Action {
     }
 }
 
-#[derive(PartialEq)]
-enum MousePosition {
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum MouseState {
     Url(Url),
     MessageBar,
     MessageBarButton,
-    Terminal,
+    Mouse,
+    Text,
 }
 
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
-    fn mouse_position(&mut self, point: Point) -> MousePosition {
+    fn mouse_state(&mut self, point: Point) -> MouseState {
         let mouse_mode =
             TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
 
         // Check message bar before URL to ignore URLs in the message bar
         if let Some(message) = self.message_at_point(Some(point)) {
             if self.message_close_at_point(point, message) {
-                return MousePosition::MessageBarButton;
+                return MouseState::MessageBarButton;
             } else {
-                return MousePosition::MessageBar;
+                return MouseState::MessageBar;
             }
         }
 
@@ -457,11 +455,15 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             if let Some(url) =
                 self.ctx.terminal().urls().drain(..).find(|url| url.contains(buffer_point))
             {
-                return MousePosition::Url(url);
+                return MouseState::Url(url);
             }
         }
 
-        MousePosition::Terminal
+        if self.ctx.terminal().mode().intersects(mouse_mode) && !self.ctx.modifiers().shift() {
+            MouseState::Mouse
+        } else {
+            MouseState::Text
+        }
     }
 
     #[inline]
@@ -491,24 +493,18 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         // Don't launch URLs if mouse has moved
         self.ctx.mouse_mut().block_url_launcher = true;
 
-        match self.mouse_position(point) {
-            MousePosition::Url(url) => {
+        let mouse_state = self.mouse_state(point);
+        self.reset_mouse_cursor(mouse_state);
+        match mouse_state {
+            MouseState::Url(url) => {
                 let url_bounds = url.linear_bounds(self.ctx.terminal());
                 self.ctx.terminal_mut().set_url_highlight(url_bounds);
-                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
-                self.ctx.terminal_mut().dirty = true;
             },
-            MousePosition::MessageBar => {
+            MouseState::MessageBar | MouseState::MessageBarButton => {
                 self.ctx.terminal_mut().reset_url_highlight();
-                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Default);
                 return;
             },
-            MousePosition::MessageBarButton => {
-                self.ctx.terminal_mut().reset_url_highlight();
-                self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Hand);
-                return;
-            },
-            MousePosition::Terminal => self.ctx.terminal_mut().reset_url_highlight(),
+            _ => self.ctx.terminal_mut().reset_url_highlight(),
         }
 
         if self.ctx.mouse().left_button_state == ElementState::Pressed
@@ -844,17 +840,12 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         self.ctx.modifiers().update(input);
 
         // Update mouse cursor for temporarily disabling mouse mode
-        let mouse_mode =
-            TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
-        if let Some(point) = self.ctx.mouse_coords() {
-            if self.mouse_position(point) == MousePosition::Terminal
-                && self.ctx.terminal().mode().intersects(mouse_mode)
-            {
-                if self.ctx.modifiers().shift() {
-                    self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Text);
-                } else {
-                    self.ctx.terminal_mut().set_mouse_cursor(MouseCursor::Default);
-                }
+        if input.virtual_keycode == Some(VirtualKeyCode::LShift)
+            || input.virtual_keycode == Some(VirtualKeyCode::RShift)
+        {
+            if let Some(point) = self.ctx.mouse_coords() {
+                let mouse_state = self.mouse_state(point);
+                self.reset_mouse_cursor(mouse_state);
             }
         }
 
@@ -993,8 +984,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             ElementState::Released => self.copy_selection(),
             ElementState::Pressed => {
                 if self.message_close_at_point(point, message) {
+                    let mouse_state = self.mouse_state(point);
+                    self.reset_mouse_cursor(mouse_state);
                     self.ctx.terminal_mut().message_buffer_mut().pop();
-                    self.ctx.terminal_mut().reset_mouse_cursor();
                 }
 
                 self.ctx.clear_selection();
@@ -1008,6 +1000,17 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.ctx.copy_selection(ClipboardType::Clipboard);
         }
         self.ctx.copy_selection(ClipboardType::Selection);
+    }
+
+    #[inline]
+    fn reset_mouse_cursor(&mut self, mouse_state: MouseState) {
+        let mouse_cursor = match mouse_state {
+            MouseState::Url(_) | MouseState::MessageBarButton => MouseCursor::Hand,
+            MouseState::Text => MouseCursor::Text,
+            _ => MouseCursor::Default,
+        };
+
+        self.ctx.terminal_mut().set_mouse_cursor(mouse_cursor);
     }
 }
 
@@ -1027,7 +1030,7 @@ mod tests {
     use crate::selection::Selection;
     use crate::term::{SizeInfo, Term, TermMode};
 
-    use super::{Action, Binding, Processor, Modifiers};
+    use super::{Action, Binding, Modifiers, Processor};
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
