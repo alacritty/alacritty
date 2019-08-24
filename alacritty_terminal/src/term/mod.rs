@@ -841,9 +841,9 @@ impl Term {
 
     #[inline]
     pub fn scroll_display(&mut self, scroll: Scroll) {
+        self.set_mouse_cursor(MouseCursor::Text);
         self.grid.scroll_display(scroll);
         self.reset_url_highlight();
-        self.reset_mouse_cursor();
         self.dirty = true;
     }
 
@@ -1296,18 +1296,7 @@ impl Term {
     #[inline]
     pub fn set_url_highlight(&mut self, hl: RangeInclusive<index::Linear>) {
         self.grid.url_highlight = Some(hl);
-    }
-
-    #[inline]
-    pub fn reset_mouse_cursor(&mut self) {
-        let mouse_mode =
-            TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
-        let mouse_cursor = if self.mode().intersects(mouse_mode) {
-            MouseCursor::Default
-        } else {
-            MouseCursor::Text
-        };
-        self.set_mouse_cursor(mouse_cursor);
+        self.dirty = true;
     }
 
     #[inline]
