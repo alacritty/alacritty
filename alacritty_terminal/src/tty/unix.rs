@@ -13,7 +13,6 @@
 // limitations under the License.
 //
 //! tty related functionality
-//!
 
 use crate::config::{Config, Shell};
 use crate::display::OnResize;
@@ -91,7 +90,7 @@ struct Passwd<'a> {
 /// If `buf` is changed while `Passwd` is alive, bad thing will almost certainly happen.
 fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
     // Create zeroed passwd struct
-    let mut entry: libc::passwd = unsafe { ::std::mem::uninitialized() };
+    let mut entry: libc::passwd = unsafe { ::std::mem::MaybeUninit::uninit().assume_init() };
 
     let mut res: *mut libc::passwd = ptr::null_mut();
 
