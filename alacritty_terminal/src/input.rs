@@ -494,7 +494,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         self.ctx.mouse_mut().block_url_launcher = true;
 
         let mouse_state = self.mouse_state(point);
-        self.reset_mouse_cursor(mouse_state);
+        self.update_mouse_cursor(mouse_state);
         match mouse_state {
             MouseState::Url(url) => {
                 let url_bounds = url.linear_bounds(self.ctx.terminal());
@@ -845,7 +845,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         {
             if let Some(point) = self.ctx.mouse_coords() {
                 let mouse_state = self.mouse_state(point);
-                self.reset_mouse_cursor(mouse_state);
+                self.update_mouse_cursor(mouse_state);
             }
         }
 
@@ -985,7 +985,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             ElementState::Pressed => {
                 if self.message_close_at_point(point, message) {
                     let mouse_state = self.mouse_state(point);
-                    self.reset_mouse_cursor(mouse_state);
+                    self.update_mouse_cursor(mouse_state);
                     self.ctx.terminal_mut().message_buffer_mut().pop();
                 }
 
@@ -1003,7 +1003,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     #[inline]
-    fn reset_mouse_cursor(&mut self, mouse_state: MouseState) {
+    fn update_mouse_cursor(&mut self, mouse_state: MouseState) {
         let mouse_cursor = match mouse_state {
             MouseState::Url(_) | MouseState::MessageBarButton => MouseCursor::Hand,
             MouseState::Text => MouseCursor::Text,
