@@ -13,15 +13,15 @@
 // -- The yaml should drive an array of activity dashboards
 // -- Tokio timers
 // -- Use prometheus queries instead of our own aggregation/etc.
-// IN PROGRESS:
 // -- Logging
+// IN PROGRESS:
 // -- Group labels into separate colors (find something that does color spacing in rust)
 // TODO:
 // -- The dashboards should be toggable, some key combination
 // -- When activated on toggle it could blur a portion of the screen
-// -- derive builder
 // -- mock the prometheus server and response
 // -- We should re-use the circular_push for the opengl_vec
+// -- The first draw is fine, the second draw resets the data strangely.
 
 extern crate log;
 #[macro_use]
