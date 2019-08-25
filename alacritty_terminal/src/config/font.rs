@@ -23,11 +23,15 @@ pub struct Font {
 
     /// Bold font face
     #[serde(deserialize_with = "failure_default")]
-    italic: SecondaryFontDescription,
+    bold: SecondaryFontDescription,
 
     /// Italic font face
     #[serde(deserialize_with = "failure_default")]
-    bold: SecondaryFontDescription,
+    italic: SecondaryFontDescription,
+
+    /// Bold italic font face
+    #[serde(deserialize_with = "failure_default")]
+    bold_italic: SecondaryFontDescription,
 
     /// Font size in points
     #[serde(deserialize_with = "DeserializeSize::deserialize")]
@@ -53,6 +57,7 @@ impl Default for Font {
             normal: Default::default(),
             bold: Default::default(),
             italic: Default::default(),
+            bold_italic: Default::default(),
             glyph_offset: Default::default(),
             offset: Default::default(),
             #[cfg(target_os = "macos")]
@@ -72,14 +77,19 @@ impl Font {
         &self.normal
     }
 
+    // Get bold font description
+    pub fn bold(&self) -> FontDescription {
+        self.bold.desc(&self.normal)
+    }
+
     // Get italic font description
     pub fn italic(&self) -> FontDescription {
         self.italic.desc(&self.normal)
     }
 
-    // Get bold font description
-    pub fn bold(&self) -> FontDescription {
-        self.bold.desc(&self.normal)
+    // Get bold italic font description
+    pub fn bold_italic(&self) -> FontDescription {
+        self.bold_italic.desc(&self.normal)
     }
 
     #[cfg(target_os = "macos")]
