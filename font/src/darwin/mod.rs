@@ -589,7 +589,7 @@ mod tests {
         for font in fonts {
             // Get a glyph
             for c in &['a', 'b', 'c', 'd'] {
-                let glyph = font.get_glyph(*c, 72., false).unwrap();
+                let glyph = font.get_glyph((*c).into(), 72., false).unwrap();
 
                 // Debug the glyph.. sigh
                 for row in 0..glyph.height {
