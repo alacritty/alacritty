@@ -18,7 +18,10 @@ use self::dwrote::{
     FontCollection, FontStretch, FontStyle, FontWeight, GlyphOffset, GlyphRunAnalysis,
 };
 
-use super::{FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, Size, Slant, Style, Weight, RasterizerConfig};
+use super::{
+    FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, RasterizerConfig, Size, Slant,
+    Style, Weight,
+};
 
 pub struct DirectWriteRasterizer {
     fonts: Vec<dwrote::FontFace>,
@@ -130,12 +133,12 @@ impl crate::Rasterize for DirectWriteRasterizer {
                     .first()
                     .ok_or_else(|| Error::MissingGlyph(c))?;
                 if index_u16 == 0 {
-                    // The DirectWrite documentation states that we should get 0 returned if the glyph
-                    // does not exist in the font
+                    // The DirectWrite documentation states that we should get 0 returned if the
+                    // glyph does not exist in the font
                     return Err(Error::MissingGlyph(c));
                 }
                 index_u16
-            }
+            },
         };
 
         let glyph_run = dwrote::DWRITE_GLYPH_RUN {

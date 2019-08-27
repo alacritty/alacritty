@@ -134,7 +134,7 @@ impl ::Rasterize for Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
             device_pixel_ratio,
-            config.use_thin_strokes(),
+            use_thin_strokes: config.use_thin_strokes(),
         })
     }
 
