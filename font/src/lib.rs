@@ -149,6 +149,15 @@ pub enum KeyType {
     Fallback(char),
 }
 
+impl KeyType {
+    fn unwrap_char(self) -> char {
+        match self {
+            KeyType::Fallback(c) => c,
+            KeyType::GlyphIndex(_) => panic!("Expected KeyType to contain char but was GlyphIndex"),
+        }
+    }
+}
+
 impl From<u32> for KeyType {
     fn from(val: u32) -> Self {
         KeyType::GlyphIndex(val)

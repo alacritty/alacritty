@@ -14,7 +14,7 @@ libc = "0.2"
 notify = "4"
 bitflags = "1"
 font = { path = "../font" }
-parking_lot = "0.7"
+parking_lot = "0.8"
 serde = "1"
 serde_derive = "1"
 serde_yaml = "0.8"
@@ -28,7 +28,7 @@ glutin = { version = "0.21.0", features = ["icon_loading"] }
 base64 = "0.10.0"
 static_assertions = "0.3.0"
 terminfo = "0.6.1"
-url = "1.7.1"
+url = "2"
 crossbeam-channel = "0.3.8"
 copypasta = { path = "../copypasta" }
 rfind_url = "0.4.0"
