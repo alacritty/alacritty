@@ -18,7 +18,7 @@ use self::dwrote::{
     FontCollection, FontStretch, FontStyle, FontWeight, GlyphOffset, GlyphRunAnalysis,
 };
 
-use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
+use super::{FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, Size, Slant, Style, Weight, RasterizerConfig};
 
 pub struct DirectWriteRasterizer {
     fonts: Vec<dwrote::FontFace>,
@@ -122,15 +122,21 @@ impl crate::Rasterize for DirectWriteRasterizer {
 
         let offset = GlyphOffset { advanceOffset: 0.0, ascenderOffset: 0.0 };
 
-        let glyph_index = *font
-            .get_glyph_indices(&[glyph.c as u32])
-            .first()
-            .ok_or_else(|| Error::MissingGlyph(glyph.c))?;
-        if glyph_index == 0 {
-            // The DirectWrite documentation states that we should get 0 returned if the glyph
-            // does not exist in the font
-            return Err(Error::MissingGlyph(glyph.c));
-        }
+        let glyph_index: u16 = match glyph.c {
+            KeyType::GlyphIndex(i) => i as u16,
+            KeyType::Fallback(c) => {
+                let index_u16 = *font
+                    .get_glyph_indices(&[c as u32])
+                    .first()
+                    .ok_or_else(|| Error::MissingGlyph(c))?;
+                if index_u16 == 0 {
+                    // The DirectWrite documentation states that we should get 0 returned if the glyph
+                    // does not exist in the font
+                    return Err(Error::MissingGlyph(c));
+                }
+                index_u16
+            }
+        };
 
         let glyph_run = dwrote::DWRITE_GLYPH_RUN {
             fontFace: unsafe { font.as_ptr() },
@@ -158,14 +164,15 @@ impl crate::Rasterize for DirectWriteRasterizer {
             0.0,
             0.0,
         )
-        .or_else(|_| Err(Error::MissingGlyph(glyph.c)))?;
+        // Since we don't shape on windows our KeyType will always be a char
+        .or_else(|_| Err(Error::MissingGlyph(glyph.c.unwrap_char())))?;
 
         let bounds = glyph_analysis
             .get_alpha_texture_bounds(dwrote::DWRITE_TEXTURE_CLEARTYPE_3x1)
-            .or_else(|_| Err(Error::MissingGlyph(glyph.c)))?;
+            .or_else(|_| Err(Error::MissingGlyph(glyph.c.unwrap_char())))?;
         let buf = glyph_analysis
             .create_alpha_texture(dwrote::DWRITE_TEXTURE_CLEARTYPE_3x1, bounds)
-            .or_else(|_| Err(Error::MissingGlyph(glyph.c)))?;
+            .or_else(|_| Err(Error::MissingGlyph(glyph.c.unwrap_char())))?;
 
         Ok(RasterizedGlyph {
             c: glyph.c,
