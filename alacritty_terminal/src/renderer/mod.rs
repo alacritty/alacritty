@@ -1088,8 +1088,8 @@ impl<'a> RenderApi<'a> {
                 // Get font key for cell
                 // FIXME this is super inefficient.
                 let font_key = match (
-                    cell.flags.contains(cell::Flags::BOLD),
-                    cell.flags.contains(cell::Flags::ITALIC),
+                    text_run.flags.contains(cell::Flags::BOLD),
+                    text_run.flags.contains(cell::Flags::ITALIC),
                 ) {
                     (false, false) => glyph_cache.font_key,
                     (true, false) => glyph_cache.bold_key,
