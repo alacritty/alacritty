@@ -134,7 +134,7 @@ impl ::Rasterize for Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
             device_pixel_ratio,
-            use_thin_strokes: config.use_thin_strokes(),
+            use_thin_strokes: config.use_thin_strokes,
         })
     }
 
@@ -456,10 +456,10 @@ impl Font {
     ) -> Result<RasterizedGlyph, Error> {
         let glyph_index = match key_type {
             KeyType::GlyphIndex(i) => Ok(i),
-            KeyType::Fallback(character) =>
-                self.glyph_index(character).ok_or_else(|| Error::MissingGlyph(key_type)),
+            KeyType::Fallback(character) => {
+                self.glyph_index(character).ok_or_else(|| Error::MissingGlyph(key_type))
+            },
         }?;
-            
 
         let bounds = self.bounding_rect_for_glyph(Default::default(), glyph_index);
 

@@ -150,6 +150,8 @@ pub enum KeyType {
 }
 
 impl KeyType {
+    // Only used in directwrite rasterizer
+    #[cfg(windows)]
     fn unwrap_char(self) -> char {
         match self {
             KeyType::Fallback(c) => c,
