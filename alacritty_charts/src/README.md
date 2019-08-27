@@ -1,3 +1,8 @@
+# Alacritty Charts
+loads data from Prometheus or internal counters and draws them on the terminal.
+
+## Example usage
+```rust
 //! Loads prometheus metrics every now and then and displays stats
 use alacritty_charts::async_utils;
 use env_logger::Env;
@@ -8,3 +13,4 @@ fn main() {
     async_utils::run(alacritty_charts::config::Config::load_config_file());
     println!("Exiting.");
 }
+```
