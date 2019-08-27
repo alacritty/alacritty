@@ -46,6 +46,7 @@ pub struct Font {
     use_thin_strokes: DefaultTrueBool,
 
     /// Toggles rendering of font ligatures
+    #[cfg(not(any(target_os ="macos", windows)))]
     #[serde(deserialize_with = "failure_default")]
     use_font_ligatures: DefaultTrueBool,
 }

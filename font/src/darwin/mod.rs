@@ -43,7 +43,7 @@ use core_text::font_descriptor::{CTFontDescriptor, CTFontOrientation};
 
 use euclid::{Point2D, Rect, Size2D};
 
-use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph};
+use super::{FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, RasterizerConfig};
 
 pub mod byte_order;
 use self::byte_order::extract_rgb;
@@ -92,7 +92,7 @@ pub struct Rasterizer {
 #[derive(Debug)]
 pub enum Error {
     /// Tried to rasterize a glyph but it was not available
-    MissingGlyph(char),
+    MissingGlyph(KeyType),
 
     /// Couldn't find font matching description
     MissingFont(FontDesc),
@@ -134,7 +134,7 @@ impl ::Rasterize for Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
             device_pixel_ratio,
-            config.use_thin_strokes(),
+            use_thin_strokes: config.use_thin_strokes,
         })
     }
 
@@ -446,12 +446,16 @@ impl Font {
 
     pub fn get_glyph(
         &self,
-        character: char,
+        key_type: KeyType,
         _size: f64,
         use_thin_strokes: bool,
     ) -> Result<RasterizedGlyph, Error> {
-        let glyph_index =
-            self.glyph_index(character).ok_or_else(|| Error::MissingGlyph(character))?;
+        let glyph_index = match key_type {
+            KeyType::GlyphIndex(i) => Ok(i),
+            KeyType::Fallback(character) =>
+                self.glyph_index(character).ok_or_else(|| Error::MissingGlyph(key_type)),
+        }?;
+            
 
         let bounds = self.bounding_rect_for_glyph(Default::default(), glyph_index);
 
@@ -464,7 +468,7 @@ impl Font {
 
         if rasterized_width == 0 || rasterized_height == 0 {
             return Ok(RasterizedGlyph {
-                c: ' ',
+                c: ' '.into(),
                 width: 0,
                 height: 0,
                 top: 0,
@@ -521,7 +525,7 @@ impl Font {
         let buf = extract_rgb(&rasterized_pixels);
 
         Ok(RasterizedGlyph {
-            c: character,
+            c: key_type,
             left: rasterized_left,
             top: (bounds.size.height + bounds.origin.y).ceil() as i32,
             width: rasterized_width as i32,
