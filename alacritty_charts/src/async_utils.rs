@@ -29,7 +29,21 @@ pub enum AsyncChartTask {
     SendMetricsOpenGLData(usize, usize, oneshot::Sender<Vec<f32>>),
     SendDecorationsOpenGLData(usize, usize, oneshot::Sender<Vec<f32>>),
     ChangeDisplaySize(f32, f32, f32, f32, oneshot::Sender<bool>),
+    SendLastUpdatedEpoch(oneshot::Sender<u64>),
     // Maybe add CloudWatch/etc
+}
+
+/// `send_last_updated_epoch` returns the max of all the charts in an array
+pub fn send_last_updated_epoch(charts: &[TimeSeriesChart], channel: oneshot::Sender<u64>) {
+    match channel.send(charts.iter().map(|x| x.last_updated).max().unwrap_or_else(|| 0u64)) {
+        Ok(()) => {
+            debug!(
+                "send_last_updated_epoch: oneshot::message sent with payload {}",
+                charts.iter().map(|x| x.last_updated).max().unwrap_or_else(|| 0u64)
+            );
+        },
+        Err(err) => error!("send_last_updated_epoch: Error sending: {:?}", err),
+    };
 }
 
 /// `load_http_response` is called by async_coordinator when a task of type
@@ -88,7 +102,7 @@ pub fn send_metrics_opengl_vecs(
         if chart_index >= charts.len() || data_index >= charts[chart_index].opengl_vecs.len() {
             vec![]
         } else {
-            charts[chart_index].opengl_vecs[data_index].clone()
+            charts[chart_index].get_deduped_opengl_vecs(data_index)
         },
     ) {
         Ok(()) => {
@@ -210,6 +224,9 @@ pub fn async_coordinator(
                     padding_x,
                     channel,
                 );
+            },
+            AsyncChartTask::SendLastUpdatedEpoch(channel) => {
+                send_last_updated_epoch(&charts, channel);
             },
         };
         Ok(())
