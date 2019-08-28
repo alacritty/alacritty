@@ -27,11 +27,9 @@ use crate::term::color::Rgb;
 // Parse colors in XParseColor format
 fn xparse_color(color: &[u8]) -> Option<Rgb> {
     if !color.is_empty() && color[0] == b'#' {
-        let len = color.len().saturating_sub(1);
-        parse_legacy_color(&color[1..len])
+        parse_legacy_color(&color[1..])
     } else if color.len() >= 4 && &color[..4] == b"rgb:" {
-        let len = color.len().saturating_sub(1);
-        parse_rgb_color(&color[4..len])
+        parse_rgb_color(&color[4..])
     } else {
         None
     }
@@ -1613,30 +1611,30 @@ mod tests {
 
     #[test]
     fn parse_valid_rgb_colors() {
-        assert_eq!(xparse_color(b"rgb:f/e/d\x07"), Some(Rgb { r: 0xff, g: 0xee, b: 0xdd }));
-        assert_eq!(xparse_color(b"rgb:11/aa/ff\x07"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
-        assert_eq!(xparse_color(b"rgb:f/ed1/cb23\x07"), Some(Rgb { r: 0xff, g: 0xec, b: 0xca }));
-        assert_eq!(xparse_color(b"rgb:ffff/0/0\x07"), Some(Rgb { r: 0xff, g: 0x0, b: 0x0 }));
+        assert_eq!(xparse_color(b"rgb:f/e/d"), Some(Rgb { r: 0xff, g: 0xee, b: 0xdd }));
+        assert_eq!(xparse_color(b"rgb:11/aa/ff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+        assert_eq!(xparse_color(b"rgb:f/ed1/cb23"), Some(Rgb { r: 0xff, g: 0xec, b: 0xca }));
+        assert_eq!(xparse_color(b"rgb:ffff/0/0"), Some(Rgb { r: 0xff, g: 0x0, b: 0x0 }));
     }
 
     #[test]
     fn parse_valid_legacy_rgb_colors() {
-        assert_eq!(xparse_color(b"#1af\x07"), Some(Rgb { r: 0x10, g: 0xa0, b: 0xf0 }));
-        assert_eq!(xparse_color(b"#11aaff\x07"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
-        assert_eq!(xparse_color(b"#110aa0ff0\x07"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
-        assert_eq!(xparse_color(b"#1100aa00ff00\x07"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+        assert_eq!(xparse_color(b"#1af"), Some(Rgb { r: 0x10, g: 0xa0, b: 0xf0 }));
+        assert_eq!(xparse_color(b"#11aaff"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+        assert_eq!(xparse_color(b"#110aa0ff0"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
+        assert_eq!(xparse_color(b"#1100aa00ff00"), Some(Rgb { r: 0x11, g: 0xaa, b: 0xff }));
     }
 
     #[test]
     fn parse_invalid_rgb_colors() {
-        assert_eq!(xparse_color(b"rgb:0//\x07"), None);
-        assert_eq!(xparse_color(b"rgb://///\x07"), None);
+        assert_eq!(xparse_color(b"rgb:0//"), None);
+        assert_eq!(xparse_color(b"rgb://///"), None);
     }
 
     #[test]
     fn parse_invalid_legacy_rgb_colors() {
-        assert_eq!(xparse_color(b"#\x07"), None);
-        assert_eq!(xparse_color(b"#f\x07"), None);
+        assert_eq!(xparse_color(b"#"), None);
+        assert_eq!(xparse_color(b"#f"), None);
     }
 
     #[test]
