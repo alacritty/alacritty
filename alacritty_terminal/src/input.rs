@@ -119,8 +119,8 @@ impl Modifiers {
     }
 }
 
-impl From<Modifiers> for ModifiersState {
-    fn from(mods: Modifiers) -> ModifiersState {
+impl From<&mut Modifiers> for ModifiersState {
+    fn from(mods: &mut Modifiers) -> ModifiersState {
         ModifiersState { shift: mods.shift(), ..mods.mods }
     }
 }
@@ -432,7 +432,7 @@ pub enum MouseState {
 }
 
 impl<'a, A: ActionContext + 'a> Processor<'a, A> {
-    fn mouse_state(&mut self, point: Point) -> MouseState {
+    fn mouse_state(&mut self, point: Point, mods: ModifiersState) -> MouseState {
         let mouse_mode =
             TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG | TermMode::MOUSE_REPORT_CLICK;
 
@@ -446,9 +446,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         }
 
         // Check for URL at point with required modifiers held
-        let mods = *self.ctx.modifiers();
-        if self.mouse_config.url.mods().relaxed_eq(mods.into())
-            && (!self.ctx.terminal().mode().intersects(mouse_mode) || mods.shift())
+        if self.mouse_config.url.mods().relaxed_eq(mods)
+            && (!self.ctx.terminal().mode().intersects(mouse_mode) || mods.shift)
             && self.mouse_config.url.launcher.is_some()
         {
             let buffer_point = self.ctx.terminal().visible_to_buffer(point);
@@ -493,7 +492,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         // Don't launch URLs if mouse has moved
         self.ctx.mouse_mut().block_url_launcher = true;
 
-        let mouse_state = self.mouse_state(point);
+        let mouse_state = self.mouse_state(point, modifiers);
         self.update_mouse_cursor(mouse_state);
         match mouse_state {
             MouseState::Url(url) => {
@@ -821,7 +820,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         if let Some(message) = self.message_at_point(point) {
             // Message should never be `Some` if point is `None`
             debug_assert!(point.is_some());
-            self.on_message_bar_click(state, point.unwrap(), message);
+            self.on_message_bar_click(state, point.unwrap(), message, modifiers);
         } else {
             match state {
                 ElementState::Pressed => {
@@ -844,7 +843,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             || input.virtual_keycode == Some(VirtualKeyCode::RShift)
         {
             if let Some(point) = self.ctx.mouse_coords() {
-                let mouse_state = self.mouse_state(point);
+                let mods = self.ctx.modifiers().into();
+                let mouse_state = self.mouse_state(point, mods);
                 self.update_mouse_cursor(mouse_state);
             }
         }
@@ -979,12 +979,18 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     }
 
     /// Handle clicks on the message bar.
-    fn on_message_bar_click(&mut self, button_state: ElementState, point: Point, message: Message) {
+    fn on_message_bar_click(
+        &mut self,
+        button_state: ElementState,
+        point: Point,
+        message: Message,
+        mods: ModifiersState,
+    ) {
         match button_state {
             ElementState::Released => self.copy_selection(),
             ElementState::Pressed => {
                 if self.message_close_at_point(point, message) {
-                    let mouse_state = self.mouse_state(point);
+                    let mouse_state = self.mouse_state(point, mods);
                     self.update_mouse_cursor(mouse_state);
                     self.ctx.terminal_mut().message_buffer_mut().pop();
                 }
