@@ -16,12 +16,12 @@
 // -- Logging
 // IN PROGRESS:
 // -- Group labels into separate colors (find something that does color spacing in rust)
+// -- The first draw has data, but hasn't pulled from Prometheus yet... It must be invalidated.
 // TODO:
 // -- The dashboards should be toggable, some key combination
 // -- When activated on toggle it could blur a portion of the screen
 // -- mock the prometheus server and response
 // -- We should re-use the circular_push for the opengl_vec
-// -- The first draw is fine, the second draw resets the data strangely.
 
 extern crate log;
 #[macro_use]
@@ -400,7 +400,7 @@ impl Decoration {
     /// the decoration and the data itself would overlap, these are pixels
     fn width(&self) -> f32 {
         match self {
-            Decoration::Reference(d) => d.padding.x,
+            Decoration::Reference(d) => d.padding.x * 2., // it needs space left and right
             Decoration::None => 0f32,
         }
     }
@@ -631,10 +631,6 @@ pub struct TimeSeriesChart {
     #[serde(default)]
     pub height: f32,
 
-    /// The spacing between the activity line segments, could be renamed to line length
-    #[serde(default)]
-    pub tick_spacing: f32,
-
     /// The opengl representation of the each series.
     #[serde(default)]
     pub opengl_vecs: Vec<Vec<f32>>,
@@ -774,6 +770,42 @@ impl TimeSeriesChart {
         self.stats.is_dirty = false;
         debug!("Chart: Updated statistics to: {:?}, filled_stats: {:?}", self.stats, filled_stats);
     }
+
+    /// `get_deduped_opengl_vecs` returns a minimized version of the opengl_vecs, when the metric
+    /// doesn't change it doesn't create a new opengl vertex but rather tries to create a wider
+    /// line
+    pub fn get_deduped_opengl_vecs(&self, idx: usize) -> Vec<f32> {
+        if self.opengl_vecs[idx].len() <= 4 {
+            return self.opengl_vecs[idx].clone();
+        }
+        let mut res = Vec::with_capacity(self.opengl_vecs[idx].capacity());
+        // Grab the first reference point
+        let mut cur_x = self.opengl_vecs[idx][0];
+        let mut cur_y = self.opengl_vecs[idx][1];
+        res.push(cur_x);
+        res.push(cur_y);
+        for (idx, vertex) in self.opengl_vecs[idx].iter().enumerate() {
+            if idx % 2 == 1 {
+                // This is a Y value
+                // Let's allow this much difference and consider them equal
+                if (cur_y - *vertex).abs() > 0.001 {
+                    // This means the metric has changed, so let's push the value and reset
+                    res.push(cur_x);
+                    res.push(cur_y);
+                    cur_y = *vertex;
+                }
+            } else {
+                cur_x = *vertex;
+            }
+        }
+        if res.len() == 2 {
+            // If there are only two items, we should append the last read
+            // X, Y
+            res.push(cur_x);
+            res.push(cur_y);
+        }
+        res
+    }
 }
 
 impl Default for TimeSeries {
@@ -830,8 +862,16 @@ impl TimeSeries {
         let mut min_activity_value = std::f64::MAX;
         let mut sum_activity_values = 0f64;
         let mut filled_metrics = 0usize;
+        // XXX What is it the vec is empty? what should `first` and `last` be?
+        let mut first = 0.;
+        let mut last = 0.;
+        let mut is_first_filled = false;
         for entry in self.iter() {
             if let Some(metric) = entry.1 {
+                if !is_first_filled {
+                    is_first_filled = true;
+                    first = metric;
+                }
                 if metric > max_activity_value {
                     max_activity_value = metric;
                 }
@@ -840,12 +880,16 @@ impl TimeSeries {
                 }
                 sum_activity_values += metric;
                 filled_metrics += 1;
+                last = metric;
             }
         }
         self.stats.max = max_activity_value;
         self.stats.min = min_activity_value;
         self.stats.sum = sum_activity_values;
         self.stats.avg = sum_activity_values / (filled_metrics as f64);
+        self.stats.count = filled_metrics;
+        self.stats.first = first;
+        self.stats.last = last;
         self.stats.is_dirty = false;
     }
 
@@ -1187,6 +1231,50 @@ mod tests {
         assert_eq!(test_avg.get_missing_values_fill(), 5f64);
         // TODO: add Fixed value test
     }
+
+    #[test]
+    fn it_gets_deduped_opengl_vecs() {
+        let size_test = SizeInfo {
+            padding_x: 0.,
+            padding_y: 0.,
+            height: 200., // Display Height: 200px test
+            width: 200.,  // Display Width: 200px test
+            ..SizeInfo::default()
+        };
+        let mut all_dups = TimeSeriesChart::default();
+        all_dups.sources.push(TimeSeriesSource::default());
+        all_dups.width = 10.;
+        all_dups.height = 10.;
+        // Test with 10 items only
+        // So that every item takes 0.01
+        all_dups.sources[0].series_mut().metrics_capacity = 10;
+        all_dups.sources[0].series_mut().circular_push((10, Some(5f64)));
+        all_dups.sources[0].series_mut().circular_push((11, Some(5f64)));
+        all_dups.sources[0].series_mut().circular_push((12, Some(5f64)));
+        all_dups.sources[0].series_mut().circular_push((13, Some(5f64)));
+        all_dups.sources[0].series_mut().circular_push((14, Some(5f64)));
+        all_dups.sources[0].series_mut().circular_push((15, Some(5f64)));
+        all_dups.update_series_opengl_vecs(0, size_test);
+        // we expect a line from X -1.0 to X: -0.95
+        assert_eq!(all_dups.get_deduped_opengl_vecs(0).len(), 4);
+        let mut no_dups = TimeSeriesChart::default();
+        no_dups.sources.push(TimeSeriesSource::default());
+        no_dups.width = 10.;
+        no_dups.height = 10.;
+        // Test with 10 items only
+        // So that every item takes 0.01
+        no_dups.sources[0].series_mut().metrics_capacity = 10;
+        no_dups.sources[0].series_mut().circular_push((10, Some(5f64)));
+        no_dups.sources[0].series_mut().circular_push((11, Some(6f64)));
+        no_dups.sources[0].series_mut().circular_push((12, Some(7f64)));
+        no_dups.sources[0].series_mut().circular_push((13, Some(8f64)));
+        no_dups.sources[0].series_mut().circular_push((14, Some(5f64)));
+        no_dups.sources[0].series_mut().circular_push((15, Some(6f64)));
+        no_dups.update_series_opengl_vecs(0, size_test);
+        // we expect a line from X -1.0 to X: -0.95
+        assert_eq!(no_dups.get_deduped_opengl_vecs(0).len(), 12usize);
+    }
+
     #[test]
     fn it_iterates_trait() {
         // Iterator Trait
@@ -1353,6 +1441,7 @@ mod tests {
 
     #[test]
     fn it_updates_opengl_vertices() {
+        init_log();
         let (size_test, mut chart_test) = simple_chart_setup_with_none();
         chart_test.update_series_opengl_vecs(0, size_test);
         assert_eq!(chart_test.opengl_vecs[0], vec![
@@ -1367,6 +1456,65 @@ mod tests {
             -0.96,  // leftmost plus 0.01 * 4, rightmost
             -0.9    // Top-most value, so the chart height
         ]);
+        let mut prom_test = TimeSeriesChart::default();
+        // Let's add a reference point
+        // XXX: How does this behave without a reference point?
+        prom_test.decorations.push(Decoration::Reference(ReferencePointDecoration::default()));
+        prom_test.sources.push(TimeSeriesSource::default());
+        prom_test.width = 12.;
+        prom_test.height = 10.;
+        prom_test.sources[0].series_mut().metrics_capacity = 24;
+        prom_test.sources[0].series_mut().circular_push((1566918913, Some(4.5)));
+        prom_test.sources[0].series_mut().circular_push((1566918914, Some(4.5)));
+        prom_test.sources[0].series_mut().circular_push((1566918915, Some(4.5)));
+        prom_test.sources[0].series_mut().circular_push((1566918916, Some(4.5)));
+        prom_test.sources[0].series_mut().circular_push((1566918917, Some(4.5)));
+        prom_test.sources[0].series_mut().circular_push((1566918918, Some(4.5)));
+        prom_test.sources[0].series_mut().circular_push((1566918919, Some(4.25)));
+        prom_test.sources[0].series_mut().circular_push((1566918920, Some(4.25)));
+        prom_test.sources[0].series_mut().circular_push((1566918921, Some(4.25)));
+        prom_test.sources[0].series_mut().circular_push((1566918922, Some(4.25)));
+        prom_test.sources[0].series_mut().circular_push((1566918923, Some(4.25)));
+        prom_test.sources[0].series_mut().circular_push((1566918924, Some(4.25)));
+        prom_test.sources[0].series_mut().circular_push((1566918925, Some(4.)));
+        prom_test.sources[0].series_mut().circular_push((1566918926, Some(4.)));
+        prom_test.sources[0].series_mut().circular_push((1566918927, Some(4.)));
+        prom_test.sources[0].series_mut().circular_push((1566918928, Some(4.)));
+        prom_test.sources[0].series_mut().circular_push((1566918929, Some(4.)));
+        prom_test.sources[0].series_mut().circular_push((1566918930, Some(4.)));
+        prom_test.sources[0].series_mut().circular_push((1566918931, Some(4.75)));
+        prom_test.sources[0].series_mut().circular_push((1566918932, Some(4.75)));
+        prom_test.sources[0].series_mut().circular_push((1566918933, Some(4.75)));
+        prom_test.sources[0].series_mut().circular_push((1566918934, Some(4.75)));
+        prom_test.sources[0].series_mut().circular_push((1566918935, Some(4.75)));
+        prom_test.sources[0].series_mut().circular_push((1566918936, Some(4.75)));
+        prom_test.update_all_series_opengl_vecs(size_test);
+        // We expect to see something like this for dedupped vertices:
+        // |              xxxx  |   -     metric value: 4.75
+        // |  xxxx              |   |                   4.5
+        // |      xxxx          |   |                   4.25
+        // |          xxxx      |   |                   4.
+        // |                    |   |
+        // |                    |   10px
+        // |                    |   |
+        // |                    |   |
+        // |                    |   |
+        // | __________________ |   |  <- reference point, metric value 1.0
+        // |                    |   -
+        //
+        // |------- 12px -------|
+        // - The middle of the drawing board, 0,0 is X=100 and Y=100 in pixels
+        let deduped_opengl_vecs = prom_test.get_deduped_opengl_vecs(0);
+        assert_eq!(deduped_opengl_vecs.len(), 8);
+
+        // 
+        // - The reference point takes 1px width, so draw space for metrics is 10px.
+        assert_eq!(prom_test.decorations[0].width(), 2.);
+
+        // 
+        // - The first metric would be at -1.0 plus the width of the reference point
+        assert_eq!(true, (deduped_opengl_vecs[0] - -0.99).abs() < 0.001); // first X value, leftmost.
+        assert_eq!(true, (deduped_opengl_vecs[6] - -0.90).abs() < 0.0001); // last X value, rightmost.
     }
 
     #[test]
