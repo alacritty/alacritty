@@ -520,9 +520,110 @@ mod tests {
         let res1_json = parse_json(&test1_json);
         assert_eq!(res1_json.is_some(), true);
         let res1_load = test0.load_prometheus_response(res1_json.unwrap());
-        // 1 items should have been loaded
+        // 0 items should have been loaded, missing metric after epoch.
         assert_eq!(res1_load, Ok(0usize));
     }
+
+    #[test]
+    fn it_calculates_stats() {
+        let metric_labels = HashMap::new();
+        let test0_res: Result<PrometheusTimeSeries, String> = PrometheusTimeSeries::new(
+            String::from("http://localhost:9090/api/v1/query?query=up"),
+            15,
+            String::from("vector"),
+            metric_labels.clone(),
+        );
+        assert_eq!(test0_res.is_ok(), true);
+        let mut test0 = test0_res.unwrap();
+        let test1_json = hyper::Chunk::from(
+            r#"
+            {
+              "status": "success",
+              "data": {
+                "resultType": "matrix",
+                "result": [
+                  {
+                    "metric": {
+                      "__name__": "node_load1",
+                      "instance": "localhost:9100",
+                      "job": "node_exporter"
+                    },
+                    "values": [
+                      [1566918913,"4.5"],
+                      [1566918914,"4.5"],
+                      [1566918915,"4.5"],
+                      [1566918916,"4.5"],
+                      [1566918917,"4.5"],
+                      [1566918918,"4.5"],
+                      [1566918919,"4.25"],
+                      [1566918920,"4.25"],
+                      [1566918921,"4.25"],
+                      [1566918922,"4.25"],
+                      [1566918923,"4.25"],
+                      [1566918924,"4.25"],
+                      [1566918925,"4"],
+                      [1566918926,"4"],
+                      [1566918927,"4"],
+                      [1566918928,"4"],
+                      [1566918929,"4"],
+                      [1566918930,"4"],
+                      [1566918931,"4.75"],
+                      [1566918932,"4.75"],
+                      [1566918933,"4.75"],
+                      [1566918934,"4.75"],
+                      [1566918935,"4.75"],
+                      [1566918936,"4.75"]
+                    ]
+                  }
+                ]
+              }
+            }"#,
+        );
+        let res1_json = parse_json(&test1_json);
+        assert_eq!(res1_json.is_some(), true);
+        let res1_load = test0.load_prometheus_response(res1_json.unwrap());
+        // 1 items should have been loaded
+        assert_eq!(res1_load, Ok(24usize));
+        assert_eq!(test0.series.as_vec(), vec![
+            (1566918913, Some(4.5)),
+            (1566918914, Some(4.5)),
+            (1566918915, Some(4.5)),
+            (1566918916, Some(4.5)),
+            (1566918917, Some(4.5)),
+            (1566918918, Some(4.5)),
+            (1566918919, Some(4.25)),
+            (1566918920, Some(4.25)),
+            (1566918921, Some(4.25)),
+            (1566918922, Some(4.25)),
+            (1566918923, Some(4.25)),
+            (1566918924, Some(4.25)),
+            (1566918925, Some(4.)),
+            (1566918926, Some(4.)),
+            (1566918927, Some(4.)),
+            (1566918928, Some(4.)),
+            (1566918929, Some(4.)),
+            (1566918930, Some(4.)),
+            (1566918931, Some(4.75)),
+            (1566918932, Some(4.75)),
+            (1566918933, Some(4.75)),
+            (1566918934, Some(4.75)),
+            (1566918935, Some(4.75)),
+            (1566918936, Some(4.75))
+        ]);
+        test0.series.calculate_stats();
+        let test0_sum = 4.5 * 6. + 4.25 * 6. + 4. * 6. + 4.75 * 6.;
+        assert_eq!(test0.series.stats, crate::TimeSeriesStats {
+            first: 4.5,
+            last: 4.75,
+            count: 24,
+            is_dirty: false,
+            max: 4.75,
+            min: 4.,
+            sum: test0_sum,
+            avg: test0_sum / 24.,
+        });
+    }
+
     #[test]
     fn it_loads_prometheus_vector() {
         let mut metric_labels = HashMap::new();
