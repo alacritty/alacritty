@@ -17,10 +17,7 @@ use std::ffi::c_void;
 
 use copypasta::nop_clipboard::NopClipboardContext;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-use copypasta::wayland_clipboard::{
-    Clipboard as WaylandClipboardClipboard, Primary as WaylandPrimaryClipboard,
-    WaylandClipboardContext,
-};
+use copypasta::wayland_clipboard;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use copypasta::x11_clipboard::{Primary as X11SelectionClipboard, X11ClipboardContext};
 use copypasta::{ClipboardContext, ClipboardProvider};
@@ -39,22 +36,9 @@ impl Clipboard {
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     pub fn new(display: Option<*mut c_void>) -> Self {
         if let Some(display) = display {
-            return Self {
-                clipboard: unsafe {
-                    Box::new(
-                        WaylandClipboardContext::<WaylandClipboardClipboard>::new_from_external(
-                            display,
-                        ),
-                    )
-                },
-                selection: unsafe {
-                    Some(Box::new(
-                        WaylandClipboardContext::<WaylandPrimaryClipboard>::new_from_external(
-                            display,
-                        ),
-                    ))
-                },
-            };
+            let (selection, clipboard) =
+                unsafe { wayland_clipboard::create_clipboards_from_external(display) };
+            return Self { clipboard: Box::new(clipboard), selection: Some(Box::new(selection)) };
         }
 
         Self {

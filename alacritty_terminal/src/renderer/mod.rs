@@ -164,11 +164,14 @@ pub struct GlyphCache {
     /// regular font
     font_key: FontKey,
 
+    /// bold font
+    bold_key: FontKey,
+
     /// italic font
     italic_key: FontKey,
 
-    /// bold font
-    bold_key: FontKey,
+    /// bold italic font
+    bold_italic_key: FontKey,
 
     /// font size
     font_size: font::Size,
@@ -188,7 +191,7 @@ impl GlyphCache {
     where
         L: LoadGlyph,
     {
-        let (regular, bold, italic) = Self::compute_font_keys(font, &mut rasterizer)?;
+        let (regular, bold, italic, bold_italic) = Self::compute_font_keys(font, &mut rasterizer)?;
 
         // Need to load at least one glyph for the face before calling metrics.
         // The glyph requested here ('m' at the time of writing) has no special
@@ -205,6 +208,7 @@ impl GlyphCache {
             font_key: regular,
             bold_key: bold,
             italic_key: italic,
+            bold_italic_key: bold_italic,
             glyph_offset: font.glyph_offset,
             metrics,
         };
@@ -212,6 +216,7 @@ impl GlyphCache {
         cache.load_glyphs_for_font(regular, loader);
         cache.load_glyphs_for_font(bold, loader);
         cache.load_glyphs_for_font(italic, loader);
+        cache.load_glyphs_for_font(bold_italic, loader);
 
         Ok(cache)
     }
@@ -223,11 +228,11 @@ impl GlyphCache {
         }
     }
 
-    /// Computes font keys for (Regular, Bold, Italic)
+    /// Computes font keys for (Regular, Bold, Italic, Bold Italic)
     fn compute_font_keys(
         font: &config::Font,
         rasterizer: &mut Rasterizer,
-    ) -> Result<(FontKey, FontKey, FontKey), font::Error> {
+    ) -> Result<(FontKey, FontKey, FontKey, FontKey), font::Error> {
         let size = font.size;
 
         // Load regular font
@@ -256,7 +261,13 @@ impl GlyphCache {
 
         let italic = load_or_regular(italic_desc);
 
-        Ok((regular, bold, italic))
+        // Load bold italic font
+        let bold_italic_desc =
+            Self::make_desc(&font.bold_italic(), font::Slant::Italic, font::Weight::Bold);
+
+        let bold_italic = load_or_regular(bold_italic_desc);
+
+        Ok((regular, bold, italic, bold_italic))
     }
 
     fn make_desc(
@@ -314,7 +325,8 @@ impl GlyphCache {
 
         // Recompute font keys
         let font = font.to_owned().with_size(size);
-        let (regular, bold, italic) = Self::compute_font_keys(&font, &mut self.rasterizer)?;
+        let (regular, bold, italic, bold_italic) =
+            Self::compute_font_keys(&font, &mut self.rasterizer)?;
 
         self.rasterizer.get_glyph(GlyphKey { font_key: regular, c: 'm', size: font.size })?;
         let metrics = self.rasterizer.metrics(regular, size)?;
@@ -325,11 +337,13 @@ impl GlyphCache {
         self.font_key = regular;
         self.bold_key = bold;
         self.italic_key = italic;
+        self.bold_italic_key = bold_italic;
         self.metrics = metrics;
 
         self.load_glyphs_for_font(regular, loader);
         self.load_glyphs_for_font(bold, loader);
         self.load_glyphs_for_font(italic, loader);
+        self.load_glyphs_for_font(bold_italic, loader);
 
         Ok(())
     }
@@ -1013,12 +1027,14 @@ impl<'a> RenderApi<'a> {
 
         // Get font key for cell
         // FIXME this is super inefficient.
-        let font_key = if cell.flags.contains(cell::Flags::BOLD) {
-            glyph_cache.bold_key
-        } else if cell.flags.contains(cell::Flags::ITALIC) {
-            glyph_cache.italic_key
-        } else {
-            glyph_cache.font_key
+        let font_key = match (
+            cell.flags.contains(cell::Flags::BOLD),
+            cell.flags.contains(cell::Flags::ITALIC),
+        ) {
+            (false, false) => glyph_cache.font_key,
+            (true, false) => glyph_cache.bold_key,
+            (false, true) => glyph_cache.italic_key,
+            (true, true) => glyph_cache.bold_italic_key,
         };
 
         // Don't render text of HIDDEN cells
