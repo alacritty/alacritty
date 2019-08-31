@@ -115,11 +115,11 @@ impl Search for Term {
         let mut end: Point<usize> = point;
 
         while self.grid[start.line + 1][self.grid.num_cols() - 1].flags.contains(cell::Flags::WRAPLINE) {
-            start.line = start.line + 1;
+            start.line += 1;
         }
 
         while self.grid[end.line][self.grid.num_cols() - 1].flags.contains(cell::Flags::WRAPLINE) {
-            end.line = end.line - 1;
+            end.line -= 1;
         }
 
         Span { start: start, end: end, is_block: false }

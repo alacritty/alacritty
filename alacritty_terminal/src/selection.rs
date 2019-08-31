@@ -274,23 +274,29 @@ impl Selection {
     where
         T: Search + Dimensions,
     {
-        start = term.search_wrapline(start.into()).start.into();
-        if start.line < end.line {
-            start.col = term.dimensions().col;
-            start.line = start.line + 1;
+        let start_span: Span = term.search_wrapline(start.into());
+        let end_span: Span = term.search_wrapline(end.into());
+
+        if start_span.end.line == end_span.end.line {
+            start = start_span.start.into();
+            end = end_span.end.into();
+            start.line += 1;
+        } else if start_span.start.line > end_span.end.line {
+            start = start_span.start.into();
+            end = end_span.end.into();
+            end.line -= 1;
         } else {
-            start.col = Column(0);
+            start = start_span.end.into();
+            end = end_span.start.into();
+            end.line += 1;
         }
 
-        end = term.search_wrapline(end.into()).end.into();
-        if start.line > end.line {
-            end.col = term.dimensions().col;
-        } else {
-            end.col = Column(0);
-            end.line = end.line - 1;
-        }
+        start.col = term.dimensions().col;
+        end.col = term.dimensions().col;
 
-        Some(Span { start: start.into(), end: end.into(), is_block: false })
+        let (start, end) = (start.into(), end.into());
+
+        Some(Span { start, end, is_block: false })
     }
 
     fn span_simple<T>(
