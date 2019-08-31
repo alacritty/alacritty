@@ -1511,10 +1511,14 @@ mod tests {
         // - The reference point takes 1px width, so draw space for metrics is 10px.
         assert_eq!(prom_test.decorations[0].width(), 2.);
 
-        // 
+        let tick_space = 0.10f32 / 24f32;
+        // The draw space horizontally is 0.10. from 0.99 to 0.90
+        //
         // - The first metric would be at -1.0 plus the width of the reference point
-        assert_eq!(true, (deduped_opengl_vecs[0] - -0.99).abs() < 0.001); // first X value, leftmost.
-        assert_eq!(true, (deduped_opengl_vecs[6] - -0.90).abs() < 0.0001); // last X value, rightmost.
+        assert!((deduped_opengl_vecs[0] - -0.99f32).abs() < 0.001f32); // first X value, leftmost.
+        assert!((deduped_opengl_vecs[2] - (-0.99f32 + 6f32 * tick_space)).abs() < 0.001f32); // second X value, 6th item in our metricsc array
+        assert!((deduped_opengl_vecs[4] - (-0.99f32 + 12f32 * tick_space)).abs() < 0.001f32); // third X value, 13th item in our metricsc array
+        assert!((deduped_opengl_vecs[6] - (-0.99f32 + 18f32 * tick_space)).abs() < 0.001f32); // last X value, rightmost.
     }
 
     #[test]
