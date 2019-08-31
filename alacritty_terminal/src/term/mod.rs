@@ -2270,10 +2270,6 @@ mod tests {
         }
     }
 
-    /// Test selection across lines
-    ///
-    ///
-    /// 1.  [a  ][a" ][a  ][a  ][a" ]
     #[test]
     fn line_selection_works() {
         let size = SizeInfo {
