@@ -274,20 +274,13 @@ impl Selection {
     where
         T: Search + Dimensions,
     {
-        let start_span: Span = term.search_wrapline(start.into());
-        let end_span: Span = term.search_wrapline(end.into());
-
-        if start_span.end.line == end_span.end.line {
-            start = start_span.start.into();
-            end = end_span.end.into();
+        if start.line > end.line {
+            start = term.search_wrapline_left(start.into()).into();
+            end = term.search_wrapline_right(end.into()).into();
             start.line += 1;
-        } else if start_span.start.line > end_span.end.line {
-            start = start_span.start.into();
-            end = end_span.end.into();
-            end.line -= 1;
         } else {
-            start = start_span.end.into();
-            end = end_span.start.into();
+            start = term.search_wrapline_right(start.into()).into();
+            end = term.search_wrapline_left(end.into()).into();
             end.line += 1;
         }
 
