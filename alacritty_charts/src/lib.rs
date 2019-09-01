@@ -593,9 +593,11 @@ impl SizeInfo {
     /// the `display_height` parameter (bottom), i.e. 768px.
     pub fn scale_y(&self, max_value: f64, input_value: f64) -> f32 {
         let center_y = self.height / 2.;
-        let y = self.height
-            - 2. * self.padding_y
-            - (self.chart_height * (input_value as f32 / max_value as f32));
+        // From the bottom of the chart, what is the position of the input_value:
+        // max_value    = input_value
+        // chart_height   x
+        let y_metric_value = (input_value as f32 * self.chart_height) / max_value as f32;
+        let y = self.height - 2. * self.padding_y - y_metric_value;
         -(y - center_y) / center_y
     }
 }
@@ -784,21 +786,33 @@ impl TimeSeriesChart {
         let mut cur_y = self.opengl_vecs[idx][1];
         res.push(cur_x);
         res.push(cur_y);
+        // Avoid adding the last item twice:
+        let mut last_item_added = false;
         for (idx, vertex) in self.opengl_vecs[idx].iter().enumerate() {
             if idx % 2 == 1 {
                 // This is a Y value
                 // Let's allow this much difference and consider them equal
                 if (cur_y - *vertex).abs() > 0.001 {
-                    // This means the metric has changed, so let's push the value and reset
+                    // This means the metric has changed, so let's push old X,Y (old value)
+                    // unless it happens to have been the last instered item
+                    if !last_item_added {
+                        res.push(cur_x);
+                        res.push(cur_y);
+                    }
+                    // Add a point to the new value
                     res.push(cur_x);
-                    res.push(cur_y);
+                    res.push(*vertex);
+                    // And now reset the current y value:
                     cur_y = *vertex;
+                    last_item_added = true;
+                } else {
+                    last_item_added = false;
                 }
             } else {
                 cur_x = *vertex;
             }
         }
-        if res.len() == 2 {
+        if !last_item_added {
             // If there are only two items, we should append the last read
             // X, Y
             res.push(cur_x);
@@ -1265,14 +1279,14 @@ mod tests {
         // So that every item takes 0.01
         no_dups.sources[0].series_mut().metrics_capacity = 10;
         no_dups.sources[0].series_mut().circular_push((10, Some(5f64)));
-        no_dups.sources[0].series_mut().circular_push((11, Some(6f64)));
+        no_dups.sources[0].series_mut().circular_push((11, Some(9f64)));
         no_dups.sources[0].series_mut().circular_push((12, Some(7f64)));
-        no_dups.sources[0].series_mut().circular_push((13, Some(8f64)));
+        no_dups.sources[0].series_mut().circular_push((13, Some(9f64)));
         no_dups.sources[0].series_mut().circular_push((14, Some(5f64)));
-        no_dups.sources[0].series_mut().circular_push((15, Some(6f64)));
+        no_dups.sources[0].series_mut().circular_push((15, Some(7f64)));
         no_dups.update_series_opengl_vecs(0, size_test);
-        // we expect a line from X -1.0 to X: -0.95
-        assert_eq!(no_dups.get_deduped_opengl_vecs(0).len(), 12usize);
+        // we expect a line from 1, 1->2, 3, 4, 5, 6
+        assert_eq!(no_dups.get_deduped_opengl_vecs(0).len(), 14usize);
     }
 
     #[test]
@@ -1464,36 +1478,40 @@ mod tests {
         prom_test.width = 12.;
         prom_test.height = 10.;
         prom_test.sources[0].series_mut().metrics_capacity = 24;
-        prom_test.sources[0].series_mut().circular_push((1566918913, Some(4.5)));
-        prom_test.sources[0].series_mut().circular_push((1566918914, Some(4.5)));
-        prom_test.sources[0].series_mut().circular_push((1566918915, Some(4.5)));
-        prom_test.sources[0].series_mut().circular_push((1566918916, Some(4.5)));
-        prom_test.sources[0].series_mut().circular_push((1566918917, Some(4.5)));
-        prom_test.sources[0].series_mut().circular_push((1566918918, Some(4.5)));
-        prom_test.sources[0].series_mut().circular_push((1566918919, Some(4.25)));
-        prom_test.sources[0].series_mut().circular_push((1566918920, Some(4.25)));
-        prom_test.sources[0].series_mut().circular_push((1566918921, Some(4.25)));
-        prom_test.sources[0].series_mut().circular_push((1566918922, Some(4.25)));
-        prom_test.sources[0].series_mut().circular_push((1566918923, Some(4.25)));
-        prom_test.sources[0].series_mut().circular_push((1566918924, Some(4.25)));
-        prom_test.sources[0].series_mut().circular_push((1566918925, Some(4.)));
-        prom_test.sources[0].series_mut().circular_push((1566918926, Some(4.)));
-        prom_test.sources[0].series_mut().circular_push((1566918927, Some(4.)));
-        prom_test.sources[0].series_mut().circular_push((1566918928, Some(4.)));
-        prom_test.sources[0].series_mut().circular_push((1566918929, Some(4.)));
-        prom_test.sources[0].series_mut().circular_push((1566918930, Some(4.)));
-        prom_test.sources[0].series_mut().circular_push((1566918931, Some(4.75)));
-        prom_test.sources[0].series_mut().circular_push((1566918932, Some(4.75)));
-        prom_test.sources[0].series_mut().circular_push((1566918933, Some(4.75)));
-        prom_test.sources[0].series_mut().circular_push((1566918934, Some(4.75)));
-        prom_test.sources[0].series_mut().circular_push((1566918935, Some(4.75)));
-        prom_test.sources[0].series_mut().circular_push((1566918936, Some(4.75)));
+        let point_1_metric = 4.5f64;
+        let point_2_metric = 4.25f64;
+        let point_3_metric = 4.0f64;
+        let point_4_metric = 4.75f64;
+        prom_test.sources[0].series_mut().circular_push((1566918913, Some(point_1_metric))); // Point 1
+        prom_test.sources[0].series_mut().circular_push((1566918914, Some(point_1_metric))); //  |
+        prom_test.sources[0].series_mut().circular_push((1566918915, Some(point_1_metric))); //  |
+        prom_test.sources[0].series_mut().circular_push((1566918916, Some(point_1_metric))); //  |
+        prom_test.sources[0].series_mut().circular_push((1566918917, Some(point_1_metric))); //  |
+        prom_test.sources[0].series_mut().circular_push((1566918918, Some(point_1_metric))); //  |
+        prom_test.sources[0].series_mut().circular_push((1566918919, Some(point_2_metric))); // Point 2 -> Point 3
+        prom_test.sources[0].series_mut().circular_push((1566918920, Some(point_2_metric))); // |
+        prom_test.sources[0].series_mut().circular_push((1566918921, Some(point_2_metric))); // |
+        prom_test.sources[0].series_mut().circular_push((1566918922, Some(point_2_metric))); // |
+        prom_test.sources[0].series_mut().circular_push((1566918923, Some(point_2_metric))); // |
+        prom_test.sources[0].series_mut().circular_push((1566918924, Some(point_2_metric))); // |
+        prom_test.sources[0].series_mut().circular_push((1566918925, Some(point_3_metric))); // Point 4 -> Point 5
+        prom_test.sources[0].series_mut().circular_push((1566918926, Some(point_3_metric))); //   |
+        prom_test.sources[0].series_mut().circular_push((1566918927, Some(point_3_metric))); //   |
+        prom_test.sources[0].series_mut().circular_push((1566918928, Some(point_3_metric))); //   |
+        prom_test.sources[0].series_mut().circular_push((1566918929, Some(point_3_metric))); //   |
+        prom_test.sources[0].series_mut().circular_push((1566918930, Some(point_3_metric))); //   |
+        prom_test.sources[0].series_mut().circular_push((1566918931, Some(point_4_metric))); // Point 6 -> Point 7
+        prom_test.sources[0].series_mut().circular_push((1566918932, Some(point_4_metric))); // |
+        prom_test.sources[0].series_mut().circular_push((1566918933, Some(point_4_metric))); // |
+        prom_test.sources[0].series_mut().circular_push((1566918934, Some(point_4_metric))); // |
+        prom_test.sources[0].series_mut().circular_push((1566918935, Some(point_4_metric))); // |
+        prom_test.sources[0].series_mut().circular_push((1566918936, Some(point_4_metric))); // Point 8
         prom_test.update_all_series_opengl_vecs(size_test);
-        // We expect to see something like this for dedupped vertices:
-        // |              xxxx  |   -     metric value: 4.75
-        // |  xxxx              |   |                   4.5
-        // |      xxxx          |   |                   4.25
-        // |          xxxx      |   |                   4.
+        // We expect to see these dedupped vertices:
+        // |              7--8  |   -     metric value: 4.75, point 4
+        // |  1---2       |     |   |                   4.5, point 1
+        // |      3---4   |     |   |                   4.25, point 2
+        // |          5---6     |   |                   4., point 3
         // |                    |   |
         // |                    |   10px
         // |                    |   |
@@ -1502,27 +1520,100 @@ mod tests {
         // | __________________ |   |  <- reference point, metric value 1.0
         // |                    |   -
         //
+        // Each point in the above should be a point returned by dedupped
         // |------- 12px -------|
         // - The middle of the drawing board, 0,0 is X=100 and Y=100 in pixels
         let deduped_opengl_vecs = prom_test.get_deduped_opengl_vecs(0);
-        assert_eq!(deduped_opengl_vecs.len(), 8);
+        assert_eq!(deduped_opengl_vecs.len(), 16);
 
         // 
         // - The reference point takes 1px width, so draw space for metrics is 10px.
         assert_eq!(prom_test.decorations[0].width(), 2.);
-
         let tick_space = 0.10f32 / 24f32;
         // The draw space horizontally is 0.10. from 0.99 to 0.90
-        //
-        // - The first metric would be at -1.0 plus the width of the reference point
-        assert!((deduped_opengl_vecs[0] - -0.99f32).abs() < 0.001f32); // first X value, leftmost.
-        assert!((deduped_opengl_vecs[2] - (-0.99f32 + 6f32 * tick_space)).abs() < 0.001f32); // second X value, 6th item in our metricsc array
-        assert!((deduped_opengl_vecs[4] - (-0.99f32 + 12f32 * tick_space)).abs() < 0.001f32); // third X value, 13th item in our metricsc array
-        assert!((deduped_opengl_vecs[6] - (-0.99f32 + 18f32 * tick_space)).abs() < 0.001f32); // last X value, rightmost.
+        // Start of the line:
+        assert!((deduped_opengl_vecs[0] - (-0.99f32 + 0f32 * tick_space)).abs() < 0.001f32); // Point 1, 1st item
+                                                                                             // Horizontal line Point 1 to Point 2
+        assert!((deduped_opengl_vecs[2] - (-0.99f32 + 6f32 * tick_space)).abs() < 0.001f32); // Point 2, 6th item
+                                                                                             // Vertical line Point 2 to Point 3
+        assert!((deduped_opengl_vecs[4] - (-0.99f32 + 6f32 * tick_space)).abs() < 0.001f32); // Point 3, 6th item
+                                                                                             // Horizontal line Point 3 to Point 4
+        assert!((deduped_opengl_vecs[6] - (-0.99f32 + 12f32 * tick_space)).abs() < 0.001f32); // Point 4, 12th item
+                                                                                              // Vertical line Point 4 to Point 5
+        assert!((deduped_opengl_vecs[8] - (-0.99f32 + 12f32 * tick_space)).abs() < 0.001f32); // Point 4, 12th item
+                                                                                              // Horizontal line Point 5 to Point 6
+        assert!((deduped_opengl_vecs[10] - (-0.99f32 + 18f32 * tick_space)).abs() < 0.001f32); // Point 4, 12th item
+                                                                                               // Vertical line Point 6 to Point 7
+        assert!((deduped_opengl_vecs[12] - (-0.99f32 + 18f32 * tick_space)).abs() < 0.001f32); // 4 X value, rightmost.
+                                                                                               // Horizontal line Point 7 to Point 8
+        assert!((deduped_opengl_vecs[14] - (-0.99f32 + 23f32 * tick_space)).abs() < 0.001f32); // 4 X value, rightmost.
+                                                                                               // XXX: Shouldn't the above test be 24f32 ?
+
+        // Y values
+        let max_y_metric = 4.75f32;
+        let chart_top_y = 0.10f32;
+        let bottom_y = -1.0f32;
+        assert!(
+            (deduped_opengl_vecs[1]
+                - bottom_y
+                - (point_1_metric as f32 * chart_top_y) / max_y_metric)
+                .abs()
+                < 0.001f32
+        ); // top Y value, 4.75
+        assert!(
+            (deduped_opengl_vecs[3]
+                - bottom_y
+                - (point_1_metric as f32 * chart_top_y) / max_y_metric)
+                .abs()
+                < 0.001f32
+        ); // top Y value, 4.75
+        assert!(
+            (deduped_opengl_vecs[5]
+                - bottom_y
+                - (point_2_metric as f32 * chart_top_y) / max_y_metric)
+                .abs()
+                < 0.001f32
+        ); // top Y value, 4.75
+        assert!(
+            (deduped_opengl_vecs[7]
+                - bottom_y
+                - (point_2_metric as f32 * chart_top_y) / max_y_metric)
+                .abs()
+                < 0.001f32
+        ); // top Y value, 4.75
+        assert!(
+            (deduped_opengl_vecs[9]
+                - bottom_y
+                - (point_3_metric as f32 * chart_top_y) / max_y_metric)
+                .abs()
+                < 0.001f32
+        ); // top Y value, 4.75
+        assert!(
+            (deduped_opengl_vecs[11]
+                - bottom_y
+                - (point_3_metric as f32 * chart_top_y) / max_y_metric)
+                .abs()
+                < 0.001f32
+        ); // top Y value, 4.75
+        assert!(
+            (deduped_opengl_vecs[13]
+                - bottom_y
+                - (point_4_metric as f32 * chart_top_y) / max_y_metric)
+                .abs()
+                < 0.001f32
+        ); // top Y value, 4.75
+        assert!(
+            (deduped_opengl_vecs[15]
+                - bottom_y
+                - (point_4_metric as f32 * chart_top_y) / max_y_metric)
+                .abs()
+                < 0.001f32
+        ); // top Y value, 4.75
     }
 
     #[test]
     fn it_calculates_reference_point() {
+        init_log();
         let (size_test, mut chart_test) = simple_chart_setup_with_none();
         chart_test.decorations.push(Decoration::Reference(ReferencePointDecoration::default()));
         // Calling update_series_opengl_vecs also calls the decoration update opengl vecs
