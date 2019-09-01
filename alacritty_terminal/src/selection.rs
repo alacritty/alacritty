@@ -274,18 +274,17 @@ impl Selection {
     where
         T: Search + Dimensions,
     {
-        if start.line > end.line {
+        let needs_swap = Selection::points_need_swap(start, end);
+        if needs_swap {
             start = term.search_wrapline_left(start.into()).into();
             end = term.search_wrapline_right(end.into()).into();
-            start.line += 1;
         } else {
             start = term.search_wrapline_right(start.into()).into();
             end = term.search_wrapline_left(end.into()).into();
-            end.line += 1;
         }
 
-        start.col = term.dimensions().col;
-        end.col = term.dimensions().col;
+        start.col = term.dimensions().col - 1;
+        end.col = Column(0);
 
         let (start, end) = (start.into(), end.into());
 
@@ -537,8 +536,8 @@ mod test {
         selection.rotate(-3);
 
         assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
-            start: Point::new(0, Column(0)),
-            end: Point::new(2, Column(4)),
+            start: Point::new(0, Column(4)),
+            end: Point::new(2, Column(0)),
             is_block: false,
         });
     }
