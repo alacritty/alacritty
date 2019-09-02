@@ -818,6 +818,7 @@ impl TimeSeriesChart {
             res.push(cur_x);
             res.push(cur_y);
         }
+        debug!("get_deduped_opengl_vecs[{}]: {:?}", idx, res);
         res
     }
 }
