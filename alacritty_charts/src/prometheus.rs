@@ -324,6 +324,7 @@ impl PrometheusTimeSeries {
                 }
             },
         };
+        debug!("Internal Series: {:?}", self.series.as_vec());
         if loaded_items > 0 {
             self.series.calculate_stats();
         }
@@ -451,12 +452,13 @@ mod tests {
         let res1_json = parse_json(&test1_json);
         assert_eq!(res1_json.is_some(), true);
         let res1_load = test0.load_prometheus_response(res1_json.unwrap());
-        // 1 items should have been loaded
+        // 0 items should have been loaded, because there's no value
         assert_eq!(res1_load, Ok(0usize));
     }
 
     #[test]
     fn it_loads_prometheus_matrix() {
+        init_log();
         let test0_res: Result<PrometheusTimeSeries, String> = PrometheusTimeSeries::new(
             String::from("http://localhost:9090/api/v1/query_range?query=node_load1&start=1558253469&end=1558253479&step=1"),
             15,
@@ -465,6 +467,7 @@ mod tests {
         );
         assert_eq!(test0_res.is_ok(), true);
         let mut test0 = test0_res.unwrap();
+        test0.series.metrics_capacity = 11usize;
         // A json returned by prometheus
         let test0_json = hyper::Chunk::from(
             r#"
@@ -492,11 +495,59 @@ mod tests {
         let res0_json = parse_json(&test0_json);
         assert_eq!(res0_json.is_some(), true);
         let res0_load = test0.load_prometheus_response(res0_json.clone().unwrap());
-        // 2 items should have been loaded, one for Prometheus Server and the
-        // other for Prometheus Node Exporter
+        // 11 items should have been loaded in the node_exporter
         assert_eq!(res0_load, Ok(11usize));
+        let loaded_data = test0.series.as_vec();
+        debug!("it_loads_prometheus_matrix Data: {:?}", loaded_data);
+        assert_eq!(loaded_data[0], (1558253469, Some(1.42f64)));
+        assert_eq!(loaded_data[1], (1558253470, Some(1.42f64)));
+        for idx in 2..11 {
+            // The rest of the items are 1.55 always
+            assert_eq!(loaded_data[idx], (1558253469 + idx as u64, Some(1.55f64)));
+        }
         // This json is missing the value after the epoch
+        // Let's add one more item and subtract one item from the array
         let test1_json = hyper::Chunk::from(
+            r#"
+            {
+              "status": "success",
+              "data": {
+                "resultType": "matrix",
+                "result": [
+                  {
+                    "metric": {
+                      "__name__": "node_load1",
+                      "instance": "localhost:9100",
+                      "job": "node_exporter"
+                    },
+                    "values": [
+                        [1558253470,"1.42"],[1558253471,"1.55"],
+                        [1558253472,"1.55"],[1558253473,"1.55"],[1558253474,"1.55"],
+                        [1558253475,"1.55"],[1558253476,"1.55"],[1558253477,"1.55"],
+                        [1558253478,"1.55"],[1558253479,"1.55"],[1558253480,"1.55"]]
+                  }
+                ]
+              }
+            }"#,
+        );
+        let res1_json = parse_json(&test1_json);
+        assert_eq!(res1_json.is_some(), true);
+        let res1_load = test0.load_prometheus_response(res1_json.clone().unwrap());
+        // 11 items should have been loaded in the node_exporter
+        assert_eq!(res1_load, Ok(11usize));
+
+        // Let's test reloading the data:
+        let res1_load = test0.load_prometheus_response(res1_json.clone().unwrap());
+        assert_eq!(res1_load, Ok(11usize));
+        let loaded_data = test0.series.as_vec();
+        debug!("it_loads_prometheus_matrix Data: {:?}", loaded_data);
+        assert_eq!(loaded_data[0], (1558253470, Some(1.42f64)));
+        for idx in 1..11 {
+            // The rest of the items are 1.55 always
+            assert_eq!(loaded_data[idx], (1558253470 + idx as u64, Some(1.55f64)));
+        }
+        // This json is missing the value after the epoch
+        let test2_json = hyper::Chunk::from(
             r#"
             {
               "status": "success",
@@ -517,11 +568,11 @@ mod tests {
               }
             }"#,
         );
-        let res1_json = parse_json(&test1_json);
-        assert_eq!(res1_json.is_some(), true);
-        let res1_load = test0.load_prometheus_response(res1_json.unwrap());
+        let res2_json = parse_json(&test2_json);
+        assert_eq!(res2_json.is_some(), true);
+        let res2_load = test0.load_prometheus_response(res2_json.unwrap());
         // 0 items should have been loaded, missing metric after epoch.
-        assert_eq!(res1_load, Ok(0usize));
+        assert_eq!(res2_load, Ok(0usize));
     }
 
     #[test]
