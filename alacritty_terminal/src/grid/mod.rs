@@ -530,32 +530,45 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         }
     }
 
-    pub fn clear_viewport(&mut self, template: &T) {
+    pub fn clear_viewport(&mut self, alt_screen: bool, template: &T) {
+        // Treat each row as if it was completely filled.
         for i in 0..self.num_lines().0 {
             self[i].occ = self.num_cols().0;
         }
 
-        let mut iter = self.iter_from(Point { line: 0, col: self.num_cols() });
-        let mut bottom_nonempty_line = 0;
-        while let Some(cell) = iter.prev() {
-            if !cell.is_empty() {
-                bottom_nonempty_line = iter.cur.line;
-                break;
+        // Determine how many lines to scroll up by.
+        let positions = if alt_screen {
+            self.lines
+        } else {
+            let end = Point { line: 0, col: self.num_cols() };
+            let mut iter = self.iter_from(end);
+            let mut bottom_nonempty_line = 0;
+            while let Some(cell) = iter.prev() {
+                if !cell.is_empty() {
+                    bottom_nonempty_line = iter.cur.line;
+                    break;
+                }
+
+                // In case the whole terminal is empty somehow.
+                // TODO: Test.
+                if iter.cur.line >= *self.lines {
+                    break;
+                }
             }
 
-            // In case the whole terminal is empty somehow.
-            // TODO: Test.
-            if iter.cur.line >= *self.lines {
-                break;
-            }
-        }
+            self.lines - bottom_nonempty_line
+        };
 
-        let positions = self.lines - bottom_nonempty_line;
+        // Clear the viewport.
         let region = Line(0)..self.num_lines();
-
         self.scroll_up(&region, positions, template);
         self.selection = None;
         self.url_highlight = None;
+
+        // We've now cleared each row, so they are empty.
+        for i in 0..self.num_lines().0 {
+            self[i].occ = 0;
+        }
     }
 
     // Completely reset the grid state
