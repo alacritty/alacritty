@@ -732,8 +732,6 @@ impl QuadRenderer {
         let color = config.visual_bell.color;
         let rect = Rect::new(0., 0., props.width, props.height);
         self.render_rect(&rect, color, visual_bell_intensity as f32, props);
-        // trace!("SEB: render_rect({:?},{:?},{},{:?})", &rect, color, visual_bell_intensity as f32,
-        // props);
 
         // Draw underlines and strikeouts
         for cell_line_rect in cell_line_rects.rects() {
@@ -805,10 +803,13 @@ impl QuadRenderer {
                 opengl_vecs.as_ptr() as *const _,
                 gl::STATIC_DRAW,
             );
+        }
 
-            // Color
-            self.charts_program.set_color(color, alpha);
+        // Color
+        self.charts_program.set_color(color, alpha);
 
+        // Deactivate rectangle program again
+        unsafe {
             // Draw the Activity Line, 2 points per vertex
             gl::DrawArrays(gl::LINE_STRIP, 0, (opengl_vecs.len() / 2usize) as i32);
 
