@@ -1773,12 +1773,8 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                         .each(|cell| cell.reset(&template));
                 }
             },
-            ansi::ClearMode::All => {
-                self.grid.clear_viewport(&template);
-            },
-            ansi::ClearMode::Saved => {
-                self.grid.clear_history();
-            }
+            ansi::ClearMode::All => self.grid.clear_viewport(&template),
+            ansi::ClearMode::Saved => self.grid.clear_history(),
         }
     }
 

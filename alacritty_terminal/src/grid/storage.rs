@@ -336,8 +336,7 @@ mod test {
 
     #[test]
     fn with_capacity() {
-        let storage = Storage::with_capacity(Line(3),
-                                             Row::new(Column(0), &' '));
+        let storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
 
         assert_eq!(storage.inner.len(), 3);
         assert_eq!(storage.len, 3);
@@ -347,8 +346,7 @@ mod test {
 
     #[test]
     fn indexing() {
-        let mut storage = Storage::with_capacity(Line(3),
-                                                 Row::new(Column(0), &' '));
+        let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
 
         storage[0] = Row::new(Column(1), &'0');
         storage[1] = Row::new(Column(1), &'1');
@@ -368,8 +366,7 @@ mod test {
     #[test]
     #[should_panic]
     fn indexing_above_len() {
-        let mut storage = Storage::with_capacity(Line(3),
-                                                 Row::new(Column(0), &' '));
+        let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
         storage.shrink_lines(2);
         &storage[1];
     }
@@ -377,15 +374,13 @@ mod test {
     #[test]
     #[should_panic]
     fn indexing_above_inner_len() {
-        let storage = Storage::with_capacity(Line(0),
-                                             Row::new(Column(0), &' '));
+        let storage = Storage::with_capacity(Line(0), Row::new(Column(0), &' '));
         &storage[1];
     }
 
     #[test]
     fn rotate() {
-        let mut storage = Storage::with_capacity(Line(3),
-                                                 Row::new(Column(0), &' '));
+        let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
         storage.rotate(2);
         assert_eq!(storage.zero, 2);
         storage.shrink_lines(2);
@@ -397,11 +392,9 @@ mod test {
     #[test]
     #[should_panic]
     fn rotate_overflow() {
-        let mut storage = Storage::with_capacity(Line(3),
-                                                 Row::new(Column(0), &' '));
+        let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
         storage.rotate(4);
     }
-
 
     /// Grow the buffer one line at the end of the buffer
     ///
