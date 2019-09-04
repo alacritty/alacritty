@@ -540,7 +540,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
 
         let mut iter = self.iter_from(Point { line: 0, col: self.num_cols() });
         let mut bottom_nonempty_line = 0;
-        while let Some(cell) = iter.next_back() {
+        while let Some(cell) = iter.prev() {
             if !cell.is_empty() {
                 bottom_nonempty_line = iter.cur.line;
                 break;
@@ -675,23 +675,6 @@ impl<'a, T> Iterator for GridIterator<'a, T> {
             },
             _ => {
                 self.cur.col += Column(1);
-                Some(&self.grid[self.cur.line][self.cur.col])
-            },
-        }
-    }
-}
-
-impl<'a, T> DoubleEndedIterator for GridIterator<'a, T> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        match self.cur {
-            Point { line, col: Column(0) } if line == self.grid.len() - 1 => None,
-            Point { col, .. } if (col == Column(0)) => {
-                self.cur.line += 1;
-                self.cur.col = self.grid.num_cols() - Column(1);
-                Some(&self.grid[self.cur.line][self.cur.col])
-            },
-            _ => {
-                self.cur.col -= Column(1);
                 Some(&self.grid[self.cur.line][self.cur.col])
             },
         }
