@@ -113,10 +113,7 @@ pub struct Grid<T> {
     /// Number of columns
     cols: index::Column,
 
-    /// Number of lines.
-    ///
-    /// TODO: this invariant is incorrect.
-    /// Invariant: lines is equivalent to raw.len()
+    /// Number of visible lines.
     lines: index::Line,
 
     /// Offset of displayed area
