@@ -978,12 +978,21 @@ impl TimeSeries {
                 self.metrics[0] = (input.0, Some(input.1));
                 self.active_items = 1;
             } else if inactive_time == 0 {
-                // In this case, the last epoch and the current epoch match
-                if let Some(curr_val) = self.metrics[last_idx].1 {
-                    self.metrics[last_idx].1 =
-                        Some(self.resolve_metric_collision(curr_val, input.1));
-                } else {
-                    self.metrics[last_idx].1 = Some(input.1);
+                if (input.0 as i64 - self.metrics[last_idx].0 as i64).abs()
+                    <= self.metrics_capacity as i64
+                {
+                    // The timestamp is not too old to be ignored
+                    let mut target_idx = input.0 as i64 - self.metrics[last_idx].0 as i64;
+                    if target_idx < 0 {
+                        target_idx = target_idx + self.metrics_capacity;
+                    }
+                    // In this case, the last epoch and the current epoch match
+                    if let Some(curr_val) = self.metrics[last_idx].1 {
+                        self.metrics[last_idx].1 =
+                            Some(self.resolve_metric_collision(curr_val, input.1));
+                    } else {
+                        self.metrics[last_idx].1 = Some(input.1);
+                    }
                 }
             } else {
                 // Fill missing entries with None
