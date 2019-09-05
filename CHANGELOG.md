@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Intermediate bytes of CSI sequences not checked
 - Wayland clipboard integration
 - Use text mouse cursor when mouse mode is temporarily disabled with shift
+- Wayland primary selection clipboard not storing text when selection is stopped outside of the window
 
 ## 0.3.3
 

@@ -280,7 +280,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
                     last_row.append(&mut cells);
 
                     if row.is_empty() {
-                        let raw_len = i + 1 + new_raw.len();;
+                        let raw_len = i + 1 + new_raw.len();
                         if raw_len < self.lines.0 || self.scroll_limit == 0 {
                             // Add new line and move lines up if we can't pull from history
                             cursor_pos.line = Line(cursor_pos.line.saturating_sub(1));

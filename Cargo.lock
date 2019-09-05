@@ -360,7 +360,7 @@ dependencies = [
  "objc-foundation 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "objc_id 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "smithay-client-toolkit 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "smithay-clipboard 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smithay-clipboard 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "wayland-client 0.23.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "x11-clipboard 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2013,7 +2013,7 @@ dependencies = [
 
 [[package]]
 name = "smithay-clipboard"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "nix 0.14.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2779,7 +2779,7 @@ dependencies = [
 "checksum smallvec 0.6.10 (registry+https://github.com/rust-lang/crates.io-index)" = "ab606a9c5e214920bb66c458cd7be8ef094f813f20fe77a54cc7dbfff220d4b7"
 "checksum smithay-client-toolkit 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "2ccb8c57049b2a34d2cc2b203fa785020ba0129d31920ef0d317430adaf748fa"
 "checksum smithay-client-toolkit 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)" = "8c23093ebdaac1ad67558c7aef153522c6b3be7e0257820909e3a25c4519e78d"
-"checksum smithay-clipboard 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "f396e0b3877db6855c2df5c730e7fbf547e92aee6cd4d4331d4536f52556e944"
+"checksum smithay-clipboard 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "315c3f4417d365483dcbaed9ba6488d9f176e43d83f3e1d581050f1c93869e3d"
 "checksum socket2 0.3.10 (registry+https://github.com/rust-lang/crates.io-index)" = "df028e0e632c2a1823d920ad74895e7f9128e6438cbc4bc6fd1f180e644767b9"
 "checksum spsc-buffer 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "be6c3f39c37a4283ee4b43d1311c828f2e1fb0541e76ea0cb1a2abd9ef2f5b3b"
 "checksum stable_deref_trait 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
