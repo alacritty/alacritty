@@ -1113,6 +1113,18 @@ impl<'a> RenderApi<'a> {
                     text_run.cells().zip(shaped_glyphs).zip(zero_widths.iter())
                 {
                     self.add_render_item(&cell, &glyph);
+                    if cell.flags.contains(cell::Flags::WIDE_CHAR) {
+                        // Manually add instance data for WIDE_CHAR_SPACER
+                        let glyph = hidden_glyph_iter(
+                        font_key,
+                        glyph_cache.font_size,
+                        glyph_cache,
+                        self).next().unwrap();
+                        self.add_render_item(&RenderableCell {
+                            column: cell.column + 1,
+                            ..cell.clone()
+                        }, &glyph);
+                    }
                     for c in zero_width_chars.iter().filter(|c| **c != ' ') {
                         let glyph_key =
                             GlyphKey { font_key, size: glyph_cache.font_size, c: (*c).into() };

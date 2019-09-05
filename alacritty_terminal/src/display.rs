@@ -521,8 +521,9 @@ impl Display {
                         .into_iter()
                         // Logic for WIDE_CHAR is handled internally by TextRun
                         // So we no longer need WIDE_CHAR_SPACER at this point.
-                        .filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER)),
+                        //.filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER)),
                 ) {
+                    println!("{:?}", text_run);
                     // Update underline/strikeout
                     lines.update(&text_run);
 
