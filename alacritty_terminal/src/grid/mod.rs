@@ -530,37 +530,32 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         }
     }
 
-    pub fn clear_viewport(&mut self, alt_screen: bool, template: &T) {
+    pub fn clear_viewport(&mut self, template: &T) {
         // Treat each row as if it was completely filled.
         for i in 0..self.num_lines().0 {
             self[i].occ = self.num_cols().0;
         }
 
         // Determine how many lines to scroll up by.
-        let positions = if alt_screen {
-            self.lines
-        } else {
-            let end = Point { line: 0, col: self.num_cols() };
-            let mut iter = self.iter_from(end);
-            let mut bottom_nonempty_line = 0;
-            while let Some(cell) = iter.prev() {
-                if !cell.is_empty() {
-                    bottom_nonempty_line = iter.cur.line;
-                    break;
-                }
-
-                // In case the whole terminal is empty somehow.
-                // TODO: Test.
-                if iter.cur.line >= *self.lines {
-                    break;
-                }
+        let end = Point { line: 0, col: self.num_cols() };
+        let mut iter = self.iter_from(end);
+        let mut bottom_nonempty_line = 0;
+        while let Some(cell) = iter.prev() {
+            if !cell.is_empty() {
+                bottom_nonempty_line = iter.cur.line;
+                break;
             }
 
-            self.lines - bottom_nonempty_line
-        };
+            // In case the whole terminal is empty somehow.
+            // TODO: Test.
+            if iter.cur.line >= *self.lines {
+                break;
+            }
+        }
+        let positions = self.lines - bottom_nonempty_line;
+        let region = Line(0)..self.num_lines();
 
         // Clear the viewport.
-        let region = Line(0)..self.num_lines();
         self.scroll_up(&region, positions, template);
         self.selection = None;
         self.url_highlight = None;

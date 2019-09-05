@@ -1774,8 +1774,11 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 }
             },
             ansi::ClearMode::All => {
-                let alt_screen = self.mode.contains(TermMode::ALT_SCREEN);
-                self.grid.clear_viewport(alt_screen, &template)
+                if self.mode.contains(TermMode::ALT_SCREEN) {
+                    self.grid.region_mut(..).each(|c| c.reset(&template));
+                } else {
+                    self.grid.clear_viewport(&template);
+                }
             },
             ansi::ClearMode::Saved => self.grid.clear_history(),
         }
