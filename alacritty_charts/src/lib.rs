@@ -959,6 +959,9 @@ impl TimeSeries {
 
     /// `push` Adds values to the circular buffer adding empty entries for
     /// missing entries, may invalidate the buffer if all data is outdated
+    /// XXX: This method cannot insert in the middle, it should be renamed 'upsert',
+    /// we should iterate over the data and overwrite the data, maybe even better to
+    /// overwrite the data receiving an array.
     pub fn push(&mut self, input: (u64, f64)) {
         if !self.metrics.is_empty() {
             let last_idx = if self.last_idx == self.metrics_capacity || self.last_idx == 0 {
