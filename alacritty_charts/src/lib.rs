@@ -963,39 +963,41 @@ impl TimeSeries {
     /// we should iterate over the data and overwrite the data, maybe even better to
     /// overwrite the data receiving an array.
     pub fn push(&mut self, input: (u64, f64)) {
+        debug!("push ({},{}) to: {:?}", input.0, input.1, self.metrics);
         if !self.metrics.is_empty() {
             let last_idx = if self.last_idx == self.metrics_capacity || self.last_idx == 0 {
                 self.metrics.len() - 1
             } else {
                 self.last_idx - 1
             };
-            let inactive_time = if input.0 > self.metrics[last_idx].0 {
-                (input.0 - self.metrics[last_idx].0) as usize
-            } else {
-                0usize
-            };
-            if inactive_time > self.metrics_capacity {
+            if (self.metrics[last_idx].0 as i64 - input.0 as i64) > self.metrics_capacity as i64 {
+                // The timestamp is too old and should be discarded.
+                // This means we cannot scroll back in time.
+                return;
+            }
+            // as_vec() is 5, 6, 7, 3, 4
+            // last_idx: 3
+            // input.0: 5
+            // inactive_time = -2
+            let inactive_time = input.0 as i64 - self.metrics[last_idx].0 as i64;
+            debug!("inactive_time: {} - {} = {}", input.0, self.metrics[last_idx].0, inactive_time);
+            if inactive_time > self.metrics_capacity as i64 {
                 // The whole vector should be discarded
                 self.first_idx = 0;
                 self.last_idx = 1;
                 self.metrics[0] = (input.0, Some(input.1));
                 self.active_items = 1;
-            } else if inactive_time == 0 {
-                if (input.0 as i64 - self.metrics[last_idx].0 as i64).abs()
-                    <= self.metrics_capacity as i64
-                {
-                    // The timestamp is not too old to be ignored
-                    let mut target_idx = input.0 as i64 - self.metrics[last_idx].0 as i64;
-                    if target_idx < 0 {
-                        target_idx = target_idx + self.metrics_capacity;
-                    }
-                    // In this case, the last epoch and the current epoch match
-                    if let Some(curr_val) = self.metrics[last_idx].1 {
-                        self.metrics[last_idx].1 =
-                            Some(self.resolve_metric_collision(curr_val, input.1));
-                    } else {
-                        self.metrics[last_idx].1 = Some(input.1);
-                    }
+            } else if inactive_time <= 0 {
+                let mut target_idx = last_idx as i64 + inactive_time;
+                if target_idx < 0 {
+                    target_idx += self.metrics_capacity as i64;
+                }
+                // In this case, the last epoch and the current epoch match
+                if let Some(curr_val) = self.metrics[target_idx as usize].1 {
+                    self.metrics[target_idx as usize].1 =
+                        Some(self.resolve_metric_collision(curr_val, input.1));
+                } else {
+                    self.metrics[target_idx as usize].1 = Some(input.1);
                 }
             } else {
                 // Fill missing entries with None
@@ -1178,6 +1180,7 @@ mod tests {
     }
     #[test]
     fn it_fills_empty_epochs() {
+        init_log();
         let mut test = TimeSeries::default().with_capacity(4);
         // Some values should be inserted as None
         test.push((10, 0f64));
@@ -1212,6 +1215,16 @@ mod tests {
         assert_eq!(test.as_vec(), vec![(50, Some(5f64))]);
         test.push((53, 3f64));
         assert_eq!(test.metrics, vec![(50, Some(5f64)), (51, None), (52, None), (53, Some(3f64))]);
+        //  Ensure we can overwrite previous entries
+        test.push((50, 3f64));
+        test.push((51, 3f64));
+        test.push((52, 3f64));
+        assert_eq!(test.metrics, vec![
+            (50, Some(8f64)),
+            (51, Some(3f64)),
+            (52, Some(3f64)),
+            (53, Some(3f64))
+        ]);
     }
     #[test]
     fn it_applies_missing_policies() {
@@ -1655,15 +1668,15 @@ mod tests {
         // Also there is an offset of 10 px so divided by 2 (for each side) becomes:
         // 0.05
         assert_eq!(chart_test.opengl_vecs[0], vec![
-            -0.995,      // 1st X value, leftmost.
+            -0.99,       // 1st X value, leftmost.
             -1.0,        // Y value is 0, so -1.0 is the bottom-most
-            -0.986,      // X plus 0.01
+            -0.982,      // X plus 0.01
             -0.975,      // Y value is 1, so 25% of the line, so 0.025
-            -0.977,      // leftmost plus  0.01 * 2
+            -0.97400004, // leftmost plus  0.01 * 2
             -0.95,       // Y value is 2, so 50% from bottom to top
-            -0.96800005, // leftmost plus 0.01 * 3
+            -0.96599996, // leftmost plus 0.01 * 3
             -1.0,        // Top-most value, so the chart height
-            -0.959,      // leftmost plus 0.01 * 4, rightmost
+            -0.958,      // leftmost plus 0.01 * 4, rightmost
             -0.9         // Top-most value, so the chart height
         ]);
     }
