@@ -368,14 +368,14 @@ mod test {
     fn indexing_above_len() {
         let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
         storage.shrink_lines(2);
-        &storage[1];
+        let _ = &storage[1];
     }
 
     #[test]
     #[should_panic]
     fn indexing_above_inner_len() {
         let storage = Storage::with_capacity(Line(0), Row::new(Column(0), &' '));
-        &storage[1];
+        let _ = &storage[1];
     }
 
     #[test]
