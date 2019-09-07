@@ -374,8 +374,8 @@ mod test {
     #[test]
     #[should_panic]
     fn indexing_above_inner_len() {
-        let storage = Storage::with_capacity(Line(0), Row::new(Column(0), &' '));
-        let _ = &storage[1];
+        let storage = Storage::with_capacity(Line(1), Row::new(Column(0), &' '));
+        let _ = &storage[2];
     }
 
     #[test]
