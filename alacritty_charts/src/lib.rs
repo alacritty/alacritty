@@ -963,7 +963,10 @@ impl TimeSeries {
     /// we should iterate over the data and overwrite the data, maybe even better to
     /// overwrite the data receiving an array.
     pub fn push(&mut self, input: (u64, f64)) {
-        debug!("push ({},{}) to: {:?}", input.0, input.1, self.metrics);
+        debug!(
+            "push ({},{}) last_idx: {}, to: {:?}",
+            input.0, input.1, self.last_idx, self.metrics
+        );
         if !self.metrics.is_empty() {
             let last_idx = if self.last_idx == self.metrics_capacity || self.last_idx == 0 {
                 self.metrics.len() - 1
