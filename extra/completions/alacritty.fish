@@ -30,6 +30,9 @@ complete -c alacritty \
   -l "class" \
   -d "Defines the window class"
 complete -c alacritty \
+  -l "embed" \
+  -d "Defines the XEmbed parent"
+complete -c alacritty \
   -x \
   -a '(__fish_complete_directories (commandline -ct))' \
   -l "working-directory" \

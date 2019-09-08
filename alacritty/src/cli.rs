@@ -32,6 +32,7 @@ pub struct Options {
     pub position: Option<Delta<i32>>,
     pub title: Option<String>,
     pub class: Option<String>,
+    pub embed: Option<String>,
     pub log_level: LevelFilter,
     pub command: Option<Shell<'static>>,
     pub working_dir: Option<PathBuf>,
@@ -49,6 +50,7 @@ impl Default for Options {
             position: None,
             title: None,
             class: None,
+            embed: None,
             log_level: LevelFilter::Warn,
             command: None,
             working_dir: None,
@@ -129,6 +131,12 @@ impl Options {
                     .help(&format!("Defines window class on Linux [default: {}]", DEFAULT_NAME)),
             )
             .arg(
+                Arg::with_name("embed")
+                    .long("embed")
+                    .takes_value(true)
+                    .help("Defines a parent window ID for XEmbed on Linux"),
+            )
+            .arg(
                 Arg::with_name("q")
                     .short("q")
                     .multiple(true)
@@ -200,6 +208,7 @@ impl Options {
 
         options.class = matches.value_of("class").map(ToOwned::to_owned);
         options.title = matches.value_of("title").map(ToOwned::to_owned);
+        options.embed = matches.value_of("embed").map(ToOwned::to_owned);
 
         match matches.occurrences_of("q") {
             0 => {},
@@ -250,6 +259,7 @@ impl Options {
         config.window.dimensions = self.dimensions.unwrap_or(config.window.dimensions);
         config.window.position = self.position.or(config.window.position);
         config.window.title = self.title.or(config.window.title);
+        config.window.embed = self.embed.and_then(|embed| embed.parse().ok());
 
         if let Some(class) = self.class {
             let parts: Vec<_> = class.split(',').collect();

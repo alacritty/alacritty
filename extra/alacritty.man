@@ -57,6 +57,9 @@ Defines the window position. Falls back to position specified by window manager 
 \fB\-t\fR, \fB\-\-title\fR <title>
 Defines the window title [default: Alacritty]
 .TP
+\fB\-\-embed\fR <parent>
+Sets the XEmbed parent window
+.TP
 \fB\-\-working\-directory\fR <working\-directory>
 Start the shell in the specified working directory
 .SH "SEE ALSO"
