@@ -139,12 +139,7 @@ pub struct TimeSeries {
     /// The first item in the circular buffer
     pub first_idx: usize,
 
-    /// The last item in the circular buffer
-    pub last_idx: usize,
-
-    /// The circular buffer has two indexes, if the start and end
-    /// indexes are the same, then the buffer is full or has one item
-    /// By knowing the active_items in advance we know which situation is true
+    /// How many items are active in our circular buffer
     pub active_items: usize,
 }
 
@@ -834,7 +829,6 @@ impl Default for TimeSeries {
             collision_policy: ValueCollisionPolicy::default(),
             missing_values_policy: MissingValuesPolicy::default(),
             first_idx: 0,
-            last_idx: 0,
             active_items: 0,
         }
     }
@@ -940,21 +934,15 @@ impl TimeSeries {
             self.metrics.push(input);
             self.active_items += 1;
         } else {
-            // The vector might have been invalidated because data was outdated.
-            // The first and last index shorten the vector but leave old data
-            // still
-            if self.first_idx == 0 && self.last_idx < self.metrics_capacity {
-                self.metrics[self.last_idx] = input;
-            } else {
-                self.metrics[self.first_idx] = input;
-                self.first_idx = (self.first_idx + 1) % self.metrics_capacity;
-            }
-            if self.first_idx + self.last_idx < self.metrics_capacity {
+            if self.first_idx + self.active_items < self.metrics_capacity {
                 self.active_items += 1;
+            }
+            self.metrics[(self.first_idx + self.active_items) % self.metrics_capacity] = input;
+            if self.active_items == self.metrics_capacity {
+                self.first_idx = (self.first_idx + 1) % self.metrics_capacity;
             }
         }
         self.stats.is_dirty = true;
-        self.last_idx = (self.last_idx + 1) % (self.metrics_capacity + 1);
     }
 
     /// `push` Adds values to the circular buffer adding empty entries for
@@ -963,48 +951,49 @@ impl TimeSeries {
     /// we should iterate over the data and overwrite the data, maybe even better to
     /// overwrite the data receiving an array.
     pub fn push(&mut self, input: (u64, f64)) {
-        debug!(
-            "push ({},{}) last_idx: {}, to: {:?}",
-            input.0, input.1, self.last_idx, self.metrics
-        );
         if !self.metrics.is_empty() {
-            let last_idx = if self.last_idx == self.metrics_capacity || self.last_idx == 0 {
-                self.metrics.len() - 1
-            } else {
-                self.last_idx - 1
-            };
-            if (self.metrics[last_idx].0 as i64 - input.0 as i64) > self.metrics_capacity as i64 {
+            let mut target_idx = (self.first_idx + self.active_items) % self.metrics_capacity;
+            if (self.metrics[target_idx].0 as i64 - input.0 as i64) > self.metrics_capacity as i64 {
                 // The timestamp is too old and should be discarded.
                 // This means we cannot scroll back in time.
                 return;
             }
             // as_vec() is 5, 6, 7, 3, 4
-            // last_idx: 3
+            // active_items: 3
             // input.0: 5
             // inactive_time = -2
-            let inactive_time = input.0 as i64 - self.metrics[last_idx].0 as i64;
-            debug!("inactive_time: {} - {} = {}", input.0, self.metrics[last_idx].0, inactive_time);
+            let inactive_time = input.0 as i64 - self.metrics[target_idx].0 as i64;
+            debug!(
+                "push ({},{}) self.first_idx: {}, target_index: {}, self.metrics[target_idx].0: \
+                 {}, inactive_time: {}, to: {:?}",
+                input.0,
+                input.1,
+                self.first_idx,
+                target_idx,
+                self.metrics[target_idx].0,
+                inactive_time,
+                self.metrics
+            );
             if inactive_time > self.metrics_capacity as i64 {
                 // The whole vector should be discarded
                 self.first_idx = 0;
-                self.last_idx = 1;
                 self.metrics[0] = (input.0, Some(input.1));
                 self.active_items = 1;
             } else if inactive_time <= 0 {
-                let mut target_idx = last_idx as i64 + inactive_time;
-                if target_idx < 0 {
-                    target_idx += self.metrics_capacity as i64;
-                }
+                target_idx = (self.metrics_capacity as i64 + target_idx as i64 + inactive_time)
+                    as usize
+                    % self.metrics_capacity;
+                debug!("push adjusted target_idx to: {}", target_idx);
                 // In this case, the last epoch and the current epoch match
-                if let Some(curr_val) = self.metrics[target_idx as usize].1 {
-                    self.metrics[target_idx as usize].1 =
+                if let Some(curr_val) = self.metrics[target_idx].1 {
+                    self.metrics[target_idx].1 =
                         Some(self.resolve_metric_collision(curr_val, input.1));
                 } else {
-                    self.metrics[target_idx as usize].1 = Some(input.1);
+                    self.metrics[target_idx].1 = Some(input.1);
                 }
             } else {
                 // Fill missing entries with None
-                let max_epoch = self.metrics[last_idx].0;
+                let max_epoch = self.metrics[target_idx].0;
                 for fill_epoch in (max_epoch + 1)..input.0 {
                     self.circular_push((fill_epoch, None));
                 }
@@ -1017,7 +1006,7 @@ impl TimeSeries {
 
     /// `get_last_filled` Returns the last filled entry in the circular buffer
     pub fn get_last_filled(&self) -> f64 {
-        let mut idx = if self.last_idx == self.metrics_capacity { 0 } else { self.last_idx - 1 };
+        let mut idx = (self.first_idx + self.active_items) % self.metrics_capacity;
         loop {
             if let Some(res) = self.metrics[idx].1 {
                 return res;
@@ -1103,12 +1092,12 @@ mod tests {
         let mut test = TimeSeries::default().with_capacity(4);
         test.circular_push((10, Some(0f64)));
         assert_eq!(test.first_idx, 0);
-        assert_eq!(test.last_idx, 1);
+        assert_eq!(test.active_items, 1);
         test.circular_push((11, Some(1f64)));
         test.circular_push((12, None));
         test.circular_push((13, Some(3f64)));
         assert_eq!(test.first_idx, 0);
-        assert_eq!(test.last_idx, 4);
+        assert_eq!(test.active_items, 4);
         assert_eq!(test.metrics, vec![
             (10, Some(0f64)),
             (11, Some(1f64)),
@@ -1123,7 +1112,7 @@ mod tests {
             (13, Some(3f64))
         ]);
         assert_eq!(test.first_idx, 1);
-        assert_eq!(test.last_idx, 0);
+        assert_eq!(test.active_items, 4);
         test.circular_push((15, Some(5f64)));
         assert_eq!(test.metrics, vec![
             (14, Some(4f64)),
@@ -1132,7 +1121,7 @@ mod tests {
             (13, Some(3f64))
         ]);
         assert_eq!(test.first_idx, 2);
-        assert_eq!(test.last_idx, 1);
+        assert_eq!(test.active_items, 4);
     }
     #[test]
     fn it_gets_last_filled_value() {
@@ -1152,32 +1141,28 @@ mod tests {
         let mut test = TimeSeries::default().with_capacity(4);
         // Some values should be inserted as None
         assert_eq!(test.first_idx, 0);
-        assert_eq!(test.last_idx, 0);
+        assert_eq!(test.active_items, 0);
         test.push((10, 0f64));
         assert_eq!(test.first_idx, 0);
-        assert_eq!(test.last_idx, 1);
+        assert_eq!(test.active_items, 1);
         test.push((13, 3f64));
         assert_eq!(test.first_idx, 0);
-        assert_eq!(test.last_idx, 4);
+        assert_eq!(test.active_items, 4);
         assert_eq!(test.as_vec(), vec![(10, Some(0f64)), (11, None), (12, None), (13, Some(3f64))]);
         test.push((14, 4f64));
         // Starting at 11
         test.first_idx = 1;
-        test.last_idx = 1;
         assert_eq!(test.as_vec(), vec![(11, None), (12, None), (13, Some(3f64)), (14, Some(4f64))]);
         // Only 11
         test.active_items = 1;
         test.first_idx = 1;
-        test.last_idx = 2;
         assert_eq!(test.as_vec(), vec![(11, None)]);
         // Only 13
         test.first_idx = 3;
-        test.last_idx = 4;
         test.active_items = 1;
         assert_eq!(test.as_vec(), vec![(13, Some(3f64))]);
         // 13, 14
         test.first_idx = 3;
-        test.last_idx = 1;
         test.active_items = 2;
         assert_eq!(test.as_vec(), vec![(13, Some(3f64)), (14, Some(4f64))]);
     }
@@ -1195,7 +1180,6 @@ mod tests {
         assert_eq!(test.active_items, 1);
         assert_eq!(test.metrics, vec![(18, Some(8f64)), (11, None), (12, None), (13, Some(3f64))]);
         assert_eq!(test.first_idx, 0);
-        assert_eq!(test.last_idx, 1);
         assert_eq!(test.active_items, 1);
         assert_eq!(test.as_vec(), vec![(18, Some(8f64))]);
         test.push((20, 0f64));
@@ -1206,7 +1190,6 @@ mod tests {
             (13, Some(3f64))
         ]);
         assert_eq!(test.first_idx, 0);
-        assert_eq!(test.last_idx, 3);
         assert_eq!(test.active_items, 3);
         assert_eq!(test.as_vec(), vec![(18, Some(8f64)), (19, None), (20, Some(0f64))]);
         test.push((50, 5f64));
@@ -1345,7 +1328,6 @@ mod tests {
         test2.circular_push((12, Some(2f64)));
         test2.circular_push((13, Some(3f64)));
         test2.first_idx = 1;
-        test2.last_idx = 3;
         assert_eq!(test2.metrics, vec![
             (10, Some(0f64)),
             (11, Some(1f64)),
