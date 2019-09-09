@@ -273,9 +273,9 @@ impl PrometheusTimeSeries {
         debug!("Checking data: {:?}", res.data);
         match res.data {
             HTTPResponseData::Vector { result: results } => {
-                // labeled metrics returned as a 2 items vector AFAIK:
-                // [ {metric: {l: X}, value: [epoch1,sample2]}
-                //   {metric: {l: Y}, value: [epoch3,sample4]} ]
+                // labeled metrics returned as a 2 items vector:
+                // [ {metric: {l: X}, value: [epoch1,sample1]}
+                //   {metric: {l: Y}, value: [epoch2,sample2]} ]
                 for metric_data in results.iter() {
                     if self.match_metric_labels(&metric_data.labels) {
                         // The result array is  [epoch, value, epoch, value]
@@ -324,7 +324,6 @@ impl PrometheusTimeSeries {
                 }
             },
         };
-        debug!("Internal Series: {:?}", self.series.as_vec());
         if loaded_items > 0 {
             self.series.calculate_stats();
         }
@@ -467,7 +466,7 @@ mod tests {
         );
         assert_eq!(test0_res.is_ok(), true);
         let mut test0 = test0_res.unwrap();
-        test0.series.metrics_capacity = 11usize;
+        test0.series = test0.series.with_capacity(11usize);
         // A json returned by prometheus
         let test0_json = hyper::Chunk::from(
             r#"
@@ -483,10 +482,10 @@ mod tests {
                       "job": "node_exporter"
                     },
                     "values": [
-                        [1558253469,"1.42"],[1558253470,"1.42"],[1558253471,"1.55"],
-                        [1558253472,"1.55"],[1558253473,"1.55"],[1558253474,"1.55"],
-                        [1558253475,"1.55"],[1558253476,"1.55"],[1558253477,"1.55"],
-                        [1558253478,"1.55"],[1558253479,"1.55"]]
+                        [1558253469,"1.69"],[1558253470,"1.70"],[1558253471,"1.71"],
+                        [1558253472,"1.72"],[1558253473,"1.73"],[1558253474,"1.74"],
+                        [1558253475,"1.75"],[1558253476,"1.76"],[1558253477,"1.77"],
+                        [1558253478,"1.78"],[1558253479,"1.79"]]
                   }
                 ]
               }
@@ -497,14 +496,12 @@ mod tests {
         let res0_load = test0.load_prometheus_response(res0_json.clone().unwrap());
         // 11 items should have been loaded in the node_exporter
         assert_eq!(res0_load, Ok(11usize));
+        debug!("it_loads_prometheus_matrix NOTVEC: {:?}", test0.series.metrics);
         let loaded_data = test0.series.as_vec();
         debug!("it_loads_prometheus_matrix Data: {:?}", loaded_data);
-        assert_eq!(loaded_data[0], (1558253469, Some(1.42f64)));
-        assert_eq!(loaded_data[1], (1558253470, Some(1.42f64)));
-        for idx in 2..11 {
-            // The rest of the items are 1.55 always
-            assert_eq!(loaded_data[idx], (1558253469 + idx as u64, Some(1.55f64)));
-        }
+        assert_eq!(loaded_data[0], (1558253469, Some(1.69f64)));
+        assert_eq!(loaded_data[1], (1558253470, Some(1.70f64)));
+        assert_eq!(loaded_data[5], (1558253474, Some(1.74f64)));
         // This json is missing the value after the epoch
         // Let's add one more item and subtract one item from the array
         let test1_json = hyper::Chunk::from(
@@ -521,10 +518,10 @@ mod tests {
                       "job": "node_exporter"
                     },
                     "values": [
-                        [1558253470,"1.42"],[1558253471,"1.55"],
-                        [1558253472,"1.55"],[1558253473,"1.55"],[1558253474,"1.55"],
-                        [1558253475,"1.55"],[1558253476,"1.55"],[1558253477,"1.55"],
-                        [1558253478,"1.55"],[1558253479,"1.55"],[1558253480,"1.55"]]
+                        [1558253471,"1.71"],[1558253472,"1.72"],[1558253473,"1.73"],
+                        [1558253474,"1.74"],[1558253475,"1.75"],[1558253476,"1.76"],
+                        [1558253477,"1.77"],[1558253478,"1.78"],[1558253479,"1.79"],
+                        [1558253480,"1.80"],[1558253481,"1.81"]]
                   }
                 ]
               }
@@ -532,6 +529,9 @@ mod tests {
         );
         let res1_json = parse_json(&test1_json);
         assert_eq!(res1_json.is_some(), true);
+        debug!("it_loads_prometheus_matrix NOTVEC: {:?}", test0.series.metrics);
+        let loaded_data = test0.series.as_vec();
+        debug!("it_loads_prometheus_matrix Data: {:?}", loaded_data);
         let res1_load = test0.load_prometheus_response(res1_json.clone().unwrap());
         // 11 items should have been loaded in the node_exporter
         assert_eq!(res1_load, Ok(11usize));
@@ -539,13 +539,12 @@ mod tests {
         // Let's test reloading the data:
         let res1_load = test0.load_prometheus_response(res1_json.clone().unwrap());
         assert_eq!(res1_load, Ok(11usize));
+        debug!("it_loads_prometheus_matrix NOTVEC: {:?}", test0.series.metrics);
         let loaded_data = test0.series.as_vec();
         debug!("it_loads_prometheus_matrix Data: {:?}", loaded_data);
-        assert_eq!(loaded_data[0], (1558253470, Some(1.42f64)));
-        for idx in 1..11 {
-            // The rest of the items are 1.55 always
-            assert_eq!(loaded_data[idx], (1558253470 + idx as u64, Some(1.55f64)));
-        }
+        assert_eq!(loaded_data[0], (1558253480, Some(1.80f64)));
+        assert_eq!(loaded_data[1], (1558253470, Some(1.70f64)));
+        assert_eq!(loaded_data[5], (1558253474, Some(1.74f64)));
         // This json is missing the value after the epoch
         let test2_json = hyper::Chunk::from(
             r#"
