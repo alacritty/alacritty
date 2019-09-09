@@ -449,6 +449,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         if self.mouse_config.url.mods().relaxed_eq(mods)
             && (!self.ctx.terminal().mode().intersects(mouse_mode) || mods.shift)
             && self.mouse_config.url.launcher.is_some()
+            && self.ctx.selection_is_empty()
+            && self.ctx.mouse().left_button_state != ElementState::Pressed
         {
             let buffer_point = self.ctx.terminal().visible_to_buffer(point);
             if let Some(url) =
@@ -691,34 +693,33 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             self.mouse_report(code, ElementState::Released, modifiers);
             return;
         } else if let (Some(point), true) = (point, button == MouseButton::Left) {
-            self.launch_url(modifiers, point);
+            let mouse_state = self.mouse_state(point, modifiers);
+            self.update_mouse_cursor(mouse_state);
+            if let MouseState::Url(url) = mouse_state {
+                let url_bounds = url.linear_bounds(self.ctx.terminal());
+                self.ctx.terminal_mut().set_url_highlight(url_bounds);
+                self.launch_url(url);
+            }
         }
 
         self.copy_selection();
     }
 
     // Spawn URL launcher when clicking on URLs
-    fn launch_url(&self, modifiers: ModifiersState, point: Point) -> Option<()> {
-        if !self.mouse_config.url.mods().relaxed_eq(modifiers)
-            || self.ctx.mouse().block_url_launcher
-        {
-            return None;
+    fn launch_url(&self, url: Url) {
+        if self.ctx.mouse().block_url_launcher {
+            return;
         }
 
-        let point = self.ctx.terminal().visible_to_buffer(point);
-        let url = self.ctx.terminal().urls().drain(..).find(|url| url.contains(point))?;
-        let text = self.ctx.terminal().url_to_string(&url);
+        if let Some(ref launcher) = self.mouse_config.url.launcher {
+            let mut args = launcher.args().to_vec();
+            args.push(self.ctx.terminal().url_to_string(url));
 
-        let launcher = self.mouse_config.url.launcher.as_ref()?;
-        let mut args = launcher.args().to_vec();
-        args.push(text);
-
-        match start_daemon(launcher.program(), &args) {
-            Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
-            Err(_) => warn!("Unable to launch {} with args {:?}", launcher.program(), args),
+            match start_daemon(launcher.program(), &args) {
+                Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
+                Err(_) => warn!("Unable to launch {} with args {:?}", launcher.program(), args),
+            }
         }
-
-        Some(())
     }
 
     pub fn on_mouse_wheel(

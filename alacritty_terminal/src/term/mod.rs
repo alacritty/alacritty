@@ -1359,7 +1359,7 @@ impl Term {
         urls
     }
 
-    pub fn url_to_string(&self, url: &Url) -> String {
+    pub fn url_to_string(&self, url: Url) -> String {
         let mut url_text = String::new();
 
         let mut iter = self.grid.iter_from(url.start);
