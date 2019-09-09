@@ -711,10 +711,9 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             return;
         }
 
-        let text = self.ctx.terminal().url_to_string(url);
         if let Some(ref launcher) = self.mouse_config.url.launcher {
             let mut args = launcher.args().to_vec();
-            args.push(text);
+            args.push(self.ctx.terminal().url_to_string(url));
 
             match start_daemon(launcher.program(), &args) {
                 Ok(_) => debug!("Launched {} with args {:?}", launcher.program(), args),
