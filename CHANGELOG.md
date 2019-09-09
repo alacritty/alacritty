@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Packaging
 
-- Minimum Rust version has been bumped to 1.34.0
+- Minimum Rust version has been bumped to 1.36.0
 
 ### Added
 
