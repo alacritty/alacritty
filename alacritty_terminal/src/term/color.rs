@@ -143,7 +143,7 @@ pub struct List([Rgb; COUNT]);
 impl<'a> From<&'a Colors> for List {
     fn from(colors: &Colors) -> List {
         // Type inference fails without this annotation
-        let mut list: List = unsafe { ::std::mem::uninitialized() };
+        let mut list = List([Rgb::default(); COUNT]);
 
         list.fill_named(colors);
         list.fill_cube(colors);
