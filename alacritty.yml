@@ -452,7 +452,7 @@ mouse_bindings:
 # - `key`: Identifier of the key pressed
 #
 #    - A-Z
-#    - F1-F12
+#    - F1-F24
 #    - Key0-Key9
 #
 #    A full list with available key codes can be found here:

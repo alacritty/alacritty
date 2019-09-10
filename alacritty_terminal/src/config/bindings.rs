@@ -113,18 +113,14 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Key::F10; Action::Esc("\x1b[21~".into());
         Key::F11; Action::Esc("\x1b[23~".into());
         Key::F12; Action::Esc("\x1b[24~".into());
-        Key::F13; Action::Esc("\x1b[1;2P".into());
-        Key::F14; Action::Esc("\x1b[1;2Q".into());
-        Key::F15; Action::Esc("\x1b[1;2R".into());
-        Key::F16; Action::Esc("\x1b[1;2S".into());
-        Key::F17; Action::Esc("\x1b[15;2~".into());
-        Key::F18; Action::Esc("\x1b[17;2~".into());
-        Key::F19; Action::Esc("\x1b[18;2~".into());
-        Key::F20; Action::Esc("\x1b[19;2~".into());
-        Key::F21; Action::Esc("\x1b[20;2~".into());
-        Key::F22; Action::Esc("\x1b[21;2~".into());
-        Key::F23; Action::Esc("\x1b[23;2~".into());
-        Key::F24; Action::Esc("\x1b[24;2~".into());
+        Key::F13; Action::Esc("\x1b[25~".into());
+        Key::F14; Action::Esc("\x1b[26~".into());
+        Key::F15; Action::Esc("\x1b[28~".into());
+        Key::F16; Action::Esc("\x1b[29~".into());
+        Key::F17; Action::Esc("\x1b[31~".into());
+        Key::F18; Action::Esc("\x1b[32~".into());
+        Key::F19; Action::Esc("\x1b[33~".into());
+        Key::F20; Action::Esc("\x1b[34~".into());
         Key::NumpadEnter; Action::Esc("\n".into());
     );
 
@@ -158,60 +154,73 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         ModifiersState { shift: true, alt: true, ctrl: true, ..ModifiersState::default() },
     ];
 
-    let mut modifers_num = 2;
-    for mods in modifiers.iter() {
-        let mods_num = modifers_num.to_string();
+    for (modifiers_number, mods) in modifiers.iter().enumerate() {
+        let modifiers_number = modifiers_number + 2;
         bindings.extend(bindings!(
             KeyBinding;
             Key::Up,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[1;".to_owned()  + &mods_num + "A");
+            Action::Esc(format!("\x1b[1;{}A", modifiers_number));
             Key::Down,  [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[1;".to_owned()  + &mods_num + "B");
+            Action::Esc(format!("\x1b[1;{}B", modifiers_number));
             Key::Right, [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[1;".to_owned()  + &mods_num + "C");
+            Action::Esc(format!("\x1b[1;{}C", modifiers_number));
             Key::Left,  [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[1;".to_owned()  + &mods_num + "D");
+            Action::Esc(format!("\x1b[1;{}D", modifiers_number));
             Key::F1,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[1;".to_owned()  + &mods_num + "P");
+            Action::Esc(format!("\x1b[1;{}P", modifiers_number));
             Key::F2,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[1;".to_owned()  + &mods_num + "Q");
+            Action::Esc(format!("\x1b[1;{}Q", modifiers_number));
             Key::F3,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[1;".to_owned()  + &mods_num + "R");
+            Action::Esc(format!("\x1b[1;{}R", modifiers_number));
             Key::F4,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[1;".to_owned()  + &mods_num + "S");
+            Action::Esc(format!("\x1b[1;{}S", modifiers_number));
             Key::F5,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[15;".to_owned() + &mods_num + "~");
+            Action::Esc(format!("\x1b[15;{}~", modifiers_number));
             Key::F6,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[17;".to_owned() + &mods_num + "~");
+            Action::Esc(format!("\x1b[17;{}~", modifiers_number));
             Key::F7,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[18;".to_owned() + &mods_num + "~");
+            Action::Esc(format!("\x1b[18;{}~", modifiers_number));
             Key::F8,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[19;".to_owned() + &mods_num + "~");
+            Action::Esc(format!("\x1b[19;{}~", modifiers_number));
             Key::F9,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[20;".to_owned() + &mods_num + "~");
+            Action::Esc(format!("\x1b[20;{}~", modifiers_number));
             Key::F10,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[21;".to_owned() + &mods_num + "~");
+            Action::Esc(format!("\x1b[21;{}~", modifiers_number));
             Key::F11,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[23;".to_owned() + &mods_num + "~");
+            Action::Esc(format!("\x1b[23;{}~", modifiers_number));
             Key::F12,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc("\x1b[24;".to_owned() + &mods_num + "~");
+            Action::Esc(format!("\x1b[24;{}~", modifiers_number));
+            Key::F13,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[25;{}~", modifiers_number));
+            Key::F14,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[26;{}~", modifiers_number));
+            Key::F15,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[28;{}~", modifiers_number));
+            Key::F16,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[29;{}~", modifiers_number));
+            Key::F17,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[31;{}~", modifiers_number));
+            Key::F18,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[32;{}~", modifiers_number));
+            Key::F19,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[33;{}~", modifiers_number));
+            Key::F20,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[34;{}~", modifiers_number));
         ));
 
-        if modifers_num != 2 {
+        if modifiers_number != 2 {
             bindings.extend(bindings!(
                 KeyBinding;
                 Key::PageUp,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-                Action::Esc("\x1b[5;".to_owned() + &mods_num + "~");
+                Action::Esc(format!("\x1b[5;{}~", modifiers_number));
                 Key::PageDown, [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-                Action::Esc("\x1b[6;".to_owned() + &mods_num + "~");
+                Action::Esc(format!("\x1b[6;{}~", modifiers_number));
                 Key::End,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-                Action::Esc("\x1b[1;".to_owned()  + &mods_num + "F");
+                Action::Esc(format!("\x1b[1;{}F", modifiers_number));
                 Key::Home,  [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-                Action::Esc("\x1b[1;".to_owned()  + &mods_num + "H");
+                Action::Esc(format!("\x1b[1;{}H", modifiers_number));
             ));
         }
-
-        modifers_num += 1;
     }
 
     bindings.extend(platform_key_bindings());
