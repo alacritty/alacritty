@@ -30,7 +30,7 @@ use crate::meter::Meter;
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
-use crate::term::{cell::Flags, color::Rgb, RenderableCell, SizeInfo, Term};
+use crate::term::{color::Rgb, RenderableCell, SizeInfo, Term};
 use crate::text_run::TextRunIter;
 use crate::window::{self, Window};
 use font::{self, Rasterize};

@@ -311,7 +311,7 @@ impl GlyphCache {
         text_run
             .chars()
             .map(|c| {
-                let glyph_key = GlyphKey { c: c.into(), font_key, size: self.font_size };
+                let glyph_key = GlyphKey { id: c.into(), font_key, size: self.font_size };
                 *self.get(glyph_key, loader)
             })
             .collect()
