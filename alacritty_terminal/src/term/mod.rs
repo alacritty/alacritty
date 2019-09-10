@@ -45,7 +45,6 @@ use crate::tty;
 
 pub mod cell;
 pub mod color;
-pub mod text_run;
 
 /// Used to match equal brackets, when performing a bracket-pair selection.
 const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
@@ -306,7 +305,7 @@ impl RenderableCell {
         }
     }
 
-    fn is_cursor(&self) -> bool {
+    pub fn is_cursor(&self) -> bool {
         match &self.inner {
             RenderableCellContent::Cursor(_) => true,
             _ => false,

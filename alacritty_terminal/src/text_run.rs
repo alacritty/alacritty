@@ -1,9 +1,10 @@
-use super::{
+use crate::cursor::CursorKey;
+use crate::index::{Column, Line, Point};
+use crate::term::{
     cell::{Flags, MAX_ZEROWIDTH_CHARS},
     color::Rgb,
-    CursorKey, Point, RenderableCell, RenderableCellContent,
+    RenderableCell, RenderableCellContent,
 };
-use crate::index::{Column, Line};
 
 #[derive(Debug)]
 struct RunStart {
@@ -189,10 +190,21 @@ pub struct TextRunIter<I> {
     buffer_text: String,
     buffer_zero_width: Vec<[char; MAX_ZEROWIDTH_CHARS]>,
 }
-impl<I> TextRunIter<I> {
-    pub fn new(iter: I) -> Self {
+
+// This is an explicit function (as opposed to a closure) to make it easy to use as a function
+// pointer.
+fn is_not_wide_char_spacer(rc: &RenderableCell) -> bool {
+    !rc.flags.contains(Flags::WIDE_CHAR_SPACER)
+}
+impl<BaseIter> TextRunIter<std::iter::Filter<BaseIter, fn(&RenderableCell) -> bool>>
+where
+    BaseIter: Iterator<Item = RenderableCell>,
+{
+    pub fn new(iter: BaseIter) -> Self {
         TextRunIter {
-            iter,
+            // Logic for WIDE_CHAR is handled internally by TextRun
+            // So we no longer need WIDE_CHAR_SPACER at this point.
+            iter: iter.filter(is_not_wide_char_spacer),
             latest: None,
             run_start: None,
             cursor: None,
@@ -200,7 +212,8 @@ impl<I> TextRunIter<I> {
             buffer_zero_width: Vec::new(),
         }
     }
-
+}
+impl<I> TextRunIter<I> {
     /// Check if current run ends with incoming RenderableCell
     fn is_end_of_run(&self, rc: &RenderableCell) -> bool {
         let is_cell_adjacent =

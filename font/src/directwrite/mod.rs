@@ -19,8 +19,7 @@ use self::dwrote::{
 };
 
 use super::{
-    FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, Size, Slant,
-    Style, Weight,
+    FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
 };
 
 pub struct DirectWriteRasterizer {

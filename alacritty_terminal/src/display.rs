@@ -31,10 +31,9 @@ use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
 use crate::term::{cell::Flags, color::Rgb, RenderableCell, SizeInfo, Term};
+use crate::text_run::TextRunIter;
 use crate::window::{self, Window};
 use font::{self, Rasterize};
-
-use crate::term::text_run::TextRunIter;
 
 #[derive(Debug)]
 pub enum Error {
@@ -520,13 +519,7 @@ impl Display {
             // Draw grid
             self.renderer.with_api(config, &size_info, |mut api| {
                 // Iterate over each contiguous block of text
-                for text_run in TextRunIter::new(
-                    grid_cells
-                        .into_iter()
-                        // Logic for WIDE_CHAR is handled internally by TextRun
-                        // So we no longer need WIDE_CHAR_SPACER at this point.
-                        .filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER)),
-                ) {
+                for text_run in TextRunIter::new(grid_cells.into_iter()) {
                     println!("{:?}", text_run);
                     // Update underline/strikeout
                     lines.update(&text_run);

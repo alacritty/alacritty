@@ -36,9 +36,8 @@ use crate::gl;
 use crate::gl::types::*;
 use crate::index::{Column, Line};
 use crate::renderer::rects::RenderRect;
-use crate::term::color::Rgb;
-use crate::term::text_run::{TextRun, TextRunContent};
-use crate::term::{self, cell, RenderableCell};
+use crate::term::{self, cell, color::Rgb, RenderableCell};
+use crate::text_run::{TextRun, TextRunContent};
 
 pub mod rects;
 

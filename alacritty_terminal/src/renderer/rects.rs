@@ -18,8 +18,8 @@ use font::Metrics;
 use crate::index::Point;
 use crate::term::cell::Flags;
 use crate::term::color::Rgb;
-use crate::term::text_run::TextRun;
 use crate::term::SizeInfo;
+use crate::text_run::TextRun;
 
 #[derive(Debug, Copy, Clone)]
 pub struct RenderRect {

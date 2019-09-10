@@ -20,8 +20,7 @@ use std::path::PathBuf;
 
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
-use harfbuzz_rs::Face as HbFace;
-use harfbuzz_rs::{shape, Feature, Font, GlyphBuffer, Owned, Tag, UnicodeBuffer};
+use harfbuzz_rs::{Face as HbFace, Feature, Font, GlyphBuffer, Owned, Tag, UnicodeBuffer};
 use libc::c_uint;
 
 pub mod fc;
@@ -41,7 +40,6 @@ struct Face {
     render_mode: freetype::RenderMode,
     lcd_filter: c_uint,
     non_scalable: Option<FixedSize>,
-    /// This is an option just in case hb_ft_create_font_referenced fails.
     hb_font: Owned<Font<'static>>,
 }
 
@@ -154,13 +152,13 @@ impl ::Rasterize for FreeTypeRasterizer {
 impl crate::HbFtExt for FreeTypeRasterizer {
     fn shape(&mut self, text: &str, font_key: FontKey) -> GlyphBuffer {
         let hb_font = &self.faces[&font_key].hb_font;
-        let buf = UnicodeBuffer::default().add_str(text);
+        let buf = UnicodeBuffer::new().add_str(text);
         let use_font_ligature = if self.use_font_ligatures { 1 } else { 0 };
         let features = &[
-            Feature::new(Tag::new('l', 'i', 'g', 'a'), use_font_ligature, 0..),
-            Feature::new(Tag::new('c', 'a', 'l', 't'), use_font_ligature, 0..),
+            Feature::new(Tag::new('l', 'i', 'g', 'a'), use_font_ligature, ..),
+            Feature::new(Tag::new('c', 'a', 'l', 't'), use_font_ligature, ..),
         ];
-        shape(&*hb_font, buf, features)
+        harfbuzz_rs::shape(&*hb_font, buf, features)
     }
 }
 
@@ -287,10 +285,7 @@ impl FreeTypeRasterizer {
             };
 
             // Construct harfbuzz font
-            let hb_font = {
-                let _hb_face = HbFace::from_file(&path, index as u32)?;
-                Font::new(_hb_face)
-            };
+            let hb_font = Font::new(HbFace::from_file(&path, index as u32)?);
 
             let face = Face {
                 ft_face,
@@ -314,69 +309,24 @@ impl FreeTypeRasterizer {
         }
     }
 
-    fn face_for_glyph(
-        &mut self,
-        glyph_key: GlyphKey,
-        have_recursed: bool,
-    ) -> Result<FontKey, Error> {
-        let font_key = match glyph_key.id {
+    fn face_for_glyph(&mut self, glyph_key: GlyphKey) -> FontKey {
+        match glyph_key.id {
             // We already found a glyph index, use current font
             KeyType::GlyphIndex(_) => glyph_key.font_key,
             // Harfbuzz failed to find a glyph index, try to load a font for c
-            KeyType::Fallback(c) => self.handle_fallback_char(c, glyph_key.font_key, have_recursed),
-        };
-        Ok(font_key)
-    }
-
-    // On unix harfbuzz turns characters into glyph indices. So if we hit this method we already
-    // know the glyph is missing from the font and we want to fallback to a system font.
-    #[cfg(unix)]
-    fn handle_fallback_char(&mut self, c: char, font_key: FontKey, have_recursed: bool) -> FontKey {
-        if have_recursed {
-            font_key
-        } else {
-            self.load_face_with_glyph(c).unwrap_or(font_key)
-        }
-    }
-
-    // If we aren't on unix this will be called for all characters so we still want to check
-    // configured font first.
-    #[cfg(not(unix))]
-    fn handle_fallback_char(&mut self, c: char, font_key: FontKey, have_recursed: bool) -> FontKey {
-        let use_initial_face = if let Some(face) = self.faces.get(&glyph_key.font_key) {
-            let index = face.ft_face.get_char_index(c as usize);
-
-            index != 0 || have_recursed
-        } else {
-            false
-        };
-
-        if use_initial_face {
-            font_key
-        } else {
-            let key = self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key);
-            key
+            KeyType::Fallback(c) => self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key),
         }
     }
 
     fn get_rendered_glyph(&mut self, glyph_key: GlyphKey) -> Result<RasterizedGlyph, Error> {
         // Render a normal character if it's not a cursor
-        let font_key = self.face_for_glyph(glyph_key, false)?;
+        let font_key = self.face_for_glyph(glyph_key);
         let face = &self.faces[&font_key];
         let index = match glyph_key.id {
             KeyType::GlyphIndex(i) => i,
             KeyType::Fallback(c) => face.ft_face.get_char_index(c as usize),
         };
 
-        self.get_rendered_glyph_index(face, glyph_key, index)
-    }
-
-    fn get_rendered_glyph_index(
-        &self,
-        face: &crate::ft::Face,
-        glyph_key: GlyphKey,
-        index: u32,
-    ) -> Result<RasterizedGlyph, Error> {
         let size =
             face.non_scalable.as_ref().map(|v| v.pixelsize as f32).unwrap_or_else(|| {
                 glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.
