@@ -71,45 +71,45 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
     let mut bindings = bindings!(
         KeyBinding;
         Key::Paste; Action::Paste;
-        Key::Copy; Action::Copy;
+        Key::Copy;  Action::Copy;
         Key::L, [ctrl: true]; Action::ClearLogNotice;
         Key::L, [ctrl: true]; Action::Esc("\x0c".into());
-        Key::PageUp, [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageUp;
-        Key::PageUp, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[5;2~".into());
+        Key::PageUp,   [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageUp;
+        Key::PageUp,   [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[5;2~".into());
         Key::PageDown, [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageDown;
         Key::PageDown, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[6;2~".into());
-        Key::Home, [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollToTop;
-        Key::Home, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2H".into());
-        Key::End, [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollToBottom;
-        Key::End, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2F".into());
+        Key::Home,     [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollToTop;
+        Key::Home,     [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2H".into());
+        Key::End,      [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollToBottom;
+        Key::End,      [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2F".into());
         Key::Home, +TermMode::APP_CURSOR; Action::Esc("\x1bOH".into());
         Key::Home, ~TermMode::APP_CURSOR; Action::Esc("\x1b[H".into());
-        Key::End, +TermMode::APP_CURSOR; Action::Esc("\x1bOF".into());
-        Key::End, ~TermMode::APP_CURSOR; Action::Esc("\x1b[F".into());
-        Key::PageUp; Action::Esc("\x1b[5~".into());
+        Key::End,  +TermMode::APP_CURSOR; Action::Esc("\x1bOF".into());
+        Key::End,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[F".into());
+        Key::PageUp;   Action::Esc("\x1b[5~".into());
         Key::PageDown; Action::Esc("\x1b[6~".into());
         Key::Tab, [shift: true]; Action::Esc("\x1b[Z".into());
         Key::Back; Action::Esc("\x7f".into());
         Key::Back, [alt: true]; Action::Esc("\x1b\x7f".into());
         Key::Insert; Action::Esc("\x1b[2~".into());
         Key::Delete; Action::Esc("\x1b[3~".into());
-        Key::Up, +TermMode::APP_CURSOR; Action::Esc("\x1bOA".into());
-        Key::Up, ~TermMode::APP_CURSOR; Action::Esc("\x1b[A".into());
-        Key::Down, +TermMode::APP_CURSOR; Action::Esc("\x1bOB".into());
-        Key::Down, ~TermMode::APP_CURSOR; Action::Esc("\x1b[B".into());
+        Key::Up,    +TermMode::APP_CURSOR; Action::Esc("\x1bOA".into());
+        Key::Up,    ~TermMode::APP_CURSOR; Action::Esc("\x1b[A".into());
+        Key::Down,  +TermMode::APP_CURSOR; Action::Esc("\x1bOB".into());
+        Key::Down,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[B".into());
         Key::Right, +TermMode::APP_CURSOR; Action::Esc("\x1bOC".into());
         Key::Right, ~TermMode::APP_CURSOR; Action::Esc("\x1b[C".into());
-        Key::Left, +TermMode::APP_CURSOR; Action::Esc("\x1bOD".into());
-        Key::Left, ~TermMode::APP_CURSOR; Action::Esc("\x1b[D".into());
-        Key::F1; Action::Esc("\x1bOP".into());
-        Key::F2; Action::Esc("\x1bOQ".into());
-        Key::F3; Action::Esc("\x1bOR".into());
-        Key::F4; Action::Esc("\x1bOS".into());
-        Key::F5; Action::Esc("\x1b[15~".into());
-        Key::F6; Action::Esc("\x1b[17~".into());
-        Key::F7; Action::Esc("\x1b[18~".into());
-        Key::F8; Action::Esc("\x1b[19~".into());
-        Key::F9; Action::Esc("\x1b[20~".into());
+        Key::Left,  +TermMode::APP_CURSOR; Action::Esc("\x1bOD".into());
+        Key::Left,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[D".into());
+        Key::F1;  Action::Esc("\x1bOP".into());
+        Key::F2;  Action::Esc("\x1bOQ".into());
+        Key::F3;  Action::Esc("\x1bOR".into());
+        Key::F4;  Action::Esc("\x1bOS".into());
+        Key::F5;  Action::Esc("\x1b[15~".into());
+        Key::F6;  Action::Esc("\x1b[17~".into());
+        Key::F7;  Action::Esc("\x1b[18~".into());
+        Key::F8;  Action::Esc("\x1b[19~".into());
+        Key::F9;  Action::Esc("\x1b[20~".into());
         Key::F10; Action::Esc("\x1b[21~".into());
         Key::F11; Action::Esc("\x1b[23~".into());
         Key::F12; Action::Esc("\x1b[24~".into());
@@ -145,80 +145,80 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
     //
     // from: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-PC-Style-Function-Keys
     let modifiers = vec![
-        ModifiersState { shift: true, ..ModifiersState::default() },
-        ModifiersState { alt: true, ..ModifiersState::default() },
-        ModifiersState { shift: true, alt: true, ..ModifiersState::default() },
-        ModifiersState { ctrl: true, ..ModifiersState::default() },
-        ModifiersState { shift: true, ctrl: true, ..ModifiersState::default() },
-        ModifiersState { alt: true, ctrl: true, ..ModifiersState::default() },
-        ModifiersState { shift: true, alt: true, ctrl: true, ..ModifiersState::default() },
+        ModifiersState { shift: true,                         ..ModifiersState::default() },
+        ModifiersState { alt:   true,                         ..ModifiersState::default() },
+        ModifiersState { shift: true, alt: true,              ..ModifiersState::default() },
+        ModifiersState { ctrl:  true,                         ..ModifiersState::default() },
+        ModifiersState { shift: true, ctrl: true,             ..ModifiersState::default() },
+        ModifiersState { alt:   true, ctrl: true,             ..ModifiersState::default() },
+        ModifiersState { shift: true, alt:  true, ctrl: true, ..ModifiersState::default() },
     ];
 
-    for (modifiers_number, mods) in modifiers.iter().enumerate() {
-        let modifiers_number = modifiers_number + 2;
+    for (modifiers_code, mods) in modifiers.iter().enumerate() {
+        let modifiers_code = modifiers_code + 2;
         bindings.extend(bindings!(
             KeyBinding;
             Key::Up,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[1;{}A", modifiers_number));
+            Action::Esc(format!("\x1b[1;{}A", modifiers_code));
             Key::Down,  [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[1;{}B", modifiers_number));
+            Action::Esc(format!("\x1b[1;{}B", modifiers_code));
             Key::Right, [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[1;{}C", modifiers_number));
+            Action::Esc(format!("\x1b[1;{}C", modifiers_code));
             Key::Left,  [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[1;{}D", modifiers_number));
+            Action::Esc(format!("\x1b[1;{}D", modifiers_code));
             Key::F1,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[1;{}P", modifiers_number));
+            Action::Esc(format!("\x1b[1;{}P", modifiers_code));
             Key::F2,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[1;{}Q", modifiers_number));
+            Action::Esc(format!("\x1b[1;{}Q", modifiers_code));
             Key::F3,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[1;{}R", modifiers_number));
+            Action::Esc(format!("\x1b[1;{}R", modifiers_code));
             Key::F4,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[1;{}S", modifiers_number));
+            Action::Esc(format!("\x1b[1;{}S", modifiers_code));
             Key::F5,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[15;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[15;{}~", modifiers_code));
             Key::F6,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[17;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[17;{}~", modifiers_code));
             Key::F7,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[18;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[18;{}~", modifiers_code));
             Key::F8,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[19;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[19;{}~", modifiers_code));
             Key::F9,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[20;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[20;{}~", modifiers_code));
             Key::F10,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[21;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[21;{}~", modifiers_code));
             Key::F11,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[23;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[23;{}~", modifiers_code));
             Key::F12,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[24;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[24;{}~", modifiers_code));
             Key::F13,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[25;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[25;{}~", modifiers_code));
             Key::F14,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[26;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[26;{}~", modifiers_code));
             Key::F15,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[28;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[28;{}~", modifiers_code));
             Key::F16,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[29;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[29;{}~", modifiers_code));
             Key::F17,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[31;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[31;{}~", modifiers_code));
             Key::F18,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[32;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[32;{}~", modifiers_code));
             Key::F19,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[33;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[33;{}~", modifiers_code));
             Key::F20,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[34;{}~", modifiers_number));
+            Action::Esc(format!("\x1b[34;{}~", modifiers_code));
         ));
 
-        if modifiers_number != 2 {
+        if modifiers_code != 2 {
             bindings.extend(bindings!(
                 KeyBinding;
                 Key::PageUp,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-                Action::Esc(format!("\x1b[5;{}~", modifiers_number));
+                Action::Esc(format!("\x1b[5;{}~", modifiers_code));
                 Key::PageDown, [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-                Action::Esc(format!("\x1b[6;{}~", modifiers_number));
-                Key::End,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-                Action::Esc(format!("\x1b[1;{}F", modifiers_number));
-                Key::Home,  [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-                Action::Esc(format!("\x1b[1;{}H", modifiers_number));
+                Action::Esc(format!("\x1b[6;{}~", modifiers_code));
+                Key::End,      [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+                Action::Esc(format!("\x1b[1;{}F", modifiers_code));
+                Key::Home,     [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+                Action::Esc(format!("\x1b[1;{}H", modifiers_code));
             ));
         }
     }
