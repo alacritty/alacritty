@@ -28,6 +28,7 @@ use mio::unix::EventedFd;
 use std::ffi::CStr;
 use std::fs::File;
 use std::io;
+use std::mem::MaybeUninit;
 use std::os::unix::{
     io::{AsRawFd, FromRawFd, RawFd},
     process::CommandExt,
@@ -35,7 +36,6 @@ use std::os::unix::{
 use std::process::{Child, Command, Stdio};
 use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::mem::MaybeUninit;
 
 /// Process ID of child process
 ///
