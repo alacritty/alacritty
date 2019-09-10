@@ -19,7 +19,7 @@ use self::dwrote::{
 };
 
 use super::{
-    FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, RasterizerConfig, Size, Slant,
+    FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, Size, Slant,
     Style, Weight,
 };
 
@@ -130,7 +130,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
             KeyType::Fallback(c) => *font
                 .get_glyph_indices(&[c as u32])
                 .first()
-                .filter(|index| index != 0)
+                .filter(|index| **index != 0)
                 .ok_or_else(|| Error::MissingGlyph(c))?,
         };
 

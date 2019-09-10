@@ -43,7 +43,7 @@ use core_text::font_descriptor::{CTFontDescriptor, CTFontOrientation};
 
 use euclid::{Point2D, Rect, Size2D};
 
-use super::{FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, RasterizerConfig};
+use super::{FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph};
 
 pub mod byte_order;
 use self::byte_order::extract_rgb;
