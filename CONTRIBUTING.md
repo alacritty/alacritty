@@ -63,7 +63,7 @@ All patches have to be sent on Github as [pull requests](https://github.com/jwil
 
 If you are looking for a place to start contributing to Alacritty, take a look at the [help wanted](https://github.com/jwilm/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) and [easy](https://github.com/jwilm/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22D+-+easy%22) issues.
 
-Please note that the minimum supported version of Alacritty is Rust 1.34.0. All patches are expected to work with the minimum supported version.
+Please note that the minimum supported version of Alacritty is Rust 1.36.0. All patches are expected to work with the minimum supported version.
 
 ### Testing
 

@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Packaging
 
-- Minimum Rust version has been bumped to 1.34.0
+- Minimum Rust version has been bumped to 1.36.0
 
 ### Added
 
@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wayland clipboard integration
 - Use text mouse cursor when mouse mode is temporarily disabled with shift
 - Wayland primary selection clipboard not storing text when selection is stopped outside of the window
+- Block URL highlight while a selection is active
 
 ## 0.3.3
 

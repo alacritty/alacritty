@@ -14,7 +14,7 @@ libc = "0.2"
 notify = "4"
 bitflags = "1"
 font = { path = "../font" }
-parking_lot = "0.8"
+parking_lot = "0.9"
 serde = "1"
 serde_derive = "1"
 serde_yaml = "0.8"
