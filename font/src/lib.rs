@@ -68,6 +68,9 @@ mod darwin;
 #[cfg(target_os = "macos")]
 pub use darwin::*;
 
+/// Placehodler glyph used as glyph key for cursor's RasterizedGlyphs
+pub const PLACEHOLDER_GLYPH: KeyType = KeyType::GlyphIndex(1u32);
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FontDesc {
     name: String,
@@ -149,14 +152,11 @@ pub enum KeyType {
     Fallback(char),
 }
 
-impl KeyType {
-    // Only used in directwrite rasterizer
-    #[cfg(windows)]
-    fn unwrap_char(self) -> char {
-        match self {
-            KeyType::Fallback(c) => c,
-            KeyType::GlyphIndex(_) => panic!("Expected KeyType to contain char but was GlyphIndex"),
-        }
+impl Default for KeyType {
+    // Arbitrary non missing (non 0) glyph
+    // Used as a placeholder when glyph doesn't matter, such as when representing a cursor.
+    fn default() -> Self {
+        PLACEHOLDER_GLYPH
     }
 }
 
@@ -165,6 +165,7 @@ impl From<u32> for KeyType {
         KeyType::GlyphIndex(val)
     }
 }
+
 impl From<char> for KeyType {
     fn from(val: char) -> Self {
         KeyType::Fallback(val)
@@ -173,7 +174,7 @@ impl From<char> for KeyType {
 
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub struct GlyphKey {
-    pub c: KeyType,
+    pub id: KeyType,
     pub font_key: FontKey,
     pub size: Size,
 }
@@ -208,7 +209,7 @@ impl ::std::ops::Add for Size {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct RasterizedGlyph {
     pub c: KeyType,
     pub width: i32,
@@ -216,13 +217,6 @@ pub struct RasterizedGlyph {
     pub top: i32,
     pub left: i32,
     pub buf: Vec<u8>,
-}
-
-impl Default for RasterizedGlyph {
-    fn default() -> RasterizedGlyph {
-        let c: KeyType = 1u32.into();
-        RasterizedGlyph { c, width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }
-    }
 }
 
 struct BufDebugger<'a>(&'a [u8]);
@@ -261,7 +255,11 @@ pub trait Rasterize {
     /// Errors occurring in Rasterize methods
     type Err: ::std::error::Error + Send + Sync + 'static;
 
-    fn new(device_pixel_ratio: f32, rasterize_config: RasterizerConfig) -> Result<Self, Self::Err>
+    fn new(
+        device_pixel_ratio: f32,
+        use_thin_strokes: bool,
+        ligatures: bool,
+    ) -> Result<Self, Self::Err>
     where
         Self: Sized;
 
@@ -276,14 +274,6 @@ pub trait Rasterize {
 
     /// Update the Rasterizer's DPI factor
     fn update_dpr(&mut self, device_pixel_ratio: f32);
-}
-
-/// Config options specific to the Rasterizer.
-pub struct RasterizerConfig {
-    /// Toggle thin strokes on mac osx
-    pub use_thin_strokes: bool,
-    /// Toggle rendering of font ligatures
-    pub use_font_ligatures: bool,
 }
 
 // Only implemented for the FreeType rasterizer so far.

@@ -31,7 +31,7 @@ pub struct DirectWriteRasterizer {
 impl crate::Rasterize for DirectWriteRasterizer {
     type Err = Error;
 
-    fn new(device_pixel_ratio: f32, _: RasterizerConfig) -> Result<DirectWriteRasterizer, Error> {
+    fn new(device_pixel_ratio: f32, _: bool, _: bool) -> Result<DirectWriteRasterizer, Error> {
         Ok(DirectWriteRasterizer { fonts: Vec::new(), device_pixel_ratio })
     }
 
@@ -125,20 +125,13 @@ impl crate::Rasterize for DirectWriteRasterizer {
 
         let offset = GlyphOffset { advanceOffset: 0.0, ascenderOffset: 0.0 };
 
-        let glyph_index: u16 = match glyph.c {
+        let glyph_index: u16 = match glyph.id {
             KeyType::GlyphIndex(i) => i as u16,
-            KeyType::Fallback(c) => {
-                let index_u16 = *font
-                    .get_glyph_indices(&[c as u32])
-                    .first()
-                    .ok_or_else(|| Error::MissingGlyph(c))?;
-                if index_u16 == 0 {
-                    // The DirectWrite documentation states that we should get 0 returned if the
-                    // glyph does not exist in the font
-                    return Err(Error::MissingGlyph(c));
-                }
-                index_u16
-            },
+            KeyType::Fallback(c) => *font
+                .get_glyph_indices(&[c as u32])
+                .first()
+                .filter(|index| index != 0)
+                .ok_or_else(|| Error::MissingGlyph(c))?,
         };
 
         let glyph_run = dwrote::DWRITE_GLYPH_RUN {
@@ -168,17 +161,17 @@ impl crate::Rasterize for DirectWriteRasterizer {
             0.0,
         )
         // Since we don't shape on windows our KeyType will always be a char
-        .or_else(|_| Err(Error::MissingGlyph(glyph.c.unwrap_char())))?;
+        .or_else(|_| Err(Error::MissingGlyph(keytype_unwrap_char(glyph.id))))?;
 
         let bounds = glyph_analysis
             .get_alpha_texture_bounds(dwrote::DWRITE_TEXTURE_CLEARTYPE_3x1)
-            .or_else(|_| Err(Error::MissingGlyph(glyph.c.unwrap_char())))?;
+            .or_else(|_| Err(Error::MissingGlyph(keytype_unwrap_char(glyph.id))))?;
         let buf = glyph_analysis
             .create_alpha_texture(dwrote::DWRITE_TEXTURE_CLEARTYPE_3x1, bounds)
-            .or_else(|_| Err(Error::MissingGlyph(glyph.c.unwrap_char())))?;
+            .or_else(|_| Err(Error::MissingGlyph(keytype_unwrap_char(glyph.id))))?;
 
         Ok(RasterizedGlyph {
-            c: glyph.c,
+            c: glyph.id,
             width: (bounds.right - bounds.left) as i32,
             height: (bounds.bottom - bounds.top) as i32,
             top: -bounds.top,
@@ -221,5 +214,14 @@ impl ::std::fmt::Display for Error {
             ),
             Error::FontNotLoaded => f.write_str("Tried to use a font that hasn't been loaded"),
         }
+    }
+}
+
+// Used for error reporting only (to return a missing glyph). Windows doesn't shape text right now
+// keys will always be chars.
+fn keytype_unwrap_char(key_type: KeyType) -> char {
+    match key_type {
+        KeyType::GlyphIndex(_) => panic!("Expected KeyType to be a char"),
+        KeyType::Fallback(c) => c,
     }
 }

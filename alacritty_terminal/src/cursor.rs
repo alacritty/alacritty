@@ -16,7 +16,7 @@
 
 use std::cmp;
 
-use font::{Metrics, RasterizedGlyph};
+use font::{Metrics, RasterizedGlyph, PLACEHOLDER_GLYPH};
 
 use crate::ansi::CursorStyle;
 
@@ -54,9 +54,6 @@ pub fn get_cursor_glyph(
         CursorStyle::Hidden => RasterizedGlyph::default(),
     }
 }
-
-// This default is done as a constant to avoid duplicating the feature toggle for each cursor type.
-pub const PLACEHOLDER_GLYPH: font::KeyType = font::KeyType::GlyphIndex(1u32);
 
 // Returns a custom underline cursor character
 pub fn get_underline_cursor_glyph(width: i32, line_width: i32) -> RasterizedGlyph {

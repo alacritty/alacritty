@@ -298,7 +298,11 @@ impl Display {
         renderer: &mut QuadRenderer,
         config: &Config,
     ) -> Result<(GlyphCache, f32, f32), Error> {
-        let rasterizer = font::Rasterizer::new(dpr as f32, (&config.font).into())?;
+        let rasterizer = font::Rasterizer::new(
+            dpr as f32,
+            config.font.use_thin_strokes(),
+            config.font.ligatures(),
+        )?;
 
         // Initialize glyph cache
         let glyph_cache = {
@@ -521,7 +525,7 @@ impl Display {
                         .into_iter()
                         // Logic for WIDE_CHAR is handled internally by TextRun
                         // So we no longer need WIDE_CHAR_SPACER at this point.
-                        //.filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER)),
+                        .filter(|rc| !rc.flags.contains(Flags::WIDE_CHAR_SPACER)),
                 ) {
                     println!("{:?}", text_run);
                     // Update underline/strikeout

@@ -129,12 +129,12 @@ impl ::std::fmt::Display for Error {
 impl ::Rasterize for Rasterizer {
     type Err = Error;
 
-    fn new(device_pixel_ratio: f32, config: RasterizerConfig) -> Result<Rasterizer, Error> {
+    fn new(device_pixel_ratio: f32, use_thin_strokes: bool, _: bool) -> Result<Rasterizer, Error> {
         Ok(Rasterizer {
             fonts: HashMap::new(),
             keys: HashMap::new(),
             device_pixel_ratio,
-            use_thin_strokes: config.use_thin_strokes,
+            use_thin_strokes,
         })
     }
 
@@ -173,7 +173,7 @@ impl ::Rasterize for Rasterizer {
                 }
             }
             // no fallback, give up.
-            Err(Error::MissingGlyph(glyph.c))
+            Err(Error::MissingGlyph(glyph.id))
         })
     }
 
@@ -247,7 +247,7 @@ impl Rasterizer {
         font: &Font,
     ) -> Option<Result<RasterizedGlyph, Error>> {
         let scaled_size = self.device_pixel_ratio * glyph.size.as_f32_pts();
-        font.get_glyph(glyph.c, f64::from(scaled_size), self.use_thin_strokes)
+        font.get_glyph(glyph.id, f64::from(scaled_size), self.use_thin_strokes)
             .map(|r| Some(Ok(r)))
             .unwrap_or_else(|e| match e {
                 Error::MissingGlyph(_) => None,
@@ -455,11 +455,11 @@ impl Font {
         use_thin_strokes: bool,
     ) -> Result<RasterizedGlyph, Error> {
         let glyph_index = match key_type {
-            KeyType::GlyphIndex(i) => Ok(i),
+            KeyType::GlyphIndex(i) => i,
             KeyType::Fallback(character) => {
-                self.glyph_index(character).ok_or_else(|| Error::MissingGlyph(key_type))
+                self.glyph_index(character).ok_or_else(|| Error::MissingGlyph(key_type))?
             },
-        }?;
+        };
 
         let bounds = self.bounding_rect_for_glyph(Default::default(), glyph_index);
 

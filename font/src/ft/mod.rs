@@ -27,8 +27,7 @@ use libc::c_uint;
 pub mod fc;
 
 use super::{
-    FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, RasterizerConfig, Size, Slant,
-    Style, Weight,
+    FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
 };
 
 struct FixedSize {
@@ -82,7 +81,7 @@ fn to_freetype_26_6(f: f32) -> isize {
 impl ::Rasterize for FreeTypeRasterizer {
     type Err = Error;
 
-    fn new(device_pixel_ratio: f32, config: RasterizerConfig) -> Result<FreeTypeRasterizer, Error> {
+    fn new(device_pixel_ratio: f32, _: bool, ligatures: bool) -> Result<FreeTypeRasterizer, Error> {
         let library = Library::init()?;
 
         Ok(FreeTypeRasterizer {
@@ -90,7 +89,7 @@ impl ::Rasterize for FreeTypeRasterizer {
             keys: HashMap::new(),
             library,
             device_pixel_ratio,
-            use_font_ligatures: config.use_font_ligatures,
+            use_font_ligatures: ligatures,
         })
     }
 
@@ -320,7 +319,7 @@ impl FreeTypeRasterizer {
         glyph_key: GlyphKey,
         have_recursed: bool,
     ) -> Result<FontKey, Error> {
-        let font_key = match glyph_key.c {
+        let font_key = match glyph_key.id {
             // We already found a glyph index, use current font
             KeyType::GlyphIndex(_) => glyph_key.font_key,
             // Harfbuzz failed to find a glyph index, try to load a font for c
@@ -364,7 +363,7 @@ impl FreeTypeRasterizer {
         // Render a normal character if it's not a cursor
         let font_key = self.face_for_glyph(glyph_key, false)?;
         let face = &self.faces[&font_key];
-        let index = match glyph_key.c {
+        let index = match glyph_key.id {
             KeyType::GlyphIndex(i) => i,
             KeyType::Fallback(c) => face.ft_face.get_char_index(c as usize),
         };
@@ -397,7 +396,7 @@ impl FreeTypeRasterizer {
         let (pixel_height, pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;
 
         Ok(RasterizedGlyph {
-            c: glyph_key.c,
+            c: glyph_key.id,
             top: glyph.bitmap_top(),
             left: glyph.bitmap_left(),
             width: pixel_width,
