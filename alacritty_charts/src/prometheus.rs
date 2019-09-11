@@ -279,9 +279,9 @@ impl PrometheusTimeSeries {
                 for metric_data in results.iter() {
                     if self.match_metric_labels(&metric_data.labels) {
                         // The result array is  [epoch, value, epoch, value]
-                        for item in metric_data.value.chunks_exact(2) {
-                            let opt_epoch = prometheus_epoch_to_u64(&item[0]);
-                            let opt_value = serde_json_to_num(&item[1]);
+                        if metric_data.value.len() == 2 {
+                            let opt_epoch = prometheus_epoch_to_u64(&metric_data.value[0]);
+                            let opt_value = serde_json_to_num(&metric_data.value[1]);
                             if let (Some(epoch), Some(value)) = (opt_epoch, opt_value) {
                                 self.series.push((epoch, value));
                                 loaded_items += 1;
@@ -540,10 +540,10 @@ mod tests {
         let res1_load = test0.load_prometheus_response(res1_json.clone().unwrap());
         assert_eq!(res1_load, Ok(11usize));
         debug!("it_loads_prometheus_matrix NOTVEC: {:?}", test0.series.metrics);
-        let loaded_data = test0.series.as_vec();
+        let loaded_data = test0.series.metrics.clone();
         debug!("it_loads_prometheus_matrix Data: {:?}", loaded_data);
         assert_eq!(loaded_data[0], (1558253480, Some(1.80f64)));
-        assert_eq!(loaded_data[1], (1558253470, Some(1.70f64)));
+        assert_eq!(loaded_data[1], (1558253481, Some(1.81f64)));
         assert_eq!(loaded_data[5], (1558253474, Some(1.74f64)));
         // This json is missing the value after the epoch
         let test2_json = hyper::Chunk::from(
@@ -676,6 +676,7 @@ mod tests {
 
     #[test]
     fn it_loads_prometheus_vector() {
+        init_log();
         let mut metric_labels = HashMap::new();
         let test0_res: Result<PrometheusTimeSeries, String> = PrometheusTimeSeries::new(
             String::from("http://localhost:9090/api/v1/query?query=up"),
