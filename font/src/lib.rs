@@ -69,8 +69,7 @@ mod darwin;
 pub use darwin::*;
 
 /// Placehodler glyph used as glyph key for cursor's RasterizedGlyphs
-/// 0 indicates a missing glyph, this ensures it will not render a random glyph in any font.
-pub const PLACEHOLDER_GLYPH: KeyType = KeyType::GlyphIndex(0u32);
+pub const PLACEHOLDER_GLYPH: KeyType = KeyType::Placeholder;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FontDesc {
@@ -151,6 +150,9 @@ pub enum KeyType {
     /// attempt to load character glyph from a fallback font. If shaping did not occur this will
     /// first try the configured font then fallback.
     Fallback(char),
+    /// Placeholder glyph useful when we need a glyph but it shouldn't ever render as anything
+    /// (cursors, wide_char_spacers, etc.)
+    Placeholder,
 }
 
 impl Default for KeyType {

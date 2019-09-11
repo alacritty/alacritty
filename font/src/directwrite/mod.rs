@@ -126,6 +126,12 @@ impl crate::Rasterize for DirectWriteRasterizer {
 
         let glyph_index: u16 = match glyph.id {
             KeyType::GlyphIndex(i) => i as u16,
+            // On placeholder return a missing glyph error with the placeholder unicode character
+            KeyType::Placeholder => *font
+                .get_glyph_indices(&[' ' as u32])
+                .first()
+                .filter(|index| **index != 0)
+                .ok_or_else(|| Error::MissingGlyph(' '))?,
             KeyType::Fallback(c) => *font
                 .get_glyph_indices(&[c as u32])
                 .first()
@@ -220,7 +226,8 @@ impl ::std::fmt::Display for Error {
 // keys will always be chars.
 fn keytype_unwrap_char(key_type: KeyType) -> char {
     match key_type {
-        KeyType::GlyphIndex(_) => panic!("Expected KeyType to be a char"),
+        KeyType::GlyphIndex(_) => panic!("Expected KeyType to be contain a char"),
         KeyType::Fallback(c) => c,
+        KeyType::Placeholder => ' ',
     }
 }

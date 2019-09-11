@@ -1135,12 +1135,7 @@ impl<'a> RenderApi<'a> {
                 let font_key = Self::determine_font_key(text_run.flags, glyph_cache);
 
                 let shaped_glyphs = if text_run.flags.contains(cell::Flags::HIDDEN) {
-                    GlyphIter::Hidden(hidden_glyph_iter(
-                        font_key,
-                        glyph_cache.font_size,
-                        glyph_cache,
-                        self,
-                    ))
+                    GlyphIter::Hidden(hidden_glyph_iter(font_key, glyph_cache, self))
                 } else {
                     GlyphIter::Shaped(glyph_cache.shape_run(&run, font_key, self).into_iter())
                 };
@@ -1154,10 +1149,7 @@ impl<'a> RenderApi<'a> {
                         // Renderer only renders single character width rectangles
                         // If we don't add in this instance data then we only render one cell of
                         // fg/bg/strikethrough/etc.
-                        let glyph =
-                            hidden_glyph_iter(font_key, glyph_cache.font_size, glyph_cache, self)
-                                .next()
-                                .unwrap();
+                        let glyph = hidden_glyph_iter(font_key, glyph_cache, self).next().unwrap();
                         self.add_render_item(
                             &RenderableCell { column: cell.column + 1, ..cell.clone() },
                             &glyph,
@@ -1178,7 +1170,6 @@ impl<'a> RenderApi<'a> {
 /// Returns an infinite iterator of hidden glyphs for a given font key and size.
 fn hidden_glyph_iter<'a, L>(
     font_key: FontKey,
-    font_size: font::Size,
     glyph_cache: &'a mut GlyphCache,
     loader: &mut L,
 ) -> std::iter::Repeat<Glyph>
@@ -1189,7 +1180,7 @@ where
     // But we still want to run each cell through add_render_item so colors get handled
     // appropiately. We construct a dummy key that should be cached a majority of the time so
     // that we have a valid glyph.
-    let key = GlyphKey { id: PLACEHOLDER_GLYPH, font_key, size: font_size };
+    let key = GlyphKey { id: PLACEHOLDER_GLYPH, font_key, size: glyph_cache.font_size };
     let glyph = *glyph_cache.get(key, loader);
     std::iter::repeat(glyph)
 }

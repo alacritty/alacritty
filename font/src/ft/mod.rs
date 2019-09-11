@@ -41,6 +41,7 @@ struct Face {
     lcd_filter: c_uint,
     non_scalable: Option<FixedSize>,
     hb_font: Owned<Font<'static>>,
+    placeholder_glyph_index: u32,
 }
 
 impl fmt::Debug for Face {
@@ -273,7 +274,9 @@ impl FreeTypeRasterizer {
 
             trace!("Got font path={:?}", path);
             let ft_face = self.library.new_face(&path, index)?;
-
+            // This will different for each font so we can't use a constant but we don't want to
+            // look it up every time so we cache it on load.
+            let placeholder_glyph_index = ft_face.get_char_index(' ' as usize);
             // Get available pixel sizes if font isn't scalable.
             let non_scalable = if pattern.scalable().next().unwrap_or(true) {
                 None
@@ -295,6 +298,7 @@ impl FreeTypeRasterizer {
                 lcd_filter: Self::ft_lcd_filter(pattern),
                 non_scalable,
                 hb_font,
+                placeholder_glyph_index,
             };
 
             debug!("Loaded Face {:?}", face);
@@ -312,7 +316,7 @@ impl FreeTypeRasterizer {
     fn face_for_glyph(&mut self, glyph_key: GlyphKey) -> FontKey {
         match glyph_key.id {
             // We already found a glyph index, use current font
-            KeyType::GlyphIndex(_) => glyph_key.font_key,
+            KeyType::GlyphIndex(_) | KeyType::Placeholder => glyph_key.font_key,
             // Harfbuzz failed to find a glyph index, try to load a font for c
             KeyType::Fallback(c) => self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key),
         }
@@ -325,6 +329,8 @@ impl FreeTypeRasterizer {
         let index = match glyph_key.id {
             KeyType::GlyphIndex(i) => i,
             KeyType::Fallback(c) => face.ft_face.get_char_index(c as usize),
+            // Render
+            KeyType::Placeholder => face.placeholder_glyph_index,
         };
 
         let size =
