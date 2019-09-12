@@ -930,15 +930,6 @@ impl TimeSeries {
 
     /// `circular_push` an item to the circular buffer
     pub fn circular_push(&mut self, input: (u64, Option<f64>)) {
-        debug!(
-            "circular_push ({},{:?}) first_idx: {}, active_items: {} to cap: {} vec: {:?}",
-            input.0,
-            input.1,
-            self.first_idx,
-            self.active_items,
-            self.metrics_capacity,
-            self.metrics
-        );
         if self.metrics.len() < self.metrics_capacity {
             self.metrics.push(input);
             self.active_items += 1;
@@ -962,22 +953,6 @@ impl TimeSeries {
     pub fn push(&mut self, input: (u64, f64)) {
         if !self.metrics.is_empty() {
             let mut last_idx = (self.first_idx + self.active_items - 1) % self.metrics_capacity;
-            debug!(
-                "push ({},{}) self.first_idx: {}, active_items: {}, last_idx: {}, to {:?}",
-                input.0, input.1, self.first_idx, self.active_items, last_idx, self.metrics
-            );
-            debug!(
-                "push ({},{}) self.first_idx: {}, active_items: {}, last_idx: {}, \
-                 self.metrics[last_idx].0: {}, inactive_time: {}, to: {:?}",
-                input.0,
-                input.1,
-                self.first_idx,
-                self.active_items,
-                last_idx,
-                self.metrics[last_idx].0,
-                input.0 as i64 - self.metrics[last_idx].0 as i64,
-                self.metrics
-            );
             if (self.metrics[last_idx].0 as i64 - input.0 as i64) > self.metrics_capacity as i64 {
                 // The timestamp is too old and should be discarded.
                 // This means we cannot scroll back in time.
@@ -997,10 +972,6 @@ impl TimeSeries {
                 last_idx = (self.metrics_capacity as i64 + last_idx as i64 + inactive_time)
                     as usize
                     % self.metrics_capacity;
-                debug!(
-                    "push adjusted last_idx to: {} which points to self.metrics[last_idx].0: {}",
-                    last_idx, self.metrics[last_idx].0
-                );
                 // In this case, the last epoch and the current epoch match
                 if let Some(curr_val) = self.metrics[last_idx].1 {
                     self.metrics[last_idx].1 =
@@ -1020,7 +991,6 @@ impl TimeSeries {
                 self.circular_push((input.0, Some(input.1)));
             }
         } else {
-            debug!("metrics.is_empty()");
             self.circular_push((input.0, Some(input.1)));
         }
     }
