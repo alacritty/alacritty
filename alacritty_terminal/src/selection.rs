@@ -140,7 +140,8 @@ impl Selection {
                         (&region.start, &region.end)
                     };
 
-                // Empty when single cell with identical sides or two cell with right+left sides
+                // Simple selection is empty when the points are identical
+                // or two adjacent cells have the sides right -> left
                 start == end
                     || (start.side == Side::Left
                         && end.side == Side::Right
@@ -148,7 +149,9 @@ impl Selection {
                         && start.point.col == end.point.col + 1)
             },
             Selection::Block { region: Range { ref start, ref end } } => {
-                // Empty when at most line different or two cells with right+left sides
+                // Block selection is empty when the points' columns and sides are identical
+                // or two cells with adjacent columns have the sides right -> left,
+                // regardless of their lines
                 (start.point.col == end.point.col && start.side == end.side)
                     || (start.point.col == end.point.col + 1
                         && start.side == Side::Left
