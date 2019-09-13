@@ -12,20 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::ops::Deref;
+use std::ptr::NonNull;
 
 use foreign_types::{ForeignType, ForeignTypeRef};
 
-use super::{ConfigRef, PatternRef, ObjectSetRef};
+use super::{ConfigRef, ObjectSetRef, PatternRef};
 
-use super::ffi::{FcFontSetList, FcFontSetDestroy, FcFontSet};
+use super::ffi::{FcFontSet, FcFontSetDestroy, FcFontSetList};
 
 foreign_type! {
-    type CType = FcFontSet;
-    fn drop = FcFontSetDestroy;
-    /// Wraps an FcFontSet instance (owned)
-    pub struct FontSet;
-    /// Wraps an FcFontSet reference (borrowed)
-    pub struct FontSetRef;
+    pub type FontSet {
+        type CType = FcFontSet;
+        fn drop = FcFontSetDestroy;
+    }
 }
 
 impl FontSet {
@@ -33,18 +32,18 @@ impl FontSet {
         config: &ConfigRef,
         source: &mut FontSetRef,
         pattern: &PatternRef,
-        objects: &ObjectSetRef
+        objects: &ObjectSetRef,
     ) -> FontSet {
         let raw = unsafe {
             FcFontSetList(
                 config.as_ptr(),
                 &mut source.as_ptr(),
-                1 /* nsets */,
+                1, // nsets
                 pattern.as_ptr(),
                 objects.as_ptr(),
             )
         };
-        FontSet(raw)
+        FontSet(NonNull::new(raw).unwrap())
     }
 }
 
@@ -56,38 +55,28 @@ pub struct Iter<'a> {
 }
 
 impl<'a> IntoIterator for &'a FontSet {
-    type Item = &'a PatternRef;
     type IntoIter = Iter<'a>;
+    type Item = &'a PatternRef;
+
     fn into_iter(self) -> Iter<'a> {
-        let num_fonts = unsafe {
-            (*self.as_ptr()).nfont as isize
-        };
+        let num_fonts = unsafe { (*self.as_ptr()).nfont as isize };
 
         trace!("Number of fonts is {}", num_fonts);
 
-        Iter {
-            font_set: self.deref(),
-            num_fonts: num_fonts as _,
-            current: 0,
-        }
+        Iter { font_set: self.deref(), num_fonts: num_fonts as _, current: 0 }
     }
 }
 
 impl<'a> IntoIterator for &'a FontSetRef {
-    type Item = &'a PatternRef;
     type IntoIter = Iter<'a>;
+    type Item = &'a PatternRef;
+
     fn into_iter(self) -> Iter<'a> {
-        let num_fonts = unsafe {
-            (*self.as_ptr()).nfont as isize
-        };
+        let num_fonts = unsafe { (*self.as_ptr()).nfont as isize };
 
         trace!("Number of fonts is {}", num_fonts);
 
-        Iter {
-            font_set: self,
-            num_fonts: num_fonts as _,
-            current: 0,
-        }
+        Iter { font_set: self, num_fonts: num_fonts as _, current: 0 }
     }
 }
 

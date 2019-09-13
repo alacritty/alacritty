@@ -11,16 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use foreign_types::{ForeignTypeRef};
+use std::ptr::NonNull;
 
-use super::ffi::{FcCharSet, FcCharSetDestroy, FcCharSetAddChar};
-use super::ffi::{FcCharSetCreate};
+use foreign_types::ForeignTypeRef;
+
+use super::ffi::FcCharSetCreate;
+use super::ffi::{FcCharSet, FcCharSetAddChar, FcCharSetDestroy};
 
 foreign_type! {
-    type CType = FcCharSet;
-    fn drop = FcCharSetDestroy;
-    pub struct CharSet;
-    pub struct CharSetRef;
+    pub type CharSet {
+        type CType = FcCharSet;
+        fn drop = FcCharSetDestroy;
+    }
 }
 
 impl CharSet {
@@ -31,18 +33,12 @@ impl CharSet {
 
 impl Default for CharSet {
     fn default() -> Self {
-        CharSet(unsafe { FcCharSetCreate() })
+        CharSet(unsafe { NonNull::new(FcCharSetCreate()).unwrap() })
     }
 }
 
 impl CharSetRef {
     pub fn add(&mut self, glyph: char) -> bool {
-        unsafe {
-            FcCharSetAddChar(
-                self.as_ptr(),
-                glyph as _
-            ) == 1
-        }
+        unsafe { FcCharSetAddChar(self.as_ptr(), glyph as _) == 1 }
     }
 }
-

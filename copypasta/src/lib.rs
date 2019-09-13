@@ -1,88 +1,69 @@
-//! A cross-platform clipboard library
+// Copyright 2016 Avraham Weinstock
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
+#![crate_name = "copypasta"]
+#![crate_type = "lib"]
+#![crate_type = "dylib"]
+#![crate_type = "rlib"]
 
-// This has to be here due to macro_use
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
+extern crate smithay_clipboard;
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
+extern crate wayland_client;
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
+extern crate x11_clipboard as x11_clipboard_crate;
+
+#[cfg(windows)]
+extern crate clipboard_win;
+
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;
+#[cfg(target_os = "macos")]
+extern crate objc_foundation;
+#[cfg(target_os = "macos")]
+extern crate objc_id;
+
+mod common;
+pub use common::ClipboardProvider;
+
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
+pub mod wayland_clipboard;
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
+pub mod x11_clipboard;
 
 #[cfg(windows)]
-extern crate clipboard;
-
-/// An enumeration describing available clipboard buffers
-pub enum Buffer {
-    Primary,
-    Selection,
-}
-
-/// Types that can get the system clipboard contents
-pub trait Load: Sized {
-    /// Errors encountered when working with a clipboard. Each implementation is
-    /// allowed to define its own error type, but it must conform to std error.
-    type Err: ::std::error::Error + Send + Sync + 'static;
-
-    /// Create a clipboard
-    fn new() -> Result<Self, Self::Err>;
-
-    /// Get the primary clipboard contents.
-    fn load_primary(&self) -> Result<String, Self::Err>;
-
-    /// Get the clipboard selection contents.
-    ///
-    /// On most platforms, this doesn't mean anything. A default implementation
-    /// is provided which uses the primary clipboard.
-    #[inline]
-    fn load_selection(&self) -> Result<String, Self::Err> {
-        self.load_primary()
-    }
-
-    fn load(&self, buffer: Buffer) -> Result<String, Self::Err> {
-        match buffer {
-            Buffer::Selection => self.load_selection(),
-            Buffer::Primary => self.load_primary(),
-        }
-    }
-}
-
-/// Types that can set the system clipboard contents
-///
-/// Note that some platforms require the clipboard context to stay active in
-/// order to load the contents from other applications.
-pub trait Store: Load {
-    /// Sets the primary clipboard contents
-    fn store_primary<S>(&mut self, contents: S) -> Result<(), Self::Err>
-    where
-        S: Into<String>;
-
-    /// Sets the secondary clipboard contents
-    fn store_selection<S>(&mut self, contents: S) -> Result<(), Self::Err>
-    where
-        S: Into<String>;
-
-    /// Store into the specified `buffer`.
-    fn store<S>(&mut self, contents: S, buffer: Buffer) -> Result<(), Self::Err>
-    where
-        S: Into<String>,
-    {
-        match buffer {
-            Buffer::Selection => self.store_selection(contents),
-            Buffer::Primary => self.store_primary(contents),
-        }
-    }
-}
-
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
-mod x11;
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
-pub use x11::{Clipboard, Error};
+pub mod windows_clipboard;
 
 #[cfg(target_os = "macos")]
-mod macos;
-#[cfg(target_os = "macos")]
-pub use macos::{Clipboard, Error};
+pub mod osx_clipboard;
 
+pub mod nop_clipboard;
+
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))]
+pub type ClipboardContext = x11_clipboard::X11ClipboardContext;
 #[cfg(windows)]
-mod windows;
-#[cfg(windows)]
-pub use crate::windows::{Clipboard, Error};
+pub type ClipboardContext = windows_clipboard::WindowsClipboardContext;
+#[cfg(target_os = "macos")]
+pub type ClipboardContext = osx_clipboard::OSXClipboardContext;
+#[cfg(target_os = "android")]
+pub type ClipboardContext = nop_clipboard::NopClipboardContext; // TODO: implement AndroidClipboardContext
+#[cfg(not(any(
+    unix,
+    windows,
+    target_os = "macos",
+    target_os = "android",
+    target_os = "emscripten"
+)))]
+pub type ClipboardContext = nop_clipboard::NopClipboardContext;

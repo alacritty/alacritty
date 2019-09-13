@@ -17,9 +17,10 @@
         11. [NixOS/Nixpkgs](#nixosnixpkgs)
         12. [Gentoo](#gentoo)
         13. [Windows](#windows)
-        14. [Other](#other)
+        14. [Clear Linux](#clear-linux)
+        15. [Other](#other)
 2. [Building](#building)
-    1. [Linux](#linux)
+    1. [Linux/Windows](#linux--windows)
         1. [Desktop Entry](#desktop-entry)
     2. [MacOS](#macos)
     3. [Cargo](#cargo)
@@ -55,17 +56,23 @@ cd alacritty
 
 ### Dependencies
 
+These are the minimum dependencies required to build Alacritty, please note
+that with some setups additional dependencies might be desired.
+
+If you're running Wayland with an Nvidia GPU, you'll likely want the EGL
+drivers installed too (these are called `libegl1-mesa-dev` on Ubuntu).
+
 #### Debian/Ubuntu
 
 You can build alacritty using `cargo deb` and use your system's package manager
-to maintain the application using the instructions [above](#debianubuntu).
+to maintain the application using the instructions [below](#debianubuntu-1).
 
 If you'd still like to build a local version manually, you need a few extra
 libraries to build Alacritty. Here's an apt command that should install all of
 them. If something is still found to be missing, please open an issue.
 
 ```sh
-apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev xclip
+apt-get install cmake pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev python3
 ```
 
 #### Arch Linux
@@ -75,7 +82,7 @@ On Arch Linux, you need a few extra libraries to build Alacritty. Here's a
 to be missing, please open an issue.
 
 ```sh
-pacman -S cmake freetype2 fontconfig pkg-config make xclip
+pacman -S cmake freetype2 fontconfig pkg-config make libxcb
 ```
 
 #### Fedora
@@ -85,7 +92,7 @@ command that should install all of them. If something is still found to be
 missing, please open an issue.
 
 ```sh
-dnf install cmake freetype-devel fontconfig-devel xclip
+dnf install cmake freetype-devel fontconfig-devel libxcb-devel
 ```
 
 #### CentOS/RHEL 7
@@ -95,7 +102,7 @@ command that should install all of them. If something is still found to be
 missing, please open an issue.
 
 ```sh
-yum install cmake freetype-devel fontconfig-devel xclip
+yum install cmake freetype-devel fontconfig-devel
 yum group install "Development Tools"
 ```
 
@@ -106,15 +113,12 @@ a `zypper` command that should install all of them. If something is
 still found to be missing, please open an issue.
 
 ```sh
-zypper install cmake freetype-devel fontconfig-devel xclip
+zypper install cmake freetype-devel fontconfig-devel libxcb-devel
 ```
 
 #### Slackware
 
 Compiles out of the box for 14.2
-For copy & paste support (middle mouse button) you need to install xclip
-https://slackbuilds.org/repository/14.2/misc/xclip/?search=xclip
-
 
 #### Void Linux
 
@@ -122,7 +126,7 @@ On [Void Linux](https://voidlinux.eu), install following packages before
 compiling Alacritty:
 
 ```sh
-xbps-install cmake freetype-devel freetype expat-devel fontconfig-devel fontconfig xclip
+xbps-install cmake freetype-devel expat-devel fontconfig-devel libxcb-devel pkg-config python3
 ```
 
 #### FreeBSD
@@ -132,18 +136,23 @@ command that should install all of them. If something is still found to be
 missing, please open an issue.
 
 ```sh
-pkg install cmake freetype2 fontconfig xclip pkgconf
+pkg install cmake freetype2 fontconfig pkgconf
 ```
 
 #### OpenBSD
 
-Alacritty builds on OpenBSD 6.3 almost out-of-the-box if Rust and
-[Xenocara](https://xenocara.org) are installed.  If something is still found to
-be missing, please open an issue.
+On OpenBSD 6.5, you need [Xenocara](https://xenocara.org) and Rust to build
+Alacritty, plus Python 3 to build its XCB dependency. If something is still
+found to be missing, please open an issue.
 
 ```sh
-pkg_add rust
+pkg_add rust python
 ```
+
+Select the package for Python 3 (e.g. `python-3.6.8p0`) when prompted.
+
+The default user limits in OpenBSD are insufficient to build Alacritty. A
+`datasize-cur` of at least 3GB is recommended (see [login.conf](https://man.openbsd.org/login.conf)).
 
 #### Solus
 
@@ -152,7 +161,7 @@ Alacritty. Here's a `eopkg` command that should install all of them. If
 something is still found to be missing, please open an issue.
 
 ```sh
-sudo eopkg install fontconfig-devel
+eopkg install fontconfig-devel
 ```
 
 #### NixOS/Nixpkgs
@@ -164,10 +173,30 @@ dependencies on [NixOS](https://nixos.org).
 nix-shell -A alacritty '<nixpkgs>'
 ```
 
+#### Gentoo
+
+On Gentoo, you need a few extra libraries to build Alacritty. The following
+command should install all of them. If something is still found to be missing,
+please open an issue.
+
+```sh
+emerge --onlydeps x11-terms/alacritty
+```
+
 #### Windows
 
 On windows you will need to have the `{architecture}-pc-windows-msvc` toolchain
 installed as well as [Clang 3.9 or greater](http://releases.llvm.org/download.html).
+
+#### Clear Linux
+
+On Clear Linux, you need a few extra libraries to build Alacritty. Here's a
+`swupd` command that should install all of them. If something is still found
+to be missing, please open an issue.
+
+```sh
+swupd bundle-add devpkg-expat devpkg-freetype devpkg-libxcb
+```
 
 #### Other
 
@@ -194,7 +223,8 @@ system menus. To install the desktop entry for Alacritty, run
 
 ```sh
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
-sudo desktop-file-install alacritty.desktop
+sudo cp extra/logo/alacritty-term.svg /usr/share/pixmaps/Alacritty.svg
+sudo desktop-file-install extra/linux/alacritty.desktop
 sudo update-desktop-database
 ```
 
@@ -221,7 +251,7 @@ Using `cargo deb`, you can create and install a deb file.
 
 ```sh
 cargo install cargo-deb
-cargo deb --install
+cargo deb --install --manifest-path alacritty/Cargo.toml
 ```
 
 To choose a default terminal app, use Debian's `update-alternatives`.
@@ -237,7 +267,7 @@ To install the manual page, run
 
 ```sh
 sudo mkdir -p /usr/local/share/man/man1
-gzip -c alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
+gzip -c extra/alacritty.man | sudo tee /usr/local/share/man/man1/alacritty.1.gz > /dev/null
 ```
 
 ## Shell completions
@@ -246,7 +276,8 @@ To get automatic completions for alacritty's flags and arguments you can install
 
 ### Zsh
 
-To install the completions for zsh, you can place the `alacritty-completions.zsh` as `_alacritty` in any directory referenced by `$fpath`.
+To install the completions for zsh, you can place the `extra/completions/_alacritty` file in any
+directory referenced by `$fpath`.
 
 If you do not already have such a directory registered through your `~/.zshrc`, you can add one like this:
 
@@ -258,24 +289,25 @@ echo 'fpath+=${ZDOTDIR:-~}/.zsh_functions' >> ${ZDOTDIR:-~}/.zshrc
 Then copy the completion file to this directory:
 
 ```sh
-cp alacritty-completions.zsh ${ZDOTDIR:-~}/.zsh_functions/_alacritty
+cp extra/completions/_alacritty ${ZDOTDIR:-~}/.zsh_functions/_alacritty
 ```
 
 ### Bash
 
-To install the completions for bash, you can `source` the `alacritty-completions.bash` in your `~/.bashrc` file.
+To install the completions for bash, you can `source` the `extra/completions/alacritty.bash` file
+in your `~/.bashrc` file.
 
 If you do not plan to delete the source folder of alacritty, you can run
 
 ```sh
-echo "source $(pwd)/alacritty-completions.bash" >> ~/.bashrc
+echo "source $(pwd)/extra/completions/alacritty.bash" >> ~/.bashrc
 ```
 
 Otherwise you can copy it to the `~/.bash_completion` folder and source it from there:
 
 ```sh
 mkdir -p ~/.bash_completion
-cp alacritty-completions.bash ~/.bash_completion/alacritty
+cp extra/completions/alacritty.bash ~/.bash_completion/alacritty
 echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
 ```
 
@@ -284,7 +316,8 @@ echo "source ~/.bash_completion/alacritty" >> ~/.bashrc
 To install the completions for fish, run
 
 ```
-sudo cp alacritty-completions.fish $__fish_datadir/vendor_completions.d/alacritty.fish
+mkdir -p $fish_complete_path[1]
+cp extra/completions/alacritty.fish $fish_complete_path[1]/alacritty.fish
 ```
 
 ## Terminfo
@@ -305,5 +338,5 @@ instead.
 To install alacritty's terminfo entry globally:
 
 ```sh
-sudo tic -e alacritty,alacritty-direct alacritty.info
+sudo tic -xe alacritty,alacritty-direct extra/alacritty.info
 ```

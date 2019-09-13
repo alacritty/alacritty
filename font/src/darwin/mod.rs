@@ -17,34 +17,37 @@
 //! TODO error handling... just search for unwrap.
 #![allow(improper_ctypes)]
 use std::collections::HashMap;
-use std::ptr;
 use std::path::PathBuf;
+use std::ptr;
 
-use ::{Slant, Weight, Style};
+use {Slant, Style, Weight};
 
-use core_foundation::string::{CFString};
-use core_foundation::array::{CFIndex, CFArray};
+use core_foundation::array::{CFArray, CFIndex};
+use core_foundation::string::CFString;
 use core_graphics::base::kCGImageAlphaPremultipliedFirst;
 use core_graphics::color_space::CGColorSpace;
-use core_graphics::context::{CGContext};
+use core_graphics::context::CGContext;
 use core_graphics::font::{CGFont, CGGlyph};
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
-use core_text::font::{CTFont, new_from_descriptor as ct_new_from_descriptor, cascade_list_for_languages as ct_cascade_list_for_languages};
+use core_text::font::{
+    cascade_list_for_languages as ct_cascade_list_for_languages,
+    new_from_descriptor as ct_new_from_descriptor, CTFont,
+};
 use core_text::font_collection::create_for_family;
 use core_text::font_collection::get_family_names as ct_get_family_names;
 use core_text::font_descriptor::kCTFontDefaultOrientation;
 use core_text::font_descriptor::kCTFontHorizontalOrientation;
 use core_text::font_descriptor::kCTFontVerticalOrientation;
-use core_text::font_descriptor::{CTFontDescriptor, CTFontOrientation};
 use core_text::font_descriptor::SymbolicTraitAccessors;
+use core_text::font_descriptor::{CTFontDescriptor, CTFontOrientation};
 
 use euclid::{Point2D, Rect, Size2D};
 
-use super::{FontDesc, RasterizedGlyph, Metrics, FontKey, GlyphKey};
+use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph};
 
 pub mod byte_order;
-use self::byte_order::kCGBitmapByteOrder32Host;
 use self::byte_order::extract_rgb;
+use self::byte_order::kCGBitmapByteOrder32Host;
 
 use super::Size;
 
@@ -59,11 +62,11 @@ pub struct Descriptor {
     display_name: String,
     font_path: PathBuf,
 
-    ct_descriptor: CTFontDescriptor
+    ct_descriptor: CTFontDescriptor,
 }
 
 impl Descriptor {
-    fn new(desc:CTFontDescriptor) -> Descriptor {
+    fn new(desc: CTFontDescriptor) -> Descriptor {
         Descriptor {
             family_name: desc.family_name(),
             font_name: desc.font_name(),
@@ -111,16 +114,14 @@ impl ::std::error::Error for Error {
 impl ::std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            Error::MissingGlyph(ref c) => {
-                write!(f, "Glyph not found for char {:?}", c)
-            },
-            Error::MissingFont(ref desc) => {
-                write!(f, "Couldn't find a font with {}\
-                       \n\tPlease check the font config in your alacritty.yml.", desc)
-            },
-            Error::FontNotLoaded => {
-                f.write_str("Tried to use a font that hasn't been loaded")
-            }
+            Error::MissingGlyph(ref c) => write!(f, "Glyph not found for char {:?}", c),
+            Error::MissingFont(ref desc) => write!(
+                f,
+                "Couldn't find a font with {}\n\tPlease check the font config in your \
+                 alacritty.yml.",
+                desc
+            ),
+            Error::FontNotLoaded => f.write_str("Tried to use a font that hasn't been loaded"),
         }
     }
 }
@@ -139,50 +140,41 @@ impl ::Rasterize for Rasterizer {
 
     /// Get metrics for font specified by FontKey
     fn metrics(&self, key: FontKey, _size: Size) -> Result<Metrics, Error> {
-        let font = self.fonts
-            .get(&key)
-            .ok_or(Error::FontNotLoaded)?;
+        let font = self.fonts.get(&key).ok_or(Error::FontNotLoaded)?;
 
         Ok(font.metrics())
     }
 
     fn load_font(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
         let scaled_size = Size::new(size.as_f32_pts() * self.device_pixel_ratio);
-        self.keys
-            .get(&(desc.to_owned(), scaled_size))
-            .map(|k| Ok(*k))
-            .unwrap_or_else(|| {
-                let font = self.get_font(desc, size)?;
-                let key = FontKey::next();
+        self.keys.get(&(desc.to_owned(), scaled_size)).map(|k| Ok(*k)).unwrap_or_else(|| {
+            let font = self.get_font(desc, size)?;
+            let key = FontKey::next();
 
-                self.fonts.insert(key, font);
-                self.keys.insert((desc.clone(), scaled_size), key);
+            self.fonts.insert(key, font);
+            self.keys.insert((desc.clone(), scaled_size), key);
 
-                Ok(key)
-            })
+            Ok(key)
+        })
     }
 
     /// Get rasterized glyph for given glyph key
     fn get_glyph(&mut self, glyph: GlyphKey) -> Result<RasterizedGlyph, Error> {
-
         // get loaded font
-        let font = self.fonts
-            .get(&glyph.font_key)
-            .ok_or(Error::FontNotLoaded)?;
+        let font = self.fonts.get(&glyph.font_key).ok_or(Error::FontNotLoaded)?;
 
         // first try the font itself as a direct hit
-        self.maybe_get_glyph(glyph, font)
-            .unwrap_or_else(|| {
-                // then try fallbacks
-                for fallback in &font.fallbacks {
-                    if let Some(result) = self.maybe_get_glyph(glyph, &fallback) {
-                        // found a fallback
-                        return result;
-                    }
+        self.maybe_get_glyph(glyph, font).unwrap_or_else(|| {
+            // then try fallbacks
+            for fallback in &font.fallbacks {
+                if let Some(result) = self.maybe_get_glyph(glyph, &fallback) {
+                    // found a fallback
+                    return result;
                 }
-                // no fallback, give up.
-                Err(Error::MissingGlyph(glyph.c))
-            })
+            }
+            // no fallback, give up.
+            Err(Error::MissingGlyph(glyph.c))
+        })
     }
 
     fn update_dpr(&mut self, device_pixel_ratio: f32) {
@@ -195,7 +187,7 @@ impl Rasterizer {
         &mut self,
         desc: &FontDesc,
         style: &str,
-        size: Size
+        size: Size,
     ) -> Result<Font, Error> {
         let descriptors = descriptors_for_family(&desc.name[..]);
         for descriptor in descriptors {
@@ -215,11 +207,11 @@ impl Rasterizer {
         desc: &FontDesc,
         slant: Slant,
         weight: Weight,
-        size: Size
+        size: Size,
     ) -> Result<Font, Error> {
         let bold = match weight {
             Weight::Bold => true,
-            _ => false
+            _ => false,
         };
         let italic = match slant {
             Slant::Normal => false,
@@ -262,7 +254,6 @@ impl Rasterizer {
                 _ => Some(Err(e)),
             })
     }
-
 }
 
 /// Specifies the intended rendering orientation of the font for obtaining glyph metrics
@@ -302,18 +293,12 @@ pub fn get_family_names() -> Vec<String> {
     owned_names
 }
 
-
 /// Return fallback descriptors for font/language list
-fn cascade_list_for_languages(
-    ct_font: &CTFont,
-    languages: &[String]
-) -> Vec<Descriptor> {
-
+fn cascade_list_for_languages(ct_font: &CTFont, languages: &[String]) -> Vec<Descriptor> {
     // convert language type &Vec<String> -> CFArray
-    let langarr:CFArray<CFString> = {
-        let tmp:Vec<CFString> = languages.iter()
-            .map(|language| CFString::new(&language))
-            .collect();
+    let langarr: CFArray<CFString> = {
+        let tmp: Vec<CFString> =
+            languages.iter().map(|language| CFString::new(&language)).collect();
         CFArray::from_CFTypes(&tmp)
     };
 
@@ -321,21 +306,19 @@ fn cascade_list_for_languages(
     let list = ct_cascade_list_for_languages(ct_font, &langarr);
 
     // convert CFArray to Vec<Descriptor>
-    list.into_iter()
-        .map(|fontdesc| Descriptor::new(fontdesc.clone()))
-        .collect()
+    list.into_iter().map(|fontdesc| Descriptor::new(fontdesc.clone())).collect()
 }
-
 
 /// Get descriptors for family name
 pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
     let mut out = Vec::new();
 
     trace!("Family: {}", family);
-    let ct_collection = match create_for_family(family) {
-        Some(c) => c,
-        None => return out,
-    };
+    let ct_collection = create_for_family(family).unwrap_or_else(|| {
+        // Fallback to Menlo if we can't find the config specified font family.
+        warn!("Unable to load specified font {}, falling back to Menlo", &family);
+        create_for_family("Menlo").expect("Menlo exists")
+    });
 
     // CFArray of CTFontDescriptorRef (i think)
     let descriptors = ct_collection.get_descriptors();
@@ -350,7 +333,7 @@ pub fn descriptors_for_family(family: &str) -> Vec<Descriptor> {
 
 impl Descriptor {
     /// Create a Font from this descriptor
-    pub fn to_font(&self, size: f64, load_fallbacks:bool) -> Font {
+    pub fn to_font(&self, size: f64, load_fallbacks: bool) -> Font {
         let ct_font = ct_new_from_descriptor(&self.ct_descriptor, size);
         let cg_font = ct_font.copy_to_CGFont();
 
@@ -385,7 +368,7 @@ impl Descriptor {
                     fallbacks.insert(0, Font {
                         cg_font: menlo.copy_to_CGFont(),
                         ct_font: menlo,
-                        fallbacks: Vec::new()
+                        fallbacks: Vec::new(),
                     });
 
                     fallbacks
@@ -395,11 +378,7 @@ impl Descriptor {
             Vec::new()
         };
 
-        Font {
-            ct_font,
-            cg_font,
-            fallbacks,
-        }
+        Font { ct_font, cg_font, fallbacks }
     }
 }
 
@@ -408,12 +387,11 @@ impl Font {
     pub fn bounding_rect_for_glyph(
         &self,
         orientation: FontOrientation,
-        index: u32
-    ) -> Rect<f64> {
-        let cg_rect = self.ct_font.get_bounding_rects_for_glyphs(
-            orientation as CTFontOrientation,
-            &[index as CGGlyph]
-        );
+        index: u32,
+    ) -> Rect<f64, ()> {
+        let cg_rect = self
+            .ct_font
+            .get_bounding_rects_for_glyphs(orientation as CTFontOrientation, &[index as CGGlyph]);
 
         Rect::new(
             Point2D::new(cg_rect.origin.x, cg_rect.origin.y),
@@ -465,43 +443,19 @@ impl Font {
                 FontOrientation::Default as _,
                 &indices[0],
                 ptr::null_mut(),
-                1
+                1,
             )
         }
     }
 
-    pub fn get_glyph(&self, character: char, _size: f64, use_thin_strokes: bool) -> Result<RasterizedGlyph, Error> {
-        // Render custom symbols for underline and beam cursor
-        match character {
-            super::UNDERLINE_CURSOR_CHAR => {
-                // Get the bottom of the bounding box
-                let descent = -(self.ct_font.descent() as i32);
-                // Get the width of the cell
-                let width = self.glyph_advance('0') as i32;
-                // Return the new custom glyph
-                return super::get_underline_cursor_glyph(descent, width);
-            }
-            super::BEAM_CURSOR_CHAR | super::BOX_CURSOR_CHAR => {
-                // Get the top of the bounding box
-                let metrics = self.metrics();
-                let height = metrics.line_height;
-                let ascent = (height - self.ct_font.descent()).ceil();
-
-                // Get the width of the cell
-                let width = self.glyph_advance('0') as i32;
-
-                // Return the new custom glyph
-                if character == super::BEAM_CURSOR_CHAR {
-                    return super::get_beam_cursor_glyph(ascent as i32, height as i32, width);
-                } else {
-                    return super::get_box_cursor_glyph(ascent as i32, height as i32, width);
-                }
-            }
-            _ => ()
-        }
-
-        let glyph_index = self.glyph_index(character)
-            .ok_or_else(|| Error::MissingGlyph(character))?;
+    pub fn get_glyph(
+        &self,
+        character: char,
+        _size: f64,
+        use_thin_strokes: bool,
+    ) -> Result<RasterizedGlyph, Error> {
+        let glyph_index =
+            self.glyph_index(character).ok_or_else(|| Error::MissingGlyph(character))?;
 
         let bounds = self.bounding_rect_for_glyph(Default::default(), glyph_index);
 
@@ -519,7 +473,7 @@ impl Font {
                 height: 0,
                 top: 0,
                 left: 0,
-                buf: Vec::new()
+                buf: Vec::new(),
             });
         }
 
@@ -530,17 +484,14 @@ impl Font {
             8, // bits per component
             rasterized_width as usize * 4,
             &CGColorSpace::create_device_rgb(),
-            kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host
+            kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host,
         );
 
         // Give the context an opaque, black background
         cg_context.set_rgb_fill_color(0.0, 0.0, 0.0, 1.0);
         let context_rect = CGRect::new(
             &CGPoint::new(0.0, 0.0),
-            &CGSize::new(
-                f64::from(rasterized_width),
-                f64::from(rasterized_height)
-            )
+            &CGSize::new(f64::from(rasterized_width), f64::from(rasterized_height)),
         );
 
         cg_context.fill_rect(context_rect);
@@ -560,14 +511,14 @@ impl Font {
 
         // Set fill color to white for drawing the glyph
         cg_context.set_rgb_fill_color(1.0, 1.0, 1.0, 1.0);
-        let rasterization_origin = CGPoint {
-            x: f64::from(-rasterized_left),
-            y: f64::from(rasterized_descent),
-        };
+        let rasterization_origin =
+            CGPoint { x: f64::from(-rasterized_left), y: f64::from(rasterized_descent) };
 
-        self.ct_font.draw_glyphs(&[glyph_index as CGGlyph],
-                                 &[rasterization_origin],
-                                 cg_context.clone());
+        self.ct_font.draw_glyphs(
+            &[glyph_index as CGGlyph],
+            &[rasterization_origin],
+            cg_context.clone(),
+        );
 
         let rasterized_pixels = cg_context.data().to_vec();
 
@@ -586,22 +537,22 @@ impl Font {
     fn glyph_index(&self, character: char) -> Option<u32> {
         // encode this char as utf-16
         let mut buf = [0; 2];
-        let encoded:&[u16] = character.encode_utf16(&mut buf);
+        let encoded: &[u16] = character.encode_utf16(&mut buf);
         // and use the utf-16 buffer to get the index
         self.glyph_index_utf16(encoded)
     }
-    fn glyph_index_utf16(&self, encoded: &[u16]) -> Option<u32> {
 
+    fn glyph_index_utf16(&self, encoded: &[u16]) -> Option<u32> {
         // output buffer for the glyph. for non-BMP glyphs, like
         // emojis, this will be filled with two chars the second
         // always being a 0.
-        let mut glyphs:[CGGlyph; 2] = [0; 2];
+        let mut glyphs: [CGGlyph; 2] = [0; 2];
 
         let res = unsafe {
             self.ct_font.get_glyphs_for_characters(
                 encoded.as_ptr(),
                 glyphs.as_mut_ptr(),
-                encoded.len() as CFIndex
+                encoded.len() as CFIndex,
             )
         };
 
@@ -629,9 +580,7 @@ mod tests {
         println!("{:?}", list);
 
         // Check to_font
-        let fonts = list.iter()
-                        .map(|desc| desc.to_font(72., false))
-                        .collect::<Vec<_>>();
+        let fonts = list.iter().map(|desc| desc.to_font(72., false)).collect::<Vec<_>>();
 
         for font in fonts {
             // Get a glyph
@@ -649,7 +598,7 @@ mod tests {
                             101...150 => '~',
                             151...200 => '*',
                             201...255 => '#',
-                            _ => unreachable!()
+                            _ => unreachable!(),
                         };
                         print!("{}", c);
                     }

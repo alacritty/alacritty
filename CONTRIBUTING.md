@@ -6,7 +6,7 @@ Table of Contents:
 
 1. [Feature Requests](#feature-requests)
 2. [Bug Reports](#bug-reports)
-3. [Pull Requests](#pull-requests)
+3. [Patches / Pull Requests](#patches--pull-requests)
     1. [Testing](#testing)
     2. [Performance](#performance)
     3. [Documentation](#documentation)
@@ -63,6 +63,8 @@ All patches have to be sent on Github as [pull requests](https://github.com/jwil
 
 If you are looking for a place to start contributing to Alacritty, take a look at the [help wanted](https://github.com/jwilm/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) and [easy](https://github.com/jwilm/alacritty/issues?q=is%3Aopen+is%3Aissue+label%3A%22D+-+easy%22) issues.
 
+Please note that the minimum supported version of Alacritty is Rust 1.36.0. All patches are expected to work with the minimum supported version.
+
 ### Testing
 
 To make sure no regressions were introduced, all tests should be run before sending a pull request. The following command can be run to test Alacritty:
@@ -89,7 +91,7 @@ Changes compared to the latest Alacritty release which have a direct effect on t
 
 ### Style
 
-Alacritty currently does not have any automatically enforced style guidelines. As a result of that, it is not possible to run `rustfmt` on existing files. New code should however follow the default ruleset of `rustfmt` and for newly created files it is possible to run the `rustfmt` tool directly.
+All Alacritty changes are automatically verified by CI to conform to its rustfmt guidelines. If a CI build is failing because of formatting issues, you can install rustfmt using `rustup component add rustfmt` and then format all code using `cargo fmt`.
 
 # Contact
 

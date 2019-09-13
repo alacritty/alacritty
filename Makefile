@@ -1,7 +1,7 @@
 TARGET = alacritty
 
 APP_NAME = Alacritty.app
-ASSETS_DIR = assets
+ASSETS_DIR = extra
 RELEASE_DIR = target/release
 APP_TEMPLATE = $(ASSETS_DIR)/osx/$(APP_NAME)
 APP_DIR = $(RELEASE_DIR)/osx

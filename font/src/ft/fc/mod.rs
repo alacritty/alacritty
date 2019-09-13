@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-use std::ptr;
 use std::fmt;
+use std::ptr;
 
 use foreign_types::{ForeignType, ForeignTypeRef};
 
 use fontconfig::fontconfig as ffi;
 
-use self::ffi::{FcSetSystem, FcSetApplication};
 use self::ffi::FcResultNoMatch;
-use self::ffi::{FcFontMatch, FcFontList, FcFontSort};
+use self::ffi::{FcFontList, FcFontMatch, FcFontSort};
 use self::ffi::{FcMatchFont, FcMatchPattern, FcMatchScan};
-use self::ffi::{FC_SLANT_OBLIQUE, FC_SLANT_ITALIC, FC_SLANT_ROMAN};
-use self::ffi::{FC_WEIGHT_THIN, FC_WEIGHT_EXTRALIGHT, FC_WEIGHT_LIGHT};
-use self::ffi::{FC_WEIGHT_BOOK, FC_WEIGHT_REGULAR, FC_WEIGHT_MEDIUM, FC_WEIGHT_SEMIBOLD};
-use self::ffi::{FC_WEIGHT_BOLD, FC_WEIGHT_EXTRABOLD, FC_WEIGHT_BLACK, FC_WEIGHT_EXTRABLACK};
+use self::ffi::{FcSetApplication, FcSetSystem};
+use self::ffi::{FC_SLANT_ITALIC, FC_SLANT_OBLIQUE, FC_SLANT_ROMAN};
+use self::ffi::{FC_WEIGHT_BLACK, FC_WEIGHT_BOLD, FC_WEIGHT_EXTRABLACK, FC_WEIGHT_EXTRABOLD};
+use self::ffi::{FC_WEIGHT_BOOK, FC_WEIGHT_MEDIUM, FC_WEIGHT_REGULAR, FC_WEIGHT_SEMIBOLD};
+use self::ffi::{FC_WEIGHT_EXTRALIGHT, FC_WEIGHT_LIGHT, FC_WEIGHT_THIN};
 
 pub mod config;
 pub use self::config::{Config, ConfigRef};
@@ -46,10 +46,7 @@ pub use self::pattern::{Pattern, PatternRef};
 /// Find the font closest matching the provided pattern.
 ///
 /// The returned pattern is the result of Pattern::render_prepare.
-pub fn font_match(
-    config: &ConfigRef,
-    pattern: &mut PatternRef,
-) -> Option<Pattern> {
+pub fn font_match(config: &ConfigRef, pattern: &mut PatternRef) -> Option<Pattern> {
     pattern.config_substitute(config, MatchKind::Pattern);
     pattern.default_substitute();
 
@@ -57,11 +54,7 @@ pub fn font_match(
         // What is this result actually used for? Seems redundant with
         // return type.
         let mut result = FcResultNoMatch;
-        let ptr = FcFontMatch(
-            config.as_ptr(),
-            pattern.as_ptr(),
-            &mut result,
-            );
+        let ptr = FcFontMatch(config.as_ptr(), pattern.as_ptr(), &mut result);
 
         if ptr.is_null() {
             None
@@ -72,10 +65,7 @@ pub fn font_match(
 }
 
 /// list fonts by closeness to the pattern
-pub fn font_sort(
-    config: &ConfigRef,
-    pattern: &mut PatternRef,
-) -> Option<FontSet> {
+pub fn font_sort(config: &ConfigRef, pattern: &mut PatternRef) -> Option<FontSet> {
     pattern.config_substitute(config, MatchKind::Pattern);
     pattern.default_substitute();
 
@@ -112,11 +102,7 @@ pub fn font_list(
     pattern.default_substitute();
 
     unsafe {
-        let ptr = FcFontList(
-            config.as_ptr(),
-            pattern.as_ptr(),
-            objects.as_ptr(),
-        );
+        let ptr = FcFontList(config.as_ptr(), pattern.as_ptr(), objects.as_ptr());
 
         if ptr.is_null() {
             None
@@ -174,7 +160,7 @@ pub enum Width {
     Expanded,
     Extraexpanded,
     Ultraexpanded,
-    Other(i32)
+    Other(i32),
 }
 
 impl Width {
@@ -190,7 +176,7 @@ impl Width {
             Expanded => 125,
             Extraexpanded => 150,
             Ultraexpanded => 200,
-            Other(value) => value as isize
+            Other(value) => value as isize,
         }
     }
 }
@@ -207,7 +193,7 @@ impl From<isize> for Width {
             125 => Width::Expanded,
             150 => Width::Extraexpanded,
             200 => Width::Ultraexpanded,
-            _ => Width::Other(value as _)
+            _ => Width::Other(value as _),
         }
     }
 }
@@ -219,7 +205,7 @@ pub enum Rgba {
     Bgr,
     Vrgb,
     Vbgr,
-    None
+    None,
 }
 
 impl Rgba {
@@ -230,7 +216,7 @@ impl Rgba {
             Rgba::Bgr => 2,
             Rgba::Vrgb => 3,
             Rgba::Vbgr => 4,
-            Rgba::None => 5
+            Rgba::None => 5,
         }
     }
 }
@@ -268,7 +254,7 @@ pub enum HintStyle {
     None,
     Slight,
     Medium,
-    Full
+    Full,
 }
 
 impl fmt::Display for HintStyle {
@@ -287,7 +273,7 @@ pub enum LcdFilter {
     None,
     Default,
     Light,
-    Legacy
+    Legacy,
 }
 
 impl fmt::Display for LcdFilter {
@@ -334,8 +320,7 @@ mod tests {
         pattern.set_slant(Slant::Italic);
 
         let config = Config::get_current();
-        let fonts = super::font_sort(config, &mut pattern)
-            .expect("sort font monospace");
+        let fonts = super::font_sort(config, &mut pattern).expect("sort font monospace");
 
         for font in fonts.into_iter().take(10) {
             let font = font.render_prepare(&config, &pattern);

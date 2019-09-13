@@ -1,72 +1,86 @@
 #!/bin/bash
 
 # All files which should be added only if they changed
-aux_files=("alacritty-completions.bash"
-           "alacritty-completions.fish"
-           "alacritty-completions.zsh"
-           "alacritty.desktop"
-           "alacritty.info"
+aux_files=("extra/completions/alacritty.bash"
+           "extra/completions/alacritty.fish"
+           "extra/completions/_alacritty"
+           "extra/linux/alacritty.desktop"
+           "extra/alacritty.info"
            "alacritty.yml")
-
-# Get previous tag to check for changes
-git fetch --tags
-git fetch --unshallow
-prev_tag=$(git describe --tags --abbrev=0 $TRAVIS_TAG^)
-
-# Everything in this directory will be offered as download for the release
-mkdir "./target/deploy"
 
 # Output binary name
 name="Alacritty-${TRAVIS_TAG}"
 
-if [ "$TRAVIS_OS_NAME" == "osx" ]; then
-    rm -rf "./target/release"
-    make dmg
-    mv "./target/release/osx/Alacritty.dmg" "./target/deploy/${name}.dmg"
-elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" != "i386" ]; then
-    docker pull undeadleech/alacritty-ubuntu
+# Everything in this directory will be offered as download for the release
+mkdir "./target/deploy"
 
-    # x86_64
-    docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu \
-        /root/.cargo/bin/cargo build --release --manifest-path /source/Cargo.toml
-    tar -cvzf "./target/deploy/${name}-x86_64.tar.gz" -C "./target/release/" "alacritty"
+function windows {
+    choco install 7zip nuget.commandline
+    nuget install WiX
 
-    # x86_64 deb
-    docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu \
-        sh -c "cd /source && \
-        /root/.cargo/bin/cargo deb --no-build --output ./target/deploy/${name}_amd64.deb"
-
-    # Make sure all files can be uploaded without permission errors
-    sudo chown -R $USER:$USER "./target"
-elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" == "i386" ]; then
-    docker pull undeadleech/alacritty-ubuntu-i386
-
-    # i386
-    docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu-i386 \
-        /root/.cargo/bin/cargo build --release --manifest-path /source/Cargo.toml
-    tar -cvzf "./target/deploy/${name}-i386.tar.gz" -C "./target/release/" "alacritty"
-
-    # i386 deb
-    docker run -v "$(pwd):/source" undeadleech/alacritty-ubuntu-i386 \
-        sh -c "cd /source && \
-        /root/.cargo/bin/cargo deb --no-build --output ./target/deploy/${name}_i386.deb"
-
-    # Make sure all files can be uploaded without permission errors
-    sudo chown -R $USER:$USER "./target"
-elif [ "$TRAVIS_OS_NAME" == "windows" ]; then
-    choco install 7zip
-    7z a -tzip "./target/deploy/${name}-windows.zip" "./target/release/alacritty.exe" \
+    # Create zip archive
+    7z a -tzip "./target/deploy/${name}-windows-portable.zip" "./target/release/alacritty.exe" \
         "./target/release/winpty-agent.exe"
+
+    # Create msi installer
+    ./WiX.*/tools/candle.exe -nologo -arch "x64" -ext WixUIExtension -ext WixUtilExtension -out \
+        "target/alacritty.wixobj" "extra/windows/wix/alacritty.wxs"
+    ./WiX.*/tools/light.exe -nologo -ext WixUIExtension -ext WixUtilExtension -out \
+        "target/installer.msi" -sice:ICE61 -sice:ICE91 "target/alacritty.wixobj"
+    mv "target/installer.msi" "target/deploy/${name}-windows-installer.msi"
+}
+
+function osx {
+    rm -rf "./target/release" \
+        && make dmg \
+        && mv "./target/release/osx/Alacritty.dmg" "./target/deploy/${name}.dmg"
+}
+
+function debian {
+    arch=$1
+
+    docker pull "undeadleech/alacritty-ubuntu-${arch}" \
+        && docker_tar "alacritty-ubuntu-${arch}" "ubuntu_18_04_${arch}" \
+        && docker_deb "alacritty-ubuntu-${arch}" "ubuntu_18_04_${arch}" \
+        && sudo chown -R $USER:$USER "./target"
+}
+
+function docker_tar {
+    image=$1
+    archname=$2
+
+    docker run -v "$(pwd):/source" "undeadleech/${image}" \
+        /root/.cargo/bin/cargo build --release --manifest-path /source/Cargo.toml
+
+    tar -cvzf "./target/deploy/${name}-${archname}.tar.gz" -C "./target/release/" "alacritty"
+}
+
+function docker_deb {
+    image=$1
+    archname=$2
+
+    docker run -v "$(pwd):/source" "undeadleech/${image}" sh -c \
+        "cd /source && /root/.cargo/bin/cargo deb --no-build --manifest-path alacritty/Cargo.toml \
+        --output ./target/deploy/${name}-${archname}.deb"
+}
+
+if [ "$TRAVIS_OS_NAME" == "osx" ]; then
+    osx || exit
+elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" != "i386" ]; then
+    debian "amd64" || exit
+elif [ "$TRAVIS_OS_NAME" == "linux" ] && [ "$ARCH" == "i386" ]; then
+    debian "i386" || exit
+elif [ "$TRAVIS_OS_NAME" == "windows" ]; then
+    windows
 fi
 
 # Convert and add manpage if it changed
-if [ -n "$(git diff $prev_tag HEAD alacritty.man)" ]; then
-    gzip -c "./alacritty.man" > "./target/deploy/alacritty.1.gz"
-fi
+gzip -c "./extra/alacritty.man" > "./target/deploy/alacritty.1.gz" || exit
 
-# Offer extra files if they changed
+# Rename Alacritty logo to match .desktop file
+cp "./extra/logo/alacritty-term.svg" "./target/deploy/Alacritty.svg" || exit
+
+# Offer various other files
 for file in "${aux_files[@]}"; do
-    if [ -n "$(git diff $prev_tag HEAD $file)" ]; then
-        cp $file "./target/deploy/"
-    fi
+    cp $file "./target/deploy/" || exit
 done

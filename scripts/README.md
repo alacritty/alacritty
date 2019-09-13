@@ -16,7 +16,7 @@ Running this script depends on an installation of `perf`.
 ## ANSI Color Tests
 
 We include a few scripts for testing the color of text inside a terminal. The
-first shows various foreground and background varients. The second enumerates
+first shows various foreground and background variants. The second enumerates
 all the colors of a standard terminal. The third enumerates the 24-bit colors.
 
 ```sh

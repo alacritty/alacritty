@@ -1,0 +1,77 @@
+.TH ALACRITTY "1" "August 2018" "alacritty 0.3.3" "User Commands"
+.SH NAME
+alacritty \- a cross-platform, gpu-accelerated terminal emulator
+.SH "SYNOPSIS"
+alacritty [FLAGS] [OPTIONS]
+.SH DESCRIPTION
+Alacritty is a terminal emulator with a strong focus on simplicity and
+performance. With such a strong focus on performance, included features are
+carefully considered and you can always expect Alacritty to be blazingly fast.
+By making sane choices for defaults, Alacritty requires no additional setup.
+However, it does allow configuration of many aspects of the terminal.
+.SH "FLAGS"
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+.TP
+\fB\-\-live\-config\-reload\fR
+Enable automatic config reloading
+.TP
+\fB\-\-no\-live\-config\-reload\fR
+Disable automatic config reloading
+.TP
+\fB\-\-persistent\-logging\fR
+Keep the log file after quitting Alacritty
+.TP
+\fB\-\-print\-events\fR
+Print all events to stdout
+.TP
+\fB\-q\fR
+Reduces the level of verbosity (the min level is \fB\-qq\fR)
+.TP
+\fB\-\-ref\-test\fR
+Generates ref test
+.TP
+\fB\-v\fR
+Increases the level of verbosity (the max level is \fB\-vvv\fR)
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Prints version information
+.SH "OPTIONS"
+.TP
+\fB\-\-class\fR [ <instance> | <instance>,<general> ]
+Defines the window class hint on Linux [default: Alacritty,Alacritty ]
+.TP
+\fB\-e\fR, \fB\-\-command\fR <command>...
+Command and args to execute (must be last argument)
+.TP
+\fB\-\-config\-file\fR <config\-file>
+Specify alternative configuration file [default: $XDG_CONFIG_HOME/alacritty/alacritty.yml]
+.TP
+\fB\-d\fR, \fB\-\-dimensions\fR <columns> <lines>
+Defines the window dimensions. Falls back to size specified by window manager if set to 0x0 [default: 0x0]
+.TP
+\fB\-\-position\fR <x-pos> <y-pos>
+Defines the window position. Falls back to position specified by window manager if unset [default: unset]
+.TP
+\fB\-t\fR, \fB\-\-title\fR <title>
+Defines the window title [default: Alacritty]
+.TP
+\fB\-\-working\-directory\fR <working\-directory>
+Start the shell in the specified working directory
+.SH "SEE ALSO"
+See the alacritty github repository at https://github.com/jwilm/alacritty for the full documentation.
+.SH "BUGS"
+Found a bug? Please report it at https://github.com/jwilm/alacritty/issues.
+.SH "AUTHORS"
+Maintainers:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Joe Wilm <joe@jwilm.com>
