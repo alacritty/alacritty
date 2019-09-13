@@ -1053,6 +1053,7 @@ impl QuadRenderer {
 
             // Reset data and buffers
             gl::BindVertexArray(0);
+            self.active_tex = 0;
 
             let padding_x = props.padding_x as i32;
             let padding_y = props.padding_y as i32;
