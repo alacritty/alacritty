@@ -76,6 +76,10 @@ pub struct Config {
     #[serde(default, deserialize_with = "failure_default")]
     background_opacity: Alpha,
 
+    /// Path to a background image
+    #[serde(default, deserialize_with = "failure_default")]
+    pub background_image: Option<PathBuf>,
+
     /// Window configuration
     #[serde(default, deserialize_with = "failure_default")]
     pub window: WindowConfig,

@@ -45,7 +45,6 @@ static RECT_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../res/r
 static RECT_SHADER_V_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../res/rect.v.glsl");
 static IMAGE_SHADER_F_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../res/image.f.glsl");
 static IMAGE_SHADER_V_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../res/image.v.glsl");
-static BG_TEXTURE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../res/wall1.jpg");
 
 // Shader source which is used when live-shader-reload feature is disable
 static TEXT_SHADER_F: &str =
@@ -424,6 +423,7 @@ pub struct QuadRenderer {
     image_vbo: GLuint,
     image_vbo_tex: GLuint,
     bg_tex: GLuint,
+    image_loaded: bool,
     atlas: Vec<Atlas>,
     current_atlas: usize,
     active_tex: GLuint,
@@ -727,21 +727,6 @@ impl QuadRenderer {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
 
-            let img = image::open(&Path::new(BG_TEXTURE_PATH)).expect("Failed to load texture");
-            let data = img.raw_pixels();
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGB as i32,
-                img.width() as i32,
-                img.height() as i32,
-                0,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-                &data[0] as *const u8 as *const _,
-            );
-            gl::GenerateMipmap(gl::TEXTURE_2D);
-
             // Cleanup
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
@@ -792,6 +777,7 @@ impl QuadRenderer {
             image_vbo,
             image_vbo_tex,
             bg_tex,
+            image_loaded: false,
             atlas: Vec::new(),
             current_atlas: 0,
             active_tex: 0,
@@ -803,6 +789,51 @@ impl QuadRenderer {
         renderer.atlas.push(atlas);
 
         Ok(renderer)
+    }
+
+    pub fn set_background_image(&mut self, path: &PathBuf) -> Result<(), image::ImageError> {
+        let img = match image::open(&Path::new(path)) {
+            Ok(content) => content,
+            Err(err) => {
+                self.image_loaded = false;
+                return Err(err);
+            }
+        };
+        unsafe {
+            gl::BindVertexArray(self.image_vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.image_vbo_tex);
+
+            // Texture
+            gl::GenTextures(1, &mut self.bg_tex);
+            gl::BindTexture(gl::TEXTURE_2D, self.bg_tex);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32); // set texture wrapping to gl::REPEAT (default wrapping method)
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+            // set texture filtering parameters
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+
+            let data = img.to_rgba().into_raw();
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA as i32,
+                img.width() as i32,
+                img.height() as i32,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                &data[0] as *const u8 as *const _,
+            );
+            gl::GenerateMipmap(gl::TEXTURE_2D);
+
+            // Cleanup
+            gl::BindVertexArray(0);
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+        }
+
+        self.image_loaded = true;
+        Ok(())
     }
 
     // Draw all rectangles simultaneously to prevent excessive program swaps
@@ -1020,8 +1051,13 @@ impl QuadRenderer {
     // Render a image
     //
     // This requires the image program to be activated
-    pub fn draw_image(&mut self, config: &Config, props: &term::SizeInfo, alpha: f32) {
+    pub fn draw_image(&mut self, config: &Config, props: &term::SizeInfo) {
+        // Do nothing when image has not been loaded
+        if !self.image_loaded {
+            return;
+        }
         // Do nothing when alpha is fully transparent
+        let alpha = config.background_opacity();
         if alpha == 0. {
             return;
         }

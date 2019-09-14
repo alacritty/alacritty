@@ -167,6 +167,13 @@ impl Display {
         // Create renderer
         let mut renderer = QuadRenderer::new()?;
 
+        if let Some(path) = &config.background_image {
+            match renderer.set_background_image(path) {
+                Ok(_) => (),
+                Err(err) => info!("Cannot set background image: {}", err),
+            }
+        }
+
         let (glyph_cache, cell_width, cell_height) =
             Self::new_glyph_cache(dpr, &mut renderer, config)?;
 
@@ -509,7 +516,7 @@ impl Display {
             api.clear(background_color);
         });
 
-        self.renderer.draw_image(config, &size_info, 0.5);
+        self.renderer.draw_image(config, &size_info);
 
         {
             let glyph_cache = &mut self.glyph_cache;
