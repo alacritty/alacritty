@@ -597,42 +597,33 @@ impl Display {
             for chart_idx in 0..config.charts.len() {
                 for series_idx in 0..config.charts[chart_idx].sources.len() {
                     let alpha = config.charts[chart_idx].sources[series_idx].alpha();
-                    let (opengl_tx, opengl_rx) = oneshot::channel();
-                    let get_opengl_task = charts_tx
-                        .clone()
-                        .send(alacritty_charts::async_utils::AsyncChartTask::SendMetricsOpenGLData(
-                            chart_idx, series_idx, opengl_tx,
-                        ))
-                        .map_err(|e| error!("Sending SendMetricsOpenGLData Task: err={:?}", e))
-                        .and_then(move |_res| {
-                            debug!(
-                                "Sent Request for SendMetricsOpenGLData Task for chart index: {}, \
-                                 series: {}",
-                                chart_idx, series_idx
-                            );
-                            Ok(())
-                        });
-                    tokio::spawn(lazy(move || get_opengl_task));
-                    let opengl_rx = opengl_rx.map(|x| x);
-                    match opengl_rx.wait() {
-                        Ok(data) => {
-                            debug!("Got response from SendMetricsOpenGLData Task: {:?}", data);
-                            self.renderer.draw_charts_line(
-                                config,
-                                &size_info,
-                                &data,
-                                Rgb {
-                                    r: config.charts[chart_idx].sources[series_idx].color().r,
-                                    g: config.charts[chart_idx].sources[series_idx].color().g,
-                                    b: config.charts[chart_idx].sources[series_idx].color().b,
-                                },
-                                alpha,
-                            );
+                    self.renderer.draw_charts_line(
+                        config,
+                        &size_info,
+                        &get_metric_opengl_vecs(charts_tx.clone(), chart_idx, series_idx, "data"),
+                        Rgb {
+                            r: config.charts[chart_idx].sources[series_idx].color().r,
+                            g: config.charts[chart_idx].sources[series_idx].color().g,
+                            b: config.charts[chart_idx].sources[series_idx].color().b,
                         },
-                        Err(err) => {
-                            error!("Error response from SendMetricsOpenGLData Task: {:?}", err);
+                        alpha,
+                    );
+                    self.renderer.draw_charts_line(
+                        config,
+                        &size_info,
+                        &get_metric_opengl_vecs(
+                            charts_tx.clone(),
+                            chart_idx,
+                            series_idx,
+                            "decoration",
+                        ), // XXX: get the Decoration color
+                        Rgb {
+                            r: config.charts[chart_idx].sources[series_idx].color().r,
+                            g: config.charts[chart_idx].sources[series_idx].color().g,
+                            b: config.charts[chart_idx].sources[series_idx].color().b,
                         },
-                    }
+                        alpha,
+                    );
                 }
             }
 
@@ -668,5 +659,48 @@ impl Display {
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     pub fn get_wayland_display(&self) -> Option<*mut c_void> {
         self.window.get_wayland_display()
+    }
+}
+
+/// `get_metric_opengl_vecs` generates a oneshot::channel to communicate
+/// with the async coordinator and request the vectors of the metric,data.
+pub fn get_metric_opengl_vecs(
+    charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
+    chart_idx: usize,
+    series_idx: usize,
+    request_type: &'static str,
+) -> Vec<f32> {
+    let (opengl_tx, opengl_rx) = oneshot::channel();
+    if request_type == "metric_data" {}
+    let get_opengl_task = charts_tx
+        .clone()
+        .send(if request_type == "metric_data" {
+            alacritty_charts::async_utils::AsyncChartTask::SendMetricsOpenGLData(
+                chart_idx, series_idx, opengl_tx,
+            )
+        } else {
+            alacritty_charts::async_utils::AsyncChartTask::SendDecorationsOpenGLData(
+                chart_idx, series_idx, opengl_tx,
+            )
+        })
+        .map_err(|e| error!("Sending SendMetricsOpenGL Task: err={:?}", e))
+        .and_then(move |_res| {
+            debug!(
+                "Sent Request for SendMetricsOpenGL Task for chart index: {}, series: {}",
+                chart_idx, series_idx
+            );
+            Ok(())
+        });
+    tokio::spawn(lazy(move || get_opengl_task));
+    let opengl_rx = opengl_rx.map(|x| x);
+    match opengl_rx.wait() {
+        Ok(data) => {
+            debug!("Got response from SendMetricsOpenGL Task: {:?}", data);
+            data
+        },
+        Err(err) => {
+            error!("Error response from SendMetricsOpenGL Task: {:?}", err);
+            vec![]
+        },
     }
 }
