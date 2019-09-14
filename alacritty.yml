@@ -301,6 +301,11 @@ visual_bell:
 # The value `0.0` is completely transparent and `1.0` is opaque.
 background_opacity: 1.0
 
+# Background image
+#
+# You can set the path of background image.
+# background_image: /home/alacritty/Pictures/background.jpg
+
 selection:
   semantic_escape_chars: ",│`|:\"' ()[]{}<>\t"
 
