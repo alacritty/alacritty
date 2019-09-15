@@ -198,10 +198,21 @@ impl<T: Eq> Binding<T> {
 
     #[inline]
     pub fn triggers_match(&self, binding: &Binding<T>) -> bool {
-        self.trigger == binding.trigger
-            && self.mods == binding.mods
-            && (self.mode.contains(binding.mode) || binding.mode.contains(self.mode))
-            && (self.notmode.contains(binding.notmode) || binding.notmode.contains(self.notmode))
+        // Check the binding's key and modifiers
+        if self.trigger != binding.trigger || self.mods != binding.mods {
+            return false;
+        }
+
+        // Completely empty modes match all modes
+        if (self.mode.is_empty() && self.notmode.is_empty())
+            || (binding.mode.is_empty() && binding.notmode.is_empty())
+        {
+            return true;
+        }
+
+        // Check for intersection (equality is required since empty does not intersect itself)
+        (self.mode == binding.mode || self.mode.intersects(binding.mode))
+            && (self.notmode == binding.notmode || self.notmode.intersects(binding.notmode))
     }
 }
 
@@ -1075,28 +1086,6 @@ mod tests {
     }
 
     #[test]
-    fn subset_mode_binding_matches_superset() {
-        let mut superset_mode = MockBinding::default();
-        superset_mode.mode = TermMode::ALT_SCREEN | TermMode::INSERT | TermMode::ORIGIN;
-        let mut subset_mode = MockBinding::default();
-        subset_mode.mode = TermMode::ALT_SCREEN | TermMode::ORIGIN;
-
-        assert!(superset_mode.triggers_match(&subset_mode));
-        assert!(subset_mode.triggers_match(&superset_mode));
-    }
-
-    #[test]
-    fn subset_notmode_binding_matches_superset() {
-        let mut superset_notmode = MockBinding::default();
-        superset_notmode.notmode = TermMode::ALT_SCREEN | TermMode::INSERT | TermMode::ORIGIN;
-        let mut subset_notmode = MockBinding::default();
-        subset_notmode.notmode = TermMode::ALT_SCREEN | TermMode::ORIGIN;
-
-        assert!(superset_notmode.triggers_match(&subset_notmode));
-        assert!(subset_notmode.triggers_match(&superset_notmode));
-    }
-
-    #[test]
     fn mods_binding_requires_strict_match() {
         let mut superset_mods = MockBinding::default();
         superset_mods.mods = ModifiersState { alt: true, logo: true, ctrl: true, shift: true };
@@ -1105,6 +1094,86 @@ mod tests {
 
         assert!(!superset_mods.triggers_match(&subset_mods));
         assert!(!subset_mods.triggers_match(&superset_mods));
+    }
+
+    #[test]
+    fn binding_matches_identical_mode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::ALT_SCREEN;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_without_mode_matches_any_mode() {
+        let b1 = MockBinding::default();
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::APP_KEYPAD;
+        b2.notmode = TermMode::ALT_SCREEN;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_with_mode_matches_empty_mode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::APP_KEYPAD;
+        b1.notmode = TermMode::ALT_SCREEN;
+        let b2 = MockBinding::default();
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_matches_superset_mode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::APP_KEYPAD;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::ALT_SCREEN | TermMode::APP_KEYPAD;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_matches_subset_mode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN | TermMode::APP_KEYPAD;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::APP_KEYPAD;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_matches_partial_intersection() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN | TermMode::APP_KEYPAD;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::APP_KEYPAD | TermMode::APP_CURSOR;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_mismatches_notmode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN;
+        let mut b2 = MockBinding::default();
+        b2.notmode = TermMode::ALT_SCREEN;
+
+        assert!(!b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_mismatches_unrelated() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::APP_KEYPAD;
+
+        assert!(!b1.triggers_match(&b2));
     }
 
     #[test]
