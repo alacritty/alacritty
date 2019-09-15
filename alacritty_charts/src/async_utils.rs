@@ -106,17 +106,7 @@ pub fn send_metrics_opengl_vecs(
         },
     ) {
         Ok(()) => {
-            if chart_index > charts.len() {
-                debug!(
-                    "send_metrics_opengl_vecs: oneshot::message sent for {}[OutOfBounds]",
-                    chart_index
-                );
-            } else {
-                debug!(
-                    "send_metrics_opengl_vecs: oneshot::message sent for {}[InsideBounds]",
-                    chart_index
-                );
-            }
+            debug!("send_metrics_opengl_vecs: oneshot::message sent for {}", chart_index);
         },
         Err(err) => error!("send_metrics_opengl_vecs: Error sending: {:?}", err),
     };
@@ -131,7 +121,7 @@ pub fn send_decorations_opengl_vecs(
     data_index: usize,
     channel: oneshot::Sender<Vec<f32>>,
 ) {
-    debug!("get_decorations_vecs for chart_index: {}", chart_index);
+    debug!("send_decorations_vecs for chart_index: {}", chart_index);
     match channel.send(
         if chart_index >= charts.len() || data_index >= charts[chart_index].decorations.len() {
             vec![]
@@ -140,17 +130,10 @@ pub fn send_decorations_opengl_vecs(
         },
     ) {
         Ok(()) => {
-            if chart_index > charts.len() {
-                debug!(
-                    "send_decorations_opengl_vecs: oneshot::message sent for {}[OutOfBounds]",
-                    chart_index
-                );
-            } else {
-                debug!(
-                    "send_decorations_opengl_vecs: oneshot::message sent for {}[InsideBounds]",
-                    chart_index
-                );
-            }
+            debug!(
+                "send_decorations_opengl_vecs: oneshot::message sent for index: {}",
+                chart_index
+            );
         },
         Err(err) => error!("send_decorations_opengl_vecs: Error sending: {:?}", err),
     };
