@@ -390,6 +390,7 @@ impl Default for Decoration {
     }
 }
 
+// XXX: Maybe this should turn into a trait
 impl Decoration {
     /// `width` of the Decoration as it may need space to be drawn, otherwise
     /// the decoration and the data itself would overlap, these are pixels
@@ -441,6 +442,22 @@ impl Decoration {
         match self {
             Decoration::Reference(d) => d.opengl_vertices(),
             Decoration::None => vec![],
+        }
+    }
+
+    /// `color` returns the Rgb for the decoration
+    pub fn color(&self) -> Rgb {
+        match self {
+            Decoration::Reference(d) => d.color,
+            Decoration::None => Rgb::default(),
+        }
+    }
+
+    /// `alpha` returns the transparency for the decoration
+    pub fn alpha(&self) -> f32 {
+        match self {
+            Decoration::Reference(d) => d.alpha,
+            Decoration::None => 0.0f32,
         }
     }
 }
