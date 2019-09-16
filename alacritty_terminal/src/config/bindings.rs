@@ -145,13 +145,13 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
     //
     // from: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-PC-Style-Function-Keys
     let modifiers = vec![
-        ModifiersState { shift: true,                         ..ModifiersState::default() },
-        ModifiersState { alt:   true,                         ..ModifiersState::default() },
-        ModifiersState { shift: true, alt: true,              ..ModifiersState::default() },
-        ModifiersState { ctrl:  true,                         ..ModifiersState::default() },
-        ModifiersState { shift: true, ctrl: true,             ..ModifiersState::default() },
-        ModifiersState { alt:   true, ctrl: true,             ..ModifiersState::default() },
-        ModifiersState { shift: true, alt:  true, ctrl: true, ..ModifiersState::default() },
+        ModifiersState { shift: true, ..ModifiersState::default() },
+        ModifiersState { alt: true, ..ModifiersState::default() },
+        ModifiersState { shift: true, alt: true, ..ModifiersState::default() },
+        ModifiersState { ctrl: true, ..ModifiersState::default() },
+        ModifiersState { shift: true, ctrl: true, ..ModifiersState::default() },
+        ModifiersState { alt: true, ctrl: true, ..ModifiersState::default() },
+        ModifiersState { shift: true, alt: true, ctrl: true, ..ModifiersState::default() },
     ];
 
     for (modifiers_code, mods) in modifiers.iter().enumerate() {
