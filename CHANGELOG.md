@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Change the mouse cursor when hovering over the message bar and its close button
 - Support combined bold and italic text (with `font.bold_italic` to customize it)
 - Extra bindings for F13-F20
-- Bindings with combined modifiers
+- Terminal escape bindings with combined modifiers
 - Bindings for ScrollToTop and ScrollToBottom actions
 
 ### Changed
