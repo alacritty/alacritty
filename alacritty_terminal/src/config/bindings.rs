@@ -75,20 +75,20 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         Key::L, [ctrl: true]; Action::ClearLogNotice;
         Key::L, [ctrl: true]; Action::Esc("\x0c".into());
         Key::PageUp,   [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageUp;
-        Key::PageUp,   [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[5;2~".into());
         Key::PageDown, [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageDown;
-        Key::PageDown, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[6;2~".into());
         Key::Home,     [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollToTop;
-        Key::Home,     [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2H".into());
         Key::End,      [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollToBottom;
-        Key::End,      [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2F".into());
         Key::Home, +TermMode::APP_CURSOR; Action::Esc("\x1bOH".into());
         Key::Home, ~TermMode::APP_CURSOR; Action::Esc("\x1b[H".into());
+        Key::Home, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2H".into());
         Key::End,  +TermMode::APP_CURSOR; Action::Esc("\x1bOF".into());
         Key::End,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[F".into());
+        Key::End,  [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2F".into());
         Key::PageUp;   Action::Esc("\x1b[5~".into());
+        Key::PageUp,   [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[5;2~".into());
         Key::PageDown; Action::Esc("\x1b[6~".into());
-        Key::Tab, [shift: true]; Action::Esc("\x1b[Z".into());
+        Key::PageDown, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[6;2~".into());
+        Key::Tab,  [shift: true]; Action::Esc("\x1b[Z".into());
         Key::Back; Action::Esc("\x7f".into());
         Key::Back, [alt: true]; Action::Esc("\x1b\x7f".into());
         Key::Insert; Action::Esc("\x1b[2~".into());
@@ -154,8 +154,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         ModifiersState { shift: true, alt: true, ctrl: true, ..ModifiersState::default() },
     ];
 
-    for (modifiers_code, mods) in modifiers.iter().enumerate() {
-        let modifiers_code = modifiers_code + 2;
+    for (index, mods) in modifiers.iter().enumerate() {
+        let modifiers_code = index + 2;
         bindings.extend(bindings!(
             KeyBinding;
             Key::Up,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
@@ -208,6 +208,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
             Action::Esc(format!("\x1b[34;{}~", modifiers_code));
         ));
 
+        // We're adding the following bindings with `Shift` manually above, so skipping them here
+        // modifiers_code != Shift
         if modifiers_code != 2 {
             bindings.extend(bindings!(
                 KeyBinding;
