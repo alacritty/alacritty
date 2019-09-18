@@ -134,7 +134,7 @@ impl Options {
                 Arg::with_name("embed")
                     .long("embed")
                     .takes_value(true)
-                    .help("Defines a parent window ID for XEmbed on Linux"),
+                    .help("Sets the XEmbed parent window ID (as a long value)"),
             )
             .arg(
                 Arg::with_name("q")
