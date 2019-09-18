@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Completions for `--class` and `-t` (short title)
 - Change the mouse cursor when hovering over the message bar and its close button
 - Support combined bold and italic text (with `font.bold_italic` to customize it)
+- Extra bindings for F13-F20
+- Terminal escape bindings with combined modifiers
+- Bindings for ScrollToTop and ScrollToBottom actions
 
 ### Changed
 
@@ -44,6 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use text mouse cursor when mouse mode is temporarily disabled with shift
 - Wayland primary selection clipboard not storing text when selection is stopped outside of the window
 - Block URL highlight while a selection is active
+- Bindings for Alt + F1-F12
+
+### Removed
+
+- Bindings for Super/Command + F1-F12
 
 ## 0.3.3
 
