@@ -608,21 +608,23 @@ impl Display {
                         },
                         alpha,
                     );
+                }
+                for decoration_idx in 0..config.charts[chart_idx].decorations.len() {
                     self.renderer.draw_charts_line(
                         config,
                         &size_info,
                         &get_metric_opengl_vecs(
                             charts_tx.clone(),
                             chart_idx,
-                            series_idx,
+                            decoration_idx,
                             "decoration",
                         ), // XXX: get the Decoration color
                         Rgb {
-                            r: config.charts[chart_idx].sources[series_idx].color().r,
-                            g: config.charts[chart_idx].sources[series_idx].color().g,
-                            b: config.charts[chart_idx].sources[series_idx].color().b,
+                            r: config.charts[chart_idx].decorations[decoration_idx].color().r,
+                            g: config.charts[chart_idx].decorations[decoration_idx].color().g,
+                            b: config.charts[chart_idx].decorations[decoration_idx].color().b,
                         },
-                        alpha,
+                        config.charts[chart_idx].decorations[decoration_idx].alpha(),
                     );
                 }
             }
