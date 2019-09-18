@@ -133,14 +133,6 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
     //    6     | Shift + Control
     //    7     | Alt + Control
     //    8     | Shift + Alt + Control
-    //    9     | Meta
-    //    10    | Meta + Shift
-    //    11    | Meta + Alt
-    //    12    | Meta + Alt + Shift
-    //    13    | Meta + Ctrl
-    //    14    | Meta + Ctrl + Shift
-    //    15    | Meta + Ctrl + Alt
-    //    16    | Meta + Ctrl + Alt + Shift
     // ---------+---------------------------
     //
     // from: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-PC-Style-Function-Keys
