@@ -175,8 +175,6 @@ impl Window {
             is_focused: false,
         };
 
-        window.run_os_extensions();
-
         Ok(window)
     }
 
@@ -408,64 +406,6 @@ impl Window {
 
     fn window(&self) -> &glutin::Window {
         self.windowed_context.window()
-    }
-}
-
-pub trait OsExtensions {
-    fn run_os_extensions(&self) {}
-}
-
-#[cfg(any(target_os = "macos", windows))]
-impl OsExtensions for Window {}
-
-#[cfg(not(any(target_os = "macos", windows)))]
-impl OsExtensions for Window {
-    fn run_os_extensions(&self) {
-        use libc::getpid;
-        use std::ffi::CStr;
-        use std::ptr;
-        use x11_dl::xlib::{self, PropModeReplace, XA_CARDINAL};
-
-        let xlib_display = self.window().get_xlib_display();
-        let xlib_window = self.window().get_xlib_window();
-
-        if let (Some(xlib_window), Some(xlib_display)) = (xlib_window, xlib_display) {
-            let xlib = xlib::Xlib::open().expect("get xlib");
-
-            // Set _NET_WM_PID to process pid
-            unsafe {
-                let _net_wm_pid = CStr::from_ptr(b"_NET_WM_PID\0".as_ptr() as *const _);
-                let atom = (xlib.XInternAtom)(xlib_display as *mut _, _net_wm_pid.as_ptr(), 0);
-                let pid = getpid();
-
-                (xlib.XChangeProperty)(
-                    xlib_display as _,
-                    xlib_window as _,
-                    atom,
-                    XA_CARDINAL,
-                    32,
-                    PropModeReplace,
-                    &pid as *const i32 as *const u8,
-                    1,
-                );
-            }
-            // Although this call doesn't actually pass any data, it does cause
-            // WM_CLIENT_MACHINE to be set. WM_CLIENT_MACHINE MUST be set if _NET_WM_PID is set
-            // (which we do above).
-            unsafe {
-                (xlib.XSetWMProperties)(
-                    xlib_display as _,
-                    xlib_window as _,
-                    ptr::null_mut(),
-                    ptr::null_mut(),
-                    ptr::null_mut(),
-                    0,
-                    ptr::null_mut(),
-                    ptr::null_mut(),
-                    ptr::null_mut(),
-                );
-            }
-        }
     }
 }
 
