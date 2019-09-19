@@ -618,7 +618,7 @@ impl Display {
                             chart_idx,
                             decoration_idx,
                             "decoration",
-                        ), // XXX: get the Decoration color
+                        ),
                         Rgb {
                             r: config.charts[chart_idx].decorations[decoration_idx].color().r,
                             g: config.charts[chart_idx].decorations[decoration_idx].color().g,
@@ -673,7 +673,6 @@ pub fn get_metric_opengl_vecs(
     request_type: &'static str,
 ) -> Vec<f32> {
     let (opengl_tx, opengl_rx) = oneshot::channel();
-    if request_type == "metric_data" {}
     let get_opengl_task = charts_tx
         .clone()
         .send(if request_type == "metric_data" {
