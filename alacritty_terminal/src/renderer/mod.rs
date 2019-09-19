@@ -223,7 +223,7 @@ impl GlyphCache {
 
     fn load_glyphs_for_font<L: LoadGlyph>(&mut self, font: FontKey, loader: &mut L) {
         let size = self.font_size;
-        for i in 32u8..=128u8 {
+        for i in 32u8..=126u8 {
             self.get(GlyphKey { font_key: font, c: i as char, size }, loader);
         }
     }
