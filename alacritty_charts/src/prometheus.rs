@@ -146,7 +146,10 @@ impl Default for PrometheusTimeSeries {
     fn default() -> PrometheusTimeSeries {
         PrometheusTimeSeries {
             name: String::from("Unset"),
-            series: crate::TimeSeries::default(),
+            series: crate::TimeSeries {
+                collision_policy: ValueCollisionPolicy::Overwrite,
+                ..crate::TimeSeries::default()
+            },
             data: HTTPResponseData::default(),
             source: String::from(""),
             url: hyper::Uri::default(),
@@ -170,7 +173,10 @@ impl PrometheusTimeSeries {
     ) -> Result<PrometheusTimeSeries, String> {
         let mut res = PrometheusTimeSeries {
             name: String::from("Unset"),
-            series: crate::TimeSeries::default(),
+            series: crate::TimeSeries {
+                collision_policy: ValueCollisionPolicy::Overwrite,
+                ..crate::TimeSeries::default()
+            },
             data: HTTPResponseData::default(),
             source: url_param,
             url: hyper::Uri::default(),
@@ -179,7 +185,6 @@ impl PrometheusTimeSeries {
             required_labels,
             ..PrometheusTimeSeries::default()
         };
-        res.series.collision_policy = ValueCollisionPolicy::Overwrite;
         match PrometheusTimeSeries::prepare_url(&res.source, res.series.metrics_capacity as u64) {
             Ok(url) => {
                 res.url = url;
@@ -187,6 +192,11 @@ impl PrometheusTimeSeries {
             },
             Err(err) => Err(err),
         }
+    }
+
+    /// `init` sets up several properties that would be too complicated to setup via yaml config
+    pub fn init(&mut self) {
+        self.series.collision_policy = ValueCollisionPolicy::Overwrite;
     }
 
     /// `prepare_url` loads self.source into a hyper::Uri

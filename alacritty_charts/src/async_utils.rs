@@ -70,9 +70,13 @@ pub fn load_http_response(
                         ok_records = num_records;
                     },
                     Err(err) => {
-                        debug!("Error from {} into TimeSeries: {:?}", response.source_url, err);
+                        debug!("Error Loading {} into TimeSeries: {:?}", response.source_url, err);
                     },
                 }
+                debug!(
+                    "After loading. TimeSeries is: {:?}",
+                    charts[response.chart_index].sources[response.series_index]
+                );
             }
             charts[response.chart_index].update_series_opengl_vecs(response.series_index, size);
         }
@@ -126,6 +130,10 @@ pub fn send_decorations_opengl_vecs(
         if chart_index >= charts.len() || data_index >= charts[chart_index].decorations.len() {
             vec![]
         } else {
+            debug!(
+                "send_decorations_opengl_vecs Sending vertices: {:?}",
+                charts[chart_index].decorations[data_index].opengl_vertices()
+            );
             charts[chart_index].decorations[data_index].opengl_vertices()
         },
     ) {
@@ -186,6 +194,13 @@ pub fn async_coordinator(
         "async_coordinator: Starting, height: {}, width: {}, padding_y: {}, padding_x {}",
         height, width, padding_y, padding_x
     );
+    for chart in &mut charts {
+        // Update the loaded item counters
+        debug!("Finishing setup for sources in chart: '{}'", chart.name);
+        for series in &mut chart.sources {
+            series.init();
+        }
+    }
     let mut size = SizeInfo { height, width, padding_y, padding_x, ..SizeInfo::default() };
     rx.for_each(move |message| {
         debug!("async_coordinator: message: {:?}", message);

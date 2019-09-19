@@ -292,7 +292,7 @@ impl Default for ReferencePointDecoration {
             value: 1.0,
             height_multiplier: 0.05,
             color: Rgb::default(),
-            alpha: 1.0,
+            alpha: 0.5,
             padding: Value2D {
                 x: 1f32,
                 y: 0f32, // No top/bottom padding
@@ -520,6 +520,14 @@ impl Default for TimeSeriesSource {
 }
 
 impl TimeSeriesSource {
+    /// `init` calls functions that arnside our TimeSeries sources to
+    /// setup specific flags that should be turned on for them.
+    pub fn init(&mut self) {
+        if let TimeSeriesSource::PrometheusTimeSeries(x) = self {
+            x.init();
+        }
+    }
+
     pub fn series(&self) -> TimeSeries {
         match self {
             TimeSeriesSource::PrometheusTimeSeries(x) => x.series.clone(),
