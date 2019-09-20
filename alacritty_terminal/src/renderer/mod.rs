@@ -1168,11 +1168,7 @@ impl<'a> RenderApi<'a> {
 }
 
 /// Returns an infinite iterator of hidden glyphs for a given font key and size.
-fn hidden_glyph<'a, L>(
-    font_key: FontKey,
-    glyph_cache: &'a mut GlyphCache,
-    loader: &mut L,
-) -> Glyph
+fn hidden_glyph<'a, L>(font_key: FontKey, glyph_cache: &'a mut GlyphCache, loader: &mut L) -> Glyph
 where
     L: LoadGlyph,
 {

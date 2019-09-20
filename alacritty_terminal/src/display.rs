@@ -27,7 +27,7 @@ use crate::config::{Config, StartupMode};
 use crate::index::Line;
 use crate::message_bar::Message;
 use crate::meter::Meter;
-use crate::renderer::rects::{RenderLines, RenderRect};
+use crate::renderer::rects::RenderRect;
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
 use crate::term::{color::Rgb, RenderableCell, SizeInfo, Term};
@@ -514,25 +514,26 @@ impl Display {
 
         {
             let glyph_cache = &mut self.glyph_cache;
-            let mut lines = RenderLines::new();
+            let mut rects = Vec::new();
 
             // Draw grid
             {
+                // Tracks render timings
                 let _sampler = self.meter.sampler();
 
                 self.renderer.with_api(config, &size_info, |mut api| {
                     // Iterate over each contiguous block of text
                     for text_run in TextRunIter::new(grid_cells.into_iter()) {
                         // Update underline/strikeout
-                        lines.update(&text_run);
+                        rects.extend(RenderRect::iter_from_text_run(
+                            &text_run, &metrics, &size_info,
+                        ));
 
                         // Draw text run
                         api.render_text_run(text_run, glyph_cache);
                     }
                 });
             }
-
-            let mut rects = lines.into_rects(&metrics, &size_info);
 
             if let Some(message) = message_buffer {
                 let text = message.text(&size_info);

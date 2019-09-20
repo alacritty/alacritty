@@ -11,11 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::collections::HashMap;
 
 use font::Metrics;
 
-use crate::index::Point;
 use crate::term::cell::Flags;
 use crate::term::color::Rgb;
 use crate::term::SizeInfo;
@@ -34,76 +32,46 @@ impl RenderRect {
     pub fn new(x: f32, y: f32, width: f32, height: f32, color: Rgb) -> Self {
         RenderRect { x, y, width, height, color }
     }
-}
 
-struct RenderLine {
-    start: Point,
-    end: Point,
-    color: Rgb,
-}
-
-impl RenderLine {
-    fn into_rect(self, flag: Flags, metrics: &Metrics, size: &SizeInfo) -> RenderRect {
-        let start_x = self.start.col.0 as f32 * size.cell_width;
-        let end_x = (self.end.col.0 + 1) as f32 * size.cell_width;
+    /// Construct an iterator from a text run for flags Flags::UNDERLINE and Flags::STRIKETHROUGH,
+    /// iterator returns a RenderRect for each flag text_run contains.
+    pub fn iter_from_text_run<'a>(
+        text_run: &'a TextRun,
+        metrics: &'a Metrics,
+        size: &'a SizeInfo,
+    ) -> impl Iterator<Item = Self> + 'a {
+        let start_point = text_run.start_point();
+        let start_x = start_point.col.0 as f32 * size.cell_width;
+        let end_x = text_run.end_point().col.0 as f32 * size.cell_width;
         let width = end_x - start_x;
 
-        let (position, mut height) = match flag {
-            Flags::UNDERLINE => (metrics.underline_position, metrics.underline_thickness),
-            Flags::STRIKEOUT => (metrics.strikeout_position, metrics.strikeout_thickness),
-            _ => unimplemented!("Invalid flag for cell line drawing specified"),
-        };
-
-        // Make sure lines are always visible
-        height = height.max(1.);
-
-        let line_bottom = (self.start.line.0 as f32 + 1.) * size.cell_height;
+        let line_bottom = (start_point.line.0 as f32 + 1.) * size.cell_height;
         let baseline = line_bottom + metrics.descent;
+        let flags = text_run.flags;
 
-        let mut y = baseline - position - height / 2.;
-        let max_y = line_bottom - height;
-        if y > max_y {
-            y = max_y;
-        }
+        [Flags::UNDERLINE, Flags::STRIKEOUT].iter().filter(move |flag| flags.contains(**flag)).map(
+            move |flag| {
+                let (position, mut height) = match *flag {
+                    Flags::UNDERLINE => (metrics.underline_position, metrics.underline_thickness),
+                    Flags::STRIKEOUT => (metrics.strikeout_position, metrics.strikeout_thickness),
+                    _ => unimplemented!("Invalid flag for cell line drawing specified"),
+                };
 
-        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, self.color)
-    }
-}
+                // Make sure lines are always visible
+                height = height.max(1.);
 
-/// Lines for underline and strikeout.
-#[derive(Default)]
-pub struct RenderLines {
-    inner: HashMap<Flags, Vec<RenderLine>>,
-}
+                let mut y = baseline - position - height / 2.;
+                let max_y = line_bottom - height;
+                y = y.min(max_y);
 
-impl RenderLines {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn into_rects(self, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
-        self.inner
-            .into_iter()
-            .map(|(flag, lines)| -> Vec<RenderRect> {
-                lines.into_iter().map(|line| line.into_rect(flag, &metrics, &size)).collect()
-            })
-            .flatten()
-            .collect()
-    }
-
-    /// Update the stored lines with the next text_run info.
-    pub fn update(&mut self, text_run: &TextRun) {
-        for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {
-            if !text_run.flags.contains(*flag) {
-                continue;
-            }
-
-            let new_line = RenderLine {
-                start: text_run.start_point(),
-                end: text_run.end_point(),
-                color: text_run.fg,
-            };
-            self.inner.entry(*flag).or_default().push(new_line);
-        }
+                RenderRect::new(
+                    start_x + size.padding_x,
+                    y + size.padding_y,
+                    width,
+                    height,
+                    text_run.fg,
+                )
+            },
+        )
     }
 }
