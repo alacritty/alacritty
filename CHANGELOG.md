@@ -18,10 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Completions for `--class` and `-t` (short title)
 - Change the mouse cursor when hovering over the message bar and its close button
 - Support combined bold and italic text (with `font.bold_italic` to customize it)
+<<<<<<< HEAD
 - Font Ligatures on Linux
 - Extra bindings for F13-F20
 - Terminal escape bindings with combined modifiers
 - Bindings for ScrollToTop and ScrollToBottom actions
+=======
+- Extra bindings for F13-F20
+- Terminal escape bindings with combined modifiers
+- Bindings for ScrollToTop and ScrollToBottom actions
+- Font Ligatures on Linux
+>>>>>>> ecfb55dee060286b55b65a9c48460eafab7fcefc
 
 ### Changed
 
