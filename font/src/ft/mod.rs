@@ -154,10 +154,10 @@ impl crate::HbFtExt for FreeTypeRasterizer {
     fn shape(&mut self, text: &str, font_key: FontKey) -> GlyphBuffer {
         let hb_font = &self.faces[&font_key].hb_font;
         let buf = UnicodeBuffer::new().add_str(text);
-        let use_font_ligature = if self.use_font_ligatures { 1 } else { 0 };
+        let use_font_ligatures = if self.use_font_ligatures { 1 } else { 0 };
         let features = [
-            Feature::new(Tag::new('l', 'i', 'g', 'a'), use_font_ligature, ..),
-            Feature::new(Tag::new('c', 'a', 'l', 't'), use_font_ligature, ..),
+            Feature::new(Tag::new('l', 'i', 'g', 'a'), use_font_ligatures, ..),
+            Feature::new(Tag::new('c', 'a', 'l', 't'), use_font_ligatures, ..),
         ];
         harfbuzz_rs::shape(hb_font, buf, &features)
     }
@@ -320,7 +320,7 @@ impl FreeTypeRasterizer {
             // We already found a glyph index, use current font
             KeyType::GlyphIndex(_) | KeyType::Placeholder => glyph_key.font_key,
             // Harfbuzz failed to find a glyph index, try to load a font for c
-            KeyType::Fallback(c) => self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key),
+            KeyType::Char(c) => self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key),
         }
     }
 
@@ -330,7 +330,7 @@ impl FreeTypeRasterizer {
         let face = &self.faces[&font_key];
         let index = match glyph_key.id {
             KeyType::GlyphIndex(i) => i,
-            KeyType::Fallback(c) => face.ft_face.get_char_index(c as usize),
+            KeyType::Char(c) => face.ft_face.get_char_index(c as usize),
             KeyType::Placeholder => face.placeholder_glyph_index,
         };
 

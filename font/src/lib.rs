@@ -149,7 +149,7 @@ pub enum KeyType {
     /// Shaping returned a missing glyph or shaping did not occur. If glyph is missing system will
     /// attempt to load character glyph from a fallback font. If shaping did not occur this will
     /// first try the configured font then fallback.
-    Fallback(char),
+    Char(char),
     /// Placeholder glyph useful when we need a glyph but it shouldn't ever render as anything
     /// (cursors, wide_char_spacers, etc.)
     Placeholder,
@@ -169,7 +169,7 @@ impl From<u32> for KeyType {
 
 impl From<char> for KeyType {
     fn from(val: char) -> Self {
-        KeyType::Fallback(val)
+        KeyType::Char(val)
     }
 }
 
