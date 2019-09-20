@@ -456,7 +456,7 @@ impl Font {
     ) -> Result<RasterizedGlyph, Error> {
         let glyph_index = match key_type {
             KeyType::GlyphIndex(i) => i,
-            KeyType::Fallback(character) => {
+            KeyType::Char(character) => {
                 self.glyph_index(character).ok_or_else(|| Error::MissingGlyph(key_type))?
             },
             KeyType::Placeholder => {
