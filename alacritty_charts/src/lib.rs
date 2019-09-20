@@ -22,6 +22,8 @@
 // -- When activated on toggle it could blur a portion of the screen
 // -- mock the prometheus server and response
 // -- We should re-use the circular_push for the opengl_vec
+// -- in MacOS the data to OpenGL must be sent from the main thread. This would require changing
+// the async_coordinator to send data somehow to the main thread.
 
 extern crate log;
 #[macro_use]
