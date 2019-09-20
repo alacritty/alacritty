@@ -13,8 +13,6 @@
 // limitations under the License.
 //
 //! Font rendering based on CoreText
-//!
-//! TODO error handling... just search for unwrap.
 #![allow(improper_ctypes)]
 use std::collections::HashMap;
 use std::path::PathBuf;
