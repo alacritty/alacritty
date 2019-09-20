@@ -1027,7 +1027,7 @@ impl<'a> RenderApi<'a> {
         };
 
         // Get font key for cell
-        let font_key = match cell.flags | (Flags::BOLD & Flags::ITALIC) {
+        let font_key = match cell.flags & Flags::BOLD_ITALIC {
             Flags::BOLD_ITALIC => glyph_cache.bold_italic_key,
             Flags::ITALIC => glyph_cache.italic_key,
             Flags::BOLD => glyph_cache.bold_key,
