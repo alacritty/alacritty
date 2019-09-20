@@ -32,9 +32,9 @@ use crate::gl;
 use crate::gl::types::*;
 use crate::index::{Column, Line};
 use crate::renderer::rects::RenderRect;
+use crate::term::cell::{self, Flags};
 use crate::term::color::Rgb;
 use crate::term::{self, RenderableCell, RenderableCellContent};
-use crate::term::cell::{self, Flags};
 
 pub mod rects;
 
