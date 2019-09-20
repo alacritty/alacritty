@@ -517,16 +517,20 @@ impl Display {
             let mut lines = RenderLines::new();
 
             // Draw grid
-            self.renderer.with_api(config, &size_info, |mut api| {
-                // Iterate over each contiguous block of text
-                for text_run in TextRunIter::new(grid_cells.into_iter()) {
-                    // Update underline/strikeout
-                    lines.update(&text_run);
+            {
+                let _sampler = self.meter.sampler();
 
-                    // Draw text run
-                    api.render_text_run(text_run, glyph_cache);
-                }
-            });
+                self.renderer.with_api(config, &size_info, |mut api| {
+                    // Iterate over each contiguous block of text
+                    for text_run in TextRunIter::new(grid_cells.into_iter()) {
+                        // Update underline/strikeout
+                        lines.update(&text_run);
+
+                        // Draw text run
+                        api.render_text_run(text_run, glyph_cache);
+                    }
+                });
+            }
 
             let mut rects = lines.into_rects(&metrics, &size_info);
 

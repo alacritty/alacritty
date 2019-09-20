@@ -155,11 +155,11 @@ impl crate::HbFtExt for FreeTypeRasterizer {
         let hb_font = &self.faces[&font_key].hb_font;
         let buf = UnicodeBuffer::new().add_str(text);
         let use_font_ligature = if self.use_font_ligatures { 1 } else { 0 };
-        let features = &[
+        let features = [
             Feature::new(Tag::new('l', 'i', 'g', 'a'), use_font_ligature, ..),
             Feature::new(Tag::new('c', 'a', 'l', 't'), use_font_ligature, ..),
         ];
-        harfbuzz_rs::shape(&*hb_font, buf, features)
+        harfbuzz_rs::shape(hb_font, buf, &features)
     }
 }
 
@@ -274,9 +274,11 @@ impl FreeTypeRasterizer {
 
             trace!("Got font path={:?}", path);
             let ft_face = self.library.new_face(&path, index)?;
-            // This will different for each font so we can't use a constant but we don't want to
-            // look it up every time so we cache it on load.
+
+            // This will be different for each font so we can't use a constant but we don't want to
+            // look it up every time so we cache it on font load.
             let placeholder_glyph_index = ft_face.get_char_index(' ' as usize);
+
             // Get available pixel sizes if font isn't scalable.
             let non_scalable = if pattern.scalable().next().unwrap_or(true) {
                 None
@@ -329,7 +331,6 @@ impl FreeTypeRasterizer {
         let index = match glyph_key.id {
             KeyType::GlyphIndex(i) => i,
             KeyType::Fallback(c) => face.ft_face.get_char_index(c as usize),
-            // Render
             KeyType::Placeholder => face.placeholder_glyph_index,
         };
 

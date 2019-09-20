@@ -456,11 +456,19 @@ impl Font {
     ) -> Result<RasterizedGlyph, Error> {
         let glyph_index = match key_type {
             KeyType::GlyphIndex(i) => i,
-            KeyType::Placeholder => {
-                self.glyph_index(' ').ok_or_else(|| Error::MissingGlyph(key_type))?
-            },
             KeyType::Fallback(character) => {
                 self.glyph_index(character).ok_or_else(|| Error::MissingGlyph(key_type))?
+            },
+            KeyType::Placeholder => {
+                // Early return with an empty buffer for a placeholder glyph
+                return Ok(RasterizedGlyph {
+                    c: KeyType::Placeholder,
+                    width: 0,
+                    height: 0,
+                    top: 0,
+                    left: 0,
+                    buf: Vec::new(),
+                });
             },
         };
 
@@ -475,7 +483,7 @@ impl Font {
 
         if rasterized_width == 0 || rasterized_height == 0 {
             return Ok(RasterizedGlyph {
-                c: ' '.into(),
+                c: key_type,
                 width: 0,
                 height: 0,
                 top: 0,

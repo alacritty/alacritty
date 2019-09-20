@@ -68,7 +68,7 @@ mod darwin;
 #[cfg(target_os = "macos")]
 pub use darwin::*;
 
-/// Placehodler glyph used as glyph key for cursor's RasterizedGlyphs
+/// Placeholder glyph key that represents a blank gylph
 pub const PLACEHOLDER_GLYPH: KeyType = KeyType::Placeholder;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -156,8 +156,6 @@ pub enum KeyType {
 }
 
 impl Default for KeyType {
-    // Arbitrary non missing (non 0) glyph
-    // Used as a placeholder when glyph doesn't matter, such as when representing a cursor.
     fn default() -> Self {
         PLACEHOLDER_GLYPH
     }
@@ -279,7 +277,6 @@ pub trait Rasterize {
     fn update_dpr(&mut self, device_pixel_ratio: f32);
 }
 
-// Only implemented for the FreeType rasterizer so far.
 /// Conceptually this extends the Rasterizer trait with Harfbuzz specific functionality.
 #[cfg(not(any(target_os = "macos", windows)))]
 pub trait HbFtExt {
