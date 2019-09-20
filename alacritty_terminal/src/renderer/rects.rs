@@ -103,7 +103,7 @@ impl RenderLines {
                 end: text_run.end_point(),
                 color: text_run.fg,
             };
-            self.inner.entry(*flag).or_insert_with(|| vec![]).push(new_line);
+            self.inner.entry(*flag).or_default().push(new_line);
         }
     }
 }

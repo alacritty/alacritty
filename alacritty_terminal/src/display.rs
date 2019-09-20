@@ -520,7 +520,6 @@ impl Display {
             self.renderer.with_api(config, &size_info, |mut api| {
                 // Iterate over each contiguous block of text
                 for text_run in TextRunIter::new(grid_cells.into_iter()) {
-                    println!("{:?}", text_run);
                     // Update underline/strikeout
                     lines.update(&text_run);
 

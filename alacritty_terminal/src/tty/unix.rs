@@ -13,7 +13,6 @@
 // limitations under the License.
 //
 //! tty related functionality
-//!
 
 use crate::config::{Config, Shell};
 use crate::display::OnResize;
@@ -29,6 +28,7 @@ use mio::unix::EventedFd;
 use std::ffi::CStr;
 use std::fs::File;
 use std::io;
+use std::mem::MaybeUninit;
 use std::os::unix::{
     io::{AsRawFd, FromRawFd, RawFd},
     process::CommandExt,
@@ -91,15 +91,16 @@ struct Passwd<'a> {
 /// If `buf` is changed while `Passwd` is alive, bad thing will almost certainly happen.
 fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
     // Create zeroed passwd struct
-    let mut entry: libc::passwd = unsafe { ::std::mem::uninitialized() };
+    let mut entry: MaybeUninit<libc::passwd> = MaybeUninit::uninit();
 
     let mut res: *mut libc::passwd = ptr::null_mut();
 
     // Try and read the pw file.
     let uid = unsafe { libc::getuid() };
     let status = unsafe {
-        libc::getpwuid_r(uid, &mut entry, buf.as_mut_ptr() as *mut _, buf.len(), &mut res)
+        libc::getpwuid_r(uid, entry.as_mut_ptr(), buf.as_mut_ptr() as *mut _, buf.len(), &mut res)
     };
+    let entry = unsafe { entry.assume_init() };
 
     if status < 0 {
         die!("getpwuid_r failed");
