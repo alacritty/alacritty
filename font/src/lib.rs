@@ -277,7 +277,7 @@ pub trait Rasterize {
     fn update_dpr(&mut self, device_pixel_ratio: f32);
 }
 
-/// Conceptually this extends the Rasterizer trait with Harfbuzz specific functionality.
+/// Extends the Rasterizer with Harfbuzz specific functionality.
 #[cfg(not(any(target_os = "macos", windows)))]
 pub trait HbFtExt {
     /// Shape the provided text into a set of glyphs.
