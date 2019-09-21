@@ -595,21 +595,8 @@ impl Display {
                 self.renderer.draw_rects(config, &size_info, visual_bell_intensity, rects);
             }
             for chart_idx in 0..config.charts.len() {
-                for series_idx in 0..config.charts[chart_idx].sources.len() {
-                    let alpha = config.charts[chart_idx].sources[series_idx].alpha();
-                    self.renderer.draw_charts_line(
-                        config,
-                        &size_info,
-                        &get_metric_opengl_vecs(charts_tx.clone(), chart_idx, series_idx, "data"),
-                        Rgb {
-                            r: config.charts[chart_idx].sources[series_idx].color().r,
-                            g: config.charts[chart_idx].sources[series_idx].color().g,
-                            b: config.charts[chart_idx].sources[series_idx].color().b,
-                        },
-                        alpha,
-                    );
-                }
                 for decoration_idx in 0..config.charts[chart_idx].decorations.len() {
+                    let alpha = config.charts[chart_idx].decorations[decoration_idx].alpha();
                     self.renderer.draw_charts_line(
                         config,
                         &size_info,
@@ -624,7 +611,26 @@ impl Display {
                             g: config.charts[chart_idx].decorations[decoration_idx].color().g,
                             b: config.charts[chart_idx].decorations[decoration_idx].color().b,
                         },
-                        config.charts[chart_idx].decorations[decoration_idx].alpha(),
+                        alpha,
+                    );
+                }
+                for series_idx in 0..config.charts[chart_idx].sources.len() {
+                    let alpha = config.charts[chart_idx].sources[series_idx].alpha();
+                    self.renderer.draw_charts_line(
+                        config,
+                        &size_info,
+                        &get_metric_opengl_vecs(
+                            charts_tx.clone(),
+                            chart_idx,
+                            series_idx,
+                            "metric_data",
+                        ),
+                        Rgb {
+                            r: config.charts[chart_idx].sources[series_idx].color().r,
+                            g: config.charts[chart_idx].sources[series_idx].color().g,
+                            b: config.charts[chart_idx].sources[series_idx].color().b,
+                        },
+                        alpha,
                     );
                 }
             }
