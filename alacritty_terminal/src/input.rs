@@ -45,8 +45,6 @@ pub const FONT_SIZE_STEP: f32 = 0.5;
 ///
 /// An escape sequence may be emitted in case specific keys or key combinations
 /// are activated.
-///
-/// TODO also need terminal state when processing input
 pub struct Processor<'a, A: 'a> {
     pub key_bindings: &'a [KeyBinding],
     pub mouse_bindings: &'a [MouseBinding],

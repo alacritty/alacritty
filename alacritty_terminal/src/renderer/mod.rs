@@ -32,8 +32,9 @@ use crate::gl;
 use crate::gl::types::*;
 use crate::index::{Column, Line};
 use crate::renderer::rects::RenderRect;
+use crate::term::cell::{self, Flags};
 use crate::term::color::Rgb;
-use crate::term::{self, cell, RenderableCell, RenderableCellContent};
+use crate::term::{self, RenderableCell, RenderableCellContent};
 
 pub mod rects;
 
@@ -977,7 +978,7 @@ impl<'a> RenderApi<'a> {
                 }),
                 bg: color.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
                 fg: Rgb { r: 0, g: 0, b: 0 },
-                flags: cell::Flags::empty(),
+                flags: Flags::empty(),
                 bg_alpha,
             })
             .collect::<Vec<_>>();
@@ -1026,19 +1027,15 @@ impl<'a> RenderApi<'a> {
         };
 
         // Get font key for cell
-        // FIXME this is super inefficient.
-        let font_key = match (
-            cell.flags.contains(cell::Flags::BOLD),
-            cell.flags.contains(cell::Flags::ITALIC),
-        ) {
-            (false, false) => glyph_cache.font_key,
-            (true, false) => glyph_cache.bold_key,
-            (false, true) => glyph_cache.italic_key,
-            (true, true) => glyph_cache.bold_italic_key,
+        let font_key = match cell.flags & Flags::BOLD_ITALIC {
+            Flags::BOLD_ITALIC => glyph_cache.bold_italic_key,
+            Flags::ITALIC => glyph_cache.italic_key,
+            Flags::BOLD => glyph_cache.bold_key,
+            _ => glyph_cache.font_key,
         };
 
         // Don't render text of HIDDEN cells
-        let mut chars = if cell.flags.contains(cell::Flags::HIDDEN) {
+        let mut chars = if cell.flags.contains(Flags::HIDDEN) {
             [' '; cell::MAX_ZEROWIDTH_CHARS + 1]
         } else {
             chars
