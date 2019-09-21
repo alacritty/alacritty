@@ -144,11 +144,9 @@ impl FontKey {
 /// If shaping failed or did not occur, `Fallback` will be returned.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum KeyType {
-    /// Shaping returned a valid index and we can render that as expected.
+    /// A valid glyph index from Font face to be rasterized to a glyph
     GlyphIndex(u32),
-    /// Shaping returned a missing glyph or shaping did not occur. If glyph is missing system will
-    /// attempt to load character glyph from a fallback font. If shaping did not occur this will
-    /// first try the configured font then fallback.
+    /// A character that has not been converted to an index before rasterizing
     Char(char),
     /// Placeholder glyph useful when we need a glyph but it shouldn't ever render as anything
     /// (cursors, wide_char_spacers, etc.)
