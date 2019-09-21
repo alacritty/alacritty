@@ -58,7 +58,7 @@ Defines the window position. Falls back to position specified by window manager 
 Defines the window title [default: Alacritty]
 .TP
 \fB\-\-embed\fR <parent>
-Sets the XEmbed parent window ID (as a long value)
+Defines an X window ID (as a decimal integer) which will serve as the parent when embedding Alacritty within other applications.
 .TP
 \fB\-\-working\-directory\fR <working\-directory>
 Start the shell in the specified working directory
