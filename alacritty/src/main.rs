@@ -260,8 +260,7 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
         let _io_thread = event_loop.spawn(None);
 
         info!("Initialisation complete");
-        // XXX: SEB: The async_coordinator should be moved here because it will contain the data
-        // loaded And so is the one that should send all to OpenGL
+        // Copy the terminal size into the alacritty_charts SizeInfo copy.
         let charts_size_info = alacritty_charts::SizeInfo {
             height: display.size().height,
             width: display.size().width,
