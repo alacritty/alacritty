@@ -172,8 +172,10 @@ impl Window {
         // On X11, embed the window inside another if the parent ID has been set
         #[cfg(not(any(target_os = "macos", windows)))]
         {
-            if let Some(parent_window_id) = config.window.embed {
-                x_embed_window(window, parent_window_id);
+            if event_loop.is_x11() {
+                if let Some(parent_window_id) = config.window.embed {
+                    x_embed_window(window, parent_window_id);
+                }
             }
         }
 
