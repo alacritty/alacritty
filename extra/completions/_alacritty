@@ -14,7 +14,7 @@ _arguments \
   '(-q)'{-v,-vv,-vvv}"[increase the level of verbosity (max is -vvv)]" \
   "$ign(-)"{-V,--version}"[print version information]" \
   "--class=[define the window class]:class" \
-  "--embed=[define an X window ID (as a decimal integer) which will serve as the parent when embedding Alacritty within other applications]:windowId" \
+  "--embed=[define the X11 window ID (as a decimal integer) to embed Alacritty within]:windowId" \
   "(-e --command)"{-e,--command}"[execute command (must be last arg)]:program: _command_names -e:*::program arguments: _normal" \
   "--config-file=[specify an alternative config file]:file:_files" \
   "(-d --dimensions)"{-d,--dimensions}"[specify window dimensions]:columns: :lines" \

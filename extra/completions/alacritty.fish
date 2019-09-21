@@ -31,7 +31,7 @@ complete -c alacritty \
   -d "Defines the window class"
 complete -c alacritty \
   -l "embed" \
-  -d "Defines the XEmbed parent"
+  -d "Defines the X11 window ID (as a decimal integer) to embed Alacritty within."
 complete -c alacritty \
   -x \
   -a '(__fish_complete_directories (commandline -ct))' \

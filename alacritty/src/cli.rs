@@ -134,7 +134,7 @@ impl Options {
                 Arg::with_name("embed")
                     .long("embed")
                     .takes_value(true)
-                    .help("Defines an X window ID (as a decimal integer) which will serve as the parent when embedding Alacritty within other applications."),
+                    .help("Defines the X11 window ID (as a decimal integer) to embed Alacritty within."),
             )
             .arg(
                 Arg::with_name("q")
