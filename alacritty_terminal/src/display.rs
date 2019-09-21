@@ -30,7 +30,7 @@ use crate::meter::Meter;
 use crate::renderer::rects::RenderRect;
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
-use crate::term::{color::Rgb, RenderableCell, SizeInfo, Term};
+use crate::term::{cell::Flags, color::Rgb, RenderableCell, SizeInfo, Term};
 use crate::text_run::TextRunIter;
 use crate::window::{self, Window};
 use font::{self, Rasterize};
@@ -525,9 +525,28 @@ impl Display {
                     // Iterate over each contiguous block of text
                     for text_run in TextRunIter::new(grid_cells.into_iter()) {
                         // Update underline/strikeout
-                        rects.extend(RenderRect::iter_from_text_run(
-                            &text_run, &metrics, &size_info,
-                        ));
+                        if text_run.flags.contains(Flags::UNDERLINE) {
+                            rects.push(RenderRect::from_text_run(
+                                &text_run,
+                                (
+                                    metrics.descent,
+                                    metrics.underline_position,
+                                    metrics.underline_thickness,
+                                ),
+                                &size_info,
+                            ));
+                        }
+                        if text_run.flags.contains(Flags::STRIKEOUT) {
+                            rects.push(RenderRect::from_text_run(
+                                &text_run,
+                                (
+                                    metrics.descent,
+                                    metrics.strikeout_position,
+                                    metrics.strikeout_thickness,
+                                ),
+                                &size_info,
+                            ));
+                        }
 
                         // Draw text run
                         api.render_text_run(text_run, glyph_cache);
