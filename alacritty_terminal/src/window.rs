@@ -446,26 +446,15 @@ fn x_embed_window(window: &GlutinWindow, parent_window_id: u64) {
             2,
         );
         
-        // set a handler before verifying target window existence
-        let old_handler = (xlib.XSetErrorHandler)(Some(ctx_error_handler));
-        // XReparentWindow doesn't give helpful results, so poke the window here
+        // Check for the existence of the target before attempting reparenting
         let mut attribs = std::mem::MaybeUninit::<x11_dl::xlib::XWindowAttributes>::uninit();
-        (xlib.XGetWindowAttributes)(xlib_display as _, parent_window_id, attribs.as_mut_ptr());
-        // restore the original handler
-        (xlib.XSetErrorHandler)(std::mem::transmute(old_handler));
-
-        // reparent the window with a specific handler in-place
-        (xlib.XReparentWindow)(xlib_display as _, xlib_window as _, parent_window_id, 0, 0);
+        if (xlib.XGetWindowAttributes)(xlib_display as _, parent_window_id, attribs.as_mut_ptr()) == 0 {
+            eprintln!("Could not embed into specified window.");
+            process::exit(1);
+        } else {
+            (xlib.XReparentWindow)(xlib_display as _, xlib_window as _, parent_window_id, 0, 0);
+        }
     }
-}
-
-#[cfg(not(any(target_os = "macos", windows)))]
-unsafe extern "C" fn ctx_error_handler(
-        _dpy: *mut x11_dl::xlib::Display,
-        _ev: *mut x11_dl::xlib::XErrorEvent
-        ) -> i32 {
-    eprintln!("Could not embed into specified window.");
-    process::exit(1);
 }
 
 impl Proxy {
