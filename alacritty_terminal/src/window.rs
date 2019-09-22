@@ -443,9 +443,25 @@ fn x_embed_window(window: &GlutinWindow, parent_window_id: u64) {
             [0, 1].as_ptr(),
             2,
         );
-
+        
+        // set a handler to deal with unsuccessful reparenting
+        let old_handler = (xlib.XSetErrorHandler)(Some(ctx_error_handler));
+        // reparent the window with a specific handler in-place
         (xlib.XReparentWindow)(xlib_display as _, xlib_window as _, parent_window_id, 0, 0);
+        // XReparentWindow doesn't give helpful results, so poke the window here
+        let mut attribs: x11_dl::xlib::XWindowAttributes = std::mem::uninitialized();
+        (xlib.XGetWindowAttributes)(xlib_display as _, xlib_window as _, &mut attribs);
+        // restore the original handler
+        (xlib.XSetErrorHandler)(std::mem::transmute(old_handler));
     }
+}
+
+unsafe extern "C" fn ctx_error_handler(
+        _dpy: *mut x11_dl::xlib::Display,
+        _ev: *mut x11_dl::xlib::XErrorEvent
+        ) -> i32 {
+    eprintln!("Could not embed into specified window.");
+    ::std::process::exit(1);
 }
 
 impl Proxy {
