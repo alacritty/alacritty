@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::convert::From;
+#[cfg(not(any(target_os = "macos", windows)))]
 use std::process;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::ffi::c_void;
