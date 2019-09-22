@@ -758,6 +758,7 @@ impl QuadRenderer {
         }
     }
 
+    /// `draw_charts_line` draws an opengl line that contains the data from the metrics
     pub fn draw_charts_line(
         &mut self,
         _config: &Config,
@@ -770,7 +771,7 @@ impl QuadRenderer {
         if opengl_vecs.len() < 4 {
             return;
         }
-        // TODO: Use the Activity Levels Shader Program (For now a copy of rect)
+        // TODO: Use the Charts Shader Program (For now a copy of rect)
         unsafe {
             // Swap program
             gl::UseProgram(self.charts_program.id);
