@@ -510,7 +510,13 @@ impl<N: Notify> Processor<N> {
                     return;
                 },
                 // Process events
-                (GlutinEvent::EventsCleared, _) => *control_flow = ControlFlow::Wait,
+                (GlutinEvent::EventsCleared, _) => {
+                    *control_flow = ControlFlow::Wait;
+
+                    if event_queue.is_empty() {
+                        return;
+                    }
+                }
                 // Buffer events
                 _ => {
                     *control_flow = ControlFlow::Poll;
