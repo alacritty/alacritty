@@ -13,12 +13,12 @@
 // limitations under the License.
 use std::convert::From;
 #[cfg(not(any(target_os = "macos", windows)))]
-use std::process;
-#[cfg(not(any(target_os = "macos", windows)))]
 use std::ffi::c_void;
 use std::fmt::Display;
 #[cfg(not(any(target_os = "macos", windows)))]
-use x11_dl::xlib::{PropModeReplace, Xlib};
+use std::mem::MaybeUninit;
+#[cfg(not(any(target_os = "macos", windows)))]
+use std::process;
 
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 #[cfg(target_os = "macos")]
@@ -29,10 +29,12 @@ use glutin::os::unix::{EventsLoopExt, WindowExt};
 use glutin::Icon;
 use glutin::{
     self, ContextBuilder, ControlFlow, Event, EventsLoop, MouseCursor, PossiblyCurrent,
-    WindowBuilder, Window as GlutinWindow,
+    Window as GlutinWindow, WindowBuilder,
 };
 #[cfg(not(target_os = "macos"))]
 use image::ImageFormat;
+#[cfg(not(any(target_os = "macos", windows)))]
+use x11_dl::xlib::{PropModeReplace, Xlib};
 
 use crate::config::{Config, Decorations, StartupMode, WindowConfig};
 use crate::gl;
@@ -424,7 +426,7 @@ impl Window {
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]
-fn x_embed_window(window: &GlutinWindow, parent_window_id: u64) {
+fn x_embed_window(window: &GlutinWindow, parent_id: u64) {
     let (xlib_display, xlib_window) = match (window.get_xlib_display(), window.get_xlib_window()) {
         (Some(display), Some(window)) => (display, window),
         _ => return,
@@ -433,8 +435,7 @@ fn x_embed_window(window: &GlutinWindow, parent_window_id: u64) {
     let xlib = Xlib::open().expect("get xlib");
 
     unsafe {
-        let xembed = "_XEMBED".as_ptr();
-        let atom = (xlib.XInternAtom)(xlib_display as *mut _, xembed as *const _, 0);
+        let atom = (xlib.XInternAtom)(xlib_display as *mut _, "_XEMBED".as_ptr() as *const _, 0);
         (xlib.XChangeProperty)(
             xlib_display as _,
             xlib_window as _,
@@ -445,14 +446,14 @@ fn x_embed_window(window: &GlutinWindow, parent_window_id: u64) {
             [0, 1].as_ptr(),
             2,
         );
-        
+
         // Check for the existence of the target before attempting reparenting
-        let mut attribs = std::mem::MaybeUninit::<x11_dl::xlib::XWindowAttributes>::uninit();
-        if (xlib.XGetWindowAttributes)(xlib_display as _, parent_window_id, attribs.as_mut_ptr()) == 0 {
+        let mut attrs = MaybeUninit::uninit();
+        if (xlib.XGetWindowAttributes)(xlib_display as _, parent_id, attrs.as_mut_ptr()) == 0 {
             eprintln!("Could not embed into specified window.");
             process::exit(1);
         } else {
-            (xlib.XReparentWindow)(xlib_display as _, xlib_window as _, parent_window_id, 0, 0);
+            (xlib.XReparentWindow)(xlib_display as _, xlib_window as _, parent_id, 0, 0);
         }
     }
 }

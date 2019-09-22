@@ -40,7 +40,7 @@ pub struct WindowConfig {
     pub class: Class,
 
     /// XEmbed parent
-    #[serde(skip_deserializing)]
+    #[serde(skip)]
     pub embed: Option<u64>,
 
     /// GTK theme variant
