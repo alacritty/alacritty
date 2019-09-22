@@ -446,15 +446,16 @@ fn x_embed_window(window: &GlutinWindow, parent_window_id: u64) {
             2,
         );
         
-        // set a handler to deal with unsuccessful reparenting
+        // set a handler before verifying target window existence
         let old_handler = (xlib.XSetErrorHandler)(Some(ctx_error_handler));
-        // reparent the window with a specific handler in-place
-        (xlib.XReparentWindow)(xlib_display as _, xlib_window as _, parent_window_id, 0, 0);
         // XReparentWindow doesn't give helpful results, so poke the window here
         let mut attribs = std::mem::MaybeUninit::<x11_dl::xlib::XWindowAttributes>::uninit();
-        (xlib.XGetWindowAttributes)(xlib_display as _, xlib_window as _, attribs.as_mut_ptr());
+        (xlib.XGetWindowAttributes)(xlib_display as _, parent_window_id, attribs.as_mut_ptr());
         // restore the original handler
         (xlib.XSetErrorHandler)(std::mem::transmute(old_handler));
+
+        // reparent the window with a specific handler in-place
+        (xlib.XReparentWindow)(xlib_display as _, xlib_window as _, parent_window_id, 0, 0);
     }
 }
 
