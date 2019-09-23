@@ -15,10 +15,6 @@ use std::convert::From;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::ffi::c_void;
 use std::fmt::Display;
-#[cfg(not(any(target_os = "macos", windows)))]
-use std::mem::MaybeUninit;
-#[cfg(not(any(target_os = "macos", windows)))]
-use std::process;
 
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 #[cfg(target_os = "macos")]
@@ -34,7 +30,7 @@ use glutin::{
 #[cfg(not(target_os = "macos"))]
 use image::ImageFormat;
 #[cfg(not(any(target_os = "macos", windows)))]
-use x11_dl::xlib::PropModeReplace;
+use x11_dl::xlib::{PropModeReplace, Display as XDisplay, XErrorEvent};
 
 use crate::config::{Config, Decorations, StartupMode, WindowConfig};
 use crate::gl;
@@ -447,15 +443,21 @@ fn x_embed_window(window: &GlutinWindow, parent_id: u64) {
             2,
         );
 
+        // Register new error handler
+        let old_handler = (xlib.XSetErrorHandler)(Some(xembed_error_handler));
+
         // Check for the existence of the target before attempting reparenting
-        let mut attrs = MaybeUninit::uninit();
-        if (xlib.XGetWindowAttributes)(xlib_display as _, parent_id, attrs.as_mut_ptr()) == 0 {
-            eprintln!("Could not embed into specified window.");
-            process::exit(1);
-        } else {
-            (xlib.XReparentWindow)(xlib_display as _, xlib_window as _, parent_id, 0, 0);
-        }
+        (xlib.XReparentWindow)(xlib_display as _, xlib_window as _, parent_id, 0, 0);
+
+        // Drain errors and restore original error handler
+        (xlib.XSync)(xlib_display as _, 0);
+        (xlib.XSetErrorHandler)(old_handler);
     }
+}
+
+unsafe extern "C" fn xembed_error_handler(_: *mut XDisplay, _: *mut XErrorEvent) -> i32 {
+    eprintln!("Could not embed into specified window.");
+    std::process::exit(1);
 }
 
 impl Proxy {
