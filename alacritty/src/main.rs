@@ -129,33 +129,6 @@ fn main() {
     }
 }
 
-/// Sends a request to the async_coordinator to get the latest update epoch of all
-/// the charts
-fn get_last_updated_chart_epoch(
-    charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
-) -> u64 {
-    let (chart_tx, chart_rx) = oneshot::channel();
-    let get_latest_update_epoch = charts_tx
-        .send(alacritty_charts::async_utils::AsyncChartTask::SendLastUpdatedEpoch(chart_tx))
-        .map_err(|e| error!("Sending SendLastUpdatedEpoch Task: err={:?}", e))
-        .and_then(move |_res| {
-            debug!("Sent Request for SendLastUpdatedEpoch");
-            Ok(())
-        });
-    tokio::spawn(lazy(move || get_latest_update_epoch));
-    let chart_rx = chart_rx.map(|x| x);
-    match chart_rx.wait() {
-        Ok(data) => {
-            debug!("Got response from SendLastUpdatedEpoch Task: {:?}", data);
-            data
-        },
-        Err(err) => {
-            error!("Error response from SendLastUpdatedEpoch Task: {:?}", err);
-            0u64
-        },
-    }
-}
-
 /// Run Alacritty
 ///
 /// Creates a window, the terminal state, pty, I/O event loop, input processor,
@@ -332,7 +305,10 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
 
             // Maybe draw the terminal
             if terminal_lock.needs_draw()
-                || chart_last_drawn != get_last_updated_chart_epoch(charts_tx.clone())
+                || chart_last_drawn
+                    != alacritty_charts::async_utils::get_last_updated_chart_epoch(
+                        charts_tx.clone(),
+                    )
             {
                 // Try to update the position of the input method editor
                 #[cfg(not(windows))]
