@@ -23,14 +23,16 @@ use glutin::os::macos::WindowExt;
 use glutin::os::unix::{EventsLoopExt, WindowExt};
 #[cfg(not(target_os = "macos"))]
 use glutin::Icon;
+#[cfg(not(any(target_os = "macos", windows)))]
+use glutin::Window as GlutinWindow;
 use glutin::{
     self, ContextBuilder, ControlFlow, Event, EventsLoop, MouseCursor, PossiblyCurrent,
-    Window as GlutinWindow, WindowBuilder,
+    WindowBuilder,
 };
 #[cfg(not(target_os = "macos"))]
 use image::ImageFormat;
 #[cfg(not(any(target_os = "macos", windows)))]
-use x11_dl::xlib::{PropModeReplace, Display as XDisplay, XErrorEvent};
+use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent};
 
 use crate::config::{Config, Decorations, StartupMode, WindowConfig};
 use crate::gl;
@@ -455,9 +457,9 @@ fn x_embed_window(window: &GlutinWindow, parent_id: u64) {
     }
 }
 
+#[cfg(not(any(target_os = "macos", windows)))]
 unsafe extern "C" fn xembed_error_handler(_: *mut XDisplay, _: *mut XErrorEvent) -> i32 {
-    eprintln!("Could not embed into specified window.");
-    std::process::exit(1);
+    die!("Could not embed into specified window.");
 }
 
 impl Proxy {
