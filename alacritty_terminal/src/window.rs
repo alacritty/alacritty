@@ -34,7 +34,7 @@ use glutin::{
 #[cfg(not(target_os = "macos"))]
 use image::ImageFormat;
 #[cfg(not(any(target_os = "macos", windows)))]
-use x11_dl::xlib::{PropModeReplace, Xlib};
+use x11_dl::xlib::PropModeReplace;
 
 use crate::config::{Config, Decorations, StartupMode, WindowConfig};
 use crate::gl;
@@ -432,7 +432,7 @@ fn x_embed_window(window: &GlutinWindow, parent_id: u64) {
         _ => return,
     };
 
-    let xlib = Xlib::open().expect("get xlib");
+    let xlib = &window.get_xlib_xconnection().expect("no xlib connection").xlib;
 
     unsafe {
         let atom = (xlib.XInternAtom)(xlib_display as *mut _, "_XEMBED".as_ptr() as *const _, 0);
