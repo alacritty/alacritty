@@ -36,8 +36,14 @@ use crate::gl;
 use crate::gl::types::*;
 use crate::index::{Column, Line};
 use crate::renderer::rects::RenderRect;
+<<<<<<< HEAD
 use crate::term::{self, cell, color::Rgb, RenderableCell};
 use crate::text_run::{TextRun, TextRunContent};
+=======
+use crate::term::cell::{self, Flags};
+use crate::term::color::Rgb;
+use crate::term::{self, RenderableCell, RenderableCellContent};
+>>>>>>> 856cddc8739c32d8bbfff72dd3692f49359142a9
 
 pub mod rects;
 
@@ -1040,6 +1046,7 @@ impl<'a> RenderApi<'a> {
     ) {
         let bg_alpha = color.map(|_| 1.0).unwrap_or(0.0);
 
+<<<<<<< HEAD
         let text_run = TextRun {
             line,
             span: (Column(0), Column(string.len() - 1)),
@@ -1049,6 +1056,25 @@ impl<'a> RenderApi<'a> {
             flags: cell::Flags::empty(),
             bg_alpha,
         };
+=======
+        let cells = string
+            .chars()
+            .enumerate()
+            .map(|(i, c)| RenderableCell {
+                line,
+                column: col + i,
+                inner: RenderableCellContent::Chars({
+                    let mut chars = [' '; cell::MAX_ZEROWIDTH_CHARS + 1];
+                    chars[0] = c;
+                    chars
+                }),
+                bg: color.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
+                fg: Rgb { r: 0, g: 0, b: 0 },
+                flags: Flags::empty(),
+                bg_alpha,
+            })
+            .collect::<Vec<_>>();
+>>>>>>> 856cddc8739c32d8bbfff72dd3692f49359142a9
 
         self.render_text_run(text_run, glyph_cache);
     }
@@ -1092,11 +1118,11 @@ impl<'a> RenderApi<'a> {
 
     fn determine_font_key(flags: cell::Flags, glyph_cache: &GlyphCache) -> FontKey {
         // FIXME this is super inefficient.
-        match (flags.contains(cell::Flags::BOLD), flags.contains(cell::Flags::ITALIC)) {
-            (false, false) => glyph_cache.font_key,
-            (true, false) => glyph_cache.bold_key,
-            (false, true) => glyph_cache.italic_key,
-            (true, true) => glyph_cache.bold_italic_key,
+        match flags & Flags::BOLD_ITALIC {
+            Flags::BOLD_ITALIC => glyph_cache.bold_italic_key,
+            Flags::BOLD => glyph_cache.bold_key,
+            Flags::ITALIC => glyph_cache.italic_key,
+            _ => glyph_cache.font_key,
         }
     }
 

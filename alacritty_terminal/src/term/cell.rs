@@ -26,6 +26,7 @@ bitflags! {
         const INVERSE           = 0b00_0000_0001;
         const BOLD              = 0b00_0000_0010;
         const ITALIC            = 0b00_0000_0100;
+        const BOLD_ITALIC       = 0b00_0000_0110;
         const UNDERLINE         = 0b00_0000_1000;
         const WRAPLINE          = 0b00_0001_0000;
         const WIDE_CHAR         = 0b00_0010_0000;
