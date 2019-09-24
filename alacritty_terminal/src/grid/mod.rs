@@ -546,8 +546,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
                 break;
             }
 
-            // In case the whole terminal is empty somehow.
-            // TODO: Test.
+            // In case the whole terminal is empty.
             if iter.cur.line >= *self.lines {
                 break;
             }

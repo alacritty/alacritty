@@ -50,6 +50,7 @@ ref_tests! {
     zsh_tab_completion
     history
     grid_reset
+    grid_clear
     row_reset
     zerowidth
     selective_erasure

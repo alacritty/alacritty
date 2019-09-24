@@ -1,0 +1,9 @@
+]0;fish /home/nixpulvis/Code/alacritty[30m(B[mIf you've done six impossible things before breakfast, why not round it
+off with dinner at Milliway's, the restaurant at the end of the universe?
+		-- Douglas Adams, "The Restaurant at the End of the Universe"
+><_> tick... tock...
+[?2004h]0;fish /home/nixpulvis/Code/alacritty[30m(B[m[2m⏎(B[m                                                              ⏎ [K[31mnixpulvis[30m(B[m@[34mmasva[30m(B[m:[32m~/C/alacritty[30m(B[m ([32mclear-all-rotates-visible[30m(B[m [1m[34m$[30m(B[m) $ [K
+cargo run[38;2;0;95;215mcargo[30m(B[m [38;2;0;175;255mrun[30m(B[m[38;2;0;95;215mexit[30m(B[m[K[38;2;0;95;215mcho -e '\e[10S\e[2J\e[3J'[30m(B[m[22D [38;2;0;175;255m-e[30m(B[m [38;2;153;153;0m'\e[10S\e[2J\e[3J'[30m(B[m
+[30m(B[m[?2004l]0;echo /home/nixpulvis/Code/alacritty[30m(B[m[10S[2J[3J
+[?2004h]0;fish /home/nixpulvis/Code/alacritty[30m(B[m[2m⏎(B[m                                                              ⏎ [K[31mnixpulvis[30m(B[m@[34mmasva[30m(B[m:[32m~/C/alacritty[30m(B[m ([32mclear-all-rotates-visible[30m(B[m [1m[34m$[30m(B[m) $ [K
+e[38;2;255;0;0me[30m(B[m[38;2;255;0;0mx[30m(B[m[38;2;0;95;215mex[30m(B[m[38;2;0;95;215mi[30m(B[m[38;2;255;0;0mexi[30m(B[m[38;2;255;0;0mt[30m(B[m[38;2;0;95;215mexit[30m(B[m
