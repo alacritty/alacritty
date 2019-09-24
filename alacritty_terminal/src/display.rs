@@ -619,7 +619,7 @@ impl Display {
                     self.renderer.draw_charts_line(
                         config,
                         &size_info,
-                        &get_metric_opengl_vecs(
+                        &alacritty_charts::async_utils::get_metric_opengl_vecs(
                             charts_tx.clone(),
                             chart_idx,
                             series_idx,
@@ -667,47 +667,5 @@ impl Display {
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     pub fn get_wayland_display(&self) -> Option<*mut c_void> {
         self.window.get_wayland_display()
-    }
-}
-
-/// `get_metric_opengl_vecs` generates a oneshot::channel to communicate
-/// with the async coordinator and request the vectors of the metric,data.
-pub fn get_metric_opengl_vecs(
-    charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
-    chart_idx: usize,
-    series_idx: usize,
-    request_type: &'static str,
-) -> Vec<f32> {
-    let (opengl_tx, opengl_rx) = oneshot::channel();
-    let get_opengl_task = charts_tx
-        .clone()
-        .send(if request_type == "metric_data" {
-            alacritty_charts::async_utils::AsyncChartTask::SendMetricsOpenGLData(
-                chart_idx, series_idx, opengl_tx,
-            )
-        } else {
-            alacritty_charts::async_utils::AsyncChartTask::SendDecorationsOpenGLData(
-                chart_idx, series_idx, opengl_tx,
-            )
-        })
-        .map_err(|e| error!("Sending SendMetricsOpenGL Task: err={:?}", e))
-        .and_then(move |_res| {
-            debug!(
-                "Sent Request for SendMetricsOpenGL Task for chart index: {}, series: {}",
-                chart_idx, series_idx
-            );
-            Ok(())
-        });
-    tokio::spawn(lazy(move || get_opengl_task));
-    let opengl_rx = opengl_rx.map(|x| x);
-    match opengl_rx.wait() {
-        Ok(data) => {
-            debug!("Got response from SendMetricsOpenGL Task: {:?}", data);
-            data
-        },
-        Err(err) => {
-            error!("Error response from SendMetricsOpenGL Task: {:?}", err);
-            vec![]
-        },
     }
 }

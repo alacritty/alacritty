@@ -326,6 +326,45 @@ pub fn spawn_interval_polls(
         .map(|_| ())
 }
 
+/// `get_metric_opengl_vecs` generates a oneshot::channel to communicate
+/// with the async coordinator and request the vectors of the metric_data
+/// or the decorations vertices
+pub fn get_metric_opengl_vecs(
+    charts_tx: mpsc::Sender<AsyncChartTask>,
+    chart_idx: usize,
+    series_idx: usize,
+    request_type: &'static str,
+) -> Vec<f32> {
+    let (opengl_tx, opengl_rx) = oneshot::channel();
+    let get_opengl_task = charts_tx
+        .clone()
+        .send(if request_type == "metric_data" {
+            AsyncChartTask::SendMetricsOpenGLData(chart_idx, series_idx, opengl_tx)
+        } else {
+            AsyncChartTask::SendDecorationsOpenGLData(chart_idx, series_idx, opengl_tx)
+        })
+        .map_err(|e| error!("Sending SendMetricsOpenGL Task: err={:?}", e))
+        .and_then(move |_res| {
+            debug!(
+                "Sent Request for SendMetricsOpenGL Task for chart index: {}, series: {}",
+                chart_idx, series_idx
+            );
+            Ok(())
+        });
+    tokio::spawn(lazy(move || get_opengl_task));
+    let opengl_rx = opengl_rx.map(|x| x);
+    match opengl_rx.wait() {
+        Ok(data) => {
+            debug!("Got response from SendMetricsOpenGL Task: {:?}", data);
+            data
+        },
+        Err(err) => {
+            error!("Error response from SendMetricsOpenGL Task: {:?}", err);
+            vec![]
+        },
+    }
+}
+
 /// `run` is an example use of the crate without drawing the data.
 pub fn run(config: crate::config::Config) {
     let charts = config.charts.clone();
