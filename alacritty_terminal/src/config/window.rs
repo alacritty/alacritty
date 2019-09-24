@@ -39,6 +39,10 @@ pub struct WindowConfig {
     #[serde(deserialize_with = "from_string_or_deserialize")]
     pub class: Class,
 
+    /// XEmbed parent
+    #[serde(skip)]
+    pub embed: Option<u64>,
+
     /// GTK theme variant
     #[serde(deserialize_with = "option_explicit_none")]
     pub gtk_theme_variant: Option<String>,

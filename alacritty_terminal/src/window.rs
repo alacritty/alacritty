@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::convert::From;
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", windows)))]
 use std::ffi::c_void;
 use std::fmt::Display;
 
-use crate::gl;
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 #[cfg(target_os = "macos")]
 use glutin::os::macos::WindowExt;
@@ -24,14 +23,19 @@ use glutin::os::macos::WindowExt;
 use glutin::os::unix::{EventsLoopExt, WindowExt};
 #[cfg(not(target_os = "macos"))]
 use glutin::Icon;
+#[cfg(not(any(target_os = "macos", windows)))]
+use glutin::Window as GlutinWindow;
 use glutin::{
     self, ContextBuilder, ControlFlow, Event, EventsLoop, MouseCursor, PossiblyCurrent,
     WindowBuilder,
 };
 #[cfg(not(target_os = "macos"))]
 use image::ImageFormat;
+#[cfg(not(any(target_os = "macos", windows)))]
+use x11_dl::xlib::{Xlib, Display as XDisplay, PropModeReplace, XErrorEvent};
 
 use crate::config::{Config, Decorations, StartupMode, WindowConfig};
+use crate::gl;
 
 // It's required to be in this directory due to the `windows.rc` file
 #[cfg(not(target_os = "macos"))]
@@ -166,6 +170,16 @@ impl Window {
 
         // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
+
+        // On X11, embed the window inside another if the parent ID has been set
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            if event_loop.is_x11() {
+                if let Some(parent_window_id) = config.window.embed {
+                    x_embed_window(window, parent_window_id);
+                }
+            }
+        }
 
         let window = Window {
             event_loop,
@@ -407,6 +421,45 @@ impl Window {
     fn window(&self) -> &glutin::Window {
         self.windowed_context.window()
     }
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
+fn x_embed_window(window: &GlutinWindow, parent_id: u64) {
+    let (xlib_display, xlib_window) = match (window.get_xlib_display(), window.get_xlib_window()) {
+        (Some(display), Some(window)) => (display, window),
+        _ => return,
+    };
+
+    let xlib = Xlib::open().expect("get xlib");
+
+    unsafe {
+        let atom = (xlib.XInternAtom)(xlib_display as *mut _, "_XEMBED".as_ptr() as *const _, 0);
+        (xlib.XChangeProperty)(
+            xlib_display as _,
+            xlib_window as _,
+            atom,
+            atom,
+            32,
+            PropModeReplace,
+            [0, 1].as_ptr(),
+            2,
+        );
+
+        // Register new error handler
+        let old_handler = (xlib.XSetErrorHandler)(Some(xembed_error_handler));
+
+        // Check for the existence of the target before attempting reparenting
+        (xlib.XReparentWindow)(xlib_display as _, xlib_window as _, parent_id, 0, 0);
+
+        // Drain errors and restore original error handler
+        (xlib.XSync)(xlib_display as _, 0);
+        (xlib.XSetErrorHandler)(old_handler);
+    }
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
+unsafe extern "C" fn xembed_error_handler(_: *mut XDisplay, _: *mut XErrorEvent) -> i32 {
+    die!("Could not embed into specified window.");
 }
 
 impl Proxy {
