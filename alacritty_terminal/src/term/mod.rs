@@ -2119,7 +2119,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn set_scrolling_region(&mut self, top: usize, bottom: usize) {
         if top >= bottom {
-            debug!("Invalid scroll region escape: ({};{})", top, bottom);
+            debug!("Invalid scroll region: ({};{})", top, bottom);
             return;
         }
 
