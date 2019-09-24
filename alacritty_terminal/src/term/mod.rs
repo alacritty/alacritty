@@ -1260,8 +1260,7 @@ impl Term {
     fn deccolm(&mut self) {
         // Setting 132 column font makes no sense, but run the other side effects
         // Clear scrolling region
-        let scroll_region = Line(0)..self.grid.num_lines();
-        self.set_scrolling_region(scroll_region);
+        self.set_scrolling_region(1, self.grid.num_lines().0);
 
         // Clear grid
         let template = self.cursor.template;
@@ -2118,10 +2117,23 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn set_scrolling_region(&mut self, region: Range<Line>) {
-        trace!("Setting scrolling region: {:?}", region);
-        self.scroll_region.start = min(region.start, self.grid.num_lines());
-        self.scroll_region.end = min(region.end, self.grid.num_lines());
+    fn set_scrolling_region(&mut self, top: usize, bottom: usize) {
+        if top >= bottom {
+            debug!("Invalid scroll region escape: ({};{})", top, bottom);
+            return;
+        }
+
+        // Bottom should be included in the range, but range end is not
+        // usually included. One option would be to use an inclusive
+        // range, but instead we just let the open range end be 1
+        // higher.
+        let start = Line(top - 1);
+        let end = Line(bottom);
+
+        trace!("Setting scrolling region: {}x{}", start, end);
+
+        self.scroll_region.start = min(start, self.grid.num_lines());
+        self.scroll_region.end = min(end, self.grid.num_lines());
         self.goto(Line(0), Column(0));
     }
 
