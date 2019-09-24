@@ -1079,20 +1079,20 @@ where
                 handler.set_cursor_style(style);
             },
             ('r', None) => {
-                let arg0 = arg_or_default!(idx: 0, default: 1) as usize;
-                let arg1 = arg_or_default!(idx: 1, default: handler.lines().0 as _) as usize;
-
-                if arg0 >= arg1 {
-                    debug!("Invalid scroll region setting: ({};{})", arg0, arg1);
-                    return;
-                }
-
-                let top = Line(arg0 - 1);
                 // Bottom should be included in the range, but range end is not
                 // usually included. One option would be to use an inclusive
                 // range, but instead we just let the open range end be 1
                 // higher.
-                let bottom = Line(arg1);
+                let top = arg_or_default!(idx: 0, default: 1) as usize;
+                let bottom = arg_or_default!(idx: 1, default: handler.lines().0 as _) as usize;
+
+                if top >= bottom {
+                    debug!("Invalid scroll region escape: ({};{})", top, bottom);
+                    return;
+                }
+
+                let top = Line(top - 1);
+                let bottom = Line(bottom);
 
                 handler.set_scrolling_region(top..bottom);
             },
