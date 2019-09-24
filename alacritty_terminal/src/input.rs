@@ -219,7 +219,7 @@ impl<T: Eq> Binding<T> {
 impl<T> Binding<T> {
     /// Execute the action associate with this binding
     #[inline]
-    fn execute<A: ActionContext>(&self, ctx: &mut A, mouse_mode: bool) {
+    fn execute<A: ActionContext>(&self, ctx: &mut A, mouse_mode: bool) -> bool {
         self.action.execute(ctx, mouse_mode)
     }
 
@@ -236,60 +236,60 @@ impl<T> Binding<T> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub enum Action {
-    /// Write an escape sequence
+    /// Write an escape sequence.
     #[serde(skip)]
     Esc(String),
 
-    /// Paste contents of system clipboard
+    /// Paste contents of system clipboard.
     Paste,
 
-    // Store current selection into clipboard
+    /// Store current selection into clipboard.
     Copy,
 
-    /// Paste contents of selection buffer
+    /// Paste contents of selection buffer.
     PasteSelection,
 
-    /// Increase font size
+    /// Increase font size.
     IncreaseFontSize,
 
-    /// Decrease font size
+    /// Decrease font size.
     DecreaseFontSize,
 
-    /// Reset font size to the config value
+    /// Reset font size to the config value.
     ResetFontSize,
 
-    /// Scroll exactly one page up
+    /// Scroll exactly one page up.
     ScrollPageUp,
 
-    /// Scroll exactly one page down
+    /// Scroll exactly one page down.
     ScrollPageDown,
 
-    /// Scroll one line up
+    /// Scroll one line up.
     ScrollLineUp,
 
-    /// Scroll one line down
+    /// Scroll one line down.
     ScrollLineDown,
 
-    /// Scroll all the way to the top
+    /// Scroll all the way to the top.
     ScrollToTop,
 
-    /// Scroll all the way to the bottom
+    /// Scroll all the way to the bottom.
     ScrollToBottom,
 
-    /// Clear the display buffer(s) to remove history
+    /// Clear the display buffer(s) to remove history.
     ClearHistory,
 
-    /// Run given command
+    /// Run given command.
     #[serde(skip)]
     Command(String, Vec<String>),
 
-    /// Hides the Alacritty window
+    /// Hide the Alacritty window.
     Hide,
 
-    /// Quits Alacritty.
+    /// Quit Alacritty.
     Quit,
 
-    /// Clears warning and error notices.
+    /// Clear warning and error notices.
     ClearLogNotice,
 
     /// Spawn a new instance of Alacritty.
@@ -304,6 +304,9 @@ pub enum Action {
 
     /// No action.
     None,
+
+    /// Allow receiving char input.
+    ReceiveChar,
 }
 
 impl Default for Action {
@@ -314,7 +317,7 @@ impl Default for Action {
 
 impl Action {
     #[inline]
-    fn execute<A: ActionContext>(&self, ctx: &mut A, mouse_mode: bool) {
+    fn execute<A: ActionContext>(&self, ctx: &mut A, mouse_mode: bool) -> bool {
         match *self {
             Action::Esc(ref s) => {
                 ctx.scroll(Scroll::Bottom);
@@ -392,7 +395,10 @@ impl Action {
                 ctx.spawn_new_instance();
             },
             Action::None => (),
+            Action::ReceiveChar => return false
         }
+        // Suppress input by default
+        true
     }
 
     fn paste<A: ActionContext>(&self, ctx: &mut A, contents: &str) {
@@ -716,7 +722,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         self.copy_selection();
     }
 
-    // Spawn URL launcher when clicking on URLs
+    /// Spawn URL launcher when clicking on URLs.
     fn launch_url(&self, url: Url) {
         if self.ctx.mouse().block_url_launcher {
             return;
@@ -846,7 +852,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         self.ctx.mouse_mut().last_button = button;
     }
 
-    /// Process key input
+    /// Process key input.
     pub fn process_key(&mut self, input: KeyboardInput) {
         self.ctx.modifiers().update(input);
 
@@ -864,17 +870,13 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         match input.state {
             ElementState::Pressed => {
                 *self.ctx.received_count() = 0;
-                *self.ctx.suppress_chars() = false;
-
-                if self.process_key_bindings(input) {
-                    *self.ctx.suppress_chars() = true;
-                }
+                *self.ctx.suppress_chars() = self.process_key_bindings(input);
             },
             ElementState::Released => *self.ctx.suppress_chars() = false,
         }
     }
 
-    /// Process a received character
+    /// Process a received character.
     pub fn received_char(&mut self, c: char) {
         if *self.ctx.suppress_chars() {
             return;
@@ -903,15 +905,14 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         *self.ctx.received_count() += 1;
     }
 
-    /// Attempts to find a binding and execute its action
+    /// Attempt to find a binding and execute its action.
     ///
     /// The provided mode, mods, and key must match what is allowed by a binding
     /// for its action to be executed.
     ///
-    /// Returns true if an action is executed.
+    /// Return true if chars should be suppressed.
     fn process_key_bindings(&mut self, input: KeyboardInput) -> bool {
-        let mut has_binding = false;
-        for binding in self.key_bindings {
+        self.key_bindings.iter().filter_map(|binding| {
             let is_triggered = match binding.trigger {
                 Key::Scancode(_) => binding.is_triggered_by(
                     *self.ctx.terminal().mode(),
@@ -935,21 +936,27 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
             };
 
             if is_triggered {
-                // binding was triggered; run the action
-                binding.execute(&mut self.ctx, false);
-                has_binding = true;
+                // Binding was triggered; run the action
+                Some(binding.execute(&mut self.ctx, false))
+            } else {
+                None
             }
-        }
-
-        has_binding
+        }).fold(None, |should_suppress_char, suppress_char| {
+            // Suppress char by default as soon as a binding has been triggered
+            let should_suppress_char = should_suppress_char.unwrap_or(true);
+            Some(should_suppress_char && suppress_char)
+        }).unwrap_or_else(|| {
+            // Do not suppress char if no bindings were triggered
+            false
+        })
     }
 
-    /// Attempts to find a binding and execute its action
+    /// Attempt to find a binding and execute its action.
     ///
     /// The provided mode, mods, and key must match what is allowed by a binding
     /// for its action to be executed.
     ///
-    /// Returns true if an action is executed.
+    /// Return true if an action is executed.
     fn process_mouse_bindings(&mut self, mods: ModifiersState, button: MouseButton) -> bool {
         let mut has_binding = false;
         for binding in self.mouse_bindings {
