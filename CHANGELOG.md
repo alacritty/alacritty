@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wayland primary selection clipboard not storing text when selection is stopped outside of the window
 - Block URL highlight while a selection is active
 - Bindings for Alt + F1-F12
+- Overflow on wrong scroll region setting
 
 ### Removed
 
