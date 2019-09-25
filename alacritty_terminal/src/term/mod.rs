@@ -668,6 +668,25 @@ impl VisualBell {
     }
 }
 
+/// ```
+/// +--------------------------------------------+
+/// |                                            |
+/// |                                            |
+/// |          (See Grid's Documentation)        |
+/// |                                            |
+/// |                                            |
+/// +--------------------------------------------+ <--- scroll_region.start
+/// |                                            |
+/// |              SCROLLING REGION              |
+/// |                                            |
+/// +--------------------------------------------+ <--- scroll_region.end
+/// |                                            |
+/// |                                            |
+/// |          (See Grid's Documentation)        |
+/// |                                            |
+/// |                                            |
+/// +--------------------------------------------+
+/// ```
 pub struct Term<T> {
     /// Terminal focus
     pub is_focused: bool,

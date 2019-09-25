@@ -74,36 +74,33 @@ pub trait GridCell {
 
 /// Represents the terminal display contents
 ///
-/// +--------------------------------------------+ <--- ???
+/// ```
+/// +--------------------------------------------+ <--- self.scroll_limit
 /// |                                            |
 /// |                                            |
 /// |                                            |
 /// |                                            |
-/// |                                            |
-/// |              SCROLLBACK REGION             |
-/// |                                            |
+/// |               SCROLLUP REGION              |
 /// |                                            |
 /// |                                            |
 /// |                                            |
 /// |                                            |
-/// +--------------------------------------------+ <--- ???
+/// +--------------------------------------------+ <--- self.lines
 /// |                                            |
-/// |              ABOVE SCROLLING               |
-/// |                   REGION                   |
+/// |               VISIBLE REGION               |
+/// |         (See Term's Documentation)         |
 /// |                                            |
-/// +--------------------------------------------+ <--- ???
+/// +--------------------------------------------+ <--- self.display_offset
 /// |                                            |
-/// |              SCROLLING REGION              |
 /// |                                            |
-/// +--------------------------------------------+ <--- display_offset
+/// |              SCROLLDOWN REGION             |
 /// |                                            |
-/// |              BELOW SCROLLING               |
-/// |                   REGION                   |
 /// |                                            |
 /// +--------------------------------------------+ <--- raw.zero
 ///                                              |
 ///                                              v
-///                                             cols
+///                                          self.cols
+/// ```
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Grid<T> {
     /// Lines in the grid. Each row holds a list of cells corresponding to the
