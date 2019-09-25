@@ -2119,7 +2119,7 @@ impl ansi::Handler for Term {
     #[inline]
     fn set_scrolling_region(&mut self, top: usize, bottom: usize) {
         if top >= bottom {
-            debug!("Invalid scroll region: ({};{})", top, bottom);
+            debug!("Invalid scrolling region: ({};{})", top, bottom);
             return;
         }
 
@@ -2130,7 +2130,7 @@ impl ansi::Handler for Term {
         let start = Line(top - 1);
         let end = Line(bottom);
 
-        trace!("Setting scrolling region: {}x{}", start, end);
+        trace!("Setting scrolling region: ({};{})", start, end);
 
         self.scroll_region.start = min(start, self.grid.num_lines());
         self.scroll_region.end = min(end, self.grid.num_lines());
