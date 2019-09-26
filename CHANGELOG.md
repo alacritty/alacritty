@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extra bindings for F13-F20
 - Terminal escape bindings with combined modifiers
 - Bindings for ScrollToTop and ScrollToBottom actions
-- `ReceiveChar` action to allow receiving chars after processing a binding
+- `ReceiveChar` key binding action to insert the key's text character
 
 ### Changed
 
