@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Block URL highlight while a selection is active
 - Bindings for Alt + F1-F12
 - Discard scrolling region escape with bottom above top
-- Transparency when cell background color was equals to named background color
+- Opacity incorrectly applying to cells with their background color matching the teriminal background
 
 ### Removed
 
