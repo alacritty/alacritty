@@ -32,7 +32,7 @@ use glutin::{
 #[cfg(not(target_os = "macos"))]
 use image::ImageFormat;
 #[cfg(not(any(target_os = "macos", windows)))]
-use x11_dl::xlib::{Xlib, Display as XDisplay, PropModeReplace, XErrorEvent};
+use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 
 use crate::config::{Config, Decorations, StartupMode, WindowConfig};
 use crate::gl;
