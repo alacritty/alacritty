@@ -69,8 +69,8 @@ impl TextRun {
         }
     }
 
-    /// Returns dummy RenderableCell containing no content with positioning and color information from
-    /// this TextRun.
+    /// Returns dummy RenderableCell containing no content with positioning and color information
+    /// from this TextRun.
     fn dummy_cell_at(&self, col: Column) -> RenderableCell {
         RenderableCell {
             line: self.line,
