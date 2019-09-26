@@ -25,7 +25,8 @@ use fnv::FnvHasher;
 #[cfg(not(any(target_os = "macos", windows)))]
 use font::HbFtExt;
 use font::{
-    self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, PLACEHOLDER_GLYPH, KeyType
+    self, FontDesc, FontKey, GlyphKey, KeyType, Rasterize, RasterizedGlyph, Rasterizer,
+    PLACEHOLDER_GLYPH,
 };
 use glutin::dpi::PhysicalSize;
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
@@ -36,7 +37,12 @@ use crate::gl;
 use crate::gl::types::*;
 use crate::index::{Column, Line};
 use crate::renderer::rects::RenderRect;
-use crate::term::{self, cell::{Flags, MAX_ZEROWIDTH_CHARS}, color::Rgb, RenderableCell};
+use crate::term::{
+    self,
+    cell::{Flags, MAX_ZEROWIDTH_CHARS},
+    color::Rgb,
+    RenderableCell,
+};
 use crate::text_run::{TextRun, TextRunContent};
 
 pub mod rects;
@@ -296,7 +302,8 @@ impl GlyphCache {
             .expect("metrics load since font is loaded at glyph cache creation")
     }
 
-    // Since shaping is not available on Windows/BSD, text run glyphs are rasterized one by one as characters
+    // Since shaping is not available on Windows/Mac OSX, text run glyphs are rasterized one by one
+    // as characters
     #[cfg(any(target_os = "macos", windows))]
     fn shape_run<'a, L>(
         &'a mut self,
@@ -1045,7 +1052,10 @@ impl<'a> RenderApi<'a> {
         let text_run = TextRun {
             line,
             span: (Column(0), Column(str_length - 1)),
-            content: TextRunContent::CharRun(string.to_owned(), vec![[' '; MAX_ZEROWIDTH_CHARS]; str_length]),
+            content: TextRunContent::CharRun(string.to_owned(), vec![
+                [' '; MAX_ZEROWIDTH_CHARS];
+                str_length
+            ]),
             fg: Rgb { r: 0, g: 0, b: 0 },
             bg: color.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
             flags: Flags::empty(),
@@ -1777,6 +1787,3 @@ impl Atlas {
         Ok(())
     }
 }
-
-    // Shaping is only avaiable on linux for now
-    // On other OSs grab run glyphs as normal

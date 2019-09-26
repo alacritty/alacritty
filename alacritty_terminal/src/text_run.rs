@@ -85,7 +85,8 @@ impl TextRun {
         }
     }
 
-    /// Returns dummy RenderableCell with no content with positioning and color information from this TextRun.
+    /// Returns dummy RenderableCell with no content with positioning and color information from
+    /// this TextRun.
     fn dummy_cell_at(&self, col: Column) -> RenderableCell {
         RenderableCell {
             line: self.line,
@@ -195,7 +196,9 @@ impl<I> TextRunIter<I> {
     /// Returns the previous runs run_start and latest_col data if available.
     fn start_run(&mut self, render_cell: RenderableCell) -> (Option<RunStart>, Option<LatestCol>) {
         self.buffer_content(render_cell.inner);
-        let latest = self.latest_col.replace((render_cell.column, render_cell.flags.contains(Flags::WIDE_CHAR)));
+        let latest = self
+            .latest_col
+            .replace((render_cell.column, render_cell.flags.contains(Flags::WIDE_CHAR)));
         let start = self.run_start.replace(RunStart {
             line: render_cell.line,
             column: render_cell.column,
@@ -261,7 +264,8 @@ where
                 break;
             }
             // Build up buffer and track the latest column we've seen
-            self.latest_col = Some((render_cell.column, render_cell.flags.contains(Flags::WIDE_CHAR)));
+            self.latest_col =
+                Some((render_cell.column, render_cell.flags.contains(Flags::WIDE_CHAR)));
             self.buffer_content(render_cell.inner);
         }
         // Check for any remaining buffered content and return it as a text run.
