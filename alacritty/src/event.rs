@@ -563,8 +563,14 @@ impl<N: Notify> Processor<N> {
                 if !dpr_initialized && _event_loop.is_x11() {
                     dpr_initialized = true;
 
+                    let dpr = self.display.window.hidpi_factor();
+                    self.display.size_info.dpr = dpr;
+
+                    let size = self.display.window.inner_size().to_physical(dpr);
+
                     resize_pending.font_size = Some(self.font_size);
-                    self.display.size_info.dpr = self.display.window.hidpi_factor();
+                    resize_pending.dimensions = Some(size);
+
                     terminal.dirty = true;
                 }
             }
