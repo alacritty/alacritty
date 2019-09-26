@@ -25,7 +25,7 @@ use fnv::FnvHasher;
 #[cfg(not(any(target_os = "macos", windows)))]
 use font::HbFtExt;
 use font::{
-    self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, PLACEHOLDER_GLYPH,
+    self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer, PLACEHOLDER_GLYPH, KeyType
 };
 use glutin::dpi::PhysicalSize;
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
@@ -36,14 +36,8 @@ use crate::gl;
 use crate::gl::types::*;
 use crate::index::{Column, Line};
 use crate::renderer::rects::RenderRect;
-<<<<<<< HEAD
-use crate::term::{self, cell, color::Rgb, RenderableCell};
+use crate::term::{self, cell::{Flags, MAX_ZEROWIDTH_CHARS}, color::Rgb, RenderableCell};
 use crate::text_run::{TextRun, TextRunContent};
-=======
-use crate::term::cell::{self, Flags};
-use crate::term::color::Rgb;
-use crate::term::{self, RenderableCell, RenderableCellContent};
->>>>>>> 856cddc8739c32d8bbfff72dd3692f49359142a9
 
 pub mod rects;
 
@@ -237,7 +231,7 @@ impl GlyphCache {
     fn load_glyphs_for_font<L: LoadGlyph>(&mut self, font: FontKey, loader: &mut L) {
         let size = self.font_size;
         for i in 32..=126 {
-            self.get(GlyphKey { font_key: font, id: font::KeyType::GlyphIndex(i), size }, loader);
+            self.get(GlyphKey { font_key: font, id: KeyType::GlyphIndex(i), size }, loader);
         }
     }
 
@@ -302,8 +296,7 @@ impl GlyphCache {
             .expect("metrics load since font is loaded at glyph cache creation")
     }
 
-    // Shaping is only avaiable on linux for now
-    // On other OSs grab run glyphs as normal
+    // Since shaping is not available on Windows/BSD, text run glyphs are rasterized one by one as characters
     #[cfg(any(target_os = "macos", windows))]
     fn shape_run<'a, L>(
         &'a mut self,
@@ -340,12 +333,14 @@ impl GlyphCache {
             .iter()
             .map(move |glyph_info| {
                 let codepoint = glyph_info.codepoint;
+
                 // Codepoint of 0 indicates a missing or undefined glyph
                 let id: font::KeyType = if codepoint == 0 {
                     Self::find_fallback_char(text_run, glyph_info.cluster as usize)
                 } else {
                     codepoint.into()
                 };
+
                 let glyph_key = GlyphKey { id, font_key, size: self.font_size };
                 *self.get(glyph_key, loader)
             })
@@ -1046,39 +1041,21 @@ impl<'a> RenderApi<'a> {
     ) {
         let bg_alpha = color.map(|_| 1.0).unwrap_or(0.0);
 
-<<<<<<< HEAD
+        let str_length: usize = string.chars().map(|_| 1).sum();
         let text_run = TextRun {
             line,
-            span: (Column(0), Column(string.len() - 1)),
-            content: TextRunContent::CharRun(string.to_owned(), vec![]),
+            span: (Column(0), Column(str_length - 1)),
+            content: TextRunContent::CharRun(string.to_owned(), vec![[' '; MAX_ZEROWIDTH_CHARS]; str_length]),
             fg: Rgb { r: 0, g: 0, b: 0 },
             bg: color.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
-            flags: cell::Flags::empty(),
+            flags: Flags::empty(),
             bg_alpha,
         };
-=======
-        let cells = string
-            .chars()
-            .enumerate()
-            .map(|(i, c)| RenderableCell {
-                line,
-                column: col + i,
-                inner: RenderableCellContent::Chars({
-                    let mut chars = [' '; cell::MAX_ZEROWIDTH_CHARS + 1];
-                    chars[0] = c;
-                    chars
-                }),
-                bg: color.unwrap_or(Rgb { r: 0, g: 0, b: 0 }),
-                fg: Rgb { r: 0, g: 0, b: 0 },
-                flags: Flags::empty(),
-                bg_alpha,
-            })
-            .collect::<Vec<_>>();
->>>>>>> 856cddc8739c32d8bbfff72dd3692f49359142a9
 
         self.render_text_run(text_run, glyph_cache);
     }
 
+    #[inline]
     fn add_render_item(&mut self, cell: &RenderableCell, glyph: &Glyph) {
         // Flush batch if tex changing
         if !self.batch.is_empty() && self.batch.tex != glyph.tex_id {
@@ -1116,7 +1093,7 @@ impl<'a> RenderApi<'a> {
         self.add_render_item(start_cell, &glyph);
     }
 
-    fn determine_font_key(flags: cell::Flags, glyph_cache: &GlyphCache) -> FontKey {
+    fn determine_font_key(flags: Flags, glyph_cache: &GlyphCache) -> FontKey {
         // FIXME this is super inefficient.
         match flags & Flags::BOLD_ITALIC {
             Flags::BOLD_ITALIC => glyph_cache.bold_italic_key,
@@ -1160,7 +1137,7 @@ impl<'a> RenderApi<'a> {
                 // Get font key for cell
                 let font_key = Self::determine_font_key(text_run.flags, glyph_cache);
 
-                let shaped_glyphs = if text_run.flags.contains(cell::Flags::HIDDEN) {
+                let shaped_glyphs = if text_run.flags.contains(Flags::HIDDEN) {
                     GlyphIter::Hidden(std::iter::repeat(hidden_glyph(font_key, glyph_cache, self)))
                 } else {
                     GlyphIter::Shaped(glyph_cache.shape_run(&run, font_key, self).into_iter())
@@ -1170,7 +1147,7 @@ impl<'a> RenderApi<'a> {
                     text_run.cells().zip(shaped_glyphs).zip(zero_widths.iter())
                 {
                     self.add_render_item(&cell, &glyph);
-                    if text_run.flags.contains(cell::Flags::WIDE_CHAR) {
+                    if text_run.flags.contains(Flags::WIDE_CHAR) {
                         // Manually add instance data for WIDE_CHAR_SPACER
                         // Renderer only renders single character width rectangles
                         // If we don't add in this instance data then we only render one cell of
@@ -1193,15 +1170,11 @@ impl<'a> RenderApi<'a> {
     }
 }
 
-/// Returns an infinite iterator of hidden glyphs for a given font key and size.
+/// Returns a hidden glyphs for a given font key and size.
 fn hidden_glyph<'a, L>(font_key: FontKey, glyph_cache: &'a mut GlyphCache, loader: &mut L) -> Glyph
 where
     L: LoadGlyph,
 {
-    // If text_run is hidden we don't want to shape text.
-    // But we still want to run each cell through add_render_item so colors get handled
-    // appropiately. We construct a dummy key that should be cached a majority of the time so
-    // that we have a valid glyph.
     let key = GlyphKey { id: PLACEHOLDER_GLYPH, font_key, size: glyph_cache.font_size };
     *glyph_cache.get(key, loader)
 }
@@ -1213,6 +1186,7 @@ enum GlyphIter<I> {
     /// Our run is hidden and was not shaped
     Hidden(std::iter::Repeat<Glyph>),
 }
+
 impl<I> Iterator for GlyphIter<I>
 where
     I: Iterator<Item = Glyph>,
@@ -1803,3 +1777,6 @@ impl Atlas {
         Ok(())
     }
 }
+
+    // Shaping is only avaiable on linux for now
+    // On other OSs grab run glyphs as normal
