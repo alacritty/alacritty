@@ -30,8 +30,8 @@ use crate::meter::Meter;
 use crate::renderer::rects::RenderRect;
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
-use crate::term::{cell::Flags, color::Rgb, RenderableCell, SizeInfo, Term};
-use crate::text_run::TextRunIter;
+use crate::term::{cell::Flags, color::Rgb, SizeInfo, Term};
+use crate::text_run::{TextRunIter, TextRun};
 use crate::window::{self, Window};
 use font::{self, Rasterize};
 
@@ -472,8 +472,8 @@ impl Display {
         let metrics = self.glyph_cache.font_metrics();
 
         let window_focused = self.window.is_focused;
-        let grid_cells: Vec<RenderableCell> =
-            terminal.renderable_cells(config, window_focused).collect();
+        let grid_text_runs: Vec<TextRun> =
+            TextRunIter::new(terminal.renderable_cells(config, window_focused)).collect();
 
         // Get message from terminal to ignore modifications after lock is dropped
         let message_buffer = terminal.message_buffer_mut().message();
@@ -523,7 +523,7 @@ impl Display {
 
                 self.renderer.with_api(config, &size_info, |mut api| {
                     // Iterate over each contiguous block of text
-                    for text_run in TextRunIter::new(grid_cells.into_iter()) {
+                    for text_run in grid_text_runs {
                         // Update underline/strikeout
                         if text_run.flags.contains(Flags::UNDERLINE) {
                             rects.push(RenderRect::from_text_run(

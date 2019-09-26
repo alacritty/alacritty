@@ -163,7 +163,7 @@ impl<I> TextRunIter<I> {
         match inner {
             RenderableCellContent::Chars(chars) => {
                 self.buffer_text.push(chars[0]);
-                let mut zero_width_chars = <[char; MAX_ZEROWIDTH_CHARS]>::default();
+                let mut zero_width_chars = [char::default(); MAX_ZEROWIDTH_CHARS];
                 zero_width_chars.copy_from_slice(&chars[1..]);
                 self.buffer_zero_width.push(zero_width_chars);
             },
@@ -277,7 +277,7 @@ where
                 let start = self.run_start.take()?;
                 let latest_col = self.latest_col.take()?;
                 // Save leftover buffer and empty it
-                Some(TextRun::from_iter_state(start, latest_col, self.drain_buffer()))
+                Some(Self::build_text_run(start, latest_col, self.drain_buffer()))
             } else if let Some(cursor) = self.cursor {
                 let start = self.run_start.take()?;
                 Some(TextRun::from_cursor_key(start, cursor))
