@@ -397,7 +397,7 @@ impl<N: Notify> Processor<N> {
                 Event::MouseCursorDirty => processor.reset_mouse_cursor(),
                 Event::Exit => (),
             },
-            GlutinEvent::WindowEvent { event, .. } => {
+            GlutinEvent::WindowEvent { event, window_id, .. } => {
                 use glutin::event::WindowEvent::*;
                 match event {
                     CloseRequested => processor.ctx.terminal.exit(),
@@ -436,16 +436,18 @@ impl<N: Notify> Processor<N> {
                         processor.on_mouse_wheel(delta, phase, modifiers);
                     },
                     Focused(is_focused) => {
-                        processor.ctx.terminal.is_focused = is_focused;
-                        processor.ctx.terminal.dirty = true;
+                        if window_id == processor.ctx.window.window_id() {
+                            processor.ctx.terminal.is_focused = is_focused;
+                            processor.ctx.terminal.dirty = true;
 
-                        if is_focused {
-                            processor.ctx.window.set_urgent(false);
-                        } else {
-                            processor.ctx.window.set_mouse_visible(true);
+                            if is_focused {
+                                processor.ctx.window.set_urgent(false);
+                            } else {
+                                processor.ctx.window.set_mouse_visible(true);
+                            }
+
+                            processor.on_focus_change(is_focused);
                         }
-
-                        processor.on_focus_change(is_focused);
                     },
                     DroppedFile(path) => {
                         let path: String = path.to_string_lossy().into();

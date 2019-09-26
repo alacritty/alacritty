@@ -20,11 +20,11 @@ use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::{RequestUserAttentionType, WindowBuilderExtMacOS, WindowExtMacOS};
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", windows)))]
 use glutin::platform::unix::{EventLoopWindowTargetExtUnix, WindowBuilderExtUnix, WindowExtUnix};
 #[cfg(not(target_os = "macos"))]
 use glutin::window::Icon;
-use glutin::window::{CursorIcon, Fullscreen, Window as GlutinWindow, WindowBuilder};
+use glutin::window::{CursorIcon, Fullscreen, Window as GlutinWindow, WindowBuilder, WindowId};
 use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
 #[cfg(not(target_os = "macos"))]
 use image::ImageFormat;
@@ -309,17 +309,13 @@ impl Window {
         self.window().set_outer_position(pos);
     }
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    pub fn get_window_id(&self) -> Option<usize> {
-        match self.window().xlib_window() {
-            Some(xlib_window) => Some(xlib_window as usize),
-            None => None,
-        }
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub fn x11_window_id(&self) -> Option<usize> {
+        self.window().xlib_window().map(|xlib_window| xlib_window as usize)
     }
 
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn get_window_id(&self) -> Option<usize> {
-        None
+    pub fn window_id(&self) -> WindowId {
+        self.window().id()
     }
 
     pub fn set_maximized(&self, maximized: bool) {

@@ -149,9 +149,9 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     info!("PTY Dimensions: {:?} x {:?}", display.size_info.lines(), display.size_info.cols());
 
     // Create new native clipboard
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", windows)))]
     let clipboard = Clipboard::new(display.window.wayland_display());
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[cfg(any(target_os = "macos", windows))]
     let clipboard = Clipboard::new();
 
     // Create the terminal
@@ -167,7 +167,10 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     // The pty forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-    let pty = tty::new(&config, &display.size_info, display.window.get_window_id());
+    #[cfg(not(any(target_os = "macos", windows)))]
+    let pty = tty::new(&config, &display.size_info, display.window.x11_window_id());
+    #[cfg(any(target_os = "macos", windows))]
+    let pty = tty::new(&config, &display.size_info, None);
 
     // Create PTY resize handle
     //
