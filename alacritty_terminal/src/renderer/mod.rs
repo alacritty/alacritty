@@ -144,7 +144,7 @@ pub struct RectShaderProgram {
     u_color: GLint,
 }
 
-#[derive(Copy, Debug, Clone)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Glyph {
     tex_id: GLuint,
     top: f32,
@@ -1148,7 +1148,7 @@ impl<'a> RenderApi<'a> {
                 let font_key = Self::determine_font_key(text_run.flags, glyph_cache);
 
                 let shaped_glyphs = if text_run.flags.contains(Flags::HIDDEN) {
-                    GlyphIter::Hidden(std::iter::repeat(hidden_glyph(font_key, glyph_cache, self)))
+                    GlyphIter::Hidden
                 } else {
                     GlyphIter::Shaped(glyph_cache.shape_run(&run, font_key, self).into_iter())
                 };
@@ -1157,15 +1157,11 @@ impl<'a> RenderApi<'a> {
                     text_run.cells().zip(shaped_glyphs).zip(zero_widths.iter())
                 {
                     self.add_render_item(&cell, &glyph);
+                    // Add empty spacer for full width characters
                     if text_run.flags.contains(Flags::WIDE_CHAR) {
-                        // Manually add instance data for WIDE_CHAR_SPACER
-                        // Renderer only renders single character width rectangles
-                        // If we don't add in this instance data then we only render one cell of
-                        // fg/bg/strikethrough/etc. for WIDE_CHARs
-                        let glyph = hidden_glyph(font_key, glyph_cache, self);
                         self.add_render_item(
                             &RenderableCell { column: cell.column + 1, ..cell.clone() },
-                            &glyph,
+                            &Glyph::default(),
                         );
                     }
                     self.render_zero_widths(
@@ -1180,21 +1176,12 @@ impl<'a> RenderApi<'a> {
     }
 }
 
-/// Returns a hidden glyphs for a given font key and size.
-fn hidden_glyph<'a, L>(font_key: FontKey, glyph_cache: &'a mut GlyphCache, loader: &mut L) -> Glyph
-where
-    L: LoadGlyph,
-{
-    let key = GlyphKey { id: PLACEHOLDER_GLYPH, font_key, size: glyph_cache.font_size };
-    *glyph_cache.get(key, loader)
-}
-
 /// Abstracts iteration over a run of hidden glyphs or shaped glyphs.
 enum GlyphIter<I> {
     /// Our run was not hidden and our glyphs were shaped
     Shaped(I),
     /// Our run is hidden and was not shaped
-    Hidden(std::iter::Repeat<Glyph>),
+    Hidden,
 }
 
 impl<I> Iterator for GlyphIter<I>
@@ -1205,8 +1192,8 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            GlyphIter::Hidden(inner) => inner.next(),
             GlyphIter::Shaped(inner) => inner.next(),
+            GlyphIter::Hidden => Some(Glyph::default()),
         }
     }
 }

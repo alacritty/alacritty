@@ -18,7 +18,8 @@ struct RunStart {
 
 impl RunStart {
     /// Compare cell and check if it belongs to the same run.
-    fn belongs_to_this_run(&self, render_cell: &RenderableCell) -> bool {
+    #[inline]
+    fn belongs_to_text_run(&self, render_cell: &RenderableCell) -> bool {
         self.line == render_cell.line
             && self.fg == render_cell.fg
             && self.bg == render_cell.bg
@@ -56,23 +57,6 @@ pub struct TextRun {
 }
 
 impl TextRun {
-    fn from_iter_state(
-        start: RunStart,
-        (latest, is_wide): LatestCol,
-        buffer: (String, Vec<[char; MAX_ZEROWIDTH_CHARS]>),
-    ) -> Self {
-        let end_column = if is_wide { latest + 1 } else { latest };
-        TextRun {
-            line: start.line,
-            span: (start.column, end_column),
-            content: TextRunContent::CharRun(buffer.0, buffer.1),
-            fg: start.fg,
-            bg: start.bg,
-            bg_alpha: start.bg_alpha,
-            flags: start.flags,
-        }
-    }
-
     fn from_cursor_key(start: RunStart, cursor: CursorKey) -> Self {
         TextRun {
             line: start.line,
@@ -85,7 +69,7 @@ impl TextRun {
         }
     }
 
-    /// Returns dummy RenderableCell with no content with positioning and color information from
+    /// Returns dummy RenderableCell containing no content with positioning and color information from
     /// this TextRun.
     fn dummy_cell_at(&self, col: Column) -> RenderableCell {
         RenderableCell {
@@ -160,7 +144,7 @@ impl<I> TextRunIter<I> {
         let does_cell_not_belong_to_run = self
             .run_start
             .as_ref()
-            .map(|run_start| !run_start.belongs_to_this_run(render_cell))
+            .map(|run_start| !run_start.belongs_to_text_run(render_cell))
             .unwrap_or(false);
         let is_col_not_adjacent = self
             .latest_col
@@ -175,7 +159,7 @@ impl<I> TextRunIter<I> {
 
     /// Add content of cell to pending TextRun buffer
     fn buffer_content(&mut self, inner: RenderableCellContent) {
-        // Add to buffer only if the next RenderableCell is a Char (not a cursor)
+        // Add to buffer only if the next RenderableCell is a Chars (not a cursor)
         match inner {
             RenderableCellContent::Chars(chars) => {
                 self.buffer_text.push(chars[0]);
@@ -228,7 +212,25 @@ impl<I> TextRunIter<I> {
         let (start_opt, latest_col_opt) = self.start_run(render_cell);
         let start = start_opt?;
         let latest_col = latest_col_opt?;
-        Some(TextRun::from_iter_state(start, latest_col, prev_buffer))
+        Some(Self::build_text_run(start, latest_col, prev_buffer))
+    }
+
+    /// Build a TextRun instance from passed state of TextRunIter
+    fn build_text_run(
+        start: RunStart,
+        (latest, is_wide): LatestCol,
+        buffer: (String, Vec<[char; MAX_ZEROWIDTH_CHARS]>),
+    ) -> TextRun {
+        let end_column = if is_wide { latest + 1 } else { latest };
+        TextRun {
+            line: start.line,
+            span: (start.column, end_column),
+            content: TextRunContent::CharRun(buffer.0, buffer.1),
+            fg: start.fg,
+            bg: start.bg,
+            bg_alpha: start.bg_alpha,
+            flags: start.flags,
+        }
     }
 }
 
