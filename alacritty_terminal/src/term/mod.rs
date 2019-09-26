@@ -289,6 +289,8 @@ impl RenderableCell {
                 // Invert cell fg and bg colors
                 mem::swap(&mut fg_rgb, &mut bg_rgb);
             }
+
+            bg_alpha = 1.0;
         }
 
         // Override selection text with config colors
