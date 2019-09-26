@@ -304,7 +304,8 @@ impl FreeTypeRasterizer {
         if use_initial_face {
             Ok(glyph_key.font_key)
         } else {
-            let key = self.load_face_with_glyph(c).unwrap_or(glyph_key.font_key);
+            let key =
+                self.load_face_with_glyph(c, glyph_key.font_key).unwrap_or(glyph_key.font_key);
             Ok(key)
         }
     }
@@ -488,11 +489,20 @@ impl FreeTypeRasterizer {
         }
     }
 
-    fn load_face_with_glyph(&mut self, glyph: char) -> Result<FontKey, Error> {
+    fn load_face_with_glyph(&mut self, glyph: char, font_key: FontKey) -> Result<FontKey, Error> {
         let mut charset = fc::CharSet::new();
         charset.add(glyph);
         let mut pattern = fc::Pattern::new();
         pattern.add_charset(&charset);
+
+        let face = &self.faces[&font_key];
+        if let Some(name) = face.ft_face.family_name() {
+            pattern.add_family(&name);
+        }
+
+        if let Some(style) = face.ft_face.style_name() {
+            pattern.add_style(&style);
+        }
 
         let config = fc::Config::get_current();
         match fc::font_match(config, &mut pattern) {

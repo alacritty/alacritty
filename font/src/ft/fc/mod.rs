@@ -47,6 +47,11 @@ pub use self::pattern::{Pattern, PatternRef};
 ///
 /// The returned pattern is the result of Pattern::render_prepare.
 pub fn font_match(config: &ConfigRef, pattern: &mut PatternRef) -> Option<Pattern> {
+    if log_enabled!(log::Level::Debug) {
+        debug!("Matching font with pattern:");
+        pattern.print();
+    }
+
     pattern.config_substitute(config, MatchKind::Pattern);
     pattern.default_substitute();
 
