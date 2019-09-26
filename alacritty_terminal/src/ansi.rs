@@ -14,7 +14,6 @@
 //
 //! ANSI Terminal Stream Parsing
 use std::io;
-use std::ops::Range;
 use std::str;
 
 use crate::index::{Column, Contains, Line};
@@ -296,7 +295,7 @@ pub trait Handler {
     fn unset_mode(&mut self, _: Mode) {}
 
     /// DECSTBM - Set the terminal scrolling region
-    fn set_scrolling_region(&mut self, _: Range<Line>) {}
+    fn set_scrolling_region(&mut self, _top: usize, _bottom: usize) {}
 
     /// DECKPAM - Set keypad to applications mode (ESCape instead of digits)
     fn set_keypad_application_mode(&mut self) {}
@@ -1079,16 +1078,10 @@ where
                 handler.set_cursor_style(style);
             },
             ('r', None) => {
-                let arg0 = arg_or_default!(idx: 0, default: 1) as usize;
-                let top = Line(arg0 - 1);
-                // Bottom should be included in the range, but range end is not
-                // usually included.  One option would be to use an inclusive
-                // range, but instead we just let the open range end be 1
-                // higher.
-                let arg1 = arg_or_default!(idx: 1, default: handler.lines().0 as _) as usize;
-                let bottom = Line(arg1);
+                let top = arg_or_default!(idx: 0, default: 1) as usize;
+                let bottom = arg_or_default!(idx: 1, default: handler.lines().0 as _) as usize;
 
-                handler.set_scrolling_region(top..bottom);
+                handler.set_scrolling_region(top, bottom);
             },
             ('s', None) => handler.save_cursor_position(),
             ('u', None) => handler.restore_cursor_position(),
