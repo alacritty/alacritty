@@ -219,7 +219,7 @@ impl<T: Eq> Binding<T> {
 impl<T> Binding<T> {
     /// Execute the action associate with this binding
     #[inline]
-    fn execute<A: ActionContext>(&self, ctx: &mut A, mouse_mode: bool) -> bool {
+    fn execute<A: ActionContext>(&self, ctx: &mut A, mouse_mode: bool) {
         self.action.execute(ctx, mouse_mode)
     }
 
@@ -302,11 +302,11 @@ pub enum Action {
     #[cfg(target_os = "macos")]
     ToggleSimpleFullscreen,
 
-    /// No action.
-    None,
-
     /// Allow receiving char input.
     ReceiveChar,
+
+    /// No action.
+    None,
 }
 
 impl Default for Action {
@@ -317,7 +317,7 @@ impl Default for Action {
 
 impl Action {
     #[inline]
-    fn execute<A: ActionContext>(&self, ctx: &mut A, mouse_mode: bool) -> bool {
+    fn execute<A: ActionContext>(&self, ctx: &mut A, mouse_mode: bool) {
         match *self {
             Action::Esc(ref s) => {
                 ctx.scroll(Scroll::Bottom);
@@ -394,11 +394,8 @@ impl Action {
             Action::SpawnNewInstance => {
                 ctx.spawn_new_instance();
             },
-            Action::None => (),
-            Action::ReceiveChar => return false
+            Action::ReceiveChar | Action::None => (),
         }
-        // Suppress input by default
-        true
     }
 
     fn paste<A: ActionContext>(&self, ctx: &mut A, contents: &str) {
@@ -870,7 +867,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
         match input.state {
             ElementState::Pressed => {
                 *self.ctx.received_count() = 0;
-                *self.ctx.suppress_chars() = self.process_key_bindings(input);
+                self.process_key_bindings(input);
             },
             ElementState::Released => *self.ctx.suppress_chars() = false,
         }
@@ -911,54 +908,36 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     /// for its action to be executed.
     ///
     /// Return true if chars should be suppressed.
-    fn process_key_bindings(&mut self, input: KeyboardInput) -> bool {
-        self.key_bindings.iter().filter_map(|binding| {
-            let is_triggered = match binding.trigger {
-                Key::Scancode(_) => binding.is_triggered_by(
-                    *self.ctx.terminal().mode(),
-                    input.modifiers,
-                    &Key::Scancode(input.scancode),
-                    false,
-                ),
-                _ => {
-                    if let Some(key) = input.virtual_keycode {
-                        let key = Key::from_glutin_input(key);
-                        binding.is_triggered_by(
-                            *self.ctx.terminal().mode(),
-                            input.modifiers,
-                            &key,
-                            false,
-                        )
-                    } else {
-                        false
-                    }
-                },
-            };
+    fn process_key_bindings(&mut self, input: KeyboardInput) {
+        let mode = *self.ctx.terminal().mode();
 
-            if is_triggered {
+        *self.ctx.suppress_chars() = self
+            .key_bindings
+            .iter()
+            .filter(|binding| {
+                let key = match (binding.trigger, input.virtual_keycode) {
+                    (Key::Scancode(_), _) => Key::Scancode(input.scancode),
+                    (_, Some(key)) => Key::from_glutin_input(key),
+                    _ => return false,
+                };
+
+                binding.is_triggered_by(mode, input.modifiers, &key, false)
+            })
+            .fold(None, |suppress_chars, binding| {
                 // Binding was triggered; run the action
-                Some(binding.execute(&mut self.ctx, false))
-            } else {
-                None
-            }
-        }).fold(None, |should_suppress_char, suppress_char| {
-            // Suppress char by default as soon as a binding has been triggered
-            let should_suppress_char = should_suppress_char.unwrap_or(true);
-            Some(should_suppress_char && suppress_char)
-        }).unwrap_or_else(|| {
-            // Do not suppress char if no bindings were triggered
-            false
-        })
+                binding.execute(&mut self.ctx, false);
+
+                // Don't suppress when there has been a `ReceiveChar` action
+                Some(suppress_chars.unwrap_or(true) && binding.action != Action::ReceiveChar)
+            })
+            .unwrap_or(false);
     }
 
     /// Attempt to find a binding and execute its action.
     ///
     /// The provided mode, mods, and key must match what is allowed by a binding
     /// for its action to be executed.
-    ///
-    /// Return true if an action is executed.
-    fn process_mouse_bindings(&mut self, mods: ModifiersState, button: MouseButton) -> bool {
-        let mut has_binding = false;
+    fn process_mouse_bindings(&mut self, mods: ModifiersState, button: MouseButton) {
         for binding in self.mouse_bindings {
             if binding.is_triggered_by(*self.ctx.terminal().mode(), mods, &button, true) {
                 // binding was triggered; run the action
@@ -969,11 +948,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                             | TermMode::MOUSE_MOTION,
                     );
                 binding.execute(&mut self.ctx, mouse_mode);
-                has_binding = true;
             }
         }
-
-        has_binding
     }
 
     /// Return the message bar's message if there is some at the specified point

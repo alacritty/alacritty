@@ -496,8 +496,8 @@ mouse_bindings:
 #   - ToggleFullscreen
 #   - SpawnNewInstance
 #   - ClearLogNotice
-#   - None
 #   - ReceiveChar
+#   - None
 #
 #   (macOS only):
 #   - ToggleSimpleFullscreen: Enters fullscreen without occupying another space
