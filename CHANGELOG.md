@@ -56,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background always opaque on X11
 - Skipping redraws on PTY update
 - Not redrawing while resizing on Windows/macOS
-- Decorations `none` launching an invisible window
+- Decorations `none` launching an invisible window on Windows
 
 ### Removed
 
