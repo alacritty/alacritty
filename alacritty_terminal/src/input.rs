@@ -930,10 +930,7 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 // Don't suppress when there has been a `ReceiveChar` action
                 Some(suppress_chars.unwrap_or(true) && binding.action != Action::ReceiveChar)
             })
-            .unwrap_or_else(|| {
-                // Do not suppress char if no bindings were triggered
-                false
-            });
+            .unwrap_or(false); // Don't suppress char if no bindings were triggered
     }
 
     /// Attempt to find a binding and execute its action.
