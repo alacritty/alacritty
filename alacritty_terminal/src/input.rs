@@ -906,8 +906,6 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
     ///
     /// The provided mode, mods, and key must match what is allowed by a binding
     /// for its action to be executed.
-    ///
-    /// Return true if chars should be suppressed.
     fn process_key_bindings(&mut self, input: KeyboardInput) {
         let mode = *self.ctx.terminal().mode();
 
@@ -930,7 +928,8 @@ impl<'a, A: ActionContext + 'a> Processor<'a, A> {
                 // Don't suppress when there has been a `ReceiveChar` action
                 Some(suppress_chars.unwrap_or(true) && binding.action != Action::ReceiveChar)
             })
-            .unwrap_or(false); // Don't suppress char if no bindings were triggered
+            // Don't suppress char if no bindings were triggered
+            .unwrap_or(false);
     }
 
     /// Attempt to find a binding and execute its action.
