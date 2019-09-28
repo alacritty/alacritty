@@ -269,6 +269,7 @@ where
 {
     let mut bindings: Vec<Binding<T>> = failure_default(deserializer)?;
 
+    // Remove matching default bindings
     for binding in bindings.iter() {
         default.retain(|b| !b.triggers_match(binding));
     }
