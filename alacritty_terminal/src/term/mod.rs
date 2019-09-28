@@ -933,6 +933,11 @@ impl Term {
                 self.colors[i] = self.original_colors[i];
             }
         }
+        if self.original_font_size != config.font.size && self.original_font_size == self.font_size
+        {
+            self.original_font_size = config.font.size;
+            self.font_size = config.font.size;
+        }
         self.visual_bell.update_config(config);
         self.default_cursor_style = config.cursor.style;
         self.dynamic_title = config.dynamic_title();
