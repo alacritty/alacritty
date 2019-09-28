@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bindings for Alt + F1-F12
 - Discard scrolling region escape with bottom above top
 - Opacity always applying to cells with their background color matching the teriminal background
+- Allow semicolons when setting titles using an OSC
 
 ### Removed
 

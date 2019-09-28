@@ -750,10 +750,13 @@ where
             // Set window title
             b"0" | b"2" => {
                 if params.len() >= 2 {
-                    if let Ok(utf8_title) = str::from_utf8(params[1]) {
-                        self.handler.set_title(utf8_title);
-                        return;
-                    }
+                    let title = params[1..]
+                        .iter()
+                        .flat_map(|x| str::from_utf8(x))
+                        .collect::<Vec<&str>>()
+                        .join(";");
+                    self.handler.set_title(&title);
+                    return;
                 }
                 unhandled(params);
             },
