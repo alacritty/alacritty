@@ -349,6 +349,7 @@ impl Display {
         let visual_bell_intensity = terminal.visual_bell.intensity();
         let background_color = terminal.background_color();
         let metrics = self.glyph_cache.font_metrics();
+        let glyph_cache = &mut self.glyph_cache;
         let size_info = self.size_info;
 
         // Update IME position
@@ -362,81 +363,78 @@ impl Display {
             api.clear(background_color);
         });
 
+        let mut lines = RenderLines::new();
+
+        // Draw grid
         {
-            let glyph_cache = &mut self.glyph_cache;
-            let mut lines = RenderLines::new();
+            let _sampler = self.meter.sampler();
 
-            // Draw grid
-            {
-                let _sampler = self.meter.sampler();
+            self.renderer.with_api(&config, &size_info, |mut api| {
+                // Iterate over all non-empty cells in the grid
+                for cell in grid_cells {
+                    // Update underline/strikeout
+                    lines.update(cell);
 
-                self.renderer.with_api(&config, &size_info, |mut api| {
-                    // Iterate over all non-empty cells in the grid
-                    for cell in grid_cells {
-                        // Update underline/strikeout
-                        lines.update(cell);
-
-                        // Draw the cell
-                        api.render_cell(cell, glyph_cache);
-                    }
-                });
-            }
-
-            let mut rects = lines.into_rects(&metrics, &size_info);
-
-            if let Some(message) = message_buffer.message() {
-                let text = message.text(&size_info);
-
-                // Create a new rectangle for the background
-                let start_line = size_info.lines().0 - text.len();
-                let y = size_info.padding_y + size_info.cell_height * start_line as f32;
-                rects.push(RenderRect::new(
-                    0.,
-                    y,
-                    size_info.width,
-                    size_info.height - y,
-                    message.color(),
-                ));
-
-                // Draw rectangles including the new background
-                self.renderer.draw_rects(
-                    &size_info,
-                    config.visual_bell.color,
-                    visual_bell_intensity,
-                    rects,
-                );
-
-                // Relay messages to the user
-                let mut offset = 1;
-                for message_text in text.iter().rev() {
-                    self.renderer.with_api(&config, &size_info, |mut api| {
-                        api.render_string(
-                            &message_text,
-                            Line(size_info.lines().saturating_sub(offset)),
-                            glyph_cache,
-                            None,
-                        );
-                    });
-                    offset += 1;
+                    // Draw the cell
+                    api.render_cell(cell, glyph_cache);
                 }
-            } else {
-                // Draw rectangles
-                self.renderer.draw_rects(
-                    &size_info,
-                    config.visual_bell.color,
-                    visual_bell_intensity,
-                    rects,
-                );
-            }
+            });
+        }
 
-            // Draw render timer
-            if config.render_timer() {
-                let timing = format!("{:.3} usec", self.meter.average());
-                let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
+        let mut rects = lines.into_rects(&metrics, &size_info);
+
+        if let Some(message) = message_buffer.message() {
+            let text = message.text(&size_info);
+
+            // Create a new rectangle for the background
+            let start_line = size_info.lines().0 - text.len();
+            let y = size_info.padding_y + size_info.cell_height * start_line as f32;
+            rects.push(RenderRect::new(
+                0.,
+                y,
+                size_info.width,
+                size_info.height - y,
+                message.color(),
+            ));
+
+            // Draw rectangles including the new background
+            self.renderer.draw_rects(
+                &size_info,
+                config.visual_bell.color,
+                visual_bell_intensity,
+                rects,
+            );
+
+            // Relay messages to the user
+            let mut offset = 1;
+            for message_text in text.iter().rev() {
                 self.renderer.with_api(&config, &size_info, |mut api| {
-                    api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, Some(color));
+                    api.render_string(
+                        &message_text,
+                        Line(size_info.lines().saturating_sub(offset)),
+                        glyph_cache,
+                        None,
+                    );
                 });
+                offset += 1;
             }
+        } else {
+            // Draw rectangles
+            self.renderer.draw_rects(
+                &size_info,
+                config.visual_bell.color,
+                visual_bell_intensity,
+                rects,
+            );
+        }
+
+        // Draw render timer
+        if config.render_timer() {
+            let timing = format!("{:.3} usec", self.meter.average());
+            let color = Rgb { r: 0xd5, g: 0x4e, b: 0x53 };
+            self.renderer.with_api(&config, &size_info, |mut api| {
+                api.render_string(&timing[..], size_info.lines() - 2, glyph_cache, Some(color));
+            });
         }
 
         self.window.swap_buffers();

@@ -278,10 +278,8 @@ where
             }
         }
 
-        // Only request a draw if one hasn't already been requested.
-        if let Some(false) = terminal.map(|t| t.dirty) {
-            self.event_proxy.send_event(Event::Wakeup);
-        }
+        // Queue terminal redraw
+        self.event_proxy.send_event(Event::Wakeup);
 
         Ok(())
     }
