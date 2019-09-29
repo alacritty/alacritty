@@ -52,26 +52,6 @@ struct Writing {
     written: usize,
 }
 
-/// Indicates the result of draining the mio channel
-#[derive(Debug)]
-enum DrainResult {
-    /// At least one new item was received
-    ReceivedItem,
-    /// Nothing was available to receive
-    Empty,
-    /// A shutdown message was received
-    Shutdown,
-}
-
-impl DrainResult {
-    pub fn is_shutdown(&self) -> bool {
-        match *self {
-            DrainResult::Shutdown => true,
-            _ => false,
-        }
-    }
-}
-
 /// All of the mutable state needed to run the event loop
 ///
 /// Contains list of items to write, current write state, etc. Anything that
@@ -187,33 +167,22 @@ where
 
     // Drain the channel
     //
-    // Returns a `DrainResult` indicating the result of receiving from the channel
-    //
-    fn drain_recv_channel(&self, state: &mut State) -> DrainResult {
-        let mut received_item = false;
+    // Returns `false` when a shutdown message was received.
+    fn drain_recv_channel(&self, state: &mut State) -> bool {
         while let Ok(msg) = self.rx.try_recv() {
-            received_item = true;
             match msg {
-                Msg::Input(input) => {
-                    state.write_list.push_back(input);
-                },
-                Msg::Shutdown => {
-                    return DrainResult::Shutdown;
-                },
+                Msg::Input(input) => state.write_list.push_back(input),
+                Msg::Shutdown => return false,
             }
         }
 
-        if received_item {
-            DrainResult::ReceivedItem
-        } else {
-            DrainResult::Empty
-        }
+        true
     }
 
     // Returns a `bool` indicating whether or not the event loop should continue running
     #[inline]
     fn channel_event(&mut self, token: mio::Token, state: &mut State) -> bool {
-        if self.drain_recv_channel(state).is_shutdown() {
+        if !self.drain_recv_channel(state) {
             return false;
         }
 
