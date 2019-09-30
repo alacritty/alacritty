@@ -22,8 +22,6 @@
 // See https://msdn.microsoft.com/en-us/library/4cc7ya5b.aspx for more details.
 #![windows_subsystem = "windows"]
 
-use futures::sync::mpsc as futures_mpsc;
-use futures::sync::oneshot;
 #[cfg(target_os = "macos")]
 use std::env;
 use std::error::Error;
@@ -36,13 +34,11 @@ use std::time::UNIX_EPOCH;
 
 #[cfg(target_os = "macos")]
 use dirs;
-use log::{debug, error, info};
+use log::{error, info};
 use serde_json as json;
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
-use alacritty_charts::SizeInfo;
-use alacritty_charts::TimeSeriesSource;
 use alacritty_terminal::clipboard::Clipboard;
 use alacritty_terminal::config::{Config, Monitor};
 use alacritty_terminal::display::Display;
@@ -56,10 +52,7 @@ use alacritty_terminal::term::{cell::Cell, Term};
 use alacritty_terminal::tty;
 use alacritty_terminal::util::fmt::Red;
 use alacritty_terminal::{die, event};
-use futures::future::lazy;
 use futures::sync::mpsc;
-use tokio::prelude::*;
-use tokio::runtime::Runtime;
 
 mod cli;
 mod config;
@@ -139,212 +132,173 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
         info!("Configuration loaded from {:?}", config_path.display());
     };
 
-    let charts = config.charts.clone();
-    let mut chart_index = 0usize;
-    // Create the channel that is used to communicate with the
-    // background task.
-    let (charts_tx, charts_rx) = mpsc::channel(4_096usize);
-    let charts_poll_tx = charts_tx.clone();
     // Set environment variables
     tty::setup_env(&config);
 
-    let mut runtime = Runtime::new().expect("failed to start new tokio Runtime");
-    tokio::run(lazy(move || {
-        // Create a display.
-        // The display manages a window and can draw the terminal
-        let mut display = match Display::new(&config) {
-            Ok(display) => display,
-            Err(err) => {
-                error!("Got error creating display: {}", err);
-                return Err(());
-            },
-        };
+    // Create a display.
+    // The display manages a window and can draw the terminal
+    let mut display = match Display::new(&config) {
+        Ok(display) => display,
+        Err(err) => {
+            error!("Got error creating display: {}", err);
+            return Err(Box::new(err));
+        },
+    };
 
-        info!("PTY Dimensions: {:?} x {:?}", display.size().lines(), display.size().cols());
+    info!("PTY Dimensions: {:?} x {:?}", display.size().lines(), display.size().cols());
 
-        // Create new native clipboard
-        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-        let clipboard = Clipboard::new(display.get_wayland_display());
-        #[cfg(any(target_os = "macos", target_os = "windows"))]
-        let clipboard = Clipboard::new();
+    // Create new native clipboard
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let clipboard = Clipboard::new(display.get_wayland_display());
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    let clipboard = Clipboard::new();
 
-        // Create the terminal
-        //
-        // This object contains all of the state about what's being displayed. It's
-        // wrapped in a clonable mutex since both the I/O loop and display need to
-        // access it.
-        let terminal = Term::new(&config, display.size().to_owned(), message_buffer, clipboard);
-        let terminal = Arc::new(FairMutex::new(terminal));
+    // Create the terminal
+    //
+    // This object contains all of the state about what's being displayed. It's
+    // wrapped in a clonable mutex since both the I/O loop and display need to
+    // access it.
+    let terminal = Term::new(&config, display.size().to_owned(), message_buffer, clipboard);
+    let terminal = Arc::new(FairMutex::new(terminal));
 
-        // Find the window ID for setting $WINDOWID
-        let window_id = display.get_window_id();
+    // Find the window ID for setting $WINDOWID
+    let window_id = display.get_window_id();
 
-        // Create the pty
-        //
-        // The pty forks a process to run the shell on the slave side of the
-        // pseudoterminal. A file descriptor for the master side is retained for
-        // reading/writing to the shell.
-        let pty = tty::new(&config, &display.size(), window_id);
+    // Create the pty
+    //
+    // The pty forks a process to run the shell on the slave side of the
+    // pseudoterminal. A file descriptor for the master side is retained for
+    // reading/writing to the shell.
+    let pty = tty::new(&config, &display.size(), window_id);
 
-        // Get a reference to something that we can resize
-        //
-        // This exists because rust doesn't know the interface is thread-safe
-        // and we need to be able to resize the PTY from the main thread while the IO
-        // thread owns the EventedRW object.
-        #[cfg(windows)]
-        let mut resize_handle = pty.resize_handle();
-        #[cfg(not(windows))]
-        let mut resize_handle = pty.fd.as_raw_fd();
+    // Get a reference to something that we can resize
+    //
+    // This exists because rust doesn't know the interface is thread-safe
+    // and we need to be able to resize the PTY from the main thread while the IO
+    // thread owns the EventedRW object.
+    #[cfg(windows)]
+    let mut resize_handle = pty.resize_handle();
+    #[cfg(not(windows))]
+    let mut resize_handle = pty.fd.as_raw_fd();
 
-        // Create the pseudoterminal I/O loop
-        //
-        // pty I/O is ran on another thread as to not occupy cycles used by the
-        // renderer and input processing. Note that access to the terminal state is
-        // synchronized since the I/O loop updates the state, and the display
-        // consumes it periodically.
-        let event_loop =
-            EventLoop::new(Arc::clone(&terminal), display.notifier(), pty, config.debug.ref_test);
+    // Create the pseudoterminal I/O loop
+    //
+    // pty I/O is ran on another thread as to not occupy cycles used by the
+    // renderer and input processing. Note that access to the terminal state is
+    // synchronized since the I/O loop updates the state, and the display
+    // consumes it periodically.
+    let event_loop =
+        EventLoop::new(Arc::clone(&terminal), display.notifier(), pty, config.debug.ref_test);
 
-        // The event loop channel allows write requests from the event processor
-        // to be sent to the loop and ultimately written to the pty.
-        let loop_tx = event_loop.channel();
+    // The event loop channel allows write requests from the event processor
+    // to be sent to the loop and ultimately written to the pty.
+    let loop_tx = event_loop.channel();
 
-        // Event processor
-        //
-        // Need the Rc<RefCell<_>> here since a ref is shared in the resize callback
-        let mut processor = event::Processor::new(
-            event_loop::Notifier(event_loop.channel()),
-            display.resize_channel(),
-            &config,
-            display.size().to_owned(),
-        );
+    // Event processor
+    //
+    // Need the Rc<RefCell<_>> here since a ref is shared in the resize callback
+    let mut processor = event::Processor::new(
+        event_loop::Notifier(event_loop.channel()),
+        display.resize_channel(),
+        &config,
+        display.size().to_owned(),
+    );
 
-        // Create a config monitor when config was loaded from path
-        //
-        // The monitor watches the config file for changes and reloads it. Pending
-        // config changes are processed in the main loop.
-        let config_monitor = if config.live_config_reload() {
-            config.config_path.as_ref().map(|path| Monitor::new(path, display.notifier()))
-        } else {
-            None
-        };
+    // Create a config monitor when config was loaded from path
+    //
+    // The monitor watches the config file for changes and reloads it. Pending
+    // config changes are processed in the main loop.
+    let config_monitor = if config.live_config_reload() {
+        config.config_path.as_ref().map(|path| Monitor::new(path, display.notifier()))
+    } else {
+        None
+    };
 
-        // Kick off the I/O thread
-        let _io_thread = event_loop.spawn(None);
+    // Copy the terminal size into the alacritty_charts SizeInfo copy.
+    let charts_size_info = alacritty_charts::SizeInfo {
+        height: display.size().height,
+        width: display.size().width,
+        padding_y: display.size().padding_y,
+        padding_x: display.size().padding_x,
+        ..alacritty_charts::SizeInfo::default()
+    };
 
-        info!("Initialisation complete");
-        // Copy the terminal size into the alacritty_charts SizeInfo copy.
-        let charts_size_info = alacritty_charts::SizeInfo {
-            height: display.size().height,
-            width: display.size().width,
-            padding_y: display.size().padding_y,
-            padding_x: display.size().padding_x,
-            ..alacritty_charts::SizeInfo::default()
-        };
-        runtime.spawn(lazy(move || {
-            alacritty_charts::async_utils::async_coordinator(
-                charts_rx,
-                charts,
-                charts_size_info.height,
-                charts_size_info.width,
-                charts_size_info.padding_y,
-                charts_size_info.padding_x,
-            )
-        }));
-        let mut chart_last_drawn = 0; // Keep an epoch for the last time we drew the charts
-        for chart in config.charts.clone() {
-            debug!("Loading chart series with name: '{}'", chart.name);
-            let mut series_index = 0usize;
-            for series in chart.sources {
-                if let TimeSeriesSource::PrometheusTimeSeries(ref prom) = series {
-                    debug!(" - Found time_series, adding interval run");
-                    let data_request = alacritty_charts::async_utils::MetricRequest {
-                        source_url: prom.source.clone(),
-                        pull_interval: prom.pull_interval as u64,
-                        chart_index,
-                        series_index,
-                        capacity: prom.series.metrics_capacity,
-                        data: None,
-                    };
-                    let charts_poll_tx = charts_poll_tx.clone();
-                    runtime.spawn(lazy(move || {
-                        alacritty_charts::async_utils::spawn_interval_polls(
-                            &data_request,
-                            charts_poll_tx,
-                        )
-                    }));
-                }
-                series_index += 1;
+    // Create the channel that is used to communicate with the
+    // charts background task.
+    let (charts_tx, charts_rx) = mpsc::channel(4_096usize);
+    // Kick off the I/O thread
+    let _tokio_runtime = event_loop.spawn(
+        None,
+        config.charts.clone(),
+        charts_tx.clone(),
+        charts_rx,
+        charts_size_info,
+    );
+
+    info!("Initialisation complete");
+
+    let mut chart_last_drawn = 0; // Keep an epoch for the last time we drew the charts
+                                  // Main display loop
+    loop {
+        // Process input and window events
+        let mut terminal_lock = processor.process_events(&terminal, display.window());
+
+        // Handle config reloads
+        if let Some(ref path) = config_monitor.as_ref().and_then(Monitor::pending) {
+            // Clear old config messages from bar
+            terminal_lock.message_buffer_mut().remove_topic(config::SOURCE_FILE_PATH);
+
+            if let Ok(config) = config::reload_from(path) {
+                display.update_config(&config);
+                processor.update_config(&config);
+                terminal_lock.update_config(&config);
             }
-            chart_index += 1;
+
+            terminal_lock.dirty = true;
         }
 
-        // Main display loop
-        loop {
-            // Process input and window events
-            let mut terminal_lock = processor.process_events(&terminal, display.window());
-
-            // Handle config reloads
-            if let Some(ref path) = config_monitor.as_ref().and_then(Monitor::pending) {
-                // Clear old config messages from bar
-                terminal_lock.message_buffer_mut().remove_topic(config::SOURCE_FILE_PATH);
-
-                if let Ok(config) = config::reload_from(path) {
-                    display.update_config(&config);
-                    processor.update_config(&config);
-                    terminal_lock.update_config(&config);
-                }
-
-                terminal_lock.dirty = true;
-            }
-
-            // Begin shutdown if the flag was raised
-            if terminal_lock.should_exit() || tty::process_should_exit() {
-                break;
-            }
-
-            // Maybe draw the terminal
-            if terminal_lock.needs_draw()
-                || chart_last_drawn
-                    != alacritty_charts::async_utils::get_last_updated_chart_epoch(
-                        charts_tx.clone(),
-                    )
-            {
-                // Try to update the position of the input method editor
-                #[cfg(not(windows))]
-                display.update_ime_position(&terminal_lock);
-
-                // Handle pending resize events
-                //
-                // The second argument is a list of types that want to be notified
-                // of display size changes.
-                display.handle_resize(
-                    &mut terminal_lock,
-                    &config,
-                    &mut resize_handle,
-                    &mut processor,
-                    charts_tx.clone(),
-                );
-
-                drop(terminal_lock);
-
-                // Draw the current state of the terminal
-                display.draw(&terminal, &config, charts_tx.clone());
-                chart_last_drawn =
-                    std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-            }
-        }
-        runtime.shutdown_now().wait().expect("Unable to wait for shutdown");
-        info!("Out of the loop!");
-
-        // Write ref tests to disk
-        if config.debug.ref_test {
-            write_ref_test_results(&terminal.lock());
+        // Begin shutdown if the flag was raised
+        if terminal_lock.should_exit() || tty::process_should_exit() {
+            break;
         }
 
-        loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to event loop");
-        Ok(())
-    }));
+        // Maybe draw the terminal
+        if terminal_lock.needs_draw()
+            || chart_last_drawn
+                != alacritty_charts::async_utils::get_last_updated_chart_epoch(charts_tx.clone())
+        {
+            // Try to update the position of the input method editor
+            #[cfg(not(windows))]
+            display.update_ime_position(&terminal_lock);
+
+            // Handle pending resize events
+            //
+            // The second argument is a list of types that want to be notified
+            // of display size changes.
+            display.handle_resize(
+                &mut terminal_lock,
+                &config,
+                &mut resize_handle,
+                &mut processor,
+                charts_tx.clone(),
+            );
+
+            drop(terminal_lock);
+
+            // Draw the current state of the terminal
+            display.draw(&terminal, &config, charts_tx.clone());
+            chart_last_drawn =
+                std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        }
+    }
+    info!("Out of the loop!");
+
+    // Write ref tests to disk
+    if config.debug.ref_test {
+        write_ref_test_results(&terminal.lock());
+    }
+
+    loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to event loop");
 
     // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();
