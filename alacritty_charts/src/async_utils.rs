@@ -35,12 +35,10 @@ pub enum AsyncChartTask {
 
 /// Sends a request to the async_coordinator to get the latest update epoch of all
 /// the charts
-fn get_last_updated_chart_epoch(
-    charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
-) -> u64 {
+pub fn get_last_updated_chart_epoch(charts_tx: mpsc::Sender<AsyncChartTask>) -> u64 {
     let (chart_tx, chart_rx) = oneshot::channel();
     let get_latest_update_epoch = charts_tx
-        .send(alacritty_charts::async_utils::AsyncChartTask::SendLastUpdatedEpoch(chart_tx))
+        .send(AsyncChartTask::SendLastUpdatedEpoch(chart_tx))
         .map_err(|e| error!("Sending SendLastUpdatedEpoch Task: err={:?}", e))
         .and_then(move |_res| {
             debug!("Sent Request for SendLastUpdatedEpoch");
