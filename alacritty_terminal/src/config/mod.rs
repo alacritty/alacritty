@@ -429,7 +429,7 @@ where
     D: Deserializer<'a>,
     T: Deserialize<'a> + Default,
 {
-    Ok(T::deserialize(Value::deserialize(deserializer)?).unwrap_or_else(fallback_default))
+    Ok(T::deserialize(deserializer).unwrap_or_else(fallback_default))
 }
 
 pub fn option_explicit_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
