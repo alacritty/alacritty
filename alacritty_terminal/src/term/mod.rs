@@ -938,6 +938,11 @@ impl Term {
         self.dynamic_title = config.dynamic_title();
         self.auto_scroll = config.scrolling.auto_scroll;
         self.grid.update_history(config.scrolling.history() as usize, &self.cursor.template);
+
+        if self.original_font_size == self.font_size {
+            self.font_size = config.font.size;
+        }
+        self.original_font_size = config.font.size;
     }
 
     #[inline]
