@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Terminal escape bindings with combined modifiers
 - Bindings for ScrollToTop and ScrollToBottom actions
 - `ReceiveChar` key binding action to insert the key's text character
+- Live reload font size from config
 
 ### Changed
 
