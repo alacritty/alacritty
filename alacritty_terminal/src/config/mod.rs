@@ -41,6 +41,7 @@ use crate::term::color::Rgb;
 
 pub static DEFAULT_ALACRITTY_CONFIG: &str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.yml"));
+pub const LOG_TARGET_CONFIG: &str = "alacritty_config";
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
 
 pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;
@@ -365,7 +366,7 @@ where
     T: Default,
     E: Display,
 {
-    error!("Problem with config: {}; using default value", err);
+    error!(target: LOG_TARGET_CONFIG, "Problem with config: {}; using default value", err);
     T::default()
 }
 

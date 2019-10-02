@@ -1,7 +1,7 @@
 use log::{error, LevelFilter};
 use serde::{Deserialize, Deserializer};
 
-use crate::config::failure_default;
+use crate::config::{failure_default, LOG_TARGET_CONFIG};
 
 /// Debugging options
 #[serde(default)]
@@ -54,7 +54,10 @@ where
         "debug" => LevelFilter::Debug,
         "trace" => LevelFilter::Trace,
         level => {
-            error!("Problem with config: invalid log level {}; using level Warn", level);
+            error!(
+                target: LOG_TARGET_CONFIG,
+                "Problem with config: invalid log level {}; using level Warn", level
+            );
             default_log_level()
         },
     })

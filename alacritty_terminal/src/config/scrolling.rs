@@ -1,7 +1,7 @@
 use log::error;
 use serde::{Deserialize, Deserializer};
 
-use crate::config::{failure_default, MAX_SCROLLBACK_LINES};
+use crate::config::{failure_default, LOG_TARGET_CONFIG, MAX_SCROLLBACK_LINES};
 
 /// Struct for scrolling related settings
 #[serde(default)]
@@ -64,9 +64,11 @@ impl<'de> Deserialize<'de> for ScrollingHistory {
             Ok(lines) => {
                 if lines > MAX_SCROLLBACK_LINES {
                     error!(
+                        target: LOG_TARGET_CONFIG,
                         "Problem with config: scrollback size is {}, but expected a maximum of \
                          {}; using {1} instead",
-                        lines, MAX_SCROLLBACK_LINES,
+                        lines,
+                        MAX_SCROLLBACK_LINES,
                     );
                     Ok(ScrollingHistory(MAX_SCROLLBACK_LINES))
                 } else {
@@ -74,7 +76,10 @@ impl<'de> Deserialize<'de> for ScrollingHistory {
                 }
             },
             Err(err) => {
-                error!("Problem with config: {}; using default value", err);
+                error!(
+                    target: LOG_TARGET_CONFIG,
+                    "Problem with config: {}; using default value", err
+                );
                 Ok(Default::default())
             },
         }

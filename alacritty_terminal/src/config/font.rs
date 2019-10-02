@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer};
 
 #[cfg(target_os = "macos")]
 use crate::config::DefaultTrueBool;
-use crate::config::{failure_default, Delta};
+use crate::config::{failure_default, Delta, LOG_TARGET_CONFIG};
 
 /// Font config
 ///
@@ -203,7 +203,12 @@ impl DeserializeSize for Size {
             Ok(size) => Ok(size),
             Err(err) => {
                 let size = default_font_size();
-                error!("Problem with config: {}; using size {}", err, size.as_f32_pts());
+                error!(
+                    target: LOG_TARGET_CONFIG,
+                    "Problem with config: {}; using size {}",
+                    err,
+                    size.as_f32_pts()
+                );
                 Ok(size)
             },
         }

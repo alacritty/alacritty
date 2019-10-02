@@ -123,10 +123,10 @@ impl log::Log for Logger {
                         _ => unreachable!(),
                     };
 
-                    let mut message = Message::new(msg, color);
-                    message.set_topic(record.file().unwrap_or("?").into());
-
                     if let Ok(event_proxy) = self.event_proxy.lock() {
+                        let mut message = Message::new(msg, color);
+                        message.set_target(record.target().to_owned());
+
                         let _ = event_proxy.send_event(Event::Message(message));
                     }
                 }

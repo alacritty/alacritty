@@ -21,6 +21,7 @@ use serde::de::Error as SerdeError;
 use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 
+use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::term::TermMode;
 
 /// Describes a state and action to take in that state
@@ -839,7 +840,7 @@ impl<'a> Deserialize<'a> for ModeWrapper {
                         "~appkeypad" => res.not_mode |= TermMode::APP_KEYPAD,
                         "~alt" => res.not_mode |= TermMode::ALT_SCREEN,
                         "alt" => res.mode |= TermMode::ALT_SCREEN,
-                        _ => error!("Unknown mode {:?}", modifier),
+                        _ => error!(target: LOG_TARGET_CONFIG, "Unknown mode {:?}", modifier),
                     }
                 }
 
@@ -1203,7 +1204,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
                         "alt" | "option" => res.alt = true,
                         "control" => res.ctrl = true,
                         "none" => (),
-                        _ => error!("Unknown modifier {:?}", modifier),
+                        _ => error!(target: LOG_TARGET_CONFIG, "Unknown modifier {:?}", modifier),
                     }
                 }
 

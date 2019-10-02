@@ -1,7 +1,7 @@
 use log::error;
 use serde::{Deserialize, Deserializer};
 
-use crate::config::failure_default;
+use crate::config::{failure_default, LOG_TARGET_CONFIG};
 use crate::term::color::Rgb;
 
 #[serde(default)]
@@ -51,6 +51,7 @@ where
         Ok(index) => {
             if index < 16 {
                 error!(
+                    target: LOG_TARGET_CONFIG,
                     "Problem with config: indexed_color's index is {}, but a value bigger than 15 \
                      was expected; ignoring setting",
                     index
@@ -63,7 +64,7 @@ where
             }
         },
         Err(err) => {
-            error!("Problem with config: {}; ignoring setting", err);
+            error!(target: LOG_TARGET_CONFIG, "Problem with config: {}; ignoring setting", err);
 
             // Return value out of range to ignore this color
             Ok(0)

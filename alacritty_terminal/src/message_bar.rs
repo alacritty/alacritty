@@ -22,21 +22,21 @@ const CLOSE_BUTTON_PADDING: usize = 1;
 const MIN_FREE_LINES: usize = 3;
 const TRUNCATED_MESSAGE: &str = "[MESSAGE TRUNCATED]";
 
-/// Message for display in the MessageBuffer
+/// Message for display in the MessageBuffer.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Message {
     text: String,
     color: Rgb,
-    topic: Option<String>,
+    target: Option<String>,
 }
 
 impl Message {
-    /// Create a new message
+    /// Create a new message.
     pub fn new(text: String, color: Rgb) -> Message {
-        Message { text, color, topic: None }
+        Message { text, color, target: None }
     }
 
-    /// Formatted message text lines
+    /// Formatted message text lines.
     pub fn text(&self, size_info: &SizeInfo) -> Vec<String> {
         let num_cols = size_info.cols().0;
         let max_lines = size_info.lines().saturating_sub(MIN_FREE_LINES);
@@ -92,25 +92,25 @@ impl Message {
         lines
     }
 
-    /// Message color
+    /// Message color.
     #[inline]
     pub fn color(&self) -> Rgb {
         self.color
     }
 
-    /// Message topic
+    /// Message target.
     #[inline]
-    pub fn topic(&self) -> Option<&String> {
-        self.topic.as_ref()
+    pub fn target(&self) -> Option<&String> {
+        self.target.as_ref()
     }
 
-    /// Update the message topic
+    /// Update the message target.
     #[inline]
-    pub fn set_topic(&mut self, topic: String) {
-        self.topic = Some(topic);
+    pub fn set_target(&mut self, target: String) {
+        self.target = Some(target);
     }
 
-    /// Right-pad text to fit a specific number of columns
+    /// Right-pad text to fit a specific number of columns.
     #[inline]
     fn pad_text(mut text: String, num_cols: usize) -> String {
         let padding_len = num_cols.saturating_sub(text.len());
@@ -119,31 +119,31 @@ impl Message {
     }
 }
 
-/// Storage for message bar
+/// Storage for message bar.
 #[derive(Debug, Default)]
 pub struct MessageBuffer {
     messages: VecDeque<Message>,
 }
 
 impl MessageBuffer {
-    /// Create new message buffer
+    /// Create new message buffer.
     pub fn new() -> MessageBuffer {
         MessageBuffer { messages: VecDeque::new() }
     }
 
-    /// Check if there are any messages queued
+    /// Check if there are any messages queued.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.messages.is_empty()
     }
 
-    /// Current message
+    /// Current message.
     #[inline]
     pub fn message(&self) -> Option<&Message> {
         self.messages.front()
     }
 
-    /// Remove the currently visible message
+    /// Remove the currently visible message.
     #[inline]
     pub fn pop(&mut self) {
         // Remove the message itself
@@ -155,17 +155,17 @@ impl MessageBuffer {
         }
     }
 
-    /// Remove all messages with a specific topic
+    /// Remove all messages with a specific target.
     #[inline]
-    pub fn remove_topic(&mut self, topic: &str) {
+    pub fn remove_target(&mut self, target: &str) {
         self.messages = self
             .messages
             .drain(..)
-            .filter(|m| m.topic().map(String::as_str) != Some(topic))
+            .filter(|m| m.target().map(String::as_str) != Some(target))
             .collect();
     }
 
-    /// Add a new message to the queue
+    /// Add a new message to the queue.
     #[inline]
     pub fn push(&mut self, message: Message) {
         self.messages.push_back(message);
@@ -361,17 +361,17 @@ mod test {
     }
 
     #[test]
-    fn remove_topic() {
+    fn remove_target() {
         let mut message_buffer = MessageBuffer::new();
         for i in 0..10 {
             let mut msg = Message::new(i.to_string(), color::RED);
             if i % 2 == 0 && i < 5 {
-                msg.set_topic("topic".into());
+                msg.set_target("target".into());
             }
             message_buffer.push(msg);
         }
 
-        message_buffer.remove_topic("topic");
+        message_buffer.remove_target("target");
 
         // Count number of messages
         let mut num_messages = 0;

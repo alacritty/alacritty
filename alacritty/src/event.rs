@@ -21,6 +21,7 @@ use serde_json as json;
 use font::Size;
 
 use alacritty_terminal::clipboard::ClipboardType;
+use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::OnResize;
 use alacritty_terminal::event::{Event, EventListener, Notify};
 use alacritty_terminal::grid::Scroll;
@@ -380,7 +381,7 @@ impl<N: Notify> Processor<N> {
                     processor.ctx.window.set_urgent(!processor.ctx.terminal.is_focused)
                 },
                 Event::ConfigReload(path) => {
-                    processor.ctx.message_buffer.remove_topic(config::SOURCE_FILE_PATH);
+                    processor.ctx.message_buffer.remove_target(LOG_TARGET_CONFIG);
                     processor.ctx.resize_pending.message_buffer = Some(());
 
                     if let Ok(config) = config::reload_from(&path) {
