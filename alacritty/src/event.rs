@@ -385,7 +385,14 @@ impl<N: Notify> Processor<N> {
 
                     if let Ok(config) = config::reload_from(&path) {
                         processor.ctx.terminal.update_config(&config);
+
+                        if *processor.ctx.font_size == processor.config.font.size {
+                            processor.ctx.resize_pending.font_size = Some(config.font.size);
+                            *processor.ctx.font_size = config.font.size;
+                        }
+
                         *processor.config = config;
+
                         processor.ctx.terminal.dirty = true;
                     }
                 },
