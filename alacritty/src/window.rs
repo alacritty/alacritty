@@ -329,7 +329,7 @@ impl Window {
 
     #[cfg(target_os = "macos")]
     pub fn toggle_simple_fullscreen(&mut self) {
-        self.set_simple_fullscreen(self.window().simple_fullscreen());
+        self.set_simple_fullscreen(!self.window().simple_fullscreen());
     }
 
     pub fn set_fullscreen(&mut self, fullscreen: bool) {
