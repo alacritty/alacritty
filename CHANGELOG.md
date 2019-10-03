@@ -60,6 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Alacritty turning transparent when opening another window on macOS with chunkwm
 - Startup mode `Maximized` having no effect on Windows
 - Inserting Emojis using `Super+.` or compose sequences on Windows
+- Change mouse cursor depending on mode with Wayland
+- Hide mouse cursor when typing if the `mouse.hide_when_typing` option is set on Wayland
 - Crash when resuming after suspension
 - Crash when trying to start on X11 with a Wayland compositor running
 - Crash with a virtual display connected on X11
