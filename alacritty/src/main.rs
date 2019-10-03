@@ -226,14 +226,16 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
     // Create the channel that is used to communicate with the
     // charts background task.
     let (charts_tx, charts_rx) = mpsc::channel(4_096usize);
-    // Kick off the I/O thread
-    let _tokio_runtime = event_loop.spawn(
-        None,
+
+    // Start the Async I/O runtime
+    let tokio_shutdown_channel = event_loop.spawn_async_tasks(
         config.charts.clone(),
         charts_tx.clone(),
         charts_rx,
         charts_size_info,
     );
+    // Kick off the I/O thread
+    let _event_loop = event_loop.spawn(None);
 
     info!("Initialisation complete");
 
@@ -299,6 +301,7 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
     }
 
     loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to event loop");
+    tokio_shutdown_channel.send(true).expect("Unable to send shutdown signal to tokio runtime");
 
     // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();
