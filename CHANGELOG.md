@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extra bindings for F13-F20
 - Terminal escape bindings with combined modifiers
 - Bindings for ScrollToTop and ScrollToBottom actions
+- `ReceiveChar` key binding action to insert the key's text character
+- Live reload font size from config
 
 ### Changed
 
@@ -49,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wayland primary selection clipboard not storing text when selection is stopped outside of the window
 - Block URL highlight while a selection is active
 - Bindings for Alt + F1-F12
+- Discard scrolling region escape with bottom above top
+- Opacity always applying to cells with their background color matching the teriminal background
+- Allow semicolons when setting titles using an OSC
 
 ### Removed
 

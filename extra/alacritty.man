@@ -57,6 +57,9 @@ Defines the window position. Falls back to position specified by window manager 
 \fB\-t\fR, \fB\-\-title\fR <title>
 Defines the window title [default: Alacritty]
 .TP
+\fB\-\-embed\fR <parent>
+Defines the X11 window ID (as a decimal integer) to embed Alacritty within
+.TP
 \fB\-\-working\-directory\fR <working\-directory>
 Start the shell in the specified working directory
 .SH "SEE ALSO"

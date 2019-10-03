@@ -274,11 +274,13 @@ impl RenderableCell {
         // Lookup RGB values
         let mut fg_rgb = Self::compute_fg_rgb(config, colors, cell.fg, cell.flags);
         let mut bg_rgb = Self::compute_bg_rgb(colors, cell.bg);
+        let mut bg_alpha = Self::compute_bg_alpha(cell.bg);
 
         let selection_background = config.colors.selection.background;
         if let (true, Some(col)) = (selected, selection_background) {
             // Override selection background with config colors
             bg_rgb = col;
+            bg_alpha = 1.0;
         } else if selected ^ cell.inverse() {
             if fg_rgb == bg_rgb && !cell.flags.contains(Flags::HIDDEN) {
                 // Reveal inversed text when fg/bg is the same
@@ -288,6 +290,8 @@ impl RenderableCell {
                 // Invert cell fg and bg colors
                 mem::swap(&mut fg_rgb, &mut bg_rgb);
             }
+
+            bg_alpha = 1.0;
         }
 
         // Override selection text with config colors
@@ -301,7 +305,7 @@ impl RenderableCell {
             inner: RenderableCellContent::Chars(cell.chars()),
             fg: fg_rgb,
             bg: bg_rgb,
-            bg_alpha: Self::compute_bg_alpha(colors, bg_rgb),
+            bg_alpha,
             flags: cell.flags,
         }
     }
@@ -351,8 +355,8 @@ impl RenderableCell {
     }
 
     #[inline]
-    fn compute_bg_alpha(colors: &color::List, bg: Rgb) -> f32 {
-        if colors[NamedColor::Background] == bg {
+    fn compute_bg_alpha(bg: Color) -> f32 {
+        if bg == Color::Named(NamedColor::Background) {
             0.
         } else {
             1.
@@ -942,6 +946,11 @@ impl Term {
         self.dynamic_title = config.dynamic_title();
         self.auto_scroll = config.scrolling.auto_scroll;
         self.grid.update_history(config.scrolling.history() as usize, &self.cursor.template);
+
+        if self.original_font_size == self.font_size {
+            self.font_size = config.font.size;
+        }
+        self.original_font_size = config.font.size;
     }
 
     #[inline]
@@ -1287,8 +1296,7 @@ impl Term {
     fn deccolm(&mut self) {
         // Setting 132 column font makes no sense, but run the other side effects
         // Clear scrolling region
-        let scroll_region = Line(0)..self.grid.num_lines();
-        self.set_scrolling_region(scroll_region);
+        self.set_scrolling_region(1, self.grid.num_lines().0);
 
         // Clear grid
         let template = self.cursor.template;
@@ -2145,10 +2153,23 @@ impl ansi::Handler for Term {
     }
 
     #[inline]
-    fn set_scrolling_region(&mut self, region: Range<Line>) {
-        trace!("Setting scrolling region: {:?}", region);
-        self.scroll_region.start = min(region.start, self.grid.num_lines());
-        self.scroll_region.end = min(region.end, self.grid.num_lines());
+    fn set_scrolling_region(&mut self, top: usize, bottom: usize) {
+        if top >= bottom {
+            debug!("Invalid scrolling region: ({};{})", top, bottom);
+            return;
+        }
+
+        // Bottom should be included in the range, but range end is not
+        // usually included. One option would be to use an inclusive
+        // range, but instead we just let the open range end be 1
+        // higher.
+        let start = Line(top - 1);
+        let end = Line(bottom);
+
+        trace!("Setting scrolling region: ({};{})", start, end);
+
+        self.scroll_region.start = min(start, self.grid.num_lines());
+        self.scroll_region.end = min(end, self.grid.num_lines());
         self.goto(Line(0), Column(0));
     }
 

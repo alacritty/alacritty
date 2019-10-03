@@ -496,6 +496,7 @@ mouse_bindings:
 #   - ToggleFullscreen
 #   - SpawnNewInstance
 #   - ClearLogNotice
+#   - ReceiveChar
 #   - None
 #
 #   (macOS only):
@@ -536,7 +537,8 @@ mouse_bindings:
 #
 # Bindings are always filled by default, but will be replaced when a new
 # binding with the same triggers is defined. To unset a default binding, it can
-# be mapped to the `None` action.
+# be mapped to the `ReceiveChar` action. Alternatively, you can use `None` for
+# a no-op if you do not wish to receive input characters for that binding.
 key_bindings:
   # (Windows/Linux only)
   #- { key: V,        mods: Control|Shift, action: Paste            }
