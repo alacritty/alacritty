@@ -472,8 +472,7 @@ impl Display {
         let metrics = self.glyph_cache.font_metrics();
 
         let window_focused = self.window.is_focused;
-        let grid_text_runs: Vec<TextRun> =
-            TextRunIter::new(terminal.renderable_cells(config, window_focused)).collect();
+        let grid_text_runs: Vec<TextRun> = terminal.text_runs(config, window_focused).collect();
 
         // Get message from terminal to ignore modifications after lock is dropped
         let message_buffer = terminal.message_buffer_mut().message();

@@ -38,6 +38,7 @@ use crate::message_bar::MessageBuffer;
 use crate::selection::{self, Selection, SelectionRange, Span};
 use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
+use crate::text_run::{TextRun, TextRunIter};
 use crate::url::Url;
 
 #[cfg(windows)]
@@ -1104,7 +1105,7 @@ impl Term {
     /// A renderable cell is any cell which has content other than the default
     /// background color.  Cells with an alternate background color are
     /// considered renderable as are cells with any text content.
-    pub fn renderable_cells<'b>(
+    fn renderable_cells<'b>(
         &'b self,
         config: &'b Config,
         window_focused: bool,
@@ -1118,6 +1119,25 @@ impl Term {
         };
 
         RenderableCellsIter::new(&self, config, selection, cursor)
+    }
+
+    /// Iterate over the text runs in the terminal
+    /// 
+    /// A text run is a continuous line of cells that all share the same rendering properties (background color, foreground color, etc.).
+    pub fn text_runs<'b>(
+        &'b self,
+        config: &'b Config,
+        window_focused: bool,
+    ) -> impl Iterator<Item=TextRun> + 'b {
+        // Logic for WIDE_CHAR is handled internally by TextRun
+        // So we no longer need WIDE_CHAR_SPACER at this point.
+        let filtered_cells: std::iter::Filter<
+            RenderableCellsIter<'b>,
+            fn(&RenderableCell) -> bool,
+        > = self
+            .renderable_cells(config, window_focused)
+            .filter(|cell| !cell.flags.contains(Flags::WIDE_CHAR_SPACER));
+        TextRunIter::new(filtered_cells)
     }
 
     /// Resize terminal to new dimensions

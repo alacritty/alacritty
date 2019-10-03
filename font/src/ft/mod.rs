@@ -273,7 +273,7 @@ impl FreeTypeRasterizer {
             }
 
             trace!("Got font path={:?}", path);
-            let ft_face = self.library.new_face(&path, index)?;
+            let mut ft_face = self.library.new_face(&path, index)?;
 
             // This will be different for each font so we can't use a constant but we don't want to
             // look it up every time so we cache it on font load.
@@ -291,6 +291,10 @@ impl FreeTypeRasterizer {
 
             // Construct harfbuzz font
             let hb_font = Font::new(HbFace::from_file(&path, index as u32)?);
+            //let hb_font = unsafe {
+            //    let hb_font_raw = harfbuzz_rs::hb::hb_ft_font_create_referenced(ft_face.raw_mut() as *mut _ as *mut u64 as *mut _);
+            //    harfbuzz_rs::Owned::from_raw(hb_font_raw)
+            //};
 
             let face = Face {
                 ft_face,

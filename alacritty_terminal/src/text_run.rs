@@ -120,15 +120,13 @@ pub struct TextRunIter<I> {
     buffer_zero_width: Vec<[char; MAX_ZEROWIDTH_CHARS]>,
 }
 
-impl<I> TextRunIter<std::iter::Filter<I, fn(&RenderableCell) -> bool>>
+impl<I> TextRunIter<I>
 where
     I: Iterator<Item = RenderableCell>,
 {
     pub fn new(iter: I) -> Self {
         TextRunIter {
-            // Logic for WIDE_CHAR is handled internally by TextRun
-            // So we no longer need WIDE_CHAR_SPACER at this point.
-            iter: iter.filter(|cell| !cell.flags.contains(Flags::WIDE_CHAR_SPACER)),
+            iter,
             latest_col: None,
             run_start: None,
             cursor: None,
