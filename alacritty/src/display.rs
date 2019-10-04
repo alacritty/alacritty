@@ -14,10 +14,10 @@
 
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
+use std::cmp::max;
 use std::f64;
 use std::fmt;
 use std::time::Instant;
-use std::cmp::max;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
@@ -37,7 +37,7 @@ use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term};
 
 use crate::config::Config;
-use crate::event::{Resize, FontResize};
+use crate::event::{FontResize, Resize};
 use crate::window::{self, Window};
 
 /// Font size change interval
@@ -228,7 +228,14 @@ impl Display {
             _ => (),
         }
 
-        Ok(Display { window, renderer, glyph_cache, meter: Meter::new(), size_info, font_size: config.font.size })
+        Ok(Display {
+            window,
+            renderer,
+            glyph_cache,
+            meter: Meter::new(),
+            size_info,
+            font_size: config.font.size,
+        })
     }
 
     fn new_glyph_cache(

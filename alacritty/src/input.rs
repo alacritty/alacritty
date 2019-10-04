@@ -42,8 +42,8 @@ use alacritty_terminal::url::Url;
 use alacritty_terminal::util::start_daemon;
 
 use crate::config::{Action, Binding, Config, Key, RelaxedEq};
-use crate::event::{ClickState, Mouse};
 use crate::display::FONT_SIZE_STEP;
+use crate::event::{ClickState, Mouse};
 use crate::window::Window;
 
 /// Processes input from glutin.

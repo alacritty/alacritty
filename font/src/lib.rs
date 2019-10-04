@@ -47,8 +47,8 @@ extern crate log;
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::ops::{Add, Mul};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 // If target isn't macos or windows, reexport everything from ft
 #[cfg(not(any(target_os = "macos", windows)))]
