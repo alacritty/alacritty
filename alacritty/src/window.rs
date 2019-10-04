@@ -299,6 +299,10 @@ impl Window {
 
     #[cfg(target_os = "macos")]
     pub fn set_urgent(&self, is_urgent: bool) {
+        if !is_urgent {
+            return;
+        }
+
         self.window().request_user_attention(RequestUserAttentionType::Critical);
     }
 
@@ -318,6 +322,7 @@ impl Window {
         self.window().id()
     }
 
+    #[cfg(not(any(target_os = "macos", windows)))]
     pub fn set_maximized(&self, maximized: bool) {
         self.window().set_maximized(maximized);
     }
