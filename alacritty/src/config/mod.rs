@@ -9,7 +9,7 @@ use serde_yaml;
 #[cfg(not(windows))]
 use xdg;
 
-use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
+use alacritty_terminal::config::{Config as TermConfig, ConfigValidationError, LOG_TARGET_CONFIG};
 
 mod bindings;
 pub mod monitor;
@@ -40,6 +40,9 @@ pub enum Error {
 
     /// Not valid yaml or missing parameters
     Yaml(serde_yaml::Error),
+
+    /// Parameter has invalid value
+    InvalidConfiguration(ConfigValidationError),
 }
 
 impl std::error::Error for Error {
@@ -49,6 +52,7 @@ impl std::error::Error for Error {
             Error::ReadingEnvHome(ref err) => Some(err),
             Error::Io(ref err) => Some(err),
             Error::Yaml(ref err) => Some(err),
+            Error::InvalidConfiguration(ref err) => Some(err),
         }
     }
 
@@ -58,6 +62,7 @@ impl std::error::Error for Error {
             Error::ReadingEnvHome(ref err) => err.description(),
             Error::Io(ref err) => err.description(),
             Error::Yaml(ref err) => err.description(),
+            Error::InvalidConfiguration(ref err) => err.description(),
         }
     }
 }
@@ -70,7 +75,10 @@ impl std::fmt::Display for Error {
                 write!(f, "Couldn't read $HOME environment variable: {}", err)
             },
             Error::Io(ref err) => write!(f, "Error reading config file: {}", err),
-            Error::Yaml(ref err) => write!(f, "Problem with config: {}", err),
+            Error::Yaml(ref err) => write!(f, "Problem with config syntax: {}", err),
+            Error::InvalidConfiguration(ref err) => {
+                write!(f, "Problem with configuration: {}", err)
+            },
         }
     }
 }
@@ -94,6 +102,12 @@ impl From<io::Error> for Error {
 impl From<serde_yaml::Error> for Error {
     fn from(val: serde_yaml::Error) -> Error {
         Error::Yaml(val)
+    }
+}
+
+impl From<ConfigValidationError> for Error {
+    fn from(val: ConfigValidationError) -> Error {
+        Error::InvalidConfiguration(val)
     }
 }
 
@@ -176,7 +190,11 @@ fn parse_config(contents: &str) -> Result<Config> {
         },
         Ok(config) => {
             print_deprecation_warnings(&config);
-            Ok(config)
+
+            match config.validate() {
+                None => Ok(config),
+                Some(err) => Err(Error::InvalidConfiguration(err)),
+            }
         },
     }
 }

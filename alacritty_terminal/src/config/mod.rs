@@ -14,7 +14,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 use std::path::PathBuf;
 
 use log::error;
@@ -143,7 +143,32 @@ pub struct Config<T> {
     pub persistent_logging: Option<bool>,
 }
 
+#[derive(fmt::Debug, PartialEq)]
+pub struct ConfigValidationError {
+    field: String,
+    message: String,
+}
+
+impl ::std::error::Error for ConfigValidationError {
+    fn description(&self) -> &str {
+        self.message.as_str()
+    }
+}
+
+impl Display for ConfigValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt(&self.message, f)
+    }
+}
+
 impl<T> Config<T> {
+    pub fn validate(&self) -> Option<ConfigValidationError> {
+        self.working_directory.as_ref().filter(|x| !x.exists()).map(|_| ConfigValidationError {
+            field: String::from("working_directory"),
+            message: String::from("working directory does not exist"),
+        })
+    }
+
     pub fn tabspaces(&self) -> usize {
         self.tabspaces.0
     }
