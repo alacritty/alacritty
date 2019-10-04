@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inserting Emojis using `Super+.` or compose sequences on Windows
 - Change mouse cursor depending on mode with Wayland
 - Hide mouse cursor when typing if the `mouse.hide_when_typing` option is set on Wayland
+- Glitches when DPI changes on Windows
 - Crash when resuming after suspension
 - Crash when trying to start on X11 with a Wayland compositor running
 - Crash with a virtual display connected on X11
