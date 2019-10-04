@@ -397,13 +397,9 @@ impl Display {
         let message_bar_changed = self.last_message != terminal.message_buffer_mut().message();
 
         if font_changed || message_bar_changed {
-            if new_size == None {
-                // Force a resize to refresh things
-                new_size = Some(PhysicalSize::new(
-                    f64::from(self.size_info.width) / self.size_info.dpr * dpr,
-                    f64::from(self.size_info.height) / self.size_info.dpr * dpr,
-                ));
-            }
+            // Force a resize to refresh things. Ask the window directly for its size to avoid
+            // potential races between resize & DPI change events.
+            new_size = self.window.inner_size_pixels().map(|ls| ls.to_physical(dpr));
 
             self.font_size = terminal.font_size;
             self.last_message = terminal.message_buffer_mut().message();
