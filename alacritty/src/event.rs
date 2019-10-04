@@ -1,6 +1,5 @@
 //! Process window events
 use std::borrow::Cow;
-use std::cmp::max;
 use std::env;
 #[cfg(unix)]
 use std::fs;
@@ -40,14 +39,17 @@ use crate::display::Display;
 use crate::input::{self, ActionContext as _, Modifiers};
 use crate::window::Window;
 
-/// Font size change interval
-pub const FONT_SIZE_STEP: f32 = 0.5;
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum FontResize {
+    Delta(f32),
+    Reset,
+}
 
 #[derive(Default, Copy, Clone, Debug, PartialEq)]
 pub struct Resize {
     pub dimensions: Option<PhysicalSize>,
     pub message_buffer: Option<()>,
-    pub font_size: Option<Size>,
+    pub font_size: Option<FontResize>,
 }
 
 impl Resize {
@@ -66,9 +68,8 @@ pub struct ActionContext<'a, N, T> {
     pub modifiers: &'a mut Modifiers,
     pub window: &'a mut Window,
     pub message_buffer: &'a mut MessageBuffer,
-    pub font_size: &'a mut Size,
     pub resize_pending: &'a mut Resize,
-    original_font_size: Size,
+    pub font_size: &'a Size,
 }
 
 impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionContext<'a, N, T> {
@@ -226,14 +227,12 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn change_font_size(&mut self, delta: f32) {
-        *self.font_size = max(*self.font_size + Size::new(delta), Size::new(FONT_SIZE_STEP));
-        self.resize_pending.font_size = Some(*self.font_size);
+        self.resize_pending.font_size = Some(FontResize::Delta(delta));
         self.terminal.dirty = true;
     }
 
     fn reset_font_size(&mut self) {
-        *self.font_size = self.original_font_size;
-        self.resize_pending.font_size = Some(*self.font_size);
+        self.resize_pending.font_size = Some(FontResize::Reset);
         self.terminal.dirty = true;
     }
 
@@ -303,7 +302,6 @@ pub struct Processor<N> {
     received_count: usize,
     suppress_chars: bool,
     modifiers: Modifiers,
-    font_size: Size,
     config: Config,
     pty_resize_handle: Box<dyn OnResize>,
     message_buffer: MessageBuffer,
@@ -328,7 +326,6 @@ impl<N: Notify> Processor<N> {
             received_count: 0,
             suppress_chars: false,
             modifiers: Default::default(),
-            font_size: config.font.size,
             config,
             pty_resize_handle,
             message_buffer,
@@ -336,32 +333,109 @@ impl<N: Notify> Processor<N> {
         }
     }
 
-    /// Check if an event is irrelevant and can be skipped
-    fn skip_event(event: &GlutinEvent<Event>) -> bool {
-        match event {
-            GlutinEvent::UserEvent(Event::Exit) => true,
-            GlutinEvent::WindowEvent { event, .. } => {
-                use glutin::event::WindowEvent::*;
-                match event {
-                    TouchpadPressure { .. }
-                    | CursorEntered { .. }
-                    | CursorLeft { .. }
-                    | AxisMotion { .. }
-                    | HoveredFileCancelled
-                    | Destroyed
-                    | HoveredFile(_)
-                    | Touch(_)
-                    | Moved(_) => true,
-                    _ => false,
+    /// Run the event loop.
+    pub fn run<T>(&mut self, terminal: Arc<FairMutex<Term<T>>>, mut event_loop: EventLoop<Event>)
+    where
+        T: EventListener,
+    {
+        #[cfg(not(any(target_os = "macos", windows)))]
+        let mut dpr_initialized = false;
+
+        let mut event_queue = Vec::new();
+
+        event_loop.run_return(|event, _event_loop, control_flow| {
+            if self.config.debug.print_events {
+                info!("glutin event: {:?}", event);
+            }
+
+            match (&event, tty::process_should_exit()) {
+                // Check for shutdown
+                (GlutinEvent::UserEvent(Event::Exit), _) | (_, true) => {
+                    *control_flow = ControlFlow::Exit;
+                    return;
+                },
+                // Process events
+                (GlutinEvent::EventsCleared, _) => {
+                    *control_flow = ControlFlow::Wait;
+
+                    if event_queue.is_empty() {
+                        return;
+                    }
+                },
+                // Buffer events
+                _ => {
+                    *control_flow = ControlFlow::Poll;
+                    if !Self::skip_event(&event) {
+                        event_queue.push(event);
+                    }
+                    return;
+                },
+            }
+
+            let mut terminal = terminal.lock();
+
+            let mut resize_pending = Resize::default();
+
+            let context = ActionContext {
+                terminal: &mut terminal,
+                notifier: &mut self.notifier,
+                mouse: &mut self.mouse,
+                size_info: &mut self.display.size_info,
+                received_count: &mut self.received_count,
+                suppress_chars: &mut self.suppress_chars,
+                modifiers: &mut self.modifiers,
+                message_buffer: &mut self.message_buffer,
+                resize_pending: &mut resize_pending,
+                window: &mut self.display.window,
+                font_size: &self.display.font_size,
+            };
+            let mut processor = input::Processor::new(context, &mut self.config);
+
+            for event in event_queue.drain(..) {
+                Processor::handle_event(event, &mut processor);
+            }
+
+            // TODO: Workaround for incorrect startup DPI on X11
+            // https://github.com/rust-windowing/winit/issues/998
+            #[cfg(not(any(target_os = "macos", windows)))]
+            {
+                if !dpr_initialized && _event_loop.is_x11() {
+                    dpr_initialized = true;
+
+                    let dpr = self.display.window.hidpi_factor();
+                    self.display.size_info.dpr = dpr;
+
+                    let size = self.display.window.inner_size().to_physical(dpr);
+
+                    resize_pending.font_size = Some(FontResize::Delta(0.));
+                    resize_pending.dimensions = Some(size);
+
+                    terminal.dirty = true;
                 }
-            },
-            GlutinEvent::DeviceEvent { .. }
-            | GlutinEvent::Suspended { .. }
-            | GlutinEvent::NewEvents { .. }
-            | GlutinEvent::EventsCleared
-            | GlutinEvent::LoopDestroyed => true,
-            _ => false,
-        }
+            }
+
+            // Process resize events
+            if !resize_pending.is_empty() {
+                self.display.handle_resize(
+                    &mut terminal,
+                    self.pty_resize_handle.as_mut(),
+                    &self.message_buffer,
+                    &self.config,
+                    resize_pending,
+                );
+            }
+
+            if terminal.dirty {
+                // Clear dirty flag
+                terminal.dirty = !terminal.visual_bell.completed();
+
+                // Redraw screen
+                self.display.draw(terminal, &self.message_buffer, &self.config);
+            }
+        });
+
+        // Write ref tests to disk
+        self.write_ref_test_results(&terminal.lock());
     }
 
     /// Handle events from glutin
@@ -388,8 +462,7 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.terminal.update_config(&config);
 
                         if *processor.ctx.font_size == processor.config.font.size {
-                            processor.ctx.resize_pending.font_size = Some(config.font.size);
-                            *processor.ctx.font_size = config.font.size;
+                            processor.ctx.resize_pending.font_size = Some(FontResize::Reset);
                         }
 
                         *processor.config = config;
@@ -466,7 +539,7 @@ impl<N: Notify> Processor<N> {
                         let resize_pending = &mut processor.ctx.resize_pending;
 
                         // Push current font to update its DPR
-                        resize_pending.font_size = Some(*processor.ctx.font_size);
+                        resize_pending.font_size = Some(FontResize::Delta(0.));
 
                         // Scale window dimensions with new DPR
                         let old_width = processor.ctx.size_info.width;
@@ -503,110 +576,32 @@ impl<N: Notify> Processor<N> {
         }
     }
 
-    /// Run the event loop.
-    pub fn run<T>(&mut self, terminal: Arc<FairMutex<Term<T>>>, mut event_loop: EventLoop<Event>)
-    where
-        T: EventListener,
-    {
-        #[cfg(not(any(target_os = "macos", windows)))]
-        let mut dpr_initialized = false;
-
-        let mut event_queue = Vec::new();
-
-        event_loop.run_return(|event, _event_loop, control_flow| {
-            if self.config.debug.print_events {
-                info!("glutin event: {:?}", event);
-            }
-
-            match (&event, tty::process_should_exit()) {
-                // Check for shutdown
-                (GlutinEvent::UserEvent(Event::Exit), _) | (_, true) => {
-                    *control_flow = ControlFlow::Exit;
-                    return;
-                },
-                // Process events
-                (GlutinEvent::EventsCleared, _) => {
-                    *control_flow = ControlFlow::Wait;
-
-                    if event_queue.is_empty() {
-                        return;
-                    }
-                },
-                // Buffer events
-                _ => {
-                    *control_flow = ControlFlow::Poll;
-                    if !Self::skip_event(&event) {
-                        event_queue.push(event);
-                    }
-                    return;
-                },
-            }
-
-            let mut terminal = terminal.lock();
-
-            let mut resize_pending = Resize::default();
-
-            let context = ActionContext {
-                terminal: &mut terminal,
-                notifier: &mut self.notifier,
-                mouse: &mut self.mouse,
-                size_info: &mut self.display.size_info,
-                received_count: &mut self.received_count,
-                suppress_chars: &mut self.suppress_chars,
-                modifiers: &mut self.modifiers,
-                font_size: &mut self.font_size,
-                original_font_size: self.config.font.size,
-                message_buffer: &mut self.message_buffer,
-                resize_pending: &mut resize_pending,
-                window: &mut self.display.window,
-            };
-            let mut processor = input::Processor::new(context, &mut self.config);
-
-            for event in event_queue.drain(..) {
-                Processor::handle_event(event, &mut processor);
-            }
-
-            // TODO: Workaround for incorrect startup DPI on X11
-            // https://github.com/rust-windowing/winit/issues/998
-            #[cfg(not(any(target_os = "macos", windows)))]
-            {
-                if !dpr_initialized && _event_loop.is_x11() {
-                    dpr_initialized = true;
-
-                    let dpr = self.display.window.hidpi_factor();
-                    self.display.size_info.dpr = dpr;
-
-                    let size = self.display.window.inner_size().to_physical(dpr);
-
-                    resize_pending.font_size = Some(self.font_size);
-                    resize_pending.dimensions = Some(size);
-
-                    terminal.dirty = true;
+    /// Check if an event is irrelevant and can be skipped
+    fn skip_event(event: &GlutinEvent<Event>) -> bool {
+        match event {
+            GlutinEvent::UserEvent(Event::Exit) => true,
+            GlutinEvent::WindowEvent { event, .. } => {
+                use glutin::event::WindowEvent::*;
+                match event {
+                    TouchpadPressure { .. }
+                    | CursorEntered { .. }
+                    | CursorLeft { .. }
+                    | AxisMotion { .. }
+                    | HoveredFileCancelled
+                    | Destroyed
+                    | HoveredFile(_)
+                    | Touch(_)
+                    | Moved(_) => true,
+                    _ => false,
                 }
-            }
-
-            // Process resize events
-            if !resize_pending.is_empty() {
-                self.display.handle_resize(
-                    &mut terminal,
-                    self.pty_resize_handle.as_mut(),
-                    &self.message_buffer,
-                    &self.config,
-                    resize_pending,
-                );
-            }
-
-            if terminal.dirty {
-                // Clear dirty flag
-                terminal.dirty = !terminal.visual_bell.completed();
-
-                // Redraw screen
-                self.display.draw(terminal, &self.message_buffer, &self.config);
-            }
-        });
-
-        // Write ref tests to disk
-        self.write_ref_test_results(&terminal.lock());
+            },
+            GlutinEvent::DeviceEvent { .. }
+            | GlutinEvent::Suspended { .. }
+            | GlutinEvent::NewEvents { .. }
+            | GlutinEvent::EventsCleared
+            | GlutinEvent::LoopDestroyed => true,
+            _ => false,
+        }
     }
 
     // Write the ref test results to the disk

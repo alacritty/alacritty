@@ -17,6 +17,7 @@
 use std::f64;
 use std::fmt;
 use std::time::Instant;
+use std::cmp::max;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
@@ -36,8 +37,11 @@ use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term};
 
 use crate::config::Config;
-use crate::event::Resize;
+use crate::event::{Resize, FontResize};
 use crate::window::{self, Window};
+
+/// Font size change interval
+pub const FONT_SIZE_STEP: f32 = 0.5;
 
 #[derive(Debug)]
 pub enum Error {
@@ -112,6 +116,7 @@ impl From<glutin::ContextError> for Error {
 /// The display wraps a window, font rasterizer, and GPU renderer
 pub struct Display {
     pub size_info: SizeInfo,
+    pub font_size: Size,
     pub window: Window,
 
     renderer: QuadRenderer,
@@ -223,7 +228,7 @@ impl Display {
             _ => (),
         }
 
-        Ok(Display { window, renderer, glyph_cache, meter: Meter::new(), size_info })
+        Ok(Display { window, renderer, glyph_cache, meter: Meter::new(), size_info, font_size: config.font.size })
     }
 
     fn new_glyph_cache(
@@ -284,8 +289,13 @@ impl Display {
         resize_pending: Resize,
     ) {
         // Update font size and cell dimensions
-        if let Some(size) = resize_pending.font_size {
-            self.update_glyph_cache(config, size);
+        if let Some(resize) = resize_pending.font_size {
+            self.font_size = match resize {
+                FontResize::Delta(delta) => max(self.font_size + delta, FONT_SIZE_STEP.into()),
+                FontResize::Reset => config.font.size,
+            };
+
+            self.update_glyph_cache(config, self.font_size);
         }
 
         // Update the window dimensions

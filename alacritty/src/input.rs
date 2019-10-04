@@ -42,7 +42,8 @@ use alacritty_terminal::url::Url;
 use alacritty_terminal::util::start_daemon;
 
 use crate::config::{Action, Binding, Config, Key, RelaxedEq};
-use crate::event::{ClickState, Mouse, FONT_SIZE_STEP};
+use crate::event::{ClickState, Mouse};
+use crate::display::FONT_SIZE_STEP;
 use crate::window::Window;
 
 /// Processes input from glutin.
@@ -173,7 +174,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Hide => ctx.window().set_visible(false),
             Action::Quit => ctx.terminal_mut().exit(),
             Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
-            Action::DecreaseFontSize => ctx.change_font_size(-FONT_SIZE_STEP),
+            Action::DecreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP * -1.),
             Action::ResetFontSize => ctx.reset_font_size(),
             Action::ScrollPageUp => ctx.scroll(Scroll::PageUp),
             Action::ScrollPageDown => ctx.scroll(Scroll::PageDown),
