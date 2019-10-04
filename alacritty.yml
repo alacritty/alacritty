@@ -456,7 +456,7 @@ mouse_bindings:
 #    - Key0-Key9
 #
 #    A full list with available key codes can be found here:
-#    https://docs.rs/glutin/*/glutin/enum.VirtualKeyCode.html#variants
+#    https://docs.rs/glutin/*/glutin/event/enum.VirtualKeyCode.html#variants
 #
 #    Instead of using the name of the keys, the `key` field also supports using
 #    the scancode of the desired key. Scancodes have to be specified as a
