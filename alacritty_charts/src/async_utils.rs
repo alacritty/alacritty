@@ -291,13 +291,45 @@ fn fetch_prometheus_response(
         .map_err(|e| error!("Sending result to coordinator; err={:?}", e))
 }
 
-/// `spawn_interval_polls` creates intervals for each series requested
+/// `spawn_charts_intervals` iterates over the charts and sources
+/// and, if PrometheusTimeSeries it would call the spawn_datasource_interval_polls on it,
+/// that would be constantly loading data asynchronously.
+pub fn spawn_charts_intervals(
+    charts: Vec<TimeSeriesChart>,
+    charts_tx: mpsc::Sender<AsyncChartTask>,
+) {
+    let mut chart_index = 0usize;
+    for chart in charts {
+        debug!("Loading chart series with name: '{}'", chart.name);
+        let mut series_index = 0usize;
+        for series in chart.sources {
+            if let TimeSeriesSource::PrometheusTimeSeries(ref prom) = series {
+                debug!(" - Found time_series, adding interval run");
+                let data_request = MetricRequest {
+                    source_url: prom.source.clone(),
+                    pull_interval: prom.pull_interval as u64,
+                    chart_index,
+                    series_index,
+                    capacity: prom.series.metrics_capacity,
+                    data: None,
+                };
+                let charts_tx = charts_tx.clone();
+                tokio::spawn(lazy(move || {
+                    spawn_datasource_interval_polls(&data_request, charts_tx)
+                }));
+            }
+            series_index += 1;
+        }
+        chart_index += 1;
+    }
+}
+/// `spawn_datasource_interval_polls` creates intervals for each series requested
 /// Each series will have to reply to a mspc tx with the data
-pub fn spawn_interval_polls(
+pub fn spawn_datasource_interval_polls(
     item: &MetricRequest,
     tx: mpsc::Sender<AsyncChartTask>,
 ) -> impl Future<Item = (), Error = ()> {
-    debug!("spawn_interval_polls: Starting for item={:?}", item);
+    debug!("spawn_datasource_interval_polls: Starting for item={:?}", item);
     Interval::new(Instant::now(), Duration::from_secs(item.pull_interval))
         //.take(10) //  Test 10 times first
         .map_err(|e| panic!("interval errored; err={:?}", e))
@@ -320,7 +352,7 @@ pub fn spawn_interval_polls(
                     Ok(async_metric_item)
                 })
             },
-        )
+            )
         .map(|_| ())
 }
 
@@ -366,7 +398,6 @@ pub fn get_metric_opengl_vecs(
 /// `run` is an example use of the crate without drawing the data.
 pub fn run(config: crate::config::Config) {
     let charts = config.charts.clone();
-    let mut chart_index = 0usize;
     // Create the channel that is used to communicate with the
     // background task.
     let (tx, rx) = mpsc::channel(4_096usize);
@@ -385,27 +416,7 @@ pub fn run(config: crate::config::Config) {
         tokio::spawn(lazy(move || {
             async_coordinator(rx, charts, size.height, size.width, size.padding_y, size.padding_x)
         }));
-        for chart in config.charts {
-            debug!("Loading chart series with name: '{}'", chart.name);
-            let mut series_index = 0usize;
-            for series in chart.sources {
-                if let TimeSeriesSource::PrometheusTimeSeries(ref prom) = series {
-                    debug!(" - Found time_series, adding interval run");
-                    let data_request = MetricRequest {
-                        source_url: prom.source.clone(),
-                        pull_interval: prom.pull_interval as u64,
-                        chart_index,
-                        series_index,
-                        capacity: prom.series.metrics_capacity,
-                        data: None,
-                    };
-                    let poll_tx = poll_tx.clone();
-                    tokio::spawn(lazy(move || spawn_interval_polls(&data_request, poll_tx)));
-                }
-                series_index += 1;
-            }
-            chart_index += 1;
-        }
+        spawn_charts_intervals(config.charts.clone(), poll_tx.clone());
         Ok(())
     }));
 }
