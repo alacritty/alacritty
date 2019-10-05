@@ -43,7 +43,7 @@ pub enum Error {
     Yaml(serde_yaml::Error),
 }
 
-impl ::std::error::Error for Error {
+impl std::error::Error for Error {
     fn cause(&self) -> Option<&dyn (::std::error::Error)> {
         match *self {
             Error::NotFound => None,
@@ -63,7 +63,7 @@ impl ::std::error::Error for Error {
     }
 }
 
-impl ::std::fmt::Display for Error {
+impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Error::NotFound => write!(f, "{}", ::std::error::Error::description(self)),
