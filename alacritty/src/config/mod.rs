@@ -106,7 +106,7 @@ impl From<serde_yaml::Error> for Error {
 /// 3. $HOME/.config/alacritty/alacritty.yml
 /// 4. $HOME/.alacritty.yml
 #[cfg(not(windows))]
-pub fn installed_config<'a>() -> Option<PathBuf> {
+pub fn installed_config() -> Option<PathBuf> {
     // Try using XDG location by default
     xdg::BaseDirectories::with_prefix("alacritty")
         .ok()
@@ -134,10 +134,8 @@ pub fn installed_config<'a>() -> Option<PathBuf> {
 }
 
 #[cfg(windows)]
-pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
-    dirs::config_dir()
-        .map(|path| path.join("alacritty\\alacritty.yml"))
-        .filter(|new| new.exists())
+pub fn installed_config() -> Option<PathBuf> {
+    dirs::config_dir().map(|path| path.join("alacritty\\alacritty.yml")).filter(|new| new.exists())
 }
 
 pub fn load_from(path: PathBuf) -> Config {
