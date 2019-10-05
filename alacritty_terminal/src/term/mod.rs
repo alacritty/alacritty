@@ -47,6 +47,9 @@ pub mod color;
 /// Used to match equal brackets, when performing a bracket-pair selection.
 const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
 
+/// The highest number of characters Alacritty will search for a URL
+const MAX_URL_LENGTH: usize = 2048;
+
 /// A type that can expand a given point to a region
 ///
 /// Usually this is implemented for some 2-D array type since
@@ -684,6 +687,9 @@ impl VisualBell {
 }
 
 pub struct Term<T> {
+    /// Terminal focus
+    pub is_focused: bool,
+
     /// The grid
     grid: Grid<Cell>,
 
@@ -755,11 +761,11 @@ pub struct Term<T> {
     /// Clipboard access coupled to the active window
     clipboard: Clipboard,
 
+    /// All the URL locations in the current view
+    urls: Vec<Url>,
+
     /// Proxy for sending events to the event loop
     event_proxy: T,
-
-    /// Terminal focus
-    pub is_focused: bool,
 }
 
 /// Terminal size info
@@ -887,6 +893,7 @@ impl<T> Term<T> {
             clipboard,
             event_proxy,
             is_focused: true,
+            urls: Vec::new(),
         }
     }
 
@@ -1233,18 +1240,23 @@ impl<T> Term<T> {
         &mut self.clipboard
     }
 
-    pub fn urls(&self) -> Vec<Url> {
+    pub fn update_urls(&mut self) {
+        self.urls.clear();
+
         let display_offset = self.grid.display_offset();
         let num_cols = self.grid.num_cols().0;
         let last_col = Column(num_cols - 1);
         let last_line = self.grid.num_lines() - 1;
 
-        let grid_end_point = Point::new(0, last_col);
-        let mut iter = self.grid.iter_from(grid_end_point);
+        let start_line = display_offset.saturating_sub(MAX_URL_LENGTH / num_cols);
+        let start_col = if display_offset == 0 { last_col } else { Column(MAX_URL_LENGTH % num_cols) };
+        let start_search_point = Point::new(start_line, start_col);
+        let mut iter = self.grid.iter_from(start_search_point);
 
         let mut parser = Parser::new();
         let mut extra_url_len = 0;
-        let mut urls = Vec::new();
+
+        let mut current_url_len = 0;
 
         let mut c = Some(iter.cell());
         while let Some(cell) = c {
@@ -1263,24 +1275,39 @@ impl<T> Term<T> {
                 parser.reset();
             }
 
+            let above_viewport = point.line > last_line.0 + display_offset;
+
+            current_url_len += 1;
+
             // Advance parser
             match parser.advance(cell.c) {
                 ParserState::Url(length) => {
-                    urls.push(Url::new(point, length + extra_url_len, num_cols))
+                    current_url_len = 0;
+
+                    self.urls.push(Url::new(point, length + extra_url_len, num_cols));
                 },
                 ParserState::NoUrl => {
                     extra_url_len = 0;
+                    current_url_len = 0;
 
                     // Stop searching for URLs once the viewport has been left without active URL
-                    if point.line > last_line.0 + display_offset {
+                    if above_viewport {
                         break;
                     }
                 },
                 _ => (),
             }
-        }
 
-        urls
+            // Don't cut off URLs in viewport, because we'll iterate over them anyway
+            if above_viewport && current_url_len > MAX_URL_LENGTH {
+                break;
+            }
+        }
+    }
+
+    #[inline]
+    pub fn urls(&self) -> &[Url] {
+        &self.urls
     }
 
     pub fn url_to_string(&self, url: Url) -> String {

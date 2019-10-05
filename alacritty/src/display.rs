@@ -358,7 +358,7 @@ impl Display {
     /// This call may block if vsync is enabled
     pub fn draw<T>(
         &mut self,
-        terminal: MutexGuard<'_, Term<T>>,
+        mut terminal: MutexGuard<'_, Term<T>>,
         message_buffer: &MessageBuffer,
         config: &Config,
     ) {
@@ -372,6 +372,11 @@ impl Display {
         // Update IME position
         #[cfg(not(windows))]
         self.window.update_ime_position(&terminal, &self.size_info);
+
+        // Update visible URLs
+        if config.ui_config.mouse.url.launcher.is_some() {
+            terminal.update_urls();
+        }
 
         // Drop terminal as early as possible to free lock
         drop(terminal);

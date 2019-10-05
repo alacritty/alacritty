@@ -252,9 +252,9 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
         {
             let buffer_point = self.ctx.terminal().visible_to_buffer(point);
             if let Some(url) =
-                self.ctx.terminal().urls().drain(..).find(|url| url.contains(buffer_point))
+                self.ctx.terminal().urls().iter().find(|url| url.contains(buffer_point))
             {
-                return MouseState::Url(url);
+                return MouseState::Url(*url);
             }
         }
 
