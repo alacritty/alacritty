@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::Cow;
 use std::cmp::max;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
 use log::{self, LevelFilter};
@@ -242,8 +241,8 @@ impl Options {
         options
     }
 
-    pub fn config_path(&self) -> Option<Cow<'_, Path>> {
-        self.config.as_ref().map(|p| Cow::Borrowed(p.as_path()))
+    pub fn config_path(&self) -> Option<PathBuf> {
+        self.config.clone()
     }
 
     pub fn into_config(self, mut config: Config) -> Config {

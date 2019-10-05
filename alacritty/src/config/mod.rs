@@ -1,8 +1,7 @@
-use std::borrow::Cow;
 use std::env;
 use std::fs::File;
 use std::io::{self, Read};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[cfg(windows)]
 use dirs;
@@ -107,7 +106,7 @@ impl From<serde_yaml::Error> for Error {
 /// 3. $HOME/.config/alacritty/alacritty.yml
 /// 4. $HOME/.alacritty.yml
 #[cfg(not(windows))]
-pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
+pub fn installed_config<'a>() -> Option<PathBuf> {
     // Try using XDG location by default
     xdg::BaseDirectories::with_prefix("alacritty")
         .ok()
@@ -132,7 +131,6 @@ pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
             }
             None
         })
-        .map(Into::into)
 }
 
 #[cfg(windows)]
@@ -140,7 +138,6 @@ pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
     dirs::config_dir()
         .map(|path| path.join("alacritty\\alacritty.yml"))
         .filter(|new| new.exists())
-        .map(Cow::from)
 }
 
 pub fn load_from(path: PathBuf) -> Config {

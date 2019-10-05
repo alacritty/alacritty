@@ -87,7 +87,7 @@ fn main() {
     // Load configuration file
     let config_path = options.config_path().or_else(config::installed_config);
     let config = config_path
-        .map(|path| config::load_from(path.to_path_buf()))
+        .map(|path| config::load_from(path))
         .unwrap_or_else(Config::default);
     let config = options.into_config(config);
 
