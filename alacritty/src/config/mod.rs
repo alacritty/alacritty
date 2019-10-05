@@ -11,9 +11,23 @@ use serde_yaml;
 #[cfg(not(windows))]
 use xdg;
 
-use alacritty_terminal::config::{Config, DEFAULT_ALACRITTY_CONFIG};
+use alacritty_terminal::config::{
+    Config as TermConfig, DEFAULT_ALACRITTY_CONFIG, LOG_TARGET_CONFIG,
+};
 
-pub const SOURCE_FILE_PATH: &str = file!();
+mod bindings;
+pub mod monitor;
+mod mouse;
+#[cfg(test)]
+mod test;
+mod ui_config;
+
+pub use crate::config::bindings::{Action, Binding, Key, RelaxedEq};
+#[cfg(test)]
+pub use crate::config::mouse::{ClickHandler, Mouse};
+use crate::config::ui_config::UIConfig;
+
+pub type Config = TermConfig<UIConfig>;
 
 /// Result from config loading
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -169,7 +183,7 @@ pub fn reload_from(path: &PathBuf) -> Result<Config> {
     match read_config(path) {
         Ok(config) => Ok(config),
         Err(err) => {
-            error!("Unable to load config {:?}: {}", path, err);
+            error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: {}", path, err);
             Err(err)
         },
     }
@@ -199,16 +213,21 @@ fn read_config(path: &PathBuf) -> Result<Config> {
 fn print_deprecation_warnings(config: &Config) {
     if config.window.start_maximized.is_some() {
         warn!(
+            target: LOG_TARGET_CONFIG,
             "Config window.start_maximized is deprecated; please use window.startup_mode instead"
         );
     }
 
     if config.render_timer.is_some() {
-        warn!("Config render_timer is deprecated; please use debug.render_timer instead");
+        warn!(
+            target: LOG_TARGET_CONFIG,
+            "Config render_timer is deprecated; please use debug.render_timer instead"
+        );
     }
 
     if config.persistent_logging.is_some() {
         warn!(
+            target: LOG_TARGET_CONFIG,
             "Config persistent_logging is deprecated; please use debug.persistent_logging instead"
         );
     }

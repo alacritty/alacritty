@@ -20,12 +20,13 @@ use mio::{self, Evented, Poll, PollOpt, Ready, Token};
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
 use mio_named_pipes::NamedPipe;
 
+use log::info;
 use winapi::shared::winerror::WAIT_TIMEOUT;
 use winapi::um::synchapi::WaitForSingleObject;
 use winapi::um::winbase::WAIT_OBJECT_0;
 
 use crate::config::Config;
-use crate::display::OnResize;
+use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::{EventedPty, EventedReadWrite};
 
@@ -83,7 +84,7 @@ impl<'a> Pty<'a> {
     }
 }
 
-pub fn new<'a>(config: &Config, size: &SizeInfo, window_id: Option<usize>) -> Pty<'a> {
+pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty<'a> {
     if let Some(pty) = conpty::new(config, size, window_id) {
         info!("Using Conpty agent");
         IS_CONPTY.store(true, Ordering::Relaxed);

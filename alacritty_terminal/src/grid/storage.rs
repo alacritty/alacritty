@@ -14,6 +14,7 @@
 use std::ops::{Index, IndexMut};
 use std::vec::Drain;
 
+use serde::{Deserialize, Serialize};
 use static_assertions::assert_eq_size;
 
 use super::Row;

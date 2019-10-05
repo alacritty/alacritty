@@ -1,10 +1,11 @@
+use log::error;
 use serde::{Deserialize, Deserializer};
 
-use crate::config::failure_default;
+use crate::config::{failure_default, LOG_TARGET_CONFIG};
 use crate::term::color::Rgb;
 
 #[serde(default)]
-#[derive(Deserialize, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Colors {
     #[serde(deserialize_with = "failure_default")]
     pub primary: PrimaryColors,
@@ -33,7 +34,7 @@ impl Colors {
 }
 
 #[serde(default)]
-#[derive(Deserialize, Default, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Clone, Default, Debug, PartialEq, Eq)]
 pub struct IndexedColor {
     #[serde(deserialize_with = "deserialize_color_index")]
     pub index: u8,
@@ -50,6 +51,7 @@ where
         Ok(index) => {
             if index < 16 {
                 error!(
+                    target: LOG_TARGET_CONFIG,
                     "Problem with config: indexed_color's index is {}, but a value bigger than 15 \
                      was expected; ignoring setting",
                     index
@@ -62,7 +64,7 @@ where
             }
         },
         Err(err) => {
-            error!("Problem with config: {}; ignoring setting", err);
+            error!(target: LOG_TARGET_CONFIG, "Problem with config: {}; ignoring setting", err);
 
             // Return value out of range to ignore this color
             Ok(0)
@@ -89,7 +91,7 @@ pub struct SelectionColors {
 }
 
 #[serde(default)]
-#[derive(Deserialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct PrimaryColors {
     #[serde(default = "default_background", deserialize_with = "failure_default")]
     pub background: Rgb,
@@ -121,7 +123,7 @@ fn default_foreground() -> Rgb {
 }
 
 /// The 8-colors sections of config
-#[derive(Deserialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct AnsiColors {
     #[serde(deserialize_with = "failure_default")]
     pub black: Rgb,
@@ -141,7 +143,7 @@ pub struct AnsiColors {
     pub white: Rgb,
 }
 
-#[derive(Deserialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 struct NormalColors(AnsiColors);
 
 impl Default for NormalColors {
@@ -159,7 +161,7 @@ impl Default for NormalColors {
     }
 }
 
-#[derive(Deserialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 struct BrightColors(AnsiColors);
 
 impl Default for BrightColors {

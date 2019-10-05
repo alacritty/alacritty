@@ -17,6 +17,8 @@
 use std::cmp::{max, min, Ordering};
 use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo};
 
+use serde::{Deserialize, Serialize};
+
 use crate::index::{self, Column, IndexRange, Line, Point};
 use crate::selection::Selection;
 

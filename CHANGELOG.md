@@ -53,6 +53,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Discard scrolling region escape with bottom above top
 - Opacity always applying to cells with their background color matching the teriminal background
 - Allow semicolons when setting titles using an OSC
+- Background always opaque on X11
+- Skipping redraws on PTY update
+- Not redrawing while resizing on Windows/macOS
+- Decorations `none` launching an invisible window on Windows
+- Alacritty turning transparent when opening another window on macOS with chunkwm
+- Startup mode `Maximized` having no effect on Windows
+- Inserting Emojis using `Super+.` or compose sequences on Windows
+- Change mouse cursor depending on mode with Wayland
+- Hide mouse cursor when typing if the `mouse.hide_when_typing` option is set on Wayland
+- Glitches when DPI changes on Windows
+- Crash when resuming after suspension
+- Crash when trying to start on X11 with a Wayland compositor running
+- Crash with a virtual display connected on X11
 
 ### Removed
 

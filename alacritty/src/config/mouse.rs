@@ -1,10 +1,12 @@
 use std::time::Duration;
 
-use glutin::ModifiersState;
+use glutin::event::ModifiersState;
+use log::error;
 use serde::{Deserialize, Deserializer};
 
+use alacritty_terminal::config::{failure_default, LOG_TARGET_CONFIG};
+
 use crate::config::bindings::{CommandWrapper, ModsWrapper};
-use crate::config::failure_default;
 
 #[serde(default)]
 #[derive(Default, Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -56,7 +58,12 @@ where
     match <Option<CommandWrapper>>::deserialize(val) {
         Ok(launcher) => Ok(launcher),
         Err(err) => {
-            error!("Problem with config: {}; using {}", err, default.clone().unwrap().program());
+            error!(
+                target: LOG_TARGET_CONFIG,
+                "Problem with config: {}; using {}",
+                err,
+                default.clone().unwrap().program()
+            );
             Ok(default)
         },
     }
@@ -101,7 +108,7 @@ where
     match u64::deserialize(value) {
         Ok(threshold_ms) => Ok(Duration::from_millis(threshold_ms)),
         Err(err) => {
-            error!("Problem with config: {}; using default value", err);
+            error!(target: LOG_TARGET_CONFIG, "Problem with config: {}; using default value", err);
             Ok(default_threshold_ms())
         },
     }

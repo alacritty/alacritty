@@ -25,10 +25,11 @@ use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use crossbeam_channel::Sender;
+use glutin::event_loop::EventLoopProxy;
 use log::{self, Level};
 use time;
 
+use alacritty_terminal::event::Event;
 use alacritty_terminal::message_bar::Message;
 use alacritty_terminal::term::color;
 
@@ -38,7 +39,7 @@ const ALACRITTY_LOG_ENV: &str = "ALACRITTY_LOG";
 
 pub fn initialize(
     options: &Options,
-    message_tx: Sender<Message>,
+    event_proxy: EventLoopProxy<Event>,
 ) -> Result<Option<PathBuf>, log::SetLoggerError> {
     log::set_max_level(options.log_level);
 
@@ -48,7 +49,7 @@ pub fn initialize(
         ::env_logger::try_init()?;
         Ok(None)
     } else {
-        let logger = Logger::new(message_tx);
+        let logger = Logger::new(event_proxy);
         let path = logger.file_path();
         log::set_boxed_logger(Box::new(logger))?;
         Ok(path)
@@ -58,15 +59,15 @@ pub fn initialize(
 pub struct Logger {
     logfile: Mutex<OnDemandLogFile>,
     stdout: Mutex<LineWriter<Stdout>>,
-    message_tx: Sender<Message>,
+    event_proxy: Mutex<EventLoopProxy<Event>>,
 }
 
 impl Logger {
-    fn new(message_tx: Sender<Message>) -> Self {
+    fn new(event_proxy: EventLoopProxy<Event>) -> Self {
         let logfile = Mutex::new(OnDemandLogFile::new());
         let stdout = Mutex::new(LineWriter::new(io::stdout()));
 
-        Logger { logfile, stdout, message_tx }
+        Logger { logfile, stdout, event_proxy: Mutex::new(event_proxy) }
     }
 
     fn file_path(&self) -> Option<PathBuf> {
@@ -122,9 +123,12 @@ impl log::Log for Logger {
                         _ => unreachable!(),
                     };
 
-                    let mut message = Message::new(msg, color);
-                    message.set_topic(record.file().unwrap_or("?").into());
-                    let _ = self.message_tx.send(message);
+                    if let Ok(event_proxy) = self.event_proxy.lock() {
+                        let mut message = Message::new(msg, color);
+                        message.set_target(record.target().to_owned());
+
+                        let _ = event_proxy.send_event(Event::Message(message));
+                    }
                 }
             }
 
