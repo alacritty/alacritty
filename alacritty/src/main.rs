@@ -85,10 +85,10 @@ fn main() {
         .expect("Unable to initialize logger");
 
     // Load configuration file
-    let config_path =
-        options.config_path().or_else(config::installed_config).map(|path| path.to_path_buf());
-    let config =
-        if let Some(path) = config_path { config::load_from(path) } else { Config::default() };
+    let config_path = options.config_path().or_else(config::installed_config);
+    let config = config_path
+        .map(|path| config::load_from(path.to_path_buf()))
+        .unwrap_or_else(|| Config::default());
     let config = options.into_config(config);
 
     // Update the log level from config

@@ -206,3 +206,17 @@ fn print_deprecation_warnings(config: &Config) {
         );
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::Config;
+    use std::path::PathBuf;
+
+    #[test]
+    fn config_read_eof() {
+        let config_path: PathBuf = ["..", "alacritty.yml"].iter().collect();
+        let config = super::read_config(&config_path).unwrap();
+
+        assert_eq!(config, Config::default());
+    }
+}
