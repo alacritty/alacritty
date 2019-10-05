@@ -15,7 +15,7 @@ use std::collections::HashMap;
 
 use font::Metrics;
 
-use crate::index::Point;
+use crate::index::{Column, Point};
 use crate::term::cell::Flags;
 use crate::term::color::Rgb;
 use crate::term::{RenderableCell, SizeInfo};
@@ -36,16 +36,42 @@ impl RenderRect {
     }
 }
 
-struct RenderLine {
-    start: Point,
-    end: Point,
-    color: Rgb,
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct RenderLine {
+    pub start: Point,
+    pub end: Point,
+    pub color: Rgb,
 }
 
 impl RenderLine {
-    fn into_rect(self, flag: Flags, metrics: &Metrics, size: &SizeInfo) -> RenderRect {
-        let start_x = self.start.col.0 as f32 * size.cell_width;
-        let end_x = (self.end.col.0 + 1) as f32 * size.cell_width;
+    pub fn rects(&self, flag: Flags, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
+        let mut rects = Vec::new();
+
+        let mut start = self.start;
+        while start.line < self.end.line {
+            let mut end = start;
+            end.col = size.cols() - 1;
+            rects.push(Self::create_rect(metrics, size, flag, start, end, self.color));
+
+            start.col = Column(0);
+            start.line += 1;
+        }
+
+        rects.push(Self::create_rect(metrics, size, flag, start, self.end, self.color));
+
+        rects
+    }
+
+    fn create_rect(
+        metrics: &Metrics,
+        size: &SizeInfo,
+        flag: Flags,
+        start: Point,
+        end: Point,
+        color: Rgb,
+    ) -> RenderRect {
+        let start_x = start.col.0 as f32 * size.cell_width;
+        let end_x = (end.col.0 + 1) as f32 * size.cell_width;
         let width = end_x - start_x;
 
         let (position, mut height) = match flag {
@@ -57,7 +83,7 @@ impl RenderLine {
         // Make sure lines are always visible
         height = height.max(1.);
 
-        let line_bottom = (self.start.line.0 as f32 + 1.) * size.cell_height;
+        let line_bottom = (start.line.0 as f32 + 1.) * size.cell_height;
         let baseline = line_bottom + metrics.descent;
 
         let mut y = baseline - position - height / 2.;
@@ -66,7 +92,7 @@ impl RenderLine {
             y = max_y;
         }
 
-        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, self.color, 1.)
+        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, color, 1.)
     }
 }
 
@@ -81,11 +107,11 @@ impl RenderLines {
         Self::default()
     }
 
-    pub fn into_rects(self, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
+    pub fn rects(&self, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
         self.inner
-            .into_iter()
+            .iter()
             .map(|(flag, lines)| -> Vec<RenderRect> {
-                lines.into_iter().map(|line| line.into_rect(flag, &metrics, &size)).collect()
+                lines.iter().map(|line| line.rects(*flag, metrics, size)).flatten().collect()
             })
             .flatten()
             .collect()
@@ -100,9 +126,9 @@ impl RenderLines {
 
             // Check if there's an active line
             if let Some(line) = self.inner.get_mut(flag).and_then(|lines| lines.last_mut()) {
-                if cell.line == line.start.line
-                    && cell.fg == line.color
+                if cell.fg == line.color
                     && cell.column == line.end.col + 1
+                    && cell.line == line.end.line
                 {
                     // Update the length of the line
                     line.end = cell.into();
