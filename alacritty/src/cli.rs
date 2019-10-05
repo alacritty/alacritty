@@ -284,15 +284,12 @@ impl Options {
 
 #[cfg(test)]
 mod test {
-    use alacritty_terminal::config::DEFAULT_ALACRITTY_CONFIG;
-
     use crate::cli::Options;
     use crate::config::Config;
 
     #[test]
     fn dynamic_title_ignoring_options_by_default() {
-        let config: Config =
-            ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("deserialize config");
+        let config = Config::default();
         let old_dynamic_title = config.dynamic_title();
 
         let config = Options::default().into_config(config);
@@ -302,8 +299,7 @@ mod test {
 
     #[test]
     fn dynamic_title_overridden_by_options() {
-        let config: Config =
-            ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("deserialize config");
+        let config = Config::default();
 
         let mut options = Options::default();
         options.title = Some("foo".to_owned());
@@ -314,8 +310,7 @@ mod test {
 
     #[test]
     fn dynamic_title_overridden_by_config() {
-        let mut config: Config =
-            ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("deserialize config");
+        let mut config = Config::default();
 
         config.window.title = Some("foo".to_owned());
         let config = Options::default().into_config(config);

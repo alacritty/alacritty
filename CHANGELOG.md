@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Packaging
 
 - Minimum Rust version has been bumped to 1.36.0
+- Automatic config generation was removed, please ship alacritty.yml for easy documentation obtain
 
 ### Added
 
@@ -70,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Bindings for Super/Command + F1-F12
+- Automatic config generation
 
 ## 0.3.3
 

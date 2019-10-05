@@ -18,7 +18,6 @@ use std::fmt::Display;
 use std::path::PathBuf;
 
 use log::error;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
 
@@ -39,15 +38,13 @@ pub use crate::config::visual_bell::{VisualBellAnimation, VisualBellConfig};
 pub use crate::config::window::{Decorations, Dimensions, StartupMode, WindowConfig, DEFAULT_NAME};
 use crate::term::color::Rgb;
 
-pub static DEFAULT_ALACRITTY_CONFIG: &str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.yml"));
 pub const LOG_TARGET_CONFIG: &str = "alacritty_config";
 const MAX_SCROLLBACK_LINES: u32 = 100_000;
 
 pub type MockConfig = Config<HashMap<String, serde_yaml::Value>>;
 
 /// Top-level config type
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, PartialEq, Default, Deserialize)]
 pub struct Config<T> {
     /// Pixel padding
     #[serde(default, deserialize_with = "failure_default")]
@@ -140,12 +137,6 @@ pub struct Config<T> {
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]
     pub persistent_logging: Option<bool>,
-}
-
-impl<T: DeserializeOwned> Default for Config<T> {
-    fn default() -> Self {
-        serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("default config is invalid")
-    }
 }
 
 impl<T> Config<T> {

@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::env;
 use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 #[cfg(windows)]
@@ -11,15 +11,11 @@ use serde_yaml;
 #[cfg(not(windows))]
 use xdg;
 
-use alacritty_terminal::config::{
-    Config as TermConfig, DEFAULT_ALACRITTY_CONFIG, LOG_TARGET_CONFIG,
-};
+use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
 
 mod bindings;
 pub mod monitor;
 mod mouse;
-#[cfg(test)]
-mod test;
 mod ui_config;
 
 pub use crate::config::bindings::{Action, Binding, Key, RelaxedEq};
@@ -147,32 +143,6 @@ pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
         .map(Cow::from)
 }
 
-#[cfg(not(windows))]
-pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
-    let path = xdg::BaseDirectories::with_prefix("alacritty")
-        .map_err(|err| io::Error::new(io::ErrorKind::NotFound, err.to_string().as_str()))
-        .and_then(|p| p.place_config_file("alacritty.yml"))?;
-
-    File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
-
-    Ok(path.into())
-}
-
-#[cfg(windows)]
-pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
-    let mut path = dirs::config_dir().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::NotFound, "Couldn't find profile directory")
-    })?;
-
-    path = path.join("alacritty/alacritty.yml");
-
-    std::fs::create_dir_all(path.parent().unwrap())?;
-
-    File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
-
-    Ok(path.into())
-}
-
 pub fn load_from(path: PathBuf) -> Config {
     let mut config = reload_from(&path).unwrap_or_else(|_| Config::default());
     config.config_path = Some(path);
@@ -198,16 +168,20 @@ fn read_config(path: &PathBuf) -> Result<Config> {
         contents = contents.split_off(3);
     }
 
-    // Prevent parsing error with empty string
-    if contents.is_empty() {
-        return Ok(Config::default());
+    match serde_yaml::from_str(&contents) {
+        Err(error) => {
+            // Prevent parsing error with an empty string and commented out file.
+            if std::error::Error::description(&error) == "EOF while parsing a value" {
+                Ok(Config::default())
+            } else {
+                Err(Error::Yaml(error))
+            }
+        },
+        Ok(config) => {
+            print_deprecation_warnings(&config);
+            Ok(config)
+        },
     }
-
-    let config = serde_yaml::from_str(&contents)?;
-
-    print_deprecation_warnings(&config);
-
-    Ok(config)
 }
 
 fn print_deprecation_warnings(config: &Config) {

@@ -19,6 +19,16 @@ pub struct UIConfig {
     pub mouse_bindings: Vec<MouseBinding>,
 }
 
+impl Default for UIConfig {
+    fn default() -> Self {
+        UIConfig {
+            mouse: Mouse::default(),
+            key_bindings: default_key_bindings(),
+            mouse_bindings: default_mouse_bindings(),
+        }
+    }
+}
+
 fn default_key_bindings() -> Vec<KeyBinding> {
     bindings::default_key_bindings()
 }
