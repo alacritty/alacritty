@@ -1,6 +1,5 @@
 use std::env;
-use std::fs::File;
-use std::io::{self, Read};
+use std::io;
 use std::path::PathBuf;
 
 #[cfg(windows)]
@@ -155,14 +154,17 @@ pub fn reload_from(path: &PathBuf) -> Result<Config> {
 }
 
 fn read_config(path: &PathBuf) -> Result<Config> {
-    let mut contents = String::new();
-    File::open(path)?.read_to_string(&mut contents)?;
+    let mut contents = std::fs::read_to_string(path)?;
 
     // Remove UTF-8 BOM
     if contents.chars().nth(0) == Some('\u{FEFF}') {
         contents = contents.split_off(3);
     }
 
+    parse_config(&contents)
+}
+
+fn parse_config(contents: &str) -> Result<Config> {
     match serde_yaml::from_str(&contents) {
         Err(error) => {
             // Prevent parsing error with an empty string and commented out file.
@@ -204,14 +206,13 @@ fn print_deprecation_warnings(config: &Config) {
 
 #[cfg(test)]
 mod test {
+    static DEFAULT_ALACRITTY_CONFIG: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.yml"));
+
     use super::Config;
-    use std::path::PathBuf;
 
     #[test]
     fn config_read_eof() {
-        let config_path: PathBuf = ["..", "alacritty.yml"].iter().collect();
-        let config = super::read_config(&config_path).unwrap();
-
-        assert_eq!(config, Config::default());
+        assert_eq!(super::parse_config(DEFAULT_ALACRITTY_CONFIG).unwrap(), Config::default());
     }
 }
