@@ -20,6 +20,12 @@ use crate::term::Term;
 use crate::tty;
 use crate::util::thread;
 
+use alacritty_charts::async_utils::AsyncChartTask;
+use alacritty_charts::{SizeInfo, TimeSeriesChart};
+use futures::future::lazy;
+use futures::sync::oneshot;
+use tokio::{prelude::*, runtime::current_thread};
+
 /// Messages that may be sent to the `EventLoop`
 #[derive(Debug)]
 pub enum Msg {
@@ -324,6 +330,56 @@ where
         }
 
         Ok(())
+    }
+
+    /// `spawn_async_tasks` Starts a background thread to be used for tokio for async tasks
+    pub fn spawn_async_tasks(
+        &self,
+        charts: Vec<TimeSeriesChart>,
+        charts_tx: futures::sync::mpsc::Sender<AsyncChartTask>,
+        charts_rx: futures::sync::mpsc::Receiver<AsyncChartTask>,
+        handle_tx: std::sync::mpsc::Sender<current_thread::Handle>,
+        charts_size_info: SizeInfo,
+    ) -> (thread::JoinHandle<()>, oneshot::Sender<()>) {
+        let (shutdown_tx, shutdown_rx) = futures::sync::oneshot::channel();
+        let tokio_thread = thread::spawn_named("async I/O", move || {
+            let mut tokio_runtime =
+                current_thread::Runtime::new().expect("Failed to start new tokio Runtime");
+            info!("Tokio runtime created.");
+
+            // Give a handle to the runtime back to the main thread.
+            handle_tx
+                .send(tokio_runtime.handle())
+                .expect("Unable to give runtime handle to the main thread");
+            let async_charts = charts.clone();
+            tokio_runtime.spawn(lazy(move || {
+                alacritty_charts::async_utils::async_coordinator(
+                    charts_rx,
+                    async_charts,
+                    charts_size_info.height,
+                    charts_size_info.width,
+                    charts_size_info.padding_y,
+                    charts_size_info.padding_x,
+                )
+            }));
+            let tokio_handle = tokio_runtime.handle().clone();
+            tokio_runtime.spawn(lazy(move || {
+                alacritty_charts::async_utils::spawn_charts_intervals(
+                    charts.clone(),
+                    charts_tx,
+                    tokio_handle,
+                );
+                Ok(())
+            }));
+            tokio_runtime.spawn({
+                shutdown_rx
+                    .map(|_x| info!("Got shutdown signal for Tokio"))
+                    .map_err(|err| panic!("Error on the tokio shutdown channel: {:?}", err))
+            });
+            tokio_runtime.run().expect("Unable to run Tokio tasks");
+            info!("Tokio runtime finished.");
+        });
+        (tokio_thread, shutdown_tx)
     }
 
     pub fn spawn(mut self, state: Option<State>) -> thread::JoinHandle<(Self, State)> {
