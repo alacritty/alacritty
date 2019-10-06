@@ -565,7 +565,11 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
             for _ in 0..lines {
                 self.mouse_report(code, ElementState::Pressed, modifiers);
             }
-        } else if self.ctx.terminal().mode().contains(TermMode::ALT_SCREEN)
+        } else if self
+            .ctx
+            .terminal()
+            .mode()
+            .contains(TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL)
             && faux_multiplier > 0
             && !modifiers.shift
         {
