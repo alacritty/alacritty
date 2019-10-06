@@ -34,7 +34,7 @@ use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use dirs;
 use glutin::event_loop::EventLoop as GlutinEventLoop;
-use log::{error, info};
+use log::info;
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
@@ -85,18 +85,8 @@ fn main() {
         .expect("Unable to initialize logger");
 
     // Load configuration file
-    // If the file is a command line argument, we won't write a generated default file
-    let config_path = options
-        .config_path()
-        .or_else(config::installed_config)
-        .or_else(|| config::write_defaults().ok())
-        .map(|path| path.to_path_buf());
-    let config = if let Some(path) = config_path {
-        config::load_from(path)
-    } else {
-        error!("Unable to write the default config");
-        Config::default()
-    };
+    let config_path = options.config_path().or_else(config::installed_config);
+    let config = config_path.map(config::load_from).unwrap_or_else(Config::default);
     let config = options.into_config(config);
 
     // Update the log level from config
