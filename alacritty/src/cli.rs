@@ -36,6 +36,7 @@ pub struct Options {
     pub embed: Option<String>,
     pub log_level: LevelFilter,
     pub command: Option<Shell<'static>>,
+    pub hold: bool,
     pub working_dir: Option<PathBuf>,
     pub config: Option<PathBuf>,
     pub persistent_logging: bool,
@@ -54,6 +55,7 @@ impl Default for Options {
             embed: None,
             log_level: LevelFilter::Warn,
             command: None,
+            hold: false,
             working_dir: None,
             config: None,
             persistent_logging: false,
@@ -169,6 +171,7 @@ impl Options {
                         .allow_hyphen_values(true)
                         .help("Command and args to execute (must be last argument)"),
                 )
+                .arg(Arg::with_name("hold").long("hold").help("Remain open after child process exits"))
                 .get_matches();
 
         if matches.is_present("ref-test") {
@@ -239,6 +242,10 @@ impl Options {
             options.command = Some(Shell::new_with_args(command, args));
         }
 
+        if matches.is_present("hold") {
+            options.hold = true;
+        }
+
         options
     }
 
@@ -277,6 +284,7 @@ impl Options {
         if config.debug.print_events {
             config.debug.log_level = max(config.debug.log_level, LevelFilter::Info);
         }
+        config.hold = self.hold;
 
         config
     }

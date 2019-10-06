@@ -133,6 +133,10 @@ pub struct Config<T> {
     #[serde(flatten)]
     pub ui_config: T,
 
+    /// Remain open after child process exits
+    #[serde(default, deserialize_with = "failure_default")]
+    pub hold: bool,
+
     // TODO: DEPRECATED
     #[serde(default, deserialize_with = "failure_default")]
     pub render_timer: Option<bool>,

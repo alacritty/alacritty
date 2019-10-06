@@ -760,6 +760,9 @@ pub struct Term<T> {
 
     /// Terminal focus
     pub is_focused: bool,
+
+    /// Do not close Alacritty when handling child process exit
+    hold: bool,
 }
 
 /// Terminal size info
@@ -887,6 +890,7 @@ impl<T> Term<T> {
             clipboard,
             event_proxy,
             is_focused: true,
+            hold: config.hold,
         }
     }
 
@@ -1215,6 +1219,16 @@ impl<T> Term<T> {
         T: EventListener,
     {
         self.event_proxy.send_event(Event::Exit);
+    }
+
+    #[inline]
+    pub fn handle_child_process_exit(&mut self)
+    where
+        T: EventListener,
+    {
+        if !self.hold {
+            self.exit();
+        }
     }
 
     #[inline]
@@ -2127,6 +2141,7 @@ impl IndexMut<Column> for TabStops {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
     use std::mem;
 
     use serde_json;
@@ -2143,6 +2158,16 @@ mod tests {
     struct Mock;
     impl EventListener for Mock {
         fn send_event(&self, _event: Event) {}
+    }
+
+    struct EventSpy {
+        latest_event: RefCell<Option<Event>>,
+    }
+
+    impl EventListener for EventSpy {
+        fn send_event(&self, event: Event) {
+            *self.latest_event.borrow_mut() = Some(event);
+        }
     }
 
     #[test]
@@ -2300,6 +2325,52 @@ mod tests {
         let mut scrolled_grid = term.grid.clone();
         scrolled_grid.scroll_display(Scroll::Top);
         assert_eq!(term.grid, scrolled_grid);
+    }
+
+    #[test]
+    fn should_not_exit_if_hold() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut config = MockConfig::default();
+        config.hold = true;
+        let mut term = Term::new(
+            &config,
+            &size,
+            Clipboard::new_nop(),
+            EventSpy { latest_event: RefCell::new(None) },
+        );
+        term.handle_child_process_exit();
+        assert_eq!(term.event_proxy.latest_event.into_inner(), None);
+    }
+
+    #[test]
+    fn should_exit_if_not_hold() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut config = MockConfig::default();
+        config.hold = false;
+        let mut term = Term::new(
+            &config,
+            &size,
+            Clipboard::new_nop(),
+            EventSpy { latest_event: RefCell::new(None) },
+        );
+        term.handle_child_process_exit();
+        assert_eq!(term.event_proxy.latest_event.into_inner(), Some(Event::Exit));
     }
 }
 

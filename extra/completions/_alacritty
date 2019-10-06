@@ -11,6 +11,7 @@ _arguments \
   "--print-events[print all events to stdout]" \
   '(-v)'{-q,-qq}"[reduce the level of verbosity (min is -qq)]" \
   "--ref-test[generate ref test]" \
+  "--hold[Remain open after child process exits]" \
   '(-q)'{-v,-vv,-vvv}"[increase the level of verbosity (max is -vvv)]" \
   "$ign(-)"{-V,--version}"[print version information]" \
   "--class=[define the window class]:class" \
