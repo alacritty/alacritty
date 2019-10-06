@@ -227,13 +227,18 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
     // charts background task.
     let (charts_tx, charts_rx) = mpsc::channel(4_096usize);
 
+    // Create a channel to receive a handle from Tokio
+    let (handle_tx, handle_rx) = std::sync::mpsc::channel();
     // Start the Async I/O runtime
-    let tokio_shutdown_channel = event_loop.spawn_async_tasks(
+    let (tokio_thread, tokio_shutdown) = event_loop.spawn_async_tasks(
         config.charts.clone(),
         charts_tx.clone(),
         charts_rx,
+        handle_tx,
         charts_size_info,
     );
+    let tokio_handle =
+        handle_rx.recv().expect("Unable to get the tokio handle in a background thread");
     // Kick off the I/O thread
     let _event_loop = event_loop.spawn(None);
 
@@ -267,7 +272,10 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
         // Maybe draw the terminal
         if terminal_lock.needs_draw()
             || chart_last_drawn
-                != alacritty_charts::async_utils::get_last_updated_chart_epoch(charts_tx.clone())
+                != alacritty_charts::async_utils::get_last_updated_chart_epoch(
+                    charts_tx.clone(),
+                    tokio_handle.clone(),
+                )
         {
             // Try to update the position of the input method editor
             #[cfg(not(windows))]
@@ -283,12 +291,13 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
                 &mut resize_handle,
                 &mut processor,
                 charts_tx.clone(),
+                tokio_handle.clone(),
             );
 
             drop(terminal_lock);
 
             // Draw the current state of the terminal
-            display.draw(&terminal, &config, charts_tx.clone());
+            display.draw(&terminal, &config, charts_tx.clone(), tokio_handle.clone());
             chart_last_drawn =
                 std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         }
@@ -300,8 +309,11 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
         write_ref_test_results(&terminal.lock());
     }
 
+    tokio_shutdown.send(()).expect("Unable to send shutdown signal to tokio runtime");
+    // FIXME: For some reason if I try this it will never finish.
+    // I believe this is because the interval runs from Tokio have not been cancelled.
+    // tokio_thread.join().expect("Unable to shutdown tokio channel");
     loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to event loop");
-    tokio_shutdown_channel.send(true).expect("Unable to send shutdown signal to tokio runtime");
 
     // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();
