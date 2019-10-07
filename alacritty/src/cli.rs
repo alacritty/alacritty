@@ -171,7 +171,11 @@ impl Options {
                         .allow_hyphen_values(true)
                         .help("Command and args to execute (must be last argument)"),
                 )
-                .arg(Arg::with_name("hold").long("hold").help("Remain open after child process exits"))
+                .arg(
+                    Arg::with_name("hold")
+                        .long("hold")
+                        .help("Remain open after child process exits")
+                )
                 .get_matches();
 
         if matches.is_present("ref-test") {
@@ -262,6 +266,8 @@ impl Options {
         );
         config.shell = self.command.or(config.shell);
 
+        config.hold = self.hold;
+
         config.window.dimensions = self.dimensions.unwrap_or(config.window.dimensions);
         config.window.position = self.position.or(config.window.position);
         config.window.title = self.title.or(config.window.title);
@@ -284,7 +290,6 @@ impl Options {
         if config.debug.print_events {
             config.debug.log_level = max(config.debug.log_level, LevelFilter::Info);
         }
-        config.hold = self.hold;
 
         config
     }

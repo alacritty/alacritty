@@ -134,7 +134,7 @@ pub struct Config<T> {
     pub ui_config: T,
 
     /// Remain open after child process exits
-    #[serde(default, deserialize_with = "failure_default")]
+    #[serde(skip)]
     pub hold: bool,
 
     // TODO: DEPRECATED
