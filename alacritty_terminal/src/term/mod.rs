@@ -1131,13 +1131,14 @@ impl Term {
     }
 
     /// Iterate over the text runs in the terminal
-    /// 
-    /// A text run is a continuous line of cells that all share the same rendering properties (background color, foreground color, etc.).
+    ///
+    /// A text run is a continuous line of cells that all share the same rendering properties
+    /// (background color, foreground color, etc.).
     pub fn text_runs<'b>(
         &'b self,
         config: &'b Config,
         window_focused: bool,
-    ) -> impl Iterator<Item=TextRun> + 'b {
+    ) -> impl Iterator<Item = TextRun> + 'b {
         // Logic for WIDE_CHAR is handled internally by TextRun
         // So we no longer need WIDE_CHAR_SPACER at this point.
         let filtered_cells: std::iter::Filter<

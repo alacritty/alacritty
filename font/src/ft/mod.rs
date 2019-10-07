@@ -292,7 +292,12 @@ impl FreeTypeRasterizer {
             // Construct harfbuzz font
             let hb_font = Font::new(HbFace::from_file(&path, index as u32)?);
             //let hb_font = unsafe {
-            //    let hb_font_raw = harfbuzz_rs::hb::hb_ft_font_create_referenced(ft_face.raw_mut() as *mut _ as *mut u64 as *mut _);
+            //    // Cast here is done to convert a C struct from the freetype-rs Rust type to the
+            //    // freetype Rust type that harfbuzz accepts.
+            //    let hb_font_raw = harfbuzz_rs::hb::hb_ft_font_create_referenced(ft_face.raw_mut()
+            //        as *mut _
+            //        as *mut u64
+            //        as *mut _);
             //    harfbuzz_rs::Owned::from_raw(hb_font_raw)
             //};
 

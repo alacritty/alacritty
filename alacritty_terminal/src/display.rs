@@ -31,7 +31,7 @@ use crate::renderer::rects::RenderRect;
 use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::sync::FairMutex;
 use crate::term::{cell::Flags, color::Rgb, SizeInfo, Term};
-use crate::text_run::{TextRun, TextRunIter};
+use crate::text_run::TextRun;
 use crate::window::{self, Window};
 use font::{self, Rasterize};
 
