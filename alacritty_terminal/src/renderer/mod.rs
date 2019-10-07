@@ -37,10 +37,10 @@ use crate::gl;
 use crate::gl::types::*;
 use crate::index::{Column, Line};
 use crate::renderer::rects::RenderRect;
-use crate::term::cell::{self, Flags, MAX_ZEROWIDTH_CHARS};
+use crate::term::cell::{Flags, MAX_ZEROWIDTH_CHARS};
 use crate::term::color::Rgb;
 use crate::term::SizeInfo;
-use crate::term::{self, RenderableCell, RenderableCellContent};
+use crate::term::{self, RenderableCell};
 use crate::text_run::{TextRun, TextRunContent};
 use crate::util;
 
@@ -1101,7 +1101,7 @@ impl<'a, C> RenderApi<'a, C> {
 
     fn render_cursor(
         &mut self,
-        start_cell: &RenderableCell,
+        start_cell: RenderableCell,
         cursor_key: CursorKey,
         glyph_cache: &mut GlyphCache,
     ) {
@@ -1132,7 +1132,7 @@ impl<'a, C> RenderApi<'a, C> {
     fn render_zero_widths<'r, I>(
         &mut self,
         zero_width_chars: I,
-        cell: &RenderableCell,
+        cell: RenderableCell,
         font_key: FontKey,
         glyph_cache: &mut GlyphCache,
     ) where
@@ -1157,7 +1157,7 @@ impl<'a, C> RenderApi<'a, C> {
     pub fn render_text_run(&mut self, text_run: TextRun, glyph_cache: &mut GlyphCache) {
         match &text_run.content {
             TextRunContent::Cursor(cursor_key) => {
-                self.render_cursor(&text_run.start_cell(), *cursor_key, glyph_cache)
+                self.render_cursor(text_run.start_cell(), *cursor_key, glyph_cache)
             },
             TextRunContent::CharRun(run, zero_widths) => {
                 // Get font key for cell
@@ -1172,17 +1172,17 @@ impl<'a, C> RenderApi<'a, C> {
                 for ((cell, glyph), zero_width_chars) in
                     text_run.cells().zip(shaped_glyphs).zip(zero_widths.iter())
                 {
-                    self.add_render_item(&cell, &glyph);
+                    self.add_render_item(cell, &glyph);
                     // Add empty spacer for full width characters
                     if text_run.flags.contains(Flags::WIDE_CHAR) {
                         self.add_render_item(
-                            &RenderableCell { column: cell.column + 1, ..cell.clone() },
+                            RenderableCell { column: cell.column + 1, ..cell },
                             &Glyph::default(),
                         );
                     }
                     self.render_zero_widths(
                         zero_width_chars.iter().filter(|c| **c != ' '),
-                        &cell,
+                        cell,
                         font_key,
                         glyph_cache,
                     );

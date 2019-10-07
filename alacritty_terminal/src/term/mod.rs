@@ -1080,7 +1080,7 @@ impl<T> Term<T> {
         // Logic for WIDE_CHAR is handled internally by TextRun
         // So we no longer need WIDE_CHAR_SPACER at this point.
         let filtered_cells: std::iter::Filter<
-            RenderableCellsIter<'b>,
+            RenderableCellsIter<'b, C>,
             fn(&RenderableCell) -> bool,
         > = self
             .renderable_cells(config)
