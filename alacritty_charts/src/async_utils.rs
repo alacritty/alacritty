@@ -8,6 +8,7 @@ use futures::sync::{mpsc, oneshot};
 use log::*;
 use std::time::{Duration, Instant};
 use tokio::prelude::*;
+use tokio::runtime::current_thread;
 use tokio::timer::Interval;
 
 // TODO:
@@ -35,7 +36,10 @@ pub enum AsyncChartTask {
 
 /// Sends a request to the async_coordinator to get the latest update epoch of all
 /// the charts
-pub fn get_last_updated_chart_epoch(charts_tx: mpsc::Sender<AsyncChartTask>) -> u64 {
+pub fn get_last_updated_chart_epoch(
+    charts_tx: mpsc::Sender<AsyncChartTask>,
+    tokio_handle: current_thread::Handle,
+) -> u64 {
     let (chart_tx, chart_rx) = oneshot::channel();
     let get_latest_update_epoch = charts_tx
         .send(AsyncChartTask::SendLastUpdatedEpoch(chart_tx))
@@ -44,7 +48,9 @@ pub fn get_last_updated_chart_epoch(charts_tx: mpsc::Sender<AsyncChartTask>) -> 
             debug!("Sent Request for SendLastUpdatedEpoch");
             Ok(())
         });
-    tokio::spawn(lazy(move || get_latest_update_epoch));
+    tokio_handle
+        .spawn(lazy(move || get_latest_update_epoch))
+        .expect("Unable to queue async task for get_latest_update_epoch");
     let chart_rx = chart_rx.map(|x| x);
     match chart_rx.wait() {
         Ok(data) => {
@@ -297,6 +303,7 @@ fn fetch_prometheus_response(
 pub fn spawn_charts_intervals(
     charts: Vec<TimeSeriesChart>,
     charts_tx: mpsc::Sender<AsyncChartTask>,
+    tokio_handle: current_thread::Handle,
 ) {
     let mut chart_index = 0usize;
     for chart in charts {
@@ -314,9 +321,9 @@ pub fn spawn_charts_intervals(
                     data: None,
                 };
                 let charts_tx = charts_tx.clone();
-                tokio::spawn(lazy(move || {
-                    spawn_datasource_interval_polls(&data_request, charts_tx)
-                }));
+                tokio_handle
+                    .spawn(lazy(move || spawn_datasource_interval_polls(&data_request, charts_tx)))
+                    .expect("Got error spawning datasource internal polls");
             }
             series_index += 1;
         }
@@ -364,6 +371,7 @@ pub fn get_metric_opengl_vecs(
     chart_idx: usize,
     series_idx: usize,
     request_type: &'static str,
+    tokio_handle: current_thread::Handle,
 ) -> Vec<f32> {
     let (opengl_tx, opengl_rx) = oneshot::channel();
     let get_opengl_task = charts_tx
@@ -381,7 +389,7 @@ pub fn get_metric_opengl_vecs(
             );
             Ok(())
         });
-    tokio::spawn(lazy(move || get_opengl_task));
+    tokio_handle.spawn(lazy(move || get_opengl_task));
     let opengl_rx = opengl_rx.map(|x| x);
     match opengl_rx.wait() {
         Ok(data) => {
@@ -400,23 +408,28 @@ pub fn run(config: crate::config::Config) {
     let charts = config.charts.clone();
     // Create the channel that is used to communicate with the
     // background task.
+    // XXX: Create a thread::spawn, get the handle and redo.
     let (tx, rx) = mpsc::channel(4_096usize);
-    let poll_tx = tx.clone();
-    tokio::run(lazy(move || {
-        let size = SizeInfo {
-            width: 100.,
-            height: 100.,
-            chart_width: 100.,
-            chart_height: 100.,
-            cell_width: 0.,
-            cell_height: 0.,
-            padding_x: 0.,
-            padding_y: 0.,
-        };
-        tokio::spawn(lazy(move || {
-            async_coordinator(rx, charts, size.height, size.width, size.padding_y, size.padding_x)
-        }));
-        spawn_charts_intervals(config.charts.clone(), poll_tx.clone());
-        Ok(())
+    let _poll_tx = tx.clone();
+    let mut tokio_runtime =
+        tokio::runtime::Runtime::new().expect("Unable to start the tokio runtime");
+    let size = SizeInfo {
+        width: 100.,
+        height: 100.,
+        chart_width: 100.,
+        chart_height: 100.,
+        cell_width: 0.,
+        cell_height: 0.,
+        padding_x: 0.,
+        padding_y: 0.,
+    };
+    tokio_runtime.spawn(lazy(move || {
+        async_coordinator(rx, charts, size.height, size.width, size.padding_y, size.padding_x)
     }));
+    // let tokio_handle = tokio_runtime.executor().clone();
+    // tokio_runtime.spawn(lazy(move || {
+    //    spawn_charts_intervals(config.charts.clone(), poll_tx.clone(), tokio_handle);
+    //    Ok(())
+    //}));
+    // tokio_runtime.run().expect("Unable to run tokio tasks");
 }
