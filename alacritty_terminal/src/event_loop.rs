@@ -6,19 +6,21 @@ use std::io::{self, ErrorKind, Read, Write};
 use std::marker::Send;
 use std::sync::Arc;
 
+use log::error;
+#[cfg(not(windows))]
+use mio::unix::UnixReady;
 use mio::{self, Events, PollOpt, Ready};
 use mio_extras::channel::{self, Receiver, Sender};
 
-#[cfg(not(windows))]
-use mio::unix::UnixReady;
-
 use crate::ansi;
-use crate::display;
-use crate::event;
+use crate::event::{self, Event, EventListener};
 use crate::sync::FairMutex;
 use crate::term::Term;
 use crate::tty;
 use crate::util::thread;
+
+/// Max bytes to read from the PTY
+const MAX_READ: usize = 0x10_000;
 
 /// Messages that may be sent to the `EventLoop`
 #[derive(Debug)]
@@ -34,13 +36,13 @@ pub enum Msg {
 ///
 /// Handles all the pty I/O and runs the pty parser which updates terminal
 /// state.
-pub struct EventLoop<T: tty::EventedPty> {
+pub struct EventLoop<T: tty::EventedPty, U: EventListener> {
     poll: mio::Poll,
     pty: T,
     rx: Receiver<Msg>,
     tx: Sender<Msg>,
-    terminal: Arc<FairMutex<Term>>,
-    display: display::Notifier,
+    terminal: Arc<FairMutex<Term<U>>>,
+    event_proxy: U,
     ref_test: bool,
 }
 
@@ -48,26 +50,6 @@ pub struct EventLoop<T: tty::EventedPty> {
 struct Writing {
     source: Cow<'static, [u8]>,
     written: usize,
-}
-
-/// Indicates the result of draining the mio channel
-#[derive(Debug)]
-enum DrainResult {
-    /// At least one new item was received
-    ReceivedItem,
-    /// Nothing was available to receive
-    Empty,
-    /// A shutdown message was received
-    Shutdown,
-}
-
-impl DrainResult {
-    pub fn is_shutdown(&self) -> bool {
-        match *self {
-            DrainResult::Shutdown => true,
-            _ => false,
-        }
-    }
 }
 
 /// All of the mutable state needed to run the event loop
@@ -155,17 +137,18 @@ impl Writing {
     }
 }
 
-impl<T> EventLoop<T>
+impl<T, U> EventLoop<T, U>
 where
     T: tty::EventedPty + Send + 'static,
+    U: EventListener + Send + 'static,
 {
     /// Create a new event loop
     pub fn new(
-        terminal: Arc<FairMutex<Term>>,
-        display: display::Notifier,
+        terminal: Arc<FairMutex<Term<U>>>,
+        event_proxy: U,
         pty: T,
         ref_test: bool,
-    ) -> EventLoop<T> {
+    ) -> EventLoop<T, U> {
         let (tx, rx) = channel::channel();
         EventLoop {
             poll: mio::Poll::new().expect("create mio Poll"),
@@ -173,7 +156,7 @@ where
             tx,
             rx,
             terminal,
-            display,
+            event_proxy,
             ref_test,
         }
     }
@@ -184,33 +167,22 @@ where
 
     // Drain the channel
     //
-    // Returns a `DrainResult` indicating the result of receiving from the channel
-    //
-    fn drain_recv_channel(&self, state: &mut State) -> DrainResult {
-        let mut received_item = false;
+    // Returns `false` when a shutdown message was received.
+    fn drain_recv_channel(&self, state: &mut State) -> bool {
         while let Ok(msg) = self.rx.try_recv() {
-            received_item = true;
             match msg {
-                Msg::Input(input) => {
-                    state.write_list.push_back(input);
-                },
-                Msg::Shutdown => {
-                    return DrainResult::Shutdown;
-                },
+                Msg::Input(input) => state.write_list.push_back(input),
+                Msg::Shutdown => return false,
             }
         }
 
-        if received_item {
-            DrainResult::ReceivedItem
-        } else {
-            DrainResult::Empty
-        }
+        true
     }
 
     // Returns a `bool` indicating whether or not the event loop should continue running
     #[inline]
     fn channel_event(&mut self, token: mio::Token, state: &mut State) -> bool {
-        if self.drain_recv_channel(state).is_shutdown() {
+        if !self.drain_recv_channel(state) {
             return false;
         }
 
@@ -231,12 +203,8 @@ where
     where
         X: Write,
     {
-        const MAX_READ: usize = 0x1_0000;
         let mut processed = 0;
         let mut terminal = None;
-
-        // Flag to keep track if wakeup has already been sent
-        let mut send_wakeup = false;
 
         loop {
             match self.pty.reader().read(&mut buf[..]) {
@@ -255,14 +223,10 @@ where
                     // Get reference to terminal. Lock is acquired on initial
                     // iteration and held until there's no bytes left to parse
                     // or we've reached MAX_READ.
-                    let terminal = if terminal.is_none() {
+                    if terminal.is_none() {
                         terminal = Some(self.terminal.lock());
-                        let terminal = terminal.as_mut().unwrap();
-                        send_wakeup = !terminal.dirty;
-                        terminal
-                    } else {
-                        terminal.as_mut().unwrap()
-                    };
+                    }
+                    let terminal = terminal.as_mut().unwrap();
 
                     // Run the parser
                     for byte in &buf[..got] {
@@ -283,13 +247,8 @@ where
             }
         }
 
-        // Only request a draw if one hasn't already been requested.
-        if let Some(mut terminal) = terminal {
-            if send_wakeup {
-                self.display.notify();
-                terminal.dirty = true;
-            }
-        }
+        // Queue terminal redraw
+        self.event_proxy.send_event(Event::Wakeup);
 
         Ok(())
     }
@@ -326,10 +285,10 @@ where
         Ok(())
     }
 
-    pub fn spawn(mut self, state: Option<State>) -> thread::JoinHandle<(Self, State)> {
+    pub fn spawn(mut self) -> thread::JoinHandle<(Self, State)> {
         thread::spawn_named("pty reader", move || {
-            let mut state = state.unwrap_or_else(Default::default);
-            let mut buf = [0u8; 0x1000];
+            let mut state = State::default();
+            let mut buf = [0u8; MAX_READ];
 
             let mut tokens = (0..).map(Into::into);
 
@@ -369,7 +328,7 @@ where
                         token if token == self.pty.child_event_token() => {
                             if let Some(tty::ChildEvent::Exited) = self.pty.next_child_event() {
                                 self.terminal.lock().exit();
-                                self.display.notify();
+                                self.event_proxy.send_event(Event::Wakeup);
                                 break 'event_loop;
                             }
                         },

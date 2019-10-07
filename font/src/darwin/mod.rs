@@ -606,12 +606,11 @@ mod tests {
                         let index = ((glyph.width * 3 * row) + (col * 3)) as usize;
                         let value = glyph.buf[index];
                         let c = match value {
-                            0...50 => ' ',
-                            51...100 => '.',
-                            101...150 => '~',
-                            151...200 => '*',
-                            201...255 => '#',
-                            _ => unreachable!(),
+                            0..=50 => ' ',
+                            51..=100 => '.',
+                            101..=150 => '~',
+                            151..=200 => '*',
+                            201..=255 => '#',
                         };
                         print!("{}", c);
                     }

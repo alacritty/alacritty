@@ -19,6 +19,8 @@ use std::cmp::{Ord, Ordering};
 use std::fmt;
 use std::ops::{self, Add, AddAssign, Deref, Range, RangeInclusive, Sub, SubAssign};
 
+use serde::{Deserialize, Serialize};
+
 use crate::term::RenderableCell;
 
 /// The side of a cell
@@ -77,8 +79,8 @@ impl From<Point> for Point<usize> {
     }
 }
 
-impl From<&RenderableCell> for Point<Line> {
-    fn from(cell: &RenderableCell) -> Self {
+impl From<RenderableCell> for Point<Line> {
+    fn from(cell: RenderableCell) -> Self {
         Point::new(cell.line, cell.column)
     }
 }

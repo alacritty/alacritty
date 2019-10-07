@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::Cow;
 use std::cmp::max;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
 use log::{self, LevelFilter};
 
-use alacritty_terminal::config::{Config, Delta, Dimensions, Shell};
+use alacritty_terminal::config::{Delta, Dimensions, Shell, DEFAULT_NAME};
 use alacritty_terminal::index::{Column, Line};
-use alacritty_terminal::window::DEFAULT_NAME;
+
+use crate::config::Config;
 
 /// Options specified on the command line
 pub struct Options {
@@ -241,8 +241,8 @@ impl Options {
         options
     }
 
-    pub fn config_path(&self) -> Option<Cow<'_, Path>> {
-        self.config.as_ref().map(|p| Cow::Borrowed(p.as_path()))
+    pub fn config_path(&self) -> Option<PathBuf> {
+        self.config.clone()
     }
 
     pub fn into_config(self, mut config: Config) -> Config {
@@ -283,14 +283,12 @@ impl Options {
 
 #[cfg(test)]
 mod test {
-    use alacritty_terminal::config::{Config, DEFAULT_ALACRITTY_CONFIG};
-
     use crate::cli::Options;
+    use crate::config::Config;
 
     #[test]
     fn dynamic_title_ignoring_options_by_default() {
-        let config: Config =
-            ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("deserialize config");
+        let config = Config::default();
         let old_dynamic_title = config.dynamic_title();
 
         let config = Options::default().into_config(config);
@@ -300,8 +298,7 @@ mod test {
 
     #[test]
     fn dynamic_title_overridden_by_options() {
-        let config: Config =
-            ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("deserialize config");
+        let config = Config::default();
 
         let mut options = Options::default();
         options.title = Some("foo".to_owned());
@@ -312,8 +309,7 @@ mod test {
 
     #[test]
     fn dynamic_title_overridden_by_config() {
-        let mut config: Config =
-            ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("deserialize config");
+        let mut config = Config::default();
 
         config.window.title = Some("foo".to_owned());
         let config = Options::default().into_config(config);

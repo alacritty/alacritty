@@ -152,24 +152,15 @@ properly.
 
 ## Configuration
 
-Although it's possible the default configuration would work on your system,
-you'll probably end up wanting to customize it anyhow. There is a default
-`alacritty.yml` at the Git repository root. Alacritty looks for the
-configuration file at the following paths:
+You can find the default configuration file with documentation for all available
+fields on the [GitHub releases page](https://github.com/jwilm/alacritty/releases) for each release.
+
+Alacritty looks for the configuration file at the following paths:
 
 1. `$XDG_CONFIG_HOME/alacritty/alacritty.yml`
 2. `$XDG_CONFIG_HOME/alacritty.yml`
 3. `$HOME/.config/alacritty/alacritty.yml`
 4. `$HOME/.alacritty.yml`
-
-If none of these paths are found then
-`$XDG_CONFIG_HOME/alacritty/alacritty.yml` is created once Alacritty is first
-run. On most systems this often defaults to
-`$HOME/.config/alacritty/alacritty.yml`.
-
-Many configuration options will take effect immediately upon saving changes to
-the config file. For more information about the config file structure, refer to
-the default config file.
 
 ### Windows
 

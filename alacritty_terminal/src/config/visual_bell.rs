@@ -1,10 +1,12 @@
 use std::time::Duration;
 
+use serde::Deserialize;
+
 use crate::config::failure_default;
 use crate::term::color::Rgb;
 
 #[serde(default)]
-#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct VisualBellConfig {
     /// Visual bell animation function
     #[serde(deserialize_with = "failure_default")]

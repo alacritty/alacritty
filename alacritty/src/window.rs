@@ -14,41 +14,42 @@
 use std::convert::From;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::ffi::c_void;
-use std::fmt::Display;
+use std::fmt;
 
-use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
+use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
+use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
-use glutin::os::macos::WindowExt;
+use glutin::platform::macos::{RequestUserAttentionType, WindowBuilderExtMacOS, WindowExtMacOS};
 #[cfg(not(any(target_os = "macos", windows)))]
-use glutin::os::unix::{EventsLoopExt, WindowExt};
+use glutin::platform::unix::{EventLoopWindowTargetExtUnix, WindowBuilderExtUnix, WindowExtUnix};
 #[cfg(not(target_os = "macos"))]
-use glutin::Icon;
-#[cfg(not(any(target_os = "macos", windows)))]
-use glutin::Window as GlutinWindow;
-use glutin::{
-    self, ContextBuilder, ControlFlow, Event, EventsLoop, MouseCursor, PossiblyCurrent,
-    WindowBuilder,
-};
+use glutin::window::Icon;
+use glutin::window::{CursorIcon, Fullscreen, Window as GlutinWindow, WindowBuilder, WindowId};
+use glutin::{self, ContextBuilder, PossiblyCurrent, WindowedContext};
 #[cfg(not(target_os = "macos"))]
 use image::ImageFormat;
 #[cfg(not(any(target_os = "macos", windows)))]
 use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 
-use crate::config::{Config, Decorations, StartupMode, WindowConfig};
-use crate::gl;
+use alacritty_terminal::config::{Decorations, StartupMode, WindowConfig, DEFAULT_NAME};
+use alacritty_terminal::event::Event;
+use alacritty_terminal::gl;
+use alacritty_terminal::term::{SizeInfo, Term};
+
+use crate::config::Config;
 
 // It's required to be in this directory due to the `windows.rc` file
 #[cfg(not(target_os = "macos"))]
 static WINDOW_ICON: &[u8] = include_bytes!("../../extra/windows/alacritty.ico");
-
-/// Default Alacritty name, used for window title and class.
-pub const DEFAULT_NAME: &str = "Alacritty";
 
 /// Window errors
 #[derive(Debug)]
 pub enum Error {
     /// Error creating the window
     ContextCreation(glutin::CreationError),
+
+    /// Error dealing with fonts
+    Font(font::Error),
 
     /// Error manipulating the rendering context
     Context(glutin::ContextError),
@@ -57,43 +58,12 @@ pub enum Error {
 /// Result of fallible operations concerning a Window.
 type Result<T> = ::std::result::Result<T, Error>;
 
-/// A window which can be used for displaying the terminal
-///
-/// Wraps the underlying windowing library to provide a stable API in Alacritty
-pub struct Window {
-    event_loop: EventsLoop,
-    windowed_context: glutin::WindowedContext<PossiblyCurrent>,
-    mouse_visible: bool,
-
-    /// Keep track of the current mouse cursor to avoid unnecessarily changing it
-    current_mouse_cursor: MouseCursor,
-
-    /// Whether or not the window is the focused window.
-    pub is_focused: bool,
-}
-
-/// Threadsafe APIs for the window
-pub struct Proxy {
-    inner: glutin::EventsLoopProxy,
-}
-
-/// Information about where the window is being displayed
-///
-/// Useful for subsystems like the font rasterized which depend on DPI and scale
-/// factor.
-pub struct DeviceProperties {
-    /// Scale factor for pixels <-> points.
-    ///
-    /// This will be 1. on standard displays and may have a different value on
-    /// hidpi displays.
-    pub scale_factor: f64,
-}
-
 impl ::std::error::Error for Error {
     fn cause(&self) -> Option<&dyn (::std::error::Error)> {
         match *self {
             Error::ContextCreation(ref err) => Some(err),
             Error::Context(ref err) => Some(err),
+            Error::Font(ref err) => Some(err),
         }
     }
 
@@ -101,15 +71,17 @@ impl ::std::error::Error for Error {
         match *self {
             Error::ContextCreation(ref _err) => "Error creating gl context",
             Error::Context(ref _err) => "Error operating on render context",
+            Error::Font(ref err) => err.description(),
         }
     }
 }
 
-impl Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::ContextCreation(ref err) => write!(f, "Error creating GL context; {}", err),
             Error::Context(ref err) => write!(f, "Error operating on render context; {}", err),
+            Error::Font(ref err) => err.fmt(f),
         }
     }
 }
@@ -126,14 +98,20 @@ impl From<glutin::ContextError> for Error {
     }
 }
 
+impl From<font::Error> for Error {
+    fn from(val: font::Error) -> Error {
+        Error::Font(val)
+    }
+}
+
 fn create_gl_window(
     mut window: WindowBuilder,
-    event_loop: &EventsLoop,
+    event_loop: &EventLoop<Event>,
     srgb: bool,
     dimensions: Option<LogicalSize>,
-) -> Result<glutin::WindowedContext<PossiblyCurrent>> {
+) -> Result<WindowedContext<PossiblyCurrent>> {
     if let Some(dimensions) = dimensions {
-        window = window.with_dimensions(dimensions);
+        window = window.with_inner_size(dimensions);
     }
 
     let windowed_context = ContextBuilder::new()
@@ -148,25 +126,33 @@ fn create_gl_window(
     Ok(windowed_context)
 }
 
+/// A window which can be used for displaying the terminal
+///
+/// Wraps the underlying windowing library to provide a stable API in Alacritty
+pub struct Window {
+    windowed_context: WindowedContext<PossiblyCurrent>,
+    current_mouse_cursor: CursorIcon,
+    mouse_visible: bool,
+}
+
 impl Window {
     /// Create a new window
     ///
     /// This creates a window and fully initializes a window.
     pub fn new(
-        event_loop: EventsLoop,
+        event_loop: &EventLoop<Event>,
         config: &Config,
-        dimensions: Option<LogicalSize>,
+        logical: Option<LogicalSize>,
     ) -> Result<Window> {
         let title = config.window.title.as_ref().map_or(DEFAULT_NAME, |t| t);
 
         let window_builder = Window::get_platform_window(title, &config.window);
         let windowed_context =
-            create_gl_window(window_builder.clone(), &event_loop, false, dimensions)
-                .or_else(|_| create_gl_window(window_builder, &event_loop, true, dimensions))?;
-        let window = windowed_context.window();
+            create_gl_window(window_builder.clone(), &event_loop, false, logical)
+                .or_else(|_| create_gl_window(window_builder, &event_loop, true, logical))?;
 
         // Text cursor
-        window.set_cursor(MouseCursor::Text);
+        windowed_context.window().set_cursor_icon(CursorIcon::Text);
 
         // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
@@ -176,80 +162,33 @@ impl Window {
         {
             if event_loop.is_x11() {
                 if let Some(parent_window_id) = config.window.embed {
-                    x_embed_window(window, parent_window_id);
+                    x_embed_window(windowed_context.window(), parent_window_id);
                 }
             }
         }
 
-        let window = Window {
-            event_loop,
-            current_mouse_cursor: MouseCursor::Default,
-            windowed_context,
+        Ok(Window {
+            current_mouse_cursor: CursorIcon::Default,
             mouse_visible: true,
-            is_focused: false,
-        };
-
-        Ok(window)
-    }
-
-    /// Get some properties about the device
-    ///
-    /// Some window properties are provided since subsystems like font
-    /// rasterization depend on DPI and scale factor.
-    pub fn device_properties(&self) -> DeviceProperties {
-        DeviceProperties { scale_factor: self.window().get_hidpi_factor() }
-    }
-
-    pub fn inner_size_pixels(&self) -> Option<LogicalSize> {
-        self.window().get_inner_size()
+            windowed_context,
+        })
     }
 
     pub fn set_inner_size(&mut self, size: LogicalSize) {
         self.window().set_inner_size(size);
     }
 
-    #[inline]
+    pub fn inner_size(&self) -> LogicalSize {
+        self.window().inner_size()
+    }
+
     pub fn hidpi_factor(&self) -> f64 {
-        self.window().get_hidpi_factor()
+        self.window().hidpi_factor()
     }
 
     #[inline]
-    pub fn create_window_proxy(&self) -> Proxy {
-        Proxy { inner: self.event_loop.create_proxy() }
-    }
-
-    #[inline]
-    pub fn swap_buffers(&self) -> Result<()> {
-        self.windowed_context.swap_buffers().map_err(From::from)
-    }
-
-    /// Poll for any available events
-    #[inline]
-    pub fn poll_events<F>(&mut self, func: F)
-    where
-        F: FnMut(Event),
-    {
-        self.event_loop.poll_events(func);
-    }
-
-    #[inline]
-    pub fn resize(&self, size: PhysicalSize) {
-        self.windowed_context.resize(size);
-    }
-
-    /// Show window
-    #[inline]
-    pub fn show(&self) {
-        self.window().show();
-    }
-
-    /// Block waiting for events
-    #[inline]
-    pub fn wait_events<F>(&mut self, func: F)
-    where
-        F: FnMut(Event) -> ControlFlow,
-    {
-        self.event_loop.run_forever(func);
+    pub fn set_visible(&self, visibility: bool) {
+        self.window().set_visible(visibility);
     }
 
     /// Set the window title
@@ -259,10 +198,10 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_mouse_cursor(&mut self, cursor: MouseCursor) {
+    pub fn set_mouse_cursor(&mut self, cursor: CursorIcon) {
         if cursor != self.current_mouse_cursor {
             self.current_mouse_cursor = cursor;
-            self.window().set_cursor(cursor);
+            self.window().set_cursor_icon(cursor);
         }
     }
 
@@ -270,27 +209,29 @@ impl Window {
     pub fn set_mouse_visible(&mut self, visible: bool) {
         if visible != self.mouse_visible {
             self.mouse_visible = visible;
-            self.window().hide_cursor(!visible);
+            self.window().set_cursor_visible(visible);
         }
     }
 
     #[cfg(not(any(target_os = "macos", windows)))]
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
-        use glutin::os::unix::WindowBuilderExt;
-
         let decorations = match window_config.decorations {
             Decorations::None => false,
             _ => true,
         };
 
-        let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO);
+        let image = image::load_from_memory_with_format(WINDOW_ICON, ImageFormat::ICO)
+            .expect("loading icon")
+            .to_rgba();
+        let (width, height) = image.dimensions();
+        let icon = Icon::from_rgba(image.into_raw(), width, height);
 
         let class = &window_config.class;
 
         let mut builder = WindowBuilder::new()
             .with_title(title)
-            .with_visibility(false)
-            .with_transparency(true)
+            .with_visible(false)
+            .with_transparent(true)
             .with_decorations(decorations)
             .with_maximized(window_config.startup_mode() == StartupMode::Maximized)
             .with_window_icon(icon.ok())
@@ -313,25 +254,27 @@ impl Window {
             _ => true,
         };
 
-        let icon = Icon::from_bytes_with_format(WINDOW_ICON, ImageFormat::ICO);
+        let image = image::load_from_memory_with_format(WINDOW_ICON, ImageFormat::ICO)
+            .expect("loading icon")
+            .to_rgba();
+        let (width, height) = image.dimensions();
+        let icon = Icon::from_rgba(image.into_raw(), width, height);
 
         WindowBuilder::new()
             .with_title(title)
-            .with_visibility(cfg!(windows))
+            .with_visible(true)
             .with_decorations(decorations)
-            .with_transparency(true)
+            .with_transparent(true)
             .with_maximized(window_config.startup_mode() == StartupMode::Maximized)
             .with_window_icon(icon.ok())
     }
 
     #[cfg(target_os = "macos")]
     pub fn get_platform_window(title: &str, window_config: &WindowConfig) -> WindowBuilder {
-        use glutin::os::macos::WindowBuilderExt;
-
         let window = WindowBuilder::new()
             .with_title(title)
-            .with_visibility(false)
-            .with_transparency(true)
+            .with_visible(false)
+            .with_transparent(true)
             .with_maximized(window_config.startup_mode() == StartupMode::Maximized);
 
         match window_config.decorations {
@@ -356,76 +299,103 @@ impl Window {
 
     #[cfg(target_os = "macos")]
     pub fn set_urgent(&self, is_urgent: bool) {
-        self.window().request_user_attention(is_urgent);
+        if !is_urgent {
+            return;
+        }
+
+        self.window().request_user_attention(RequestUserAttentionType::Critical);
     }
 
     #[cfg(windows)]
     pub fn set_urgent(&self, _is_urgent: bool) {}
 
-    pub fn set_ime_spot(&self, pos: LogicalPosition) {
-        self.window().set_ime_spot(pos);
+    pub fn set_outer_position(&self, pos: LogicalPosition) {
+        self.window().set_outer_position(pos);
     }
 
-    pub fn set_position(&self, pos: LogicalPosition) {
-        self.window().set_position(pos);
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub fn x11_window_id(&self) -> Option<usize> {
+        self.window().xlib_window().map(|xlib_window| xlib_window as usize)
     }
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    pub fn get_window_id(&self) -> Option<usize> {
-        match self.window().get_xlib_window() {
-            Some(xlib_window) => Some(xlib_window as usize),
-            None => None,
-        }
+    pub fn window_id(&self) -> WindowId {
+        self.window().id()
     }
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    pub fn is_x11(&self) -> bool {
-        self.event_loop.is_x11()
-    }
-
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn get_window_id(&self) -> Option<usize> {
-        None
-    }
-
-    /// Hide the window
-    pub fn hide(&self) {
-        self.window().hide();
-    }
-
-    /// Fullscreens the window on the current monitor.
-    pub fn set_fullscreen(&self, fullscreen: bool) {
-        let glutin_window = self.window();
-        if fullscreen {
-            let current_monitor = glutin_window.get_current_monitor();
-            glutin_window.set_fullscreen(Some(current_monitor));
-        } else {
-            glutin_window.set_fullscreen(None);
-        }
-    }
-
+    #[cfg(not(any(target_os = "macos", windows)))]
     pub fn set_maximized(&self, maximized: bool) {
         self.window().set_maximized(maximized);
     }
 
+    /// Toggle the window's fullscreen state
+    pub fn toggle_fullscreen(&mut self) {
+        self.set_fullscreen(self.window().fullscreen().is_none());
+    }
+
     #[cfg(target_os = "macos")]
-    pub fn set_simple_fullscreen(&self, fullscreen: bool) {
-        self.window().set_simple_fullscreen(fullscreen);
+    pub fn toggle_simple_fullscreen(&mut self) {
+        self.set_simple_fullscreen(!self.window().simple_fullscreen());
+    }
+
+    pub fn set_fullscreen(&mut self, fullscreen: bool) {
+        #[cfg(macos)]
+        {
+            if self.window().simple_fullscreen() {
+                return;
+            }
+        }
+
+        if fullscreen {
+            let current_monitor = self.window().current_monitor();
+            self.window().set_fullscreen(Some(Fullscreen::Borderless(current_monitor)));
+        } else {
+            self.window().set_fullscreen(None);
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn set_simple_fullscreen(&mut self, simple_fullscreen: bool) {
+        if self.window().fullscreen().is_some() {
+            return;
+        }
+
+        self.window().set_simple_fullscreen(simple_fullscreen);
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    pub fn get_wayland_display(&self) -> Option<*mut c_void> {
-        self.window().get_wayland_display()
+    pub fn wayland_display(&self) -> Option<*mut c_void> {
+        self.window().wayland_display()
     }
 
-    fn window(&self) -> &glutin::Window {
+    /// Adjust the IME editor position according to the new location of the cursor
+    #[cfg(not(windows))]
+    pub fn update_ime_position<T>(&mut self, terminal: &Term<T>, size_info: &SizeInfo) {
+        let point = terminal.cursor().point;
+        let SizeInfo { cell_width: cw, cell_height: ch, padding_x: px, padding_y: py, dpr, .. } =
+            size_info;
+
+        let nspot_x = f64::from(px + point.col.0 as f32 * cw);
+        let nspot_y = f64::from(py + (point.line.0 + 1) as f32 * ch);
+
+        self.window().set_ime_position(PhysicalPosition::from((nspot_x, nspot_y)).to_logical(*dpr));
+    }
+
+    pub fn swap_buffers(&self) {
+        self.windowed_context.swap_buffers().expect("swap buffers");
+    }
+
+    pub fn resize(&self, size: PhysicalSize) {
+        self.windowed_context.resize(size);
+    }
+
+    fn window(&self) -> &GlutinWindow {
         self.windowed_context.window()
     }
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]
 fn x_embed_window(window: &GlutinWindow, parent_id: u64) {
-    let (xlib_display, xlib_window) = match (window.get_xlib_display(), window.get_xlib_window()) {
+    let (xlib_display, xlib_window) = match (window.xlib_display(), window.xlib_window()) {
         (Some(display), Some(window)) => (display, window),
         _ => return,
     };
@@ -459,15 +429,6 @@ fn x_embed_window(window: &GlutinWindow, parent_id: u64) {
 
 #[cfg(not(any(target_os = "macos", windows)))]
 unsafe extern "C" fn xembed_error_handler(_: *mut XDisplay, _: *mut XErrorEvent) -> i32 {
-    die!("Could not embed into specified window.");
-}
-
-impl Proxy {
-    /// Wakes up the event loop of the window
-    ///
-    /// This is useful for triggering a draw when the renderer would otherwise
-    /// be waiting on user input.
-    pub fn wakeup_event_loop(&self) {
-        self.inner.wakeup().unwrap();
-    }
+    println!("Could not embed into specified window.");
+    std::process::exit(1);
 }

@@ -16,6 +16,8 @@
 
 use std::cmp;
 
+use serde::Deserialize;
+
 use font::{Metrics, RasterizedGlyph, PLACEHOLDER_GLYPH};
 
 use crate::ansi::CursorStyle;

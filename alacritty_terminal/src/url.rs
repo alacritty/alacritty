@@ -29,7 +29,7 @@ impl Url {
     }
 
     /// Convert URLs bounding points to linear indices
-    pub fn linear_bounds(&self, terminal: &Term) -> RangeInclusive<Linear> {
+    pub fn linear_bounds<T>(&self, terminal: &Term<T>) -> RangeInclusive<Linear> {
         let mut start = self.start;
         let mut end = self.end;
 

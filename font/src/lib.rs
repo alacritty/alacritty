@@ -49,6 +49,8 @@ extern crate harfbuzz_rs;
 extern crate log;
 
 use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::ops::{Add, Mul};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 // If target isn't macos or windows, reexport everything from ft
@@ -183,15 +185,15 @@ pub struct GlyphKey {
 pub struct Size(i16);
 
 impl Size {
+    /// Create a new `Size` from a f32 size in points
+    pub fn new(size: f32) -> Size {
+        Size((size * Size::factor()) as i16)
+    }
+
     /// Scale factor between font "Size" type and point size
     #[inline]
     pub fn factor() -> f32 {
         2.0
-    }
-
-    /// Create a new `Size` from a f32 size in points
-    pub fn new(size: f32) -> Size {
-        Size((size * Size::factor()) as i16)
     }
 
     /// Get the f32 size in points
@@ -200,11 +202,25 @@ impl Size {
     }
 }
 
-impl ::std::ops::Add for Size {
+impl<T: Into<Size>> Add<T> for Size {
     type Output = Size;
 
-    fn add(self, other: Size) -> Size {
-        Size(self.0.saturating_add(other.0))
+    fn add(self, other: T) -> Size {
+        Size(self.0.saturating_add(other.into().0))
+    }
+}
+
+impl<T: Into<Size>> Mul<T> for Size {
+    type Output = Size;
+
+    fn mul(self, other: T) -> Size {
+        Size(self.0 * other.into().0)
+    }
+}
+
+impl From<f32> for Size {
+    fn from(float: f32) -> Size {
+        Size::new(float)
     }
 }
 
