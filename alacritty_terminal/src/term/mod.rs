@@ -27,7 +27,7 @@ use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset, TermInfo,
 };
 use crate::clipboard::{Clipboard, ClipboardType};
-use crate::config::{Config, VisualBellAnimation, DEFAULT_NAME};
+use crate::config::{Config, VisualBellAnimation};
 use crate::cursor::CursorKey;
 use crate::event::{Event, EventListener};
 use crate::grid::{
@@ -764,10 +764,11 @@ pub struct Term<T> {
     /// Terminal focus
     pub is_focused: bool,
 
-    /// Title of the window
+    /// Current title of the window
     title: String,
 
-    /// The stack of titles; the most recent is last
+    /// Stack of saved window titles. When a title is popped from this stack, the `title` for the
+    /// term is set, and the Glutin window's title attribute is changed through the event listener.
     title_stack: Vec<String>,
 }
 
@@ -896,7 +897,7 @@ impl<T> Term<T> {
             clipboard,
             event_proxy,
             is_focused: true,
-            title: config.window.title.as_ref().map_or(DEFAULT_NAME.to_string(), |t| t.to_string()),
+            title: config.window.title.clone(),
             title_stack: Vec::new(),
         }
     }
@@ -1333,6 +1334,8 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[cfg(not(windows))]
     fn set_title(&mut self, title: &str) {
         if self.dynamic_title {
+            trace!("Setting window title to '{}'", title);
+
             self.title = title.into();
             self.event_proxy.send_event(Event::Title(title.to_owned()));
         }
@@ -1348,6 +1351,8 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             //
             // The starts_with check is necessary because other shells e.g. bash set a
             // different title and don't need Alacritty prepended.
+            trace!("Setting window title to '{}'", title);
+
             let title = if !tty::is_conpty() && title.starts_with(' ') {
                 format!("Alacritty {}", title.trim())
             } else {
@@ -1925,6 +1930,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         self.grid.reset(&Cell::default());
         self.alt_grid.reset(&Cell::default());
         self.scroll_region = Line(0)..self.grid.num_lines();
+        self.title_stack.clear();
     }
 
     #[inline]
@@ -2105,18 +2111,25 @@ impl<T: EventListener> ansi::Handler for Term<T> {
 
     #[inline]
     fn push_title(&mut self) {
-        let title = self.title.to_owned();
-        trace!("Pushing '{}' onto title stack", title);
+        trace!("Pushing '{}' onto title stack", self.title);
+
         if self.title_stack.len() >= TITLE_STACK_MAX_DEPTH {
-            self.title_stack.remove(0);
+            let removed = self.title_stack.remove(0);
+            trace!(
+                "Removing '{}' from bottom of title stack that exceeds its maximum depth",
+                removed
+            );
         }
-        self.title_stack.push(title);
+
+        self.title_stack.push(self.title.clone());
     }
 
     #[inline]
     fn pop_title(&mut self) {
+        trace!("Attempting to pop title from stack...");
+
         if let Some(popped) = self.title_stack.pop() {
-            trace!("Popping '{}' from title stack", popped);
+            trace!("Title '{}' popped from stack", popped);
             self.set_title(&popped);
         }
     }
@@ -2331,6 +2344,44 @@ mod tests {
         let mut scrolled_grid = term.grid.clone();
         scrolled_grid.scroll_display(Scroll::Top);
         assert_eq!(term.grid, scrolled_grid);
+    }
+
+    #[test]
+    fn title_stack() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 51.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        {
+            term.set_title("Test");
+            assert_eq!(term.title, "Test");
+        }
+
+        {
+            term.push_title();
+            term.set_title("Next");
+            assert_eq!(term.title, "Next");
+            assert_eq!(term.title_stack.get(0).unwrap(), "Test");
+        }
+
+        {
+            term.pop_title();
+            assert_eq!(term.title, "Test");
+            assert!(term.title_stack.is_empty());
+        }
+
+        {
+            term.push_title();
+            term.reset_state();
+            assert!(term.title_stack.is_empty());
+        }
     }
 }
 

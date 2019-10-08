@@ -883,6 +883,7 @@ where
         }
     }
 
+    #[allow(clippy::cognitive_complexity)]
     #[inline]
     fn csi_dispatch(
         &mut self,
@@ -1000,9 +1001,7 @@ where
             ('t', None) => match arg_or_default!(idx: 0, default: 1) as usize {
                 22 => handler.push_title(),
                 23 => handler.pop_title(),
-                _ => {
-                    unhandled!();
-                },
+                _ => unhandled!(),
             },
             ('T', None) => handler.scroll_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             ('L', None) => {

@@ -8,6 +8,11 @@ use crate::index::{Column, Line};
 /// Default Alacritty name, used for window title and class.
 pub const DEFAULT_NAME: &str = "Alacritty";
 
+/// Get the default title for the window
+fn default_title() -> String {
+    DEFAULT_NAME.to_string()
+}
+
 #[serde(default)]
 #[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct WindowConfig {
@@ -36,8 +41,8 @@ pub struct WindowConfig {
     startup_mode: StartupMode,
 
     /// Window title
-    #[serde(deserialize_with = "failure_default")]
-    pub title: Option<String>,
+    #[serde(deserialize_with = "failure_default", default = "default_title")]
+    pub title: String,
 
     /// Window class
     #[serde(deserialize_with = "from_string_or_deserialize")]
