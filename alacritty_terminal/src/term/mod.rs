@@ -27,7 +27,7 @@ use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset, TermInfo,
 };
 use crate::clipboard::{Clipboard, ClipboardType};
-use crate::config::{Config, VisualBellAnimation};
+use crate::config::{Config, VisualBellAnimation, DEFAULT_NAME};
 use crate::cursor::CursorKey;
 use crate::event::{Event, EventListener};
 use crate::grid::{
@@ -46,6 +46,9 @@ pub mod color;
 
 /// Used to match equal brackets, when performing a bracket-pair selection.
 const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
+
+/// Max size of the window title stack
+const TITLE_STACK_MAX_DEPTH: usize = 8;
 
 /// A type that can expand a given point to a region
 ///
@@ -760,6 +763,12 @@ pub struct Term<T> {
 
     /// Terminal focus
     pub is_focused: bool,
+
+    /// Title of the window
+    title: String,
+
+    /// The stack of titles; the most recent is last
+    title_stack: Vec<String>,
 }
 
 /// Terminal size info
@@ -887,6 +896,8 @@ impl<T> Term<T> {
             clipboard,
             event_proxy,
             is_focused: true,
+            title: config.window.title.as_ref().map_or(DEFAULT_NAME.to_string(), |t| t.to_string()),
+            title_stack: Vec::new(),
         }
     }
 
@@ -1322,6 +1333,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[cfg(not(windows))]
     fn set_title(&mut self, title: &str) {
         if self.dynamic_title {
+            self.title = title.into();
             self.event_proxy.send_event(Event::Title(title.to_owned()));
         }
     }
@@ -1342,6 +1354,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 title.to_owned()
             };
 
+            self.title = title;
             self.event_proxy.send_event(Event::Title(title));
         }
     }
@@ -2088,6 +2101,24 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     fn set_cursor_style(&mut self, style: Option<CursorStyle>) {
         trace!("Setting cursor style {:?}", style);
         self.cursor_style = style;
+    }
+
+    #[inline]
+    fn push_title(&mut self) {
+        let title = self.title.to_owned();
+        trace!("Pushing '{}' onto title stack", title);
+        if self.title_stack.len() >= TITLE_STACK_MAX_DEPTH {
+            self.title_stack.remove(0);
+        }
+        self.title_stack.push(title);
+    }
+
+    #[inline]
+    fn pop_title(&mut self) {
+        if let Some(popped) = self.title_stack.pop() {
+            trace!("Popping '{}' from title stack", popped);
+            self.set_title(&popped);
+        }
     }
 }
 

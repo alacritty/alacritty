@@ -328,6 +328,12 @@ pub trait Handler {
 
     /// Run the dectest routine
     fn dectest(&mut self) {}
+
+    /// Push a title onto the stack
+    fn push_title(&mut self) {}
+
+    /// Pop the last title from the stack
+    fn pop_title(&mut self) {}
 }
 
 /// Describes shape of cursor
@@ -991,6 +997,13 @@ where
                 handler.clear_line(mode);
             },
             ('S', None) => handler.scroll_up(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('t', None) => match arg_or_default!(idx: 0, default: 1) as usize {
+                22 => handler.push_title(),
+                23 => handler.pop_title(),
+                _ => {
+                    unhandled!();
+                },
+            },
             ('T', None) => handler.scroll_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             ('L', None) => {
                 handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize))
