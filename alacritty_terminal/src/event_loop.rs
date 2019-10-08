@@ -43,6 +43,7 @@ pub struct EventLoop<T: tty::EventedPty, U: EventListener> {
     tx: Sender<Msg>,
     terminal: Arc<FairMutex<Term<U>>>,
     event_proxy: U,
+    hold: bool,
     ref_test: bool,
 }
 
@@ -147,6 +148,7 @@ where
         terminal: Arc<FairMutex<Term<U>>>,
         event_proxy: U,
         pty: T,
+        hold: bool,
         ref_test: bool,
     ) -> EventLoop<T, U> {
         let (tx, rx) = channel::channel();
@@ -157,6 +159,7 @@ where
             rx,
             terminal,
             event_proxy,
+            hold,
             ref_test,
         }
     }
@@ -327,7 +330,9 @@ where
                         #[cfg(unix)]
                         token if token == self.pty.child_event_token() => {
                             if let Some(tty::ChildEvent::Exited) = self.pty.next_child_event() {
-                                self.terminal.lock().handle_child_process_exit();
+                                if !self.hold {
+                                    self.terminal.lock().exit();
+                                }
                                 self.event_proxy.send_event(Event::Wakeup);
                                 break 'event_loop;
                             }
