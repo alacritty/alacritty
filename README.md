@@ -1,6 +1,6 @@
 <h1 align="center">Alacritty</h1>
 <p align="center">
-    <img width="200" alt="Alacritty Logo" src="extra/logo/alacritty-term+scanlines.svg">
+    <img width="200" alt="Alacritty Logo" src="extra/logo/compat/alacritty-term+scanlines.png">
 </p>
 
 Alacritty is the fastest terminal emulator in existence. Using the GPU for
@@ -140,7 +140,10 @@ scoop install alacritty
 ### Other
 
 Prebuilt binaries for Linux, macOS, and Windows can be downloaded from the
-[GitHub releases page](https://github.com/jwilm/alacritty/releases).
+[GitHub releases page](https://github.com/jwilm/alacritty/releases). If your
+desktop environment has trouble rendering the default SVG icons, you can find
+a prerendered SVG as well as simplified versions of the SVG in the
+`extra/logo/compat` directory.
 
 To work properly on Windows, Alacritty requires winpty to emulate UNIX's PTY
 API. The agent is a single binary (`winpty-agent.exe`) which **must** be in
