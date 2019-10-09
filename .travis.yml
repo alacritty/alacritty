@@ -3,6 +3,11 @@ language: rust
 services:
   - docker
 
+addons:
+  apt:
+    packages:
+    - libxcb-xfixes0-dev
+
 git:
   depth: 1
 
