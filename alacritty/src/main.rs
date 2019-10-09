@@ -188,12 +188,7 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     // renderer and input processing. Note that access to the terminal state is
     // synchronized since the I/O loop updates the state, and the display
     // consumes it periodically.
-    let event_loop = EventLoop::new(
-        Arc::clone(&terminal),
-        event_proxy.clone(),
-        pty,
-        &config,
-    );
+    let event_loop = EventLoop::new(Arc::clone(&terminal), event_proxy.clone(), pty, &config);
 
     // The event loop channel allows write requests from the event processor
     // to be sent to the pty loop and ultimately written to the pty.
