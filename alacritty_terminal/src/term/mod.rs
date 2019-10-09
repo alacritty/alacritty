@@ -27,7 +27,7 @@ use crate::ansi::{
     self, Attr, CharsetIndex, Color, CursorStyle, Handler, NamedColor, StandardCharset, TermInfo,
 };
 use crate::clipboard::{Clipboard, ClipboardType};
-use crate::config::{Config, VisualBellAnimation};
+use crate::config::{Config, VisualBellAnimation, DEFAULT_NAME};
 use crate::cursor::CursorKey;
 use crate::event::{Event, EventListener};
 use crate::grid::{
@@ -48,7 +48,7 @@ pub mod color;
 const BRACKET_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
 
 /// Max size of the window title stack
-const TITLE_STACK_MAX_DEPTH: usize = 8;
+const TITLE_STACK_MAX_DEPTH: usize = 4096;
 
 /// A type that can expand a given point to a region
 ///
@@ -897,7 +897,7 @@ impl<T> Term<T> {
             clipboard,
             event_proxy,
             is_focused: true,
-            title: config.window.title.clone(),
+            title: config.window.title(),
             title_stack: Vec::new(),
         }
     }
@@ -1930,6 +1930,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         self.grid.reset(&Cell::default());
         self.alt_grid.reset(&Cell::default());
         self.scroll_region = Line(0)..self.grid.num_lines();
+        self.title = DEFAULT_NAME.to_string();
         self.title_stack.clear();
     }
 
@@ -2347,7 +2348,7 @@ mod tests {
     }
 
     #[test]
-    fn title_stack() {
+    fn window_title() {
         let size = SizeInfo {
             width: 21.0,
             height: 51.0,
@@ -2359,11 +2360,13 @@ mod tests {
         };
         let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
 
+        // Title can be set
         {
             term.set_title("Test");
             assert_eq!(term.title, "Test");
         }
 
+        // Title can be pushed onto stack
         {
             term.push_title();
             term.set_title("Next");
@@ -2371,15 +2374,26 @@ mod tests {
             assert_eq!(term.title_stack.get(0).unwrap(), "Test");
         }
 
+        // Title can be popped from stack and set as the window title
         {
             term.pop_title();
             assert_eq!(term.title, "Test");
             assert!(term.title_stack.is_empty());
         }
 
+        // Title stack doesn't grow infinitely
+        {
+            for _ in 0..4097 {
+                term.push_title();
+            }
+            assert_eq!(term.title_stack.len(), 4096);
+        }
+
+        // Title and title stack reset when terminal state is reset
         {
             term.push_title();
             term.reset_state();
+            assert_eq!(term.title, "Alacritty");
             assert!(term.title_stack.is_empty());
         }
     }

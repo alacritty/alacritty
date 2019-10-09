@@ -144,7 +144,7 @@ impl Window {
         config: &Config,
         logical: Option<LogicalSize>,
     ) -> Result<Window> {
-        let window_builder = Window::get_platform_window(&config.window.title, &config.window);
+        let window_builder = Window::get_platform_window(&config.window.title(), &config.window);
         let windowed_context =
             create_gl_window(window_builder.clone(), &event_loop, false, logical)
                 .or_else(|_| create_gl_window(window_builder, &event_loop, true, logical))?;

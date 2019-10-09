@@ -418,7 +418,13 @@ impl Mode {
     /// Create mode from a primitive
     ///
     /// TODO lots of unhandled values..
-    pub fn from_primitive(private: bool, num: i64) -> Option<Mode> {
+    pub fn from_primitive(intermediate: Option<&u8>, num: i64) -> Option<Mode> {
+        let private = match intermediate {
+            Some(b'?') => true,
+            None => false,
+            _ => return None,
+        };
+
         if private {
             Some(match num {
                 1 => Mode::CursorKeys,
@@ -883,7 +889,6 @@ where
         }
     }
 
-    #[allow(clippy::cognitive_complexity)]
     #[inline]
     fn csi_dispatch(
         &mut self,
@@ -1008,17 +1013,8 @@ where
                 handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize))
             },
             ('l', intermediate) => {
-                let is_private_mode = match intermediate {
-                    Some(b'?') => true,
-                    None => false,
-                    _ => {
-                        unhandled!();
-                        return;
-                    },
-                };
                 for arg in args {
-                    let mode = Mode::from_primitive(is_private_mode, *arg);
-                    match mode {
+                    match Mode::from_primitive(intermediate, *arg) {
                         Some(mode) => handler.unset_mode(mode),
                         None => {
                             unhandled!();
@@ -1039,17 +1035,8 @@ where
                 handler.goto_line(Line(arg_or_default!(idx: 0, default: 1) as usize - 1))
             },
             ('h', intermediate) => {
-                let is_private_mode = match intermediate {
-                    Some(b'?') => true,
-                    None => false,
-                    _ => {
-                        unhandled!();
-                        return;
-                    },
-                };
                 for arg in args {
-                    let mode = Mode::from_primitive(is_private_mode, *arg);
-                    match mode {
+                    match Mode::from_primitive(intermediate, *arg) {
                         Some(mode) => handler.set_mode(mode),
                         None => {
                             unhandled!();

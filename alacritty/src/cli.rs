@@ -256,8 +256,11 @@ impl Options {
 
         config.window.dimensions = self.dimensions.unwrap_or(config.window.dimensions);
         config.window.position = self.position.or(config.window.position);
-        config.window.title = self.title.unwrap_or(config.window.title);
         config.window.embed = self.embed.and_then(|embed| embed.parse().ok());
+
+        if let Some(title) = self.title {
+            config.window.set_title(title);
+        }
 
         if let Some(class) = self.class {
             let parts: Vec<_> = class.split(',').collect();
@@ -267,7 +270,7 @@ impl Options {
             }
         }
 
-        config.set_dynamic_title(config.dynamic_title());
+        config.set_dynamic_title(config.dynamic_title() && config.window.title() == DEFAULT_NAME);
 
         config.debug.print_events = self.print_events || config.debug.print_events;
         config.debug.log_level = max(config.debug.log_level, self.log_level);
@@ -311,7 +314,7 @@ mod test {
     fn dynamic_title_overridden_by_config() {
         let mut config = Config::default();
 
-        config.window.title = "foo".to_owned();
+        config.window.set_title("foo".to_owned());
         let config = Options::default().into_config(config);
 
         assert!(!config.dynamic_title());
