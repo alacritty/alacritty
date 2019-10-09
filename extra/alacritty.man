@@ -14,6 +14,9 @@ However, it does allow configuration of many aspects of the terminal.
 \fB\-h\fR, \fB\-\-help\fR
 Prints help information
 .TP
+\fB\-\-hold\fR
+Remain open after child process exits
+.TP
 \fB\-\-live\-config\-reload\fR
 Enable automatic config reloading
 .TP

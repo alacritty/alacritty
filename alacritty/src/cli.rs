@@ -35,6 +35,7 @@ pub struct Options {
     pub embed: Option<String>,
     pub log_level: LevelFilter,
     pub command: Option<Shell<'static>>,
+    pub hold: bool,
     pub working_dir: Option<PathBuf>,
     pub config: Option<PathBuf>,
     pub persistent_logging: bool,
@@ -53,6 +54,7 @@ impl Default for Options {
             embed: None,
             log_level: LevelFilter::Warn,
             command: None,
+            hold: false,
             working_dir: None,
             config: None,
             persistent_logging: false,
@@ -71,104 +73,106 @@ impl Options {
 
         let mut options = Options::default();
 
-        let matches =
-            App::new(crate_name!())
-                .version(version.as_str())
-                .author(crate_authors!("\n"))
-                .about(crate_description!())
-                .arg(Arg::with_name("ref-test").long("ref-test").help("Generates ref test"))
-                .arg(
-                    Arg::with_name("live-config-reload")
-                        .long("live-config-reload")
-                        .help("Enable automatic config reloading"),
-                )
-                .arg(
-                    Arg::with_name("no-live-config-reload")
-                        .long("no-live-config-reload")
-                        .help("Disable automatic config reloading")
-                        .conflicts_with("live-config-reload"),
-                )
-                .arg(
-                    Arg::with_name("print-events")
-                        .long("print-events")
-                        .help("Print all events to stdout"),
-                )
-                .arg(
-                    Arg::with_name("persistent-logging")
-                        .long("persistent-logging")
-                        .help("Keep the log file after quitting Alacritty"),
-                )
-                .arg(
-                    Arg::with_name("dimensions")
-                        .long("dimensions")
-                        .short("d")
-                        .value_names(&["columns", "lines"])
-                        .help(
-                            "Defines the window dimensions. Falls back to size specified by \
-                             window manager if set to 0x0 [default: 0x0]",
-                        ),
-                )
-                .arg(
-                    Arg::with_name("position")
-                        .long("position")
-                        .allow_hyphen_values(true)
-                        .value_names(&["x-pos", "y-pos"])
-                        .help(
-                            "Defines the window position. Falls back to position specified by \
-                             window manager if unset [default: unset]",
-                        ),
-                )
-                .arg(
-                    Arg::with_name("title")
-                        .long("title")
-                        .short("t")
-                        .takes_value(true)
-                        .help(&format!("Defines the window title [default: {}]", DEFAULT_NAME)),
-                )
-                .arg(
-                    Arg::with_name("class").long("class").takes_value(true).help(&format!(
-                        "Defines window class on Linux [default: {}]",
-                        DEFAULT_NAME
-                    )),
-                )
-                .arg(Arg::with_name("embed").long("embed").takes_value(true).help(
+        let matches = App::new(crate_name!())
+            .version(version.as_str())
+            .author(crate_authors!("\n"))
+            .about(crate_description!())
+            .arg(Arg::with_name("ref-test").long("ref-test").help("Generates ref test"))
+            .arg(
+                Arg::with_name("live-config-reload")
+                    .long("live-config-reload")
+                    .help("Enable automatic config reloading"),
+            )
+            .arg(
+                Arg::with_name("no-live-config-reload")
+                    .long("no-live-config-reload")
+                    .help("Disable automatic config reloading")
+                    .conflicts_with("live-config-reload"),
+            )
+            .arg(
+                Arg::with_name("print-events")
+                    .long("print-events")
+                    .help("Print all events to stdout"),
+            )
+            .arg(
+                Arg::with_name("persistent-logging")
+                    .long("persistent-logging")
+                    .help("Keep the log file after quitting Alacritty"),
+            )
+            .arg(
+                Arg::with_name("dimensions")
+                    .long("dimensions")
+                    .short("d")
+                    .value_names(&["columns", "lines"])
+                    .help(
+                        "Defines the window dimensions. Falls back to size specified by window \
+                         manager if set to 0x0 [default: 0x0]",
+                    ),
+            )
+            .arg(
+                Arg::with_name("position")
+                    .long("position")
+                    .allow_hyphen_values(true)
+                    .value_names(&["x-pos", "y-pos"])
+                    .help(
+                        "Defines the window position. Falls back to position specified by window \
+                         manager if unset [default: unset]",
+                    ),
+            )
+            .arg(
+                Arg::with_name("title")
+                    .long("title")
+                    .short("t")
+                    .takes_value(true)
+                    .help(&format!("Defines the window title [default: {}]", DEFAULT_NAME)),
+            )
+            .arg(
+                Arg::with_name("class")
+                    .long("class")
+                    .takes_value(true)
+                    .help(&format!("Defines window class on Linux [default: {}]", DEFAULT_NAME)),
+            )
+            .arg(
+                Arg::with_name("embed").long("embed").takes_value(true).help(
                     "Defines the X11 window ID (as a decimal integer) to embed Alacritty within",
-                ))
-                .arg(
-                    Arg::with_name("q")
-                        .short("q")
-                        .multiple(true)
-                        .conflicts_with("v")
-                        .help("Reduces the level of verbosity (the min level is -qq)"),
-                )
-                .arg(
-                    Arg::with_name("v")
-                        .short("v")
-                        .multiple(true)
-                        .conflicts_with("q")
-                        .help("Increases the level of verbosity (the max level is -vvv)"),
-                )
-                .arg(
-                    Arg::with_name("working-directory")
-                        .long("working-directory")
-                        .takes_value(true)
-                        .help("Start the shell in the specified working directory"),
-                )
-                .arg(Arg::with_name("config-file").long("config-file").takes_value(true).help(
-                    "Specify alternative configuration file [default: \
-                     $XDG_CONFIG_HOME/alacritty/alacritty.yml]",
-                ))
-                .arg(
-                    Arg::with_name("command")
-                        .long("command")
-                        .short("e")
-                        .multiple(true)
-                        .takes_value(true)
-                        .min_values(1)
-                        .allow_hyphen_values(true)
-                        .help("Command and args to execute (must be last argument)"),
-                )
-                .get_matches();
+                ),
+            )
+            .arg(
+                Arg::with_name("q")
+                    .short("q")
+                    .multiple(true)
+                    .conflicts_with("v")
+                    .help("Reduces the level of verbosity (the min level is -qq)"),
+            )
+            .arg(
+                Arg::with_name("v")
+                    .short("v")
+                    .multiple(true)
+                    .conflicts_with("q")
+                    .help("Increases the level of verbosity (the max level is -vvv)"),
+            )
+            .arg(
+                Arg::with_name("working-directory")
+                    .long("working-directory")
+                    .takes_value(true)
+                    .help("Start the shell in the specified working directory"),
+            )
+            .arg(Arg::with_name("config-file").long("config-file").takes_value(true).help(
+                "Specify alternative configuration file [default: \
+                 $XDG_CONFIG_HOME/alacritty/alacritty.yml]",
+            ))
+            .arg(
+                Arg::with_name("command")
+                    .long("command")
+                    .short("e")
+                    .multiple(true)
+                    .takes_value(true)
+                    .min_values(1)
+                    .allow_hyphen_values(true)
+                    .help("Command and args to execute (must be last argument)"),
+            )
+            .arg(Arg::with_name("hold").long("hold").help("Remain open after child process exits"))
+            .get_matches();
 
         if matches.is_present("ref-test") {
             options.ref_test = true;
@@ -238,6 +242,10 @@ impl Options {
             options.command = Some(Shell::new_with_args(command, args));
         }
 
+        if matches.is_present("hold") {
+            options.hold = true;
+        }
+
         options
     }
 
@@ -253,6 +261,8 @@ impl Options {
             self.working_dir.or_else(|| config.working_directory().to_owned()),
         );
         config.shell = self.command.or(config.shell);
+
+        config.hold = self.hold;
 
         config.window.dimensions = self.dimensions.unwrap_or(config.window.dimensions);
         config.window.position = self.position.or(config.window.position);

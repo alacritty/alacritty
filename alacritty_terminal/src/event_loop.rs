@@ -13,6 +13,7 @@ use mio::{self, Events, PollOpt, Ready};
 use mio_extras::channel::{self, Receiver, Sender};
 
 use crate::ansi;
+use crate::config::Config;
 use crate::event::{self, Event, EventListener};
 use crate::sync::FairMutex;
 use crate::term::Term;
@@ -43,6 +44,7 @@ pub struct EventLoop<T: tty::EventedPty, U: EventListener> {
     tx: Sender<Msg>,
     terminal: Arc<FairMutex<Term<U>>>,
     event_proxy: U,
+    hold: bool,
     ref_test: bool,
 }
 
@@ -143,11 +145,11 @@ where
     U: EventListener + Send + 'static,
 {
     /// Create a new event loop
-    pub fn new(
+    pub fn new<V>(
         terminal: Arc<FairMutex<Term<U>>>,
         event_proxy: U,
         pty: T,
-        ref_test: bool,
+        config: &Config<V>,
     ) -> EventLoop<T, U> {
         let (tx, rx) = channel::channel();
         EventLoop {
@@ -157,7 +159,8 @@ where
             rx,
             terminal,
             event_proxy,
-            ref_test,
+            hold: config.hold,
+            ref_test: config.debug.ref_test,
         }
     }
 
@@ -327,7 +330,9 @@ where
                         #[cfg(unix)]
                         token if token == self.pty.child_event_token() => {
                             if let Some(tty::ChildEvent::Exited) = self.pty.next_child_event() {
-                                self.terminal.lock().exit();
+                                if !self.hold {
+                                    self.terminal.lock().exit();
+                                }
                                 self.event_proxy.send_event(Event::Wakeup);
                                 break 'event_loop;
                             }

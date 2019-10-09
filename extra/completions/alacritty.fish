@@ -37,6 +37,9 @@ complete -c alacritty \
   -a '(__fish_complete_directories (commandline -ct))' \
   -l "working-directory" \
   -d "Start shell in specified directory"
+complete -c alacritty \
+  -l "hold" \
+  -d "Remain open after child process exits"
 
 # Output
 complete \
