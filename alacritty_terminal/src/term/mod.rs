@@ -1359,7 +1359,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 title.to_owned()
             };
 
-            self.title = title;
+            self.title = title.clone();
             self.event_proxy.send_event(Event::Title(title.to_owned()));
         }
     }
