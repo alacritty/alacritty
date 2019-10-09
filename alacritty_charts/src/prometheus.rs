@@ -3,6 +3,7 @@ use crate::ValueCollisionPolicy;
 /// `Prometheus HTTP API` data structures
 use hyper::rt::{Future, Stream};
 use hyper::Client;
+use hyper_tls::HttpsConnector;
 use log::*;
 use percent_encoding::{utf8_percent_encode, DEFAULT_ENCODE_SET};
 use std::collections::HashMap;
@@ -228,11 +229,13 @@ impl PrometheusTimeSeries {
         }
         match encoded_url.parse::<hyper::Uri>() {
             Ok(url) => {
-                if url.scheme_part() == Some(&hyper::http::uri::Scheme::HTTP) {
+                if url.scheme_part() == Some(&hyper::http::uri::Scheme::HTTP)
+                    || url.scheme_part() == Some(&hyper::http::uri::Scheme::HTTPS)
+                {
                     debug!("Setting url to: {:?}", url);
                     Ok(url)
                 } else {
-                    error!("Only HTTP protocol is supported");
+                    error!("Only HTTP and HTTPS protocols are supported");
                     Err(format!("Unsupported protocol: {:?}", url.scheme_part()))
                 }
             },
@@ -345,8 +348,14 @@ impl PrometheusTimeSeries {
 /// PrometheusResponse
 pub fn get_from_prometheus(url: hyper::Uri) -> impl Future<Item = hyper::Chunk, Error = ()> {
     info!("Loading Prometheus URL: {}", url);
-    Client::new()
-        .get(url.clone())
+    let request = if url.scheme_part() == Some(&hyper::http::uri::Scheme::HTTP) {
+        Client::new().get(url.clone())
+    } else {
+        // 4 is number of blocking DNS threads
+        let https = HttpsConnector::new(4).unwrap();
+        Client::builder().build::<_, hyper::Body>(https).get(url.clone())
+    };
+    request
         .and_then(|res| {
             debug!("get_from_prometheus: Response={:?}", res);
             res.into_body()
@@ -795,7 +804,7 @@ mod tests {
             String::from("vector"),
             test_labels.clone(),
         );
-        assert_eq!(test0_res, Err(String::from("Unsupported protocol: Some(\"https\")")));
+        assert_ne!(test0_res, Err(String::from("Unsupported protocol: Some(\"https\")")));
         let test1_res: Result<PrometheusTimeSeries, String> = PrometheusTimeSeries::new(
             String::from("http://localhost:9090/api/v1/query?query=up"),
             15,
