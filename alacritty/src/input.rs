@@ -551,10 +551,8 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
     fn scroll_terminal(&mut self, modifiers: ModifiersState, new_scroll_px: i32) {
         let mouse_modes =
             TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
+        let alt_screen_modes = TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL;
         let height = self.ctx.size_info().cell_height as i32;
-
-        // Make sure the new and deprecated setting are both allowed
-        let faux_multiplier = self.config.scrolling.faux_multiplier() as usize;
 
         if self.ctx.terminal().mode().intersects(mouse_modes) {
             self.ctx.mouse_mut().scroll_px += new_scroll_px;
@@ -565,15 +563,14 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
             for _ in 0..lines {
                 self.mouse_report(code, ElementState::Pressed, modifiers);
             }
-        } else if self
-            .ctx
-            .terminal()
-            .mode()
-            .contains(TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL)
-            && faux_multiplier > 0
-            && !modifiers.shift
-        {
-            self.ctx.mouse_mut().scroll_px += new_scroll_px * faux_multiplier as i32;
+        } else if self.ctx.terminal().mode().contains(alt_screen_modes) && !modifiers.shift {
+            let multiplier = i32::from(
+                self.config
+                    .scrolling
+                    .faux_multiplier()
+                    .unwrap_or(self.config.scrolling.multiplier()),
+            );
+            self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
             let cmd = if new_scroll_px > 0 { b'A' } else { b'B' };
             let lines = (self.ctx.mouse().scroll_px / height).abs();

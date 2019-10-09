@@ -77,6 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bindings for Super/Command + F1-F12
 - Automatic config generation
+- Deprecated `scrolling.faux_multiplier`, use `scrolling.multiplier` instead
 
 ## 0.3.3
 

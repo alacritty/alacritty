@@ -914,6 +914,11 @@ impl<T> Term<T> {
             }
         }
         self.visual_bell.update_config(config);
+        if config.scrolling.faux_multiplier().unwrap_or(config.scrolling.multiplier()) > 0 {
+            self.mode.insert(TermMode::ALTERNATE_SCROLL)
+        } else {
+            self.mode.remove(TermMode::ALTERNATE_SCROLL)
+        }
         self.default_cursor_style = config.cursor.style;
         self.dynamic_title = config.dynamic_title();
         self.auto_scroll = config.scrolling.auto_scroll;

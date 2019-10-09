@@ -202,6 +202,14 @@ fn print_deprecation_warnings(config: &Config) {
             "Config persistent_logging is deprecated; please use debug.persistent_logging instead"
         );
     }
+
+    if config.scrolling.faux_multiplier().is_some() {
+        warn!(
+            target: LOG_TARGET_CONFIG,
+            "Config scrolling.faux_multiplier is deprecated; please use scrolling.multiplier \
+             instead"
+        );
+    }
 }
 
 #[cfg(test)]
