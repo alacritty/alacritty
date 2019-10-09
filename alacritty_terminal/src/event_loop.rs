@@ -13,6 +13,7 @@ use mio::{self, Events, PollOpt, Ready};
 use mio_extras::channel::{self, Receiver, Sender};
 
 use crate::ansi;
+use crate::config::Config;
 use crate::event::{self, Event, EventListener};
 use crate::sync::FairMutex;
 use crate::term::Term;
@@ -144,12 +145,11 @@ where
     U: EventListener + Send + 'static,
 {
     /// Create a new event loop
-    pub fn new(
+    pub fn new<V>(
         terminal: Arc<FairMutex<Term<U>>>,
         event_proxy: U,
         pty: T,
-        hold: bool,
-        ref_test: bool,
+        config: &Config<V>,
     ) -> EventLoop<T, U> {
         let (tx, rx) = channel::channel();
         EventLoop {
@@ -159,8 +159,8 @@ where
             rx,
             terminal,
             event_proxy,
-            hold,
-            ref_test,
+            hold: config.hold,
+            ref_test: config.debug.ref_test,
         }
     }
 

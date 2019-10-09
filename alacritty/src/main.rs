@@ -192,8 +192,7 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
         Arc::clone(&terminal),
         event_proxy.clone(),
         pty,
-        config.hold,
-        config.debug.ref_test,
+        &config,
     );
 
     // The event loop channel allows write requests from the event processor
