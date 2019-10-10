@@ -14,28 +14,28 @@
 // -- Tokio timers
 // -- Use prometheus queries instead of our own aggregation/etc.
 // -- Logging
+// -- in MacOS the data to OpenGL must be sent from the main thread. This would require changing
+// the async_coordinator to send data somehow to the main thread.
 // IN PROGRESS:
 // -- Group labels into separate colors (find something that does color spacing in rust)
-// -- The first draw has data, but hasn't pulled from Prometheus yet... It must be invalidated.
 // TODO:
 // -- The dashboards should be toggable, some key combination
 // -- When activated on toggle it could blur a portion of the screen
 // -- mock the prometheus server and response
 // -- We should re-use the circular_push for the opengl_vec
-// -- in MacOS the data to OpenGL must be sent from the main thread. This would require changing
-// the async_coordinator to send data somehow to the main thread.
 
 extern crate log;
 #[macro_use]
 extern crate serde_derive;
 
-extern crate futures;
-extern crate hyper;
-extern crate percent_encoding;
+pub extern crate futures;
+pub extern crate hyper;
+pub extern crate hyper_tls;
+pub extern crate percent_encoding;
 extern crate serde;
 extern crate serde_json;
-extern crate tokio;
-extern crate tokio_core;
+pub extern crate tokio;
+pub extern crate tokio_core;
 use log::*;
 use std::fmt;
 use std::str::FromStr;
