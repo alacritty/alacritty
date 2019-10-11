@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Crash when resuming after suspension
 - Crash when trying to start on X11 with a Wayland compositor running
 - Crash with a virtual display connected on X11
+- GPU memory usage has been decreased by disabling allocation of depth and stencil buffers
 
 ### Removed
 
