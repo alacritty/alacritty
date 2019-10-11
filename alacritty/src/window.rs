@@ -117,6 +117,8 @@ fn create_gl_window(
     let windowed_context = ContextBuilder::new()
         .with_srgb(srgb)
         .with_vsync(true)
+        .with_depth_buffer(0)
+        .with_stencil_buffer(0)
         .with_hardware_acceleration(None)
         .build_windowed(window, event_loop)?;
 
