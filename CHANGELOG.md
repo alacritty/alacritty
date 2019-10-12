@@ -77,7 +77,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bindings for Super/Command + F1-F12
 - Automatic config generation
-- Deprecated `scrolling.faux_multiplier`, use `scrolling.multiplier` instead
+- Deprecated `scrolling.faux_multiplier`, use `scrolling.multiplier` for both usual and faux
+scrolling. You can enable/disable faux scrolling using `\e[?1007h`/`\e[?1007l` escape sequences
+respectively.
 
 ## 0.3.3
 
