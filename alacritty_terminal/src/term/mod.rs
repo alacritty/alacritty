@@ -914,10 +914,8 @@ impl<T> Term<T> {
             }
         }
         self.visual_bell.update_config(config);
-        if config.scrolling.faux_multiplier().unwrap_or_else(|| config.scrolling.multiplier()) > 0 {
-            self.mode.insert(TermMode::ALTERNATE_SCROLL)
-        } else {
-            self.mode.remove(TermMode::ALTERNATE_SCROLL)
+        if let Some(0) = config.scrolling.faux_multiplier() {
+            self.mode.remove(TermMode::ALTERNATE_SCROLL);
         }
         self.default_cursor_style = config.cursor.style;
         self.dynamic_title = config.dynamic_title();
