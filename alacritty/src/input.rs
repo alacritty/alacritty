@@ -568,7 +568,7 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
                 self.config
                     .scrolling
                     .faux_multiplier()
-                    .unwrap_or(self.config.scrolling.multiplier()),
+                    .unwrap_or_else(|| self.config.scrolling.multiplier()),
             );
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
