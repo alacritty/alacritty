@@ -44,7 +44,7 @@
   #
   # Values for `decorations`:
   #     - full: Borders and title bar
-  #     - none: Neither borders nor title bar
+  #     - none: Neither borders nor title bar (currently unstable on Windows operating systems)
   #
   # Values for `decorations` (macOS only):
   #     - transparent: Title bar, transparent background and title bar buttons
