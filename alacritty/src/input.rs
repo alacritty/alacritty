@@ -551,7 +551,7 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
     fn scroll_terminal(&mut self, modifiers: ModifiersState, new_scroll_px: i32) {
         let mouse_modes =
             TermMode::MOUSE_REPORT_CLICK | TermMode::MOUSE_DRAG | TermMode::MOUSE_MOTION;
-        let alt_screen_modes = TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL;
+        let alt_scroll_modes = TermMode::ALT_SCREEN | TermMode::ALTERNATE_SCROLL;
         let height = self.ctx.size_info().cell_height as i32;
 
         if self.ctx.terminal().mode().intersects(mouse_modes) {
@@ -563,7 +563,7 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
             for _ in 0..lines {
                 self.mouse_report(code, ElementState::Pressed, modifiers);
             }
-        } else if self.ctx.terminal().mode().contains(alt_screen_modes) && !modifiers.shift {
+        } else if self.ctx.terminal().mode().contains(alt_scroll_modes) && !modifiers.shift {
             let multiplier = i32::from(
                 self.config
                     .scrolling
