@@ -36,8 +36,8 @@ pub struct WindowConfig {
     startup_mode: StartupMode,
 
     /// Window title
-    #[serde(deserialize_with = "failure_default")]
-    title: Option<String>,
+    #[serde(default = "default_title")]
+    pub title: String,
 
     /// Window class
     #[serde(deserialize_with = "from_string_or_deserialize")]
@@ -56,20 +56,16 @@ pub struct WindowConfig {
     pub start_maximized: Option<bool>,
 }
 
+pub fn default_title() -> String {
+    DEFAULT_NAME.to_string()
+}
+
 impl WindowConfig {
     pub fn startup_mode(&self) -> StartupMode {
         match self.start_maximized {
             Some(true) => StartupMode::Maximized,
             _ => self.startup_mode,
         }
-    }
-
-    pub fn set_title(&mut self, title: String) {
-        self.title = Some(title);
-    }
-
-    pub fn title(&self) -> String {
-        self.title.clone().unwrap_or_else(|| DEFAULT_NAME.to_owned())
     }
 }
 

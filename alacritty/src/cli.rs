@@ -269,7 +269,7 @@ impl Options {
         config.window.embed = self.embed.and_then(|embed| embed.parse().ok());
 
         if let Some(title) = self.title {
-            config.window.set_title(title);
+            config.window.title = title.clone();
         }
 
         if let Some(class) = self.class {
@@ -280,7 +280,7 @@ impl Options {
             }
         }
 
-        config.set_dynamic_title(config.dynamic_title() && config.window.title() == DEFAULT_NAME);
+        config.set_dynamic_title(config.dynamic_title() && config.window.title == DEFAULT_NAME);
 
         config.debug.print_events = self.print_events || config.debug.print_events;
         config.debug.log_level = max(config.debug.log_level, self.log_level);
@@ -301,7 +301,8 @@ mod test {
 
     #[test]
     fn dynamic_title_ignoring_options_by_default() {
-        let config = Config::default();
+        let mut config = Config::default();
+        config.window.title = "Alacritty".to_string();
         let old_dynamic_title = config.dynamic_title();
 
         let config = Options::default().into_config(config);
@@ -324,7 +325,7 @@ mod test {
     fn dynamic_title_overridden_by_config() {
         let mut config = Config::default();
 
-        config.window.set_title("foo".to_owned());
+        config.window.title = "foo".to_owned();
         let config = Options::default().into_config(config);
 
         assert!(!config.dynamic_title());

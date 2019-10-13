@@ -897,7 +897,7 @@ impl<T> Term<T> {
             clipboard,
             event_proxy,
             is_focused: true,
-            title: config.window.title(),
+            title: config.window.title.clone(),
             title_stack: Vec::new(),
         }
     }
@@ -2362,14 +2362,14 @@ mod tests {
 
         // Title can be set
         {
-            term.set_title("Test");
+            term.title = "Test".to_string();
             assert_eq!(term.title, "Test");
         }
 
         // Title can be pushed onto stack
         {
             term.push_title();
-            term.set_title("Next");
+            term.title = "Next".to_string();
             assert_eq!(term.title, "Next");
             assert_eq!(term.title_stack.get(0).unwrap(), "Test");
         }
