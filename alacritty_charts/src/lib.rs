@@ -124,7 +124,7 @@ pub struct TimeSeries {
     /// Contains one entry per time unit
     pub metrics: Vec<(u64, Option<f64>)>,
 
-    /// Number of items to store in our metrics vec
+    /// Number of items request to the metric store
     pub metrics_capacity: usize,
 
     /// Stats for the TimeSeries
@@ -753,6 +753,7 @@ impl TimeSeriesChart {
     /// This will also go through the decorations and account for the requested
     /// draw space for them.
     pub fn calculate_stats(&mut self) {
+        debug!("TimeSeriesChart::calculate_stats start");
         let mut max_activity_value = std::f64::MIN;
         let mut min_activity_value = std::f64::MAX;
         let mut sum_activity_values = 0f64;
@@ -979,7 +980,7 @@ impl TimeSeries {
     /// overwrite the data receiving an array.
     pub fn push(&mut self, input: (u64, f64)) {
         if !self.metrics.is_empty() {
-            let mut last_idx = (self.first_idx + self.active_items - 1) % self.metrics_capacity;
+            let mut last_idx = (self.first_idx + self.active_items - 1) % self.metrics.len();
             if (self.metrics[last_idx].0 as i64 - input.0 as i64) > self.metrics_capacity as i64 {
                 // The timestamp is too old and should be discarded.
                 // This means we cannot scroll back in time.
