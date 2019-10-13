@@ -118,7 +118,7 @@ fn create_gl_window(
         .with_srgb(srgb)
         .with_vsync(true)
         .with_depth_buffer(0)
-        .with_stencil_buffer(0)
+        .with_stencil_buffer(1)
         .with_hardware_acceleration(None)
         .build_windowed(window, event_loop)?;
 
