@@ -143,7 +143,7 @@ pub fn new<'a, C>(
 
     let mut startup_info_ex: STARTUPINFOEXW = Default::default();
 
-    let title = config.window.title.as_ref().map(String::as_str).unwrap_or("Alacritty");
+    let title = config.window.title.clone();
     let title = U16CString::from_str(title).unwrap();
     startup_info_ex.StartupInfo.lpTitle = title.as_ptr() as LPWSTR;
 

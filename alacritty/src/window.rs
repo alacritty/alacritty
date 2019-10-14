@@ -31,7 +31,7 @@ use image::ImageFormat;
 #[cfg(not(any(target_os = "macos", windows)))]
 use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 
-use alacritty_terminal::config::{Decorations, StartupMode, WindowConfig, DEFAULT_NAME};
+use alacritty_terminal::config::{Decorations, StartupMode, WindowConfig};
 use alacritty_terminal::event::Event;
 use alacritty_terminal::gl;
 use alacritty_terminal::term::{SizeInfo, Term};
@@ -146,9 +146,7 @@ impl Window {
         config: &Config,
         logical: Option<LogicalSize>,
     ) -> Result<Window> {
-        let title = config.window.title.as_ref().map_or(DEFAULT_NAME, |t| t);
-
-        let window_builder = Window::get_platform_window(title, &config.window);
+        let window_builder = Window::get_platform_window(&config.window.title, &config.window);
         let windowed_context =
             create_gl_window(window_builder.clone(), &event_loop, false, logical)
                 .or_else(|_| create_gl_window(window_builder, &event_loop, true, logical))?;

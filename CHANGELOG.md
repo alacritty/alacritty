@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ReceiveChar` key binding action to insert the key's text character
 - Live reload font size from config
 - New CLI flag `--hold` for keeping Alacritty opened after its child process exits
+- Escape sequence to save and restore window title from stack
 
 ### Changed
 

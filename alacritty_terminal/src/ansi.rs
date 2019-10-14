@@ -328,6 +328,12 @@ pub trait Handler {
 
     /// Run the dectest routine
     fn dectest(&mut self) {}
+
+    /// Push a title onto the stack
+    fn push_title(&mut self) {}
+
+    /// Pop the last title from the stack
+    fn pop_title(&mut self) {}
 }
 
 /// Describes shape of cursor
@@ -412,7 +418,13 @@ impl Mode {
     /// Create mode from a primitive
     ///
     /// TODO lots of unhandled values..
-    pub fn from_primitive(private: bool, num: i64) -> Option<Mode> {
+    pub fn from_primitive(intermediate: Option<&u8>, num: i64) -> Option<Mode> {
+        let private = match intermediate {
+            Some(b'?') => true,
+            None => false,
+            _ => return None,
+        };
+
         if private {
             Some(match num {
                 1 => Mode::CursorKeys,
@@ -991,22 +1003,18 @@ where
                 handler.clear_line(mode);
             },
             ('S', None) => handler.scroll_up(Line(arg_or_default!(idx: 0, default: 1) as usize)),
+            ('t', None) => match arg_or_default!(idx: 0, default: 1) as usize {
+                22 => handler.push_title(),
+                23 => handler.pop_title(),
+                _ => unhandled!(),
+            },
             ('T', None) => handler.scroll_down(Line(arg_or_default!(idx: 0, default: 1) as usize)),
             ('L', None) => {
                 handler.insert_blank_lines(Line(arg_or_default!(idx: 0, default: 1) as usize))
             },
             ('l', intermediate) => {
-                let is_private_mode = match intermediate {
-                    Some(b'?') => true,
-                    None => false,
-                    _ => {
-                        unhandled!();
-                        return;
-                    },
-                };
                 for arg in args {
-                    let mode = Mode::from_primitive(is_private_mode, *arg);
-                    match mode {
+                    match Mode::from_primitive(intermediate, *arg) {
                         Some(mode) => handler.unset_mode(mode),
                         None => {
                             unhandled!();
@@ -1027,17 +1035,8 @@ where
                 handler.goto_line(Line(arg_or_default!(idx: 0, default: 1) as usize - 1))
             },
             ('h', intermediate) => {
-                let is_private_mode = match intermediate {
-                    Some(b'?') => true,
-                    None => false,
-                    _ => {
-                        unhandled!();
-                        return;
-                    },
-                };
                 for arg in args {
-                    let mode = Mode::from_primitive(is_private_mode, *arg);
-                    match mode {
+                    match Mode::from_primitive(intermediate, *arg) {
                         Some(mode) => handler.set_mode(mode),
                         None => {
                             unhandled!();
