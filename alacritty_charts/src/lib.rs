@@ -23,6 +23,7 @@
 // -- When activated on toggle it could blur a portion of the screen
 // -- mock the prometheus server and response
 // -- We should re-use the circular_push for the opengl_vec
+// -- When less than configured items arrive, the metrics drawn do not make sense.
 
 extern crate log;
 #[macro_use]
