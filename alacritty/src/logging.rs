@@ -45,8 +45,8 @@ pub fn initialize(
 
     // Use env_logger if RUST_LOG environment variable is defined. Otherwise,
     // use the alacritty-only logger.
-    if ::std::env::var("RUST_LOG").is_ok() {
-        ::env_logger::try_init()?;
+    if std::env::var("RUST_LOG").is_ok() {
+        env_logger::try_init()?;
         Ok(None)
     } else {
         let logger = Logger::new(event_proxy);
@@ -172,7 +172,7 @@ impl OnDemandLogFile {
                 Ok(file) => {
                     self.file = Some(io::LineWriter::new(file));
                     self.created.store(true, Ordering::Relaxed);
-                    let _ = writeln!(io::stdout(), "Created log file at {:?}", self.path);
+                    let _ = writeln!(io::stdout(), "Created log file at \"{}\"", self.path.display());
                 },
                 Err(e) => {
                     let _ = writeln!(io::stdout(), "Unable to create log file: {}", e);

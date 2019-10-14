@@ -111,7 +111,7 @@ fn main() {
     // Clean up logfile
     if let Some(log_file) = log_file {
         if !persistent_logging && fs::remove_file(&log_file).is_ok() {
-            let _ = writeln!(io::stdout(), "Deleted log file at {:?}", log_file);
+            let _ = writeln!(io::stdout(), "Deleted log file at \"{}\"", log_file.display());
         }
     }
 }
@@ -123,7 +123,7 @@ fn main() {
 fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty");
     if let Some(config_path) = &config.config_path {
-        info!("Configuration loaded from {:?}", config_path.display());
+        info!("Configuration loaded from \"{}\"", config_path.display());
     };
 
     // Set environment variables
