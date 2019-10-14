@@ -380,7 +380,8 @@ impl Display {
 
         // Check grid damage
         let damage: Option<Vec<Rect>> = if self.damage_supported {
-            let (width, height, cell_width, cell_height, padding_x, padding_y) = size_info.to_u32();
+            let (width, height, cell_width, cell_height, padding_x, padding_y) =
+                size_info.into_u32();
 
             if self.fully_damaged {
                 // We need to fully damaged, so let's clear damage and stop
@@ -403,7 +404,7 @@ impl Display {
                                 d.x as u32,
                                 d.y as u32,
                                 (d.end_x + 2) as u32,
-                                (d.end_y + 1) as u32
+                                (d.end_y + 1) as u32,
                             );
 
                             // Then, convert the grid to a rect in gl coordinates
