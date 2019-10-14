@@ -14,8 +14,7 @@
 
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
-use std::cmp::min;
-use std::cmp::max;
+use std::cmp::{max, min};
 use std::f64;
 use std::fmt;
 use std::time::Instant;
@@ -391,35 +390,43 @@ impl Display {
                 Some(vec![Rect { x: 0, y: 0, width, height }])
             } else {
                 // Fetch and clear damage
-                Some(terminal.get_damage()
-                    .iter()
-                    .map(|d| {
-                        // Make end coordinates be lower right corner instead of upper
-                        // left. Also add one more to end_x to compensate for the
-                        // possibility of the end position being a double width
-                        // character.
-                        let (x, y, end_x, end_y) =
-                            (d.x as u32, d.y as u32, (d.end_x + 2) as u32, (d.end_y + 1) as u32);
+                Some(
+                    terminal
+                        .get_damage()
+                        .iter()
+                        .map(|d| {
+                            // Make end coordinates be lower right corner instead of upper
+                            // left. Also add one more to end_x to compensate for the
+                            // possibility of the end position being a double width
+                            // character.
+                            let (x, y, end_x, end_y) = (
+                                d.x as u32,
+                                d.y as u32,
+                                (d.end_x + 2) as u32,
+                                (d.end_y + 1) as u32
+                            );
 
-                        // Then, convert the grid to a rect in gl coordinates
-                        let rect = Rect {
-                            x: x * cell_width + padding_x,
-                            y: height - end_y * cell_height - padding_y,
-                            width: (end_x - x) * cell_width,
-                            height: (end_y - y) * cell_height,
-                        };
+                            // Then, convert the grid to a rect in gl coordinates
+                            let rect = Rect {
+                                x: x * cell_width + padding_x,
+                                y: height - end_y * cell_height - padding_y,
+                                width: (end_x - x) * cell_width,
+                                height: (end_y - y) * cell_height,
+                            };
 
-                        // And finally, add half a cell of horizontal, quarter of a
-                        // cell of vertical padding to cover overdraw.
-                        let x = rect.x.saturating_sub(cell_width / 2);
-                        let y = rect.y.saturating_sub(cell_height / 4);
-                        Rect {
-                            x: x,
-                            y: y,
-                            width: min(width-x, rect.width + cell_width),
-                            height: min(height-y, rect.height + cell_height / 2),
-                        }
-                    }).collect())
+                            // And finally, add half a cell of horizontal, quarter of a
+                            // cell of vertical padding to cover overdraw.
+                            let x = rect.x.saturating_sub(cell_width / 2);
+                            let y = rect.y.saturating_sub(cell_height / 4);
+                            Rect {
+                                x,
+                                y,
+                                width: min(width - x, rect.width + cell_width),
+                                height: min(height - y, rect.height + cell_height / 2),
+                            }
+                        })
+                        .collect(),
+                )
             }
         } else {
             None

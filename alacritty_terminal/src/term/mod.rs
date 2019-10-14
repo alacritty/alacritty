@@ -732,8 +732,7 @@ impl DamageRect {
 
     #[inline(always)]
     fn is_close_to_line(&self, line: index::Line) -> bool {
-        line.0 >= self.y.saturating_sub(1) &&
-            line.0 <= self.end_y + 1
+        line.0 >= self.y.saturating_sub(1) && line.0 <= self.end_y + 1
     }
 }
 
@@ -1105,56 +1104,52 @@ impl<T> Term<T> {
                 end_x: max(col.0, self.cursor.point.col.0),
                 end_y: max(line.0, self.cursor.point.line.0),
             });
-        } else {
-            if self.damage_list.len() > 8 {
-                // We have accumulated too many damage rects. Consolidate them
-                // all to clean things up.
-                self.damage = self.damage_list.iter().fold(self.damage.max(&DamageRect {
+        } else if self.damage_list.len() > 8 {
+            // We have accumulated too many damage rects. Consolidate them
+            // all to clean things up.
+            self.damage = self.damage_list.iter().fold(
+                self.damage.max(&DamageRect {
                     x: min(col.0, self.cursor.point.col.0),
                     y: min(line.0, self.cursor.point.line.0),
                     end_x: max(col.0, self.cursor.point.col.0),
                     end_y: max(line.0, self.cursor.point.line.0),
-                }), |acc, x| acc.max(x));
-                self.damage_list.truncate(0);
+                }),
+                |acc, x| acc.max(x)
+            );
+            self.damage_list.truncate(0);
+        } else {
+            // Try to see if one of our old damage rects are close to our
+            // target. If so, swap that our current damage rect with that
+            // one and update it with our new location.
+            let elem = self.damage_list.iter_mut().find(|e| e.is_close_to_line(line));
+            if let Some(elem) = elem {
+                // An old damage rect was close to our new location. Update
+                // our current damage rect with our previous cursor
+                // position, swap the current rect with the one from the
+                // list, and update the swapped rect with our new position.
+                self.damage = self.damage.max(&DamageRect {
+                    x: self.cursor.point.col.0,
+                    y: self.cursor.point.line.0,
+                    end_x: self.cursor.point.col.0,
+                    end_y: self.cursor.point.line.0,
+                });
+                ::std::mem::swap(&mut self.damage, elem);
+                self.damage = self.damage.max(&DamageRect {
+                    x: col.0,
+                    y: line.0,
+                    end_x: col.0,
+                    end_y: line.0,
+                });
             } else {
-                // Try to see if one of our old damage rects are close to our
-                // target. If so, swap that our current damage rect with that
-                // one and update it with our new location.
-                let elem = self.damage_list.iter_mut().find(|e| e.is_close_to_line(line));
-                if let Some(elem) = elem {
-                    // An old damage rect was close to our new location. Update
-                    // our current damage rect with our previous cursor
-                    // position, swap the current rect with the one from the
-                    // list, and update the swapped rect with our new position.
-                    self.damage = self.damage.max(&DamageRect {
-                        x: self.cursor.point.col.0,
-                        y: self.cursor.point.line.0,
-                        end_x: self.cursor.point.col.0,
-                        end_y: self.cursor.point.line.0,
-                    });
-                    ::std::mem::swap(&mut self.damage, elem);
-                    self.damage = self.damage.max(&DamageRect {
-                        x: col.0,
-                        y: line.0,
-                        end_x: col.0,
-                        end_y: line.0,
-                    });
-                } else {
-                    // No close rect found, so push our current damage rect to
-                    // the list and make a new rect.
-                    self.damage_list.push(self.damage.max(&DamageRect {
-                        x: self.cursor.point.col.0,
-                        y: self.cursor.point.line.0,
-                        end_x: self.cursor.point.col.0,
-                        end_y: self.cursor.point.line.0,
-                    }));
-                    self.damage = DamageRect {
-                        x: col.0,
-                        y: line.0,
-                        end_x: col.0,
-                        end_y: line.0,
-                    }
-                }
+                // No close rect found, so push our current damage rect to
+                // the list and make a new rect.
+                self.damage_list.push(self.damage.max(&DamageRect {
+                    x: self.cursor.point.col.0,
+                    y: self.cursor.point.line.0,
+                    end_x: self.cursor.point.col.0,
+                    end_y: self.cursor.point.line.0,
+                }));
+                self.damage = DamageRect { x: col.0, y: line.0, end_x: col.0, end_y: line.0 }
             }
         }
     }
