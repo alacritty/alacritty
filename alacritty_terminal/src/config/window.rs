@@ -36,8 +36,8 @@ pub struct WindowConfig {
     startup_mode: StartupMode,
 
     /// Window title
-    #[serde(deserialize_with = "failure_default")]
-    pub title: Option<String>,
+    #[serde(default = "default_title")]
+    pub title: String,
 
     /// Window class
     #[serde(deserialize_with = "from_string_or_deserialize")]
@@ -54,6 +54,10 @@ pub struct WindowConfig {
     /// TODO: DEPRECATED
     #[serde(deserialize_with = "failure_default")]
     pub start_maximized: Option<bool>,
+}
+
+pub fn default_title() -> String {
+    DEFAULT_NAME.to_string()
 }
 
 impl WindowConfig {
