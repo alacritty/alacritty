@@ -206,9 +206,9 @@ fn print_deprecation_warnings(config: &Config) {
     if config.scrolling.faux_multiplier().is_some() {
         warn!(
             target: LOG_TARGET_CONFIG,
-            "Config scrolling.faux_multiplier is deprecated; please use scrolling.multiplier for \
-             both usual and faux scrolling. You can enable/disable faux scrolling using \
-             `\\e[?1007h`/`\\e[?1007l` escape sequences respectively"
+            "Config scrolling.faux_multiplier is deprecated; the alternate scroll escape can now \
+             be used to disable it and `scrolling.multiplier` controls the number of scrolled \
+             lines"
         );
     }
 }
