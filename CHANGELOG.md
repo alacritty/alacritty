@@ -26,7 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Live reload font size from config
 - New CLI flag `--hold` for keeping Alacritty opened after its child process exits
 - Escape sequence to save and restore window title from stack
-- Support for alternate scroll escape
+- Support for alternate scroll escape. `\e[?1007h`/`\e[?1007l` escape sequences enable/disable
+alternate scroll (faux scrolling) respectively. Enabled by default.
 
 ### Changed
 
