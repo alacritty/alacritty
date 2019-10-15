@@ -485,7 +485,8 @@ mod tests {
         );
         assert_eq!(test0_res.is_ok(), true);
         let mut test0 = test0_res.unwrap();
-        test0.series = test0.series.with_capacity(11usize);
+        // Let's create space for 15, but we will receive 11 records:
+        test0.series = test0.series.with_capacity(15usize);
         // A json returned by prometheus
         let test0_json = hyper::Chunk::from(
             r#"
@@ -561,7 +562,7 @@ mod tests {
         debug!("it_loads_prometheus_matrix NOTVEC: {:?}", test0.series.metrics);
         let loaded_data = test0.series.metrics.clone();
         debug!("it_loads_prometheus_matrix Data: {:?}", loaded_data);
-        assert_eq!(loaded_data[0], (1558253480, Some(1.80f64)));
+        assert_eq!(loaded_data[0], (1558253469, Some(1.69f64)));
         assert_eq!(loaded_data[1], (1558253481, Some(1.81f64)));
         assert_eq!(loaded_data[5], (1558253474, Some(1.74f64)));
         // This json is missing the value after the epoch
@@ -789,7 +790,10 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn it_gets_prometheus_metrics() {
+        // These tests have been mocked above, but testing the actual communication
+        // without creating a temporary web server is done needs this for now.
         init_log();
         // Create a Tokio Core to use for testing
         let mut core = Core::new().unwrap();
