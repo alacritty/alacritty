@@ -12,9 +12,11 @@ pub struct Scrolling {
     #[serde(deserialize_with = "failure_default")]
     multiplier: ScrollingMultiplier,
     #[serde(deserialize_with = "failure_default")]
-    faux_multiplier: ScrollingMultiplier,
-    #[serde(deserialize_with = "failure_default")]
     pub auto_scroll: bool,
+
+    // TODO: DEPRECATED
+    #[serde(deserialize_with = "failure_default")]
+    faux_multiplier: Option<ScrollingMultiplier>,
 }
 
 impl Scrolling {
@@ -26,8 +28,8 @@ impl Scrolling {
         self.multiplier.0
     }
 
-    pub fn faux_multiplier(self) -> u8 {
-        self.faux_multiplier.0
+    pub fn faux_multiplier(self) -> Option<u8> {
+        self.faux_multiplier.map(|sm| sm.0)
     }
 
     // Update the history size, used in ref tests
