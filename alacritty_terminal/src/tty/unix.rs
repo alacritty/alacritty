@@ -236,7 +236,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
             pty.fd.as_raw_fd().on_resize(size);
             pty
         },
-        Err(err) => die!("Failed to spawn command: {}", err),
+        Err(err) => die!("Failed to spawn command '{}': {}", shell.program, err),
     }
 }
 
