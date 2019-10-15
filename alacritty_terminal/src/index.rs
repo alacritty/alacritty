@@ -124,7 +124,7 @@ impl Linear {
         Linear(point.line * columns.0 + point.col.0)
     }
 
-    pub fn to_point(self, columns: Column) -> Point<Line> {
+    pub fn into_point(self, columns: Column) -> Point<Line> {
         let line = Line(self.0 / columns.0);
         let col = Column(self.0 % columns.0);
         Point { col, line }

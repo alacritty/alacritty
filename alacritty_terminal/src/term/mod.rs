@@ -687,7 +687,7 @@ impl VisualBell {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DamageRect {
     pub x: usize,
     pub y: usize,
@@ -707,7 +707,7 @@ impl DamageRect {
     }
 
     #[inline(always)]
-    fn bounding_box(a: &DamageRect, b: &DamageRect) -> DamageRect {
+    fn bounding_rect(a: &DamageRect, b: &DamageRect) -> DamageRect {
         debug_assert!(
             a.end_x >= a.x && a.end_y >= a.y && b.end_x >= b.x && b.end_y >= b.y,
             "DamageRect has negative width or height"
@@ -721,7 +721,7 @@ impl DamageRect {
     }
 
     #[inline(always)]
-    fn bounding_box_with_point(a: &DamageRect, b: &Point) -> DamageRect {
+    fn bounding_rect_with_point(a: &DamageRect, b: &Point) -> DamageRect {
         DamageRect {
             x: min(a.x, b.col.0),
             y: min(a.y, b.line.0),
@@ -830,9 +830,6 @@ pub struct Term<T> {
     /// Currently open damage rect
     damage: DamageRect,
 
-    /// Last damage list
-    last_damage_list: Vec<DamageRect>,
-
     /// List of closed damage rects
     damage_list: Vec<DamageRect>,
 }
@@ -917,11 +914,11 @@ impl<T> Term<T> {
         &self,
         cols: index::Column,
         selection: &Option<Selection>,
-        rect: &DamageRect,
-    ) -> DamageRect {
+        damage_list: &mut Vec<DamageRect>,
+    ) {
         let selection = match selection {
             Some(ref selection) => selection,
-            None => return rect.clone(),
+            None => return,
         };
         if let Some(span) = selection.to_span(self) {
             let (limit_start, limit_end) = if span.is_block {
@@ -943,23 +940,12 @@ impl<T> Term<T> {
             start.col = max(limit_start, start.col);
             end.col = min(limit_end, end.col);
 
-            if start.line == end.line {
-                DamageRect::bounding_box(&rect, &DamageRect {
-                    x: start.col.0,
-                    y: start.line,
-                    end_x: end.col.0,
-                    end_y: end.line,
-                })
+            let d = if start.line == end.line {
+                DamageRect { x: start.col.0, y: start.line, end_x: end.col.0, end_y: end.line }
             } else {
-                DamageRect::bounding_box(&rect, &DamageRect {
-                    x: 0,
-                    y: start.line,
-                    end_x: cols.0 - 1,
-                    end_y: end.line,
-                })
-            }
-        } else {
-            rect.clone()
+                DamageRect { x: 0, y: start.line, end_x: cols.0 - 1, end_y: end.line }
+            };
+            damage_list.push(d);
         }
     }
 
@@ -1033,8 +1019,7 @@ impl<T> Term<T> {
             title_stack: Vec::new(),
             last_highlight: None,
             last_selection: None,
-            damage: DamageRect { x: 0, y: 0, end_x: 0, end_y: 0 },
-            last_damage_list: Vec::with_capacity(10),
+            damage: Default::default(),
             damage_list: Vec::with_capacity(10),
         }
     }
@@ -1073,28 +1058,29 @@ impl<T> Term<T> {
     /// rect that contains both the cursor before and after the move.
     ///
     /// This leaves the normal input path without any damage tracking overhead.
-    pub fn get_damage(&mut self) -> &Vec<DamageRect> {
+    pub fn get_damage(&mut self) -> Vec<DamageRect> {
         let cols = self.grid.num_cols();
-        std::mem::swap(&mut self.damage_list, &mut self.last_damage_list);
-        self.damage_list.clear();
 
-        let mut damage = if self.damage.is_close_to_line(self.cursor.point.line) {
-            DamageRect::bounding_box_with_point(&self.damage, &self.cursor.point)
+        let mut damage_list = std::mem::replace(&mut self.damage_list, Vec::new());
+
+        let damage = if self.damage.is_close_to_line(self.cursor.point.line) {
+            DamageRect::bounding_rect_with_point(&self.damage, &self.cursor.point)
         } else {
-            self.last_damage_list.push(self.damage.clone());
+            damage_list.push(self.damage.clone());
             DamageRect::from_point(&self.cursor.point)
         };
-        damage = self.add_selection(cols, &self.last_selection, &damage);
-        damage = self.add_selection(cols, &self.grid.selection, &damage);
-        damage = self.add_highlight(cols, &self.last_highlight, &damage);
-        damage = self.add_highlight(cols, &self.grid.url_highlight, &damage);
-        self.last_damage_list.push(damage);
+        damage_list.push(damage);
+
+        self.add_selection(cols, &self.last_selection, &mut damage_list);
+        self.add_selection(cols, &self.grid.selection, &mut damage_list);
+        self.add_highlight(cols, &self.last_highlight, &mut damage_list);
+        self.add_highlight(cols, &self.grid.url_highlight, &mut damage_list);
 
         self.damage = DamageRect::from_point(&self.cursor.point);
         self.last_selection = self.grid.selection.clone();
         self.last_highlight = self.grid.url_highlight.clone();
 
-        &self.last_damage_list
+        damage_list
     }
 
     /// Add a new position to the current damage, creating and consolidating
@@ -1103,7 +1089,7 @@ impl<T> Term<T> {
         // Check if our new location is close to our current damage rect, or if
         // we should instead get our hands on a new one
         if self.damage.is_close_to_line(line) {
-            self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+            self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
                 x: min(col.0, self.cursor.point.col.0),
                 y: min(line.0, self.cursor.point.line.0),
                 end_x: max(col.0, self.cursor.point.col.0),
@@ -1111,15 +1097,15 @@ impl<T> Term<T> {
             });
         } else if self.damage_list.len() > 8 {
             // We have accumulated too many damage rects. Consolidate them
-            // all to clean things up.
+            // all to clean things up
             self.damage = self.damage_list.iter().fold(
-                DamageRect::bounding_box(&self.damage, &DamageRect {
+                DamageRect::bounding_rect(&self.damage, &DamageRect {
                     x: min(col.0, self.cursor.point.col.0),
                     y: min(line.0, self.cursor.point.line.0),
                     end_x: max(col.0, self.cursor.point.col.0),
                     end_y: max(line.0, self.cursor.point.line.0),
                 }),
-                |acc, x| DamageRect::bounding_box(&acc, &x),
+                |acc, x| DamageRect::bounding_rect(&acc, &x),
             );
             self.damage_list.clear();
         } else {
@@ -1132,14 +1118,14 @@ impl<T> Term<T> {
                 // our current damage rect with our previous cursor
                 // position, swap the current rect with the one from the
                 // list, and update the swapped rect with our new position.
-                self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+                self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
                     x: self.cursor.point.col.0,
                     y: self.cursor.point.line.0,
                     end_x: self.cursor.point.col.0,
                     end_y: self.cursor.point.line.0,
                 });
                 std::mem::swap(&mut self.damage, elem);
-                self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+                self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
                     x: col.0,
                     y: line.0,
                     end_x: col.0,
@@ -1147,8 +1133,8 @@ impl<T> Term<T> {
                 });
             } else {
                 // No close rect found, so push our current damage rect to
-                // the list and make a new rect.
-                self.damage_list.push(DamageRect::bounding_box(&self.damage, &DamageRect {
+                // the list and make a new rect
+                self.damage_list.push(DamageRect::bounding_rect(&self.damage, &DamageRect {
                     x: self.cursor.point.col.0,
                     y: self.cursor.point.line.0,
                     end_x: self.cursor.point.col.0,
@@ -1480,30 +1466,19 @@ impl<T> Term<T> {
     pub fn add_highlight(
         &self,
         cols: index::Column,
-        hl: &Option<RangeInclusive<index::Linear>>,
-        r: &DamageRect,
-    ) -> DamageRect {
-        if let Some(hl) = hl {
-            let (start, end) = hl.clone().into_inner();
-            let (start, end) = (start.to_point(cols), end.to_point(cols));
+        highlight: &Option<RangeInclusive<index::Linear>>,
+        damage_list: &mut Vec<DamageRect>,
+    ) {
+        if let Some(highlight) = highlight {
+            let (start, end) = highlight.clone().into_inner();
+            let (start, end) = (start.into_point(cols), end.into_point(cols));
 
-            if start.line == end.line {
-                DamageRect::bounding_box(&r, &DamageRect {
-                    x: start.col.0,
-                    y: start.line.0,
-                    end_x: end.col.0,
-                    end_y: end.line.0,
-                })
+            let d = if start.line == end.line {
+                DamageRect { x: start.col.0, y: start.line.0, end_x: end.col.0, end_y: end.line.0 }
             } else {
-                DamageRect::bounding_box(&r, &DamageRect {
-                    x: 0,
-                    y: start.line.0,
-                    end_x: cols.0 - 1,
-                    end_y: end.line.0,
-                })
-            }
-        } else {
-            r.clone()
+                DamageRect { x: 0, y: start.line.0, end_x: cols.0 - 1, end_y: end.line.0 }
+            };
+            damage_list.push(d);
         }
     }
 
@@ -1685,7 +1660,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                     ptr::copy(src, dst, (num_cols - col - width).0);
                 }
 
-                self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+                self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
                     x: col.0,
                     y: self.cursor.point.line.0,
                     end_x: num_cols.0,
@@ -1793,7 +1768,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         for c in &mut line[source..destination] {
             c.reset(&template);
         }
-        self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+        self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
             x: source.0,
             y: self.cursor.point.line.0,
             end_x: (destination + num_cells).0,
@@ -1821,7 +1796,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         let old_col = self.cursor.point.col;
         self.cursor.point.col = min(self.cursor.point.col + cols, self.grid.num_cols() - 1);
 
-        self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+        self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
             x: old_col.0,
             y: self.cursor.point.line.0,
             end_x: self.cursor.point.col.0,
@@ -1837,7 +1812,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         let old_col = self.cursor.point.col;
         self.cursor.point.col -= min(self.cursor.point.col, cols);
 
-        self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+        self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
             x: self.cursor.point.col.0,
             y: self.cursor.point.line.0,
             end_x: old_col.0,
@@ -1908,7 +1883,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             }
         }
 
-        self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+        self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
             x: old_col.0,
             y: self.cursor.point.line.0,
             end_x: self.cursor.point.col.0,
@@ -1925,7 +1900,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         if self.cursor.point.col > Column(0) {
             self.cursor.point.col -= 1;
 
-            self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+            self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
                 x: self.cursor.point.col.0,
                 y: self.cursor.point.line.0,
                 end_x: self.cursor.point.col.0 + 1,
@@ -1940,7 +1915,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[inline]
     fn carriage_return(&mut self) {
         trace!("Carriage return");
-        self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+        self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
             x: 0,
             y: self.cursor.point.line.0,
             end_x: self.cursor.point.col.0,
@@ -1960,7 +1935,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             // scroll_up updates damage itself
             self.scroll_up(Line(1));
         } else if next < self.grid.num_lines() {
-            self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+            self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
                 x: self.cursor.point.col.0,
                 y: self.cursor.point.line.0,
                 end_x: self.cursor.point.col.0,
@@ -1980,7 +1955,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             // scroll_up updates damage itself
             self.scroll_up(Line(1));
         } else if next < self.grid.num_lines() {
-            self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+            self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
                 x: 0,
                 y: self.cursor.point.line.0,
                 end_x: self.cursor.point.col.0,
@@ -2085,7 +2060,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             c.reset(&template);
         }
 
-        self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+        self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
             x: start.0,
             y: self.cursor.point.line.0,
             end_x: end.0,
@@ -2113,7 +2088,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             ptr::copy(src, dst, n);
         }
 
-        self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+        self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
             x: start.0,
             y: self.cursor.point.line.0,
             end_x: (end + n).0,
@@ -2145,7 +2120,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             self.cursor.point.col = col;
         }
 
-        self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+        self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
             x: self.cursor.point.col.0,
             y: self.cursor.point.line.0,
             end_x: old_col.0,
@@ -2175,7 +2150,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         let new_line = min(self.cursor.point.line, self.grid.num_lines() - 1);
         let new_col = min(self.cursor.point.col, self.grid.num_cols() - 1);
 
-        self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+        self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
             x: min(self.cursor.point.col.0, new_col.0),
             y: min(self.cursor.point.line.0, new_line.0),
             end_x: max(self.cursor.point.col.0, new_col.0),
@@ -2200,7 +2175,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 for cell in &mut row[col..] {
                     cell.reset(&template);
                 }
-                self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+                self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
                     x: col.0,
                     y: self.cursor.point.line.0,
                     end_x: self.grid.num_cols().0,
@@ -2212,7 +2187,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 for cell in &mut row[..=col] {
                     cell.reset(&template);
                 }
-                self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+                self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
                     x: 0,
                     y: self.cursor.point.line.0,
                     end_x: col.0,
@@ -2224,7 +2199,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 for cell in &mut row[..] {
                     cell.reset(&template);
                 }
-                self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+                self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
                     x: 0,
                     y: self.cursor.point.line.0,
                     end_x: self.grid.num_cols().0,
@@ -2362,7 +2337,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             let old_line = self.cursor.point.line;
             self.cursor.point.line -= min(self.cursor.point.line, Line(1));
 
-            self.damage = DamageRect::bounding_box(&self.damage, &DamageRect {
+            self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
                 x: self.cursor.point.col.0,
                 y: self.cursor.point.line.0,
                 end_x: self.cursor.point.col.0,
