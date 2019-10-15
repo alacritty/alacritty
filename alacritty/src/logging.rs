@@ -172,7 +172,8 @@ impl OnDemandLogFile {
                 Ok(file) => {
                     self.file = Some(io::LineWriter::new(file));
                     self.created.store(true, Ordering::Relaxed);
-                    let _ = writeln!(io::stdout(), "Created log file at \"{}\"", self.path.display());
+                    let _ =
+                        writeln!(io::stdout(), "Created log file at \"{}\"", self.path.display());
                 },
                 Err(e) => {
                     let _ = writeln!(io::stdout(), "Unable to create log file: {}", e);

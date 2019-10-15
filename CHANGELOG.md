@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Live reload font size from config
 - New CLI flag `--hold` for keeping Alacritty opened after its child process exits
 - Escape sequence to save and restore window title from stack
+- Alternate scroll escape sequence (`CSI ? 1007 h` / `CSI ? 1007 l`)
 
 ### Changed
 
@@ -76,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bindings for Super/Command + F1-F12
 - Automatic config generation
+- Deprecated `scrolling.faux_multiplier`, the alternate scroll escape can now be used to disable it
+    and `scrolling.multiplier` controls the number of scrolled lines
 
 ## 0.3.3
 

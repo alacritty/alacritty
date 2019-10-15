@@ -457,28 +457,29 @@ pub mod mode {
 
     bitflags! {
         pub struct TermMode: u16 {
-            const SHOW_CURSOR         = 0b00_0000_0000_0001;
-            const APP_CURSOR          = 0b00_0000_0000_0010;
-            const APP_KEYPAD          = 0b00_0000_0000_0100;
-            const MOUSE_REPORT_CLICK  = 0b00_0000_0000_1000;
-            const BRACKETED_PASTE     = 0b00_0000_0001_0000;
-            const SGR_MOUSE           = 0b00_0000_0010_0000;
-            const MOUSE_MOTION        = 0b00_0000_0100_0000;
-            const LINE_WRAP           = 0b00_0000_1000_0000;
-            const LINE_FEED_NEW_LINE  = 0b00_0001_0000_0000;
-            const ORIGIN              = 0b00_0010_0000_0000;
-            const INSERT              = 0b00_0100_0000_0000;
-            const FOCUS_IN_OUT        = 0b00_1000_0000_0000;
-            const ALT_SCREEN          = 0b01_0000_0000_0000;
-            const MOUSE_DRAG          = 0b10_0000_0000_0000;
-            const ANY                 = 0b11_1111_1111_1111;
+            const SHOW_CURSOR         = 0b000_0000_0000_0001;
+            const APP_CURSOR          = 0b000_0000_0000_0010;
+            const APP_KEYPAD          = 0b000_0000_0000_0100;
+            const MOUSE_REPORT_CLICK  = 0b000_0000_0000_1000;
+            const BRACKETED_PASTE     = 0b000_0000_0001_0000;
+            const SGR_MOUSE           = 0b000_0000_0010_0000;
+            const MOUSE_MOTION        = 0b000_0000_0100_0000;
+            const LINE_WRAP           = 0b000_0000_1000_0000;
+            const LINE_FEED_NEW_LINE  = 0b000_0001_0000_0000;
+            const ORIGIN              = 0b000_0010_0000_0000;
+            const INSERT              = 0b000_0100_0000_0000;
+            const FOCUS_IN_OUT        = 0b000_1000_0000_0000;
+            const ALT_SCREEN          = 0b001_0000_0000_0000;
+            const MOUSE_DRAG          = 0b010_0000_0000_0000;
+            const ALTERNATE_SCROLL    = 0b100_0000_0000_0000;
+            const ANY                 = 0b111_1111_1111_1111;
             const NONE                = 0;
         }
     }
 
     impl Default for TermMode {
         fn default() -> TermMode {
-            TermMode::SHOW_CURSOR | TermMode::LINE_WRAP
+            TermMode::SHOW_CURSOR | TermMode::LINE_WRAP | TermMode::ALTERNATE_SCROLL
         }
     }
 }
@@ -913,6 +914,9 @@ impl<T> Term<T> {
             }
         }
         self.visual_bell.update_config(config);
+        if let Some(0) = config.scrolling.faux_multiplier() {
+            self.mode.remove(TermMode::ALTERNATE_SCROLL);
+        }
         self.default_cursor_style = config.cursor.style;
         self.dynamic_title = config.dynamic_title();
         self.auto_scroll = config.scrolling.auto_scroll;
@@ -2008,6 +2012,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             ansi::Mode::ReportFocusInOut => self.mode.insert(TermMode::FOCUS_IN_OUT),
             ansi::Mode::BracketedPaste => self.mode.insert(TermMode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.insert(TermMode::SGR_MOUSE),
+            ansi::Mode::AlternateScroll => self.mode.insert(TermMode::ALTERNATE_SCROLL),
             ansi::Mode::LineWrap => self.mode.insert(TermMode::LINE_WRAP),
             ansi::Mode::LineFeedNewLine => self.mode.insert(TermMode::LINE_FEED_NEW_LINE),
             ansi::Mode::Origin => self.mode.insert(TermMode::ORIGIN),
@@ -2048,6 +2053,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             ansi::Mode::ReportFocusInOut => self.mode.remove(TermMode::FOCUS_IN_OUT),
             ansi::Mode::BracketedPaste => self.mode.remove(TermMode::BRACKETED_PASTE),
             ansi::Mode::SgrMouse => self.mode.remove(TermMode::SGR_MOUSE),
+            ansi::Mode::AlternateScroll => self.mode.remove(TermMode::ALTERNATE_SCROLL),
             ansi::Mode::LineWrap => self.mode.remove(TermMode::LINE_WRAP),
             ansi::Mode::LineFeedNewLine => self.mode.remove(TermMode::LINE_FEED_NEW_LINE),
             ansi::Mode::Origin => self.mode.remove(TermMode::ORIGIN),

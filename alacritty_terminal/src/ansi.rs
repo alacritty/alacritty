@@ -408,6 +408,8 @@ pub enum Mode {
     ReportFocusInOut = 1004,
     /// ?1006
     SgrMouse = 1006,
+    /// ?1007
+    AlternateScroll = 1007,
     /// ?1049
     SwapScreenAndSetRestoreCursor = 1049,
     /// ?2004
@@ -438,6 +440,7 @@ impl Mode {
                 1003 => Mode::ReportAllMouseMotion,
                 1004 => Mode::ReportFocusInOut,
                 1006 => Mode::SgrMouse,
+                1007 => Mode::AlternateScroll,
                 1049 => Mode::SwapScreenAndSetRestoreCursor,
                 2004 => Mode::BracketedPaste,
                 _ => {
