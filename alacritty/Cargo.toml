@@ -65,6 +65,5 @@ assets = [
     ["../extra/completions/alacritty.bash", "usr/share/bash-completion/completions/alacritty", "644"],
     ["../extra/completions/alacritty.fish", "usr/share/fish/completions/alacritty.fish", "644"],
     ["../extra/completions/_alacritty", "usr/share/zsh/vendor-completions/_alacritty", "644"],
-    ["../extra/alacritty.info", "usr/share/terminfo/a/alacritty", "644"],
 ]
 maintainer-scripts = "../extra/linux/debian"
