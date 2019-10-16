@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Minimum Rust version has been bumped to 1.36.0
 - Config is not generated anymore, please consider distributing the alacritty.yml as documentation
+- Removed Alacritty terminfo from .deb in favor of ncurses provided one
 
 ### Added
 
