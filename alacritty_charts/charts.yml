@@ -3,7 +3,7 @@ charts:
   offset:
     x: 500
   width: 100
-  height: 100
+  height: 25
   series:
   - name: Number of input items for TimeSeries
     type: async_items_loaded
@@ -14,7 +14,7 @@ charts:
   offset:
     x: 600
   width: 200
-  height: 100
+  height: 25
   series:
   - name: input keystrokes
     type: alacritty_input
@@ -25,7 +25,7 @@ charts:
   offset:
     x: 800
   width: 200
-  height: 100
+  height: 25
   series:
   - name: output drawn characters
     type: alacritty_output
@@ -36,7 +36,7 @@ charts:
   offset:
     x: 1010
   width: 100
-  height: 100
+  height: 25
   decorations:
   - type: reference
     value: 1.0
@@ -64,7 +64,7 @@ charts:
   offset:
     x: 1140
   width: 200
-  height: 100
+  height: 25
   series:
   - name: cpu
     type: prometheus
@@ -77,7 +77,7 @@ charts:
   offset:
     x: 1340
   width: 100
-  height: 100
+  height: 25
   series:
   - name: cpu
     type: prometheus
