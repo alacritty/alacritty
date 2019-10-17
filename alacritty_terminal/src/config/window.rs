@@ -9,7 +9,7 @@ use crate::index::{Column, Line};
 pub const DEFAULT_NAME: &str = "Alacritty";
 
 #[serde(default)]
-#[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct WindowConfig {
     /// Initial dimensions
     #[serde(deserialize_with = "failure_default")]
@@ -65,6 +65,24 @@ impl WindowConfig {
         match self.start_maximized {
             Some(true) => StartupMode::Maximized,
             _ => self.startup_mode,
+        }
+    }
+}
+
+impl Default for WindowConfig {
+    fn default() -> WindowConfig {
+        WindowConfig {
+            dimensions: Default::default(),
+            position: Default::default(),
+            padding: Default::default(),
+            decorations: Default::default(),
+            dynamic_padding: Default::default(),
+            startup_mode: Default::default(),
+            class: Default::default(),
+            embed: Default::default(),
+            gtk_theme_variant: Default::default(),
+            start_maximized: Default::default(),
+            title: default_title(),
         }
     }
 }
