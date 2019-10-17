@@ -18,12 +18,12 @@
 // the async_coordinator to send data somehow to the main thread.
 // IN PROGRESS:
 // -- Group labels into separate colors (find something that does color spacing in rust)
+// -- When less than configured items arrive, the metrics drawn do not make sense.
 // TODO:
 // -- The dashboards should be toggable, some key combination
 // -- When activated on toggle it could blur a portion of the screen
 // -- mock the prometheus server and response
 // -- We should re-use the circular_push for the opengl_vec
-// -- When less than configured items arrive, the metrics drawn do not make sense.
 
 extern crate log;
 #[macro_use]
@@ -705,9 +705,10 @@ impl TimeSeriesChart {
         debug!("Chart: width: {}, decorations_space: {}", self.width, decorations_space);
         let missing_values_fill = self.sources[series_idx].series().get_missing_values_fill();
         debug!(
-            "Chart: Using {} to fill missing values. Metrics capacity: {}",
+            "Chart: Using {} to fill missing values. Metrics[{}]: {}",
             missing_values_fill,
-            self.sources[series_idx].series().metrics_capacity
+            self.sources[series_idx].series().metrics_capacity,
+            self.sources[series_idx].series()
         );
         let tick_spacing = (self.width - decorations_space)
             / self.sources[series_idx].series().metrics_capacity as f32;
@@ -842,7 +843,8 @@ impl TimeSeriesChart {
             res.push(cur_x);
             res.push(cur_y);
         }
-        debug!("get_deduped_opengl_vecs[{}]: {:?}", idx, res);
+        debug!("get_deduped_opengl_vecs[{}] orig: {:?}", idx,);
+        debug!("get_deduped_opengl_vecs[{}] result: {:?}", idx, res);
         res
     }
 }
