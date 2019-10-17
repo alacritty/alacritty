@@ -78,7 +78,7 @@ impl Default for WindowConfig {
             decorations: Default::default(),
             dynamic_padding: Default::default(),
             startup_mode: Default::default(),
-            title: DEFAULT_NAME.into(),
+            title: default_title(),
             class: Default::default(),
             embed: Default::default(),
             gtk_theme_variant: Default::default(),
