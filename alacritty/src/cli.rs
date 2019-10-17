@@ -301,8 +301,7 @@ mod test {
 
     #[test]
     fn dynamic_title_ignoring_options_by_default() {
-        let mut config = Config::default();
-        config.window.title = "Alacritty".to_string();
+        let config = Config::default();
         let old_dynamic_title = config.dynamic_title();
 
         let config = Options::default().into_config(config);
