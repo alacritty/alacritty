@@ -102,7 +102,7 @@ impl Drop for Conpty {
 unsafe impl Send for Conpty {}
 
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Option<Pty> {
-    if !config.enable_experimental_conpty_backend {
+    if config.use_winpty_backend {
         return None;
     }
 

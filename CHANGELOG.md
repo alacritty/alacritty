@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - /Applications symlink into OS X DMG for easier installation
 - Colored emojis on Linux/BSD
 
+### Changed
+
+- On Windows, the ConPTY backend will now be used by default if available; the `enable_experimental_conpty_backend` config option has been replaced with `use_winpty_backend`.
+
 ### Fixed
 
 - URLs not truncated with non-matching single quote

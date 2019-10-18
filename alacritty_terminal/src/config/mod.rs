@@ -108,11 +108,10 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     pub cursor: Cursor,
 
-    /// Enable experimental conpty backend instead of using winpty.
-    /// Will only take effect on Windows 10 Oct 2018 and later.
+    /// Disable conpty backend, and use winpty even if conpty is available.
     #[cfg(windows)]
     #[serde(default, deserialize_with = "failure_default")]
-    pub enable_experimental_conpty_backend: bool,
+    pub use_winpty_backend: bool,
 
     /// Send escape sequences using the alt key.
     #[serde(default, deserialize_with = "failure_default")]
