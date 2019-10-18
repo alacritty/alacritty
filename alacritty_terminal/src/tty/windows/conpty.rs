@@ -104,7 +104,7 @@ pub fn new<'a, C>(
     size: &SizeInfo,
     _window_id: Option<usize>,
 ) -> Option<Pty<'a>> {
-    if !config.enable_experimental_conpty_backend {
+    if config.use_winpty_backend {
         return None;
     }
 
