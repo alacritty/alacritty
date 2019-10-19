@@ -18,7 +18,9 @@
 // the async_coordinator to send data somehow to the main thread.
 // IN PROGRESS:
 // -- Group labels into separate colors (find something that does color spacing in rust)
-// -- When less than configured items arrive, the metrics drawn do not make sense.
+// -- When less than configured items arrive, the metrics drawn do not make sense,
+//    seems like we are adding the same items over and over and so our metrics_capacity()
+//    and our active_items are out of sync
 // TODO:
 // -- The dashboards should be toggable, some key combination
 // -- When activated on toggle it could blur a portion of the screen
