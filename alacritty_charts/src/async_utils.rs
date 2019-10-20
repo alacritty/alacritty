@@ -113,7 +113,6 @@ pub fn load_http_response(
         }
         for chart in charts {
             // Update the loaded item counters
-            debug!("Searching for AsyncLoadedItems in '{}'", chart.name);
             for series in &mut chart.sources {
                 if let TimeSeriesSource::AsyncLoadedItems(ref mut loaded) = series {
                     loaded.series.push_current_epoch(ok_records as f64);
