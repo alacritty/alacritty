@@ -1,3 +1,5 @@
+use std::os::raw::c_ulong;
+
 use serde::Deserialize;
 
 use crate::config::{
@@ -45,7 +47,7 @@ pub struct WindowConfig {
 
     /// XEmbed parent
     #[serde(skip)]
-    pub embed: Option<u64>,
+    pub embed: Option<c_ulong>,
 
     /// GTK theme variant
     #[serde(deserialize_with = "option_explicit_none")]

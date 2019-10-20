@@ -15,6 +15,7 @@ use std::convert::From;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::ffi::c_void;
 use std::fmt;
+use std::os::raw::c_ulong;
 
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
@@ -392,7 +393,7 @@ impl Window {
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]
-fn x_embed_window(window: &GlutinWindow, parent_id: u64) {
+fn x_embed_window(window: &GlutinWindow, parent_id: c_ulong) {
     let (xlib_display, xlib_window) = match (window.xlib_display(), window.xlib_window()) {
         (Some(display), Some(window)) => (display, window),
         _ => return,
