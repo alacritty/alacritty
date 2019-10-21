@@ -1689,8 +1689,3 @@ mod tests {
         ]);
     }
 }
-// TODO: `init_opengl_context` provides a default initialization of OpengL
-// context. This function is called previous to sending the vector data.
-// This seems to be part of src/renderer/ mod tho...
-// fn init_opengl_context(&self);
-// }
