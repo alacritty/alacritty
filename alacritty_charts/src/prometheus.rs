@@ -357,7 +357,6 @@ pub fn get_from_prometheus(url: hyper::Uri) -> impl Future<Item = hyper::Chunk, 
     };
     request
         .and_then(|res| {
-            debug!("get_from_prometheus: Response={:?}", res);
             res.into_body()
                 // A hyper::Body is a Stream of Chunk values. We need a
                 // non-blocking way to get all the chunks so we can deserialize the response.
@@ -403,6 +402,10 @@ impl PartialEq<PrometheusTimeSeries> for PrometheusTimeSeries {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prometheus::HTTPResponseData::Vector;
+    use crate::MissingValuesPolicy;
+    use crate::TimeSeries;
+    use crate::TimeSeriesStats;
     use tokio_core::reactor::Core;
     fn init_log() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -843,5 +846,83 @@ mod tests {
             }
             assert_eq!(found_prometheus_job_metric, true);
         }
+    }
+
+    #[test]
+    fn it_does_not_duplicate_epochs() {
+        let test_labels = HashMap::new();
+        let mut test = PrometheusTimeSeries {
+            name: String::from("load average 1 min"),
+            series: TimeSeries {
+                metrics: vec![
+                    (1571511822, Some(1.8359375)),
+                    (1571511823, Some(1.8359375)),
+                    (1571511824, Some(1.8359375)),
+                    (1571511825, Some(1.8359375)),
+                    (1571511826, Some(1.8359375)),
+                ],
+                metrics_capacity: 300,
+                stats: TimeSeriesStats {
+                    max: 17179869184.0,
+                    min: 17179869184.0,
+                    avg: 17179869184.0,
+                    first: 17179869184.0,
+                    last: 17179869184.0,
+                    count: 5,
+                    sum: 1202590842880.0,
+                    is_dirty: false,
+                },
+                collision_policy: ValueCollisionPolicy::Overwrite,
+                missing_values_policy: MissingValuesPolicy::Zero,
+                first_idx: 0,
+                active_items: 5,
+            },
+            data: Vector {
+                result: vec![HTTPVectorResult { labels: test_labels.clone(), value: vec![] }],
+            },
+            source: String::from(
+                "http://localhost:9090/api/v1/query_range?query=node_memory_bytes_total",
+            ),
+            url: "/".parse::<hyper::Uri>().unwrap(),
+            data_type: String::from(""),
+            required_labels: test_labels.clone(),
+            pull_interval: 15,
+            color: Rgb { r: 207, g: 102, b: 121 },
+            alpha: 1.0,
+        };
+        // This should result in adding 15 more items
+        let test1_json = hyper::Chunk::from(
+            r#"{
+              "status":"success",
+              "data":{
+                "resultType":"matrix",
+                "result":[{
+                  "metric":{
+                    "__name__":"node_load1",
+                    "instance":"localhost:9100",
+                    "job":"node_exporter"
+                  },
+                  "values":[
+                    [1571511822,"1.8359375"],
+                    [1571511823,"1.8359375"],
+                    [1571511824,"1.8359375"],
+                    [1571511825,"1.8359375"],
+                    [1571511826,"1.8359375"],
+                    [1571511827,"1.8359375"],
+                    [1571511828,"1.8359375"],
+                    [1571511829,"1.8359375"],
+                    [1571511830,"1.8359375"],
+                    [1571511831,"1.8359375"]
+                  ]
+                }]
+              }
+          }"#,
+        );
+        let res1_json = parse_json(&test1_json);
+        assert_eq!(res1_json.is_some(), true);
+        let res1_load = test.load_prometheus_response(res1_json.unwrap());
+        // 5 items should have been loaded
+        assert_eq!(res1_load, Ok(5usize));
+        assert_eq!(test.series.active_items, 10usize);
     }
 }
