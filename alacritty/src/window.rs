@@ -15,6 +15,8 @@ use std::convert::From;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::ffi::c_void;
 use std::fmt;
+#[cfg(target_os = "linux")]
+use std::os::raw::c_ulong;
 
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use glutin::event_loop::EventLoop;
