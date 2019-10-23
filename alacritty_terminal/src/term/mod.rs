@@ -1083,6 +1083,14 @@ impl<T> Term<T> {
         damage_list
     }
 
+    /// Clears damage.
+    pub fn clear_damage(&mut self) {
+        self.damage = DamageRect::from_point(&self.cursor.point);
+        self.last_selection = self.grid.selection.clone();
+        self.last_highlight = self.grid.url_highlight.clone();
+        self.damage_list.clear();
+    }
+
     /// Add a new position to the current damage, creating and consolidating
     /// damage rects as needed.
     fn update_damage(&mut self, line: Line, col: Column) {

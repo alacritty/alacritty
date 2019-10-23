@@ -386,7 +386,7 @@ impl Display {
             if self.fully_damaged {
                 // We need to fully damaged, so let's clear damage and stop
                 // here.
-                terminal.get_damage();
+                terminal.clear_damage();
                 self.fully_damaged = false;
                 Some(vec![Rect { x: 0, y: 0, width, height }])
             } else {
