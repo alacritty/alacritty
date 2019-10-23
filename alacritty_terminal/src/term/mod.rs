@@ -687,7 +687,7 @@ impl VisualBell {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct DamageRect {
     pub x: usize,
     pub y: usize,
@@ -1066,7 +1066,7 @@ impl<T> Term<T> {
         let damage = if self.damage.is_close_to_line(self.cursor.point.line) {
             DamageRect::bounding_rect_with_point(&self.damage, &self.cursor.point)
         } else {
-            damage_list.push(self.damage.clone());
+            damage_list.push(self.damage);
             DamageRect::from_point(&self.cursor.point)
         };
         damage_list.push(damage);
