@@ -1493,12 +1493,12 @@ impl<T> Term<T> {
             let (start, end) = highlight.clone().into_inner();
             let (start, end) = (start.into_point(cols), end.into_point(cols));
 
-            let d = if start.line == end.line {
+            let damage = if start.line == end.line {
                 DamageRect { x: start.col.0, y: start.line.0, end_x: end.col.0, end_y: end.line.0 }
             } else {
                 DamageRect { x: 0, y: start.line.0, end_x: cols.0 - 1, end_y: end.line.0 }
             };
-            damage_list.push(d);
+            damage_list.push(damage);
         }
     }
 
