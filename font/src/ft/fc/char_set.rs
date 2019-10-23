@@ -19,7 +19,7 @@ use super::ffi::FcCharSetCreate;
 use super::ffi::{FcCharSet, FcCharSetAddChar, FcCharSetDestroy};
 
 foreign_type! {
-    pub type CharSet {
+    pub unsafe type CharSet {
         type CType = FcCharSet;
         fn drop = FcCharSetDestroy;
     }

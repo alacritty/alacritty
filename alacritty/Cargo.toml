@@ -13,7 +13,7 @@ alacritty_terminal = { path = "../alacritty_terminal" }
 clap = "2"
 log = "0.4"
 time = "0.1.40"
-env_logger = "0.6.0"
+env_logger = "0.7.1"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1"
@@ -31,10 +31,10 @@ rustc_tools_util = "0.2.0"
 xdg = "2"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
-image = "0.21.0"
+image = "0.22.3"
 
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]
-dirs = "1.0.2"
+dirs = "2.0.2"
 
 [target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
 x11-dl = "2"

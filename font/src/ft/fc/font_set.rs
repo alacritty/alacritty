@@ -21,7 +21,7 @@ use super::{ConfigRef, ObjectSetRef, PatternRef};
 use super::ffi::{FcFontSet, FcFontSetDestroy, FcFontSetList};
 
 foreign_type! {
-    pub type FontSet {
+    pub unsafe type FontSet {
         type CType = FcFontSet;
         fn drop = FcFontSetDestroy;
     }

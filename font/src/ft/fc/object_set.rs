@@ -19,7 +19,7 @@ use super::ffi::{FcObjectSet, FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDest
 use foreign_types::ForeignTypeRef;
 
 foreign_type! {
-    pub type ObjectSet {
+    pub unsafe type ObjectSet {
         type CType = FcObjectSet;
         fn drop = FcObjectSetDestroy;
     }
