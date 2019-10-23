@@ -285,6 +285,8 @@ impl Options {
         config.debug.print_events = self.print_events || config.debug.print_events;
         config.debug.log_level = max(config.debug.log_level, self.log_level);
         config.debug.ref_test = self.ref_test || config.debug.ref_test;
+        config.debug.persistent_logging =
+            self.persistent_logging || config.debug.persistent_logging;
 
         if config.debug.print_events {
             config.debug.log_level = max(config.debug.log_level, LevelFilter::Info);
