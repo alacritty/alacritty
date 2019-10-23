@@ -910,7 +910,7 @@ impl<T> Term<T> {
         &self.grid.selection
     }
 
-    fn add_selection(
+    fn damage_selection(
         &self,
         cols: index::Column,
         selection: &Option<Selection>,
@@ -1071,10 +1071,10 @@ impl<T> Term<T> {
         };
         damage_list.push(damage);
 
-        self.add_selection(cols, &self.last_selection, &mut damage_list);
-        self.add_selection(cols, &self.grid.selection, &mut damage_list);
-        self.add_highlight(cols, &self.last_highlight, &mut damage_list);
-        self.add_highlight(cols, &self.grid.url_highlight, &mut damage_list);
+        self.damage_selection(cols, &self.last_selection, &mut damage_list);
+        self.damage_selection(cols, &self.grid.selection, &mut damage_list);
+        self.damage_highlight(cols, &self.last_highlight, &mut damage_list);
+        self.damage_highlight(cols, &self.grid.url_highlight, &mut damage_list);
 
         self.damage = DamageRect::from_point(&self.cursor.point);
         self.last_selection = self.grid.selection.clone();
@@ -1463,7 +1463,7 @@ impl<T> Term<T> {
         self.event_proxy.send_event(Event::Exit);
     }
 
-    pub fn add_highlight(
+    pub fn damage_highlight(
         &self,
         cols: index::Column,
         highlight: &Option<RangeInclusive<index::Linear>>,
