@@ -394,7 +394,7 @@ impl Display {
                 Some(
                     terminal
                         .get_damage()
-                        .iter()
+                        .into_iter()
                         .map(|d| {
                             // Make end coordinates be lower right corner instead of upper
                             // left. Also add one more to end_x to compensate for the
