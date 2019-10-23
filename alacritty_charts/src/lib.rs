@@ -26,6 +26,10 @@
 // -- When activated on toggle it could blur a portion of the screen
 // -- mock the prometheus server and response
 // -- We should re-use the circular_push for the opengl_vec
+// -- When disconnected from a server, it is not easy to know which one or why.
+// -- When disconnected from a server, the connection is not retried.
+// -- When data is not received from a channel, the line does not move anymore, consider adding a
+//    ($now, None) to the array
 
 extern crate log;
 #[macro_use]
