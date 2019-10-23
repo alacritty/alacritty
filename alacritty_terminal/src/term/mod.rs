@@ -2171,8 +2171,8 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         let col = min(self.cursor.point.col, self.grid.num_cols() - 1);
 
         self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
-            x: min(self.cursor.point.col.0, col.0),
-            y: min(self.cursor.point.line.0, line.0),
+            x: col.0,
+            y: line.0,
             end_x: max(self.cursor.point.col.0, col.0),
             end_y: max(self.cursor.point.line.0, line.0),
         });
