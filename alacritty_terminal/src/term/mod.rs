@@ -1721,13 +1721,13 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             (Line(0), self.grid.num_lines() - 1)
         };
 
-        let new_line = min(line + y_offset, max_y);
-        let new_col = min(col, self.grid.num_cols() - 1);
+        let line = min(line + y_offset, max_y);
+        let col = min(col, self.grid.num_cols() - 1);
 
-        self.update_damage(new_line, new_col);
+        self.update_damage(line, col);
 
-        self.cursor.point.line = new_line;
-        self.cursor.point.col = new_col;
+        self.cursor.point.line = line;
+        self.cursor.point.col = col;
         self.input_needs_wrap = false;
     }
 
@@ -2147,18 +2147,18 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         let source = if self.alt { &self.cursor_save_alt } else { &self.cursor_save };
 
         self.cursor = *source;
-        let new_line = min(self.cursor.point.line, self.grid.num_lines() - 1);
-        let new_col = min(self.cursor.point.col, self.grid.num_cols() - 1);
+        let line = min(self.cursor.point.line, self.grid.num_lines() - 1);
+        let col = min(self.cursor.point.col, self.grid.num_cols() - 1);
 
         self.damage = DamageRect::bounding_rect(&self.damage, &DamageRect {
-            x: min(self.cursor.point.col.0, new_col.0),
-            y: min(self.cursor.point.line.0, new_line.0),
-            end_x: max(self.cursor.point.col.0, new_col.0),
-            end_y: max(self.cursor.point.line.0, new_line.0),
+            x: min(self.cursor.point.col.0, col.0),
+            y: min(self.cursor.point.line.0, line.0),
+            end_x: max(self.cursor.point.col.0, col.0),
+            end_y: max(self.cursor.point.line.0, line.0),
         });
 
-        self.cursor.point.line = new_line;
-        self.cursor.point.col = new_col;
+        self.cursor.point.line = line;
+        self.cursor.point.col = col;
     }
 
     #[inline]
