@@ -15,7 +15,6 @@ use std::ops::{Index, IndexMut};
 use std::vec::Drain;
 
 use serde::{Deserialize, Serialize};
-use static_assertions::assert_eq_size;
 
 use super::Row;
 use crate::index::Line;
@@ -221,7 +220,7 @@ impl<T> Storage<T> {
     /// instructions. This implementation achieves the swap in only 8 movups
     /// instructions.
     pub fn swap(&mut self, a: usize, b: usize) {
-        assert_eq_size!(Row<T>, [usize; 4]);
+        debug_assert_eq!(std::mem::size_of::<Row<T>>(), 32);
 
         let a = self.compute_index(a);
         let b = self.compute_index(b);
