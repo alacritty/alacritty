@@ -607,16 +607,16 @@ impl VisualBell {
         self.intensity_at_instant(Instant::now())
     }
 
-    /// Check whether or not the visual bell has completed "ringing".
-    pub fn completed(&mut self) -> bool {
+    /// Check whether or not the visual bell is "ringing".
+    pub fn animating(&mut self) -> bool {
         match self.start_time {
             Some(earlier) => {
                 if Instant::now().duration_since(earlier) >= self.duration {
                     self.start_time = None;
                 }
-                false
+                true
             },
-            None => true,
+            None => false,
         }
     }
 
