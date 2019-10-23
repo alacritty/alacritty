@@ -1061,7 +1061,7 @@ impl<T> Term<T> {
     pub fn get_damage(&mut self) -> Vec<DamageRect> {
         let cols = self.grid.num_cols();
 
-        let mut damage_list = std::mem::replace(&mut self.damage_list, Vec::new());
+        let mut damage_list = std::mem::replace(&mut self.damage_list, Vec::with_capacity(10));
 
         let damage = if self.damage.is_close_to_line(self.cursor.point.line) {
             DamageRect::bounding_rect_with_point(&self.damage, &self.cursor.point)
