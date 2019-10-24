@@ -348,7 +348,6 @@ impl<N: Notify> Processor<N> {
                 info!("glutin event: {:?}", event);
             }
 
-            let mut terminal = terminal.lock();
 
             match (&event, tty::process_should_exit()) {
                 // Check for shutdown
@@ -360,7 +359,7 @@ impl<N: Notify> Processor<N> {
                 (GlutinEvent::EventsCleared, _) => {
                     *control_flow = ControlFlow::Wait;
 
-                    if event_queue.is_empty() && !terminal.dirty {
+                    if event_queue.is_empty() {
                         return;
                     }
                 },
@@ -373,6 +372,8 @@ impl<N: Notify> Processor<N> {
                     return;
                 },
             }
+
+            let mut terminal = terminal.lock();
 
             let mut resize_pending = Resize::default();
 
@@ -427,7 +428,11 @@ impl<N: Notify> Processor<N> {
 
             if terminal.dirty {
                 // Clear dirty flag
-                terminal.dirty = !terminal.visual_bell.completed();
+                let animating = !terminal.visual_bell.completed();
+                terminal.dirty = animating;
+                if animating {
+                    event_queue.push(GlutinEvent::UserEvent(Event::Wakeup));
+                }
 
                 // Redraw screen
                 self.display.draw(terminal, &self.message_buffer, &self.config);
