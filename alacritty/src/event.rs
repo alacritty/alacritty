@@ -426,10 +426,10 @@ impl<N: Notify> Processor<N> {
             }
 
             if terminal.dirty {
-                // Clear dirty flag
-                let animating = !terminal.visual_bell.completed();
-                terminal.dirty = animating;
-                if animating {
+                terminal.dirty = false;
+
+                // Request immediate re-draw if visual bell animation is not finished yet
+                if !terminal.visual_bell.completed() {
                     event_queue.push(GlutinEvent::UserEvent(Event::Wakeup));
                 }
 
@@ -444,7 +444,7 @@ impl<N: Notify> Processor<N> {
 
     /// Handle events from glutin
     ///
-    /// Doesn't take self mutably due to borrow checking. Kinda uggo but w/e.
+    /// Doesn't take self mutably due to borrow checking.
     fn handle_event<T>(
         event: GlutinEvent<Event>,
         processor: &mut input::Processor<T, ActionContext<N, T>>,
