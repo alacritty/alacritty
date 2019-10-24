@@ -348,7 +348,6 @@ impl<N: Notify> Processor<N> {
                 info!("glutin event: {:?}", event);
             }
 
-
             match (&event, tty::process_should_exit()) {
                 // Check for shutdown
                 (GlutinEvent::UserEvent(Event::Exit), _) | (_, true) => {
