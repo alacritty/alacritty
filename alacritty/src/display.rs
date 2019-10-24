@@ -380,6 +380,7 @@ impl Display {
         let metrics = self.glyph_cache.font_metrics();
         let glyph_cache = &mut self.glyph_cache;
         let size_info = self.size_info;
+        let cols = size_info.cols();
 
         // Request immediate re-draw if visual bell animation is not finished
         if visual_bell_animating {
@@ -394,48 +395,56 @@ impl Display {
             if self.fully_damaged || visual_bell_animating {
                 // We need to fully damaged, so let's clear damage and stop
                 // here.
-                terminal.clear_damage();
+                terminal.reset_damage();
                 self.fully_damaged = false;
                 Some(vec![Rect { x: 0, y: 0, width, height }])
             } else {
                 // Fetch and clear damage
-                Some(
-                    terminal
-                        .get_damage()
-                        .into_iter()
-                        .map(|d| {
-                            // Make end coordinates be lower right corner instead of upper
-                            // left. Also add one more to end_x to compensate for the
-                            // possibility of the end position being a double width
-                            // character.
-                            let (x, y, end_x, end_y) = (
-                                d.x as u32,
-                                d.y as u32,
-                                (d.end_x + 2) as u32,
-                                (d.end_y + 1) as u32,
-                            );
+                let (full, line_damage) = terminal.get_damage();
+                if full {
+                    terminal.reset_damage();
+                    Some(vec![Rect { x: 0, y: 0, width, height }])
+                } else {
+                    let mut rects = Vec::with_capacity(line_damage.len());
+                    for line in line_damage.iter_mut() {
+                        if line.left > line.right {
+                            continue;
+                        }
 
-                            // Then, convert the grid to a rect in gl coordinates
-                            let rect = Rect {
-                                x: x * cell_width + padding_x,
-                                y: height - end_y * cell_height - padding_y,
-                                width: (end_x - x) * cell_width,
-                                height: (end_y - y) * cell_height,
-                            };
+                        // Make end coordinates be lower right corner instead of upper
+                        // left. Also add one more to end_x to compensate for the
+                        // possibility of the end position being a double width
+                        // character.
+                        let (x, y, end_x, end_y) = (
+                            line.left.0 as u32,
+                            line.line.0 as u32,
+                            (line.right.0 + 2) as u32,
+                            (line.line.0 + 1) as u32,
+                        );
 
-                            // And finally, add half a cell of horizontal, quarter of a
-                            // cell of vertical padding to cover overdraw.
-                            let x = rect.x.saturating_sub(cell_width / 2);
-                            let y = rect.y.saturating_sub(cell_height / 4);
-                            Rect {
-                                x,
-                                y,
-                                width: min(width - x, rect.width + cell_width),
-                                height: min(height - y, rect.height + cell_height / 2),
-                            }
-                        })
-                        .collect(),
-                )
+                        // Then, convert the grid to a rect in gl coordinates
+                        let rect = Rect {
+                            x: x * cell_width + padding_x,
+                            y: height - end_y * cell_height - padding_y,
+                            width: (end_x - x) * cell_width,
+                            height: (end_y - y) * cell_height,
+                        };
+
+                        // And finally, add half a cell of horizontal, quarter of a
+                        // cell of vertical padding to cover overdraw.
+                        let x = rect.x.saturating_sub(cell_width / 2);
+                        let y = rect.y.saturating_sub(cell_height / 4);
+                        rects.push(Rect {
+                            x,
+                            y,
+                            width: min(width - x, rect.width + cell_width),
+                            height: min(height - y, rect.height + cell_height / 2),
+                        });
+                        line.reset(cols);
+                    }
+                    terminal.damage_cursor();
+                    Some(rects)
+                }
             }
         } else {
             None
