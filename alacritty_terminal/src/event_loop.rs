@@ -19,7 +19,6 @@ use crate::sync::FairMutex;
 use crate::term::Term;
 use crate::tty;
 use crate::util::thread;
-use crate::terminate::TerminateSignal;
 
 /// Max bytes to read from the PTY
 const MAX_READ: usize = 0x10_000;
