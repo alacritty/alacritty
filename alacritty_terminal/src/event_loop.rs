@@ -211,7 +211,7 @@ where
 
         loop {
             match self.pty.reader().read(&mut buf[..]) {
-                Ok(0) => break,
+                Ok(0) => return Ok(()),
                 Ok(got) => {
                     // Record bytes read; used to limit time spent in pty_read.
                     processed += got;
@@ -286,10 +286,6 @@ where
         }
 
         Ok(())
-    }
-
-    pub fn terminate_signal(&self) -> PtyLoopTerminateSignal {
-        PtyLoopTerminateSignal { channel: self.channel() }
     }
 
     pub fn spawn(mut self) -> thread::JoinHandle<(Self, State)> {
@@ -399,18 +395,5 @@ where
 
             (self, state)
         })
-    }
-}
-
-pub struct PtyLoopTerminateSignal {
-    channel: mio_extras::channel::Sender<Msg>
-}
-
-impl PtyLoopTerminateSignal {
-    pub fn send(&self) {
-        // TODO: Channel might be closed here already
-        //       so this probably should only warn and
-        //       not panic
-        self.channel.send(Msg::Shutdown).unwrap()
     }
 }
