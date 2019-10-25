@@ -206,7 +206,7 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
         display,
     );
 
-    // Create a channel to notify IO loop about application termination
+    // Create a channel to notify IO loop about application terminating
     let io_thread_terminate = event_loop.terminate_signal();
 
     // Kick off the I/O thread
