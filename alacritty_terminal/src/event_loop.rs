@@ -46,7 +46,7 @@ pub struct EventLoop<T: tty::EventedPty, U: EventListener> {
     terminal: Arc<FairMutex<Term<U>>>,
     event_proxy: U,
     hold: bool,
-    ref_test: bool
+    ref_test: bool,
 }
 
 /// Helper type which tracks how much of a buffer has been written.
