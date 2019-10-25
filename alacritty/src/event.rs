@@ -30,6 +30,7 @@ use alacritty_terminal::selection::Selection;
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::{SizeInfo, Term};
+use alacritty_terminal::event_loop::PtyLoopTerminateSignal;
 use alacritty_terminal::tty;
 use alacritty_terminal::util::{limit, start_daemon};
 
@@ -334,7 +335,11 @@ impl<N: Notify> Processor<N> {
     }
 
     /// Run the event loop.
-    pub fn run<T>(&mut self, terminal: Arc<FairMutex<Term<T>>>, mut event_loop: EventLoop<Event>)
+    pub fn run<T>(
+        &mut self,
+        terminal: Arc<FairMutex<Term<T>>>,
+        mut event_loop: EventLoop<Event>,
+        pty_terminate_signal: &PtyLoopTerminateSignal)
     where
         T: EventListener,
     {
@@ -352,6 +357,7 @@ impl<N: Notify> Processor<N> {
                 // Check for shutdown
                 (GlutinEvent::UserEvent(Event::Exit), _) | (_, true) => {
                     *control_flow = ControlFlow::Exit;
+                    pty_terminate_signal.send();
                     return;
                 },
                 // Process events

@@ -206,13 +206,16 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
         display,
     );
 
+    // Create a channel to notify IO loop about application termination
+    let io_thread_terminate = event_loop.terminate_signal();
+
     // Kick off the I/O thread
     let io_thread = event_loop.spawn();
 
     info!("Initialisation complete");
 
     // Start event loop and block until shutdown
-    processor.run(terminal, window_event_loop);
+    processor.run(terminal, window_event_loop, &io_thread_terminate);
 
     // Shutdown PTY parser event loop
     loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to pty event loop");

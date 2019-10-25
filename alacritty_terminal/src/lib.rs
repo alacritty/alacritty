@@ -40,6 +40,7 @@ pub mod term;
 pub mod tty;
 pub mod url;
 pub mod util;
+pub mod terminate;
 
 pub use crate::grid::Grid;
 pub use crate::term::Term;

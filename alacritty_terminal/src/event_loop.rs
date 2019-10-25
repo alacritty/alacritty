@@ -19,6 +19,7 @@ use crate::sync::FairMutex;
 use crate::term::Term;
 use crate::tty;
 use crate::util::thread;
+use crate::terminate::TerminateSignal;
 
 /// Max bytes to read from the PTY
 const MAX_READ: usize = 0x10_000;
@@ -45,7 +46,7 @@ pub struct EventLoop<T: tty::EventedPty, U: EventListener> {
     terminal: Arc<FairMutex<Term<U>>>,
     event_proxy: U,
     hold: bool,
-    ref_test: bool,
+    ref_test: bool
 }
 
 /// Helper type which tracks how much of a buffer has been written.
@@ -288,6 +289,10 @@ where
         Ok(())
     }
 
+    pub fn terminate_signal(&self) -> PtyLoopTerminateSignal {
+        PtyLoopTerminateSignal { channel: self.channel() }
+    }
+
     pub fn spawn(mut self) -> thread::JoinHandle<(Self, State)> {
         thread::spawn_named("pty reader", move || {
             let mut state = State::default();
@@ -395,5 +400,18 @@ where
 
             (self, state)
         })
+    }
+}
+
+pub struct PtyLoopTerminateSignal {
+    channel: mio_extras::channel::Sender<Msg>
+}
+
+impl PtyLoopTerminateSignal {
+    pub fn send(&self) {
+        // TODO: Channel might be closed here already
+        //       so this probably should only warn and
+        //       not panic
+        self.channel.send(Msg::Shutdown).unwrap()
     }
 }
