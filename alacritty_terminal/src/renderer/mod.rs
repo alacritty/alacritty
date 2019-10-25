@@ -752,6 +752,11 @@ impl QuadRenderer {
             self.render_rect(&cell_line_rect, 255., props);
         }
 
+        // Change blending function for visual bell to blend only colors and keep alpha
+        unsafe {
+            gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA, gl::ONE);
+        }
+
         // Draw visual bell in the end, since it should be above other content
         let rect = RenderRect::new(0., 0., props.width, props.height, visual_bell_color);
         self.render_rect(&rect, visual_bell_intensity as f32, props);
