@@ -719,6 +719,7 @@ impl QuadRenderer {
         visual_bell_color: Rgb,
         visual_bell_intensity: f64,
         cell_line_rects: Vec<RenderRect>,
+        message_bar_rect: Option<RenderRect>,
     ) {
         // Swap to rectangle rendering program
         unsafe {
@@ -760,6 +761,11 @@ impl QuadRenderer {
         // Draw visual bell in the end, since it should be above other content
         let rect = RenderRect::new(0., 0., props.width, props.height, visual_bell_color);
         self.render_rect(&rect, visual_bell_intensity as f32, props);
+
+        // Draw message bar above everything else
+        if let Some(message_bar_rect) = message_bar_rect {
+            self.render_rect(&message_bar_rect, 255., props);
+        }
 
         // Deactivate rectangle program again
         unsafe {

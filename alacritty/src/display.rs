@@ -398,7 +398,7 @@ impl Display {
             });
         }
 
-        let mut rects = lines.into_rects(&metrics, &size_info);
+        let rects = lines.into_rects(&metrics, &size_info);
 
         if let Some(message) = message_buffer.message() {
             let text = message.text(&size_info);
@@ -406,7 +406,7 @@ impl Display {
             // Create a new rectangle for the background
             let start_line = size_info.lines().0 - text.len();
             let y = size_info.padding_y + size_info.cell_height * start_line as f32;
-            rects.push(RenderRect::new(
+            let message_bar_rect = Some(RenderRect::new(
                 0.,
                 y,
                 size_info.width,
@@ -420,6 +420,7 @@ impl Display {
                 config.visual_bell.color,
                 visual_bell_intensity,
                 rects,
+                message_bar_rect,
             );
 
             // Relay messages to the user
@@ -442,6 +443,7 @@ impl Display {
                 config.visual_bell.color,
                 visual_bell_intensity,
                 rects,
+                None,
             );
         }
 

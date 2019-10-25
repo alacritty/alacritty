@@ -75,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use `\` instead of `\\` as path separators on Windows for logging config file location
 - Underline/strikeout drawn above visual bell
 - Terminal going transparent during visual bell
+- Visual bell being above message bar background
 
 ### Removed
 
