@@ -747,14 +747,14 @@ impl QuadRenderer {
             gl::EnableVertexAttribArray(0);
         }
 
-        // Draw visual bell
-        let rect = RenderRect::new(0., 0., props.width, props.height, visual_bell_color);
-        self.render_rect(&rect, visual_bell_intensity as f32, props);
-
         // Draw underlines and strikeouts
         for cell_line_rect in cell_line_rects {
             self.render_rect(&cell_line_rect, 255., props);
         }
+
+        // Draw visual bell in the end, since it should be above other content
+        let rect = RenderRect::new(0., 0., props.width, props.height, visual_bell_color);
+        self.render_rect(&rect, visual_bell_intensity as f32, props);
 
         // Deactivate rectangle program again
         unsafe {

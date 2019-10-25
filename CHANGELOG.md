@@ -73,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Crash when trying to start on X11 with a Wayland compositor running
 - Crash with a virtual display connected on X11
 - Use `\` instead of `\\` as path separators on Windows for logging config file location
+- Underline/strikeout drawn above visual bell
 
 ### Removed
 
