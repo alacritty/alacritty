@@ -398,7 +398,20 @@ impl Display {
             });
         }
 
-        let rects = lines.into_rects(&metrics, &size_info);
+        let mut rects = lines.into_rects(&metrics, &size_info);
+
+        // Push visual bell after other terminal rects
+        if visual_bell_intensity != 0. {
+            let visual_bell_rect = RenderRect::new(
+                0.,
+                0.,
+                size_info.width,
+                size_info.height,
+                config.visual_bell.color,
+                visual_bell_intensity as f32,
+            );
+            rects.push(visual_bell_rect);
+        }
 
         if let Some(message) = message_buffer.message() {
             let text = message.text(&size_info);
@@ -406,22 +419,14 @@ impl Display {
             // Create a new rectangle for the background
             let start_line = size_info.lines().0 - text.len();
             let y = size_info.padding_y + size_info.cell_height * start_line as f32;
-            let message_bar_rect = Some(RenderRect::new(
-                0.,
-                y,
-                size_info.width,
-                size_info.height - y,
-                message.color(),
-            ));
+            let message_bar_rect =
+                RenderRect::new(0., y, size_info.width, size_info.height - y, message.color(), 1.);
+
+            // Push message_bar in the end, so it'll be above all other content
+            rects.push(message_bar_rect);
 
             // Draw rectangles including the new background
-            self.renderer.draw_rects(
-                &size_info,
-                config.visual_bell.color,
-                visual_bell_intensity,
-                rects,
-                message_bar_rect,
-            );
+            self.renderer.draw_rects(&size_info, rects);
 
             // Relay messages to the user
             let mut offset = 1;
@@ -438,13 +443,7 @@ impl Display {
             }
         } else {
             // Draw rectangles
-            self.renderer.draw_rects(
-                &size_info,
-                config.visual_bell.color,
-                visual_bell_intensity,
-                rects,
-                None,
-            );
+            self.renderer.draw_rects(&size_info, rects);
         }
 
         // Draw render timer

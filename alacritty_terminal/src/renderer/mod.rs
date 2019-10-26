@@ -713,14 +713,7 @@ impl QuadRenderer {
     }
 
     // Draw all rectangles simultaneously to prevent excessive program swaps
-    pub fn draw_rects(
-        &mut self,
-        props: &term::SizeInfo,
-        visual_bell_color: Rgb,
-        visual_bell_intensity: f64,
-        cell_line_rects: Vec<RenderRect>,
-        message_bar_rect: Option<RenderRect>,
-    ) {
+    pub fn draw_rects(&mut self, props: &term::SizeInfo, rects: Vec<RenderRect>) {
         // Swap to rectangle rendering program
         unsafe {
             // Swap program
@@ -730,7 +723,7 @@ impl QuadRenderer {
             gl::Viewport(0, 0, props.width as i32, props.height as i32);
 
             // Change blending strategy
-            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA, gl::ONE);
 
             // Setup data and buffers
             gl::BindVertexArray(self.rect_vao);
@@ -748,23 +741,9 @@ impl QuadRenderer {
             gl::EnableVertexAttribArray(0);
         }
 
-        // Draw underlines and strikeouts
-        for cell_line_rect in cell_line_rects {
-            self.render_rect(&cell_line_rect, 255., props);
-        }
-
-        // Change blending function for visual bell to blend only colors and keep alpha
-        unsafe {
-            gl::BlendFuncSeparate(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA, gl::ONE);
-        }
-
-        // Draw visual bell in the end, since it should be above other content
-        let rect = RenderRect::new(0., 0., props.width, props.height, visual_bell_color);
-        self.render_rect(&rect, visual_bell_intensity as f32, props);
-
-        // Draw message bar above everything else
-        if let Some(message_bar_rect) = message_bar_rect {
-            self.render_rect(&message_bar_rect, 255., props);
+        // Draw all the rects
+        for rect in rects {
+            self.render_rect(&rect, props);
         }
 
         // Deactivate rectangle program again
@@ -892,9 +871,9 @@ impl QuadRenderer {
     // Render a rectangle
     //
     // This requires the rectangle program to be activated
-    fn render_rect(&mut self, rect: &RenderRect, alpha: f32, size: &term::SizeInfo) {
+    fn render_rect(&mut self, rect: &RenderRect, size: &term::SizeInfo) {
         // Do nothing when alpha is fully transparent
-        if alpha == 0. {
+        if rect.alpha == 0. {
             return;
         }
 
@@ -919,7 +898,7 @@ impl QuadRenderer {
             );
 
             // Color
-            self.rect_program.set_color(rect.color, alpha);
+            self.rect_program.set_color(rect.color, rect.alpha);
 
             // Draw the rectangle
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());

@@ -27,11 +27,12 @@ pub struct RenderRect {
     pub width: f32,
     pub height: f32,
     pub color: Rgb,
+    pub alpha: f32,
 }
 
 impl RenderRect {
-    pub fn new(x: f32, y: f32, width: f32, height: f32, color: Rgb) -> Self {
-        RenderRect { x, y, width, height, color }
+    pub fn new(x: f32, y: f32, width: f32, height: f32, color: Rgb, alpha: f32) -> Self {
+        RenderRect { x, y, width, height, color, alpha }
     }
 }
 
@@ -65,7 +66,7 @@ impl RenderLine {
             y = max_y;
         }
 
-        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, self.color)
+        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, self.color, 1.)
     }
 }
 
