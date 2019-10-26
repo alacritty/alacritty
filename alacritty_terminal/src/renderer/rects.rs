@@ -23,11 +23,12 @@ pub struct RenderRect {
     pub width: f32,
     pub height: f32,
     pub color: Rgb,
+    pub alpha: f32,
 }
 
 impl RenderRect {
-    pub fn new(x: f32, y: f32, width: f32, height: f32, color: Rgb) -> Self {
-        RenderRect { x, y, width, height, color }
+    pub fn new(x: f32, y: f32, width: f32, height: f32, color: Rgb, alpha: f32) -> Self {
+        RenderRect { x, y, width, height, color, alpha }
     }
 
     pub fn from_text_run(
@@ -48,7 +49,53 @@ impl RenderRect {
 
         let mut y = baseline - position - height / 2.;
         let max_y = line_bottom - height;
-        y = y.min(max_y);
+        if y > max_y {
+            y = max_y;
+        }
+
+        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, self.color, 1.)
+    }
+}
+
+/// Lines for underline and strikeout.
+#[derive(Default)]
+pub struct RenderLines {
+    inner: HashMap<Flags, Vec<RenderLine>>,
+}
+
+impl RenderLines {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn into_rects(self, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
+        self.inner
+            .into_iter()
+            .map(|(flag, lines)| -> Vec<RenderRect> {
+                lines.into_iter().map(|line| line.into_rect(flag, &metrics, &size)).collect()
+            })
+            .flatten()
+            .collect()
+    }
+
+    /// Update the stored lines with the next cell info.
+    pub fn update(&mut self, cell: RenderableCell) {
+        for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {
+            if !cell.flags.contains(*flag) {
+                continue;
+            }
+
+            // Check if there's an active line
+            if let Some(line) = self.inner.get_mut(flag).and_then(|lines| lines.last_mut()) {
+                if cell.line == line.start.line
+                    && cell.fg == line.color
+                    && cell.column == line.end.col + 1
+                {
+                    // Update the length of the line
+                    line.end = cell.into();
+                    continue;
+                }
+            }
 
         RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, text_run.fg)
     }
