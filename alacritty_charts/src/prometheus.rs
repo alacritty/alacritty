@@ -283,7 +283,8 @@ impl PrometheusTimeSeries {
         if res.status != "success" {
             return Ok(0usize);
         }
-        debug!("Checking data: {:?}", res.data);
+        debug!("load_prometheus_response: before push, series is: {:?}", self.series);
+        debug!("load_prometheus_response: Checking data: {:?}", res.data);
         match res.data {
             HTTPResponseData::Vector { result: results } => {
                 // labeled metrics returned as a 2 items vector:
@@ -296,8 +297,7 @@ impl PrometheusTimeSeries {
                             let opt_epoch = prometheus_epoch_to_u64(&metric_data.value[0]);
                             let opt_value = serde_json_to_num(&metric_data.value[1]);
                             if let (Some(epoch), Some(value)) = (opt_epoch, opt_value) {
-                                self.series.push((epoch, value));
-                                loaded_items += 1;
+                                loaded_items += self.series.push((epoch, value));
                             }
                         }
                     }
@@ -315,8 +315,11 @@ impl PrometheusTimeSeries {
                                 let opt_epoch = prometheus_epoch_to_u64(&item[0]);
                                 let opt_value = serde_json_to_num(&item[1]);
                                 if let (Some(epoch), Some(value)) = (opt_epoch, opt_value) {
-                                    self.series.push((epoch, value));
-                                    loaded_items += 1;
+                                    debug!(
+                                        "load_prometheus_response: Pushing from Matrix({},{}),",
+                                        epoch, value
+                                    );
+                                    loaded_items += self.series.push((epoch, value));
                                 }
                             }
                         }
@@ -331,8 +334,7 @@ impl PrometheusTimeSeries {
                     let opt_epoch = prometheus_epoch_to_u64(&result[0]);
                     let opt_value = serde_json_to_num(&result[1]);
                     if let (Some(epoch), Some(value)) = (opt_epoch, opt_value) {
-                        self.series.push((epoch, value));
-                        loaded_items += 1;
+                        loaded_items += self.series.push((epoch, value));
                     }
                 }
             },
@@ -340,6 +342,7 @@ impl PrometheusTimeSeries {
         if loaded_items > 0 {
             self.series.calculate_stats();
         }
+        debug!("load_prometheus_response: after push, series is: {:?}", self.series);
         Ok(loaded_items)
     }
 }
@@ -525,7 +528,6 @@ mod tests {
         assert_eq!(loaded_data[0], (1558253469, Some(1.69f64)));
         assert_eq!(loaded_data[1], (1558253470, Some(1.70f64)));
         assert_eq!(loaded_data[5], (1558253474, Some(1.74f64)));
-        // This json is missing the value after the epoch
         // Let's add one more item and subtract one item from the array
         let test1_json = hyper::Chunk::from(
             r#"
@@ -544,7 +546,9 @@ mod tests {
                         [1558253471,"1.71"],[1558253472,"1.72"],[1558253473,"1.73"],
                         [1558253474,"1.74"],[1558253475,"1.75"],[1558253476,"1.76"],
                         [1558253477,"1.77"],[1558253478,"1.78"],[1558253479,"1.79"],
-                        [1558253480,"1.80"],[1558253481,"1.81"]]
+                        [1558253480,"1.80"],[1558253481,"1.81"],[1558253482,"1.82"],
+                        [1558253483,"1.83"],[1558253484,"1.84"],[1558253485,"1.85"],
+                        [1558253486,"1.86"]]
                   }
                 ]
               }
@@ -556,17 +560,19 @@ mod tests {
         let loaded_data = test0.series.as_vec();
         debug!("it_loads_prometheus_matrix Data: {:?}", loaded_data);
         let res1_load = test0.load_prometheus_response(res1_json.clone().unwrap());
-        // 11 items should have been loaded in the node_exporter
-        assert_eq!(res1_load, Ok(11usize));
+        // 7 items should have been loaded in the node_exporter, 9 already existed
+        // 2 should have been rotated
+        assert_eq!(res1_load, Ok(7usize));
 
         // Let's test reloading the data:
         let res1_load = test0.load_prometheus_response(res1_json.clone().unwrap());
-        assert_eq!(res1_load, Ok(11usize));
+        // Now 0 records should have been loaded:
+        assert_eq!(res1_load, Ok(0usize));
         debug!("it_loads_prometheus_matrix NOTVEC: {:?}", test0.series.metrics);
         let loaded_data = test0.series.metrics.clone();
         debug!("it_loads_prometheus_matrix Data: {:?}", loaded_data);
-        assert_eq!(loaded_data[0], (1558253469, Some(1.69f64)));
-        assert_eq!(loaded_data[1], (1558253481, Some(1.81f64)));
+        assert_eq!(loaded_data[0], (1558253484, Some(1.84f64)));
+        assert_eq!(loaded_data[3], (1558253472, Some(1.72f64)));
         assert_eq!(loaded_data[5], (1558253474, Some(1.74f64)));
         // This json is missing the value after the epoch
         let test2_json = hyper::Chunk::from(
@@ -735,7 +741,7 @@ mod tests {
                       "job": "node_exporter"
                     },
                     "value": [
-                      1557571137.732,
+                      1557571138.732,
                       "1"
                     ]
                   }
@@ -749,22 +755,107 @@ mod tests {
         // 2 items should have been loaded, one for Prometheus Server and the
         // other for Prometheus Node Exporter
         assert_eq!(res0_load, Ok(2usize));
+        assert_eq!(test0.series.as_vec(), vec![
+            (1557571137u64, Some(1.)),
+            (1557571138u64, Some(1.))
+        ]);
+
+        let test1_json = hyper::Chunk::from(
+            r#"
+            {
+              "status": "success",
+              "data": {
+                "resultType": "vector",
+                "result": [
+                  {
+                    "metric": {
+                      "__name__": "up",
+                      "instance": "localhost:9090",
+                      "job": "prometheus"
+                    },
+                    "value": [
+                      1557571139.732,
+                      "1"
+                    ]
+                  },
+                  {
+                    "metric": {
+                      "__name__": "up",
+                      "instance": "localhost:9100",
+                      "job": "node_exporter"
+                    },
+                    "value": [
+                      1557571140.732,
+                      "1"
+                    ]
+                  }
+                ]
+              }
+            }"#,
+        );
+        let res1_json = parse_json(&test1_json);
+        assert_eq!(res1_json.is_some(), true);
 
         // Make the labels match only one instance
         metric_labels.insert(String::from("job"), String::from("prometheus"));
         metric_labels.insert(String::from("instance"), String::from("localhost:9090"));
         test0.required_labels = metric_labels.clone();
-        let res1_load = test0.load_prometheus_response(res0_json.clone().unwrap());
+        let res1_load = test0.load_prometheus_response(res1_json.clone().unwrap());
+        // Only the prometheus: localhost:9090 should have been loaded with epoch 1557571139
         assert_eq!(res1_load, Ok(1usize));
+        assert_eq!(test0.series.as_vec(), vec![
+            (1557571137u64, Some(1.)),
+            (1557571138u64, Some(1.)),
+            (1557571139u64, Some(1.))
+        ]);
 
+        let test2_json = hyper::Chunk::from(
+            r#"
+            {
+              "status": "success",
+              "data": {
+                "resultType": "vector",
+                "result": [
+                  {
+                    "metric": {
+                      "__name__": "up",
+                      "instance": "localhost:9090",
+                      "job": "prometheus"
+                    },
+                    "value": [
+                      1557571141.732,
+                      "1"
+                    ]
+                  },
+                  {
+                    "metric": {
+                      "__name__": "up",
+                      "instance": "localhost:9100",
+                      "job": "node_exporter"
+                    },
+                    "value": [
+                      1557571142.732,
+                      "1"
+                    ]
+                  }
+                ]
+              }
+            }"#,
+        );
+        let res2_json = parse_json(&test2_json);
+        assert_eq!(res2_json.is_some(), true);
         // Make the labels not match
         metric_labels.insert(String::from("__name__"), String::from("down"));
         test0.required_labels = metric_labels.clone();
-        let res2_load = test0.load_prometheus_response(res0_json.clone().unwrap());
+        let res2_load = test0.load_prometheus_response(res2_json.clone().unwrap());
         assert_eq!(res2_load, Ok(0usize));
-        assert_eq!(test0.series.as_vec(), vec![(1557571137u64, Some(1.))]);
+        assert_eq!(test0.series.as_vec(), vec![
+            (1557571137u64, Some(1.)),
+            (1557571138u64, Some(1.)),
+            (1557571139u64, Some(1.))
+        ]);
         // This json is missing the value after the epoch
-        let test1_json = hyper::Chunk::from(
+        let test3_json = hyper::Chunk::from(
             r#"
             {
               "status": "success",
@@ -785,11 +876,11 @@ mod tests {
               }
             }"#,
         );
-        let res1_json = parse_json(&test1_json);
-        assert_eq!(res1_json.is_some(), true);
-        let res1_load = test0.load_prometheus_response(res1_json.unwrap());
-        // 1 items should have been loaded
-        assert_eq!(res1_load, Ok(0usize));
+        let res3_json = parse_json(&test3_json);
+        assert_eq!(res3_json.is_some(), true);
+        let res3_load = test0.load_prometheus_response(res3_json.unwrap());
+        // 0 items should have been loaded, the data is invalid
+        assert_eq!(res3_load, Ok(0usize));
     }
 
     #[test]
@@ -850,6 +941,7 @@ mod tests {
 
     #[test]
     fn it_does_not_duplicate_epochs() {
+        init_log();
         let test_labels = HashMap::new();
         let mut test = PrometheusTimeSeries {
             name: String::from("load average 1 min"),
@@ -861,7 +953,7 @@ mod tests {
                     (1571511825, Some(1.8359375)),
                     (1571511826, Some(1.8359375)),
                 ],
-                metrics_capacity: 300,
+                metrics_capacity: 30,
                 stats: TimeSeriesStats {
                     max: 17179869184.0,
                     min: 17179869184.0,
@@ -903,16 +995,7 @@ mod tests {
                     "job":"node_exporter"
                   },
                   "values":[
-                    [1571511822,"1.8359375"],
-                    [1571511823,"1.8359375"],
-                    [1571511824,"1.8359375"],
-                    [1571511825,"1.8359375"],
-                    [1571511826,"1.8359375"],
-                    [1571511827,"1.8359375"],
-                    [1571511828,"1.8359375"],
-                    [1571511829,"1.8359375"],
-                    [1571511830,"1.8359375"],
-                    [1571511831,"1.8359375"]
+                    [1571511822,"1.8359375"]
                   ]
                 }]
               }
@@ -921,8 +1004,8 @@ mod tests {
         let res1_json = parse_json(&test1_json);
         assert_eq!(res1_json.is_some(), true);
         let res1_load = test.load_prometheus_response(res1_json.unwrap());
-        // 5 items should have been loaded
-        assert_eq!(res1_load, Ok(5usize));
+        // 0 items should have been loaded, it already exists.
+        assert_eq!(res1_load, Ok(0usize));
         assert_eq!(test.series.active_items, 10usize);
     }
 }
