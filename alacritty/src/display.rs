@@ -400,7 +400,7 @@ impl Display {
 
         let mut rects = lines.into_rects(&metrics, &size_info);
 
-        // Push visual bell after other terminal rects
+        // Push visual bell after underline/strikeout rects
         if visual_bell_intensity != 0. {
             let visual_bell_rect = RenderRect::new(
                 0.,
