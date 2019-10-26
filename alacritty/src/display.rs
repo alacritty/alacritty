@@ -425,7 +425,7 @@ impl Display {
             // Push message_bar in the end, so it'll be above all other content
             rects.push(message_bar_rect);
 
-            // Draw rectangles including the new background
+            // Draw rectangles
             self.renderer.draw_rects(&size_info, rects);
 
             // Relay messages to the user
