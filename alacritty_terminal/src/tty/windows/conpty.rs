@@ -243,7 +243,7 @@ pub fn new<'a, C>(
     let conin = EventedAnonWrite::new(conin);
     let conout = EventedAnonRead::new(conout);
 
-    let child_state = ChildProcessState::new(pty_handle).unwrap();
+    let child_state = ChildProcessState::new(proc_info.hProcess).unwrap();
     let agent = Conpty { handle: pty_handle, api };
 
     Some(Pty {
