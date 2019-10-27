@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{Pty};
-
 use std::i16;
 use std::io::Error;
 use std::mem;
@@ -40,7 +38,8 @@ use winapi::um::wincontypes::{COORD, HPCON};
 use crate::config::{Config, Shell};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
-use crate::tty::windows::subprocess::SubprocessState;
+use crate::tty::windows::child::ChildProcessState;
+use crate::tty::windows::Pty;
 
 /// Dynamically-loaded Pseudoconsole API from kernel32.dll
 ///
@@ -244,7 +243,7 @@ pub fn new<'a, C>(
     let conin = EventedAnonWrite::new(conin);
     let conout = EventedAnonRead::new(conout);
 
-    let subprocess_state = SubprocessState::new(pty_handle).unwrap();
+    let child_state = ChildProcessState::new(pty_handle).unwrap();
     let agent = Conpty { handle: pty_handle, api };
 
     Some(Pty {
@@ -254,7 +253,7 @@ pub fn new<'a, C>(
         read_token: 0.into(),
         write_token: 0.into(),
         child_event_token: 0.into(),
-        subprocess_state
+        child_state
     })
 }
 

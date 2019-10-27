@@ -14,28 +14,31 @@ use std::io::Error;
 use std::os::raw::c_void;
 use std::sync::atomic::{AtomicPtr, Ordering};
 
+use log::warn;
+
 use mio_extras::channel::{channel, Receiver};
 
-use winapi::shared::ntdef::{HANDLE, PVOID, BOOLEAN};
+use winapi::shared::ntdef::{BOOLEAN, HANDLE, PVOID};
 use winapi::um::winbase::{RegisterWaitForSingleObject, UnregisterWait, INFINITE};
 use winapi::um::winnt::{WT_EXECUTEINWAITTHREAD, WT_EXECUTEONLYONCE};
 
 use crate::tty::ChildEvent;
 
-
 /// WinAPI callback for `HandleWaitSignal`, unpacks Rust closure reference and calls it
-extern "system" fn child_exit_callback<F>(ctx: PVOID, timed_out: BOOLEAN) 
-    where F: FnOnce() + Send
+extern "system" fn child_exit_callback<F>(ctx: PVOID, timed_out: BOOLEAN)
+where
+    F: FnOnce() + Send,
 {
-    if timed_out != 0 { return }
+    if timed_out != 0 {
+        return;
+    }
 
     let callback: Box<F> = unsafe { Box::from_raw(ctx as *mut F) };
     callback();
 }
 
-
 /// Represents closure attached to Win32 handle wait signal
-/// 
+///
 /// This allows to fire a Rust callback when subprocess exits
 pub(crate) struct HandleWaitSignal {
     wait_handle: AtomicPtr<c_void>,
@@ -48,8 +51,9 @@ impl HandleWaitSignal {
     /// blocking calls. See [`WT_EXECUTEINWAITTHREAD` flag docs] for details
     ///
     /// [`WT_EXECUTEINWAITTHREAD` flag docs]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-registerwaitforsingleobject
-    fn new<F>(child_handle: HANDLE, on_exit: F) -> Result<HandleWaitSignal, Error> 
-        where F: FnOnce() + Send
+    fn new<F>(child_handle: HANDLE, on_exit: F) -> Result<HandleWaitSignal, Error>
+    where
+        F: FnOnce() + Send,
     {
         let mut wait_handle: HANDLE = 0 as HANDLE;
         let wait_notify = Box::new(on_exit);
@@ -61,8 +65,8 @@ impl HandleWaitSignal {
                 Some(child_exit_callback::<F>),
                 Box::into_raw(wait_notify) as PVOID,
                 INFINITE,
-                WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE
-            ) 
+                WT_EXECUTEINWAITTHREAD | WT_EXECUTEONLYONCE,
+            )
         };
 
         if 0 == success {
@@ -82,27 +86,21 @@ impl Drop for HandleWaitSignal {
     }
 }
 
-
-pub(crate) struct SubprocessState {
+pub(crate) struct ChildProcessState {
     _on_exit: HandleWaitSignal,
-    events: Receiver<ChildEvent>
+    events: Receiver<ChildEvent>,
 }
 
-impl SubprocessState {
-    pub fn new(subprocess_handle: HANDLE) -> Result<SubprocessState, Error> {
+impl ChildProcessState {
+    pub fn new(subprocess_handle: HANDLE) -> Result<ChildProcessState, Error> {
         let (sender, receiver) = channel();
         let on_exit = HandleWaitSignal::new(subprocess_handle, move || {
-            let result = sender.send(ChildEvent::Exited);
-            match result {
-                Ok(_) => print!("************* Yay!"),
-                _ => print!("************ Nay!")
+            if let Err(e) = sender.send(ChildEvent::Exited) {
+                warn!("An error occurred while attempting to notify about child process termination: {}", e);
             }
         })?;
 
-        Ok(SubprocessState { 
-            _on_exit: on_exit,
-            events: receiver
-        })
+        Ok(ChildProcessState { _on_exit: on_exit, events: receiver })
     }
 
     pub fn events(&self) -> &Receiver<ChildEvent> {
@@ -110,21 +108,17 @@ impl SubprocessState {
     }
 }
 
-
 mod test {
-    use std::io::{Error};
+    use std::io::Error;
     use std::ptr;
     use std::sync::{Arc, Condvar, Mutex};
     use std::time::Duration;
 
     use widestring::U16CString;
 
-    use winapi::shared::ntdef::{LPWSTR};
+    use winapi::shared::ntdef::LPWSTR;
     use winapi::um::processthreadsapi::{
-        CreateProcessW,
-        PROCESS_INFORMATION,
-        STARTUPINFOW,
-        TerminateProcess
+        CreateProcessW, TerminateProcess, PROCESS_INFORMATION, STARTUPINFOW,
     };
 
     use super::*;
@@ -145,7 +139,7 @@ mod test {
                 ptr::null_mut(),
                 ptr::null_mut(),
                 &mut si as *mut STARTUPINFOW,
-                &mut pi as *mut PROCESS_INFORMATION
+                &mut pi as *mut PROCESS_INFORMATION,
             ) {
                 Err(Error::last_os_error())
             } else {
@@ -154,7 +148,6 @@ mod test {
         }
     }
 
-
     // TODO: This is more of an integration test since it spawns new 'cmd.exe'
     //       process and heavily uses Win32 API. Should this be ignored
     //       by default? Worst-case, this will out after `WAIT_TIMEOUT`.
@@ -162,10 +155,7 @@ mod test {
     pub fn on_handle_wait_completed_signalls() {
         const WAIT_TIMEOUT: Duration = Duration::from_millis(200);
 
-        let signals = Arc::new((
-            Mutex::new(false),
-            Condvar::new()
-        ));
+        let signals = Arc::new((Mutex::new(false), Condvar::new()));
         let subprocess_handle = make_cmd_process().unwrap();
 
         // Setup callback to signal Condvar when process exits
@@ -175,7 +165,8 @@ mod test {
 
             *closed = true;
             cnd.notify_all();
-        }).unwrap();
+        })
+        .unwrap();
 
         // Kill the subprocess
         let kill_succeeded = unsafe { TerminateProcess(subprocess_handle, 0) };

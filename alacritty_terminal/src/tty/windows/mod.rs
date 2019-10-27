@@ -26,11 +26,11 @@ use crate::config::Config;
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::{EventedPty, EventedReadWrite, ChildEvent};
-use crate::tty::windows::subprocess::SubprocessState;
+use crate::tty::windows::child::ChildProcessState;
 
 mod conpty;
 mod winpty;
-mod subprocess;
+mod child;
 
 static IS_CONPTY: AtomicBool = AtomicBool::new(false);
 
@@ -55,7 +55,7 @@ pub struct Pty<'a> {
     read_token: mio::Token,
     write_token: mio::Token,
     child_event_token: mio::Token,
-    subprocess_state: SubprocessState
+    child_state: ChildProcessState
 }
 
 impl<'a> Pty<'a> {
@@ -226,7 +226,7 @@ impl<'a> EventedReadWrite for Pty<'a> {
         }
 
         self.child_event_token = token.next().unwrap();
-        poll.register(self.subprocess_state.events(), self.child_event_token, mio::Ready::readable(), poll_opts)?;
+        poll.register(self.child_state.events(), self.child_event_token, mio::Ready::readable(), poll_opts)?;
 
         Ok(())
     }
@@ -248,7 +248,7 @@ impl<'a> EventedReadWrite for Pty<'a> {
         } else {
             poll.reregister(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)?;
         }
-        poll.reregister(self.subprocess_state.events(), self.child_event_token, mio::Ready::readable(), poll_opts)?;
+        poll.reregister(self.child_state.events(), self.child_event_token, mio::Ready::readable(), poll_opts)?;
         Ok(())
     }
 
@@ -256,7 +256,7 @@ impl<'a> EventedReadWrite for Pty<'a> {
     fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
         poll.deregister(&self.conout)?;
         poll.deregister(&self.conin)?;
-        poll.deregister(self.subprocess_state.events())?;
+        poll.deregister(self.child_state.events())?;
         Ok(())
     }
 
@@ -288,7 +288,7 @@ impl<'a> EventedPty for Pty<'a> {
     }
 
     fn next_child_event(&mut self) -> Option<ChildEvent> {
-        match self.subprocess_state.events().try_recv() {
+        match self.child_state.events().try_recv() {
             Ok(ev) => Some(ev),
             Err(TryRecvError::Empty) => None,
             Err(TryRecvError::Disconnected) => Some(ChildEvent::Exited),

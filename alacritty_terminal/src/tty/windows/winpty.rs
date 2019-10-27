@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{Pty};
-
 use std::fs::OpenOptions;
 use std::io;
 use std::os::windows::fs::OpenOptionsExt;
@@ -30,7 +28,8 @@ use winpty::{Config as WinptyConfig, ConfigFlags, MouseMode, SpawnConfig, SpawnF
 use crate::config::{Config, Shell};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
-use crate::tty::windows::subprocess::SubprocessState;
+use crate::tty::windows::child::ChildProcessState;
+use crate::tty::windows::Pty;
 
 // We store a raw pointer because we need mutable access to call
 // on_resize from a separate thread. Winpty internally uses a mutex
@@ -137,7 +136,7 @@ pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>
 
     winpty.spawn(&spawnconfig).unwrap();
 
-    let subprocess_state = SubprocessState::new(winpty.raw_handle()).unwrap();
+    let child_state = ChildProcessState::new(winpty.raw_handle()).unwrap();
     let agent = Agent::new(winpty);
 
     Pty {
@@ -147,7 +146,7 @@ pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>
         read_token: 0.into(),
         write_token: 0.into(),
         child_event_token: 0.into(),
-        subprocess_state
+        child_state
     }
 }
 
