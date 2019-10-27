@@ -327,7 +327,6 @@ where
                             }
                         },
 
-                        #[cfg(unix)]
                         token if token == self.pty.child_event_token() => {
                             if let Some(tty::ChildEvent::Exited) = self.pty.next_child_event() {
                                 if !self.hold {
