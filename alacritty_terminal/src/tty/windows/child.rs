@@ -112,8 +112,9 @@ impl ChildProcessState {
 mod test {
     use std::io::Error;
     use std::ptr;
-    use std::sync::{Arc, Condvar, Mutex};
     use std::time::Duration;
+
+    use std::sync::mpsc::channel;
 
     use widestring::U16CString;
 
@@ -156,16 +157,12 @@ mod test {
     pub fn on_handle_wait_completed_signalls() {
         const WAIT_TIMEOUT: Duration = Duration::from_millis(200);
 
-        let signals = Arc::new((Mutex::new(false), Condvar::new()));
+        let (sender, receiver) = channel::<()>();
         let subprocess_handle = make_cmd_process().unwrap();
 
         // Setup callback to signal Condvar when process exits
-        let _hnd_wait = HandleWaitSignal::new(subprocess_handle, || {
-            let (mtx, cnd) = &*signals;
-            let mut closed = mtx.lock().unwrap();
-
-            *closed = true;
-            cnd.notify_all();
+        let _hnd_wait = HandleWaitSignal::new(subprocess_handle, move || {
+            sender.send(()).unwrap();
         })
         .unwrap();
 
@@ -175,11 +172,8 @@ mod test {
 
         // Wait for condvar to be signalled by OS-thread or fail with time out
         {
-            let (mutex, condvar) = &*signals;
-            let closed = mutex.lock().unwrap();
-            let (closed, wait_result) = condvar.wait_timeout(closed, WAIT_TIMEOUT).unwrap();
-            assert_eq!(wait_result.timed_out(), false);
-            assert_eq!(*closed, true);
+            let result = receiver.recv_timeout(WAIT_TIMEOUT).unwrap();
+            assert_eq!(result, ())
         }
     }
 }
