@@ -108,6 +108,7 @@ impl ChildProcessState {
     }
 }
 
+#[cfg(test)]
 mod test {
     use std::io::Error;
     use std::ptr;

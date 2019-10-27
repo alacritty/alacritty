@@ -30,6 +30,8 @@ use alacritty_terminal::selection::Selection;
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::{SizeInfo, Term};
+#[cfg(not(windows))]
+use alacritty_terminal::tty;
 use alacritty_terminal::util::{limit, start_daemon};
 
 use crate::config;
