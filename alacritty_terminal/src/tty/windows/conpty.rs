@@ -253,7 +253,7 @@ pub fn new<'a, C>(
         read_token: 0.into(),
         write_token: 0.into(),
         child_event_token: 0.into(),
-        child_state
+        child_state,
     })
 }
 

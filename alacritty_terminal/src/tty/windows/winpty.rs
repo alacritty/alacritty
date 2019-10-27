@@ -146,7 +146,7 @@ pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>
         read_token: 0.into(),
         write_token: 0.into(),
         child_event_token: 0.into(),
-        child_state
+        child_state,
     }
 }
 
