@@ -150,7 +150,7 @@ mod test {
 
     // TODO: This is more of an integration test since it spawns new 'cmd.exe'
     //       process and heavily uses Win32 API. Should this be ignored
-    //       by default? Worst-case, this will out after `WAIT_TIMEOUT`.
+    //       by default? Worst-case, this will timeout after `WAIT_TIMEOUT`.
     #[test]
     pub fn on_handle_wait_completed_signalls() {
         const WAIT_TIMEOUT: Duration = Duration::from_millis(200);
