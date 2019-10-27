@@ -96,7 +96,11 @@ impl ChildProcessState {
         let (sender, receiver) = channel();
         let on_exit = HandleWaitSignal::new(subprocess_handle, move || {
             if let Err(e) = sender.send(ChildEvent::Exited) {
-                warn!("An error occurred while attempting to notify about child process termination: {}", e);
+                warn!(
+                    "An error occurred while attempting to notify about child process z
+                    termination: {}",
+                    e
+                );
             }
         })?;
 
@@ -171,9 +175,6 @@ mod test {
         assert!(kill_succeeded > 0, "Couldn't kill the process");
 
         // Wait for condvar to be signalled by OS-thread or fail with time out
-        {
-            let result = receiver.recv_timeout(WAIT_TIMEOUT).unwrap();
-            assert_eq!(result, ())
-        }
+        receiver.recv_timeout(WAIT_TIMEOUT).unwrap();
     }
 }

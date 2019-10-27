@@ -211,7 +211,7 @@ where
 
         loop {
             match self.pty.reader().read(&mut buf[..]) {
-                Ok(0) => return Ok(()),
+                Ok(0) => break,
                 Ok(got) => {
                     // Record bytes read; used to limit time spent in pty_read.
                     processed += got;
@@ -250,8 +250,10 @@ where
             }
         }
 
-        // Queue terminal redraw
-        self.event_proxy.send_event(Event::Wakeup);
+        if processed > 0 {
+            // Queue terminal redraw
+            self.event_proxy.send_event(Event::Wakeup);
+        }
 
         Ok(())
     }

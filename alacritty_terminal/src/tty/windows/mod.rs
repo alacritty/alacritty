@@ -230,7 +230,7 @@ impl<'a> EventedReadWrite for Pty<'a> {
             self.child_state.events(),
             self.child_event_token,
             mio::Ready::readable(),
-            poll_opts
+            poll_opts,
         )?;
 
         Ok(())
@@ -258,7 +258,7 @@ impl<'a> EventedReadWrite for Pty<'a> {
             self.child_state.events(),
             self.child_event_token,
             mio::Ready::readable(),
-            poll_opts
+            poll_opts,
         )?;
 
         Ok(())
