@@ -34,10 +34,6 @@ mod subprocess;
 
 static IS_CONPTY: AtomicBool = AtomicBool::new(false);
 
-pub fn process_should_exit() -> bool {
-    false
-}
-
 pub fn is_conpty() -> bool {
     IS_CONPTY.load(Ordering::Relaxed)
 }
