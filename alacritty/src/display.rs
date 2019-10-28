@@ -400,13 +400,13 @@ impl Display {
                 Some(vec![Rect { x: 0, y: 0, width, height }])
             } else {
                 // Fetch and clear damage
-                let (full, line_damage) = terminal.get_damage();
-                if full {
+                let term_damage = terminal.get_damage();
+                if term_damage.damage_all {
                     terminal.reset_damage();
                     Some(vec![Rect { x: 0, y: 0, width, height }])
                 } else {
-                    let mut rects = Vec::with_capacity(line_damage.len());
-                    for line in line_damage.iter_mut() {
+                    let mut rects = Vec::with_capacity(term_damage.line_damage.len());
+                    for line in term_damage.line_damage.iter_mut() {
                         if line.left > line.right {
                             continue;
                         }
@@ -442,6 +442,7 @@ impl Display {
                         });
                         line.reset(cols);
                     }
+                    term_damage.damage_all = false;
                     terminal.damage_cursor();
                     Some(rects)
                 }

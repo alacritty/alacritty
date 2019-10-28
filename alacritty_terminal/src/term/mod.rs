@@ -718,9 +718,10 @@ impl LineDamage {
     }
 }
 
-struct Damage {
-    line_damage: Vec<LineDamage>,
-    damage_all: bool,
+/// Damage is used to track damage within a Term.
+pub struct Damage {
+    pub line_damage: Vec<LineDamage>,
+    pub damage_all: bool,
     num_cols: Column,
 }
 
@@ -976,13 +977,12 @@ impl<T> Term<T> {
 
     /// Finalize and retrieve current damage. Note that the user is responsible
     /// for calling LineDamage::reset on every line returned for efficiency.
-    pub fn get_damage(&mut self) -> (bool, &mut Vec<LineDamage>) {
+    pub fn get_damage(&mut self) -> &mut Damage {
         self.damage.expand_line_damage(self.cursor.point.line, self.cursor.point.col, self.cursor.point.col);
 
-        let full = self.damage.damage_all ||
-            self.mode.contains(TermMode::INSERT);
+        self.damage.damage_all |= self.mode.contains(TermMode::INSERT);
 
-        if !full {
+        if !self.damage.damage_all {
             let cols = self.grid.num_cols();
 
             //
@@ -1016,8 +1016,7 @@ impl<T> Term<T> {
 
         self.last_selection = self.grid.selection.clone();
         self.last_highlight = self.grid.url_highlight.clone();
-        self.damage.damage_all = false;
-        (full, &mut self.damage.line_damage)
+        &mut self.damage
     }
 
     /// Damage the current cursor position. Must be done after a call to
