@@ -698,11 +698,11 @@ pub struct LineDamage {
 }
 
 impl LineDamage {
-    /// Create a new invalid LineDamage, which has left=columns+1 and right=0.
+    /// Create a new, undamaged LineDamage. where left=columns+1 and right=0.
     /// This ensures that later update with min/max of any valid column
     /// automatically creates a valid line damage without needing any
     /// conditionals.
-    fn new(line: Line, columns: Column) -> LineDamage {
+    fn undamaged(line: Line, columns: Column) -> LineDamage {
         LineDamage{
             left: columns+1,
             right: Column(0),
@@ -710,6 +710,7 @@ impl LineDamage {
         }
     }
 
+    /// Return the LineDamage to its undamaged state.
     #[inline(always)]
     pub fn reset(&mut self, columns: Column) {
         self.left = columns+1;
@@ -732,7 +733,7 @@ impl Damage {
             columns: columns,
         };
         for line in 0..lines.0 {
-            damage.line_damage.push(LineDamage::new(Line(line), columns));
+            damage.line_damage.push(LineDamage::undamaged(Line(line), columns));
         }
         damage
     }
@@ -762,7 +763,7 @@ impl Damage {
         self.columns = columns;
         self.line_damage = Vec::with_capacity(lines.0);
         for line in 0..lines.0 {
-            self.line_damage.push(LineDamage::new(Line(line), columns));
+            self.line_damage.push(LineDamage::undamaged(Line(line), columns));
         }
         self.full_damage = true;
     }
