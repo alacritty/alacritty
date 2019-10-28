@@ -752,8 +752,8 @@ impl Damage {
 
     #[inline(always)]
     fn clear_damage(&mut self) {
-        for l in &mut self.line_damage {
-            l.reset(self.columns);
+        for line in &mut self.line_damage {
+            line.reset(self.columns);
         }
         self.full_damage = false;
     }
