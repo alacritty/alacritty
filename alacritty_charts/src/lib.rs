@@ -18,9 +18,6 @@
 // the async_coordinator to send data somehow to the main thread.
 // IN PROGRESS:
 // -- Group labels into separate colors (find something that does color spacing in rust)
-// -- When less than configured items arrive, the metrics drawn do not make sense,
-//    seems like we are adding the same items over and over and so our metrics_capacity()
-//    and our active_items are out of sync
 // TODO:
 // -- The dashboards should be toggable, some key combination
 // -- When activated on toggle it could blur a portion of the screen
@@ -955,12 +952,21 @@ impl TimeSeries {
 
     /// `resolve_metric_collision` ensures the policy for colliding values is
     /// applied.
-    pub fn resolve_metric_collision(&self, existing: f64, new: f64) -> f64 {
-        match self.collision_policy {
-            ValueCollisionPolicy::Increment => existing + new,
-            ValueCollisionPolicy::Overwrite => new,
-            ValueCollisionPolicy::Decrement => existing - new,
-            ValueCollisionPolicy::Ignore => existing,
+    pub fn resolve_metric_collision(&self, existing: Option<f64>, new: Option<f64>) -> Option<f64> {
+        if let Some(new) = new {
+            if let Some(existing) = existing {
+                Some(match self.collision_policy {
+                    ValueCollisionPolicy::Increment => existing + new,
+                    ValueCollisionPolicy::Overwrite => new,
+                    ValueCollisionPolicy::Decrement => existing - new,
+                    ValueCollisionPolicy::Ignore => existing,
+                })
+            } else {
+                Some(new)
+            }
+        } else {
+            // Return existing regardless of type as new is None
+            existing
         }
     }
 
@@ -981,18 +987,19 @@ impl TimeSeries {
         self.stats.is_dirty = true;
     }
 
-    /// `push` Adds values to the circular buffer adding empty entries for
+    /// `upsert` Adds values to the circular buffer adding empty entries for
     /// missing entries, may invalidate the buffer if all data is outdated
-    /// XXX: This method cannot insert in the middle, it should be renamed 'upsert',
-    /// we should iterate over the data and overwrite the data, maybe even better to
-    /// overwrite the data receiving an array.
-    pub fn push(&mut self, input: (u64, f64)) {
+    /// it returns the number of inserted records
+    pub fn upsert(&mut self, input: (u64, Option<f64>)) -> usize {
+        // maybe better to overwrite the data receiving an array.
         if !self.metrics.is_empty() {
             let mut last_idx = (self.first_idx + self.active_items - 1) % self.metrics.len();
             if (self.metrics[last_idx].0 as i64 - input.0 as i64) > self.metrics_capacity as i64 {
                 // The timestamp is too old and should be discarded.
                 // This means we cannot scroll back in time.
-                return;
+                // i.e. if the date of the computer needs to go back in time
+                // we would need to restart the terminal to see metrics
+                return 0;
             }
             // as_vec() is 5, 6, 7, 3, 4
             // active_items: 3
@@ -1002,32 +1009,29 @@ impl TimeSeries {
             if inactive_time > self.metrics_capacity as i64 {
                 // The whole vector should be discarded
                 self.first_idx = 0;
-                self.metrics[0] = (input.0, Some(input.1));
+                self.metrics[0] = input;
                 self.active_items = 1;
+                return 1;
             } else if inactive_time <= 0 {
+                // We have a metric for an epoch that we have filled and is active
                 last_idx = (self.metrics_capacity as i64 + last_idx as i64 + inactive_time)
                     as usize
                     % self.metrics_capacity;
-                // In this case, the last epoch and the current epoch match
-                if let Some(curr_val) = self.metrics[last_idx].1 {
-                    self.metrics[last_idx].1 =
-                        Some(self.resolve_metric_collision(curr_val, input.1));
-                } else {
-                    self.metrics[last_idx].1 = Some(input.1);
-                }
-                if inactive_time != 0 && self.active_items < self.metrics_capacity {
-                    self.active_items += 1;
-                }
+                self.metrics[last_idx].1 =
+                    self.resolve_metric_collision(self.metrics[last_idx].1, input.1);
+                return 0;
             } else {
                 // Fill missing entries with None
                 let max_epoch = self.metrics[last_idx].0;
                 for fill_epoch in (max_epoch + 1)..input.0 {
                     self.circular_push((fill_epoch, None));
                 }
-                self.circular_push((input.0, Some(input.1)));
+                self.circular_push((input.0, input.1));
+                return 1;
             }
         } else {
-            self.circular_push((input.0, Some(input.1)));
+            self.circular_push((input.0, input.1));
+            return 1;
         }
     }
 
@@ -1083,7 +1087,7 @@ impl TimeSeries {
 
     pub fn push_current_epoch(&mut self, input: f64) {
         let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        self.push((now, input));
+        self.upsert((now, Some(input)));
     }
 
     // `iter` Returns an Iterator from the current start.
@@ -1154,14 +1158,14 @@ mod tests {
     fn it_gets_last_filled_value() {
         let mut test = TimeSeries::default().with_capacity(4);
         // Some values should be inserted as None
-        test.push((10, 0f64));
+        test.upsert((10, Some(0f64)));
         test.circular_push((11, None));
         test.circular_push((12, None));
         test.circular_push((13, None));
         assert_eq!(test.get_last_filled(), 0f64);
         let mut test = TimeSeries::default().with_capacity(4);
         test.circular_push((11, None));
-        test.push((12, 2f64));
+        test.upsert((12, Some(2f64)));
     }
     #[test]
     fn it_transforms_to_flat_vec() {
@@ -1169,14 +1173,14 @@ mod tests {
         // Some values should be inserted as None
         assert_eq!(test.first_idx, 0);
         assert_eq!(test.active_items, 0);
-        test.push((10, 0f64));
+        test.upsert((10, Some(0f64)));
         assert_eq!(test.first_idx, 0);
         assert_eq!(test.active_items, 1);
-        test.push((13, 3f64));
+        test.upsert((13, Some(3f64)));
         assert_eq!(test.first_idx, 0);
         assert_eq!(test.active_items, 4);
         assert_eq!(test.as_vec(), vec![(10, Some(0f64)), (11, None), (12, None), (13, Some(3f64))]);
-        test.push((14, 4f64));
+        test.upsert((14, Some(4f64)));
         // Starting at 11
         test.first_idx = 1;
         assert_eq!(test.as_vec(), vec![(11, None), (12, None), (13, Some(3f64)), (14, Some(4f64))]);
@@ -1198,18 +1202,18 @@ mod tests {
         init_log();
         let mut test = TimeSeries::default().with_capacity(4);
         // Some values should be inserted as None
-        test.push((10, 0f64));
-        test.push((13, 3f64));
+        test.upsert((10, Some(0f64)));
+        test.upsert((13, Some(3f64)));
         assert_eq!(test.metrics, vec![(10, Some(0f64)), (11, None), (12, None), (13, Some(3f64))]);
         assert_eq!(test.active_items, 4);
         // Test the whole vector is discarded
-        test.push((18, 8f64));
+        test.upsert((18, Some(8f64)));
         assert_eq!(test.active_items, 1);
         assert_eq!(test.metrics, vec![(18, Some(8f64)), (11, None), (12, None), (13, Some(3f64))]);
         assert_eq!(test.first_idx, 0);
         assert_eq!(test.active_items, 1);
         assert_eq!(test.as_vec(), vec![(18, Some(8f64))]);
-        test.push((20, 0f64));
+        test.upsert((20, Some(0f64)));
         assert_eq!(test.metrics, vec![
             (18, Some(8f64)),
             (19, None),
@@ -1219,19 +1223,19 @@ mod tests {
         assert_eq!(test.first_idx, 0);
         assert_eq!(test.active_items, 3);
         assert_eq!(test.as_vec(), vec![(18, Some(8f64)), (19, None), (20, Some(0f64))]);
-        test.push((50, 5f64));
+        test.upsert((50, Some(5f64)));
         assert_eq!(
             test.metrics,
             // Many outdated entries
             vec![(50, Some(5f64)), (19, None), (20, Some(0f64)), (13, Some(3f64))]
         );
         assert_eq!(test.as_vec(), vec![(50, Some(5f64))]);
-        test.push((53, 3f64));
+        test.upsert((53, Some(3f64)));
         assert_eq!(test.metrics, vec![(50, Some(5f64)), (51, None), (52, None), (53, Some(3f64))]);
         //  Ensure we can overwrite previous entries
-        test.push((50, 3f64));
-        test.push((51, 3f64));
-        test.push((52, 3f64));
+        test.upsert((50, Some(3f64)));
+        test.upsert((51, Some(3f64)));
+        test.upsert((52, Some(3f64)));
         assert_eq!(test.metrics, vec![
             (50, Some(8f64)),
             (51, Some(3f64)),
@@ -1254,20 +1258,20 @@ mod tests {
             TimeSeries::default().with_capacity(5).with_missing_values_policy("first".to_string());
         let mut test_avg =
             TimeSeries::default().with_capacity(5).with_missing_values_policy("avg".to_string());
-        test_zero.push((0, 9f64));
-        test_zero.push((2, 1f64));
-        test_one.push((0, 9f64));
-        test_one.push((2, 1f64));
-        test_min.push((0, 9f64));
-        test_min.push((2, 1f64));
-        test_max.push((0, 9f64));
-        test_max.push((2, 1f64));
-        test_last.push((0, 9f64));
-        test_last.push((2, 1f64));
-        test_first.push((0, 9f64));
-        test_first.push((2, 1f64));
-        test_avg.push((0, 9f64));
-        test_avg.push((2, 1f64));
+        test_zero.upsert((0, Some(9f64)));
+        test_zero.upsert((2, Some(1f64)));
+        test_one.upsert((0, Some(9f64)));
+        test_one.upsert((2, Some(1f64)));
+        test_min.upsert((0, Some(9f64)));
+        test_min.upsert((2, Some(1f64)));
+        test_max.upsert((0, Some(9f64)));
+        test_max.upsert((2, Some(1f64)));
+        test_last.upsert((0, Some(9f64)));
+        test_last.upsert((2, Some(1f64)));
+        test_first.upsert((0, Some(9f64)));
+        test_first.upsert((2, Some(1f64)));
+        test_avg.upsert((0, Some(9f64)));
+        test_avg.upsert((2, Some(1f64)));
         test_zero.calculate_stats();
         test_one.calculate_stats();
         test_min.calculate_stats();
