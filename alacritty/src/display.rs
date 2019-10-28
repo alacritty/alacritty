@@ -392,18 +392,18 @@ impl Display {
             let (width, height, cell_width, cell_height, padding_x, padding_y) =
                 size_info.into_u32();
 
-            if self.fully_damaged || visual_bell_animating {
+            if self.fully_damaged || visual_bell_animating || config.render_timer() {
                 // We need to fully damaged, so let's clear damage and stop
                 // here.
                 terminal.reset_damage();
                 self.fully_damaged = false;
-                Some(vec![Rect { x: 0, y: 0, width, height }])
+                None
             } else {
                 // Fetch and clear damage
                 let term_damage = terminal.get_damage();
                 if term_damage.damage_all {
                     terminal.reset_damage();
-                    Some(vec![Rect { x: 0, y: 0, width, height }])
+                    None
                 } else {
                     let mut rects = Vec::with_capacity(term_damage.line_damage.len());
                     for line in term_damage.line_damage.iter_mut() {
