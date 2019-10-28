@@ -698,13 +698,13 @@ pub struct LineDamage {
 }
 
 impl LineDamage {
-    /// Create a new, undamaged LineDamage. where left=columns+1 and right=0.
+    /// Create a new, undamaged LineDamage. where left=num_cols+1 and right=0.
     /// This ensures that later update with min/max of any valid column
     /// automatically creates a valid line damage without needing any
     /// conditionals.
-    fn undamaged(line: Line, columns: Column) -> LineDamage {
+    fn undamaged(line: Line, num_cols: Column) -> LineDamage {
         LineDamage{
-            left: columns+1,
+            left: num_cols+1,
             right: Column(0),
             line,
         }
@@ -712,8 +712,8 @@ impl LineDamage {
 
     /// Return the LineDamage to its undamaged state.
     #[inline(always)]
-    pub fn reset(&mut self, columns: Column) {
-        self.left = columns+1;
+    pub fn reset(&mut self, num_cols: Column) {
+        self.left = num_cols+1;
         self.right = Column(0);
     }
 }
@@ -721,19 +721,19 @@ impl LineDamage {
 struct Damage {
     line_damage: Vec<LineDamage>,
     damage_all: bool,
-    columns: Column,
+    num_cols: Column,
 }
 
 impl Damage {
     #[inline(always)]
-    fn new(lines: Line, columns: Column) -> Damage {
+    fn new(lines: Line, num_cols: Column) -> Damage {
         let mut damage = Damage{
             line_damage: Vec::with_capacity(lines.0),
             damage_all: false,
-            columns: columns,
+            num_cols: num_cols,
         };
         for line in 0..lines.0 {
-            damage.line_damage.push(LineDamage::undamaged(Line(line), columns));
+            damage.line_damage.push(LineDamage::undamaged(Line(line), num_cols));
         }
         damage
     }
@@ -748,17 +748,17 @@ impl Damage {
     #[inline(always)]
     fn clear_damage(&mut self) {
         for line in &mut self.line_damage {
-            line.reset(self.columns);
+            line.reset(self.num_cols);
         }
         self.damage_all = false;
     }
 
     #[inline(always)]
-    fn resize_damage(&mut self, lines: Line, columns: Column) {
-        self.columns = columns;
+    fn resize_damage(&mut self, lines: Line, num_cols: Column) {
+        self.num_cols = num_cols;
         self.line_damage = Vec::with_capacity(lines.0);
         for line in 0..lines.0 {
-            self.line_damage.push(LineDamage::undamaged(Line(line), columns));
+            self.line_damage.push(LineDamage::undamaged(Line(line), num_cols));
         }
         self.damage_all = true;
     }
