@@ -946,7 +946,7 @@ impl<T> Term<T> {
         &self,
         cols: index::Column,
         selection: &Option<Selection>,
-    ) -> Option<(Column, Line, Column, Line)> {
+    ) -> Option<(Point, Point)> {
         match selection {
             Some(ref selection) => match selection.to_span(self) {
                 Some(span) => {
@@ -973,7 +973,7 @@ impl<T> Term<T> {
                         (Column(0), cols - 1)
                     };
 
-                    Some((start_col, Line(start.line), end_col, Line(end.line)))
+                    Some((Point::new(Line(start.line), start_col), Point::new(Line(end.line), end_col)))
                 }
                 None => None,
             }
@@ -994,28 +994,28 @@ impl<T> Term<T> {
             //
             // Selections
             //
-            if let Some(sel_damage) = self.calculate_selection_damage(cols, &self.grid.selection) {
-                for line in (sel_damage.1).0..=(sel_damage.3).0 {
-                    self.damage.expand_line_damage(Line(line), sel_damage.0, sel_damage.2)
+            if let Some((upper_left, lower_right)) = self.calculate_selection_damage(cols, &self.grid.selection) {
+                for line in upper_left.line.0..=lower_right.line.0 {
+                    self.damage.expand_line_damage(Line(line), upper_left.col, lower_right.col)
                 }
             }
-            if let Some(sel_damage) = self.calculate_selection_damage(cols, &self.last_selection) {
-                for line in (sel_damage.1).0..=(sel_damage.3).0 {
-                    self.damage.expand_line_damage(Line(line), sel_damage.0, sel_damage.2)
+            if let Some((upper_left, lower_right)) = self.calculate_selection_damage(cols, &self.last_selection) {
+                for line in upper_left.line.0..=lower_right.line.0 {
+                    self.damage.expand_line_damage(Line(line), upper_left.col, lower_right.col)
                 }
             }
 
             //
             // URL highlights
             //
-            if let Some(hl_damage) = self.calculate_highlight_damage(cols, &self.grid.url_highlight) {
-                for line in (hl_damage.1).0..=(hl_damage.3).0 {
-                    self.damage.expand_line_damage(Line(line), hl_damage.0, hl_damage.2)
+            if let Some((upper_left, lower_right)) = self.calculate_highlight_damage(cols, &self.grid.url_highlight) {
+                for line in upper_left.line.0..=lower_right.line.0 {
+                    self.damage.expand_line_damage(Line(line), upper_left.col, lower_right.col)
                 }
             }
-            if let Some(hl_damage) = self.calculate_highlight_damage(cols, &self.last_highlight) {
-                for line in (hl_damage.1).0..=(hl_damage.3).0 {
-                    self.damage.expand_line_damage(Line(line), hl_damage.0, hl_damage.2)
+            if let Some((upper_left, lower_right)) = self.calculate_highlight_damage(cols, &self.last_highlight) {
+                for line in upper_left.line.0..=lower_right.line.0 {
+                    self.damage.expand_line_damage(Line(line), upper_left.col, lower_right.col)
                 }
             }
         }
@@ -1455,7 +1455,7 @@ impl<T> Term<T> {
         &self,
         cols: index::Column,
         highlight: &Option<RangeInclusive<index::Linear>>,
-    ) -> Option<(Column, Line, Column, Line)> {
+    ) -> Option<(Point, Point)> {
         match highlight {
             Some(highlight) => {
                 let (start, end) = highlight.clone().into_inner();
@@ -1467,7 +1467,7 @@ impl<T> Term<T> {
                     (Column(0), cols - 1)
                 };
 
-                Some((start_col, start.line, end_col, end.line))
+                Some((Point::new(start.line, start_col), Point::new(end.line, end_col)))
             }
             None => None,
         }
