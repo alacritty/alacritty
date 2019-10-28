@@ -1021,7 +1021,8 @@ impl<T> Term<T> {
     }
 
     /// Damage the current cursor position. Must be done after a call to
-    /// Term::get_damage.
+    /// Term::get_damage, in order to ensure that damage tracking has a valid
+    /// starting point.
     pub fn damage_cursor(&mut self) {
         self.damage.expand_line_damage(self.cursor.point.line, self.cursor.point.col, self.cursor.point.col);
     }
@@ -1029,6 +1030,9 @@ impl<T> Term<T> {
     /// Reset the current damage without reading it.
     pub fn reset_damage(&mut self) {
         self.damage.clear_damage();
+
+        // Damage state has been cleared. Damage the current cursor position to
+        // provide a valid starting point.
         self.damage_cursor();
     }
 
