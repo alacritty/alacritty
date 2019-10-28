@@ -720,7 +720,7 @@ impl LineDamage {
 
 struct Damage {
     line_damage: Vec<LineDamage>,
-    full_damage: bool,
+    damage_all: bool,
     columns: Column,
 }
 
@@ -729,7 +729,7 @@ impl Damage {
     fn new(lines: Line, columns: Column) -> Damage {
         let mut damage = Damage{
             line_damage: Vec::with_capacity(lines.0),
-            full_damage: false,
+            damage_all: false,
             columns: columns,
         };
         for line in 0..lines.0 {
@@ -746,16 +746,11 @@ impl Damage {
     }
 
     #[inline(always)]
-    fn damage_everything(&mut self) {
-        self.full_damage = true;
-    }
-
-    #[inline(always)]
     fn clear_damage(&mut self) {
         for line in &mut self.line_damage {
             line.reset(self.columns);
         }
-        self.full_damage = false;
+        self.damage_all = false;
     }
 
     #[inline(always)]
@@ -765,7 +760,7 @@ impl Damage {
         for line in 0..lines.0 {
             self.line_damage.push(LineDamage::undamaged(Line(line), columns));
         }
-        self.full_damage = true;
+        self.damage_all = true;
     }
 }
 
@@ -984,7 +979,7 @@ impl<T> Term<T> {
     pub fn get_damage(&mut self) -> (bool, &mut Vec<LineDamage>) {
         self.damage.expand_line_damage(self.cursor.point.line, self.cursor.point.col, self.cursor.point.col);
 
-        let full = self.damage.full_damage ||
+        let full = self.damage.damage_all ||
             self.mode.contains(TermMode::INSERT);
 
         if !full {
@@ -1021,7 +1016,7 @@ impl<T> Term<T> {
 
         self.last_selection = self.grid.selection.clone();
         self.last_highlight = self.grid.url_highlight.clone();
-        self.damage.full_damage = false;
+        self.damage.damage_all = false;
         (full, &mut self.damage.line_damage)
     }
 
@@ -1052,7 +1047,7 @@ impl<T> Term<T> {
         self.reset_url_highlight();
         self.dirty = true;
         if self.grid.display_offset() != old_offset {
-            self.damage.damage_everything();
+            self.damage.damage_all = true;
         }
     }
 
@@ -1129,7 +1124,7 @@ impl<T> Term<T> {
         self.auto_scroll = config.scrolling.auto_scroll;
         self.grid.update_history(config.scrolling.history() as usize, &self.cursor.template);
         self.damage.resize_damage(self.grid.num_lines(), self.grid.num_cols());
-        self.damage.damage_everything();
+        self.damage.damage_all = true;
     }
 
     pub fn selection_to_string(&self) -> Option<String> {
@@ -1364,7 +1359,7 @@ impl<T> Term<T> {
         // Recreate tabs list
         self.tabs = TabStops::new(self.grid.num_cols(), self.tabspaces);
         self.damage.resize_damage(self.grid.num_lines(), self.grid.num_cols());
-        self.damage.damage_everything();
+        self.damage.damage_all = true;
     }
 
     #[inline]
@@ -1385,7 +1380,7 @@ impl<T> Term<T> {
 
         self.alt = !self.alt;
         std::mem::swap(&mut self.grid, &mut self.alt_grid);
-        self.damage.damage_everything();
+        self.damage.damage_all = true;
     }
 
     /// Scroll screen down
@@ -1402,7 +1397,7 @@ impl<T> Term<T> {
         let mut template = self.cursor.template;
         template.flags = Flags::empty();
         self.grid.scroll_down(&(origin..self.scroll_region.end), lines, &template);
-        self.damage.damage_everything();
+        self.damage.damage_all = true;
     }
 
     /// Scroll screen up
@@ -1418,7 +1413,7 @@ impl<T> Term<T> {
         let mut template = self.cursor.template;
         template.flags = Flags::empty();
         self.grid.scroll_up(&(origin..self.scroll_region.end), lines, &template);
-        self.damage.damage_everything();
+        self.damage.damage_all = true;
     }
 
     fn deccolm(&mut self)
@@ -2185,7 +2180,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             ansi::ClearMode::Saved => self.grid.clear_history(),
         }
 
-        self.damage.damage_everything();
+        self.damage.damage_all = true;
     }
 
     #[inline]
@@ -2201,7 +2196,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             },
         }
 
-        self.damage.damage_everything();
+        self.damage.damage_all = true;
     }
 
     // Reset all important fields in the term struct
@@ -2224,7 +2219,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         self.scroll_region = Line(0)..self.grid.num_lines();
         self.title = DEFAULT_NAME.to_string();
         self.title_stack.clear();
-        self.damage.damage_everything();
+        self.damage.damage_all = true;
     }
 
     #[inline]
@@ -2351,7 +2346,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             ansi::Mode::DECCOLM => self.deccolm(),
             ansi::Mode::Insert => {
                 self.mode.remove(TermMode::INSERT);
-                self.damage.damage_everything();
+                self.damage.damage_all = true;
             },
             ansi::Mode::BlinkingCursor => {
                 trace!("... unimplemented mode");
