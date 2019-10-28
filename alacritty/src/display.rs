@@ -407,7 +407,7 @@ impl Display {
                 } else {
                     let mut rects = Vec::with_capacity(term_damage.line_damage.len());
                     for line in term_damage.line_damage.iter_mut() {
-                        if line.left > line.right {
+                        if line.is_undamaged() {
                             continue;
                         }
 

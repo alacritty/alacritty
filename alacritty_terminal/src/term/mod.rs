@@ -716,6 +716,12 @@ impl LineDamage {
         self.left = num_cols+1;
         self.right = Column(0);
     }
+
+    /// Return whether this line remains undamaged.
+    #[inline(always)]
+    pub fn is_undamaged(&self) -> bool {
+        self.left > self.right
+    }
 }
 
 /// Damage is used to track damage within a Term.
