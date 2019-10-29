@@ -393,8 +393,7 @@ impl Display {
                 size_info.into_u32();
 
             if self.fully_damaged || visual_bell_animating || config.render_timer() {
-                // We need to fully damaged, so let's clear damage and stop
-                // here.
+                // We need to fully damage, so let's clear damage and stop here
                 terminal.reset_damage();
                 self.fully_damaged = false;
                 None
