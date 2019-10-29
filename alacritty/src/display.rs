@@ -332,9 +332,8 @@ impl Display {
         let mut pty_size = self.size_info;
 
         // Subtract message bar lines from pty size
-        if resize_pending.message_buffer.is_some() {
-            let lines =
-                message_buffer.message().map(|m| m.text(&self.size_info).len()).unwrap_or(0);
+        if let Some(message) = message_buffer.message() {
+            let lines = message.text(&self.size_info).len();
             pty_size.height -= pty_size.cell_height * lines as f32;
         }
 
