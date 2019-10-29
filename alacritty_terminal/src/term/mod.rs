@@ -980,11 +980,7 @@ impl<T> Term<T> {
     /// Finalize and retrieve current damage. Note that the user is responsible
     /// for calling LineDamage::reset on every line returned for efficiency.
     pub fn get_damage(&mut self) -> &mut Damage {
-        self.damage.expand_line_damage(
-            self.cursor.point.line,
-            self.cursor.point.col,
-            self.cursor.point.col,
-        );
+        self.damage_cursor();
 
         self.damage.damage_all |= self.mode.contains(TermMode::INSERT);
 
@@ -1034,6 +1030,7 @@ impl<T> Term<T> {
     /// Damage the current cursor position. Must be done after a call to
     /// Term::get_damage, in order to ensure that damage tracking has a valid
     /// starting point.
+    #[inline(always)]
     pub fn damage_cursor(&mut self) {
         self.damage.expand_line_damage(
             self.cursor.point.line,
@@ -1718,15 +1715,10 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         let line = min(line + y_offset, max_y);
         let col = min(col, self.grid.num_cols() - 1);
 
-        self.damage.expand_line_damage(
-            self.cursor.point.line,
-            self.cursor.point.col,
-            self.cursor.point.col,
-        );
-        self.damage.expand_line_damage(line, col, col);
-
+        self.damage_cursor();
         self.cursor.point.line = line;
         self.cursor.point.col = col;
+        self.damage_cursor();
         self.input_needs_wrap = false;
     }
 
@@ -1874,13 +1866,12 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     fn backspace(&mut self) {
         trace!("Backspace");
         if self.cursor.point.col > Column(0) {
-            self.cursor.point.col -= 1;
-
             self.damage.expand_line_damage(
                 self.cursor.point.line,
+                self.cursor.point.col - 1,
                 self.cursor.point.col,
-                self.cursor.point.col + 1,
             );
+            self.cursor.point.col -= 1;
             self.input_needs_wrap = false;
         }
     }
@@ -1903,17 +1894,9 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             // scroll_up updates damage itself
             self.scroll_up(Line(1));
         } else if next < self.grid.num_lines() {
-            self.damage.expand_line_damage(
-                self.cursor.point.line,
-                self.cursor.point.col,
-                self.cursor.point.col,
-            );
+            self.damage_cursor();
             self.cursor.point.line += 1;
-            self.damage.expand_line_damage(
-                self.cursor.point.line,
-                self.cursor.point.col,
-                self.cursor.point.col,
-            );
+            self.damage_cursor();
         }
     }
 
@@ -1926,11 +1909,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             // scroll_up updates damage itself
             self.scroll_up(Line(1));
         } else if next < self.grid.num_lines() {
-            self.damage.expand_line_damage(
-                self.cursor.point.line,
-                self.cursor.point.col,
-                self.cursor.point.col,
-            );
+            self.damage_cursor();
             self.cursor.point.line = next;
             self.damage.expand_line_damage(self.cursor.point.line, Column(0), Column(0));
         }
@@ -2105,15 +2084,10 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         let line = min(self.cursor.point.line, self.grid.num_lines() - 1);
         let col = min(self.cursor.point.col, self.grid.num_cols() - 1);
 
-        self.damage.expand_line_damage(
-            self.cursor.point.line,
-            self.cursor.point.col,
-            self.cursor.point.col,
-        );
-        self.damage.expand_line_damage(line, col, col);
-
+        self.damage_cursor();
         self.cursor.point.line = line;
         self.cursor.point.col = col;
+        self.damage_cursor();
     }
 
     #[inline]
@@ -2275,17 +2249,9 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         if self.cursor.point.line == self.scroll_region.start {
             self.scroll_down(Line(1));
         } else {
-            self.damage.expand_line_damage(
-                self.cursor.point.line,
-                self.cursor.point.col,
-                self.cursor.point.col,
-            );
+            self.damage_cursor();
             self.cursor.point.line -= min(self.cursor.point.line, Line(1));
-            self.damage.expand_line_damage(
-                self.cursor.point.line,
-                self.cursor.point.col,
-                self.cursor.point.col,
-            );
+            self.damage_cursor();
         }
     }
 
