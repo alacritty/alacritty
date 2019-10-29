@@ -143,6 +143,7 @@ impl<T: EventListener> Execute<T> for Action {
     fn execute<A: ActionContext<T>>(&self, ctx: &mut A, mouse_mode: bool) {
         match *self {
             Action::Esc(ref s) => {
+                ctx.clear_selection();
                 ctx.scroll(Scroll::Bottom);
                 ctx.write_to_pty(s.clone().into_bytes())
             },
