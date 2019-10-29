@@ -286,7 +286,7 @@ fn fetch_prometheus_response(
         .unwrap();
     prometheus::get_from_prometheus(url.clone())
         .timeout(Duration::from_secs(item.pull_interval))
-        .map_err(|e| error!("get_from_prometheus; err={:?}", e))
+        .map_err(|e| error!("fetch_prometheus_response: err={:?}", e))
         .and_then(move |value| {
             debug!("Got prometheus raw value={:?}", value);
             let res = prometheus::parse_json(&value);
@@ -307,7 +307,9 @@ fn fetch_prometheus_response(
                 Ok(())
             })
         })
-        .map_err(|e| error!("Sending result to coordinator; err={:?}", e))
+        .map_err(|e| {
+            error!("fetch_prometheus_response: Sending result to coordinator; err={:?}", e)
+        })
 }
 
 /// `spawn_charts_intervals` iterates over the charts and sources
