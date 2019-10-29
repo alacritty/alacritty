@@ -2104,7 +2104,11 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 for cell in &mut row[col..] {
                     cell.reset(&template);
                 }
-                self.damage.expand_line_damage(self.cursor.point.line, col, self.grid.num_cols());
+                self.damage.expand_line_damage(
+                    self.cursor.point.line,
+                    col,
+                    self.grid.num_cols() - 1,
+                );
             },
             ansi::LineClearMode::Left => {
                 let row = &mut self.grid[self.cursor.point.line];
@@ -2121,7 +2125,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 self.damage.expand_line_damage(
                     self.cursor.point.line,
                     Column(0),
-                    self.grid.num_cols(),
+                    self.grid.num_cols() - 1,
                 );
             },
         }
