@@ -740,9 +740,9 @@ impl Damage {
 
     #[inline(always)]
     fn expand_line_damage(&mut self, line: Line, left: Column, right: Column) {
-        let l = self.line_damage.get_mut(line.0).unwrap();
-        l.left = min(left, l.left);
-        l.right = max(right, l.right);
+        let line = self.line_damage.get_mut(line.0).unwrap();
+        line.left = min(left, line.left);
+        line.right = max(right, line.right);
     }
 
     #[inline(always)]
