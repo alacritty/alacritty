@@ -15,6 +15,7 @@
 //! Exports the `Term` type which is a high-level API for the Grid
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut, Range};
+use std::path::{PathBuf, Path};
 use std::time::{Duration, Instant};
 use std::{io, mem, ptr};
 
@@ -752,6 +753,9 @@ pub struct Term<T> {
     /// Stack of saved window titles. When a title is popped from this stack, the `title` for the
     /// term is set, and the Glutin window's title attribute is changed through the event listener.
     title_stack: Vec<String>,
+
+    /// Current directory
+    current_directory: Option<PathBuf>
 }
 
 /// Terminal size info
@@ -879,6 +883,7 @@ impl<T> Term<T> {
             is_focused: true,
             title: config.window.title.clone(),
             title_stack: Vec::new(),
+            current_directory: None
         }
     }
 
@@ -1179,6 +1184,10 @@ impl<T> Term<T> {
 
     pub fn clipboard(&mut self) -> &mut Clipboard {
         &mut self.clipboard
+    }
+
+    pub fn current_directory(&self) -> Option<&Path> {
+        self.current_directory.as_ref().map(|pb| pb.as_ref())
     }
 }
 
@@ -1997,6 +2006,12 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             trace!("Title '{}' popped from stack", popped);
             self.set_title(&popped);
         }
+    }
+
+    #[inline]
+    fn set_current_directory(&mut self, path: PathBuf) {
+        trace!("Setting working directory {:?}", path);
+        self.current_directory = Some(path.to_owned());
     }
 }
 

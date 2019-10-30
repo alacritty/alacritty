@@ -15,10 +15,12 @@
 //! ANSI Terminal Stream Parsing
 use std::io;
 use std::str;
+use std::path::PathBuf;
 
 use base64;
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 use vte;
 
@@ -334,6 +336,9 @@ pub trait Handler {
 
     /// Pop the last title from the stack
     fn pop_title(&mut self) {}
+
+    /// OSC to set current directory
+    fn set_current_directory(&mut self, _: PathBuf) {}
 }
 
 /// Describes shape of cursor
@@ -795,6 +800,22 @@ where
                     }
                 }
                 unhandled(params);
+            },
+
+            // Used by Gnome terminal and Terminal.app to inform current directory
+            b"7" => {
+                if let Ok(s) = str::from_utf8(params[1]) {
+                    if let Ok(url) = Url::parse(s) {
+                        let path = url.path();
+
+                        // NB the path coming from Url has a leading slash; must slice that off
+                        // in windows.
+                        #[cfg(windows)]
+                        let path = &path[1..];
+
+                        self.handler.set_current_directory(path.into());
+                    }
+                }
             },
 
             // Get/set Foreground, Background, Cursor colors

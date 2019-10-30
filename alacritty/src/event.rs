@@ -6,6 +6,7 @@ use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -201,21 +202,31 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     fn spawn_new_instance(&mut self) {
         let alacritty = env::args().next().unwrap();
 
+        #[allow(unused_mut)]  // mut used only on unix
+        let mut working_directory = self.terminal.current_directory()
+            .map(|p| p.to_str())
+            .unwrap_or(None)
+            .map(|s| s.to_string());
+
         #[cfg(unix)]
-        let args = {
-            #[cfg(not(target_os = "freebsd"))]
-            let proc_prefix = "";
-            #[cfg(target_os = "freebsd")]
-            let proc_prefix = "/compat/linux";
-            let link_path = format!("{}/proc/{}/cwd", proc_prefix, tty::child_pid());
-            if let Ok(path) = fs::read_link(link_path) {
-                vec!["--working-directory".into(), path]
-            } else {
-                Vec::new()
+        {
+            if working_directory.is_none() {
+                #[cfg(not(target_os = "freebsd"))]
+                let proc_prefix = "";
+                #[cfg(target_os = "freebsd")]
+                let proc_prefix = "/compat/linux";
+
+                let link_path = format!("{}/proc/{}/cwd", proc_prefix, tty::child_pid());
+                if let Ok(path) = fs::read_link(link_path) {
+                    working_directory = Some(path)
+                }
             }
+        }
+
+        let args = match working_directory {
+            Some(s) => vec!["--working-directory".into(), s],
+            None => vec![]
         };
-        #[cfg(not(unix))]
-        let args: Vec<String> = Vec::new();
 
         match start_daemon(&alacritty, &args) {
             Ok(_) => debug!("Started new Alacritty process: {} {:?}", alacritty, args),
