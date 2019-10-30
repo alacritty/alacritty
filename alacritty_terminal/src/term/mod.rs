@@ -698,18 +698,18 @@ pub struct LineDamage {
 }
 
 impl LineDamage {
-    /// Create a new, undamaged LineDamage. where left=num_cols+1 and right=0.
+    /// Create a new, undamaged LineDamage. where left=num_cols-1 and right=0.
     /// This ensures that later update with min/max of any valid column
     /// automatically creates a valid line damage without needing any
     /// conditionals.
     fn undamaged(line: Line, num_cols: Column) -> LineDamage {
-        LineDamage { left: num_cols + 1, right: Column(0), line }
+        LineDamage { left: num_cols - 1, right: Column(0), line }
     }
 
     /// Return the LineDamage to its undamaged state.
     #[inline(always)]
     pub fn reset(&mut self, num_cols: Column) {
-        self.left = num_cols + 1;
+        self.left = num_cols - 1;
         self.right = Column(0);
     }
 
@@ -739,14 +739,14 @@ impl Damage {
     }
 
     #[inline(always)]
-    fn expand_line_damage(&mut self, line: Line, left: Column, right: Column) {
+    fn expand_line(&mut self, line: Line, left: Column, right: Column) {
         let line = self.line_damage.get_mut(line.0).unwrap();
         line.left = min(left, line.left);
         line.right = max(right, line.right);
     }
 
     #[inline(always)]
-    fn clear_damage(&mut self) {
+    fn clear(&mut self) {
         for line in &mut self.line_damage {
             line.reset(self.num_cols);
         }
@@ -754,7 +754,7 @@ impl Damage {
     }
 
     #[inline(always)]
-    fn resize_damage(&mut self, lines: Line, num_cols: Column) {
+    fn resize(&mut self, lines: Line, num_cols: Column) {
         self.num_cols = num_cols;
         self.line_damage = Vec::with_capacity(lines.0);
         for line in 0..lines.0 {
@@ -993,14 +993,14 @@ impl<T> Term<T> {
                 self.calculate_selection_damage(cols, &self.grid.selection)
             {
                 for line in upper_left.line.0..=lower_right.line.0 {
-                    self.damage.expand_line_damage(Line(line), upper_left.col, lower_right.col)
+                    self.damage.expand_line(Line(line), upper_left.col, lower_right.col)
                 }
             }
             if let Some((upper_left, lower_right)) =
                 self.calculate_selection_damage(cols, &self.last_selection)
             {
                 for line in upper_left.line.0..=lower_right.line.0 {
-                    self.damage.expand_line_damage(Line(line), upper_left.col, lower_right.col)
+                    self.damage.expand_line(Line(line), upper_left.col, lower_right.col)
                 }
             }
 
@@ -1010,14 +1010,14 @@ impl<T> Term<T> {
                 self.calculate_highlight_damage(cols, &self.grid.url_highlight)
             {
                 for line in upper_left.line.0..=lower_right.line.0 {
-                    self.damage.expand_line_damage(Line(line), upper_left.col, lower_right.col)
+                    self.damage.expand_line(Line(line), upper_left.col, lower_right.col)
                 }
             }
             if let Some((upper_left, lower_right)) =
                 self.calculate_highlight_damage(cols, &self.last_highlight)
             {
                 for line in upper_left.line.0..=lower_right.line.0 {
-                    self.damage.expand_line_damage(Line(line), upper_left.col, lower_right.col)
+                    self.damage.expand_line(Line(line), upper_left.col, lower_right.col)
                 }
             }
         }
@@ -1032,7 +1032,7 @@ impl<T> Term<T> {
     /// starting point.
     #[inline(always)]
     pub fn damage_cursor(&mut self) {
-        self.damage.expand_line_damage(
+        self.damage.expand_line(
             self.cursor.point.line,
             self.cursor.point.col,
             self.cursor.point.col,
@@ -1041,7 +1041,7 @@ impl<T> Term<T> {
 
     /// Reset the current damage without reading it.
     pub fn reset_damage(&mut self) {
-        self.damage.clear_damage();
+        self.damage.clear();
 
         // Damage state has been cleared. Damage the current cursor position to
         // provide a valid starting point.
@@ -1139,7 +1139,7 @@ impl<T> Term<T> {
         self.dynamic_title = config.dynamic_title();
         self.auto_scroll = config.scrolling.auto_scroll;
         self.grid.update_history(config.scrolling.history() as usize, &self.cursor.template);
-        self.damage.resize_damage(self.grid.num_lines(), self.grid.num_cols());
+        self.damage.resize(self.grid.num_lines(), self.grid.num_cols());
         self.damage.damage_all = true;
     }
 
@@ -1374,7 +1374,7 @@ impl<T> Term<T> {
 
         // Recreate tabs list
         self.tabs = TabStops::new(self.grid.num_cols(), self.tabspaces);
-        self.damage.resize_damage(self.grid.num_lines(), self.grid.num_cols());
+        self.damage.resize(self.grid.num_lines(), self.grid.num_cols());
         self.damage.damage_all = true;
     }
 
@@ -1759,7 +1759,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         for c in &mut line[source..destination] {
             c.reset(&template);
         }
-        self.damage.expand_line_damage(self.cursor.point.line, source, destination + num_cells);
+        self.damage.expand_line(self.cursor.point.line, source, destination + num_cells);
     }
 
     #[inline]
@@ -1782,7 +1782,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         let old_col = self.cursor.point.col;
         self.cursor.point.col = min(self.cursor.point.col + cols, self.grid.num_cols() - 1);
 
-        self.damage.expand_line_damage(self.cursor.point.line, old_col, self.cursor.point.col);
+        self.damage.expand_line(self.cursor.point.line, old_col, self.cursor.point.col);
         self.input_needs_wrap = false;
     }
 
@@ -1792,7 +1792,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         let old_col = self.cursor.point.col;
         self.cursor.point.col -= min(self.cursor.point.col, cols);
 
-        self.damage.expand_line_damage(self.cursor.point.line, self.cursor.point.col, old_col);
+        self.damage.expand_line(self.cursor.point.line, self.cursor.point.col, old_col);
         self.input_needs_wrap = false;
     }
 
@@ -1857,7 +1857,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             }
         }
 
-        self.damage.expand_line_damage(self.cursor.point.line, old_col, self.cursor.point.col);
+        self.damage.expand_line(self.cursor.point.line, old_col, self.cursor.point.col);
         self.input_needs_wrap = false;
     }
 
@@ -1866,7 +1866,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     fn backspace(&mut self) {
         trace!("Backspace");
         if self.cursor.point.col > Column(0) {
-            self.damage.expand_line_damage(
+            self.damage.expand_line(
                 self.cursor.point.line,
                 self.cursor.point.col - 1,
                 self.cursor.point.col,
@@ -1880,7 +1880,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[inline]
     fn carriage_return(&mut self) {
         trace!("Carriage return");
-        self.damage.expand_line_damage(self.cursor.point.line, Column(0), self.cursor.point.col);
+        self.damage.expand_line(self.cursor.point.line, Column(0), self.cursor.point.col);
         self.cursor.point.col = Column(0);
         self.input_needs_wrap = false;
     }
@@ -1911,7 +1911,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         } else if next < self.grid.num_lines() {
             self.damage_cursor();
             self.cursor.point.line = next;
-            self.damage.expand_line_damage(self.cursor.point.line, Column(0), Column(0));
+            self.damage.expand_line(self.cursor.point.line, Column(0), Column(0));
         }
         self.cursor.point.col = Column(0);
     }
@@ -2009,7 +2009,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             c.reset(&template);
         }
 
-        self.damage.expand_line_damage(self.cursor.point.line, start, end);
+        self.damage.expand_line(self.cursor.point.line, start, end);
     }
 
     #[inline]
@@ -2023,7 +2023,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         let end = min(start + count, cols - 1);
         let n = (cols - end).0;
 
-        self.damage.expand_line_damage(self.cursor.point.line, start, end + n);
+        self.damage.expand_line(self.cursor.point.line, start, end + n - 1);
 
         let line = &mut self.grid[self.cursor.point.line];
 
@@ -2059,7 +2059,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             self.cursor.point.col = col;
         }
 
-        self.damage.expand_line_damage(self.cursor.point.line, self.cursor.point.col, old_col);
+        self.damage.expand_line(self.cursor.point.line, self.cursor.point.col, old_col);
     }
 
     #[inline]
@@ -2104,7 +2104,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 for cell in &mut row[col..] {
                     cell.reset(&template);
                 }
-                self.damage.expand_line_damage(
+                self.damage.expand_line(
                     self.cursor.point.line,
                     col,
                     self.grid.num_cols() - 1,
@@ -2115,14 +2115,14 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 for cell in &mut row[..=col] {
                     cell.reset(&template);
                 }
-                self.damage.expand_line_damage(self.cursor.point.line, Column(0), col);
+                self.damage.expand_line(self.cursor.point.line, Column(0), col);
             },
             ansi::LineClearMode::All => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..] {
                     cell.reset(&template);
                 }
-                self.damage.expand_line_damage(
+                self.damage.expand_line(
                     self.cursor.point.line,
                     Column(0),
                     self.grid.num_cols() - 1,
