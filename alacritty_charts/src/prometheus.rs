@@ -283,7 +283,7 @@ impl PrometheusTimeSeries {
         if res.status != "success" {
             return Ok(0usize);
         }
-        debug!("load_prometheus_response: before push, series is: {:?}", self.series);
+        debug!("load_prometheus_response: before upsert, series is: {:?}", self.series);
         debug!("load_prometheus_response: Checking data: {:?}", res.data);
         match res.data {
             HTTPResponseData::Vector { result: results } => {
@@ -295,9 +295,9 @@ impl PrometheusTimeSeries {
                         // The result array is  [epoch, value, epoch, value]
                         if metric_data.value.len() == 2 {
                             let opt_epoch = prometheus_epoch_to_u64(&metric_data.value[0]);
-                            let opt_value = serde_json_to_num(&metric_data.value[1]);
-                            if let (Some(epoch), Some(value)) = (opt_epoch, opt_value) {
-                                loaded_items += self.series.push((epoch, value));
+                            let value = serde_json_to_num(&metric_data.value[1]);
+                            if let Some(epoch) = opt_epoch {
+                                loaded_items += self.series.upsert((epoch, value));
                             }
                         }
                     }
@@ -313,13 +313,13 @@ impl PrometheusTimeSeries {
                         for item_value in &metric_data.values {
                             for item in item_value.chunks_exact(2) {
                                 let opt_epoch = prometheus_epoch_to_u64(&item[0]);
-                                let opt_value = serde_json_to_num(&item[1]);
-                                if let (Some(epoch), Some(value)) = (opt_epoch, opt_value) {
+                                let value = serde_json_to_num(&item[1]);
+                                if let Some(epoch) = opt_epoch {
                                     debug!(
-                                        "load_prometheus_response: Pushing from Matrix({},{}),",
+                                        "load_prometheus_response: Upserting from Matrix({},{:?}),",
                                         epoch, value
                                     );
-                                    loaded_items += self.series.push((epoch, value));
+                                    loaded_items += self.series.upsert((epoch, value));
                                 }
                             }
                         }
@@ -332,9 +332,9 @@ impl PrometheusTimeSeries {
                 // XXX: no example found for String.
                 if result.len() > 1 {
                     let opt_epoch = prometheus_epoch_to_u64(&result[0]);
-                    let opt_value = serde_json_to_num(&result[1]);
-                    if let (Some(epoch), Some(value)) = (opt_epoch, opt_value) {
-                        loaded_items += self.series.push((epoch, value));
+                    let value = serde_json_to_num(&result[1]);
+                    if let Some(epoch) = opt_epoch {
+                        loaded_items += self.series.upsert((epoch, value));
                     }
                 }
             },
@@ -342,15 +342,17 @@ impl PrometheusTimeSeries {
         if loaded_items > 0 {
             self.series.calculate_stats();
         }
-        debug!("load_prometheus_response: after push, series is: {:?}", self.series);
+        debug!("load_prometheus_response: after upsert, series is: {:?}", self.series);
         Ok(loaded_items)
     }
 }
 
 /// `get_from_prometheus` is an async operation that returns an Optional
 /// PrometheusResponse
-pub fn get_from_prometheus(url: hyper::Uri) -> impl Future<Item = hyper::Chunk, Error = ()> {
-    info!("Loading Prometheus URL: {}", url);
+pub fn get_from_prometheus(
+    url: hyper::Uri,
+) -> impl Future<Item = hyper::Chunk, Error = hyper::Uri> {
+    info!("get_from_prometheus: Loading Prometheus URL: {}", url);
     let request = if url.scheme_part() == Some(&hyper::http::uri::Scheme::HTTP) {
         Client::new().get(url.clone())
     } else {
@@ -358,6 +360,7 @@ pub fn get_from_prometheus(url: hyper::Uri) -> impl Future<Item = hyper::Chunk, 
         let https = HttpsConnector::new(4).unwrap();
         Client::builder().build::<_, hyper::Body>(https).get(url.clone())
     };
+    let url_copy = url.clone();
     request
         .and_then(|res| {
             res.into_body()
@@ -372,7 +375,8 @@ pub fn get_from_prometheus(url: hyper::Uri) -> impl Future<Item = hyper::Chunk, 
                 })
         })
         .map_err(|err| {
-            error!("Error: {}", err);
+            error!("get_from_prometheus: Error loading '{:?}'", err);
+            url_copy
         })
 }
 /// `parse_json` transforms a hyper body chunk into a possible
@@ -995,7 +999,16 @@ mod tests {
                     "job":"node_exporter"
                   },
                   "values":[
-                    [1571511822,"1.8359375"]
+                    [1571511822,"1.8359322"],
+                    [1571511823,"1.8359323"],
+                    [1571511824,"1.8359324"],
+                    [1571511825,"1.8359325"],
+                    [1571511826,"1.8359326"],
+                    [1571511827,"1.8359327"],
+                    [1571511828,"1.8359328"],
+                    [1571511829,"1.8359329"],
+                    [1571511830,"1.8359330"],
+                    [1571511831,"1.8359331"]
                   ]
                 }]
               }
@@ -1004,8 +1017,8 @@ mod tests {
         let res1_json = parse_json(&test1_json);
         assert_eq!(res1_json.is_some(), true);
         let res1_load = test.load_prometheus_response(res1_json.unwrap());
-        // 0 items should have been loaded, it already exists.
-        assert_eq!(res1_load, Ok(0usize));
+        // 5 items should have been loaded, 5 already existed.
+        assert_eq!(res1_load, Ok(5usize));
         assert_eq!(test.series.active_items, 10usize);
     }
 }
