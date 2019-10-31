@@ -1,9 +1,8 @@
 //! Exports the TimeSeries class
 //! The TimeSeries is a circular buffer that contains an entry per epoch
-//! at different granularities. It is maintained as a Vec<(u64, T)> where
-//! T is a metric. Since metrics will overwrite the contents of the array
-//! partially, the start of the metrics and the end of the metrics are
-//! maintained as two separate indexes. This allows the vector to shrink
+//! at different granularities. It is maintained as a Vec<(u64, f64)>
+//! Metrics will overwrite the contents of the array partially, the start of
+//! the metrics and the number of the items shifts, this allows the vector
 //! and rotate without relocation of memory or shifting of the vector.
 
 // DONE:
@@ -16,18 +15,18 @@
 // -- Logging
 // -- in MacOS the data to OpenGL must be sent from the main thread. This would require changing
 // the async_coordinator to send data somehow to the main thread.
+// -- When data is not received from a channel, the line does not move anymore, consider adding a
+//    ($now, None) to the array
 // IN PROGRESS:
 // -- Group labels into separate colors (find something that does color spacing in rust)
+// -- When disconnected from a server, it is not easy to know which one or why.
 // TODO:
 // -- The dashboards should be toggable, some key combination
 // -- When activated on toggle it could blur a portion of the screen
 // -- mock the prometheus server and response
-// -- We should re-use the circular_push for the opengl_vec
-// -- When disconnected from a server, it is not easy to know which one or why.
 // -- When disconnected from a server, the connection is not retried.
-// -- When data is not received from a channel, the line does not move anymore, consider adding a
-//    ($now, None) to the array
 
+#![warn(rust_2018_idioms)]
 extern crate log;
 #[macro_use]
 extern crate serde_derive;
@@ -254,7 +253,7 @@ impl<'de> Deserialize<'de> for Rgb {
         match value.deserialize_str(RgbVisitor) {
             Ok(rgb) => Ok(rgb),
             Err(err) => {
-                error!("Problem with config: {}; using color #000000", err);
+                error!("Rgb::deserialize: Problem with config: {}; using color #000000", err);
                 Ok(Rgb::default())
             },
         }
@@ -335,7 +334,7 @@ impl ReferencePointDecoration {
         offset: Value2D,
         chart_max_value: f64,
     ) {
-        debug!("ReferencePointDecoration: Starting update_opengl_vecs");
+        debug!("ReferencePointDecoration::update_opengl_vecs Starting");
         if 12 != self.opengl_data.capacity() {
             self.opengl_data = vec![0.; 12];
         }
@@ -375,7 +374,7 @@ impl ReferencePointDecoration {
         self.opengl_data[9] = y3;
         self.opengl_data[10] = x2;
         self.opengl_data[11] = y2;
-        debug!("ReferencePointDecoration: Finished update_opengl_vecs: {:?}", self.opengl_data);
+        debug!("ReferencePointDecoration:update_opengl_vecs: Finished: {:?}", self.opengl_data);
     }
 }
 
@@ -672,9 +671,12 @@ impl TimeSeriesChart {
     /// `update_series_opengl_vecs` Represents the activity levels values in a
     /// drawable vector for opengl, for a specific index in the series array
     pub fn update_series_opengl_vecs(&mut self, series_idx: usize, display_size: SizeInfo) {
-        debug!("Chart: Starting update_series_opengl_vecs for series index: {}", series_idx);
+        debug!("update_series_opengl_vecs: Starting for series index: {}", series_idx);
         if series_idx > self.sources.len() {
-            error!("Request for out of bound series index: {}", series_idx);
+            error!(
+                "update_series_opengl_vecs: Request for out of bound series index: {}",
+                series_idx
+            );
             return;
         }
         while self.opengl_vecs.capacity() < self.sources.capacity() {
@@ -690,32 +692,39 @@ impl TimeSeriesChart {
             self.opengl_vecs[series_idx].reserve(missing_capacity);
         }
         debug!(
-            "Chart: Needed OpenGL capacity: {}, Display Size: {:?}, offset {:?}",
+            "update_series_opengl_vecs: Needed OpenGL capacity: {}, Display Size: {:?}, offset \
+             {:?}",
             opengl_vecs_capacity, display_size, self.offset,
         );
         for source in &mut self.sources {
             if source.series().stats.is_dirty {
-                debug!("Chart: '{}' stats are dirty, needs recalculating", source.name());
+                debug!(
+                    "update_series_opengl_vecs: '{}' stats are dirty, needs recalculating",
+                    source.name()
+                );
                 source.series_mut().calculate_stats();
             }
         }
         self.calculate_stats();
         let mut decorations_space = 0f32;
         for decoration in &self.decorations {
-            debug!("Chart: Adding width of decoration: {}", decoration.width());
+            debug!("update_series_opengl_vecs: Adding width of decoration: {}", decoration.width());
             decorations_space += decoration.width();
         }
-        debug!("Chart: width: {}, decorations_space: {}", self.width, decorations_space);
+        debug!(
+            "update_series_opengl_vecs: width: {}, decorations_space: {}",
+            self.width, decorations_space
+        );
         let missing_values_fill = self.sources[series_idx].series().get_missing_values_fill();
         debug!(
-            "Chart: Using {} to fill missing values. Metrics[{}]: {:?}",
+            "update_series_opengl_vecs: Using {} to fill missing values. Metrics[{}]: {:?}",
             missing_values_fill,
             self.sources[series_idx].series().metrics_capacity,
             self.sources[series_idx].series()
         );
         let tick_spacing = (self.width - decorations_space)
             / self.sources[series_idx].series().metrics_capacity as f32;
-        debug!("Chart: Using tick_spacing {}", tick_spacing);
+        debug!("update_series_opengl_vecs: Using tick_spacing {}", tick_spacing);
         for (idx, metric) in self.sources[series_idx].series().iter().enumerate() {
             // The decorations width request is on both left and right.
             let x_value = idx as f32 * tick_spacing + (decorations_space / 2f32);
@@ -738,7 +747,7 @@ impl TimeSeriesChart {
             }
         }
         for decoration in &mut self.decorations {
-            debug!("Chart: Updating decoration {:?} vertices", decoration);
+            debug!("update_series_opengl_vecs: Updating decoration {:?} vertices", decoration);
             decoration.update_opengl_vecs(display_size, self.offset, self.stats.max);
         }
         self.last_updated =
@@ -748,7 +757,7 @@ impl TimeSeriesChart {
     /// `update_all_series_opengl_vecs` Represents the activity levels values in a
     /// drawable vector for opengl for all the available series in the current chart
     pub fn update_all_series_opengl_vecs(&mut self, display_size: SizeInfo) {
-        debug!("Chart: Starting update_all_series_opengl_vecs");
+        debug!("update_all_series_opengl_vecs: Starting");
         for idx in 0..self.sources.len() {
             self.update_series_opengl_vecs(idx, display_size);
         }
@@ -798,7 +807,10 @@ impl TimeSeriesChart {
         self.stats.sum = sum_activity_values;
         self.stats.avg = sum_activity_values / filled_stats as f64;
         self.stats.is_dirty = false;
-        debug!("Chart: Updated statistics to: {:?}, filled_stats: {:?}", self.stats, filled_stats);
+        debug!(
+            "TimeSeriesChart::calculate_stats: Updated statistics to: {:?}, filled_stats: {:?}",
+            self.stats, filled_stats
+        );
     }
 
     /// `get_deduped_opengl_vecs` returns a minimized version of the opengl_vecs, when the metric
@@ -970,7 +982,7 @@ impl TimeSeries {
         }
     }
 
-    /// `circular_push` an item to the circular buffer
+    /// `circular_push` adds an item to the circular buffer
     pub fn circular_push(&mut self, input: (u64, Option<f64>)) {
         if self.metrics.len() < self.metrics_capacity {
             self.metrics.push(input);
