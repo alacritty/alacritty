@@ -166,7 +166,7 @@ Alacritty looks for the configuration file at the following paths:
 
 On Windows the config file is located at:
 
-`%APPDATA%\alacritty\alacritty.yml`
+`%APPDATA%\Roaming\alacritty\alacritty.yml`
 
 ## Contributing
 
