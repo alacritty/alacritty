@@ -18,7 +18,9 @@ use std::fmt;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::os::raw::c_ulong;
 
-use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
+#[cfg(not(windows))]
+use glutin::dpi::PhysicalPosition;
+use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 use glutin::event_loop::EventLoop;
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::{RequestUserAttentionType, WindowBuilderExtMacOS, WindowExtMacOS};
@@ -36,6 +38,7 @@ use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 use alacritty_terminal::config::{Decorations, StartupMode, WindowConfig};
 use alacritty_terminal::event::Event;
 use alacritty_terminal::gl;
+#[cfg(not(windows))]
 use alacritty_terminal::term::{SizeInfo, Term};
 
 use crate::config::Config;
