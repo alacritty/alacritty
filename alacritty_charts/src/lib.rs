@@ -27,22 +27,21 @@
 // -- When disconnected from a server, the connection is not retried.
 
 #![warn(rust_2018_idioms)]
-extern crate log;
 #[macro_use]
 extern crate serde_derive;
 
-pub extern crate futures;
-pub extern crate hyper;
-pub extern crate hyper_tls;
-pub extern crate percent_encoding;
-extern crate serde;
-extern crate serde_json;
-pub extern crate tokio;
-pub extern crate tokio_core;
+pub use futures;
+pub use hyper;
+pub use hyper_tls;
+pub use percent_encoding;
+
 use log::*;
+use serde_yaml;
 use std::fmt;
 use std::str::FromStr;
 use std::time::UNIX_EPOCH;
+pub use tokio;
+pub use tokio_core;
 
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer};
@@ -1103,7 +1102,7 @@ impl TimeSeries {
     }
 
     // `iter` Returns an Iterator from the current start.
-    fn iter(&self) -> IterTimeSeries {
+    fn iter(&self) -> IterTimeSeries<'_> {
         IterTimeSeries { inner: self, pos: self.first_idx, current_item: 0 }
     }
 }
