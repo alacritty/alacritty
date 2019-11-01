@@ -722,7 +722,7 @@ impl LineDamage {
 
 /// Damage is used to track damage within a Term.
 pub struct Damage {
-    pub line_damage: Vec<LineDamage>,
+    pub lines: Vec<LineDamage>,
     pub damage_all: bool,
     num_cols: Column,
 }
@@ -731,23 +731,23 @@ impl Damage {
     #[inline(always)]
     fn new(lines: Line, num_cols: Column) -> Damage {
         let mut damage =
-            Damage { line_damage: Vec::with_capacity(lines.0), damage_all: false, num_cols };
+            Damage { lines: Vec::with_capacity(lines.0), damage_all: false, num_cols };
         for line in 0..lines.0 {
-            damage.line_damage.push(LineDamage::undamaged(Line(line), num_cols));
+            damage.lines.push(LineDamage::undamaged(Line(line), num_cols));
         }
         damage
     }
 
     #[inline(always)]
     fn expand_line(&mut self, line: Line, left: Column, right: Column) {
-        let line = self.line_damage.get_mut(line.0).unwrap();
+        let line = self.lines.get_mut(line.0).unwrap();
         line.left = min(left, line.left);
         line.right = max(right, line.right);
     }
 
     #[inline(always)]
     fn clear(&mut self) {
-        for line in &mut self.line_damage {
+        for line in &mut self.lines {
             line.reset(self.num_cols);
         }
         self.damage_all = false;
@@ -756,11 +756,16 @@ impl Damage {
     #[inline(always)]
     fn resize(&mut self, lines: Line, num_cols: Column) {
         self.num_cols = num_cols;
-        self.line_damage = Vec::with_capacity(lines.0);
+        self.lines = Vec::with_capacity(lines.0);
         for line in 0..lines.0 {
-            self.line_damage.push(LineDamage::undamaged(Line(line), num_cols));
+            self.lines.push(LineDamage::undamaged(Line(line), num_cols));
         }
         self.damage_all = true;
+    }
+
+    #[allow(dead_code)]
+    fn damaged_lines(&self) -> usize {
+        self.lines.iter().map(|x| if x.is_undamaged() { 0 } else { 1 }).sum()
     }
 }
 
@@ -1087,6 +1092,9 @@ impl<T> Term<T> {
 
         let colors = color::List::from(&config.colors);
 
+        let mut damage = Damage::new(num_lines, num_cols);
+        damage.expand_line(Line(0), Column(0), Column(0));
+
         Term {
             dirty: false,
             visual_bell: VisualBell::new(config),
@@ -1117,7 +1125,7 @@ impl<T> Term<T> {
             title_stack: Vec::new(),
             last_highlight: None,
             last_selection: None,
-            damage: Damage::new(num_lines, num_cols),
+            damage,
         }
     }
 
@@ -2500,7 +2508,7 @@ mod tests {
     use crate::config::MockConfig;
     use crate::event::{Event, EventListener};
     use crate::grid::{Grid, Scroll};
-    use crate::index::{Column, Line, Point, Side};
+    use crate::index::{Column, Line, Point, Side, Linear};
     use crate::selection::Selection;
     use crate::term::{cell, Cell, SizeInfo, Term};
 
@@ -2714,6 +2722,618 @@ mod tests {
             term.reset_state();
             assert_eq!(term.title, "Alacritty");
             assert!(term.title_stack.is_empty());
+        }
+    }
+
+    #[test]
+    fn damage_line_count() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        let d = term.get_damage();
+        assert_eq!(d.lines.len(), 3);
+    }
+
+    #[test]
+    fn damage_simple_input() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        // Test damage of 3 letters from 0,0
+        {
+            term.input('a');
+            term.input('b');
+            term.input('c');
+
+            let d = term.get_damage();
+            assert_eq!(d.damaged_lines(), 1);
+
+            let line_damage = &d.lines[0];
+            assert_eq!((line_damage.left, line_damage.right), (Column(0), Column(3)));
+        }
+
+        term.reset_damage();
+
+        // Test damage of 3 letters from 3,0
+        {
+            term.input('d');
+            term.input('e');
+            term.input('f');
+
+            let d = term.get_damage();
+            assert_eq!(d.damaged_lines(), 1);
+
+            let line_damage = &d.lines[0];
+            assert_eq!((line_damage.left, line_damage.right), (Column(3), Column(6)));
+        }
+
+        term.reset_damage();
+
+        // Test damage of wrap-around
+        {
+            term.input('g');
+            term.input('h');
+            term.input('i');
+
+            let d = term.get_damage();
+            assert_eq!(d.damaged_lines(), 2);
+
+            let line_damage = &d.lines[0];
+            assert_eq!((line_damage.left, line_damage.right), (Column(6), Column(6)));
+
+
+            let line_damage = &d.lines[1];
+            assert_eq!((line_damage.left, line_damage.right), (Column(0), Column(2)));
+        }
+    }
+
+    #[test]
+    fn damage_linefeed() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.input('a');
+        term.linefeed();
+
+        let d = term.get_damage();
+        assert_eq!(d.damaged_lines(), 2);
+
+        let line_damage = &d.lines[0];
+        assert_eq!((line_damage.left, line_damage.right), (Column(0), Column(1)));
+        let line_damage = &d.lines[1];
+        assert_eq!((line_damage.left, line_damage.right), (Column(1), Column(1)));
+    }
+
+    #[test]
+    fn damage_carriage_return() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.input('a');
+        term.input('b');
+        term.input('c');
+        term.reset_damage();
+        term.carriage_return();
+
+        let d = term.get_damage();
+        assert_eq!(d.damaged_lines(), 1);
+
+        let line_damage = &d.lines[0];
+        assert_eq!((line_damage.left, line_damage.right), (Column(0), Column(3)));
+    }
+
+    #[test]
+    fn damage_linefeed_carriage_return() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.input('a');
+        term.input('b');
+        term.input('c');
+        term.reset_damage();
+        term.linefeed_carriage_return();
+
+        let d = term.get_damage();
+        assert_eq!(d.damaged_lines(), 2);
+
+        let line_damage = &d.lines[0];
+        assert_eq!((line_damage.left, line_damage.right), (Column(3), Column(3)));
+        let line_damage = &d.lines[1];
+        assert_eq!((line_damage.left, line_damage.right), (Column(0), Column(0)));
+    }
+
+    #[test]
+    fn damage_scroll_display() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        for _ in 0..4 {
+            term.linefeed();
+        }
+        term.reset_damage();
+
+        term.scroll_display(Scroll::Top);
+
+        let d = term.get_damage();
+        assert!(d.damage_all);
+    }
+
+    #[test]
+    fn damage_resize() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        let size = SizeInfo {
+            width: 21.0,
+            height: 12.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        term.resize(&size);
+        let d = term.get_damage();
+        assert_eq!(d.lines.len(), 4);
+        assert!(d.damage_all);
+    }
+
+    #[test]
+    fn damage_goto() {
+        let size = SizeInfo {
+            width: 21.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.goto(Line(2), Column(2));
+
+        let d = term.get_damage();
+        assert_eq!(d.damaged_lines(), 2);
+
+        let line_damage = &d.lines[0];
+        assert_eq!((line_damage.left, line_damage.right), (Column(0), Column(0)));
+        let line_damage = &d.lines[2];
+        assert_eq!((line_damage.left, line_damage.right), (Column(2), Column(2)));
+    }
+
+    #[test]
+    fn damage_tab() {
+        let size = SizeInfo {
+            width: 48.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.put_tab(1);
+
+        let d = term.get_damage();
+        assert_eq!(d.damaged_lines(), 1);
+
+        let line_damage = &d.lines[0];
+        assert_eq!((line_damage.left, line_damage.right), (Column(0), Column(8)));
+    }
+
+    #[test]
+    fn damage_backspace() {
+        let size = SizeInfo {
+            width: 48.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.goto_col(Column(8));
+        term.reset_damage();
+        term.backspace();
+
+        let d = term.get_damage();
+        assert_eq!(d.damaged_lines(), 1);
+
+        let line_damage = &d.lines[0];
+        assert_eq!((line_damage.left, line_damage.right), (Column(7), Column(8)));
+    }
+
+    #[test]
+    fn damage_erase_chars() {
+        let size = SizeInfo {
+            width: 48.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.erase_chars(Column(3));
+
+        let d = term.get_damage();
+        assert_eq!(d.damaged_lines(), 1);
+
+        let line_damage = &d.lines[0];
+        assert_eq!((line_damage.left, line_damage.right), (Column(0), Column(3)));
+    }
+
+    #[test]
+    fn damage_delete_chars() {
+        let size = SizeInfo {
+            width: 48.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.delete_chars(Column(3));
+
+        let d = term.get_damage();
+        assert_eq!(d.damaged_lines(), 1);
+
+        let line_damage = &d.lines[0];
+        assert_eq!((line_damage.left, line_damage.right), (Column(0), size.cols()-1));
+    }
+
+    #[test]
+    fn damage_move_backward_tab() {
+        let size = SizeInfo {
+            width: 48.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.goto_col(Column(8));
+        term.reset_damage();
+
+        term.move_backward_tabs(1);
+
+        let d = term.get_damage();
+        assert_eq!(d.damaged_lines(), 1);
+
+        let line_damage = &d.lines[0];
+        assert_eq!((line_damage.left, line_damage.right), (Column(0), Column(8)));
+    }
+
+    #[test]
+    fn damage_restore_cursor() {
+        let size = SizeInfo {
+            width: 48.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.goto_col(Column(8));
+        term.save_cursor_position();
+        term.goto_col(size.cols()-1);
+        term.reset_damage();
+
+        term.restore_cursor_position();
+
+        let d = term.get_damage();
+        assert_eq!(d.damaged_lines(), 1);
+
+        let line_damage = &d.lines[0];
+        assert_eq!((line_damage.left, line_damage.right), (Column(8), size.cols()-1));
+    }
+
+    #[test]
+    fn damage_clear_line() {
+        let size = SizeInfo {
+            width: 48.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        {
+            term.goto_col(Column(8));
+            term.reset_damage();
+
+            term.clear_line(ansi::LineClearMode::Right);
+
+            let d = term.get_damage();
+            assert_eq!(d.damaged_lines(), 1);
+
+            let line_damage = &d.lines[0];
+            assert_eq!((line_damage.left, line_damage.right), (Column(8), size.cols()-1));
+        }
+
+        {
+            term.goto_col(Column(8));
+            term.reset_damage();
+
+            term.clear_line(ansi::LineClearMode::Left);
+
+            let d = term.get_damage();
+            assert_eq!(d.damaged_lines(), 1);
+
+            let line_damage = &d.lines[0];
+            assert_eq!((line_damage.left, line_damage.right), (Column(0), Column(8)));
+        }
+
+        {
+            term.goto_col(Column(8));
+            term.reset_damage();
+
+            term.clear_line(ansi::LineClearMode::All);
+
+            let d = term.get_damage();
+            assert_eq!(d.damaged_lines(), 1);
+
+            let line_damage = &d.lines[0];
+            assert_eq!((line_damage.left, line_damage.right), (Column(0), size.cols()-1));
+        }
+    }
+
+    #[test]
+    fn damage_clear_screen() {
+        let size = SizeInfo {
+            width: 48.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.clear_screen(ansi::ClearMode::All);
+        assert!(term.get_damage().damage_all);
+    }
+
+    #[test]
+    fn damage_clear_tabs() {
+        let size = SizeInfo {
+            width: 48.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.clear_tabs(ansi::TabulationClearMode::All);
+
+        // This is over-damage.
+        assert!(term.get_damage().damage_all);
+    }
+
+    #[test]
+    fn damage_reset_state() {
+        let size = SizeInfo {
+            width: 48.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        term.reset_state();
+        assert!(term.get_damage().damage_all);
+    }
+
+    #[test]
+    fn damage_insert_mode() {
+        let size = SizeInfo {
+            width: 48.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        {
+            term.set_mode(ansi::Mode::Insert);
+            term.input('a');
+
+            // Note: Correct damage is left = start_cursor_col, right = size.cols()-1.
+            // We damage excessively here to avoid additional logic in damage tracking
+            // for a rarely used case.
+            assert!(term.get_damage().damage_all);
+        }
+
+        {
+            term.set_mode(ansi::Mode::Insert);
+            term.input('a');
+            term.unset_mode(ansi::Mode::Insert);
+            term.input('b');
+
+            // Note: Correct damage is left = start_cursor_col, right = size.cols()-1.
+            // We damage excessively here to avoid additional logic in damage tracking
+            // for a rarely used case.
+            assert!(term.get_damage().damage_all);
+        }
+    }
+
+    #[test]
+    fn damage_url_highlight() {
+        let size = SizeInfo {
+            width: 24.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        // Single line
+        {
+            term.goto_col(Column(3));
+            term.set_url_highlight(Linear(3)..=Linear(6));
+            term.reset_damage();
+
+            let d = term.get_damage();
+            assert_eq!(d.damaged_lines(), 1);
+
+            let line_damage = &d.lines[0];
+            assert_eq!((line_damage.left, line_damage.right), (Column(3), Column(6)));
+        }
+
+        // Wrap
+        {
+            term.goto_col(Column(3));
+            term.set_url_highlight(Linear(3)..=Linear(10));
+            term.reset_damage();
+
+            let d = term.get_damage();
+            assert_eq!(d.damaged_lines(), 2);
+
+            // URL highlight damages a rectangle, so there is slight over-damage on start/end lines.
+            let line_damage = &d.lines[0];
+            assert_eq!((line_damage.left, line_damage.right), (Column(0), size.cols()-1));
+
+            let line_damage = &d.lines[1];
+            assert_eq!((line_damage.left, line_damage.right), (Column(0), size.cols()-1));
+        }
+    }
+
+    #[test]
+    fn damage_selection() {
+        let size = SizeInfo {
+            width: 24.0,
+            height: 9.0,
+            cell_width: 3.0,
+            cell_height: 3.0,
+            padding_x: 0.0,
+            padding_y: 0.0,
+            dpr: 1.0,
+        };
+        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+
+        // Single line
+        {
+            term.goto_col(Column(3));
+            term.reset_damage();
+
+            let mut selection = Selection::simple(Point{ line: 2, col: Column(3)}, Side::Left);
+            selection.update(Point{ line: 2, col: Column(6)}, Side::Left);
+            *term.selection_mut() = Some(selection);
+
+            let d = term.get_damage();
+            assert_eq!(d.damaged_lines(), 1);
+
+            let line_damage = &d.lines[0];
+            assert_eq!((line_damage.left, line_damage.right), (Column(3), Column(5)));
+        }
+
+        // Wrap
+        {
+            term.goto_col(Column(3));
+            term.reset_damage();
+
+            let mut selection = Selection::simple(Point{ line: 1, col: Column(3)}, Side::Left);
+            selection.update(Point{ line: 2, col: Column(6)}, Side::Left);
+            *term.selection_mut() = Some(selection);
+            term.reset_damage();
+
+            let d = term.get_damage();
+            assert_eq!(d.damaged_lines(), 2);
+
+            let line_damage = &d.lines[0];
+            assert_eq!((line_damage.left, line_damage.right), (Column(0), size.cols()-1));
+
+            let line_damage = &d.lines[1];
+            assert_eq!((line_damage.left, line_damage.right), (Column(0), size.cols()-1));
         }
     }
 }

@@ -404,8 +404,8 @@ impl Display {
                     terminal.reset_damage();
                     None
                 } else {
-                    let mut rects = Vec::with_capacity(term_damage.line_damage.len());
-                    for line in term_damage.line_damage.iter_mut() {
+                    let mut rects = Vec::with_capacity(term_damage.lines.len());
+                    for line in term_damage.lines.iter_mut() {
                         if line.is_undamaged() {
                             continue;
                         }
