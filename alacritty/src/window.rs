@@ -155,7 +155,8 @@ impl Window {
                 .or_else(|_| create_gl_window(window_builder, &event_loop, true, logical))?;
 
         // Text cursor
-        windowed_context.window().set_cursor_icon(CursorIcon::Text);
+        let current_mouse_cursor = CursorIcon::Text;
+        windowed_context.window().set_cursor_icon(current_mouse_cursor);
 
         // Set OpenGL symbol loader. This call MUST be after window.make_current on windows.
         gl::load_with(|symbol| windowed_context.get_proc_address(symbol) as *const _);
@@ -170,11 +171,7 @@ impl Window {
             }
         }
 
-        Ok(Window {
-            current_mouse_cursor: CursorIcon::Default,
-            mouse_visible: true,
-            windowed_context,
-        })
+        Ok(Window { current_mouse_cursor, mouse_visible: true, windowed_context })
     }
 
     pub fn set_inner_size(&mut self, size: LogicalSize) {
