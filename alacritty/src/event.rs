@@ -66,7 +66,7 @@ pub struct ActionContext<'a, N, T> {
     pub message_buffer: &'a mut MessageBuffer,
     pub display_update_pending: &'a mut DisplayUpdate,
     pub config: &'a mut Config,
-    font: &'a mut Font,
+    font_size: Size,
 }
 
 impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionContext<'a, N, T> {
@@ -224,14 +224,16 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn change_font_size(&mut self, delta: f32) {
-        self.font.size = max(self.font.size + delta, Size::new(FONT_SIZE_STEP));
-        self.display_update_pending.font = Some(self.font.clone());
+        self.font_size = max(self.font_size + delta, Size::new(FONT_SIZE_STEP));
+        let mut font = self.config.font.clone();
+        font.size = self.font_size;
+        self.display_update_pending.font = Some(font);
         self.terminal.dirty = true;
     }
 
     fn reset_font_size(&mut self) {
-        self.font.size = self.config.font.size;
-        self.display_update_pending.font = Some(self.font.clone());
+        self.font_size = self.config.font.size;
+        self.display_update_pending.font = Some(self.config.font.clone());
         self.terminal.dirty = true;
     }
 
@@ -309,7 +311,7 @@ pub struct Processor<N> {
     pty_resize_handle: Box<dyn OnResize>,
     message_buffer: MessageBuffer,
     display: Display,
-    font: Font,
+    font_size: Size,
 }
 
 impl<N: Notify> Processor<N> {
@@ -330,7 +332,7 @@ impl<N: Notify> Processor<N> {
             received_count: 0,
             suppress_chars: false,
             modifiers: Default::default(),
-            font: config.font.clone(),
+            font_size: config.font.size,
             config,
             pty_resize_handle,
             message_buffer,
@@ -392,7 +394,7 @@ impl<N: Notify> Processor<N> {
                 message_buffer: &mut self.message_buffer,
                 display_update_pending: &mut display_update_pending,
                 window: &mut self.display.window,
-                font: &mut self.font,
+                font_size: self.font_size,
                 config: &mut self.config,
             };
             let mut processor = input::Processor::new(context);
@@ -400,6 +402,8 @@ impl<N: Notify> Processor<N> {
             for event in event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);
             }
+
+            self.font_size = processor.ctx.font_size;
 
             // TODO: Workaround for incorrect startup DPI on X11
             // https://github.com/rust-windowing/winit/issues/998
@@ -413,7 +417,9 @@ impl<N: Notify> Processor<N> {
 
                     let size = self.display.window.inner_size().to_physical(dpr);
 
-                    display_update_pending.font = Some(self.font.clone());
+                    if display_update_pending.font.is_none() {
+                        display_update_pending.font = Some(self.config.font.clone());
+                    }
                     display_update_pending.dimensions = Some(size);
 
                     terminal.dirty = true;
@@ -475,12 +481,12 @@ impl<N: Notify> Processor<N> {
                             let mut font = config.font.clone();
 
                             // Do not update font size if it has been changed at runtime
-                            if processor.ctx.font.size != processor.ctx.config.font.size {
-                                font.size = processor.ctx.font.size;
+                            if processor.ctx.font_size != processor.ctx.config.font.size {
+                                font.size = processor.ctx.font_size;
                             }
 
                             processor.ctx.display_update_pending.font = Some(font.clone());
-                            *processor.ctx.font = font;
+                            processor.ctx.font_size = font.size;
                         }
 
                         *processor.ctx.config = config;
@@ -557,7 +563,7 @@ impl<N: Notify> Processor<N> {
                         let display_update_pending = &mut processor.ctx.display_update_pending;
 
                         // Push current font to update its DPR
-                        display_update_pending.font = Some(processor.ctx.font.clone());
+                        display_update_pending.font = Some(processor.ctx.config.font.clone());
 
                         // Scale window dimensions with new DPR
                         let old_width = processor.ctx.size_info.width;
