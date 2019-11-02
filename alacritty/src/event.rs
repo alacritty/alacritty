@@ -417,9 +417,7 @@ impl<N: Notify> Processor<N> {
 
                     let size = self.display.window.inner_size().to_physical(dpr);
 
-                    if display_update_pending.font.is_none() {
-                        display_update_pending.font = Some(self.config.font.clone());
-                    }
+                    display_update_pending.font = Some(self.config.font.clone());
                     display_update_pending.dimensions = Some(size);
 
                     terminal.dirty = true;
