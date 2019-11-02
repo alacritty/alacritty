@@ -56,11 +56,11 @@ pub fn get_last_updated_chart_epoch(
         Ok(data) => {
             debug!("Got response from SendLastUpdatedEpoch Task: {:?}", data);
             data
-        },
+        }
         Err(err) => {
             error!("Error response from SendLastUpdatedEpoch Task: {:?}", err);
             0u64
-        },
+        }
     }
 }
 
@@ -68,25 +68,39 @@ pub fn get_last_updated_chart_epoch(
 /// after finding the max updated epoch, it inserts it on the other series
 /// so that they also progress in time.
 pub fn send_last_updated_epoch(charts: &mut Vec<TimeSeriesChart>, channel: oneshot::Sender<u64>) {
-    let max: u64 = charts.iter().map(|x| x.last_updated).max().unwrap_or_else(|| 0u64);
+    let max: u64 = charts
+        .iter()
+        .map(|x| x.last_updated)
+        .max()
+        .unwrap_or_else(|| 0u64);
     let updated_charts: usize = charts
         .iter_mut()
         .map(|x| {
             if x.last_updated < max {
-                x.sources.iter_mut().map(|x| x.series_mut().upsert((max, None))).sum()
+                x.sources
+                    .iter_mut()
+                    .map(|x| x.series_mut().upsert((max, None)))
+                    .sum()
             } else {
                 0usize
             }
         })
         .sum();
-    debug!("send_last_updated_epoch: Progressed {} series to {} epoch", updated_charts, max);
+    debug!(
+        "send_last_updated_epoch: Progressed {} series to {} epoch",
+        updated_charts, max
+    );
     match channel.send(max) {
         Ok(()) => {
             debug!(
                 "send_last_updated_epoch: oneshot::message sent with payload {}",
-                charts.iter().map(|x| x.last_updated).max().unwrap_or_else(|| 0u64)
+                charts
+                    .iter()
+                    .map(|x| x.last_updated)
+                    .max()
+                    .unwrap_or_else(|| 0u64)
             );
-        },
+        }
         Err(err) => error!("send_last_updated_epoch: Error sending: {:?}", err),
     };
 }
@@ -113,10 +127,13 @@ pub fn load_http_response(
                             num_records, response.source_url
                         );
                         ok_records = num_records;
-                    },
+                    }
                     Err(err) => {
-                        debug!("Error Loading {} into TimeSeries: {:?}", response.source_url, err);
-                    },
+                        debug!(
+                            "Error Loading {} into TimeSeries: {:?}",
+                            response.source_url, err
+                        );
+                    }
                 }
                 debug!(
                     "After loading. TimeSeries is: {:?}",
@@ -154,8 +171,11 @@ pub fn send_metrics_opengl_vecs(
         },
     ) {
         Ok(()) => {
-            debug!("send_metrics_opengl_vecs: oneshot::message sent for {}", chart_index);
-        },
+            debug!(
+                "send_metrics_opengl_vecs: oneshot::message sent for {}",
+                chart_index
+            );
+        }
         Err(err) => error!("send_metrics_opengl_vecs: Error sending: {:?}", err),
     };
 }
@@ -186,7 +206,7 @@ pub fn send_decorations_opengl_vecs(
                 "send_decorations_opengl_vecs: oneshot::message sent for index: {}",
                 chart_index
             );
-        },
+        }
         Err(err) => error!("send_decorations_opengl_vecs: Error sending: {:?}", err),
     };
 }
@@ -217,9 +237,10 @@ pub fn change_display_size(
         chart.update_all_series_opengl_vecs(*size);
     }
     match channel.send(true) {
-        Ok(()) => {
-            debug!("change_display_size: Sent reply back to resize notifier, new size: {:?}", size)
-        },
+        Ok(()) => debug!(
+            "change_display_size: Sent reply back to resize notifier, new size: {:?}",
+            size
+        ),
         Err(err) => error!("change_display_size: Error sending: {:?}", err),
     };
 }
@@ -245,17 +266,23 @@ pub fn async_coordinator(
             series.init();
         }
     }
-    let mut size = SizeInfo { height, width, padding_y, padding_x, ..SizeInfo::default() };
+    let mut size = SizeInfo {
+        height,
+        width,
+        padding_y,
+        padding_x,
+        ..SizeInfo::default()
+    };
     rx.for_each(move |message| {
         debug!("async_coordinator: message: {:?}", message);
         match message {
             AsyncChartTask::LoadResponse(req) => load_http_response(&mut charts, req, size),
             AsyncChartTask::SendMetricsOpenGLData(chart_index, data_index, channel) => {
                 send_metrics_opengl_vecs(&charts, chart_index, data_index, channel);
-            },
+            }
             AsyncChartTask::SendDecorationsOpenGLData(chart_index, data_index, channel) => {
                 send_decorations_opengl_vecs(&charts, chart_index, data_index, channel);
-            },
+            }
             AsyncChartTask::ChangeDisplaySize(height, width, padding_y, padding_x, channel) => {
                 change_display_size(
                     &mut charts,
@@ -266,10 +293,10 @@ pub fn async_coordinator(
                     padding_x,
                     channel,
                 );
-            },
+            }
             AsyncChartTask::SendLastUpdatedEpoch(channel) => {
                 send_last_updated_epoch(&mut charts, channel);
-            },
+            }
         };
         Ok(())
     })
@@ -300,7 +327,10 @@ fn fetch_prometheus_response(
                 capacity: item.capacity,
             }))
             .map_err(|e| {
-                error!("fetch_prometheus_response: send data back to coordinator; err={:?}", e)
+                error!(
+                    "fetch_prometheus_response: send data back to coordinator; err={:?}",
+                    e
+                )
             })
             .and_then(|res| {
                 debug!("fetch_prometheus_response: res={:?}", res);
@@ -308,7 +338,10 @@ fn fetch_prometheus_response(
             })
         })
         .map_err(|e| {
-            error!("fetch_prometheus_response: Sending result to coordinator; err={:?}", e)
+            error!(
+                "fetch_prometheus_response: Sending result to coordinator; err={:?}",
+                e
+            )
         })
 }
 
@@ -337,7 +370,9 @@ pub fn spawn_charts_intervals(
                 };
                 let charts_tx = charts_tx.clone();
                 tokio_handle
-                    .spawn(lazy(move || spawn_datasource_interval_polls(&data_request, charts_tx)))
+                    .spawn(lazy(move || {
+                        spawn_datasource_interval_polls(&data_request, charts_tx)
+                    }))
                     .expect("Got error spawning datasource internal polls");
             }
             series_index += 1;
@@ -351,7 +386,10 @@ pub fn spawn_datasource_interval_polls(
     item: &MetricRequest,
     tx: mpsc::Sender<AsyncChartTask>,
 ) -> impl Future<Item = (), Error = ()> {
-    debug!("spawn_datasource_interval_polls: Starting for item={:?}", item);
+    debug!(
+        "spawn_datasource_interval_polls: Starting for item={:?}",
+        item
+    );
     Interval::new(Instant::now(), Duration::from_secs(item.pull_interval))
         //.take(10) //  Test 10 times first
         .map_err(|e| panic!("interval errored; err={:?}", e))
@@ -374,7 +412,7 @@ pub fn spawn_datasource_interval_polls(
                     Ok(async_metric_item)
                 })
             },
-            )
+        )
         .map(|_| ())
 }
 
@@ -404,17 +442,19 @@ pub fn get_metric_opengl_vecs(
             );
             Ok(())
         });
-    tokio_handle.spawn(lazy(move || get_opengl_task)).expect("Unable to spawn get_opengl_task");
+    tokio_handle
+        .spawn(lazy(move || get_opengl_task))
+        .expect("Unable to spawn get_opengl_task");
     let opengl_rx = opengl_rx.map(|x| x);
     match opengl_rx.wait() {
         Ok(data) => {
             debug!("Got response from SendMetricsOpenGL Task: {:?}", data);
             data
-        },
+        }
         Err(err) => {
             error!("Error response from SendMetricsOpenGL Task: {:?}", err);
             vec![]
-        },
+        }
     }
 }
 
@@ -439,7 +479,14 @@ pub fn run(config: crate::config::Config) {
         padding_y: 0.,
     };
     tokio_runtime.spawn(lazy(move || {
-        async_coordinator(rx, charts, size.height, size.width, size.padding_y, size.padding_x)
+        async_coordinator(
+            rx,
+            charts,
+            size.height,
+            size.width,
+            size.padding_y,
+            size.padding_x,
+        )
     }));
     // let tokio_handle = tokio_runtime.executor().clone();
     // tokio_runtime.spawn(lazy(move || {

@@ -63,7 +63,9 @@ pub enum HTTPResponseData {
 
 impl Default for HTTPResponseData {
     fn default() -> HTTPResponseData {
-        HTTPResponseData::Vector { result: vec![HTTPVectorResult::default()] }
+        HTTPResponseData::Vector {
+            result: vec![HTTPVectorResult::default()],
+        }
     }
 }
 
@@ -190,7 +192,7 @@ impl PrometheusTimeSeries {
             Ok(url) => {
                 res.url = url;
                 Ok(res)
-            },
+            }
             Err(err) => Err(err),
         }
     }
@@ -222,7 +224,10 @@ impl PrometheusTimeSeries {
         let mut encoded_url = format!("{}?{}", url_base_path, encoded_url_param);
         // If this is a query_range, we need to add time range
         if encoded_url.contains("/api/v1/query_range?") {
-            let end = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+            let end = std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
             let start = end - metrics_capacity;
             let step = "1"; // Maybe we can change granularity later
             encoded_url = format!("{}&start={}&end={}&step={}", encoded_url, start, end, step);
@@ -238,11 +243,11 @@ impl PrometheusTimeSeries {
                     error!("Only HTTP and HTTPS protocols are supported");
                     Err(format!("Unsupported protocol: {:?}", url.scheme_part()))
                 }
-            },
+            }
             Err(err) => {
                 error!("Unable to parse url: {}", err);
                 Err(format!("Unable to parse URL: {:?}", err))
-            },
+            }
         }
     }
 
@@ -265,11 +270,11 @@ impl PrometheusTimeSeries {
                             required_label
                         );
                     }
-                },
+                }
                 None => {
                     debug!("Skip: Required label '{}' does not exists", required_label);
                     return false;
-                },
+                }
             }
         }
         true
@@ -283,7 +288,10 @@ impl PrometheusTimeSeries {
         if res.status != "success" {
             return Ok(0usize);
         }
-        debug!("load_prometheus_response: before upsert, series is: {:?}", self.series);
+        debug!(
+            "load_prometheus_response: before upsert, series is: {:?}",
+            self.series
+        );
         debug!("load_prometheus_response: Checking data: {:?}", res.data);
         match res.data {
             HTTPResponseData::Vector { result: results } => {
@@ -302,7 +310,7 @@ impl PrometheusTimeSeries {
                         }
                     }
                 }
-            },
+            }
             HTTPResponseData::Matrix { result: results } => {
                 // labeled metrics returned as a matrix:
                 // [ {metric: {l: X}, value: [[epoch1,sample2],[...]]}
@@ -325,7 +333,7 @@ impl PrometheusTimeSeries {
                         }
                     }
                 }
-            },
+            }
             HTTPResponseData::Scalar { result } | HTTPResponseData::String { result } => {
                 // unlabeled metrics returned as a 2 items vector
                 // [epoch1,sample2]
@@ -337,12 +345,15 @@ impl PrometheusTimeSeries {
                         loaded_items += self.series.upsert((epoch, value));
                     }
                 }
-            },
+            }
         };
         if loaded_items > 0 {
             self.series.calculate_stats();
         }
-        debug!("load_prometheus_response: after upsert, series is: {:?}", self.series);
+        debug!(
+            "load_prometheus_response: after upsert, series is: {:?}",
+            self.series
+        );
         Ok(loaded_items)
     }
 }
@@ -358,7 +369,9 @@ pub fn get_from_prometheus(
     } else {
         // 4 is number of blocking DNS threads
         let https = HttpsConnector::new(4).unwrap();
-        Client::builder().build::<_, hyper::Body>(https).get(url.clone())
+        Client::builder()
+            .build::<_, hyper::Body>(https)
+            .get(url.clone())
     };
     let url_copy = url.clone();
     request
@@ -388,11 +401,11 @@ pub fn parse_json(body: &hyper::Chunk) -> Option<HTTPResponse> {
         Ok(v) => {
             debug!("parse_json: returned JSON={:?}", v);
             Some(v)
-        },
+        }
         Err(err) => {
             error!("Unable to parse JSON err={:?}", err);
             None
-        },
+        }
     }
 }
 /// XXX: REMOVE
@@ -526,7 +539,10 @@ mod tests {
         let res0_load = test0.load_prometheus_response(res0_json.clone().unwrap());
         // 11 items should have been loaded in the node_exporter
         assert_eq!(res0_load, Ok(11usize));
-        debug!("it_loads_prometheus_matrix NOTVEC: {:?}", test0.series.metrics);
+        debug!(
+            "it_loads_prometheus_matrix NOTVEC: {:?}",
+            test0.series.metrics
+        );
         let loaded_data = test0.series.as_vec();
         debug!("it_loads_prometheus_matrix Data: {:?}", loaded_data);
         assert_eq!(loaded_data[0], (1558253469, Some(1.69f64)));
@@ -560,7 +576,10 @@ mod tests {
         );
         let res1_json = parse_json(&test1_json);
         assert_eq!(res1_json.is_some(), true);
-        debug!("it_loads_prometheus_matrix NOTVEC: {:?}", test0.series.metrics);
+        debug!(
+            "it_loads_prometheus_matrix NOTVEC: {:?}",
+            test0.series.metrics
+        );
         let loaded_data = test0.series.as_vec();
         debug!("it_loads_prometheus_matrix Data: {:?}", loaded_data);
         let res1_load = test0.load_prometheus_response(res1_json.clone().unwrap());
@@ -572,7 +591,10 @@ mod tests {
         let res1_load = test0.load_prometheus_response(res1_json.clone().unwrap());
         // Now 0 records should have been loaded:
         assert_eq!(res1_load, Ok(0usize));
-        debug!("it_loads_prometheus_matrix NOTVEC: {:?}", test0.series.metrics);
+        debug!(
+            "it_loads_prometheus_matrix NOTVEC: {:?}",
+            test0.series.metrics
+        );
         let loaded_data = test0.series.metrics.clone();
         debug!("it_loads_prometheus_matrix Data: {:?}", loaded_data);
         assert_eq!(loaded_data[0], (1558253484, Some(1.84f64)));
@@ -667,44 +689,50 @@ mod tests {
         let res1_load = test0.load_prometheus_response(res1_json.unwrap());
         // 1 items should have been loaded
         assert_eq!(res1_load, Ok(24usize));
-        assert_eq!(test0.series.as_vec(), vec![
-            (1566918913, Some(4.5)),
-            (1566918914, Some(4.5)),
-            (1566918915, Some(4.5)),
-            (1566918916, Some(4.5)),
-            (1566918917, Some(4.5)),
-            (1566918918, Some(4.5)),
-            (1566918919, Some(4.25)),
-            (1566918920, Some(4.25)),
-            (1566918921, Some(4.25)),
-            (1566918922, Some(4.25)),
-            (1566918923, Some(4.25)),
-            (1566918924, Some(4.25)),
-            (1566918925, Some(4.)),
-            (1566918926, Some(4.)),
-            (1566918927, Some(4.)),
-            (1566918928, Some(4.)),
-            (1566918929, Some(4.)),
-            (1566918930, Some(4.)),
-            (1566918931, Some(4.75)),
-            (1566918932, Some(4.75)),
-            (1566918933, Some(4.75)),
-            (1566918934, Some(4.75)),
-            (1566918935, Some(4.75)),
-            (1566918936, Some(4.75))
-        ]);
+        assert_eq!(
+            test0.series.as_vec(),
+            vec![
+                (1566918913, Some(4.5)),
+                (1566918914, Some(4.5)),
+                (1566918915, Some(4.5)),
+                (1566918916, Some(4.5)),
+                (1566918917, Some(4.5)),
+                (1566918918, Some(4.5)),
+                (1566918919, Some(4.25)),
+                (1566918920, Some(4.25)),
+                (1566918921, Some(4.25)),
+                (1566918922, Some(4.25)),
+                (1566918923, Some(4.25)),
+                (1566918924, Some(4.25)),
+                (1566918925, Some(4.)),
+                (1566918926, Some(4.)),
+                (1566918927, Some(4.)),
+                (1566918928, Some(4.)),
+                (1566918929, Some(4.)),
+                (1566918930, Some(4.)),
+                (1566918931, Some(4.75)),
+                (1566918932, Some(4.75)),
+                (1566918933, Some(4.75)),
+                (1566918934, Some(4.75)),
+                (1566918935, Some(4.75)),
+                (1566918936, Some(4.75))
+            ]
+        );
         test0.series.calculate_stats();
         let test0_sum = 4.5 * 6. + 4.25 * 6. + 4. * 6. + 4.75 * 6.;
-        assert_eq!(test0.series.stats, crate::TimeSeriesStats {
-            first: 4.5,
-            last: 4.75,
-            count: 24,
-            is_dirty: false,
-            max: 4.75,
-            min: 4.,
-            sum: test0_sum,
-            avg: test0_sum / 24.,
-        });
+        assert_eq!(
+            test0.series.stats,
+            crate::TimeSeriesStats {
+                first: 4.5,
+                last: 4.75,
+                count: 24,
+                is_dirty: false,
+                max: 4.75,
+                min: 4.,
+                sum: test0_sum,
+                avg: test0_sum / 24.,
+            }
+        );
     }
 
     #[test]
@@ -759,10 +787,10 @@ mod tests {
         // 2 items should have been loaded, one for Prometheus Server and the
         // other for Prometheus Node Exporter
         assert_eq!(res0_load, Ok(2usize));
-        assert_eq!(test0.series.as_vec(), vec![
-            (1557571137u64, Some(1.)),
-            (1557571138u64, Some(1.))
-        ]);
+        assert_eq!(
+            test0.series.as_vec(),
+            vec![(1557571137u64, Some(1.)), (1557571138u64, Some(1.))]
+        );
 
         let test1_json = hyper::Chunk::from(
             r#"
@@ -807,11 +835,14 @@ mod tests {
         let res1_load = test0.load_prometheus_response(res1_json.clone().unwrap());
         // Only the prometheus: localhost:9090 should have been loaded with epoch 1557571139
         assert_eq!(res1_load, Ok(1usize));
-        assert_eq!(test0.series.as_vec(), vec![
-            (1557571137u64, Some(1.)),
-            (1557571138u64, Some(1.)),
-            (1557571139u64, Some(1.))
-        ]);
+        assert_eq!(
+            test0.series.as_vec(),
+            vec![
+                (1557571137u64, Some(1.)),
+                (1557571138u64, Some(1.)),
+                (1557571139u64, Some(1.))
+            ]
+        );
 
         let test2_json = hyper::Chunk::from(
             r#"
@@ -853,11 +884,14 @@ mod tests {
         test0.required_labels = metric_labels.clone();
         let res2_load = test0.load_prometheus_response(res2_json.clone().unwrap());
         assert_eq!(res2_load, Ok(0usize));
-        assert_eq!(test0.series.as_vec(), vec![
-            (1557571137u64, Some(1.)),
-            (1557571138u64, Some(1.)),
-            (1557571139u64, Some(1.))
-        ]);
+        assert_eq!(
+            test0.series.as_vec(),
+            vec![
+                (1557571137u64, Some(1.)),
+                (1557571138u64, Some(1.)),
+                (1557571139u64, Some(1.))
+            ]
+        );
         // This json is missing the value after the epoch
         let test3_json = hyper::Chunk::from(
             r#"
@@ -906,7 +940,10 @@ mod tests {
             String::from("vector"),
             test_labels.clone(),
         );
-        assert_ne!(test0_res, Err(String::from("Unsupported protocol: Some(\"https\")")));
+        assert_ne!(
+            test0_res,
+            Err(String::from("Unsupported protocol: Some(\"https\")"))
+        );
         let test1_res: Result<PrometheusTimeSeries, String> = PrometheusTimeSeries::new(
             String::from("http://localhost:9090/api/v1/query?query=up"),
             15,
@@ -974,7 +1011,10 @@ mod tests {
                 active_items: 5,
             },
             data: Vector {
-                result: vec![HTTPVectorResult { labels: test_labels.clone(), value: vec![] }],
+                result: vec![HTTPVectorResult {
+                    labels: test_labels.clone(),
+                    value: vec![],
+                }],
             },
             source: String::from(
                 "http://localhost:9090/api/v1/query_range?query=node_memory_bytes_total",
@@ -983,7 +1023,11 @@ mod tests {
             data_type: String::from(""),
             required_labels: test_labels.clone(),
             pull_interval: 15,
-            color: Rgb { r: 207, g: 102, b: 121 },
+            color: Rgb {
+                r: 207,
+                g: 102,
+                b: 121,
+            },
             alpha: 1.0,
         };
         // This should result in adding 15 more items

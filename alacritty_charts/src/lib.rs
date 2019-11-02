@@ -197,7 +197,7 @@ impl FromStr for Rgb {
                 if chars.next() != Some('x') {
                     return Err(());
                 }
-            },
+            }
             Some('#') => (),
             _ => return Err(()),
         }
@@ -252,9 +252,12 @@ impl<'de> Deserialize<'de> for Rgb {
         match value.deserialize_str(RgbVisitor) {
             Ok(rgb) => Ok(rgb),
             Err(err) => {
-                error!("Rgb::deserialize: Problem with config: {}; using color #000000", err);
+                error!(
+                    "Rgb::deserialize: Problem with config: {}; using color #000000",
+                    err
+                );
                 Ok(Rgb::default())
-            },
+            }
         }
     }
 }
@@ -373,7 +376,10 @@ impl ReferencePointDecoration {
         self.opengl_data[9] = y3;
         self.opengl_data[10] = x2;
         self.opengl_data[11] = y2;
-        debug!("ReferencePointDecoration:update_opengl_vecs: Finished: {:?}", self.opengl_data);
+        debug!(
+            "ReferencePointDecoration:update_opengl_vecs: Finished: {:?}",
+            self.opengl_data
+        );
     }
 }
 
@@ -435,7 +441,7 @@ impl Decoration {
         match self {
             Decoration::Reference(ref mut d) => {
                 d.update_opengl_vecs(display_size, offset, chart_max_value)
-            },
+            }
             Decoration::None => (),
         }
     }
@@ -670,7 +676,10 @@ impl TimeSeriesChart {
     /// `update_series_opengl_vecs` Represents the activity levels values in a
     /// drawable vector for opengl, for a specific index in the series array
     pub fn update_series_opengl_vecs(&mut self, series_idx: usize, display_size: SizeInfo) {
-        debug!("update_series_opengl_vecs: Starting for series index: {}", series_idx);
+        debug!(
+            "update_series_opengl_vecs: Starting for series index: {}",
+            series_idx
+        );
         if series_idx > self.sources.len() {
             error!(
                 "update_series_opengl_vecs: Request for out of bound series index: {}",
@@ -707,7 +716,10 @@ impl TimeSeriesChart {
         self.calculate_stats();
         let mut decorations_space = 0f32;
         for decoration in &self.decorations {
-            debug!("update_series_opengl_vecs: Adding width of decoration: {}", decoration.width());
+            debug!(
+                "update_series_opengl_vecs: Adding width of decoration: {}",
+                decoration.width()
+            );
             decorations_space += decoration.width();
         }
         debug!(
@@ -723,7 +735,10 @@ impl TimeSeriesChart {
         );
         let tick_spacing = (self.width - decorations_space)
             / self.sources[series_idx].series().metrics_capacity as f32;
-        debug!("update_series_opengl_vecs: Using tick_spacing {}", tick_spacing);
+        debug!(
+            "update_series_opengl_vecs: Using tick_spacing {}",
+            tick_spacing
+        );
         for (idx, metric) in self.sources[series_idx].series().iter().enumerate() {
             // The decorations width request is on both left and right.
             let x_value = idx as f32 * tick_spacing + (decorations_space / 2f32);
@@ -746,11 +761,16 @@ impl TimeSeriesChart {
             }
         }
         for decoration in &mut self.decorations {
-            debug!("update_series_opengl_vecs: Updating decoration {:?} vertices", decoration);
+            debug!(
+                "update_series_opengl_vecs: Updating decoration {:?} vertices",
+                decoration
+            );
             decoration.update_opengl_vecs(display_size, self.offset, self.stats.max);
         }
-        self.last_updated =
-            std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        self.last_updated = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
     }
 
     /// `update_all_series_opengl_vecs` Represents the activity levels values in a
@@ -901,7 +921,7 @@ impl TimeSeries {
             _ => {
                 // TODO: Implement FromStr somehow
                 MissingValuesPolicy::Zero
-            },
+            }
         };
         self
     }
@@ -1053,7 +1073,11 @@ impl TimeSeries {
             if let Some(res) = self.metrics[idx].1 {
                 return res;
             }
-            idx = if idx == 0 { self.metrics.len() } else { idx - 1 };
+            idx = if idx == 0 {
+                self.metrics.len()
+            } else {
+                idx - 1
+            };
             if idx == self.first_idx {
                 break;
             }
@@ -1097,13 +1121,20 @@ impl TimeSeries {
     }
 
     pub fn push_current_epoch(&mut self, input: f64) {
-        let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         self.upsert((now, Some(input)));
     }
 
     // `iter` Returns an Iterator from the current start.
     fn iter(&self) -> IterTimeSeries<'_> {
-        IterTimeSeries { inner: self, pos: self.first_idx, current_item: 0 }
+        IterTimeSeries {
+            inner: self,
+            pos: self.first_idx,
+            current_item: 0,
+        }
     }
 }
 
@@ -1140,28 +1171,37 @@ mod tests {
         test.circular_push((13, Some(3f64)));
         assert_eq!(test.first_idx, 0);
         assert_eq!(test.active_items, 4);
-        assert_eq!(test.metrics, vec![
-            (10, Some(0f64)),
-            (11, Some(1f64)),
-            (12, None),
-            (13, Some(3f64))
-        ]);
+        assert_eq!(
+            test.metrics,
+            vec![
+                (10, Some(0f64)),
+                (11, Some(1f64)),
+                (12, None),
+                (13, Some(3f64))
+            ]
+        );
         test.circular_push((14, Some(4f64)));
-        assert_eq!(test.metrics, vec![
-            (14, Some(4f64)),
-            (11, Some(1f64)),
-            (12, None),
-            (13, Some(3f64))
-        ]);
+        assert_eq!(
+            test.metrics,
+            vec![
+                (14, Some(4f64)),
+                (11, Some(1f64)),
+                (12, None),
+                (13, Some(3f64))
+            ]
+        );
         assert_eq!(test.first_idx, 1);
         assert_eq!(test.active_items, 4);
         test.circular_push((15, Some(5f64)));
-        assert_eq!(test.metrics, vec![
-            (14, Some(4f64)),
-            (15, Some(5f64)),
-            (12, None),
-            (13, Some(3f64))
-        ]);
+        assert_eq!(
+            test.metrics,
+            vec![
+                (14, Some(4f64)),
+                (15, Some(5f64)),
+                (12, None),
+                (13, Some(3f64))
+            ]
+        );
         assert_eq!(test.first_idx, 2);
         assert_eq!(test.active_items, 4);
     }
@@ -1190,11 +1230,17 @@ mod tests {
         test.upsert((13, Some(3f64)));
         assert_eq!(test.first_idx, 0);
         assert_eq!(test.active_items, 4);
-        assert_eq!(test.as_vec(), vec![(10, Some(0f64)), (11, None), (12, None), (13, Some(3f64))]);
+        assert_eq!(
+            test.as_vec(),
+            vec![(10, Some(0f64)), (11, None), (12, None), (13, Some(3f64))]
+        );
         test.upsert((14, Some(4f64)));
         // Starting at 11
         test.first_idx = 1;
-        assert_eq!(test.as_vec(), vec![(11, None), (12, None), (13, Some(3f64)), (14, Some(4f64))]);
+        assert_eq!(
+            test.as_vec(),
+            vec![(11, None), (12, None), (13, Some(3f64)), (14, Some(4f64))]
+        );
         // Only 11
         test.active_items = 1;
         test.first_idx = 1;
@@ -1215,60 +1261,89 @@ mod tests {
         // Some values should be inserted as None
         test.upsert((10, Some(0f64)));
         test.upsert((13, Some(3f64)));
-        assert_eq!(test.metrics, vec![(10, Some(0f64)), (11, None), (12, None), (13, Some(3f64))]);
+        assert_eq!(
+            test.metrics,
+            vec![(10, Some(0f64)), (11, None), (12, None), (13, Some(3f64))]
+        );
         assert_eq!(test.active_items, 4);
         // Test the whole vector is discarded
         test.upsert((18, Some(8f64)));
         assert_eq!(test.active_items, 1);
-        assert_eq!(test.metrics, vec![(18, Some(8f64)), (11, None), (12, None), (13, Some(3f64))]);
+        assert_eq!(
+            test.metrics,
+            vec![(18, Some(8f64)), (11, None), (12, None), (13, Some(3f64))]
+        );
         assert_eq!(test.first_idx, 0);
         assert_eq!(test.active_items, 1);
         assert_eq!(test.as_vec(), vec![(18, Some(8f64))]);
         test.upsert((20, Some(0f64)));
-        assert_eq!(test.metrics, vec![
-            (18, Some(8f64)),
-            (19, None),
-            (20, Some(0f64)),
-            (13, Some(3f64))
-        ]);
+        assert_eq!(
+            test.metrics,
+            vec![
+                (18, Some(8f64)),
+                (19, None),
+                (20, Some(0f64)),
+                (13, Some(3f64))
+            ]
+        );
         assert_eq!(test.first_idx, 0);
         assert_eq!(test.active_items, 3);
-        assert_eq!(test.as_vec(), vec![(18, Some(8f64)), (19, None), (20, Some(0f64))]);
+        assert_eq!(
+            test.as_vec(),
+            vec![(18, Some(8f64)), (19, None), (20, Some(0f64))]
+        );
         test.upsert((50, Some(5f64)));
         assert_eq!(
             test.metrics,
             // Many outdated entries
-            vec![(50, Some(5f64)), (19, None), (20, Some(0f64)), (13, Some(3f64))]
+            vec![
+                (50, Some(5f64)),
+                (19, None),
+                (20, Some(0f64)),
+                (13, Some(3f64))
+            ]
         );
         assert_eq!(test.as_vec(), vec![(50, Some(5f64))]);
         test.upsert((53, Some(3f64)));
-        assert_eq!(test.metrics, vec![(50, Some(5f64)), (51, None), (52, None), (53, Some(3f64))]);
+        assert_eq!(
+            test.metrics,
+            vec![(50, Some(5f64)), (51, None), (52, None), (53, Some(3f64))]
+        );
         //  Ensure we can overwrite previous entries
         test.upsert((50, Some(3f64)));
         test.upsert((51, Some(3f64)));
         test.upsert((52, Some(3f64)));
-        assert_eq!(test.metrics, vec![
-            (50, Some(8f64)),
-            (51, Some(3f64)),
-            (52, Some(3f64)),
-            (53, Some(3f64))
-        ]);
+        assert_eq!(
+            test.metrics,
+            vec![
+                (50, Some(8f64)),
+                (51, Some(3f64)),
+                (52, Some(3f64)),
+                (53, Some(3f64))
+            ]
+        );
     }
     #[test]
     fn it_applies_missing_policies() {
         let mut test_zero = TimeSeries::default().with_capacity(5);
-        let mut test_one =
-            TimeSeries::default().with_capacity(5).with_missing_values_policy("one".to_string());
-        let mut test_min =
-            TimeSeries::default().with_capacity(5).with_missing_values_policy("min".to_string());
-        let mut test_max =
-            TimeSeries::default().with_capacity(5).with_missing_values_policy("max".to_string());
-        let mut test_last =
-            TimeSeries::default().with_capacity(5).with_missing_values_policy("last".to_string());
-        let mut test_first =
-            TimeSeries::default().with_capacity(5).with_missing_values_policy("first".to_string());
-        let mut test_avg =
-            TimeSeries::default().with_capacity(5).with_missing_values_policy("avg".to_string());
+        let mut test_one = TimeSeries::default()
+            .with_capacity(5)
+            .with_missing_values_policy("one".to_string());
+        let mut test_min = TimeSeries::default()
+            .with_capacity(5)
+            .with_missing_values_policy("min".to_string());
+        let mut test_max = TimeSeries::default()
+            .with_capacity(5)
+            .with_missing_values_policy("max".to_string());
+        let mut test_last = TimeSeries::default()
+            .with_capacity(5)
+            .with_missing_values_policy("last".to_string());
+        let mut test_first = TimeSeries::default()
+            .with_capacity(5)
+            .with_missing_values_policy("first".to_string());
+        let mut test_avg = TimeSeries::default()
+            .with_capacity(5)
+            .with_missing_values_policy("avg".to_string());
         test_zero.upsert((0, Some(9f64)));
         test_zero.upsert((2, Some(1f64)));
         test_one.upsert((0, Some(9f64)));
@@ -1316,12 +1391,24 @@ mod tests {
         // Test with 10 items only
         // So that every item takes 0.01
         all_dups.sources[0].series_mut().metrics_capacity = 10;
-        all_dups.sources[0].series_mut().circular_push((10, Some(5f64)));
-        all_dups.sources[0].series_mut().circular_push((11, Some(5f64)));
-        all_dups.sources[0].series_mut().circular_push((12, Some(5f64)));
-        all_dups.sources[0].series_mut().circular_push((13, Some(5f64)));
-        all_dups.sources[0].series_mut().circular_push((14, Some(5f64)));
-        all_dups.sources[0].series_mut().circular_push((15, Some(5f64)));
+        all_dups.sources[0]
+            .series_mut()
+            .circular_push((10, Some(5f64)));
+        all_dups.sources[0]
+            .series_mut()
+            .circular_push((11, Some(5f64)));
+        all_dups.sources[0]
+            .series_mut()
+            .circular_push((12, Some(5f64)));
+        all_dups.sources[0]
+            .series_mut()
+            .circular_push((13, Some(5f64)));
+        all_dups.sources[0]
+            .series_mut()
+            .circular_push((14, Some(5f64)));
+        all_dups.sources[0]
+            .series_mut()
+            .circular_push((15, Some(5f64)));
         all_dups.update_series_opengl_vecs(0, size_test);
         // we expect a line from X -1.0 to X: -0.95
         assert_eq!(all_dups.get_deduped_opengl_vecs(0).len(), 4);
@@ -1332,12 +1419,24 @@ mod tests {
         // Test with 10 items only
         // So that every item takes 0.01
         no_dups.sources[0].series_mut().metrics_capacity = 10;
-        no_dups.sources[0].series_mut().circular_push((10, Some(5f64)));
-        no_dups.sources[0].series_mut().circular_push((11, Some(9f64)));
-        no_dups.sources[0].series_mut().circular_push((12, Some(7f64)));
-        no_dups.sources[0].series_mut().circular_push((13, Some(9f64)));
-        no_dups.sources[0].series_mut().circular_push((14, Some(5f64)));
-        no_dups.sources[0].series_mut().circular_push((15, Some(7f64)));
+        no_dups.sources[0]
+            .series_mut()
+            .circular_push((10, Some(5f64)));
+        no_dups.sources[0]
+            .series_mut()
+            .circular_push((11, Some(9f64)));
+        no_dups.sources[0]
+            .series_mut()
+            .circular_push((12, Some(7f64)));
+        no_dups.sources[0]
+            .series_mut()
+            .circular_push((13, Some(9f64)));
+        no_dups.sources[0]
+            .series_mut()
+            .circular_push((14, Some(5f64)));
+        no_dups.sources[0]
+            .series_mut()
+            .circular_push((15, Some(7f64)));
         no_dups.update_series_opengl_vecs(0, size_test);
         // we expect a line from 1, 1->2, 3, 4, 5, 6
         assert_eq!(no_dups.get_deduped_opengl_vecs(0).len(), 14usize);
@@ -1370,12 +1469,15 @@ mod tests {
         test2.circular_push((12, Some(2f64)));
         test2.circular_push((13, Some(3f64)));
         test2.first_idx = 1;
-        assert_eq!(test2.metrics, vec![
-            (10, Some(0f64)),
-            (11, Some(1f64)),
-            (12, Some(2f64)),
-            (13, Some(3f64))
-        ]);
+        assert_eq!(
+            test2.metrics,
+            vec![
+                (10, Some(0f64)),
+                (11, Some(1f64)),
+                (12, Some(2f64)),
+                (13, Some(3f64))
+            ]
+        );
         let mut iter_test2 = test2.iter();
         assert_eq!(iter_test2.pos, 1);
         assert_eq!(iter_test2.next(), Some(&(11, Some(1f64))));
@@ -1491,13 +1593,21 @@ mod tests {
         // |XX           |   -
         //
         // |---- 200 ----|
-        chart_test.sources[0].series_mut().circular_push((10, Some(0f64)));
-        chart_test.sources[0].series_mut().circular_push((11, Some(1f64)));
-        chart_test.sources[0].series_mut().circular_push((12, Some(2f64)));
+        chart_test.sources[0]
+            .series_mut()
+            .circular_push((10, Some(0f64)));
+        chart_test.sources[0]
+            .series_mut()
+            .circular_push((11, Some(1f64)));
+        chart_test.sources[0]
+            .series_mut()
+            .circular_push((12, Some(2f64)));
         // Let's make a None value and check the MissingValuesPolicy
         chart_test.sources[0].series_mut().circular_push((14, None));
         // This makes the top value 4
-        chart_test.sources[0].series_mut().circular_push((15, Some(4f64)));
+        chart_test.sources[0]
+            .series_mut()
+            .circular_push((15, Some(4f64)));
         // The current display (10% at the bottom left) should be divided
         // between 4 and 1.
         // metric(4) is -0.9
@@ -1511,22 +1621,27 @@ mod tests {
         init_log();
         let (size_test, mut chart_test) = simple_chart_setup_with_none();
         chart_test.update_series_opengl_vecs(0, size_test);
-        assert_eq!(chart_test.opengl_vecs[0], vec![
-            -1.0,   // 1st X value, leftmost.
-            -1.0,   // Y value is 0, so -1.0 is the bottom-most
-            -0.99,  // X plus 0.01
-            -0.975, // Y value is 1, so 25% of the line, so 0.025
-            -0.98,  // leftmost plus  0.01 * 2
-            -0.95,  // Y value is 2, so 50% from bottom to top
-            -0.97,  // leftmost plus 0.01 * 3
-            -1.0,   // Top-most value, so the chart height
-            -0.96,  // leftmost plus 0.01 * 4, rightmost
-            -0.9    // Top-most value, so the chart height
-        ]);
+        assert_eq!(
+            chart_test.opengl_vecs[0],
+            vec![
+                -1.0,   // 1st X value, leftmost.
+                -1.0,   // Y value is 0, so -1.0 is the bottom-most
+                -0.99,  // X plus 0.01
+                -0.975, // Y value is 1, so 25% of the line, so 0.025
+                -0.98,  // leftmost plus  0.01 * 2
+                -0.95,  // Y value is 2, so 50% from bottom to top
+                -0.97,  // leftmost plus 0.01 * 3
+                -1.0,   // Top-most value, so the chart height
+                -0.96,  // leftmost plus 0.01 * 4, rightmost
+                -0.9    // Top-most value, so the chart height
+            ]
+        );
         let mut prom_test = TimeSeriesChart::default();
         // Let's add a reference point
         // XXX: How does this behave without a reference point?
-        prom_test.decorations.push(Decoration::Reference(ReferencePointDecoration::default()));
+        prom_test
+            .decorations
+            .push(Decoration::Reference(ReferencePointDecoration::default()));
         prom_test.sources.push(TimeSeriesSource::default());
         prom_test.width = 12.;
         prom_test.height = 10.;
@@ -1535,30 +1650,78 @@ mod tests {
         let point_2_metric = 4.25f64;
         let point_3_metric = 4.0f64;
         let point_4_metric = 4.75f64;
-        prom_test.sources[0].series_mut().circular_push((1566918913, Some(point_1_metric))); // Point 1
-        prom_test.sources[0].series_mut().circular_push((1566918914, Some(point_1_metric))); //  |
-        prom_test.sources[0].series_mut().circular_push((1566918915, Some(point_1_metric))); //  |
-        prom_test.sources[0].series_mut().circular_push((1566918916, Some(point_1_metric))); //  |
-        prom_test.sources[0].series_mut().circular_push((1566918917, Some(point_1_metric))); //  |
-        prom_test.sources[0].series_mut().circular_push((1566918918, Some(point_1_metric))); //  |
-        prom_test.sources[0].series_mut().circular_push((1566918919, Some(point_2_metric))); // Point 2 -> Point 3
-        prom_test.sources[0].series_mut().circular_push((1566918920, Some(point_2_metric))); // |
-        prom_test.sources[0].series_mut().circular_push((1566918921, Some(point_2_metric))); // |
-        prom_test.sources[0].series_mut().circular_push((1566918922, Some(point_2_metric))); // |
-        prom_test.sources[0].series_mut().circular_push((1566918923, Some(point_2_metric))); // |
-        prom_test.sources[0].series_mut().circular_push((1566918924, Some(point_2_metric))); // |
-        prom_test.sources[0].series_mut().circular_push((1566918925, Some(point_3_metric))); // Point 4 -> Point 5
-        prom_test.sources[0].series_mut().circular_push((1566918926, Some(point_3_metric))); //   |
-        prom_test.sources[0].series_mut().circular_push((1566918927, Some(point_3_metric))); //   |
-        prom_test.sources[0].series_mut().circular_push((1566918928, Some(point_3_metric))); //   |
-        prom_test.sources[0].series_mut().circular_push((1566918929, Some(point_3_metric))); //   |
-        prom_test.sources[0].series_mut().circular_push((1566918930, Some(point_3_metric))); //   |
-        prom_test.sources[0].series_mut().circular_push((1566918931, Some(point_4_metric))); // Point 6 -> Point 7
-        prom_test.sources[0].series_mut().circular_push((1566918932, Some(point_4_metric))); // |
-        prom_test.sources[0].series_mut().circular_push((1566918933, Some(point_4_metric))); // |
-        prom_test.sources[0].series_mut().circular_push((1566918934, Some(point_4_metric))); // |
-        prom_test.sources[0].series_mut().circular_push((1566918935, Some(point_4_metric))); // |
-        prom_test.sources[0].series_mut().circular_push((1566918936, Some(point_4_metric))); // Point 8
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918913, Some(point_1_metric))); // Point 1
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918914, Some(point_1_metric))); //  |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918915, Some(point_1_metric))); //  |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918916, Some(point_1_metric))); //  |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918917, Some(point_1_metric))); //  |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918918, Some(point_1_metric))); //  |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918919, Some(point_2_metric))); // Point 2 -> Point 3
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918920, Some(point_2_metric))); // |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918921, Some(point_2_metric))); // |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918922, Some(point_2_metric))); // |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918923, Some(point_2_metric))); // |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918924, Some(point_2_metric))); // |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918925, Some(point_3_metric))); // Point 4 -> Point 5
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918926, Some(point_3_metric))); //   |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918927, Some(point_3_metric))); //   |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918928, Some(point_3_metric))); //   |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918929, Some(point_3_metric))); //   |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918930, Some(point_3_metric))); //   |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918931, Some(point_4_metric))); // Point 6 -> Point 7
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918932, Some(point_4_metric))); // |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918933, Some(point_4_metric))); // |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918934, Some(point_4_metric))); // |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918935, Some(point_4_metric))); // |
+        prom_test.sources[0]
+            .series_mut()
+            .circular_push((1566918936, Some(point_4_metric))); // Point 8
         prom_test.update_all_series_opengl_vecs(size_test);
         // We expect to see these dedupped vertices:
         // |              7--8  |   -     metric value: 4.75, point 4
@@ -1579,7 +1742,7 @@ mod tests {
         let deduped_opengl_vecs = prom_test.get_deduped_opengl_vecs(0);
         assert_eq!(deduped_opengl_vecs.len(), 16);
 
-        // 
+        //
         // - The reference point takes 1px width, so draw space for metrics is 10px.
         assert_eq!(prom_test.decorations[0].width(), 2.);
         let tick_space = 0.10f32 / 24f32;
@@ -1668,7 +1831,9 @@ mod tests {
     fn it_calculates_reference_point() {
         init_log();
         let (size_test, mut chart_test) = simple_chart_setup_with_none();
-        chart_test.decorations.push(Decoration::Reference(ReferencePointDecoration::default()));
+        chart_test
+            .decorations
+            .push(Decoration::Reference(ReferencePointDecoration::default()));
         // Calling update_series_opengl_vecs also calls the decoration update opengl vecs
         chart_test.update_series_opengl_vecs(0, size_test);
         let deco_vecs = chart_test.decorations[0].opengl_vertices();
@@ -1676,35 +1841,41 @@ mod tests {
         assert_eq!(chart_test.decorations[0].opengl_vertices().len(), 12);
         // At this point we know 1 unit in the current drawn metrics is equals to
         // 0.025
-        assert_eq!(deco_vecs, vec![
-            -1.0,     // Left-most
-            -0.97375, // 0.25 + 5% height multiplier, so 30% of the line
-            -1.0,     // Left-most
-            -0.97625, // Y value - 5% height multiplier, so 20% of the line
-            -1.0,     // Left-most
-            -0.975,   // Y value, so 25% of the line
-            -0.9,     // Right-most
-            -0.975,   // Y value is 1, so 25% of the line
-            -0.9,     // Right-most
-            -0.97625, // Y value is 1, so 25% of the line
-            -0.9,     // Right-most
-            -0.97375, // Y value is 1, so 25% of the line
-        ]);
+        assert_eq!(
+            deco_vecs,
+            vec![
+                -1.0,     // Left-most
+                -0.97375, // 0.25 + 5% height multiplier, so 30% of the line
+                -1.0,     // Left-most
+                -0.97625, // Y value - 5% height multiplier, so 20% of the line
+                -1.0,     // Left-most
+                -0.975,   // Y value, so 25% of the line
+                -0.9,     // Right-most
+                -0.975,   // Y value is 1, so 25% of the line
+                -0.9,     // Right-most
+                -0.97625, // Y value is 1, so 25% of the line
+                -0.9,     // Right-most
+                -0.97375, // Y value is 1, so 25% of the line
+            ]
+        );
         // Since we have added a Reference point, it needs some space to be
         // drawn, its default width is 1px, turns out to be 0.9 between ticks
         // Also there is an offset of 10 px so divided by 2 (for each side) becomes:
         // 0.05
-        assert_eq!(chart_test.opengl_vecs[0], vec![
-            -0.99,       // 1st X value, leftmost.
-            -1.0,        // Y value is 0, so -1.0 is the bottom-most
-            -0.982,      // X plus 0.01
-            -0.975,      // Y value is 1, so 25% of the line, so 0.025
-            -0.97400004, // leftmost plus  0.01 * 2
-            -0.95,       // Y value is 2, so 50% from bottom to top
-            -0.96599996, // leftmost plus 0.01 * 3
-            -1.0,        // Top-most value, so the chart height
-            -0.958,      // leftmost plus 0.01 * 4, rightmost
-            -0.9         // Top-most value, so the chart height
-        ]);
+        assert_eq!(
+            chart_test.opengl_vecs[0],
+            vec![
+                -0.99,       // 1st X value, leftmost.
+                -1.0,        // Y value is 0, so -1.0 is the bottom-most
+                -0.982,      // X plus 0.01
+                -0.975,      // Y value is 1, so 25% of the line, so 0.025
+                -0.97400004, // leftmost plus  0.01 * 2
+                -0.95,       // Y value is 2, so 50% from bottom to top
+                -0.96599996, // leftmost plus 0.01 * 3
+                -1.0,        // Top-most value, so the chart height
+                -0.958,      // leftmost plus 0.01 * 4, rightmost
+                -0.9         // Top-most value, so the chart height
+            ]
+        );
     }
 }
