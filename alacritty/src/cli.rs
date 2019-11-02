@@ -265,12 +265,9 @@ impl Options {
         config.hold = self.hold;
 
         config.window.dimensions = self.dimensions.unwrap_or(config.window.dimensions);
+        config.window.title = self.title.unwrap_or(config.window.title);
         config.window.position = self.position.or(config.window.position);
         config.window.embed = self.embed.and_then(|embed| embed.parse().ok());
-
-        if let Some(title) = self.title {
-            config.window.title = title.clone();
-        }
 
         if let Some(class) = self.class {
             let parts: Vec<_> = class.split(',').collect();
