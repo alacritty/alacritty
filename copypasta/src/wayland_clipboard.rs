@@ -37,6 +37,12 @@ pub fn create_clipboards(display: &Display) -> (Primary, Clipboard) {
     (Primary { context: context.clone() }, Clipboard { context })
 }
 
+/// Create new clipboard from a raw display pointer.
+///
+/// # Safety
+///
+/// Since the type of the display is a raw pointer, it's the responsibility of the callee to make
+/// sure that the passed pointer is a valid Wayland display.
 pub unsafe fn create_clipboards_from_external(display: *mut c_void) -> (Primary, Clipboard) {
     let context =
         Arc::new(Mutex::new(WaylandClipboard::new_from_external(display as *mut wl_display)));

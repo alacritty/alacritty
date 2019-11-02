@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 /// Wrapper around Vec which supports fast indexing and rotation
 ///
 /// The rotation implemented by grid::Storage is a simple integer addition.
@@ -94,10 +95,10 @@ impl<T> Storage<T> {
         T: Clone,
     {
         let current_history = self.len - (self.visible_lines.0 + 1);
-        if history_size > current_history {
-            self.grow_lines(history_size - current_history, template_row);
-        } else if history_size < current_history {
-            self.shrink_lines(current_history - history_size);
+        match history_size.cmp(&current_history) {
+            Ordering::Greater => self.grow_lines(history_size - current_history, template_row),
+            Ordering::Less => self.shrink_lines(current_history - history_size),
+            _ => (),
         }
     }
 
