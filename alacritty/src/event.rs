@@ -66,7 +66,7 @@ pub struct ActionContext<'a, N, T> {
     pub message_buffer: &'a mut MessageBuffer,
     pub display_update_pending: &'a mut DisplayUpdate,
     pub config: &'a mut Config,
-    font_size: Size,
+    font_size: &'a mut Size,
 }
 
 impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionContext<'a, N, T> {
@@ -224,15 +224,14 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn change_font_size(&mut self, delta: f32) {
-        self.font_size = max(self.font_size + delta, Size::new(FONT_SIZE_STEP));
-        let mut font = self.config.font.clone();
-        font.size = self.font_size;
-        self.display_update_pending.font = Some(font);
+        *self.font_size = max(*self.font_size + delta, Size::new(FONT_SIZE_STEP));
+        self.display_update_pending.font =
+            Some(self.config.font.clone().with_size(*self.font_size));
         self.terminal.dirty = true;
     }
 
     fn reset_font_size(&mut self) {
-        self.font_size = self.config.font.size;
+        *self.font_size = self.config.font.size;
         self.display_update_pending.font = Some(self.config.font.clone());
         self.terminal.dirty = true;
     }
@@ -394,7 +393,7 @@ impl<N: Notify> Processor<N> {
                 message_buffer: &mut self.message_buffer,
                 display_update_pending: &mut display_update_pending,
                 window: &mut self.display.window,
-                font_size: self.font_size,
+                font_size: &mut self.font_size,
                 config: &mut self.config,
             };
             let mut processor = input::Processor::new(context);
@@ -402,8 +401,6 @@ impl<N: Notify> Processor<N> {
             for event in event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);
             }
-
-            self.font_size = processor.ctx.font_size;
 
             // TODO: Workaround for incorrect startup DPI on X11
             // https://github.com/rust-windowing/winit/issues/998
@@ -479,12 +476,12 @@ impl<N: Notify> Processor<N> {
                             let mut font = config.font.clone();
 
                             // Do not update font size if it has been changed at runtime
-                            if processor.ctx.font_size != processor.ctx.config.font.size {
-                                font.size = processor.ctx.font_size;
+                            if *processor.ctx.font_size != processor.ctx.config.font.size {
+                                font.size = *processor.ctx.font_size;
                             }
 
                             processor.ctx.display_update_pending.font = Some(font.clone());
-                            processor.ctx.font_size = font.size;
+                            *processor.ctx.font_size = font.size;
                         }
 
                         *processor.ctx.config = config;
