@@ -1241,8 +1241,10 @@ impl<T> Term<T> {
 
     #[inline]
     pub fn reset_url_highlight(&mut self) {
-        self.grid.url_highlight = None;
-        self.dirty = true;
+        if self.grid.url_highlight.is_some() {
+            self.grid.url_highlight = None;
+            self.dirty = true;
+        }
     }
 
     pub fn clipboard(&mut self) -> &mut Clipboard {
