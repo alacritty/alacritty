@@ -171,11 +171,7 @@ impl Window {
             }
         }
 
-        Ok(Window {
-            current_mouse_cursor,
-            mouse_visible: true,
-            windowed_context,
-        })
+        Ok(Window { current_mouse_cursor, mouse_visible: true, windowed_context })
     }
 
     pub fn set_inner_size(&mut self, size: LogicalSize) {
