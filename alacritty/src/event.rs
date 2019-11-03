@@ -1,5 +1,6 @@
 //! Process window events
 use std::borrow::Cow;
+use std::cmp::max;
 use std::env;
 #[cfg(unix)]
 use std::fs;
@@ -20,6 +21,7 @@ use serde_json as json;
 use font::Size;
 
 use alacritty_terminal::clipboard::ClipboardType;
+use alacritty_terminal::config::Font;
 use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::OnResize;
 use alacritty_terminal::event::{Event, EventListener, Notify};
@@ -36,25 +38,19 @@ use alacritty_terminal::util::{limit, start_daemon};
 use crate::config;
 use crate::config::Config;
 use crate::display::Display;
-use crate::input::{self, ActionContext as _, Modifiers};
+use crate::input::{self, ActionContext as _, Modifiers, FONT_SIZE_STEP};
 use crate::window::Window;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum FontResize {
-    Delta(f32),
-    Reset,
-}
-
-#[derive(Default, Copy, Clone, Debug, PartialEq)]
-pub struct Resize {
+#[derive(Default, Clone, Debug, PartialEq)]
+pub struct DisplayUpdate {
     pub dimensions: Option<PhysicalSize>,
     pub message_buffer: Option<()>,
-    pub font_size: Option<FontResize>,
+    pub font: Option<Font>,
 }
 
-impl Resize {
+impl DisplayUpdate {
     fn is_empty(&self) -> bool {
-        self.dimensions.is_none() && self.font_size.is_none() && self.message_buffer.is_none()
+        self.dimensions.is_none() && self.font.is_none() && self.message_buffer.is_none()
     }
 }
 
@@ -68,8 +64,9 @@ pub struct ActionContext<'a, N, T> {
     pub modifiers: &'a mut Modifiers,
     pub window: &'a mut Window,
     pub message_buffer: &'a mut MessageBuffer,
-    pub resize_pending: &'a mut Resize,
-    pub font_size: &'a Size,
+    pub display_update_pending: &'a mut DisplayUpdate,
+    pub config: &'a mut Config,
+    font_size: &'a mut Size,
 }
 
 impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionContext<'a, N, T> {
@@ -227,22 +224,29 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     fn change_font_size(&mut self, delta: f32) {
-        self.resize_pending.font_size = Some(FontResize::Delta(delta));
+        *self.font_size = max(*self.font_size + delta, Size::new(FONT_SIZE_STEP));
+        let font = self.config.font.clone().with_size(*self.font_size);
+        self.display_update_pending.font = Some(font);
         self.terminal.dirty = true;
     }
 
     fn reset_font_size(&mut self) {
-        self.resize_pending.font_size = Some(FontResize::Reset);
+        *self.font_size = self.config.font.size;
+        self.display_update_pending.font = Some(self.config.font.clone());
         self.terminal.dirty = true;
     }
 
     fn pop_message(&mut self) {
-        self.resize_pending.message_buffer = Some(());
+        self.display_update_pending.message_buffer = Some(());
         self.message_buffer.pop();
     }
 
     fn message(&self) -> Option<&Message> {
         self.message_buffer.message()
+    }
+
+    fn config(&self) -> &Config {
+        self.config
     }
 }
 
@@ -306,6 +310,7 @@ pub struct Processor<N> {
     pty_resize_handle: Box<dyn OnResize>,
     message_buffer: MessageBuffer,
     display: Display,
+    font_size: Size,
 }
 
 impl<N: Notify> Processor<N> {
@@ -326,6 +331,7 @@ impl<N: Notify> Processor<N> {
             received_count: 0,
             suppress_chars: false,
             modifiers: Default::default(),
+            font_size: config.font.size,
             config,
             pty_resize_handle,
             message_buffer,
@@ -374,7 +380,7 @@ impl<N: Notify> Processor<N> {
 
             let mut terminal = terminal.lock();
 
-            let mut resize_pending = Resize::default();
+            let mut display_update_pending = DisplayUpdate::default();
 
             let context = ActionContext {
                 terminal: &mut terminal,
@@ -385,11 +391,12 @@ impl<N: Notify> Processor<N> {
                 suppress_chars: &mut self.suppress_chars,
                 modifiers: &mut self.modifiers,
                 message_buffer: &mut self.message_buffer,
-                resize_pending: &mut resize_pending,
+                display_update_pending: &mut display_update_pending,
                 window: &mut self.display.window,
-                font_size: &self.display.font_size,
+                font_size: &mut self.font_size,
+                config: &mut self.config,
             };
-            let mut processor = input::Processor::new(context, &mut self.config);
+            let mut processor = input::Processor::new(context);
 
             for event in event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);
@@ -407,21 +414,21 @@ impl<N: Notify> Processor<N> {
 
                     let size = self.display.window.inner_size().to_physical(dpr);
 
-                    resize_pending.font_size = Some(FontResize::Delta(0.));
-                    resize_pending.dimensions = Some(size);
+                    display_update_pending.font = Some(self.config.font.clone());
+                    display_update_pending.dimensions = Some(size);
 
                     terminal.dirty = true;
                 }
             }
 
-            // Process resize events
-            if !resize_pending.is_empty() {
-                self.display.handle_resize(
+            // Process DisplayUpdate events
+            if !display_update_pending.is_empty() {
+                self.display.handle_update(
                     &mut terminal,
                     self.pty_resize_handle.as_mut(),
                     &self.message_buffer,
                     &self.config,
-                    resize_pending,
+                    display_update_pending,
                 );
             }
 
@@ -460,23 +467,29 @@ impl<N: Notify> Processor<N> {
                 },
                 Event::ConfigReload(path) => {
                     processor.ctx.message_buffer.remove_target(LOG_TARGET_CONFIG);
-                    processor.ctx.resize_pending.message_buffer = Some(());
+                    processor.ctx.display_update_pending.message_buffer = Some(());
 
                     if let Ok(config) = config::reload_from(&path) {
                         processor.ctx.terminal.update_config(&config);
 
-                        if *processor.ctx.font_size == processor.config.font.size {
-                            processor.ctx.resize_pending.font_size = Some(FontResize::Reset);
+                        if processor.ctx.config.font != config.font {
+                            // Do not update font size if it has been changed at runtime
+                            if *processor.ctx.font_size == processor.ctx.config.font.size {
+                                *processor.ctx.font_size = config.font.size;
+                            }
+
+                            let font = config.font.clone().with_size(*processor.ctx.font_size);
+                            processor.ctx.display_update_pending.font = Some(font);
                         }
 
-                        *processor.config = config;
+                        *processor.ctx.config = config;
 
                         processor.ctx.terminal.dirty = true;
                     }
                 },
                 Event::Message(message) => {
                     processor.ctx.message_buffer.push(message);
-                    processor.ctx.resize_pending.message_buffer = Some(());
+                    processor.ctx.display_update_pending.message_buffer = Some(());
                     processor.ctx.terminal.dirty = true;
                 },
                 Event::MouseCursorDirty => processor.reset_mouse_cursor(),
@@ -488,14 +501,14 @@ impl<N: Notify> Processor<N> {
                     CloseRequested => processor.ctx.terminal.exit(),
                     Resized(lsize) => {
                         let psize = lsize.to_physical(processor.ctx.size_info.dpr);
-                        processor.ctx.resize_pending.dimensions = Some(psize);
+                        processor.ctx.display_update_pending.dimensions = Some(psize);
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
                         processor.process_key(input);
                         if input.state == ElementState::Pressed {
                             // Hide cursor while typing
-                            if processor.config.ui_config.mouse.hide_when_typing {
+                            if processor.ctx.config.ui_config.mouse.hide_when_typing {
                                 processor.ctx.window.set_mouse_visible(false);
                             }
                         }
@@ -540,17 +553,18 @@ impl<N: Notify> Processor<N> {
                     },
                     HiDpiFactorChanged(dpr) => {
                         let dpr_change = (dpr / processor.ctx.size_info.dpr) as f32;
-                        let resize_pending = &mut processor.ctx.resize_pending;
+                        let display_update_pending = &mut processor.ctx.display_update_pending;
 
                         // Push current font to update its DPR
-                        resize_pending.font_size = Some(FontResize::Delta(0.));
+                        display_update_pending.font = Some(processor.ctx.config.font.clone());
 
                         // Scale window dimensions with new DPR
                         let old_width = processor.ctx.size_info.width;
                         let old_height = processor.ctx.size_info.height;
-                        let dimensions = resize_pending.dimensions.get_or_insert_with(|| {
-                            PhysicalSize::new(f64::from(old_width), f64::from(old_height))
-                        });
+                        let dimensions =
+                            display_update_pending.dimensions.get_or_insert_with(|| {
+                                PhysicalSize::new(f64::from(old_width), f64::from(old_height))
+                            });
                         dimensions.width *= f64::from(dpr_change);
                         dimensions.height *= f64::from(dpr_change);
 

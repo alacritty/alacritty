@@ -14,7 +14,6 @@
 
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
-use std::cmp::max;
 use std::f64;
 use std::fmt;
 use std::time::Instant;
@@ -24,9 +23,9 @@ use glutin::event_loop::EventLoop;
 use log::{debug, info};
 use parking_lot::MutexGuard;
 
-use font::{self, Rasterize, Size};
+use font::{self, Rasterize};
 
-use alacritty_terminal::config::StartupMode;
+use alacritty_terminal::config::{Font, StartupMode};
 use alacritty_terminal::event::{Event, OnResize};
 use alacritty_terminal::index::Line;
 use alacritty_terminal::message_bar::MessageBuffer;
@@ -37,11 +36,8 @@ use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term};
 
 use crate::config::Config;
-use crate::event::{FontResize, Resize};
+use crate::event::DisplayUpdate;
 use crate::window::{self, Window};
-
-/// Font size change interval
-pub const FONT_SIZE_STEP: f32 = 0.5;
 
 #[derive(Debug)]
 pub enum Error {
@@ -116,7 +112,6 @@ impl From<glutin::ContextError> for Error {
 /// The display wraps a window, font rasterizer, and GPU renderer
 pub struct Display {
     pub size_info: SizeInfo,
-    pub font_size: Size,
     pub window: Window,
 
     renderer: QuadRenderer,
@@ -228,14 +223,7 @@ impl Display {
             _ => (),
         }
 
-        Ok(Display {
-            window,
-            renderer,
-            glyph_cache,
-            meter: Meter::new(),
-            size_info,
-            font_size: config.font.size,
-        })
+        Ok(Display { window, renderer, glyph_cache, meter: Meter::new(), size_info })
     }
 
     fn new_glyph_cache(
@@ -270,11 +258,9 @@ impl Display {
     }
 
     /// Update font size and cell dimensions
-    fn update_glyph_cache(&mut self, config: &Config, size: Size) {
+    fn update_glyph_cache(&mut self, config: &Config, font: Font) {
         let size_info = &mut self.size_info;
         let cache = &mut self.glyph_cache;
-
-        let font = config.font.clone().with_size(size);
 
         self.renderer.with_loader(|mut api| {
             let _ = cache.update_font_size(font, size_info.dpr, &mut api);
@@ -286,27 +272,22 @@ impl Display {
         size_info.cell_height = cell_height;
     }
 
-    /// Process resize events
-    pub fn handle_resize<T>(
+    /// Process update events
+    pub fn handle_update<T>(
         &mut self,
         terminal: &mut Term<T>,
         pty_resize_handle: &mut dyn OnResize,
         message_buffer: &MessageBuffer,
         config: &Config,
-        resize_pending: Resize,
+        update_pending: DisplayUpdate,
     ) {
         // Update font size and cell dimensions
-        if let Some(resize) = resize_pending.font_size {
-            self.font_size = match resize {
-                FontResize::Delta(delta) => max(self.font_size + delta, FONT_SIZE_STEP.into()),
-                FontResize::Reset => config.font.size,
-            };
-
-            self.update_glyph_cache(config, self.font_size);
+        if let Some(font) = update_pending.font {
+            self.update_glyph_cache(config, font);
         }
 
         // Update the window dimensions
-        if let Some(size) = resize_pending.dimensions {
+        if let Some(size) = update_pending.dimensions {
             self.size_info.width = size.width as f32;
             self.size_info.height = size.height as f32;
         }

@@ -24,11 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Terminal escape bindings with combined modifiers
 - Bindings for ScrollToTop and ScrollToBottom actions
 - `ReceiveChar` key binding action to insert the key's text character
-- Live reload font size from config
 - New CLI flag `--hold` for keeping Alacritty opened after its child process exits
 - Escape sequence to save and restore window title from stack
 - Alternate scroll escape sequence (`CSI ? 1007 h` / `CSI ? 1007 l`)
 - Print name of launch command if Alacritty failed to execute it
+- Live reload font settings from config
 
 ### Changed
 
