@@ -42,17 +42,18 @@ use alacritty_terminal::url::Url;
 use alacritty_terminal::util::start_daemon;
 
 use crate::config::{Action, Binding, Config, Key, RelaxedEq};
-use crate::display::FONT_SIZE_STEP;
 use crate::event::{ClickState, Mouse};
 use crate::window::Window;
+
+/// Font size change interval
+pub const FONT_SIZE_STEP: f32 = 0.5;
 
 /// Processes input from glutin.
 ///
 /// An escape sequence may be emitted in case specific keys or key combinations
 /// are activated.
-pub struct Processor<'a, T: EventListener, A: ActionContext<T> + 'a> {
+pub struct Processor<T: EventListener, A: ActionContext<T>> {
     pub ctx: A,
-    pub config: &'a mut Config,
     _phantom: PhantomData<T>,
 }
 
@@ -83,6 +84,7 @@ pub trait ActionContext<T: EventListener> {
     fn reset_font_size(&mut self);
     fn pop_message(&mut self);
     fn message(&self) -> Option<&Message>;
+    fn config(&self) -> &Config;
 }
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -226,9 +228,9 @@ impl From<MouseState> for CursorIcon {
     }
 }
 
-impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
-    pub fn new(ctx: A, config: &'a mut Config) -> Self {
-        Self { ctx, config, _phantom: Default::default() }
+impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
+    pub fn new(ctx: A) -> Self {
+        Self { ctx, _phantom: Default::default() }
     }
 
     fn mouse_state(&mut self, point: Point, mods: ModifiersState) -> MouseState {
@@ -245,9 +247,9 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
         }
 
         // Check for URL at point with required modifiers held
-        if self.config.ui_config.mouse.url.mods().relaxed_eq(mods)
+        if self.ctx.config().ui_config.mouse.url.mods().relaxed_eq(mods)
             && (!self.ctx.terminal().mode().intersects(mouse_mode) || mods.shift)
-            && self.config.ui_config.mouse.url.launcher.is_some()
+            && self.ctx.config().ui_config.mouse.url.launcher.is_some()
             && self.ctx.selection_is_empty()
             && self.ctx.mouse().left_button_state != ElementState::Pressed
         {
@@ -426,7 +428,7 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
         self.ctx.mouse_mut().click_state = match self.ctx.mouse().click_state {
             ClickState::Click
                 if !button_changed
-                    && elapsed < self.config.ui_config.mouse.double_click.threshold =>
+                    && elapsed < self.ctx.config().ui_config.mouse.double_click.threshold =>
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_double_click(button, point);
@@ -434,7 +436,7 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
             }
             ClickState::DoubleClick
                 if !button_changed
-                    && elapsed < self.config.ui_config.mouse.triple_click.threshold =>
+                    && elapsed < self.ctx.config().ui_config.mouse.triple_click.threshold =>
             {
                 self.ctx.mouse_mut().block_url_launcher = true;
                 self.on_mouse_triple_click(button, point);
@@ -512,7 +514,7 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
             return;
         }
 
-        if let Some(ref launcher) = self.config.ui_config.mouse.url.launcher {
+        if let Some(ref launcher) = self.ctx.config().ui_config.mouse.url.launcher {
             let mut args = launcher.args().to_vec();
             args.push(self.ctx.terminal().url_to_string(url));
 
@@ -566,10 +568,11 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
             }
         } else if self.ctx.terminal().mode().contains(alt_scroll_modes) && !modifiers.shift {
             let multiplier = i32::from(
-                self.config
+                self.ctx
+                    .config()
                     .scrolling
                     .faux_multiplier()
-                    .unwrap_or_else(|| self.config.scrolling.multiplier()),
+                    .unwrap_or_else(|| self.ctx.config().scrolling.multiplier()),
             );
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
@@ -584,7 +587,7 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
             }
             self.ctx.write_to_pty(content);
         } else {
-            let multiplier = i32::from(self.config.scrolling.multiplier());
+            let multiplier = i32::from(self.ctx.config().scrolling.multiplier());
             self.ctx.mouse_mut().scroll_px += new_scroll_px * multiplier;
 
             let lines = self.ctx.mouse().scroll_px / height;
@@ -677,7 +680,7 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
             c.encode_utf8(&mut bytes[..]);
         }
 
-        if self.config.alt_send_esc()
+        if self.ctx.config().alt_send_esc()
             && *self.ctx.received_count() == 0
             && self.ctx.modifiers().alt()
             && utf8_len == 1
@@ -698,7 +701,9 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
     fn process_key_bindings(&mut self, input: KeyboardInput) {
         let mut suppress_chars = None;
 
-        for binding in &self.config.ui_config.key_bindings {
+        for i in 0..self.ctx.config().ui_config.key_bindings.len() {
+            let binding = &self.ctx.config().ui_config.key_bindings[i];
+
             let key = match (binding.trigger, input.virtual_keycode) {
                 (Key::Scancode(_), _) => Key::Scancode(input.scancode),
                 (_, Some(key)) => Key::from_glutin_input(key),
@@ -707,6 +712,7 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
 
             if binding.is_triggered_by(*self.ctx.terminal().mode(), input.modifiers, &key, false) {
                 // Binding was triggered; run the action
+                let binding = binding.clone();
                 binding.execute(&mut self.ctx, false);
 
                 // Don't suppress when there has been a `ReceiveChar` action
@@ -723,7 +729,9 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
     /// The provided mode, mods, and key must match what is allowed by a binding
     /// for its action to be executed.
     fn process_mouse_bindings(&mut self, mods: ModifiersState, button: MouseButton) {
-        for binding in &self.config.ui_config.mouse_bindings {
+        for i in 0..self.ctx.config().ui_config.mouse_bindings.len() {
+            let binding = &self.ctx.config().ui_config.mouse_bindings[i];
+
             if binding.is_triggered_by(*self.ctx.terminal().mode(), mods, &button, true) {
                 // binding was triggered; run the action
                 let mouse_mode = !mods.shift
@@ -732,6 +740,8 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
                             | TermMode::MOUSE_DRAG
                             | TermMode::MOUSE_MOTION,
                     );
+
+                let binding = binding.clone();
                 binding.execute(&mut self.ctx, mouse_mode);
             }
         }
@@ -780,7 +790,7 @@ impl<'a, T: EventListener, A: ActionContext<T> + 'a> Processor<'a, T, A> {
 
     /// Copy text selection.
     fn copy_selection(&mut self) {
-        if self.config.selection.save_to_clipboard {
+        if self.ctx.config().selection.save_to_clipboard {
             self.ctx.copy_selection(ClipboardType::Clipboard);
         }
         self.ctx.copy_selection(ClipboardType::Selection);
@@ -849,6 +859,7 @@ mod tests {
         pub received_count: usize,
         pub suppress_chars: bool,
         pub modifiers: Modifiers,
+        config: &'a Config,
     }
 
     impl<'a, T: EventListener> super::ActionContext<T> for ActionContext<'a, T> {
@@ -947,6 +958,10 @@ mod tests {
         fn message(&self) -> Option<&Message> {
             self.message_buffer.message()
         }
+
+        fn config(&self) -> &Config {
+            self.config
+        }
     }
 
     macro_rules! test_clickstate {
@@ -1002,9 +1017,10 @@ mod tests {
                     suppress_chars: false,
                     modifiers: Modifiers::default(),
                     message_buffer: &mut message_buffer,
+                    config: &cfg,
                 };
 
-                let mut processor = Processor::new(context, &mut cfg);
+                let mut processor = Processor::new(context);
 
                 if let Event::WindowEvent { event: WindowEvent::MouseInput { state, button, modifiers, .. }, .. } = $input {
                     processor.mouse_input(state, button, modifiers);
