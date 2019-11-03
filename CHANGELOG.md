@@ -71,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fontconfig's `autohint` and `hinting` options being ignored
 - Ingoring of default FreeType properties
 - Alacritty crashing at startup when the configured font does not exist
+- Font size rounding error
 
 ### Removed
 
