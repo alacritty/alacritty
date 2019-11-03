@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 
 use vte;
 
-use crate::index::{Column, Contains, Line};
+use crate::index::{Column, Line};
 use crate::term::color::Rgb;
 
 // Parse colors in XParseColor format
@@ -629,8 +629,8 @@ pub enum Attr {
     Dim,
     /// Italic text
     Italic,
-    /// Underscore text
-    Underscore,
+    /// Underline text
+    Underline,
     /// Blink cursor slowly
     BlinkSlow,
     /// Blink cursor fast
@@ -1163,7 +1163,7 @@ fn attrs_from_sgr_parameters(parameters: &[i64]) -> Vec<Option<Attr>> {
             1 => Some(Attr::Bold),
             2 => Some(Attr::Dim),
             3 => Some(Attr::Italic),
-            4 => Some(Attr::Underscore),
+            4 => Some(Attr::Underline),
             5 => Some(Attr::BlinkSlow),
             6 => Some(Attr::BlinkFast),
             7 => Some(Attr::Reverse),
@@ -1260,7 +1260,7 @@ fn parse_sgr_color(attrs: &[i64], i: &mut usize) -> Option<Color> {
             *i += 4;
 
             let range = 0..256;
-            if !range.contains_(r) || !range.contains_(g) || !range.contains_(b) {
+            if !range.contains(&r) || !range.contains(&g) || !range.contains(&b) {
                 debug!("Invalid RGB color spec: ({}, {}, {})", r, g, b);
                 return None;
             }

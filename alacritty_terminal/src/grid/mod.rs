@@ -15,7 +15,7 @@
 //! A specialized 2d grid implementation optimized for use in a terminal.
 
 use std::cmp::{max, min, Ordering};
-use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo};
+use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo};
 
 use serde::{Deserialize, Serialize};
 
@@ -63,7 +63,6 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
             && self.display_offset.eq(&other.display_offset)
             && self.scroll_limit.eq(&other.scroll_limit)
             && self.selection.eq(&other.selection)
-            && self.url_highlight.eq(&other.url_highlight)
     }
 }
 
@@ -106,10 +105,6 @@ pub struct Grid<T> {
 
     #[serde(default)]
     max_scroll_limit: usize,
-
-    /// Range for URL hover highlights
-    #[serde(default)]
-    pub url_highlight: Option<RangeInclusive<index::Linear>>,
 }
 
 #[derive(Copy, Clone)]
@@ -132,7 +127,6 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
             scroll_limit: 0,
             selection: None,
             max_scroll_limit: scrollback,
-            url_highlight: None,
         }
     }
 
@@ -398,7 +392,6 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         let prev = self.lines;
 
         self.selection = None;
-        self.url_highlight = None;
         self.raw.rotate(*prev as isize - *target as isize);
         self.raw.shrink_visible_lines(target);
         self.lines = target;
@@ -434,7 +427,6 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
             if let Some(ref mut selection) = self.selection {
                 selection.rotate(-(*positions as isize));
             }
-            self.url_highlight = None;
 
             self.decrease_scroll_limit(*positions);
 
@@ -479,7 +471,6 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
             if let Some(ref mut selection) = self.selection {
                 selection.rotate(*positions as isize);
             }
-            self.url_highlight = None;
 
             // // This next loop swaps "fixed" lines outside of a scroll region
             // // back into place after the rotation. The work is done in buffer-
@@ -524,7 +515,6 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
 
         self.display_offset = 0;
         self.selection = None;
-        self.url_highlight = None;
     }
 }
 

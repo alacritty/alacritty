@@ -19,7 +19,9 @@ use std::fmt;
 use std::time::Instant;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
+use glutin::event::ModifiersState;
 use glutin::event_loop::EventLoop;
+use glutin::window::CursorIcon;
 use log::{debug, info};
 use parking_lot::MutexGuard;
 
@@ -32,12 +34,13 @@ use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::meter::Meter;
 use alacritty_terminal::renderer::rects::{RenderRect};
 use alacritty_terminal::renderer::{self, GlyphCache, QuadRenderer};
+use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::{cell::Flags, SizeInfo, Term};
-use alacritty_terminal::text_run::TextRun;
+use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 
 use crate::config::Config;
-use crate::event::DisplayUpdate;
+use crate::event::{DisplayUpdate, Mouse};
+use crate::url::{Url, Urls};
 use crate::window::{self, Window};
 
 #[derive(Debug)]
@@ -114,6 +117,10 @@ impl From<glutin::ContextError> for Error {
 pub struct Display {
     pub size_info: SizeInfo,
     pub window: Window,
+    pub urls: Urls,
+
+    /// Currently highlighted URL.
+    pub highlighted_url: Option<Url>,
 
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
@@ -224,7 +231,15 @@ impl Display {
             _ => (),
         }
 
-        Ok(Display { window, renderer, glyph_cache, meter: Meter::new(), size_info })
+        Ok(Display {
+            window,
+            renderer,
+            glyph_cache,
+            meter: Meter::new(),
+            size_info,
+            urls: Urls::new(),
+            highlighted_url: None,
+        })
     }
 
     fn new_glyph_cache(
@@ -342,6 +357,8 @@ impl Display {
         terminal: MutexGuard<'_, Term<T>>,
         message_buffer: &MessageBuffer,
         config: &Config,
+        mouse: &Mouse,
+        mods: ModifiersState,
     ) {
         let grid_text_runs: Vec<TextRun> = terminal.text_runs(config).collect();
         let visual_bell_intensity = terminal.visual_bell.intensity();
@@ -349,6 +366,9 @@ impl Display {
         let metrics = self.glyph_cache.font_metrics();
         let glyph_cache = &mut self.glyph_cache;
         let size_info = self.size_info;
+
+        let selection = !terminal.selection().as_ref().map(Selection::is_empty).unwrap_or(true);
+        let mouse_mode = terminal.mode().intersects(TermMode::MOUSE_MODE);
 
         // Update IME position
         #[cfg(not(windows))]
@@ -361,7 +381,8 @@ impl Display {
             api.clear(background_color);
         });
 
-        let mut rects: Vec<RenderRect> = Vec::new();
+        let mut lines = RenderLines::new();
+        let mut urls = Urls::new();
 
         // Draw grid
         {
@@ -369,7 +390,9 @@ impl Display {
 
             self.renderer.with_api(&config, &size_info, |mut api| {
                 // Iterate over all non-empty cells in the grid
-                for text_run in grid_text_runs {
+                for cell in grid_cells {
+                    // Update URL underlines
+                    urls.update(size_info.cols().0, cell);
                     // Update underline/strikeout
                     if text_run.flags.contains(Flags::UNDERLINE) {
                         let underline_metrics = (metrics.descent, metrics.underline_position, metrics.underline_thickness);
@@ -386,9 +409,27 @@ impl Display {
             });
         }
 
-        let mut rects = lines.into_rects(&metrics, &size_info);
+        let mut rects = lines.rects(&metrics, &size_info);
 
-        // Push visual bell after underline/strikeout rects
+        // Update visible URLs
+        self.urls = urls;
+        if let Some(url) = self.urls.highlighted(config, mouse, mods, mouse_mode, selection) {
+            rects.append(&mut url.rects(&metrics, &size_info));
+
+            self.window.set_mouse_cursor(CursorIcon::Hand);
+
+            self.highlighted_url = Some(url);
+        } else if self.highlighted_url.is_some() {
+            self.highlighted_url = None;
+
+            if mouse_mode {
+                self.window.set_mouse_cursor(CursorIcon::Default);
+            } else {
+                self.window.set_mouse_cursor(CursorIcon::Text);
+            }
+        }
+
+        // Push visual bell after url/underline/strikeout rects
         if visual_bell_intensity != 0. {
             let visual_bell_rect = RenderRect::new(
                 0.,
@@ -406,7 +447,7 @@ impl Display {
 
             // Create a new rectangle for the background
             let start_line = size_info.lines().0 - text.len();
-            let y = size_info.padding_y + size_info.cell_height * start_line as f32;
+            let y = size_info.cell_height.mul_add(start_line as f32, size_info.padding_y);
             let message_bar_rect =
                 RenderRect::new(0., y, size_info.width, size_info.height - y, message.color(), 1.);
 

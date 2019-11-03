@@ -27,7 +27,6 @@ base64 = "0.10.0"
 terminfo = "0.6.1"
 url = "2"
 copypasta = { path = "../copypasta" }
-rfind_url = "0.4.0"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.15.0"

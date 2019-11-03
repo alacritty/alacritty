@@ -146,7 +146,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
         let x = self.mouse.x as usize;
         let y = self.mouse.y as usize;
 
-        if self.size_info.contains_point(x, y, true) {
+        if self.size_info.contains_point(x, y) {
             Some(self.size_info.pixels_to_coords(x, y))
         } else {
             None
@@ -273,6 +273,7 @@ pub struct Mouse {
     pub lines_scrolled: f32,
     pub block_url_launcher: bool,
     pub last_button: MouseButton,
+    pub inside_grid: bool,
 }
 
 impl Default for Mouse {
@@ -292,6 +293,7 @@ impl Default for Mouse {
             lines_scrolled: 0.0,
             block_url_launcher: false,
             last_button: MouseButton::Other(0),
+            inside_grid: false,
         }
     }
 }
@@ -396,7 +398,11 @@ impl<N: Notify> Processor<N> {
                 font_size: &mut self.font_size,
                 config: &mut self.config,
             };
-            let mut processor = input::Processor::new(context);
+            let mut processor = input::Processor::new(
+                context,
+                &self.display.urls,
+                &self.display.highlighted_url,
+            );
 
             for event in event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);
@@ -441,7 +447,13 @@ impl<N: Notify> Processor<N> {
                 }
 
                 // Redraw screen
-                self.display.draw(terminal, &self.message_buffer, &self.config);
+                self.display.draw(
+                    terminal,
+                    &self.message_buffer,
+                    &self.config,
+                    &self.mouse,
+                    self.modifiers.into(),
+                );
             }
         });
 
@@ -572,9 +584,15 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.size_info.dpr = dpr;
                     },
                     RedrawRequested => processor.ctx.terminal.dirty = true,
+                    CursorLeft { .. } => {
+                        processor.ctx.mouse.inside_grid = false;
+
+                        if processor.highlighted_url.is_some() {
+                            processor.ctx.terminal.dirty = true;
+                        }
+                    },
                     TouchpadPressure { .. }
                     | CursorEntered { .. }
-                    | CursorLeft { .. }
                     | AxisMotion { .. }
                     | HoveredFileCancelled
                     | Destroyed
@@ -603,7 +621,6 @@ impl<N: Notify> Processor<N> {
                 match event {
                     TouchpadPressure { .. }
                     | CursorEntered { .. }
-                    | CursorLeft { .. }
                     | AxisMotion { .. }
                     | HoveredFileCancelled
                     | Destroyed
