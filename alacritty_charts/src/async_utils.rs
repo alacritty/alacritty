@@ -11,8 +11,6 @@ use tokio::prelude::*;
 use tokio::runtime::current_thread;
 use tokio::timer::Interval;
 
-// TODO:
-// - Add color fetch
 #[derive(Debug, Clone)]
 pub struct MetricRequest {
     pub pull_interval: u64,
@@ -113,6 +111,9 @@ pub fn load_http_response(
     size: SizeInfo,
 ) {
     if let Some(data) = response.data {
+        if data.status != "success" {
+            return;
+        }
         let mut ok_records = 0;
         if response.chart_index < charts.len()
             && response.series_index < charts[response.chart_index].sources.len()
@@ -311,13 +312,27 @@ fn fetch_prometheus_response(
     debug!("fetch_prometheus_response: Starting");
     let url = prometheus::PrometheusTimeSeries::prepare_url(&item.source_url, item.capacity as u64)
         .unwrap();
+    let url_copy = item.source_url.clone();
     prometheus::get_from_prometheus(url.clone())
         .timeout(Duration::from_secs(item.pull_interval))
-        .map_err(|e| error!("fetch_prometheus_response: err={:?}", e))
+        .or_else(move |e| {
+            if e.is_elapsed() {
+                info!("fetch_prometheus_response: TimeOut accesing: {}", url_copy);
+            } else {
+                info!("fetch_prometheus_response: err={:?}", e);
+            };
+            // Instead of an error, return this so we can retry later.
+            // XXX: Maybe exponential retries in the future.
+            Ok(hyper::Chunk::from(
+                r#"{ "status":"error","data":{"resultType":"scalar","result":[]}}"#,
+            ))
+        })
         .and_then(move |value| {
-            debug!("Got prometheus raw value={:?}", value);
+            debug!(
+                "fetch_prometheus_response: Got prometheus raw value={:?}",
+                value
+            );
             let res = prometheus::parse_json(&value);
-            debug!("Parsed JSON to res={:?}", res);
             tx.send(AsyncChartTask::LoadResponse(MetricRequest {
                 source_url: item.source_url.clone(),
                 chart_index: item.chart_index,
@@ -328,20 +343,15 @@ fn fetch_prometheus_response(
             }))
             .map_err(|e| {
                 error!(
-                    "fetch_prometheus_response: send data back to coordinator; err={:?}",
+                    "fetch_prometheus_response: unable to send data back to coordinator; err={:?}",
                     e
                 )
             })
-            .and_then(|res| {
-                debug!("fetch_prometheus_response: res={:?}", res);
-                Ok(())
-            })
+            .and_then(|_| Ok(()))
         })
-        .map_err(|e| {
-            error!(
-                "fetch_prometheus_response: Sending result to coordinator; err={:?}",
-                e
-            )
+        .map_err(|_| {
+            // This error is quite meaningless and get_from_prometheus already
+            // has shown the error message that contains the actual failure.
         })
 }
 
