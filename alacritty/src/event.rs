@@ -398,11 +398,8 @@ impl<N: Notify> Processor<N> {
                 font_size: &mut self.font_size,
                 config: &mut self.config,
             };
-            let mut processor = input::Processor::new(
-                context,
-                &self.display.urls,
-                &self.display.highlighted_url,
-            );
+            let mut processor =
+                input::Processor::new(context, &self.display.urls, &self.display.highlighted_url);
 
             for event in event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);
