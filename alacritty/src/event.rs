@@ -225,8 +225,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
     fn change_font_size(&mut self, delta: f32) {
         *self.font_size = max(*self.font_size + delta, Size::new(FONT_SIZE_STEP));
-        self.display_update_pending.font =
-            Some(self.config.font.clone().with_size(*self.font_size));
+        let font = self.config.font.clone().with_size(*self.font_size);
+        self.display_update_pending.font = Some(font);
         self.terminal.dirty = true;
     }
 
@@ -473,15 +473,13 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.terminal.update_config(&config);
 
                         if processor.ctx.config.font != config.font {
-                            let mut font = config.font.clone();
-
                             // Do not update font size if it has been changed at runtime
-                            if *processor.ctx.font_size != processor.ctx.config.font.size {
-                                font.size = *processor.ctx.font_size;
+                            if *processor.ctx.font_size == processor.ctx.config.font.size {
+                                *processor.ctx.font_size = config.font.size;
                             }
 
-                            processor.ctx.display_update_pending.font = Some(font.clone());
-                            *processor.ctx.font_size = font.size;
+                            let font = config.font.clone().with_size(*processor.ctx.font_size);
+                            processor.ctx.display_update_pending.font = Some(font);
                         }
 
                         *processor.ctx.config = config;
