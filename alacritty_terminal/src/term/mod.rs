@@ -762,11 +762,6 @@ impl Damage {
         }
         self.damage_all = true;
     }
-
-    #[allow(dead_code)]
-    fn damaged_lines(&self) -> usize {
-        self.lines.iter().map(|x| if x.is_undamaged() { 0 } else { 1 }).sum()
-    }
 }
 
 pub struct Term<T> {
@@ -1092,6 +1087,7 @@ impl<T> Term<T> {
 
         let colors = color::List::from(&config.colors);
 
+        // Create a damage tracker that has the default cursor position damaged
         let mut damage = Damage::new(num_lines, num_cols);
         damage.expand_line(Line(0), Column(0), Column(0));
 
@@ -2510,7 +2506,13 @@ mod tests {
     use crate::grid::{Grid, Scroll};
     use crate::index::{Column, Line, Point, Side, Linear};
     use crate::selection::Selection;
-    use crate::term::{cell, Cell, SizeInfo, Term};
+    use crate::term::{cell, Cell, SizeInfo, Term, Damage};
+
+    impl Damage {
+        fn damaged_lines(&self) -> usize {
+            self.lines.iter().map(|x| if x.is_undamaged() { 0 } else { 1 }).sum()
+        }
+    }
 
     struct Mock;
     impl EventListener for Mock {
