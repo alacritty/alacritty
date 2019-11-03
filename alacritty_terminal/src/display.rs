@@ -19,6 +19,7 @@ use std::f64;
 use std::ffi::c_void;
 use std::sync::mpsc;
 use tokio::prelude::*;
+use tokio::runtime::current_thread;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::EventsLoop;
@@ -367,6 +368,7 @@ impl Display {
         pty_resize_handle: &mut dyn OnResize,
         processor_resize_handle: &mut dyn OnResize,
         charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
+        tokio_handle: current_thread::Handle,
     ) {
         let previous_cols = self.size_info.cols();
         let previous_lines = self.size_info.lines();
@@ -476,7 +478,9 @@ impl Display {
                     );
                     Ok(())
                 });
-            tokio::spawn(lazy(move || send_display_size));
+            tokio_handle
+                .spawn(lazy(move || send_display_size))
+                .expect("Unable to queue async task for send_display_size");
             match chart_resize_rx.map(|x| x).wait() {
                 Ok(_) => {
                     debug!("Got response from ChangeDisplaySize Task.");
@@ -498,6 +502,7 @@ impl Display {
         terminal: &FairMutex<Term>,
         config: &Config,
         charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
+        tokio_handle: current_thread::Handle,
     ) {
         let mut terminal = terminal.lock();
         let size_info = *terminal.size_info();
@@ -600,11 +605,12 @@ impl Display {
                     self.renderer.draw_charts_line(
                         config,
                         &size_info,
-                        &get_metric_opengl_vecs(
+                        &alacritty_charts::async_utils::get_metric_opengl_vecs(
                             charts_tx.clone(),
                             chart_idx,
                             decoration_idx,
                             "decoration",
+                            tokio_handle.clone(),
                         ),
                         Rgb {
                             r: config.charts[chart_idx].decorations[decoration_idx].color().r,
@@ -624,6 +630,7 @@ impl Display {
                             chart_idx,
                             series_idx,
                             "metric_data",
+                            tokio_handle.clone(),
                         ),
                         Rgb {
                             r: config.charts[chart_idx].sources[series_idx].color().r,

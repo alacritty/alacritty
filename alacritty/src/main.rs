@@ -39,6 +39,7 @@ use serde_json as json;
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
+use alacritty_charts::futures::sync::mpsc;
 use alacritty_terminal::clipboard::Clipboard;
 use alacritty_terminal::config::{Config, Monitor};
 use alacritty_terminal::display::Display;
@@ -52,7 +53,6 @@ use alacritty_terminal::term::{cell::Cell, Term};
 use alacritty_terminal::tty;
 use alacritty_terminal::util::fmt::Red;
 use alacritty_terminal::{die, event};
-use futures::sync::mpsc;
 
 mod cli;
 mod config;
