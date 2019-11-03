@@ -20,9 +20,9 @@
 //! determine what to do when a non-modifier key is pressed.
 use std::borrow::Cow;
 use std::cmp::min;
+use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::time::Instant;
-use std::cmp::Ordering;
 
 use glutin::event::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
@@ -250,11 +250,7 @@ impl From<MouseState> for CursorIcon {
 }
 
 impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
-    pub fn new(
-        ctx: A,
-        urls: &'a Urls,
-        highlighted_url: &'a Option<Url>,
-    ) -> Self {
+    pub fn new(ctx: A, urls: &'a Urls, highlighted_url: &'a Option<Url>) -> Self {
         Self { ctx, urls, highlighted_url, _phantom: Default::default() }
     }
 
@@ -646,10 +642,12 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             let new_icon = match current_lines.cmp(&new_lines) {
                 Ordering::Less => CursorIcon::Default,
                 Ordering::Equal => CursorIcon::Hand,
-                Ordering::Greater => if mouse_mode {
-                    CursorIcon::Default
-                } else {
-                    CursorIcon::Text
+                Ordering::Greater => {
+                    if mouse_mode {
+                        CursorIcon::Default
+                    } else {
+                        CursorIcon::Text
+                    }
                 },
             };
 
