@@ -1661,8 +1661,10 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[inline]
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         trace!("Clearing line: {:?}", mode);
-        let mut template = self.cursor.template;
-        template.flags ^= template.flags;
+        let template = Cell {
+            bg: self.cursor.template.bg,
+            ..Cell::default()
+        };
 
         let col = self.cursor.point.col;
 
@@ -1725,8 +1727,10 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[inline]
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
         trace!("Clearing screen: {:?}", mode);
-        let mut template = self.cursor.template;
-        template.flags ^= template.flags;
+        let template = Cell {
+            bg: self.cursor.template.bg,
+            ..Cell::default()
+        };
 
         // Remove active selections
         self.grid.selection = None;
