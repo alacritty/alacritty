@@ -55,6 +55,7 @@ mod display;
 mod event;
 mod input;
 mod logging;
+mod url;
 mod window;
 
 use crate::cli::Options;

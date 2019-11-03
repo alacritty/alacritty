@@ -382,8 +382,8 @@ impl GlyphCache {
         let grid_width = cell_width as u32 * dimensions.columns_u32();
         let grid_height = cell_height as u32 * dimensions.lines_u32();
 
-        let width = (f64::from(grid_width) + 2. * padding_x).floor();
-        let height = (f64::from(grid_height) + 2. * padding_y).floor();
+        let width = padding_x.mul_add(2., f64::from(grid_width)).floor();
+        let height = padding_y.mul_add(2., f64::from(grid_height)).floor();
 
         Some((width, height))
     }

@@ -38,7 +38,6 @@ pub mod selection;
 pub mod sync;
 pub mod term;
 pub mod tty;
-pub mod url;
 pub mod util;
 
 pub use crate::grid::Grid;
