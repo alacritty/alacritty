@@ -1609,7 +1609,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
 
         // Clear last `count` cells in line. If deleting 1 char, need to delete
         // 1 cell.
-        let template = self.cursor.template;
+        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
         let end = cols - count;
         for c in &mut line[end..] {
             c.reset(&template);
