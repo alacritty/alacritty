@@ -381,7 +381,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         let mouse_pos_encode = |pos: usize| -> Vec<u8> {
             let pos = 32 + 1 + pos;
             let first = 0xC0 + pos / 64;
-            let second = 0x80 + (pos & 0x3F);
+            let second = 0x80 + (pos & 63);
             vec![first as u8, second as u8]
         };
 
