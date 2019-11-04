@@ -406,6 +406,8 @@ pub enum Mode {
     ReportAllMouseMotion = 1003,
     /// ?1004
     ReportFocusInOut = 1004,
+    /// ?1005
+    Utf8Mouse = 1005,
     /// ?1006
     SgrMouse = 1006,
     /// ?1007
@@ -439,6 +441,7 @@ impl Mode {
                 1002 => Mode::ReportCellMouseMotion,
                 1003 => Mode::ReportAllMouseMotion,
                 1004 => Mode::ReportFocusInOut,
+                1005 => Mode::Utf8Mouse,
                 1006 => Mode::SgrMouse,
                 1007 => Mode::AlternateScroll,
                 1049 => Mode::SwapScreenAndSetRestoreCursor,
