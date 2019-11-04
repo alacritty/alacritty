@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Alternate scroll escape sequence (`CSI ? 1007 h` / `CSI ? 1007 l`)
 - Print name of launch command if Alacritty failed to execute it
 - Live reload font settings from config
+- UTF-8 mouse mode escape sequence (`CSI ? 1005 h` / `CSI ? 1005 l`)
 
 ### Changed
 

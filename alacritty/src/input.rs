@@ -368,19 +368,36 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
     pub fn normal_mouse_report(&mut self, button: u8) {
         let (line, column) = (self.ctx.mouse().line, self.ctx.mouse().column);
+        let utf8 = self.ctx.terminal().mode().contains(TermMode::UTF8_MOUSE);
 
-        if line < Line(223) && column < Column(223) {
-            let msg = vec![
-                b'\x1b',
-                b'[',
-                b'M',
-                32 + button,
-                32 + 1 + column.0 as u8,
-                32 + 1 + line.0 as u8,
-            ];
+        let max_point = if utf8 { 2015 } else { 223 };
 
-            self.ctx.write_to_pty(msg);
+        if line >= Line(max_point) || column >= Column(max_point) {
+            return;
         }
+
+        let mut msg = vec![b'\x1b', b'[', b'M', 32 + button];
+
+        let mouse_pos_encode = |pos: usize| -> Vec<u8> {
+            let pos = 32 + 1 + pos;
+            let first = 0xC0 + pos / 64;
+            let second = 0x80 + (pos & 63);
+            vec![first as u8, second as u8]
+        };
+
+        if utf8 && column >= Column(95) {
+            msg.append(&mut mouse_pos_encode(column.0));
+        } else {
+            msg.push(32 + 1 + column.0 as u8);
+        }
+
+        if utf8 && line >= Line(95) {
+            msg.append(&mut mouse_pos_encode(line.0));
+        } else {
+            msg.push(32 + 1 + line.0 as u8);
+        }
+
+        self.ctx.write_to_pty(msg);
     }
 
     pub fn sgr_mouse_report(&mut self, button: u8, state: ElementState) {
