@@ -362,7 +362,7 @@ impl PrometheusTimeSeries {
 /// PrometheusResponse
 pub fn get_from_prometheus(
     url: hyper::Uri,
-) -> impl Future<Item = hyper::Chunk, Error = hyper::Uri> {
+) -> impl Future<Item = hyper::Chunk, Error = (hyper::Uri, hyper::error::Error)> {
     info!("get_from_prometheus: Loading Prometheus URL: {}", url);
     let request = if url.scheme_part() == Some(&hyper::http::uri::Scheme::HTTP) {
         Client::new().get(url.clone())
@@ -382,21 +382,20 @@ pub fn get_from_prometheus(
                 // The concat2() function takes the separate body chunks and makes one
                 // hyper::Chunk value with the contents of the entire body
                 .concat2()
-                .and_then(|body| {
-                    debug!("get_from_prometheus: Body={:?}", body);
-                    Ok(body)
-                })
+                .and_then(|body| Ok(body))
         })
         .map_err(|err| {
-            error!("get_from_prometheus: Error loading '{:?}'", err);
-            url_copy
+            info!(
+                "get_from_prometheus: Error loading '{:?}': '{:?}'",
+                url_copy, err
+            );
+            (url_copy, err)
         })
 }
 /// `parse_json` transforms a hyper body chunk into a possible
 /// PrometheusResponse, mostly used for testing
 pub fn parse_json(body: &hyper::Chunk) -> Option<HTTPResponse> {
     let prom_res: Result<HTTPResponse, serde_json::Error> = serde_json::from_slice(&body);
-    // XXX: Figure out how to return the error
     match prom_res {
         Ok(v) => {
             debug!("parse_json: returned JSON={:?}", v);
