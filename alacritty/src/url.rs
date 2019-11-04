@@ -130,8 +130,12 @@ impl Urls {
             },
             (UrlLocation::Scheme, _) => {
                 if let Some(url) = self.urls.last_mut() {
-                    if url.lines[url.lines.len() - 1].color != cell.fg {
-                        url.lines.push(RenderLine { start: point, end: point, color: cell.fg });
+                    if let Some(last_line) = url.lines.last_mut() {
+                        if last_line.color == cell.fg {
+                            last_line.end = point;
+                        } else {
+                            url.lines.push(RenderLine { start: point, end: point, color: cell.fg });
+                        }
                     }
                 }
             },
@@ -173,6 +177,11 @@ impl Urls {
     }
 
     fn reset(&mut self) {
+        // Remove temporarily stored scheme URLs
+        if let UrlLocation::Scheme = self.state {
+            self.urls.pop();
+        }
+
         self.locator = UrlLocator::new();
         self.state = UrlLocation::Reset;
     }
