@@ -48,7 +48,7 @@ impl HandleWaitSignal {
     /// Registers an asynchronous closure to call when `child_handle` wait signals.
     ///
     /// The `on_exit` is called on Win32 threadpool thread so it should avoid
-    /// blocking calls. See [`WT_EXECUTEINWAITTHREAD` flag docs] for details
+    /// blocking calls. See [`WT_EXECUTEINWAITTHREAD` flag docs] for details.
     ///
     /// [`WT_EXECUTEINWAITTHREAD` flag docs]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-registerwaitforsingleobject
     fn new<F>(child_handle: HANDLE, on_exit: F) -> Result<HandleWaitSignal, Error>
