@@ -89,6 +89,14 @@ pub fn setup_env<C>(config: &Config<C>) {
     // Advertise 24-bit color support
     env::set_var("COLORTERM", "truecolor");
 
+    // This variable determines the locale category for character handling functions, such as
+    // tolower(), toupper() and isalpha(). This environment variable determines the interpretation
+    // of sequences of bytes of text data as characters (for example, single- as opposed to
+    // multi-byte characters), the classification of characters (for example, alpha, digit, graph)
+    // and the behaviour of character classes. Additional semantics of this variable, if any, are
+    // implementation-dependent.
+    env::set_var("LC_CTYPE", "UTF-8");
+
     // Prevent child processes from inheriting startup notification env
     env::remove_var("DESKTOP_STARTUP_ID");
 
