@@ -444,7 +444,12 @@ pub fn get_metric_opengl_vecs(
         } else {
             AsyncChartTask::SendDecorationsOpenGLData(chart_idx, series_idx, opengl_tx)
         })
-        .map_err(|e| error!("Sending SendMetricsOpenGL Task: err={:?}", e))
+        .map_err(move |e| {
+            error!(
+                "Sending SendMetricsOpenGL(chart {}, series: {}) Task: err={:?}",
+                chart_idx, series_idx, e
+            )
+        })
         .and_then(move |_res| {
             debug!(
                 "Sent Request for SendMetricsOpenGL Task for chart index: {}, series: {}",
@@ -458,11 +463,17 @@ pub fn get_metric_opengl_vecs(
     let opengl_rx = opengl_rx.map(|x| x);
     match opengl_rx.wait() {
         Ok(data) => {
-            debug!("Got response from SendMetricsOpenGL Task: {:?}", data);
+            debug!(
+                "Got response from SendMetricsOpenGL(chart {}, series: {}) Task: {:?}",
+                chart_idx, series_idx, data
+            );
             data
         }
         Err(err) => {
-            error!("Error response from SendMetricsOpenGL Task: {:?}", err);
+            error!(
+                "Error response from SendMetricsOpenGL(chart: {}, serios: {}) Task: {:?}",
+                chart_idx, series_idx, err
+            );
             vec![]
         }
     }
