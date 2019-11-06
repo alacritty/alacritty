@@ -11,7 +11,7 @@ use tokio::prelude::*;
 use tokio::runtime::current_thread;
 use tokio::timer::Interval;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct MetricRequest {
     pub pull_interval: u64,
     pub source_url: String,
@@ -124,20 +124,22 @@ pub fn load_http_response(
                 match prom.load_prometheus_response(data) {
                     Ok(num_records) => {
                         info!(
-                            "Loaded {} records from {} into TimeSeries",
-                            num_records, response.source_url
+                            "load_http_response:(Chart: {}, Series: {}) {} records from {} into TimeSeries",
+                            response.chart_index, response.series_index, num_records, response.source_url
                         );
                         ok_records = num_records;
                     }
                     Err(err) => {
                         debug!(
-                            "Error Loading {} into TimeSeries: {:?}",
-                            response.source_url, err
+                            "load_http_response:(Chart: {}, Series: {}) Error Loading {} into TimeSeries: {:?}",
+                            response.chart_index, response.series_index, response.source_url, err
                         );
                     }
                 }
                 debug!(
-                    "After loading. TimeSeries is: {:?}",
+                    "load_http_response:(Chart: {}, Series: {}) After loading. TimeSeries is: {:?}",
+                    response.chart_index,
+                    response.series_index,
                     charts[response.chart_index].sources[response.series_index]
                 );
             }
@@ -154,30 +156,36 @@ pub fn load_http_response(
     }
 }
 
-/// `send_metrics_opengl_vecs` is called by async_coordinator when an task of
+/// `send_metrics_opengl_vecs` is called by async_coordinator when a task of
 /// type SendMetricsOpenGLData is received, it should contain the chart index
 /// to represent as OpenGL vertices, it returns data through the channel parameter
 pub fn send_metrics_opengl_vecs(
     charts: &[TimeSeriesChart],
     chart_index: usize,
-    data_index: usize,
+    series_index: usize,
     channel: oneshot::Sender<Vec<f32>>,
 ) {
-    debug!("send_metrics_opengl_vecs for chart_index: {}", chart_index);
+    debug!(
+        "send_metrics_opengl_vecs:(Chart: {}, Series: {}): Request received",
+        chart_index, series_index
+    );
     match channel.send(
-        if chart_index >= charts.len() || data_index >= charts[chart_index].opengl_vecs.len() {
+        if chart_index >= charts.len() || series_index >= charts[chart_index].opengl_vecs.len() {
             vec![]
         } else {
-            charts[chart_index].get_deduped_opengl_vecs(data_index)
+            charts[chart_index].get_deduped_opengl_vecs(series_index)
         },
     ) {
         Ok(()) => {
             debug!(
-                "send_metrics_opengl_vecs: oneshot::message sent for {}",
-                chart_index
+                "send_metrics_opengl_vecs:(Chart: {}, Series: {}) oneshot::message sent",
+                chart_index, series_index
             );
         }
-        Err(err) => error!("send_metrics_opengl_vecs: Error sending: {:?}", err),
+        Err(err) => error!(
+            "send_metrics_opengl_vecs:(Chart: {}, Series: {}) Error sending: {:?}",
+            chart_index, series_index, err
+        ),
     };
 }
 
@@ -309,17 +317,20 @@ fn fetch_prometheus_response(
     item: MetricRequest,
     tx: mpsc::Sender<AsyncChartTask>,
 ) -> impl Future<Item = (), Error = ()> {
-    debug!("fetch_prometheus_response: Starting");
+    debug!(
+        "fetch_prometheus_response:(Chart: {}, Series: {}) Starting",
+        item.chart_index, item.series_index
+    );
     let url = prometheus::PrometheusTimeSeries::prepare_url(&item.source_url, item.capacity as u64)
         .unwrap();
     let url_copy = item.source_url.clone();
     prometheus::get_from_prometheus(url.clone())
         .timeout(Duration::from_secs(item.pull_interval))
-        .or_else(move |e| {
+        .or_else(|e| {
             if e.is_elapsed() {
-                info!("fetch_prometheus_response: TimeOut accesing: {}", url_copy);
+                info!("fetch_prometheus_response:(Chart: {}, Series: {}) TimeOut accesing: {}", item.chart_index, item.series_index, url_copy);
             } else {
-                info!("fetch_prometheus_response: err={:?}", e);
+                info!("fetch_prometheus_response:(Chart: {}, Series: {}) err={:?}", item.chart_index, item.series_index, e);
             };
             // Instead of an error, return this so we can retry later.
             // XXX: Maybe exponential retries in the future.
@@ -327,10 +338,10 @@ fn fetch_prometheus_response(
                 r#"{ "status":"error","data":{"resultType":"scalar","result":[]}}"#,
             ))
         })
-        .and_then(move |value| {
+        .and_then(|value| {
             debug!(
-                "fetch_prometheus_response: Got prometheus raw value={:?}",
-                value
+                "fetch_prometheus_response:(Chart: {}, Series: {}) Prometheus raw value={:?}",
+                item.chart_index, item.series_index, value
             );
             let res = prometheus::parse_json(&value);
             tx.send(AsyncChartTask::LoadResponse(MetricRequest {
@@ -343,8 +354,8 @@ fn fetch_prometheus_response(
             }))
             .map_err(|e| {
                 error!(
-                    "fetch_prometheus_response: unable to send data back to coordinator; err={:?}",
-                    e
+                    "fetch_prometheus_response:(Chart: {}, Series: {}) unable to send data back to coordinator; err={:?}",
+                    item.chart_index, item.series_index, e
                 )
             })
             .and_then(|_| Ok(()))
@@ -365,11 +376,13 @@ pub fn spawn_charts_intervals(
 ) {
     let mut chart_index = 0usize;
     for chart in charts {
-        debug!("Loading chart series with name: '{}'", chart.name);
         let mut series_index = 0usize;
         for series in chart.sources {
             if let TimeSeriesSource::PrometheusTimeSeries(ref prom) = series {
-                debug!(" - Found time_series, adding interval run");
+                debug!(
+                    "spawn_charts_intervals:(Chart: {}, Series: {}) - Adding interval run for '{}'",
+                    chart_index, series_index, chart.name
+                );
                 let data_request = MetricRequest {
                     source_url: prom.source.clone(),
                     pull_interval: prom.pull_interval as u64,
@@ -383,7 +396,7 @@ pub fn spawn_charts_intervals(
                     .spawn(lazy(move || {
                         spawn_datasource_interval_polls(&data_request, charts_tx)
                     }))
-                    .expect("Got error spawning datasource internal polls");
+                    .expect("spawn_charts_intervals:(Chart: {}, Series: {}) Error spawning datasource internal polls", chart_index, series_index);
             }
             series_index += 1;
         }
@@ -397,8 +410,8 @@ pub fn spawn_datasource_interval_polls(
     tx: mpsc::Sender<AsyncChartTask>,
 ) -> impl Future<Item = (), Error = ()> {
     debug!(
-        "spawn_datasource_interval_polls: Starting for item={:?}",
-        item
+        "spawn_datasource_interval_polls:(Chart: {}, Series: {}) Starting for item={:?}",
+        item.chart_index, item.series_index, item
     );
     Interval::new(Instant::now(), Duration::from_secs(item.pull_interval))
         //.take(10) //  Test 10 times first
@@ -414,11 +427,11 @@ pub fn spawn_datasource_interval_polls(
             },
             move |async_metric_item, instant| {
                 debug!(
-                    "Interval triggered for {:?} at instant={:?}",
-                    async_metric_item.source_url, instant
+                    "spawn_datasource_interval_polls:(Chart: {}, Series: {}) Interval triggered for {:?} at instant={:?}",
+                    async_metric_item.chart_index, async_metric_item.series_index, async_metric_item.source_url, instant
                 );
                 fetch_prometheus_response(async_metric_item.clone(), tx.clone()).and_then(|res| {
-                    debug!("Got response {:?}", res);
+                    debug!("spawn_datasource_interval_polls:(Chart: {}, Series: {}) Response {:?}", async_metric_item.chart_index, async_metric_item.series_index, res);
                     Ok(async_metric_item)
                 })
             },
@@ -446,33 +459,36 @@ pub fn get_metric_opengl_vecs(
         })
         .map_err(move |e| {
             error!(
-                "Sending SendMetricsOpenGL(chart {}, series: {}) Task: err={:?}",
-                chart_idx, series_idx, e
+                "get_metric_opengl_vecs:(Chart: {}, Series: {}) Sending {} Task. err={:?}",
+                chart_idx, series_idx, request_type, e
             )
         })
         .and_then(move |_res| {
             debug!(
-                "Sent Request for SendMetricsOpenGL Task for chart index: {}, series: {}",
-                chart_idx, series_idx
+                "get_metric_opengl_vecs:(Chart: {}, Series: {}) Sent Request for {} Task",
+                chart_idx, series_idx, request_type
             );
             Ok(())
         });
     tokio_handle
         .spawn(lazy(move || get_opengl_task))
-        .expect("Unable to spawn get_opengl_task");
+        .expect(&format!(
+            "get_metric_opengl_vecs:(Chart: {}, Series: {}) Unable to spawn get_opengl_task",
+            chart_idx, series_idx
+        ));
     let opengl_rx = opengl_rx.map(|x| x);
     match opengl_rx.wait() {
         Ok(data) => {
             debug!(
-                "Got response from SendMetricsOpenGL(chart {}, series: {}) Task: {:?}",
-                chart_idx, series_idx, data
+                "get_metric_opengl_vecs:(Chart: {}, Series: {}) Response from {} Task: {:?}",
+                chart_idx, series_idx, request_type, data
             );
             data
         }
         Err(err) => {
             error!(
-                "Error response from SendMetricsOpenGL(chart: {}, serios: {}) Task: {:?}",
-                chart_idx, series_idx, err
+                "get_metric_opengl_vecs:(Chart: {}, Series: {}) Error from {} Task: {:?}",
+                chart_idx, series_idx, request_type, err
             );
             vec![]
         }
