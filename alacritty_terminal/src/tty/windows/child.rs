@@ -45,7 +45,7 @@ pub(crate) struct HandleWaitSignal {
 }
 
 impl HandleWaitSignal {
-    /// Registers an asynchronous closure to call when `child_handle` wait signals.
+    /// Registers an asynchronous closure to call when process under `child_handle` exits.
     ///
     /// The `on_exit` is called on Win32 threadpool thread so it should avoid
     /// blocking calls. See [`WT_EXECUTEINWAITTHREAD` flag docs] for details.
