@@ -154,11 +154,12 @@ mod test {
         }
     }
 
-    // TODO: This is more of an integration test since it spawns new 'cmd.exe'
-    //       process and heavily uses Win32 API. Should this be ignored
-    //       by default? Worst-case, this will timeout after `WAIT_TIMEOUT`.
     #[test]
-    pub fn on_handle_wait_completed_signalls() {
+    pub fn on_handle_wait_runs_callback_when_process_exits() {
+        // The test should only take few milliseconds to succeed but will
+        // only fail due to timeout. It can be safely assumed that if callback
+        // has not been called after `WAIT_TIMEOUT` duration, there is some
+        // issue with the code under test.
         const WAIT_TIMEOUT: Duration = Duration::from_millis(200);
 
         let (sender, receiver) = channel::<()>();
@@ -174,7 +175,7 @@ mod test {
         let kill_succeeded = unsafe { TerminateProcess(subprocess_handle, 0) };
         assert!(kill_succeeded > 0, "Couldn't kill the process");
 
-        // Wait for condvar to be signalled by OS-thread or fail with time out
+        // Wait for anything to be sent via the channel or time-out with error
         receiver.recv_timeout(WAIT_TIMEOUT).unwrap();
     }
 }
