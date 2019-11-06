@@ -14,8 +14,6 @@ use std::io::Error;
 use std::os::raw::c_void;
 use std::sync::atomic::{AtomicPtr, Ordering};
 
-use log::warn;
-
 use mio_extras::channel::{channel, Receiver};
 
 use winapi::shared::ntdef::{BOOLEAN, HANDLE, PVOID};
@@ -95,13 +93,7 @@ impl ChildProcessWatcher {
     pub fn new(subprocess_handle: HANDLE) -> Result<ChildProcessWatcher, Error> {
         let (sender, receiver) = channel();
         let on_exit = HandleWaitSignal::new(subprocess_handle, move || {
-            if let Err(e) = sender.send(ChildEvent::Exited) {
-                warn!(
-                    "An error occurred while attempting to notify about child process z
-                    termination: {}",
-                    e
-                );
-            }
+            let _ = sender.send(ChildEvent::Exited);
         })?;
 
         Ok(ChildProcessWatcher { _on_exit: on_exit, events_rx: receiver })
