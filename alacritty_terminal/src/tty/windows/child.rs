@@ -86,7 +86,7 @@ impl Drop for HandleWaitSignal {
     }
 }
 
-pub(crate) struct ChildProcessState {
+pub struct ChildProcessState {
     _on_exit: HandleWaitSignal,
     events: Receiver<ChildEvent>,
 }
