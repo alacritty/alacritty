@@ -25,7 +25,7 @@ use log::info;
 use crate::config::Config;
 use crate::event::OnResize;
 use crate::term::SizeInfo;
-use crate::tty::windows::child::ChildProcessState;
+use crate::tty::windows::child::ChildProcessWatcher;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 
 mod child;
@@ -55,7 +55,7 @@ pub struct Pty<'a> {
     read_token: mio::Token,
     write_token: mio::Token,
     child_event_token: mio::Token,
-    child_state: ChildProcessState,
+    child_watcher: ChildProcessWatcher,
 }
 
 impl<'a> Pty<'a> {
@@ -227,7 +227,7 @@ impl<'a> EventedReadWrite for Pty<'a> {
 
         self.child_event_token = token.next().unwrap();
         poll.register(
-            self.child_state.events(),
+            self.child_watcher.events_rx(),
             self.child_event_token,
             mio::Ready::readable(),
             poll_opts,
@@ -255,7 +255,7 @@ impl<'a> EventedReadWrite for Pty<'a> {
         }
 
         poll.reregister(
-            self.child_state.events(),
+            self.child_watcher.events_rx(),
             self.child_event_token,
             mio::Ready::readable(),
             poll_opts,
@@ -268,7 +268,7 @@ impl<'a> EventedReadWrite for Pty<'a> {
     fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
         poll.deregister(&self.conout)?;
         poll.deregister(&self.conin)?;
-        poll.deregister(self.child_state.events())?;
+        poll.deregister(self.child_watcher.events_rx())?;
         Ok(())
     }
 
@@ -299,7 +299,7 @@ impl<'a> EventedPty for Pty<'a> {
     }
 
     fn next_child_event(&mut self) -> Option<ChildEvent> {
-        match self.child_state.events().try_recv() {
+        match self.child_watcher.events_rx().try_recv() {
             Ok(ev) => Some(ev),
             Err(TryRecvError::Empty) => None,
             Err(TryRecvError::Disconnected) => Some(ChildEvent::Exited),

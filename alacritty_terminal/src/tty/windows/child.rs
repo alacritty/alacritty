@@ -86,13 +86,13 @@ impl Drop for HandleWaitSignal {
     }
 }
 
-pub struct ChildProcessState {
+pub struct ChildProcessWatcher {
     _on_exit: HandleWaitSignal,
-    events: Receiver<ChildEvent>,
+    events_rx: Receiver<ChildEvent>,
 }
 
-impl ChildProcessState {
-    pub fn new(subprocess_handle: HANDLE) -> Result<ChildProcessState, Error> {
+impl ChildProcessWatcher {
+    pub fn new(subprocess_handle: HANDLE) -> Result<ChildProcessWatcher, Error> {
         let (sender, receiver) = channel();
         let on_exit = HandleWaitSignal::new(subprocess_handle, move || {
             if let Err(e) = sender.send(ChildEvent::Exited) {
@@ -104,11 +104,11 @@ impl ChildProcessState {
             }
         })?;
 
-        Ok(ChildProcessState { _on_exit: on_exit, events: receiver })
+        Ok(ChildProcessWatcher { _on_exit: on_exit, events_rx: receiver })
     }
 
-    pub fn events(&self) -> &Receiver<ChildEvent> {
-        &self.events
+    pub fn events_rx(&self) -> &Receiver<ChildEvent> {
+        &self.events_rx
     }
 }
 
