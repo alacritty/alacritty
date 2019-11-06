@@ -2011,7 +2011,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[inline]
     fn set_current_directory(&mut self, path: PathBuf) {
         trace!("Setting working directory {:?}", path);
-        self.current_directory = Some(path.to_owned());
+        self.current_directory = Some(path);
     }
 }
 

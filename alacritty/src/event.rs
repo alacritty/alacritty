@@ -6,7 +6,6 @@ use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -204,9 +203,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
 
         #[allow(unused_mut)]  // mut used only on unix
         let mut working_directory = self.terminal.current_directory()
-            .map(|p| p.to_str())
-            .unwrap_or(None)
-            .map(|s| s.to_string());
+            .map(|p| p.to_owned());
 
         #[cfg(unix)]
         {
@@ -223,8 +220,8 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             }
         }
 
-        let args = match working_directory {
-            Some(s) => vec!["--working-directory".into(), s],
+        let args = match &working_directory {
+            Some(path) => vec!["--working-directory".as_ref(), path.as_os_str()],
             None => vec![]
         };
 
