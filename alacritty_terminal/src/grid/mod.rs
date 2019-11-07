@@ -553,8 +553,6 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
 
         // Clear the viewport.
         self.scroll_up(&region, positions, template);
-        self.selection = None;
-        self.url_highlight = None;
 
         // We've now cleared each row, so they are empty.
         for i in 0..self.num_lines().0 {
