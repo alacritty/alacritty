@@ -11,7 +11,7 @@ use tokio::prelude::*;
 use tokio::runtime::current_thread;
 use tokio::timer::Interval;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct MetricRequest {
     pub pull_interval: u64,
     pub source_url: String,
@@ -170,7 +170,7 @@ pub fn send_metrics_opengl_vecs(
         chart_index, series_index
     );
     match channel.send(
-        if chart_index >= charts.len() || series_index >= charts[chart_index].opengl_vecs.len() {
+        if chart_index >= charts.len() || series_index >= charts[chart_index].sources.len() {
             vec![]
         } else {
             charts[chart_index].get_deduped_opengl_vecs(series_index)
@@ -324,13 +324,15 @@ fn fetch_prometheus_response(
     let url = prometheus::PrometheusTimeSeries::prepare_url(&item.source_url, item.capacity as u64)
         .unwrap();
     let url_copy = item.source_url.clone();
+    let chart_index = item.chart_index;
+    let series_index = item.series_index;
     prometheus::get_from_prometheus(url.clone())
         .timeout(Duration::from_secs(item.pull_interval))
-        .or_else(|e| {
+        .or_else(move |e| {
             if e.is_elapsed() {
-                info!("fetch_prometheus_response:(Chart: {}, Series: {}) TimeOut accesing: {}", item.chart_index, item.series_index, url_copy);
+                info!("fetch_prometheus_response:(Chart: {}, Series: {}) TimeOut accesing: {}", chart_index, series_index, url_copy);
             } else {
-                info!("fetch_prometheus_response:(Chart: {}, Series: {}) err={:?}", item.chart_index, item.series_index, e);
+                info!("fetch_prometheus_response:(Chart: {}, Series: {}) err={:?}", chart_index, series_index, e);
             };
             // Instead of an error, return this so we can retry later.
             // XXX: Maybe exponential retries in the future.
@@ -338,10 +340,10 @@ fn fetch_prometheus_response(
                 r#"{ "status":"error","data":{"resultType":"scalar","result":[]}}"#,
             ))
         })
-        .and_then(|value| {
+        .and_then(move |value| {
             debug!(
                 "fetch_prometheus_response:(Chart: {}, Series: {}) Prometheus raw value={:?}",
-                item.chart_index, item.series_index, value
+                chart_index, series_index, value
             );
             let res = prometheus::parse_json(&value);
             tx.send(AsyncChartTask::LoadResponse(MetricRequest {
@@ -352,10 +354,10 @@ fn fetch_prometheus_response(
                 data: res.clone(),
                 capacity: item.capacity,
             }))
-            .map_err(|e| {
+            .map_err(move |e| {
                 error!(
                     "fetch_prometheus_response:(Chart: {}, Series: {}) unable to send data back to coordinator; err={:?}",
-                    item.chart_index, item.series_index, e
+                    chart_index, series_index, e
                 )
             })
             .and_then(|_| Ok(()))
@@ -396,7 +398,7 @@ pub fn spawn_charts_intervals(
                     .spawn(lazy(move || {
                         spawn_datasource_interval_polls(&data_request, charts_tx)
                     }))
-                    .expect("spawn_charts_intervals:(Chart: {}, Series: {}) Error spawning datasource internal polls", chart_index, series_index);
+                    .expect(&format!("spawn_charts_intervals:(Chart: {}, Series: {}) Error spawning datasource internal polls", chart_index, series_index));
             }
             series_index += 1;
         }
