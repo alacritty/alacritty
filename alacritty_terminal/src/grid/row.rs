@@ -90,8 +90,14 @@ impl<T: Copy> Row<T> {
     where
         T: GridCell,
     {
-        for item in &mut self.inner[..self.occ] {
-            *item = *template;
+        if template.is_empty() {
+            for item in &mut self.inner[..self.occ] {
+                *item = *template;
+            }
+        } else {
+            for item in &mut self.inner[..] {
+                *item = *template;
+            }
         }
 
         if template.is_empty() {
