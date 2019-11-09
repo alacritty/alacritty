@@ -78,7 +78,7 @@ impl HandleWaitSignal {
 impl Drop for HandleWaitSignal {
     fn drop(&mut self) {
         unsafe {
-            // Cancel WinAPI wait for child process exiting
+            // Stop waiting for child exit
             UnregisterWait(self.wait_handle.load(Ordering::Relaxed));
         }
     }
