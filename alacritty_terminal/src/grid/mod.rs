@@ -528,11 +528,6 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
     }
 
     pub fn clear_viewport(&mut self, template: &T) {
-        // Treat each row as if it was completely filled.
-        for i in 0..self.num_lines().0 {
-            self[i].occ = self.num_cols().0;
-        }
-
         // Determine how many lines to scroll up by.
         let end = Point { line: 0, col: self.num_cols() };
         let mut iter = self.iter_from(end);
@@ -553,11 +548,6 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
 
         // Clear the viewport.
         self.scroll_up(&region, positions, template);
-
-        // We've now cleared each row, so they are empty.
-        for i in 0..self.num_lines().0 {
-            self[i].occ = 0;
-        }
     }
 
     // Completely reset the grid state
