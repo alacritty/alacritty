@@ -10,8 +10,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::ffi::c_void;
 use std::io::Error;
-use std::os::raw::c_void;
 use std::sync::atomic::{AtomicPtr, Ordering};
 
 use mio_extras::channel::{channel, Receiver};
@@ -22,7 +22,7 @@ use winapi::um::winnt::{WT_EXECUTEINWAITTHREAD, WT_EXECUTEONLYONCE};
 
 use crate::tty::ChildEvent;
 
-/// WinAPI callback for `HandleWaitSignal`, unpacks Rust closure reference and calls it
+/// WinAPI callback for `HandleWaitSignal`, unpacks Rust closure reference and calls it.
 extern "system" fn child_exit_callback<F>(ctx: PVOID, timed_out: BOOLEAN)
 where
     F: FnOnce() + Send,
@@ -35,21 +35,21 @@ where
     callback();
 }
 
-/// Represents closure attached to Win32 handle wait signal.
+/// Represents closure attached to Win32 wait signal.
 ///
 /// This allows firing a Rust callback when the subprocess exits.
-pub(crate) struct HandleWaitSignal {
+pub(crate) struct WaitSignalHandler {
     wait_handle: AtomicPtr<c_void>,
 }
 
-impl HandleWaitSignal {
+impl WaitSignalHandler {
     /// Registers an asynchronous closure to call when process under `child_handle` exits.
     ///
     /// The `on_exit` is called on Win32 threadpool thread so it should avoid
     /// blocking calls. See [`WT_EXECUTEINWAITTHREAD` flag docs] for details.
     ///
     /// [`WT_EXECUTEINWAITTHREAD` flag docs]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-registerwaitforsingleobject
-    fn new<F>(child_handle: HANDLE, on_exit: F) -> Result<HandleWaitSignal, Error>
+    fn new<F>(child_handle: HANDLE, on_exit: F) -> Result<WaitSignalHandler, Error>
     where
         F: FnOnce() + Send,
     {
@@ -70,104 +70,66 @@ impl HandleWaitSignal {
         if success == 0 {
             Err(Error::last_os_error())
         } else {
-            Ok(HandleWaitSignal { wait_handle: AtomicPtr::from(wait_handle) })
+            Ok(WaitSignalHandler { wait_handle: AtomicPtr::from(wait_handle) })
         }
     }
 }
 
-impl Drop for HandleWaitSignal {
+impl Drop for WaitSignalHandler {
     fn drop(&mut self) {
         unsafe {
-            // Stop waiting for child exit
             UnregisterWait(self.wait_handle.load(Ordering::Relaxed));
         }
     }
 }
 
 pub struct ChildProcessWatcher {
-    _on_exit: HandleWaitSignal,
-    events_rx: Receiver<ChildEvent>,
+    _on_exit: WaitSignalHandler,
+    event_rx: Receiver<ChildEvent>,
 }
 
 impl ChildProcessWatcher {
     pub fn new(subprocess_handle: HANDLE) -> Result<ChildProcessWatcher, Error> {
         let (sender, receiver) = channel();
-        let on_exit = HandleWaitSignal::new(subprocess_handle, move || {
+        let on_exit = WaitSignalHandler::new(subprocess_handle, move || {
             let _ = sender.send(ChildEvent::Exited);
         })?;
 
-        Ok(ChildProcessWatcher { _on_exit: on_exit, events_rx: receiver })
+        Ok(ChildProcessWatcher { _on_exit: on_exit, event_rx: receiver })
     }
 
     pub fn events_rx(&self) -> &Receiver<ChildEvent> {
-        &self.events_rx
+        &self.event_rx
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::io::Error;
-    use std::ptr;
-    use std::time::Duration;
-
+    use std::os::windows::io::AsRawHandle;
+    use std::process::Command;
     use std::sync::mpsc::channel;
-
-    use widestring::U16CString;
-
-    use winapi::shared::ntdef::LPWSTR;
-    use winapi::um::processthreadsapi::{
-        CreateProcessW, TerminateProcess, PROCESS_INFORMATION, STARTUPINFOW,
-    };
+    use std::time::Duration;
 
     use super::*;
 
-    fn make_cmd_process() -> Result<HANDLE, Error> {
-        let mut pi: PROCESS_INFORMATION = Default::default();
-        let mut si: STARTUPINFOW = Default::default();
-        let cmdline = U16CString::from_str("cmd.exe").unwrap();
-
-        unsafe {
-            if 0 == CreateProcessW(
-                ptr::null(),
-                cmdline.as_ptr() as LPWSTR,
-                ptr::null_mut(),
-                ptr::null_mut(),
-                false as i32,
-                Default::default(),
-                ptr::null_mut(),
-                ptr::null_mut(),
-                &mut si as *mut STARTUPINFOW,
-                &mut pi as *mut PROCESS_INFORMATION,
-            ) {
-                Err(Error::last_os_error())
-            } else {
-                Ok(pi.hProcess)
-            }
-        }
-    }
-
     #[test]
     pub fn on_handle_wait_runs_callback_when_process_exits() {
-        // The test should only take few milliseconds to succeed but will
-        // only fail due to timeout. It can be safely assumed that if callback
-        // has not been called after `WAIT_TIMEOUT` duration, there is some
-        // issue with the code under test.
         const WAIT_TIMEOUT: Duration = Duration::from_millis(200);
 
         let (sender, receiver) = channel::<()>();
-        let subprocess_handle = make_cmd_process().unwrap();
+        let mut command = Command::new("cmd.exe");
+        let mut child = command.spawn().unwrap();
+        let subprocess_handle = child.as_raw_handle();
 
-        // Setup callback to signal Condvar when process exits
-        let _hnd_wait = HandleWaitSignal::new(subprocess_handle, move || {
+        // Setup exit handler to send an empty message through the channel.
+        let _exit_handler = WaitSignalHandler::new(subprocess_handle, move || {
             sender.send(()).unwrap();
         })
         .unwrap();
 
-        // Kill the subprocess
-        let kill_succeeded = unsafe { TerminateProcess(subprocess_handle, 0) };
-        assert!(kill_succeeded > 0, "Couldn't kill the process");
+        child.kill().unwrap();
 
-        // Wait for anything to be sent via the channel or time-out with error
+        // Wait for the message on the channel or time-out if the message has not been sent.
         receiver.recv_timeout(WAIT_TIMEOUT).unwrap();
     }
 }
