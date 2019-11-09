@@ -129,7 +129,7 @@ mod test {
 
         child.kill().unwrap();
 
-        // Wait for the message on the channel or time-out if the message has not been sent.
+        // Wait for the message on the channel or fail after timeout if no message is received.
         receiver.recv_timeout(WAIT_TIMEOUT).unwrap();
     }
 }
