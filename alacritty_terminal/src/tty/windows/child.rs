@@ -67,7 +67,7 @@ impl HandleWaitSignal {
             )
         };
 
-        if 0 == success {
+        if success == 0 {
             Err(Error::last_os_error())
         } else {
             Ok(HandleWaitSignal { wait_handle: AtomicPtr::from(wait_handle) })
