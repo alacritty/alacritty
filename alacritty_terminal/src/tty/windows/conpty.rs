@@ -38,7 +38,7 @@ use winapi::um::wincontypes::{COORD, HPCON};
 use crate::config::{Config, Shell};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
-use crate::tty::windows::child::ChildProcessWatcher;
+use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::windows::Pty;
 
 /// Dynamically-loaded Pseudoconsole API from kernel32.dll
@@ -243,7 +243,7 @@ pub fn new<'a, C>(
     let conin = EventedAnonWrite::new(conin);
     let conout = EventedAnonRead::new(conout);
 
-    let child_watcher = ChildProcessWatcher::new(proc_info.hProcess).unwrap();
+    let child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
     let agent = Conpty { handle: pty_handle, api };
 
     Some(Pty {

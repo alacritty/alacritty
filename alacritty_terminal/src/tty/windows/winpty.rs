@@ -28,7 +28,7 @@ use winpty::{Config as WinptyConfig, ConfigFlags, MouseMode, SpawnConfig, SpawnF
 use crate::config::{Config, Shell};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
-use crate::tty::windows::child::ChildProcessWatcher;
+use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::windows::Pty;
 
 // We store a raw pointer because we need mutable access to call
@@ -136,7 +136,7 @@ pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>
 
     winpty.spawn(&spawnconfig).unwrap();
 
-    let child_watcher = ChildProcessWatcher::new(winpty.raw_handle()).unwrap();
+    let child_watcher = ChildExitWatcher::new(winpty.raw_handle()).unwrap();
     let agent = Agent::new(winpty);
 
     Pty {
