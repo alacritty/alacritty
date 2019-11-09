@@ -1059,5 +1059,20 @@ mod tests {
         // 5 items should have been loaded, 5 already existed.
         assert_eq!(res1_load, Ok(5usize));
         assert_eq!(test.series.active_items, 10usize);
+        assert_eq!(
+            test.series.as_vec(),
+            vec![
+                (1571511822, Some(1.8359322)),
+                (1571511823, Some(1.8359323)),
+                (1571511824, Some(1.8359324)),
+                (1571511825, Some(1.8359325)),
+                (1571511826, Some(1.8359326)),
+                (1571511827, Some(1.8359327)),
+                (1571511828, Some(1.8359328)),
+                (1571511829, Some(1.8359329)),
+                (1571511830, Some(1.8359330)),
+                (1571511831, Some(1.8359331))
+            ]
+        );
     }
 }
