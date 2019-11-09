@@ -35,7 +35,7 @@ where
     callback();
 }
 
-/// Represents closure attached to Win32 handle wait signal
+/// Represents closure attached to Win32 handle wait signal.
 ///
 /// This allows to fire a Rust callback when subprocess exits
 pub(crate) struct HandleWaitSignal {
