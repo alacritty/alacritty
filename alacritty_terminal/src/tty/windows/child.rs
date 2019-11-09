@@ -37,7 +37,7 @@ where
 
 /// Represents closure attached to Win32 handle wait signal.
 ///
-/// This allows to fire a Rust callback when subprocess exits
+/// This allows firing a Rust callback when the subprocess exits.
 pub(crate) struct HandleWaitSignal {
     wait_handle: AtomicPtr<c_void>,
 }
