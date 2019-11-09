@@ -323,10 +323,6 @@ impl PrometheusTimeSeries {
                                 let opt_epoch = prometheus_epoch_to_u64(&item[0]);
                                 let value = serde_json_to_num(&item[1]);
                                 if let Some(epoch) = opt_epoch {
-                                    debug!(
-                                        "load_prometheus_response: Upserting from Matrix({},{:?}),",
-                                        epoch, value
-                                    );
                                     loaded_items += self.series.upsert((epoch, value));
                                 }
                             }
