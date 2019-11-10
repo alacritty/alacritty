@@ -1007,7 +1007,8 @@ impl TimeSeries {
             self.metrics.push(input);
             self.active_items += 1;
         } else {
-            self.metrics[(self.first_idx + self.active_items) % self.metrics_capacity] = input;
+            let target_idx = (self.first_idx + self.active_items) % self.metrics_capacity;
+            self.metrics[target_idx] = input;
             if self.active_items < self.metrics_capacity {
                 self.active_items += 1;
             }
@@ -1024,12 +1025,13 @@ impl TimeSeries {
     pub fn upsert(&mut self, input: (u64, Option<f64>)) -> usize {
         // maybe better to overwrite the data receiving an array.
         if !self.metrics.is_empty() {
-            let mut last_idx = (self.first_idx + self.active_items - 1) % self.metrics.len();
-            if (self.metrics[last_idx].0 as i64 - input.0 as i64) > self.metrics_capacity as i64 {
+            let last_idx = (self.first_idx + self.active_items - 1) % self.metrics.len();
+            if (self.metrics[last_idx].0 as i64 - input.0 as i64) >= self.metrics_capacity as i64 {
                 // The timestamp is too old and should be discarded.
                 // This means we cannot scroll back in time.
                 // i.e. if the date of the computer needs to go back in time
                 // we would need to restart the terminal to see metrics
+                // XXX: What about timezones?
                 return 0;
             }
             // as_vec() is 5, 6, 7, 3, 4
@@ -1043,17 +1045,46 @@ impl TimeSeries {
                 self.metrics[0] = input;
                 self.active_items = 1;
                 return 1;
-            } else if inactive_time <= 0 {
-                // We have a metric for an epoch that we have filled and is active
-                last_idx = (self.metrics_capacity as i64 + last_idx as i64 + inactive_time)
-                    as usize
-                    % self.metrics_capacity;
+            } else if inactive_time < 0 {
+                // We have a metric for an epoch in the past.
+                let current_min_epoch = self.metrics[self.first_idx].0;
+                if current_min_epoch > input.0 {
+                    // The input epoch before anything we have registered.
+                    // But still within our capacity boundaries
+                    let padding_items = (current_min_epoch - input.0) as usize;
+                    // The vector is not full, let's shift the items to the right
+                    // The array items have not been allocated at this point:
+                    self.metrics.insert(0, input);
+                    for idx in 1..padding_items {
+                        self.metrics.insert(idx, (input.0 + idx as u64, None));
+                    }
+                    self.active_items += padding_items;
+                    return padding_items;
+                } else {
+                    // The input epoch has already been inserted in our array
+                    let target_idx = ((self.metrics.len() as i64 + last_idx as i64 + inactive_time)
+                        % self.metrics.len() as i64) as usize;
+                    if self.metrics[target_idx].0 != input.0 {
+                        error!(
+                            "upsert: lost synchronylen: {}, last_idx: {}, inactive_time: {}",
+                            self.metrics.len(),
+                            last_idx,
+                            inactive_time
+                        );
+                    }
+                    self.metrics[target_idx].1 =
+                        self.resolve_metric_collision(self.metrics[target_idx].1, input.1);
+                    return 0;
+                }
+            } else if inactive_time == 0 {
+                // We have a metric for the last indexed epoch
                 self.metrics[last_idx].1 =
                     self.resolve_metric_collision(self.metrics[last_idx].1, input.1);
                 return 0;
             } else {
-                // Fill missing entries with None
+                // The input epoch is in the future
                 let max_epoch = self.metrics[last_idx].0;
+                // Fill missing entries with None
                 for fill_epoch in (max_epoch + 1)..input.0 {
                     self.circular_push((fill_epoch, None));
                 }
@@ -1159,6 +1190,7 @@ mod tests {
     fn init_log() {
         let _ = env_logger::builder().is_test(true).try_init();
     }
+
     #[test]
     fn it_pushes_circular_buffer() {
         // The circular buffer inserts rotating the first and last index
@@ -1205,6 +1237,7 @@ mod tests {
         assert_eq!(test.first_idx, 2);
         assert_eq!(test.active_items, 4);
     }
+
     #[test]
     fn it_gets_last_filled_value() {
         let mut test = TimeSeries::default().with_capacity(4);
@@ -1218,6 +1251,7 @@ mod tests {
         test.circular_push((11, None));
         test.upsert((12, Some(2f64)));
     }
+
     #[test]
     fn it_transforms_to_flat_vec() {
         let mut test = TimeSeries::default().with_capacity(4);
@@ -1254,6 +1288,7 @@ mod tests {
         test.active_items = 2;
         assert_eq!(test.as_vec(), vec![(13, Some(3f64)), (14, Some(4f64))]);
     }
+
     #[test]
     fn it_fills_empty_epochs() {
         init_log();
@@ -1323,6 +1358,7 @@ mod tests {
             ]
         );
     }
+
     #[test]
     fn it_applies_missing_policies() {
         let mut test_zero = TimeSeries::default().with_capacity(5);
@@ -1440,6 +1476,46 @@ mod tests {
         no_dups.update_series_opengl_vecs(0, size_test);
         // we expect a line from 1, 1->2, 3, 4, 5, 6
         assert_eq!(no_dups.get_deduped_opengl_vecs(0).len(), 14usize);
+    }
+
+    #[test]
+    fn it_adds_old_items() {
+        init_log();
+        let mut test0: TimeSeries = TimeSeries::default().with_capacity(10usize);
+        // Assume something sets a value in the present.
+        // And then we get records for items in the past.
+        assert_eq!(test0.upsert((22, Some(22.))), 1usize);
+        assert_eq!(test0.metrics[0], (22, Some(22.)));
+        assert_eq!(test0.as_vec(), vec![(22, Some(22.))]);
+        assert_eq!(test0.first_idx, 0usize);
+        assert_eq!(test0.upsert((21, Some(21.))), 1usize);
+        assert_eq!(test0.metrics[0], (21, Some(21.)));
+        assert_eq!(test0.metrics[1], (22, Some(22.)));
+        assert_eq!(test0.first_idx, 0usize);
+        assert_eq!(test0.as_vec(), vec![(21, Some(21.)), (22, Some(22.))]);
+        // This value is too old and should be discarded.
+        assert_eq!(test0.upsert((11, None)), 0usize);
+        assert_eq!(test0.as_vec(), vec![(21, Some(21.)), (22, Some(22.))]);
+        // This value should be the new item[0]
+        assert_eq!(test0.upsert((13, Some(13.))), 8usize);
+        assert_eq!(test0.first_idx, 0usize);
+        assert_eq!(test0.metrics[0], (13, Some(13.)));
+        assert_eq!(test0.metrics[1], (14, None));
+        assert_eq!(
+            test0.as_vec(),
+            vec![
+                (13, Some(13.)),
+                (14, None),
+                (15, None),
+                (16, None),
+                (17, None),
+                (18, None),
+                (19, None),
+                (20, None),
+                (21, Some(21.)),
+                (22, Some(22.)),
+            ]
+        );
     }
 
     #[test]
