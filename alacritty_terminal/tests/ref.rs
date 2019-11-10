@@ -53,6 +53,7 @@ ref_tests! {
     row_reset
     zerowidth
     selective_erasure
+    colored_reset
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
