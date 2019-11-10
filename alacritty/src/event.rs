@@ -600,9 +600,8 @@ impl<N: Notify> Processor<N> {
             },
             GlutinEvent::DeviceEvent { event, .. } => {
                 use glutin::event::DeviceEvent::*;
-                match event {
-                    ModifiersChanged { modifiers } => processor.modifiers_input(modifiers),
-                    _ => (),
+                if let ModifiersChanged { modifiers } = event {
+                    processor.modifiers_input(modifiers);
                 }
             },
             GlutinEvent::Suspended { .. }
