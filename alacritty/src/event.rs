@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use glutin::dpi::PhysicalSize;
-use glutin::event::{ElementState, Event as GlutinEvent, MouseButton};
+use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
 use glutin::platform::desktop::EventLoopExtDesktop;
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -38,7 +38,7 @@ use alacritty_terminal::util::{limit, start_daemon};
 use crate::config;
 use crate::config::Config;
 use crate::display::Display;
-use crate::input::{self, ActionContext as _, Modifiers, FONT_SIZE_STEP};
+use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 use crate::window::Window;
 
 #[derive(Default, Clone, Debug, PartialEq)]
@@ -61,7 +61,7 @@ pub struct ActionContext<'a, N, T> {
     pub mouse: &'a mut Mouse,
     pub received_count: &'a mut usize,
     pub suppress_chars: &'a mut bool,
-    pub modifiers: &'a mut Modifiers,
+    pub modifiers: &'a mut ModifiersState,
     pub window: &'a mut Window,
     pub message_buffer: &'a mut MessageBuffer,
     pub display_update_pending: &'a mut DisplayUpdate,
@@ -174,7 +174,7 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
     }
 
     #[inline]
-    fn modifiers(&mut self) -> &mut Modifiers {
+    fn modifiers(&mut self) -> &mut ModifiersState {
         &mut self.modifiers
     }
 
@@ -307,7 +307,7 @@ pub struct Processor<N> {
     mouse: Mouse,
     received_count: usize,
     suppress_chars: bool,
-    modifiers: Modifiers,
+    modifiers: ModifiersState,
     config: Config,
     pty_resize_handle: Box<dyn OnResize>,
     message_buffer: MessageBuffer,
@@ -449,7 +449,7 @@ impl<N: Notify> Processor<N> {
                     &self.message_buffer,
                     &self.config,
                     &self.mouse,
-                    self.modifiers.into(),
+                    self.modifiers,
                 );
             }
         });
@@ -514,7 +514,7 @@ impl<N: Notify> Processor<N> {
                         processor.ctx.terminal.dirty = true;
                     },
                     KeyboardInput { input, .. } => {
-                        processor.process_key(input);
+                        processor.key_input(input);
                         if input.state == ElementState::Pressed {
                             // Hide cursor while typing
                             if processor.ctx.config.ui_config.mouse.hide_when_typing {
@@ -540,7 +540,7 @@ impl<N: Notify> Processor<N> {
                     },
                     MouseWheel { delta, phase, modifiers, .. } => {
                         processor.ctx.window.set_mouse_visible(true);
-                        processor.on_mouse_wheel(delta, phase, modifiers);
+                        processor.mouse_wheel_input(delta, phase, modifiers);
                     },
                     Focused(is_focused) => {
                         if window_id == processor.ctx.window.window_id() {
@@ -596,12 +596,16 @@ impl<N: Notify> Processor<N> {
                     | HoveredFile(_)
                     | Touch(_)
                     | Moved(_) => (),
-                    // TODO: Add support for proper modifier handling
-                    ModifiersChanged { .. } => (),
                 }
             },
-            GlutinEvent::DeviceEvent { .. }
-            | GlutinEvent::Suspended { .. }
+            GlutinEvent::DeviceEvent { event, .. } => {
+                use glutin::event::DeviceEvent::*;
+                match event {
+                    ModifiersChanged { modifiers } => processor.modifiers_input(modifiers),
+                    _ => (),
+                }
+            },
+            GlutinEvent::Suspended { .. }
             | GlutinEvent::NewEvents { .. }
             | GlutinEvent::EventsCleared
             | GlutinEvent::Resumed
@@ -627,8 +631,14 @@ impl<N: Notify> Processor<N> {
                     _ => false,
                 }
             },
-            GlutinEvent::DeviceEvent { .. }
-            | GlutinEvent::Suspended { .. }
+            GlutinEvent::DeviceEvent { event, .. } => {
+                use glutin::event::DeviceEvent::*;
+                match event {
+                    ModifiersChanged { .. } => false,
+                    _ => true,
+                }
+            },
+            GlutinEvent::Suspended { .. }
             | GlutinEvent::NewEvents { .. }
             | GlutinEvent::EventsCleared
             | GlutinEvent::LoopDestroyed => true,
