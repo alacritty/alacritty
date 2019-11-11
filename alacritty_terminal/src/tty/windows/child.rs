@@ -110,10 +110,20 @@ mod test {
         poll.poll(&mut events, Some(WAIT_TIMEOUT)).unwrap();
         for event in events.iter() {
             if event.token() == child_events_token {
-                // Verify the right event was emitted.
-                assert_eq!(child_exit_watcher.event_rx().try_recv().unwrap(), ChildEvent::Exited);
-                return;
+                // Verify that at least one `ChildEvent::Exited` was received
+                loop {
+                    let result = child_exit_watcher.event_rx().try_recv();
+                    match result {
+                        Ok(ChildEvent::Exited) => {
+                            return; // Success
+                        },
+                        Err(_) => {
+                            break;
+                        },
+                    }
+                }
             }
         }
+        panic!("No event {:?} was received", ChildEvent::Exited);
     }
 }
