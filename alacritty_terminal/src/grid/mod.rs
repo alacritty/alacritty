@@ -74,7 +74,7 @@ pub trait GridCell {
 
 /// Represents the terminal display contents
 ///
-/// ```
+/// ```notrust
 /// +--------------------------------------------+ <--- self.scroll_limit
 /// |                                            |
 /// |                                            |
