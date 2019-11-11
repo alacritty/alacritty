@@ -17,14 +17,14 @@
 // the async_coordinator to send data somehow to the main thread.
 // -- When data is not received from a channel, the line does not move anymore, consider adding a
 //    ($now, None) to the array
+// -- When disconnected from a server, the connection is not retried.
+// -- mock the prometheus server and response
 // IN PROGRESS:
 // -- Group labels into separate colors (find something that does color spacing in rust)
 // -- When disconnected from a server, it is not easy to know which one or why.
 // TODO:
 // -- The dashboards should be toggable, some key combination
 // -- When activated on toggle it could blur a portion of the screen
-// -- mock the prometheus server and response
-// -- When disconnected from a server, the connection is not retried.
 
 #![warn(rust_2018_idioms)]
 #[macro_use]
