@@ -13,8 +13,6 @@ use glutin::dpi::PhysicalSize;
 use glutin::event::{ElementState, Event as GlutinEvent, ModifiersState, MouseButton};
 use glutin::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
 use glutin::platform::desktop::EventLoopExtDesktop;
-#[cfg(not(any(target_os = "macos", windows)))]
-use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use log::{debug, info, warn};
 use serde_json as json;
 
@@ -346,9 +344,6 @@ impl<N: Notify> Processor<N> {
     where
         T: EventListener,
     {
-        #[cfg(not(any(target_os = "macos", windows)))]
-        let mut dpr_initialized = false;
-
         let mut event_queue = Vec::new();
 
         event_loop.run_return(|event, _event_loop, control_flow| {
@@ -403,25 +398,6 @@ impl<N: Notify> Processor<N> {
 
             for event in event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);
-            }
-
-            // TODO: Workaround for incorrect startup DPI on X11
-            // https://github.com/rust-windowing/winit/issues/998
-            #[cfg(not(any(target_os = "macos", windows)))]
-            {
-                if !dpr_initialized && _event_loop.is_x11() {
-                    dpr_initialized = true;
-
-                    let dpr = self.display.window.hidpi_factor();
-                    self.display.size_info.dpr = dpr;
-
-                    let size = self.display.window.inner_size().to_physical(dpr);
-
-                    display_update_pending.font = Some(self.config.font.clone());
-                    display_update_pending.dimensions = Some(size);
-
-                    terminal.dirty = true;
-                }
             }
 
             // Process DisplayUpdate events
