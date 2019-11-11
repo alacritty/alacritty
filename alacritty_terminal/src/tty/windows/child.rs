@@ -28,8 +28,8 @@ extern "system" fn child_exit_callback(ctx: PVOID, timed_out: BOOLEAN) {
         return;
     }
 
-    let sender: Box<_> = unsafe { Box::from_raw(ctx as *mut Sender<ChildEvent>) };
-    let _ = sender.send(ChildEvent::Exited);
+    let event_tx: Box<_> = unsafe { Box::from_raw(ctx as *mut Sender<ChildEvent>) };
+    let _ = event_tx.send(ChildEvent::Exited);
 }
 
 pub struct ChildExitWatcher {
@@ -39,10 +39,10 @@ pub struct ChildExitWatcher {
 
 impl ChildExitWatcher {
     pub fn new(child_handle: HANDLE) -> Result<ChildExitWatcher, Error> {
-        let (sender, receiver) = channel::<ChildEvent>();
+        let (event_tx, event_rx) = channel::<ChildEvent>();
 
         let mut wait_handle: HANDLE = 0 as HANDLE;
-        let sender_ref = Box::new(sender);
+        let sender_ref = Box::new(event_tx);
 
         let success = unsafe {
             RegisterWaitForSingleObject(
@@ -58,7 +58,7 @@ impl ChildExitWatcher {
         if success == 0 {
             Err(Error::last_os_error())
         } else {
-            Ok(ChildExitWatcher { wait_handle: AtomicPtr::from(wait_handle), event_rx: receiver })
+            Ok(ChildExitWatcher { wait_handle: AtomicPtr::from(wait_handle), event_rx })
         }
     }
 
@@ -89,12 +89,10 @@ mod test {
     pub fn event_is_emitted_when_child_exits() {
         const WAIT_TIMEOUT: Duration = Duration::from_millis(200);
 
-        let (sender, receiver) = channel::<()>();
-        let mut command = Command::new("cmd.exe");
-        let mut child = command.spawn().unwrap();
+        let mut child = Command::new("cmd.exe").spawn().unwrap();
         let child_exit_watcher = ChildExitWatcher::new(child.as_raw_handle()).unwrap();
 
-        let mut poll = Poll::new().unwrap();
+        let poll = Poll::new().unwrap();
         let mut events = Events::with_capacity(8);
         let child_events_token = Token::from(0usize);
 
