@@ -26,7 +26,6 @@ use std::time::Instant;
 
 use glutin::event::{
     ElementState, KeyboardInput, ModifiersState, MouseButton, MouseScrollDelta, TouchPhase,
-    VirtualKeyCode,
 };
 use glutin::window::CursorIcon;
 use log::{debug, trace, warn};
@@ -77,7 +76,7 @@ pub trait ActionContext<T: EventListener> {
     fn mouse_coords(&self) -> Option<Point>;
     fn received_count(&mut self) -> &mut usize;
     fn suppress_chars(&mut self) -> &mut bool;
-    fn modifiers(&mut self) -> &mut Modifiers;
+    fn modifiers(&mut self) -> &mut ModifiersState;
     fn scroll(&mut self, scroll: Scroll);
     fn window(&self) -> &Window;
     fn window_mut(&mut self) -> &mut Window;
@@ -89,64 +88,6 @@ pub trait ActionContext<T: EventListener> {
     fn pop_message(&mut self);
     fn message(&self) -> Option<&Message>;
     fn config(&self) -> &Config;
-}
-
-#[derive(Debug, Default, Copy, Clone)]
-pub struct Modifiers {
-    glutin_mods: ModifiersState,
-    lshift: bool,
-    rshift: bool,
-    lalt: bool,
-    ralt: bool,
-    lctrl: bool,
-    rctrl: bool,
-}
-
-impl Modifiers {
-    pub fn update_keys(&mut self, input: KeyboardInput) {
-        match input.virtual_keycode {
-            Some(VirtualKeyCode::LShift) => self.lshift = input.state == ElementState::Pressed,
-            Some(VirtualKeyCode::RShift) => self.rshift = input.state == ElementState::Pressed,
-            Some(VirtualKeyCode::LAlt) => self.lalt = input.state == ElementState::Pressed,
-            Some(VirtualKeyCode::RAlt) => self.ralt = input.state == ElementState::Pressed,
-            Some(VirtualKeyCode::LControl) => self.lctrl = input.state == ElementState::Pressed,
-            Some(VirtualKeyCode::RControl) => self.rctrl = input.state == ElementState::Pressed,
-            _ => (),
-        }
-
-        self.update_mods(input.modifiers);
-    }
-
-    pub fn update_mods(&mut self, mods: ModifiersState) {
-        self.glutin_mods = mods;
-    }
-
-    pub fn shift(self) -> bool {
-        self.glutin_mods.shift || self.lshift || self.rshift
-    }
-
-    pub fn ctrl(self) -> bool {
-        self.glutin_mods.ctrl || self.lctrl || self.rctrl
-    }
-
-    pub fn logo(self) -> bool {
-        self.glutin_mods.logo
-    }
-
-    pub fn alt(self) -> bool {
-        self.glutin_mods.alt || self.lalt || self.ralt
-    }
-}
-
-impl From<Modifiers> for ModifiersState {
-    fn from(mods: Modifiers) -> ModifiersState {
-        ModifiersState {
-            shift: mods.shift(),
-            ctrl: mods.ctrl(),
-            logo: mods.logo(),
-            alt: mods.alt(),
-        }
-    }
 }
 
 trait Execute<T: EventListener> {
@@ -254,39 +195,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         Self { ctx, urls, highlighted_url, _phantom: Default::default() }
     }
 
-    fn mouse_state(&mut self, mods: ModifiersState) -> MouseState {
-        // Check message bar before URL to ignore URLs in the message bar
-        if self.message_close_at_cursor() {
-            return MouseState::MessageBarButton;
-        } else if self.message_at_cursor() {
-            return MouseState::MessageBar;
-        }
-
-        // Check for URL at mouse cursor
-        let selection =
-            !self.ctx.terminal().selection().as_ref().map(Selection::is_empty).unwrap_or(true);
-        let mouse_mode = self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE);
-        let highlighted_url =
-            self.urls.highlighted(self.ctx.config(), self.ctx.mouse(), mods, mouse_mode, selection);
-
-        if let Some(url) = highlighted_url {
-            return MouseState::Url(url);
-        }
-
-        // Check mouse mode if location is not special
-        if self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE)
-            && !self.ctx.modifiers().shift()
-        {
-            MouseState::Mouse
-        } else {
-            MouseState::Text
-        }
-    }
-
     #[inline]
     pub fn mouse_moved(&mut self, x: usize, y: usize, modifiers: ModifiersState) {
-        self.ctx.modifiers().update_mods(modifiers);
-
         let size_info = self.ctx.size_info();
 
         self.ctx.mouse_mut().x = x;
@@ -366,7 +276,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
     }
 
-    pub fn normal_mouse_report(&mut self, button: u8) {
+    fn normal_mouse_report(&mut self, button: u8) {
         let (line, column) = (self.ctx.mouse().line, self.ctx.mouse().column);
         let utf8 = self.ctx.terminal().mode().contains(TermMode::UTF8_MOUSE);
 
@@ -400,7 +310,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.write_to_pty(msg);
     }
 
-    pub fn sgr_mouse_report(&mut self, button: u8, state: ElementState) {
+    fn sgr_mouse_report(&mut self, button: u8, state: ElementState) {
         let (line, column) = (self.ctx.mouse().line, self.ctx.mouse().column);
         let c = match state {
             ElementState::Pressed => 'M',
@@ -411,7 +321,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         self.ctx.write_to_pty(msg.into_bytes());
     }
 
-    pub fn mouse_report(&mut self, button: u8, state: ElementState, modifiers: ModifiersState) {
+    fn mouse_report(&mut self, button: u8, state: ElementState, modifiers: ModifiersState) {
         // Calculate modifiers value
         let mut mods = 0;
         if modifiers.shift {
@@ -434,21 +344,19 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
     }
 
-    pub fn on_mouse_double_click(&mut self, button: MouseButton, point: Point) {
+    fn on_mouse_double_click(&mut self, button: MouseButton, point: Point) {
         if button == MouseButton::Left {
             self.ctx.semantic_selection(point);
         }
     }
 
-    pub fn on_mouse_triple_click(&mut self, button: MouseButton, point: Point) {
+    fn on_mouse_triple_click(&mut self, button: MouseButton, point: Point) {
         if button == MouseButton::Left {
             self.ctx.line_selection(point);
         }
     }
 
-    pub fn on_mouse_press(&mut self, button: MouseButton, modifiers: ModifiersState) {
-        self.ctx.modifiers().update_mods(modifiers);
-
+    fn on_mouse_press(&mut self, button: MouseButton, modifiers: ModifiersState) {
         let now = Instant::now();
         let elapsed = self.ctx.mouse().last_click_timestamp.elapsed();
         self.ctx.mouse_mut().last_click_timestamp = now;
@@ -508,7 +416,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         };
     }
 
-    pub fn on_mouse_release(&mut self, button: MouseButton, modifiers: ModifiersState) {
+    fn on_mouse_release(&mut self, button: MouseButton, modifiers: ModifiersState) {
         if !modifiers.shift && self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE) {
             let code = match button {
                 MouseButton::Left => 0,
@@ -547,7 +455,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
     }
 
-    pub fn on_mouse_wheel(
+    pub fn mouse_wheel_input(
         &mut self,
         delta: MouseScrollDelta,
         phase: TouchPhase,
@@ -683,14 +591,9 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     }
 
     /// Process key input.
-    pub fn process_key(&mut self, input: KeyboardInput) {
-        self.ctx.modifiers().update_keys(input);
-
-        // Update mouse state and check for URL change
-        let mods = (*self.ctx.modifiers()).into();
-        let mouse_state = self.mouse_state(mods);
-        self.update_url_state(&mouse_state);
-        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
+    pub fn key_input(&mut self, input: KeyboardInput) {
+        // TODO: Implement `ModifiersChanged` event on all platforms: rust-windowing/winit#1151
+        self.modifiers_input(input.modifiers);
 
         match input.state {
             ElementState::Pressed => {
@@ -699,6 +602,16 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             },
             ElementState::Released => *self.ctx.suppress_chars() = false,
         }
+    }
+
+    /// Modifier state change.
+    pub fn modifiers_input(&mut self, modifiers: ModifiersState) {
+        *self.ctx.modifiers() = modifiers;
+
+        // Update mouse state and check for URL change
+        let mouse_state = self.mouse_state(modifiers);
+        self.update_url_state(&mouse_state);
+        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
     }
 
     /// Process a received character.
@@ -719,7 +632,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         if self.ctx.config().alt_send_esc()
             && *self.ctx.received_count() == 0
-            && self.ctx.modifiers().alt()
+            && self.ctx.modifiers().alt
             && utf8_len == 1
         {
             bytes.insert(0, b'\x1b');
@@ -729,6 +642,14 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         *self.ctx.received_count() += 1;
         self.ctx.terminal_mut().dirty = false;
+    }
+
+    /// Reset mouse cursor based on modifier and terminal state.
+    #[inline]
+    pub fn reset_mouse_cursor(&mut self) {
+        let mods = *self.ctx.modifiers();
+        let mouse_state = self.mouse_state(mods);
+        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
     }
 
     /// Attempt to find a binding and execute its action.
@@ -813,11 +734,34 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
     }
 
-    #[inline]
-    pub fn reset_mouse_cursor(&mut self) {
-        let mods = (*self.ctx.modifiers()).into();
-        let mouse_state = self.mouse_state(mods);
-        self.ctx.window_mut().set_mouse_cursor(mouse_state.into());
+    /// Location of the mouse cursor.
+    fn mouse_state(&mut self, mods: ModifiersState) -> MouseState {
+        // Check message bar before URL to ignore URLs in the message bar
+        if self.message_close_at_cursor() {
+            return MouseState::MessageBarButton;
+        } else if self.message_at_cursor() {
+            return MouseState::MessageBar;
+        }
+
+        // Check for URL at mouse cursor
+        let selection =
+            !self.ctx.terminal().selection().as_ref().map(Selection::is_empty).unwrap_or(true);
+        let mouse_mode = self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE);
+        let highlighted_url =
+            self.urls.highlighted(self.ctx.config(), self.ctx.mouse(), mods, mouse_mode, selection);
+
+        if let Some(url) = highlighted_url {
+            return MouseState::Url(url);
+        }
+
+        // Check mouse mode if location is not special
+        if self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE)
+            && !self.ctx.modifiers().shift
+        {
+            MouseState::Mouse
+        } else {
+            MouseState::Text
+        }
     }
 }
 
@@ -843,7 +787,7 @@ mod tests {
     use crate::url::Urls;
     use crate::window::Window;
 
-    use super::{Action, Binding, Modifiers, Processor};
+    use super::{Action, Binding, Processor};
 
     const KEY: VirtualKeyCode = VirtualKeyCode::Key0;
 
@@ -869,7 +813,7 @@ mod tests {
         pub last_action: MultiClick,
         pub received_count: usize,
         pub suppress_chars: bool,
-        pub modifiers: Modifiers,
+        pub modifiers: ModifiersState,
         config: &'a Config,
     }
 
@@ -950,7 +894,7 @@ mod tests {
             &mut self.suppress_chars
         }
 
-        fn modifiers(&mut self) -> &mut Modifiers {
+        fn modifiers(&mut self) -> &mut ModifiersState {
             &mut self.modifiers
         }
 
@@ -1026,7 +970,7 @@ mod tests {
                     last_action: MultiClick::None,
                     received_count: 0,
                     suppress_chars: false,
-                    modifiers: Modifiers::default(),
+                    modifiers: Default::default(),
                     message_buffer: &mut message_buffer,
                     config: &cfg,
                 };
