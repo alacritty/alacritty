@@ -16,7 +16,7 @@
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut, Range};
 use std::time::{Duration, Instant};
-use std::{io, mem, ptr};
+use std::{io, mem, ptr, str};
 
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
@@ -1718,8 +1718,33 @@ impl<T: EventListener> ansi::Handler for Term<T> {
 
     /// Set the clipboard
     #[inline]
-    fn set_clipboard(&mut self, string: &str) {
-        self.clipboard.store(ClipboardType::Clipboard, string);
+    fn set_clipboard(&mut self, clipboard: u8, base64: &[u8]) {
+        let clipboard_type = match clipboard {
+            b'c' => ClipboardType::Clipboard,
+            b'p' | b's' => ClipboardType::Selection,
+            _ => return,
+        };
+
+        if let Ok(bytes) = base64::decode(base64) {
+            if let Ok(text) = str::from_utf8(&bytes) {
+                self.clipboard.store(clipboard_type, text);
+            }
+        }
+    }
+
+    /// Write clipboard data to child.
+    #[inline]
+    fn write_clipboard<W: io::Write>(&mut self, clipboard: u8, writer: &mut W) {
+        let clipboard_type = match clipboard {
+            b'c' => ClipboardType::Clipboard,
+            b'p' | b's' => ClipboardType::Selection,
+            _ => return,
+        };
+
+        let text = self.clipboard.load(clipboard_type);
+        let base64 = base64::encode(&text);
+        let escape = format!("\x1b]52;{};{}\x07", clipboard as char, base64);
+        let _ = writer.write_all(escape.as_bytes());
     }
 
     #[inline]

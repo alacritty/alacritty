@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Print name of launch command if Alacritty failed to execute it
 - Live reload font settings from config
 - UTF-8 mouse mode escape sequence (`CSI ? 1005 h` / `CSI ? 1005 l`)
+- Escape for reading clipboard (`OSC 52 ; <s / p / c> ; ? BEL`)
+- Set selection clipboard (`OSC 52 ; <s / p> ; <BASE64> BEL`)
 
 ### Changed
 

@@ -16,7 +16,6 @@
 use std::io;
 use std::str;
 
-use base64;
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 
@@ -324,7 +323,10 @@ pub trait Handler {
     fn reset_color(&mut self, _: usize) {}
 
     /// Set the clipboard
-    fn set_clipboard(&mut self, _: &str) {}
+    fn set_clipboard(&mut self, _: u8, _: &[u8]) {}
+
+    /// Write clipboard data to child.
+    fn write_clipboard<W: io::Write>(&mut self, _: u8, _: &mut W) {}
 
     /// Run the dectest routine
     fn dectest(&mut self) {}
@@ -847,19 +849,13 @@ where
 
             // Set clipboard
             b"52" => {
-                if params.len() < 3 {
+                if params.len() < 3 || params[1].is_empty() {
                     return unhandled(params);
                 }
 
                 match params[2] {
-                    b"?" => unhandled(params),
-                    selection => {
-                        if let Ok(string) = base64::decode(selection) {
-                            if let Ok(utf8_string) = str::from_utf8(&string) {
-                                self.handler.set_clipboard(utf8_string);
-                            }
-                        }
-                    },
+                    b"?" => self.handler.write_clipboard(params[1][0], writer),
+                    base64 => self.handler.set_clipboard(params[1][0], base64),
                 }
             },
 
