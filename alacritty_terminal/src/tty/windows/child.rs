@@ -118,12 +118,11 @@ mod test {
                             return; // Success
                         },
                         Err(_) => {
-                            break;
+                            panic!("No event {:?} was received", ChildEvent::Exited);
                         },
                     }
                 }
             }
         }
-        panic!("No event {:?} was received", ChildEvent::Exited);
     }
 }
