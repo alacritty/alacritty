@@ -1105,7 +1105,7 @@ impl<T> Term<T> {
 
     pub fn swap_alt(&mut self) {
         if self.alt {
-            let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
+            let template = self.cursor.template;
             self.grid.region_mut(..).each(|c| c.reset(&template));
         }
 
@@ -1153,7 +1153,7 @@ impl<T> Term<T> {
         self.set_scrolling_region(1, self.grid.num_lines().0);
 
         // Clear grid
-        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
+        let template = self.cursor.template;
         self.grid.region_mut(..).each(|c| c.reset(&template));
     }
 
@@ -1310,7 +1310,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[inline]
     fn decaln(&mut self) {
         trace!("Decalnning");
-        let template = Cell { c: 'E', bg: self.cursor.template.bg, ..Cell::default() };
+        let template = Cell { c: 'E', ..self.cursor.template };
 
         self.grid.region_mut(..).each(|c| c.reset(&template));
     }
@@ -1362,9 +1362,8 @@ impl<T: EventListener> ansi::Handler for Term<T> {
 
         // Cells were just moved out towards the end of the line; fill in
         // between source and dest with blanks.
-        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
         for c in &mut line[source..destination] {
-            c.reset(&template);
+            c.reset(&self.cursor.template);
         }
     }
 
@@ -1581,9 +1580,8 @@ impl<T: EventListener> ansi::Handler for Term<T> {
 
         let row = &mut self.grid[self.cursor.point.line];
         // Cleared cells have current background color set
-        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
         for c in &mut row[start..end] {
-            c.reset(&template);
+            c.reset(&self.cursor.template);
         }
     }
 
@@ -1609,10 +1607,9 @@ impl<T: EventListener> ansi::Handler for Term<T> {
 
         // Clear last `count` cells in line. If deleting 1 char, need to delete
         // 1 cell.
-        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
         let end = cols - count;
         for c in &mut line[end..] {
-            c.reset(&template);
+            c.reset(&self.cursor.template);
         }
     }
 
@@ -1658,7 +1655,6 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[inline]
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         trace!("Clearing line: {:?}", mode);
-        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
 
         let col = self.cursor.point.col;
 
@@ -1666,19 +1662,19 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             ansi::LineClearMode::Right => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[col..] {
-                    cell.reset(&template);
+                    cell.reset(&self.cursor.template);
                 }
             },
             ansi::LineClearMode::Left => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..=col] {
-                    cell.reset(&template);
+                    cell.reset(&self.cursor.template);
                 }
             },
             ansi::LineClearMode::All => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..] {
-                    cell.reset(&template);
+                    cell.reset(&self.cursor.template);
                 }
             },
         }
