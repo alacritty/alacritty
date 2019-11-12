@@ -136,7 +136,12 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ToggleFullscreen => ctx.window_mut().toggle_fullscreen(),
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
-            Action::Hide => ctx.window().set_visible(false),
+            Action::Hide => {
+                #[cfg(target_os = "macos")]
+                hide_macos();
+                #[cfg(not(target_os = "macos"))]
+                ctx.window().set_visible(false);
+            },
             Action::Quit => ctx.terminal_mut().exit(),
             Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
             Action::DecreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP * -1.),
@@ -153,6 +158,18 @@ impl<T: EventListener> Execute<T> for Action {
             Action::ReceiveChar | Action::None => (),
         }
     }
+}
+
+// on macos, hide using NSApplication.sharedApplication().hide(nil)
+#[cfg(target_os = "macos")]
+fn hide_macos() {
+    use objc::runtime::{Class, Object};
+    use objc::{msg_send, sel, sel_impl};
+    use objc_id::Id;
+    let cls = Class::get("NSApplication").unwrap();
+    let app = unsafe { msg_send![cls, sharedApplication] };
+    let app: Id<Object> = unsafe { Id::from_ptr(app) };
+    let _: () = unsafe { msg_send![app, hide: 0] };
 }
 
 fn paste<T: EventListener, A: ActionContext<T>>(ctx: &mut A, contents: &str) {

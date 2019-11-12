@@ -31,6 +31,10 @@ rustc_tools_util = "0.2.0"
 [target.'cfg(not(windows))'.dependencies]
 xdg = "2"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2.2"
+objc_id = "0.1.1"
+
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 image = "0.22.3"
 
