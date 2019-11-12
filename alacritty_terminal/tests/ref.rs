@@ -55,6 +55,7 @@ ref_tests! {
     selective_erasure
     colored_reset
     delete_lines
+    delete_chars_reset
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
