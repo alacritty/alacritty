@@ -1023,13 +1023,6 @@ impl<T> Term<T> {
 
     /// Resize terminal to new dimensions
     pub fn resize(&mut self, size: &SizeInfo) {
-        // Bounds check; lots of math assumes width and height are > 0
-        if size.width as usize <= 2 * size.padding_x as usize
-            || size.height as usize <= 2 * size.padding_y as usize
-        {
-            return;
-        }
-
         let old_cols = self.grid.num_cols();
         let old_lines = self.grid.num_lines();
         let mut num_cols = size.cols();
