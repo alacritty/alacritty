@@ -1105,12 +1105,12 @@ impl<T> Term<T> {
 
     pub fn swap_alt(&mut self) {
         if self.alt {
-            let template = &self.cursor.template;
-            self.grid.region_mut(..).each(|c| c.reset(template));
+            let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
+            self.grid.region_mut(..).each(|c| c.reset(&template));
         }
 
         self.alt = !self.alt;
-        ::std::mem::swap(&mut self.grid, &mut self.alt_grid);
+        std::mem::swap(&mut self.grid, &mut self.alt_grid);
     }
 
     /// Scroll screen down
