@@ -1878,22 +1878,33 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             },
             ansi::Mode::ShowCursor => self.mode.insert(TermMode::SHOW_CURSOR),
             ansi::Mode::CursorKeys => self.mode.insert(TermMode::APP_CURSOR),
+            // Mouse protocols are mutually exlusive
             ansi::Mode::ReportMouseClicks => {
+                self.mode.remove(TermMode::MOUSE_MODE);
                 self.mode.insert(TermMode::MOUSE_REPORT_CLICK);
                 self.event_proxy.send_event(Event::MouseCursorDirty);
             },
             ansi::Mode::ReportCellMouseMotion => {
+                self.mode.remove(TermMode::MOUSE_MODE);
                 self.mode.insert(TermMode::MOUSE_DRAG);
                 self.event_proxy.send_event(Event::MouseCursorDirty);
             },
             ansi::Mode::ReportAllMouseMotion => {
+                self.mode.remove(TermMode::MOUSE_MODE);
                 self.mode.insert(TermMode::MOUSE_MOTION);
                 self.event_proxy.send_event(Event::MouseCursorDirty);
             },
             ansi::Mode::ReportFocusInOut => self.mode.insert(TermMode::FOCUS_IN_OUT),
             ansi::Mode::BracketedPaste => self.mode.insert(TermMode::BRACKETED_PASTE),
-            ansi::Mode::SgrMouse => self.mode.insert(TermMode::SGR_MOUSE),
-            ansi::Mode::Utf8Mouse => self.mode.insert(TermMode::UTF8_MOUSE),
+            // Mouse encodings are mutually exlusive
+            ansi::Mode::SgrMouse => {
+                self.mode.remove(TermMode::UTF8_MOUSE);
+                self.mode.insert(TermMode::SGR_MOUSE);
+            },
+            ansi::Mode::Utf8Mouse => {
+                self.mode.remove(TermMode::SGR_MOUSE);
+                self.mode.insert(TermMode::UTF8_MOUSE);
+            },
             ansi::Mode::AlternateScroll => self.mode.insert(TermMode::ALTERNATE_SCROLL),
             ansi::Mode::LineWrap => self.mode.insert(TermMode::LINE_WRAP),
             ansi::Mode::LineFeedNewLine => self.mode.insert(TermMode::LINE_FEED_NEW_LINE),
