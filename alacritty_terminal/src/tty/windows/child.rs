@@ -115,9 +115,9 @@ mod test {
             loop {
                 match child_exit_watcher.event_rx().try_recv() {
                     Ok(ChildEvent::Exited) => return, // Success
+                    Err(_) => unreachable!("No event {:?} was received", ChildEvent::Exited),
                 }
             }
         }
-        unreachable!("No event {:?} was received", ChildEvent::Exited);
     }
 }
