@@ -118,6 +118,6 @@ mod test {
                 }
             }
         }
-        unreachable!("No event {:?} was received", ChildEvent::Exited),
+        unreachable!("No event {:?} was received", ChildEvent::Exited);
     }
 }
