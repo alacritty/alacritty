@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 tokio-core = "0.1.17"
 tokio = "0.1"
-num-traits = "0.2"
+#num-traits = "0.2"
 hyper = "0.12"
 futures = "0.1.26"
 serde = "1.0"
@@ -19,3 +19,8 @@ env_logger = "0.6.0"
 percent-encoding = "1.0.1"
 hyper-tls = "0.3.2"
 failure = "0.1.6"
+tracing = "0.1"
+tracing-log = "0.1"
+
+[tracing-log.features]
+default = ["env_logger"]

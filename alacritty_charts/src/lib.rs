@@ -42,6 +42,7 @@ use std::str::FromStr;
 use std::time::UNIX_EPOCH;
 pub use tokio;
 pub use tokio_core;
+use tracing::{event, span, Level};
 
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer};
@@ -676,10 +677,13 @@ impl TimeSeriesChart {
     /// `update_series_opengl_vecs` Represents the activity levels values in a
     /// drawable vector for opengl, for a specific index in the series array
     pub fn update_series_opengl_vecs(&mut self, series_idx: usize, display_size: SizeInfo) {
-        debug!(
+        let span = span!(
+            Level::TRACE,
             "update_series_opengl_vecs: Starting for series index: {}",
-            series_idx
+            name = self.name.clone().as_str(),
+            series_idx = series_idx,
         );
+        let _enter = span.enter();
         if series_idx > self.sources.len() {
             error!(
                 "update_series_opengl_vecs: Request for out of bound series index: {}",
@@ -776,17 +780,30 @@ impl TimeSeriesChart {
     /// `update_all_series_opengl_vecs` Represents the activity levels values in a
     /// drawable vector for opengl for all the available series in the current chart
     pub fn update_all_series_opengl_vecs(&mut self, display_size: SizeInfo) {
-        debug!("update_all_series_opengl_vecs: Starting");
+        let span = span!(
+            Level::TRACE,
+            "update_all_series_opengl_vecs",
+            name = self.name.clone().as_str()
+        );
+        let _enter = span.enter();
+        event!(Level::DEBUG, "update_all_series_opengl_vecs: Starting");
         for idx in 0..self.sources.len() {
             self.update_series_opengl_vecs(idx, display_size);
         }
+        event!(Level::DEBUG, "update_all_series_opengl_vecs: Finished");
     }
 
     /// `calculate_stats` Iterates over the time series stats and merges them.
     /// This will also go through the decorations and account for the requested
     /// draw space for them.
     pub fn calculate_stats(&mut self) {
-        debug!("TimeSeriesChart::calculate_stats start");
+        let span = span!(
+            Level::TRACE,
+            "calculate_stats",
+            name = self.name.clone().as_str()
+        );
+        let _enter = span.enter();
+        event!(Level::TRACE, "TimeSeriesChart::calculate_stats start");
         let mut max_activity_value = std::f64::MIN;
         let mut min_activity_value = std::f64::MAX;
         let mut sum_activity_values = 0f64;
@@ -826,9 +843,11 @@ impl TimeSeriesChart {
         self.stats.sum = sum_activity_values;
         self.stats.avg = sum_activity_values / filled_stats as f64;
         self.stats.is_dirty = false;
-        debug!(
+        event!(
+            Level::DEBUG,
             "TimeSeriesChart::calculate_stats: Updated statistics to: {:?}, filled_stats: {:?}",
-            self.stats, filled_stats
+            self.stats,
+            filled_stats
         );
     }
 
@@ -836,6 +855,9 @@ impl TimeSeriesChart {
     /// doesn't change it doesn't create a new opengl vertex but rather tries to create a wider
     /// line
     pub fn get_deduped_opengl_vecs(&self, idx: usize) -> Vec<f32> {
+        let span = span!(Level::TRACE, "get_deduped_opengl_vecs");
+        let _enter = span.enter();
+        event!(Level::DEBUG, "get_deduped_opengl_vecs start");
         if self.opengl_vecs[idx].len() <= 4 {
             return self.opengl_vecs[idx].clone();
         }
