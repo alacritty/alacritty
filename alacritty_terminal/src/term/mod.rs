@@ -1153,7 +1153,7 @@ impl<T> Term<T> {
         self.set_scrolling_region(1, self.grid.num_lines().0);
 
         // Clear grid
-        let template = self.cursor.template;
+        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
         self.grid.region_mut(..).each(|c| c.reset(&template));
     }
 
