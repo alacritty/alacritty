@@ -18,6 +18,7 @@
 //! In order to figure that out, state about which modifier keys are pressed
 //! needs to be tracked. Additionally, we need a bit of a state machine to
 //! determine what to do when a non-modifier key is pressed.
+#![allow(clippy::let_unit_value)]
 use std::borrow::Cow;
 use std::cmp::min;
 use std::cmp::Ordering;
