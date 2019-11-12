@@ -92,8 +92,8 @@ mod test {
         let mut child = Command::new("cmd.exe").spawn().unwrap();
         let child_exit_watcher = ChildExitWatcher::new(child.as_raw_handle()).unwrap();
 
+        let mut events = Events::with_capacity(1);
         let poll = Poll::new().unwrap();
-        let mut events = Events::with_capacity(8);
         let child_events_token = Token::from(0usize);
 
         poll.register(
@@ -109,20 +109,15 @@ mod test {
         // Poll for the event or fail with timeout if nothing has been sent
         poll.poll(&mut events, Some(WAIT_TIMEOUT)).unwrap();
         for event in events.iter() {
-            if event.token() == child_events_token {
-                // Verify that at least one `ChildEvent::Exited` was received
-                loop {
-                    let result = child_exit_watcher.event_rx().try_recv();
-                    match result {
-                        Ok(ChildEvent::Exited) => {
-                            return; // Success
-                        },
-                        Err(_) => {
-                            panic!("No event {:?} was received", ChildEvent::Exited);
-                        },
-                    }
+            assert_eq!(event.token(), child_events_token);
+
+            // Verify that at least one `ChildEvent::Exited` was received
+            loop {
+                match child_exit_watcher.event_rx().try_recv() {
+                    Ok(ChildEvent::Exited) => return, // Success
                 }
             }
         }
+        unreachable!("No event {:?} was received", ChildEvent::Exited),
     }
 }
