@@ -59,6 +59,7 @@ ref_tests! {
     alt_reset
     deccolm_reset
     decaln_reset
+    insert_blank_reset
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>

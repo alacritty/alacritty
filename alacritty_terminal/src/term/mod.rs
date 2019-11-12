@@ -1362,7 +1362,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
 
         // Cells were just moved out towards the end of the line; fill in
         // between source and dest with blanks.
-        let template = self.cursor.template;
+        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
         for c in &mut line[source..destination] {
             c.reset(&template);
         }
