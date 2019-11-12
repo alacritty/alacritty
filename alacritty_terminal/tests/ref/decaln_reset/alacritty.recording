@@ -1,0 +1,5 @@
+[?2004h[kchibisov@NightLord alacritty]$ [K[kchibisov@NightLord alacritty]$ [K[kchibisov@NightLord alacritty]$ llecho -e "\033#8"printf "\e[31;1;4;9mTEST asd\n"
+[?2004l[31;1;4;9mTEST asd
+[?2004h[kchibisov@NightLord alacritty]$ printf "\e[31;1;4;9mTEST asd\n"ll[Kecho -e "\033#8"
+[?2004l#8
+[?2004h[kchibisov@NightLord alacritty]$ 
