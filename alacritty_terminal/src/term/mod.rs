@@ -1580,7 +1580,8 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         let end = min(start + count, self.grid.num_cols());
 
         let row = &mut self.grid[self.cursor.point.line];
-        let template = self.cursor.template; // Cleared cells have current background color set
+        // Cleared cells have current background color set
+        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
         for c in &mut row[start..end] {
             c.reset(&template);
         }
