@@ -19,8 +19,5 @@ env_logger = "0.6.0"
 percent-encoding = "1.0.1"
 hyper-tls = "0.3.2"
 failure = "0.1.6"
-tracing = "0.1"
-tracing-log = "0.1"
-
-[tracing-log.features]
-default = ["env_logger"]
+tracing = { version = "0.1", features = ["log", "log-always"] }
+tracing-log = { version = "0.1", features = ["env_logger"]}
