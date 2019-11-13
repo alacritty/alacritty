@@ -1310,7 +1310,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[inline]
     fn decaln(&mut self) {
         trace!("Decalnning");
-        let template = Cell { c: 'E', ..self.cursor.template };
+        let template = Cell { c: 'E', ..Cell::default() };
 
         self.grid.region_mut(..).each(|c| c.reset(&template));
     }
