@@ -1742,7 +1742,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[inline]
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
         trace!("Clearing screen: {:?}", mode);
-        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
+        let template = self.cursor.template;
 
         // Remove active selections
         self.grid.selection = None;

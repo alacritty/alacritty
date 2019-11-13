@@ -135,7 +135,7 @@ impl Cell {
     #[inline]
     pub fn reset(&mut self, template: &Cell) {
         // memcpy template to self
-        *self = Cell{ c: template.c, bg: template.bg, ..Cell::default() };
+        *self = Cell { c: template.c, bg: template.bg, ..Cell::default() };
     }
 
     #[inline]
