@@ -108,16 +108,8 @@ mod test {
 
         // Poll for the event or fail with timeout if nothing has been sent
         poll.poll(&mut events, Some(WAIT_TIMEOUT)).unwrap();
-        for event in events.iter() {
-            assert_eq!(event.token(), child_events_token);
-
-            // Verify that at least one `ChildEvent::Exited` was received
-            loop {
-                match child_exit_watcher.event_rx().try_recv() {
-                    Ok(ChildEvent::Exited) => return, // Success
-                    Err(_) => unreachable!("No event {:?} was received", ChildEvent::Exited),
-                }
-            }
-        }
+        assert_eq!(events.iter().next().unwrap().token(), child_events_token);
+        // Verify that at least one `ChildEvent::Exited` was received
+        assert_eq!(child_exit_watcher.event_rx().try_recv(), Ok(ChildEvent::Exited));
     }
 }
