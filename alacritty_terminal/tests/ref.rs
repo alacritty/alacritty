@@ -54,6 +54,7 @@ ref_tests! {
     zerowidth
     selective_erasure
     colored_reset
+    delete_lines
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
