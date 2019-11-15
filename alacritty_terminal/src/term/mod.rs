@@ -1564,9 +1564,12 @@ impl<T: EventListener> ansi::Handler for Term<T> {
 
     #[inline]
     fn delete_lines(&mut self, lines: Line) {
+        let origin = self.cursor.point.line;
+        let lines = min(self.lines() - origin, lines);
+
         trace!("Deleting {} lines", lines);
-        if self.scroll_region.contains(&self.cursor.point.line) {
-            let origin = self.cursor.point.line;
+
+        if lines.0 > 0 && self.scroll_region.contains(&self.cursor.point.line) {
             self.scroll_up_relative(origin, lines);
         }
     }

@@ -80,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Terminal going transparent during visual bell
 - Selection not being cleared when sending chars through a binding
 - Mouse protocols/encodings not being mutually exclusive within themselves
+- Escape `CSI Ps M` deleting lines above cursor when at the bottom of the viewport
 
 ### Removed
 
