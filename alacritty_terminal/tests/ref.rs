@@ -61,6 +61,7 @@ ref_tests! {
     decaln_reset
     insert_blank_reset
     erase_chars_reset
+    scroll_up_reset
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>

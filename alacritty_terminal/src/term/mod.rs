@@ -1049,13 +1049,15 @@ impl<T> Term<T> {
         // Scroll up to keep cursor in terminal
         if self.cursor.point.line >= num_lines {
             let lines = self.cursor.point.line - num_lines + 1;
-            self.grid.scroll_up(&(Line(0)..old_lines), lines, &self.cursor.template);
+            let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
+            self.grid.scroll_up(&(Line(0)..old_lines), lines, &template);
         }
 
         // Scroll up alt grid as well
         if self.cursor_save_alt.point.line >= num_lines {
             let lines = self.cursor_save_alt.point.line - num_lines + 1;
-            self.alt_grid.scroll_up(&(Line(0)..old_lines), lines, &self.cursor_save_alt.template);
+            let template = Cell { bg: self.cursor_save_alt.template.bg, ..Cell::default() };
+            self.alt_grid.scroll_up(&(Line(0)..old_lines), lines, &template);
         }
 
         // Move prompt down when growing if scrollback lines are available
@@ -1124,8 +1126,7 @@ impl<T> Term<T> {
         lines = min(lines, self.scroll_region.end - origin);
 
         // Scroll between origin and bottom
-        let mut template = self.cursor.template;
-        template.flags = Flags::empty();
+        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
         self.grid.scroll_down(&(origin..self.scroll_region.end), lines, &template);
     }
 
@@ -1139,8 +1140,7 @@ impl<T> Term<T> {
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Scroll from origin to bottom less number of lines
-        let mut template = self.cursor.template;
-        template.flags = Flags::empty();
+        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
         self.grid.scroll_up(&(origin..self.scroll_region.end), lines, &template);
     }
 
