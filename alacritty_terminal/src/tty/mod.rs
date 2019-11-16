@@ -54,7 +54,7 @@ pub trait EventedReadWrite {
 }
 
 /// Events concerning TTY child processes
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum ChildEvent {
     /// Indicates the child has exited
     Exited,
@@ -66,13 +66,11 @@ pub enum ChildEvent {
 /// notified if the PTY child process does something we care about (other than writing to the TTY).
 /// In particular, this allows for race-free child exit notification on UNIX (cf. `SIGCHLD`).
 pub trait EventedPty: EventedReadWrite {
-    #[cfg(unix)]
     fn child_event_token(&self) -> mio::Token;
 
     /// Tries to retrieve an event
     ///
     /// Returns `Some(event)` on success, or `None` if there are no events to retrieve.
-    #[cfg(unix)]
     fn next_child_event(&mut self) -> Option<ChildEvent>;
 }
 

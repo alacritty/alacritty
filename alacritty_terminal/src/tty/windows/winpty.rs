@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{Pty, HANDLE};
-
 use std::fs::OpenOptions;
 use std::io;
 use std::os::windows::fs::OpenOptionsExt;
@@ -30,6 +28,8 @@ use winpty::{Config as WinptyConfig, ConfigFlags, MouseMode, SpawnConfig, SpawnF
 use crate::config::{Config, Shell};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
+use crate::tty::windows::child::ChildExitWatcher;
+use crate::tty::windows::Pty;
 
 // We store a raw pointer because we need mutable access to call
 // on_resize from a separate thread. Winpty internally uses a mutex
@@ -136,10 +136,7 @@ pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>
 
     winpty.spawn(&spawnconfig).unwrap();
 
-    unsafe {
-        HANDLE = winpty.raw_handle();
-    }
-
+    let child_watcher = ChildExitWatcher::new(winpty.raw_handle()).unwrap();
     let agent = Agent::new(winpty);
 
     Pty {
@@ -148,6 +145,8 @@ pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>
         conin: super::EventedWritablePipe::Named(conin_pipe),
         read_token: 0.into(),
         write_token: 0.into(),
+        child_event_token: 0.into(),
+        child_watcher,
     }
 }
 

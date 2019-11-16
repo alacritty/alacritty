@@ -333,10 +333,6 @@ impl EventedPty for Pty {
     }
 }
 
-pub fn process_should_exit() -> bool {
-    false
-}
-
 /// Types that can produce a `libc::winsize`
 pub trait ToWinsize {
     /// Get a `libc::winsize`
