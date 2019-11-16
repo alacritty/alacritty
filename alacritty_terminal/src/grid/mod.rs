@@ -536,6 +536,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
                 break;
             }
         }
+        debug_assert!(*self.lines >= iter.cur.line);
         let positions = self.lines - iter.cur.line;
         let region = Line(0)..self.num_lines();
 
