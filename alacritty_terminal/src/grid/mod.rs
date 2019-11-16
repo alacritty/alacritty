@@ -531,19 +531,12 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         // Determine how many lines to scroll up by.
         let end = Point { line: 0, col: self.num_cols() };
         let mut iter = self.iter_from(end);
-        let mut bottom_nonempty_line = 0;
         while let Some(cell) = iter.prev() {
-            if !cell.is_empty() {
-                bottom_nonempty_line = iter.cur.line;
-                break;
-            }
-
-            // In case the whole terminal is empty.
-            if iter.cur.line >= *self.lines {
+            if !cell.is_empty() || iter.cur.line >= *self.lines {
                 break;
             }
         }
-        let positions = self.lines - bottom_nonempty_line;
+        let positions = self.lines - iter.cur.line;
         let region = Line(0)..self.num_lines();
 
         // Clear the viewport.
