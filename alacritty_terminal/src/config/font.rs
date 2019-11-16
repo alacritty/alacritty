@@ -1,12 +1,13 @@
 use std::fmt;
 
 use font::Size;
+use log::error;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer};
 
 #[cfg(target_os = "macos")]
 use crate::config::DefaultTrueBool;
-use crate::config::{failure_default, Delta};
+use crate::config::{failure_default, Delta, LOG_TARGET_CONFIG};
 
 /// Font config
 ///
@@ -23,11 +24,15 @@ pub struct Font {
 
     /// Bold font face
     #[serde(deserialize_with = "failure_default")]
-    italic: SecondaryFontDescription,
+    bold: SecondaryFontDescription,
 
     /// Italic font face
     #[serde(deserialize_with = "failure_default")]
-    bold: SecondaryFontDescription,
+    italic: SecondaryFontDescription,
+
+    /// Bold italic font face
+    #[serde(deserialize_with = "failure_default")]
+    bold_italic: SecondaryFontDescription,
 
     /// Font size in points
     #[serde(deserialize_with = "DeserializeSize::deserialize")]
@@ -53,6 +58,7 @@ impl Default for Font {
             normal: Default::default(),
             bold: Default::default(),
             italic: Default::default(),
+            bold_italic: Default::default(),
             glyph_offset: Default::default(),
             offset: Default::default(),
             #[cfg(target_os = "macos")]
@@ -72,14 +78,19 @@ impl Font {
         &self.normal
     }
 
+    // Get bold font description
+    pub fn bold(&self) -> FontDescription {
+        self.bold.desc(&self.normal)
+    }
+
     // Get italic font description
     pub fn italic(&self) -> FontDescription {
         self.italic.desc(&self.normal)
     }
 
-    // Get bold font description
-    pub fn bold(&self) -> FontDescription {
-        self.bold.desc(&self.normal)
+    // Get bold italic font description
+    pub fn bold_italic(&self) -> FontDescription {
+        self.bold_italic.desc(&self.normal)
     }
 
     #[cfg(target_os = "macos")]
@@ -192,7 +203,12 @@ impl DeserializeSize for Size {
             Ok(size) => Ok(size),
             Err(err) => {
                 let size = default_font_size();
-                error!("Problem with config: {}; using size {}", err, size.as_f32_pts());
+                error!(
+                    target: LOG_TARGET_CONFIG,
+                    "Problem with config: {}; using size {}",
+                    err,
+                    size.as_f32_pts()
+                );
                 Ok(size)
             },
         }

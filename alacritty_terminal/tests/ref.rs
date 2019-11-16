@@ -1,5 +1,4 @@
-#[macro_use]
-extern crate serde_derive;
+use serde::Deserialize;
 use serde_json as json;
 
 use std::fs::File;
@@ -8,12 +7,11 @@ use std::path::Path;
 
 use alacritty_terminal::ansi;
 use alacritty_terminal::clipboard::Clipboard;
-use alacritty_terminal::config::Config;
+use alacritty_terminal::config::MockConfig;
+use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::index::Column;
-use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::SizeInfo;
-use alacritty_terminal::util::fmt::{Green, Red};
 use alacritty_terminal::Grid;
 use alacritty_terminal::Term;
 
@@ -54,6 +52,9 @@ ref_tests! {
     grid_reset
     row_reset
     zerowidth
+    selective_erasure
+    colored_reset
+    delete_lines
 }
 
 fn read_u8<P>(path: P) -> Vec<u8>
@@ -81,6 +82,11 @@ struct RefConfig {
     history_size: u32,
 }
 
+struct Mock;
+impl EventListener for Mock {
+    fn send_event(&self, _event: Event) {}
+}
+
 fn ref_test(dir: &Path) {
     let recording = read_u8(dir.join("alacritty.recording"));
     let serialized_size = read_string(dir.join("size.json")).unwrap();
@@ -91,10 +97,10 @@ fn ref_test(dir: &Path) {
     let grid: Grid<Cell> = json::from_str(&serialized_grid).unwrap();
     let ref_config: RefConfig = json::from_str(&serialized_cfg).unwrap_or_default();
 
-    let mut config: Config = Default::default();
+    let mut config = MockConfig::default();
     config.scrolling.set_history(ref_config.history_size);
 
-    let mut terminal = Term::new(&config, size, MessageBuffer::new(), Clipboard::new_nop());
+    let mut terminal = Term::new(&config, &size, Clipboard::new_nop(), Mock);
     let mut parser = ansi::Processor::new();
 
     for byte in recording {
@@ -116,8 +122,8 @@ fn ref_test(dir: &Path) {
                         "[{i}][{j}] {original:?} => {now:?}",
                         i = i,
                         j = j,
-                        original = Green(original_cell),
-                        now = Red(cell)
+                        original = original_cell,
+                        now = cell,
                     );
                 }
             }

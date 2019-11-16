@@ -15,13 +15,207 @@
 use std::fmt;
 use std::str::FromStr;
 
-use glutin::{ModifiersState, MouseButton};
+use glutin::event::{ModifiersState, MouseButton};
+use log::error;
 use serde::de::Error as SerdeError;
 use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 
-use crate::input::{Action, Binding, KeyBinding, MouseBinding};
-use crate::term::TermMode;
+use alacritty_terminal::config::LOG_TARGET_CONFIG;
+use alacritty_terminal::term::TermMode;
+
+/// Describes a state and action to take in that state
+///
+/// This is the shared component of `MouseBinding` and `KeyBinding`
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Binding<T> {
+    /// Modifier keys required to activate binding
+    pub mods: ModifiersState,
+
+    /// String to send to pty if mods and mode match
+    pub action: Action,
+
+    /// Terminal mode required to activate binding
+    pub mode: TermMode,
+
+    /// excluded terminal modes where the binding won't be activated
+    pub notmode: TermMode,
+
+    /// This property is used as part of the trigger detection code.
+    ///
+    /// For example, this might be a key like "G", or a mouse button.
+    pub trigger: T,
+}
+
+/// Bindings that are triggered by a keyboard key
+pub type KeyBinding = Binding<Key>;
+
+/// Bindings that are triggered by a mouse button
+pub type MouseBinding = Binding<MouseButton>;
+
+impl Default for KeyBinding {
+    fn default() -> KeyBinding {
+        KeyBinding {
+            mods: Default::default(),
+            action: Action::Esc(String::new()),
+            mode: TermMode::NONE,
+            notmode: TermMode::NONE,
+            trigger: Key::A,
+        }
+    }
+}
+
+impl Default for MouseBinding {
+    fn default() -> MouseBinding {
+        MouseBinding {
+            mods: Default::default(),
+            action: Action::Esc(String::new()),
+            mode: TermMode::NONE,
+            notmode: TermMode::NONE,
+            trigger: MouseButton::Left,
+        }
+    }
+}
+
+impl<T: Eq> Binding<T> {
+    #[inline]
+    pub fn is_triggered_by(
+        &self,
+        mode: TermMode,
+        mods: ModifiersState,
+        input: &T,
+        relaxed: bool,
+    ) -> bool {
+        // Check input first since bindings are stored in one big list. This is
+        // the most likely item to fail so prioritizing it here allows more
+        // checks to be short circuited.
+        self.trigger == *input
+            && mode.contains(self.mode)
+            && !mode.intersects(self.notmode)
+            && (self.mods == mods || (relaxed && self.mods.relaxed_eq(mods)))
+    }
+
+    #[inline]
+    pub fn triggers_match(&self, binding: &Binding<T>) -> bool {
+        // Check the binding's key and modifiers
+        if self.trigger != binding.trigger || self.mods != binding.mods {
+            return false;
+        }
+
+        // Completely empty modes match all modes
+        if (self.mode.is_empty() && self.notmode.is_empty())
+            || (binding.mode.is_empty() && binding.notmode.is_empty())
+        {
+            return true;
+        }
+
+        // Check for intersection (equality is required since empty does not intersect itself)
+        (self.mode == binding.mode || self.mode.intersects(binding.mode))
+            && (self.notmode == binding.notmode || self.notmode.intersects(binding.notmode))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub enum Action {
+    /// Write an escape sequence.
+    #[serde(skip)]
+    Esc(String),
+
+    /// Paste contents of system clipboard.
+    Paste,
+
+    /// Store current selection into clipboard.
+    Copy,
+
+    /// Paste contents of selection buffer.
+    PasteSelection,
+
+    /// Increase font size.
+    IncreaseFontSize,
+
+    /// Decrease font size.
+    DecreaseFontSize,
+
+    /// Reset font size to the config value.
+    ResetFontSize,
+
+    /// Scroll exactly one page up.
+    ScrollPageUp,
+
+    /// Scroll exactly one page down.
+    ScrollPageDown,
+
+    /// Scroll one line up.
+    ScrollLineUp,
+
+    /// Scroll one line down.
+    ScrollLineDown,
+
+    /// Scroll all the way to the top.
+    ScrollToTop,
+
+    /// Scroll all the way to the bottom.
+    ScrollToBottom,
+
+    /// Clear the display buffer(s) to remove history.
+    ClearHistory,
+
+    /// Run given command.
+    #[serde(skip)]
+    Command(String, Vec<String>),
+
+    /// Hide the Alacritty window.
+    Hide,
+
+    /// Quit Alacritty.
+    Quit,
+
+    /// Clear warning and error notices.
+    ClearLogNotice,
+
+    /// Spawn a new instance of Alacritty.
+    SpawnNewInstance,
+
+    /// Toggle fullscreen.
+    ToggleFullscreen,
+
+    /// Toggle simple fullscreen on macos.
+    #[cfg(target_os = "macos")]
+    ToggleSimpleFullscreen,
+
+    /// Allow receiving char input.
+    ReceiveChar,
+
+    /// No action.
+    None,
+}
+
+impl Default for Action {
+    fn default() -> Action {
+        Action::None
+    }
+}
+
+impl From<&'static str> for Action {
+    fn from(s: &'static str) -> Action {
+        Action::Esc(s.into())
+    }
+}
+
+pub trait RelaxedEq<T: ?Sized = Self> {
+    fn relaxed_eq(&self, other: T) -> bool;
+}
+
+impl RelaxedEq for ModifiersState {
+    // Make sure that modifiers in the config are always present,
+    // but ignore surplus modifiers.
+    fn relaxed_eq(&self, other: Self) -> bool {
+        (!self.logo || other.logo)
+            && (!self.alt || other.alt)
+            && (!self.ctrl || other.ctrl)
+            && (!self.shift || other.shift)
+    }
+}
 
 macro_rules! bindings {
     (
@@ -71,112 +265,151 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
     let mut bindings = bindings!(
         KeyBinding;
         Key::Paste; Action::Paste;
-        Key::Copy; Action::Copy;
+        Key::Copy;  Action::Copy;
         Key::L, [ctrl: true]; Action::ClearLogNotice;
         Key::L, [ctrl: true]; Action::Esc("\x0c".into());
-        Key::Home, [alt: true]; Action::Esc("\x1b[1;3H".into());
+        Key::PageUp,   [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageUp;
+        Key::PageDown, [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageDown;
+        Key::Home,     [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollToTop;
+        Key::End,      [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollToBottom;
         Key::Home, +TermMode::APP_CURSOR; Action::Esc("\x1bOH".into());
         Key::Home, ~TermMode::APP_CURSOR; Action::Esc("\x1b[H".into());
-        Key::End, [alt: true]; Action::Esc("\x1b[1;3F".into());
-        Key::End, +TermMode::APP_CURSOR; Action::Esc("\x1bOF".into());
-        Key::End, ~TermMode::APP_CURSOR; Action::Esc("\x1b[F".into());
-        Key::PageUp, [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageUp;
-        Key::PageUp, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[5;2~".into());
-        Key::PageUp, [ctrl: true]; Action::Esc("\x1b[5;5~".into());
-        Key::PageUp, [alt: true]; Action::Esc("\x1b[5;3~".into());
-        Key::PageUp; Action::Esc("\x1b[5~".into());
-        Key::PageDown, [shift: true], ~TermMode::ALT_SCREEN; Action::ScrollPageDown;
-        Key::PageDown, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[6;2~".into());
-        Key::PageDown, [ctrl: true]; Action::Esc("\x1b[6;5~".into());
-        Key::PageDown, [alt: true]; Action::Esc("\x1b[6;3~".into());
+        Key::Home, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2H".into());
+        Key::End,  +TermMode::APP_CURSOR; Action::Esc("\x1bOF".into());
+        Key::End,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[F".into());
+        Key::End,  [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[1;2F".into());
+        Key::PageUp;   Action::Esc("\x1b[5~".into());
+        Key::PageUp,   [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[5;2~".into());
         Key::PageDown; Action::Esc("\x1b[6~".into());
-        Key::Tab, [shift: true]; Action::Esc("\x1b[Z".into());
+        Key::PageDown, [shift: true], +TermMode::ALT_SCREEN; Action::Esc("\x1b[6;2~".into());
+        Key::Tab,  [shift: true]; Action::Esc("\x1b[Z".into());
         Key::Back; Action::Esc("\x7f".into());
         Key::Back, [alt: true]; Action::Esc("\x1b\x7f".into());
         Key::Insert; Action::Esc("\x1b[2~".into());
         Key::Delete; Action::Esc("\x1b[3~".into());
-        Key::Left, [shift: true]; Action::Esc("\x1b[1;2D".into());
-        Key::Left, [ctrl: true]; Action::Esc("\x1b[1;5D".into());
-        Key::Left, [alt: true]; Action::Esc("\x1b[1;3D".into());
-        Key::Left, ~TermMode::APP_CURSOR; Action::Esc("\x1b[D".into());
-        Key::Left, +TermMode::APP_CURSOR; Action::Esc("\x1bOD".into());
-        Key::Right, [shift: true]; Action::Esc("\x1b[1;2C".into());
-        Key::Right, [ctrl: true]; Action::Esc("\x1b[1;5C".into());
-        Key::Right, [alt: true]; Action::Esc("\x1b[1;3C".into());
-        Key::Right, ~TermMode::APP_CURSOR; Action::Esc("\x1b[C".into());
+        Key::Up,    +TermMode::APP_CURSOR; Action::Esc("\x1bOA".into());
+        Key::Up,    ~TermMode::APP_CURSOR; Action::Esc("\x1b[A".into());
+        Key::Down,  +TermMode::APP_CURSOR; Action::Esc("\x1bOB".into());
+        Key::Down,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[B".into());
         Key::Right, +TermMode::APP_CURSOR; Action::Esc("\x1bOC".into());
-        Key::Up, [shift: true]; Action::Esc("\x1b[1;2A".into());
-        Key::Up, [ctrl: true]; Action::Esc("\x1b[1;5A".into());
-        Key::Up, [alt: true]; Action::Esc("\x1b[1;3A".into());
-        Key::Up, ~TermMode::APP_CURSOR; Action::Esc("\x1b[A".into());
-        Key::Up, +TermMode::APP_CURSOR; Action::Esc("\x1bOA".into());
-        Key::Down, [shift: true]; Action::Esc("\x1b[1;2B".into());
-        Key::Down, [ctrl: true]; Action::Esc("\x1b[1;5B".into());
-        Key::Down, [alt: true]; Action::Esc("\x1b[1;3B".into());
-        Key::Down, ~TermMode::APP_CURSOR; Action::Esc("\x1b[B".into());
-        Key::Down, +TermMode::APP_CURSOR; Action::Esc("\x1bOB".into());
-        Key::F1; Action::Esc("\x1bOP".into());
-        Key::F2; Action::Esc("\x1bOQ".into());
-        Key::F3; Action::Esc("\x1bOR".into());
-        Key::F4; Action::Esc("\x1bOS".into());
-        Key::F5; Action::Esc("\x1b[15~".into());
-        Key::F6; Action::Esc("\x1b[17~".into());
-        Key::F7; Action::Esc("\x1b[18~".into());
-        Key::F8; Action::Esc("\x1b[19~".into());
-        Key::F9; Action::Esc("\x1b[20~".into());
+        Key::Right, ~TermMode::APP_CURSOR; Action::Esc("\x1b[C".into());
+        Key::Left,  +TermMode::APP_CURSOR; Action::Esc("\x1bOD".into());
+        Key::Left,  ~TermMode::APP_CURSOR; Action::Esc("\x1b[D".into());
+        Key::F1;  Action::Esc("\x1bOP".into());
+        Key::F2;  Action::Esc("\x1bOQ".into());
+        Key::F3;  Action::Esc("\x1bOR".into());
+        Key::F4;  Action::Esc("\x1bOS".into());
+        Key::F5;  Action::Esc("\x1b[15~".into());
+        Key::F6;  Action::Esc("\x1b[17~".into());
+        Key::F7;  Action::Esc("\x1b[18~".into());
+        Key::F8;  Action::Esc("\x1b[19~".into());
+        Key::F9;  Action::Esc("\x1b[20~".into());
         Key::F10; Action::Esc("\x1b[21~".into());
         Key::F11; Action::Esc("\x1b[23~".into());
         Key::F12; Action::Esc("\x1b[24~".into());
-        Key::F1, [shift: true]; Action::Esc("\x1b[1;2P".into());
-        Key::F2, [shift: true]; Action::Esc("\x1b[1;2Q".into());
-        Key::F3, [shift: true]; Action::Esc("\x1b[1;2R".into());
-        Key::F4, [shift: true]; Action::Esc("\x1b[1;2S".into());
-        Key::F5, [shift: true]; Action::Esc("\x1b[15;2~".into());
-        Key::F6, [shift: true]; Action::Esc("\x1b[17;2~".into());
-        Key::F7, [shift: true]; Action::Esc("\x1b[18;2~".into());
-        Key::F8, [shift: true]; Action::Esc("\x1b[19;2~".into());
-        Key::F9, [shift: true]; Action::Esc("\x1b[20;2~".into());
-        Key::F10, [shift: true]; Action::Esc("\x1b[21;2~".into());
-        Key::F11, [shift: true]; Action::Esc("\x1b[23;2~".into());
-        Key::F12, [shift: true]; Action::Esc("\x1b[24;2~".into());
-        Key::F1, [ctrl: true]; Action::Esc("\x1b[1;5P".into());
-        Key::F2, [ctrl: true]; Action::Esc("\x1b[1;5Q".into());
-        Key::F3, [ctrl: true]; Action::Esc("\x1b[1;5R".into());
-        Key::F4, [ctrl: true]; Action::Esc("\x1b[1;5S".into());
-        Key::F5, [ctrl: true]; Action::Esc("\x1b[15;5~".into());
-        Key::F6, [ctrl: true]; Action::Esc("\x1b[17;5~".into());
-        Key::F7, [ctrl: true]; Action::Esc("\x1b[18;5~".into());
-        Key::F8, [ctrl: true]; Action::Esc("\x1b[19;5~".into());
-        Key::F9, [ctrl: true]; Action::Esc("\x1b[20;5~".into());
-        Key::F10, [ctrl: true]; Action::Esc("\x1b[21;5~".into());
-        Key::F11, [ctrl: true]; Action::Esc("\x1b[23;5~".into());
-        Key::F12, [ctrl: true]; Action::Esc("\x1b[24;5~".into());
-        Key::F1, [alt: true]; Action::Esc("\x1b[1;6P".into());
-        Key::F2, [alt: true]; Action::Esc("\x1b[1;6Q".into());
-        Key::F3, [alt: true]; Action::Esc("\x1b[1;6R".into());
-        Key::F4, [alt: true]; Action::Esc("\x1b[1;6S".into());
-        Key::F5, [alt: true]; Action::Esc("\x1b[15;6~".into());
-        Key::F6, [alt: true]; Action::Esc("\x1b[17;6~".into());
-        Key::F7, [alt: true]; Action::Esc("\x1b[18;6~".into());
-        Key::F8, [alt: true]; Action::Esc("\x1b[19;6~".into());
-        Key::F9, [alt: true]; Action::Esc("\x1b[20;6~".into());
-        Key::F10, [alt: true]; Action::Esc("\x1b[21;6~".into());
-        Key::F11, [alt: true]; Action::Esc("\x1b[23;6~".into());
-        Key::F12, [alt: true]; Action::Esc("\x1b[24;6~".into());
-        Key::F1, [logo: true]; Action::Esc("\x1b[1;3P".into());
-        Key::F2, [logo: true]; Action::Esc("\x1b[1;3Q".into());
-        Key::F3, [logo: true]; Action::Esc("\x1b[1;3R".into());
-        Key::F4, [logo: true]; Action::Esc("\x1b[1;3S".into());
-        Key::F5, [logo: true]; Action::Esc("\x1b[15;3~".into());
-        Key::F6, [logo: true]; Action::Esc("\x1b[17;3~".into());
-        Key::F7, [logo: true]; Action::Esc("\x1b[18;3~".into());
-        Key::F8, [logo: true]; Action::Esc("\x1b[19;3~".into());
-        Key::F9, [logo: true]; Action::Esc("\x1b[20;3~".into());
-        Key::F10, [logo: true]; Action::Esc("\x1b[21;3~".into());
-        Key::F11, [logo: true]; Action::Esc("\x1b[23;3~".into());
-        Key::F12, [logo: true]; Action::Esc("\x1b[24;3~".into());
+        Key::F13; Action::Esc("\x1b[25~".into());
+        Key::F14; Action::Esc("\x1b[26~".into());
+        Key::F15; Action::Esc("\x1b[28~".into());
+        Key::F16; Action::Esc("\x1b[29~".into());
+        Key::F17; Action::Esc("\x1b[31~".into());
+        Key::F18; Action::Esc("\x1b[32~".into());
+        Key::F19; Action::Esc("\x1b[33~".into());
+        Key::F20; Action::Esc("\x1b[34~".into());
         Key::NumpadEnter; Action::Esc("\n".into());
     );
+
+    //   Code     Modifiers
+    // ---------+---------------------------
+    //    2     | Shift
+    //    3     | Alt
+    //    4     | Shift + Alt
+    //    5     | Control
+    //    6     | Shift + Control
+    //    7     | Alt + Control
+    //    8     | Shift + Alt + Control
+    // ---------+---------------------------
+    //
+    // from: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-PC-Style-Function-Keys
+    let modifiers = vec![
+        ModifiersState { shift: true, ..ModifiersState::default() },
+        ModifiersState { alt: true, ..ModifiersState::default() },
+        ModifiersState { shift: true, alt: true, ..ModifiersState::default() },
+        ModifiersState { ctrl: true, ..ModifiersState::default() },
+        ModifiersState { shift: true, ctrl: true, ..ModifiersState::default() },
+        ModifiersState { alt: true, ctrl: true, ..ModifiersState::default() },
+        ModifiersState { shift: true, alt: true, ctrl: true, ..ModifiersState::default() },
+    ];
+
+    for (index, mods) in modifiers.iter().enumerate() {
+        let modifiers_code = index + 2;
+        bindings.extend(bindings!(
+            KeyBinding;
+            Key::Up,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[1;{}A", modifiers_code));
+            Key::Down,  [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[1;{}B", modifiers_code));
+            Key::Right, [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[1;{}C", modifiers_code));
+            Key::Left,  [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[1;{}D", modifiers_code));
+            Key::F1,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[1;{}P", modifiers_code));
+            Key::F2,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[1;{}Q", modifiers_code));
+            Key::F3,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[1;{}R", modifiers_code));
+            Key::F4,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[1;{}S", modifiers_code));
+            Key::F5,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[15;{}~", modifiers_code));
+            Key::F6,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[17;{}~", modifiers_code));
+            Key::F7,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[18;{}~", modifiers_code));
+            Key::F8,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[19;{}~", modifiers_code));
+            Key::F9,    [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[20;{}~", modifiers_code));
+            Key::F10,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[21;{}~", modifiers_code));
+            Key::F11,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[23;{}~", modifiers_code));
+            Key::F12,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[24;{}~", modifiers_code));
+            Key::F13,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[25;{}~", modifiers_code));
+            Key::F14,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[26;{}~", modifiers_code));
+            Key::F15,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[28;{}~", modifiers_code));
+            Key::F16,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[29;{}~", modifiers_code));
+            Key::F17,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[31;{}~", modifiers_code));
+            Key::F18,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[32;{}~", modifiers_code));
+            Key::F19,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[33;{}~", modifiers_code));
+            Key::F20,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+            Action::Esc(format!("\x1b[34;{}~", modifiers_code));
+        ));
+
+        // We're adding the following bindings with `Shift` manually above, so skipping them here
+        // modifiers_code != Shift
+        if modifiers_code != 2 {
+            bindings.extend(bindings!(
+                KeyBinding;
+                Key::PageUp,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+                Action::Esc(format!("\x1b[5;{}~", modifiers_code));
+                Key::PageDown, [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+                Action::Esc(format!("\x1b[6;{}~", modifiers_code));
+                Key::End,      [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+                Action::Esc(format!("\x1b[1;{}F", modifiers_code));
+                Key::Home,     [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+                Action::Esc(format!("\x1b[1;{}H", modifiers_code));
+            ));
+        }
+    }
 
     bindings.extend(platform_key_bindings());
 
@@ -405,8 +638,8 @@ pub enum Key {
 }
 
 impl Key {
-    pub fn from_glutin_input(key: ::glutin::VirtualKeyCode) -> Self {
-        use glutin::VirtualKeyCode::*;
+    pub fn from_glutin_input(key: glutin::event::VirtualKeyCode) -> Self {
+        use glutin::event::VirtualKeyCode::*;
         // Thank you, vim macros and regex!
         match key {
             Key1 => Key::Key1,
@@ -607,7 +840,7 @@ impl<'a> Deserialize<'a> for ModeWrapper {
                         "~appkeypad" => res.not_mode |= TermMode::APP_KEYPAD,
                         "~alt" => res.not_mode |= TermMode::ALT_SCREEN,
                         "alt" => res.mode |= TermMode::ALT_SCREEN,
-                        _ => error!("Unknown mode {:?}", modifier),
+                        _ => error!(target: LOG_TARGET_CONFIG, "Unknown mode {:?}", modifier),
                     }
                 }
 
@@ -773,7 +1006,7 @@ impl<'a> Deserialize<'a> for RawBinding {
                 let mut mods: Option<ModifiersState> = None;
                 let mut key: Option<Key> = None;
                 let mut chars: Option<String> = None;
-                let mut action: Option<crate::input::Action> = None;
+                let mut action: Option<Action> = None;
                 let mut mode: Option<TermMode> = None;
                 let mut not_mode: Option<TermMode> = None;
                 let mut mouse: Option<MouseButton> = None;
@@ -971,7 +1204,7 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
                         "alt" | "option" => res.alt = true,
                         "control" => res.ctrl = true,
                         "none" => (),
-                        _ => error!("Unknown modifier {:?}", modifier),
+                        _ => error!(target: LOG_TARGET_CONFIG, "Unknown modifier {:?}", modifier),
                     }
                 }
 
@@ -980,5 +1213,197 @@ impl<'a> de::Deserialize<'a> for ModsWrapper {
         }
 
         deserializer.deserialize_str(ModsVisitor)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use glutin::event::ModifiersState;
+
+    use alacritty_terminal::term::TermMode;
+
+    use crate::config::{Action, Binding};
+
+    type MockBinding = Binding<usize>;
+
+    impl Default for MockBinding {
+        fn default() -> Self {
+            Self {
+                mods: Default::default(),
+                action: Default::default(),
+                mode: TermMode::empty(),
+                notmode: TermMode::empty(),
+                trigger: Default::default(),
+            }
+        }
+    }
+
+    #[test]
+    fn binding_matches_itself() {
+        let binding = MockBinding::default();
+        let identical_binding = MockBinding::default();
+
+        assert!(binding.triggers_match(&identical_binding));
+        assert!(identical_binding.triggers_match(&binding));
+    }
+
+    #[test]
+    fn binding_matches_different_action() {
+        let binding = MockBinding::default();
+        let mut different_action = MockBinding::default();
+        different_action.action = Action::ClearHistory;
+
+        assert!(binding.triggers_match(&different_action));
+        assert!(different_action.triggers_match(&binding));
+    }
+
+    #[test]
+    fn mods_binding_requires_strict_match() {
+        let mut superset_mods = MockBinding::default();
+        superset_mods.mods = ModifiersState { alt: true, logo: true, ctrl: true, shift: true };
+        let mut subset_mods = MockBinding::default();
+        subset_mods.mods = ModifiersState { alt: true, logo: false, ctrl: false, shift: false };
+
+        assert!(!superset_mods.triggers_match(&subset_mods));
+        assert!(!subset_mods.triggers_match(&superset_mods));
+    }
+
+    #[test]
+    fn binding_matches_identical_mode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::ALT_SCREEN;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_without_mode_matches_any_mode() {
+        let b1 = MockBinding::default();
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::APP_KEYPAD;
+        b2.notmode = TermMode::ALT_SCREEN;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_with_mode_matches_empty_mode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::APP_KEYPAD;
+        b1.notmode = TermMode::ALT_SCREEN;
+        let b2 = MockBinding::default();
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_matches_superset_mode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::APP_KEYPAD;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::ALT_SCREEN | TermMode::APP_KEYPAD;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_matches_subset_mode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN | TermMode::APP_KEYPAD;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::APP_KEYPAD;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_matches_partial_intersection() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN | TermMode::APP_KEYPAD;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::APP_KEYPAD | TermMode::APP_CURSOR;
+
+        assert!(b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_mismatches_notmode() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN;
+        let mut b2 = MockBinding::default();
+        b2.notmode = TermMode::ALT_SCREEN;
+
+        assert!(!b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_mismatches_unrelated() {
+        let mut b1 = MockBinding::default();
+        b1.mode = TermMode::ALT_SCREEN;
+        let mut b2 = MockBinding::default();
+        b2.mode = TermMode::APP_KEYPAD;
+
+        assert!(!b1.triggers_match(&b2));
+    }
+
+    #[test]
+    fn binding_trigger_input() {
+        let mut binding = MockBinding::default();
+        binding.trigger = 13;
+
+        let mods = binding.mods;
+        let mode = binding.mode;
+
+        assert!(binding.is_triggered_by(mode, mods, &13, true));
+        assert!(!binding.is_triggered_by(mode, mods, &32, true));
+    }
+
+    #[test]
+    fn binding_trigger_mods() {
+        let mut binding = MockBinding::default();
+        binding.mods = ModifiersState { alt: true, logo: true, ctrl: false, shift: false };
+
+        let superset_mods = ModifiersState { alt: true, logo: true, ctrl: true, shift: true };
+        let subset_mods = ModifiersState { alt: false, logo: false, ctrl: false, shift: false };
+
+        let t = binding.trigger;
+        let mode = binding.mode;
+
+        assert!(binding.is_triggered_by(mode, binding.mods, &t, true));
+        assert!(binding.is_triggered_by(mode, binding.mods, &t, false));
+
+        assert!(binding.is_triggered_by(mode, superset_mods, &t, true));
+        assert!(!binding.is_triggered_by(mode, superset_mods, &t, false));
+
+        assert!(!binding.is_triggered_by(mode, subset_mods, &t, true));
+        assert!(!binding.is_triggered_by(mode, subset_mods, &t, false));
+    }
+
+    #[test]
+    fn binding_trigger_modes() {
+        let mut binding = MockBinding::default();
+        binding.mode = TermMode::ALT_SCREEN;
+
+        let t = binding.trigger;
+        let mods = binding.mods;
+
+        assert!(!binding.is_triggered_by(TermMode::INSERT, mods, &t, true));
+        assert!(binding.is_triggered_by(TermMode::ALT_SCREEN, mods, &t, true));
+        assert!(binding.is_triggered_by(TermMode::ALT_SCREEN | TermMode::INSERT, mods, &t, true));
+    }
+
+    #[test]
+    fn binding_trigger_notmodes() {
+        let mut binding = MockBinding::default();
+        binding.notmode = TermMode::ALT_SCREEN;
+
+        let t = binding.trigger;
+        let mods = binding.mods;
+
+        assert!(binding.is_triggered_by(TermMode::INSERT, mods, &t, true));
+        assert!(!binding.is_triggered_by(TermMode::ALT_SCREEN, mods, &t, true));
+        assert!(!binding.is_triggered_by(TermMode::ALT_SCREEN | TermMode::INSERT, mods, &t, true));
     }
 }

@@ -13,11 +13,18 @@ alacritty_terminal = { path = "../alacritty_terminal" }
 clap = "2"
 log = "0.4"
 time = "0.1.40"
-env_logger = "0.6.0"
-crossbeam-channel = "0.3.8"
+env_logger = "0.7.1"
+serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1"
 alacritty_charts = { path = "../alacritty_charts" }
+glutin = { git = "https://github.com/chrisduerr/glutin" }
+notify = "4"
+libc = "0.2"
+unicode-width = "0.1"
+parking_lot = "0.9"
+font = { path = "../font" }
+urlocator = "0.1.0"
 
 [build-dependencies]
 rustc_tools_util = "0.2.0"
@@ -25,8 +32,14 @@ rustc_tools_util = "0.2.0"
 [target.'cfg(not(windows))'.dependencies]
 xdg = "2"
 
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+image = "0.22.3"
+
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]
-dirs = "1.0.2"
+dirs = "2.0.2"
+
+[target.'cfg(not(any(target_os="windows", target_os="macos")))'.dependencies]
+x11-dl = "2"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.7", features = ["impl-default", "winuser", "synchapi", "roerrorapi", "winerror", "wincon", "wincontypes"]}
@@ -54,6 +67,5 @@ assets = [
     ["../extra/completions/alacritty.bash", "usr/share/bash-completion/completions/alacritty", "644"],
     ["../extra/completions/alacritty.fish", "usr/share/fish/completions/alacritty.fish", "644"],
     ["../extra/completions/_alacritty", "usr/share/zsh/vendor-completions/_alacritty", "644"],
-    ["../extra/alacritty.info", "usr/share/terminfo/a/alacritty", "644"],
 ]
 maintainer-scripts = "../extra/linux/debian"

@@ -1,8 +1,6 @@
-use std::borrow::Cow;
 use std::env;
-use std::fs::File;
-use std::io::{self, Read, Write};
-use std::path::{Path, PathBuf};
+use std::io;
+use std::path::PathBuf;
 
 #[cfg(windows)]
 use dirs;
@@ -11,9 +9,19 @@ use serde_yaml;
 #[cfg(not(windows))]
 use xdg;
 
-use alacritty_terminal::config::{Config, DEFAULT_ALACRITTY_CONFIG};
+use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
 
-pub const SOURCE_FILE_PATH: &str = file!();
+mod bindings;
+pub mod monitor;
+mod mouse;
+mod ui_config;
+
+pub use crate::config::bindings::{Action, Binding, Key, RelaxedEq};
+#[cfg(test)]
+pub use crate::config::mouse::{ClickHandler, Mouse};
+use crate::config::ui_config::UIConfig;
+
+pub type Config = TermConfig<UIConfig>;
 
 /// Result from config loading
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -34,7 +42,7 @@ pub enum Error {
     Yaml(serde_yaml::Error),
 }
 
-impl ::std::error::Error for Error {
+impl std::error::Error for Error {
     fn cause(&self) -> Option<&dyn (::std::error::Error)> {
         match *self {
             Error::NotFound => None,
@@ -54,7 +62,7 @@ impl ::std::error::Error for Error {
     }
 }
 
-impl ::std::fmt::Display for Error {
+impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Error::NotFound => write!(f, "{}", ::std::error::Error::description(self)),
@@ -97,7 +105,7 @@ impl From<serde_yaml::Error> for Error {
 /// 3. $HOME/.config/alacritty/alacritty.yml
 /// 4. $HOME/.alacritty.yml
 #[cfg(not(windows))]
-pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
+pub fn installed_config() -> Option<PathBuf> {
     // Try using XDG location by default
     xdg::BaseDirectories::with_prefix("alacritty")
         .ok()
@@ -122,41 +130,11 @@ pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
             }
             None
         })
-        .map(Into::into)
 }
 
 #[cfg(windows)]
-pub fn installed_config<'a>() -> Option<Cow<'a, Path>> {
-    dirs::config_dir()
-        .map(|path| path.join("alacritty\\alacritty.yml"))
-        .filter(|new| new.exists())
-        .map(Cow::from)
-}
-
-#[cfg(not(windows))]
-pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
-    let path = xdg::BaseDirectories::with_prefix("alacritty")
-        .map_err(|err| io::Error::new(io::ErrorKind::NotFound, err.to_string().as_str()))
-        .and_then(|p| p.place_config_file("alacritty.yml"))?;
-
-    File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
-
-    Ok(path.into())
-}
-
-#[cfg(windows)]
-pub fn write_defaults() -> io::Result<Cow<'static, Path>> {
-    let mut path = dirs::config_dir().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::NotFound, "Couldn't find profile directory")
-    })?;
-
-    path = path.join("alacritty/alacritty.yml");
-
-    std::fs::create_dir_all(path.parent().unwrap())?;
-
-    File::create(&path)?.write_all(DEFAULT_ALACRITTY_CONFIG.as_bytes())?;
-
-    Ok(path.into())
+pub fn installed_config() -> Option<PathBuf> {
+    dirs::config_dir().map(|path| path.join("alacritty\\alacritty.yml")).filter(|new| new.exists())
 }
 
 pub fn load_from(path: PathBuf) -> Config {
@@ -169,47 +147,81 @@ pub fn reload_from(path: &PathBuf) -> Result<Config> {
     match read_config(path) {
         Ok(config) => Ok(config),
         Err(err) => {
-            error!("Unable to load config {:?}: {}", path, err);
+            error!(target: LOG_TARGET_CONFIG, "Unable to load config {:?}: {}", path, err);
             Err(err)
         },
     }
 }
 
 fn read_config(path: &PathBuf) -> Result<Config> {
-    let mut contents = String::new();
-    File::open(path)?.read_to_string(&mut contents)?;
+    let mut contents = std::fs::read_to_string(path)?;
 
     // Remove UTF-8 BOM
     if contents.chars().nth(0) == Some('\u{FEFF}') {
         contents = contents.split_off(3);
     }
 
-    // Prevent parsing error with empty string
-    if contents.is_empty() {
-        return Ok(Config::default());
+    parse_config(&contents)
+}
+
+fn parse_config(contents: &str) -> Result<Config> {
+    match serde_yaml::from_str(&contents) {
+        Err(error) => {
+            // Prevent parsing error with an empty string and commented out file.
+            if std::error::Error::description(&error) == "EOF while parsing a value" {
+                Ok(Config::default())
+            } else {
+                Err(Error::Yaml(error))
+            }
+        },
+        Ok(config) => {
+            print_deprecation_warnings(&config);
+            Ok(config)
+        },
     }
-
-    let config = serde_yaml::from_str(&contents)?;
-
-    print_deprecation_warnings(&config);
-
-    Ok(config)
 }
 
 fn print_deprecation_warnings(config: &Config) {
     if config.window.start_maximized.is_some() {
         warn!(
+            target: LOG_TARGET_CONFIG,
             "Config window.start_maximized is deprecated; please use window.startup_mode instead"
         );
     }
 
     if config.render_timer.is_some() {
-        warn!("Config render_timer is deprecated; please use debug.render_timer instead");
+        warn!(
+            target: LOG_TARGET_CONFIG,
+            "Config render_timer is deprecated; please use debug.render_timer instead"
+        );
     }
 
     if config.persistent_logging.is_some() {
         warn!(
+            target: LOG_TARGET_CONFIG,
             "Config persistent_logging is deprecated; please use debug.persistent_logging instead"
         );
+    }
+
+    if config.scrolling.faux_multiplier().is_some() {
+        warn!(
+            target: LOG_TARGET_CONFIG,
+            "Config scrolling.faux_multiplier is deprecated; the alternate scroll escape can now \
+             be used to disable it and `scrolling.multiplier` controls the number of scrolled \
+             lines"
+        );
+    }
+}
+
+#[cfg(test)]
+mod test {
+    static DEFAULT_ALACRITTY_CONFIG: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../alacritty.yml"));
+
+    use super::Config;
+
+    #[test]
+    fn config_read_eof() {
+        assert_eq!(super::parse_config(DEFAULT_ALACRITTY_CONFIG).unwrap(), Config::default());
     }
 }

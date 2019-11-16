@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 /// Wrapper around Vec which supports fast indexing and rotation
 ///
 /// The rotation implemented by grid::Storage is a simple integer addition.
@@ -14,7 +15,7 @@
 use std::ops::{Index, IndexMut};
 use std::vec::Drain;
 
-use static_assertions::assert_eq_size;
+use serde::{Deserialize, Serialize};
 
 use super::Row;
 use crate::index::Line;
@@ -94,10 +95,10 @@ impl<T> Storage<T> {
         T: Clone,
     {
         let current_history = self.len - (self.visible_lines.0 + 1);
-        if history_size > current_history {
-            self.grow_lines(history_size - current_history, template_row);
-        } else if history_size < current_history {
-            self.shrink_lines(current_history - history_size);
+        match history_size.cmp(&current_history) {
+            Ordering::Greater => self.grow_lines(history_size - current_history, template_row),
+            Ordering::Less => self.shrink_lines(current_history - history_size),
+            _ => (),
         }
     }
 
@@ -220,7 +221,7 @@ impl<T> Storage<T> {
     /// instructions. This implementation achieves the swap in only 8 movups
     /// instructions.
     pub fn swap(&mut self, a: usize, b: usize) {
-        assert_eq_size!(Row<T>, [usize; 4]);
+        debug_assert_eq!(std::mem::size_of::<Row<T>>(), 32);
 
         let a = self.compute_index(a);
         let b = self.compute_index(b);

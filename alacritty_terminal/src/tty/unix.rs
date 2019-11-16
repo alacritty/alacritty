@@ -13,15 +13,15 @@
 // limitations under the License.
 //
 //! tty related functionality
-//!
 
 use crate::config::{Config, Shell};
-use crate::display::OnResize;
+use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 use mio;
 
 use libc::{self, c_int, pid_t, winsize, TIOCSCTTY};
+use log::error;
 use nix::pty::openpty;
 use signal_hook::{self as sighook, iterator::Signals};
 
@@ -29,6 +29,7 @@ use mio::unix::EventedFd;
 use std::ffi::CStr;
 use std::fs::File;
 use std::io;
+use std::mem::MaybeUninit;
 use std::os::unix::{
     io::{AsRawFd, FromRawFd, RawFd},
     process::CommandExt,
@@ -42,13 +43,15 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// Necessary to put this in static storage for `sigchld` to have access
 static PID: AtomicUsize = AtomicUsize::new(0);
 
-pub fn child_pid() -> pid_t {
-    PID.load(Ordering::Relaxed) as pid_t
+macro_rules! die {
+    ($($arg:tt)*) => {{
+        error!($($arg)*);
+        ::std::process::exit(1);
+    }}
 }
 
-/// Get the current value of errno
-fn errno() -> c_int {
-    ::errno::errno().0
+pub fn child_pid() -> pid_t {
+    PID.load(Ordering::Relaxed) as pid_t
 }
 
 /// Get raw fds for master/slave ends of a new pty
@@ -74,7 +77,7 @@ fn set_controlling_terminal(fd: c_int) {
     };
 
     if res < 0 {
-        die!("ioctl TIOCSCTTY failed: {}", errno());
+        die!("ioctl TIOCSCTTY failed: {}", io::Error::last_os_error());
     }
 }
 
@@ -96,15 +99,16 @@ struct Passwd<'a> {
 /// If `buf` is changed while `Passwd` is alive, bad thing will almost certainly happen.
 fn get_pw_entry(buf: &mut [i8; 1024]) -> Passwd<'_> {
     // Create zeroed passwd struct
-    let mut entry: libc::passwd = unsafe { ::std::mem::uninitialized() };
+    let mut entry: MaybeUninit<libc::passwd> = MaybeUninit::uninit();
 
     let mut res: *mut libc::passwd = ptr::null_mut();
 
     // Try and read the pw file.
     let uid = unsafe { libc::getuid() };
     let status = unsafe {
-        libc::getpwuid_r(uid, &mut entry, buf.as_mut_ptr() as *mut _, buf.len(), &mut res)
+        libc::getpwuid_r(uid, entry.as_mut_ptr(), buf.as_mut_ptr() as *mut _, buf.len(), &mut res)
     };
+    let entry = unsafe { entry.assume_init() };
 
     if status < 0 {
         die!("getpwuid_r failed");
@@ -137,24 +141,8 @@ pub struct Pty {
     signals_token: mio::Token,
 }
 
-impl Pty {
-    /// Resize the pty
-    ///
-    /// Tells the kernel that the window size changed with the new pixel
-    /// dimensions and line/column counts.
-    pub fn resize<T: ToWinsize>(&self, size: &T) {
-        let win = size.to_winsize();
-
-        let res = unsafe { libc::ioctl(self.fd.as_raw_fd(), libc::TIOCSWINSZ, &win as *const _) };
-
-        if res < 0 {
-            die!("ioctl TIOCSWINSZ failed: {}", errno());
-        }
-    }
-}
-
 /// Create a new tty and return a handle to interact with it.
-pub fn new<T: ToWinsize>(config: &Config, size: &T, window_id: Option<usize>) -> Pty {
+pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
     let win_size = size.to_winsize();
     let mut buf = [0; 1024];
     let pw = get_pw_entry(&mut buf);
@@ -194,35 +182,30 @@ pub fn new<T: ToWinsize>(config: &Config, size: &T, window_id: Option<usize>) ->
         builder.env("WINDOWID", format!("{}", window_id));
     }
 
-    // TODO: Rust 1.34.0
-    #[allow(deprecated)]
-    builder.before_exec(move || {
-        // Create a new process group
-        unsafe {
+    unsafe {
+        builder.pre_exec(move || {
+            // Create a new process group
             let err = libc::setsid();
             if err == -1 {
-                die!("Failed to set session id: {}", errno());
+                die!("Failed to set session id: {}", io::Error::last_os_error());
             }
-        }
 
-        set_controlling_terminal(slave);
+            set_controlling_terminal(slave);
 
-        // No longer need slave/master fds
-        unsafe {
+            // No longer need slave/master fds
             libc::close(slave);
             libc::close(master);
-        }
 
-        unsafe {
             libc::signal(libc::SIGCHLD, libc::SIG_DFL);
             libc::signal(libc::SIGHUP, libc::SIG_DFL);
             libc::signal(libc::SIGINT, libc::SIG_DFL);
             libc::signal(libc::SIGQUIT, libc::SIG_DFL);
             libc::signal(libc::SIGTERM, libc::SIG_DFL);
             libc::signal(libc::SIGALRM, libc::SIG_DFL);
-        }
-        Ok(())
-    });
+
+            Ok(())
+        });
+    }
 
     // Handle set working directory option
     if let Some(ref dir) = config.working_directory() {
@@ -250,12 +233,10 @@ pub fn new<T: ToWinsize>(config: &Config, size: &T, window_id: Option<usize>) ->
                 signals,
                 signals_token: mio::Token::from(0),
             };
-            pty.resize(size);
+            pty.fd.as_raw_fd().on_resize(size);
             pty
         },
-        Err(err) => {
-            die!("Failed to spawn command: {}", err);
-        },
+        Err(err) => die!("Failed to spawn command '{}': {}", shell.program, err),
     }
 }
 
@@ -374,13 +355,17 @@ impl<'a> ToWinsize for &'a SizeInfo {
 }
 
 impl OnResize for i32 {
+    /// Resize the pty
+    ///
+    /// Tells the kernel that the window size changed with the new pixel
+    /// dimensions and line/column counts.
     fn on_resize(&mut self, size: &SizeInfo) {
         let win = size.to_winsize();
 
         let res = unsafe { libc::ioctl(*self, libc::TIOCSWINSZ, &win as *const _) };
 
         if res < 0 {
-            die!("ioctl TIOCSWINSZ failed: {}", errno());
+            die!("ioctl TIOCSWINSZ failed: {}", io::Error::last_os_error());
         }
     }
 }

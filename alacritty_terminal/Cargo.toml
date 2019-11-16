@@ -14,10 +14,8 @@ libc = "0.2"
 notify = "4"
 bitflags = "1"
 font = { path = "../font" }
-errno = "0.2"
-parking_lot = "0.7"
-serde = "1"
-serde_derive = "1"
+parking_lot = "0.9"
+serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 vte = "0.3"
 mio = "0.6"
@@ -25,12 +23,9 @@ mio-extras = "2"
 log = "0.4"
 fnv = "1"
 unicode-width = "0.1"
-glutin = { version = "0.21.0", features = ["icon_loading"] }
 base64 = "0.10.0"
-static_assertions = "0.3.0"
 terminfo = "0.6.1"
-url = "1.7.1"
-crossbeam-channel = "0.3.8"
+url = "2"
 copypasta = { path = "../copypasta" }
 tokio-core = "0.1.17"
 tokio = "0.1"
@@ -38,11 +33,8 @@ futures = "0.1.26"
 alacritty_charts = { path = "../alacritty_charts" }
 
 [target.'cfg(unix)'.dependencies]
-nix = "0.14.1"
+nix = "0.15.0"
 signal-hook = { version = "0.1", features = ["mio-support"] }
-
-[target.'cfg(not(any(target_os = "macos", windows)))'.dependencies]
-x11-dl = "2"
 
 [target.'cfg(windows)'.dependencies]
 winpty = { path = "../winpty" }
@@ -52,9 +44,6 @@ dunce = "1.0"
 winapi = { version = "0.3.7", features = ["impl-default", "winuser", "synchapi", "roerrorapi", "winerror", "wincon", "wincontypes"]}
 widestring = "0.4"
 mio-anonymous-pipes = "0.1"
-
-[target.'cfg(not(target_os = "macos"))'.dependencies]
-image = "0.21.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"
@@ -67,7 +56,7 @@ nightly = []
 bench = []
 
 [build-dependencies]
-gl_generator = "0.11.0"
+gl_generator = "0.14.0"
 
 [dev-dependencies]
 serde_json = "1.0.0"

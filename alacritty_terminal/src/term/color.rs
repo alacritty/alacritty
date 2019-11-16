@@ -2,8 +2,9 @@ use std::fmt;
 use std::ops::{Index, IndexMut, Mul};
 use std::str::FromStr;
 
+use log::{error, trace};
 use serde::de::Visitor;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::ansi;
 use crate::config::Colors;
@@ -143,7 +144,7 @@ pub struct List([Rgb; COUNT]);
 impl<'a> From<&'a Colors> for List {
     fn from(colors: &Colors) -> List {
         // Type inference fails without this annotation
-        let mut list: List = unsafe { ::std::mem::uninitialized() };
+        let mut list = List([Rgb::default(); COUNT]);
 
         list.fill_named(colors);
         list.fill_cube(colors);

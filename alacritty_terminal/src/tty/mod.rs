@@ -77,7 +77,7 @@ pub trait EventedPty: EventedReadWrite {
 }
 
 // Setup environment variables
-pub fn setup_env(config: &Config) {
+pub fn setup_env<C>(config: &Config<C>) {
     // Default to 'alacritty' terminfo if it is available, otherwise
     // default to 'xterm-256color'. May be overridden by user's config
     // below.

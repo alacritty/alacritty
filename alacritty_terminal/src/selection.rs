@@ -39,6 +39,7 @@ use crate::term::{Search, Term};
 /// [`simple`]: enum.Selection.html#method.simple
 /// [`semantic`]: enum.Selection.html#method.semantic
 /// [`lines`]: enum.Selection.html#method.lines
+/// [`update`]: enum.Selection.html#method.update
 #[derive(Debug, Clone, PartialEq)]
 pub enum Selection {
     Simple {
@@ -132,7 +133,7 @@ impl Selection {
 
     pub fn is_empty(&self) -> bool {
         match *self {
-            Selection::Simple { ref region } | Selection::Block { ref region } => {
+            Selection::Simple { ref region } => {
                 let (start, end) =
                     if Selection::points_need_swap(region.start.point, region.end.point) {
                         (&region.end, &region.start)
@@ -140,18 +141,31 @@ impl Selection {
                         (&region.start, &region.end)
                     };
 
-                // Empty when single cell with identical sides or two cell with right+left sides
+                // Simple selection is empty when the points are identical
+                // or two adjacent cells have the sides right -> left
                 start == end
-                    || (start.side == Side::Left
-                        && end.side == Side::Right
-                        && start.point.line == end.point.line
-                        && start.point.col == end.point.col + 1)
+                    || (start.side == Side::Right
+                        && end.side == Side::Left
+                        && (start.point.line == end.point.line)
+                        && start.point.col + 1 == end.point.col)
+            },
+            Selection::Block { region: Range { ref start, ref end } } => {
+                // Block selection is empty when the points' columns and sides are identical
+                // or two cells with adjacent columns have the sides right -> left,
+                // regardless of their lines
+                (start.point.col == end.point.col && start.side == end.side)
+                    || (start.point.col + 1 == end.point.col
+                        && start.side == Side::Right
+                        && end.side == Side::Left)
+                    || (end.point.col + 1 == start.point.col
+                        && start.side == Side::Left
+                        && end.side == Side::Right)
             },
             Selection::Semantic { .. } | Selection::Lines { .. } => false,
         }
     }
 
-    pub fn to_span(&self, term: &Term) -> Option<Span> {
+    pub fn to_span<T>(&self, term: &Term<T>) -> Option<Span> {
         // Get both sides of the selection
         let (mut start, mut end) = match *self {
             Selection::Simple { ref region } | Selection::Block { ref region } => {
@@ -200,16 +214,16 @@ impl Selection {
         span.map(|mut span| {
             let grid = term.grid();
 
-            if span.end.col < cols
-                && grid[span.end.line][span.end.col].flags.contains(Flags::WIDE_CHAR_SPACER)
+            if span.start.col < cols
+                && grid[span.start.line][span.start.col].flags.contains(Flags::WIDE_CHAR_SPACER)
             {
-                span.end.col = Column(span.end.col.saturating_sub(1));
+                span.start.col = Column(span.start.col.saturating_sub(1));
             }
 
-            if span.start.col.0 < cols.saturating_sub(1)
-                && grid[span.start.line][span.start.col].flags.contains(Flags::WIDE_CHAR)
+            if span.end.col.0 < cols.saturating_sub(1)
+                && grid[span.end.line][span.end.col].flags.contains(Flags::WIDE_CHAR)
             {
-                span.start.col += 1;
+                span.end.col += 1;
             }
 
             span
@@ -218,7 +232,7 @@ impl Selection {
 
     // Bring start and end points in the correct order
     fn points_need_swap(start: Point<isize>, end: Point<isize>) -> bool {
-        start.line > end.line || start.line == end.line && start.col < end.col
+        start.line < end.line || start.line == end.line && start.col > end.col
     }
 
     // Clamp selection inside the grid to prevent out of bounds errors
@@ -228,26 +242,26 @@ impl Selection {
         lines: isize,
         cols: Column,
     ) -> Option<(Point<isize>, Point<isize>)> {
-        if end.line >= lines {
+        if start.line >= lines {
             // Don't show selection above visible region
-            if start.line >= lines {
+            if end.line >= lines {
                 return None;
             }
 
             // Clamp selection above viewport to visible region
-            end.line = lines - 1;
-            end.col = Column(0);
+            start.line = lines - 1;
+            start.col = Column(0);
         }
 
-        if start.line < 0 {
+        if end.line < 0 {
             // Don't show selection below visible region
-            if end.line < 0 {
+            if start.line < 0 {
                 return None;
             }
 
             // Clamp selection below viewport to visible region
-            start.line = 0;
-            start.col = cols - 1;
+            end.line = 0;
+            end.col = cols - 1;
         }
 
         Some((start, end))
@@ -261,10 +275,10 @@ impl Selection {
             if let Some(end) = term.bracket_search(start.into()) {
                 (start.into(), end)
             } else {
-                (term.semantic_search_right(start.into()), term.semantic_search_left(end.into()))
+                (term.semantic_search_left(start.into()), term.semantic_search_right(end.into()))
             }
         } else {
-            (term.semantic_search_right(start.into()), term.semantic_search_left(end.into()))
+            (term.semantic_search_left(start.into()), term.semantic_search_right(end.into()))
         };
 
         Some(Span { start, end, is_block: false })
@@ -274,8 +288,8 @@ impl Selection {
     where
         T: Dimensions,
     {
-        start.col = term.dimensions().col - 1;
-        end.col = Column(0);
+        end.col = term.dimensions().col - 1;
+        start.col = Column(0);
 
         Some(Span { start: start.into(), end: end.into(), is_block: false })
     }
@@ -296,19 +310,19 @@ impl Selection {
         }
 
         // Remove last cell if selection ends to the left of a cell
-        if start_side == Side::Left && start != end {
-            // Special case when selection starts to left of first cell
-            if start.col == Column(0) {
-                start.col = term.dimensions().col - 1;
-                start.line += 1;
+        if end_side == Side::Left && start != end {
+            // Special case when selection ends to left of first cell
+            if end.col == Column(0) {
+                end.col = term.dimensions().col - 1;
+                end.line += 1;
             } else {
-                start.col -= 1;
+                end.col -= 1;
             }
         }
 
         // Remove first cell if selection starts at the right of a cell
-        if end_side == Side::Right && start != end {
-            end.col += 1;
+        if start_side == Side::Right && start != end {
+            start.col += 1;
         }
 
         // Return the selection with all cells inclusive
@@ -326,20 +340,20 @@ impl Selection {
             return None;
         }
 
-        // Always go bottom-right -> top-left
-        if start.col < end.col {
+        // Always go top-left -> bottom-right
+        if start.col > end.col {
             std::mem::swap(&mut start_side, &mut end_side);
             std::mem::swap(&mut start.col, &mut end.col);
         }
 
         // Remove last cell if selection ends to the left of a cell
-        if start_side == Side::Left && start != end && start.col.0 > 0 {
-            start.col -= 1;
+        if end_side == Side::Left && start != end && end.col.0 > 0 {
+            end.col -= 1;
         }
 
         // Remove first cell if selection starts at the right of a cell
-        if end_side == Side::Right && start != end {
-            end.col += 1;
+        if start_side == Side::Right && start != end {
+            start.col += 1;
         }
 
         // Return the selection with all cells inclusive
@@ -392,13 +406,19 @@ mod test {
 
     use super::{Selection, Span};
     use crate::clipboard::Clipboard;
+    use crate::config::MockConfig;
+    use crate::event::{Event, EventListener};
     use crate::grid::Grid;
     use crate::index::{Column, Line, Point, Side};
-    use crate::message_bar::MessageBuffer;
     use crate::term::cell::{Cell, Flags};
     use crate::term::{SizeInfo, Term};
 
-    fn term(width: usize, height: usize) -> Term {
+    struct Mock;
+    impl EventListener for Mock {
+        fn send_event(&self, _event: Event) {}
+    }
+
+    fn term(width: usize, height: usize) -> Term<Mock> {
         let size = SizeInfo {
             width: width as f32,
             height: height as f32,
@@ -408,7 +428,7 @@ mod test {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        Term::new(&Default::default(), size, MessageBuffer::new(), Clipboard::new_nop())
+        Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock)
     }
 
     /// Test case of single cell selection
@@ -488,8 +508,8 @@ mod test {
         selection.update(Point::new(0, Column(1)), Side::Right);
 
         assert_eq!(selection.to_span(&term(5, 2)).unwrap(), Span {
-            start: Point::new(0, Column(1)),
-            end: Point::new(1, Column(2)),
+            start: Point::new(1, Column(2)),
+            end: Point::new(0, Column(1)),
             is_block: false,
         });
     }
@@ -512,8 +532,8 @@ mod test {
         selection.update(Point::new(1, Column(0)), Side::Right);
 
         assert_eq!(selection.to_span(&term(5, 2)).unwrap(), Span {
-            start: Point::new(0, Column(1)),
-            end: Point::new(1, Column(1)),
+            start: Point::new(1, Column(1)),
+            end: Point::new(0, Column(1)),
             is_block: false,
         });
     }
@@ -525,8 +545,8 @@ mod test {
         selection.rotate(-3);
 
         assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
-            start: Point::new(0, Column(4)),
-            end: Point::new(2, Column(0)),
+            start: Point::new(2, Column(0)),
+            end: Point::new(0, Column(4)),
             is_block: false,
         });
     }
@@ -538,8 +558,8 @@ mod test {
         selection.rotate(-3);
 
         assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
-            start: Point::new(0, Column(4)),
-            end: Point::new(2, Column(3)),
+            start: Point::new(2, Column(3)),
+            end: Point::new(0, Column(4)),
             is_block: false,
         });
     }
@@ -551,8 +571,8 @@ mod test {
         selection.rotate(-3);
 
         assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
-            start: Point::new(0, Column(4)),
-            end: Point::new(2, Column(4)),
+            start: Point::new(2, Column(4)),
+            end: Point::new(0, Column(4)),
             is_block: false,
         });
     }
@@ -564,8 +584,8 @@ mod test {
         selection.rotate(-3);
 
         assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
-            start: Point::new(0, Column(4)),
-            end: Point::new(2, Column(4)),
+            start: Point::new(2, Column(4)),
+            end: Point::new(0, Column(4)),
             is_block: true,
         });
     }
@@ -584,9 +604,35 @@ mod test {
         selection.update(Point::new(0, Column(8)), Side::Right);
 
         assert_eq!(selection.to_span(&term).unwrap(), Span {
-            start: Point::new(0, Column(9)),
-            end: Point::new(0, Column(0)),
+            start: Point::new(0, Column(0)),
+            end: Point::new(0, Column(9)),
             is_block: false,
         });
+    }
+
+    #[test]
+    fn simple_is_empty() {
+        let mut selection = Selection::simple(Point::new(0, Column(0)), Side::Right);
+        assert!(selection.is_empty());
+        selection.update(Point::new(0, Column(1)), Side::Left);
+        assert!(selection.is_empty());
+        selection.update(Point::new(1, Column(0)), Side::Right);
+        assert!(!selection.is_empty());
+    }
+
+    #[test]
+    fn block_is_empty() {
+        let mut selection = Selection::block(Point::new(0, Column(0)), Side::Right);
+        assert!(selection.is_empty());
+        selection.update(Point::new(0, Column(1)), Side::Left);
+        assert!(selection.is_empty());
+        selection.update(Point::new(0, Column(1)), Side::Right);
+        assert!(!selection.is_empty());
+        selection.update(Point::new(1, Column(0)), Side::Right);
+        assert!(selection.is_empty());
+        selection.update(Point::new(1, Column(1)), Side::Left);
+        assert!(selection.is_empty());
+        selection.update(Point::new(1, Column(1)), Side::Right);
+        assert!(!selection.is_empty());
     }
 }

@@ -11,146 +11,139 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+use std::collections::HashMap;
+
 use font::Metrics;
 
-use crate::index::Point;
+use crate::index::{Column, Point};
 use crate::term::cell::Flags;
 use crate::term::color::Rgb;
 use crate::term::{RenderableCell, SizeInfo};
 
 #[derive(Debug, Copy, Clone)]
-pub struct Rect<T> {
-    pub x: T,
-    pub y: T,
-    pub width: T,
-    pub height: T,
+pub struct RenderRect {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub color: Rgb,
+    pub alpha: f32,
 }
 
-impl<T> Rect<T> {
-    pub fn new(x: T, y: T, width: T, height: T) -> Self {
-        Rect { x, y, width, height }
+impl RenderRect {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, color: Rgb, alpha: f32) -> Self {
+        RenderRect { x, y, width, height, color, alpha }
     }
 }
 
-#[derive(Debug)]
-struct Line {
-    flag: Flags,
-    range: Option<(RenderableCell, Point)>,
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct RenderLine {
+    pub start: Point,
+    pub end: Point,
+    pub color: Rgb,
 }
 
-impl Line {
-    fn new(flag: Flags) -> Self {
-        Self { flag, range: None }
+impl RenderLine {
+    pub fn rects(&self, flag: Flags, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
+        let mut rects = Vec::new();
+
+        let mut start = self.start;
+        while start.line < self.end.line {
+            let mut end = start;
+            end.col = size.cols() - 1;
+            rects.push(Self::create_rect(metrics, size, flag, start, end, self.color));
+
+            start.col = Column(0);
+            start.line += 1;
+        }
+
+        rects.push(Self::create_rect(metrics, size, flag, start, self.end, self.color));
+
+        rects
+    }
+
+    fn create_rect(
+        metrics: &Metrics,
+        size: &SizeInfo,
+        flag: Flags,
+        start: Point,
+        end: Point,
+        color: Rgb,
+    ) -> RenderRect {
+        let start_x = start.col.0 as f32 * size.cell_width;
+        let end_x = (end.col.0 + 1) as f32 * size.cell_width;
+        let width = end_x - start_x;
+
+        let (position, mut height) = match flag {
+            Flags::UNDERLINE => (metrics.underline_position, metrics.underline_thickness),
+            Flags::STRIKEOUT => (metrics.strikeout_position, metrics.strikeout_thickness),
+            _ => unimplemented!("Invalid flag for cell line drawing specified"),
+        };
+
+        // Make sure lines are always visible
+        height = height.max(1.);
+
+        let line_bottom = (start.line.0 as f32 + 1.) * size.cell_height;
+        let baseline = line_bottom + metrics.descent;
+
+        let mut y = baseline - position - height / 2.;
+        let max_y = line_bottom - height;
+        if y > max_y {
+            y = max_y;
+        }
+
+        RenderRect::new(start_x + size.padding_x, y + size.padding_y, width, height, color, 1.)
     }
 }
 
-/// Rects for underline, strikeout and more.
-pub struct Rects<'a> {
-    inner: Vec<(Rect<f32>, Rgb)>,
-    active_lines: Vec<Line>,
-    metrics: &'a Metrics,
-    size: &'a SizeInfo,
+/// Lines for underline and strikeout.
+#[derive(Default)]
+pub struct RenderLines {
+    inner: HashMap<Flags, Vec<RenderLine>>,
 }
 
-impl<'a> Rects<'a> {
-    pub fn new(metrics: &'a Metrics, size: &'a SizeInfo) -> Self {
-        let active_lines = vec![Line::new(Flags::UNDERLINE), Line::new(Flags::STRIKEOUT)];
-        Self { inner: Vec::new(), active_lines, metrics, size }
+impl RenderLines {
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Convert the stored rects to rectangles for the renderer.
-    pub fn rects(&self) -> &Vec<(Rect<f32>, Rgb)> {
-        &self.inner
+    pub fn rects(&self, metrics: &Metrics, size: &SizeInfo) -> Vec<RenderRect> {
+        self.inner
+            .iter()
+            .map(|(flag, lines)| -> Vec<RenderRect> {
+                lines.iter().map(|line| line.rects(*flag, metrics, size)).flatten().collect()
+            })
+            .flatten()
+            .collect()
     }
 
     /// Update the stored lines with the next cell info.
-    pub fn update_lines(&mut self, size_info: &SizeInfo, cell: &RenderableCell) {
-        for line in self.active_lines.iter_mut() {
-            match line.range {
-                // Check for end if line is present
-                Some((ref mut start, ref mut end)) => {
-                    // No change in line
-                    if cell.line == start.line
-                        && cell.flags.contains(line.flag)
-                        && cell.fg == start.fg
-                        && cell.column == end.col + 1
-                    {
-                        if size_info.cols() == cell.column && size_info.lines() == cell.line {
-                            // Add the last rect if we've reached the end of the terminal
-                            self.inner.push(create_rect(
-                                &start,
-                                cell.into(),
-                                line.flag,
-                                &self.metrics,
-                                &self.size,
-                            ));
-                        } else {
-                            // Update the length of the line
-                            *end = cell.into();
-                        }
+    pub fn update(&mut self, cell: RenderableCell) {
+        for flag in &[Flags::UNDERLINE, Flags::STRIKEOUT] {
+            if !cell.flags.contains(*flag) {
+                continue;
+            }
 
-                        continue;
-                    }
+            // Check if there's an active line
+            if let Some(line) = self.inner.get_mut(flag).and_then(|lines| lines.last_mut()) {
+                if cell.fg == line.color
+                    && cell.column == line.end.col + 1
+                    && cell.line == line.end.line
+                {
+                    // Update the length of the line
+                    line.end = cell.into();
+                    continue;
+                }
+            }
 
-                    self.inner.push(create_rect(start, *end, line.flag, &self.metrics, &self.size));
-
-                    // Start a new line if the flag is present
-                    if cell.flags.contains(line.flag) {
-                        *start = cell.clone();
-                        *end = cell.into();
-                    } else {
-                        line.range = None;
-                    }
-                },
-                // Check for new start of line
+            // Start new line if there currently is none
+            let line = RenderLine { start: cell.into(), end: cell.into(), color: cell.fg };
+            match self.inner.get_mut(flag) {
+                Some(lines) => lines.push(line),
                 None => {
-                    if cell.flags.contains(line.flag) {
-                        line.range = Some((cell.clone(), cell.into()));
-                    }
+                    self.inner.insert(*flag, vec![line]);
                 },
-            };
+            }
         }
     }
-
-    // Add a rectangle
-    pub fn push(&mut self, rect: Rect<f32>, color: Rgb) {
-        self.inner.push((rect, color));
-    }
-}
-
-/// Create a rectangle that starts on the left of `start` and ends on the right
-/// of `end`, based on the given flag and size metrics.
-fn create_rect(
-    start: &RenderableCell,
-    end: Point,
-    flag: Flags,
-    metrics: &Metrics,
-    size: &SizeInfo,
-) -> (Rect<f32>, Rgb) {
-    let start_x = start.column.0 as f32 * size.cell_width;
-    let end_x = (end.col.0 + 1) as f32 * size.cell_width;
-    let width = end_x - start_x;
-
-    let (position, mut height) = match flag {
-        Flags::UNDERLINE => (metrics.underline_position, metrics.underline_thickness),
-        Flags::STRIKEOUT => (metrics.strikeout_position, metrics.strikeout_thickness),
-        _ => unimplemented!("Invalid flag for cell line drawing specified"),
-    };
-
-    // Make sure lines are always visible
-    height = height.max(1.);
-
-    let cell_bottom = (start.line.0 as f32 + 1.) * size.cell_height;
-    let baseline = cell_bottom + metrics.descent;
-
-    let mut y = baseline - position - height / 2.;
-    let max_y = cell_bottom - height;
-    if y > max_y {
-        y = max_y;
-    }
-
-    let rect =
-        Rect::new(start_x + size.padding_x, y.round() + size.padding_y, width, height.round());
-
-    (rect, start.fg)
 }

@@ -14,6 +14,9 @@ However, it does allow configuration of many aspects of the terminal.
 \fB\-h\fR, \fB\-\-help\fR
 Prints help information
 .TP
+\fB\-\-hold\fR
+Remain open after child process exits
+.TP
 \fB\-\-live\-config\-reload\fR
 Enable automatic config reloading
 .TP
@@ -56,6 +59,9 @@ Defines the window position. Falls back to position specified by window manager 
 .TP
 \fB\-t\fR, \fB\-\-title\fR <title>
 Defines the window title [default: Alacritty]
+.TP
+\fB\-\-embed\fR <parent>
+Defines the X11 window ID (as a decimal integer) to embed Alacritty within
 .TP
 \fB\-\-working\-directory\fR <working\-directory>
 Start the shell in the specified working directory

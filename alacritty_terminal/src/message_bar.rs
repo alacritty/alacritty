@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crossbeam_channel::{Receiver, Sender};
+use std::collections::VecDeque;
 
 use crate::term::color::Rgb;
 use crate::term::SizeInfo;
@@ -22,21 +22,21 @@ const CLOSE_BUTTON_PADDING: usize = 1;
 const MIN_FREE_LINES: usize = 3;
 const TRUNCATED_MESSAGE: &str = "[MESSAGE TRUNCATED]";
 
-/// Message for display in the MessageBuffer
+/// Message for display in the MessageBuffer.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Message {
     text: String,
     color: Rgb,
-    topic: Option<String>,
+    target: Option<String>,
 }
 
 impl Message {
-    /// Create a new message
+    /// Create a new message.
     pub fn new(text: String, color: Rgb) -> Message {
-        Message { text, color, topic: None }
+        Message { text, color, target: None }
     }
 
-    /// Formatted message text lines
+    /// Formatted message text lines.
     pub fn text(&self, size_info: &SizeInfo) -> Vec<String> {
         let num_cols = size_info.cols().0;
         let max_lines = size_info.lines().saturating_sub(MIN_FREE_LINES);
@@ -92,25 +92,25 @@ impl Message {
         lines
     }
 
-    /// Message color
+    /// Message color.
     #[inline]
     pub fn color(&self) -> Rgb {
         self.color
     }
 
-    /// Message topic
+    /// Message target.
     #[inline]
-    pub fn topic(&self) -> Option<&String> {
-        self.topic.as_ref()
+    pub fn target(&self) -> Option<&String> {
+        self.target.as_ref()
     }
 
-    /// Update the message topic
+    /// Update the message target.
     #[inline]
-    pub fn set_topic(&mut self, topic: String) {
-        self.topic = Some(topic);
+    pub fn set_target(&mut self, target: String) {
+        self.target = Some(target);
     }
 
-    /// Right-pad text to fit a specific number of columns
+    /// Right-pad text to fit a specific number of columns.
     #[inline]
     fn pad_text(mut text: String, num_cols: usize) -> String {
         let padding_len = num_cols.saturating_sub(text.len());
@@ -119,82 +119,56 @@ impl Message {
     }
 }
 
-/// Storage for message bar
-#[derive(Debug)]
+/// Storage for message bar.
+#[derive(Debug, Default)]
 pub struct MessageBuffer {
-    current: Option<Message>,
-    messages: Receiver<Message>,
-    tx: Sender<Message>,
+    messages: VecDeque<Message>,
 }
 
 impl MessageBuffer {
-    /// Create new message buffer
+    /// Create new message buffer.
     pub fn new() -> MessageBuffer {
-        let (tx, messages) = crossbeam_channel::unbounded();
-        MessageBuffer { current: None, messages, tx }
+        MessageBuffer { messages: VecDeque::new() }
     }
 
-    /// Check if there are any messages queued
+    /// Check if there are any messages queued.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.current.is_none()
+        self.messages.is_empty()
     }
 
-    /// Current message
+    /// Current message.
     #[inline]
-    pub fn message(&mut self) -> Option<Message> {
-        if let Some(current) = &self.current {
-            Some(current.clone())
-        } else {
-            self.current = self.messages.try_recv().ok();
-            self.current.clone()
-        }
+    pub fn message(&self) -> Option<&Message> {
+        self.messages.front()
     }
 
-    /// Channel for adding new messages
-    #[inline]
-    pub fn tx(&self) -> Sender<Message> {
-        self.tx.clone()
-    }
-
-    /// Remove the currently visible message
+    /// Remove the currently visible message.
     #[inline]
     pub fn pop(&mut self) {
-        // Remove all duplicates
-        for msg in self
-            .messages
-            .try_iter()
-            .take(self.messages.len())
-            .filter(|m| Some(m) != self.current.as_ref())
-        {
-            let _ = self.tx.send(msg);
-        }
-
         // Remove the message itself
-        self.current = self.messages.try_recv().ok();
-    }
+        let msg = self.messages.pop_front();
 
-    /// Remove all messages with a specific topic
-    #[inline]
-    pub fn remove_topic(&mut self, topic: &str) {
-        // Filter messages currently pending
-        for msg in self
-            .messages
-            .try_iter()
-            .take(self.messages.len())
-            .filter(|m| m.topic().map(String::as_str) != Some(topic))
-        {
-            let _ = self.tx.send(msg);
+        // Remove all duplicates
+        if let Some(msg) = msg {
+            self.messages = self.messages.drain(..).filter(|m| m != &msg).collect();
         }
-
-        // Remove the currently active message
-        self.current = self.messages.try_recv().ok();
     }
-}
 
-impl Default for MessageBuffer {
-    fn default() -> MessageBuffer {
-        MessageBuffer::new()
+    /// Remove all messages with a specific target.
+    #[inline]
+    pub fn remove_target(&mut self, target: &str) {
+        self.messages = self
+            .messages
+            .drain(..)
+            .filter(|m| m.target().map(String::as_str) != Some(target))
+            .collect();
+    }
+
+    /// Add a new message to the queue.
+    #[inline]
+    pub fn push(&mut self, message: Message) {
+        self.messages.push_back(message);
     }
 }
 
@@ -207,7 +181,7 @@ mod test {
     fn appends_close_button() {
         let input = "a";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_buffer.push(Message::new(input.into(), color::RED));
         let size = SizeInfo {
             width: 7.,
             height: 10.,
@@ -227,7 +201,7 @@ mod test {
     fn multiline_close_button_first_line() {
         let input = "fo\nbar";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_buffer.push(Message::new(input.into(), color::RED));
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -247,7 +221,7 @@ mod test {
     fn splits_on_newline() {
         let input = "a\nb";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_buffer.push(Message::new(input.into(), color::RED));
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -267,7 +241,7 @@ mod test {
     fn splits_on_length() {
         let input = "foobar1";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_buffer.push(Message::new(input.into(), color::RED));
         let size = SizeInfo {
             width: 6.,
             height: 10.,
@@ -287,7 +261,7 @@ mod test {
     fn empty_with_shortterm() {
         let input = "foobar";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_buffer.push(Message::new(input.into(), color::RED));
         let size = SizeInfo {
             width: 6.,
             height: 0.,
@@ -307,7 +281,7 @@ mod test {
     fn truncates_long_messages() {
         let input = "hahahahahahahahahahaha truncate this because it's too long for the term";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_buffer.push(Message::new(input.into(), color::RED));
         let size = SizeInfo {
             width: 22.,
             height: (MIN_FREE_LINES + 2) as f32,
@@ -330,7 +304,7 @@ mod test {
     fn hide_button_when_too_narrow() {
         let input = "ha";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_buffer.push(Message::new(input.into(), color::RED));
         let size = SizeInfo {
             width: 2.,
             height: 10.,
@@ -350,7 +324,7 @@ mod test {
     fn hide_truncated_when_too_narrow() {
         let input = "hahahahahahahahaha";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_buffer.push(Message::new(input.into(), color::RED));
         let size = SizeInfo {
             width: 2.,
             height: (MIN_FREE_LINES + 2) as f32,
@@ -370,7 +344,7 @@ mod test {
     fn add_newline_for_button() {
         let input = "test";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_buffer.push(Message::new(input.into(), color::RED));
         let size = SizeInfo {
             width: 5.,
             height: 10.,
@@ -387,17 +361,17 @@ mod test {
     }
 
     #[test]
-    fn remove_topic() {
+    fn remove_target() {
         let mut message_buffer = MessageBuffer::new();
         for i in 0..10 {
             let mut msg = Message::new(i.to_string(), color::RED);
             if i % 2 == 0 && i < 5 {
-                msg.set_topic("topic".into());
+                msg.set_target("target".into());
             }
-            message_buffer.tx().send(msg).unwrap();
+            message_buffer.push(msg);
         }
 
-        message_buffer.remove_topic("topic");
+        message_buffer.remove_target("target");
 
         // Count number of messages
         let mut num_messages = 0;
@@ -413,22 +387,22 @@ mod test {
     fn pop() {
         let mut message_buffer = MessageBuffer::new();
         let one = Message::new(String::from("one"), color::RED);
-        message_buffer.tx().send(one.clone()).unwrap();
+        message_buffer.push(one.clone());
         let two = Message::new(String::from("two"), color::YELLOW);
-        message_buffer.tx().send(two.clone()).unwrap();
+        message_buffer.push(two.clone());
 
-        assert_eq!(message_buffer.message(), Some(one));
+        assert_eq!(message_buffer.message(), Some(&one));
 
         message_buffer.pop();
 
-        assert_eq!(message_buffer.message(), Some(two));
+        assert_eq!(message_buffer.message(), Some(&two));
     }
 
     #[test]
     fn wrap_on_words() {
         let input = "a\nbc defg";
         let mut message_buffer = MessageBuffer::new();
-        message_buffer.tx().send(Message::new(input.into(), color::RED)).unwrap();
+        message_buffer.push(Message::new(input.into(), color::RED));
         let size = SizeInfo {
             width: 5.,
             height: 10.,
@@ -453,10 +427,10 @@ mod test {
         let mut message_buffer = MessageBuffer::new();
         for _ in 0..10 {
             let msg = Message::new(String::from("test"), color::RED);
-            message_buffer.tx().send(msg).unwrap();
+            message_buffer.push(msg);
         }
-        message_buffer.tx().send(Message::new(String::from("other"), color::RED)).unwrap();
-        message_buffer.tx().send(Message::new(String::from("test"), color::YELLOW)).unwrap();
+        message_buffer.push(Message::new(String::from("other"), color::RED));
+        message_buffer.push(Message::new(String::from("test"), color::YELLOW));
         let _ = message_buffer.message();
 
         message_buffer.pop();

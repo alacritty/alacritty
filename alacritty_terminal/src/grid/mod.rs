@@ -15,7 +15,9 @@
 //! A specialized 2d grid implementation optimized for use in a terminal.
 
 use std::cmp::{max, min, Ordering};
-use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo};
+use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo};
+
+use serde::{Deserialize, Serialize};
 
 use crate::index::{self, Column, IndexRange, Line, Point};
 use crate::selection::Selection;
@@ -61,7 +63,6 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
             && self.display_offset.eq(&other.display_offset)
             && self.scroll_limit.eq(&other.scroll_limit)
             && self.selection.eq(&other.selection)
-            && self.url_highlight.eq(&other.url_highlight)
     }
 }
 
@@ -104,10 +105,6 @@ pub struct Grid<T> {
 
     #[serde(default)]
     max_scroll_limit: usize,
-
-    /// Range for URL hover highlights
-    #[serde(default)]
-    pub url_highlight: Option<RangeInclusive<index::Linear>>,
 }
 
 #[derive(Copy, Clone)]
@@ -117,13 +114,6 @@ pub enum Scroll {
     PageDown,
     Top,
     Bottom,
-}
-
-#[derive(Copy, Clone)]
-pub enum ViewportPosition {
-    Visible(Line),
-    Above,
-    Below,
 }
 
 impl<T: GridCell + Copy + Clone> Grid<T> {
@@ -137,26 +127,32 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
             scroll_limit: 0,
             selection: None,
             max_scroll_limit: scrollback,
-            url_highlight: None,
         }
+    }
+
+    pub fn buffer_to_visible(&self, point: impl Into<Point<usize>>) -> Point<usize> {
+        let mut point = point.into();
+
+        let offset = point.line.saturating_sub(self.display_offset);
+
+        if point.line < self.display_offset {
+            point.col = self.num_cols();
+            point.line = self.num_lines().0 - 1;
+        } else if offset >= *self.num_lines() {
+            point.col = Column(0);
+            point.line = 0;
+        } else {
+            point.line = self.lines.0 - offset - 1;
+        }
+
+        point
     }
 
     pub fn visible_to_buffer(&self, point: Point) -> Point<usize> {
         Point { line: self.visible_line_to_buffer(point.line), col: point.col }
     }
 
-    pub fn buffer_line_to_visible(&self, line: usize) -> ViewportPosition {
-        let offset = line.saturating_sub(self.display_offset);
-        if line < self.display_offset {
-            ViewportPosition::Below
-        } else if offset >= *self.num_lines() {
-            ViewportPosition::Above
-        } else {
-            ViewportPosition::Visible(self.lines - offset - 1)
-        }
-    }
-
-    pub fn visible_line_to_buffer(&self, line: Line) -> usize {
+    fn visible_line_to_buffer(&self, line: Line) -> usize {
         self.line_to_offset(line) + self.display_offset
     }
 
@@ -280,7 +276,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
                     last_row.append(&mut cells);
 
                     if row.is_empty() {
-                        let raw_len = i + 1 + new_raw.len();;
+                        let raw_len = i + 1 + new_raw.len();
                         if raw_len < self.lines.0 || self.scroll_limit == 0 {
                             // Add new line and move lines up if we can't pull from history
                             cursor_pos.line = Line(cursor_pos.line.saturating_sub(1));
@@ -396,7 +392,6 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         let prev = self.lines;
 
         self.selection = None;
-        self.url_highlight = None;
         self.raw.rotate(*prev as isize - *target as isize);
         self.raw.shrink_visible_lines(target);
         self.lines = target;
@@ -432,7 +427,6 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
             if let Some(ref mut selection) = self.selection {
                 selection.rotate(-(*positions as isize));
             }
-            self.url_highlight = None;
 
             self.decrease_scroll_limit(*positions);
 
@@ -477,7 +471,6 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
             if let Some(ref mut selection) = self.selection {
                 selection.rotate(*positions as isize);
             }
-            self.url_highlight = None;
 
             // // This next loop swaps "fixed" lines outside of a scroll region
             // // back into place after the rotation. The work is done in buffer-
@@ -522,7 +515,6 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
 
         self.display_offset = 0;
         self.selection = None;
-        self.url_highlight = None;
     }
 }
 
@@ -596,7 +588,17 @@ pub struct GridIterator<'a, T> {
     grid: &'a Grid<T>,
 
     /// Current position of the iterator within the grid.
-    pub cur: Point<usize>,
+    cur: Point<usize>,
+}
+
+impl<'a, T> GridIterator<'a, T> {
+    pub fn point(&self) -> Point<usize> {
+        self.cur
+    }
+
+    pub fn cell(&self) -> &'a T {
+        &self.grid[self.cur.line][self.cur.col]
+    }
 }
 
 impl<'a, T> Iterator for GridIterator<'a, T> {
