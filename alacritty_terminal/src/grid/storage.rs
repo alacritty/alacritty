@@ -34,7 +34,7 @@ pub struct Storage<T> {
     /// ring buffer.
     zero: usize,
 
-    /// An index separating the visible and scrollback regions
+    /// An index separating the visible and scrollback regions.
     visible_lines: Line,
 
     /// Total number of lines currently active in the terminal (scrollback + visible)
