@@ -27,7 +27,7 @@ const TRUNCATE_STEP: usize = 100;
 pub struct Storage<T> {
     inner: Vec<Row<T>>,
 
-    /// Starting point for the storage of rows
+    /// Starting point for the storage of rows.
     ///
     /// This value represents the starting line offset within the ring buffer. The value of this
     /// offset may be larger than the `len` itself, and will wrap around to the start to form the
