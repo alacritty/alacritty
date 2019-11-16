@@ -13,48 +13,26 @@
 // limitations under the License.
 
 use std::io::{self, Read, Write};
-use std::os::raw::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::TryRecvError;
 
 use mio::{self, Evented, Poll, PollOpt, Ready, Token};
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
 use mio_named_pipes::NamedPipe;
 
 use log::info;
-use winapi::shared::winerror::WAIT_TIMEOUT;
-use winapi::um::synchapi::WaitForSingleObject;
-use winapi::um::winbase::WAIT_OBJECT_0;
 
 use crate::config::Config;
 use crate::event::OnResize;
 use crate::term::SizeInfo;
-use crate::tty::{EventedPty, EventedReadWrite};
+use crate::tty::windows::child::ChildExitWatcher;
+use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 
+mod child;
 mod conpty;
 mod winpty;
 
-/// Handle to the winpty agent or conpty process. Required so we know when it closes.
-static mut HANDLE: *mut c_void = 0usize as *mut c_void;
 static IS_CONPTY: AtomicBool = AtomicBool::new(false);
-
-pub fn process_should_exit() -> bool {
-    unsafe {
-        match WaitForSingleObject(HANDLE, 0) {
-            // Process has exited
-            WAIT_OBJECT_0 => {
-                info!("wait_object_0");
-                true
-            },
-            // Reached timeout of 0, process has not exited
-            WAIT_TIMEOUT => false,
-            // Error checking process, winpty gave us a bad agent handle?
-            _ => {
-                info!("Bad exit: {}", ::std::io::Error::last_os_error());
-                true
-            },
-        }
-    }
-}
 
 pub fn is_conpty() -> bool {
     IS_CONPTY.load(Ordering::Relaxed)
@@ -76,6 +54,8 @@ pub struct Pty<'a> {
     conin: EventedWritablePipe,
     read_token: mio::Token,
     write_token: mio::Token,
+    child_event_token: mio::Token,
+    child_watcher: ChildExitWatcher,
 }
 
 impl<'a> Pty<'a> {
@@ -244,6 +224,15 @@ impl<'a> EventedReadWrite for Pty<'a> {
         } else {
             poll.register(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)?
         }
+
+        self.child_event_token = token.next().unwrap();
+        poll.register(
+            self.child_watcher.event_rx(),
+            self.child_event_token,
+            mio::Ready::readable(),
+            poll_opts,
+        )?;
+
         Ok(())
     }
 
@@ -264,6 +253,14 @@ impl<'a> EventedReadWrite for Pty<'a> {
         } else {
             poll.reregister(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)?;
         }
+
+        poll.reregister(
+            self.child_watcher.event_rx(),
+            self.child_event_token,
+            mio::Ready::readable(),
+            poll_opts,
+        )?;
+
         Ok(())
     }
 
@@ -271,6 +268,7 @@ impl<'a> EventedReadWrite for Pty<'a> {
     fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
         poll.deregister(&self.conout)?;
         poll.deregister(&self.conin)?;
+        poll.deregister(self.child_watcher.event_rx())?;
         Ok(())
     }
 
@@ -295,4 +293,16 @@ impl<'a> EventedReadWrite for Pty<'a> {
     }
 }
 
-impl<'a> EventedPty for Pty<'a> {}
+impl<'a> EventedPty for Pty<'a> {
+    fn child_event_token(&self) -> mio::Token {
+        self.child_event_token
+    }
+
+    fn next_child_event(&mut self) -> Option<ChildEvent> {
+        match self.child_watcher.event_rx().try_recv() {
+            Ok(ev) => Some(ev),
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Disconnected) => Some(ChildEvent::Exited),
+        }
+    }
+}

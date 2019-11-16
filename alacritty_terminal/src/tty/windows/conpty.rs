@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{Pty, HANDLE};
-
 use std::i16;
 use std::io::Error;
 use std::mem;
@@ -22,7 +20,6 @@ use std::ptr;
 use std::sync::Arc;
 
 use dunce::canonicalize;
-use log::info;
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
 use miow;
 use widestring::U16CString;
@@ -41,6 +38,8 @@ use winapi::um::wincontypes::{COORD, HPCON};
 use crate::config::{Config, Shell};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
+use crate::tty::windows::child::ChildExitWatcher;
+use crate::tty::windows::Pty;
 
 /// Dynamically-loaded Pseudoconsole API from kernel32.dll
 ///
@@ -241,14 +240,10 @@ pub fn new<'a, C>(
         }
     }
 
-    // Store handle to console
-    unsafe {
-        HANDLE = proc_info.hProcess;
-    }
-
     let conin = EventedAnonWrite::new(conin);
     let conout = EventedAnonRead::new(conout);
 
+    let child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
     let agent = Conpty { handle: pty_handle, api };
 
     Some(Pty {
@@ -257,6 +252,8 @@ pub fn new<'a, C>(
         conin: super::EventedWritablePipe::Anonymous(conin),
         read_token: 0.into(),
         write_token: 0.into(),
+        child_event_token: 0.into(),
+        child_watcher,
     })
 }
 

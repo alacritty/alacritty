@@ -30,6 +30,7 @@ use alacritty_terminal::selection::Selection;
 use alacritty_terminal::sync::FairMutex;
 use alacritty_terminal::term::cell::Cell;
 use alacritty_terminal::term::{SizeInfo, Term};
+#[cfg(not(windows))]
 use alacritty_terminal::tty;
 use alacritty_terminal::util::{limit, start_daemon};
 
@@ -351,14 +352,14 @@ impl<N: Notify> Processor<N> {
                 info!("glutin event: {:?}", event);
             }
 
-            match (&event, tty::process_should_exit()) {
+            match &event {
                 // Check for shutdown
-                (GlutinEvent::UserEvent(Event::Exit), _) | (_, true) => {
+                GlutinEvent::UserEvent(Event::Exit) => {
                     *control_flow = ControlFlow::Exit;
                     return;
                 },
                 // Process events
-                (GlutinEvent::EventsCleared, _) => {
+                GlutinEvent::EventsCleared => {
                     *control_flow = ControlFlow::Wait;
 
                     if event_queue.is_empty() {
