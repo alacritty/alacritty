@@ -1049,13 +1049,15 @@ impl<T> Term<T> {
         // Scroll up to keep cursor in terminal
         if self.cursor.point.line >= num_lines {
             let lines = self.cursor.point.line - num_lines + 1;
-            self.grid.scroll_up(&(Line(0)..old_lines), lines, &self.cursor.template);
+            let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
+            self.grid.scroll_up(&(Line(0)..old_lines), lines, &template);
         }
 
         // Scroll up alt grid as well
         if self.cursor_save_alt.point.line >= num_lines {
             let lines = self.cursor_save_alt.point.line - num_lines + 1;
-            self.alt_grid.scroll_up(&(Line(0)..old_lines), lines, &self.cursor_save_alt.template);
+            let template = Cell { bg: self.cursor_save_alt.template.bg, ..Cell::default() };
+            self.alt_grid.scroll_up(&(Line(0)..old_lines), lines, &template);
         }
 
         // Move prompt down when growing if scrollback lines are available
@@ -1105,12 +1107,12 @@ impl<T> Term<T> {
 
     pub fn swap_alt(&mut self) {
         if self.alt {
-            let template = &self.cursor.template;
-            self.grid.region_mut(..).each(|c| c.reset(template));
+            let template = self.cursor.template;
+            self.grid.region_mut(..).each(|c| c.reset(&template));
         }
 
         self.alt = !self.alt;
-        ::std::mem::swap(&mut self.grid, &mut self.alt_grid);
+        std::mem::swap(&mut self.grid, &mut self.alt_grid);
     }
 
     /// Scroll screen down
@@ -1124,8 +1126,7 @@ impl<T> Term<T> {
         lines = min(lines, self.scroll_region.end - origin);
 
         // Scroll between origin and bottom
-        let mut template = self.cursor.template;
-        template.flags = Flags::empty();
+        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
         self.grid.scroll_down(&(origin..self.scroll_region.end), lines, &template);
     }
 
@@ -1139,8 +1140,7 @@ impl<T> Term<T> {
         let lines = min(lines, self.scroll_region.end - self.scroll_region.start);
 
         // Scroll from origin to bottom less number of lines
-        let mut template = self.cursor.template;
-        template.flags = Flags::empty();
+        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
         self.grid.scroll_up(&(origin..self.scroll_region.end), lines, &template);
     }
 
@@ -1308,11 +1308,10 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     }
 
     #[inline]
-    fn dectest(&mut self) {
-        trace!("Dectesting");
-        let mut template = self.cursor.template;
-        template.c = 'E';
+    fn decaln(&mut self) {
+        trace!("Decalnning");
 
+        let template = Cell { c: 'E', ..Cell::default() };
         self.grid.region_mut(..).each(|c| c.reset(&template));
     }
 
@@ -1363,9 +1362,8 @@ impl<T: EventListener> ansi::Handler for Term<T> {
 
         // Cells were just moved out towards the end of the line; fill in
         // between source and dest with blanks.
-        let template = self.cursor.template;
         for c in &mut line[source..destination] {
-            c.reset(&template);
+            c.reset(&self.cursor.template);
         }
     }
 
@@ -1581,9 +1579,9 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         let end = min(start + count, self.grid.num_cols());
 
         let row = &mut self.grid[self.cursor.point.line];
-        let template = self.cursor.template; // Cleared cells have current background color set
+        // Cleared cells have current background color set
         for c in &mut row[start..end] {
-            c.reset(&template);
+            c.reset(&self.cursor.template);
         }
     }
 
@@ -1609,10 +1607,9 @@ impl<T: EventListener> ansi::Handler for Term<T> {
 
         // Clear last `count` cells in line. If deleting 1 char, need to delete
         // 1 cell.
-        let template = self.cursor.template;
         let end = cols - count;
         for c in &mut line[end..] {
-            c.reset(&template);
+            c.reset(&self.cursor.template);
         }
     }
 
@@ -1658,7 +1655,6 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[inline]
     fn clear_line(&mut self, mode: ansi::LineClearMode) {
         trace!("Clearing line: {:?}", mode);
-        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
 
         let col = self.cursor.point.col;
 
@@ -1666,19 +1662,19 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             ansi::LineClearMode::Right => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[col..] {
-                    cell.reset(&template);
+                    cell.reset(&self.cursor.template);
                 }
             },
             ansi::LineClearMode::Left => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..=col] {
-                    cell.reset(&template);
+                    cell.reset(&self.cursor.template);
                 }
             },
             ansi::LineClearMode::All => {
                 let row = &mut self.grid[self.cursor.point.line];
                 for cell in &mut row[..] {
-                    cell.reset(&template);
+                    cell.reset(&self.cursor.template);
                 }
             },
         }
@@ -1746,7 +1742,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[inline]
     fn clear_screen(&mut self, mode: ansi::ClearMode) {
         trace!("Clearing screen: {:?}", mode);
-        let template = Cell { bg: self.cursor.template.bg, ..Cell::default() };
+        let template = self.cursor.template;
 
         // Remove active selections
         self.grid.selection = None;

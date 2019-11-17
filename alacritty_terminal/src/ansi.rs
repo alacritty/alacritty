@@ -328,8 +328,8 @@ pub trait Handler {
     /// Write clipboard data to child.
     fn write_clipboard<W: io::Write>(&mut self, _: u8, _: &mut W) {}
 
-    /// Run the dectest routine
-    fn dectest(&mut self) {}
+    /// Run the decaln routine.
+    fn decaln(&mut self) {}
 
     /// Push a title onto the stack
     fn push_title(&mut self) {}
@@ -1134,7 +1134,7 @@ where
             b'7' => self.handler.save_cursor_position(),
             b'8' => {
                 if !intermediates.is_empty() && intermediates[0] == b'#' {
-                    self.handler.dectest();
+                    self.handler.decaln();
                 } else {
                     self.handler.restore_cursor_position();
                 }
