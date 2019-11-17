@@ -25,6 +25,9 @@ unicode-width = "0.1"
 parking_lot = "0.9"
 font = { path = "../font" }
 urlocator = "0.1.0"
+tokio-core = "0.1.17"
+tokio = "0.1"
+futures = "0.1.26"
 
 [build-dependencies]
 rustc_tools_util = "0.2.0"
