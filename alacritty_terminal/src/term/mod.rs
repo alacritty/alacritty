@@ -1397,6 +1397,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
 
     #[inline]
     fn identify_terminal<W: io::Write>(&mut self, writer: &mut W) {
+        trace!("Reporting terminal identity");
         let _ = writer.write_all(b"\x1b[?6c");
     }
 

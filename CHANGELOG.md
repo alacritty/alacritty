@@ -82,6 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mouse protocols/encodings not being mutually exclusive within themselves
 - Escape `CSI Ps M` deleting lines above cursor when at the bottom of the viewport
 - Cell reset not clearing underline, strikeout and foreground color
+- Escape `CSI Ps c` honored with a wrong `Ps`
+- Ignore `ESC` escapes with invalid intermediates
 
 ### Removed
 
