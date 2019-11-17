@@ -668,25 +668,6 @@ impl VisualBell {
     }
 }
 
-/// ```notrust
-/// +--------------------------------------------+
-/// |                                            |
-/// |                                            |
-/// |          (See Grid's Documentation)        |
-/// |                                            |
-/// |                                            |
-/// +--------------------------------------------+ <--- scroll_region.start
-/// |                                            |
-/// |              SCROLLING REGION              |
-/// |                                            |
-/// +--------------------------------------------+ <--- scroll_region.end
-/// |                                            |
-/// |                                            |
-/// |          (See Grid's Documentation)        |
-/// |                                            |
-/// |                                            |
-/// +--------------------------------------------+
-/// ```
 pub struct Term<T> {
     /// Terminal focus
     pub is_focused: bool,
@@ -720,7 +701,9 @@ pub struct Term<T> {
     /// Mode flags
     mode: TermMode,
 
-    /// Scroll region
+    /// Scroll region.
+    ///
+    /// Range going from top to bottom of the terminal, indexed from the top of the viewport.
     scroll_region: Range<Line>,
 
     pub dirty: bool,

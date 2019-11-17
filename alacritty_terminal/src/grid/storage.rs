@@ -10,19 +10,22 @@ use crate::index::Line;
 /// Maximum number of invisible lines before buffer is resized
 const TRUNCATE_STEP: usize = 100;
 
-/// An optimized ring buffer for fast indexing and rotation
+/// A ring buffer for optimizing indexing and rotation.
 ///
-/// The [`Storage::rotate`] and [`Storage::rotate_up`] functions are fast
-/// modular additions on the internal `zero` field. As compared with
-/// [`slice::rotate_left`] which must rearrange items in memory.
+/// The [`Storage::rotate`] and [`Storage::rotate_up`] functions are fast modular additions on the
+/// internal [`zero`] field. As compared with [`slice::rotate_left`] which must rearrange items in
+/// memory.
 ///
-/// As a consequence, both [`Index`] and [`IndexMut`] are reimplemented for this
-/// type to account for the zeroth element not always being at the start of the
-/// allocation.
+/// As a consequence, both [`Index`] and [`IndexMut`] are reimplemented for this type to account
+/// for the zeroth element not always being at the start of the allocation.
 ///
-/// Because certain [`Vec`] operations are no longer valid on this type, no
-/// [`Deref`](std::ops::Deref) implementation is provided. Anything from `Vec`
-/// that should be exposed must be done so manually.
+/// Because certain [`Vec`] operations are no longer valid on this type, no [`Deref`]
+/// implementation is provided. Anything from [`Vec`] that should be exposed must be done so
+/// manually.
+///
+/// [`slice::rotate_left`]: https://doc.rust-lang.org/std/primitive.slice.html#method.rotate_left
+/// [`Deref`]: std::ops::Deref
+/// [`zero`]: #structfield.zero
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Storage<T> {
     inner: Vec<Row<T>>,
@@ -31,7 +34,7 @@ pub struct Storage<T> {
     ///
     /// This value represents the starting line offset within the ring buffer. The value of this
     /// offset may be larger than the `len` itself, and will wrap around to the start to form the
-    /// ring buffer.
+    /// ring buffer. It represents the bottommost line of the terminal.
     zero: usize,
 
     /// An index separating the visible and scrollback regions.

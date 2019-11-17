@@ -94,14 +94,11 @@ impl<T: Copy> Row<T> {
             for item in &mut self.inner[..self.occ] {
                 *item = *template;
             }
-        } else {
-            for item in &mut self.inner[..] {
-                *item = *template;
-            }
-        }
-
-        if template.is_empty() {
             self.occ = 0;
+        } else {
+            let len = self.inner.len();
+            self.inner = vec![*template; len];
+            self.occ = len;
         }
     }
 }

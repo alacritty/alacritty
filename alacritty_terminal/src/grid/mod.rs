@@ -75,31 +75,29 @@ pub trait GridCell {
 /// Represents the terminal display contents
 ///
 /// ```notrust
-/// +--------------------------------------------+ <--- self.scroll_limit
-/// |                                            |
-/// |                                            |
-/// |                                            |
-/// |                                            |
-/// |               SCROLLUP REGION              |
-/// |                                            |
-/// |                                            |
-/// |                                            |
-/// |                                            |
-/// +--------------------------------------------+ <--- self.lines
-/// |                                            |
-/// |               VISIBLE REGION               |
-/// |         (See Term's Documentation)         |
-/// |                                            |
-/// +--------------------------------------------+ <--- self.display_offset
-/// |                                            |
-/// |                                            |
-/// |              SCROLLDOWN REGION             |
-/// |                                            |
-/// |                                            |
-/// +--------------------------------------------+ <--- raw.zero
-///                                              |
-///                                              v
-///                                          self.cols
+/// ┌─────────────────────────┐  <-- max_scroll_limit + lines
+/// │                         │
+/// │      UNINITIALIZED      │
+/// │                         │
+/// ├─────────────────────────┤  <-- raw.len()
+/// │                         │
+/// │      RESIZE BUFFER      │
+/// │                         │
+/// ├─────────────────────────┤  <-- scroll_limit + lines
+/// │                         │
+/// │     SCROLLUP REGION     │
+/// │                         │
+/// ├─────────────────────────┤v lines
+/// │                         │|
+/// │     VISIBLE  REGION     │|
+/// │                         │|
+/// ├─────────────────────────┤^ <-- display_offset
+/// │                         │
+/// │    SCROLLDOWN REGION    │
+/// │                         │
+/// └─────────────────────────┘  <-- zero
+///                           ^
+///                          cols
 /// ```
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Grid<T> {
@@ -536,7 +534,7 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
                 break;
             }
         }
-        debug_assert!(*self.lines >= iter.cur.line);
+        debug_assert!(iter.cur.line <= *self.lines);
         let positions = self.lines - iter.cur.line;
         let region = Line(0)..self.num_lines();
 
