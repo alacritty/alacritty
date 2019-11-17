@@ -538,8 +538,13 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         let positions = self.lines - iter.cur.line;
         let region = Line(0)..self.num_lines();
 
-        // Clear the viewport.
+        // Clear the viewport
         self.scroll_up(&region, positions, template);
+
+        // Reset rotated lines
+        for i in positions.0..self.lines.0 {
+            self.raw[i].reset(&template);
+        }
     }
 
     // Completely reset the grid state
