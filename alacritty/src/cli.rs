@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
 use log::{self, LevelFilter};
 
-use alacritty_terminal::config::{Delta, Dimensions, Shell, DEFAULT_NAME};
+use alacritty_terminal::config::{ConfigValidationError, Delta, Dimensions, Shell, DEFAULT_NAME};
 use alacritty_terminal::index::{Column, Line};
 
 use crate::config::Config;
@@ -253,7 +253,10 @@ impl Options {
         self.config.clone()
     }
 
-    pub fn into_config(self, mut config: Config) -> Config {
+    pub fn into_config(
+        self,
+        mut config: Config,
+    ) -> ::std::result::Result<Config, ConfigValidationError> {
         config.set_live_config_reload(
             self.live_config_reload.unwrap_or_else(|| config.live_config_reload()),
         );
@@ -289,7 +292,10 @@ impl Options {
             config.debug.log_level = max(config.debug.log_level, LevelFilter::Info);
         }
 
-        config
+        match config.validate() {
+            None => Ok(config),
+            Some(err) => Err(err),
+        }
     }
 }
 
@@ -303,7 +309,7 @@ mod test {
         let config = Config::default();
         let old_dynamic_title = config.dynamic_title();
 
-        let config = Options::default().into_config(config);
+        let config = Options::default().into_config(config).unwrap();
 
         assert_eq!(old_dynamic_title, config.dynamic_title());
     }
@@ -314,7 +320,7 @@ mod test {
 
         let mut options = Options::default();
         options.title = Some("foo".to_owned());
-        let config = options.into_config(config);
+        let config = options.into_config(config).unwrap();
 
         assert!(!config.dynamic_title());
     }
@@ -324,7 +330,7 @@ mod test {
         let mut config = Config::default();
 
         config.window.title = "foo".to_owned();
-        let config = Options::default().into_config(config);
+        let config = Options::default().into_config(config).unwrap();
 
         assert!(!config.dynamic_title());
     }

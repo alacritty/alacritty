@@ -34,11 +34,12 @@ use std::sync::Arc;
 #[cfg(target_os = "macos")]
 use dirs;
 use glutin::event_loop::EventLoop as GlutinEventLoop;
-use log::info;
+use log::{error, info};
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 use alacritty_terminal::clipboard::Clipboard;
+use alacritty_terminal::config::LOG_TARGET_CONFIG;
 use alacritty_terminal::event::Event;
 use alacritty_terminal::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
@@ -88,7 +89,10 @@ fn main() {
     // Load configuration file
     let config_path = options.config_path().or_else(config::installed_config);
     let config = config_path.map(config::load_from).unwrap_or_else(Config::default);
-    let config = options.into_config(config);
+    let config = options.into_config(config).unwrap_or_else(|err| {
+        error!(target: LOG_TARGET_CONFIG, "Unable to apply command line parameters {}", err);
+        Config::default()
+    });
 
     // Update the log level from config
     log::set_max_level(config.debug.log_level);

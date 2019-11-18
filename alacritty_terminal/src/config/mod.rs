@@ -143,7 +143,7 @@ pub struct Config<T> {
     pub persistent_logging: Option<bool>,
 }
 
-#[derive(fmt::Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct ConfigValidationError {
     field: String,
     message: String,
