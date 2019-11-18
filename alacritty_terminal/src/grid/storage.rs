@@ -1,17 +1,4 @@
 use std::cmp::Ordering;
-/// Wrapper around Vec which supports fast indexing and rotation
-///
-/// The rotation implemented by grid::Storage is a simple integer addition.
-/// Compare with standard library rotation which requires rearranging items in
-/// memory.
-///
-/// As a consequence, the indexing operators need to be reimplemented for this
-/// type to account for the 0th element not always being at the start of the
-/// allocation.
-///
-/// Because certain Vec operations are no longer valid on this type, no Deref
-/// implementation is provided. Anything from Vec that should be exposed must be
-/// done so manually.
 use std::ops::{Index, IndexMut};
 use std::vec::Drain;
 
@@ -23,10 +10,34 @@ use crate::index::Line;
 /// Maximum number of invisible lines before buffer is resized
 const TRUNCATE_STEP: usize = 100;
 
+/// A ring buffer for optimizing indexing and rotation.
+///
+/// The [`Storage::rotate`] and [`Storage::rotate_up`] functions are fast modular additions on the
+/// internal [`zero`] field. As compared with [`slice::rotate_left`] which must rearrange items in
+/// memory.
+///
+/// As a consequence, both [`Index`] and [`IndexMut`] are reimplemented for this type to account
+/// for the zeroth element not always being at the start of the allocation.
+///
+/// Because certain [`Vec`] operations are no longer valid on this type, no [`Deref`]
+/// implementation is provided. Anything from [`Vec`] that should be exposed must be done so
+/// manually.
+///
+/// [`slice::rotate_left`]: https://doc.rust-lang.org/std/primitive.slice.html#method.rotate_left
+/// [`Deref`]: std::ops::Deref
+/// [`zero`]: #structfield.zero
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Storage<T> {
     inner: Vec<Row<T>>,
+
+    /// Starting point for the storage of rows.
+    ///
+    /// This value represents the starting line offset within the ring buffer. The value of this
+    /// offset may be larger than the `len` itself, and will wrap around to the start to form the
+    /// ring buffer. It represents the bottommost line of the terminal.
     zero: usize,
+
+    /// An index separating the visible and scrollback regions.
     visible_lines: Line,
 
     /// Total number of lines currently active in the terminal (scrollback + visible)
@@ -324,6 +335,68 @@ mod test {
         }
 
         fn set_wrap(&mut self, _wrap: bool) {}
+    }
+
+    #[test]
+    fn with_capacity() {
+        let storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
+
+        assert_eq!(storage.inner.len(), 3);
+        assert_eq!(storage.len, 3);
+        assert_eq!(storage.zero, 0);
+        assert_eq!(storage.visible_lines, Line(2));
+    }
+
+    #[test]
+    fn indexing() {
+        let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
+
+        storage[0] = Row::new(Column(1), &'0');
+        storage[1] = Row::new(Column(1), &'1');
+        storage[2] = Row::new(Column(1), &'2');
+
+        assert_eq!(storage[0], Row::new(Column(1), &'0'));
+        assert_eq!(storage[1], Row::new(Column(1), &'1'));
+        assert_eq!(storage[2], Row::new(Column(1), &'2'));
+
+        storage.zero += 1;
+
+        assert_eq!(storage[0], Row::new(Column(1), &'1'));
+        assert_eq!(storage[1], Row::new(Column(1), &'2'));
+        assert_eq!(storage[2], Row::new(Column(1), &'0'));
+    }
+
+    #[test]
+    #[should_panic]
+    fn indexing_above_len() {
+        let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
+        storage.shrink_lines(2);
+        let _ = &storage[1];
+    }
+
+    #[test]
+    #[should_panic]
+    fn indexing_above_inner_len() {
+        let storage = Storage::with_capacity(Line(1), Row::new(Column(0), &' '));
+        let _ = &storage[2];
+    }
+
+    #[test]
+    fn rotate() {
+        let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
+        storage.rotate(2);
+        assert_eq!(storage.zero, 2);
+        storage.shrink_lines(2);
+        assert_eq!(storage.len, 1);
+        assert_eq!(storage.inner.len(), 3);
+        assert_eq!(storage.zero, 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn rotate_overflow() {
+        let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
+        storage.rotate(4);
     }
 
     /// Grow the buffer one line at the end of the buffer
