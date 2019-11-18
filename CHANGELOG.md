@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - On Windows, query DirectWrite for recommended anti-aliasing settings
+- Scroll lines out of the visible region instead of deleting them when clearing the screen
 
 ### Fixed
 

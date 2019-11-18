@@ -701,7 +701,9 @@ pub struct Term<T> {
     /// Mode flags
     mode: TermMode,
 
-    /// Scroll region
+    /// Scroll region.
+    ///
+    /// Range going from top to bottom of the terminal, indexed from the top of the viewport.
     scroll_region: Range<Line>,
 
     pub dirty: bool,
@@ -1749,17 +1751,6 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         self.grid.selection = None;
 
         match mode {
-            ansi::ClearMode::Below => {
-                for cell in &mut self.grid[self.cursor.point.line][self.cursor.point.col..] {
-                    cell.reset(&template);
-                }
-                if self.cursor.point.line < self.grid.num_lines() - 1 {
-                    self.grid
-                        .region_mut((self.cursor.point.line + 1)..)
-                        .each(|cell| cell.reset(&template));
-                }
-            },
-            ansi::ClearMode::All => self.grid.region_mut(..).each(|c| c.reset(&template)),
             ansi::ClearMode::Above => {
                 // If clearing more than one line
                 if self.cursor.point.line > Line(1) {
@@ -1772,6 +1763,23 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 let end = min(self.cursor.point.col + 1, self.grid.num_cols());
                 for cell in &mut self.grid[self.cursor.point.line][..end] {
                     cell.reset(&template);
+                }
+            },
+            ansi::ClearMode::Below => {
+                for cell in &mut self.grid[self.cursor.point.line][self.cursor.point.col..] {
+                    cell.reset(&template);
+                }
+                if self.cursor.point.line < self.grid.num_lines() - 1 {
+                    self.grid
+                        .region_mut((self.cursor.point.line + 1)..)
+                        .each(|cell| cell.reset(&template));
+                }
+            },
+            ansi::ClearMode::All => {
+                if self.mode.contains(TermMode::ALT_SCREEN) {
+                    self.grid.region_mut(..).each(|c| c.reset(&template));
+                } else {
+                    self.grid.clear_viewport(&template);
                 }
             },
             ansi::ClearMode::Saved => self.grid.clear_history(),

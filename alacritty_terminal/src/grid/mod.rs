@@ -73,6 +73,32 @@ pub trait GridCell {
 }
 
 /// Represents the terminal display contents
+///
+/// ```notrust
+/// ┌─────────────────────────┐  <-- max_scroll_limit + lines
+/// │                         │
+/// │      UNINITIALIZED      │
+/// │                         │
+/// ├─────────────────────────┤  <-- raw.len()
+/// │                         │
+/// │      RESIZE BUFFER      │
+/// │                         │
+/// ├─────────────────────────┤  <-- scroll_limit + lines
+/// │                         │
+/// │     SCROLLUP REGION     │
+/// │                         │
+/// ├─────────────────────────┤v lines
+/// │                         │|
+/// │     VISIBLE  REGION     │|
+/// │                         │|
+/// ├─────────────────────────┤^ <-- display_offset
+/// │                         │
+/// │    SCROLLDOWN REGION    │
+/// │                         │
+/// └─────────────────────────┘  <-- zero
+///                           ^
+///                          cols
+/// ```
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Grid<T> {
     /// Lines in the grid. Each row holds a list of cells corresponding to the
@@ -82,9 +108,7 @@ pub struct Grid<T> {
     /// Number of columns
     cols: index::Column,
 
-    /// Number of lines.
-    ///
-    /// Invariant: lines is equivalent to raw.len()
+    /// Number of visible lines.
     lines: index::Line,
 
     /// Offset of displayed area
@@ -472,10 +496,10 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
                 selection.rotate(*positions as isize);
             }
 
-            // // This next loop swaps "fixed" lines outside of a scroll region
-            // // back into place after the rotation. The work is done in buffer-
-            // // space rather than terminal-space to avoid redundant
-            // // transformations.
+            // This next loop swaps "fixed" lines outside of a scroll region
+            // back into place after the rotation. The work is done in buffer-
+            // space rather than terminal-space to avoid redundant
+            // transformations.
             let fixed_lines = *self.num_lines() - *region.end;
 
             for i in 0..fixed_lines {
@@ -501,11 +525,30 @@ impl<T: GridCell + Copy + Clone> Grid<T> {
         }
     }
 
+    pub fn clear_viewport(&mut self, template: &T) {
+        // Determine how many lines to scroll up by.
+        let end = Point { line: 0, col: self.num_cols() };
+        let mut iter = self.iter_from(end);
+        while let Some(cell) = iter.prev() {
+            if !cell.is_empty() || iter.cur.line >= *self.lines {
+                break;
+            }
+        }
+        debug_assert!(iter.cur.line <= *self.lines);
+        let positions = self.lines - iter.cur.line;
+        let region = Line(0)..self.num_lines();
+
+        // Clear the viewport
+        self.scroll_up(&region, positions, template);
+
+        // Reset rotated lines
+        for i in positions.0..self.lines.0 {
+            self.raw[i].reset(&template);
+        }
+    }
+
     // Completely reset the grid state
     pub fn reset(&mut self, template: &T) {
-        // Explicitly purge all lines from history
-        let shrinkage = self.raw.len() - self.lines.0;
-        self.raw.shrink_lines(shrinkage);
         self.clear_history();
 
         // Reset all visible lines
@@ -535,6 +578,9 @@ impl<T> Grid<T> {
     }
 
     pub fn clear_history(&mut self) {
+        // Explicitly purge all lines from history
+        let shrinkage = self.raw.len() - self.lines.0;
+        self.raw.shrink_lines(shrinkage);
         self.scroll_limit = 0;
     }
 

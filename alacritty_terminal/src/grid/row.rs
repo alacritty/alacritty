@@ -90,12 +90,15 @@ impl<T: Copy> Row<T> {
     where
         T: GridCell,
     {
-        for item in &mut self.inner[..self.occ] {
-            *item = *template;
-        }
-
         if template.is_empty() {
+            for item in &mut self.inner[..self.occ] {
+                *item = *template;
+            }
             self.occ = 0;
+        } else {
+            let len = self.inner.len();
+            self.inner = vec![*template; len];
+            self.occ = len;
         }
     }
 }
