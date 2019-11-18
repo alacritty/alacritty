@@ -14,15 +14,21 @@
 
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
+use futures::future::lazy;
+use futures::sync::mpsc as futures_mpsc;
+use futures::sync::oneshot;
 use std::f64;
 use std::fmt;
 use std::time::Instant;
+use std::time::UNIX_EPOCH;
+use tokio::prelude::*;
+use tokio::runtime::current_thread;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event::ModifiersState;
 use glutin::event_loop::EventLoop;
 use glutin::window::CursorIcon;
-use log::{debug, info};
+use log::{debug, error, info};
 use parking_lot::MutexGuard;
 
 use font::{self, Rasterize};
@@ -125,6 +131,7 @@ pub struct Display {
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
     meter: Meter,
+    charts_last_drawn: u64,
 }
 
 impl Display {
@@ -240,6 +247,7 @@ impl Display {
             size_info,
             urls: Urls::new(),
             highlighted_url: None,
+            charts_last_drawn: 0u64,
         })
     }
 
@@ -297,6 +305,8 @@ impl Display {
         message_buffer: &MessageBuffer,
         config: &Config,
         update_pending: DisplayUpdate,
+        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
+        tokio_handle: current_thread::Handle,
     ) {
         // Update font size and cell dimensions
         if let Some(font) = update_pending.font {
@@ -345,6 +355,36 @@ impl Display {
             PhysicalSize::new(f64::from(self.size_info.width), f64::from(self.size_info.height));
         self.renderer.resize(&self.size_info);
         self.window.resize(physical);
+        let (height, width) = (self.size_info.height, self.size_info.width);
+        let (chart_resize_tx, chart_resize_rx) = oneshot::channel();
+        let send_display_size = charts_tx
+            .send(alacritty_charts::async_utils::AsyncChartTask::ChangeDisplaySize(
+                height,
+                width,
+                padding_y,
+                padding_x,
+                chart_resize_tx,
+            ))
+            .map_err(|e| error!("Sending ChangeDisplaySize Task: err={:?}", e))
+            .and_then(move |_res| {
+                debug!(
+                    "Sent ChangeDisplaySize Task height: {}, width: {}, padding_y: {}, padding_x: \
+                     {}",
+                    height, width, padding_y, padding_x
+                );
+                Ok(())
+            });
+        tokio_handle
+            .spawn(lazy(move || send_display_size))
+            .expect("Unable to queue async task for send_display_size");
+        match chart_resize_rx.map(|x| x).wait() {
+            Ok(_) => {
+                debug!("Got response from ChangeDisplaySize Task.");
+            },
+            Err(err) => {
+                error!("Error response from SendMetricsOpenGLData Task: {:?}", err);
+            },
+        }
     }
 
     /// Draw the screen
@@ -359,6 +399,8 @@ impl Display {
         config: &Config,
         mouse: &Mouse,
         mods: ModifiersState,
+        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
+        tokio_handle: current_thread::Handle,
     ) {
         let grid_cells: Vec<RenderableCell> = terminal.renderable_cells(config).collect();
         let visual_bell_intensity = terminal.visual_bell.intensity();
@@ -467,6 +509,49 @@ impl Display {
         } else {
             // Draw rectangles
             self.renderer.draw_rects(&size_info, rects);
+        }
+        // Draw the charts
+        for chart_idx in 0..config.charts.len() {
+            for decoration_idx in 0..config.charts[chart_idx].decorations.len() {
+                let alpha = config.charts[chart_idx].decorations[decoration_idx].alpha();
+                self.renderer.draw_charts_line(
+                    &size_info,
+                    &alacritty_charts::async_utils::get_metric_opengl_vecs(
+                        charts_tx.clone(),
+                        chart_idx,
+                        decoration_idx,
+                        "decoration",
+                        tokio_handle.clone(),
+                    ),
+                    Rgb {
+                        r: config.charts[chart_idx].decorations[decoration_idx].color().r,
+                        g: config.charts[chart_idx].decorations[decoration_idx].color().g,
+                        b: config.charts[chart_idx].decorations[decoration_idx].color().b,
+                    },
+                    alpha,
+                );
+            }
+            for series_idx in 0..config.charts[chart_idx].sources.len() {
+                let alpha = config.charts[chart_idx].sources[series_idx].alpha();
+                self.renderer.draw_charts_line(
+                    &size_info,
+                    &alacritty_charts::async_utils::get_metric_opengl_vecs(
+                        charts_tx.clone(),
+                        chart_idx,
+                        series_idx,
+                        "metric_data",
+                        tokio_handle.clone(),
+                    ),
+                    Rgb {
+                        r: config.charts[chart_idx].sources[series_idx].color().r,
+                        g: config.charts[chart_idx].sources[series_idx].color().g,
+                        b: config.charts[chart_idx].sources[series_idx].color().b,
+                    },
+                    alpha,
+                );
+            }
+            let chart_last_drawn =
+                std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         }
 
         // Draw render timer
