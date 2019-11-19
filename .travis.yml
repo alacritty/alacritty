@@ -63,4 +63,3 @@ deploy:
     rust: stable
     condition: $CLIPPY != true
     repo: jwilm/alacritty
-    branch: master
