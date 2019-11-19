@@ -39,6 +39,9 @@ use crate::display::Display;
 use crate::input::{self, ActionContext as _, FONT_SIZE_STEP};
 use crate::window::Window;
 
+use futures::sync::mpsc as futures_mpsc;
+use tokio::runtime::current_thread;
+
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct DisplayUpdate {
     pub dimensions: Option<PhysicalSize>,
@@ -311,6 +314,8 @@ pub struct Processor<N> {
     message_buffer: MessageBuffer,
     display: Display,
     font_size: Size,
+    charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
+    tokio_handle: current_thread::Handle,
 }
 
 impl<N: Notify> Processor<N> {
@@ -324,6 +329,8 @@ impl<N: Notify> Processor<N> {
         message_buffer: MessageBuffer,
         config: Config,
         display: Display,
+        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
+        tokio_handle: current_thread::Handle,
     ) -> Processor<N> {
         Processor {
             notifier,
@@ -336,6 +343,8 @@ impl<N: Notify> Processor<N> {
             pty_resize_handle,
             message_buffer,
             display,
+            charts_tx,
+            tokio_handle,
         }
     }
 
@@ -408,6 +417,8 @@ impl<N: Notify> Processor<N> {
                     &self.message_buffer,
                     &self.config,
                     display_update_pending,
+                    self.charts_tx.clone(),
+                    self.tokio_handle.clone(),
                 );
             }
 
@@ -426,6 +437,8 @@ impl<N: Notify> Processor<N> {
                     &self.config,
                     &self.mouse,
                     self.modifiers,
+                    self.charts_tx.clone(),
+                    self.tokio_handle.clone(),
                 );
             }
         });
