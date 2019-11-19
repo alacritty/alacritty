@@ -368,14 +368,6 @@ mod test {
 
     #[test]
     #[should_panic]
-    fn indexing_above_len() {
-        let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
-        storage.shrink_lines(2);
-        let _ = &storage[1];
-    }
-
-    #[test]
-    #[should_panic]
     fn indexing_above_inner_len() {
         let storage = Storage::with_capacity(Line(1), Row::new(Column(0), &' '));
         let _ = &storage[2];
@@ -390,13 +382,6 @@ mod test {
         assert_eq!(storage.len, 1);
         assert_eq!(storage.inner.len(), 3);
         assert_eq!(storage.zero, 2);
-    }
-
-    #[test]
-    #[should_panic]
-    fn rotate_overflow() {
-        let mut storage = Storage::with_capacity(Line(3), Row::new(Column(0), &' '));
-        storage.rotate(4);
     }
 
     /// Grow the buffer one line at the end of the buffer
