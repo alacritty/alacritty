@@ -1265,8 +1265,6 @@ impl<T: EventListener> ansi::Handler for Term<T> {
         self.increment_output_activity_level(1u64);
         // Update the input activity levels XXX: This should be a Timer
         self.increment_input_activity_level(0u64);
-        // Update the system load average XXX: This should be a Timer
-        self.update_system_load();
         // If enabled, scroll to bottom when character is received
         if self.auto_scroll {
             self.scroll_display(Scroll::Bottom);

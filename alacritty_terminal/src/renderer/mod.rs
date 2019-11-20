@@ -789,7 +789,6 @@ impl QuadRenderer {
     /// `draw_charts_line` draws an opengl line that contains the data from the metrics
     pub fn draw_charts_line(
         &mut self,
-        _config: &Config,
         props: &term::SizeInfo,
         opengl_vecs: &[f32],
         color: Rgb,

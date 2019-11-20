@@ -6,7 +6,7 @@ use std::io::{self, ErrorKind, Read, Write};
 use std::marker::Send;
 use std::sync::Arc;
 
-use log::error;
+use log::{error, info};
 #[cfg(not(windows))]
 use mio::unix::UnixReady;
 use mio::{self, Events, PollOpt, Ready};
