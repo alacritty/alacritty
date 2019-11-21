@@ -679,7 +679,7 @@ impl TimeSeriesChart {
     pub fn update_series_opengl_vecs(&mut self, series_idx: usize, display_size: SizeInfo) {
         let span = span!(
             Level::TRACE,
-            "update_series_opengl_vecs: Starting for series index: {}",
+            "update_series_opengl_vecs",
             name = self.name.clone().as_str(),
             series_idx = series_idx,
         );
@@ -855,9 +855,11 @@ impl TimeSeriesChart {
     /// doesn't change it doesn't create a new opengl vertex but rather tries to create a wider
     /// line
     pub fn get_deduped_opengl_vecs(&self, idx: usize) -> Vec<f32> {
-        let span = span!(Level::TRACE, "get_deduped_opengl_vecs");
+        let span = span!(Level::TRACE, "get_deduped_opengl_vecs", idx);
         let _enter = span.enter();
-        event!(Level::DEBUG, "get_deduped_opengl_vecs start");
+        if idx < self.opengl_vecs.len() {
+            return vec![];
+        }
         if self.opengl_vecs[idx].len() <= 4 {
             return self.opengl_vecs[idx].clone();
         }
