@@ -365,7 +365,7 @@ dependencies = [
  "objc-foundation 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "objc_id 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "smithay-client-toolkit 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "smithay-clipboard 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smithay-clipboard 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "wayland-client 0.23.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "x11-clipboard 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2017,7 +2017,7 @@ dependencies = [
 
 [[package]]
 name = "smithay-clipboard"
-version = "0.3.5"
+version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "nix 0.14.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2751,7 +2751,7 @@ dependencies = [
 "checksum slab 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 "checksum smallvec 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)" = "f7b0758c52e15a8b5e3691eae6cc559f08eee9406e548a4477ba4e67770a82b6"
 "checksum smithay-client-toolkit 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)" = "93960e8975909fcb14cc755de93af2149d8b8f4eb368315537d40cfd0f324054"
-"checksum smithay-clipboard 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "315c3f4417d365483dcbaed9ba6488d9f176e43d83f3e1d581050f1c93869e3d"
+"checksum smithay-clipboard 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "9667a262ef7a9ff1c55a7e665cd3d36f9bc2809f94167b1fb3fc31423a83f8c0"
 "checksum socket2 0.3.11 (registry+https://github.com/rust-lang/crates.io-index)" = "e8b74de517221a2cb01a53349cf54182acdc31a074727d3079068448c0676d85"
 "checksum spsc-buffer 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "be6c3f39c37a4283ee4b43d1311c828f2e1fb0541e76ea0cb1a2abd9ef2f5b3b"
 "checksum stb_truetype 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "824210d6fb52cbc3ad2545270ead6860c7311aa5450642b078da4515937b6f7a"
