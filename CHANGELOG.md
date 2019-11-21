@@ -87,7 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cell reset not clearing underline, strikeout and foreground color
 - Escape `CSI Ps c` honored with a wrong `Ps`
 - Ignore `ESC` escapes with invalid intermediates
-- Blank lines after each line after pasting from GTK apps on Wayland
+- Blank lines after each line when pasting from GTK apps on Wayland
 
 ### Removed
 
