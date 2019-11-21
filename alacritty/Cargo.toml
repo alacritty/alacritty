@@ -1,6 +1,6 @@
 [package]
 name = "alacritty"
-version = "0.4.0-rc2"
+version = "0.4.0-rc3"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
 description = "GPU-accelerated terminal emulator"
