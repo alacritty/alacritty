@@ -9,8 +9,8 @@ use font::Metrics;
 use alacritty_terminal::index::Point;
 use alacritty_terminal::renderer::rects::{RenderLine, RenderRect};
 use alacritty_terminal::term::cell::Flags;
-use alacritty_terminal::term::{RenderableCell, RenderableCellContent, SizeInfo};
 use alacritty_terminal::term::color::Rgb;
+use alacritty_terminal::term::{RenderableCell, RenderableCellContent, SizeInfo};
 
 use crate::config::{Config, RelaxedEq};
 use crate::event::Mouse;
@@ -104,11 +104,7 @@ impl Urls {
         match (self.state, last_state) {
             (UrlLocation::Url(_length, end_offset), UrlLocation::Scheme) => {
                 // Create empty URL
-                self.urls.push(Url {
-                    lines: Vec::new(),
-                    end_offset,
-                    num_cols,
-                });
+                self.urls.push(Url { lines: Vec::new(), end_offset, num_cols });
 
                 // Push schemes into URL
                 for scheme_cell in self.scheme_buffer.split_off(0) {
@@ -119,7 +115,7 @@ impl Urls {
                 // Push the new cell into URL
                 self.extend_url(point, end, cell.fg, end_offset);
             },
-            (UrlLocation::Url(_length, end_offset), UrlLocation::Url(_, _)) => {
+            (UrlLocation::Url(_length, end_offset), UrlLocation::Url(..)) => {
                 self.extend_url(point, end, cell.fg, end_offset);
             },
             (UrlLocation::Scheme, _) => self.scheme_buffer.push(cell),
@@ -139,13 +135,9 @@ impl Urls {
 
         // If color changed, we need to insert a new line
         if url.lines.last().map(|last| last.color) == Some(color) {
-            url.lines.last_mut().map(|line| line.end = end);
+            url.lines.last_mut().unwrap().end = end;
         } else {
-            url.lines.push(RenderLine {
-                color,
-                start,
-                end,
-            });
+            url.lines.push(RenderLine { color, start, end });
         }
 
         // Update excluded cells at the end of the URL
@@ -191,19 +183,22 @@ impl Urls {
 mod test {
     use super::*;
 
-    use alacritty_terminal::term::cell::MAX_ZEROWIDTH_CHARS;
     use alacritty_terminal::index::{Column, Line};
+    use alacritty_terminal::term::cell::MAX_ZEROWIDTH_CHARS;
 
     fn text_to_cells(text: &str) -> Vec<RenderableCell> {
-        text.chars().enumerate().map(|(i, c)| RenderableCell {
-            inner: RenderableCellContent::Chars([c; MAX_ZEROWIDTH_CHARS + 1]),
-            line: Line(0),
-            column: Column(i),
-            fg: Default::default(),
-            bg: Default::default(),
-            bg_alpha: 0.,
-            flags: Flags::empty(),
-        }).collect()
+        text.chars()
+            .enumerate()
+            .map(|(i, c)| RenderableCell {
+                inner: RenderableCellContent::Chars([c; MAX_ZEROWIDTH_CHARS + 1]),
+                line: Line(0),
+                column: Column(i),
+                fg: Default::default(),
+                bg: Default::default(),
+                bg_alpha: 0.,
+                flags: Flags::empty(),
+            })
+            .collect()
     }
 
     #[test]
@@ -211,7 +206,7 @@ mod test {
         let mut input = text_to_cells("test https://example.org ing");
         let num_cols = input.len();
 
-        input[10].fg= Rgb { r: 0xff, g: 0x00, b: 0xff };
+        input[10].fg = Rgb { r: 0xff, g: 0x00, b: 0xff };
 
         let mut urls = Urls::new();
 
