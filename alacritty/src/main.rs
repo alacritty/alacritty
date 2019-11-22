@@ -30,7 +30,6 @@ use std::io::{self, Write};
 #[cfg(not(windows))]
 use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
-use std::time::UNIX_EPOCH;
 
 #[cfg(target_os = "macos")]
 use dirs;
@@ -214,10 +213,10 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
 
     // Copy the terminal size into the alacritty_charts SizeInfo copy.
     let charts_size_info = alacritty_charts::SizeInfo {
-        height: display.size().height,
-        width: display.size().width,
-        padding_y: display.size().padding_y,
-        padding_x: display.size().padding_x,
+        height: display.size_info.height,
+        width: display.size_info.width,
+        padding_y: display.size_info.padding_y,
+        padding_x: display.size_info.padding_x,
         ..alacritty_charts::SizeInfo::default()
     };
 
@@ -227,7 +226,7 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     // Create a channel to receive a handle from Tokio
     let (handle_tx, handle_rx) = std::sync::mpsc::channel();
     // Start the Async I/O runtime
-    let (tokio_thread, tokio_shutdown) = event_loop.spawn_async_tasks(
+    let (_tokio_thread, tokio_shutdown) = event_loop.spawn_async_tasks(
         config.charts.clone(),
         charts_tx.clone(),
         charts_rx,
@@ -249,17 +248,13 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
         message_buffer,
         config,
         display,
+        charts_tx,
+        tokio_handle,
     );
 
     // Kick off the I/O thread
     let io_thread = event_loop.spawn();
 
-    //        // Draw the current state of the terminal
-    // display.draw(&terminal, &config, charts_tx.clone(), tokio_handle.clone());
-    // chart_last_drawn =
-    // std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-    // }
-    // }
     info!("Initialisation complete");
 
     // Start event loop and block until shutdown
