@@ -23,9 +23,9 @@ dependencies = [
 
 [[package]]
 name = "alacritty"
-version = "0.4.0-rc4"
+version = "0.4.0-rc5"
 dependencies = [
- "alacritty_terminal 0.4.0-rc4",
+ "alacritty_terminal 0.4.0-rc5",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "dirs 2.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -50,7 +50,7 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.4.0-rc4"
+version = "0.4.0-rc5"
 dependencies = [
  "base64 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
