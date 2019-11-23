@@ -31,12 +31,10 @@ use crate::gl;
 use crate::gl::types::*;
 use crate::renderer::rects::RenderRect;
 use alacritty_terminal::config::{self, Config, Delta, Font, StartupMode};
-use alacritty_terminal::cursor::CursorKey;
 use alacritty_terminal::index::{Column, Line};
 use alacritty_terminal::term::cell::{self, Flags};
 use alacritty_terminal::term::color::Rgb;
-use alacritty_terminal::term::SizeInfo;
-use alacritty_terminal::term::{self, RenderableCell, RenderableCellContent};
+use alacritty_terminal::term::{self, CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
 use alacritty_terminal::util;
 
 pub mod rects;

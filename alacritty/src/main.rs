@@ -60,7 +60,7 @@ mod renderer;
 mod url;
 mod window;
 
-pub mod gl {
+mod gl {
     #![allow(clippy::all)]
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
