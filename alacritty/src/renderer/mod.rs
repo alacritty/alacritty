@@ -31,18 +31,16 @@ use font::{
 use log::{error, info};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
-use crate::config::{self, Config, Delta, Font, StartupMode};
-use crate::cursor::{get_cursor_glyph, CursorKey};
+use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
-use crate::index::{Column, Line};
 use crate::renderer::rects::RenderRect;
-use crate::term::cell::{Flags, MAX_ZEROWIDTH_CHARS};
-use crate::term::color::Rgb;
-use crate::term::SizeInfo;
-use crate::term::{self, RenderableCell};
-use crate::text_run::{TextRun, TextRunContent};
-use crate::util;
+use alacritty_terminal::config::{self, Config, Delta, Font, StartupMode};
+use alacritty_terminal::index::{Column, Line};
+use alacritty_terminal::term::cell::{self, Flags};
+use alacritty_terminal::term::color::Rgb;
+use alacritty_terminal::term::{self, CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
+use alacritty_terminal::util;
 
 pub mod rects;
 
@@ -1089,25 +1087,25 @@ impl<'a, C> RenderApi<'a, C> {
         }
     }
 
-    fn render_cursor(
-        &mut self,
-        start_cell: RenderableCell,
-        cursor_key: CursorKey,
-        glyph_cache: &mut GlyphCache,
-    ) {
-        // Raw cell pixel buffers like cursors don't need to go through font lookup
-        let metrics = glyph_cache.metrics;
-        let glyph = glyph_cache.cursor_cache.entry(cursor_key).or_insert_with(|| {
-            self.load_glyph(&get_cursor_glyph(
-                cursor_key.style,
-                metrics,
-                self.config.font.offset.x,
-                self.config.font.offset.y,
-                cursor_key.is_wide,
-            ))
-        });
-        self.add_render_item(start_cell, &glyph);
-    }
+    pub fn render_cell(&mut self, cell: RenderableCell, glyph_cache: &mut GlyphCache) {
+        let chars = match cell.inner {
+            RenderableCellContent::Cursor(cursor_key) => {
+                // Raw cell pixel buffers like cursors don't need to go through font lookup
+                let metrics = glyph_cache.metrics;
+                let glyph = glyph_cache.cursor_cache.entry(cursor_key).or_insert_with(|| {
+                    self.load_glyph(&cursor::get_cursor_glyph(
+                        cursor_key.style,
+                        metrics,
+                        self.config.font.offset.x,
+                        self.config.font.offset.y,
+                        cursor_key.is_wide,
+                    ))
+                });
+                self.add_render_item(cell, &glyph);
+                return;
+            },
+            RenderableCellContent::Chars(chars) => chars,
+        };
 
     fn determine_font_key(flags: Flags, glyph_cache: &GlyphCache) -> FontKey {
         // FIXME this is super inefficient.

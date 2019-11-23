@@ -51,12 +51,19 @@ use alacritty_terminal::tty;
 
 mod cli;
 mod config;
+mod cursor;
 mod display;
 mod event;
 mod input;
 mod logging;
+mod renderer;
 mod url;
 mod window;
+
+mod gl {
+    #![allow(clippy::all)]
+    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
+}
 
 use crate::cli::Options;
 use crate::config::monitor::Monitor;
