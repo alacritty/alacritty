@@ -337,7 +337,7 @@ impl ReferencePointDecoration {
         offset: Value2D,
         chart_max_value: f64,
     ) {
-        debug!("ReferencePointDecoration::update_opengl_vecs Starting");
+        debug!("ReferencePointDecoration:update_opengl_vecs: Starting");
         if 12 != self.opengl_data.capacity() {
             self.opengl_data = vec![0.; 12];
         }
@@ -857,7 +857,7 @@ impl TimeSeriesChart {
     pub fn get_deduped_opengl_vecs(&self, idx: usize) -> Vec<f32> {
         let span = span!(Level::TRACE, "get_deduped_opengl_vecs", idx);
         let _enter = span.enter();
-        if idx < self.opengl_vecs.len() {
+        if idx >= self.opengl_vecs.len() {
             return vec![];
         }
         if self.opengl_vecs[idx].len() <= 4 {
