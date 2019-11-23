@@ -220,12 +220,21 @@ pub struct RasterizedGlyph {
     pub height: i32,
     pub top: i32,
     pub left: i32,
+    pub colored: bool,
     pub buf: Vec<u8>,
 }
 
 impl Default for RasterizedGlyph {
     fn default() -> RasterizedGlyph {
-        RasterizedGlyph { c: ' ', width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }
+        RasterizedGlyph {
+            c: ' ',
+            width: 0,
+            height: 0,
+            top: 0,
+            left: 0,
+            colored: false,
+            buf: Vec::new(),
+        }
     }
 }
 

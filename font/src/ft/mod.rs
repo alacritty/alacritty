@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
 
+use freetype::freetype_sys;
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
 use libc::c_uint;
@@ -37,6 +38,7 @@ struct Face {
     render_mode: freetype::RenderMode,
     lcd_filter: c_uint,
     non_scalable: Option<FixedSize>,
+    has_color: bool,
 }
 
 impl fmt::Debug for Face {
@@ -253,7 +255,7 @@ impl FreeTypeRasterizer {
             }
 
             trace!("Got font path={:?}", path);
-            let ft_face = self.library.new_face(&path, index)?;
+            let mut ft_face = self.library.new_face(&path, index)?;
 
             // Get available pixel sizes if font isn't scalable.
             let non_scalable = if pattern.scalable().next().unwrap_or(true) {
@@ -265,6 +267,27 @@ impl FreeTypeRasterizer {
                 Some(FixedSize { pixelsize: pixelsize.next().expect("has 1+ pixelsize") })
             };
 
+            // Works fine btw.
+            let mut load_flags = Self::ft_load_flags(pattern);
+            let has_color = ft_face.has_color();
+            if has_color {
+                unsafe {
+                    let ft_face = ft_face.raw_mut();
+                    let best = 0;
+                    // XXX we could check sizes info, but we don't know to what size we're going to
+                    // downscale.
+                    //
+                    // let available_sizes =
+                    // std::slice::from_raw_parts::<freetype_sys::FT_Bitmap_Size>(
+                    //     ft_face.available_sizes,
+                    //     ft_face.num_fixed_sizes as usize,
+                    // );
+
+                    freetype_sys::FT_Select_Size(ft_face, best);
+                }
+                load_flags |= freetype::face::LoadFlag::COLOR;
+            }
+
             let face = Face {
                 ft_face,
                 key: FontKey::next(),
@@ -272,6 +295,7 @@ impl FreeTypeRasterizer {
                 render_mode: Self::ft_render_mode(pattern),
                 lcd_filter: Self::ft_lcd_filter(pattern),
                 non_scalable,
+                has_color,
             };
 
             debug!("Loaded Face {:?}", face);
@@ -320,14 +344,25 @@ impl FreeTypeRasterizer {
                 glyph_key.size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.
             });
 
-        face.ft_face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
+        if !face.has_color {
+            face.ft_face.set_char_size(to_freetype_26_6(size), 0, 0, 0)?;
+        }
 
         unsafe {
             let ft_lib = self.library.raw();
-            freetype::ffi::FT_Library_SetLcdFilter(ft_lib, face.lcd_filter);
+            if !face.has_color {
+                freetype::ffi::FT_Library_SetLcdFilter(ft_lib, face.lcd_filter);
+            }
         }
 
-        face.ft_face.load_glyph(index as u32, face.load_flags)?;
+        let flags = if face.has_color {
+            freetype::face::LoadFlag::COLOR | freetype::face::LoadFlag::DEFAULT
+        } else {
+            face.load_flags
+        };
+
+        face.ft_face.load_glyph(index as u32, flags);
+
         let glyph = face.ft_face.glyph();
         glyph.render_glyph(face.render_mode)?;
 
@@ -339,6 +374,7 @@ impl FreeTypeRasterizer {
             left: glyph.bitmap_left(),
             width: pixel_width,
             height: pixel_height,
+            colored: face.has_color,
             buf,
         })
     }
@@ -481,6 +517,20 @@ impl FreeTypeRasterizer {
                         packed.push(*byte);
                         packed.push(*byte);
                     }
+                }
+                Ok((bitmap.rows(), bitmap.width(), packed))
+            },
+            PixelMode::Bgra => {
+                let buf_size = (bitmap.rows() * bitmap.width() * 4) as usize;
+                let mut i = 0;
+                while i < buf_size {
+                    // Convert BGRA to RGB
+                    //
+                    // XXX our rendring works in rgb and doens't care about urers alpha.
+                    packed.push(buf[i + 2]);
+                    packed.push(buf[i + 1]);
+                    packed.push(buf[i]);
+                    i += 4;
                 }
                 Ok((bitmap.rows(), bitmap.width(), packed))
             },
