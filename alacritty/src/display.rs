@@ -32,14 +32,14 @@ use alacritty_terminal::event::{Event, OnResize};
 use alacritty_terminal::index::Line;
 use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::meter::Meter;
-use alacritty_terminal::renderer::rects::{RenderLines, RenderRect};
-use alacritty_terminal::renderer::{self, GlyphCache, QuadRenderer};
 use alacritty_terminal::selection::Selection;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{RenderableCell, SizeInfo, Term, TermMode};
 
 use crate::config::Config;
 use crate::event::{DisplayUpdate, Mouse};
+use crate::renderer::rects::{RenderLines, RenderRect};
+use crate::renderer::{self, GlyphCache, QuadRenderer};
 use crate::url::{Url, Urls};
 use crate::window::{self, Window};
 

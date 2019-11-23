@@ -24,7 +24,7 @@ extern crate objc;
 pub mod ansi;
 pub mod clipboard;
 pub mod config;
-mod cursor;
+pub mod cursor;
 pub mod event;
 pub mod event_loop;
 pub mod grid;
@@ -33,7 +33,6 @@ pub mod locale;
 pub mod message_bar;
 pub mod meter;
 pub mod panic;
-pub mod renderer;
 pub mod selection;
 pub mod sync;
 pub mod term;
@@ -42,8 +41,3 @@ pub mod util;
 
 pub use crate::grid::Grid;
 pub use crate::term::Term;
-
-pub mod gl {
-    #![allow(clippy::all)]
-    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
-}

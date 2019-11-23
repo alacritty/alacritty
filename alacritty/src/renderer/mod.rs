@@ -26,17 +26,18 @@ use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Raster
 use log::{error, info};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
-use crate::config::{self, Config, Delta, Font, StartupMode};
-use crate::cursor::{get_cursor_glyph, CursorKey};
+use crate::cursor;
 use crate::gl;
 use crate::gl::types::*;
-use crate::index::{Column, Line};
 use crate::renderer::rects::RenderRect;
-use crate::term::cell::{self, Flags};
-use crate::term::color::Rgb;
-use crate::term::SizeInfo;
-use crate::term::{self, RenderableCell, RenderableCellContent};
-use crate::util;
+use alacritty_terminal::config::{self, Config, Delta, Font, StartupMode};
+use alacritty_terminal::cursor::CursorKey;
+use alacritty_terminal::index::{Column, Line};
+use alacritty_terminal::term::cell::{self, Flags};
+use alacritty_terminal::term::color::Rgb;
+use alacritty_terminal::term::SizeInfo;
+use alacritty_terminal::term::{self, RenderableCell, RenderableCellContent};
+use alacritty_terminal::util;
 
 pub mod rects;
 
@@ -1016,7 +1017,7 @@ impl<'a, C> RenderApi<'a, C> {
                 // Raw cell pixel buffers like cursors don't need to go through font lookup
                 let metrics = glyph_cache.metrics;
                 let glyph = glyph_cache.cursor_cache.entry(cursor_key).or_insert_with(|| {
-                    self.load_glyph(&get_cursor_glyph(
+                    self.load_glyph(&cursor::get_cursor_glyph(
                         cursor_key.style,
                         metrics,
                         self.config.font.offset.x,
