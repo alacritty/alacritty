@@ -27,7 +27,6 @@ use crate::ansi::{
 };
 use crate::clipboard::{Clipboard, ClipboardType};
 use crate::config::{Config, VisualBellAnimation, DEFAULT_NAME};
-use crate::cursor::CursorKey;
 use crate::event::{Event, EventListener};
 use crate::grid::{
     BidirectionalIterator, DisplayIter, Grid, GridCell, IndexRegion, Indexed, Scroll,
@@ -159,6 +158,13 @@ impl<T> selection::Dimensions for Term<T> {
         };
         Point { col: self.grid.num_cols(), line }
     }
+}
+
+/// A key for caching cursor glyphs
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Deserialize)]
+pub struct CursorKey {
+    pub style: CursorStyle,
+    pub is_wide: bool,
 }
 
 /// Iterator that yields cells needing render

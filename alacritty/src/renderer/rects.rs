@@ -15,10 +15,10 @@ use std::collections::HashMap;
 
 use font::Metrics;
 
-use crate::index::{Column, Point};
-use crate::term::cell::Flags;
-use crate::term::color::Rgb;
-use crate::term::{RenderableCell, SizeInfo};
+use alacritty_terminal::index::{Column, Point};
+use alacritty_terminal::term::cell::Flags;
+use alacritty_terminal::term::color::Rgb;
+use alacritty_terminal::term::{RenderableCell, SizeInfo};
 
 #[derive(Debug, Copy, Clone)]
 pub struct RenderRect {

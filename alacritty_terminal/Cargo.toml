@@ -3,7 +3,6 @@ name = "alacritty_terminal"
 version = "0.4.1-dev"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 license = "Apache-2.0"
-build = "build.rs"
 description = "Library for writing terminal emulators"
 readme = "../README.md"
 homepage = "https://github.com/jwilm/alacritty"
@@ -21,7 +20,6 @@ vte = "0.3"
 mio = "0.6"
 mio-extras = "2"
 log = "0.4"
-fnv = "1"
 unicode-width = "0.1"
 base64 = "0.10.0"
 terminfo = "0.6.1"
@@ -50,9 +48,6 @@ default = []
 live-shader-reload = []
 nightly = []
 bench = []
-
-[build-dependencies]
-gl_generator = "0.14.0"
 
 [dev-dependencies]
 serde_json = "1.0.0"

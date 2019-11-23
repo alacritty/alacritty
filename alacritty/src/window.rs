@@ -37,11 +37,11 @@ use x11_dl::xlib::{Display as XDisplay, PropModeReplace, XErrorEvent, Xlib};
 
 use alacritty_terminal::config::{Decorations, StartupMode, WindowConfig};
 use alacritty_terminal::event::Event;
-use alacritty_terminal::gl;
 #[cfg(not(windows))]
 use alacritty_terminal::term::{SizeInfo, Term};
 
 use crate::config::Config;
+use crate::gl;
 
 // It's required to be in this directory due to the `windows.rc` file
 #[cfg(not(target_os = "macos"))]

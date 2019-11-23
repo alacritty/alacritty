@@ -7,13 +7,13 @@ use urlocator::{UrlLocation, UrlLocator};
 use font::Metrics;
 
 use alacritty_terminal::index::Point;
-use alacritty_terminal::renderer::rects::{RenderLine, RenderRect};
 use alacritty_terminal::term::cell::Flags;
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{RenderableCell, RenderableCellContent, SizeInfo};
 
 use crate::config::{Config, RelaxedEq};
 use crate::event::Mouse;
+use crate::renderer::rects::{RenderLine, RenderRect};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Url {
