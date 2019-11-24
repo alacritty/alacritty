@@ -512,6 +512,7 @@ impl Display {
         }
         // Draw the charts
         for chart_idx in 0..config.charts.len() {
+            debug!("draw: Drawing chart: {}", config.charts[chart_idx].name);
             for decoration_idx in 0..config.charts[chart_idx].decorations.len() {
                 let alpha = config.charts[chart_idx].decorations[decoration_idx].alpha();
                 self.renderer.draw_charts_line(
