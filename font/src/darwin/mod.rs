@@ -246,7 +246,7 @@ impl Rasterizer {
         font: &Font,
     ) -> Option<Result<RasterizedGlyph, Error>> {
         let scaled_size = self.device_pixel_ratio * glyph.size.as_f32_pts();
-        font.get_glyph(glyph.c, f64::from(scaled_size), font.is_colored(), self.use_thin_strokes)
+        font.get_glyph(glyph.c, f64::from(scaled_size), self.use_thin_strokes)
             .map(|r| Some(Ok(r)))
             .unwrap_or_else(|e| match e {
                 Error::MissingGlyph(_) => None,
@@ -455,7 +455,6 @@ impl Font {
         &self,
         character: char,
         _size: f64,
-        colored: bool,
         use_thin_strokes: bool,
     ) -> Result<RasterizedGlyph, Error> {
         let glyph_index =
@@ -535,7 +534,7 @@ impl Font {
             top: (bounds.size.height + bounds.origin.y).ceil() as i32,
             width: rasterized_width as i32,
             height: rasterized_height as i32,
-            colored,
+            colored: self.is_colored(),
             buf,
         })
     }
@@ -591,7 +590,7 @@ mod tests {
         for font in fonts {
             // Get a glyph
             for c in &['a', 'b', 'c', 'd'] {
-                let glyph = font.get_glyph(*c, 72., false, false).unwrap();
+                let glyph = font.get_glyph(*c, 72., false).unwrap();
 
                 // Debug the glyph.. sigh
                 for row in 0..glyph.height {

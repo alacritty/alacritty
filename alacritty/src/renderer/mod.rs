@@ -336,7 +336,7 @@ impl GlyphCache {
             n_j += 1;
         }
         // FIXME: better top setting.
-        bitmap_glyph.top = bitmap_glyph.top / ratio as i32;
+        bitmap_glyph.top /= ratio as i32;
         bitmap_glyph.width = width as i32;
         bitmap_glyph.height = height as i32;
         bitmap_glyph.buf = scaled_buffer;
