@@ -361,7 +361,7 @@ impl FreeTypeRasterizer {
             face.load_flags
         };
 
-        face.ft_face.load_glyph(index as u32, flags);
+        face.ft_face.load_glyph(index as u32, flags)?;
 
         let glyph = face.ft_face.glyph();
         glyph.render_glyph(face.render_mode)?;
