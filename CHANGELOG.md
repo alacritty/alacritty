@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Packaging
+
+- Minimum Rust version has been bumped to 1.36.0
+- Config is not generated anymore, please consider distributing the alacritty.yml as documentation
+- Removed Alacritty terminfo from .deb in favor of ncurses provided one
+
 ### Added
 
 - Block selection mode when Control is held while starting a selection
@@ -13,6 +19,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Config option `window.gtk_theme_variant` to set GTK theme variant
 - Completions for `--class` and `-t` (short title)
 - Change the mouse cursor when hovering over the message bar and its close button
+- Support combined bold and italic text (with `font.bold_italic` to customize it)
+- Extra bindings for F13-F20
+- Terminal escape bindings with combined modifiers
+- Bindings for ScrollToTop and ScrollToBottom actions
+- `ReceiveChar` key binding action to insert the key's text character
+- New CLI flag `--hold` for keeping Alacritty opened after its child process exits
+- Escape sequence to save and restore window title from stack
+- Alternate scroll escape sequence (`CSI ? 1007 h` / `CSI ? 1007 l`)
+- Print name of launch command if Alacritty failed to execute it
+- Live reload font settings from config
+- UTF-8 mouse mode escape sequence (`CSI ? 1005 h` / `CSI ? 1005 l`)
+- Escape for reading clipboard (`OSC 52 ; <s / p / c> ; ? BEL`)
+- Set selection clipboard (`OSC 52 ; <s / p> ; <BASE64> BEL`)
 
 ### Changed
 
@@ -33,6 +52,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Override default bindings with subset terminal mode match
 - On Linux, respect fontconfig's `embeddedbitmap` configuration option
 - Selecting trailing tab with semantic expansion
+- URL parser incorrectly handling Markdown URLs and angled brackets
+- Intermediate bytes of CSI sequences not checked
+- Wayland clipboard integration
+- Use text mouse cursor when mouse mode is temporarily disabled with shift
+- Wayland primary selection clipboard not storing text when selection is stopped outside of the window
+- Block URL highlight while a selection is active
+- Bindings for Alt + F1-F12
+- Discard scrolling region escape with bottom above top
+- Opacity always applying to cells with their background color matching the teriminal background
+- Allow semicolons when setting titles using an OSC
+- Background always opaque on X11
+- Skipping redraws on PTY update
+- Not redrawing while resizing on Windows/macOS
+- Decorations `none` launching an invisible window on Windows
+- Alacritty turning transparent when opening another window on macOS with chunkwm
+- Startup mode `Maximized` having no effect on Windows
+- Inserting Emojis using `Super+.` or compose sequences on Windows
+- Change mouse cursor depending on mode with Wayland
+- Hide mouse cursor when typing if the `mouse.hide_when_typing` option is set on Wayland
+- Glitches when DPI changes on Windows
+- Crash when resuming after suspension
+- Crash when trying to start on X11 with a Wayland compositor running
+- Crash with a virtual display connected on X11
+- Use `\` instead of `\\` as path separators on Windows for logging config file location
+- Underline/strikeout drawn above visual bell
+- Terminal going transparent during visual bell
+- Selection not being cleared when sending chars through a binding
+- Mouse protocols/encodings not being mutually exclusive within themselves
+- Escape `CSI Ps M` deleting lines above cursor when at the bottom of the viewport
+
+### Removed
+
+- Bindings for Super/Command + F1-F12
+- Automatic config generation
+- Deprecated `scrolling.faux_multiplier`, the alternate scroll escape can now be used to disable it
+    and `scrolling.multiplier` controls the number of scrolled lines
 
 ## 0.3.3
 
@@ -58,6 +113,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     and `debug.ref_test`
 - Select until next matching bracket when double-clicking a bracket
 - Added foreground/background escape code request sequences
+- Escape sequences now support 1, 3, and 4 digit hex colors
 
 ### Changed
 

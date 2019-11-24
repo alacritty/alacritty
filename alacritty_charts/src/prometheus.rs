@@ -323,10 +323,6 @@ impl PrometheusTimeSeries {
                                 let opt_epoch = prometheus_epoch_to_u64(&item[0]);
                                 let value = serde_json_to_num(&item[1]);
                                 if let Some(epoch) = opt_epoch {
-                                    debug!(
-                                        "load_prometheus_response: Upserting from Matrix({},{:?}),",
-                                        epoch, value
-                                    );
                                     loaded_items += self.series.upsert((epoch, value));
                                 }
                             }
@@ -362,7 +358,7 @@ impl PrometheusTimeSeries {
 /// PrometheusResponse
 pub fn get_from_prometheus(
     url: hyper::Uri,
-) -> impl Future<Item = hyper::Chunk, Error = hyper::Uri> {
+) -> impl Future<Item = hyper::Chunk, Error = (hyper::Uri, hyper::error::Error)> {
     info!("get_from_prometheus: Loading Prometheus URL: {}", url);
     let request = if url.scheme_part() == Some(&hyper::http::uri::Scheme::HTTP) {
         Client::new().get(url.clone())
@@ -382,21 +378,20 @@ pub fn get_from_prometheus(
                 // The concat2() function takes the separate body chunks and makes one
                 // hyper::Chunk value with the contents of the entire body
                 .concat2()
-                .and_then(|body| {
-                    debug!("get_from_prometheus: Body={:?}", body);
-                    Ok(body)
-                })
+                .and_then(|body| Ok(body))
         })
         .map_err(|err| {
-            error!("get_from_prometheus: Error loading '{:?}'", err);
-            url_copy
+            info!(
+                "get_from_prometheus: Error loading '{:?}': '{:?}'",
+                url_copy, err
+            );
+            (url_copy, err)
         })
 }
 /// `parse_json` transforms a hyper body chunk into a possible
 /// PrometheusResponse, mostly used for testing
 pub fn parse_json(body: &hyper::Chunk) -> Option<HTTPResponse> {
     let prom_res: Result<HTTPResponse, serde_json::Error> = serde_json::from_slice(&body);
-    // XXX: Figure out how to return the error
     match prom_res {
         Ok(v) => {
             debug!("parse_json: returned JSON={:?}", v);
@@ -1064,5 +1059,20 @@ mod tests {
         // 5 items should have been loaded, 5 already existed.
         assert_eq!(res1_load, Ok(5usize));
         assert_eq!(test.series.active_items, 10usize);
+        assert_eq!(
+            test.series.as_vec(),
+            vec![
+                (1571511822, Some(1.8359322)),
+                (1571511823, Some(1.8359323)),
+                (1571511824, Some(1.8359324)),
+                (1571511825, Some(1.8359325)),
+                (1571511826, Some(1.8359326)),
+                (1571511827, Some(1.8359327)),
+                (1571511828, Some(1.8359328)),
+                (1571511829, Some(1.8359329)),
+                (1571511830, Some(1.8359330)),
+                (1571511831, Some(1.8359331))
+            ]
+        );
     }
 }

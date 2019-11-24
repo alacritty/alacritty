@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::Cow;
 use std::cmp::max;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use clap::{crate_authors, crate_description, crate_name, crate_version, App, Arg};
 use log::{self, LevelFilter};
 
-use alacritty_terminal::config::{Config, Delta, Dimensions, Shell};
+use alacritty_terminal::config::{Delta, Dimensions, Shell, DEFAULT_NAME};
 use alacritty_terminal::index::{Column, Line};
-use alacritty_terminal::window::DEFAULT_NAME;
+
+use crate::config::Config;
 
 /// Options specified on the command line
 pub struct Options {
@@ -32,8 +32,10 @@ pub struct Options {
     pub position: Option<Delta<i32>>,
     pub title: Option<String>,
     pub class: Option<String>,
+    pub embed: Option<String>,
     pub log_level: LevelFilter,
     pub command: Option<Shell<'static>>,
+    pub hold: bool,
     pub working_dir: Option<PathBuf>,
     pub config: Option<PathBuf>,
     pub persistent_logging: bool,
@@ -49,8 +51,10 @@ impl Default for Options {
             position: None,
             title: None,
             class: None,
+            embed: None,
             log_level: LevelFilter::Warn,
             command: None,
+            hold: false,
             working_dir: None,
             config: None,
             persistent_logging: false,
@@ -129,6 +133,11 @@ impl Options {
                     .help(&format!("Defines window class on Linux [default: {}]", DEFAULT_NAME)),
             )
             .arg(
+                Arg::with_name("embed").long("embed").takes_value(true).help(
+                    "Defines the X11 window ID (as a decimal integer) to embed Alacritty within",
+                ),
+            )
+            .arg(
                 Arg::with_name("q")
                     .short("q")
                     .multiple(true)
@@ -162,6 +171,7 @@ impl Options {
                     .allow_hyphen_values(true)
                     .help("Command and args to execute (must be last argument)"),
             )
+            .arg(Arg::with_name("hold").long("hold").help("Remain open after child process exits"))
             .get_matches();
 
         if matches.is_present("ref-test") {
@@ -200,6 +210,7 @@ impl Options {
 
         options.class = matches.value_of("class").map(ToOwned::to_owned);
         options.title = matches.value_of("title").map(ToOwned::to_owned);
+        options.embed = matches.value_of("embed").map(ToOwned::to_owned);
 
         match matches.occurrences_of("q") {
             0 => {},
@@ -231,11 +242,15 @@ impl Options {
             options.command = Some(Shell::new_with_args(command, args));
         }
 
+        if matches.is_present("hold") {
+            options.hold = true;
+        }
+
         options
     }
 
-    pub fn config_path(&self) -> Option<Cow<'_, Path>> {
-        self.config.as_ref().map(|p| Cow::Borrowed(p.as_path()))
+    pub fn config_path(&self) -> Option<PathBuf> {
+        self.config.clone()
     }
 
     pub fn into_config(self, mut config: Config) -> Config {
@@ -247,9 +262,12 @@ impl Options {
         );
         config.shell = self.command.or(config.shell);
 
+        config.hold = self.hold;
+
         config.window.dimensions = self.dimensions.unwrap_or(config.window.dimensions);
+        config.window.title = self.title.unwrap_or(config.window.title);
         config.window.position = self.position.or(config.window.position);
-        config.window.title = self.title.or(config.window.title);
+        config.window.embed = self.embed.and_then(|embed| embed.parse().ok());
 
         if let Some(class) = self.class {
             let parts: Vec<_> = class.split(',').collect();
@@ -259,11 +277,13 @@ impl Options {
             }
         }
 
-        config.set_dynamic_title(config.dynamic_title() && config.window.title.is_none());
+        config.set_dynamic_title(config.dynamic_title() && config.window.title == DEFAULT_NAME);
 
         config.debug.print_events = self.print_events || config.debug.print_events;
         config.debug.log_level = max(config.debug.log_level, self.log_level);
         config.debug.ref_test = self.ref_test || config.debug.ref_test;
+        config.debug.persistent_logging =
+            self.persistent_logging || config.debug.persistent_logging;
 
         if config.debug.print_events {
             config.debug.log_level = max(config.debug.log_level, LevelFilter::Info);
@@ -275,14 +295,12 @@ impl Options {
 
 #[cfg(test)]
 mod test {
-    use alacritty_terminal::config::{Config, DEFAULT_ALACRITTY_CONFIG};
-
     use crate::cli::Options;
+    use crate::config::Config;
 
     #[test]
     fn dynamic_title_ignoring_options_by_default() {
-        let config: Config =
-            ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("deserialize config");
+        let config = Config::default();
         let old_dynamic_title = config.dynamic_title();
 
         let config = Options::default().into_config(config);
@@ -292,8 +310,7 @@ mod test {
 
     #[test]
     fn dynamic_title_overridden_by_options() {
-        let config: Config =
-            ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("deserialize config");
+        let config = Config::default();
 
         let mut options = Options::default();
         options.title = Some("foo".to_owned());
@@ -304,10 +321,9 @@ mod test {
 
     #[test]
     fn dynamic_title_overridden_by_config() {
-        let mut config: Config =
-            ::serde_yaml::from_str(DEFAULT_ALACRITTY_CONFIG).expect("deserialize config");
+        let mut config = Config::default();
 
-        config.window.title = Some("foo".to_owned());
+        config.window.title = "foo".to_owned();
         let config = Options::default().into_config(config);
 
         assert!(!config.dynamic_title());

@@ -326,7 +326,7 @@ impl_derived_property_iter! {
 }
 
 foreign_type! {
-    pub type Pattern {
+    pub unsafe type Pattern {
         type CType = FcPattern;
         fn drop = FcPatternDestroy;
     }

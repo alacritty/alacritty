@@ -17,7 +17,9 @@
 /// Indexing types and implementations for Grid and Line
 use std::cmp::{Ord, Ordering};
 use std::fmt;
-use std::ops::{self, Add, AddAssign, Deref, Range, RangeInclusive, Sub, SubAssign};
+use std::ops::{self, Add, AddAssign, Deref, Range, Sub, SubAssign};
+
+use serde::{Deserialize, Serialize};
 
 use crate::term::RenderableCell;
 
@@ -39,6 +41,30 @@ impl<L> Point<L> {
     pub fn new(line: L, col: Column) -> Point<L> {
         Point { line, col }
     }
+
+    #[inline]
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    pub fn sub(mut self, num_cols: usize, length: usize) -> Point<L>
+    where
+        L: Copy + Sub<usize, Output = L>,
+    {
+        let line_changes = f32::ceil(length.saturating_sub(self.col.0) as f32 / num_cols as f32);
+        self.line = self.line - line_changes as usize;
+        self.col = Column((num_cols + self.col.0 - length % num_cols) % num_cols);
+        self
+    }
+
+    #[inline]
+    #[must_use = "this returns the result of the operation, without modifying the original"]
+    pub fn add(mut self, num_cols: usize, length: usize) -> Point<L>
+    where
+        L: Copy + Add<usize, Output = L>,
+    {
+        let line_changes = length.saturating_sub(self.col.0) / num_cols;
+        self.line = self.line + line_changes;
+        self.col = Column((self.col.0 + length) % num_cols);
+        self
+    }
 }
 
 impl Ord for Point {
@@ -59,6 +85,12 @@ impl From<Point<usize>> for Point<isize> {
     }
 }
 
+impl From<Point<usize>> for Point<Line> {
+    fn from(point: Point<usize>) -> Self {
+        Point::new(Line(point.line), point.col)
+    }
+}
+
 impl From<Point<isize>> for Point<usize> {
     fn from(point: Point<isize>) -> Self {
         Point::new(point.line as usize, point.col)
@@ -71,8 +103,8 @@ impl From<Point> for Point<usize> {
     }
 }
 
-impl From<&RenderableCell> for Point<Line> {
-    fn from(cell: &RenderableCell) -> Self {
+impl From<RenderableCell> for Point<Line> {
+    fn from(cell: RenderableCell) -> Self {
         Point::new(cell.line, cell.column)
     }
 }
@@ -242,28 +274,6 @@ pub struct IndexRange<T>(pub Range<T>);
 impl<T> From<Range<T>> for IndexRange<T> {
     fn from(from: Range<T>) -> Self {
         IndexRange(from)
-    }
-}
-
-// can be removed if range_contains is stabilized
-pub trait Contains {
-    type Content;
-    fn contains_(&self, item: Self::Content) -> bool;
-}
-
-impl<T: PartialOrd<T>> Contains for Range<T> {
-    type Content = T;
-
-    fn contains_(&self, item: Self::Content) -> bool {
-        (self.start <= item) && (item < self.end)
-    }
-}
-
-impl<T: PartialOrd<T>> Contains for RangeInclusive<T> {
-    type Content = T;
-
-    fn contains_(&self, item: Self::Content) -> bool {
-        (self.start() <= &item) && (&item <= self.end())
     }
 }
 

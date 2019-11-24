@@ -14,7 +14,7 @@ mod wayland {
     extern crate copypasta;
     extern crate smithay_client_toolkit as sctk;
 
-    use wayland::copypasta::wayland_clipboard::{Clipboard, WaylandClipboardContext};
+    use wayland::copypasta::wayland_clipboard::create_clipboards;
     use wayland::copypasta::ClipboardProvider;
 
     use std::io::{Read, Seek, SeekFrom, Write};
@@ -37,7 +37,7 @@ mod wayland {
             Display::connect_to_env().expect("Failed to connect to the wayland server.");
         let env = Environment::from_display(&*display, &mut event_queue).unwrap();
 
-        let mut ctx = WaylandClipboardContext::<Clipboard>::new(&display);
+        let (mut ctx, _) = create_clipboards(&display);
         let cb_contents = Arc::new(Mutex::new(String::new()));
 
         let seat = env.manager.instantiate_range(2, 6, NewProxy::implement_dummy).unwrap();

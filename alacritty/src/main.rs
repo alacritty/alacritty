@@ -25,40 +25,45 @@
 #[cfg(target_os = "macos")]
 use std::env;
 use std::error::Error;
-use std::fs::{self, File};
+use std::fs;
 use std::io::{self, Write};
 #[cfg(not(windows))]
 use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
-use std::time::UNIX_EPOCH;
 
 #[cfg(target_os = "macos")]
 use dirs;
-use log::{error, info};
-use serde_json as json;
+use glutin::event_loop::EventLoop as GlutinEventLoop;
+use log::info;
 #[cfg(windows)]
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 use alacritty_charts::futures::sync::mpsc;
 use alacritty_terminal::clipboard::Clipboard;
-use alacritty_terminal::config::{Config, Monitor};
-use alacritty_terminal::display::Display;
+use alacritty_terminal::event::Event;
 use alacritty_terminal::event_loop::{self, EventLoop, Msg};
 #[cfg(target_os = "macos")]
 use alacritty_terminal::locale;
 use alacritty_terminal::message_bar::MessageBuffer;
 use alacritty_terminal::panic;
 use alacritty_terminal::sync::FairMutex;
-use alacritty_terminal::term::{cell::Cell, Term};
+use alacritty_terminal::term::Term;
 use alacritty_terminal::tty;
-use alacritty_terminal::util::fmt::Red;
-use alacritty_terminal::{die, event};
 
 mod cli;
 mod config;
+mod display;
+mod event;
+mod input;
 mod logging;
+mod url;
+mod window;
 
 use crate::cli::Options;
+use crate::config::monitor::Monitor;
+use crate::config::Config;
+use crate::display::Display;
+use crate::event::{EventProxy, Processor};
 
 fn main() {
     panic::attach_handler();
@@ -74,26 +79,16 @@ fn main() {
     // Load command line options
     let options = Options::new();
 
-    // Setup storage for message UI
-    let message_buffer = MessageBuffer::new();
+    // Setup glutin event loop
+    let window_event_loop = GlutinEventLoop::<Event>::with_user_event();
 
     // Initialize the logger as soon as possible as to capture output from other subsystems
-    let log_file =
-        logging::initialize(&options, message_buffer.tx()).expect("Unable to initialize logger");
+    let log_file = logging::initialize(&options, window_event_loop.create_proxy())
+        .expect("Unable to initialize logger");
 
     // Load configuration file
-    // If the file is a command line argument, we won't write a generated default file
-    let config_path = options
-        .config_path()
-        .or_else(config::installed_config)
-        .or_else(|| config::write_defaults().ok())
-        .map(|path| path.to_path_buf());
-    let config = if let Some(path) = config_path {
-        config::load_from(path)
-    } else {
-        error!("Unable to write the default config");
-        Config::default()
-    };
+    let config_path = options.config_path().or_else(config::installed_config);
+    let config = config_path.map(config::load_from).unwrap_or_else(Config::default);
     let config = options.into_config(config);
 
     // Update the log level from config
@@ -110,14 +105,15 @@ fn main() {
     let persistent_logging = config.persistent_logging();
 
     // Run alacritty
-    if let Err(err) = run(config, message_buffer) {
-        die!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", Red(err));
+    if let Err(err) = run(window_event_loop, config) {
+        println!("Alacritty encountered an unrecoverable error:\n\n\t{}\n", err);
+        std::process::exit(1);
     }
 
     // Clean up logfile
     if let Some(log_file) = log_file {
         if !persistent_logging && fs::remove_file(&log_file).is_ok() {
-            let _ = writeln!(io::stdout(), "Deleted log file at {:?}", log_file);
+            let _ = writeln!(io::stdout(), "Deleted log file at \"{}\"", log_file.display());
         }
     }
 }
@@ -126,31 +122,28 @@ fn main() {
 ///
 /// Creates a window, the terminal state, pty, I/O event loop, input processor,
 /// config change monitor, and runs the main display loop.
-fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Error>> {
+fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), Box<dyn Error>> {
     info!("Welcome to Alacritty");
     if let Some(config_path) = &config.config_path {
-        info!("Configuration loaded from {:?}", config_path.display());
+        info!("Configuration loaded from \"{}\"", config_path.display());
     };
 
     // Set environment variables
     tty::setup_env(&config);
 
-    // Create a display.
-    // The display manages a window and can draw the terminal
-    let mut display = match Display::new(&config) {
-        Ok(display) => display,
-        Err(err) => {
-            error!("Got error creating display: {}", err);
-            return Err(Box::new(err));
-        },
-    };
+    let event_proxy = EventProxy::new(window_event_loop.create_proxy());
 
-    info!("PTY Dimensions: {:?} x {:?}", display.size().lines(), display.size().cols());
+    // Create a display
+    //
+    // The display manages a window and can draw the terminal.
+    let display = Display::new(&config, &window_event_loop)?;
+
+    info!("PTY Dimensions: {:?} x {:?}", display.size_info.lines(), display.size_info.cols());
 
     // Create new native clipboard
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    let clipboard = Clipboard::new(display.get_wayland_display());
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[cfg(not(any(target_os = "macos", windows)))]
+    let clipboard = Clipboard::new(display.window.wayland_display());
+    #[cfg(any(target_os = "macos", windows))]
     let clipboard = Clipboard::new();
 
     // Create the terminal
@@ -158,28 +151,28 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let terminal = Term::new(&config, display.size().to_owned(), message_buffer, clipboard);
+    let terminal = Term::new(&config, &display.size_info, clipboard, event_proxy.clone());
     let terminal = Arc::new(FairMutex::new(terminal));
-
-    // Find the window ID for setting $WINDOWID
-    let window_id = display.get_window_id();
 
     // Create the pty
     //
     // The pty forks a process to run the shell on the slave side of the
     // pseudoterminal. A file descriptor for the master side is retained for
     // reading/writing to the shell.
-    let pty = tty::new(&config, &display.size(), window_id);
+    #[cfg(not(any(target_os = "macos", windows)))]
+    let pty = tty::new(&config, &display.size_info, display.window.x11_window_id());
+    #[cfg(any(target_os = "macos", windows))]
+    let pty = tty::new(&config, &display.size_info, None);
 
-    // Get a reference to something that we can resize
+    // Create PTY resize handle
     //
     // This exists because rust doesn't know the interface is thread-safe
     // and we need to be able to resize the PTY from the main thread while the IO
     // thread owns the EventedRW object.
     #[cfg(windows)]
-    let mut resize_handle = pty.resize_handle();
+    let resize_handle = pty.resize_handle();
     #[cfg(not(windows))]
-    let mut resize_handle = pty.fd.as_raw_fd();
+    let resize_handle = pty.fd.as_raw_fd();
 
     // Create the pseudoterminal I/O loop
     //
@@ -187,50 +180,53 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
     // renderer and input processing. Note that access to the terminal state is
     // synchronized since the I/O loop updates the state, and the display
     // consumes it periodically.
-    let event_loop =
-        EventLoop::new(Arc::clone(&terminal), display.notifier(), pty, config.debug.ref_test);
+    let event_loop = EventLoop::new(Arc::clone(&terminal), event_proxy.clone(), pty, &config);
 
     // The event loop channel allows write requests from the event processor
-    // to be sent to the loop and ultimately written to the pty.
+    // to be sent to the pty loop and ultimately written to the pty.
     let loop_tx = event_loop.channel();
 
-    // Event processor
-    //
-    // Need the Rc<RefCell<_>> here since a ref is shared in the resize callback
-    let mut processor = event::Processor::new(
-        event_loop::Notifier(event_loop.channel()),
-        display.resize_channel(),
-        &config,
-        display.size().to_owned(),
-    );
-
+    // XXX: SEB: Figure out after upstream/master merge
     // Create a config monitor when config was loaded from path
     //
     // The monitor watches the config file for changes and reloads it. Pending
     // config changes are processed in the main loop.
-    let config_monitor = if config.live_config_reload() {
-        config.config_path.as_ref().map(|path| Monitor::new(path, display.notifier()))
-    } else {
-        None
-    };
+    // loop {
+    // if terminal_lock.needs_draw()
+    // || chart_last_drawn
+    // != alacritty_charts::async_utils::get_last_updated_chart_epoch(
+    // charts_tx.clone(),
+    // tokio_handle.clone(),
+    // )
+    // {
+    // display.handle_resize(
+    // &mut terminal_lock,
+    // &config,
+    // &mut resize_handle,
+    // &mut processor,
+    // charts_tx.clone(),
+    // tokio_handle.clone(),
+    // );
+    if config.live_config_reload() {
+        config.config_path.as_ref().map(|path| Monitor::new(path, event_proxy.clone()));
+    }
 
     // Copy the terminal size into the alacritty_charts SizeInfo copy.
     let charts_size_info = alacritty_charts::SizeInfo {
-        height: display.size().height,
-        width: display.size().width,
-        padding_y: display.size().padding_y,
-        padding_x: display.size().padding_x,
+        height: display.size_info.height,
+        width: display.size_info.width,
+        padding_y: display.size_info.padding_y,
+        padding_x: display.size_info.padding_x,
         ..alacritty_charts::SizeInfo::default()
     };
 
     // Create the channel that is used to communicate with the
     // charts background task.
     let (charts_tx, charts_rx) = mpsc::channel(4_096usize);
-
     // Create a channel to receive a handle from Tokio
     let (handle_tx, handle_rx) = std::sync::mpsc::channel();
     // Start the Async I/O runtime
-    let (tokio_thread, tokio_shutdown) = event_loop.spawn_async_tasks(
+    let (_tokio_thread, tokio_shutdown) = event_loop.spawn_async_tasks(
         config.charts.clone(),
         charts_tx.clone(),
         charts_rx,
@@ -239,81 +235,37 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
     );
     let tokio_handle =
         handle_rx.recv().expect("Unable to get the tokio handle in a background thread");
+    let mut chart_last_drawn = 0; // Keep an epoch for the last time we drew the charts
+                                  // Setup storage for message UI
+    let message_buffer = MessageBuffer::new();
+
+    // Event processor
+    //
+    // Need the Rc<RefCell<_>> here since a ref is shared in the resize callback
+    let mut processor = Processor::new(
+        event_loop::Notifier(loop_tx.clone()),
+        Box::new(resize_handle),
+        message_buffer,
+        config,
+        display,
+        charts_tx,
+        tokio_handle,
+    );
+
     // Kick off the I/O thread
-    let _event_loop = event_loop.spawn(None);
+    let io_thread = event_loop.spawn();
 
     info!("Initialisation complete");
 
-    let mut chart_last_drawn = 0; // Keep an epoch for the last time we drew the charts
-                                  // Main display loop
-    loop {
-        // Process input and window events
-        let mut terminal_lock = processor.process_events(&terminal, display.window());
-
-        // Handle config reloads
-        if let Some(ref path) = config_monitor.as_ref().and_then(Monitor::pending) {
-            // Clear old config messages from bar
-            terminal_lock.message_buffer_mut().remove_topic(config::SOURCE_FILE_PATH);
-
-            if let Ok(config) = config::reload_from(path) {
-                display.update_config(&config);
-                processor.update_config(&config);
-                terminal_lock.update_config(&config);
-            }
-
-            terminal_lock.dirty = true;
-        }
-
-        // Begin shutdown if the flag was raised
-        if terminal_lock.should_exit() || tty::process_should_exit() {
-            break;
-        }
-
-        // Maybe draw the terminal
-        if terminal_lock.needs_draw()
-            || chart_last_drawn
-                != alacritty_charts::async_utils::get_last_updated_chart_epoch(
-                    charts_tx.clone(),
-                    tokio_handle.clone(),
-                )
-        {
-            // Try to update the position of the input method editor
-            #[cfg(not(windows))]
-            display.update_ime_position(&terminal_lock);
-
-            // Handle pending resize events
-            //
-            // The second argument is a list of types that want to be notified
-            // of display size changes.
-            display.handle_resize(
-                &mut terminal_lock,
-                &config,
-                &mut resize_handle,
-                &mut processor,
-                charts_tx.clone(),
-                tokio_handle.clone(),
-            );
-
-            drop(terminal_lock);
-
-            // Draw the current state of the terminal
-            display.draw(&terminal, &config, charts_tx.clone(), tokio_handle.clone());
-            chart_last_drawn =
-                std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        }
-    }
-    info!("Out of the loop!");
-
-    // Write ref tests to disk
-    if config.debug.ref_test {
-        write_ref_test_results(&terminal.lock());
-    }
+    // Start event loop and block until shutdown
+    processor.run(terminal, window_event_loop);
 
     tokio_shutdown.send(()).expect("Unable to send shutdown signal to tokio runtime");
     // FIXME: For some reason if I try this it will never finish.
     // I believe this is because the interval runs from Tokio have not been cancelled.
     // tokio_thread.join().expect("Unable to shutdown tokio channel");
-    loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to event loop");
+    loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to pty event loop");
+    io_thread.join().expect("join io thread");
 
     // FIXME patch notify library to have a shutdown method
     // config_reloader.join().ok();
@@ -327,30 +279,4 @@ fn run(config: Config, message_buffer: MessageBuffer) -> Result<(), Box<dyn Erro
     info!("Goodbye");
 
     Ok(())
-}
-
-// Write the ref test results to the disk
-fn write_ref_test_results(terminal: &Term) {
-    // dump grid state
-    let mut grid = terminal.grid().clone();
-    grid.initialize_all(&Cell::default());
-    grid.truncate();
-
-    let serialized_grid = json::to_string(&grid).expect("serialize grid");
-
-    let serialized_size = json::to_string(terminal.size_info()).expect("serialize size");
-
-    let serialized_config = format!("{{\"history_size\":{}}}", grid.history_size());
-
-    File::create("./grid.json")
-        .and_then(|mut f| f.write_all(serialized_grid.as_bytes()))
-        .expect("write grid.json");
-
-    File::create("./size.json")
-        .and_then(|mut f| f.write_all(serialized_size.as_bytes()))
-        .expect("write size.json");
-
-    File::create("./config.json")
-        .and_then(|mut f| f.write_all(serialized_config.as_bytes()))
-        .expect("write config.json");
 }

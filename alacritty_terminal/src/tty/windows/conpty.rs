@@ -22,6 +22,7 @@ use std::ptr;
 use std::sync::Arc;
 
 use dunce::canonicalize;
+use log::info;
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
 use miow;
 use widestring::U16CString;
@@ -38,7 +39,7 @@ use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, ST
 use winapi::um::wincontypes::{COORD, HPCON};
 
 use crate::config::{Config, Shell};
-use crate::display::OnResize;
+use crate::event::OnResize;
 use crate::term::SizeInfo;
 
 /// Dynamically-loaded Pseudoconsole API from kernel32.dll
@@ -98,7 +99,11 @@ impl Drop for Conpty {
 unsafe impl Send for Conpty {}
 unsafe impl Sync for Conpty {}
 
-pub fn new<'a>(config: &Config, size: &SizeInfo, _window_id: Option<usize>) -> Option<Pty<'a>> {
+pub fn new<'a, C>(
+    config: &Config<C>,
+    size: &SizeInfo,
+    _window_id: Option<usize>,
+) -> Option<Pty<'a>> {
     if !config.enable_experimental_conpty_backend {
         return None;
     }
@@ -138,7 +143,7 @@ pub fn new<'a>(config: &Config, size: &SizeInfo, _window_id: Option<usize>) -> O
 
     let mut startup_info_ex: STARTUPINFOEXW = Default::default();
 
-    let title = config.window.title.as_ref().map(String::as_str).unwrap_or("Alacritty");
+    let title = config.window.title.clone();
     let title = U16CString::from_str(title).unwrap();
     startup_info_ex.StartupInfo.lpTitle = title.as_ptr() as LPWSTR;
 

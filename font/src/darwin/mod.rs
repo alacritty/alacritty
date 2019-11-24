@@ -13,8 +13,6 @@
 // limitations under the License.
 //
 //! Font rendering based on CoreText
-//!
-//! TODO error handling... just search for unwrap.
 #![allow(improper_ctypes)]
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -384,7 +382,11 @@ impl Descriptor {
 
 impl Font {
     /// The the bounding rect of a glyph
-    pub fn bounding_rect_for_glyph(&self, orientation: FontOrientation, index: u32) -> Rect<f64> {
+    pub fn bounding_rect_for_glyph(
+        &self,
+        orientation: FontOrientation,
+        index: u32,
+    ) -> Rect<f64, ()> {
         let cg_rect = self
             .ct_font
             .get_bounding_rects_for_glyphs(orientation as CTFontOrientation, &[index as CGGlyph]);
@@ -589,12 +591,11 @@ mod tests {
                         let index = ((glyph.width * 3 * row) + (col * 3)) as usize;
                         let value = glyph.buf[index];
                         let c = match value {
-                            0...50 => ' ',
-                            51...100 => '.',
-                            101...150 => '~',
-                            151...200 => '*',
-                            201...255 => '#',
-                            _ => unreachable!(),
+                            0..=50 => ' ',
+                            51..=100 => '.',
+                            101..=150 => '~',
+                            151..=200 => '*',
+                            201..=255 => '#',
                         };
                         print!("{}", c);
                     }

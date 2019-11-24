@@ -1,11 +1,17 @@
+use std::os::raw::c_ulong;
+
+use serde::Deserialize;
+
 use crate::config::{
     failure_default, from_string_or_deserialize, option_explicit_none, Delta, FromString,
 };
 use crate::index::{Column, Line};
-use crate::window::DEFAULT_NAME;
+
+/// Default Alacritty name, used for window title and class.
+pub const DEFAULT_NAME: &str = "Alacritty";
 
 #[serde(default)]
-#[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct WindowConfig {
     /// Initial dimensions
     #[serde(deserialize_with = "failure_default")]
@@ -32,12 +38,16 @@ pub struct WindowConfig {
     startup_mode: StartupMode,
 
     /// Window title
-    #[serde(deserialize_with = "failure_default")]
-    pub title: Option<String>,
+    #[serde(default = "default_title")]
+    pub title: String,
 
     /// Window class
     #[serde(deserialize_with = "from_string_or_deserialize")]
     pub class: Class,
+
+    /// XEmbed parent
+    #[serde(skip)]
+    pub embed: Option<c_ulong>,
 
     /// GTK theme variant
     #[serde(deserialize_with = "option_explicit_none")]
@@ -48,11 +58,33 @@ pub struct WindowConfig {
     pub start_maximized: Option<bool>,
 }
 
+pub fn default_title() -> String {
+    DEFAULT_NAME.to_string()
+}
+
 impl WindowConfig {
     pub fn startup_mode(&self) -> StartupMode {
         match self.start_maximized {
             Some(true) => StartupMode::Maximized,
             _ => self.startup_mode,
+        }
+    }
+}
+
+impl Default for WindowConfig {
+    fn default() -> WindowConfig {
+        WindowConfig {
+            dimensions: Default::default(),
+            position: Default::default(),
+            padding: Default::default(),
+            decorations: Default::default(),
+            dynamic_padding: Default::default(),
+            startup_mode: Default::default(),
+            class: Default::default(),
+            embed: Default::default(),
+            gtk_theme_variant: Default::default(),
+            start_maximized: Default::default(),
+            title: default_title(),
         }
     }
 }

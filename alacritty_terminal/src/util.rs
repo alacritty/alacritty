@@ -29,8 +29,7 @@ pub mod thread {
     /// Like `thread::spawn`, but with a `name` argument
     pub fn spawn_named<F, T, S>(name: S, f: F) -> ::std::thread::JoinHandle<T>
     where
-        F: FnOnce() -> T,
-        F: Send + 'static,
+        F: FnOnce() -> T + Send + 'static,
         T: Send + 'static,
         S: Into<String>,
     {
@@ -44,72 +43,35 @@ pub fn limit<T: Ord>(value: T, min: T, max: T) -> T {
     cmp::min(cmp::max(value, min), max)
 }
 
-/// Utilities for writing to the
-pub mod fmt {
-    use std::fmt;
-
-    macro_rules! define_colors {
-        ($($(#[$attrs:meta])* pub struct $s:ident => $color:expr;)*) => {
-            $(
-                $(#[$attrs])*
-                pub struct $s<T>(pub T);
-
-                impl<T: fmt::Display> fmt::Display for $s<T> {
-                    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                        write!(f, concat!("\x1b[", $color, "m{}\x1b[0m"), self.0)
-                    }
-                }
-
-                impl<T: fmt::Debug> fmt::Debug for $s<T> {
-                    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                        write!(f, concat!("\x1b[", $color, "m{:?}\x1b[0m"), self.0)
-                    }
-                }
-            )*
-        }
-    }
-
-    define_colors! {
-        /// Write a `Display` or `Debug` escaped with Red
-        pub struct Red => "31";
-
-        /// Write a `Display` or `Debug` escaped with Green
-        pub struct Green => "32";
-
-        /// Write a `Display` or `Debug` escaped with Yellow
-        pub struct Yellow => "33";
-    }
-}
-
 #[cfg(not(windows))]
 pub fn start_daemon<I, S>(program: &str, args: I) -> io::Result<()>
 where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
-    // TODO: Rust 1.34.0
-    #[allow(deprecated)]
-    Command::new(program)
-        .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .before_exec(|| unsafe {
-            match ::libc::fork() {
-                -1 => return Err(io::Error::last_os_error()),
-                0 => (),
-                _ => ::libc::_exit(0),
-            }
+    unsafe {
+        Command::new(program)
+            .args(args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .pre_exec(|| {
+                match ::libc::fork() {
+                    -1 => return Err(io::Error::last_os_error()),
+                    0 => (),
+                    _ => ::libc::_exit(0),
+                }
 
-            if ::libc::setsid() == -1 {
-                return Err(io::Error::last_os_error());
-            }
+                if ::libc::setsid() == -1 {
+                    return Err(io::Error::last_os_error());
+                }
 
-            Ok(())
-        })
-        .spawn()?
-        .wait()
-        .map(|_| ())
+                Ok(())
+            })
+            .spawn()?
+            .wait()
+            .map(|_| ())
+    }
 }
 
 #[cfg(windows)]

@@ -1,6 +1,7 @@
+use log::error;
 use serde::{Deserialize, Deserializer};
 
-use crate::config::{failure_default, MAX_SCROLLBACK_LINES};
+use crate::config::{failure_default, LOG_TARGET_CONFIG, MAX_SCROLLBACK_LINES};
 
 /// Struct for scrolling related settings
 #[serde(default)]
@@ -11,9 +12,11 @@ pub struct Scrolling {
     #[serde(deserialize_with = "failure_default")]
     multiplier: ScrollingMultiplier,
     #[serde(deserialize_with = "failure_default")]
-    faux_multiplier: ScrollingMultiplier,
-    #[serde(deserialize_with = "failure_default")]
     pub auto_scroll: bool,
+
+    // TODO: DEPRECATED
+    #[serde(deserialize_with = "failure_default")]
+    faux_multiplier: Option<ScrollingMultiplier>,
 }
 
 impl Scrolling {
@@ -25,8 +28,8 @@ impl Scrolling {
         self.multiplier.0
     }
 
-    pub fn faux_multiplier(self) -> u8 {
-        self.faux_multiplier.0
+    pub fn faux_multiplier(self) -> Option<u8> {
+        self.faux_multiplier.map(|sm| sm.0)
     }
 
     // Update the history size, used in ref tests
@@ -63,9 +66,11 @@ impl<'de> Deserialize<'de> for ScrollingHistory {
             Ok(lines) => {
                 if lines > MAX_SCROLLBACK_LINES {
                     error!(
+                        target: LOG_TARGET_CONFIG,
                         "Problem with config: scrollback size is {}, but expected a maximum of \
                          {}; using {1} instead",
-                        lines, MAX_SCROLLBACK_LINES,
+                        lines,
+                        MAX_SCROLLBACK_LINES,
                     );
                     Ok(ScrollingHistory(MAX_SCROLLBACK_LINES))
                 } else {
@@ -73,7 +78,10 @@ impl<'de> Deserialize<'de> for ScrollingHistory {
                 }
             },
             Err(err) => {
-                error!("Problem with config: {}; using default value", err);
+                error!(
+                    target: LOG_TARGET_CONFIG,
+                    "Problem with config: {}; using default value", err
+                );
                 Ok(Default::default())
             },
         }

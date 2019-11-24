@@ -1,26 +1,24 @@
 #compdef alacritty
 
-_alacritty() {
-    local context curcontext="$curcontext" state line
-    typeset -A opt_args
+local ign
 
-    _arguments \
-        "(-h --help)"{-h,--help}"[Prints help information]" \
-        "(-V --version)"{-V,--version}"[Prints version information]" \
-        "(--no-live-config-reload)--live-config-reload[Enable automatic config reloading]" \
-        "(--live-config-reload)--no-live-config-reload[Disable automatic config reloading]" \
-        "(--persistent-logging)--persistent-logging[Keep the log file after quitting Alacritty]" \
-        "--print-events[Print all events to stdout]" \
-        {-q,-qq}"[Reduces the level of verbosity (min is -qq)]" \
-        {-v,-vv,-vvv}"[Increases the level of verbosity (max is -vvv)]" \
-        "--ref-test[Generates ref test]" \
-        "--config-file[Specify an alternative config file]:file:_files" \
-        "(-d --dimensions)"{-d,--dimensions}"[Window dimensions]:dimensions:_guard '<->' width: :_guard '<->' length" \
-        "--position[Window position]:position:_guard '<->' x-pos: :_guard '<->' y-pos" \
-        "(-t --title)"{-t,--title}"[Defines the window title]:title:" \
-        "--class[Defines the window class]:class:" \
-        "--working-directory[Start shell in specified directory]:directory:_dir_list" \
-        "(-e --command)"{-e,--command}"[Execute command (must be last arg)]:program: _command_names -e:*::program arguments: _normal"
-}
-
-_alacritty "$@"
+(( $#words > 2 )) && ign='!'
+_arguments \
+  "$ign(-)"{-h,--help}"[print help information]" \
+  "(--no-live-config-reload)--live-config-reload[enable automatic config reloading]" \
+  "(--live-config-reload)--no-live-config-reload[disable automatic config reloading]" \
+  "(--persistent-logging)--persistent-logging[keep the log file after quitting Alacritty]" \
+  "--print-events[print all events to stdout]" \
+  '(-v)'{-q,-qq}"[reduce the level of verbosity (min is -qq)]" \
+  "--ref-test[generate ref test]" \
+  "--hold[remain open after child process exits]" \
+  '(-q)'{-v,-vv,-vvv}"[increase the level of verbosity (max is -vvv)]" \
+  "$ign(-)"{-V,--version}"[print version information]" \
+  "--class=[define the window class]:class" \
+  "--embed=[define the X11 window ID (as a decimal integer) to embed Alacritty within]:windowId" \
+  "(-e --command)"{-e,--command}"[execute command (must be last arg)]:program: _command_names -e:*::program arguments: _normal" \
+  "--config-file=[specify an alternative config file]:file:_files" \
+  "(-d --dimensions)"{-d,--dimensions}"[specify window dimensions]:columns: :lines" \
+  "--position[specify window position]:x position: :y position" \
+  "(-t --title)"{-t+,--title=}"[define the window title]:title" \
+  "--working-directory=[start shell in specified directory]:directory:_directories"

@@ -13,6 +13,8 @@
 // limitations under the License.
 use bitflags::bitflags;
 
+use serde::{Deserialize, Serialize};
+
 use crate::ansi::{Color, NamedColor};
 use crate::grid::{self, GridCell};
 use crate::index::Column;
@@ -26,6 +28,7 @@ bitflags! {
         const INVERSE           = 0b00_0000_0001;
         const BOLD              = 0b00_0000_0010;
         const ITALIC            = 0b00_0000_0100;
+        const BOLD_ITALIC       = 0b00_0000_0110;
         const UNDERLINE         = 0b00_0000_1000;
         const WRAPLINE          = 0b00_0001_0000;
         const WIDE_CHAR         = 0b00_0010_0000;
@@ -138,14 +141,14 @@ impl Cell {
     #[inline]
     pub fn chars(&self) -> [char; MAX_ZEROWIDTH_CHARS + 1] {
         unsafe {
-            let mut chars = [std::mem::uninitialized(); MAX_ZEROWIDTH_CHARS + 1];
-            std::ptr::write(&mut chars[0], self.c);
+            let mut chars = [std::mem::MaybeUninit::uninit(); MAX_ZEROWIDTH_CHARS + 1];
+            std::ptr::write(chars[0].as_mut_ptr(), self.c);
             std::ptr::copy_nonoverlapping(
-                self.extra.as_ptr(),
+                self.extra.as_ptr() as *mut std::mem::MaybeUninit<char>,
                 chars.as_mut_ptr().offset(1),
                 self.extra.len(),
             );
-            chars
+            std::mem::transmute(chars)
         }
     }
 

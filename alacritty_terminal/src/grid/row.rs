@@ -19,6 +19,8 @@ use std::ops::{Index, IndexMut};
 use std::ops::{Range, RangeFrom, RangeFull, RangeTo, RangeToInclusive};
 use std::slice;
 
+use serde::{Deserialize, Serialize};
+
 use crate::grid::GridCell;
 use crate::index::Column;
 

@@ -7,7 +7,7 @@ URL:           https://github.com/jwilm/alacritty
 VCS:           https://github.com/jwilm/alacritty.git
 Source:        alacritty-%{version}.tar
 
-BuildRequires: rust >= 1.32.0
+BuildRequires: rust >= 1.36.0
 BuildRequires: cargo
 BuildRequires: cmake
 BuildRequires: freetype-devel

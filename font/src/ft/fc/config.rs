@@ -17,7 +17,7 @@ use super::ffi::{FcConfig, FcConfigDestroy, FcConfigGetCurrent, FcConfigGetFonts
 use super::{FontSetRef, SetName};
 
 foreign_type! {
-    pub type Config {
+    pub unsafe type Config {
         type CType = FcConfig;
         fn drop = FcConfigDestroy;
     }
