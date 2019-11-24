@@ -33,6 +33,7 @@ use core_text::font::{
 };
 use core_text::font_collection::create_for_family;
 use core_text::font_collection::get_family_names as ct_get_family_names;
+use core_text::font_descriptor::kCTFontColorGlyphsTrait;
 use core_text::font_descriptor::kCTFontDefaultOrientation;
 use core_text::font_descriptor::kCTFontHorizontalOrientation;
 use core_text::font_descriptor::kCTFontVerticalOrientation;
@@ -245,7 +246,7 @@ impl Rasterizer {
         font: &Font,
     ) -> Option<Result<RasterizedGlyph, Error>> {
         let scaled_size = self.device_pixel_ratio * glyph.size.as_f32_pts();
-        font.get_glyph(glyph.c, f64::from(scaled_size), self.use_thin_strokes)
+        font.get_glyph(glyph.c, f64::from(scaled_size), font.is_colored(), self.use_thin_strokes)
             .map(|r| Some(Ok(r)))
             .unwrap_or_else(|e| match e {
                 Error::MissingGlyph(_) => None,
@@ -431,6 +432,10 @@ impl Font {
         self.ct_font.symbolic_traits().is_italic()
     }
 
+    pub fn is_colored(&self) -> bool {
+        (self.ct_font.symbolic_traits() & kCTFontColorGlyphsTrait) != 0
+    }
+
     fn glyph_advance(&self, character: char) -> f64 {
         let index = self.glyph_index(character).unwrap();
 
@@ -450,6 +455,7 @@ impl Font {
         &self,
         character: char,
         _size: f64,
+        colored: bool,
         use_thin_strokes: bool,
     ) -> Result<RasterizedGlyph, Error> {
         let glyph_index =
@@ -471,6 +477,7 @@ impl Font {
                 height: 0,
                 top: 0,
                 left: 0,
+                colored: false,
                 buf: Vec::new(),
             });
         }
@@ -528,6 +535,7 @@ impl Font {
             top: (bounds.size.height + bounds.origin.y).ceil() as i32,
             width: rasterized_width as i32,
             height: rasterized_height as i32,
+            colored,
             buf,
         })
     }
@@ -583,7 +591,7 @@ mod tests {
         for font in fonts {
             // Get a glyph
             for c in &['a', 'b', 'c', 'd'] {
-                let glyph = font.get_glyph(*c, 72., false).unwrap();
+                let glyph = font.get_glyph(*c, 72., false, false).unwrap();
 
                 // Debug the glyph.. sigh
                 for row in 0..glyph.height {

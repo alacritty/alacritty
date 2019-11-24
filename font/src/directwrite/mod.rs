@@ -173,6 +173,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
             height: (bounds.bottom - bounds.top) as i32,
             top: -bounds.top,
             left: bounds.left,
+            colored: false,
             buf,
         })
     }

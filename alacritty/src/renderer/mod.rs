@@ -370,6 +370,7 @@ impl GlyphCache {
             // FIXME
             // Assume that all emojis are 2 width for now.
             let h = metrics.line_height as i32;
+
             if rasterized.colored && rasterized.width > h && rasterized.height > h {
                 rasterized = Self::downsample_bitmap(rasterized, h, h);
             }
