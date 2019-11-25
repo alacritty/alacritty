@@ -1,6 +1,6 @@
 [package]
 name = "copypasta"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Christian Duerr <contact@christianduerr.com>"]
 description = "copypasta is a cross-platform library for getting and setting the contents of the OS-level clipboard."
 repository = "https://github.com/jwilm/alacritty"
