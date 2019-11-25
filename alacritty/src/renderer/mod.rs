@@ -272,78 +272,6 @@ impl GlyphCache {
         Ok((regular, bold, italic, bold_italic))
     }
 
-    // TODO: - take a look on what options we have besides this simple algo.
-    //
-    // area-averaging algorithm to downsample a colored bitmap.
-    fn downsample_bitmap(
-        mut bitmap_glyph: RasterizedGlyph,
-        width: i32,
-        height: i32,
-    ) -> RasterizedGlyph {
-        let width = width as usize;
-        let height = height as usize;
-        let b_width = bitmap_glyph.width as usize;
-        let b_height = bitmap_glyph.height as usize;
-        let b_buf = &bitmap_glyph.buf;
-        let factor = (b_width as f32 / width as f32).max(b_height as f32 / height as f32);
-        let ratio = (factor + 1.) as usize;
-        let mut scaled_buffer = Vec::with_capacity(width * height * 3);
-
-        // Index into new image.
-        let mut n_j = 0;
-        let mut s_j = 0;
-
-        while n_j < height {
-            let mut n_i = 0;
-            let mut s_i = 0;
-            while n_i < width {
-                let mut r: u32 = 0;
-                let mut g: u32 = 0;
-                let mut b: u32 = 0;
-                let mut pixels_picked: u32 = 0;
-
-                let cap_y = std::cmp::min(s_j + ratio, b_height);
-                let cap_x = std::cmp::min(s_i + ratio, b_width);
-
-                let mut s_j = s_j;
-                while s_j < cap_y {
-                    let cur_pixel_index = s_j * b_width * 3;
-                    let mut s_i = s_i;
-                    while s_i < cap_x {
-                        r += b_buf[cur_pixel_index + s_i * 3] as u32;
-                        g += b_buf[cur_pixel_index + s_i * 3 + 1] as u32;
-                        b += b_buf[cur_pixel_index + s_i * 3 + 2] as u32;
-                        s_i += 1;
-                        pixels_picked += 1;
-                    }
-                    s_j += 1;
-                }
-
-                if pixels_picked == 0 {
-                    scaled_buffer.push(0);
-                    scaled_buffer.push(0);
-                    scaled_buffer.push(0);
-                } else {
-                    scaled_buffer.push((r / pixels_picked) as u8);
-                    scaled_buffer.push((g / pixels_picked) as u8);
-                    scaled_buffer.push((b / pixels_picked) as u8);
-                }
-
-                s_i += ratio;
-                n_i += 1;
-            }
-            s_j += ratio;
-            n_j += 1;
-        }
-        // FIXME: better top setting.
-        let b_top = bitmap_glyph.top as f32;
-        bitmap_glyph.top = ((b_top / factor + b_top / ratio as f32) / 2.0)  as i32;
-        bitmap_glyph.width = width as i32;
-        bitmap_glyph.height = height as i32;
-        bitmap_glyph.buf = scaled_buffer;
-        bitmap_glyph
-    }
-
     fn make_desc(
         desc: &config::FontDescription,
         slant: font::Slant,
@@ -367,14 +295,6 @@ impl GlyphCache {
         self.cache.entry(glyph_key).or_insert_with(|| {
             let mut rasterized =
                 rasterizer.get_glyph(glyph_key).unwrap_or_else(|_| Default::default());
-
-            // FIXME
-            // Assume that all emojis are 2 width for now.
-            let h = metrics.line_height as i32;
-
-            if rasterized.colored && rasterized.width > h && rasterized.height > h {
-                rasterized = Self::downsample_bitmap(rasterized, h, h);
-            }
 
             rasterized.left += i32::from(glyph_offset.x);
             rasterized.top += i32::from(glyph_offset.y);

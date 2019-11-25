@@ -39,6 +39,7 @@ struct Face {
     lcd_filter: c_uint,
     non_scalable: Option<FixedSize>,
     has_color: bool,
+    pixelsize_fixup_factor: f64,
 }
 
 impl fmt::Debug for Face {
@@ -66,6 +67,7 @@ pub struct FreeTypeRasterizer {
     library: Library,
     keys: HashMap<PathBuf, FontKey>,
     device_pixel_ratio: f32,
+    pixel_size: f32,
 }
 
 #[inline]
@@ -84,6 +86,7 @@ impl ::Rasterize for FreeTypeRasterizer {
             keys: HashMap::new(),
             library,
             device_pixel_ratio,
+            pixel_size: 0.0,
         })
     }
 
@@ -220,6 +223,7 @@ impl FreeTypeRasterizer {
         pattern.add_family(&desc.name);
         pattern.set_weight(weight.into_fontconfig_type());
         pattern.set_slant(slant.into_fontconfig_type());
+        self.pixel_size = size.as_f32_pts();
         pattern.add_pixelsize(f64::from(size.as_f32_pts()));
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
@@ -239,6 +243,7 @@ impl FreeTypeRasterizer {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.add_style(style);
+        self.pixel_size = size.as_f32_pts();
         pattern.add_pixelsize(f64::from(size.as_f32_pts()));
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
@@ -267,25 +272,13 @@ impl FreeTypeRasterizer {
                 Some(FixedSize { pixelsize: pixelsize.next().expect("has 1+ pixelsize") })
             };
 
-            // Works fine btw.
-            let mut load_flags = Self::ft_load_flags(pattern);
+            let pixelsize_fixup_factor = pattern.pixelsizefixupfactor().next().unwrap_or(0.);
+
             let has_color = ft_face.has_color();
             if has_color {
                 unsafe {
-                    let ft_face = ft_face.raw_mut();
-                    let best = 0;
-                    // XXX we could check sizes info, but we don't know to what size we're going to
-                    // downscale.
-                    //
-                    // let available_sizes =
-                    // std::slice::from_raw_parts::<freetype_sys::FT_Bitmap_Size>(
-                    //     ft_face.available_sizes,
-                    //     ft_face.num_fixed_sizes as usize,
-                    // );
-
-                    freetype_sys::FT_Select_Size(ft_face, best);
+                    freetype_sys::FT_Select_Size(ft_face.raw_mut(), 0);
                 }
-                load_flags |= freetype::face::LoadFlag::COLOR;
             }
 
             let face = Face {
@@ -296,6 +289,7 @@ impl FreeTypeRasterizer {
                 lcd_filter: Self::ft_lcd_filter(pattern),
                 non_scalable,
                 has_color,
+                pixelsize_fixup_factor,
             };
 
             debug!("Loaded Face {:?}", face);
@@ -355,20 +349,14 @@ impl FreeTypeRasterizer {
             }
         }
 
-        let flags = if face.has_color {
-            freetype::face::LoadFlag::COLOR | freetype::face::LoadFlag::DEFAULT
-        } else {
-            face.load_flags
-        };
-
-        face.ft_face.load_glyph(index as u32, flags)?;
+        face.ft_face.load_glyph(index as u32, face.load_flags)?;
 
         let glyph = face.ft_face.glyph();
         glyph.render_glyph(face.render_mode)?;
 
         let (pixel_height, pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;
 
-        Ok(RasterizedGlyph {
+        let bitmap = RasterizedGlyph {
             c: glyph_key.c,
             top: glyph.bitmap_top(),
             left: glyph.bitmap_left(),
@@ -376,7 +364,13 @@ impl FreeTypeRasterizer {
             height: pixel_height,
             colored: face.has_color,
             buf,
-        })
+        };
+
+        if face.has_color {
+            Ok(downsample_bitmap(bitmap, face.pixelsize_fixup_factor))
+        } else {
+            Ok(bitmap)
+        }
     }
 
     fn ft_load_flags(pat: &fc::Pattern) -> freetype::face::LoadFlag {
@@ -384,6 +378,7 @@ impl FreeTypeRasterizer {
         let hinting = pat.hintstyle().next().unwrap_or(fc::HintStyle::Slight);
         let rgba = pat.rgba().next().unwrap_or(fc::Rgba::Unknown);
         let embedded_bitmaps = pat.embeddedbitmap().next().unwrap_or(true);
+        let color = pat.color().next().unwrap_or(false);
 
         use freetype::face::LoadFlag;
         let mut flags = match (antialias, hinting, rgba) {
@@ -419,6 +414,10 @@ impl FreeTypeRasterizer {
 
         if !embedded_bitmaps {
             flags |= LoadFlag::NO_BITMAP;
+        }
+
+        if color {
+            flags |= LoadFlag::COLOR;
         }
 
         flags
@@ -543,6 +542,7 @@ impl FreeTypeRasterizer {
         charset.add(glyph);
         let mut pattern = fc::Pattern::new();
         pattern.add_charset(&charset);
+        pattern.add_pixelsize(self.pixel_size as f64);
 
         let config = fc::Config::get_current();
         match fc::font_match(config, &mut pattern) {
@@ -553,6 +553,9 @@ impl FreeTypeRasterizer {
                         // load it again.
                         Some(&key) => {
                             debug!("Hit for font {:?}; no need to load", path);
+                            // Update fixup factor
+                            self.faces.get_mut(&key).unwrap().pixelsize_fixup_factor =
+                                pattern.pixelsizefixupfactor().next().unwrap_or(0.0);
                             Ok(key)
                         },
 
@@ -577,6 +580,76 @@ impl FreeTypeRasterizer {
             ))),
         }
     }
+}
+
+fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> RasterizedGlyph {
+    let b_width = bitmap_glyph.width as f64;
+    let b_height = bitmap_glyph.height as f64;
+
+    let width = (b_width * fixup_factor) as usize;
+    let height = (b_height * fixup_factor) as usize;
+
+    let b_width = b_width as usize;
+    let b_height = b_height as usize;
+
+    let b_buf = &bitmap_glyph.buf;
+    let factor = (b_width as f32 / width as f32).max(b_height as f32 / height as f32);
+    let ratio = (factor + 1.) as usize;
+    let mut scaled_buffer = Vec::with_capacity(width * height * 3);
+
+    // Index into new image.
+    let mut n_j = 0;
+    let mut s_j = 0;
+
+    while n_j < height {
+        let mut n_i = 0;
+        let mut s_i = 0;
+        while n_i < width {
+            let mut r: u32 = 0;
+            let mut g: u32 = 0;
+            let mut b: u32 = 0;
+            let mut pixels_picked: u32 = 0;
+
+            let cap_y = std::cmp::min(s_j + ratio, b_height);
+            let cap_x = std::cmp::min(s_i + ratio, b_width);
+
+            let mut s_j = s_j;
+            while s_j < cap_y {
+                let cur_pixel_index = s_j * b_width * 3;
+                let mut s_i = s_i;
+                while s_i < cap_x {
+                    r += b_buf[cur_pixel_index + s_i * 3] as u32;
+                    g += b_buf[cur_pixel_index + s_i * 3 + 1] as u32;
+                    b += b_buf[cur_pixel_index + s_i * 3 + 2] as u32;
+                    s_i += 1;
+                    pixels_picked += 1;
+                }
+                s_j += 1;
+            }
+
+            if pixels_picked == 0 {
+                scaled_buffer.push(0);
+                scaled_buffer.push(0);
+                scaled_buffer.push(0);
+            } else {
+                scaled_buffer.push((r / pixels_picked) as u8);
+                scaled_buffer.push((g / pixels_picked) as u8);
+                scaled_buffer.push((b / pixels_picked) as u8);
+            }
+
+            s_i += ratio;
+            n_i += 1;
+        }
+        s_j += ratio;
+        n_j += 1;
+    }
+    // FIXME: better top setting.
+    let b_top = bitmap_glyph.top as f32;
+    bitmap_glyph.top = ((b_top / factor + b_top / ratio as f32) / 2.0) as i32;
+    bitmap_glyph.width = width as i32;
+    bitmap_glyph.height = height as i32;
+    bitmap_glyph.buf = scaled_buffer;
+    bitmap_glyph
 }
 
 /// Errors occurring when using the freetype rasterizer
