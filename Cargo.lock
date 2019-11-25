@@ -372,7 +372,7 @@ dependencies = [
  "smithay-client-toolkit 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "smithay-clipboard 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "wayland-client 0.23.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "x11-clipboard 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "x11-clipboard 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2483,10 +2483,10 @@ dependencies = [
 
 [[package]]
 name = "x11-clipboard"
-version = "0.3.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "xcb 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xcb 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2502,7 +2502,7 @@ dependencies = [
 
 [[package]]
 name = "xcb"
-version = "0.8.2"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libc 0.2.65 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2818,9 +2818,9 @@ dependencies = [
 "checksum winpty-sys 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "3dade7ecea144b3578a02925f93900f32370abfb8768630883971f4ef716b568"
 "checksum winreg 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b2986deb581c4fe11b621998a5e53361efe6b48a151178d0cd9eeffa4dc6acc9"
 "checksum ws2_32-sys 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d59cefebd0c892fa2dd6de581e937301d8552cb44489cdff035c6187cb63fa5e"
-"checksum x11-clipboard 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "89bd49c06c9eb5d98e6ba6536cf64ac9f7ee3a009b2f53996d405b3944f6bcea"
+"checksum x11-clipboard 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "13e34d90fe39ce667d0f70938b5859b7b363d8fab95cf9635848481fb9b60d5b"
 "checksum x11-dl 2.18.4 (registry+https://github.com/rust-lang/crates.io-index)" = "be65e1342a3baae65439cd03306778831a3d133b0d20243a7fb83fd5cf403c58"
-"checksum xcb 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "5e917a3f24142e9ff8be2414e36c649d47d6cc2ba81f16201cdef96e533e02de"
+"checksum xcb 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "62056f63138b39116f82a540c983cc11f1c90cd70b3d492a70c25eaa50bd22a6"
 "checksum xdg 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d089681aa106a86fade1b0128fb5daf07d5867a509ab036d99988dec80429a57"
 "checksum xml-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "541b12c998c5b56aa2b4e6f18f03664eef9a4fd0a246a55594efae6cc2d964b5"
 "checksum yaml-rust 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "65923dd1784f44da1d2c3dbbc5e822045628c590ba72123e1c73d3c230c4434d"
