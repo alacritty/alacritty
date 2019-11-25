@@ -1,5 +1,5 @@
 Name:          alacritty
-Version:       0.4.0-rc5
+Version:       0.4.0
 Release:       1%{?dist}
 Summary:       A cross-platform, GPU enhanced terminal emulator
 License:       ASL 2.0
