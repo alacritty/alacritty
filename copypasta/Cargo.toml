@@ -16,7 +16,7 @@ objc_id = "0.1"
 objc-foundation = "0.1"
 
 [target.'cfg(all(unix, not(any(target_os="macos", target_os="android", target_os="emscripten"))))'.dependencies]
-x11-clipboard = "0.3"
+x11-clipboard = "0.4"
 smithay-clipboard = "0.3.4"
 wayland-client = { version = "0.23.3", features = ["dlopen"] }
 
