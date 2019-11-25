@@ -9,6 +9,7 @@ use log::*;
 use std::time::{Duration, Instant};
 use tokio::prelude::*;
 use tokio::runtime::current_thread;
+use std::time::UNIX_EPOCH;
 use tokio::timer::Interval;
 use tracing::{event, span, Level};
 
@@ -30,6 +31,8 @@ pub enum AsyncChartTask {
     SendDecorationsOpenGLData(usize, usize, oneshot::Sender<Vec<f32>>),
     ChangeDisplaySize(f32, f32, f32, f32, oneshot::Sender<bool>),
     SendLastUpdatedEpoch(oneshot::Sender<u64>),
+    IncrementInputCounter(u64, f64),
+    IncrementOutputCounter(u64, f64),
     // Maybe add CloudWatch/etc
 }
 
@@ -61,6 +64,28 @@ pub fn get_last_updated_chart_epoch(
             0u64
         }
     }
+}
+
+pub fn increment_internal_counter(charts: &mut Vec<TimeSeriesChart>, counter_type: &'static str, epoch: u64, value: f64){
+        for chart in charts {
+            // Update the loaded item counters
+            for series in &mut chart.sources {
+                if count_type == "input" {
+                if let TimeSeriesSource::AlacrittyInput(ref mut input) = series {
+                    input.series.upsert((epoch, Some(value)));
+                }
+                }
+                if count_type == "output" {
+                if let TimeSeriesSource::AlacrittyOutput(ref mut output) = series {
+                    output.series.upsert((epoch, Some(value)));
+                }
+                }
+                if count_type == "async_loaded_items" {
+                if let TimeSeriesSource::AsyncLoadedItems(ref mut items) = series {
+                    items.series.upsert((epoch, Some(value)));
+                }
+                }
+            }
 }
 
 /// `send_last_updated_epoch` returns the max of all the charts in an array
@@ -154,14 +179,11 @@ pub fn load_http_response(
             }
             charts[response.chart_index].update_series_opengl_vecs(response.series_index, size);
         }
-        for chart in charts {
-            // Update the loaded item counters
-            for series in &mut chart.sources {
-                if let TimeSeriesSource::AsyncLoadedItems(ref mut loaded) = series {
-                    loaded.series.push_current_epoch(ok_records as f64);
-                }
-            }
-        }
+        let now = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        increment_internal_counter(&mut charts, "async_loaded_items", now, ok_recorsd as f64);
     }
 }
 
@@ -345,6 +367,12 @@ pub fn async_coordinator(
                     padding_x,
                     channel,
                 );
+            }
+            AsyncChartTask::IncrementInputCounter(source_type, epoch, value) => {
+                increment_internal_counter(&mut charts, "input", epoch, value);
+            }
+            AsyncChartTask::IncrementOutputCounter(source_type, epoch, value) => {
+                increment_internal_counter(&mut charts, "output", epoch, value);
             }
             AsyncChartTask::SendLastUpdatedEpoch(channel) => {
                 send_last_updated_epoch(&mut charts, channel);
