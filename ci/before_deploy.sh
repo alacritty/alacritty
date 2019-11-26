@@ -60,7 +60,7 @@ function docker_deb {
     archname=$2
 
     docker run -v "$(pwd):/source" "undeadleech/${image}" sh -c \
-        "cd /source && /root/.cargo/bin/cargo deb --no-build --manifest-path alacritty/Cargo.toml \
+        "cd /source && /root/.cargo/bin/cargo deb --no-build -p alacritty \
         --output ./target/deploy/${name}-${archname}.deb"
 }
 
