@@ -450,12 +450,6 @@ pub struct LoaderApi<'a> {
     current_atlas: &'a mut usize,
 }
 
-#[derive(Debug)]
-pub struct PackedVertex {
-    x: f32,
-    y: f32,
-}
-
 #[derive(Debug, Default)]
 pub struct Batch {
     tex: GLuint,
