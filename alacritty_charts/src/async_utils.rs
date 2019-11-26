@@ -6,10 +6,10 @@ use crate::TimeSeriesSource;
 use futures::future::lazy;
 use futures::sync::{mpsc, oneshot};
 use log::*;
+use std::time::UNIX_EPOCH;
 use std::time::{Duration, Instant};
 use tokio::prelude::*;
 use tokio::runtime::current_thread;
-use std::time::UNIX_EPOCH;
 use tokio::timer::Interval;
 use tracing::{event, span, Level};
 
@@ -66,26 +66,32 @@ pub fn get_last_updated_chart_epoch(
     }
 }
 
-pub fn increment_internal_counter(charts: &mut Vec<TimeSeriesChart>, counter_type: &'static str, epoch: u64, value: f64){
-        for chart in charts {
-            // Update the loaded item counters
-            for series in &mut chart.sources {
-                if count_type == "input" {
+pub fn increment_internal_counter(
+    charts: &mut Vec<TimeSeriesChart>,
+    counter_type: &'static str,
+    epoch: u64,
+    value: f64,
+) {
+    for chart in charts {
+        // Update the loaded item counters
+        for series in &mut chart.sources {
+            if counter_type == "input" {
                 if let TimeSeriesSource::AlacrittyInput(ref mut input) = series {
                     input.series.upsert((epoch, Some(value)));
                 }
-                }
-                if count_type == "output" {
+            }
+            if counter_type == "output" {
                 if let TimeSeriesSource::AlacrittyOutput(ref mut output) = series {
                     output.series.upsert((epoch, Some(value)));
                 }
-                }
-                if count_type == "async_loaded_items" {
+            }
+            if counter_type == "async_loaded_items" {
                 if let TimeSeriesSource::AsyncLoadedItems(ref mut items) = series {
                     items.series.upsert((epoch, Some(value)));
                 }
-                }
             }
+        }
+    }
 }
 
 /// `send_last_updated_epoch` returns the max of all the charts in an array
@@ -183,7 +189,7 @@ pub fn load_http_response(
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        increment_internal_counter(&mut charts, "async_loaded_items", now, ok_recorsd as f64);
+        increment_internal_counter(charts, "async_loaded_items", now, ok_records as f64);
     }
 }
 
@@ -368,10 +374,10 @@ pub fn async_coordinator(
                     channel,
                 );
             }
-            AsyncChartTask::IncrementInputCounter(source_type, epoch, value) => {
+            AsyncChartTask::IncrementInputCounter(epoch, value) => {
                 increment_internal_counter(&mut charts, "input", epoch, value);
             }
-            AsyncChartTask::IncrementOutputCounter(source_type, epoch, value) => {
+            AsyncChartTask::IncrementOutputCounter(epoch, value) => {
                 increment_internal_counter(&mut charts, "output", epoch, value);
             }
             AsyncChartTask::SendLastUpdatedEpoch(channel) => {
