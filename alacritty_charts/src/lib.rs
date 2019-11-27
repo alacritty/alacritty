@@ -531,14 +531,15 @@ impl Default for TimeSeriesSource {
 }
 
 impl TimeSeriesSource {
-    /// `init` calls functions that arnside our TimeSeries sources to
-    /// setup specific flags that should be turned on for them.
+    /// `init` calls functions that are inside our TimeSeries sources to
+    /// setup specific flags that should be turned on
     pub fn init(&mut self) {
         if let TimeSeriesSource::PrometheusTimeSeries(x) = self {
             x.init();
         }
     }
 
+    /// `series` returns an immutable series copy of the content.
     pub fn series(&self) -> TimeSeries {
         match self {
             TimeSeriesSource::PrometheusTimeSeries(x) => x.series.clone(),
@@ -548,6 +549,7 @@ impl TimeSeriesSource {
         }
     }
 
+    /// `series_mut` returns a mutable reference to the underlying series
     pub fn series_mut(&mut self) -> &mut TimeSeries {
         match self {
             TimeSeriesSource::PrometheusTimeSeries(x) => &mut x.series,
