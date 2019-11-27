@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 0.4.1-dev
 
+### Fixed
+
+- URLs not truncated with non-matching single quote
+- Absolute file URLs (`file:///home`) not recognized because of leading `/`
+
 ## 0.4.0-dev
 
 ### Packaging
