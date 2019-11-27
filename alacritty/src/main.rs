@@ -186,12 +186,8 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     // to be sent to the pty loop and ultimately written to the pty.
     let loop_tx = event_loop.channel();
 
-    // XXX: SEB: Figure out after upstream/master merge
-    // Create a config monitor when config was loaded from path
-    //
-    // The monitor watches the config file for changes and reloads it. Pending
-    // config changes are processed in the main loop.
-    // loop {
+    // XXX: Figure out what happened with needs_draw
+    // let mut chart_last_drawn = 0; // Keep an epoch for the last time we drew the charts
     // if terminal_lock.needs_draw()
     // || chart_last_drawn
     // != alacritty_charts::async_utils::get_last_updated_chart_epoch(
@@ -207,6 +203,11 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     // charts_tx.clone(),
     // tokio_handle.clone(),
     // );
+    //
+    // Create a config monitor when config was loaded from path
+    //
+    // The monitor watches the config file for changes and reloads it. Pending
+    // config changes are processed in the main loop.
     if config.live_config_reload() {
         config.config_path.as_ref().map(|path| Monitor::new(path, event_proxy.clone()));
     }
@@ -235,8 +236,8 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     );
     let tokio_handle =
         handle_rx.recv().expect("Unable to get the tokio handle in a background thread");
-    let mut chart_last_drawn = 0; // Keep an epoch for the last time we drew the charts
-                                  // Setup storage for message UI
+
+    // Setup storage for message UI
     let message_buffer = MessageBuffer::new();
 
     // Event processor
