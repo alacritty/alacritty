@@ -16,7 +16,6 @@ named_pipe = "0.4.1"
 winapi = { version = "0.3", features = ["winnt", "processthreadsapi"] }
 
 [target.'cfg(windows)'.build-dependencies]
-embed-resource = "1.1.4"
 tempfile = "3.0.4"
 http_req = "0.5"
 zip = "0.5"

@@ -6,6 +6,12 @@ members = [
     "font",
     "winpty"
 ]
+default-members = [
+    "alacritty",
+    "alacritty_terminal",
+    "copypasta",
+    "font"
+]
 
 [profile.release]
 lto = true
