@@ -1,0 +1,32 @@
+image: freebsd/latest
+packages:
+  - devel/cmake
+  - devel/pkgconf
+  - lang/python3
+  - print/freetype2
+  - x11-fonts/fontconfig
+  - x11/libxcb
+  # - lang/rust
+sources:
+  - https://github.com/jwilm/alacritty/
+tasks:
+  - rustup: |
+      curl https://sh.rustup.rs -sSf | sh -s -- -y
+      $HOME/.cargo/bin/rustup toolchain install 1.36.0 stable nightly
+  - clippy: |
+      # $HOME/.cargo/bin/rustup component add clippy
+      cd alacritty
+      $HOME/.cargo/bin/cargo +nightly clippy --all-targets # freebsd stable 1.39.0 doesn't have clippy
+  - rustfmt: |
+      # $HOME/.cargo/bin/rustup component add rustfmt
+      cd alacritty
+      $HOME/.cargo/bin/cargo +nightly fmt -- --check || true # same with rustfmt
+  - 1-36-0: |
+      cd alacritty
+      $HOME/.cargo/bin/cargo +1.36.0 build
+  - stable: |
+      cd alacritty
+      $HOME/.cargo/bin/cargo +stable build
+  - nightly: |
+      cd alacritty
+      $HOME/.cargo/bin/cargo +nightly build || true

@@ -1,0 +1,10 @@
+image: openbsd/latest
+packages:
+  - python-3.6.9
+  - rust
+sources:
+  - https://github.com/jwilm/alacritty/
+tasks:
+  - build:
+      cd alacritty
+      cargo build
