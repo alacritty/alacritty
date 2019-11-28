@@ -367,7 +367,13 @@ impl FreeTypeRasterizer {
         };
 
         if face.has_color {
-            Ok(downsample_bitmap(bitmap, face.pixelsize_fixup_factor))
+            let fixup_factor = if face.pixelsize_fixup_factor == 0. {
+                // Fallback
+                self.pixel_size.ceil() as f64 / bitmap.width as f64
+            } else {
+                face.pixelsize_fixup_factor
+            };
+            Ok(downsample_bitmap(bitmap, fixup_factor))
         } else {
             Ok(bitmap)
         }
@@ -583,48 +589,58 @@ impl FreeTypeRasterizer {
 }
 
 fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> RasterizedGlyph {
-    let b_width = bitmap_glyph.width as f64;
-    let b_height = bitmap_glyph.height as f64;
+    // Don't try to upscale
+    if fixup_factor > 1.0 {
+        return bitmap_glyph;
+    }
 
-    let width = (b_width * fixup_factor) as usize;
-    let height = (b_height * fixup_factor) as usize;
+    let bitmap_width = bitmap_glyph.width as f64;
+    let bitmap_height = bitmap_glyph.height as f64;
 
-    let b_width = b_width as usize;
-    let b_height = b_height as usize;
+    let fixup_x = fixup_factor;
+    let fixup_y = fixup_factor * bitmap_height / bitmap_width;
+
+    let width = (bitmap_width * fixup_x) as usize;
+    let height = (bitmap_height * fixup_y) as usize;
+
+    let bitmap_width = bitmap_width as usize;
+    let bitmap_height = bitmap_height as usize;
 
     let b_buf = &bitmap_glyph.buf;
-    let factor = (b_width as f32 / width as f32).max(b_height as f32 / height as f32);
-    let ratio = (factor + 1.) as usize;
+    let scaling_factor =
+        (bitmap_width as f32 / width as f32).max(bitmap_height as f32 / height as f32);
+    let advance_step = scaling_factor.ceil() as usize;
     let mut scaled_buffer = Vec::with_capacity(width * height * 3);
 
-    // Index into new image.
-    let mut n_j = 0;
-    let mut s_j = 0;
+    let mut new_line_index = 0;
+    let mut source_line_index = 0;
 
-    while n_j < height {
-        let mut n_i = 0;
-        let mut s_i = 0;
-        while n_i < width {
+    while new_line_index < height {
+        let mut new_column_index = 0;
+        let mut source_column_index = 0;
+
+        while new_column_index < width {
             let mut r: u32 = 0;
             let mut g: u32 = 0;
             let mut b: u32 = 0;
             let mut pixels_picked: u32 = 0;
 
-            let cap_y = std::cmp::min(s_j + ratio, b_height);
-            let cap_x = std::cmp::min(s_i + ratio, b_width);
+            let source_end_line = std::cmp::min(source_line_index + advance_step, bitmap_height);
+            let source_end_column = std::cmp::min(source_column_index + advance_step, bitmap_width);
 
-            let mut s_j = s_j;
-            while s_j < cap_y {
-                let cur_pixel_index = s_j * b_width * 3;
-                let mut s_i = s_i;
-                while s_i < cap_x {
-                    r += b_buf[cur_pixel_index + s_i * 3] as u32;
-                    g += b_buf[cur_pixel_index + s_i * 3 + 1] as u32;
-                    b += b_buf[cur_pixel_index + s_i * 3 + 2] as u32;
-                    s_i += 1;
+            let mut source_line_index = source_line_index;
+            while source_line_index < source_end_line {
+                let cur_pixel_index = source_line_index * bitmap_width * 3;
+
+                let mut source_column_index = source_column_index;
+                while source_column_index < source_end_column {
+                    r += b_buf[cur_pixel_index + source_column_index * 3] as u32;
+                    g += b_buf[cur_pixel_index + source_column_index * 3 + 1] as u32;
+                    b += b_buf[cur_pixel_index + source_column_index * 3 + 2] as u32;
+                    source_column_index += 1;
                     pixels_picked += 1;
                 }
-                s_j += 1;
+                source_line_index += 1;
             }
 
             if pixels_picked == 0 {
@@ -637,14 +653,16 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
                 scaled_buffer.push((b / pixels_picked) as u8);
             }
 
-            s_i += ratio;
-            n_i += 1;
+            source_column_index += advance_step;
+            new_column_index += 1;
         }
-        s_j += ratio;
-        n_j += 1;
+        source_line_index += advance_step;
+        new_line_index += 1;
     }
-    let b_top = bitmap_glyph.top as f32;
-    bitmap_glyph.top = ((b_top / factor + b_top / ratio as f32) / 2.0) as i32;
+
+    bitmap_glyph.top = ((bitmap_glyph.top as f32 * fixup_y as f32) as i32
+        + bitmap_glyph.top / advance_step as i32)
+        / 2;
     bitmap_glyph.width = width as i32;
     bitmap_glyph.height = height as i32;
     bitmap_glyph.buf = scaled_buffer;
