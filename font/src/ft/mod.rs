@@ -369,8 +369,8 @@ impl FreeTypeRasterizer {
         if face.has_color {
             let fixup_factor = if face.pixelsize_fixup_factor == 0. {
                 // Fallback
-                self.pixel_size as f64
-                    / face.ft_face.size_metrics().map_or(bitmap.height as f64, |s| s.y_ppem as f64)
+                let metrics = face.ft_face.size_metrics().ok_or(Error::MissingSizeMetrics)?;
+                self.pixel_size as f64 / metrics.y_ppem as f64
             } else {
                 face.pixelsize_fixup_factor
             };
