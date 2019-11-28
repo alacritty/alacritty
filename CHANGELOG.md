@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added compatibility logo variants for environments which can't render the default SVG
 
+### Added
+
+- Terminal escape bindings with combined modifiers for Delete and Insert
+
 ### Fixed
 
 - URLs not truncated with non-matching single quote
