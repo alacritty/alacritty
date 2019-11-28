@@ -13,6 +13,7 @@ pub enum Event {
     Wakeup,
     Urgent,
     Exit,
+    ChartAsyncTask(alacritty_charts::AsyncChartTask),
 }
 
 /// Byte sequences are sent to a `Notify` in response to some events
