@@ -458,7 +458,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Key::Equals, [logo: true]; Action::IncreaseFontSize;
         Key::Add, [logo: true]; Action::IncreaseFontSize;
         Key::Minus, [logo: true]; Action::DecreaseFontSize;
-        Key::Insert, [shift: true]; Action::Esc("\x1b[2;2~");
+        Key::Insert, [shift: true]; Action::Esc("\x1b[2;2~".into());
         Key::F, [ctrl: true, logo: true]; Action::ToggleFullscreen;
         Key::K, [logo: true]; Action::ClearHistory;
         Key::K, [logo: true]; Action::Esc("\x0c".into());
