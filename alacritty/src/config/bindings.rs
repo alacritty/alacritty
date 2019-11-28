@@ -344,8 +344,6 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         let modifiers_code = index + 2;
         bindings.extend(bindings!(
             KeyBinding;
-            Key::Insert, [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
-            Action::Esc(format!("\x1b[2;{}~", modifiers_code));
             Key::Delete, [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
             Action::Esc(format!("\x1b[3;{}~", modifiers_code));
             Key::Up,     [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
@@ -403,6 +401,8 @@ pub fn default_key_bindings() -> Vec<KeyBinding> {
         if modifiers_code != 2 {
             bindings.extend(bindings!(
                 KeyBinding;
+                Key::Insert,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
+                Action::Esc(format!("\x1b[2;{}~", modifiers_code));
                 Key::PageUp,   [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
                 Action::Esc(format!("\x1b[5;{}~", modifiers_code));
                 Key::PageDown, [shift: mods.shift, alt: mods.alt, ctrl: mods.ctrl];
@@ -458,6 +458,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Key::Equals, [logo: true]; Action::IncreaseFontSize;
         Key::Add, [logo: true]; Action::IncreaseFontSize;
         Key::Minus, [logo: true]; Action::DecreaseFontSize;
+        Key::Insert, [shift: true]; Action::Esc("\x1b[2;2~");
         Key::F, [ctrl: true, logo: true]; Action::ToggleFullscreen;
         Key::K, [logo: true]; Action::ClearHistory;
         Key::K, [logo: true]; Action::Esc("\x0c".into());
