@@ -369,7 +369,8 @@ impl FreeTypeRasterizer {
         if face.has_color {
             let fixup_factor = if face.pixelsize_fixup_factor == 0. {
                 // Fallback
-                self.pixel_size.ceil() as f64 / bitmap.width as f64
+                self.pixel_size as f64
+                    / face.ft_face.size_metrics().map_or(bitmap.height as f64, |s| s.y_ppem as f64)
             } else {
                 face.pixelsize_fixup_factor
             };
@@ -597,11 +598,8 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
     let bitmap_width = bitmap_glyph.width as f64;
     let bitmap_height = bitmap_glyph.height as f64;
 
-    let fixup_x = fixup_factor;
-    let fixup_y = fixup_factor * bitmap_height / bitmap_width;
-
-    let width = (bitmap_width * fixup_x) as usize;
-    let height = (bitmap_height * fixup_y) as usize;
+    let width = (bitmap_width * fixup_factor) as usize;
+    let height = (bitmap_height * fixup_factor) as usize;
 
     let bitmap_width = bitmap_width as usize;
     let bitmap_height = bitmap_height as usize;
@@ -660,9 +658,11 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
         new_line_index += 1;
     }
 
-    bitmap_glyph.top = ((bitmap_glyph.top as f32 * fixup_y as f32) as i32
+    // This top computation performs better with a scaling algo we use.
+    bitmap_glyph.top = ((bitmap_glyph.top as f32 * fixup_factor as f32) as i32
         + bitmap_glyph.top / advance_step as i32)
         / 2;
+    bitmap_glyph.left = (bitmap_glyph.left as f64 * fixup_factor) as i32;
     bitmap_glyph.width = width as i32;
     bitmap_glyph.height = height as i32;
     bitmap_glyph.buf = scaled_buffer;
