@@ -139,6 +139,7 @@ pub struct RectShaderProgram {
 #[derive(Copy, Debug, Clone)]
 pub struct Glyph {
     tex_id: GLuint,
+    colored: bool,
     top: f32,
     left: f32,
     width: f32,
@@ -462,9 +463,15 @@ impl Batch {
         Batch { tex: 0, instances: Vec::with_capacity(BATCH_MAX) }
     }
 
-    pub fn add_item(&mut self, cell: RenderableCell, glyph: &Glyph) {
+    pub fn add_item(&mut self, mut cell: RenderableCell, glyph: &Glyph) {
         if self.is_empty() {
             self.tex = glyph.tex_id;
+        }
+
+        if glyph.colored {
+            cell.fg.r = 255;
+            cell.fg.g = 255;
+            cell.fg.b = 255;
         }
 
         self.instances.push(InstanceData {
@@ -1091,6 +1098,7 @@ fn load_glyph(
         },
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
+            colored: false,
             top: 0.0,
             left: 0.0,
             width: 0.0,
@@ -1608,6 +1616,7 @@ impl Atlas {
 
         Glyph {
             tex_id: self.id,
+            colored: glyph.colored,
             top: glyph.top as f32,
             width: width as f32,
             height: height as f32,

@@ -525,7 +525,7 @@ impl FreeTypeRasterizer {
                 while i < buf_size {
                     // Convert BGRA to RGB
                     //
-                    // XXX our rendring works in rgb and doens't care about urers alpha.
+                    // XXX our rendring works in rgb now and doens't care about urers alpha
                     packed.push(buf[i + 2]);
                     packed.push(buf[i + 1]);
                     packed.push(buf[i]);
@@ -643,7 +643,6 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
         s_j += ratio;
         n_j += 1;
     }
-    // FIXME: better top setting.
     let b_top = bitmap_glyph.top as f32;
     bitmap_glyph.top = ((b_top / factor + b_top / ratio as f32) / 2.0) as i32;
     bitmap_glyph.width = width as i32;
