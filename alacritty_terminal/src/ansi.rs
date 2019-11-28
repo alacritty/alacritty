@@ -849,13 +849,14 @@ where
 
             // Set clipboard
             b"52" => {
-                if params.len() < 3 || params[1].is_empty() {
+                if params.len() < 3 {
                     return unhandled(params);
                 }
 
+                let clipboard = params[1].get(0).unwrap_or(&b'c');
                 match params[2] {
-                    b"?" => self.handler.write_clipboard(params[1][0], writer),
-                    base64 => self.handler.set_clipboard(params[1][0], base64),
+                    b"?" => self.handler.write_clipboard(*clipboard, writer),
+                    base64 => self.handler.set_clipboard(*clipboard, base64),
                 }
             },
 
