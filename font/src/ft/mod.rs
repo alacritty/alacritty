@@ -189,14 +189,16 @@ impl FreeTypeRasterizer {
         // Adjust for DPI
         let size = Size::new(size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
 
+        self.pixel_size = size.as_f32_pts();
+
         match desc.style {
             Style::Description { slant, weight } => {
                 // Match nearest font
-                self.get_matching_face(&desc, slant, weight, size)
+                self.get_matching_face(&desc, slant, weight)
             },
             Style::Specific(ref style) => {
                 // If a name was specified, try and load specifically that font.
-                self.get_specific_face(&desc, &style, size)
+                self.get_specific_face(&desc, &style)
             },
         }
     }
@@ -219,14 +221,12 @@ impl FreeTypeRasterizer {
         desc: &FontDesc,
         slant: Slant,
         weight: Weight,
-        size: Size,
     ) -> Result<FontKey, Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.set_weight(weight.into_fontconfig_type());
         pattern.set_slant(slant.into_fontconfig_type());
-        self.pixel_size = size.as_f32_pts();
-        pattern.add_pixelsize(f64::from(size.as_f32_pts()));
+        pattern.add_pixelsize(f64::from(self.pixel_size));
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
@@ -240,13 +240,11 @@ impl FreeTypeRasterizer {
         &mut self,
         desc: &FontDesc,
         style: &str,
-        size: Size,
     ) -> Result<FontKey, Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.add_style(style);
-        self.pixel_size = size.as_f32_pts();
-        pattern.add_pixelsize(f64::from(size.as_f32_pts()));
+        pattern.add_pixelsize(f64::from(self.pixel_size));
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
@@ -279,6 +277,7 @@ impl FreeTypeRasterizer {
             let has_color = ft_face.has_color();
             if has_color {
                 unsafe {
+                    // Select the colored bitmap size to use from the array of available sizes
                     freetype_sys::FT_Select_Size(ft_face.raw_mut(), 0);
                 }
             }
@@ -346,9 +345,7 @@ impl FreeTypeRasterizer {
 
         unsafe {
             let ft_lib = self.library.raw();
-            if !face.has_color {
-                freetype::ffi::FT_Library_SetLcdFilter(ft_lib, face.lcd_filter);
-            }
+            freetype::ffi::FT_Library_SetLcdFilter(ft_lib, face.lcd_filter);
         }
 
         face.ft_face.load_glyph(index as u32, face.load_flags)?;
@@ -358,7 +355,7 @@ impl FreeTypeRasterizer {
 
         let (pixel_height, pixel_width, buf) = Self::normalize_buffer(&glyph.bitmap())?;
 
-        let bitmap = RasterizedGlyph {
+        let rasterized_glyph = RasterizedGlyph {
             c: glyph_key.c,
             top: glyph.bitmap_top(),
             left: glyph.bitmap_left(),
@@ -375,9 +372,9 @@ impl FreeTypeRasterizer {
             } else {
                 face.pixelsize_fixup_factor
             };
-            Ok(downsample_bitmap(bitmap, fixup_factor))
+            Ok(downsample_bitmap(rasterized_glyph, fixup_factor))
         } else {
-            Ok(bitmap)
+            Ok(rasterized_glyph)
         }
     }
 
@@ -590,7 +587,7 @@ impl FreeTypeRasterizer {
 
 fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> RasterizedGlyph {
     // Don't try to upscale
-    if fixup_factor > 1.0 {
+    if fixup_factor >= 1.0 {
         return bitmap_glyph;
     }
 
@@ -600,51 +597,40 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
         return bitmap_glyph;
     };
 
-    let bitmap_width = bitmap_glyph.width as f64;
-    let bitmap_height = bitmap_glyph.height as f64;
+    let bitmap_width = bitmap_glyph.width as usize;
+    let bitmap_height = bitmap_glyph.height as usize;
 
-    let width = (bitmap_width * fixup_factor) as usize;
-    let height = (bitmap_height * fixup_factor) as usize;
+    let width = (bitmap_width as f64 * fixup_factor) as usize;
+    let height = (bitmap_height as f64 * fixup_factor) as usize;
 
-    let bitmap_width = bitmap_width as usize;
-    let bitmap_height = bitmap_height as usize;
+    let advance_step = (1.0 / fixup_factor).ceil() as usize;
+    let mut scaled_buffer = Vec::<u8>::with_capacity(width * height * 4);
 
-    let scaling_factor =
-        (bitmap_width as f32 / width as f32).max(bitmap_height as f32 / height as f32);
-    let advance_step = scaling_factor.ceil() as usize;
-    let mut scaled_buffer = Vec::<u8>::with_capacity(width * height * 3);
-
-    let mut new_line_index = 0;
     let mut source_line_index = 0;
 
-    while new_line_index < height {
-        let mut new_column_index = 0;
+    for _ in 0..height {
         let mut source_column_index = 0;
 
-        while new_column_index < width {
+        for _ in 0..width {
             let mut r: u32 = 0;
             let mut g: u32 = 0;
             let mut b: u32 = 0;
             let mut a: u32 = 0;
             let mut pixels_picked: u32 = 0;
 
-            let source_end_line = std::cmp::min(source_line_index + advance_step, bitmap_height);
-            let source_end_column = std::cmp::min(source_column_index + advance_step, bitmap_width);
+            let source_end_line = min(source_line_index + advance_step, bitmap_height);
+            let source_end_column = min(source_column_index + advance_step, bitmap_width);
 
-            let mut source_line_index = source_line_index;
-            while source_line_index < source_end_line {
-                let cur_pixel_index = source_line_index * bitmap_width * 4;
+            for source_j in source_line_index..source_end_line {
+                let cur_pixel_index = source_j * bitmap_width * 4;
 
-                let mut source_column_index = source_column_index;
-                while source_column_index < source_end_column {
-                    r += bitmap_buffer[cur_pixel_index + source_column_index * 4] as u32;
-                    g += bitmap_buffer[cur_pixel_index + source_column_index * 4 + 1] as u32;
-                    b += bitmap_buffer[cur_pixel_index + source_column_index * 4 + 2] as u32;
-                    a += bitmap_buffer[cur_pixel_index + source_column_index * 4 + 3] as u32;
-                    source_column_index += 1;
+                for source_i in source_column_index..source_end_column {
+                    r += bitmap_buffer[cur_pixel_index + source_i * 4] as u32;
+                    g += bitmap_buffer[cur_pixel_index + source_i * 4 + 1] as u32;
+                    b += bitmap_buffer[cur_pixel_index + source_i * 4 + 2] as u32;
+                    a += bitmap_buffer[cur_pixel_index + source_i * 4 + 3] as u32;
                     pixels_picked += 1;
                 }
-                source_line_index += 1;
             }
 
             if pixels_picked == 0 {
@@ -660,13 +646,13 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
             }
 
             source_column_index += advance_step;
-            new_column_index += 1;
         }
         source_line_index += advance_step;
-        new_line_index += 1;
     }
 
-    // This top computation performs better with a scaling algo we use.
+    // This top computation performs better with the scaling algorithm we use. The approach of
+    // multiplying `fixup_factor` by `bitmap_glyph.top` ties bitmap to the top of the cell, however
+    // the following one keeps it in the center most of the time
     bitmap_glyph.top = ((bitmap_glyph.top as f32 * fixup_factor as f32) as i32
         + bitmap_glyph.top / advance_step as i32)
         / 2;
