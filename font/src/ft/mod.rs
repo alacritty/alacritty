@@ -236,11 +236,7 @@ impl FreeTypeRasterizer {
         })
     }
 
-    fn get_specific_face(
-        &mut self,
-        desc: &FontDesc,
-        style: &str,
-    ) -> Result<FontKey, Error> {
+    fn get_specific_face(&mut self, desc: &FontDesc, style: &str) -> Result<FontKey, Error> {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.add_style(style);
