@@ -38,7 +38,8 @@ use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 #[cfg(windows)]
 use crate::tty;
-// use crate::activity_levels::{ActivityLevels, LoadAvg};
+use futures::sync::mpsc as futures_mpsc;
+use tokio::runtime::current_thread;
 
 pub mod cell;
 pub mod color;
@@ -753,6 +754,12 @@ pub struct Term<T> {
     /// Stack of saved window titles. When a title is popped from this stack, the `title` for the
     /// term is set, and the Glutin window's title attribute is changed through the event listener.
     title_stack: Vec<String>,
+
+    /// A handle to the tokio current thread runtime, if charts are enabled
+    tokio_handle: Option<current_thread::Handle>,
+
+    /// Channel to communicate with the chart background thread.
+    charts_tx: Option<futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>>,
 }
 
 /// Terminal size info
@@ -880,6 +887,8 @@ impl<T> Term<T> {
             is_focused: true,
             title: config.window.title.clone(),
             title_stack: Vec::new(),
+            tokio_handle: None,
+            charts_tx: None,
         }
     }
 
@@ -1094,8 +1103,6 @@ impl<T> Term<T> {
         self.tabs = TabStops::new(self.grid.num_cols(), self.tabspaces);
     }
 
-    #[inline]
-
     //    #[inline]
     // pub fn get_input_activity_levels(&self) -> &ActivityLevels<u64> {
     // &self.input_activity_levels
@@ -1122,10 +1129,25 @@ impl<T> Term<T> {
     // }
     // }
 
+    /// `add_async_charts_tx` stores the transmitting channel to talk to the background thread.
+    pub fn add_async_charts_tx(
+        &mut self,
+        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
+    ) {
+        self.charts_tx = Some(charts_tx);
+    }
+
+    /// `add_async_tokio_handle` stores the transmitting channel to talk to the background thread.
+    pub fn add_async_tokio_handle(&mut self, tokio_handle: current_thread::Handle) {
+        self.tokio_handle = Some(tokio_handle);
+    }
+
+    #[inline]
     pub fn increment_output_activity_level(&mut self, increment: u64) {
         // self.output_activity_levels.update_activity_level(self.size_info, increment);
     }
 
+    #[inline]
     pub fn increment_input_activity_level(&mut self, increment: u64) {
         // self.input_activity_levels.update_activity_level(self.size_info, increment);
     }
@@ -1263,8 +1285,6 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     #[inline]
     fn input(&mut self, c: char) {
         self.increment_output_activity_level(1u64);
-        // Update the input activity levels XXX: This should be a Timer
-        self.increment_input_activity_level(0u64);
         // If enabled, scroll to bottom when character is received
         if self.auto_scroll {
             self.scroll_display(Scroll::Bottom);
