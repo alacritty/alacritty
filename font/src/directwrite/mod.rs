@@ -18,7 +18,9 @@ use self::dwrote::{
     FontCollection, FontStretch, FontStyle, FontWeight, GlyphOffset, GlyphRunAnalysis,
 };
 
-use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
+use super::{
+    BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
+};
 
 pub struct DirectWriteRasterizer {
     fonts: Vec<dwrote::FontFace>,
@@ -173,8 +175,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
             height: (bounds.bottom - bounds.top) as i32,
             top: -bounds.top,
             left: bounds.left,
-            colored: false,
-            buf,
+            buf: BitmapBuffer::RGB(buf),
         })
     }
 

@@ -42,10 +42,10 @@ use core_text::font_descriptor::{CTFontDescriptor, CTFontOrientation};
 
 use euclid::{Point2D, Rect, Size2D};
 
-use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph};
+use super::{BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph};
 
 pub mod byte_order;
-use self::byte_order::extract_rgb;
+use self::byte_order;
 use self::byte_order::kCGBitmapByteOrder32Host;
 
 use super::Size;
@@ -476,8 +476,7 @@ impl Font {
                 height: 0,
                 top: 0,
                 left: 0,
-                colored: false,
-                buf: Vec::new(),
+                buf: BitmapBuffer::RGB(Vec::new()),
             });
         }
 
@@ -526,7 +525,11 @@ impl Font {
 
         let rasterized_pixels = cg_context.data().to_vec();
 
-        let buf = extract_rgb(&rasterized_pixels);
+        let buf = if font.is_colored() {
+            BitmapBuffer::RGBA(byte_order::extract_rgba(&rasterized_pixel))
+        } else {
+            BitmapBuffer::RGB(byte_order::extract_rgb(&rasterized_pixels))
+        };
 
         Ok(RasterizedGlyph {
             c: character,
@@ -534,7 +537,6 @@ impl Font {
             top: (bounds.size.height + bounds.origin.y).ceil() as i32,
             width: rasterized_width as i32,
             height: rasterized_height as i32,
-            colored: self.is_colored(),
             buf,
         })
     }

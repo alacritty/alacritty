@@ -22,7 +22,9 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use fnv::FnvHasher;
-use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
+use font::{
+    self, BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer,
+};
 use log::{error, info};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
@@ -1581,22 +1583,42 @@ impl Atlas {
         let offset_x = self.row_extent;
         let height = glyph.height as i32;
         let width = glyph.width as i32;
+        let colored;
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.id);
 
             // Load data into OpenGL
-            gl::TexSubImage2D(
-                gl::TEXTURE_2D,
-                0,
-                offset_x,
-                offset_y,
-                width,
-                height,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-                glyph.buf.as_ptr() as *const _,
-            );
+            match &glyph.buf {
+                BitmapBuffer::RGB(buf) => {
+                    gl::TexSubImage2D(
+                        gl::TEXTURE_2D,
+                        0,
+                        offset_x,
+                        offset_y,
+                        width,
+                        height,
+                        gl::RGB,
+                        gl::UNSIGNED_BYTE,
+                        buf.as_ptr() as *const _,
+                    );
+                    colored = false;
+                },
+                BitmapBuffer::RGBA(buf) => {
+                    gl::TexSubImage2D(
+                        gl::TEXTURE_2D,
+                        0,
+                        offset_x,
+                        offset_y,
+                        width,
+                        height,
+                        gl::RGBA,
+                        gl::UNSIGNED_BYTE,
+                        buf.as_ptr() as *const _,
+                    );
+                    colored = true;
+                },
+            }
 
             gl::BindTexture(gl::TEXTURE_2D, 0);
             *active_tex = 0;
@@ -1616,7 +1638,7 @@ impl Atlas {
 
         Glyph {
             tex_id: self.id,
-            colored: glyph.colored,
+            colored,
             top: glyph.top as f32,
             width: width as f32,
             height: height as f32,

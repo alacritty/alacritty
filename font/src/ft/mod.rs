@@ -25,7 +25,9 @@ use libc::c_uint;
 
 pub mod fc;
 
-use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
+use super::{
+    BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
+};
 
 struct FixedSize {
     pixelsize: f64,
@@ -362,7 +364,6 @@ impl FreeTypeRasterizer {
             left: glyph.bitmap_left(),
             width: pixel_width,
             height: pixel_height,
-            colored: face.has_color,
             buf,
         };
 
@@ -456,7 +457,7 @@ impl FreeTypeRasterizer {
     /// The i32 value in the return type is the number of pixels per row.
     fn normalize_buffer(
         bitmap: &freetype::bitmap::Bitmap,
-    ) -> freetype::FtResult<(i32, i32, Vec<u8>)> {
+    ) -> freetype::FtResult<(i32, i32, BitmapBuffer)> {
         use freetype::bitmap::PixelMode;
 
         let buf = bitmap.buffer();
@@ -469,7 +470,7 @@ impl FreeTypeRasterizer {
                     let stop = start + bitmap.width() as usize;
                     packed.extend_from_slice(&buf[start..stop]);
                 }
-                Ok((bitmap.rows(), bitmap.width() / 3, packed))
+                Ok((bitmap.rows(), bitmap.width() / 3, BitmapBuffer::RGB(packed)))
             },
             PixelMode::LcdV => {
                 for i in 0..bitmap.rows() / 3 {
@@ -480,7 +481,7 @@ impl FreeTypeRasterizer {
                         }
                     }
                 }
-                Ok((bitmap.rows() / 3, bitmap.width(), packed))
+                Ok((bitmap.rows() / 3, bitmap.width(), BitmapBuffer::RGB(packed)))
             },
             // Mono data is stored in a packed format using 1 bit per pixel.
             PixelMode::Mono => {
@@ -511,7 +512,7 @@ impl FreeTypeRasterizer {
                         byte += 1;
                     }
                 }
-                Ok((bitmap.rows(), bitmap.width(), packed))
+                Ok((bitmap.rows(), bitmap.width(), BitmapBuffer::RGB(packed)))
             },
             // Gray data is stored as a value between 0 and 255 using 1 byte per pixel.
             PixelMode::Gray => {
@@ -524,21 +525,19 @@ impl FreeTypeRasterizer {
                         packed.push(*byte);
                     }
                 }
-                Ok((bitmap.rows(), bitmap.width(), packed))
+                Ok((bitmap.rows(), bitmap.width(), BitmapBuffer::RGB(packed)))
             },
             PixelMode::Bgra => {
                 let buf_size = (bitmap.rows() * bitmap.width() * 4) as usize;
                 let mut i = 0;
                 while i < buf_size {
-                    // Convert BGRA to RGB
-                    //
-                    // XXX our rendring works in rgb now and doens't care about urers alpha
                     packed.push(buf[i + 2]);
                     packed.push(buf[i + 1]);
                     packed.push(buf[i]);
+                    packed.push(buf[i + 3]);
                     i += 4;
                 }
-                Ok((bitmap.rows(), bitmap.width(), packed))
+                Ok((bitmap.rows(), bitmap.width(), BitmapBuffer::RGBA(packed)))
             },
             mode => panic!("unhandled pixel mode: {:?}", mode),
         }
@@ -595,6 +594,12 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
         return bitmap_glyph;
     }
 
+    let bitmap_buffer = if let BitmapBuffer::RGBA(bitmap_buffer) = bitmap_glyph.buf {
+        bitmap_buffer
+    } else {
+        return bitmap_glyph;
+    };
+
     let bitmap_width = bitmap_glyph.width as f64;
     let bitmap_height = bitmap_glyph.height as f64;
 
@@ -604,11 +609,10 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
     let bitmap_width = bitmap_width as usize;
     let bitmap_height = bitmap_height as usize;
 
-    let b_buf = &bitmap_glyph.buf;
     let scaling_factor =
         (bitmap_width as f32 / width as f32).max(bitmap_height as f32 / height as f32);
     let advance_step = scaling_factor.ceil() as usize;
-    let mut scaled_buffer = Vec::with_capacity(width * height * 3);
+    let mut scaled_buffer = Vec::<u8>::with_capacity(width * height * 3);
 
     let mut new_line_index = 0;
     let mut source_line_index = 0;
@@ -621,6 +625,7 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
             let mut r: u32 = 0;
             let mut g: u32 = 0;
             let mut b: u32 = 0;
+            let mut a: u32 = 0;
             let mut pixels_picked: u32 = 0;
 
             let source_end_line = std::cmp::min(source_line_index + advance_step, bitmap_height);
@@ -628,13 +633,14 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
 
             let mut source_line_index = source_line_index;
             while source_line_index < source_end_line {
-                let cur_pixel_index = source_line_index * bitmap_width * 3;
+                let cur_pixel_index = source_line_index * bitmap_width * 4;
 
                 let mut source_column_index = source_column_index;
                 while source_column_index < source_end_column {
-                    r += b_buf[cur_pixel_index + source_column_index * 3] as u32;
-                    g += b_buf[cur_pixel_index + source_column_index * 3 + 1] as u32;
-                    b += b_buf[cur_pixel_index + source_column_index * 3 + 2] as u32;
+                    r += bitmap_buffer[cur_pixel_index + source_column_index * 4] as u32;
+                    g += bitmap_buffer[cur_pixel_index + source_column_index * 4 + 1] as u32;
+                    b += bitmap_buffer[cur_pixel_index + source_column_index * 4 + 2] as u32;
+                    a += bitmap_buffer[cur_pixel_index + source_column_index * 4 + 3] as u32;
                     source_column_index += 1;
                     pixels_picked += 1;
                 }
@@ -645,10 +651,12 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
                 scaled_buffer.push(0);
                 scaled_buffer.push(0);
                 scaled_buffer.push(0);
+                scaled_buffer.push(0);
             } else {
                 scaled_buffer.push((r / pixels_picked) as u8);
                 scaled_buffer.push((g / pixels_picked) as u8);
                 scaled_buffer.push((b / pixels_picked) as u8);
+                scaled_buffer.push((a / pixels_picked) as u8);
             }
 
             source_column_index += advance_step;
@@ -665,7 +673,7 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
     bitmap_glyph.left = (bitmap_glyph.left as f64 * fixup_factor) as i32;
     bitmap_glyph.width = width as i32;
     bitmap_glyph.height = height as i32;
-    bitmap_glyph.buf = scaled_buffer;
+    bitmap_glyph.buf = BitmapBuffer::RGBA(scaled_buffer);
     bitmap_glyph
 }
 
