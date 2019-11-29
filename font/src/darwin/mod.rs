@@ -45,7 +45,6 @@ use euclid::{Point2D, Rect, Size2D};
 use super::{BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph};
 
 pub mod byte_order;
-use self::byte_order;
 use self::byte_order::kCGBitmapByteOrder32Host;
 
 use super::Size;
@@ -525,8 +524,8 @@ impl Font {
 
         let rasterized_pixels = cg_context.data().to_vec();
 
-        let buf = if font.is_colored() {
-            BitmapBuffer::RGBA(byte_order::extract_rgba(&rasterized_pixel))
+        let buf = if self.is_colored() {
+            BitmapBuffer::RGBA(byte_order::extract_rgba(&rasterized_pixels))
         } else {
             BitmapBuffer::RGB(byte_order::extract_rgb(&rasterized_pixels))
         };
@@ -573,6 +572,9 @@ impl Font {
 
 #[cfg(test)]
 mod tests {
+
+    use super::BitmapBuffer;
+
     #[test]
     fn get_family_names() {
         let names = super::get_family_names();
@@ -594,11 +596,16 @@ mod tests {
             for c in &['a', 'b', 'c', 'd'] {
                 let glyph = font.get_glyph(*c, 72., false).unwrap();
 
+                let buf = match &glyph.buf {
+                    BitmapBuffer::RGB(buf) => buf,
+                    BitmapBuffer::RGBA(buf) => buf,
+                };
+
                 // Debug the glyph.. sigh
                 for row in 0..glyph.height {
                     for col in 0..glyph.width {
                         let index = ((glyph.width * 3 * row) + (col * 3)) as usize;
-                        let value = glyph.buf[index];
+                        let value = buf[index];
                         let c = match value {
                             0..=50 => ' ',
                             51..=100 => '.',
