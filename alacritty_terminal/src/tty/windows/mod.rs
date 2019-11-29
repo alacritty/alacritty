@@ -16,10 +16,6 @@ use std::io::{self, Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::TryRecvError;
 
-use mio::{self, Evented, Poll, PollOpt, Ready, Token};
-use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
-use mio_named_pipes::NamedPipe;
-
 use log::info;
 
 use crate::config::Config;
@@ -38,33 +34,43 @@ pub fn is_conpty() -> bool {
     IS_CONPTY.load(Ordering::Relaxed)
 }
 
-#[derive(Clone)]
-pub enum PtyHandle<'a> {
-    Winpty(winpty::WinptyHandle<'a>),
-    Conpty(conpty::ConptyHandle),
+enum PtyInner {
+    Winpty(winpty::WinptyAgent),
+    Conpty(conpty::Conpty),
 }
 
-pub struct Pty<'a> {
-    handle: PtyHandle<'a>,
-    // TODO: It's on the roadmap for the Conpty API to support Overlapped I/O.
-    // See https://github.com/Microsoft/console/issues/262
-    // When support for that lands then it should be possible to use
-    // NamedPipe for the conout and conin handles
-    conout: EventedReadablePipe,
-    conin: EventedWritablePipe,
+pub struct Pty {
+    inner: PtyInner,
     read_token: mio::Token,
     write_token: mio::Token,
     child_event_token: mio::Token,
     child_watcher: ChildExitWatcher,
 }
 
-impl<'a> Pty<'a> {
-    pub fn resize_handle(&self) -> impl OnResize + 'a {
-        self.handle.clone()
+impl Pty {
+    pub fn resize_handle(&self) -> impl OnResize {
+        match &self.inner {
+            PtyInner::Winpty(w) => PtyResizeHandle::Winpty(w.resize_handle()),
+            PtyInner::Conpty(c) => PtyResizeHandle::Conpty(c.resize_handle())
+        }
     }
 }
 
-pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty<'a> {
+enum PtyResizeHandle {
+    Winpty(winpty::WinptyResizeHandle),
+    Conpty(conpty::ConptyResizeHandle),
+}
+
+impl OnResize for PtyResizeHandle {
+    fn on_resize(&mut self, size: &SizeInfo) {
+        match self {
+            PtyResizeHandle::Winpty(w) => w.on_resize(size),
+            PtyResizeHandle::Conpty(c) => c.on_resize(size),
+        }
+    }
+}
+
+pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
     if let Some(pty) = conpty::new(config, size, window_id) {
         info!("Using Conpty agent");
         IS_CONPTY.store(true, Ordering::Relaxed);
@@ -75,133 +81,52 @@ pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>)
     }
 }
 
-// TODO: The ConPTY API currently must use synchronous pipes as the input
-// and output handles. This has led to the need to support two different
-// types of pipe.
-//
-// When https://github.com/Microsoft/console/issues/262 lands then the
-// Anonymous variant of this enum can be removed from the codebase and
-// everything can just use NamedPipe.
-pub enum EventedReadablePipe {
-    Anonymous(EventedAnonRead),
-    Named(NamedPipe),
-}
-
-pub enum EventedWritablePipe {
-    Anonymous(EventedAnonWrite),
-    Named(NamedPipe),
-}
-
-impl Evented for EventedReadablePipe {
-    fn register(
-        &self,
-        poll: &Poll,
-        token: Token,
-        interest: Ready,
-        opts: PollOpt,
-    ) -> io::Result<()> {
-        match self {
-            EventedReadablePipe::Anonymous(p) => p.register(poll, token, interest, opts),
-            EventedReadablePipe::Named(p) => p.register(poll, token, interest, opts),
-        }
-    }
-
-    fn reregister(
-        &self,
-        poll: &Poll,
-        token: Token,
-        interest: Ready,
-        opts: PollOpt,
-    ) -> io::Result<()> {
-        match self {
-            EventedReadablePipe::Anonymous(p) => p.reregister(poll, token, interest, opts),
-            EventedReadablePipe::Named(p) => p.reregister(poll, token, interest, opts),
-        }
-    }
-
-    fn deregister(&self, poll: &Poll) -> io::Result<()> {
-        match self {
-            EventedReadablePipe::Anonymous(p) => p.deregister(poll),
-            EventedReadablePipe::Named(p) => p.deregister(poll),
-        }
-    }
-}
-
-impl Read for EventedReadablePipe {
+impl Read for Pty {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match self {
-            EventedReadablePipe::Anonymous(p) => p.read(buf),
-            EventedReadablePipe::Named(p) => p.read(buf),
+        match &mut self.inner {
+            PtyInner::Winpty(ref mut w) => w.conout.read(buf),
+            PtyInner::Conpty(ref mut c) => c.conout.read(buf),
         }
     }
 }
 
-impl Evented for EventedWritablePipe {
-    fn register(
-        &self,
-        poll: &Poll,
-        token: Token,
-        interest: Ready,
-        opts: PollOpt,
-    ) -> io::Result<()> {
-        match self {
-            EventedWritablePipe::Anonymous(p) => p.register(poll, token, interest, opts),
-            EventedWritablePipe::Named(p) => p.register(poll, token, interest, opts),
-        }
-    }
-
-    fn reregister(
-        &self,
-        poll: &Poll,
-        token: Token,
-        interest: Ready,
-        opts: PollOpt,
-    ) -> io::Result<()> {
-        match self {
-            EventedWritablePipe::Anonymous(p) => p.reregister(poll, token, interest, opts),
-            EventedWritablePipe::Named(p) => p.reregister(poll, token, interest, opts),
-        }
-    }
-
-    fn deregister(&self, poll: &Poll) -> io::Result<()> {
-        match self {
-            EventedWritablePipe::Anonymous(p) => p.deregister(poll),
-            EventedWritablePipe::Named(p) => p.deregister(poll),
-        }
-    }
-}
-
-impl Write for EventedWritablePipe {
+impl Write for Pty {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self {
-            EventedWritablePipe::Anonymous(p) => p.write(buf),
-            EventedWritablePipe::Named(p) => p.write(buf),
+        match &mut self.inner {
+            PtyInner::Winpty(ref mut w) => w.conin.write(buf),
+            PtyInner::Conpty(ref mut c) => c.conin.write(buf),
         }
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        match self {
-            EventedWritablePipe::Anonymous(p) => p.flush(),
-            EventedWritablePipe::Named(p) => p.flush(),
+        match &mut self.inner {
+            PtyInner::Winpty(ref mut w) => w.conin.flush(),
+            PtyInner::Conpty(ref mut c) => c.conin.flush(),
         }
     }
 }
 
-impl<'a> OnResize for PtyHandle<'a> {
-    fn on_resize(&mut self, sizeinfo: &SizeInfo) {
-        match self {
-            PtyHandle::Winpty(w) => w.resize(sizeinfo),
-            PtyHandle::Conpty(c) => {
-                let mut handle = c.clone();
-                handle.on_resize(sizeinfo)
-            },
-        }
+// Read portion of an interest
+fn read_interest(interest: mio::Ready) -> mio::Ready {
+    if interest.is_readable() {
+        mio::Ready::readable()
+    } else {
+        mio::Ready::empty()
     }
 }
 
-impl<'a> EventedReadWrite for Pty<'a> {
-    type Reader = EventedReadablePipe;
-    type Writer = EventedWritablePipe;
+// Write portion of an interest
+fn write_interest(interest: mio::Ready) -> mio::Ready {
+    if interest.is_writable() {
+        mio::Ready::writable()
+    } else {
+        mio::Ready::empty()
+    }
+}
+
+impl EventedReadWrite for Pty {
+    type Reader = Pty;
+    type Writer = Pty;
 
     #[inline]
     fn register(
@@ -214,15 +139,18 @@ impl<'a> EventedReadWrite for Pty<'a> {
         self.read_token = token.next().unwrap();
         self.write_token = token.next().unwrap();
 
-        if interest.is_readable() {
-            poll.register(&self.conout, self.read_token, mio::Ready::readable(), poll_opts)?
-        } else {
-            poll.register(&self.conout, self.read_token, mio::Ready::empty(), poll_opts)?
-        }
-        if interest.is_writable() {
-            poll.register(&self.conin, self.write_token, mio::Ready::writable(), poll_opts)?
-        } else {
-            poll.register(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)?
+        let ri = read_interest(interest);
+        let wi = write_interest(interest);
+
+        match &self.inner {
+            PtyInner::Winpty(w) => {
+                poll.register(&w.conout, self.read_token, ri, poll_opts)?;
+                poll.register(&w.conin, self.write_token, wi, poll_opts)?;
+            },
+            PtyInner::Conpty(c) => {
+                poll.register(&c.conout, self.read_token, ri, poll_opts)?;
+                poll.register(&c.conin, self.write_token, wi, poll_opts)?;
+            }
         }
 
         self.child_event_token = token.next().unwrap();
@@ -243,15 +171,18 @@ impl<'a> EventedReadWrite for Pty<'a> {
         interest: mio::Ready,
         poll_opts: mio::PollOpt,
     ) -> io::Result<()> {
-        if interest.is_readable() {
-            poll.reregister(&self.conout, self.read_token, mio::Ready::readable(), poll_opts)?;
-        } else {
-            poll.reregister(&self.conout, self.read_token, mio::Ready::empty(), poll_opts)?;
-        }
-        if interest.is_writable() {
-            poll.reregister(&self.conin, self.write_token, mio::Ready::writable(), poll_opts)?;
-        } else {
-            poll.reregister(&self.conin, self.write_token, mio::Ready::empty(), poll_opts)?;
+        let ri = read_interest(interest);
+        let wi = write_interest(interest);
+
+        match &self.inner {
+            PtyInner::Winpty(w) => {
+                poll.reregister(&w.conout, self.read_token, ri, poll_opts)?;
+                poll.reregister(&w.conin, self.write_token, wi, poll_opts)?;
+            },
+            PtyInner::Conpty(c) => {
+                poll.reregister(&c.conout, self.read_token, ri, poll_opts)?;
+                poll.reregister(&c.conin, self.write_token, wi, poll_opts)?;
+            }
         }
 
         poll.reregister(
@@ -266,15 +197,24 @@ impl<'a> EventedReadWrite for Pty<'a> {
 
     #[inline]
     fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
-        poll.deregister(&self.conout)?;
-        poll.deregister(&self.conin)?;
+        match &self.inner {
+            PtyInner::Winpty(w) => {
+                poll.deregister(&w.conout)?;
+                poll.deregister(&w.conin)?;
+            },
+            PtyInner::Conpty(c) => {
+                poll.deregister(&c.conout)?;
+                poll.deregister(&c.conin)?;
+            }
+        }
+
         poll.deregister(self.child_watcher.event_rx())?;
         Ok(())
     }
 
     #[inline]
     fn reader(&mut self) -> &mut Self::Reader {
-        &mut self.conout
+        self
     }
 
     #[inline]
@@ -284,7 +224,7 @@ impl<'a> EventedReadWrite for Pty<'a> {
 
     #[inline]
     fn writer(&mut self) -> &mut Self::Writer {
-        &mut self.conin
+        self
     }
 
     #[inline]
@@ -293,7 +233,7 @@ impl<'a> EventedReadWrite for Pty<'a> {
     }
 }
 
-impl<'a> EventedPty for Pty<'a> {
+impl EventedPty for Pty {
     fn child_event_token(&self) -> mio::Token {
         self.child_event_token
     }

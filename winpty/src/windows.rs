@@ -40,18 +40,18 @@ bitflags!(
 );
 
 #[derive(Debug)]
-pub struct Err<'a> {
-    ptr: &'a mut winpty_error_t,
+pub struct Err {
+    ptr: *mut winpty_error_t,
     code: u32,
     message: String,
 }
 
 // Check to see whether winpty gave us an error
-fn check_err<'a>(e: *mut winpty_error_t) -> Option<Err<'a>> {
+fn check_err<'a>(e: *mut winpty_error_t) -> Option<Err> {
     let err = unsafe {
         let raw = winpty_error_msg(e);
         Err {
-            ptr: &mut *e,
+            ptr: e,
             code: winpty_error_code(e),
             message: String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw))),
         }
@@ -63,19 +63,19 @@ fn check_err<'a>(e: *mut winpty_error_t) -> Option<Err<'a>> {
     }
 }
 
-impl<'a> Drop for Err<'a> {
+impl Drop for Err {
     fn drop(&mut self) {
         unsafe {
             winpty_error_free(self.ptr);
         }
     }
 }
-impl<'a> Display for Err<'a> {
+impl Display for Err {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         write!(f, "Code: {}, Message: {}", self.code, self.message)
     }
 }
-impl<'a> Error for Err<'a> {
+impl Error for Err {
     fn description(&self) -> &str {
         &self.message
     }
@@ -83,17 +83,17 @@ impl<'a> Error for Err<'a> {
 
 #[derive(Debug)]
 /// Winpty agent config
-pub struct Config<'a>(&'a mut winpty_config_t);
+pub struct Config(*mut winpty_config_t);
 
-impl<'a, 'b> Config<'a> {
-    pub fn new(flags: ConfigFlags) -> Result<Self, Err<'b>> {
+impl Config {
+    pub fn new(flags: ConfigFlags) -> Result<Self, Err> {
         let mut err = null_mut() as *mut winpty_error_t;
         let config = unsafe { winpty_config_new(flags.bits(), &mut err) };
 
         if let Some(err) = check_err(err) {
             Result::Err(err)
         } else {
-            unsafe { Ok(Config(&mut *config)) }
+            Ok(Config(config))
         }
     }
 
@@ -127,7 +127,7 @@ impl<'a, 'b> Config<'a> {
     }
 }
 
-impl<'a> Drop for Config<'a> {
+impl Drop for Config {
     fn drop(&mut self) {
         unsafe {
             winpty_config_free(self.0);
@@ -137,13 +137,13 @@ impl<'a> Drop for Config<'a> {
 
 #[derive(Debug)]
 /// A struct representing the winpty agent process
-pub struct Winpty<'a>(&'a mut winpty_t);
+pub struct Winpty(*mut winpty_t);
 
-impl<'a, 'b> Winpty<'a> {
+impl Winpty {
     /// Starts the agent. This process will connect to the agent
     /// over a control pipe, and the agent will open data pipes
     /// (e.g. CONIN and CONOUT).
-    pub fn open(cfg: &Config) -> Result<Self, Err<'b>> {
+    pub fn open(cfg: &Config) -> Result<Self, Err> {
         let mut err = null_mut() as *mut winpty_error_t;
         unsafe {
             let winpty = winpty_open(cfg.0, &mut err);
@@ -268,10 +268,10 @@ impl<'a, 'b> Winpty<'a> {
 }
 
 // winpty_t is thread-safe
-unsafe impl<'a> Sync for Winpty<'a> {}
-unsafe impl<'a> Send for Winpty<'a> {}
+unsafe impl Sync for Winpty {}
+unsafe impl Send for Winpty {}
 
-impl<'a> Drop for Winpty<'a> {
+impl Drop for Winpty {
     fn drop(&mut self) {
         unsafe {
             winpty_free(self.0);
@@ -281,9 +281,9 @@ impl<'a> Drop for Winpty<'a> {
 
 #[derive(Debug)]
 /// Information about a process for winpty to spawn
-pub struct SpawnConfig<'a>(&'a mut winpty_spawn_config_t);
+pub struct SpawnConfig(*mut winpty_spawn_config_t);
 
-impl<'a, 'b> SpawnConfig<'a> {
+impl SpawnConfig {
     /// Creates a new spawnconfig
     pub fn new(
         spawnflags: SpawnFlags,
@@ -291,7 +291,7 @@ impl<'a, 'b> SpawnConfig<'a> {
         cmdline: Option<&str>,
         cwd: Option<&str>,
         end: Option<&str>,
-    ) -> Result<Self, Err<'b>> {
+    ) -> Result<Self, Err> {
         let mut err = null_mut() as *mut winpty_error_t;
         let (appname, cmdline, cwd, end) = (
             appname.map_or(null(), |s| WideCString::from_str(s).unwrap().into_raw()),
@@ -323,11 +323,11 @@ impl<'a, 'b> SpawnConfig<'a> {
         if let Some(err) = check_err(err) {
             Result::Err(err)
         } else {
-            unsafe { Ok(SpawnConfig(&mut *spawn_config)) }
+            Ok(SpawnConfig(spawn_config))
         }
     }
 }
-impl<'a> Drop for SpawnConfig<'a> {
+impl Drop for SpawnConfig {
     fn drop(&mut self) {
         unsafe {
             winpty_spawn_config_free(self.0);

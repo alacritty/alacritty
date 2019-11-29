@@ -31,42 +31,47 @@ use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::windows::Pty;
 
-// We store a raw pointer because we need mutable access to call
-// on_resize from a separate thread. Winpty internally uses a mutex
-// so this is safe, despite outwards appearance.
-pub struct Agent<'a> {
-    winpty: *mut Winpty<'a>,
+
+pub struct WinptyAgent {
+    winpty: Arc<Winpty>,
+    pub conout: NamedPipe,
+    pub conin: NamedPipe
 }
 
-/// Handle can be cloned freely and moved between threads.
-pub type WinptyHandle<'a> = Arc<Agent<'a>>;
-
-// Because Winpty has a mutex, we can do this.
-unsafe impl<'a> Send for Agent<'a> {}
-unsafe impl<'a> Sync for Agent<'a> {}
-
-impl<'a> Agent<'a> {
-    pub fn new(winpty: Winpty<'a>) -> Self {
-        Self { winpty: Box::into_raw(Box::new(winpty)) }
+impl WinptyAgent {
+    pub fn new(winpty: Winpty, conout: NamedPipe, conin: NamedPipe) -> Self {
+        Self {
+            winpty: Arc::new(winpty),
+            conout,
+            conin
+        }
     }
 
-    /// Get immutable access to Winpty.
-    pub fn winpty(&self) -> &Winpty<'a> {
-        unsafe { &*self.winpty }
-    }
-
-    pub fn resize(&self, size: &SizeInfo) {
-        // This is safe since Winpty uses a mutex internally.
-        unsafe {
-            (&mut *self.winpty).on_resize(size);
+    pub fn resize_handle(&self) -> WinptyResizeHandle {
+        WinptyResizeHandle {
+            winpty: self.winpty.clone()
         }
     }
 }
 
-impl<'a> Drop for Agent<'a> {
-    fn drop(&mut self) {
-        unsafe {
-            Box::from_raw(self.winpty);
+/// Resize handle to safely move between threads.
+pub struct WinptyResizeHandle {
+    // Doesn't need the in/out pipes here!
+    winpty: Arc<Winpty>
+}
+
+impl OnResize for WinptyResizeHandle {
+    fn on_resize(&mut self, size: &SizeInfo) {
+        let (cols, lines) = (size.cols().0, size.lines().0);
+        if cols > 0 && cols <= u16::MAX as usize && lines > 0 && lines <= u16::MAX as usize {
+
+            let winpty: &mut Winpty = unsafe {
+                // This transmute is actually thread-safe since Winpty uses a mutex internally.
+                std::mem::transmute(&self.winpty as *const _ as *mut Winpty)
+            };
+
+            winpty.set_size(cols as u16, lines as u16)
+                  .unwrap_or_else(|_| info!("Unable to set winpty size, did it die?"));
         }
     }
 }
@@ -75,7 +80,7 @@ impl<'a> Drop for Agent<'a> {
 /// This is a placeholder value until we see how often long responses happen
 const AGENT_TIMEOUT: u32 = 10000;
 
-pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty<'a> {
+pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty {
     // Create config
     let mut wconfig = WinptyConfig::new(ConfigFlags::empty()).unwrap();
 
@@ -137,12 +142,10 @@ pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>
     winpty.spawn(&spawnconfig).unwrap();
 
     let child_watcher = ChildExitWatcher::new(winpty.raw_handle()).unwrap();
-    let agent = Agent::new(winpty);
+    let agent = WinptyAgent::new(winpty, conout_pipe, conin_pipe);
 
     Pty {
-        handle: super::PtyHandle::Winpty(WinptyHandle::new(agent)),
-        conout: super::EventedReadablePipe::Named(conout_pipe),
-        conin: super::EventedWritablePipe::Named(conin_pipe),
+        inner: super::PtyInner::Winpty(agent),
         read_token: 0.into(),
         write_token: 0.into(),
         child_event_token: 0.into(),
@@ -150,7 +153,7 @@ pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>
     }
 }
 
-impl<'a> OnResize for Winpty<'a> {
+impl OnResize for Winpty {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
         let (cols, lines) = (sizeinfo.cols().0, sizeinfo.lines().0);
         if cols > 0 && cols <= u16::MAX as usize && lines > 0 && lines <= u16::MAX as usize {

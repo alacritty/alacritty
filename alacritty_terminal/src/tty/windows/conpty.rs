@@ -17,7 +17,7 @@ use std::io::Error;
 use std::mem;
 use std::os::windows::io::IntoRawHandle;
 use std::ptr;
-use std::sync::Arc;
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 
 use dunce::canonicalize;
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
@@ -81,28 +81,48 @@ impl ConptyApi {
 
 /// RAII Pseudoconsole
 pub struct Conpty {
-    pub handle: HPCON,
-    api: ConptyApi,
+    inner: Arc<ConptyInner>,
+    pub conout: EventedAnonRead,
+    pub conin: EventedAnonWrite
 }
 
-/// Handle can be cloned freely and moved between threads.
-pub type ConptyHandle = Arc<Conpty>;
+/// ResizeHandle can be freely cloned and moved between threads
+#[derive(Clone)]
+pub struct ConptyResizeHandle {
+    inner: Arc<ConptyInner>
+}
 
-impl Drop for Conpty {
-    fn drop(&mut self) {
-        unsafe { (self.api.ClosePseudoConsole)(self.handle) }
+struct ConptyInner {
+    handle: HPCON,
+    api: ConptyApi,
+
+    // Having this field allows ResizeHandle to outlive Conpty
+    // without safety issues
+    closed: AtomicBool
+}
+
+impl Conpty {
+    pub fn resize_handle(&self) -> ConptyResizeHandle {
+        ConptyResizeHandle {
+            inner: self.inner.clone()
+        }
     }
 }
 
-// The Conpty API can be accessed from multiple threads.
-unsafe impl Send for Conpty {}
-unsafe impl Sync for Conpty {}
+impl Drop for Conpty {
+    fn drop(&mut self) {
+        self.inner.closed.store(false, Ordering::SeqCst);
+        unsafe { (self.inner.api.ClosePseudoConsole)(self.inner.handle) }
+    }
+}
 
-pub fn new<'a, C>(
+unsafe impl Send for Conpty {}
+
+pub fn new<C>(
     config: &Config<C>,
     size: &SizeInfo,
     _window_id: Option<usize>,
-) -> Option<Pty<'a>> {
+) -> Option<Pty> {
     if !config.enable_experimental_conpty_backend {
         return None;
     }
@@ -240,16 +260,19 @@ pub fn new<'a, C>(
         }
     }
 
-    let conin = EventedAnonWrite::new(conin);
-    let conout = EventedAnonRead::new(conout);
-
     let child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
-    let agent = Conpty { handle: pty_handle, api };
+    let conpty = Conpty {
+        inner: Arc::new(ConptyInner {
+            handle: pty_handle,
+            api,
+            closed: AtomicBool::new(false)
+        }),
+        conout: EventedAnonRead::new(conout),
+        conin: EventedAnonWrite::new(conin)
+    };
 
     Some(Pty {
-        handle: super::PtyHandle::Conpty(ConptyHandle::new(agent)),
-        conout: super::EventedReadablePipe::Anonymous(conout),
-        conin: super::EventedWritablePipe::Anonymous(conin),
+        inner: super::PtyInner::Conpty(conpty),
         read_token: 0.into(),
         write_token: 0.into(),
         child_event_token: 0.into(),
@@ -262,11 +285,15 @@ fn panic_shell_spawn() {
     panic!("Unable to spawn shell: {}", Error::last_os_error());
 }
 
-impl OnResize for ConptyHandle {
+impl OnResize for ConptyResizeHandle {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
         if let Some(coord) = coord_from_sizeinfo(sizeinfo) {
-            let result = unsafe { (self.api.ResizePseudoConsole)(self.handle, coord) };
-            assert!(result == S_OK);
+            if !self.inner.closed.load(Ordering::SeqCst) {
+                let result = unsafe {
+                    (self.inner.api.ResizePseudoConsole)(self.inner.handle, coord)
+                };
+                assert!(result == S_OK);
+            }
         }
     }
 }
