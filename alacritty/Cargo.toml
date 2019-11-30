@@ -34,7 +34,7 @@ rustc_tools_util = "0.2.0"
 xdg = "2"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
-image = "0.22.3"
+image = { version = "0.22.3", default-features = false, features = ["ico"] }
 
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]
 dirs = "2.0.2"
@@ -44,6 +44,9 @@ x11-dl = "2"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.7", features = ["impl-default", "winuser", "synchapi", "roerrorapi", "winerror", "wincon", "wincontypes"]}
+
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "1.3"
 
 [features]
 default = []
