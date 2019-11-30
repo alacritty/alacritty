@@ -367,8 +367,8 @@ impl Display {
         config: &Config,
         pty_resize_handle: &mut dyn OnResize,
         processor_resize_handle: &mut dyn OnResize,
-        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
         tokio_handle: current_thread::Handle,
+        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
     ) {
         let previous_cols = self.size_info.cols();
         let previous_lines = self.size_info.lines();
@@ -501,8 +501,8 @@ impl Display {
         &mut self,
         terminal: &FairMutex<Term>,
         config: &Config,
-        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
         tokio_handle: current_thread::Handle,
+        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
     ) {
         let mut terminal = terminal.lock();
         let size_info = *terminal.size_info();

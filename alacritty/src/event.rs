@@ -314,8 +314,8 @@ pub struct Processor<N> {
     message_buffer: MessageBuffer,
     display: Display,
     font_size: Size,
-    charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
     tokio_handle: current_thread::Handle,
+    charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
 }
 
 impl<N: Notify> Processor<N> {
@@ -329,8 +329,8 @@ impl<N: Notify> Processor<N> {
         message_buffer: MessageBuffer,
         config: Config,
         display: Display,
-        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
         tokio_handle: current_thread::Handle,
+        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
     ) -> Processor<N> {
         Processor {
             notifier,
@@ -343,8 +343,8 @@ impl<N: Notify> Processor<N> {
             pty_resize_handle,
             message_buffer,
             display,
-            charts_tx,
             tokio_handle,
+            charts_tx,
         }
     }
 
@@ -417,8 +417,8 @@ impl<N: Notify> Processor<N> {
                     &self.message_buffer,
                     &self.config,
                     display_update_pending,
-                    self.charts_tx.clone(),
                     self.tokio_handle.clone(),
+                    self.charts_tx.clone(),
                 );
             }
 
@@ -437,8 +437,8 @@ impl<N: Notify> Processor<N> {
                     &self.config,
                     &self.mouse,
                     self.modifiers,
-                    self.charts_tx.clone(),
                     self.tokio_handle.clone(),
+                    self.charts_tx.clone(),
                 );
             }
         });

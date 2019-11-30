@@ -305,8 +305,8 @@ impl Display {
         message_buffer: &MessageBuffer,
         config: &Config,
         update_pending: DisplayUpdate,
-        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
         tokio_handle: current_thread::Handle,
+        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
     ) {
         // Update font size and cell dimensions
         if let Some(font) = update_pending.font {
@@ -399,8 +399,8 @@ impl Display {
         config: &Config,
         mouse: &Mouse,
         mods: ModifiersState,
-        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
         tokio_handle: current_thread::Handle,
+        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
     ) {
         let grid_cells: Vec<RenderableCell> = terminal.renderable_cells(config).collect();
         let visual_bell_intensity = terminal.visual_bell.intensity();
