@@ -100,7 +100,10 @@ fn ref_test(dir: &Path) {
     let mut config = MockConfig::default();
     config.scrolling.set_history(ref_config.history_size);
 
-    let mut terminal = Term::new(&config, &size, Clipboard::new_nop(), Mock);
+    let (tokio_handle, charts_tx, _tokio_shutdown) =
+        alacritty_charts::async_utils::tokio_default_setup();
+    let mut terminal =
+        Term::new(&config, &size, Clipboard::new_nop(), Mock, tokio_handle, charts_tx);
     let mut parser = ansi::Processor::new();
 
     for byte in recording {

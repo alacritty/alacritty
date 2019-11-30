@@ -15,10 +15,10 @@
 //! Exports the `Term` type which is a high-level API for the Grid
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut, Range};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 use std::{io, mem, ptr, str};
 
-use log::{debug, trace};
+use log::{debug, error, trace};
 use serde::{Deserialize, Serialize};
 use unicode_width::UnicodeWidthChar;
 
@@ -38,7 +38,9 @@ use crate::term::cell::{Cell, Flags, LineLength};
 use crate::term::color::Rgb;
 #[cfg(windows)]
 use crate::tty;
+use futures::future::lazy;
 use futures::sync::mpsc as futures_mpsc;
+use tokio::prelude::*;
 use tokio::runtime::current_thread;
 
 pub mod cell;
@@ -755,11 +757,11 @@ pub struct Term<T> {
     /// term is set, and the Glutin window's title attribute is changed through the event listener.
     title_stack: Vec<String>,
 
-    /// A handle to the tokio current thread runtime, if charts are enabled
-    tokio_handle: Option<current_thread::Handle>,
+    /// A handle to the tokio current thread runtime
+    tokio_handle: current_thread::Handle,
 
     /// Channel to communicate with the chart background thread.
-    charts_tx: Option<futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>>,
+    charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
 }
 
 /// Terminal size info
@@ -844,6 +846,8 @@ impl<T> Term<T> {
         size: &SizeInfo,
         clipboard: Clipboard,
         event_proxy: T,
+        tokio_handle: current_thread::Handle,
+        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
     ) -> Term<T> {
         let num_cols = size.cols();
         let num_lines = size.lines();
@@ -887,8 +891,8 @@ impl<T> Term<T> {
             is_focused: true,
             title: config.window.title.clone(),
             title_stack: Vec::new(),
-            tokio_handle: None,
-            charts_tx: None,
+            tokio_handle,
+            charts_tx,
         }
     }
 
@@ -1129,27 +1133,39 @@ impl<T> Term<T> {
     // }
     // }
 
-    /// `add_async_charts_tx` stores the transmitting channel to talk to the background thread.
-    pub fn add_async_charts_tx(
-        &mut self,
-        charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
-    ) {
-        self.charts_tx = Some(charts_tx);
-    }
-
-    /// `add_async_tokio_handle` stores the transmitting channel to talk to the background thread.
-    pub fn add_async_tokio_handle(&mut self, tokio_handle: current_thread::Handle) {
-        self.tokio_handle = Some(tokio_handle);
+    pub fn increment_counter(&mut self, counter_type: &'static str, increment: f64) {
+        let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let send_increment_input_counter = self
+            .charts_tx
+            .clone()
+            .send(if counter_type == "input" {
+                alacritty_charts::async_utils::AsyncChartTask::IncrementInputCounter(now, increment)
+            } else {
+                alacritty_charts::async_utils::AsyncChartTask::IncrementOutputCounter(
+                    now, increment,
+                )
+            })
+            .map_err(|e| error!("Sending IncrementInputCounter Task: err={:?}", e))
+            .and_then(move |_res| {
+                debug!(
+                    "Sent IncrementInputCounter Task for instant {} with value: {}",
+                    now, increment
+                );
+                Ok(())
+            });
+        self.tokio_handle
+            .spawn(lazy(move || send_increment_input_counter))
+            .expect("Unable to queue async task for send_increment_input_counter");
     }
 
     #[inline]
-    pub fn increment_output_activity_level(&mut self, increment: u64) {
-        // self.output_activity_levels.update_activity_level(self.size_info, increment);
+    pub fn increment_chart_output_counter(&mut self, increment: f64) {
+        self.increment_counter("output", increment);
     }
 
     #[inline]
-    pub fn increment_input_activity_level(&mut self, increment: u64) {
-        // self.input_activity_levels.update_activity_level(self.size_info, increment);
+    pub fn increment_chart_input_counter(&mut self, increment: f64) {
+        self.increment_counter("input", increment);
     }
 
     #[inline]
@@ -1284,7 +1300,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
-        self.increment_output_activity_level(1u64);
+        self.increment_chart_output_counter(1f64);
         // If enabled, scroll to bottom when character is received
         if self.auto_scroll {
             self.scroll_display(Scroll::Bottom);
@@ -2158,7 +2174,16 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let (tokio_handle, charts_tx, _tokio_shutdown) =
+            alacritty_charts::async_utils::tokio_default_setup();
+        let mut term = Term::new(
+            &MockConfig::default(),
+            &size,
+            Clipboard::new_nop(),
+            Mock,
+            tokio_handle,
+            charts_tx,
+        );
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(5), 0, Cell::default());
         for i in 0..5 {
             for j in 0..2 {
@@ -2202,7 +2227,16 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let (tokio_handle, charts_tx, _tokio_shutdown) =
+            alacritty_charts::async_utils::tokio_default_setup();
+        let mut term = Term::new(
+            &MockConfig::default(),
+            &size,
+            Clipboard::new_nop(),
+            Mock,
+            tokio_handle,
+            charts_tx,
+        );
         let mut grid: Grid<Cell> = Grid::new(Line(1), Column(5), 0, Cell::default());
         for i in 0..5 {
             grid[Line(0)][Column(i)].c = 'a';
@@ -2227,7 +2261,16 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let (tokio_handle, charts_tx, _tokio_shutdown) =
+            alacritty_charts::async_utils::tokio_default_setup();
+        let mut term = Term::new(
+            &MockConfig::default(),
+            &size,
+            Clipboard::new_nop(),
+            Mock,
+            tokio_handle,
+            charts_tx,
+        );
         let mut grid: Grid<Cell> = Grid::new(Line(3), Column(3), 0, Cell::default());
         for l in 0..3 {
             if l != 1 {
@@ -2271,7 +2314,16 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let (tokio_handle, charts_tx, _tokio_shutdown) =
+            alacritty_charts::async_utils::tokio_default_setup();
+        let mut term = Term::new(
+            &MockConfig::default(),
+            &size,
+            Clipboard::new_nop(),
+            Mock,
+            tokio_handle,
+            charts_tx,
+        );
         let cursor = Point::new(Line(0), Column(0));
         term.configure_charset(CharsetIndex::G0, StandardCharset::SpecialCharacterAndLineDrawing);
         term.input('a');
@@ -2290,7 +2342,16 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let (tokio_handle, charts_tx, _tokio_shutdown) =
+            alacritty_charts::async_utils::tokio_default_setup();
+        let mut term = Term::new(
+            &MockConfig::default(),
+            &size,
+            Clipboard::new_nop(),
+            Mock,
+            tokio_handle,
+            charts_tx,
+        );
 
         // Add one line of scrollback
         term.grid.scroll_up(&(Line(0)..Line(1)), Line(1), &Cell::default());
@@ -2315,7 +2376,16 @@ mod tests {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        let mut term = Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock);
+        let (tokio_handle, charts_tx, _tokio_shutdown) =
+            alacritty_charts::async_utils::tokio_default_setup();
+        let mut term = Term::new(
+            &MockConfig::default(),
+            &size,
+            Clipboard::new_nop(),
+            Mock,
+            tokio_handle,
+            charts_tx,
+        );
 
         // Title can be set
         {
@@ -2415,7 +2485,10 @@ mod benches {
 
         let config = MockConfig::default();
 
-        let mut terminal = Term::new(&config, &size, Clipboard::new_nop(), Mock);
+        let (tokio_handle, charts_tx, _tokio_shutdown) =
+            alacritty_charts::async_utils::tokio_default_setup();
+        let mut terminal =
+            Term::new(&config, &size, Clipboard::new_nop(), Mock, tokio_handle, charts_tx);
         mem::swap(&mut terminal.grid, &mut grid);
 
         b.iter(|| {

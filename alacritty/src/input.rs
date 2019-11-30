@@ -786,6 +786,7 @@ mod tests {
     use crate::event::{ClickState, Mouse};
     use crate::url::Urls;
     use crate::window::Window;
+    use alacritty_charts::futures::sync::mpsc;
 
     use super::{Action, Binding, Processor};
 
@@ -951,8 +952,10 @@ mod tests {
                     padding_y: 0.0,
                     dpr: 1.0,
                 };
+                // Create the tokio handle, transmission channel and shutdown channel
+                let (tokio_handle, charts_tx, _tokio_shutdown) = alacritty_charts::async_utils::tokio_default_setup();
 
-                let mut terminal = Term::new(&cfg, &size, Clipboard::new_nop(), MockEventProxy);
+                let mut terminal = Term::new(&cfg, &size, Clipboard::new_nop(), MockEventProxy, tokio_handle, charts_tx);
 
                 let mut mouse = Mouse::default();
                 mouse.click_state = $initial_state;

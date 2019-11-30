@@ -146,12 +146,46 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     #[cfg(any(target_os = "macos", windows))]
     let clipboard = Clipboard::new();
 
+    // Copy the terminal size into the alacritty_charts SizeInfo copy.
+    let charts_size_info = alacritty_charts::SizeInfo {
+        height: display.size_info.height,
+        width: display.size_info.width,
+        padding_y: display.size_info.padding_y,
+        padding_x: display.size_info.padding_x,
+        ..alacritty_charts::SizeInfo::default()
+    };
+
+    // Create the channel that is used to communicate with the
+    // charts background task.
+    let (charts_tx, charts_rx) = mpsc::channel(4_096usize);
+    // Create a channel to receive a handle from Tokio
+    //
+    let (handle_tx, handle_rx) = std::sync::mpsc::channel();
+    // Start the Async I/O runtime, this needs to run in a background thread because in OSX, only
+    // the main thread can write to the graphics card.
+    let (_tokio_thread, tokio_shutdown) = alacritty_charts::async_utils::spawn_async_tasks(
+        config.charts.clone(),
+        charts_tx.clone(),
+        charts_rx,
+        handle_tx,
+        charts_size_info,
+    );
+    let tokio_handle =
+        handle_rx.recv().expect("Unable to get the tokio handle in a background thread");
+
     // Create the terminal
     //
     // This object contains all of the state about what's being displayed. It's
     // wrapped in a clonable mutex since both the I/O loop and display need to
     // access it.
-    let terminal = Term::new(&config, &display.size_info, clipboard, event_proxy.clone());
+    let terminal = Term::new(
+        &config,
+        &display.size_info,
+        clipboard,
+        event_proxy.clone(),
+        tokio_handle.clone(),
+        charts_tx.clone(),
+    );
     let terminal = Arc::new(FairMutex::new(terminal));
 
     // Create the pty
@@ -212,31 +246,6 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
         config.config_path.as_ref().map(|path| Monitor::new(path, event_proxy.clone()));
     }
 
-    // Copy the terminal size into the alacritty_charts SizeInfo copy.
-    let charts_size_info = alacritty_charts::SizeInfo {
-        height: display.size_info.height,
-        width: display.size_info.width,
-        padding_y: display.size_info.padding_y,
-        padding_x: display.size_info.padding_x,
-        ..alacritty_charts::SizeInfo::default()
-    };
-
-    // Create the channel that is used to communicate with the
-    // charts background task.
-    let (charts_tx, charts_rx) = mpsc::channel(4_096usize);
-    // Create a channel to receive a handle from Tokio
-    let (handle_tx, handle_rx) = std::sync::mpsc::channel();
-    // Start the Async I/O runtime
-    let (_tokio_thread, tokio_shutdown) = event_loop.spawn_async_tasks(
-        config.charts.clone(),
-        charts_tx.clone(),
-        charts_rx,
-        handle_tx,
-        charts_size_info,
-    );
-    let tokio_handle =
-        handle_rx.recv().expect("Unable to get the tokio handle in a background thread");
-
     // Setup storage for message UI
     let message_buffer = MessageBuffer::new();
 
@@ -249,8 +258,8 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
         message_buffer,
         config,
         display,
-        charts_tx,
         tokio_handle,
+        charts_tx,
     );
 
     // Kick off the I/O thread

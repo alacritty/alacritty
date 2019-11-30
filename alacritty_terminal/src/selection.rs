@@ -428,7 +428,16 @@ mod test {
             padding_y: 0.0,
             dpr: 1.0,
         };
-        Term::new(&MockConfig::default(), &size, Clipboard::new_nop(), Mock)
+        let (tokio_handle, charts_tx, _tokio_shutdown) =
+            alacritty_charts::async_utils::tokio_default_setup();
+        Term::new(
+            &MockConfig::default(),
+            &size,
+            Clipboard::new_nop(),
+            Mock,
+            tokio_handle,
+            charts_tx,
+        )
     }
 
     /// Test case of single cell selection
