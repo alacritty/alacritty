@@ -31,47 +31,40 @@ use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::windows::Pty;
 
-
 pub struct WinptyAgent {
     winpty: Arc<Winpty>,
     pub conout: NamedPipe,
-    pub conin: NamedPipe
+    pub conin: NamedPipe,
 }
 
 impl WinptyAgent {
     pub fn new(winpty: Winpty, conout: NamedPipe, conin: NamedPipe) -> Self {
-        Self {
-            winpty: Arc::new(winpty),
-            conout,
-            conin
-        }
+        Self { winpty: Arc::new(winpty), conout, conin }
     }
 
     pub fn resize_handle(&self) -> WinptyResizeHandle {
-        WinptyResizeHandle {
-            winpty: self.winpty.clone()
-        }
+        WinptyResizeHandle { winpty: self.winpty.clone() }
     }
 }
 
 /// Resize handle to safely move between threads.
 pub struct WinptyResizeHandle {
     // Doesn't need the in/out pipes here!
-    winpty: Arc<Winpty>
+    winpty: Arc<Winpty>,
 }
 
 impl OnResize for WinptyResizeHandle {
     fn on_resize(&mut self, size: &SizeInfo) {
         let (cols, lines) = (size.cols().0, size.lines().0);
         if cols > 0 && cols <= u16::MAX as usize && lines > 0 && lines <= u16::MAX as usize {
-
             let winpty: &mut Winpty = unsafe {
                 // This transmute is actually thread-safe since Winpty uses a mutex internally.
                 std::mem::transmute(&self.winpty as *const _ as *mut Winpty)
             };
 
-            winpty.set_size(cols as u16, lines as u16)
-                  .unwrap_or_else(|_| info!("Unable to set winpty size, did it die?"));
+            winpty
+                .set_size(cols as u16, lines as u16)
+                .unwrap_or_else(|_| info!("Unable to set winpty size, did it die?"));
         }
     }
 }

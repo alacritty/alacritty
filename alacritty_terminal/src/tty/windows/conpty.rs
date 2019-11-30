@@ -17,7 +17,10 @@ use std::io::Error;
 use std::mem;
 use std::os::windows::io::IntoRawHandle;
 use std::ptr;
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 use dunce::canonicalize;
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
@@ -83,13 +86,13 @@ impl ConptyApi {
 pub struct Conpty {
     inner: Arc<ConptyInner>,
     pub conout: EventedAnonRead,
-    pub conin: EventedAnonWrite
+    pub conin: EventedAnonWrite,
 }
 
 /// ResizeHandle can be freely cloned and moved between threads
 #[derive(Clone)]
 pub struct ConptyResizeHandle {
-    inner: Arc<ConptyInner>
+    inner: Arc<ConptyInner>,
 }
 
 struct ConptyInner {
@@ -98,14 +101,12 @@ struct ConptyInner {
 
     // Having this field allows ResizeHandle to outlive Conpty
     // without safety issues
-    closed: AtomicBool
+    closed: AtomicBool,
 }
 
 impl Conpty {
     pub fn resize_handle(&self) -> ConptyResizeHandle {
-        ConptyResizeHandle {
-            inner: self.inner.clone()
-        }
+        ConptyResizeHandle { inner: self.inner.clone() }
     }
 }
 
@@ -118,11 +119,7 @@ impl Drop for Conpty {
 
 unsafe impl Send for Conpty {}
 
-pub fn new<C>(
-    config: &Config<C>,
-    size: &SizeInfo,
-    _window_id: Option<usize>,
-) -> Option<Pty> {
+pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Option<Pty> {
     if !config.enable_experimental_conpty_backend {
         return None;
     }
@@ -262,13 +259,9 @@ pub fn new<C>(
 
     let child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
     let conpty = Conpty {
-        inner: Arc::new(ConptyInner {
-            handle: pty_handle,
-            api,
-            closed: AtomicBool::new(false)
-        }),
+        inner: Arc::new(ConptyInner { handle: pty_handle, api, closed: AtomicBool::new(false) }),
         conout: EventedAnonRead::new(conout),
-        conin: EventedAnonWrite::new(conin)
+        conin: EventedAnonWrite::new(conin),
     };
 
     Some(Pty {
@@ -289,9 +282,8 @@ impl OnResize for ConptyResizeHandle {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
         if let Some(coord) = coord_from_sizeinfo(sizeinfo) {
             if !self.inner.closed.load(Ordering::SeqCst) {
-                let result = unsafe {
-                    (self.inner.api.ResizePseudoConsole)(self.inner.handle, coord)
-                };
+                let result =
+                    unsafe { (self.inner.api.ResizePseudoConsole)(self.inner.handle, coord) };
                 assert!(result == S_OK);
             }
         }

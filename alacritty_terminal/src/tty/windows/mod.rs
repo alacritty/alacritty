@@ -51,7 +51,7 @@ impl Pty {
     pub fn resize_handle(&self) -> impl OnResize {
         match &self.inner {
             PtyInner::Winpty(w) => PtyResizeHandle::Winpty(w.resize_handle()),
-            PtyInner::Conpty(c) => PtyResizeHandle::Conpty(c.resize_handle())
+            PtyInner::Conpty(c) => PtyResizeHandle::Conpty(c.resize_handle()),
         }
     }
 }
@@ -146,7 +146,7 @@ impl EventedReadWrite for Pty {
             PtyInner::Winpty(w) => {
                 poll.register(&w.conout, self.read_token, ri, poll_opts)?;
                 poll.register(&w.conin, self.write_token, wi, poll_opts)?;
-            },
+            }
             PtyInner::Conpty(c) => {
                 poll.register(&c.conout, self.read_token, ri, poll_opts)?;
                 poll.register(&c.conin, self.write_token, wi, poll_opts)?;
@@ -178,7 +178,7 @@ impl EventedReadWrite for Pty {
             PtyInner::Winpty(w) => {
                 poll.reregister(&w.conout, self.read_token, ri, poll_opts)?;
                 poll.reregister(&w.conin, self.write_token, wi, poll_opts)?;
-            },
+            }
             PtyInner::Conpty(c) => {
                 poll.reregister(&c.conout, self.read_token, ri, poll_opts)?;
                 poll.reregister(&c.conin, self.write_token, wi, poll_opts)?;
@@ -201,7 +201,7 @@ impl EventedReadWrite for Pty {
             PtyInner::Winpty(w) => {
                 poll.deregister(&w.conout)?;
                 poll.deregister(&w.conin)?;
-            },
+            }
             PtyInner::Conpty(c) => {
                 poll.deregister(&c.conout)?;
                 poll.deregister(&c.conin)?;
