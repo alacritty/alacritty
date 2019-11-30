@@ -1589,36 +1589,22 @@ impl Atlas {
             gl::BindTexture(gl::TEXTURE_2D, self.id);
 
             // Load data into OpenGL
-            match &glyph.buf {
-                BitmapBuffer::RGB(buf) => {
-                    gl::TexSubImage2D(
-                        gl::TEXTURE_2D,
-                        0,
-                        offset_x,
-                        offset_y,
-                        width,
-                        height,
-                        gl::RGB,
-                        gl::UNSIGNED_BYTE,
-                        buf.as_ptr() as *const _,
-                    );
-                    colored = false;
-                },
-                BitmapBuffer::RGBA(buf) => {
-                    gl::TexSubImage2D(
-                        gl::TEXTURE_2D,
-                        0,
-                        offset_x,
-                        offset_y,
-                        width,
-                        height,
-                        gl::RGBA,
-                        gl::UNSIGNED_BYTE,
-                        buf.as_ptr() as *const _,
-                    );
-                    colored = true;
-                },
-            }
+            let (format, buf, _) = match &glyph.buf {
+                BitmapBuffer::RGB(buf) => (gl::RGB, buf, colored = false),
+                BitmapBuffer::RGBA(buf) => (gl::RGBA, buf, colored = true),
+            };
+
+            gl::TexSubImage2D(
+                gl::TEXTURE_2D,
+                0,
+                offset_x,
+                offset_y,
+                width,
+                height,
+                format,
+                gl::UNSIGNED_BYTE,
+                buf.as_ptr() as *const _,
+            );
 
             gl::BindTexture(gl::TEXTURE_2D, 0);
             *active_tex = 0;

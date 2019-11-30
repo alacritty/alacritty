@@ -41,7 +41,7 @@ pub fn extract_rgb(bytes: &[u8]) -> Vec<u8> {
 #[cfg(target_endian = "little")]
 pub fn extract_rgba(bytes: &[u8]) -> Vec<u8> {
     let pixels = bytes.len() / 4;
-    let mut rgb = Vec::with_capacity(pixels * 3);
+    let mut rgb = Vec::with_capacity(pixels * 4);
 
     for i in 0..pixels {
         let offset = i * 4;

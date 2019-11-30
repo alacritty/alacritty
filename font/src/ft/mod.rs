@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 //! Rasterization powered by FreeType and FontConfig
-use std::cmp::min;
+use std::cmp::{min, Ordering};
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
@@ -69,7 +69,7 @@ pub struct FreeTypeRasterizer {
     library: Library,
     keys: HashMap<PathBuf, FontKey>,
     device_pixel_ratio: f32,
-    pixel_size: f32,
+    pixel_size: f64,
 }
 
 #[inline]
@@ -189,7 +189,7 @@ impl FreeTypeRasterizer {
         // Adjust for DPI
         let size = Size::new(size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
 
-        self.pixel_size = size.as_f32_pts();
+        self.pixel_size = f64::from(size.as_f32_pts());
 
         match desc.style {
             Style::Description { slant, weight } => {
@@ -226,7 +226,7 @@ impl FreeTypeRasterizer {
         pattern.add_family(&desc.name);
         pattern.set_weight(weight.into_fontconfig_type());
         pattern.set_slant(slant.into_fontconfig_type());
-        pattern.add_pixelsize(f64::from(self.pixel_size));
+        pattern.add_pixelsize(self.pixel_size);
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
@@ -240,7 +240,7 @@ impl FreeTypeRasterizer {
         let mut pattern = fc::Pattern::new();
         pattern.add_family(&desc.name);
         pattern.add_style(style);
-        pattern.add_pixelsize(f64::from(self.pixel_size));
+        pattern.add_pixelsize(self.pixel_size);
 
         let font = fc::font_match(fc::Config::get_current(), &mut pattern)
             .ok_or_else(|| Error::MissingFont(desc.to_owned()))?;
@@ -362,7 +362,7 @@ impl FreeTypeRasterizer {
 
         if face.has_color {
             let fixup_factor = if face.pixelsize_fixup_factor == 0. {
-                // Fallback
+                // Fallback if user has bitmap scaling disabled
                 let metrics = face.ft_face.size_metrics().ok_or(Error::MissingSizeMetrics)?;
                 self.pixel_size as f64 / metrics.y_ppem as f64
             } else {
@@ -582,80 +582,73 @@ impl FreeTypeRasterizer {
 }
 
 fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> RasterizedGlyph {
-    // Don't try to upscale
-    if fixup_factor >= 1.0 {
-        return bitmap_glyph;
-    }
-
-    let bitmap_buffer = if let BitmapBuffer::RGBA(bitmap_buffer) = bitmap_glyph.buf {
-        bitmap_buffer
-    } else {
-        return bitmap_glyph;
+    // Only scale colored buffers which are bigger than required
+    let bitmap_buffer = match (&bitmap_glyph.buf, fixup_factor.partial_cmp(&1.0)) {
+        (BitmapBuffer::RGBA(buffer), Some(Ordering::Less)) => buffer,
+        _ => return bitmap_glyph,
     };
 
     let bitmap_width = bitmap_glyph.width as usize;
     let bitmap_height = bitmap_glyph.height as usize;
 
-    let width = (bitmap_width as f64 * fixup_factor) as usize;
-    let height = (bitmap_height as f64 * fixup_factor) as usize;
+    let target_width = (bitmap_width as f64 * fixup_factor) as usize;
+    let target_height = (bitmap_height as f64 * fixup_factor) as usize;
 
-    let advance_step = (1.0 / fixup_factor).ceil() as usize;
-    let mut scaled_buffer = Vec::<u8>::with_capacity(width * height * 4);
+    let downsampling_step = (1.0 / fixup_factor).ceil() as usize;
+    let mut downsampled_buffer = Vec::<u8>::with_capacity(target_width * target_height * 4);
 
     let mut source_line_index = 0;
 
-    for _ in 0..height {
+    for _ in 0..target_height {
         let mut source_column_index = 0;
 
-        for _ in 0..width {
-            let mut r: u32 = 0;
-            let mut g: u32 = 0;
-            let mut b: u32 = 0;
-            let mut a: u32 = 0;
+        for _ in 0..target_width {
+            let (mut r, mut g, mut b, mut a) = (0u32, 0u32, 0u32, 0u32);
             let mut pixels_picked: u32 = 0;
 
-            let source_end_line = min(source_line_index + advance_step, bitmap_height);
-            let source_end_column = min(source_column_index + advance_step, bitmap_width);
+            let source_end_line = min(source_line_index + downsampling_step, bitmap_height);
+            let source_end_column = min(source_column_index + downsampling_step, bitmap_width);
 
-            for source_j in source_line_index..source_end_line {
-                let cur_pixel_index = source_j * bitmap_width * 4;
+            for source_line in source_line_index..source_end_line {
+                let source_pixel_index = source_line * bitmap_width;
 
-                for source_i in source_column_index..source_end_column {
-                    r += bitmap_buffer[cur_pixel_index + source_i * 4] as u32;
-                    g += bitmap_buffer[cur_pixel_index + source_i * 4 + 1] as u32;
-                    b += bitmap_buffer[cur_pixel_index + source_i * 4 + 2] as u32;
-                    a += bitmap_buffer[cur_pixel_index + source_i * 4 + 3] as u32;
+                for source_column in source_column_index..source_end_column {
+                    let offset = (source_pixel_index + source_column) * 4;
+                    r += bitmap_buffer[offset] as u32;
+                    g += bitmap_buffer[offset + 1] as u32;
+                    b += bitmap_buffer[offset + 2] as u32;
+                    a += bitmap_buffer[offset + 3] as u32;
                     pixels_picked += 1;
                 }
             }
 
             if pixels_picked == 0 {
-                scaled_buffer.push(0);
-                scaled_buffer.push(0);
-                scaled_buffer.push(0);
-                scaled_buffer.push(0);
+                downsampled_buffer.push(0);
+                downsampled_buffer.push(0);
+                downsampled_buffer.push(0);
+                downsampled_buffer.push(0);
             } else {
-                scaled_buffer.push((r / pixels_picked) as u8);
-                scaled_buffer.push((g / pixels_picked) as u8);
-                scaled_buffer.push((b / pixels_picked) as u8);
-                scaled_buffer.push((a / pixels_picked) as u8);
+                downsampled_buffer.push((r / pixels_picked) as u8);
+                downsampled_buffer.push((g / pixels_picked) as u8);
+                downsampled_buffer.push((b / pixels_picked) as u8);
+                downsampled_buffer.push((a / pixels_picked) as u8);
             }
 
-            source_column_index += advance_step;
+            source_column_index += downsampling_step;
         }
-        source_line_index += advance_step;
+        source_line_index += downsampling_step;
     }
 
     // This top computation performs better with the scaling algorithm we use. The approach of
     // multiplying `fixup_factor` by `bitmap_glyph.top` ties bitmap to the top of the cell, however
     // the following one keeps it in the center most of the time
     bitmap_glyph.top = ((bitmap_glyph.top as f32 * fixup_factor as f32) as i32
-        + bitmap_glyph.top / advance_step as i32)
+        + bitmap_glyph.top / downsampling_step as i32)
         / 2;
     bitmap_glyph.left = (bitmap_glyph.left as f64 * fixup_factor) as i32;
-    bitmap_glyph.width = width as i32;
-    bitmap_glyph.height = height as i32;
-    bitmap_glyph.buf = BitmapBuffer::RGBA(scaled_buffer);
+    bitmap_glyph.width = target_width as i32;
+    bitmap_glyph.height = target_height as i32;
+    bitmap_glyph.buf = BitmapBuffer::RGBA(downsampled_buffer);
     bitmap_glyph
 }
 
