@@ -6,11 +6,13 @@ use crate::TimeSeriesSource;
 use futures::future::lazy;
 use futures::sync::{mpsc, oneshot};
 use log::*;
+use std::thread;
 use std::time::UNIX_EPOCH;
 use std::time::{Duration, Instant};
 use tokio::prelude::*;
 use tokio::runtime::current_thread;
 use tokio::timer::Interval;
+//use tokio::{prelude::*, runtime::current_thread};
 use tracing::{event, span, Level};
 
 #[derive(Debug, Clone)]
@@ -604,6 +606,92 @@ pub fn get_metric_opengl_vecs(
             vec![]
         }
     }
+}
+
+/// `tokio_default_setup` creates a default channels and handles, this should be used mostly for testing
+/// to avoid having to create all the tokio boilerplate, I would like to return a struct but
+/// the ownership and cloning and moving of the separate parts does not seem possible then
+pub fn tokio_default_setup() -> (
+    //std::sync::mpsc::Receiver<current_thread::Handle>,
+    //thread::JoinHandle<()>,
+    current_thread::Handle,
+    mpsc::Sender<AsyncChartTask>,
+    oneshot::Sender<()>,
+) {
+    // Create the channel that is used to communicate with the
+    // charts background task.
+    let (charts_tx, charts_rx) = mpsc::channel(4_096usize);
+    // Create a channel to receive a handle from Tokio
+    //
+    let (handle_tx, handle_rx) = std::sync::mpsc::channel();
+    // Start the Async I/O runtime, this needs to run in a background thread because in OSX,
+    // only the main thread can write to the graphics card.
+    let (_tokio_thread, tokio_shutdown) = spawn_async_tasks(
+        vec![],
+        charts_tx.clone(),
+        charts_rx,
+        handle_tx,
+        SizeInfo::default(),
+    );
+    let tokio_handle = handle_rx
+        .recv()
+        .expect("Unable to get the tokio handle in a background thread");
+
+    (
+        //handle_rx,
+        //tokio_thread,
+        tokio_handle,
+        charts_tx,
+        tokio_shutdown,
+    )
+}
+
+/// `spawn_async_tasks` Starts a background thread to be used for tokio for async tasks
+pub fn spawn_async_tasks(
+    charts: Vec<TimeSeriesChart>,
+    charts_tx: mpsc::Sender<AsyncChartTask>,
+    charts_rx: mpsc::Receiver<AsyncChartTask>,
+    handle_tx: std::sync::mpsc::Sender<current_thread::Handle>,
+    charts_size_info: SizeInfo,
+) -> (thread::JoinHandle<()>, oneshot::Sender<()>) {
+    let (shutdown_tx, shutdown_rx) = oneshot::channel();
+    let tokio_thread = ::std::thread::Builder::new()
+        .name("async I/O".to_owned())
+        .spawn(move || {
+            let mut tokio_runtime =
+                current_thread::Runtime::new().expect("Failed to start new tokio Runtime");
+            info!("Tokio runtime created.");
+
+            // Give a handle to the runtime back to the main thread.
+            handle_tx
+                .send(tokio_runtime.handle())
+                .expect("Unable to give runtime handle to the main thread");
+            let async_charts = charts.clone();
+            tokio_runtime.spawn(lazy(move || {
+                async_coordinator(
+                    charts_rx,
+                    async_charts,
+                    charts_size_info.height,
+                    charts_size_info.width,
+                    charts_size_info.padding_y,
+                    charts_size_info.padding_x,
+                )
+            }));
+            let tokio_handle = tokio_runtime.handle().clone();
+            tokio_runtime.spawn(lazy(move || {
+                spawn_charts_intervals(charts.clone(), charts_tx, tokio_handle);
+                Ok(())
+            }));
+            tokio_runtime.spawn({
+                shutdown_rx
+                    .map(|_x| info!("Got shutdown signal for Tokio"))
+                    .map_err(|err| error!("Error on the tokio shutdown channel: {:?}", err))
+            });
+            tokio_runtime.run().expect("Unable to run Tokio tasks");
+            info!("Tokio runtime finished.");
+        })
+        .expect("Unable to start async I/O thread");
+    (tokio_thread, shutdown_tx)
 }
 
 /// `run` is an example use of the crate without drawing the data.
