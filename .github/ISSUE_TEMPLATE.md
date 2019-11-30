@@ -2,13 +2,14 @@ For bug reports, the following information can optionally help speed up the proc
 
 # System
 
-|                   |                                 |
-|-------------------|---------------------------------|
-| Operating System  | [Linux/BSD/macOS/Windows]       |
-| Alacritty Version | [`alacritty --version` output]  |
-| Display Server    | [X11/Wayland] (only on Linux)   |
-| Window Manager    | [i3/xfwm/...] (only on Linux)   |
-| Compositor        | [compton/...] (only on Linux)   |
+|                   |                                   |
+|-------------------|-----------------------------------|
+| Operating System  | [Linux/BSD/macOS/Windows]         |
+| Alacritty Version | [`alacritty --version` output]    |
+| Display Server    | [X11/Wayland]   (only on Linux)   |
+| Window Manager    | [i3/xfwm/...]   (only on Linux)   |
+| Compositor        | [compton/...]   (only on Linux)   |
+| PTY Backend       | [WinPTY/ConPTY] (only on Windows) |
 
 # Logs
 
