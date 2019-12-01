@@ -1,5 +1,6 @@
-For bug reports, the following information can help speed up the process. Please describe the bug
-that you have found and what you would expect to happen instead.
+For bug reports, the following information can help speed up the process. Please
+describe the bug that you have found and what you would expect to happen
+instead.
 
 # System
 
