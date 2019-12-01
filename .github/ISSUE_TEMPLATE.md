@@ -2,14 +2,14 @@ For bug reports, the following information can help speed up the process. Please
 describe the bug that you have found and what you would expect to happen
 instead.
 
-# System
+### System
 
 OS: Linux/BSD/macOS/Windows
 Version: `alacritty --version` output
 Linux: X11/Wayland, DE or Compositor and WM
 Windows: WinPTY/ConPTY (see `alacritty -v` output)
 
-# Logs
+### Logs
 
 Crashes: STDERR, STDOUT
 Font/Terminal size: `alacritty -vv`
