@@ -1300,7 +1300,6 @@ impl<T: EventListener> ansi::Handler for Term<T> {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
-        self.increment_chart_output_counter(1f64);
         // If enabled, scroll to bottom when character is received
         if self.auto_scroll {
             self.scroll_display(Scroll::Bottom);
@@ -1321,6 +1320,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
             }
 
             if (self.cursor.point.line + 1) >= self.scroll_region.end {
+                self.increment_chart_output_counter(1f64);
                 self.linefeed();
             } else {
                 self.cursor.point.line += 1;
