@@ -473,8 +473,8 @@ impl Decoration {
     }
 }
 
-/// `ManualTimeSeries` is a 2D struct from top left being 0,0
-/// and bottom right being display limits in pixels
+/// `ManualTimeSeries` is a basic time series that we feed ourselves, used for internal counters
+/// for example keyboard input, output newlines, loaded items count.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ManualTimeSeries {
     /// The name of the ManualTimeSeries
