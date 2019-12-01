@@ -26,7 +26,8 @@ use libc::c_uint;
 pub mod fc;
 
 use super::{
-    BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
+    BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, Rasterize, RasterizedGlyph, Size, Slant,
+    Style, Weight,
 };
 
 struct FixedSize {
@@ -77,7 +78,7 @@ fn to_freetype_26_6(f: f32) -> isize {
     ((1i32 << 6) as f32 * f) as isize
 }
 
-impl ::Rasterize for FreeTypeRasterizer {
+impl Rasterize for FreeTypeRasterizer {
     type Err = Error;
 
     fn new(device_pixel_ratio: f32, _: bool) -> Result<FreeTypeRasterizer, Error> {
@@ -594,20 +595,39 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
     let target_width = (bitmap_width as f64 * fixup_factor) as usize;
     let target_height = (bitmap_height as f64 * fixup_factor) as usize;
 
-    let downsampling_step = (1.0 / fixup_factor).ceil() as usize;
+    let downsampling_step = 1.0 / fixup_factor;
+    let downsampling_step_fraction = downsampling_step.fract();
+    let downsampling_step = downsampling_step.floor() as usize;
     let mut downsampled_buffer = Vec::<u8>::with_capacity(target_width * target_height * 4);
 
     let mut source_line_start = 0;
+    let mut line_step_fraction = 0.0f64;
 
     for _ in 0..target_height {
+        let line_step = if line_step_fraction > 0.99 {
+            line_step_fraction = line_step_fraction.fract();
+            downsampling_step + 1
+        } else {
+            downsampling_step
+        };
+
         let mut source_column_start = 0;
+        let mut column_step_fraction = 0.0f64;
+
+        let source_end_line = min(source_line_start + line_step, bitmap_height);
 
         for _ in 0..target_width {
+            let column_step = if column_step_fraction > 0.99 {
+                column_step_fraction = column_step_fraction.fract();
+                downsampling_step + 1
+            } else {
+                downsampling_step
+            };
+
             let (mut r, mut g, mut b, mut a) = (0u32, 0u32, 0u32, 0u32);
             let mut pixels_picked: u32 = 0;
 
-            let source_end_line = min(source_line_start + downsampling_step, bitmap_height);
-            let source_end_column = min(source_column_start + downsampling_step, bitmap_width);
+            let source_end_column = min(source_column_start + column_step, bitmap_width);
 
             for source_line in source_line_start..source_end_line {
                 let source_pixel_index = source_line * bitmap_width;
@@ -634,17 +654,14 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
                 downsampled_buffer.push((a / pixels_picked) as u8);
             }
 
-            source_column_start += downsampling_step;
+            column_step_fraction += downsampling_step_fraction;
+            source_column_start += column_step;
         }
-        source_line_start += downsampling_step;
+        line_step_fraction += downsampling_step_fraction;
+        source_line_start += line_step;
     }
 
-    // This top computation performs better with the scaling algorithm we use. The approach of
-    // multiplying `fixup_factor` by `bitmap_glyph.top` ties bitmap to the top of the cell, however
-    // the following one keeps it in the center most of the time
-    bitmap_glyph.top = ((bitmap_glyph.top as f32 * fixup_factor as f32) as i32
-        + bitmap_glyph.top / downsampling_step as i32)
-        / 2;
+    bitmap_glyph.top = (bitmap_glyph.top as f32 * fixup_factor as f32) as i32;
     bitmap_glyph.left = (bitmap_glyph.left as f64 * fixup_factor) as i32;
     bitmap_glyph.width = target_width as i32;
     bitmap_glyph.height = target_height as i32;
@@ -668,7 +685,7 @@ pub enum Error {
     FontNotLoaded,
 }
 
-impl ::std::error::Error for Error {
+impl std::error::Error for Error {
     fn cause(&self) -> Option<&dyn std::error::Error> {
         match *self {
             Error::FreeType(ref err) => Some(err),
@@ -686,7 +703,7 @@ impl ::std::error::Error for Error {
     }
 }
 
-impl ::std::fmt::Display for Error {
+impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
             Error::FreeType(ref err) => err.fmt(f),
