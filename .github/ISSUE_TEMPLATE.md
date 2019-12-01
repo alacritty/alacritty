@@ -6,7 +6,7 @@ instead.
 
 OS: Linux/BSD/macOS/Windows
 Version: `alacritty --version` output
-Linux: X11/Wayland, DE or Compositor and WM
+Linux/BSD: X11/Wayland, DE or Compositor and WM
 Windows: WinPTY/ConPTY (see `alacritty -v` output)
 
 ### Logs
