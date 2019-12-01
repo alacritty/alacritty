@@ -73,9 +73,9 @@ pub fn increment_internal_counter(
     counter_type: &'static str,
     epoch: u64,
     value: f64,
+    size: SizeInfo,
 ) {
     for chart in charts {
-        // Update the loaded item counters
         for series in &mut chart.sources {
             if counter_type == "input" {
                 if let TimeSeriesSource::AlacrittyInput(ref mut input) = series {
@@ -87,12 +87,14 @@ pub fn increment_internal_counter(
                     output.series.upsert((epoch, Some(value)));
                 }
             }
+            // Update the loaded item counters
             if counter_type == "async_loaded_items" {
                 if let TimeSeriesSource::AsyncLoadedItems(ref mut items) = series {
                     items.series.upsert((epoch, Some(value)));
                 }
             }
         }
+        chart.update_all_series_opengl_vecs(size);
     }
 }
 
@@ -191,7 +193,7 @@ pub fn load_http_response(
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        increment_internal_counter(charts, "async_loaded_items", now, ok_records as f64);
+        increment_internal_counter(charts, "async_loaded_items", now, ok_records as f64, size);
     }
 }
 
@@ -377,10 +379,10 @@ pub fn async_coordinator(
                 );
             }
             AsyncChartTask::IncrementInputCounter(epoch, value) => {
-                increment_internal_counter(&mut charts, "input", epoch, value);
+                increment_internal_counter(&mut charts, "input", epoch, value, size);
             }
             AsyncChartTask::IncrementOutputCounter(epoch, value) => {
-                increment_internal_counter(&mut charts, "output", epoch, value);
+                increment_internal_counter(&mut charts, "output", epoch, value, size);
             }
             AsyncChartTask::SendLastUpdatedEpoch(channel) => {
                 send_last_updated_epoch(&mut charts, channel);
