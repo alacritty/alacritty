@@ -597,22 +597,22 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
     let downsampling_step = (1.0 / fixup_factor).ceil() as usize;
     let mut downsampled_buffer = Vec::<u8>::with_capacity(target_width * target_height * 4);
 
-    let mut source_line_index = 0;
+    let mut source_line_start = 0;
 
     for _ in 0..target_height {
-        let mut source_column_index = 0;
+        let mut source_column_start = 0;
 
         for _ in 0..target_width {
             let (mut r, mut g, mut b, mut a) = (0u32, 0u32, 0u32, 0u32);
             let mut pixels_picked: u32 = 0;
 
-            let source_end_line = min(source_line_index + downsampling_step, bitmap_height);
-            let source_end_column = min(source_column_index + downsampling_step, bitmap_width);
+            let source_end_line = min(source_line_start + downsampling_step, bitmap_height);
+            let source_end_column = min(source_column_start + downsampling_step, bitmap_width);
 
-            for source_line in source_line_index..source_end_line {
+            for source_line in source_line_start..source_end_line {
                 let source_pixel_index = source_line * bitmap_width;
 
-                for source_column in source_column_index..source_end_column {
+                for source_column in source_column_start..source_end_column {
                     let offset = (source_pixel_index + source_column) * 4;
                     r += bitmap_buffer[offset] as u32;
                     g += bitmap_buffer[offset + 1] as u32;
@@ -634,9 +634,9 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
                 downsampled_buffer.push((a / pixels_picked) as u8);
             }
 
-            source_column_index += downsampling_step;
+            source_column_start += downsampling_step;
         }
-        source_line_index += downsampling_step;
+        source_line_start += downsampling_step;
     }
 
     // This top computation performs better with the scaling algorithm we use. The approach of
