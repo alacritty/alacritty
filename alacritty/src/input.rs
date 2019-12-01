@@ -594,6 +594,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
     pub fn key_input(&mut self, input: KeyboardInput) {
         // TODO: Implement `ModifiersChanged` event on all platforms: rust-windowing/winit#1151
         self.modifiers_input(input.modifiers);
+        self.ctx.terminal_mut().increment_chart_input_counter(1f64);
 
         match input.state {
             ElementState::Pressed => {
