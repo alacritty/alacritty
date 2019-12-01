@@ -23,40 +23,6 @@ Bug reports should be reported in the [Alacritty issue tracker](https://github.c
 
 If a bug was not present in a previous version of Alacritty, providing the exact commit which introduced the regression helps out a lot.
 
-Since a multitude of operating systems are supported by Alacritty, not all issues might apply to every OS. So make sure to specify on which OS the bug has been found. Since Linux has a variety of window managers, compositors and display servers, please also specify those when encountering an issue on Linux.
-
-Depending on the bug, it might also be useful to provide some of the following information:
- - Configuration file
- - `alacritty -v(vv)` output
- - `alacritty --print-events` output
- - `glxinfo` output
- - `xrandr` output
-
-Here's a template that you can use to file a bug, though it's not necessary to use it exactly:
-
-```
-# System
-|                  |                               |
-|------------------|-------------------------------|
-| Operating System | [Linux/BSD/macOS/Windows]     |
-| Rust Version     | [stable/beta/nightly/X.Y.Z]   |
-| Display Server   | [X11/Wayland] (only on Linux) |
-| Window Manager   | [i3/xfwm/...] (only on Linux) |
-| Compositor       | [compton/...] (only on Linux) |
-
-# Summary
-[Short summary of the Bug]
-
-# Behavior
-[Description of Alacritty's current behavior]
-
-# Expectation
-[Description of expected behavior]
-
-# Extra
-[Additional information like config or logs]
-```
-
 ## Patches / Pull Requests
 
 All patches have to be sent on Github as [pull requests](https://github.com/jwilm/alacritty/pulls).
