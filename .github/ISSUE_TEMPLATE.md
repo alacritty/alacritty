@@ -1,25 +1,15 @@
-For bug reports, the following information can help speed up the process.
-
-Please describe the bug that you have found and what you would expect to happen instead.
+For bug reports, the following information can help speed up the process. Please describe the bug
+that you have found and what you would expect to happen instead.
 
 # System
 
-|                   |                                   |
-|-------------------|-----------------------------------|
-| Operating System  | [Linux/BSD/macOS/Windows]         |
-| Alacritty Version | [`alacritty --version` output]    |
-| Display Server    | [X11/Wayland]   (only on Linux)   |
-| Window Manager    | [i3/xfwm/...]   (only on Linux)   |
-| Compositor        | [compton/...]   (only on Linux)   |
-| PTY Backend       | [WinPTY/ConPTY] (only on Windows) |
+OS: Linux/BSD/macOS/Windows
+Version: `alacritty --version` output
+Linux: X11/Wayland, DE or Compositor and WM
+Windows: WinPTY/ConPTY (see `alacritty -v` output)
 
 # Logs
 
-Based on the issue at hand, some logs might be relevant:
-
-| Command                    | Issues                                              |
-|----------------------------|-----------------------------------------------------|
-| STDOUT, STDERR             | Crashes                                             |
-| `alacritty -vv`            | DPI, font size, resize, terminal grid and cell size |
-| `alacritty --print-events` | Problems with keyboard and keybindings              |
-
+Crashes: STDERR, STDOUT
+Font/Terminal size: `alacritty -vv`
+Keyboard and bindings: `alacritty --print-events`
