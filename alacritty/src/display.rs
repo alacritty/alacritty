@@ -382,7 +382,7 @@ impl Display {
                 debug!("Got response from ChangeDisplaySize Task.");
             },
             Err(err) => {
-                error!("Error response from SendMetricsOpenGLData Task: {:?}", err);
+                error!("Error response from ChangeDisplaySize Task: {:?}", err);
             },
         }
     }
