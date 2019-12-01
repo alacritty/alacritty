@@ -1,4 +1,6 @@
-For bug reports, the following information can optionally help speed up the process:
+For bug reports, the following information can optionally help speed up the process.
+
+Please describe the bug that you have found and what you would expect to happen instead.
 
 # System
 
@@ -20,3 +22,4 @@ Based on the issue at hand, some logs might be relevant:
 | STDOUT, STDERR             | Crashes                                             |
 | `alacritty -vv`            | DPI, font size, resize, terminal grid and cell size |
 | `alacritty --print-events` | Problems with keyboard and keybindings              |
+
