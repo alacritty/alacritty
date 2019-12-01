@@ -145,13 +145,3 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
         child_watcher,
     }
 }
-
-impl OnResize for Winpty {
-    fn on_resize(&mut self, sizeinfo: &SizeInfo) {
-        let (cols, lines) = (sizeinfo.cols().0, sizeinfo.lines().0);
-        if cols > 0 && cols <= u16::MAX as usize && lines > 0 && lines <= u16::MAX as usize {
-            self.set_size(cols as u16, lines as u16)
-                .unwrap_or_else(|_| info!("Unable to set winpty size, did it die?"));
-        }
-    }
-}

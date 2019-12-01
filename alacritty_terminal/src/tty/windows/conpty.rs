@@ -112,7 +112,16 @@ impl Conpty {
 
 impl Drop for Conpty {
     fn drop(&mut self) {
+        // Mark as closed
+        // so that the resize handles don't attempt to resize a
+        // dead pseudoconsole.
         self.inner.closed.store(false, Ordering::SeqCst);
+
+        // The i/o pipes must be dropped at the same time as the
+        // ClosePseudoConsole API call is made, else the API call
+        // can deadlock.
+        drop(&mut self.conout);
+        drop(&mut self.conin);
         unsafe { (self.inner.api.ClosePseudoConsole)(self.inner.handle) }
     }
 }

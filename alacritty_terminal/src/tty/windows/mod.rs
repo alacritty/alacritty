@@ -146,11 +146,11 @@ impl EventedReadWrite for Pty {
             PtyInner::Winpty(w) => {
                 poll.register(&w.conout, self.read_token, ri, poll_opts)?;
                 poll.register(&w.conin, self.write_token, wi, poll_opts)?;
-            }
+            },
             PtyInner::Conpty(c) => {
                 poll.register(&c.conout, self.read_token, ri, poll_opts)?;
                 poll.register(&c.conin, self.write_token, wi, poll_opts)?;
-            }
+            },
         }
 
         self.child_event_token = token.next().unwrap();
@@ -178,11 +178,11 @@ impl EventedReadWrite for Pty {
             PtyInner::Winpty(w) => {
                 poll.reregister(&w.conout, self.read_token, ri, poll_opts)?;
                 poll.reregister(&w.conin, self.write_token, wi, poll_opts)?;
-            }
+            },
             PtyInner::Conpty(c) => {
                 poll.reregister(&c.conout, self.read_token, ri, poll_opts)?;
                 poll.reregister(&c.conin, self.write_token, wi, poll_opts)?;
-            }
+            },
         }
 
         poll.reregister(
@@ -201,11 +201,11 @@ impl EventedReadWrite for Pty {
             PtyInner::Winpty(w) => {
                 poll.deregister(&w.conout)?;
                 poll.deregister(&w.conin)?;
-            }
+            },
             PtyInner::Conpty(c) => {
                 poll.deregister(&c.conout)?;
                 poll.deregister(&c.conin)?;
-            }
+            },
         }
 
         poll.deregister(self.child_watcher.event_rx())?;

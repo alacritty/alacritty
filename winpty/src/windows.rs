@@ -47,7 +47,7 @@ pub struct Err {
 }
 
 // Check to see whether winpty gave us an error
-fn check_err<'a>(e: *mut winpty_error_t) -> Option<Err> {
+fn check_err(e: *mut winpty_error_t) -> Option<Err> {
     let err = unsafe {
         let raw = winpty_error_msg(e);
         Err {
