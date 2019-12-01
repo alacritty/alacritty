@@ -1,7 +1,7 @@
 charts:
 - name: async loaded items
   offset:
-    x: 500
+    x: 780
   width: 100
   height: 25
   series:
@@ -10,28 +10,30 @@ charts:
     refresh: 1
     color: "0x00ff00"
     alpha: 1.0
-- name: input keyboard
+- name: output newlines
   offset:
-    x: 600
-  width: 200
+    x: 890
+  width: 100
   height: 25
   series:
-  - name: input keystrokes
-    type: alacritty_input
-    refresh: 1
+  - name: output
+    type: alacritty_output
     color: "0x00ff00"
     alpha: 1.0
-- name: written characters
+    missing_values_policy: last
+    collision_policy: Increment
+- name: input newlines
   offset:
-    x: 800
-  width: 200
+    x: 900
+  width: 100
   height: 25
   series:
-  - name: output drawn characters
-    type: alacritty_output
-    refresh: 1
+  - name: input
+    type: alacritty_input
     color: "0xff0000"
     alpha: 1.0
+    missing_values_policy: last
+    collision_policy: Increment
 - name: load
   offset:
     x: 1010
