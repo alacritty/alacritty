@@ -17,6 +17,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::TryRecvError;
 
 use log::info;
+use mio::Evented;
 
 use crate::config::Config;
 use crate::event::OnResize;
@@ -26,6 +27,7 @@ use crate::tty::{ChildEvent, EventedPty, EventedReadWrite};
 
 mod child;
 mod conpty;
+mod dynamic;
 mod winpty;
 
 static IS_CONPTY: AtomicBool = AtomicBool::new(false);
@@ -34,75 +36,58 @@ pub fn is_conpty() -> bool {
     IS_CONPTY.load(Ordering::Relaxed)
 }
 
-enum PtyInner {
-    Winpty(winpty::WinptyAgent),
-    Conpty(conpty::Conpty),
-}
-
-pub struct Pty {
-    inner: PtyInner,
+pub struct Pty<T> {
+    inner: T,
     read_token: mio::Token,
     write_token: mio::Token,
     child_event_token: mio::Token,
     child_watcher: ChildExitWatcher,
 }
 
-impl Pty {
+impl<T: PtyImpl> Pty<T> {
+    fn new(inner: T, child_watcher: ChildExitWatcher) -> Self {
+        Self {
+            inner,
+            read_token: 0.into(),
+            write_token: 0.into(),
+            child_event_token: 0.into(),
+            child_watcher,
+        }
+    }
+
     pub fn resize_handle(&self) -> impl OnResize {
-        match &self.inner {
-            PtyInner::Winpty(w) => PtyResizeHandle::Winpty(w.resize_handle()),
-            PtyInner::Conpty(c) => PtyResizeHandle::Conpty(c.resize_handle()),
-        }
+        self.inner.resize_handle()
     }
 }
 
-enum PtyResizeHandle {
-    Winpty(winpty::WinptyResizeHandle),
-    Conpty(conpty::ConptyResizeHandle),
+pub trait EventedRead: Read + Evented {}
+impl<T: Read + Evented> EventedRead for T {}
+
+pub trait EventedWrite: Write + Evented {}
+impl<T: Write + Evented> EventedWrite for T {}
+
+pub trait PtyImpl {
+    type ResizeHandle: OnResize;
+    type Conout: EventedRead + ?Sized;
+    type Conin: EventedWrite + ?Sized;
+
+    fn resize_handle(&self) -> Self::ResizeHandle;
+    fn conout(&self) -> &Self::Conout;
+    fn conout_mut(&mut self) -> &mut Self::Conout;
+    fn conin(&self) -> &Self::Conin;
+    fn conin_mut(&mut self) -> &mut Self::Conin;
 }
 
-impl OnResize for PtyResizeHandle {
-    fn on_resize(&mut self, size: &SizeInfo) {
-        match self {
-            PtyResizeHandle::Winpty(w) => w.on_resize(size),
-            PtyResizeHandle::Conpty(c) => c.on_resize(size),
-        }
-    }
-}
+pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty<impl PtyImpl> {
+    use dynamic::IntoDynamicPty;
 
-pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
     if let Some(pty) = conpty::new(config, size, window_id) {
         info!("Using Conpty agent");
         IS_CONPTY.store(true, Ordering::Relaxed);
-        pty
+        pty.into_dynamic_pty()
     } else {
         info!("Using Winpty agent");
-        winpty::new(config, size, window_id)
-    }
-}
-
-impl Read for Pty {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match &mut self.inner {
-            PtyInner::Winpty(ref mut w) => w.conout.read(buf),
-            PtyInner::Conpty(ref mut c) => c.conout.read(buf),
-        }
-    }
-}
-
-impl Write for Pty {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match &mut self.inner {
-            PtyInner::Winpty(ref mut w) => w.conin.write(buf),
-            PtyInner::Conpty(ref mut c) => c.conin.write(buf),
-        }
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        match &mut self.inner {
-            PtyInner::Winpty(ref mut w) => w.conin.flush(),
-            PtyInner::Conpty(ref mut c) => c.conin.flush(),
-        }
+        winpty::new(config, size, window_id).into_dynamic_pty()
     }
 }
 
@@ -124,9 +109,9 @@ fn write_interest(interest: mio::Ready) -> mio::Ready {
     }
 }
 
-impl EventedReadWrite for Pty {
-    type Reader = Pty;
-    type Writer = Pty;
+impl<T: PtyImpl> EventedReadWrite for Pty<T> {
+    type Reader = <T as PtyImpl>::Conout;
+    type Writer = <T as PtyImpl>::Conin;
 
     #[inline]
     fn register(
@@ -139,19 +124,8 @@ impl EventedReadWrite for Pty {
         self.read_token = token.next().unwrap();
         self.write_token = token.next().unwrap();
 
-        let ri = read_interest(interest);
-        let wi = write_interest(interest);
-
-        match &self.inner {
-            PtyInner::Winpty(w) => {
-                poll.register(&w.conout, self.read_token, ri, poll_opts)?;
-                poll.register(&w.conin, self.write_token, wi, poll_opts)?;
-            },
-            PtyInner::Conpty(c) => {
-                poll.register(&c.conout, self.read_token, ri, poll_opts)?;
-                poll.register(&c.conin, self.write_token, wi, poll_opts)?;
-            },
-        }
+        poll.register(self.inner.conout(), self.read_token, read_interest(interest), poll_opts)?;
+        poll.register(self.inner.conin(), self.write_token, write_interest(interest), poll_opts)?;
 
         self.child_event_token = token.next().unwrap();
         poll.register(
@@ -174,16 +148,8 @@ impl EventedReadWrite for Pty {
         let ri = read_interest(interest);
         let wi = write_interest(interest);
 
-        match &self.inner {
-            PtyInner::Winpty(w) => {
-                poll.reregister(&w.conout, self.read_token, ri, poll_opts)?;
-                poll.reregister(&w.conin, self.write_token, wi, poll_opts)?;
-            },
-            PtyInner::Conpty(c) => {
-                poll.reregister(&c.conout, self.read_token, ri, poll_opts)?;
-                poll.reregister(&c.conin, self.write_token, wi, poll_opts)?;
-            },
-        }
+        poll.reregister(self.inner.conout(), self.read_token, ri, poll_opts)?;
+        poll.reregister(self.inner.conin(), self.write_token, wi, poll_opts)?;
 
         poll.reregister(
             self.child_watcher.event_rx(),
@@ -197,24 +163,15 @@ impl EventedReadWrite for Pty {
 
     #[inline]
     fn deregister(&mut self, poll: &mio::Poll) -> io::Result<()> {
-        match &self.inner {
-            PtyInner::Winpty(w) => {
-                poll.deregister(&w.conout)?;
-                poll.deregister(&w.conin)?;
-            },
-            PtyInner::Conpty(c) => {
-                poll.deregister(&c.conout)?;
-                poll.deregister(&c.conin)?;
-            },
-        }
-
+        poll.deregister(self.inner.conout())?;
+        poll.deregister(self.inner.conin())?;
         poll.deregister(self.child_watcher.event_rx())?;
         Ok(())
     }
 
     #[inline]
     fn reader(&mut self) -> &mut Self::Reader {
-        self
+        self.inner.conout_mut()
     }
 
     #[inline]
@@ -224,7 +181,7 @@ impl EventedReadWrite for Pty {
 
     #[inline]
     fn writer(&mut self) -> &mut Self::Writer {
-        self
+        self.inner.conin_mut()
     }
 
     #[inline]
@@ -233,7 +190,7 @@ impl EventedReadWrite for Pty {
     }
 }
 
-impl EventedPty for Pty {
+impl<T: PtyImpl> EventedPty for Pty<T> {
     fn child_event_token(&self) -> mio::Token {
         self.child_event_token
     }

@@ -42,7 +42,7 @@ use crate::config::{Config, Shell};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
-use crate::tty::windows::Pty;
+use crate::tty::windows::{Pty, PtyImpl};
 
 /// Dynamically-loaded Pseudoconsole API from kernel32.dll
 ///
@@ -85,8 +85,8 @@ impl ConptyApi {
 /// RAII Pseudoconsole
 pub struct Conpty {
     inner: Arc<ConptyInner>,
-    pub conout: EventedAnonRead,
-    pub conin: EventedAnonWrite,
+    conout: EventedAnonRead,
+    conin: EventedAnonWrite,
 }
 
 /// ResizeHandle can be freely cloned and moved between threads
@@ -104,17 +104,35 @@ struct ConptyInner {
     closed: AtomicBool,
 }
 
-impl Conpty {
-    pub fn resize_handle(&self) -> ConptyResizeHandle {
+impl PtyImpl for Conpty {
+    type ResizeHandle = ConptyResizeHandle;
+    type Conout = EventedAnonRead;
+    type Conin = EventedAnonWrite;
+
+    fn resize_handle(&self) -> Self::ResizeHandle {
         ConptyResizeHandle { inner: self.inner.clone() }
+    }
+
+    fn conout(&self) -> &Self::Conout {
+        &self.conout
+    }
+
+    fn conout_mut(&mut self) -> &mut Self::Conout {
+        &mut self.conout
+    }
+
+    fn conin(&self) -> &Self::Conin {
+        &self.conin
+    }
+
+    fn conin_mut(&mut self) -> &mut Self::Conin {
+        &mut self.conin
     }
 }
 
 impl Drop for Conpty {
     fn drop(&mut self) {
-        // Mark as closed
-        // so that the resize handles don't attempt to resize a
-        // dead pseudoconsole.
+        // Mark as closed so that the resize handles don't attempt to resize a dead pseudoconsole.
         self.inner.closed.store(false, Ordering::SeqCst);
 
         // The i/o pipes must be dropped at the same time as the
@@ -128,7 +146,11 @@ impl Drop for Conpty {
 
 unsafe impl Send for Conpty {}
 
-pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Option<Pty> {
+pub fn new<C>(
+    config: &Config<C>,
+    size: &SizeInfo,
+    _window_id: Option<usize>,
+) -> Option<Pty<Conpty>> {
     if !config.enable_experimental_conpty_backend {
         return None;
     }
@@ -273,13 +295,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
         conin: EventedAnonWrite::new(conin),
     };
 
-    Some(Pty {
-        inner: super::PtyInner::Conpty(conpty),
-        read_token: 0.into(),
-        write_token: 0.into(),
-        child_event_token: 0.into(),
-        child_watcher,
-    })
+    Some(Pty::new(conpty, child_watcher))
 }
 
 // Panic with the last os error as message

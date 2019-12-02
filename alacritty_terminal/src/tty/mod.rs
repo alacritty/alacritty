@@ -34,8 +34,8 @@ pub use self::windows::*;
 /// It defines an abstraction over mio's interface in order to allow either one
 /// read/write object or a separate read and write object.
 pub trait EventedReadWrite {
-    type Reader: io::Read;
-    type Writer: io::Write;
+    type Reader: io::Read + ?Sized;
+    type Writer: io::Write + ?Sized;
 
     fn register(
         &mut self,

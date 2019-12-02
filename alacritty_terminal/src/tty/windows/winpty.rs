@@ -29,21 +29,43 @@ use crate::config::{Config, Shell};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
-use crate::tty::windows::Pty;
+use crate::tty::windows::{Pty, PtyImpl};
 
 pub struct WinptyAgent {
     winpty: Arc<Winpty>,
-    pub conout: NamedPipe,
-    pub conin: NamedPipe,
+    conout: NamedPipe,
+    conin: NamedPipe,
+}
+
+impl PtyImpl for WinptyAgent {
+    type ResizeHandle = WinptyResizeHandle;
+    type Conout = NamedPipe;
+    type Conin = NamedPipe;
+
+    fn resize_handle(&self) -> Self::ResizeHandle {
+        WinptyResizeHandle { winpty: self.winpty.clone() }
+    }
+
+    fn conout(&self) -> &Self::Conout {
+        &self.conout
+    }
+
+    fn conout_mut(&mut self) -> &mut Self::Conout {
+        &mut self.conout
+    }
+
+    fn conin(&self) -> &Self::Conin {
+        &self.conin
+    }
+
+    fn conin_mut(&mut self) -> &mut Self::Conin {
+        &mut self.conin
+    }
 }
 
 impl WinptyAgent {
     pub fn new(winpty: Winpty, conout: NamedPipe, conin: NamedPipe) -> Self {
         Self { winpty: Arc::new(winpty), conout, conin }
-    }
-
-    pub fn resize_handle(&self) -> WinptyResizeHandle {
-        WinptyResizeHandle { winpty: self.winpty.clone() }
     }
 }
 
@@ -73,7 +95,7 @@ impl OnResize for WinptyResizeHandle {
 /// This is a placeholder value until we see how often long responses happen
 const AGENT_TIMEOUT: u32 = 10000;
 
-pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty {
+pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty<WinptyAgent> {
     // Create config
     let mut wconfig = WinptyConfig::new(ConfigFlags::empty()).unwrap();
 
@@ -137,11 +159,5 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     let child_watcher = ChildExitWatcher::new(winpty.raw_handle()).unwrap();
     let agent = WinptyAgent::new(winpty, conout_pipe, conin_pipe);
 
-    Pty {
-        inner: super::PtyInner::Winpty(agent),
-        read_token: 0.into(),
-        write_token: 0.into(),
-        child_event_token: 0.into(),
-        child_watcher,
-    }
+    Pty::new(agent, child_watcher)
 }
