@@ -25,6 +25,8 @@
 // TODO:
 // -- The dashboards should be toggable, some key combination
 // -- When activated on toggle it could blur a portion of the screen
+// -- Create a TimeSeries inside the Term itself so that increments can be done synchronously but
+//    send/fetch the updates to the background every half a second or so?
 
 #![warn(rust_2018_idioms)]
 #[macro_use]
