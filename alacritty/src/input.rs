@@ -787,7 +787,6 @@ mod tests {
     use crate::event::{ClickState, Mouse};
     use crate::url::Urls;
     use crate::window::Window;
-    use alacritty_charts::futures::sync::mpsc;
 
     use super::{Action, Binding, Processor};
 
