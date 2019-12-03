@@ -135,12 +135,11 @@ impl Drop for Conpty {
         // Mark as closed so that the resize handles don't attempt to resize a dead pseudoconsole.
         self.inner.closed.store(false, Ordering::SeqCst);
 
-        // The i/o pipes must be dropped at the same time as the
-        // ClosePseudoConsole API call is made, else the API call
-        // can deadlock.
-        drop(&mut self.conout);
-        drop(&mut self.conin);
+        // It is critical we call ClosePseudoConsole here. Calling ClosePseudoConsole should be
+        // done at the same time as the i/o pipes are closed, else a deadlock may occur.
         unsafe { (self.inner.api.ClosePseudoConsole)(self.inner.handle) }
+
+        // (The i/o pipes will be dropped now as they are fields on this struct.)
     }
 }
 

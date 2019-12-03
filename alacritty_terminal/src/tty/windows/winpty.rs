@@ -79,10 +79,10 @@ impl OnResize for WinptyResizeHandle {
     fn on_resize(&mut self, size: &SizeInfo) {
         let (cols, lines) = (size.cols().0, size.lines().0);
         if cols > 0 && cols <= u16::MAX as usize && lines > 0 && lines <= u16::MAX as usize {
-            let winpty: &mut Winpty = unsafe {
-                // This transmute is actually thread-safe since Winpty uses a mutex internally.
-                std::mem::transmute(&self.winpty as *const _ as *mut Winpty)
-            };
+            // This unsafe case from const to non-const is actually thread-safe because
+            // Winpty uses a mutex internally.
+            let winpty: *mut Winpty = &self.winpty as *const _ as *mut Winpty;
+            let winpty = unsafe { &mut *winpty };
 
             winpty
                 .set_size(cols as u16, lines as u16)
