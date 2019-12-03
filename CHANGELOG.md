@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clipboard escape `OSC 52` not working with empty clipboard parameter
 - Direct escape input on Windows using alt
 
-## 0.4.0-dev
+## 0.4.0
 
 ### Packaging
 
