@@ -102,21 +102,23 @@ and the final version are only comitted and tagged in this branch. The master br
 development versions, allowing us to keep the branches completely separate without merging releases
 back into master.
 
-The exact steps for an exemplary `1.2.3` might look like this:
+The exact steps for an exemplary `1.2.3` release might look like this:
  1. Initially, the version on the latest master is `1.2.3-dev`
  2. A new `v1.2.3` branch is created for the release
  3. On master, the version is bumped to `1.2.4-dev`
         and the `-dev` is stripped from previous change log entries
  4. In the branch, the version is bumped to `1.2.3-rc1`
- 5. The new commit in the branch is tagged as `1.2.3-rc1`
- 6. A release is created for the `1.2.3-rc1` tag
- 7. The changelog since the last release (stable or RC) is added
+ 5. The new commit in the branch is tagged as `v1.2.3-rc1`
+ 6. A GitHub release is created for the `v1.2.3-rc1` tag
+ 7. The changelog since the last release (stable or RC)
+        is added to the GitHub release description
  8. Bug fixes are cherry-picked from master into the branch and steps 4-7
         are repeated until no major issues are found in the release candidates
  9. In the branch, the version is bumped to `1.2.3`
- 10. The new commit in the branch is tagged as `1.2.3`
- 11. A release is created for the `1.2.3` tag
- 12. The changelog since the last stable release (**not** RC) is added
+ 10. The new commit in the branch is tagged as `v1.2.3`
+ 11. A GitHub release is created for the `v1.2.3` tag
+ 12. The changelog since the last stable release (**not** RC)
+        is added to the GitHub release description
 
 # Contact
 
