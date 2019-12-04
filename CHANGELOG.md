@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Direct escape input on Windows using alt
 - Incorrect window size on X11 when waking up from suspend
 
-## 0.4.0-dev
+## 0.4.0
 
 ### Packaging
 
