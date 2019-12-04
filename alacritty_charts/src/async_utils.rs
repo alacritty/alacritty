@@ -433,7 +433,7 @@ fn fetch_prometheus_response(
                 "fetch_prometheus_response:(Chart: {}, Series: {}) Prometheus raw value={:?}",
                 chart_index, series_index, value
             );
-            let res = prometheus::parse_json(&value);
+            let res = prometheus::parse_json(&item.source_url, &value);
             tx.send(AsyncChartTask::LoadResponse(MetricRequest {
                 source_url: item.source_url.clone(),
                 chart_index: item.chart_index,

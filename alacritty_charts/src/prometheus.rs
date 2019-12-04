@@ -390,15 +390,15 @@ pub fn get_from_prometheus(
 }
 /// `parse_json` transforms a hyper body chunk into a possible
 /// PrometheusResponse, mostly used for testing
-pub fn parse_json(body: &hyper::Chunk) -> Option<HTTPResponse> {
+pub fn parse_json(url: &String, body: &hyper::Chunk) -> Option<HTTPResponse> {
     let prom_res: Result<HTTPResponse, serde_json::Error> = serde_json::from_slice(&body);
     match prom_res {
         Ok(v) => {
-            debug!("parse_json: returned JSON={:?}", v);
+            debug!("parse_json for '{}': returned JSON={:?}", url, v);
             Some(v)
         }
         Err(err) => {
-            error!("Unable to parse JSON err={:?}", err);
+            error!("parse_json for '{}': err={:?}. Input: {:?}", url, err, body);
             None
         }
     }
@@ -429,6 +429,7 @@ mod tests {
     #[test]
     fn it_skips_prometheus_errors() {
         // This URL has the end time BEFORE the start time
+        init_log();
         let test0_res: Result<PrometheusTimeSeries, String> = PrometheusTimeSeries::new(
             String::from("http://localhost:9090/api/v1/query_range?query=node_load1&start=1558253499&end=1558253479&step=1"),
             15,
@@ -446,8 +447,11 @@ mod tests {
             }
             "#,
         );
-        let res0_json = parse_json(&test0_json);
+        let res0_json = parse_json(&String::from("http://test"), &test0_json);
         assert_eq!(res0_json.is_none(), true);
+        let test1_json = hyper::Chunk::from("Internal Server Error");
+        let res1_json = parse_json(&String::from("http://test"), &test1_json);
+        assert_eq!(res1_json.is_none(), true);
     }
 
     #[test]
@@ -470,7 +474,7 @@ mod tests {
               }
             }"#,
         );
-        let res0_json = parse_json(&test0_json);
+        let res0_json = parse_json(&String::from("http://test"), &test0_json);
         assert_eq!(res0_json.is_some(), true);
         let res0_load = test0.load_prometheus_response(res0_json.unwrap());
         // 1 items should have been loaded
@@ -485,7 +489,7 @@ mod tests {
               }
             }"#,
         );
-        let res1_json = parse_json(&test1_json);
+        let res1_json = parse_json(&String::from("http://test"), &test1_json);
         assert_eq!(res1_json.is_some(), true);
         let res1_load = test0.load_prometheus_response(res1_json.unwrap());
         // 0 items should have been loaded, because there's no value
@@ -529,7 +533,7 @@ mod tests {
               }
             }"#,
         );
-        let res0_json = parse_json(&test0_json);
+        let res0_json = parse_json(&String::from("http://test"), &test0_json);
         assert_eq!(res0_json.is_some(), true);
         let res0_load = test0.load_prometheus_response(res0_json.clone().unwrap());
         // 11 items should have been loaded in the node_exporter
@@ -569,7 +573,7 @@ mod tests {
               }
             }"#,
         );
-        let res1_json = parse_json(&test1_json);
+        let res1_json = parse_json(&String::from("http://test"), &test1_json);
         assert_eq!(res1_json.is_some(), true);
         debug!(
             "it_loads_prometheus_matrix NOTVEC: {:?}",
@@ -617,7 +621,7 @@ mod tests {
               }
             }"#,
         );
-        let res2_json = parse_json(&test2_json);
+        let res2_json = parse_json(&String::from("http://test"), &test2_json);
         assert_eq!(res2_json.is_some(), true);
         let res2_load = test0.load_prometheus_response(res2_json.unwrap());
         // 0 items should have been loaded, missing metric after epoch.
@@ -679,7 +683,7 @@ mod tests {
               }
             }"#,
         );
-        let res1_json = parse_json(&test1_json);
+        let res1_json = parse_json(&String::from("http://test"), &test1_json);
         assert_eq!(res1_json.is_some(), true);
         let res1_load = test0.load_prometheus_response(res1_json.unwrap());
         // 1 items should have been loaded
@@ -776,7 +780,7 @@ mod tests {
               }
             }"#,
         );
-        let res0_json = parse_json(&test0_json);
+        let res0_json = parse_json(&String::from("http://test"), &test0_json);
         assert_eq!(res0_json.is_some(), true);
         let res0_load = test0.load_prometheus_response(res0_json.clone().unwrap());
         // 2 items should have been loaded, one for Prometheus Server and the
@@ -820,7 +824,7 @@ mod tests {
               }
             }"#,
         );
-        let res1_json = parse_json(&test1_json);
+        let res1_json = parse_json(&String::from("http://test"), &test1_json);
         assert_eq!(res1_json.is_some(), true);
 
         // Make the labels match only one instance
@@ -872,7 +876,7 @@ mod tests {
               }
             }"#,
         );
-        let res2_json = parse_json(&test2_json);
+        let res2_json = parse_json(&String::from("http://test"), &test2_json);
         assert_eq!(res2_json.is_some(), true);
         // Make the labels not match
         metric_labels.insert(String::from("__name__"), String::from("down"));
@@ -909,7 +913,7 @@ mod tests {
               }
             }"#,
         );
-        let res3_json = parse_json(&test3_json);
+        let res3_json = parse_json(&String::from("http://test"), &test3_json);
         assert_eq!(res3_json.is_some(), true);
         let res3_load = test0.load_prometheus_response(res3_json.unwrap());
         // 0 items should have been loaded, the data is invalid
@@ -950,7 +954,7 @@ mod tests {
         let res1_get = core.run(get_from_prometheus(test1.url.clone()));
         println!("get_from_prometheus: {:?}", res1_get);
         assert_eq!(res1_get.is_ok(), true);
-        if let Some(prom_response) = parse_json(&res1_get.unwrap()) {
+        if let Some(prom_response) = parse_json(&String::from("http://test"), &res1_get.unwrap()) {
             // This requires a Prometheus Server running locally
             // XXX: mock this.
             // Example playload:
@@ -1053,7 +1057,7 @@ mod tests {
               }
           }"#,
         );
-        let res1_json = parse_json(&test1_json);
+        let res1_json = parse_json(&String::from("http://test"), &test1_json);
         assert_eq!(res1_json.is_some(), true);
         let res1_load = test.load_prometheus_response(res1_json.unwrap());
         // 5 items should have been loaded, 5 already existed.
