@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Absolute file URLs (`file:///home`) not recognized because of leading `/`
 - Clipboard escape `OSC 52` not working with empty clipboard parameter
 - Direct escape input on Windows using alt
+- Incorrect window size on X11 when waking up from suspend
 
 ## 0.4.0-dev
 
