@@ -98,11 +98,7 @@ impl Drop for Conpty {
 unsafe impl Send for Conpty {}
 unsafe impl Sync for Conpty {}
 
-pub fn new<'a, C>(
-    config: &Config<C>,
-    size: &SizeInfo,
-    _window_id: Option<usize>,
-) -> Option<Pty<'a>> {
+pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Option<Pty> {
     if !config.enable_experimental_conpty_backend {
         return None;
     }
@@ -132,7 +128,7 @@ pub fn new<'a, C>(
         )
     };
 
-    assert!(result == S_OK);
+    assert_eq!(result, S_OK);
 
     let mut success;
 
@@ -266,7 +262,7 @@ impl OnResize for ConptyHandle {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
         if let Some(coord) = coord_from_sizeinfo(sizeinfo) {
             let result = unsafe { (self.api.ResizePseudoConsole)(self.handle, coord) };
-            assert!(result == S_OK);
+            assert_eq!(result, S_OK);
         }
     }
 }

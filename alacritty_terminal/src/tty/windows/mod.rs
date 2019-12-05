@@ -39,13 +39,13 @@ pub fn is_conpty() -> bool {
 }
 
 #[derive(Clone)]
-pub enum PtyHandle<'a> {
-    Winpty(winpty::WinptyHandle<'a>),
+pub enum PtyHandle {
+    Winpty(winpty::WinptyHandle),
     Conpty(conpty::ConptyHandle),
 }
 
-pub struct Pty<'a> {
-    handle: PtyHandle<'a>,
+pub struct Pty {
+    handle: PtyHandle,
     // TODO: It's on the roadmap for the Conpty API to support Overlapped I/O.
     // See https://github.com/Microsoft/console/issues/262
     // When support for that lands then it should be possible to use
@@ -58,13 +58,13 @@ pub struct Pty<'a> {
     child_watcher: ChildExitWatcher,
 }
 
-impl<'a> Pty<'a> {
-    pub fn resize_handle(&self) -> impl OnResize + 'a {
+impl Pty {
+    pub fn resize_handle(&self) -> impl OnResize {
         self.handle.clone()
     }
 }
 
-pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty<'a> {
+pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
     if let Some(pty) = conpty::new(config, size, window_id) {
         info!("Using Conpty agent");
         IS_CONPTY.store(true, Ordering::Relaxed);
@@ -187,7 +187,7 @@ impl Write for EventedWritablePipe {
     }
 }
 
-impl<'a> OnResize for PtyHandle<'a> {
+impl OnResize for PtyHandle {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
         match self {
             PtyHandle::Winpty(w) => w.resize(sizeinfo),
@@ -199,7 +199,7 @@ impl<'a> OnResize for PtyHandle<'a> {
     }
 }
 
-impl<'a> EventedReadWrite for Pty<'a> {
+impl EventedReadWrite for Pty {
     type Reader = EventedReadablePipe;
     type Writer = EventedWritablePipe;
 
@@ -293,7 +293,7 @@ impl<'a> EventedReadWrite for Pty<'a> {
     }
 }
 
-impl<'a> EventedPty for Pty<'a> {
+impl EventedPty for Pty {
     fn child_event_token(&self) -> mio::Token {
         self.child_event_token
     }
