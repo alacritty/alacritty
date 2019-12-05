@@ -18,6 +18,7 @@ use std::mem;
 use std::os::windows::io::IntoRawHandle;
 use std::ptr;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use dunce::canonicalize;
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
@@ -26,7 +27,7 @@ use widestring::U16CString;
 use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
 use winapi::shared::minwindef::{BYTE, DWORD};
 use winapi::shared::ntdef::{HANDLE, HRESULT, LPWSTR};
-use winapi::shared::winerror::S_OK;
+use winapi::shared::winerror::{E_HANDLE, S_OK};
 use winapi::um::libloaderapi::{GetModuleHandleA, GetProcAddress};
 use winapi::um::processthreadsapi::{
     CreateProcessW, InitializeProcThreadAttributeList, UpdateProcThreadAttribute,
@@ -83,14 +84,71 @@ impl ConptyApi {
 pub struct Conpty {
     pub handle: HPCON,
     api: ConptyApi,
+    closed: AtomicBool
 }
 
 /// Handle can be cloned freely and moved between threads.
 pub type ConptyHandle = Arc<Conpty>;
 
+impl Conpty {
+    pub fn new(size: &SizeInfo) -> Option<(Self, EventedAnonRead, EventedAnonWrite)> {
+        let api = ConptyApi::new()?;
+
+        let mut handle = 0 as HPCON;
+
+        // Passing 0 as the size parameter allows the "system default" buffer
+        // size to be used. There may be small performance and memory advantages
+        // to be gained by tuning this in the future, but it's likely a reasonable
+        // start point.
+        let (conout, conout_pty_handle) = miow::pipe::anonymous(0).unwrap();
+        let (conin_pty_handle, conin) = miow::pipe::anonymous(0).unwrap();
+
+        let coord =
+            coord_from_sizeinfo(size).expect("Overflow when creating initial size on pseudoconsole");
+
+        // Create the Pseudo Console, using the pipes
+        let result = unsafe {
+            (api.CreatePseudoConsole)(
+                coord,
+                conin_pty_handle.into_raw_handle(),
+                conout_pty_handle.into_raw_handle(),
+                0,
+                &mut handle as *mut HPCON,
+            )
+        };
+
+        assert_eq!(result, S_OK);
+
+        let this = Self {
+            handle,
+            api,
+            closed: AtomicBool::new(false)
+        };
+        let conout = EventedAnonRead::new(conout);
+        let conin = EventedAnonWrite::new(conin);
+
+        Some((this, conout, conin))
+    }
+
+    /// Close the pseudoconsole.
+    ///
+    /// When this function is called, the conout pipe must still be alive, as the pseudoconsole
+    /// will write some final content out on that pipe. This function will block until the final
+    /// output is drained from conout. (So that conout must be drained by a different thread.)
+    ///
+    /// (See the docs for `ClosePseudoConsole` at
+    /// https://docs.microsoft.com/en-us/windows/console/closepseudoconsole)
+    pub fn close(&self) {
+        // Cannot call .close() multiple times on the same pseudoconsole, else segfault
+        debug_assert_eq!(false, self.closed.swap(true, Ordering::SeqCst));
+        unsafe { (self.api.ClosePseudoConsole)(self.handle) }
+    }
+}
+
 impl Drop for Conpty {
     fn drop(&mut self) {
-        unsafe { (self.api.ClosePseudoConsole)(self.handle) }
+        // Must call .close() on a conpty or the pseudoconsole process leaks
+        debug_assert!(self.closed.load(Ordering::SeqCst));
     }
 }
 
@@ -103,32 +161,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
         return None;
     }
 
-    let api = ConptyApi::new()?;
-
-    let mut pty_handle = 0 as HPCON;
-
-    // Passing 0 as the size parameter allows the "system default" buffer
-    // size to be used. There may be small performance and memory advantages
-    // to be gained by tuning this in the future, but it's likely a reasonable
-    // start point.
-    let (conout, conout_pty_handle) = miow::pipe::anonymous(0).unwrap();
-    let (conin_pty_handle, conin) = miow::pipe::anonymous(0).unwrap();
-
-    let coord =
-        coord_from_sizeinfo(size).expect("Overflow when creating initial size on pseudoconsole");
-
-    // Create the Pseudo Console, using the pipes
-    let result = unsafe {
-        (api.CreatePseudoConsole)(
-            coord,
-            conin_pty_handle.into_raw_handle(),
-            conout_pty_handle.into_raw_handle(),
-            0,
-            &mut pty_handle as *mut HPCON,
-        )
-    };
-
-    assert_eq!(result, S_OK);
+    let (conpty, conout, conin) = Conpty::new(size)?;
 
     let mut success;
 
@@ -191,8 +224,8 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
             startup_info_ex.lpAttributeList,
             0,
             22 | 0x0002_0000, // PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
-            pty_handle,
-            mem::size_of::<HPCON>(),
+            conpty.handle,
+            mem::size_of_val(&conpty.handle),
             ptr::null_mut(),
             ptr::null_mut(),
         ) > 0;
@@ -236,21 +269,14 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
         }
     }
 
-    let conin = EventedAnonWrite::new(conin);
-    let conout = EventedAnonRead::new(conout);
-
     let child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
-    let agent = Conpty { handle: pty_handle, api };
 
-    Some(Pty {
-        handle: super::PtyHandle::Conpty(ConptyHandle::new(agent)),
-        conout: super::EventedReadablePipe::Anonymous(conout),
-        conin: super::EventedWritablePipe::Anonymous(conin),
-        read_token: 0.into(),
-        write_token: 0.into(),
-        child_event_token: 0.into(),
+    Some(Pty::new(
+        super::PtyHandle::Conpty(ConptyHandle::new(conpty)),
+        super::EventedReadablePipe::Anonymous(conout),
+        super::EventedWritablePipe::Anonymous(conin),
         child_watcher,
-    })
+    ))
 }
 
 // Panic with the last os error as message
@@ -262,7 +288,9 @@ impl OnResize for ConptyHandle {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
         if let Some(coord) = coord_from_sizeinfo(sizeinfo) {
             let result = unsafe { (self.api.ResizePseudoConsole)(self.handle, coord) };
-            assert_eq!(result, S_OK);
+
+            // Ensure that either the resize worked, or the pseudoconsole has been closed
+            assert!(result == S_OK || result == E_HANDLE);
         }
     }
 }

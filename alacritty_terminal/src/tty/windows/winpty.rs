@@ -139,15 +139,12 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     let child_watcher = ChildExitWatcher::new(winpty.raw_handle()).unwrap();
     let agent = Agent::new(winpty);
 
-    Pty {
-        handle: super::PtyHandle::Winpty(WinptyHandle::new(agent)),
-        conout: super::EventedReadablePipe::Named(conout_pipe),
-        conin: super::EventedWritablePipe::Named(conin_pipe),
-        read_token: 0.into(),
-        write_token: 0.into(),
-        child_event_token: 0.into(),
+    Pty::new(
+        super::PtyHandle::Winpty(WinptyHandle::new(agent)),
+        super::EventedReadablePipe::Named(conout_pipe),
+        super::EventedWritablePipe::Named(conin_pipe),
         child_watcher,
-    }
+    )
 }
 
 impl OnResize for Winpty {

@@ -59,6 +59,23 @@ pub struct Pty {
 }
 
 impl Pty {
+    fn new(
+        handle: PtyHandle,
+        conout: EventedReadablePipe,
+        conin: EventedWritablePipe,
+        child_watcher: ChildExitWatcher
+    ) -> Self {
+        Self {
+            handle,
+            conout,
+            conin,
+            read_token: 0.into(),
+            write_token: 0.into(),
+            child_event_token: 0.into(),
+            child_watcher,
+        }
+    }
+
     pub fn resize_handle(&self) -> impl OnResize {
         self.handle.clone()
     }
@@ -303,6 +320,30 @@ impl EventedPty for Pty {
             Ok(ev) => Some(ev),
             Err(TryRecvError::Empty) => None,
             Err(TryRecvError::Disconnected) => Some(ChildEvent::Exited),
+        }
+    }
+}
+
+impl Drop for Pty {
+    fn drop(&mut self) {
+        if let PtyHandle::Conpty(c) = &self.handle {
+            let conout = &mut self.conout;
+            let done = AtomicBool::new(false);
+
+            // The conpty close call will block until the conout pipe is drained.
+            // So we must spawn a thread which continuously attempts to read the pipe
+            // until the call has finished.
+            crossbeam::thread::scope(|s| {
+                s.spawn(|_| {
+                    let mut buf = [0u8; 1024];
+                    while !done.load(Ordering::SeqCst) {
+                        conout.read(&mut buf).unwrap();
+                    }
+                });
+
+                c.close();
+                done.store(true, Ordering::SeqCst);
+            }).unwrap();
         }
     }
 }
