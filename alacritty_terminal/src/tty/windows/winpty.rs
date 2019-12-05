@@ -34,24 +34,24 @@ use crate::tty::windows::Pty;
 // We store a raw pointer because we need mutable access to call
 // on_resize from a separate thread. Winpty internally uses a mutex
 // so this is safe, despite outwards appearance.
-pub struct Agent<'a> {
-    winpty: *mut Winpty<'a>,
+pub struct Agent {
+    winpty: *mut Winpty,
 }
 
 /// Handle can be cloned freely and moved between threads.
-pub type WinptyHandle<'a> = Arc<Agent<'a>>;
+pub type WinptyHandle = Arc<Agent>;
 
 // Because Winpty has a mutex, we can do this.
-unsafe impl<'a> Send for Agent<'a> {}
-unsafe impl<'a> Sync for Agent<'a> {}
+unsafe impl Send for Agent {}
+unsafe impl Sync for Agent {}
 
-impl<'a> Agent<'a> {
-    pub fn new(winpty: Winpty<'a>) -> Self {
+impl Agent {
+    pub fn new(winpty: Winpty) -> Self {
         Self { winpty: Box::into_raw(Box::new(winpty)) }
     }
 
     /// Get immutable access to Winpty.
-    pub fn winpty(&self) -> &Winpty<'a> {
+    pub fn winpty(&self) -> &Winpty {
         unsafe { &*self.winpty }
     }
 
@@ -63,7 +63,7 @@ impl<'a> Agent<'a> {
     }
 }
 
-impl<'a> Drop for Agent<'a> {
+impl Drop for Agent {
     fn drop(&mut self) {
         unsafe {
             Box::from_raw(self.winpty);
@@ -75,7 +75,7 @@ impl<'a> Drop for Agent<'a> {
 /// This is a placeholder value until we see how often long responses happen
 const AGENT_TIMEOUT: u32 = 10000;
 
-pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty<'a> {
+pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty {
     // Create config
     let mut wconfig = WinptyConfig::new(ConfigFlags::empty()).unwrap();
 
@@ -150,7 +150,7 @@ pub fn new<'a, C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>
     }
 }
 
-impl<'a> OnResize for Winpty<'a> {
+impl OnResize for Winpty {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
         let (cols, lines) = (sizeinfo.cols().0, sizeinfo.lines().0);
         if cols > 0 && cols <= u16::MAX as usize && lines > 0 && lines <= u16::MAX as usize {
