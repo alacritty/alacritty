@@ -672,6 +672,19 @@ impl VisualBell {
     }
 }
 
+/// `TermChartsHandle` allows connecting to the tokio background thread
+/// that is constantly fetching information and calculating OpenGL vecs.
+pub struct TermChartsHandle {
+    /// A handle to the tokio current thread runtime
+    tokio_handle: current_thread::Handle,
+
+    /// Channel to communicate with the chart background thread.
+    charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
+
+    /// Wether or not the charts are enabled
+    enabled: bool,
+}
+
 pub struct Term<T> {
     /// Terminal focus
     pub is_focused: bool,
@@ -757,11 +770,8 @@ pub struct Term<T> {
     /// term is set, and the Glutin window's title attribute is changed through the event listener.
     title_stack: Vec<String>,
 
-    /// A handle to the tokio current thread runtime
-    tokio_handle: current_thread::Handle,
-
-    /// Channel to communicate with the chart background thread.
-    charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
+    /// The handle to the background utilities (Should this be Option?)
+    charts_handle: TermChartsHandle,
 }
 
 /// Terminal size info
@@ -849,8 +859,17 @@ impl<T> Term<T> {
         tokio_handle: current_thread::Handle,
         charts_tx: futures_mpsc::Sender<alacritty_charts::async_utils::AsyncChartTask>,
     ) -> Term<T> {
+        // TODO: On Update, we should refresh this.
+        // TODO: Implement key combination to enabled/disable charts
+        let charts_enabled = !config.charts.is_empty();
+
         let num_cols = size.cols();
-        let num_lines = size.lines();
+        let num_lines = if charts_enabled {
+            // Remove 2 lines from display to draw the Charts
+            size.lines() - 2
+        } else {
+            size.lines()
+        };
 
         let history_size = config.scrolling.history() as usize;
         let grid = Grid::new(num_lines, num_cols, history_size, Cell::default());
@@ -891,8 +910,7 @@ impl<T> Term<T> {
             is_focused: true,
             title: config.window.title.clone(),
             title_stack: Vec::new(),
-            tokio_handle,
-            charts_tx,
+            charts_handle: TermChartsHandle { tokio_handle, charts_tx, enabled: charts_enabled },
         }
     }
 
@@ -1060,6 +1078,10 @@ impl<T> Term<T> {
             num_lines = Line(2);
         }
 
+        if self.charts_handle.enabled {
+            num_lines -= 1;
+        }
+
         // Scroll up to keep cursor in terminal
         if self.cursor.point.line >= num_lines {
             let lines = self.cursor.point.line - num_lines + 1;
@@ -1136,6 +1158,7 @@ impl<T> Term<T> {
     pub fn increment_counter(&mut self, counter_type: &'static str, increment: f64) {
         let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let send_increment_input_counter = self
+            .charts_handle
             .charts_tx
             .clone()
             .send(if counter_type == "input" {
@@ -1153,7 +1176,8 @@ impl<T> Term<T> {
                 );
                 Ok(())
             });
-        self.tokio_handle
+        self.charts_handle
+            .tokio_handle
             .spawn(lazy(move || send_increment_input_counter))
             .expect("Unable to queue async task for send_increment_input_counter");
     }
