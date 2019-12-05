@@ -48,16 +48,18 @@ pub struct Err {
     message: String,
 }
 
-// Check to see whether winpty gave us an error
+// Check to see whether winpty gave us an error, and perform the necessary memory freeing
 fn check_err(e: *mut winpty_error_t) -> Option<Err> {
-    let (code, message);
     unsafe {
+        let code = winpty_error_code(e);
         let raw = winpty_error_msg(e);
-        code = winpty_error_code(e);
-        message = String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw)));
+        let message = String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw)));
         winpty_error_free(e);
-    };
-    Some(Err { code, message }).filter(|e| e.code != 0)
+        match code {
+            0 => None,
+            _ => Some(Err { code, message }),
+        }
+    }
 }
 
 impl Display for Err {
