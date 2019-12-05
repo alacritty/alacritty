@@ -222,6 +222,19 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     // Start event loop and block until shutdown
     processor.run(terminal, window_event_loop);
 
+    // This explicit drop is needed for Windows, ConPTY backend. Otherwise a deadlock can occur.
+    // The cause:
+    //   - Drop for Conpty will deadlock if the conout pipe has already been dropped.
+    //   - The conout pipe is dropped when the io_thread is joined below (io_thread owns pty).
+    //   - Conpty is dropped when the last of processor and io_thread are dropped, because
+    //     both of them own an Arc<Conpty>.
+    //
+    // The fix is to ensure that processor is dropped first. That way, when io_thread (i.e. pty)
+    // is dropped, it can ensure Conpty is dropped before the conout pipe in the pty drop order.
+    //
+    // TODO: refactor the Windows codebase and remove this horrendous workaround!
+    drop(processor);
+
     // Shutdown PTY parser event loop
     loop_tx.send(Msg::Shutdown).expect("Error sending shutdown to pty event loop");
     io_thread.join().expect("join io thread");
