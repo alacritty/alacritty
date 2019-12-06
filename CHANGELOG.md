@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Terminal escape bindings with combined modifiers for Delete and Insert
+- /Applications symlink into OS X DMG for easier installation
 
 ### Fixed
 
