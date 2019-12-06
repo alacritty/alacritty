@@ -35,6 +35,7 @@ $(APP_NAME): $(TARGET) $(APP_TEMPLATE)
 dmg: | $(DMG_NAME) ## Pack Alacritty.app into .dmg
 $(DMG_NAME): $(APP_NAME)
 	@echo "Packing disk image..."
+	@ln -s /Applications $(DMG_DIR)/Applications
 	@hdiutil create $(DMG_DIR)/$(DMG_NAME) \
 		-volname "Alacritty" \
 		-fs HFS+ \
