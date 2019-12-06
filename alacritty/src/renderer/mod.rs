@@ -471,13 +471,14 @@ impl Batch {
         }
 
         if glyph.colored {
-            // XXX Temporary workaround to prevent emojis being rendered with a wrong colors on
-            // dark backgrounds. To resolve this issue properly we should have a separate rendering
-            // pass for colored glyphs. For more info #1864.
+            // XXX Temporary workaround to prevent emojis being rendered with a wrong colors on, at
+            // least, dark backgrounds. To resolve this issue properly we should have a separate
+            // rendering pass for colored glyphs. For more info see #1864.
             //
-            // The 255 is not a color, it'll be an alpha mask later on. So a proper color of
-            // emojis could be achieved by setting fg to #ffffff and bg to #000000, however we
-            // can't change bg here, because it actually "changes bg" of a cell.
+            // The 255 is not a color, it'll be a part of forming an alpha mask later on. So a
+            // proper color of emojis could be achieved by setting fg to #ffffff and bg
+            // to #000000, however we can't change bg here, because it actually "changes
+            // bg" of a cell.
             cell.fg.r = 255;
             cell.fg.g = 255;
             cell.fg.b = 255;
