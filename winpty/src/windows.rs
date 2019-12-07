@@ -9,7 +9,8 @@ use winpty_sys::*;
 
 use widestring::WideCString;
 
-pub enum ErrorCodes {
+#[derive(Clone, Copy, Debug)]
+pub enum ErrorCode {
     Success,
     OutOfMemory,
     SpawnCreateProcessFailed,
@@ -19,6 +20,7 @@ pub enum ErrorCodes {
     AgentDied,
     AgentTimeout,
     AgentCreationFailed,
+    UnknownError(u32)
 }
 
 pub enum MouseMode {
@@ -44,7 +46,7 @@ bitflags!(
 
 #[derive(Debug)]
 pub struct Err {
-    code: u32,
+    code: ErrorCode,
     message: String,
 }
 
@@ -55,16 +57,30 @@ fn check_err(e: *mut winpty_error_t) -> Option<Err> {
         let raw = winpty_error_msg(e);
         let message = String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw)));
         winpty_error_free(e);
+
+        let code = match code {
+            WINPTY_ERROR_SUCCESS => ErrorCode::Success,
+            WINPTY_ERROR_OUT_OF_MEMORY => ErrorCode::OutOfMemory,
+            WINPTY_ERROR_SPAWN_CREATE_PROCESS_FAILED => ErrorCode::SpawnCreateProcessFailed,
+            WINPTY_ERROR_LOST_CONNECTION => ErrorCode::LostConnection,
+            WINPTY_ERROR_AGENT_EXE_MISSING => ErrorCode::AgentExeMissing,
+            WINPTY_ERROR_UNSPECIFIED => ErrorCode::Unspecified,
+            WINPTY_ERROR_AGENT_DIED => ErrorCode::AgentDied,
+            WINPTY_ERROR_AGENT_TIMEOUT => ErrorCode::AgentTimeout,
+            WINPTY_ERROR_AGENT_CREATION_FAILED => ErrorCode::AgentCreationFailed,
+            code => ErrorCode::UnknownError(code)
+        };
+
         match code {
-            0 => None,
-            _ => Some(Err { code, message }),
+            ErrorCode::Success => None,
+            code => Some(Err { code, message }),
         }
     }
 }
 
 impl Display for Err {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        write!(f, "Code: {}, Message: {}", self.code, self.message)
+        write!(f, "Code: {:?}, Message: {}", self.code, self.message)
     }
 }
 
@@ -95,12 +111,12 @@ impl Config {
     /// Set the mouse mode
     pub fn set_mouse_mode(&mut self, mode: &MouseMode) {
         let m = match mode {
-            MouseMode::None => 0,
-            MouseMode::Auto => 1,
-            MouseMode::Force => 2,
+            MouseMode::None => WINPTY_MOUSE_MODE_NONE,
+            MouseMode::Auto => WINPTY_MOUSE_MODE_AUTO,
+            MouseMode::Force => WINPTY_MOUSE_MODE_FORCE,
         };
         unsafe {
-            winpty_config_set_mouse_mode(self.0, m);
+            winpty_config_set_mouse_mode(self.0, m as i32);
         }
     }
 
@@ -126,6 +142,21 @@ impl Drop for Config {
 #[derive(Debug)]
 /// A struct representing the winpty agent process
 pub struct Winpty(*mut winpty_t);
+
+pub struct ChildHandles {
+    process: HANDLE,
+    thread: HANDLE
+}
+
+impl ChildHandles {
+    pub fn process(&self) -> HANDLE {
+        self.process
+    }
+
+    pub fn thread(&self) -> HANDLE {
+        self.thread
+    }
+}
 
 impl Winpty {
     /// Starts the agent. This process will connect to the agent
@@ -213,26 +244,37 @@ impl Winpty {
     /// before the output data pipe(s) is/are connected, then collected output is
     /// buffered until the pipes are connected, rather than being discarded.
     /// (https://blogs.msdn.microsoft.com/oldnewthing/20110107-00/?p=11803)
-    // TODO: Support getting the process and thread handle of the spawned process (Not the agent)
-    // TODO: Support returning the error from CreateProcess
-    pub fn spawn(&mut self, cfg: &SpawnConfig) -> Result<(), Err> {
+    pub fn spawn(&mut self, cfg: &SpawnConfig) -> Result<ChildHandles, Err> {
+        let mut handles = ChildHandles {
+            process: std::ptr::null_mut(),
+            thread: std::ptr::null_mut()
+        };
+
+        let mut create_process_error: DWORD = 0;
         let mut err = null_mut() as *mut winpty_error_t;
 
         unsafe {
-            let ok = winpty_spawn(
+            winpty_spawn(
                 self.0,
                 cfg.0 as *const winpty_spawn_config_s,
-                null_mut(), // Process handle
-                null_mut(), // Thread handle
-                null_mut(), // Create process error
+                &mut handles.process as *mut _,
+                &mut handles.thread as *mut _,
+                &mut create_process_error as *mut _,
                 &mut err,
             );
-            if ok == 0 {
-                return Ok(());
-            }
         }
 
-        check_err(err).map_or(Ok(()), Result::Err)
+        if let Some(err) = check_err(err) {
+            match err.code {
+                ErrorCode::SpawnCreateProcessFailed => Result::Err(Err {
+                    code: err.code,
+                    message: format!("{} (error code {})", err.message, create_process_error)
+                }),
+                _ => Result::Err(err),
+            }
+        } else {
+            Ok(handles)
+        }
     }
 }
 
@@ -262,32 +304,25 @@ impl SpawnConfig {
         end: Option<&str>,
     ) -> Result<Self, Err> {
         let mut err = null_mut() as *mut winpty_error_t;
-        let (appname, cmdline, cwd, end) = (
-            appname.map_or(null(), |s| WideCString::from_str(s).unwrap().into_raw()),
-            cmdline.map_or(null(), |s| WideCString::from_str(s).unwrap().into_raw()),
-            cwd.map_or(null(), |s| WideCString::from_str(s).unwrap().into_raw()),
-            end.map_or(null(), |s| WideCString::from_str(s).unwrap().into_raw()),
-        );
+
+        let to_wstring = |s| WideCString::from_str(s).unwrap();
+        let as_ptr = |opt: &Option<WideCString>| opt.as_ref().map_or(null(), |ws| ws.as_ptr());
+
+        let appname = appname.map(to_wstring);
+        let cmdline = cmdline.map(to_wstring);
+        let cwd = cwd.map(to_wstring);
+        let end = end.map(to_wstring);
 
         let spawn_config = unsafe {
-            winpty_spawn_config_new(spawnflags.bits(), appname, cmdline, cwd, end, &mut err)
+            winpty_spawn_config_new(
+                spawnflags.bits(),
+                as_ptr(&appname),
+                as_ptr(&cmdline),
+                as_ptr(&cwd),
+                as_ptr(&end),
+                &mut err
+            )
         };
-
-        // Required to free the strings
-        unsafe {
-            if !appname.is_null() {
-                WideCString::from_raw(appname as *mut u16);
-            }
-            if !cmdline.is_null() {
-                WideCString::from_raw(cmdline as *mut u16);
-            }
-            if !cwd.is_null() {
-                WideCString::from_raw(cwd as *mut u16);
-            }
-            if !end.is_null() {
-                WideCString::from_raw(end as *mut u16);
-            }
-        }
 
         check_err(err).map_or(Ok(Self(spawn_config)), Result::Err)
     }
