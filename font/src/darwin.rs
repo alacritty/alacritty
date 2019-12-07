@@ -159,7 +159,7 @@ impl ::std::fmt::Display for Error {
     }
 }
 
-impl ::Rasterize for Rasterizer {
+impl crate::Rasterize for Rasterizer {
     type Err = Error;
 
     fn new(device_pixel_ratio: f32, use_thin_strokes: bool) -> Result<Rasterizer, Error> {

@@ -22,7 +22,7 @@ pub struct DirectWriteRasterizer {
     device_pixel_ratio: f32,
 }
 
-impl super::Rasterize for DirectWriteRasterizer {
+impl crate::Rasterize for DirectWriteRasterizer {
     type Err = Error;
 
     fn new(device_pixel_ratio: f32, _: bool) -> Result<Self, Error> {
