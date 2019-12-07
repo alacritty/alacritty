@@ -11,14 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::ops::Deref;
-use std::ptr::NonNull;
+use std::{ops::Deref, ptr::NonNull};
 
-use foreign_types::{ForeignType, ForeignTypeRef};
+use fontconfig::fontconfig::{FcFontSet, FcFontSetDestroy, FcFontSetList};
+use foreign_types::{foreign_type, ForeignType, ForeignTypeRef};
+use log::trace;
 
 use super::{ConfigRef, ObjectSetRef, PatternRef};
-
-use super::ffi::{FcFontSet, FcFontSetDestroy, FcFontSetList};
 
 foreign_type! {
     pub unsafe type FontSet {

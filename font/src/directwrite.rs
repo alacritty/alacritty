@@ -13,10 +13,7 @@
 // limitations under the License.
 //
 //! Rasterization powered by DirectWrite
-extern crate dwrote;
-use self::dwrote::{
-    FontCollection, FontStretch, FontStyle, FontWeight, GlyphOffset, GlyphRunAnalysis,
-};
+use dwrote::{FontCollection, FontStretch, FontStyle, FontWeight, GlyphOffset, GlyphRunAnalysis};
 
 use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight};
 
@@ -25,11 +22,11 @@ pub struct DirectWriteRasterizer {
     device_pixel_ratio: f32,
 }
 
-impl crate::Rasterize for DirectWriteRasterizer {
+impl super::Rasterize for DirectWriteRasterizer {
     type Err = Error;
 
-    fn new(device_pixel_ratio: f32, _: bool) -> Result<DirectWriteRasterizer, Error> {
-        Ok(DirectWriteRasterizer { fonts: Vec::new(), device_pixel_ratio })
+    fn new(device_pixel_ratio: f32, _: bool) -> Result<Self, Error> {
+        Ok(Self { fonts: Vec::new(), device_pixel_ratio })
     }
 
     fn metrics(&self, key: FontKey, size: Size) -> Result<Metrics, Error> {

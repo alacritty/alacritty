@@ -18,13 +18,6 @@
 //! FreeType is used on everything that's not Mac OS.
 //! Eventually, ClearType support will be available for windows
 
-#![deny(clippy::all, clippy::if_not_else, clippy::enum_glob_use, clippy::wrong_pub_self_convention)]
-
-#[cfg(not(any(target_os = "macos", windows)))]
-extern crate fontconfig;
-#[cfg(not(any(target_os = "macos", windows)))]
-extern crate freetype;
-
 #[cfg(target_os = "macos")]
 extern crate core_foundation;
 #[cfg(target_os = "macos")]
@@ -35,15 +28,6 @@ extern crate core_graphics;
 extern crate core_text;
 #[cfg(target_os = "macos")]
 extern crate euclid;
-
-extern crate libc;
-
-#[cfg(not(any(target_os = "macos", windows)))]
-#[macro_use]
-extern crate foreign_types;
-
-#[cfg_attr(not(windows), macro_use)]
-extern crate log;
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -96,7 +80,7 @@ pub enum Style {
 impl fmt::Display for Style {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Style::Specific(ref s) => f.write_str(&s),
+            Style::Specific(ref s) => f.write_str(s),
             Style::Description { slant, weight } => {
                 write!(f, "slant={:?}, weight={:?}", slant, weight)
             },
@@ -105,11 +89,11 @@ impl fmt::Display for Style {
 }
 
 impl FontDesc {
-    pub fn new<S>(name: S, style: Style) -> FontDesc
+    pub fn new<S>(name: S, style: Style) -> Self
     where
         S: Into<String>,
     {
-        FontDesc { name: name.into(), style }
+        Self { name: name.into(), style }
     }
 }
 
@@ -129,10 +113,10 @@ impl FontKey {
     /// Get next font key for given size
     ///
     /// The generated key will be globally unique
-    pub fn next() -> FontKey {
+    pub fn next() -> Self {
         static TOKEN: AtomicUsize = AtomicUsize::new(0);
 
-        FontKey { token: TOKEN.fetch_add(1, Ordering::SeqCst) as _ }
+        Self { token: TOKEN.fetch_add(1, Ordering::SeqCst) as _ }
     }
 }
 
@@ -150,7 +134,7 @@ impl Hash for GlyphKey {
             //
             // - If GlyphKey ever becomes a different size, this will fail to compile
             // - Result is being used for hashing and has no fields (it's a u64)
-            ::std::mem::transmute::<GlyphKey, u64>(*self)
+            ::std::mem::transmute::<Self, u64>(*self)
         }
         .hash(state);
     }
@@ -163,8 +147,8 @@ impl PartialEq for GlyphKey {
             //
             // - If GlyphKey ever becomes a different size, this will fail to compile
             // - Result is being used for equality checking and has no fields (it's a u64)
-            let other = ::std::mem::transmute::<GlyphKey, u64>(*other);
-            ::std::mem::transmute::<GlyphKey, u64>(*self).eq(&other)
+            let other = ::std::mem::transmute::<Self, u64>(*other);
+            ::std::mem::transmute::<Self, u64>(*self).eq(&other)
         }
     }
 }
@@ -175,41 +159,41 @@ pub struct Size(i16);
 
 impl Size {
     /// Create a new `Size` from a f32 size in points
-    pub fn new(size: f32) -> Size {
-        Size((size * Size::factor()) as i16)
+    pub fn new(size: f32) -> Self {
+        Self((size * Self::factor()) as i16)
     }
 
     /// Scale factor between font "Size" type and point size
     #[inline]
-    pub fn factor() -> f32 {
+    pub const fn factor() -> f32 {
         2.0
     }
 
     /// Get the f32 size in points
     pub fn as_f32_pts(self) -> f32 {
-        f32::from(self.0) / Size::factor()
+        f32::from(self.0) / Self::factor()
     }
 }
 
 impl<T: Into<Size>> Add<T> for Size {
-    type Output = Size;
+    type Output = Self;
 
-    fn add(self, other: T) -> Size {
-        Size(self.0.saturating_add(other.into().0))
+    fn add(self, other: T) -> Self {
+        Self(self.0.saturating_add(other.into().0))
     }
 }
 
 impl<T: Into<Size>> Mul<T> for Size {
-    type Output = Size;
+    type Output = Self;
 
-    fn mul(self, other: T) -> Size {
-        Size(self.0 * other.into().0)
+    fn mul(self, other: T) -> Self {
+        Self(self.0 * other.into().0)
     }
 }
 
 impl From<f32> for Size {
-    fn from(float: f32) -> Size {
-        Size::new(float)
+    fn from(float: f32) -> Self {
+        Self::new(float)
     }
 }
 
@@ -224,8 +208,8 @@ pub struct RasterizedGlyph {
 }
 
 impl Default for RasterizedGlyph {
-    fn default() -> RasterizedGlyph {
-        RasterizedGlyph { c: ' ', width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }
+    fn default() -> Self {
+        Self { c: ' ', width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }
     }
 }
 

@@ -13,10 +13,8 @@
 // limitations under the License.
 use std::ptr::NonNull;
 
-use foreign_types::ForeignTypeRef;
-
-use super::ffi::FcCharSetCreate;
-use super::ffi::{FcCharSet, FcCharSetAddChar, FcCharSetDestroy};
+use fontconfig::fontconfig::{FcCharSet, FcCharSetAddChar, FcCharSetCreate, FcCharSetDestroy};
+use foreign_types::{foreign_type, ForeignTypeRef};
 
 foreign_type! {
     pub unsafe type CharSet {

@@ -4,9 +4,9 @@ version = "0.1.0"
 authors = ["Joe Wilm <joe@jwilm.com>"]
 description = "Font rendering using the best available solution per platform"
 license = "Apache-2.0"
+edition = "2018"
 
-[dependencies]
-euclid = "0.20"
+[target.'cfg(not(windows))'.dependencies]
 libc = "0.2"
 foreign-types = "0.5"
 log = "0.4"
@@ -20,6 +20,7 @@ core-foundation = "0.6"
 core-text = "13"
 core-graphics = "0.17"
 core-foundation-sys = "0.6"
+euclid = "0.20"
 
 [target.'cfg(windows)'.dependencies]
-dwrote = { version = "0.9.0" }
+dwrote = { version = "0.9.0", default_features = false }

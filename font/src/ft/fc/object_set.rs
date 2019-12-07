@@ -13,10 +13,9 @@
 // limitations under the License.
 use std::ptr::NonNull;
 
+use fontconfig::fontconfig::{FcObjectSet, FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy};
+use foreign_types::{foreign_type, ForeignTypeRef};
 use libc::c_char;
-
-use super::ffi::{FcObjectSet, FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy};
-use foreign_types::ForeignTypeRef;
 
 foreign_type! {
     pub unsafe type ObjectSet {

@@ -11,42 +11,34 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-use std::fmt;
-use std::ptr;
+use std::{fmt, ptr};
 
+use fontconfig::fontconfig::{
+    FcResultNoMatch, {FcFontList, FcFontMatch, FcFontSort},
+    {FcMatchFont, FcMatchPattern, FcMatchScan}, {FcSetApplication, FcSetSystem},
+    {FC_SLANT_ITALIC, FC_SLANT_OBLIQUE, FC_SLANT_ROMAN},
+    {FC_WEIGHT_BLACK, FC_WEIGHT_BOLD, FC_WEIGHT_EXTRABLACK, FC_WEIGHT_EXTRABOLD},
+    {FC_WEIGHT_BOOK, FC_WEIGHT_MEDIUM, FC_WEIGHT_REGULAR, FC_WEIGHT_SEMIBOLD},
+    {FC_WEIGHT_EXTRALIGHT, FC_WEIGHT_LIGHT, FC_WEIGHT_THIN},
+};
 use foreign_types::{ForeignType, ForeignTypeRef};
 
-use fontconfig::fontconfig as ffi;
+pub use char_set::{CharSet, CharSetRef};
+pub use config::{Config, ConfigRef};
+pub use font_set::{FontSet, FontSetRef};
+pub use object_set::{ObjectSet, ObjectSetRef};
+pub use pattern::{Pattern, PatternRef};
 
-use self::ffi::FcResultNoMatch;
-use self::ffi::{FcFontList, FcFontMatch, FcFontSort};
-use self::ffi::{FcMatchFont, FcMatchPattern, FcMatchScan};
-use self::ffi::{FcSetApplication, FcSetSystem};
-use self::ffi::{FC_SLANT_ITALIC, FC_SLANT_OBLIQUE, FC_SLANT_ROMAN};
-use self::ffi::{FC_WEIGHT_BLACK, FC_WEIGHT_BOLD, FC_WEIGHT_EXTRABLACK, FC_WEIGHT_EXTRABOLD};
-use self::ffi::{FC_WEIGHT_BOOK, FC_WEIGHT_MEDIUM, FC_WEIGHT_REGULAR, FC_WEIGHT_SEMIBOLD};
-use self::ffi::{FC_WEIGHT_EXTRALIGHT, FC_WEIGHT_LIGHT, FC_WEIGHT_THIN};
-
-pub mod config;
-pub use self::config::{Config, ConfigRef};
-
-pub mod font_set;
-pub use self::font_set::{FontSet, FontSetRef};
-
-pub mod object_set;
-pub use self::object_set::{ObjectSet, ObjectSetRef};
-
-pub mod char_set;
-pub use self::char_set::{CharSet, CharSetRef};
-
-pub mod pattern;
-pub use self::pattern::{Pattern, PatternRef};
+mod char_set;
+mod config;
+mod font_set;
+mod object_set;
+mod pattern;
 
 /// Find the font closest matching the provided pattern.
 ///
 /// The returned pattern is the result of Pattern::render_prepare.
-pub fn font_match(config: &ConfigRef, pattern: &mut PatternRef) -> Option<Pattern> {
+pub fn font_match(config: &ConfigRef, pattern: &mut PatternRef) -> Option<self::Pattern> {
     pattern.config_substitute(config, MatchKind::Pattern);
     pattern.default_substitute();
 
@@ -199,6 +191,7 @@ impl From<isize> for Width {
 }
 
 /// Subpixel geometry
+#[derive(Debug, Copy, Clone)]
 pub enum Rgba {
     Unknown,
     Rgb,
@@ -236,7 +229,7 @@ impl fmt::Display for Rgba {
 }
 
 impl From<isize> for Rgba {
-    fn from(val: isize) -> Rgba {
+    fn from(val: isize) -> Self {
         match val {
             1 => Rgba::Rgb,
             2 => Rgba::Bgr,

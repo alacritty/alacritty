@@ -21,6 +21,7 @@ use std::path::PathBuf;
 use freetype::tt_os2::TrueTypeOS2Table;
 use freetype::{self, Library};
 use libc::c_uint;
+use log::{debug, trace};
 
 pub mod fc;
 
@@ -71,7 +72,7 @@ fn to_freetype_26_6(f: f32) -> isize {
     ((1i32 << 6) as f32 * f) as isize
 }
 
-impl ::Rasterize for FreeTypeRasterizer {
+impl crate::Rasterize for FreeTypeRasterizer {
     type Err = Error;
 
     fn new(device_pixel_ratio: f32, _: bool) -> Result<FreeTypeRasterizer, Error> {
@@ -546,19 +547,19 @@ pub enum Error {
 }
 
 impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn std::error::Error> {
-        match *self {
-            Error::FreeType(ref err) => Some(err),
-            _ => None,
-        }
-    }
-
     fn description(&self) -> &str {
         match *self {
             Error::FreeType(ref err) => err.description(),
             Error::MissingFont(ref _desc) => "Couldn't find the requested font",
             Error::FontNotLoaded => "Tried to operate on font that hasn't been loaded",
             Error::MissingSizeMetrics => "Tried to get size metrics from a face without a size",
+        }
+    }
+
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        match *self {
+            Error::FreeType(ref err) => Some(err),
+            _ => None,
         }
     }
 }
