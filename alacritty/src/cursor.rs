@@ -18,7 +18,7 @@ use std::cmp;
 
 use alacritty_terminal::ansi::CursorStyle;
 
-use font::{Metrics, RasterizedGlyph, PLACEHOLDER_GLYPH};
+use font::{BitmapBuffer, Metrics, RasterizedGlyph};
 
 /// Width/Height of the cursor relative to the font width
 pub const CURSOR_WIDTH_PERCENTAGE: i32 = 15;
@@ -56,12 +56,12 @@ pub fn get_underline_cursor_glyph(width: i32, line_width: i32) -> RasterizedGlyp
 
     // Create a custom glyph with the rectangle data attached to it
     RasterizedGlyph {
-        c: PLACEHOLDER_GLYPH,
+        c: ' ',
         top: line_width,
         left: 0,
         height: line_width,
         width,
-        buf,
+        buf: BitmapBuffer::RGB(buf),
     }
 }
 
@@ -69,9 +69,15 @@ pub fn get_underline_cursor_glyph(width: i32, line_width: i32) -> RasterizedGlyp
 pub fn get_beam_cursor_glyph(height: i32, line_width: i32) -> RasterizedGlyph {
     // Create a new rectangle that is at least one pixel wide
     let buf = vec![255u8; (line_width * height * 3) as usize];
-
     // Create a custom glyph with the rectangle data attached to it
-    RasterizedGlyph { c: PLACEHOLDER_GLYPH, top: height, left: 0, height, width: line_width, buf }
+    RasterizedGlyph {
+        c: ' ',
+        top: height,
+        left: 0,
+        height,
+        width: line_width,
+        buf: BitmapBuffer::RGB(buf),
+    }
 }
 
 // Returns a custom box cursor character
@@ -93,14 +99,13 @@ pub fn get_box_cursor_glyph(height: i32, width: i32, line_width: i32) -> Rasteri
     }
 
     // Create a custom glyph with the rectangle data attached to it
-    RasterizedGlyph { c: PLACEHOLDER_GLYPH, top: height, left: 0, height, width, buf }
+    RasterizedGlyph { c: ' ', top: height, left: 0, height, width, buf: BitmapBuffer::RGB(buf) }
 }
 
 // Returns a custom block cursor character
 pub fn get_block_cursor_glyph(height: i32, width: i32) -> RasterizedGlyph {
     // Create a completely filled glyph
     let buf = vec![255u8; (width * height * 3) as usize];
-
     // Create a custom glyph with the rectangle data attached to it
-    RasterizedGlyph { c: PLACEHOLDER_GLYPH, top: height, left: 0, height, width, buf }
+    RasterizedGlyph { c: ' ', top: height, left: 0, height, width, buf: BitmapBuffer::RGB(buf) }
 }

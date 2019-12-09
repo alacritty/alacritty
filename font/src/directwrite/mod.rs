@@ -19,7 +19,7 @@ use self::dwrote::{
 };
 
 use super::{
-    FontDesc, FontKey, GlyphKey, KeyType, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
+    BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph, Size, Slant, Style, Weight,
 };
 
 pub struct DirectWriteRasterizer {
@@ -179,7 +179,7 @@ impl crate::Rasterize for DirectWriteRasterizer {
             height: (bounds.bottom - bounds.top) as i32,
             top: -bounds.top,
             left: bounds.left,
-            buf,
+            buf: BitmapBuffer::RGB(buf),
         })
     }
 

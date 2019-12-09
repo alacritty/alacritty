@@ -420,6 +420,7 @@ impl PatternRef {
         size() => b"size\0",
         aspect() => b"aspect\0",
         pixelsize() => b"pixelsize\0",
+        pixelsizefixupfactor() => b"pixelsizefixupfactor\0",
         scale() => b"scale\0",
         dpi() => b"dpi\0"
     }
