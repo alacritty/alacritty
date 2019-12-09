@@ -581,6 +581,10 @@ impl FreeTypeRasterizer {
     }
 }
 
+/// Downscale a bitmap by a fixed factor.
+///
+/// This will take the `bitmap_glyph` as input and return the glyph's content downscaled by
+/// `fixup_factor`.
 fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> RasterizedGlyph {
     // Only scale colored buffers which are bigger than required
     let bitmap_buffer = match (&bitmap_glyph.buf, fixup_factor.partial_cmp(&1.0)) {
@@ -594,16 +598,19 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
     let target_width = (bitmap_width as f64 * fixup_factor) as usize;
     let target_height = (bitmap_height as f64 * fixup_factor) as usize;
 
+    // Number of pixels in the input buffer, per pixel in the output buffer
     let downsampling_step = 1.0 / fixup_factor;
 
     let mut downsampled_buffer = Vec::<u8>::with_capacity(target_width * target_height * 4);
 
     for line_index in 0..target_height {
+        // Get the first and last line which will be consolidated in the current output pixel
         let line_index = line_index as f64;
         let source_line_start = (line_index * downsampling_step).round() as usize;
         let source_line_end = ((line_index + 1.) * downsampling_step).round() as usize;
 
         for column_index in 0..target_width {
+            // Get the first and last column which will be consolidated in the current output pixel
             let column_index = column_index as f64;
             let source_column_start = (column_index * downsampling_step).round() as usize;
             let source_column_end = ((column_index + 1.) * downsampling_step).round() as usize;
@@ -611,6 +618,8 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
             let (mut r, mut g, mut b, mut a) = (0u32, 0u32, 0u32, 0u32);
             let mut pixels_picked: u32 = 0;
 
+            // Consolidate all pixels within the source line and column ranges into a single
+            // averaged pixel
             for source_line in source_line_start..source_line_end {
                 let source_pixel_index = source_line * bitmap_width;
 
@@ -624,6 +633,8 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
                 }
             }
 
+            // Add a single pixel for the downscaled rectangle of the source bitmap into the output
+            // buffer
             downsampled_buffer.push((r / pixels_picked) as u8);
             downsampled_buffer.push((g / pixels_picked) as u8);
             downsampled_buffer.push((b / pixels_picked) as u8);
@@ -631,11 +642,14 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
         }
     }
 
+    bitmap_glyph.buf = BitmapBuffer::RGBA(downsampled_buffer);
+
+    // Downscale the metrics
     bitmap_glyph.top = (bitmap_glyph.top as f64 * fixup_factor) as i32;
     bitmap_glyph.left = (bitmap_glyph.left as f64 * fixup_factor) as i32;
     bitmap_glyph.width = target_width as i32;
     bitmap_glyph.height = target_height as i32;
-    bitmap_glyph.buf = BitmapBuffer::RGBA(downsampled_buffer);
+
     bitmap_glyph
 }
 
