@@ -29,6 +29,10 @@ impl GridCell for usize {
     }
 
     fn set_wrap(&mut self, _wrap: bool) {}
+
+    fn fast_eq(&self, other: Self) -> bool {
+        self == &other
+    }
 }
 
 // Scroll up moves lines upwards

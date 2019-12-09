@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::cmp::{Ordering, PartialEq};
 use std::ops::{Index, IndexMut};
 use std::vec::Drain;
 
@@ -50,7 +50,7 @@ pub struct Storage<T> {
     len: usize,
 }
 
-impl<T: PartialEq> ::std::cmp::PartialEq for Storage<T> {
+impl<T: PartialEq> PartialEq for Storage<T> {
     fn eq(&self, other: &Self) -> bool {
         // Make sure length is equal
         if self.inner.len() != other.inner.len() {
@@ -62,9 +62,8 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Storage<T> {
             if self.zero >= other.zero { (self, other) } else { (other, self) };
 
         // Calculate the actual zero offset
-        let len = self.inner.len();
-        let bigger_zero = bigger.zero % len;
-        let smaller_zero = smaller.zero % len;
+        let bigger_zero = bigger.zero;
+        let smaller_zero = smaller.zero;
 
         // Compare the slices in chunks
         // Chunks:
@@ -79,6 +78,7 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Storage<T> {
         //   Smaller Zero (3):
         //     7  8  9  | 0  1  2  3  | 4  5  6
         //     C3 C3 C3 | C1 C1 C1 C1 | C2 C2 C2
+        let len = self.inner.len();
         bigger.inner[bigger_zero..]
             == smaller.inner[smaller_zero..smaller_zero + (len - bigger_zero)]
             && bigger.inner[..bigger_zero - smaller_zero]
@@ -149,7 +149,7 @@ impl<T> Storage<T> {
         }
 
         // Update raw buffer length and zero offset
-        self.zero = (self.zero + new_growage) % self.inner.len();
+        self.zero += new_growage;
         self.len += growage;
     }
 
@@ -201,19 +201,11 @@ impl<T> Storage<T> {
         self.len
     }
 
-    #[inline]
     /// Compute actual index in underlying storage given the requested index.
+    #[inline]
     fn compute_index(&self, requested: usize) -> usize {
         debug_assert!(requested < self.len);
-        let zeroed = requested + self.zero;
-
-        // This part is critical for performance,
-        // so an if/else is used here instead of a moludo operation
-        if zeroed >= self.inner.len() {
-            zeroed - self.inner.len()
-        } else {
-            zeroed
-        }
+        self.wrap_index(self.zero + requested)
     }
 
     pub fn swap_lines(&mut self, a: Line, b: Line) {
@@ -256,30 +248,47 @@ impl<T> Storage<T> {
         }
     }
 
+    /// Rotate the grid, moving all lines up/down in history.
     #[inline]
     pub fn rotate(&mut self, count: isize) {
         debug_assert!(count.abs() as usize <= self.inner.len());
 
         let len = self.inner.len();
-        self.zero = (self.zero as isize + count + len as isize) as usize % len;
+        self.zero = self.wrap_index((self.zero as isize + count + len as isize) as usize);
     }
 
-    // Fast path
+    /// Rotate the grid up, moving all existing lines down in history.
+    ///
+    /// This is a faster, specialized version of [`rotate`].
     #[inline]
     pub fn rotate_up(&mut self, count: usize) {
-        self.zero = (self.zero + count) % self.inner.len();
+        self.zero = self.wrap_index(self.zero + count);
     }
 
+    /// Drain all rows in the grid.
     pub fn drain(&mut self) -> Drain<'_, Row<T>> {
         self.truncate();
         self.inner.drain(..)
     }
 
-    /// Update the raw storage buffer
+    /// Update the raw storage buffer.
     pub fn replace_inner(&mut self, vec: Vec<Row<T>>) {
         self.len = vec.len();
         self.inner = vec;
         self.zero = 0;
+    }
+
+    /// Wrap index to be within the inner buffer.
+    ///
+    /// This uses if/else instead of the remainder to improve performance,
+    /// so the assumption is made that `index < self.inner.len() * 2`.
+    #[inline]
+    fn wrap_index(&self, index: usize) -> usize {
+        if index >= self.inner.len() {
+            index - self.inner.len()
+        } else {
+            index
+        }
     }
 }
 
@@ -335,6 +344,10 @@ mod test {
         }
 
         fn set_wrap(&mut self, _wrap: bool) {}
+
+        fn fast_eq(&self, other: Self) -> bool {
+            self == &other
+        }
     }
 
     #[test]
