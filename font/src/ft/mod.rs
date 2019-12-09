@@ -595,43 +595,28 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
     let target_height = (bitmap_height as f64 * fixup_factor) as usize;
 
     let downsampling_step = 1.0 / fixup_factor;
-    let downsampling_step_fraction = downsampling_step.fract();
-    let downsampling_step = downsampling_step.floor() as usize;
+
     let mut downsampled_buffer = Vec::<u8>::with_capacity(target_width * target_height * 4);
 
-    let mut source_line_start = 0;
-    let mut line_step_fraction = 0.0f64;
+    for line_index in 0..target_height {
+        let line_index = line_index as f64;
+        let source_line_start = (line_index * downsampling_step).floor() as usize;
+        let source_line_end =
+            min(((line_index + 1.) * downsampling_step).floor() as usize, bitmap_height);
 
-    for _ in 0..target_height {
-        let line_step = if line_step_fraction > 0.99 {
-            line_step_fraction = line_step_fraction.fract();
-            downsampling_step + 1
-        } else {
-            downsampling_step
-        };
-
-        let mut source_column_start = 0;
-        let mut column_step_fraction = 0.0f64;
-
-        let source_end_line = min(source_line_start + line_step, bitmap_height);
-
-        for _ in 0..target_width {
-            let column_step = if column_step_fraction > 0.99 {
-                column_step_fraction = column_step_fraction.fract();
-                downsampling_step + 1
-            } else {
-                downsampling_step
-            };
+        for column_index in 0..target_width {
+            let column_index = column_index as f64;
+            let source_column_start = (column_index * downsampling_step).floor() as usize;
+            let source_column_end =
+                min(((column_index + 1.) * downsampling_step).floor() as usize, bitmap_width);
 
             let (mut r, mut g, mut b, mut a) = (0u32, 0u32, 0u32, 0u32);
             let mut pixels_picked: u32 = 0;
 
-            let source_end_column = min(source_column_start + column_step, bitmap_width);
-
-            for source_line in source_line_start..source_end_line {
+            for source_line in source_line_start..source_line_end {
                 let source_pixel_index = source_line * bitmap_width;
 
-                for source_column in source_column_start..source_end_column {
+                for source_column in source_column_start..source_column_end {
                     let offset = (source_pixel_index + source_column) * 4;
                     r += bitmap_buffer[offset] as u32;
                     g += bitmap_buffer[offset + 1] as u32;
@@ -641,26 +626,14 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
                 }
             }
 
-            if pixels_picked == 0 {
-                downsampled_buffer.push(0);
-                downsampled_buffer.push(0);
-                downsampled_buffer.push(0);
-                downsampled_buffer.push(0);
-            } else {
-                downsampled_buffer.push((r / pixels_picked) as u8);
-                downsampled_buffer.push((g / pixels_picked) as u8);
-                downsampled_buffer.push((b / pixels_picked) as u8);
-                downsampled_buffer.push((a / pixels_picked) as u8);
-            }
-
-            column_step_fraction += downsampling_step_fraction;
-            source_column_start += column_step;
+            downsampled_buffer.push((r / pixels_picked) as u8);
+            downsampled_buffer.push((g / pixels_picked) as u8);
+            downsampled_buffer.push((b / pixels_picked) as u8);
+            downsampled_buffer.push((a / pixels_picked) as u8);
         }
-        line_step_fraction += downsampling_step_fraction;
-        source_line_start += line_step;
     }
 
-    bitmap_glyph.top = (bitmap_glyph.top as f32 * fixup_factor as f32) as i32;
+    bitmap_glyph.top = (bitmap_glyph.top as f64 * fixup_factor) as i32;
     bitmap_glyph.left = (bitmap_glyph.left as f64 * fixup_factor) as i32;
     bitmap_glyph.width = target_width as i32;
     bitmap_glyph.height = target_height as i32;
