@@ -472,13 +472,7 @@ impl Batch {
 
         if glyph.colored {
             // XXX Temporary workaround to prevent emojis being rendered with a wrong colors on, at
-            // least, dark backgrounds. To resolve this issue properly we should have a separate
-            // rendering pass for colored glyphs. For more info see #1864.
-            //
-            // The 255 is not a color, it'll be a part of forming an alpha mask later on. So a
-            // proper color of emojis could be achieved by setting fg to #ffffff and bg
-            // to #000000, however we can't change bg here, because it actually "changes
-            // bg" of a cell.
+            // least, dark backgrounds. For more info see #1864.
             cell.fg.r = 255;
             cell.fg.g = 255;
             cell.fg.b = 255;
@@ -1597,9 +1591,15 @@ impl Atlas {
             gl::BindTexture(gl::TEXTURE_2D, self.id);
 
             // Load data into OpenGL
-            let (format, buf, _) = match &glyph.buf {
-                BitmapBuffer::RGB(buf) => (gl::RGB, buf, colored = false),
-                BitmapBuffer::RGBA(buf) => (gl::RGBA, buf, colored = true),
+            let (format, buf) = match &glyph.buf {
+                BitmapBuffer::RGB(buf) => {
+                    colored = false;
+                    (gl::RGB, buf)
+                },
+                BitmapBuffer::RGBA(buf) => {
+                    colored = true;
+                    (gl::RGBA, buf)
+                },
             };
 
             gl::TexSubImage2D(

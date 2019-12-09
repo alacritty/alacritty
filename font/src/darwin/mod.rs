@@ -572,7 +572,6 @@ impl Font {
 
 #[cfg(test)]
 mod tests {
-
     use super::BitmapBuffer;
 
     #[test]

@@ -42,7 +42,7 @@ struct Face {
     lcd_filter: c_uint,
     non_scalable: Option<FixedSize>,
     has_color: bool,
-    pixelsize_fixup_factor: f64,
+    pixelsize_fixup_factor: Option<f64>,
 }
 
 impl fmt::Debug for Face {
@@ -189,7 +189,6 @@ impl FreeTypeRasterizer {
     fn get_face(&mut self, desc: &FontDesc, size: Size) -> Result<FontKey, Error> {
         // Adjust for DPI
         let size = Size::new(size.as_f32_pts() * self.device_pixel_ratio * 96. / 72.);
-
         self.pixel_size = f64::from(size.as_f32_pts());
 
         match desc.style {
@@ -269,7 +268,7 @@ impl FreeTypeRasterizer {
                 Some(FixedSize { pixelsize: pixelsize.next().expect("has 1+ pixelsize") })
             };
 
-            let pixelsize_fixup_factor = pattern.pixelsizefixupfactor().next().unwrap_or(0.);
+            let pixelsize_fixup_factor = pattern.pixelsizefixupfactor().next();
 
             let has_color = ft_face.has_color();
             if has_color {
@@ -362,12 +361,12 @@ impl FreeTypeRasterizer {
         };
 
         if face.has_color {
-            let fixup_factor = if face.pixelsize_fixup_factor == 0. {
+            let fixup_factor = if let Some(pixelsize_fixup_factor) = face.pixelsize_fixup_factor {
+                pixelsize_fixup_factor
+            } else {
                 // Fallback if user has bitmap scaling disabled
                 let metrics = face.ft_face.size_metrics().ok_or(Error::MissingSizeMetrics)?;
                 self.pixel_size as f64 / metrics.y_ppem as f64
-            } else {
-                face.pixelsize_fixup_factor
             };
             Ok(downsample_bitmap(rasterized_glyph, fixup_factor))
         } else {
@@ -555,7 +554,7 @@ impl FreeTypeRasterizer {
                             debug!("Hit for font {:?}; no need to load", path);
                             // Update fixup factor
                             self.faces.get_mut(&key).unwrap().pixelsize_fixup_factor =
-                                pattern.pixelsizefixupfactor().next().unwrap_or(0.0);
+                                pattern.pixelsizefixupfactor().next();
                             Ok(key)
                         },
 
