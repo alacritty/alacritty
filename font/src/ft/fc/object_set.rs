@@ -13,7 +13,7 @@
 // limitations under the License.
 use std::ptr::NonNull;
 
-use fontconfig::fontconfig::{FcObjectSet, FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy};
+use super::ffi::{FcObjectSet, FcObjectSetAdd, FcObjectSetCreate, FcObjectSetDestroy};
 use foreign_types::{foreign_type, ForeignTypeRef};
 use libc::c_char;
 

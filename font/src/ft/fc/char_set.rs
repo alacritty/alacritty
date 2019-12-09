@@ -13,7 +13,7 @@
 // limitations under the License.
 use std::ptr::NonNull;
 
-use fontconfig::fontconfig::{FcCharSet, FcCharSetAddChar, FcCharSetCreate, FcCharSetDestroy};
+use super::ffi::{FcCharSet, FcCharSetAddChar, FcCharSetCreate, FcCharSetDestroy};
 use foreign_types::{foreign_type, ForeignTypeRef};
 
 foreign_type! {

@@ -11,13 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::{
-    ffi::{CStr, CString},
-    fmt, mem,
-    path::PathBuf,
-    ptr::{self, NonNull},
-    str,
-};
+use std::ffi::{CStr, CString};
+use std::fmt;
+use std::mem;
+use std::path::PathBuf;
+use std::ptr::{self, NonNull};
+use std::str;
 
 use fontconfig::fontconfig::{
     FcBool, FcChar8, FcConfigSubstitute, FcDefaultSubstitute, FcFontRenderPrepare, FcPattern,
@@ -352,13 +351,13 @@ macro_rules! string_accessor {
     }
 }
 
-impl self::Pattern {
+impl Pattern {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl Default for self::Pattern {
+impl Default for Pattern {
     fn default() -> Self {
         Pattern(unsafe { NonNull::new(FcPatternCreate()).unwrap() })
     }
@@ -528,7 +527,7 @@ impl PatternRef {
         unsafe { self.add_integer(b"rgba\0", rgba.to_isize()) }
     }
 
-    pub fn render_prepare(&self, config: &ConfigRef, request: &PatternRef) -> self::Pattern {
+    pub fn render_prepare(&self, config: &ConfigRef, request: &PatternRef) -> Pattern {
         unsafe {
             let ptr = FcFontRenderPrepare(config.as_ptr(), request.as_ptr(), self.as_ptr());
             Pattern::from_ptr(ptr)

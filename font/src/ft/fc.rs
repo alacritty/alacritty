@@ -11,16 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::{fmt, ptr};
+use std::fmt;
+use std::ptr;
 
-use fontconfig::fontconfig::{
-    FcResultNoMatch, {FcFontList, FcFontMatch, FcFontSort},
-    {FcMatchFont, FcMatchPattern, FcMatchScan}, {FcSetApplication, FcSetSystem},
-    {FC_SLANT_ITALIC, FC_SLANT_OBLIQUE, FC_SLANT_ROMAN},
-    {FC_WEIGHT_BLACK, FC_WEIGHT_BOLD, FC_WEIGHT_EXTRABLACK, FC_WEIGHT_EXTRABOLD},
-    {FC_WEIGHT_BOOK, FC_WEIGHT_MEDIUM, FC_WEIGHT_REGULAR, FC_WEIGHT_SEMIBOLD},
-    {FC_WEIGHT_EXTRALIGHT, FC_WEIGHT_LIGHT, FC_WEIGHT_THIN},
+use ffi::{
+    FcFontList, FcFontMatch, FcFontSort, FcMatchFont, FcMatchPattern, FcMatchScan, FcResultNoMatch,
+    FcSetApplication, FcSetSystem, FC_SLANT_ITALIC, FC_SLANT_OBLIQUE, FC_SLANT_ROMAN,
+    FC_WEIGHT_BLACK, FC_WEIGHT_BOLD, FC_WEIGHT_BOOK, FC_WEIGHT_EXTRABLACK, FC_WEIGHT_EXTRABOLD,
+    FC_WEIGHT_EXTRALIGHT, FC_WEIGHT_LIGHT, FC_WEIGHT_MEDIUM, FC_WEIGHT_REGULAR, FC_WEIGHT_SEMIBOLD,
+    FC_WEIGHT_THIN,
 };
+use fontconfig::fontconfig as ffi;
 use foreign_types::{ForeignType, ForeignTypeRef};
 
 pub use char_set::{CharSet, CharSetRef};
