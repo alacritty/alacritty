@@ -486,6 +486,17 @@ impl<N: Notify> Processor<N> {
                 match event {
                     CloseRequested => processor.ctx.terminal.exit(),
                     Resized(lsize) => {
+                        #[cfg(windows)]
+                        {
+                            // Minimizing the window sends a Resize event with zero width and
+                            // height. But there's no need to ever actually resize to this.
+                            // Both WinPTY & ConPTY have issues when resizing down to zero size
+                            // and back.
+                            if lsize.width == 0.0 && lsize.height == 0.0 {
+                                return;
+                            }
+                        }
+
                         let psize = lsize.to_physical(processor.ctx.size_info.dpr);
                         processor.ctx.display_update_pending.dimensions = Some(psize);
                         processor.ctx.terminal.dirty = true;
