@@ -85,7 +85,7 @@ impl<T: Copy> Row<T> {
     #[inline]
     pub fn reset(&mut self, template: &T)
     where
-        T: GridCell + PartialEq + std::fmt::Debug,
+        T: GridCell + PartialEq,
     {
         debug_assert!(!self.inner.is_empty());
 
