@@ -600,15 +600,13 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
 
     for line_index in 0..target_height {
         let line_index = line_index as f64;
-        let source_line_start = (line_index * downsampling_step).floor() as usize;
-        let source_line_end =
-            min(((line_index + 1.) * downsampling_step).floor() as usize, bitmap_height);
+        let source_line_start = (line_index * downsampling_step).round() as usize;
+        let source_line_end = ((line_index + 1.) * downsampling_step).round() as usize;
 
         for column_index in 0..target_width {
             let column_index = column_index as f64;
-            let source_column_start = (column_index * downsampling_step).floor() as usize;
-            let source_column_end =
-                min(((column_index + 1.) * downsampling_step).floor() as usize, bitmap_width);
+            let source_column_start = (column_index * downsampling_step).round() as usize;
+            let source_column_end = ((column_index + 1.) * downsampling_step).round() as usize;
 
             let (mut r, mut g, mut b, mut a) = (0u32, 0u32, 0u32, 0u32);
             let mut pixels_picked: u32 = 0;
