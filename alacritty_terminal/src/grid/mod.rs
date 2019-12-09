@@ -70,6 +70,12 @@ pub trait GridCell {
     fn is_empty(&self) -> bool;
     fn is_wrap(&self) -> bool;
     fn set_wrap(&mut self, wrap: bool);
+
+    /// Fast equality approximation.
+    ///
+    /// This is a faster alternative to [`PartialEq`],
+    /// but might report inequal cells as equal.
+    fn fast_eq(&self, other: Self) -> bool;
 }
 
 /// Represents the terminal display contents
@@ -140,7 +146,7 @@ pub enum Scroll {
     Bottom,
 }
 
-impl<T: GridCell + Copy + Clone> Grid<T> {
+impl<T: GridCell + PartialEq + Copy> Grid<T> {
     pub fn new(lines: index::Line, cols: index::Column, scrollback: usize, template: T) -> Grid<T> {
         let raw = Storage::with_capacity(lines, Row::new(cols, &template));
         Grid {
