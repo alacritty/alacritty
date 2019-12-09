@@ -22,7 +22,9 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use fnv::FnvHasher;
-use font::{self, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer};
+use font::{
+    self, BitmapBuffer, FontDesc, FontKey, GlyphKey, Rasterize, RasterizedGlyph, Rasterizer,
+};
 use log::{error, info};
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
@@ -139,6 +141,7 @@ pub struct RectShaderProgram {
 #[derive(Copy, Debug, Clone)]
 pub struct Glyph {
     tex_id: GLuint,
+    colored: bool,
     top: f32,
     left: f32,
     width: f32,
@@ -462,9 +465,17 @@ impl Batch {
         Batch { tex: 0, instances: Vec::with_capacity(BATCH_MAX) }
     }
 
-    pub fn add_item(&mut self, cell: RenderableCell, glyph: &Glyph) {
+    pub fn add_item(&mut self, mut cell: RenderableCell, glyph: &Glyph) {
         if self.is_empty() {
             self.tex = glyph.tex_id;
+        }
+
+        if glyph.colored {
+            // XXX Temporary workaround to prevent emojis being rendered with a wrong colors on, at
+            // least, dark backgrounds. For more info see #1864.
+            cell.fg.r = 255;
+            cell.fg.g = 255;
+            cell.fg.b = 255;
         }
 
         self.instances.push(InstanceData {
@@ -1091,6 +1102,7 @@ fn load_glyph(
         },
         Err(AtlasInsertError::GlyphTooLarge) => Glyph {
             tex_id: atlas[*current_atlas].id,
+            colored: false,
             top: 0.0,
             left: 0.0,
             width: 0.0,
@@ -1573,11 +1585,23 @@ impl Atlas {
         let offset_x = self.row_extent;
         let height = glyph.height as i32;
         let width = glyph.width as i32;
+        let colored;
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.id);
 
             // Load data into OpenGL
+            let (format, buf) = match &glyph.buf {
+                BitmapBuffer::RGB(buf) => {
+                    colored = false;
+                    (gl::RGB, buf)
+                },
+                BitmapBuffer::RGBA(buf) => {
+                    colored = true;
+                    (gl::RGBA, buf)
+                },
+            };
+
             gl::TexSubImage2D(
                 gl::TEXTURE_2D,
                 0,
@@ -1585,9 +1609,9 @@ impl Atlas {
                 offset_y,
                 width,
                 height,
-                gl::RGB,
+                format,
                 gl::UNSIGNED_BYTE,
-                glyph.buf.as_ptr() as *const _,
+                buf.as_ptr() as *const _,
             );
 
             gl::BindTexture(gl::TEXTURE_2D, 0);
@@ -1608,6 +1632,7 @@ impl Atlas {
 
         Glyph {
             tex_id: self.id,
+            colored,
             top: glyph.top as f32,
             width: width as f32,
             height: height as f32,

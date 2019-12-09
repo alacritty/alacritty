@@ -220,20 +220,25 @@ pub struct RasterizedGlyph {
     pub height: i32,
     pub top: i32,
     pub left: i32,
-    pub buf: Vec<u8>,
+    pub buf: BitmapBuffer,
+}
+
+#[derive(Clone, Debug)]
+pub enum BitmapBuffer {
+    RGB(Vec<u8>),
+    RGBA(Vec<u8>),
 }
 
 impl Default for RasterizedGlyph {
     fn default() -> RasterizedGlyph {
-        RasterizedGlyph { c: ' ', width: 0, height: 0, top: 0, left: 0, buf: Vec::new() }
-    }
-}
-
-struct BufDebugger<'a>(&'a [u8]);
-
-impl<'a> fmt::Debug for BufDebugger<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("GlyphBuffer").field("len", &self.0.len()).field("bytes", &self.0).finish()
+        RasterizedGlyph {
+            c: ' ',
+            width: 0,
+            height: 0,
+            top: 0,
+            left: 0,
+            buf: BitmapBuffer::RGB(Vec::new()),
+        }
     }
 }
 
@@ -245,7 +250,7 @@ impl fmt::Debug for RasterizedGlyph {
             .field("height", &self.height)
             .field("top", &self.top)
             .field("left", &self.left)
-            .field("buf", &BufDebugger(&self.buf[..]))
+            .field("buf", &self.buf)
             .finish()
     }
 }

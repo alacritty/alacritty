@@ -33,6 +33,7 @@ use core_text::font::{
 };
 use core_text::font_collection::create_for_family;
 use core_text::font_collection::get_family_names as ct_get_family_names;
+use core_text::font_descriptor::kCTFontColorGlyphsTrait;
 use core_text::font_descriptor::kCTFontDefaultOrientation;
 use core_text::font_descriptor::kCTFontHorizontalOrientation;
 use core_text::font_descriptor::kCTFontVerticalOrientation;
@@ -41,10 +42,9 @@ use core_text::font_descriptor::{CTFontDescriptor, CTFontOrientation};
 
 use euclid::{Point2D, Rect, Size2D};
 
-use super::{FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph};
+use super::{BitmapBuffer, FontDesc, FontKey, GlyphKey, Metrics, RasterizedGlyph};
 
 pub mod byte_order;
-use self::byte_order::extract_rgb;
 use self::byte_order::kCGBitmapByteOrder32Host;
 
 use super::Size;
@@ -431,6 +431,10 @@ impl Font {
         self.ct_font.symbolic_traits().is_italic()
     }
 
+    pub fn is_colored(&self) -> bool {
+        (self.ct_font.symbolic_traits() & kCTFontColorGlyphsTrait) != 0
+    }
+
     fn glyph_advance(&self, character: char) -> f64 {
         let index = self.glyph_index(character).unwrap();
 
@@ -471,7 +475,7 @@ impl Font {
                 height: 0,
                 top: 0,
                 left: 0,
-                buf: Vec::new(),
+                buf: BitmapBuffer::RGB(Vec::new()),
             });
         }
 
@@ -520,7 +524,11 @@ impl Font {
 
         let rasterized_pixels = cg_context.data().to_vec();
 
-        let buf = extract_rgb(&rasterized_pixels);
+        let buf = if self.is_colored() {
+            BitmapBuffer::RGBA(byte_order::extract_rgba(&rasterized_pixels))
+        } else {
+            BitmapBuffer::RGB(byte_order::extract_rgb(&rasterized_pixels))
+        };
 
         Ok(RasterizedGlyph {
             c: character,
@@ -564,6 +572,8 @@ impl Font {
 
 #[cfg(test)]
 mod tests {
+    use super::BitmapBuffer;
+
     #[test]
     fn get_family_names() {
         let names = super::get_family_names();
@@ -585,11 +595,16 @@ mod tests {
             for c in &['a', 'b', 'c', 'd'] {
                 let glyph = font.get_glyph(*c, 72., false).unwrap();
 
+                let buf = match &glyph.buf {
+                    BitmapBuffer::RGB(buf) => buf,
+                    BitmapBuffer::RGBA(buf) => buf,
+                };
+
                 // Debug the glyph.. sigh
                 for row in 0..glyph.height {
                     for col in 0..glyph.width {
                         let index = ((glyph.width * 3 * row) + (col * 3)) as usize;
-                        let value = glyph.buf[index];
+                        let value = buf[index];
                         let c = match value {
                             0..=50 => ' ',
                             51..=100 => '.',
