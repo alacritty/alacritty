@@ -618,8 +618,7 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
             let (mut r, mut g, mut b, mut a) = (0u32, 0u32, 0u32, 0u32);
             let mut pixels_picked: u32 = 0;
 
-            // Consolidate all pixels within the source line and column ranges into a single
-            // averaged pixel
+            // Consolidate all pixels within the source rectangle into a single averaged pixel
             for source_line in source_line_start..source_line_end {
                 let source_pixel_index = source_line * bitmap_width;
 
@@ -633,8 +632,7 @@ fn downsample_bitmap(mut bitmap_glyph: RasterizedGlyph, fixup_factor: f64) -> Ra
                 }
             }
 
-            // Add a single pixel for the downscaled rectangle of the source bitmap into the output
-            // buffer
+            // Add a single pixel to the output buffer for the downscaled source rectangle
             downsampled_buffer.push((r / pixels_picked) as u8);
             downsampled_buffer.push((g / pixels_picked) as u8);
             downsampled_buffer.push((b / pixels_picked) as u8);
