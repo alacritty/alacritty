@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Width of Unicode 11/12 emojis
 - Minimize on windows causing layout issues
 - Performance bottleneck when clearing colored rows
-- Lack of error message explaining why shell could not start on Windows (when using Winpty backend)
+- Vague startup crash messages on Windows with WinPTY backend
 
 ## 0.4.0
 

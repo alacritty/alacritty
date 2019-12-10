@@ -20,7 +20,7 @@ pub enum ErrorCode {
     AgentDied,
     AgentTimeout,
     AgentCreationFailed,
-    UnknownError(u32)
+    UnknownError(u32),
 }
 
 pub enum MouseMode {
