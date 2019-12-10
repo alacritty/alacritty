@@ -9,9 +9,8 @@ use winpty_sys::*;
 
 use widestring::WideCString;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum ErrorCode {
-    Success,
     OutOfMemory,
     SpawnCreateProcessFailed,
     LostConnection,
@@ -59,7 +58,7 @@ fn check_err(e: *mut winpty_error_t) -> Option<Err> {
         winpty_error_free(e);
 
         let code = match code {
-            WINPTY_ERROR_SUCCESS => ErrorCode::Success,
+            WINPTY_ERROR_SUCCESS => return None,
             WINPTY_ERROR_OUT_OF_MEMORY => ErrorCode::OutOfMemory,
             WINPTY_ERROR_SPAWN_CREATE_PROCESS_FAILED => ErrorCode::SpawnCreateProcessFailed,
             WINPTY_ERROR_LOST_CONNECTION => ErrorCode::LostConnection,
@@ -68,13 +67,10 @@ fn check_err(e: *mut winpty_error_t) -> Option<Err> {
             WINPTY_ERROR_AGENT_DIED => ErrorCode::AgentDied,
             WINPTY_ERROR_AGENT_TIMEOUT => ErrorCode::AgentTimeout,
             WINPTY_ERROR_AGENT_CREATION_FAILED => ErrorCode::AgentCreationFailed,
-            code => ErrorCode::UnknownError(code)
+            code => ErrorCode::UnknownError(code),
         };
 
-        match code {
-            ErrorCode::Success => None,
-            code => Some(Err { code, message }),
-        }
+        Some(Err { code, message })
     }
 }
 
@@ -144,18 +140,8 @@ impl Drop for Config {
 pub struct Winpty(*mut winpty_t);
 
 pub struct ChildHandles {
-    process: HANDLE,
-    thread: HANDLE
-}
-
-impl ChildHandles {
-    pub fn process(&self) -> HANDLE {
-        self.process
-    }
-
-    pub fn thread(&self) -> HANDLE {
-        self.thread
-    }
+    pub process: HANDLE,
+    pub thread: HANDLE,
 }
 
 impl Winpty {
@@ -245,10 +231,8 @@ impl Winpty {
     /// buffered until the pipes are connected, rather than being discarded.
     /// (https://blogs.msdn.microsoft.com/oldnewthing/20110107-00/?p=11803)
     pub fn spawn(&mut self, cfg: &SpawnConfig) -> Result<ChildHandles, Err> {
-        let mut handles = ChildHandles {
-            process: std::ptr::null_mut(),
-            thread: std::ptr::null_mut()
-        };
+        let mut handles =
+            ChildHandles { process: std::ptr::null_mut(), thread: std::ptr::null_mut() };
 
         let mut create_process_error: DWORD = 0;
         let mut err = null_mut() as *mut winpty_error_t;
@@ -268,7 +252,7 @@ impl Winpty {
             match err.code {
                 ErrorCode::SpawnCreateProcessFailed => Result::Err(Err {
                     code: err.code,
-                    message: format!("{} (error code {})", err.message, create_process_error)
+                    message: format!("{} (error code {})", err.message, create_process_error),
                 }),
                 _ => Result::Err(err),
             }
@@ -306,21 +290,21 @@ impl SpawnConfig {
         let mut err = null_mut() as *mut winpty_error_t;
 
         let to_wstring = |s| WideCString::from_str(s).unwrap();
-        let as_ptr = |opt: &Option<WideCString>| opt.as_ref().map_or(null(), |ws| ws.as_ptr());
-
         let appname = appname.map(to_wstring);
         let cmdline = cmdline.map(to_wstring);
         let cwd = cwd.map(to_wstring);
         let end = end.map(to_wstring);
 
+        let wstring_ptr =
+            |opt: &Option<WideCString>| opt.as_ref().map_or(null(), |ws| ws.as_ptr());
         let spawn_config = unsafe {
             winpty_spawn_config_new(
                 spawnflags.bits(),
-                as_ptr(&appname),
-                as_ptr(&cmdline),
-                as_ptr(&cwd),
-                as_ptr(&end),
-                &mut err
+                wstring_ptr(&appname),
+                wstring_ptr(&cmdline),
+                wstring_ptr(&cwd),
+                wstring_ptr(&end),
+                &mut err,
             )
         };
 
