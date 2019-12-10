@@ -39,7 +39,7 @@ mod pattern;
 /// Find the font closest matching the provided pattern.
 ///
 /// The returned pattern is the result of Pattern::render_prepare.
-pub fn font_match(config: &ConfigRef, pattern: &mut PatternRef) -> Option<self::Pattern> {
+pub fn font_match(config: &ConfigRef, pattern: &mut PatternRef) -> Option<Pattern> {
     pattern.config_substitute(config, MatchKind::Pattern);
     pattern.default_substitute();
 
