@@ -291,8 +291,7 @@ impl SpawnConfig {
         let cwd = cwd.map(to_wstring);
         let end = end.map(to_wstring);
 
-        let wstring_ptr =
-            |opt: &Option<WideCString>| opt.as_ref().map_or(null(), |ws| ws.as_ptr());
+        let wstring_ptr = |opt: &Option<WideCString>| opt.as_ref().map_or(null(), |ws| ws.as_ptr());
         let spawn_config = unsafe {
             winpty_spawn_config_new(
                 spawnflags.bits(),
