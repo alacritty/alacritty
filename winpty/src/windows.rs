@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 use std::os::windows::io::RawHandle;
 use std::path::PathBuf;
@@ -44,13 +43,13 @@ bitflags!(
 );
 
 #[derive(Debug)]
-pub struct Err {
+pub struct Error {
     code: ErrorCode,
     message: String,
 }
 
 // Check to see whether winpty gave us an error, and perform the necessary memory freeing
-fn check_err(e: *mut winpty_error_t) -> Option<Err> {
+fn check_err(e: *mut winpty_error_t) -> Result<(), Error> {
     unsafe {
         let code = winpty_error_code(e);
         let raw = winpty_error_msg(e);
@@ -58,7 +57,7 @@ fn check_err(e: *mut winpty_error_t) -> Option<Err> {
         winpty_error_free(e);
 
         let code = match code {
-            WINPTY_ERROR_SUCCESS => return None,
+            WINPTY_ERROR_SUCCESS => return Ok(()),
             WINPTY_ERROR_OUT_OF_MEMORY => ErrorCode::OutOfMemory,
             WINPTY_ERROR_SPAWN_CREATE_PROCESS_FAILED => ErrorCode::SpawnCreateProcessFailed,
             WINPTY_ERROR_LOST_CONNECTION => ErrorCode::LostConnection,
@@ -70,17 +69,17 @@ fn check_err(e: *mut winpty_error_t) -> Option<Err> {
             code => ErrorCode::UnknownError(code),
         };
 
-        Some(Err { code, message })
+        Err(Error { code, message })
     }
 }
 
-impl Display for Err {
+impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         write!(f, "Code: {:?}, Message: {}", self.code, self.message)
     }
 }
 
-impl Error for Err {
+impl std::error::Error for Error {
     fn description(&self) -> &str {
         &self.message
     }
@@ -91,10 +90,11 @@ impl Error for Err {
 pub struct Config(*mut winpty_config_t);
 
 impl Config {
-    pub fn new(flags: ConfigFlags) -> Result<Self, Err> {
+    pub fn new(flags: ConfigFlags) -> Result<Self, Error> {
         let mut err = null_mut() as *mut winpty_error_t;
         let config = unsafe { winpty_config_new(flags.bits(), &mut err) };
-        check_err(err).map_or(Ok(Self(config)), Result::Err)
+        check_err(err)?;
+        Ok(Self(config))
     }
 
     /// Set the initial size of the console window
@@ -148,10 +148,11 @@ impl Winpty {
     /// Starts the agent. This process will connect to the agent
     /// over a control pipe, and the agent will open data pipes
     /// (e.g. CONIN and CONOUT).
-    pub fn open(cfg: &Config) -> Result<Self, Err> {
+    pub fn open(cfg: &Config) -> Result<Self, Error> {
         let mut err = null_mut() as *mut winpty_error_t;
         let winpty = unsafe { winpty_open(cfg.0, &mut err) };
-        check_err(err).map_or(Ok(Self(winpty)), Result::Err)
+        check_err(err)?;
+        Ok(Self(winpty))
     }
 
     /// Returns the handle to the winpty agent process
@@ -190,7 +191,7 @@ impl Winpty {
     /// Change the size of the Windows console window.
     ///
     /// cols & rows MUST be greater than 0
-    pub fn set_size(&mut self, cols: u16, rows: u16) -> Result<(), Err> {
+    pub fn set_size(&mut self, cols: u16, rows: u16) -> Result<(), Error> {
         assert!(cols > 0 && rows > 0);
         let mut err = null_mut() as *mut winpty_error_t;
 
@@ -198,14 +199,14 @@ impl Winpty {
             winpty_set_size(self.0, i32::from(cols), i32::from(rows), &mut err);
         }
 
-        check_err(err).map_or(Ok(()), Result::Err)
+        check_err(err)
     }
 
     /// Get the list of processes running in the winpty agent. Returns <= count processes
     ///
     /// `count` must be greater than 0. Larger values cause a larger allocation.
     // TODO: This should return Vec<Handle> instead of Vec<i32>
-    pub fn console_process_list(&mut self, count: usize) -> Result<Vec<i32>, Err> {
+    pub fn console_process_list(&mut self, count: usize) -> Result<Vec<i32>, Error> {
         assert!(count > 0);
 
         let mut err = null_mut() as *mut winpty_error_t;
@@ -221,7 +222,8 @@ impl Winpty {
             process_list.set_len(len);
         }
 
-        check_err(err).map_or(Ok(process_list), Result::Err)
+        check_err(err)?;
+        Ok(process_list)
     }
 
     /// Spawns the new process.
@@ -230,7 +232,7 @@ impl Winpty {
     /// before the output data pipe(s) is/are connected, then collected output is
     /// buffered until the pipes are connected, rather than being discarded.
     /// (https://blogs.msdn.microsoft.com/oldnewthing/20110107-00/?p=11803)
-    pub fn spawn(&mut self, cfg: &SpawnConfig) -> Result<ChildHandles, Err> {
+    pub fn spawn(&mut self, cfg: &SpawnConfig) -> Result<ChildHandles, Error> {
         let mut handles =
             ChildHandles { process: std::ptr::null_mut(), thread: std::ptr::null_mut() };
 
@@ -248,17 +250,11 @@ impl Winpty {
             );
         }
 
-        if let Some(err) = check_err(err) {
-            match err.code {
-                ErrorCode::SpawnCreateProcessFailed => Result::Err(Err {
-                    code: err.code,
-                    message: format!("{} (error code {})", err.message, create_process_error),
-                }),
-                _ => Result::Err(err),
-            }
-        } else {
-            Ok(handles)
+        let mut result = check_err(err);
+        if let Err(Error { code: ErrorCode::SpawnCreateProcessFailed, message }) = &mut result {
+            *message = format!("{} (error code {})", message, create_process_error);
         }
+        result.map(|_| handles)
     }
 }
 
@@ -286,7 +282,7 @@ impl SpawnConfig {
         cmdline: Option<&str>,
         cwd: Option<&str>,
         end: Option<&str>,
-    ) -> Result<Self, Err> {
+    ) -> Result<Self, Error> {
         let mut err = null_mut() as *mut winpty_error_t;
 
         let to_wstring = |s| WideCString::from_str(s).unwrap();
@@ -308,7 +304,8 @@ impl SpawnConfig {
             )
         };
 
-        check_err(err).map_or(Ok(Self(spawn_config)), Result::Err)
+        check_err(err)?;
+        Ok(Self(spawn_config))
     }
 }
 
