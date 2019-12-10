@@ -45,8 +45,8 @@ pub enum PtyHandle {
 }
 
 pub struct Pty {
-    // It is important for drop order that this handle is defined before conout. Drop for Conpty
-    // will deadlock if the conout pipe has already been dropped.
+    // XXX: Handle is required to be the first field, to ensure correct drop order. Dropping
+    // `conout` before `handle` will cause a deadlock.
     handle: PtyHandle,
     // TODO: It's on the roadmap for the Conpty API to support Overlapped I/O.
     // See https://github.com/Microsoft/console/issues/262

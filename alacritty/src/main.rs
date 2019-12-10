@@ -232,7 +232,7 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     // The fix is to ensure that processor is dropped first. That way, when io_thread (i.e. pty)
     // is dropped, it can ensure Conpty is dropped before the conout pipe in the pty drop order.
     //
-    // TODO: refactor the Windows codebase and remove this horrendous workaround!
+    // FIXME: Change PTY API to enforce the correct drop order with the typesystem.
     drop(processor);
 
     // Shutdown PTY parser event loop
