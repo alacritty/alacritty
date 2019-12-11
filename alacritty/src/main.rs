@@ -226,8 +226,8 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     // The cause:
     //   - Drop for Conpty will deadlock if the conout pipe has already been dropped.
     //   - The conout pipe is dropped when the io_thread is joined below (io_thread owns pty).
-    //   - Conpty is dropped when the last of processor and io_thread are dropped, because
-    //     both of them own an Arc<Conpty>.
+    //   - Conpty is dropped when the last of processor and io_thread are dropped, because both of
+    //     them own an Arc<Conpty>.
     //
     // The fix is to ensure that processor is dropped first. That way, when io_thread (i.e. pty)
     // is dropped, it can ensure Conpty is dropped before the conout pipe in the pty drop order.
