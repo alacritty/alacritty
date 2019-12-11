@@ -94,6 +94,7 @@ impl Config {
         let mut err = null_mut() as *mut winpty_error_t;
         let config = unsafe { winpty_config_new(flags.bits(), &mut err) };
         check_err(err)?;
+
         Ok(Self(config))
     }
 
@@ -152,6 +153,7 @@ impl Winpty {
         let mut err = null_mut() as *mut winpty_error_t;
         let winpty = unsafe { winpty_open(cfg.0, &mut err) };
         check_err(err)?;
+
         Ok(Self(winpty))
     }
 
@@ -223,6 +225,7 @@ impl Winpty {
         }
 
         check_err(err)?;
+
         Ok(process_list)
     }
 
@@ -304,6 +307,7 @@ impl SpawnConfig {
         };
 
         check_err(err)?;
+
         Ok(Self(spawn_config))
     }
 }
