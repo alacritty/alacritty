@@ -90,6 +90,10 @@ pub type ConptyHandle = Arc<Conpty>;
 
 impl Drop for Conpty {
     fn drop(&mut self) {
+        // XXX: This will block until the conout pipe is drained. Will cause a deadlock if the
+        // conout pipe has already been dropped by this point.
+        //
+        // See PR #3084 and https://docs.microsoft.com/en-us/windows/console/closepseudoconsole
         unsafe { (self.api.ClosePseudoConsole)(self.handle) }
     }
 }

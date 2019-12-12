@@ -45,6 +45,8 @@ pub enum PtyHandle {
 }
 
 pub struct Pty {
+    // XXX: Handle is required to be the first field, to ensure correct drop order. Dropping
+    // `conout` before `handle` will cause a deadlock.
     handle: PtyHandle,
     // TODO: It's on the roadmap for the Conpty API to support Overlapped I/O.
     // See https://github.com/Microsoft/console/issues/262
