@@ -254,7 +254,7 @@ impl<T> Storage<T> {
         debug_assert!(count.abs() as usize <= self.inner.len());
 
         let len = self.inner.len();
-        self.zero = self.wrap_index((self.zero as isize + count + len as isize) as usize);
+        self.zero = (self.zero as isize + count + len as isize) as usize % self.len;
     }
 
     /// Rotate the grid up, moving all existing lines down in history.
@@ -837,5 +837,23 @@ mod test {
         assert_eq!(storage.inner, shrinking_expected.inner);
         assert_eq!(storage.zero, shrinking_expected.zero);
         assert_eq!(storage.len, shrinking_expected.len);
+    }
+
+    #[test]
+    fn rotate_wrap_zero() {
+        let mut storage = Storage {
+            inner: vec![
+                Row::new(Column(1), &'-'),
+                Row::new(Column(1), &'-'),
+                Row::new(Column(1), &'-'),
+            ],
+            zero: 2,
+            visible_lines: Line(0),
+            len: 3,
+        };
+
+        storage.rotate(2);
+
+        assert!(storage.zero < storage.inner.len());
     }
 }
