@@ -205,7 +205,18 @@ impl<T> Storage<T> {
     #[inline]
     fn compute_index(&self, requested: usize) -> usize {
         debug_assert!(requested < self.len);
-        self.wrap_index(self.zero + requested)
+
+        let zeroed = self.zero + requested;
+
+        // Use if/else instead of remainder here to improve performance.
+        //
+        // Requires `zeroed` to be smaller than `self.inner.len() * 2`,
+        // but both `self.zero` and `requested` are always smaller than `self.inner.len()`.
+        if zeroed >= self.inner.len() {
+            zeroed - self.inner.len()
+        } else {
+            zeroed
+        }
     }
 
     pub fn swap_lines(&mut self, a: Line, b: Line) {
@@ -254,7 +265,7 @@ impl<T> Storage<T> {
         debug_assert!(count.abs() as usize <= self.inner.len());
 
         let len = self.inner.len();
-        self.zero = (self.zero as isize + count + len as isize) as usize % self.len;
+        self.zero = (self.zero as isize + count + len as isize) as usize % self.inner.len();
     }
 
     /// Rotate the grid up, moving all existing lines down in history.
@@ -262,7 +273,7 @@ impl<T> Storage<T> {
     /// This is a faster, specialized version of [`rotate`].
     #[inline]
     pub fn rotate_up(&mut self, count: usize) {
-        self.zero = self.wrap_index(self.zero + count);
+        self.zero = (self.zero + count) % self.inner.len();
     }
 
     /// Drain all rows in the grid.
@@ -276,19 +287,6 @@ impl<T> Storage<T> {
         self.len = vec.len();
         self.inner = vec;
         self.zero = 0;
-    }
-
-    /// Wrap index to be within the inner buffer.
-    ///
-    /// This uses if/else instead of the remainder to improve performance,
-    /// so the assumption is made that `index < self.inner.len() * 2`.
-    #[inline]
-    fn wrap_index(&self, index: usize) -> usize {
-        if index >= self.inner.len() {
-            index - self.inner.len()
-        } else {
-            index
-        }
     }
 }
 
