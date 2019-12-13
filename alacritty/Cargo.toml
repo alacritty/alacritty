@@ -43,7 +43,7 @@ dirs = "2.0.2"
 x11-dl = "2"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3.7", features = ["impl-default", "winuser", "synchapi", "roerrorapi", "winerror", "wincon", "wincontypes"]}
+winapi = "0.3.7"
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "1.3"
