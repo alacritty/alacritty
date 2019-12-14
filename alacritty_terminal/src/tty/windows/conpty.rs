@@ -41,7 +41,7 @@ use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::windows::Pty;
 
-// TODO: Replace with with winapi's implementation. This cannot be
+// TODO: Replace with winapi's implementation. This cannot be
 //  done until a safety net is in place for versions of Windows
 //  that do not support the ConPTY api, as such versions will
 //  pass unit testing - but fail to actually function.
