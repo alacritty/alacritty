@@ -242,7 +242,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     let conpty = Conpty { handle: pty_handle, api };
 
     Some(Pty {
-        inner: super::PtyImpl::Conpty(conpty),
+        backend: super::PtyBackend::Conpty(conpty),
         conout: super::EventedReadablePipe::Anonymous(conout),
         conin: super::EventedWritablePipe::Anonymous(conin),
         read_token: 0.into(),

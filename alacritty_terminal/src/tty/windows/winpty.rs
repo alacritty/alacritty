@@ -100,7 +100,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     let child_watcher = ChildExitWatcher::new(agent.raw_handle()).unwrap();
 
     Pty {
-        inner: super::PtyImpl::Winpty(agent),
+        backend: super::PtyBackend::Winpty(agent),
         conout: super::EventedReadablePipe::Named(conout_pipe),
         conin: super::EventedWritablePipe::Named(conin_pipe),
         read_token: 0.into(),

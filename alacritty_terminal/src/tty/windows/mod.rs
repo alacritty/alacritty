@@ -38,15 +38,15 @@ pub fn is_conpty() -> bool {
     IS_CONPTY.load(Ordering::Relaxed)
 }
 
-enum PtyImpl {
+enum PtyBackend {
     Winpty(winpty::Agent),
     Conpty(conpty::Conpty),
 }
 
 pub struct Pty {
-    // XXX: Inner is required to be the first field, to ensure correct drop order. Dropping
-    // `conout` before `inner` will cause a deadlock.
-    inner: PtyImpl,
+    // XXX: Backend is required to be the first field, to ensure correct drop order. Dropping
+    // `conout` before `backend` will cause a deadlock.
+    backend: PtyBackend,
     // TODO: It's on the roadmap for the Conpty API to support Overlapped I/O.
     // See https://github.com/Microsoft/console/issues/262
     // When support for that lands then it should be possible to use
@@ -292,9 +292,9 @@ impl EventedPty for Pty {
 
 impl OnResize for Pty {
     fn on_resize(&mut self, size: &SizeInfo) {
-        match &mut self.inner {
-            PtyImpl::Winpty(w) => w.on_resize(size),
-            PtyImpl::Conpty(c) => c.on_resize(size),
+        match &mut self.backend {
+            PtyBackend::Winpty(w) => w.on_resize(size),
+            PtyBackend::Conpty(c) => c.on_resize(size),
         }
     }
 }
