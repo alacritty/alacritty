@@ -308,20 +308,18 @@ pub struct Processor<N> {
     suppress_chars: bool,
     modifiers: ModifiersState,
     config: Config,
-    pty_resize_handle: Box<dyn OnResize>,
     message_buffer: MessageBuffer,
     display: Display,
     font_size: Size,
 }
 
-impl<N: Notify> Processor<N> {
+impl<N: Notify + OnResize> Processor<N> {
     /// Create a new event processor
     ///
     /// Takes a writer which is expected to be hooked up to the write end of a
     /// pty.
     pub fn new(
         notifier: N,
-        pty_resize_handle: Box<dyn OnResize>,
         message_buffer: MessageBuffer,
         config: Config,
         display: Display,
@@ -334,7 +332,6 @@ impl<N: Notify> Processor<N> {
             modifiers: Default::default(),
             font_size: config.font.size,
             config,
-            pty_resize_handle,
             message_buffer,
             display,
         }
@@ -405,7 +402,7 @@ impl<N: Notify> Processor<N> {
             if !display_update_pending.is_empty() {
                 self.display.handle_update(
                     &mut terminal,
-                    self.pty_resize_handle.as_mut(),
+                    &mut self.notifier,
                     &self.message_buffer,
                     &self.config,
                     display_update_pending,

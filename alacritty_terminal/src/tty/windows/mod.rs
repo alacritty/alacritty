@@ -38,16 +38,15 @@ pub fn is_conpty() -> bool {
     IS_CONPTY.load(Ordering::Relaxed)
 }
 
-#[derive(Clone)]
-pub enum PtyHandle {
-    Winpty(winpty::WinptyHandle),
-    Conpty(conpty::ConptyHandle),
+enum PtyBackend {
+    Winpty(winpty::Agent),
+    Conpty(conpty::Conpty),
 }
 
 pub struct Pty {
-    // XXX: Handle is required to be the first field, to ensure correct drop order. Dropping
-    // `conout` before `handle` will cause a deadlock.
-    handle: PtyHandle,
+    // XXX: Backend is required to be the first field, to ensure correct drop order. Dropping
+    // `conout` before `backend` will cause a deadlock.
+    backend: PtyBackend,
     // TODO: It's on the roadmap for the Conpty API to support Overlapped I/O.
     // See https://github.com/Microsoft/console/issues/262
     // When support for that lands then it should be possible to use
@@ -58,12 +57,6 @@ pub struct Pty {
     write_token: mio::Token,
     child_event_token: mio::Token,
     child_watcher: ChildExitWatcher,
-}
-
-impl Pty {
-    pub fn resize_handle(&self) -> impl OnResize {
-        self.handle.clone()
-    }
 }
 
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
@@ -189,18 +182,6 @@ impl Write for EventedWritablePipe {
     }
 }
 
-impl OnResize for PtyHandle {
-    fn on_resize(&mut self, sizeinfo: &SizeInfo) {
-        match self {
-            PtyHandle::Winpty(w) => w.resize(sizeinfo),
-            PtyHandle::Conpty(c) => {
-                let mut handle = c.clone();
-                handle.on_resize(sizeinfo)
-            },
-        }
-    }
-}
-
 impl EventedReadWrite for Pty {
     type Reader = EventedReadablePipe;
     type Writer = EventedWritablePipe;
@@ -305,6 +286,15 @@ impl EventedPty for Pty {
             Ok(ev) => Some(ev),
             Err(TryRecvError::Empty) => None,
             Err(TryRecvError::Disconnected) => Some(ChildEvent::Exited),
+        }
+    }
+}
+
+impl OnResize for Pty {
+    fn on_resize(&mut self, size: &SizeInfo) {
+        match &mut self.backend {
+            PtyBackend::Winpty(w) => w.on_resize(size),
+            PtyBackend::Conpty(c) => c.on_resize(size),
         }
     }
 }

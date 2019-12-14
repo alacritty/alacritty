@@ -16,7 +16,7 @@ use crate::ansi;
 use crate::config::Config;
 use crate::event::{self, Event, EventListener};
 use crate::sync::FairMutex;
-use crate::term::Term;
+use crate::term::{SizeInfo, Term};
 use crate::tty;
 use crate::util::thread;
 
@@ -31,6 +31,9 @@ pub enum Msg {
 
     /// Indicates that the `EventLoop` should shut down, as Alacritty is shutting down
     Shutdown,
+
+    /// Instruction to resize the pty
+    Resize(SizeInfo),
 }
 
 /// The main event!.. loop.
@@ -76,9 +79,14 @@ impl event::Notify for Notifier {
         if bytes.len() == 0 {
             return;
         }
-        if self.0.send(Msg::Input(bytes)).is_err() {
-            panic!("expected send event loop msg");
-        }
+
+        self.0.send(Msg::Input(bytes)).expect("send event loop msg");
+    }
+}
+
+impl event::OnResize for Notifier {
+    fn on_resize(&mut self, size: &SizeInfo) {
+        self.0.send(Msg::Resize(*size)).expect("expected send event loop msg");
     }
 }
 
@@ -141,7 +149,7 @@ impl Writing {
 
 impl<T, U> EventLoop<T, U>
 where
-    T: tty::EventedPty + Send + 'static,
+    T: tty::EventedPty + event::OnResize + Send + 'static,
     U: EventListener + Send + 'static,
 {
     /// Create a new event loop
@@ -171,11 +179,12 @@ where
     // Drain the channel
     //
     // Returns `false` when a shutdown message was received.
-    fn drain_recv_channel(&self, state: &mut State) -> bool {
+    fn drain_recv_channel(&mut self, state: &mut State) -> bool {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 Msg::Input(input) => state.write_list.push_back(input),
                 Msg::Shutdown => return false,
+                Msg::Resize(size) => self.pty.on_resize(&size),
             }
         }
 
