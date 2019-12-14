@@ -27,8 +27,6 @@ use std::env;
 use std::error::Error;
 use std::fs;
 use std::io::{self, Write};
-#[cfg(not(windows))]
-use std::os::unix::io::AsRawFd;
 use std::sync::Arc;
 
 #[cfg(target_os = "macos")]
@@ -170,16 +168,6 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     #[cfg(any(target_os = "macos", windows))]
     let pty = tty::new(&config, &display.size_info, None);
 
-    // Create PTY resize handle
-    //
-    // This exists because rust doesn't know the interface is thread-safe
-    // and we need to be able to resize the PTY from the main thread while the IO
-    // thread owns the EventedRW object.
-    #[cfg(windows)]
-    let resize_handle = pty.resize_handle();
-    #[cfg(not(windows))]
-    let resize_handle = pty.fd.as_raw_fd();
-
     // Create the pseudoterminal I/O loop
     //
     // pty I/O is ran on another thread as to not occupy cycles used by the
@@ -204,15 +192,8 @@ fn run(window_event_loop: GlutinEventLoop<Event>, config: Config) -> Result<(), 
     let message_buffer = MessageBuffer::new();
 
     // Event processor
-    //
-    // Need the Rc<RefCell<_>> here since a ref is shared in the resize callback
-    let mut processor = Processor::new(
-        event_loop::Notifier(loop_tx.clone()),
-        Box::new(resize_handle),
-        message_buffer,
-        config,
-        display,
-    );
+    let mut processor =
+        Processor::new(event_loop::Notifier(loop_tx.clone()), message_buffer, config, display);
 
     // Kick off the I/O thread
     let io_thread = event_loop.spawn();

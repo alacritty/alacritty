@@ -17,7 +17,6 @@ use std::io::Error;
 use std::mem;
 use std::os::windows::io::IntoRawHandle;
 use std::ptr;
-use std::sync::Arc;
 
 use dunce::canonicalize;
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
@@ -85,9 +84,6 @@ pub struct Conpty {
     api: ConptyApi,
 }
 
-/// Handle can be cloned freely and moved between threads.
-pub type ConptyHandle = Arc<Conpty>;
-
 impl Drop for Conpty {
     fn drop(&mut self) {
         // XXX: This will block until the conout pipe is drained. Will cause a deadlock if the
@@ -98,9 +94,8 @@ impl Drop for Conpty {
     }
 }
 
-// The Conpty API can be accessed from multiple threads.
+// The Conpty handle can be sent between threads.
 unsafe impl Send for Conpty {}
-unsafe impl Sync for Conpty {}
 
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Option<Pty> {
     if !config.enable_experimental_conpty_backend {
@@ -244,10 +239,10 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     let conout = EventedAnonRead::new(conout);
 
     let child_watcher = ChildExitWatcher::new(proc_info.hProcess).unwrap();
-    let agent = Conpty { handle: pty_handle, api };
+    let conpty = Conpty { handle: pty_handle, api };
 
     Some(Pty {
-        handle: super::PtyHandle::Conpty(ConptyHandle::new(agent)),
+        backend: super::PtyBackend::Conpty(conpty),
         conout: super::EventedReadablePipe::Anonymous(conout),
         conin: super::EventedWritablePipe::Anonymous(conin),
         read_token: 0.into(),
@@ -262,7 +257,7 @@ fn panic_shell_spawn() {
     panic!("Unable to spawn shell: {}", Error::last_os_error());
 }
 
-impl OnResize for ConptyHandle {
+impl OnResize for Conpty {
     fn on_resize(&mut self, sizeinfo: &SizeInfo) {
         if let Some(coord) = coord_from_sizeinfo(sizeinfo) {
             let result = unsafe { (self.api.ResizePseudoConsole)(self.handle, coord) };
