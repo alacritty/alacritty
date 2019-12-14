@@ -35,12 +35,9 @@ winpty = { path = "../winpty" }
 mio-named-pipes = "0.1"
 miow = "0.3"
 dunce = "1.0"
+winapi = { version = "0.3.7", features = ["impl-default", "basetsd", "libloaderapi", "minwindef", "ntdef", "processthreadsapi", "winbase", "wincon", "wincontypes", "winerror", "winnt", "winuser"] }
 widestring = "0.4"
 mio-anonymous-pipes = "0.1"
-[target.'cfg(windows)'.dependencies.winapi]
-version = "0.3.7"
-features = ["impl-default", "basetsd", "libloaderapi", "minwindef", "ntdef", "processthreadsapi",
-            "winbase", "wincon", "wincontypes", "winerror", "winnt", "winuser"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2.2"
