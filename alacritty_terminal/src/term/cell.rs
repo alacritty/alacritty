@@ -69,7 +69,7 @@ impl GridCell for Cell {
             && self.fg == Color::Named(NamedColor::Foreground)
             && !self
                 .flags
-                .intersects(Flags::INVERSE | Flags::UNDERLINE | Flags::STRIKEOUT | Flags::WRAPLINE)
+                .intersects(Flags::INVERSE | Flags::UNDERLINE | Flags::STRIKEOUT | Flags::WRAPLINE | Flags::WIDE_CHAR_SPACER)
     }
 
     #[inline]

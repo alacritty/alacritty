@@ -213,17 +213,25 @@ impl Selection {
         // Expand selection across double-width cells
         span.map(|mut span| {
             let grid = term.grid();
+            let num_cols = grid.num_cols().0;
+            let wide_flags = Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER;
 
-            if span.start.col < cols
-                && grid[span.start.line][span.start.col].flags.contains(Flags::WIDE_CHAR_SPACER)
-            {
-                span.start.col = Column(span.start.col.saturating_sub(1));
+            // Include all double-width cells and placeholders at top left of selection
+            if span.start.col < cols {
+                let mut point = span.start;
+                while grid[point.line][point.col].flags.intersects(wide_flags) {
+                    span.start = point;
+                    point = point.sub(num_cols, 1, true);
+                }
             }
 
-            if span.end.col.0 < cols.saturating_sub(1)
-                && grid[span.end.line][span.end.col].flags.contains(Flags::WIDE_CHAR)
-            {
-                span.end.col += 1;
+            // Include all double-width cells and placeholders at bottom right of selection
+            if span.end.col.0 < cols.saturating_sub(1) {
+                let mut point = span.end;
+                while grid[point.line][point.col].flags.intersects(wide_flags) {
+                    span.end = point;
+                    point = point.add(num_cols, 1, true);
+                }
             }
 
             span
