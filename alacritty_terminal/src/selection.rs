@@ -183,9 +183,9 @@ impl Selection {
         }
 
         // Clamp to visible region in grid/normal
-        let cols = term.dimensions().col;
-        let lines = term.dimensions().line.0 as isize;
-        let (start, end) = Selection::grid_clamp(start, end, lines, cols)?;
+        let num_cols = term.dimensions().col;
+        let num_lines = term.dimensions().line.0 as isize;
+        let (start, end) = Selection::grid_clamp(start, end, num_lines, num_cols)?;
 
         let span = match *self {
             Selection::Simple { ref region } => {
@@ -213,24 +213,49 @@ impl Selection {
         // Expand selection across double-width cells
         span.map(|mut span| {
             let grid = term.grid();
-            let num_cols = grid.num_cols().0;
-            let wide_flags = Flags::WIDE_CHAR | Flags::WIDE_CHAR_SPACER;
+
+            // Helper for checking if cell at `point` contains `flag`
+            let flag_at = |point: Point<usize>, flag: Flags| -> bool {
+                grid[point.line][point.col].flags.contains(flag)
+            };
 
             // Include all double-width cells and placeholders at top left of selection
-            if span.start.col < cols {
-                let mut point = span.start;
-                while grid[point.line][point.col].flags.intersects(wide_flags) {
-                    span.start = point;
-                    point = point.sub(num_cols, 1, true);
+            if span.start.col < num_cols {
+                // Expand from wide char spacer to wide char
+                if span.start.line + 1 != grid.len() || span.start.col.0 != 0 {
+                    let prev = span.start.sub(num_cols.0, 1, true);
+                    if flag_at(span.start, Flags::WIDE_CHAR_SPACER)
+                        && flag_at(prev, Flags::WIDE_CHAR)
+                    {
+                        span.start = prev;
+                    }
+                }
+
+                // Expand from wide char to wide char spacer for linewrapping
+                if span.start.line + 1 != grid.len() || span.start.col.0 != 0 {
+                    let prev = span.start.sub(num_cols.0, 1, true);
+                    if (prev.line + 1 != grid.len() || prev.col.0 != 0)
+                        && flag_at(prev, Flags::WIDE_CHAR_SPACER)
+                        && !flag_at(prev.sub(num_cols.0, 1, true), Flags::WIDE_CHAR)
+                    {
+                        span.start = prev;
+                    }
                 }
             }
 
             // Include all double-width cells and placeholders at bottom right of selection
-            if span.end.col.0 < cols.saturating_sub(1) {
-                let mut point = span.end;
-                while grid[point.line][point.col].flags.intersects(wide_flags) {
-                    span.end = point;
-                    point = point.add(num_cols, 1, true);
+            if span.end.line != 0 && span.end.col + 1 <= num_cols {
+                // Expand from wide char spacer for linewrapping to wide char
+                if (span.end.line + 1 != grid.len() || span.end.col.0 != 0)
+                    && flag_at(span.end, Flags::WIDE_CHAR_SPACER)
+                    && !flag_at(span.end.sub(num_cols.0, 1, true), Flags::WIDE_CHAR)
+                {
+                    span.end = span.end.add(num_cols.0, 1, true);
+                }
+
+                // Expand from wide char to wide char spacer
+                if flag_at(span.end, Flags::WIDE_CHAR) {
+                    span.end = span.end.add(num_cols.0, 1, true);
                 }
             }
 
