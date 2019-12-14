@@ -244,7 +244,7 @@ impl Selection {
             }
 
             // Include all double-width cells and placeholders at bottom right of selection
-            if span.end.line != 0 && span.end.col + 1 <= num_cols {
+            if span.end.line != 0 || span.end.col < num_cols {
                 // Expand from wide char spacer for linewrapping to wide char
                 if (span.end.line + 1 != grid.len() || span.end.col.0 != 0)
                     && flag_at(span.end, Flags::WIDE_CHAR_SPACER)
