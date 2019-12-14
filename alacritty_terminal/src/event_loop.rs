@@ -80,15 +80,13 @@ impl event::Notify for Notifier {
             return;
         }
 
-        self.0.send(Msg::Input(bytes))
-            .expect("send event loop msg");
+        self.0.send(Msg::Input(bytes)).expect("send event loop msg");
     }
 }
 
 impl event::OnResize for Notifier {
     fn on_resize(&mut self, size: &SizeInfo) {
-        self.0.send(Msg::Resize(*size))
-            .expect("expected send event loop msg");
+        self.0.send(Msg::Resize(*size)).expect("expected send event loop msg");
     }
 }
 
