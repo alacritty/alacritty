@@ -1186,7 +1186,7 @@ impl<T> Term<T> {
         &mut self.clipboard
     }
 
-    /// TODO: Document
+    /// Insert a linebreak at the current cursor position.
     #[inline]
     fn wrapline(&mut self)
     where
@@ -1210,9 +1210,9 @@ impl<T> Term<T> {
         self.input_needs_wrap = false;
     }
 
-    /// TODO: Document, Naming?
+    /// Write `c` to the cell at the cursor position.
     #[inline]
-    fn write_cursor_cell(&mut self, c: char) -> &mut Cell
+    fn write_at_cursor(&mut self, c: char) -> &mut Cell
     where
         T: EventListener,
     {
@@ -1270,7 +1270,6 @@ impl<T: EventListener> Handler for Term<T> {
         }
     }
 
-    // TODO: Lots of duplicate code
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
@@ -1317,20 +1316,20 @@ impl<T: EventListener> Handler for Term<T> {
         }
 
         if width == 1 {
-            self.write_cursor_cell(c);
+            self.write_at_cursor(c);
         } else if width == 2 {
-            // Insert placeholder and linebreak if only one cell left for wide glyph
+            // Insert extra placeholder before wide char if glyph doesn't fit this row anymore
             if self.cursor.point.col + 1 >= num_cols {
-                self.write_cursor_cell(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
-
+                self.write_at_cursor(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
                 self.wrapline();
             }
 
-            // Write char to cell and set full width flag
-            self.write_cursor_cell(c).flags.insert(Flags::WIDE_CHAR);
+            // Write full width glyph to current cursor cell
+            self.write_at_cursor(c).flags.insert(Flags::WIDE_CHAR);
 
+            // Write spacer to cell following the wide glyph
             self.cursor.point.col += 1;
-            self.write_cursor_cell(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
+            self.write_at_cursor(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
         }
 
         if (self.cursor.point.col + 1) < num_cols {
