@@ -1209,6 +1209,18 @@ impl<T> Term<T> {
         self.cursor.point.col = Column(0);
         self.input_needs_wrap = false;
     }
+
+    /// TODO: Document, Naming?
+    #[inline]
+    fn write_cursor_cell(&mut self, c: char) -> &mut Cell
+    where
+        T: EventListener,
+    {
+        let cell = &mut self.grid[&self.cursor.point];
+        *cell = self.cursor.template;
+        cell.c = self.cursor.charsets[self.active_charset].map(c);
+        cell
+    }
 }
 
 impl<T> TermInfo for Term<T> {
@@ -1258,6 +1270,7 @@ impl<T: EventListener> Handler for Term<T> {
         }
     }
 
+    // TODO: Lots of duplicate code
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
@@ -1303,30 +1316,21 @@ impl<T: EventListener> Handler for Term<T> {
             }
         }
 
-        // Insert placeholder and linebreak if only one cell left for wide glyph
-        if width == 2 && self.cursor.point.col + 1 >= num_cols {
-            // TODO: Duplicate #1
-            let spacer = &mut self.grid[&self.cursor.point];
-            *spacer = self.cursor.template;
-            spacer.flags.insert(Flags::WIDE_CHAR_SPACER);
+        if width == 1 {
+            self.write_cursor_cell(c);
+        } else if width == 2 {
+            // Insert placeholder and linebreak if only one cell left for wide glyph
+            if self.cursor.point.col + 1 >= num_cols {
+                self.write_cursor_cell(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
 
-            self.wrapline();
-        }
+                self.wrapline();
+            }
 
-        // Write char to cell
-        let cell = &mut self.grid[&self.cursor.point];
-        *cell = self.cursor.template;
-        cell.c = self.cursor.charsets[self.active_charset].map(c);
-
-        // Set wide char flag and insert placeholder
-        if width == 2 {
-            cell.flags.insert(Flags::WIDE_CHAR);
+            // Write char to cell and set full width flag
+            self.write_cursor_cell(c).flags.insert(Flags::WIDE_CHAR);
 
             self.cursor.point.col += 1;
-            // TODO: Duplicate #2
-            let spacer = &mut self.grid[&self.cursor.point];
-            *spacer = self.cursor.template;
-            spacer.flags.insert(Flags::WIDE_CHAR_SPACER);
+            self.write_cursor_cell(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
         }
 
         if (self.cursor.point.col + 1) < num_cols {
