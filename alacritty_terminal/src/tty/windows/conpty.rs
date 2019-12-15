@@ -40,6 +40,10 @@ use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
 use crate::tty::windows::Pty;
 
+// TODO: Replace with winapi's implementation. This cannot be
+//  done until a safety net is in place for versions of Windows
+//  that do not support the ConPTY api, as such versions will
+//  pass unit testing - but fail to actually function.
 /// Dynamically-loaded Pseudoconsole API from kernel32.dll
 ///
 /// The field names are deliberately PascalCase as this matches
