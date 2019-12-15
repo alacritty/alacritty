@@ -1318,7 +1318,7 @@ impl<T: EventListener> Handler for Term<T> {
         if width == 1 {
             self.write_at_cursor(c);
         } else if width == 2 {
-            // Insert extra placeholder before wide char if glyph doesn't fit this row anymore
+            // Insert extra placeholder before wide char if glyph doesn't fit in this row anymore
             if self.cursor.point.col + 1 >= num_cols {
                 self.write_at_cursor(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
                 self.wrapline();
