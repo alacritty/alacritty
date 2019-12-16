@@ -1273,8 +1273,6 @@ impl<T: EventListener> Handler for Term<T> {
     /// A character to be displayed
     #[inline]
     fn input(&mut self, c: char) {
-        let num_cols = self.grid.num_cols();
-
         // If enabled, scroll to bottom when character is received
         if self.auto_scroll {
             self.scroll_display(Scroll::Bottom);
@@ -1302,7 +1300,9 @@ impl<T: EventListener> Handler for Term<T> {
             self.wrapline();
         }
 
-        // If in insert mode, first shift cells to the right.
+        let num_cols = self.grid.num_cols();
+
+        // If in insert mode, first shift cells to the right
         if self.mode.contains(TermMode::INSERT) && self.cursor.point.col + width < num_cols {
             let line = self.cursor.point.line;
             let col = self.cursor.point.col;
@@ -1317,7 +1317,7 @@ impl<T: EventListener> Handler for Term<T> {
 
         if width == 1 {
             self.write_at_cursor(c);
-        } else if width == 2 {
+        } else {
             // Insert extra placeholder before wide char if glyph doesn't fit in this row anymore
             if self.cursor.point.col + 1 >= num_cols {
                 self.write_at_cursor(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
@@ -1332,7 +1332,7 @@ impl<T: EventListener> Handler for Term<T> {
             self.write_at_cursor(' ').flags.insert(Flags::WIDE_CHAR_SPACER);
         }
 
-        if (self.cursor.point.col + 1) < num_cols {
+        if self.cursor.point.col + 1 < num_cols {
             self.cursor.point.col += 1;
         } else {
             self.input_needs_wrap = true;
