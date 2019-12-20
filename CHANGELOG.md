@@ -18,7 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- On Windows, the ConPTY backend will now be used by default if available; the `enable_experimental_conpty_backend` config option has been replaced with `use_winpty_backend`.
+- On Windows, the ConPTY backend will now be used by default if available
+- The `enable_experimental_conpty_backend` config option has been replaced with `winpty_backend`
 
 ### Fixed
 

@@ -108,10 +108,10 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     pub cursor: Cursor,
 
-    /// Disable conpty backend, and use winpty even if conpty is available.
+    /// Disable conpty backend and use winpty even if conpty is available.
     #[cfg(windows)]
     #[serde(default, deserialize_with = "failure_default")]
-    pub use_winpty_backend: bool,
+    pub winpty_backend: bool,
 
     /// Send escape sequences using the alt key.
     #[serde(default, deserialize_with = "failure_default")]

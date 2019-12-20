@@ -337,16 +337,16 @@
 # directory of the parent process will be used.
 #working_directory: None
 
-# Windows 10 WinPTY backend (Windows only)
+# WinPTY backend (Windows only)
 #
 # Alacritty defaults to using the newer ConPTY backend if it is
 # available, since it provides better color support, resolves various
 # other minor rendering bugs and is quite a bit faster. If it is not
 # available, the the WinPTY backend will be used instead.
 #
-# Setting this option to true makes Alacritty use the WinPTY backend,
+# Setting this option to `true` makes Alacritty use the legacy WinPTY backend,
 # even if the ConPTY backend is available.
-#use_winpty_backend: false
+#winpty_backend: false
 
 # Send ESC (\x1b) before characters when alt is pressed.
 #alt_send_esc: true
