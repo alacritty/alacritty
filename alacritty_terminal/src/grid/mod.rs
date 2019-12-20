@@ -547,7 +547,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         // Reset display offset
         self.display_offset = 0;
 
-         // Clear the viewport
+        // Clear the viewport
         self.scroll_up(&region, positions, template);
 
         // Reset rotated lines
