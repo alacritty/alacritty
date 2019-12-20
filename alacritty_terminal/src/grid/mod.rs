@@ -544,6 +544,8 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         let positions = self.lines - iter.cur.line;
         let region = Line(0)..self.num_lines();
 
+        // Reset display offset
+        self.display_offset = 0;
         // Clear the viewport
         self.scroll_up(&region, positions, template);
 
