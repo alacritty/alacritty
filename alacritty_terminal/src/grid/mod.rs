@@ -32,8 +32,6 @@ mod tests;
 mod storage;
 use self::storage::Storage;
 
-const MIN_INIT_SIZE: usize = 1_000;
-
 /// Bidirection iterator
 pub trait BidirectionalIterator: Iterator {
     fn prev(&mut self) -> Option<Self::Item>;
@@ -235,12 +233,9 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         self.scroll_limit = min(self.scroll_limit + count, self.max_scroll_limit);
 
         // Initialize new lines when the history buffer is smaller than the scroll limit
-        let history_size = self.raw.len().saturating_sub(*self.lines);
+        let history_size = self.history_size();
         if history_size < self.scroll_limit {
-            let new = min(
-                max(self.scroll_limit - history_size, MIN_INIT_SIZE),
-                self.max_scroll_limit - history_size,
-            );
+            let new = min(self.scroll_limit - history_size, self.max_scroll_limit - history_size);
             self.raw.initialize(new, Row::new(self.cols, template));
         }
     }
@@ -654,7 +649,7 @@ impl<T> Grid<T> {
 
     pub fn clear_history(&mut self) {
         // Explicitly purge all lines from history
-        let shrinkage = self.raw.len() - self.lines.0;
+        let shrinkage = self.history_size();
         self.raw.shrink_lines(shrinkage);
         self.scroll_limit = 0;
     }
@@ -681,7 +676,8 @@ impl<T> Grid<T> {
         T: Copy + GridCell,
     {
         let history_size = self.raw.len().saturating_sub(*self.lines);
-        self.raw.initialize(self.max_scroll_limit - history_size, Row::new(self.cols, template));
+        self.raw
+            .initialize_exact(self.max_scroll_limit - history_size, Row::new(self.cols, template));
     }
 
     /// This is used only for truncating before saving ref-tests

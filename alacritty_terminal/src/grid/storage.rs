@@ -1,4 +1,4 @@
-use std::cmp::{Ordering, PartialEq};
+use std::cmp::{max, Ordering, PartialEq};
 use std::ops::{Index, IndexMut};
 use std::vec::Drain;
 
@@ -7,8 +7,11 @@ use serde::{Deserialize, Serialize};
 use super::Row;
 use crate::index::Line;
 
-/// Maximum number of invisible lines before buffer is resized
+/// Maximum number of invisible lines before buffer is resized.
 const TRUNCATE_STEP: usize = 100;
+
+/// Minimum step for dynamic buffer grow.
+const MIN_INIT_SIZE: usize = 1_000;
 
 /// A ring buffer for optimizing indexing and rotation.
 ///
@@ -99,7 +102,7 @@ impl<T> Storage<T> {
         Storage { inner, zero: 0, visible_lines: lines - 1, len: lines.0 }
     }
 
-    /// Update the size of the scrollback history
+    /// Update the size of the scrollback history.
     pub fn update_history(&mut self, history_size: usize, template_row: Row<T>)
     where
         T: Clone,
@@ -112,7 +115,7 @@ impl<T> Storage<T> {
         }
     }
 
-    /// Increase the number of lines in the buffer
+    /// Increase the number of lines in the buffer.
     pub fn grow_visible_lines(&mut self, next: Line, template_row: Row<T>)
     where
         T: Clone,
@@ -125,7 +128,7 @@ impl<T> Storage<T> {
         self.visible_lines = next - 1;
     }
 
-    /// Grow the number of lines in the buffer, filling new lines with the template
+    /// Grow the number of lines in the buffer, filling new lines with the template.
     fn grow_lines(&mut self, growage: usize, template_row: Row<T>)
     where
         T: Clone,
@@ -152,7 +155,7 @@ impl<T> Storage<T> {
         self.len += growage;
     }
 
-    /// Decrease the number of lines in the buffer
+    /// Decrease the number of lines in the buffer.
     pub fn shrink_visible_lines(&mut self, next: Line) {
         // Shrink the size without removing any lines
         let shrinkage = (self.visible_lines - (next - 1)).0;
@@ -172,7 +175,7 @@ impl<T> Storage<T> {
         }
     }
 
-    /// Truncate the invisible elements from the raw buffer
+    /// Truncate the invisible elements from the raw buffer.
     pub fn truncate(&mut self) {
         self.inner.rotate_left(self.zero);
         self.inner.truncate(self.len);
@@ -180,17 +183,33 @@ impl<T> Storage<T> {
         self.zero = 0;
     }
 
-    /// Dynamically grow the storage buffer at runtime
+    /// Dynamically grow the storage buffer at runtime. This function tries to minimize
+    /// reallocations by using minimun step for growing internal storage. If you want to avoid this
+    /// behavior use `initialize_exact`.
     pub fn initialize(&mut self, num_rows: usize, template_row: Row<T>)
     where
         T: Clone,
     {
-        let mut new = vec![template_row; num_rows];
+        if self.len + num_rows > self.inner.len() {
+            let len = self.len;
+            self.initialize_exact(max(num_rows, MIN_INIT_SIZE), template_row);
+            // Restore proper len
+            self.len = len + num_rows;
+        } else {
+            self.len += num_rows;
+        }
+    }
 
+    /// Dynamically grow the storage buffer at runtime.
+    #[inline]
+    pub fn initialize_exact(&mut self, num_rows: usize, template_row: Row<T>)
+    where
+        T: Clone,
+    {
+        let mut new = vec![template_row; num_rows];
         let mut split = self.inner.split_off(self.zero);
         self.inner.append(&mut new);
         self.inner.append(&mut split);
-
         self.zero += num_rows;
         self.len += num_rows;
     }
@@ -815,7 +834,7 @@ mod test {
         };
 
         // Initialize additional lines
-        storage.initialize(3, Row::new(Column(1), &'-'));
+        storage.initialize_exact(3, Row::new(Column(1), &'-'));
 
         // Make sure the lines are present and at the right location
         let shrinking_expected = Storage {
