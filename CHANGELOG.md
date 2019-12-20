@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance bottleneck when clearing colored rows
 - Vague startup crash messages on Windows with WinPTY backend
 - Deadlock on Windows when closing Alacritty using the title bar "X" button (ConPTY backend)
-- Crash on `clear` when looking into scrollback buffer
+- Crash on `clear` when scrolled up in history
 
 ## 0.4.0
 
