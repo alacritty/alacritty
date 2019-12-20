@@ -54,6 +54,7 @@ matrix:
       rust: nightly-x86_64-pc-windows-msvc
   allow_failures:
     - rust: nightly
+    - rust: nightly-x86_64-pc-windows-msvc
 
 install: ci/install.sh
 script: ci/script.sh
