@@ -14,7 +14,6 @@ git:
 os:
   - linux
   - osx
-  - windows
 
 rust:
   - 1.36.0
@@ -44,6 +43,15 @@ matrix:
       os: linux
       env: RUSTFMT=true
       rust: nightly
+    - name: "Windows 1.36.0"
+      os: windows
+      rust: 1.36.0-x86_64-pc-windows-msvc
+    - name: "Windows Stable"
+      os: windows
+      rust: stable-x86_64-pc-windows-msvc
+    - name: "Windows Nightly"
+      os: windows
+      rust: nightly-x86_64-pc-windows-msvc
   allow_failures:
     - rust: nightly
 
