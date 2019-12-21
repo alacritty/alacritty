@@ -38,7 +38,7 @@ matrix:
     - name: "Clippy Windows"
       os: windows
       env: CLIPPY=true
-      rust: stable
+      rust: stable-x86_64-pc-windows-msvc
     - name: "Rustfmt"
       os: linux
       env: RUSTFMT=true
