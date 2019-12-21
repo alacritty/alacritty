@@ -14,7 +14,6 @@ git:
 os:
   - linux
   - osx
-  - windows
 
 rust:
   - 1.36.0
@@ -39,13 +38,23 @@ matrix:
     - name: "Clippy Windows"
       os: windows
       env: CLIPPY=true
-      rust: stable
+      rust: stable-x86_64-pc-windows-msvc
     - name: "Rustfmt"
       os: linux
       env: RUSTFMT=true
       rust: nightly
+    - name: "Windows 1.36.0"
+      os: windows
+      rust: 1.36.0-x86_64-pc-windows-msvc
+    - name: "Windows Stable"
+      os: windows
+      rust: stable-x86_64-pc-windows-msvc
+    - name: "Windows Nightly"
+      os: windows
+      rust: nightly-x86_64-pc-windows-msvc
   allow_failures:
     - rust: nightly
+    - rust: nightly-x86_64-pc-windows-msvc
 
 install: ci/install.sh
 script: ci/script.sh
