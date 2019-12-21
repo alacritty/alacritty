@@ -61,11 +61,11 @@ pub struct Pty {
 
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> Pty {
     if let Some(pty) = conpty::new(config, size, window_id) {
-        info!("Using Conpty agent");
+        info!("Using ConPTY backend");
         IS_CONPTY.store(true, Ordering::Relaxed);
         pty
     } else {
-        info!("Using Winpty agent");
+        info!("Using WinPTY backend");
         winpty::new(config, size, window_id)
     }
 }
