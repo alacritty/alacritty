@@ -108,7 +108,7 @@ pub struct Config<T> {
     #[serde(default, deserialize_with = "failure_default")]
     pub cursor: Cursor,
 
-    /// Disable conpty backend and use winpty even if conpty is available.
+    /// Use WinPTY backend even if ConPTY is available
     #[cfg(windows)]
     #[serde(default, deserialize_with = "failure_default")]
     pub winpty_backend: bool,

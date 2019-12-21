@@ -339,9 +339,8 @@
 
 # WinPTY backend (Windows only)
 #
-# Alacritty defaults to using the newer ConPTY backend if it is
-# available, since it provides better color support, resolves various
-# other minor rendering bugs and is quite a bit faster. If it is not
+# Alacritty defaults to using the newer ConPTY backend if it is available,
+# since it resolves a lot of bugs and is quite a bit faster. If it is not
 # available, the the WinPTY backend will be used instead.
 #
 # Setting this option to `true` makes Alacritty use the legacy WinPTY backend,
