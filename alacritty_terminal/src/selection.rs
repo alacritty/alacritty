@@ -478,7 +478,7 @@ mod test {
         assert_eq!(selection.to_span(&term(1, 1)).unwrap(), Span {
             start: location,
             end: location,
-            is_block: false,
+            is_block: false
         });
     }
 
@@ -496,7 +496,7 @@ mod test {
         assert_eq!(selection.to_span(&term(1, 1)).unwrap(), Span {
             start: location,
             end: location,
-            is_block: false,
+            is_block: false
         });
     }
 
@@ -619,7 +619,7 @@ mod test {
         assert_eq!(selection.to_span(&term(5, 10)).unwrap(), Span {
             start: Point::new(2, Column(4)),
             end: Point::new(0, Column(4)),
-            is_block: true,
+            is_block: true
         });
     }
 

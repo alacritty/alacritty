@@ -24,11 +24,13 @@ impl GridCell for usize {
         *self == 0
     }
 
-    fn is_wrap(&self) -> bool {
-        false
+    fn flags(&self) -> &Flags {
+        unimplemented!();
     }
 
-    fn set_wrap(&mut self, _wrap: bool) {}
+    fn flags_mut(&mut self) -> &mut Flags {
+        unimplemented!();
+    }
 
     fn fast_eq(&self, other: Self) -> bool {
         self == &other

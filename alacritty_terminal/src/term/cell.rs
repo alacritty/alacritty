@@ -77,17 +77,13 @@ impl GridCell for Cell {
     }
 
     #[inline]
-    fn is_wrap(&self) -> bool {
-        self.flags.contains(Flags::WRAPLINE)
+    fn flags(&self) -> &Flags {
+        &self.flags
     }
 
     #[inline]
-    fn set_wrap(&mut self, wrap: bool) {
-        if wrap {
-            self.flags.insert(Flags::WRAPLINE);
-        } else {
-            self.flags.remove(Flags::WRAPLINE);
-        }
+    fn flags_mut(&mut self) -> &mut Flags {
+        &mut self.flags
     }
 
     #[inline]

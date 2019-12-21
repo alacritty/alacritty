@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::index::{self, Column, IndexRange, Line, Point};
 use crate::selection::Selection;
+use crate::term::cell::Flags;
 
 mod row;
 pub use self::row::Row;
@@ -68,8 +69,8 @@ impl<T: PartialEq> ::std::cmp::PartialEq for Grid<T> {
 
 pub trait GridCell {
     fn is_empty(&self) -> bool;
-    fn is_wrap(&self) -> bool;
-    fn set_wrap(&mut self, wrap: bool);
+    fn flags(&self) -> &Flags;
+    fn flags_mut(&mut self) -> &mut Flags;
 
     /// Fast equality approximation.
     ///
@@ -276,6 +277,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         self.display_offset = self.display_offset.saturating_sub(*lines_added);
     }
 
+    // TODO: Cleanup, method is fucking massive
     fn grow_cols(
         &mut self,
         reflow: bool,
@@ -290,16 +292,41 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                 // Grow the current line if there's wrapped content available
                 if reflow
                     && last_row.len() < cols.0
-                    && last_row.last().map(GridCell::is_wrap) == Some(true)
+                    && last_row
+                        .last()
+                        .map(|cell| cell.flags().contains(Flags::WRAPLINE))
+                        .unwrap_or(false)
                 {
                     // Remove wrap flag before appending additional cells
                     if let Some(cell) = last_row.last_mut() {
-                        cell.set_wrap(false);
+                        cell.flags_mut().remove(Flags::WRAPLINE);
+                    }
+
+                    // Remove leading spacers when reflowing wide char to the previous line
+                    let last_len = last_row.len();
+                    if last_len >= 2
+                        && !last_row[Column(last_len - 2)].flags().contains(Flags::WIDE_CHAR)
+                        && last_row[Column(last_len - 1)].flags().contains(Flags::WIDE_CHAR_SPACER)
+                    {
+                        last_row.shrink(Column(last_len - 1));
                     }
 
                     // Append as many cells from the next line as possible
                     let len = min(row.len(), cols.0 - last_row.len());
-                    let mut cells = row.front_split_off(len);
+
+                    // Insert leading spacer when there's not enough room for reflowing wide char
+                    let mut cells = if row[Column(len - 1)].flags().contains(Flags::WIDE_CHAR) {
+                        let mut cells = row.front_split_off(len - 1);
+
+                        let mut spacer = *template;
+                        spacer.flags_mut().insert(Flags::WIDE_CHAR_SPACER);
+                        cells.push(spacer);
+
+                        cells
+                    } else {
+                        row.front_split_off(len)
+                    };
+
                     last_row.append(&mut cells);
 
                     if row.is_empty() {
@@ -325,7 +352,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                         continue;
                     } else if let Some(cell) = last_row.last_mut() {
                         // Set wrap flag if next line still has cells
-                        cell.set_wrap(true);
+                        cell.flags_mut().insert(Flags::WRAPLINE);
                     }
                 }
             }
@@ -350,6 +377,7 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         self.cols = cols;
     }
 
+    // TODO: Cleanup, method is fucking massive
     fn shrink_cols(&mut self, reflow: bool, cols: index::Column, template: &T) {
         let mut new_raw = Vec::with_capacity(self.raw.len());
         let mut buffered = None;
@@ -359,20 +387,47 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             }
 
             let mut wrapped = row.shrink(cols);
+
+            if let Some(wrappedx) = &mut wrapped {
+                if row.len() >= cols.0 && row[cols - 1].flags().contains(Flags::WIDE_CHAR) {
+                    wrappedx.insert(0, row[cols - 1]);
+
+                    let mut spacer = *template;
+                    spacer.flags_mut().insert(Flags::WIDE_CHAR_SPACER);
+                    row[cols - 1] = spacer;
+                }
+
+                let len = wrappedx.len();
+                if (len == 1 || (len >= 2 && !wrappedx[len - 2].flags().contains(Flags::WIDE_CHAR)))
+                    && wrappedx[len - 1].flags().contains(Flags::WIDE_CHAR_SPACER)
+                {
+                    if len == 1 {
+                        row[cols - 1].flags_mut().insert(Flags::WRAPLINE);
+                        wrapped = None;
+                    } else {
+                        wrappedx[len - 2].flags_mut().insert(Flags::WRAPLINE);
+                        wrappedx.truncate(len - 1);
+                    }
+                }
+            }
+
             new_raw.push(row);
 
             while let (Some(mut wrapped_cells), true) = (wrapped.take(), reflow) {
                 // Set line as wrapped if cells got removed
                 if let Some(cell) = new_raw.last_mut().and_then(|r| r.last_mut()) {
-                    cell.set_wrap(true);
+                    cell.flags_mut().insert(Flags::WRAPLINE);
                 }
 
-                if Some(true) == wrapped_cells.last().map(|c| c.is_wrap() && i >= 1)
+                if wrapped_cells
+                    .last()
+                    .map(|c| c.flags().contains(Flags::WRAPLINE) && i >= 1)
+                    .unwrap_or(false)
                     && wrapped_cells.len() < cols.0
                 {
                     // Make sure previous wrap flag doesn't linger around
                     if let Some(cell) = wrapped_cells.last_mut() {
-                        cell.set_wrap(false);
+                        cell.flags_mut().remove(Flags::WRAPLINE);
                     }
 
                     // Add removed cells to start of next row
