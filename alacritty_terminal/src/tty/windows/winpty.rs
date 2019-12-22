@@ -81,20 +81,6 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
         );
     };
 
-    if let Some(err) = conout_pipe.connect().err() {
-        if err.kind() != io::ErrorKind::WouldBlock {
-            panic!(err);
-        }
-    }
-    assert!(conout_pipe.take_error().unwrap().is_none());
-
-    if let Some(err) = conin_pipe.connect().err() {
-        if err.kind() != io::ErrorKind::WouldBlock {
-            panic!(err);
-        }
-    }
-    assert!(conin_pipe.take_error().unwrap().is_none());
-
     agent.spawn(&spawnconfig).unwrap();
 
     let child_watcher = ChildExitWatcher::new(agent.raw_handle()).unwrap();
