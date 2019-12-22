@@ -167,6 +167,9 @@ pub enum Action {
     /// Hide the Alacritty window.
     Hide,
 
+    /// Minimize the Alacritty window.
+    Minimize,
+
     /// Quit Alacritty.
     Quit,
 
@@ -430,6 +433,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
         Key::V, ModifiersState::LOGO; Action::Paste;
         Key::C, ModifiersState::LOGO; Action::Copy;
         Key::H, ModifiersState::LOGO; Action::Hide;
+        Key::M, ModifiersState::LOGO; Action::Minimize;
         Key::Q, ModifiersState::LOGO; Action::Quit;
         Key::W, ModifiersState::LOGO; Action::Quit;
     )

@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - /Applications symlink into OS X DMG for easier installation
 - Colored emojis on Linux/BSD
 - Value `randr` for `WINIT_HIDPI_FACTOR`, to ignore `Xft.dpi` and scale based on screen dimensions
+- `Minimize` action
 
 ### Changed
 

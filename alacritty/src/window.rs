@@ -319,6 +319,11 @@ impl Window {
         self.window().set_maximized(maximized);
     }
 
+    pub fn set_minimized(&self, minimized: bool) {
+        // TODO use proper method!!!
+        self.window().set_maximized(minimized);
+    }
+
     /// Toggle the window's fullscreen state
     pub fn toggle_fullscreen(&mut self) {
         self.set_fullscreen(self.window().fullscreen().is_none());
