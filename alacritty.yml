@@ -65,14 +65,14 @@
   # Window title
   #title: Alacritty
 
-  # Window class (Linux only):
+  # Window class (Linux/BSD only):
   #class:
     # Application instance name
     #instance: Alacritty
     # General application class
     #general: Alacritty
 
-  # GTK theme variant (Linux only)
+  # GTK theme variant (Linux/BSD only)
   #
   # Override the variant of the GTK theme. Commonly supported values are `dark` and `light`.
   # Set this to `None` to use the default theme variant.
@@ -107,7 +107,7 @@
     #
     # Default:
     #   - (macOS) Menlo
-    #   - (Linux) monospace
+    #   - (Linux/BSD) monospace
     #   - (Windows) Consolas
     #family: monospace
 
@@ -324,7 +324,7 @@
 #
 # Default:
 #   - (macOS) /bin/bash --login
-#   - (Linux) user login shell
+#   - (Linux/BSD) user login shell
 #   - (Windows) powershell
 #shell:
 #  program: /bin/bash
@@ -396,7 +396,7 @@
     #
     # Default:
     #   - (macOS) open
-    #   - (Linux) xdg-open
+    #   - (Linux/BSD) xdg-open
     #   - (Windows) explorer
     #launcher:
     #  program: xdg-open
@@ -531,7 +531,7 @@
 # be mapped to the `ReceiveChar` action. Alternatively, you can use `None` for
 # a no-op if you do not wish to receive input characters for that binding.
 #key_bindings:
-  # (Windows and Linux only)
+  # (Windows, Linux and BSD only)
   #- { key: V,        mods: Control|Shift, action: Paste            }
   #- { key: C,        mods: Control|Shift, action: Copy             }
   #- { key: Insert,   mods: Shift,         action: PasteSelection   }
