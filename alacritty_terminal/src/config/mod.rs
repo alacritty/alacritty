@@ -210,7 +210,7 @@ impl<T> Config<T> {
 
     #[inline]
     pub fn working_directory(&self) -> Option<&Path> {
-        // TODO: On Rust 1.40 use self.working_directory.deref()
+        // TODO: On Rust 1.40 use self.working_directory.as_deref()
         self.working_directory.as_ref().map(|path_buf| path_buf.as_ref())
     }
 
