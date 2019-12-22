@@ -36,8 +36,7 @@ use crate::config::Config;
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
-use crate::tty::windows::{cmdline, Pty};
-use crate::util::win32_string;
+use crate::tty::windows::{cmdline, win32_string, Pty};
 
 // TODO: Replace with winapi's implementation. This cannot be
 //  done until a safety net is in place for versions of Windows

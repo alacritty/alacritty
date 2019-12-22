@@ -94,15 +94,6 @@ where
         .map(|_| ())
 }
 
-// Converts the string slice into a Windows-standard representation for "W"-
-// suffixed function variants, which accept UTF-16 encoded string values.
-#[cfg(windows)]
-pub fn win32_string<S: AsRef<OsStr> + ?Sized>(value: &S) -> Vec<u16> {
-    use std::iter::once;
-    use std::os::windows::ffi::OsStrExt;
-    OsStr::new(value).encode_wide().chain(once(0)).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::limit;

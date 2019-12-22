@@ -291,7 +291,7 @@ impl SpawnConfig {
     ) -> Result<Self, Error> {
         let mut err = null_mut() as *mut winpty_error_t;
 
-        fn to_wstring(s: &(impl AsRef<OsStr> + ?Sized)) -> Vec<u16> {
+        fn to_wstring<S: AsRef<OsStr> + ?Sized>(s: &S) -> Vec<u16> {
             OsStr::new(s).encode_wide().chain(once(0)).collect()
         }
 

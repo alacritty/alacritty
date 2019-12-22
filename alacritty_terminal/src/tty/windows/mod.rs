@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::ffi::OsStr;
 use std::io::{self, Read, Write};
 use std::iter::once;
+use std::os::windows::ffi::OsStrExt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::TryRecvError;
 
@@ -308,4 +310,10 @@ fn cmdline<C>(config: &Config<C>) -> String {
         .chain(shell.args.iter().map(|a| a.as_ref()))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// Converts the string slice into a Windows-standard representation for "W"-
+/// suffixed function variants, which accept UTF-16 encoded string values.
+pub fn win32_string<S: AsRef<OsStr> + ?Sized>(value: &S) -> Vec<u16> {
+    OsStr::new(value).encode_wide().chain(once(0)).collect()
 }
