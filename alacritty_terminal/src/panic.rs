@@ -13,6 +13,7 @@
 // limitations under the License.
 //
 //! ANSI Terminal Stream Parsing
+use crate::util::win32_string;
 
 // Use the default behavior of the other platforms.
 #[cfg(not(windows))]
@@ -40,14 +41,4 @@ pub fn attach_handler() {
             );
         }
     }));
-}
-
-// Converts the string slice into a Windows-standard representation for "W"-
-// suffixed function variants, which accept UTF-16 encoded string values.
-#[cfg(windows)]
-fn win32_string(value: &str) -> Vec<u16> {
-    use std::ffi::OsStr;
-    use std::iter::once;
-    use std::os::windows::ffi::OsStrExt;
-    OsStr::new(value).encode_wide().chain(once(0)).collect()
 }
