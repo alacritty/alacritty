@@ -13,6 +13,7 @@
 // limitations under the License.
 //
 //! ANSI Terminal Stream Parsing
+#[cfg(windows)]
 use crate::util::win32_string;
 
 // Use the default behavior of the other platforms.
