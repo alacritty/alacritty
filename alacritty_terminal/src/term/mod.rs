@@ -1787,6 +1787,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 } else {
                     let template = Cell {
                         c: template.c,
+                        bg: template.bg,
                         ..Cell::default()
                     };
                     self.grid.clear_viewport(&template);
