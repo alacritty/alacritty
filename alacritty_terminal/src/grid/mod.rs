@@ -279,94 +279,97 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
 
     // Grow number of columns in each row, reflowing if necessary
     fn grow_cols(&mut self, reflow: bool, cols: Column, cursor_pos: &mut Point, template: &T) {
+        // Check if a row needs to be wrapped
+        let should_reflow = |row: &Row<T>| -> bool {
+            let len = Column(row.len());
+            reflow && len < cols && row[len - 1].flags().contains(Flags::WRAPLINE)
+        };
+
         let mut new_empty_lines = 0;
-        let mut new_raw: Vec<Row<T>> = Vec::with_capacity(self.raw.len());
+        let mut reversed: Vec<Row<T>> = Vec::with_capacity(self.raw.len());
         for (i, mut row) in self.raw.drain().enumerate().rev() {
-            if let Some(last_row) = new_raw.last_mut() {
-                // Grow the current line if there's wrapped content available
-                if reflow
-                    && last_row.len() < cols.0
-                    && last_row
-                        .last()
-                        .map(|cell| cell.flags().contains(Flags::WRAPLINE))
-                        .unwrap_or(false)
-                {
-                    // Remove wrap flag before appending additional cells
-                    if let Some(cell) = last_row.last_mut() {
-                        cell.flags_mut().remove(Flags::WRAPLINE);
+            let last_row = match reversed.last_mut() {
+                Some(last_row) if should_reflow(last_row) => last_row,
+                _ => {
+                    reversed.push(row);
+                    continue;
+                },
+            };
+
+            // Remove wrap flag before appending additional cells
+            if let Some(cell) = last_row.last_mut() {
+                cell.flags_mut().remove(Flags::WRAPLINE);
+            }
+
+            // Remove leading spacers when reflowing wide char to the previous line
+            let last_len = last_row.len();
+            if last_len >= 2
+                && !last_row[Column(last_len - 2)].flags().contains(Flags::WIDE_CHAR)
+                && last_row[Column(last_len - 1)].flags().contains(Flags::WIDE_CHAR_SPACER)
+            {
+                last_row.shrink(Column(last_len - 1));
+            }
+
+            // Append as many cells from the next line as possible
+            let len = min(row.len(), cols.0 - last_row.len());
+
+            // Insert leading spacer when there's not enough room for reflowing wide char
+            let mut cells = if row[Column(len - 1)].flags().contains(Flags::WIDE_CHAR) {
+                let mut cells = row.front_split_off(len - 1);
+
+                let mut spacer = *template;
+                spacer.flags_mut().insert(Flags::WIDE_CHAR_SPACER);
+                cells.push(spacer);
+
+                cells
+            } else {
+                row.front_split_off(len)
+            };
+
+            last_row.append(&mut cells);
+
+            if row.is_empty() {
+                let raw_len = i + 1 + reversed.len();
+                if raw_len < self.lines.0 || self.scroll_limit == 0 {
+                    // Add new line and move lines up if we can't pull from history
+                    cursor_pos.line = Line(cursor_pos.line.saturating_sub(1));
+                    new_empty_lines += 1;
+                } else {
+                    // Make sure viewport doesn't move if line is outside of the visible
+                    // area
+                    if i < self.display_offset {
+                        self.display_offset = self.display_offset.saturating_sub(1);
                     }
 
-                    // Remove leading spacers when reflowing wide char to the previous line
-                    let last_len = last_row.len();
-                    if last_len >= 2
-                        && !last_row[Column(last_len - 2)].flags().contains(Flags::WIDE_CHAR)
-                        && last_row[Column(last_len - 1)].flags().contains(Flags::WIDE_CHAR_SPACER)
-                    {
-                        last_row.shrink(Column(last_len - 1));
-                    }
-
-                    // Append as many cells from the next line as possible
-                    let len = min(row.len(), cols.0 - last_row.len());
-
-                    // Insert leading spacer when there's not enough room for reflowing wide char
-                    let mut cells = if row[Column(len - 1)].flags().contains(Flags::WIDE_CHAR) {
-                        let mut cells = row.front_split_off(len - 1);
-
-                        let mut spacer = *template;
-                        spacer.flags_mut().insert(Flags::WIDE_CHAR_SPACER);
-                        cells.push(spacer);
-
-                        cells
-                    } else {
-                        row.front_split_off(len)
-                    };
-
-                    last_row.append(&mut cells);
-
-                    if row.is_empty() {
-                        let raw_len = i + 1 + new_raw.len();
-                        if raw_len < self.lines.0 || self.scroll_limit == 0 {
-                            // Add new line and move lines up if we can't pull from history
-                            cursor_pos.line = Line(cursor_pos.line.saturating_sub(1));
-                            new_empty_lines += 1;
-                        } else {
-                            // Make sure viewport doesn't move if line is outside of the visible
-                            // area
-                            if i < self.display_offset {
-                                self.display_offset = self.display_offset.saturating_sub(1);
-                            }
-
-                            // Remove one line from scrollback, since we just moved it to the
-                            // viewport
-                            self.scroll_limit = self.scroll_limit.saturating_sub(1);
-                            self.display_offset = min(self.display_offset, self.scroll_limit);
-                        }
-
-                        // Don't push line into the new buffer
-                        continue;
-                    } else if let Some(cell) = last_row.last_mut() {
-                        // Set wrap flag if next line still has cells
-                        cell.flags_mut().insert(Flags::WRAPLINE);
-                    }
+                    // Remove one line from scrollback, since we just moved it to the
+                    // viewport
+                    self.scroll_limit = self.scroll_limit.saturating_sub(1);
+                    self.display_offset = min(self.display_offset, self.scroll_limit);
                 }
+
+                // Don't push line into the new buffer
+                continue;
+            } else if let Some(cell) = last_row.last_mut() {
+                // Set wrap flag if next line still has cells
+                cell.flags_mut().insert(Flags::WRAPLINE);
             }
 
-            new_raw.push(row);
-        }
-
-        // Add padding lines
-        new_raw.append(&mut vec![Row::new(cols, template); new_empty_lines]);
-
-        // Fill remaining cells and reverse iterator
-        let mut reversed = Vec::with_capacity(new_raw.len());
-        for mut row in new_raw.drain(..).rev() {
-            if row.len() < cols.0 {
-                row.grow(cols, template);
-            }
             reversed.push(row);
         }
 
-        self.raw.replace_inner(reversed);
+        // Add padding lines
+        reversed.append(&mut vec![Row::new(cols, template); new_empty_lines]);
+
+        // Fill remaining cells and reverse iterator
+        let mut new_raw = Vec::with_capacity(reversed.len());
+        for mut row in reversed.drain(..).rev() {
+            if row.len() < cols.0 {
+                row.grow(cols, template);
+            }
+            new_raw.push(row);
+        }
+
+        self.raw.replace_inner(new_raw);
 
         self.cols = cols;
     }
