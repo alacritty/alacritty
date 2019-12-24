@@ -381,24 +381,28 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
                 row.append_front(buffered);
             }
 
-            // Check if wrapping is necessary
-            let mut wrapped = match row.shrink(cols) {
-                Some(wrapped) if reflow => wrapped,
-                _ => {
-                    new_raw.push(row);
-                    continue;
-                }
-            };
-
             loop {
+                let mut wrapped = row.shrink(cols);
+
                 // Insert spacer if a wide char would be wrapped into the last column
                 if row.len() >= cols.0 && row[cols - 1].flags().contains(Flags::WIDE_CHAR) {
-                    wrapped.insert(0, row[cols - 1]);
+                    if let Some(wrapped) = &mut wrapped {
+                        wrapped.insert(0, row[cols - 1]);
+                    }
 
                     let mut spacer = *template;
                     spacer.flags_mut().insert(Flags::WIDE_CHAR_SPACER);
                     row[cols - 1] = spacer;
                 }
+
+                // Check if reflowing shoud be performed
+                let mut wrapped = match wrapped {
+                    Some(wrapped) if reflow => wrapped,
+                    _ => {
+                        new_raw.push(row);
+                        break;
+                    },
+                };
 
                 // Remove wide char spacer before shrinking
                 let len = wrapped.len();
@@ -451,12 +455,6 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
 
                     // Increase scrollback history
                     self.scroll_limit = min(self.scroll_limit + 1, self.max_scroll_limit);
-
-                    // If inserted exceeds cols, we need to wrap again
-                    wrapped = match row.shrink(cols) {
-                        Some(wrapped) => wrapped,
-                        _ => break,
-                    };
                 }
             }
         }
