@@ -382,27 +382,23 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             }
 
             loop {
-                let mut wrapped = row.shrink(cols);
-
-                // Insert spacer if a wide char would be wrapped into the last column
-                if row.len() >= cols.0 && row[cols - 1].flags().contains(Flags::WIDE_CHAR) {
-                    if let Some(wrapped) = &mut wrapped {
-                        wrapped.insert(0, row[cols - 1]);
-                    }
-
-                    let mut spacer = *template;
-                    spacer.flags_mut().insert(Flags::WIDE_CHAR_SPACER);
-                    row[cols - 1] = spacer;
-                }
-
                 // Check if reflowing shoud be performed
-                let mut wrapped = match wrapped {
+                let mut wrapped = match row.shrink(cols) {
                     Some(wrapped) if reflow => wrapped,
                     _ => {
                         new_raw.push(row);
                         break;
                     },
                 };
+
+                // Insert spacer if a wide char would be wrapped into the last column
+                if row.len() >= cols.0 && row[cols - 1].flags().contains(Flags::WIDE_CHAR) {
+                    wrapped.insert(0, row[cols - 1]);
+
+                    let mut spacer = *template;
+                    spacer.flags_mut().insert(Flags::WIDE_CHAR_SPACER);
+                    row[cols - 1] = spacer;
+                }
 
                 // Remove wide char spacer before shrinking
                 let len = wrapped.len();
