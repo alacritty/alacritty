@@ -1785,6 +1785,7 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                 if self.mode.contains(TermMode::ALT_SCREEN) {
                     self.grid.region_mut(..).each(|c| c.reset(&template));
                 } else {
+                    let template = Cell { bg: template.bg, ..Cell::default() };
                     self.grid.clear_viewport(&template);
                 }
             },
