@@ -1786,7 +1786,6 @@ impl<T: EventListener> ansi::Handler for Term<T> {
                     self.grid.region_mut(..).each(|c| c.reset(&template));
                 } else {
                     let template = Cell {
-                        c: template.c,
                         bg: template.bg,
                         ..Cell::default()
                     };
