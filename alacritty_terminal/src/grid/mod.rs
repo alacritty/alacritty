@@ -288,8 +288,11 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
         let mut new_empty_lines = 0;
         let mut reversed: Vec<Row<T>> = Vec::with_capacity(self.raw.len());
         for (i, mut row) in self.raw.drain().enumerate().rev() {
-            let last_row = match reversed.last_mut() {
-                Some(last_row) if should_reflow(last_row) => last_row,
+            // FIXME: Rust 1.39.0+ allows moving in pattern guard here
+            // Check if reflowing shoud be performed
+            let mut last_row = reversed.last_mut();
+            let last_row = match last_row {
+                Some(ref mut last_row) if should_reflow(last_row) => last_row,
                 _ => {
                     reversed.push(row);
                     continue;
@@ -385,9 +388,11 @@ impl<T: GridCell + PartialEq + Copy> Grid<T> {
             }
 
             loop {
+                // FIXME: Rust 1.39.0+ allows moving in pattern guard here
                 // Check if reflowing shoud be performed
-                let mut wrapped = match row.shrink(cols) {
-                    Some(wrapped) if reflow => wrapped,
+                let wrapped = row.shrink(cols);
+                let mut wrapped = match wrapped {
+                    Some(_) if reflow => wrapped.unwrap(),
                     _ => {
                         new_raw.push(row);
                         break;
