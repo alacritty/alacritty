@@ -55,6 +55,7 @@ mod event;
 mod input;
 mod logging;
 mod renderer;
+mod text_objects;
 mod url;
 mod window;
 

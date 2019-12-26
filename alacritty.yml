@@ -408,6 +408,25 @@
     # on them. The available modifiers are documented in the key binding section.
     #modifiers: None
 
+#text_objects:
+  # These user defined 'text-objects' lift plain text into interactive triggers similar to URLs.
+  #
+  # Each text-object entry has a unique name, a `search` regex to find objects in display,
+  # an `action` to be executed when clicked, and optionally `priority` in case of multiple matches.
+  #
+  # `action` is a list where the 1st element is the program to execute and the rest are arguments.
+  # The last element in the `action` list will be used as a template filled in with captures from
+  # the `search` regex to customize the action. $0 replaces the full object, $1 the first capture.
+
+  #GNOME issues:
+  # search: "((?i)gnome|community|world)/([-+./a-z]+)#([[:digit:]]+)"
+  # action: ["xdg-open", "https://gitlab.gnome.org/$1/$2/issues/$3"]
+  # priority: 2
+
+  #Freedesktop issues:
+  # search: "((?i)xorg|wayland|PulseAudio)/([-+./[:alnum:]]+)#([[:digit:]]+)"
+  # action: ["xdg-open", "https://gitlab.freedesktop.org/$1/$2/issues/$3"]
+
 # Mouse bindings
 #
 # Mouse bindings are specified as a list of objects, much like the key

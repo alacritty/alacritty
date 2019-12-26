@@ -42,6 +42,7 @@ use crate::config::Config;
 use crate::event::{DisplayUpdate, Mouse};
 use crate::renderer::rects::{RenderLines, RenderRect};
 use crate::renderer::{self, GlyphCache, QuadRenderer};
+use crate::text_objects::{DisplayTextObjects, DisplayTxtObj};
 use crate::url::{Url, Urls};
 use crate::window::{self, Window};
 
@@ -110,10 +111,14 @@ impl From<glutin::ContextError> for Error {
 pub struct Display {
     pub size_info: SizeInfo,
     pub window: Window,
-    pub urls: Urls,
 
     /// Currently highlighted URL.
+    pub urls: Urls,
     pub highlighted_url: Option<Url>,
+
+    /// Detected objects in visible display
+    pub text_objects: DisplayTextObjects,
+    pub highlighted_txob: Option<DisplayTxtObj>,
 
     renderer: QuadRenderer,
     glyph_cache: GlyphCache,
@@ -240,6 +245,8 @@ impl Display {
             size_info,
             urls: Urls::new(),
             highlighted_url: None,
+            text_objects: DisplayTextObjects::new(),
+            highlighted_txob: None,
         })
     }
 
@@ -374,6 +381,13 @@ impl Display {
         #[cfg(not(windows))]
         self.window.update_ime_position(&terminal, &self.size_info);
 
+        // Only get export display content if text-objects are configured
+        let (display_text, display_cells) = if config.ui_config.text_objects.is_empty() {
+            (Vec::new(), Vec::new())
+        } else {
+            terminal.display_index()
+        };
+
         // Drop terminal as early as possible to free lock
         drop(terminal);
 
@@ -404,6 +418,27 @@ impl Display {
         }
 
         let mut rects = lines.rects(&metrics, &size_info);
+
+        // Find text-objects in freshly drawn display
+        self.text_objects.find_objects(
+            &config.ui_config.text_objects,
+            &display_text,
+            &display_cells,
+        );
+
+        // Highlight text-objects if any under the mouse cursor
+        if let Some(txob) = self.text_objects.highlighted(&mouse, mods, mouse_mode, selection) {
+            rects.append(&mut txob.rects(&metrics, &size_info));
+            self.highlighted_txob = Some(txob);
+            self.window.set_mouse_cursor(CursorIcon::Hand);
+        } else if self.highlighted_txob.is_some() {
+            self.highlighted_txob = None;
+            if mouse_mode {
+                self.window.set_mouse_cursor(CursorIcon::Default);
+            } else {
+                self.window.set_mouse_cursor(CursorIcon::Text);
+            }
+        }
 
         // Update visible URLs
         self.urls = urls;

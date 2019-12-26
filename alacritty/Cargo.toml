@@ -25,6 +25,7 @@ unicode-width = "0.1"
 parking_lot = "0.9"
 font = { path = "../font" }
 urlocator = "0.1.0"
+regex = "1"
 
 [build-dependencies]
 gl_generator = "0.14.0"

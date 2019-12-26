@@ -43,6 +43,7 @@ use alacritty_terminal::util::start_daemon;
 
 use crate::config::{Action, Binding, Config, Key};
 use crate::event::{ClickState, Mouse};
+use crate::text_objects::{DisplayTextObjects, DisplayTxtObj};
 use crate::url::{Url, Urls};
 use crate::window::Window;
 
@@ -56,7 +57,9 @@ pub const FONT_SIZE_STEP: f32 = 0.5;
 pub struct Processor<'a, T: EventListener, A: ActionContext<T>> {
     pub ctx: A,
     pub urls: &'a Urls,
+    pub text_objects: &'a DisplayTextObjects,
     pub highlighted_url: &'a Option<Url>,
+    pub highlighted_txob: &'a Option<DisplayTxtObj>,
     _phantom: PhantomData<T>,
 }
 
@@ -175,6 +178,7 @@ fn paste<T: EventListener, A: ActionContext<T>>(ctx: &mut A, contents: &str) {
 #[derive(Debug, Clone, PartialEq)]
 pub enum MouseState {
     Url(Url),
+    TextObject(DisplayTxtObj),
     MessageBar,
     MessageBarButton,
     Mouse,
@@ -184,7 +188,9 @@ pub enum MouseState {
 impl From<MouseState> for CursorIcon {
     fn from(mouse_state: MouseState) -> CursorIcon {
         match mouse_state {
-            MouseState::Url(_) | MouseState::MessageBarButton => CursorIcon::Hand,
+            MouseState::Url(_) | MouseState::TextObject(_) | MouseState::MessageBarButton => {
+                CursorIcon::Hand
+            }
             MouseState::Text => CursorIcon::Text,
             _ => CursorIcon::Default,
         }
@@ -192,8 +198,21 @@ impl From<MouseState> for CursorIcon {
 }
 
 impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
-    pub fn new(ctx: A, urls: &'a Urls, highlighted_url: &'a Option<Url>) -> Self {
-        Self { ctx, urls, highlighted_url, _phantom: Default::default() }
+    pub fn new(
+        ctx: A,
+        urls: &'a Urls,
+        text_objects: &'a DisplayTextObjects,
+        highlighted_url: &'a Option<Url>,
+        highlighted_txob: &'a Option<DisplayTxtObj>,
+    ) -> Self {
+        Self {
+            ctx,
+            urls,
+            text_objects,
+            highlighted_url,
+            highlighted_txob,
+            _phantom: Default::default(),
+        }
     }
 
     #[inline]
@@ -436,8 +455,17 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             return;
         } else if let (MouseButton::Left, MouseState::Url(url)) = (button, self.mouse_state()) {
             self.launch_url(url);
+        } else if let (MouseButton::Left, MouseState::TextObject(txob)) =
+            (button, self.mouse_state(modifiers))
+        {
+            let program = &txob.action[0];
+            let args = &txob.action[1..];
+            trace!("Running command {} with args {:?}", program, args);
+            match start_daemon(program, args) {
+                Ok(_) => debug!("Spawned new proc"),
+                Err(err) => warn!("Couldn't run command {}", err),
+            }
         }
-
         self.copy_selection();
     }
 
@@ -725,6 +753,15 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         } else if self.highlighted_url.is_some() {
             self.ctx.terminal_mut().dirty = true;
         }
+
+        // Additionally check for highlight change of text-objects
+        if let MouseState::TextObject(txob) = mouse_state {
+            if Some(txob) != self.highlighted_txob.as_ref() {
+                self.ctx.terminal_mut().dirty = true;
+            }
+        } else if self.highlighted_txob.is_some() {
+            self.ctx.terminal_mut().dirty = true;
+        }
     }
 
     /// Location of the mouse cursor.
@@ -746,6 +783,13 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         if let Some(url) = highlighted_url {
             return MouseState::Url(url);
+        }
+
+        // Check for text-object at mouse cursor
+        if let Some(txob) =
+            self.text_objects.highlighted(self.ctx.mouse(), mods, mouse_mode, selection)
+        {
+            return MouseState::TextObject(txob);
         }
 
         // Check mouse mode if location is not special

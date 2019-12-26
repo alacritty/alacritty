@@ -391,8 +391,13 @@ impl<N: Notify + OnResize> Processor<N> {
                 font_size: &mut self.font_size,
                 config: &mut self.config,
             };
-            let mut processor =
-                input::Processor::new(context, &self.display.urls, &self.display.highlighted_url);
+            let mut processor = input::Processor::new(
+                context,
+                &self.display.urls,
+                &self.display.text_objects,
+                &self.display.highlighted_url,
+                &self.display.highlighted_txob,
+            );
 
             for event in event_queue.drain(..) {
                 Processor::handle_event(event, &mut processor);

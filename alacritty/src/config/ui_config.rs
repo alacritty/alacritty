@@ -1,14 +1,20 @@
 use serde::{Deserialize, Deserializer};
+use std::collections::HashMap;
 
 use alacritty_terminal::config::failure_default;
 
 use crate::config::bindings::{self, Binding, KeyBinding, MouseBinding};
 use crate::config::mouse::Mouse;
+use crate::config::text_objects::TextObject;
 
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct UIConfig {
     #[serde(default, deserialize_with = "failure_default")]
     pub mouse: Mouse,
+
+    /// Custom text-object link handlers
+    #[serde(default, deserialize_with = "failure_default")]
+    pub text_objects: HashMap<String, TextObject>,
 
     /// Keybindings
     #[serde(default = "default_key_bindings", deserialize_with = "deserialize_key_bindings")]
@@ -23,6 +29,7 @@ impl Default for UIConfig {
     fn default() -> Self {
         UIConfig {
             mouse: Mouse::default(),
+            text_objects: HashMap::new(),
             key_bindings: default_key_bindings(),
             mouse_bindings: default_mouse_bindings(),
         }

@@ -16,6 +16,7 @@ use alacritty_terminal::config::{Config as TermConfig, LOG_TARGET_CONFIG};
 mod bindings;
 pub mod monitor;
 mod mouse;
+pub mod text_objects;
 mod ui_config;
 
 pub use crate::config::bindings::{Action, Binding, Key, RelaxedEq};

@@ -929,6 +929,15 @@ impl<T> Term<T> {
         Some(res)
     }
 
+    /// Export display to a vector of bytes
+    ///
+    /// The main purpose is being able to do Regex search on the visible cells.
+    pub fn display_index(&self) -> (Vec<u8>, Vec<Indexed<Cell>>) {
+        let cells: Vec<Indexed<Cell>> = self.grid.display_iter().collect();
+        let txt: Vec<u8> = cells.iter().map(|c| c.inner.c as u8).collect();
+        (txt, cells)
+    }
+
     /// Convert range between two points to a String.
     pub fn bounds_to_string(&self, start: Point<usize>, end: Point<usize>) -> String {
         let mut res = String::new();
