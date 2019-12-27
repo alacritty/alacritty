@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Colored emojis on Linux/BSD
 - Value `randr` for `WINIT_HIDPI_FACTOR`, to ignore `Xft.dpi` and scale based on screen dimensions
 - `Minimize` key binding action, bound to `cmd + m` on macOS
+- Text-Objects for customizable interactive items to click and launch actions.
 
 ### Changed
 

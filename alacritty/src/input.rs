@@ -822,6 +822,7 @@ mod tests {
 
     use crate::config::{ClickHandler, Config};
     use crate::event::{ClickState, Mouse};
+    use crate::text_objects::DisplayTextObjects;
     use crate::url::Urls;
     use crate::window::Window;
 
@@ -1014,7 +1015,14 @@ mod tests {
                 };
 
                 let urls = Urls::new();
-                let mut processor = Processor::new(context, &urls, &None);
+                let txt_objs = DisplayTextObjects::new();
+                let mut processor = Processor::new(
+                    context,
+                    &urls,
+                    &txt_objs,
+                    &None,
+                    &None,
+                );
 
                 if let Event::WindowEvent {
                     event: WindowEvent::MouseInput {
