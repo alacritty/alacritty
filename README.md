@@ -212,11 +212,6 @@ running on another machine which is connected to Alacritty via SSH, this issue
 disappears. Actual throughput and rendering performance are still better in
 Alacritty.
 
-**_My arrow keys don't work._**
-
-It sounds like you deleted some key bindings from your config file. Please
-reference the default config file to restore them.
-
 ## IRC
 
 Alacritty discussion can be found in `#alacritty` on freenode.
@@ -235,6 +230,4 @@ env WINIT_UNIX_BACKEND=x11 alacritty
 Alacritty is released under the [Apache License, Version 2.0].
 
 [Apache License, Version 2.0]: https://github.com/jwilm/alacritty/blob/master/LICENSE-APACHE
-[faq]: https://github.com/jwilm/alacritty#faq
 [tmux]: https://github.com/tmux/tmux
-[Wayland meta issue]: https://github.com/tomaka/winit/issues/306
