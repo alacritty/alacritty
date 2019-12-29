@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::fs::OpenOptions;
-use std::io;
 use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::{FromRawHandle, IntoRawHandle};
 use std::u16;
@@ -32,8 +31,9 @@ use crate::tty::windows::Pty;
 
 pub use winpty::Winpty as Agent;
 
-/// How long the winpty agent should wait for any RPC request
-/// This is a placeholder value until we see how often long responses happen
+/// How long the winpty agent should wait for any RPC request.
+///
+/// This is a placeholder value until we see how often long responses happen.
 const AGENT_TIMEOUT: u32 = 10000;
 
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty {
