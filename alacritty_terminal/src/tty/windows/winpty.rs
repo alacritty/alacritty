@@ -31,18 +31,12 @@ use crate::tty::windows::Pty;
 
 pub use winpty::Winpty as Agent;
 
-/// How long the winpty agent should wait for any RPC request.
-///
-/// This is a placeholder value until we see how often long responses happen.
-const AGENT_TIMEOUT: u32 = 10000;
-
 pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) -> Pty {
     // Create config
     let mut wconfig = WinptyConfig::new(ConfigFlags::empty()).unwrap();
 
     wconfig.set_initial_size(size.cols().0 as i32, size.lines().0 as i32);
     wconfig.set_mouse_mode(&MouseMode::Auto);
-    wconfig.set_agent_timeout(AGENT_TIMEOUT);
 
     // Start agent
     let mut agent = Winpty::open(&wconfig).unwrap();
@@ -101,7 +95,7 @@ impl OnResize for Agent {
         let (cols, lines) = (sizeinfo.cols().0, sizeinfo.lines().0);
         if cols > 0 && cols <= u16::MAX as usize && lines > 0 && lines <= u16::MAX as usize {
             self.set_size(cols as u16, lines as u16)
-                .unwrap_or_else(|_| info!("Unable to set winpty size, did it die?"));
+                .unwrap_or_else(|_| info!("Unable to set WinPty size, did it die?"));
         }
     }
 }
