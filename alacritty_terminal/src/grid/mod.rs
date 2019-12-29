@@ -676,8 +676,7 @@ impl<T> Grid<T> {
         T: Copy + GridCell,
     {
         let history_size = self.raw.len().saturating_sub(*self.lines);
-        self.raw
-            .initialize_exact(self.max_scroll_limit - history_size, Row::new(self.cols, template));
+        self.raw.initialize(self.max_scroll_limit - history_size, Row::new(self.cols, template));
     }
 
     /// This is used only for truncating before saving ref-tests

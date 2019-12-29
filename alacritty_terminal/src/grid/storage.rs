@@ -183,34 +183,20 @@ impl<T> Storage<T> {
         self.zero = 0;
     }
 
-    /// Dynamically grow the storage buffer at runtime. This function tries to minimize
-    /// reallocations by using minimun step for growing internal storage. If you want to avoid this
-    /// behavior use `initialize_exact`.
+    /// Dynamically grow the storage buffer at runtime.
     pub fn initialize(&mut self, additional: usize, template_row: Row<T>)
     where
         T: Clone,
     {
         if self.len + additional > self.inner.len() {
-            let len = self.len;
-            self.initialize_exact(max(additional, MIN_INIT_SIZE), template_row);
-            // Restore proper len
-            self.len = len + additional;
-        } else {
-            self.len += additional;
+            let realloc_size = max(additional, MIN_INIT_SIZE);
+            let mut new = vec![template_row; realloc_size];
+            let mut split = self.inner.split_off(self.zero);
+            self.inner.append(&mut new);
+            self.inner.append(&mut split);
+            self.zero += realloc_size;
         }
-    }
 
-    /// Dynamically grow the storage buffer at runtime.
-    #[inline]
-    pub fn initialize_exact(&mut self, additional: usize, template_row: Row<T>)
-    where
-        T: Clone,
-    {
-        let mut new = vec![template_row; additional];
-        let mut split = self.inner.split_off(self.zero);
-        self.inner.append(&mut new);
-        self.inner.append(&mut split);
-        self.zero += additional;
         self.len += additional;
     }
 
@@ -346,7 +332,7 @@ impl<T> IndexMut<Line> for Storage<T> {
 #[cfg(test)]
 mod test {
     use crate::grid::row::Row;
-    use crate::grid::storage::{MIN_INIT_SIZE, Storage};
+    use crate::grid::storage::{Storage, MIN_INIT_SIZE};
     use crate::grid::GridCell;
     use crate::index::{Column, Line};
     use crate::term::cell::Flags;
@@ -820,38 +806,6 @@ mod test {
     fn initialize() {
         // Setup storage area
         let mut storage = Storage {
-            inner: vec![],
-            zero: 0,
-            visible_lines: Line(0),
-            len: 0,
-        };
-
-        let additional = 3;
-        storage.initialize(additional, Row::new(Column(0), &' '));
-
-        assert_eq!(additional, storage.len);
-        let cap = std::cmp::max(additional, MIN_INIT_SIZE);
-        assert_eq!(cap, storage.inner.len());
-
-        storage.initialize(additional, Row::new(Column(0), &' '));
-
-        assert_eq!(additional * 2, storage.len);
-        let cap = if storage.len > cap {
-            if storage.len > MIN_INIT_SIZE {
-                cap + MIN_INIT_SIZE
-            } else {
-                storage.len + additional
-            }
-        } else {
-            cap
-        };
-        assert_eq!(cap, storage.inner.len());
-    }
-
-    #[test]
-    fn initialize_exact() {
-        // Setup storage area
-        let mut storage = Storage {
             inner: vec![
                 Row::new(Column(1), &'4'),
                 Row::new(Column(1), &'5'),
@@ -866,7 +820,7 @@ mod test {
         };
 
         // Initialize additional lines
-        storage.initialize_exact(3, Row::new(Column(1), &'-'));
+        storage.initialize(3, Row::new(Column(1), &'-'));
 
         // Make sure the lines are present and at the right location
         let shrinking_expected = Storage {
@@ -885,8 +839,15 @@ mod test {
             visible_lines: Line(0),
             len: 9,
         };
-        assert_eq!(storage.inner, shrinking_expected.inner);
-        assert_eq!(storage.zero, shrinking_expected.zero);
+        assert_eq!(
+            storage.inner[..shrinking_expected.zero],
+            shrinking_expected.inner[..shrinking_expected.zero]
+        );
+        assert_eq!(
+            storage.inner[storage.zero..],
+            shrinking_expected.inner[shrinking_expected.zero..]
+        );
+        assert_eq!(storage.zero, MIN_INIT_SIZE + 2);
         assert_eq!(storage.len, shrinking_expected.len);
     }
 
