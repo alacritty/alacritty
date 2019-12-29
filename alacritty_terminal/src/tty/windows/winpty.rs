@@ -95,7 +95,7 @@ impl OnResize for Agent {
         let (cols, lines) = (sizeinfo.cols().0, sizeinfo.lines().0);
         if cols > 0 && cols <= u16::MAX as usize && lines > 0 && lines <= u16::MAX as usize {
             self.set_size(cols as u16, lines as u16)
-                .unwrap_or_else(|_| info!("Unable to set WinPty size, did it die?"));
+                .unwrap_or_else(|_| info!("Unable to set WinPTY size, did it die?"));
         }
     }
 }
