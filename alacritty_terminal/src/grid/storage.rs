@@ -10,7 +10,7 @@ use crate::index::Line;
 /// Maximum number of invisible lines before buffer is resized.
 const TRUNCATE_STEP: usize = 100;
 
-/// Minimum step for dynamic buffer grow.
+/// Minimum step for dynamic buffer growth.
 const MIN_INIT_SIZE: usize = 1_000;
 
 /// A ring buffer for optimizing indexing and rotation.
