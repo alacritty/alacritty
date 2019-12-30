@@ -47,8 +47,6 @@ objc = "0.2.2"
 
 [features]
 default = []
-# Enabling this feature makes shaders automatically reload when changed
-live-shader-reload = []
 nightly = []
 bench = []
 

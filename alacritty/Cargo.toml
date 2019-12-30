@@ -51,7 +51,7 @@ embed-resource = "1.3"
 [features]
 default = []
 # Enabling this feature makes shaders automatically reload when changed
-live-shader-reload = ["alacritty_terminal/live-shader-reload"]
+live-shader-reload = []
 nightly = []
 bench = []
 
