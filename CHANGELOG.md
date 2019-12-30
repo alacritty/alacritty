@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Crash on `clear` when scrolled up in history
 - Entire screen getting underlined/stroke out when running `clear`
 
+### Removed
+
+- Support for non-utf8 C1 escapes 
+
 ## 0.4.0
 
 ### Packaging
