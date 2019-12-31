@@ -218,10 +218,6 @@ impl Display {
                 window.swap_buffers()
             }
         }
-        #[cfg(any(target_os = "macos", windows))]
-        {
-            window.swap_buffers()
-        }
 
         window.set_visible(true);
 
