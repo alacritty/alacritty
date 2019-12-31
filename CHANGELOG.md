@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deadlock on Windows when closing Alacritty using the title bar "X" button (ConPTY backend)
 - Crash on `clear` when scrolled up in history
 - Entire screen getting underlined/stroke out when running `clear`
-- Extremely slow startup on some Wayland compositors
+- Slow startup on some Wayland compositors
 
 ## 0.4.0
 
