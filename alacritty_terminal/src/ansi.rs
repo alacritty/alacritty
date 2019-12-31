@@ -719,9 +719,6 @@ where
             C0::SUB => self.handler.substitute(),
             C0::SI => self.handler.set_active_charset(CharsetIndex::G0),
             C0::SO => self.handler.set_active_charset(CharsetIndex::G1),
-            C1::NEL => self.handler.newline(),
-            C1::HTS => self.handler.set_horizontal_tabstop(),
-            C1::DECID => self.handler.identify_terminal(self.writer),
             _ => debug!("[unhandled] execute byte={:02x}", byte),
         }
     }
@@ -1359,79 +1356,6 @@ pub mod C0 {
     pub const US: u8 = 0x1F;
     /// Delete, should be ignored by terminal
     pub const DEL: u8 = 0x7f;
-}
-
-/// C1 set of 8-bit control characters (from ANSI X3.64-1979)
-///
-/// 0x80 (@), 0x81 (A), 0x82 (B), 0x83 (C) are reserved
-/// 0x98 (X), 0x99 (Y) are reserved
-/// 0x9a (Z) is 'reserved', but causes DEC terminals to respond with DA codes
-#[allow(non_snake_case)]
-pub mod C1 {
-    /// Reserved
-    pub const PAD: u8 = 0x80;
-    /// Reserved
-    pub const HOP: u8 = 0x81;
-    /// Reserved
-    pub const BPH: u8 = 0x82;
-    /// Reserved
-    pub const NBH: u8 = 0x83;
-    /// Index, moves down one line same column regardless of NL
-    pub const IND: u8 = 0x84;
-    /// New line, moves done one line and to first column (CR+LF)
-    pub const NEL: u8 = 0x85;
-    /// Start of Selected Area to be sent to auxiliary output device
-    pub const SSA: u8 = 0x86;
-    /// End of Selected Area to be sent to auxiliary output device
-    pub const ESA: u8 = 0x87;
-    /// Horizontal Tabulation Set at current position
-    pub const HTS: u8 = 0x88;
-    /// Hor Tab Justify, moves string to next tab position
-    pub const HTJ: u8 = 0x89;
-    /// Vertical Tabulation Set at current line
-    pub const VTS: u8 = 0x8A;
-    /// Partial Line Down (subscript)
-    pub const PLD: u8 = 0x8B;
-    /// Partial Line Up (superscript)
-    pub const PLU: u8 = 0x8C;
-    /// Reverse Index, go up one line, reverse scroll if necessary
-    pub const RI: u8 = 0x8D;
-    /// Single Shift to G2
-    pub const SS2: u8 = 0x8E;
-    /// Single Shift to G3 (VT100 uses this for sending PF keys)
-    pub const SS3: u8 = 0x8F;
-    /// Device Control String, terminated by ST (VT125 enters graphics)
-    pub const DCS: u8 = 0x90;
-    /// Private Use 1
-    pub const PU1: u8 = 0x91;
-    /// Private Use 2
-    pub const PU2: u8 = 0x92;
-    /// Set Transmit State
-    pub const STS: u8 = 0x93;
-    /// Cancel character, ignore previous character
-    pub const CCH: u8 = 0x94;
-    /// Message Waiting, turns on an indicator on the terminal
-    pub const MW: u8 = 0x95;
-    /// Start of Protected Area
-    pub const SPA: u8 = 0x96;
-    /// End of Protected Area
-    pub const EPA: u8 = 0x97;
-    /// SOS
-    pub const SOS: u8 = 0x98;
-    /// SGCI
-    pub const SGCI: u8 = 0x99;
-    /// DECID - Identify Terminal
-    pub const DECID: u8 = 0x9a;
-    /// Control Sequence Introducer
-    pub const CSI: u8 = 0x9B;
-    /// String Terminator (VT125 exits graphics)
-    pub const ST: u8 = 0x9C;
-    /// Operating System Command (reprograms intelligent terminal)
-    pub const OSC: u8 = 0x9D;
-    /// Privacy Message (password verification), terminated by ST
-    pub const PM: u8 = 0x9E;
-    /// Application Program Command (to word processor), term by ST
-    pub const APC: u8 = 0x9F;
 }
 
 // Tests for parsing escape sequences
