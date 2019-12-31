@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- Support for non-utf8 C1 escapes 
+- Support for 8-bit C1 escape sequences
 
 ## 0.4.0
 
