@@ -21,6 +21,8 @@ use std::time::Instant;
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use glutin::event::ModifiersState;
 use glutin::event_loop::EventLoop;
+#[cfg(not(any(target_os = "macos", windows)))]
+use glutin::platform::unix::EventLoopWindowTargetExtUnix;
 use glutin::window::CursorIcon;
 use log::{debug, info};
 use parking_lot::MutexGuard;
@@ -208,7 +210,14 @@ impl Display {
 
         // We should call `clear` when window is offscreen, so when `window.show()` happens it
         // would be with background color instead of uninitialized surface.
-        window.swap_buffers();
+        #[cfg(not(any(target_os = "macos", windows)))]
+        {
+            // On Wayland we can safely ignore this call, since the window isn't visible until you
+            // actually draw something into it.
+            if event_loop.is_x11() {
+                window.swap_buffers()
+            }
+        }
 
         window.set_visible(true);
 
