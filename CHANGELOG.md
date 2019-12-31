@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Entire screen getting underlined/stroke out when running `clear`
 - Slow startup on some Wayland compositors
 
+### Removed
+
+- Support for 8-bit C1 escape sequences
+
 ## 0.4.0
 
 ### Packaging
