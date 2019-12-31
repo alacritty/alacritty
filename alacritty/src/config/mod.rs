@@ -24,7 +24,7 @@ use crate::config::ui_config::UIConfig;
 pub type Config = TermConfig<UIConfig>;
 
 /// Result from config loading
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Errors occurring during config loading
 #[derive(Debug)]
@@ -43,29 +43,20 @@ pub enum Error {
 }
 
 impl std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
-        match *self {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
             Error::NotFound => None,
-            Error::ReadingEnvHome(ref err) => Some(err),
-            Error::Io(ref err) => Some(err),
-            Error::Yaml(ref err) => Some(err),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::NotFound => "Couldn't locate config file",
-            Error::ReadingEnvHome(ref err) => err.description(),
-            Error::Io(ref err) => err.description(),
-            Error::Yaml(ref err) => err.description(),
+            Error::ReadingEnvHome(e) => e.source(),
+            Error::Io(e) => e.source(),
+            Error::Yaml(e) => e.source(),
         }
     }
 }
 
 impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            Error::NotFound => write!(f, "{}", ::std::error::Error::description(self)),
+            Error::NotFound => write!(f, "Couldn't locate config file"),
             Error::ReadingEnvHome(ref err) => {
                 write!(f, "Couldn't read $HOME environment variable: {}", err)
             },
@@ -76,13 +67,13 @@ impl std::fmt::Display for Error {
 }
 
 impl From<env::VarError> for Error {
-    fn from(val: env::VarError) -> Error {
+    fn from(val: env::VarError) -> Self {
         Error::ReadingEnvHome(val)
     }
 }
 
 impl From<io::Error> for Error {
-    fn from(val: io::Error) -> Error {
+    fn from(val: io::Error) -> Self {
         if val.kind() == io::ErrorKind::NotFound {
             Error::NotFound
         } else {
@@ -92,7 +83,7 @@ impl From<io::Error> for Error {
 }
 
 impl From<serde_yaml::Error> for Error {
-    fn from(val: serde_yaml::Error) -> Error {
+    fn from(val: serde_yaml::Error) -> Self {
         Error::Yaml(val)
     }
 }
@@ -165,10 +156,10 @@ fn read_config(path: &PathBuf) -> Result<Config> {
 }
 
 fn parse_config(contents: &str) -> Result<Config> {
-    match serde_yaml::from_str(&contents) {
+    match serde_yaml::from_str(contents) {
         Err(error) => {
             // Prevent parsing error with an empty string and commented out file.
-            if std::error::Error::description(&error) == "EOF while parsing a value" {
+            if error.to_string() == "EOF while parsing a value" {
                 Ok(Config::default())
             } else {
                 Err(Error::Yaml(error))

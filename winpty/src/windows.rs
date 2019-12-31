@@ -80,8 +80,8 @@ impl Display for Error {
 }
 
 impl std::error::Error for Error {
-    fn description(&self) -> &str {
-        &self.message
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
     }
 }
 

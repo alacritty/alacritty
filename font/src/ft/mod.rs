@@ -668,32 +668,23 @@ pub enum Error {
 }
 
 impl std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn std::error::Error> {
-        match *self {
-            Error::FreeType(ref err) => Some(err),
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::FreeType(e) => e.source(),
             _ => None,
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::FreeType(ref err) => err.description(),
-            Error::MissingFont(ref _desc) => "Couldn't find the requested font",
-            Error::FontNotLoaded => "Tried to operate on font that hasn't been loaded",
-            Error::MissingSizeMetrics => "Tried to get size metrics from a face without a size",
         }
     }
 }
 
 impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match *self {
-            Error::FreeType(ref err) => err.fmt(f),
-            Error::MissingFont(ref desc) => write!(
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Error::FreeType(e) => e.fmt(f),
+            Error::MissingFont(e) => write!(
                 f,
                 "Couldn't find a font with {}\n\tPlease check the font config in your \
                  alacritty.yml.",
-                desc
+                e
             ),
             Error::FontNotLoaded => f.write_str("Tried to use a font that hasn't been loaded"),
             Error::MissingSizeMetrics => {

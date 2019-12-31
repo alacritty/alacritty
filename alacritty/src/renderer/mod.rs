@@ -77,32 +77,22 @@ pub enum Error {
     ShaderCreation(ShaderCreationError),
 }
 
-impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
-        match *self {
-            Error::ShaderCreation(ref err) => Some(err),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::ShaderCreation(ref err) => err.description(),
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::ShaderCreation(e) => e.source(),
         }
     }
 }
 
-impl ::std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Error::ShaderCreation(ref err) => {
-                write!(f, "There was an error initializing the shaders: {}", err)
-            },
-        }
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "There was an error initializing the shaders: {}", self)
     }
 }
 
 impl From<ShaderCreationError> for Error {
-    fn from(val: ShaderCreationError) -> Error {
+    fn from(val: ShaderCreationError) -> Self {
         Error::ShaderCreation(val)
     }
 }
@@ -184,7 +174,7 @@ pub struct GlyphCache {
     /// glyph offset
     glyph_offset: Delta<i8>,
 
-    metrics: ::font::Metrics,
+    metrics: font::Metrics,
 }
 
 impl GlyphCache {
@@ -205,7 +195,7 @@ impl GlyphCache {
 
         let metrics = rasterizer.metrics(regular, font.size)?;
 
-        let mut cache = GlyphCache {
+        let mut cache = Self {
             cache: HashMap::default(),
             cursor_cache: HashMap::default(),
             rasterizer,
@@ -461,8 +451,8 @@ pub struct Batch {
 
 impl Batch {
     #[inline]
-    pub fn new() -> Batch {
-        Batch { tex: 0, instances: Vec::with_capacity(BATCH_MAX) }
+    pub fn new() -> Self {
+        Self { tex: 0, instances: Vec::with_capacity(BATCH_MAX) }
     }
 
     pub fn add_item(&mut self, mut cell: RenderableCell, glyph: &Glyph) {
@@ -668,7 +658,7 @@ impl QuadRenderer {
 
         if cfg!(feature = "live-shader-reload") {
             util::thread::spawn_named("live shader reload", move || {
-                let (tx, rx) = ::std::sync::mpsc::channel();
+                let (tx, rx) = std::sync::mpsc::channel();
                 // The Duration argument is a debouncing period.
                 let mut watcher =
                     watcher(tx, Duration::from_millis(10)).expect("create file watcher");
@@ -695,7 +685,7 @@ impl QuadRenderer {
             });
         }
 
-        let mut renderer = QuadRenderer {
+        let mut renderer = Self {
             program,
             rect_program,
             vao,
@@ -1028,7 +1018,7 @@ impl<'a, C> RenderApi<'a, C> {
                         cursor_key.is_wide,
                     ))
                 });
-                self.add_render_item(cell, &glyph);
+                self.add_render_item(cell, glyph);
                 return;
             },
             RenderableCellContent::Chars(chars) => chars,
@@ -1195,7 +1185,7 @@ impl TextShaderProgram {
 
         assert_uniform_valid!(projection, cell_dim, background);
 
-        let shader = TextShaderProgram {
+        let shader = Self {
             id: program,
             u_projection: projection,
             u_cell_dim: cell_dim,
@@ -1273,7 +1263,7 @@ impl RectShaderProgram {
         // get uniform locations
         let u_color = unsafe { gl::GetUniformLocation(program, b"color\0".as_ptr() as *const _) };
 
-        let shader = RectShaderProgram { id: program, u_color };
+        let shader = Self { id: program, u_color };
 
         unsafe { gl::UseProgram(0) }
 
@@ -1427,25 +1417,17 @@ pub enum ShaderCreationError {
     Link(String),
 }
 
-impl ::std::error::Error for ShaderCreationError {
-    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
-        match *self {
-            ShaderCreationError::Io(ref err) => Some(err),
+impl std::error::Error for ShaderCreationError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ShaderCreationError::Io(e) => e.source(),
             _ => None,
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            ShaderCreationError::Io(ref err) => err.description(),
-            ShaderCreationError::Compile(ref _path, ref s) => s.as_str(),
-            ShaderCreationError::Link(ref s) => s.as_str(),
         }
     }
 }
 
-impl ::std::fmt::Display for ShaderCreationError {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+impl std::fmt::Display for ShaderCreationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
             ShaderCreationError::Io(ref err) => write!(f, "Couldn't read shader: {}", err),
             ShaderCreationError::Compile(ref path, ref log) => {
@@ -1457,7 +1439,7 @@ impl ::std::fmt::Display for ShaderCreationError {
 }
 
 impl From<io::Error> for ShaderCreationError {
-    fn from(val: io::Error) -> ShaderCreationError {
+    fn from(val: io::Error) -> Self {
         ShaderCreationError::Io(val)
     }
 }
@@ -1516,7 +1498,7 @@ enum AtlasInsertError {
 }
 
 impl Atlas {
-    fn new(size: i32) -> Atlas {
+    fn new(size: i32) -> Self {
         let mut id: GLuint = 0;
         unsafe {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
@@ -1542,7 +1524,7 @@ impl Atlas {
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
 
-        Atlas { id, width: size, height: size, row_extent: 0, row_baseline: 0, row_tallest: 0 }
+        Self { id, width: size, height: size, row_extent: 0, row_baseline: 0, row_tallest: 0 }
     }
 
     pub fn clear(&mut self) {

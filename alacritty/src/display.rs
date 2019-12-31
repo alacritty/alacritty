@@ -59,21 +59,12 @@ pub enum Error {
 }
 
 impl std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn (std::error::Error)> {
-        match *self {
-            Error::Window(ref err) => Some(err),
-            Error::Font(ref err) => Some(err),
-            Error::Render(ref err) => Some(err),
-            Error::ContextError(ref err) => Some(err),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Window(ref err) => err.description(),
-            Error::Font(ref err) => err.description(),
-            Error::Render(ref err) => err.description(),
-            Error::ContextError(ref err) => err.description(),
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::Window(e) => e.source(),
+            Error::Font(e) => e.source(),
+            Error::Render(e) => e.source(),
+            Error::ContextError(e) => e.source(),
         }
     }
 }
