@@ -67,9 +67,15 @@ complete correctly with the unpatched version, to make sure the test case is cov
 
 ### Performance
 
+Any change which could have an impact on Alacritty's performance, should be tested to prevent
+potential regressions.
+
 Alacritty mainly uses the [vtebench](https://github.com/jwilm/vtebench) tool for testing Alacritty's
-performance. Any change which could have an impact on Alacritty's performance, should be tested with
-it to prevent potential regressions.
+performance. Instructions on how to use it can be found in its
+[README](https://github.com/jwilm/vtebench/blob/master/README.md).
+
+Latency is another important factor for Alacritty. On X11, Windows, and BSD the
+[typometer](https://github.com/pavelfatin/typometer) tool allows measuring keyboard latency.
 
 ### Documentation
 
