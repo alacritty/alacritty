@@ -74,7 +74,7 @@ Alacritty mainly uses the [vtebench](https://github.com/jwilm/vtebench) tool for
 performance. Instructions on how to use it can be found in its
 [README](https://github.com/jwilm/vtebench/blob/master/README.md).
 
-Latency is another important factor for Alacritty. On X11, Windows, and BSD the
+Latency is another important factor for Alacritty. On X11, Windows, and macOS the
 [typometer](https://github.com/pavelfatin/typometer) tool allows measuring keyboard latency.
 
 ### Documentation
