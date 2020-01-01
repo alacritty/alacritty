@@ -67,8 +67,9 @@ complete correctly with the unpatched version, to make sure the test case is cov
 
 ### Performance
 
-Any change which could have an impact on Alacritty's performance, should be tested to prevent
-potential regressions.
+If changes could affect throughput or latency of Alacritty, these aspects should be benchmarked to
+prevent potential regressions. Since there are often big performance differences between Rust's
+nightly releases, it's advised to perform these tests on the latest Rust stable release.
 
 Alacritty mainly uses the [vtebench](https://github.com/jwilm/vtebench) tool for testing Alacritty's
 performance. Instructions on how to use it can be found in its
