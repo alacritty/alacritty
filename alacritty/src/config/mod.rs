@@ -1,4 +1,5 @@
 use std::env;
+use std::fmt::{self, Display, Formatter};
 use std::io;
 use std::path::PathBuf;
 
@@ -20,6 +21,7 @@ pub use crate::config::bindings::{Action, Binding, Key, RelaxedEq};
 #[cfg(test)]
 pub use crate::config::mouse::{ClickHandler, Mouse};
 use crate::config::ui_config::UIConfig;
+use std::fs::read_to_string;
 
 pub type Config = TermConfig<UIConfig>;
 
@@ -46,22 +48,22 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Error::NotFound => None,
-            Error::ReadingEnvHome(e) => e.source(),
-            Error::Io(e) => e.source(),
-            Error::Yaml(e) => e.source(),
+            Error::ReadingEnvHome(err) => err.source(),
+            Error::Io(err) => err.source(),
+            Error::Yaml(err) => err.source(),
         }
     }
 }
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
             Error::NotFound => write!(f, "Couldn't locate config file"),
-            Error::ReadingEnvHome(ref err) => {
+            Error::ReadingEnvHome(err) => {
                 write!(f, "Couldn't read $HOME environment variable: {}", err)
             },
-            Error::Io(ref err) => write!(f, "Error reading config file: {}", err),
-            Error::Yaml(ref err) => write!(f, "Problem with config: {}", err),
+            Error::Io(err) => write!(f, "Error reading config file: {}", err),
+            Error::Yaml(err) => write!(f, "Problem with config: {}", err),
         }
     }
 }
@@ -145,7 +147,7 @@ pub fn reload_from(path: &PathBuf) -> Result<Config> {
 }
 
 fn read_config(path: &PathBuf) -> Result<Config> {
-    let mut contents = std::fs::read_to_string(path)?;
+    let mut contents = read_to_string(path)?;
 
     // Remove UTF-8 BOM
     if contents.chars().nth(0) == Some('\u{FEFF}') {

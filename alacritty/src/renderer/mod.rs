@@ -38,6 +38,7 @@ use alacritty_terminal::term::cell::{self, Flags};
 use alacritty_terminal::term::color::Rgb;
 use alacritty_terminal::term::{self, CursorKey, RenderableCell, RenderableCellContent, SizeInfo};
 use alacritty_terminal::util;
+use std::fmt::{self, Display, Formatter};
 
 pub mod rects;
 
@@ -80,13 +81,13 @@ pub enum Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Error::ShaderCreation(e) => e.source(),
+            Error::ShaderCreation(err) => err.source(),
         }
     }
 }
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "There was an error initializing the shaders: {}", self)
     }
 }
@@ -278,7 +279,7 @@ impl GlyphCache {
         FontDesc::new(desc.family.clone(), style)
     }
 
-    pub fn get<'a, L>(&'a mut self, glyph_key: GlyphKey, loader: &mut L) -> &'a Glyph
+    pub fn get<L>(&mut self, glyph_key: GlyphKey, loader: &mut L) -> &Glyph
     where
         L: LoadGlyph,
     {
@@ -1420,20 +1421,20 @@ pub enum ShaderCreationError {
 impl std::error::Error for ShaderCreationError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            ShaderCreationError::Io(e) => e.source(),
+            ShaderCreationError::Io(err) => err.source(),
             _ => None,
         }
     }
 }
 
-impl std::fmt::Display for ShaderCreationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            ShaderCreationError::Io(ref err) => write!(f, "Couldn't read shader: {}", err),
-            ShaderCreationError::Compile(ref path, ref log) => {
+impl Display for ShaderCreationError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ShaderCreationError::Io(err) => write!(f, "Couldn't read shader: {}", err),
+            ShaderCreationError::Compile(path, log) => {
                 write!(f, "Failed compiling shader at {}: {}", path.display(), log)
             },
-            ShaderCreationError::Link(ref log) => write!(f, "Failed linking shader: {}", log),
+            ShaderCreationError::Link(log) => write!(f, "Failed linking shader: {}", log),
         }
     }
 }

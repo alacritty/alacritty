@@ -15,7 +15,7 @@
 //! Rasterization powered by FreeType and FontConfig
 use std::cmp::{min, Ordering};
 use std::collections::HashMap;
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
 use freetype::freetype_sys;
@@ -46,7 +46,7 @@ struct Face {
 }
 
 impl fmt::Debug for Face {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_struct("Face")
             .field("ft_face", &self.ft_face)
             .field("key", &self.key)
@@ -670,21 +670,21 @@ pub enum Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Error::FreeType(e) => e.source(),
+            Error::FreeType(err) => err.source(),
             _ => None,
         }
     }
 }
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Error::FreeType(e) => e.fmt(f),
-            Error::MissingFont(e) => write!(
+            Error::FreeType(err) => err.fmt(f),
+            Error::MissingFont(err) => write!(
                 f,
                 "Couldn't find a font with {}\n\tPlease check the font config in your \
                  alacritty.yml.",
-                e
+                err
             ),
             Error::FontNotLoaded => f.write_str("Tried to use a font that hasn't been loaded"),
             Error::MissingSizeMetrics => {
