@@ -770,7 +770,7 @@ dependencies = [
  "parking_lot 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wayland-client 0.23.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit 0.20.0-alpha4 (git+https://github.com/rust-windowing/winit)",
+ "winit 0.20.0-alpha5 (git+https://github.com/rust-windowing/winit)",
 ]
 
 [[package]]
@@ -2295,8 +2295,8 @@ dependencies = [
 
 [[package]]
 name = "winit"
-version = "0.20.0-alpha4"
-source = "git+https://github.com/rust-windowing/winit#1a514dff3881771af1ccc5e3ffa786b1ddd0200f"
+version = "0.20.0-alpha5"
+source = "git+https://github.com/rust-windowing/winit#dd768fe655a862ca50265bccd422290b9155f94c"
 dependencies = [
  "android_glue 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2679,7 +2679,7 @@ dependencies = [
 "checksum winapi-util 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7168bab6e1daee33b4557efd0e95d5ca70a03706d39fa5f3fe7a236f584b03c9"
 "checksum winapi-x86_64-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 "checksum wincolor 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "96f5016b18804d24db43cebf3c77269e7569b8954a8464501c216cc5e070eaa9"
-"checksum winit 0.20.0-alpha4 (git+https://github.com/rust-windowing/winit)" = "<none>"
+"checksum winit 0.20.0-alpha5 (git+https://github.com/rust-windowing/winit)" = "<none>"
 "checksum winpty-sys 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "3dade7ecea144b3578a02925f93900f32370abfb8768630883971f4ef716b568"
 "checksum winreg 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b2986deb581c4fe11b621998a5e53361efe6b48a151178d0cd9eeffa4dc6acc9"
 "checksum ws2_32-sys 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d59cefebd0c892fa2dd6de581e937301d8552cb44489cdff035c6187cb63fa5e"

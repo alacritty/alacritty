@@ -154,7 +154,7 @@ impl Urls {
     ) -> Option<Url> {
         // Make sure all prerequisites for highlighting are met
         if selection
-            || (mouse_mode && !mods.shift)
+            || (mouse_mode && !mods.shift())
             || !mouse.inside_grid
             || config.ui_config.mouse.url.launcher.is_none()
             || !config.ui_config.mouse.url.mods().relaxed_eq(mods)

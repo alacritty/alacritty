@@ -356,7 +356,7 @@ impl<N: Notify + OnResize> Processor<N> {
                     return;
                 },
                 // Process events
-                GlutinEvent::EventsCleared => {
+                GlutinEvent::MainEventsCleared => {
                     *control_flow = ControlFlow::Wait;
 
                     if event_queue.is_empty() {
@@ -508,24 +508,24 @@ impl<N: Notify + OnResize> Processor<N> {
                         }
                     },
                     ReceivedCharacter(c) => processor.received_char(c),
-                    MouseInput { state, button, modifiers, .. } => {
+                    MouseInput { state, button, .. } => {
                         if !cfg!(target_os = "macos") || processor.ctx.terminal.is_focused {
                             processor.ctx.window.set_mouse_visible(true);
-                            processor.mouse_input(state, button, modifiers);
+                            processor.mouse_input(state, button);
                             processor.ctx.terminal.dirty = true;
                         }
                     },
-                    CursorMoved { position: lpos, modifiers, .. } => {
+                    CursorMoved { position: lpos, .. } => {
                         let (x, y) = lpos.to_physical(processor.ctx.size_info.dpr).into();
                         let x: i32 = limit(x, 0, processor.ctx.size_info.width as i32);
                         let y: i32 = limit(y, 0, processor.ctx.size_info.height as i32);
 
                         processor.ctx.window.set_mouse_visible(true);
-                        processor.mouse_moved(x as usize, y as usize, modifiers);
+                        processor.mouse_moved(x as usize, y as usize);
                     },
-                    MouseWheel { delta, phase, modifiers, .. } => {
+                    MouseWheel { delta, phase, .. } => {
                         processor.ctx.window.set_mouse_visible(true);
-                        processor.mouse_wheel_input(delta, phase, modifiers);
+                        processor.mouse_wheel_input(delta, phase);
                     },
                     Focused(is_focused) => {
                         if window_id == processor.ctx.window.window_id() {
@@ -565,7 +565,6 @@ impl<N: Notify + OnResize> Processor<N> {
                         processor.ctx.terminal.dirty = true;
                         processor.ctx.size_info.dpr = dpr;
                     },
-                    RedrawRequested => processor.ctx.terminal.dirty = true,
                     CursorLeft { .. } => {
                         processor.ctx.mouse.inside_grid = false;
 
@@ -580,18 +579,21 @@ impl<N: Notify + OnResize> Processor<N> {
                     | Destroyed
                     | HoveredFile(_)
                     | Touch(_)
-                    | Moved(_) => (),
+                    | Moved(_)
+                    | ThemeChanged(_) => (),
                 }
             },
+            GlutinEvent::RedrawRequested(_) => processor.ctx.terminal.dirty = true,
             GlutinEvent::DeviceEvent { event, .. } => {
                 use glutin::event::DeviceEvent::*;
-                if let ModifiersChanged { modifiers } = event {
+                if let ModifiersChanged(modifiers) = event {
                     processor.modifiers_input(modifiers);
                 }
             },
             GlutinEvent::Suspended { .. }
             | GlutinEvent::NewEvents { .. }
-            | GlutinEvent::EventsCleared
+            | GlutinEvent::MainEventsCleared
+            | GlutinEvent::RedrawEventsCleared
             | GlutinEvent::Resumed
             | GlutinEvent::LoopDestroyed => (),
         }
@@ -624,7 +626,7 @@ impl<N: Notify + OnResize> Processor<N> {
             },
             GlutinEvent::Suspended { .. }
             | GlutinEvent::NewEvents { .. }
-            | GlutinEvent::EventsCleared
+            | GlutinEvent::MainEventsCleared
             | GlutinEvent::LoopDestroyed => true,
             _ => false,
         }
