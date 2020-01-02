@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::ffi::OsStr;
 use std::io::{self, Read, Write};
+use std::iter::once;
+use std::os::windows::ffi::OsStrExt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::TryRecvError;
 
@@ -22,7 +25,7 @@ use mio_named_pipes::NamedPipe;
 
 use log::info;
 
-use crate::config::Config;
+use crate::config::{Config, Shell};
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
@@ -297,4 +300,20 @@ impl OnResize for Pty {
             PtyBackend::Conpty(c) => c.on_resize(size),
         }
     }
+}
+
+fn cmdline<C>(config: &Config<C>) -> String {
+    let default_shell = Shell::new("powershell");
+    let shell = config.shell.as_ref().unwrap_or(&default_shell);
+
+    once(shell.program.as_ref())
+        .chain(shell.args.iter().map(|a| a.as_ref()))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Converts the string slice into a Windows-standard representation for "W"-
+/// suffixed function variants, which accept UTF-16 encoded string values.
+pub fn win32_string<S: AsRef<OsStr> + ?Sized>(value: &S) -> Vec<u16> {
+    OsStr::new(value).encode_wide().chain(once(0)).collect()
 }

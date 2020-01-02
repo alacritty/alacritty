@@ -254,12 +254,12 @@ impl Options {
     }
 
     pub fn into_config(self, mut config: Config) -> Config {
-        config.set_live_config_reload(
-            self.live_config_reload.unwrap_or_else(|| config.live_config_reload()),
-        );
-        config.set_working_directory(
-            self.working_dir.or_else(|| config.working_directory().to_owned()),
-        );
+        if let Some(lcr) = self.live_config_reload {
+            config.set_live_config_reload(lcr);
+        }
+        if let Some(wd) = self.working_dir {
+            config.set_working_directory(Some(wd));
+        }
         config.shell = self.command.or(config.shell);
 
         config.hold = self.hold;

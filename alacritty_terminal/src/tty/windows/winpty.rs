@@ -17,17 +17,16 @@ use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::{FromRawHandle, IntoRawHandle};
 use std::u16;
 
-use dunce::canonicalize;
 use log::info;
 use mio_named_pipes::NamedPipe;
 use winapi::um::winbase::FILE_FLAG_OVERLAPPED;
 use winpty::{Config as WinptyConfig, ConfigFlags, MouseMode, SpawnConfig, SpawnFlags, Winpty};
 
-use crate::config::{Config, Shell};
+use crate::config::Config;
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
-use crate::tty::windows::Pty;
+use crate::tty::windows::{cmdline, Pty};
 
 pub use winpty::Winpty as Agent;
 
@@ -42,22 +41,15 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
     let mut agent = Winpty::open(&wconfig).unwrap();
     let (conin, conout) = (agent.conin_name(), agent.conout_name());
 
-    // Get process commandline
-    let default_shell = &Shell::new("powershell");
-    let shell = config.shell.as_ref().unwrap_or(default_shell);
-    let mut cmdline = shell.args.clone();
-    cmdline.insert(0, shell.program.to_string());
-
-    // Warning, here be borrow hell
-    let cwd = config.working_directory().as_ref().map(|dir| canonicalize(dir).unwrap());
-    let cwd = cwd.as_ref().map(|dir| dir.to_str().unwrap());
+    let cmdline = cmdline(&config);
+    let cwd = config.working_directory().map(|dir| dir.canonicalize().unwrap());
 
     // Spawn process
     let spawnconfig = SpawnConfig::new(
         SpawnFlags::AUTO_SHUTDOWN | SpawnFlags::EXIT_AFTER_SHUTDOWN,
         None, // appname
-        Some(&cmdline.join(" ")),
-        cwd,
+        Some(&cmdline),
+        cwd.as_ref().map(|p| p.as_ref()),
         None, // Env
     )
     .unwrap();

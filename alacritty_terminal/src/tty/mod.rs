@@ -26,7 +26,7 @@ mod unix;
 pub use self::unix::*;
 
 #[cfg(windows)]
-mod windows;
+pub mod windows;
 #[cfg(windows)]
 pub use self::windows::*;
 

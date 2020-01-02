@@ -1,12 +1,15 @@
+use std::ffi::{OsStr, OsString};
 use std::fmt::{self, Display, Formatter};
+use std::iter::once;
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::os::windows::io::RawHandle;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut};
 use std::result::Result;
 
-use winpty_sys::*;
+use bitflags::bitflags;
 
-use widestring::WideCString;
+use winpty_sys::*;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ErrorCode {
@@ -167,7 +170,7 @@ impl Winpty {
     pub fn conin_name(&mut self) -> PathBuf {
         unsafe {
             let raw = winpty_conin_name(self.0);
-            PathBuf::from(&String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw))))
+            OsString::from_wide(std::slice::from_raw_parts(raw, wcslen(raw))).into()
         }
     }
 
@@ -176,7 +179,7 @@ impl Winpty {
     pub fn conout_name(&mut self) -> PathBuf {
         unsafe {
             let raw = winpty_conout_name(self.0);
-            PathBuf::from(&String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw))))
+            OsString::from_wide(std::slice::from_raw_parts(raw, wcslen(raw))).into()
         }
     }
 
@@ -186,7 +189,7 @@ impl Winpty {
     pub fn conerr_name(&mut self) -> PathBuf {
         unsafe {
             let raw = winpty_conerr_name(self.0);
-            PathBuf::from(&String::from_utf16_lossy(std::slice::from_raw_parts(raw, wcslen(raw))))
+            OsString::from_wide(std::slice::from_raw_parts(raw, wcslen(raw))).into()
         }
     }
 
@@ -283,25 +286,28 @@ impl SpawnConfig {
         spawnflags: SpawnFlags,
         appname: Option<&str>,
         cmdline: Option<&str>,
-        cwd: Option<&str>,
-        end: Option<&str>,
+        cwd: Option<&Path>,
+        env: Option<&str>,
     ) -> Result<Self, Error> {
         let mut err = null_mut() as *mut winpty_error_t;
 
-        let to_wstring = |s| WideCString::from_str(s).unwrap();
+        fn to_wstring<S: AsRef<OsStr> + ?Sized>(s: &S) -> Vec<u16> {
+            OsStr::new(s).encode_wide().chain(once(0)).collect()
+        }
+
         let appname = appname.map(to_wstring);
         let cmdline = cmdline.map(to_wstring);
         let cwd = cwd.map(to_wstring);
-        let end = end.map(to_wstring);
+        let env = env.map(to_wstring);
 
-        let wstring_ptr = |opt: &Option<WideCString>| opt.as_ref().map_or(null(), |ws| ws.as_ptr());
+        let wstring_ptr = |opt: &Option<Vec<u16>>| opt.as_ref().map_or(null(), |ws| ws.as_ptr());
         let spawn_config = unsafe {
             winpty_spawn_config_new(
                 spawnflags.bits(),
                 wstring_ptr(&appname),
                 wstring_ptr(&cmdline),
                 wstring_ptr(&cwd),
-                wstring_ptr(&end),
+                wstring_ptr(&env),
                 &mut err,
             )
         };

@@ -209,7 +209,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, window_id: Option<usize>) -> 
 
     // Handle set working directory option
     if let Some(ref dir) = config.working_directory() {
-        builder.current_dir(dir.as_path());
+        builder.current_dir(dir);
     }
 
     // Prepare signal handling before spawning child
