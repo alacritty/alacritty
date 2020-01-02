@@ -18,10 +18,8 @@ use std::mem;
 use std::os::windows::io::IntoRawHandle;
 use std::ptr;
 
-use dunce::canonicalize;
 use mio_anonymous_pipes::{EventedAnonRead, EventedAnonWrite};
 use miow;
-use widestring::U16CString;
 use winapi::shared::basetsd::{PSIZE_T, SIZE_T};
 use winapi::shared::minwindef::{BYTE, DWORD};
 use winapi::shared::ntdef::{HANDLE, HRESULT, LPWSTR};
@@ -34,11 +32,11 @@ use winapi::um::processthreadsapi::{
 use winapi::um::winbase::{EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW};
 use winapi::um::wincontypes::{COORD, HPCON};
 
-use crate::config::{Config, Shell};
+use crate::config::Config;
 use crate::event::OnResize;
 use crate::term::SizeInfo;
 use crate::tty::windows::child::ChildExitWatcher;
-use crate::tty::windows::Pty;
+use crate::tty::windows::{cmdline, win32_string, Pty};
 
 // TODO: Replace with winapi's implementation. This cannot be
 //  done until a safety net is in place for versions of Windows
@@ -141,8 +139,7 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
 
     let mut startup_info_ex: STARTUPINFOEXW = Default::default();
 
-    let title = config.window.title.clone();
-    let title = U16CString::from_str(title).unwrap();
+    let title = win32_string(&config.window.title);
     startup_info_ex.StartupInfo.lpTitle = title.as_ptr() as LPWSTR;
 
     startup_info_ex.StartupInfo.cb = mem::size_of::<STARTUPINFOEXW>() as u32;
@@ -205,19 +202,11 @@ pub fn new<C>(config: &Config<C>, size: &SizeInfo, _window_id: Option<usize>) ->
         }
     }
 
-    // Get process commandline
-    let default_shell = &Shell::new("powershell");
-    let shell = config.shell.as_ref().unwrap_or(default_shell);
-    let mut cmdline = shell.args.clone();
-    cmdline.insert(0, shell.program.to_string());
-
-    // Warning, here be borrow hell
-    let cwd = config.working_directory().as_ref().map(|dir| canonicalize(dir).unwrap());
-    let cwd = cwd.as_ref().map(|dir| dir.to_str().unwrap());
-
-    // Create the client application, using startup info containing ConPTY info
-    let cmdline = U16CString::from_str(&cmdline.join(" ")).unwrap();
-    let cwd = cwd.map(|s| U16CString::from_str(&s).unwrap());
+    let cmdline = win32_string(&cmdline(&config));
+    let cwd = config
+        .working_directory()
+        .map(|dir| dir.canonicalize().unwrap())
+        .map(|path| win32_string(&path));
 
     let mut proc_info: PROCESS_INFORMATION = Default::default();
     unsafe {

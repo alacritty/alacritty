@@ -15,7 +15,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use log::error;
 use serde::{Deserialize, Deserializer};
@@ -209,8 +209,8 @@ impl<T> Config<T> {
     }
 
     #[inline]
-    pub fn working_directory(&self) -> &Option<PathBuf> {
-        &self.working_directory
+    pub fn working_directory(&self) -> Option<&Path> {
+        self.working_directory.as_ref().map(|path_buf| path_buf.as_path())
     }
 
     #[inline]
