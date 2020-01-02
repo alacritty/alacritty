@@ -299,7 +299,7 @@ impl Window {
     }
 
     #[cfg(windows)]
-    pub const fn set_urgent(&self, _is_urgent: bool) {}
+    pub fn set_urgent(&self, _is_urgent: bool) {}
 
     pub fn set_outer_position(&self, pos: LogicalPosition) {
         self.window().set_outer_position(pos);

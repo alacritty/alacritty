@@ -1,5 +1,6 @@
 use std::env;
 use std::fmt::{self, Display, Formatter};
+use std::fs;
 use std::io;
 use std::path::PathBuf;
 
@@ -21,7 +22,6 @@ pub use crate::config::bindings::{Action, Binding, Key, RelaxedEq};
 #[cfg(test)]
 pub use crate::config::mouse::{ClickHandler, Mouse};
 use crate::config::ui_config::UIConfig;
-use std::fs::read_to_string;
 
 pub type Config = TermConfig<UIConfig>;
 
@@ -147,7 +147,7 @@ pub fn reload_from(path: &PathBuf) -> Result<Config> {
 }
 
 fn read_config(path: &PathBuf) -> Result<Config> {
-    let mut contents = read_to_string(path)?;
+    let mut contents = fs::read_to_string(path)?;
 
     // Remove UTF-8 BOM
     if contents.chars().nth(0) == Some('\u{FEFF}') {
