@@ -14,7 +14,7 @@
 use std::convert::From;
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::ffi::c_void;
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 #[cfg(not(any(target_os = "macos", windows)))]
 use std::os::raw::c_ulong;
 
@@ -61,50 +61,42 @@ pub enum Error {
 }
 
 /// Result of fallible operations concerning a Window.
-type Result<T> = ::std::result::Result<T, Error>;
+type Result<T> = std::result::Result<T, Error>;
 
-impl ::std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
-        match *self {
-            Error::ContextCreation(ref err) => Some(err),
-            Error::Context(ref err) => Some(err),
-            Error::Font(ref err) => Some(err),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::ContextCreation(ref _err) => "Error creating gl context",
-            Error::Context(ref _err) => "Error operating on render context",
-            Error::Font(ref err) => err.description(),
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::ContextCreation(err) => err.source(),
+            Error::Context(err) => err.source(),
+            Error::Font(err) => err.source(),
         }
     }
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Error::ContextCreation(ref err) => write!(f, "Error creating GL context; {}", err),
-            Error::Context(ref err) => write!(f, "Error operating on render context; {}", err),
-            Error::Font(ref err) => err.fmt(f),
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::ContextCreation(err) => write!(f, "Error creating GL context; {}", err),
+            Error::Context(err) => write!(f, "Error operating on render context; {}", err),
+            Error::Font(err) => err.fmt(f),
         }
     }
 }
 
 impl From<glutin::CreationError> for Error {
-    fn from(val: glutin::CreationError) -> Error {
+    fn from(val: glutin::CreationError) -> Self {
         Error::ContextCreation(val)
     }
 }
 
 impl From<glutin::ContextError> for Error {
-    fn from(val: glutin::ContextError) -> Error {
+    fn from(val: glutin::ContextError) -> Self {
         Error::Context(val)
     }
 }
 
 impl From<font::Error> for Error {
-    fn from(val: font::Error) -> Error {
+    fn from(val: font::Error) -> Self {
         Error::Font(val)
     }
 }
@@ -126,7 +118,7 @@ fn create_gl_window(
         .build_windowed(window, event_loop)?;
 
     // Make the context current so OpenGL operations can run
-    let windowed_context = unsafe { windowed_context.make_current().map_err(|(_, e)| e)? };
+    let windowed_context = unsafe { windowed_context.make_current().map_err(|(_, err)| err)? };
 
     Ok(windowed_context)
 }
@@ -171,7 +163,7 @@ impl Window {
             }
         }
 
-        Ok(Window { current_mouse_cursor, mouse_visible: true, windowed_context })
+        Ok(Self { current_mouse_cursor, mouse_visible: true, windowed_context })
     }
 
     pub fn set_inner_size(&mut self, size: LogicalSize) {
