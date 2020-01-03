@@ -15,7 +15,7 @@
 //! The display subsystem including window management, font rasterization, and
 //! GPU drawing.
 use std::f64;
-use std::fmt;
+use std::fmt::{self, Formatter};
 use std::time::Instant;
 
 use glutin::dpi::{PhysicalPosition, PhysicalSize};
@@ -61,56 +61,47 @@ pub enum Error {
 }
 
 impl std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn (std::error::Error)> {
-        match *self {
-            Error::Window(ref err) => Some(err),
-            Error::Font(ref err) => Some(err),
-            Error::Render(ref err) => Some(err),
-            Error::ContextError(ref err) => Some(err),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::Window(ref err) => err.description(),
-            Error::Font(ref err) => err.description(),
-            Error::Render(ref err) => err.description(),
-            Error::ContextError(ref err) => err.description(),
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::Window(err) => err.source(),
+            Error::Font(err) => err.source(),
+            Error::Render(err) => err.source(),
+            Error::ContextError(err) => err.source(),
         }
     }
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Error::Window(ref err) => err.fmt(f),
-            Error::Font(ref err) => err.fmt(f),
-            Error::Render(ref err) => err.fmt(f),
-            Error::ContextError(ref err) => err.fmt(f),
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::Window(err) => err.fmt(f),
+            Error::Font(err) => err.fmt(f),
+            Error::Render(err) => err.fmt(f),
+            Error::ContextError(err) => err.fmt(f),
         }
     }
 }
 
 impl From<window::Error> for Error {
-    fn from(val: window::Error) -> Error {
+    fn from(val: window::Error) -> Self {
         Error::Window(val)
     }
 }
 
 impl From<font::Error> for Error {
-    fn from(val: font::Error) -> Error {
+    fn from(val: font::Error) -> Self {
         Error::Font(val)
     }
 }
 
 impl From<renderer::Error> for Error {
-    fn from(val: renderer::Error) -> Error {
+    fn from(val: renderer::Error) -> Self {
         Error::Render(val)
     }
 }
 
 impl From<glutin::ContextError> for Error {
-    fn from(val: glutin::ContextError) -> Error {
+    fn from(val: glutin::ContextError) -> Self {
         Error::ContextError(val)
     }
 }
@@ -241,7 +232,7 @@ impl Display {
             _ => (),
         }
 
-        Ok(Display {
+        Ok(Self {
             window,
             renderer,
             glyph_cache,

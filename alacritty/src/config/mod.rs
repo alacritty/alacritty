@@ -1,4 +1,6 @@
 use std::env;
+use std::fmt::{self, Display, Formatter};
+use std::fs;
 use std::io;
 use std::path::PathBuf;
 
@@ -24,7 +26,7 @@ use crate::config::ui_config::UIConfig;
 pub type Config = TermConfig<UIConfig>;
 
 /// Result from config loading
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Errors occurring during config loading
 #[derive(Debug)]
@@ -43,46 +45,37 @@ pub enum Error {
 }
 
 impl std::error::Error for Error {
-    fn cause(&self) -> Option<&dyn (::std::error::Error)> {
-        match *self {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
             Error::NotFound => None,
-            Error::ReadingEnvHome(ref err) => Some(err),
-            Error::Io(ref err) => Some(err),
-            Error::Yaml(ref err) => Some(err),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match *self {
-            Error::NotFound => "Couldn't locate config file",
-            Error::ReadingEnvHome(ref err) => err.description(),
-            Error::Io(ref err) => err.description(),
-            Error::Yaml(ref err) => err.description(),
+            Error::ReadingEnvHome(err) => err.source(),
+            Error::Io(err) => err.source(),
+            Error::Yaml(err) => err.source(),
         }
     }
 }
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Error::NotFound => write!(f, "{}", ::std::error::Error::description(self)),
-            Error::ReadingEnvHome(ref err) => {
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::NotFound => write!(f, "Couldn't locate config file"),
+            Error::ReadingEnvHome(err) => {
                 write!(f, "Couldn't read $HOME environment variable: {}", err)
             },
-            Error::Io(ref err) => write!(f, "Error reading config file: {}", err),
-            Error::Yaml(ref err) => write!(f, "Problem with config: {}", err),
+            Error::Io(err) => write!(f, "Error reading config file: {}", err),
+            Error::Yaml(err) => write!(f, "Problem with config: {}", err),
         }
     }
 }
 
 impl From<env::VarError> for Error {
-    fn from(val: env::VarError) -> Error {
+    fn from(val: env::VarError) -> Self {
         Error::ReadingEnvHome(val)
     }
 }
 
 impl From<io::Error> for Error {
-    fn from(val: io::Error) -> Error {
+    fn from(val: io::Error) -> Self {
         if val.kind() == io::ErrorKind::NotFound {
             Error::NotFound
         } else {
@@ -92,7 +85,7 @@ impl From<io::Error> for Error {
 }
 
 impl From<serde_yaml::Error> for Error {
-    fn from(val: serde_yaml::Error) -> Error {
+    fn from(val: serde_yaml::Error) -> Self {
         Error::Yaml(val)
     }
 }
@@ -154,7 +147,7 @@ pub fn reload_from(path: &PathBuf) -> Result<Config> {
 }
 
 fn read_config(path: &PathBuf) -> Result<Config> {
-    let mut contents = std::fs::read_to_string(path)?;
+    let mut contents = fs::read_to_string(path)?;
 
     // Remove UTF-8 BOM
     if contents.chars().nth(0) == Some('\u{FEFF}') {
@@ -165,10 +158,10 @@ fn read_config(path: &PathBuf) -> Result<Config> {
 }
 
 fn parse_config(contents: &str) -> Result<Config> {
-    match serde_yaml::from_str(&contents) {
+    match serde_yaml::from_str(contents) {
         Err(error) => {
             // Prevent parsing error with an empty string and commented out file.
-            if std::error::Error::description(&error) == "EOF while parsing a value" {
+            if error.to_string() == "EOF while parsing a value" {
                 Ok(Config::default())
             } else {
                 Err(Error::Yaml(error))
