@@ -232,7 +232,8 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
 
         let last_term_line = self.ctx.terminal().grid().num_lines() - 1;
         if self.ctx.mouse().left_button_state == ElementState::Pressed
-            && (self.ctx.modifiers().shift() || !self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE))
+            && (self.ctx.modifiers().shift()
+                || !self.ctx.terminal().mode().intersects(TermMode::MOUSE_MODE))
         {
             // Treat motion over message bar like motion over the last line
             let line = min(point.line, last_term_line);
@@ -432,9 +433,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
             };
             self.mouse_report(code, ElementState::Released);
             return;
-        } else if let (MouseButton::Left, MouseState::Url(url)) =
-            (button, self.mouse_state())
-        {
+        } else if let (MouseButton::Left, MouseState::Url(url)) = (button, self.mouse_state()) {
             self.launch_url(url);
         }
 
@@ -460,11 +459,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
     }
 
-    pub fn mouse_wheel_input(
-        &mut self,
-        delta: MouseScrollDelta,
-        phase: TouchPhase,
-    ) {
+    pub fn mouse_wheel_input(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
         match delta {
             MouseScrollDelta::LineDelta(_columns, lines) => {
                 let new_scroll_px = lines * self.ctx.size_info().cell_height;
@@ -544,11 +539,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         }
     }
 
-    pub fn mouse_input(
-        &mut self,
-        state: ElementState,
-        button: MouseButton,
-    ) {
+    pub fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
         match button {
             MouseButton::Left => self.ctx.mouse_mut().left_button_state = state,
             MouseButton::Middle => self.ctx.mouse_mut().middle_button_state = state,
