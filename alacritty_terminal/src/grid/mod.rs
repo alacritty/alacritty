@@ -122,18 +122,15 @@ pub struct Grid<T> {
     /// If the displayed region isn't at the bottom of the screen, it stays
     /// stationary while more text is emitted. The scrolling implementation
     /// updates this offset accordingly.
-    #[serde(default)]
     display_offset: usize,
 
     /// An limit on how far back it's possible to scroll
-    #[serde(default)]
     scroll_limit: usize,
 
     /// Selected region
     #[serde(skip)]
     pub selection: Option<Selection>,
 
-    #[serde(default)]
     max_scroll_limit: usize,
 }
 
