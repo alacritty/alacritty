@@ -343,8 +343,8 @@ impl Display {
         // Resize renderer
         let physical =
             PhysicalSize::new(f64::from(self.size_info.width), f64::from(self.size_info.height));
-        self.renderer.resize(&self.size_info);
         self.window.resize(physical);
+        self.renderer.resize(&self.size_info);
     }
 
     /// Draw the screen

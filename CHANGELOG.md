@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Crash on `clear` when scrolled up in history
 - Entire screen getting underlined/stroke out when running `clear`
 - Slow startup on some Wayland compositors
+- Padding not consistently visible on macOS
 
 ### Removed
 
