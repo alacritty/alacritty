@@ -75,11 +75,10 @@ pub fn font_sort(config: &ConfigRef, pattern: &mut PatternRef) -> Option<FontSet
         let mut result = FcResultNoMatch;
 
         let mut charsets: *mut _ = ptr::null_mut();
-
         let ptr = FcFontSort(
             config.as_ptr(),
             pattern.as_ptr(),
-            0, // false
+            1, // Trim font list
             &mut charsets,
             &mut result,
         );
@@ -323,7 +322,7 @@ mod tests {
         let fonts = super::font_sort(config, &mut pattern).expect("sort font monospace");
 
         for font in fonts.into_iter().take(10) {
-            let font = font.render_prepare(&config, &pattern);
+            let font = pattern.render_prepare(&config, &font);
             print!("index={:?}; ", font.index());
             print!("family={:?}; ", font.family());
             print!("style={:?}; ", font.style());
@@ -345,7 +344,7 @@ mod tests {
         let fonts = super::font_sort(config, &mut pattern).expect("font_sort");
 
         for font in fonts.into_iter().take(10) {
-            let font = font.render_prepare(&config, &pattern);
+            let font = pattern.render_prepare(&config, &font);
             print!("index={:?}; ", font.index());
             print!("family={:?}; ", font.family());
             print!("style={:?}; ", font.style());

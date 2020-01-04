@@ -24,7 +24,7 @@ use libc::{c_char, c_double, c_int};
 use super::ffi::FcResultMatch;
 use super::ffi::{FcBool, FcFontRenderPrepare, FcPatternGetBool, FcPatternGetDouble};
 use super::ffi::{FcChar8, FcConfigSubstitute, FcDefaultSubstitute, FcPattern};
-use super::ffi::{FcPatternAddCharSet, FcPatternDestroy};
+use super::ffi::{FcPatternAddCharSet, FcPatternDestroy, FcPatternDuplicate, FcPatternGetCharSet};
 use super::ffi::{FcPatternAddDouble, FcPatternAddString, FcPatternCreate, FcPatternGetString};
 use super::ffi::{FcPatternAddInteger, FcPatternGetInteger, FcPatternPrint};
 
@@ -329,6 +329,7 @@ foreign_type! {
     pub unsafe type Pattern {
         type CType = FcPattern;
         fn drop = FcPatternDestroy;
+        fn clone = FcPatternDuplicate;
     }
 }
 
@@ -531,7 +532,7 @@ impl PatternRef {
 
     pub fn render_prepare(&self, config: &ConfigRef, request: &PatternRef) -> Pattern {
         unsafe {
-            let ptr = FcFontRenderPrepare(config.as_ptr(), request.as_ptr(), self.as_ptr());
+            let ptr = FcFontRenderPrepare(config.as_ptr(), self.as_ptr(), request.as_ptr());
             Pattern::from_ptr(ptr)
         }
     }
@@ -549,6 +550,21 @@ impl PatternRef {
                 b"charset\0".as_ptr() as *mut c_char,
                 charset.as_ptr(),
             ) == 1
+        }
+    }
+
+    pub fn get_charset(&self) -> &CharSetRef {
+        unsafe {
+            let mut charset: *mut _ = ptr::null_mut();
+            // We should likely check the result
+            let _ = FcPatternGetCharSet(
+                self.as_ptr(),
+                b"charset\0".as_ptr() as *mut c_char,
+                0,
+                &mut charset,
+            );
+
+            &*(charset as *const CharSetRef)
         }
     }
 
