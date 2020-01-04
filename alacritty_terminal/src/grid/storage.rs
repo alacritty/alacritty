@@ -46,7 +46,6 @@ pub struct Storage<T> {
     /// having to truncate the raw `inner` buffer.
     /// As long as `len` is bigger than `inner`, it is also possible to grow the scrollback buffer
     /// without any additional insertions.
-    #[serde(default)]
     len: usize,
 }
 
