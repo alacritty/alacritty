@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use font::Metrics;
 use glutin::event::{ElementState, ModifiersState};
+use regex::bytes::RegexSet;
 
 use crate::config::text_objects::TextObject;
 use crate::event::Mouse;
@@ -31,12 +32,21 @@ impl DisplayTxtObj {
 }
 
 pub struct DisplayTextObjects {
+    // regex_set is used to check text objects match in a single scan of display
+    regex_set: RegexSet,
     display_objects: Vec<DisplayTxtObj>,
 }
 
 impl DisplayTextObjects {
-    pub fn new() -> DisplayTextObjects {
-        DisplayTextObjects { display_objects: Vec::new() }
+    pub fn new(txob: &HashMap<String, TextObject>) -> DisplayTextObjects {
+        DisplayTextObjects {
+            regex_set: RegexSet::new(
+                // Build the set only on text-objects that were correctly configured
+                txob.values().filter_map(|cfg| cfg.search.as_ref().map(|s| s.as_str())),
+            )
+            .unwrap(), // already validated when deserialized TextObject
+            display_objects: Vec::new(),
+        }
     }
 
     pub fn find_objects(
@@ -45,11 +55,17 @@ impl DisplayTextObjects {
         display_text: &[u8],
         display_cells: &[Indexed<Cell>],
     ) {
-        // TODO: optimization use RegexSet to scan input once
+        // Do a light-weight one-pass scan for all text-objects
+        let matches: HashSet<_> = self.regex_set.matches(display_text).into_iter().collect();
+
+        // If there was any match then we'll extract more information for triggering actions
         self.display_objects = config_txt_objects.values()
-            // Require the regex was parsed correclty and we have action arguments
-            .filter(|cfg| cfg.search.is_some() && cfg.action.len() >= 2)
-            .flat_map(|cfg| cfg.search.as_ref().unwrap()
+            // Check that search regex was correctly parsed and text-object is enabled
+            .filter(|cfg| cfg.search.is_some())
+            .enumerate()
+            // Require the regex matched something on display and we have action arguments
+            .filter(|(idx, cfg)| matches.contains(idx) && cfg.action.len() >= 2)
+            .flat_map(|(_, cfg)| cfg.search.as_ref().unwrap()
                       .find_iter(&display_text)
                       .map(move |amatch| {
                           // Find limits of match
@@ -78,11 +94,10 @@ impl DisplayTextObjects {
         mods: ModifiersState,
         mouse_mode: bool,
         selection: bool,
-
     ) -> Option<DisplayTxtObj> {
         // Make sure all prerequisites for highlighting are met
         if selection
-            || (mouse_mode && !mods.shift)
+            || (mouse_mode && !mods.shift())
             || !mouse.inside_grid
             || mouse.left_button_state == ElementState::Pressed
         {

@@ -456,7 +456,7 @@ impl<'a, T: EventListener, A: ActionContext<T>> Processor<'a, T, A> {
         } else if let (MouseButton::Left, MouseState::Url(url)) = (button, self.mouse_state()) {
             self.launch_url(url);
         } else if let (MouseButton::Left, MouseState::TextObject(txob)) =
-            (button, self.mouse_state(modifiers))
+            (button, self.mouse_state())
         {
             let program = &txob.action[0];
             let args = &txob.action[1..];
@@ -1015,7 +1015,7 @@ mod tests {
                 };
 
                 let urls = Urls::new();
-                let txt_objs = DisplayTextObjects::new();
+                let txt_objs = DisplayTextObjects::new(&cfg.ui_config.text_objects);
                 let mut processor = Processor::new(
                     context,
                     &urls,

@@ -245,7 +245,7 @@ impl Display {
             size_info,
             urls: Urls::new(),
             highlighted_url: None,
-            text_objects: DisplayTextObjects::new(),
+            text_objects: DisplayTextObjects::new(&config.ui_config.text_objects),
             highlighted_txob: None,
         })
     }
