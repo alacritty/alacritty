@@ -1230,9 +1230,9 @@ mod test {
     #[test]
     fn mods_binding_requires_strict_match() {
         let mut superset_mods = MockBinding::default();
-        superset_mods.mods = ModifiersState { alt: true, logo: true, ctrl: true, shift: true };
+        superset_mods.mods = ModifiersState::all();
         let mut subset_mods = MockBinding::default();
-        subset_mods.mods = ModifiersState { alt: true, logo: false, ctrl: false, shift: false };
+        subset_mods.mods = ModifiersState::ALT;
 
         assert!(!superset_mods.triggers_match(&subset_mods));
         assert!(!subset_mods.triggers_match(&superset_mods));
@@ -1333,10 +1333,10 @@ mod test {
     #[test]
     fn binding_trigger_mods() {
         let mut binding = MockBinding::default();
-        binding.mods = ModifiersState { alt: true, logo: true, ctrl: false, shift: false };
+        binding.mods = ModifiersState::ALT | ModifiersState::LOGO;
 
-        let superset_mods = ModifiersState { alt: true, logo: true, ctrl: true, shift: true };
-        let subset_mods = ModifiersState { alt: false, logo: false, ctrl: false, shift: false };
+        let superset_mods = ModifiersState::all();
+        let subset_mods = ModifiersState::empty();
 
         let t = binding.trigger;
         let mode = binding.mode;
