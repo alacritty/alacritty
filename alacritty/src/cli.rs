@@ -28,7 +28,7 @@ const CONFIG_PATH: &str = "$XDG_CONFIG_HOME/alacritty/alacritty.yml";
 #[cfg(windows)]
 const CONFIG_PATH: &str = "%APPDATA%\\alacritty\\alacritty.yml";
 #[cfg(target_os = "macos")]
-const CONFIG_PATH: &str = "~/.config/alacritty/alacritty.yml";
+const CONFIG_PATH: &str = "$HOME/.config/alacritty/alacritty.yml";
 
 /// Options specified on the command line
 pub struct Options {
