@@ -28,7 +28,7 @@ However, it does allow configuration of many aspects of the terminal.</p>
   <url type="homepage">https://github.com/jwilm/alacritty</url>
   <url type="bugtracker">https://github.com/jwilm/alacritty/issues</url>
   <releases>
-    <release version="0.4.1-dev" date="2019-06-16" unix_timestamp="1560694196"/>
+    <release version="0.4.1-rc1" date="2019-06-16" unix_timestamp="1560694196"/>
   </releases>
   <update_contact>https://github.com/jwilm/alacritty/blob/master/CONTRIBUTING.md#contact</update_contact>
   <developer_name>Joe Wilm</developer_name> 
