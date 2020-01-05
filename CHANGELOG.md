@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Terminal escape bindings with combined modifiers for Delete and Insert
 - /Applications symlink into OS X DMG for easier installation
 - Colored emojis on Linux/BSD
+- Value `randr` for `WINIT_HIDPI_FACTOR`, to ignore `Xft.dpi` and scale based on screen dimensions
 
 ### Changed
 
@@ -37,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Entire screen getting underlined/stroke out when running `clear`
 - Slow startup on some Wayland compositors
 - Padding not consistently visible on macOS
+- Decorations ignoring Windows dark theme
+- Crash on macOS when starting maximized without decorations
+- Resize cursor not showing up on Wayland
+- Maximized windows spawning behind system panel on Gnome Wayland
 
 ### Removed
 

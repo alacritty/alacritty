@@ -14,3 +14,4 @@ incremental = false
 
 [patch.crates-io]
 servo-freetype-sys = { path = "servo-freetype-proxy" }
+winit = { git = "https://github.com/rust-windowing/winit", rev = "d1c6506865c7bddbb5fb4d80a613e43ddc1370b5" }
