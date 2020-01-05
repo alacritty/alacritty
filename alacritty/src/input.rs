@@ -137,6 +137,7 @@ impl<T: EventListener> Execute<T> for Action {
             #[cfg(target_os = "macos")]
             Action::ToggleSimpleFullscreen => ctx.window_mut().toggle_simple_fullscreen(),
             Action::Hide => ctx.window().set_visible(false),
+            Action::Minimize => ctx.window().set_minimized(true),
             Action::Quit => ctx.terminal_mut().exit(),
             Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
             Action::DecreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP * -1.),
