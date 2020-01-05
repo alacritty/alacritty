@@ -521,7 +521,7 @@
 #    This is mainly used to send applications the correct escape sequences
 #    when in different modes.
 #
-#    - MouseClick
+#    - Mouse
 #    - AppCursor
 #    - AppKeypad
 #    - Alt
