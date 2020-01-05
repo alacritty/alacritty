@@ -23,6 +23,13 @@ use alacritty_terminal::index::{Column, Line};
 
 use crate::config::Config;
 
+#[cfg(not(any(target_os = "macos", windows)))]
+const CONFIG_PATH: &str = "$XDG_CONFIG_HOME/alacritty/alacritty.yml";
+#[cfg(windows)]
+const CONFIG_PATH: &str = "%APPDATA%\\alacritty\\alacritty.yml";
+#[cfg(target_os = "macos")]
+const CONFIG_PATH: &str = "~/.config/alacritty/alacritty.yml";
+
 /// Options specified on the command line
 pub struct Options {
     pub live_config_reload: Option<bool>,
@@ -158,8 +165,7 @@ impl Options {
                     .help("Start the shell in the specified working directory"),
             )
             .arg(Arg::with_name("config-file").long("config-file").takes_value(true).help(
-                "Specify alternative configuration file [default: \
-                 $XDG_CONFIG_HOME/alacritty/alacritty.yml]",
+                &format!("Specify alternative configuration file [default: {}]", CONFIG_PATH)
             ))
             .arg(
                 Arg::with_name("command")
